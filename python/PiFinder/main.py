@@ -23,19 +23,10 @@ import keyboard
 import camera
 import solver
 
+from uimodules import UIPreview, UIConsole
+
 serial = spi(device=0, port=0)
 device = ssd1351(serial)
-
-# setup red filtering image
-RED = (0, 0, 255)
-red_image = Image.new("RGB", (128, 128), RED)
-
-
-def gamma_correct(in_value):
-    in_value = float(in_value) / 255
-    out_value = pow(in_value, 0.5)
-    out_value = int(255 * out_value)
-    return out_value
 
 
 def set_brightness(level):
@@ -46,20 +37,9 @@ def set_brightness(level):
     device.contrast(level)
 
 
-def show_image(image_obj):
-    """
-        Prepares and shows a camera image on screen
-    """
-    image_obj = image_obj.resize((128, 128), Image.LANCZOS)
-    image_obj = image_obj.convert("RGB")
-    image_obj = ImageChops.multiply(image_obj, red_image)
-    image_obj = Image.eval(image_obj, gamma_correct)
-    image_obj = ImageOps.autocontrast(image_obj)
-    device.display(image_obj.convert(device.mode))
-
-
 class StateManager(BaseManager):
     pass
+
 
 class SharedStateObj:
     def __init__(self):
@@ -80,6 +60,7 @@ class SharedStateObj:
     def set_last_image_time(self, v):
         self.__last_image_time = v
 
+
 StateManager.register("SharedState", SharedStateObj)
 StateManager.register("NewImage", Image.new)
 
@@ -89,30 +70,31 @@ def main():
     Get this show on the road!
     """
     # init screen
-    console_font = ImageFont.truetype("/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 10)
-    console_screen = Image.new("RGB", (128, 128))
-    console_draw = ImageDraw.Draw(console_screen)
-    console_draw.text((10, 10), "Starting", font=console_font, fill=RED)
-    device.display(console_screen.convert(device.mode))
+    screen_brightness = 200
+    set_brightness(screen_brightness)
+    console = UIConsole(device, None, None, None)
+    console.write("Starting....")
+    console.update()
 
     # multiprocessing.set_start_method('spawn')
     # spawn keyboard service....
+    console.write("   Keyboard")
+    console.update()
     keyboard_queue = Queue()
     keyboard_process = Process(target=keyboard.run_keyboard, args=(keyboard_queue,))
     keyboard_process.start()
-    console_draw.text((20, 20), "Keyboard", font=console_font, fill=RED)
-    device.display(console_screen.convert(device.mode))
 
     # spawn imaging service
     with StateManager() as manager:
         shared_state = manager.SharedState()
 
-        console_draw.text((20, 30), "Camera", font=console_font, fill=RED)
-        device.display(console_screen.convert(device.mode))
+        console.write("   Camera")
+        console.update()
         camera_command_queue = Queue()
-        camera_image = manager.NewImage("RGB", (512,512))
+        camera_image = manager.NewImage("RGB", (512, 512))
         image_process = Process(
-            target=camera.get_images, args=(shared_state, camera_image, camera_command_queue)
+            target=camera.get_images,
+            args=(shared_state, camera_image, camera_command_queue),
         )
         image_process.start()
 
@@ -120,18 +102,27 @@ def main():
         time.sleep(2)
 
         # Solver
-        console_draw.text((20, 40), "Solver", font=console_font, fill=RED)
-        device.display(console_screen.convert(device.mode))
+        console.write("   Solver")
+        console.update()
         solver_process = Process(
             target=solver.solver, args=(shared_state, camera_image)
         )
         solver_process.start()
 
-        console_draw.text((20, 50), "Main Event Loop", font=console_font, fill=RED)
-        device.display(console_screen.convert(device.mode))
-
         # Start main event loop
-        last_image_fetched = time.time()
+        console.write("   Event Loop")
+        console.update()
+
+        # init UI Modes
+        command_queues = {
+            "camera": camera_command_queue,
+        }
+        ui_modes = [
+            console,
+            UIPreview(device, camera_image, shared_state, command_queues),
+        ]
+        ui_mode_index = 1
+
         while True:
             try:
                 keycode = keyboard_queue.get(block=False)
@@ -139,23 +130,52 @@ def main():
                 keycode = None
 
             if keycode != None:
-                print(keycode)
+                print(f"{keycode =}")
+                if keycode > 99:
+                    # Special codes....
+                    if keycode == keyboard.ALT_UP:
+                        screen_brightness = screen_brightness + 10
+                        if screen_brightness > 255:
+                            screen_brightness = 255
+                        set_brightness(screen_brightness)
+                        console.write("Brightness: " + str(screen_brightness))
 
-            if keycode == 5:
-                camera_command_queue.put("exp_dn")
-            if keycode == 4:
-                camera_command_queue.put("exp_up")
-            if keycode == 7:
-                camera_command_queue.put("save")
-            if keycode == 0:
-                camera_command_queue.put("wedge")
+                    if keycode == keyboard.ALT_DN:
+                        screen_brightness = screen_brightness - 10
+                        if screen_brightness < 1:
+                            screen_brightness = 1
+                        set_brightness(screen_brightness)
+                        console.write("Brightness: " + str(screen_brightness))
+                elif keycode == keyboard.A:
+                    # A key, mode switch
+                    ui_mode_index += 1
+                    if ui_mode_index >= len(ui_modes):
+                        ui_mode_index = 0
+                    ui_modes[ui_mode_index].active()
 
-            # display an image
-            last_image_time = shared_state.last_image_time()
-            if last_image_time > last_image_fetched:
-                show_image(camera_image)
-                last_image_fetched = last_image_time
-            # sleep(1/10)
+                else:
+                    if keycode < 10:
+                        ui_modes[ui_mode_index].key_number(keycode)
+
+                    elif keycode == keyboard.UP:
+                        ui_modes[ui_mode_index].key_up()
+
+                    elif keycode == keyboard.DN:
+                        ui_modes[ui_mode_index].key_down()
+
+                    elif keycode == keyboard.GO:
+                        ui_modes[ui_mode_index].key_enter()
+
+                    elif keycode == keyboard.B:
+                        ui_modes[ui_mode_index].key_b()
+
+                    elif keycode == keyboard.C:
+                        ui_modes[ui_mode_index].key_c()
+
+                    elif keycode == keyboard.D:
+                        ui_modes[ui_mode_index].key_d()
+
+            ui_modes[ui_mode_index].update()
 
 
 if __name__ == "__main__":

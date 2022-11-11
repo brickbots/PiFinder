@@ -21,12 +21,10 @@ def solver(shared_state, camera_image):
             print("SOLVER: New Image")
             solve_image = camera_image.copy()
             solved = t3.solve_from_image(
-                    solve_image,
-                    fov_estimate=10.2,
-                    fov_max_error=.1,
+                solve_image,
+                fov_estimate=10.2,
+                fov_max_error=0.1,
             )
             pprint.pprint(solved)
             shared_state.set_solve(solved)
             last_image_fetch = last_image_time
-
-

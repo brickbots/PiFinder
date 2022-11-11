@@ -43,7 +43,6 @@ def get_images(shared_state, camera_image, command_queue):
         camera_image.paste(base_image)
         shared_state.set_last_image_time(time.time())
 
-
         try:
             command = command_queue.get(block=False)
         except queue.Empty:
@@ -65,25 +64,33 @@ def get_images(shared_state, camera_image, command_queue):
             camera.capture_file(filename)
 
         if command == "wedge":
-            gain_wedges = [10,15,20]
+            gain_wedges = [10, 15, 20]
             exp_wedges = [750000, 1000000, 1500000, 2000000, 3000000]
             filename_base = str(uuid.uuid1()).split("-")[0][:4]
-            console_font = ImageFont.truetype("/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 30)
+            console_font = ImageFont.truetype(
+                "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf",
+                30,
+            )
             for gain in gain_wedges:
                 for exp in exp_wedges:
-                    camera.set_controls({"AnalogueGain": gain,"ExposureTime": exp})
+                    camera.set_controls({"AnalogueGain": gain, "ExposureTime": exp})
                     print(f"Capturing... {gain =} {exp =}")
                     wait = True
                     last_exp = 0
                     last_gain = 0
                     while wait:
                         md = camera.capture_metadata()
-                        if md["AnalogueGain"] == last_gain and md["ExposureTime"] == last_exp:
+                        if (
+                            md["AnalogueGain"] == last_gain
+                            and md["ExposureTime"] == last_exp
+                        ):
                             wait = False
                         else:
-                            last_gain=md["AnalogueGain"]
+                            last_gain = md["AnalogueGain"]
                             last_exp = md["ExposureTime"]
-                            print(f"\t Waiting... {md['AnalogueGain']} / {md['ExposureTime']}")
+                            print(
+                                f"\t Waiting... {md['AnalogueGain']} / {md['ExposureTime']}"
+                            )
 
                     filename = f"/home/pifinder/captures/{filename_base}_{last_gain:.0f}_{last_exp:.0f}.png"
                     camera.capture_file(filename)
@@ -98,4 +105,3 @@ def get_images(shared_state, camera_image, command_queue):
                     preview_draw.text((10, 40), str(exp), font=console_font, fill=RED)
                     camera_image.paste(preview)
                     shared_state.set_last_image_time(time.time())
-
