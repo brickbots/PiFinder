@@ -93,14 +93,32 @@ class UIConsole(UIModule):
     def __init__(self, *args):
         self.dirty = True
         self.lines = ["---- TOP ---"]
+        self.scroll_offset = 0
         super().__init__(*args)
+
+    def key_enter(self):
+        # reset scroll offset
+        self.scroll_offset = 0
+        self.dirty = True
+
+    def key_up(self):
+        self.scroll_offset += 1
+        self.dirty = True
+
+    def key_down(self):
+        self.scroll_offset -= 1
+        if self.scroll_offset < 0:
+            self.scroll_offset = 0
+        self.dirty = True
 
     def write(self, line):
         """
         Writes a new line to the console.
-        scrolling as needed
         """
+        print(f"Write: {line}")
         self.lines.append(line)
+        # reset scroll offset
+        self.scroll_offset = 0
         self.dirty = True
 
     def active(self):
@@ -112,7 +130,7 @@ class UIConsole(UIModule):
         if self.dirty:
             # clear screen
             self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
-            for i, line in enumerate(self.lines[-10:]):
+            for i, line in enumerate(self.lines[-10 - self.scroll_offset :][:10]):
                 self.draw.text((0, i * 10 + 20), line, font=self.font_base, fill=RED)
             self.screen_update()
             self.dirty = False
