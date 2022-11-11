@@ -12,7 +12,7 @@ This module is the main entry point for PiFinder it:
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
-from time import sleep
+import time
 import queue
 
 from luma.core.interface.serial import spi
@@ -47,19 +47,42 @@ def set_brightness(level):
 
 def show_image(image_obj):
     """
-        preview_image = ImageChops.multiply(preview_image, red_image)
+        Prepares and shows a camera image on screen
     """
+    image_obj = image_obj.resize((128, 128), Image.LANCZOS)
+    image_obj = image_obj.convert("RGB")
     image_obj = ImageChops.multiply(image_obj, red_image)
     image_obj = Image.eval(image_obj, gamma_correct)
     image_obj = ImageOps.autocontrast(image_obj)
     device.display(image_obj.convert(device.mode))
 
 
-class ImageManager(BaseManager):
+class StateManager(BaseManager):
     pass
 
+class SharedStateObj:
+    def __init__(self):
+        self.__solve_state = None
+        self.__last_image_time = None
+        self.__solve = None
+        self.__imu = None
 
-ImageManager.register("NewImage", Image.new)
+    @property
+    def solve_state(self):
+        return self.__solve_state
+
+    @solve_state.setter
+    def solve_state(self, v):
+        self.__solve_state = v
+
+    def last_image_time(self):
+        return self.__last_image_time
+
+    def set_last_image_time(self, v):
+        self.__last_image_time = v
+
+StateManager.register("SharedState", SharedStateObj)
+StateManager.register("NewImage", Image.new)
 
 
 def main():
@@ -82,21 +105,22 @@ def main():
     device.display(console_screen.convert(device.mode))
 
     # spawn imaging service
-    with ImageManager() as manager:
+    with StateManager() as manager:
         camera_command_queue = Queue()
-        solver_image = manager.NewImage("RGB", (512, 512), (0, 0, 0))
-        preview_image = manager.NewImage("RGB", (128, 128), (0, 0, 0))
+        shared_state = manager.SharedState()
+        camera_image = manager.NewImage("RGB", (512,512))
         image_process = Process(
-            target=camera.get_images, args=(preview_image, solver_image, camera_command_queue)
+            target=camera.get_images, args=(shared_state, camera_image, camera_command_queue)
         )
         image_process.start()
         console_draw.text((20, 30), "Solver", font=console_font, fill=RED)
         device.display(console_screen.convert(device.mode))
 
         # Wait for camera to start....
-        sleep(2)
+        time.sleep(2)
 
         # Start main event loop
+        last_image_fetched = time.time()
         while True:
             try:
                 keycode = keyboard_queue.get(block=False)
@@ -116,7 +140,10 @@ def main():
                 camera_command_queue.put("wedge")
 
             # display an image
-            device.display(preview_image.convert(device.mode))
+            last_image_time = shared_state.last_image_time()
+            if last_image_time and last_image_time > last_image_fetched:
+                show_image(camera_image)
+                last_image_fetched = last_image_time
             # sleep(1/10)
 
 

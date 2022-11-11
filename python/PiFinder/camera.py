@@ -19,7 +19,7 @@ from picamera2 import Picamera2
 RED = (0, 0, 255)
 
 
-def get_images(preview_image, solve_image, command_queue):
+def get_images(shared_state, camera_image, command_queue):
     # Initialize camera
     exposure_time = 1500000
     analog_gain = 10
@@ -40,12 +40,9 @@ def get_images(preview_image, solve_image, command_queue):
         base_image = camera.capture_image("main")
         base_image = base_image.convert("L")
         base_image = base_image.rotate(90)
-        solve_image.paste(base_image)
+        camera_image.paste(base_image)
+        shared_state.set_last_image_time(time.time())
 
-        # this also generates a copy here
-        preview = base_image.resize((128, 128), Image.LANCZOS)
-        preview = preview.convert("RGB")
-        preview_image.paste(preview)
 
         try:
             command = command_queue.get(block=False)
@@ -71,7 +68,7 @@ def get_images(preview_image, solve_image, command_queue):
             gain_wedges = [10,15,20]
             exp_wedges = [750000, 1000000, 1500000, 2000000, 3000000]
             filename_base = str(uuid.uuid1()).split("-")[0][:4]
-            console_font = ImageFont.truetype("/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 10)
+            console_font = ImageFont.truetype("/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 30)
             for gain in gain_wedges:
                 for exp in exp_wedges:
                     camera.set_controls({"AnalogueGain": gain,"ExposureTime": exp})
@@ -95,12 +92,10 @@ def get_images(preview_image, solve_image, command_queue):
                     base_image = base_image.rotate(90)
 
                     # this also generates a copy here
-                    preview = base_image.resize((128, 128), Image.LANCZOS)
-                    preview = preview.convert("RGB")
-                    preview = ImageChops.multiply(preview, red_image)
+                    preview = base_image.convert("RGB")
                     preview_draw = ImageDraw.Draw(preview)
                     preview_draw.text((10, 10), str(gain), font=console_font, fill=RED)
-                    preview_draw.text((10, 20), str(exp), font=console_font, fill=RED)
-                    preview_image.paste(preview)
+                    preview_draw.text((10, 40), str(exp), font=console_font, fill=RED)
+                    camera_image.paste(preview)
+                    shared_state.set_last_image_time(time.time())
 
-        print("Camera loop time:" + str(time.time() - start_time))
