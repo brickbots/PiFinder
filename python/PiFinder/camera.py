@@ -19,9 +19,9 @@ from picamera2 import Picamera2
 RED = (0, 0, 255)
 
 
-def get_images(shared_image, command_queue):
+def get_images(preview_image, solve_image, command_queue):
     # Initialize camera
-    exposure_time = 750000
+    exposure_time = 1500000
     analog_gain = 10
     camera = Picamera2()
     cam_config = camera.create_still_configuration(main={"size": (512, 512)})
@@ -34,22 +34,18 @@ def get_images(shared_image, command_queue):
 
     red_image = Image.new("RGB", (128, 128), (0, 0, 255))
 
-    console_font = ImageFont.load_default()
     while True:
         start_time = time.time()
 
-        solve_image = camera.capture_image("main")
-        solve_image = solve_image.convert("L")
-        solve_image = solve_image.rotate(90)
+        base_image = camera.capture_image("main")
+        base_image = base_image.convert("L")
+        base_image = base_image.rotate(90)
+        solve_image.paste(base_image)
 
         # this also generates a copy here
-        preview_image = solve_image.resize((128, 128), Image.LANCZOS)
-        preview_image = preview_image.convert("RGB")
-        preview_image = ImageChops.multiply(preview_image, red_image)
-        preview_draw = ImageDraw.Draw(preview_image)
-        preview_draw.text((10, 10), str(exposure_time), font=console_font, fill=RED)
-        preview_draw.text((10, 20), str(analog_gain), font=console_font, fill=RED)
-        shared_image.paste(preview_image)
+        preview = base_image.resize((128, 128), Image.LANCZOS)
+        preview = preview.convert("RGB")
+        preview_image.paste(preview)
 
         try:
             command = command_queue.get(block=False)
@@ -71,11 +67,11 @@ def get_images(shared_image, command_queue):
             filename = f"/home/pifinder/captures/{filename}.png"
             camera.capture_file(filename)
 
-        #if command == "wedge":
-        if True:
-            gain_wedges = [0,5,10,15,20]
-            exp_wedges = [187000, 375000, 750000, 1500000, 3000000]
+        if command == "wedge":
+            gain_wedges = [10,15,20]
+            exp_wedges = [750000, 1000000, 1500000, 2000000, 3000000]
             filename_base = str(uuid.uuid1()).split("-")[0][:4]
+            console_font = ImageFont.truetype("/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 10)
             for gain in gain_wedges:
                 for exp in exp_wedges:
                     camera.set_controls({"AnalogueGain": gain,"ExposureTime": exp})
@@ -94,17 +90,17 @@ def get_images(shared_image, command_queue):
 
                     filename = f"/home/pifinder/captures/{filename_base}_{last_gain:.0f}_{last_exp:.0f}.png"
                     camera.capture_file(filename)
-                    solve_image = camera.capture_image("main")
-                    solve_image = solve_image.convert("L")
-                    solve_image = solve_image.rotate(90)
+                    base_image = camera.capture_image("main")
+                    base_image = base_image.convert("L")
+                    base_image = base_image.rotate(90)
 
                     # this also generates a copy here
-                    preview_image = solve_image.resize((128, 128), Image.LANCZOS)
-                    preview_image = preview_image.convert("RGB")
-                    preview_image = ImageChops.multiply(preview_image, red_image)
-                    preview_draw = ImageDraw.Draw(preview_image)
+                    preview = base_image.resize((128, 128), Image.LANCZOS)
+                    preview = preview.convert("RGB")
+                    preview = ImageChops.multiply(preview, red_image)
+                    preview_draw = ImageDraw.Draw(preview)
                     preview_draw.text((10, 10), str(gain), font=console_font, fill=RED)
                     preview_draw.text((10, 20), str(exp), font=console_font, fill=RED)
-                    shared_image.paste(preview_image)
+                    preview_image.paste(preview)
 
         print("Camera loop time:" + str(time.time() - start_time))

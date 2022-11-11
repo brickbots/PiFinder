@@ -46,6 +46,9 @@ def set_brightness(level):
 
 
 def show_image(image_obj):
+    """
+        preview_image = ImageChops.multiply(preview_image, red_image)
+    """
     image_obj = ImageChops.multiply(image_obj, red_image)
     image_obj = Image.eval(image_obj, gamma_correct)
     image_obj = ImageOps.autocontrast(image_obj)
@@ -64,7 +67,7 @@ def main():
     Get this show on the road!
     """
     # init screen
-    console_font = ImageFont.load_default()
+    console_font = ImageFont.truetype("/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 10)
     console_screen = Image.new("RGB", (128, 128))
     console_draw = ImageDraw.Draw(console_screen)
     console_draw.text((10, 10), "Starting", font=console_font, fill=RED)
@@ -81,9 +84,10 @@ def main():
     # spawn imaging service
     with ImageManager() as manager:
         camera_command_queue = Queue()
-        shared_image = manager.NewImage("RGB", (128, 128), (0, 0, 0))
+        solver_image = manager.NewImage("RGB", (512, 512), (0, 0, 0))
+        preview_image = manager.NewImage("RGB", (128, 128), (0, 0, 0))
         image_process = Process(
-            target=camera.get_images, args=(shared_image, camera_command_queue)
+            target=camera.get_images, args=(preview_image, solver_image, camera_command_queue)
         )
         image_process.start()
         console_draw.text((20, 30), "Solver", font=console_font, fill=RED)
@@ -112,7 +116,7 @@ def main():
                 camera_command_queue.put("wedge")
 
             # display an image
-            device.display(shared_image.convert(device.mode))
+            device.display(preview_image.convert(device.mode))
             # sleep(1/10)
 
 
