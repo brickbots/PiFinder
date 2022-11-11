@@ -2,11 +2,8 @@
 # -*- coding:utf-8 -*-
 """
 This module is the solver
-* Captures images
 * Checks IMU
-* Places preview images in queue
 * Plate solves high-res image
-* Takes full res images on demand
 
 """
 import queue
@@ -45,8 +42,8 @@ def get_images(shared_image, command_queue):
         solve_image = solve_image.rotate(90)
         solved = t3.solve_from_image(
                 solve_image,
-                fov_estimate=10.16,
-                pattern_checking_stars=6
+                fov_estimate=10.2,
+                fov_max_error=.1,
         )
         pprint.pprint(solved)
         # this also generates a copy here

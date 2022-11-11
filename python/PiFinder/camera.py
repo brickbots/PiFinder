@@ -1,11 +1,10 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-This module is the solver
+This module is the camera
 * Captures images
-* Checks IMU
 * Places preview images in queue
-* Plate solves high-res image
+* Places solver images in queue
 * Takes full res images on demand
 
 """
