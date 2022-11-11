@@ -21,6 +21,7 @@ from luma.oled.device import ssd1351
 
 import keyboard
 import camera
+import solver
 
 serial = spi(device=0, port=0)
 device = ssd1351(serial)
@@ -63,17 +64,15 @@ class StateManager(BaseManager):
 class SharedStateObj:
     def __init__(self):
         self.__solve_state = None
-        self.__last_image_time = None
+        self.__last_image_time = 0
         self.__solve = None
         self.__imu = None
 
-    @property
-    def solve_state(self):
-        return self.__solve_state
+    def solve(self):
+        return self.__solve
 
-    @solve_state.setter
-    def solve_state(self, v):
-        self.__solve_state = v
+    def set_solve(self, v):
+        self.__solve = v
 
     def last_image_time(self):
         return self.__last_image_time
@@ -106,18 +105,30 @@ def main():
 
     # spawn imaging service
     with StateManager() as manager:
-        camera_command_queue = Queue()
         shared_state = manager.SharedState()
+
+        console_draw.text((20, 30), "Camera", font=console_font, fill=RED)
+        device.display(console_screen.convert(device.mode))
+        camera_command_queue = Queue()
         camera_image = manager.NewImage("RGB", (512,512))
         image_process = Process(
             target=camera.get_images, args=(shared_state, camera_image, camera_command_queue)
         )
         image_process.start()
-        console_draw.text((20, 30), "Solver", font=console_font, fill=RED)
-        device.display(console_screen.convert(device.mode))
 
         # Wait for camera to start....
         time.sleep(2)
+
+        # Solver
+        console_draw.text((20, 40), "Solver", font=console_font, fill=RED)
+        device.display(console_screen.convert(device.mode))
+        solver_process = Process(
+            target=solver.solver, args=(shared_state, camera_image)
+        )
+        solver_process.start()
+
+        console_draw.text((20, 50), "Main Event Loop", font=console_font, fill=RED)
+        device.display(console_screen.convert(device.mode))
 
         # Start main event loop
         last_image_fetched = time.time()
@@ -141,7 +152,7 @@ def main():
 
             # display an image
             last_image_time = shared_state.last_image_time()
-            if last_image_time and last_image_time > last_image_fetched:
+            if last_image_time > last_image_fetched:
                 show_image(camera_image)
                 last_image_fetched = last_image_time
             # sleep(1/10)
