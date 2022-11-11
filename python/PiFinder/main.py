@@ -20,7 +20,7 @@ from luma.core.render import canvas
 from luma.oled.device import ssd1351
 
 import keyboard
-import solver
+import camera
 
 serial = spi(device=0, port=0)
 device = ssd1351(serial)
@@ -80,10 +80,10 @@ def main():
 
     # spawn imaging service
     with ImageManager() as manager:
-        solver_command_queue = Queue()
+        camera_command_queue = Queue()
         shared_image = manager.NewImage("RGB", (128, 128), (0, 0, 0))
         image_process = Process(
-            target=solver.get_images, args=(shared_image, solver_command_queue)
+            target=camera.get_images, args=(shared_image, camera_command_queue)
         )
         image_process.start()
         console_draw.text((20, 30), "Solver", font=console_font, fill=RED)
@@ -103,11 +103,13 @@ def main():
                 print(keycode)
 
             if keycode == 5:
-                solver_command_queue.put("exp_dn")
+                camera_command_queue.put("exp_dn")
             if keycode == 4:
-                solver_command_queue.put("exp_up")
+                camera_command_queue.put("exp_up")
             if keycode == 7:
-                solver_command_queue.put("save")
+                camera_command_queue.put("save")
+            if keycode == 0:
+                camera_command_queue.put("wedge")
 
             # display an image
             device.display(shared_image.convert(device.mode))
