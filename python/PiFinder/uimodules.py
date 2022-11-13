@@ -152,8 +152,17 @@ class UIPreview(UIModule):
             image_obj = image_obj.resize((128, 128), Image.LANCZOS)
             image_obj = image_obj.convert("RGB")
             image_obj = ImageChops.multiply(image_obj, self.red_image)
-            image_obj = ImageOps.autocontrast(image_obj, cutoff=(20, 0))
+            # image_obj = ImageOps.autocontrast(image_obj, cutoff=(20, 0))
             image_obj = Image.eval(image_obj, gamma_correct)
             self.screen.paste(image_obj)
             last_image_fetched = last_image_time
             self.screen_update()
+
+    def key_up(self):
+        self.command_queues["camera"].put("exp_up")
+
+    def key_down(self):
+        self.command_queues["camera"].put("exp_dn")
+
+    def key_enter(self):
+        self.command_queues["camera"].put("exp_save")

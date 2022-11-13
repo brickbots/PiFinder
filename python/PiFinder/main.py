@@ -22,6 +22,8 @@ from luma.oled.device import ssd1351
 import keyboard
 import camera
 import solver
+import gps
+import config
 
 from uimodules import UIPreview, UIConsole
 
@@ -47,12 +49,19 @@ class SharedStateObj:
         self.__last_image_time = 0
         self.__solve = None
         self.__imu = None
+        self.__location = None
 
     def solve(self):
         return self.__solve
 
     def set_solve(self, v):
         self.__solve = v
+
+    def location(self):
+        return self.__location
+
+    def set_location(self, v):
+        self.__location = v
 
     def last_image_time(self):
         return self.__last_image_time
@@ -69,8 +78,10 @@ def main():
     """
     Get this show on the road!
     """
+    console_queue = Queue()
+    cfg = config.Config()
     # init screen
-    screen_brightness = 200
+    screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness)
     console = UIConsole(device, None, None, None)
     console.write("Starting....")
@@ -84,9 +95,26 @@ def main():
     keyboard_process = Process(target=keyboard.run_keyboard, args=(keyboard_queue,))
     keyboard_process.start()
 
+    # spawn gps service....
+    console.write("   GPS")
+    console.update()
+    gps_queue = Queue()
+    gps_process = Process(
+        target=gps.gps_monitor,
+        args=(
+            gps_queue,
+            console_queue,
+        ),
+    )
+    gps_process.start()
+
     # spawn imaging service
     with StateManager() as manager:
         shared_state = manager.SharedState()
+
+        # Load last location, set lock to false
+        initial_location = cfg.get_option("last_location")
+        shared_state.set_location = initial_location
 
         console.write("   Camera")
         console.update()
@@ -94,7 +122,7 @@ def main():
         camera_image = manager.NewImage("RGB", (512, 512))
         image_process = Process(
             target=camera.get_images,
-            args=(shared_state, camera_image, camera_command_queue),
+            args=(shared_state, camera_image, camera_command_queue, console_queue),
         )
         image_process.start()
 
@@ -105,7 +133,7 @@ def main():
         console.write("   Solver")
         console.update()
         solver_process = Process(
-            target=solver.solver, args=(shared_state, camera_image)
+            target=solver.solver, args=(shared_state, camera_image, console_queue)
         )
         solver_process.start()
 
@@ -124,6 +152,29 @@ def main():
         ui_mode_index = 1
 
         while True:
+            # Console
+            try:
+                console_msg = console_queue.get(block=False)
+                console.write(console_msg)
+            except queue.Empty:
+                pass
+
+            # GPS
+            try:
+                gps_msg = gps_queue.get(block=False)
+                location = shared_state.get_location()
+                location["lat"] = gps_msg.latitude
+                location["lon"] = gps_msg.longitude
+                location["altitude"] = gps_msg.get(altitude, 0)
+                if location["gps_lock"] == False:
+                    # Write to config if we just got a lock
+                    cfg.set_option("location", location)
+                    location["gps_lock"] = True
+                shared_state.set_location(location)
+            except queue.Empty:
+                pass
+
+            # Keyboard
             try:
                 keycode = keyboard_queue.get(block=False)
             except queue.Empty:
@@ -133,19 +184,19 @@ def main():
                 print(f"{keycode =}")
                 if keycode > 99:
                     # Special codes....
-                    if keycode == keyboard.ALT_UP:
-                        screen_brightness = screen_brightness + 10
-                        if screen_brightness > 255:
-                            screen_brightness = 255
+                    if keycode == keyboard.ALT_UP or keycode == keyboard.ALT_DN:
+                        if keycode == keyboard.ALT_UP:
+                            screen_brightness = screen_brightness + 10
+                            if screen_brightness > 255:
+                                screen_brightness = 255
+                        else:
+                            screen_brightness = screen_brightness - 10
+                            if screen_brightness < 1:
+                                screen_brightness = 1
                         set_brightness(screen_brightness)
+                        cfg.set_option("display_brightness", screen_brightness)
                         console.write("Brightness: " + str(screen_brightness))
 
-                    if keycode == keyboard.ALT_DN:
-                        screen_brightness = screen_brightness - 10
-                        if screen_brightness < 1:
-                            screen_brightness = 1
-                        set_brightness(screen_brightness)
-                        console.write("Brightness: " + str(screen_brightness))
                 elif keycode == keyboard.A:
                     # A key, mode switch
                     ui_mode_index += 1
