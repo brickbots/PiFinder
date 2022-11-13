@@ -114,7 +114,7 @@ def main():
 
         # Load last location, set lock to false
         initial_location = cfg.get_option("last_location")
-        shared_state.set_location = initial_location
+        shared_state.set_location(initial_location)
 
         console.write("   Camera")
         console.update()
@@ -162,13 +162,13 @@ def main():
             # GPS
             try:
                 gps_msg = gps_queue.get(block=False)
-                location = shared_state.get_location()
+                location = shared_state.location()
                 location["lat"] = gps_msg.latitude
                 location["lon"] = gps_msg.longitude
-                location["altitude"] = gps_msg.get(altitude, 0)
+                location["altitude"] = gps_msg.altitude
                 if location["gps_lock"] == False:
                     # Write to config if we just got a lock
-                    cfg.set_option("location", location)
+                    cfg.set_option("last_location", location)
                     location["gps_lock"] = True
                 shared_state.set_location(location)
             except queue.Empty:

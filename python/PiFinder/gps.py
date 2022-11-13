@@ -20,11 +20,9 @@ def gps_monitor(gps_queue, console_queue):
         if not (hasattr(msg, "latitude") and hasattr(msg, "longitude")):
             continue
 
-        if msg.latitude + msg.longitude != 0:
+        if str(msg.sentence_type) == "GGA" and msg.latitude + msg.longitude != 0:
             if gps_locked == False:
                 console_queue.put("GPS: Locked")
-                print(repr(msg))
-                print(msg.latitude, msg.longitude)
                 gps_locked = True
 
             gps_queue.put(msg)

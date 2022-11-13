@@ -1,0 +1,11 @@
+{
+    "display_brightness": 160,
+    "last_location": {
+        "lat": 34.03016733333333,
+        "lon": -118.4917305,
+        "altitude": 61.2,
+        "gps_lock": false
+    },
+    "camera_exp": 1500000,
+    "camera_gain": 10
+}
