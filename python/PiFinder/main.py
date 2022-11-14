@@ -9,11 +9,12 @@ This module is the main entry point for PiFinder it:
 * then runs the UI loop
 
 """
+import time
+import queue
+import datetime
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
-import time
-import queue
 
 from luma.core.interface.serial import spi
 from luma.core.render import canvas
@@ -50,6 +51,7 @@ class SharedStateObj:
         self.__solve = None
         self.__imu = None
         self.__location = None
+        self.__datetime = None
 
     def solve(self):
         return self.__solve
@@ -68,6 +70,12 @@ class SharedStateObj:
 
     def set_last_image_time(self, v):
         self.__last_image_time = v
+
+    def datetime(self):
+        return self.__datetime
+
+    def set_datetime(self, dt):
+        self.__datetime = dt
 
 
 StateManager.register("SharedState", SharedStateObj)
@@ -162,15 +170,20 @@ def main():
             # GPS
             try:
                 gps_msg = gps_queue.get(block=False)
-                location = shared_state.location()
-                location["lat"] = gps_msg.latitude
-                location["lon"] = gps_msg.longitude
-                location["altitude"] = gps_msg.altitude
-                if location["gps_lock"] == False:
-                    # Write to config if we just got a lock
-                    cfg.set_option("last_location", location)
-                    location["gps_lock"] = True
-                shared_state.set_location(location)
+                if gps_msg.sentence_type == "GGA":
+                    location = shared_state.location()
+                    location["lat"] = gps_msg.latitude
+                    location["lon"] = gps_msg.longitude
+                    location["altitude"] = gps_msg.altitude
+                    if location["gps_lock"] == False:
+                        # Write to config if we just got a lock
+                        cfg.set_option("last_location", location)
+                        location["gps_lock"] = True
+                    shared_state.set_location(location)
+                if gps_msg.sentence_type == "RMC":
+                    shared_state.set_datetime(
+                        datetime.datetime.combine(gps_msg.datestamp, gps_msg.timestamp)
+                    )
             except queue.Empty:
                 pass
 
