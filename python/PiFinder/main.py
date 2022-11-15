@@ -26,7 +26,7 @@ import solver
 import gps
 import config
 
-from uimodules import UIPreview, UIConsole
+from uimodules import UIPreview, UIConsole, UIStatus
 
 serial = spi(device=0, port=0)
 device = ssd1351(serial)
@@ -48,16 +48,22 @@ class SharedStateObj:
     def __init__(self):
         self.__solve_state = None
         self.__last_image_time = 0
-        self.__solve = None
+        self.__solution = None
         self.__imu = None
         self.__location = None
         self.__datetime = None
 
-    def solve(self):
-        return self.__solve
+    def solve_state(self):
+        return self.__solve_state
 
-    def set_solve(self, v):
-        self.__solve = v
+    def set_solve_state(self, v):
+        self.__solve_state = v
+
+    def solution(self):
+        return self.__solution
+
+    def set_solution(self, v):
+        self.__solution = v
 
     def location(self):
         return self.__location
@@ -156,6 +162,7 @@ def main():
         ui_modes = [
             console,
             UIPreview(device, camera_image, shared_state, command_queues),
+            UIStatus(device, camera_image, shared_state, command_queues),
         ]
         ui_mode_index = 1
 

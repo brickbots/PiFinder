@@ -21,6 +21,7 @@ class UIModule:
     __title__ = "BASE"
 
     def __init__(self, display, camera_image, shared_state, command_queues):
+        self.title = __title__
         self.display = display
         self.shared_state = shared_state
         self.camera_image = camera_image
@@ -61,7 +62,7 @@ class UIModule:
         """
         self.draw.rectangle([0, 0, 128, 16], fill=(0, 0, 0))
         self.draw.rounded_rectangle([0, 0, 128, 16], radius=6, fill=(0, 0, 128))
-        self.draw.text((6, 1), self.__title__, font=self.font_bold, fill=(0, 0, 0))
+        self.draw.text((6, 1), self.title, font=self.font_bold, fill=(0, 0, 0))
 
         self.display.display(self.screen.convert(self.display.mode))
 
@@ -85,6 +86,61 @@ class UIModule:
 
     def key_d(self):
         pass
+
+
+class UIStatus(UIModule):
+    """
+    Displays various status information
+    """
+
+    __title__ = "STATUS"
+
+    def __init__(self, *args):
+        self.status_dict = {
+            "LST SLV": "--",
+            "RA": "--",
+            "DEC": "--",
+            "AZ": "--",
+            "ALT": "--",
+            "GPS": "--",
+        }
+        super().__init__(*args)
+
+    def update_status_dict(self):
+        """
+        Updates all the
+        status dict values
+        """
+        if self.shared_state.solve_state():
+            solution = self.shared_state.solution()
+            # last solve time
+            self.status_dict["LST SLV"] = str(
+                round(time.time() - solution["solve_time"])
+            )
+
+            self.status_dict["RA"] = str(round(solution["RA"], 3))
+            self.status_dict["DEC"] = str(round(solution["DEC"], 3))
+
+            if solution["AZ"]:
+                self.status_dict["RA"] = str(round(solution["RA"], 3))
+                self.status_dict["DEC"] = str(round(solution["DEC"], 3))
+
+        location = self.shared_state.location()
+        if location["gps_lock"]:
+            self.status_dict["GPS"] = "LOCK"
+
+    def update(self):
+        lines = []
+        for k, v in self.status_dict.items():
+            line = " " * (7 - len(k))
+            line += ":"
+            line += " " * (10 - len(v))
+            line += v
+            lines.append(line)
+
+        for i, line in enumerate(lines):
+            self.draw.text((0, i * 10 + 20), line, font=self.font_base, fill=RED)
+        self.screen_update()
 
 
 class UIConsole(UIModule):
@@ -156,6 +212,10 @@ class UIPreview(UIModule):
             image_obj = Image.eval(image_obj, gamma_correct)
             self.screen.paste(image_obj)
             last_image_fetched = last_image_time
+
+            if self.shared_state.solve_state():
+                solution = self.shared_state.solved()
+                self.title = "PREVIEW - " + solution["constellation"]
             self.screen_update()
 
     def key_up(self):
