@@ -191,7 +191,9 @@ def main():
                 if gps_msg.sentence_type == "RMC":
                     if gps_msg.datestamp:
                         shared_state.set_datetime(
-                            datetime.datetime.combine(gps_msg.datestamp, gps_msg.timestamp)
+                            datetime.datetime.combine(
+                                gps_msg.datestamp, gps_msg.timestamp
+                            )
                         )
             except queue.Empty:
                 pass

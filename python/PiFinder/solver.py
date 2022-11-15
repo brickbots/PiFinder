@@ -10,8 +10,15 @@ import queue
 import pprint
 import time
 from tetra3 import Tetra3
-from skyfield.api import wgs84, load, utc, Star, Angle
-from skyfield.api import position_of_radec, load_constellation_map
+from skyfield.api import (
+    wgs84,
+    load,
+    utc,
+    Star,
+    Angle,
+    position_of_radec,
+    load_constellation_map,
+)
 
 
 class Skyfield_utils:
