@@ -78,10 +78,10 @@ def solver(shared_state, camera_image, console_queue):
                 fov_estimate=10.2,
                 fov_max_error=0.1,
             )
-            if solved["ra"] != None:
+            if solved["RA"] != None:
                 solved["solve_time"] = time.time()
                 solved["constellation"] = sf_utils.radec_to_constellation(
-                    solved["ra"], solved["dec"]
+                    solved["RA"], solved["Dec"]
                 )
                 # see if we can calc alt-az
                 solved["alt"] = None
@@ -96,12 +96,12 @@ def solver(shared_state, camera_image, console_queue):
                         location["altitude"],
                     )
                     alt, az = sf_utils.radec_to_altaz(
-                        solved["ra"],
-                        solved["dec"],
+                        solved["RA"],
+                        solved["Dec"],
                         dt,
                     )
-                    solved["alt"] = alt
-                    solved["az"] = az
+                    solved["Alt"] = alt
+                    solved["Az"] = az
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state = True
 

@@ -188,9 +188,10 @@ def main():
                         location["gps_lock"] = True
                     shared_state.set_location(location)
                 if gps_msg.sentence_type == "RMC":
-                    shared_state.set_datetime(
-                        datetime.datetime.combine(gps_msg.datestamp, gps_msg.timestamp)
-                    )
+                    if gps_msg.datestamp:
+                        shared_state.set_datetime(
+                            datetime.datetime.combine(gps_msg.datestamp, gps_msg.timestamp)
+                        )
             except queue.Empty:
                 pass
 

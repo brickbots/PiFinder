@@ -21,7 +21,7 @@ class UIModule:
     __title__ = "BASE"
 
     def __init__(self, display, camera_image, shared_state, command_queues):
-        self.title = __title__
+        self.title = self.__title__
         self.display = display
         self.shared_state = shared_state
         self.camera_image = camera_image
@@ -119,20 +119,21 @@ class UIStatus(UIModule):
             )
 
             self.status_dict["RA"] = str(round(solution["RA"], 3))
-            self.status_dict["DEC"] = str(round(solution["DEC"], 3))
+            self.status_dict["DEC"] = str(round(solution["Dec"], 3))
 
-            if solution["AZ"]:
-                self.status_dict["RA"] = str(round(solution["RA"], 3))
-                self.status_dict["DEC"] = str(round(solution["DEC"], 3))
+            if solution["Az"]:
+                self.status_dict["ALT"] = str(round(solution["Alt"], 3))
+                self.status_dict["AZ"] = str(round(solution["Az"], 3))
 
         location = self.shared_state.location()
         if location["gps_lock"]:
             self.status_dict["GPS"] = "LOCK"
 
     def update(self):
+        self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
         lines = []
         for k, v in self.status_dict.items():
-            line = " " * (7 - len(k))
+            line = " " * (7 - len(k)) + k
             line += ":"
             line += " " * (10 - len(v))
             line += v
