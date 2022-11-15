@@ -133,3 +133,4 @@ temp/
 .DS_Store
 .*.swp
 tetra3/
+*.dat
