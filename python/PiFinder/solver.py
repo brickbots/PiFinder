@@ -103,6 +103,6 @@ def solver(shared_state, camera_image, console_queue):
                     solved["Alt"] = alt
                     solved["Az"] = az
                 shared_state.set_solution(solved)
-                shared_state.set_solve_state = True
+                shared_state.set_solve_state(True)
 
             last_image_fetch = last_image_time

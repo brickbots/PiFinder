@@ -130,6 +130,7 @@ class UIStatus(UIModule):
             self.status_dict["GPS"] = "LOCK"
 
     def update(self):
+        self.update_status_dict()
         self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
         lines = []
         for k, v in self.status_dict.items():
@@ -209,13 +210,13 @@ class UIPreview(UIModule):
             image_obj = image_obj.resize((128, 128), Image.LANCZOS)
             image_obj = image_obj.convert("RGB")
             image_obj = ImageChops.multiply(image_obj, self.red_image)
-            # image_obj = ImageOps.autocontrast(image_obj, cutoff=(20, 0))
+            image_obj = ImageOps.autocontrast(image_obj, cutoff=(20, 0))
             image_obj = Image.eval(image_obj, gamma_correct)
             self.screen.paste(image_obj)
             last_image_fetched = last_image_time
 
             if self.shared_state.solve_state():
-                solution = self.shared_state.solved()
+                solution = self.shared_state.solution()
                 self.title = "PREVIEW - " + solution["constellation"]
             self.screen_update()
 

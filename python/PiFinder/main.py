@@ -178,15 +178,16 @@ def main():
             try:
                 gps_msg = gps_queue.get(block=False)
                 if gps_msg.sentence_type == "GGA":
-                    location = shared_state.location()
-                    location["lat"] = gps_msg.latitude
-                    location["lon"] = gps_msg.longitude
-                    location["altitude"] = gps_msg.altitude
-                    if location["gps_lock"] == False:
-                        # Write to config if we just got a lock
-                        cfg.set_option("last_location", location)
-                        location["gps_lock"] = True
-                    shared_state.set_location(location)
+                    if gps_msg.latitude + gps_msg.longitude != 0:
+                        location = shared_state.location()
+                        location["lat"] = gps_msg.latitude
+                        location["lon"] = gps_msg.longitude
+                        location["altitude"] = gps_msg.altitude
+                        if location["gps_lock"] == False:
+                            # Write to config if we just got a lock
+                            cfg.set_option("last_location", location)
+                            location["gps_lock"] = True
+                        shared_state.set_location(location)
                 if gps_msg.sentence_type == "RMC":
                     if gps_msg.datestamp:
                         shared_state.set_datetime(
