@@ -5,7 +5,10 @@ This module contains all the UI Module classes
 
 """
 import time
+import os
+import sqlite3
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+from obj_types import OBJ_TYPES
 
 RED = (0, 0, 255)
 
@@ -86,6 +89,184 @@ class UIModule:
 
     def key_d(self):
         pass
+
+
+class UILocate(UIModule):
+    """
+    Display pushto info
+    """
+
+    __title__ = "LOCATE"
+
+
+class UICatalog(UIModule):
+    """
+    Search catalogs for object to find
+    """
+
+    __title__ = "CATALOG"
+
+    def __init__(self, *args):
+        self.__catalogs = ["NGC", " IC", "Mes"]
+        self.catalog_index = 0
+        self.designator = ["-"] * 4
+        self.cat_object = None
+        self.object_text = ["No Object Found"]
+        root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
+        self.conn = sqlite3.connect(db_path)
+        self.conn.row_factory = sqlite3.Row
+        self.db_c = self.conn.cursor()
+        super().__init__(*args)
+
+    def update_object_text(self):
+        """
+        Generates object text
+        """
+        if not self.cat_object:
+            self.object_text = ["No Object Found"]
+            return
+
+        self.object_text = []
+        object_type = OBJ_TYPES.get(
+            self.cat_object["obj_type"], self.cat_object["obj_type"]
+        )
+        self.object_text.append(
+            object_type + " " * (18 - len(object_type)) + self.cat_object["const"]
+        )
+        self.object_text.append("This is line Two")
+
+    def update(self):
+        # Clear Screen
+        self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
+
+        # catalog and entry field
+        line = self.__catalogs[self.catalog_index] + " "
+        line += "".join(self.designator)
+        self.draw.text((0, 25), line, font=self.font_large, fill=RED)
+
+        # ID Line in BOld
+        self.draw.text((0, 50), self.object_text[0], font=self.font_bold, fill=RED)
+
+        # Remaining lines
+        for i, line in enumerate(self.object_text[1:]):
+            self.draw.text((0, i * 10 + 60), line, font=self.font_base, fill=RED)
+        self.screen_update()
+
+    def key_d(self):
+        self.catalog_index += 1
+        if self.catalog_index >= len(self.__catalogs):
+            self.catalog_index = 0
+        if self.catalog_index == 2:
+            # messier
+            self.designator = ["-"] * 3
+        else:
+            self.designator = ["-"] * 4
+        self.cat_object = None
+        self.update_object_text()
+
+    def key_number(self, number):
+        self.designator = self.designator[1:]
+        self.designator.append(str(number))
+        if self.designator[0] in ["0", "-"]:
+            index = 0
+            go = True
+            while go:
+                self.designator[index] = "-"
+                index += 1
+                if index >= len(self.designator) or self.designator[index] not in [
+                    "0",
+                    "-",
+                ]:
+                    go = False
+        # Check for match
+        designator = "".join(self.designator).replace("-", "")
+        if self.catalog_index == 2:
+            # Messier
+            self.cat_object = self.conn.execute(
+                f"""
+                SELECT ngc.* from
+                names
+                left join
+                ngc on ngc.catalog=names.catalog and ngc.designation=names.designation
+                where common_name = "M{designator}"
+            """
+            ).fetchone()
+        else:
+            if self.catalog_index == 0:
+                catalog = "N"
+            else:
+                catalog = "I"
+
+            self.cat_object = self.conn.execute(
+                f"""
+                SELECT * from ngc
+                where catalog = "{catalog}"
+                and designation = "{designator}"
+            """
+            ).fetchone()
+        self.update_object_text()
+
+    def scroll_obj(self, direction):
+        """
+        Looks for the next object up/down
+        sets the designation and object
+        """
+        if direction == "<":
+            sort_order = "desc"
+        else:
+            sort_order = ""
+
+        designator = "".join(self.designator).replace("-", "")
+        if self.catalog_index == 2:
+            # Messier
+            tmp_obj = self.conn.execute(
+                f"""
+                SELECT names.common_name, ngc.* from
+                names
+                left join
+                ngc on ngc.catalog=names.catalog and ngc.designation=names.designation
+                where common_name {direction} "M{designator}"
+                and  common_name like "M%"
+                order by common_name {sort_order}
+            """
+            ).fetchone()
+        else:
+            if self.catalog_index == 0:
+                catalog = "N"
+            else:
+                catalog = "I"
+
+            tmp_obj = self.conn.execute(
+                f"""
+                SELECT * from ngc
+                where catalog = "{catalog}"
+                and designation {direction} "{designator}"
+                order by designation {sort_order}
+            """
+            ).fetchone()
+
+        if tmp_obj:
+            self.cat_object = tmp_obj
+            if self.catalog_index == 2:
+                desig = str(tmp_obj["common_name"])
+                desig = desig[1:]
+                desig = list(desig)
+                desig = ["-"] * (3-len(desig)) + desig
+            else:
+                desig = str(tmp_obj["designation"])
+                desig = list(desig)
+                desig = ["-"] * (4-len(desig)) + desig
+
+            self.designator = desig
+            self.update_object_text()
+
+
+    def key_up(self):
+        self.scroll_obj("<")
+
+    def key_down(self):
+        self.scroll_obj(">")
 
 
 class UIStatus(UIModule):

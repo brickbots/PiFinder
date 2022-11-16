@@ -26,7 +26,7 @@ import solver
 import gps
 import config
 
-from uimodules import UIPreview, UIConsole, UIStatus
+from uimodules import UIPreview, UIConsole, UIStatus, UICatalog, UILocate
 
 serial = spi(device=0, port=0)
 device = ssd1351(serial)
@@ -162,6 +162,8 @@ def main():
         ui_modes = [
             console,
             UIPreview(device, camera_image, shared_state, command_queues),
+            UICatalog(device, camera_image, shared_state, command_queues),
+            UILocate(device, camera_image, shared_state, command_queues),
             UIStatus(device, camera_image, shared_state, command_queues),
         ]
         ui_mode_index = 1
