@@ -181,30 +181,14 @@ class UICatalog(UIModule):
                     go = False
         # Check for match
         designator = "".join(self.designator).replace("-", "")
-        if self.catalog_index == 2:
-            # Messier
-            self.cat_object = self.conn.execute(
-                f"""
-                SELECT ngc.* from
-                names
-                left join
-                ngc on ngc.catalog=names.catalog and ngc.designation=names.designation
-                where common_name = "M{designator}"
-            """
-            ).fetchone()
-        else:
-            if self.catalog_index == 0:
-                catalog = "N"
-            else:
-                catalog = "I"
-
-            self.cat_object = self.conn.execute(
-                f"""
-                SELECT * from ngc
-                where catalog = "{catalog}"
-                and designation = "{designator}"
-            """
-            ).fetchone()
+        catalog = self.__catalogs[self.catalog_index].strip()[0]
+        self.cat_object = self.conn.execute(
+            f"""
+            SELECT * from objects
+            where catalog = "{catalog}"
+            and designation = "{designator}"
+        """
+        ).fetchone()
         self.update_object_text()
 
     def scroll_obj(self, direction):
@@ -218,44 +202,24 @@ class UICatalog(UIModule):
             sort_order = ""
 
         designator = "".join(self.designator).replace("-", "")
-        if self.catalog_index == 2:
-            # Messier
-            tmp_obj = self.conn.execute(
-                f"""
-                SELECT names.common_name, ngc.* from
-                names
-                left join
-                ngc on ngc.catalog=names.catalog and ngc.designation=names.designation
-                where common_name {direction} "M{designator}"
-                and  common_name like "M%"
-                order by common_name {sort_order}
-            """
-            ).fetchone()
-        else:
-            if self.catalog_index == 0:
-                catalog = "N"
-            else:
-                catalog = "I"
+        catalog = self.__catalogs[self.catalog_index].strip()[0]
 
-            tmp_obj = self.conn.execute(
-                f"""
-                SELECT * from ngc
-                where catalog = "{catalog}"
-                and designation {direction} "{designator}"
-                order by designation {sort_order}
-            """
-            ).fetchone()
+        tmp_obj = self.conn.execute(
+            f"""
+            SELECT * from objects
+            where catalog = "{catalog}"
+            and designation {direction} "{designator}"
+            order by designation {sort_order}
+        """
+        ).fetchone()
 
         if tmp_obj:
             self.cat_object = tmp_obj
+            desig = str(tmp_obj["designation"])
+            desig = list(desig)
             if self.catalog_index == 2:
-                desig = str(tmp_obj["common_name"])
-                desig = desig[1:]
-                desig = list(desig)
                 desig = ["-"] * (3-len(desig)) + desig
             else:
-                desig = str(tmp_obj["designation"])
-                desig = list(desig)
                 desig = ["-"] * (4-len(desig)) + desig
 
             self.designator = desig
