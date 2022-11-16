@@ -56,114 +56,131 @@ def load_ngc_catalog():
         """
     )
 
+    # Track M objects to avoid double adding some with
+    # multiple NGC designations
+    m_objects = []
     # load em up!
-    # ngc2000.dat
-    ngc_dat = os.path.join(root_dir, "astro_data", "ngc2000", "ngc2000.dat")
-    with open(ngc_dat, "r") as ngc:
-        for l in ngc:
-            catalog = l[0:1]
-            if catalog == " ":
-                catalog = "N"
-            designation = int(l[1:5])
-            obj_type = l[6:9].strip()
-            rah = int(l[10:12])
-            ram = float(l[13:17])
-            des = l[19:20]
-            ded = int(l[20:22])
-            dem = int(l[23:25])
-            const = l[29:32]
-            l_size = l[32:33]
-            size = l[33:38]
-            mag = l[40:44]
-            desc = l[46:]
+    # ngc2000.dat + messier.dat
+    ngc_dat_files = [
+        os.path.join(root_dir, "astro_data", "ngc2000", "ngc2000.dat"),
+        os.path.join(root_dir, "astro_data",  "messier_objects.dat"),
+    ]
+    for ngc_dat in ngc_dat_files:
+        with open(ngc_dat, "r") as ngc:
+            for l in ngc:
+                add = True
+                catalog = l[0:1]
+                if catalog == " ":
+                    catalog = "N"
+                designation = int(l[1:5])
+                if catalog == "M":
+                    if designation not in m_objects:
+                        m_objects.append(designation)
+                    else:
+                        add = False
+                if add:
+                    obj_type = l[6:9].strip()
+                    rah = int(l[10:12])
+                    ram = float(l[13:17])
+                    des = l[19:20]
+                    ded = int(l[20:22])
+                    dem = int(l[23:25])
+                    const = l[29:32]
+                    l_size = l[32:33]
+                    size = l[33:38]
+                    mag = l[40:44]
+                    desc = l[46:]
 
-            # convert ra/dec here....
-            dec = ded + (dem / 60)
-            if des == "-":
-                dec = dec * -1
-            ra = rah + (ram / 60) * 15
+                    # convert ra/dec here....
+                    dec = ded + (dem / 60)
+                    if des == "-":
+                        dec = dec * -1
+                    ra = rah + (ram / 60) * 15
 
-            q = f"""
-                    INSERT INTO objects
-                    VALUES(
-                        "{catalog}",
-                        {designation},
-                        "{obj_type}",
-                        {ra},
-                        {dec},
-                        "{const}",
-                        "{l_size}",
-                        "{size}",
-                        "{mag}",
-                        "{desc.replace('"','""')}"
-                    )
-                """
-            db_c.execute(q)
-        conn.commit()
+                    q = f"""
+                            INSERT INTO objects
+                            VALUES(
+                                "{catalog}",
+                                {designation},
+                                "{obj_type}",
+                                {ra},
+                                {dec},
+                                "{const}",
+                                "{l_size}",
+                                "{size}",
+                                "{mag}",
+                                "{desc.replace('"','""')}"
+                            )
+                        """
+                    db_c.execute(q)
+            conn.commit()
 
     # add records for M objects into objects....
-    name_dat = os.path.join(root_dir, "astro_data", "ngc2000", "names.dat")
-    with open(name_dat, "r") as names:
-        for l in names:
-            common_name = l[0:35]
-            if common_name.startswith("M "):
-                m_designation = int(common_name[2:].strip())
+    name_dat_files = [
+        os.path.join(root_dir, "astro_data", "ngc2000", "names.dat"),
+        os.path.join(root_dir, "astro_data",  "extra_names.dat"),
+    ]
+    for name_dat in name_dat_files:
+        with open(name_dat, "r") as names:
+            for l in names:
+                common_name = l[0:35]
+                if common_name.startswith("M "):
+                    m_designation = int(common_name[2:].strip())
+                    if m_designation not in m_objects:
+                        catalog = l[36:37]
+                        if catalog == " ":
+                            catalog = "N"
+                        designation = l[37:41].strip()
+
+                        q = f"""
+                            SELECT * from objects
+                            where catalog="{catalog}"
+                            and designation="{designation}"
+                        """
+                        tmp_row = conn.execute(q).fetchone()
+                        if(tmp_row):
+                            m_objects.append(m_designation)
+                            q = f"""
+                                INSERT INTO objects
+                                VALUES(
+                                    "M",
+                                    {m_designation},
+                                    "{tmp_row['obj_type']}",
+                                    {tmp_row['ra']},
+                                    {tmp_row['dec']},
+                                    "{tmp_row['const']}",
+                                    "{tmp_row['l_size']}",
+                                    "{tmp_row['size']}",
+                                    "{tmp_row['mag']}",
+                                    "{tmp_row['desc'].replace('"','""')}"
+                                )
+                                """
+                            db_c.execute(q)
+            conn.commit()
+
+        # Now add the names
+        with open(name_dat, "r") as names:
+            for l in names:
+                common_name = l[0:35]
+                if common_name.startswith("M "):
+                    common_name = "M" + common_name[2:].strip()
                 catalog = l[36:37]
                 if catalog == " ":
                     catalog = "N"
                 designation = l[37:41].strip()
+                comment = l[42:]
 
-                q = f"""
-                    SELECT * from objects
-                    where catalog="{catalog}"
-                    and designation="{designation}"
-                """
-                tmp_row = conn.execute(q).fetchone()
-                if(tmp_row):
+                if designation != "":
                     q = f"""
-                        INSERT INTO objects
-                        VALUES(
-                            "M",
-                            {m_designation},
-                            "{tmp_row['obj_type']}",
-                            {tmp_row['ra']},
-                            {tmp_row['dec']},
-                            "{tmp_row['const']}",
-                            "{tmp_row['l_size']}",
-                            "{tmp_row['size']}",
-                            "{tmp_row['mag']}",
-                            "{tmp_row['desc'].replace('"','""')}"
-                        )
+                            INSERT INTO names
+                            values(
+                                "{common_name}",
+                                "{catalog}",
+                                {designation},
+                                "{comment.replace('"','""')}"
+                            )
                         """
+
                     db_c.execute(q)
-                else:
-                    print(common_name)
-                    print("No ngc found?", catalog, designation)
-        conn.commit()
-
-    # Now add the names
-    name_dat = os.path.join(root_dir, "astro_data", "ngc2000", "names.dat")
-    with open(name_dat, "r") as names:
-        for l in names:
-            common_name = l[0:35]
-            if common_name.startswith("M "):
-                common_name = "M" + common_name[2:].strip()
-            catalog = l[36:37]
-            if catalog == " ":
-                catalog = "N"
-            designation = l[37:41].strip()
-            comment = l[42:]
-
-            if designation != "":
-                q = f"""
-                        INSERT INTO names
-                        values(
-                            "{common_name}",
-                            "{catalog}",
-                            {designation},
-                            "{comment.replace('"','""')}"
-                        )
-                    """
-
-                db_c.execute(q)
-        conn.commit()
+            conn.commit()
+    return m_objects
