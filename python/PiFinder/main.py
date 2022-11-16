@@ -92,12 +92,21 @@ def main():
     """
     Get this show on the road!
     """
+    # init queues
     console_queue = Queue()
+    keyboard_queue = Queue()
+    gps_queue = Queue()
+    camera_command_queue = Queue()
+
+    # init UI Modes
+    command_queues = {
+        "camera": camera_command_queue,
+    }
     cfg = config.Config()
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness)
-    console = UIConsole(device, None, None, None)
+    console = UIConsole(device, None, None, command_queues)
     console.write("Starting....")
     console.update()
 
@@ -105,14 +114,12 @@ def main():
     # spawn keyboard service....
     console.write("   Keyboard")
     console.update()
-    keyboard_queue = Queue()
     keyboard_process = Process(target=keyboard.run_keyboard, args=(keyboard_queue,))
     keyboard_process.start()
 
     # spawn gps service....
     console.write("   GPS")
     console.update()
-    gps_queue = Queue()
     gps_process = Process(
         target=gps.gps_monitor,
         args=(
@@ -125,6 +132,7 @@ def main():
     # spawn imaging service
     with StateManager() as manager:
         shared_state = manager.SharedState()
+        console.set_shared_state(shared_state)
 
         # Load last location, set lock to false
         initial_location = cfg.get_option("last_location")
@@ -132,7 +140,6 @@ def main():
 
         console.write("   Camera")
         console.update()
-        camera_command_queue = Queue()
         camera_image = manager.NewImage("RGB", (512, 512))
         image_process = Process(
             target=camera.get_images,

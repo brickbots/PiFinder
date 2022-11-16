@@ -63,7 +63,7 @@ def load_ngc_catalog():
     # ngc2000.dat + messier.dat
     ngc_dat_files = [
         os.path.join(root_dir, "astro_data", "ngc2000", "ngc2000.dat"),
-        os.path.join(root_dir, "astro_data",  "messier_objects.dat"),
+        os.path.join(root_dir, "astro_data", "messier_objects.dat"),
     ]
     for ngc_dat in ngc_dat_files:
         with open(ngc_dat, "r") as ngc:
@@ -118,7 +118,7 @@ def load_ngc_catalog():
     # add records for M objects into objects....
     name_dat_files = [
         os.path.join(root_dir, "astro_data", "ngc2000", "names.dat"),
-        os.path.join(root_dir, "astro_data",  "extra_names.dat"),
+        os.path.join(root_dir, "astro_data", "extra_names.dat"),
     ]
     for name_dat in name_dat_files:
         with open(name_dat, "r") as names:
@@ -138,7 +138,7 @@ def load_ngc_catalog():
                             and designation="{designation}"
                         """
                         tmp_row = conn.execute(q).fetchone()
-                        if(tmp_row):
+                        if tmp_row:
                             m_objects.append(m_designation)
                             q = f"""
                                 INSERT INTO objects

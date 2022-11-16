@@ -4,6 +4,7 @@
 This module contains all the UI Module classes
 
 """
+import datetime
 import time
 import os
 import sqlite3
@@ -218,13 +219,12 @@ class UICatalog(UIModule):
             desig = str(tmp_obj["designation"])
             desig = list(desig)
             if self.catalog_index == 2:
-                desig = ["-"] * (3-len(desig)) + desig
+                desig = ["-"] * (3 - len(desig)) + desig
             else:
-                desig = ["-"] * (4-len(desig)) + desig
+                desig = ["-"] * (4 - len(desig)) + desig
 
             self.designator = desig
             self.update_object_text()
-
 
     def key_up(self):
         self.scroll_obj("<")
@@ -298,6 +298,15 @@ class UIConsole(UIModule):
         self.lines = ["---- TOP ---"]
         self.scroll_offset = 0
         super().__init__(*args)
+
+    def set_shared_state(self, shared_state):
+        self.shared_state = shared_state
+
+    def key_number(self, number):
+        if number == 0:
+            self.command_queues["camera"].put("debug")
+        dt = datetime.datetime(2022, 11, 15, 2, 0, 0)
+        self.shared_state.set_datetime(dt)
 
     def key_enter(self):
         # reset scroll offset

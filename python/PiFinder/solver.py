@@ -91,8 +91,8 @@ def solver(shared_state, camera_image, console_queue):
                     solved["RA"], solved["Dec"]
                 )
                 # see if we can calc alt-az
-                solved["alt"] = None
-                solved["az"] = None
+                solved["Alt"] = None
+                solved["Az"] = None
                 location = shared_state.location()
                 dt = shared_state.datetime()
                 if location and dt:

@@ -8,6 +8,7 @@ This module is the camera
 * Takes full res images on demand
 
 """
+import os
 import queue
 import uuid
 import pprint
@@ -22,6 +23,7 @@ RED = (0, 0, 255)
 
 
 def get_images(shared_state, camera_image, command_queue, console_queue):
+    debug = False
     cfg = config.Config()
     # Initialize camera, defaults :
     # gain: 10
@@ -39,12 +41,20 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
 
     red_image = Image.new("RGB", (128, 128), (0, 0, 255))
 
+    # Set path for test images
+    root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    test_image_path = os.path.join(root_dir, "test_images", "pifinder_debug.png")
+
     while True:
         start_time = time.time()
-
-        base_image = camera.capture_image("main")
-        base_image = base_image.convert("L")
-        base_image = base_image.rotate(90)
+        if not debug:
+            base_image = camera.capture_image("main")
+            base_image = base_image.convert("L")
+            base_image = base_image.rotate(90)
+        else:
+            # load image and wait
+            base_image = Image.open(test_image_path)
+            time.sleep(1)
         camera_image.paste(base_image)
         shared_state.set_last_image_time(time.time())
 
@@ -54,6 +64,12 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
                 command = command_queue.get(block=False)
             except queue.Empty:
                 command = None
+
+            if command == "debug":
+                if debug == True:
+                    debug = False
+                else:
+                    debug = True
 
             if command == "exp_up" or command == "exp_dn":
                 if command == "exp_up":
