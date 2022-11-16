@@ -24,12 +24,13 @@ def load_ngc_catalog():
 
     # open the DB
     conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
     db_c = conn.cursor()
 
     # initialize tables
     db_c.execute(
         """
-           CREATE TABLE ngc(
+           CREATE TABLE objects(
                 catalog TEXT,
                 designation INTEGER,
                 obj_type TEXT,
@@ -83,7 +84,7 @@ def load_ngc_catalog():
             ra = rah + (ram / 60) * 15
 
             q = f"""
-                    INSERT INTO ngc
+                    INSERT INTO objects
                     VALUES(
                         "{catalog}",
                         {designation},
@@ -100,6 +101,47 @@ def load_ngc_catalog():
             db_c.execute(q)
         conn.commit()
 
+    # add records for M objects into objects....
+    name_dat = os.path.join(root_dir, "astro_data", "ngc2000", "names.dat")
+    with open(name_dat, "r") as names:
+        for l in names:
+            common_name = l[0:35]
+            if common_name.startswith("M "):
+                m_designation = int(common_name[2:].strip())
+                catalog = l[36:37]
+                if catalog == " ":
+                    catalog = "N"
+                designation = l[37:41].strip()
+
+                q = f"""
+                    SELECT * from objects
+                    where catalog="{catalog}"
+                    and designation="{designation}"
+                """
+                tmp_row = conn.execute(q).fetchone()
+                if(tmp_row):
+                    q = f"""
+                        INSERT INTO objects
+                        VALUES(
+                            "M",
+                            {m_designation},
+                            "{tmp_row['obj_type']}",
+                            {tmp_row['ra']},
+                            {tmp_row['dec']},
+                            "{tmp_row['const']}",
+                            "{tmp_row['l_size']}",
+                            "{tmp_row['size']}",
+                            "{tmp_row['mag']}",
+                            "{tmp_row['desc'].replace('"','""')}"
+                        )
+                        """
+                    db_c.execute(q)
+                else:
+                    print(common_name)
+                    print("No ngc found?", catalog, designation)
+        conn.commit()
+
+    # Now add the names
     name_dat = os.path.join(root_dir, "astro_data", "ngc2000", "names.dat")
     with open(name_dat, "r") as names:
         for l in names:
