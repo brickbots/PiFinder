@@ -162,7 +162,7 @@ class UILocate(UIModule):
                     dt,
                 )
 
-                return solution["Az"] - target_az, solution["Alt"] - target_alt
+                return target_az - solution["Az"], target_alt - solution["Alt"]
         else:
             return None, None
 
@@ -368,6 +368,8 @@ class UIStatus(UIModule):
             "AZ": "--",
             "ALT": "--",
             "GPS": "--",
+            "UTC DT": "--",
+            "UTC TM": "--",
         }
         super().__init__(*args)
 
@@ -393,6 +395,11 @@ class UIStatus(UIModule):
         location = self.shared_state.location()
         if location["gps_lock"]:
             self.status_dict["GPS"] = "LOCK"
+
+        dt = self.shared_state.datetime()
+        if dt:
+            self.status_dict["UTC DT"] = dt.date().isoformat()
+            self.status_dict["UTC TM"] = dt.time().isoformat()
 
     def update(self):
         self.update_status_dict()

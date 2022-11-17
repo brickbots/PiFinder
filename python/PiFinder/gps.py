@@ -16,6 +16,7 @@ def gps_monitor(gps_queue, console_queue):
     while True:
         line = sio.readline()
         msg = pynmea2.parse(line)
+        # print(repr(msg))
 
         if str(msg.sentence_type) == "GGA":
             if msg.latitude + msg.longitude != 0:
