@@ -9,6 +9,8 @@ import time
 import os
 import sqlite3
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+
+import solver
 from obj_types import OBJ_TYPES
 
 RED = (0, 0, 255)
@@ -26,6 +28,7 @@ class UIModule:
 
     def __init__(self, display, camera_image, shared_state, command_queues):
         self.title = self.__title__
+        self.switch_to = None
         self.display = display
         self.shared_state = shared_state
         self.camera_image = camera_image
@@ -55,8 +58,10 @@ class UIModule:
         to be overloaded by subclases and shoud
         end up calling self.screen_update to
         to the actual screen draw
+        retun the results of the screen_update to
+        pass any signals back to main
         """
-        self.screen_update()
+        return self.screen_update()
 
     def screen_update(self):
         """
@@ -69,6 +74,11 @@ class UIModule:
         self.draw.text((6, 1), self.title, font=self.font_bold, fill=(0, 0, 0))
 
         self.display.display(self.screen.convert(self.display.mode))
+
+        # We can return a UIModule class name to force a switch here
+        tmp_return = self.switch_to
+        self.switch_to = None
+        return tmp_return
 
     def key_number(self, number):
         pass
@@ -98,6 +108,107 @@ class UILocate(UIModule):
     """
 
     __title__ = "LOCATE"
+
+    def __init__(self, *args):
+        self.object_text = ["No Object Found"]
+        self.__catalogs = {"N": "NGC", "I": " IC", "M": "Mes"}
+        self.sf_utils = solver.Skyfield_utils()
+        self.font_huge = ImageFont.truetype(
+            "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Bold.ttf", 35
+        )
+        super().__init__(*args)
+
+    def key_enter(self):
+        """
+        When enter is pressed, set the
+        target
+        """
+        self.switch_to = "UICatalog"
+
+    def update_object_text(self):
+        """
+        Generates object text
+        """
+        if not self.target:
+            self.object_text = ["No Object Found"]
+            return
+
+        self.object_text = []
+        object_type = OBJ_TYPES.get(self.target["obj_type"], self.target["obj_type"])
+        self.object_text.append(
+            object_type + " " * (18 - len(object_type)) + self.target["const"]
+        )
+
+    def aim_degrees(self):
+        """
+        Returns degrees in
+        az/alt from current position
+        to target
+        """
+        solution = self.shared_state.solution()
+        location = self.shared_state.location()
+        dt = self.shared_state.datetime()
+        if location and dt and solution:
+            if solution["Alt"]:
+                # We have position and time/date!
+                self.sf_utils.set_location(
+                    location["lat"],
+                    location["lon"],
+                    location["altitude"],
+                )
+                target_alt, target_az = self.sf_utils.radec_to_altaz(
+                    self.target["ra"],
+                    self.target["dec"],
+                    dt,
+                )
+
+                return solution["Az"] - target_az, solution["Alt"] - target_alt
+        else:
+            return None, None
+
+    def update(self):
+        # Clear Screen
+        self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
+
+        self.target = self.shared_state.target()
+        if not self.target:
+            self.draw.text((0, 20), "No Target Set", font=self.font_large, fill=RED)
+            return self.screen_update()
+
+        self.update_object_text()
+        # Target Name
+        line = self.__catalogs.get(self.target["catalog"], "UNK") + " "
+        line += str(self.target["designation"])
+        self.draw.text((0, 20), line, font=self.font_large, fill=RED)
+
+        # ID Line in BOld
+        self.draw.text((0, 40), self.object_text[0], font=self.font_bold, fill=RED)
+
+        # Pointing Instructions
+        point_az, point_alt = self.aim_degrees()
+        if not point_az:
+            self.draw.text((0, 50), " ---.-", font=self.font_huge, fill=RED)
+            self.draw.text((0, 84), "  --.-", font=self.font_huge, fill=RED)
+        else:
+            if point_az >= 0:
+                self.draw.text((0, 50), "+", font=self.font_huge, fill=RED)
+            else:
+                point_az *= -1
+                self.draw.text((0, 50), "-", font=self.font_huge, fill=RED)
+            self.draw.text(
+                (25, 50), f"{point_az : >5.1f}", font=self.font_huge, fill=RED
+            )
+
+            if point_alt >= 0:
+                self.draw.text((0, 84), "+", font=self.font_huge, fill=RED)
+            else:
+                point_alt *= -1
+                self.draw.text((0, 84), "-", font=self.font_huge, fill=RED)
+            self.draw.text(
+                (25, 84), f"{point_alt : >5.1f}", font=self.font_huge, fill=RED
+            )
+
+        return self.screen_update()
 
 
 class UICatalog(UIModule):
@@ -152,7 +263,7 @@ class UICatalog(UIModule):
         # Remaining lines
         for i, line in enumerate(self.object_text[1:]):
             self.draw.text((0, i * 10 + 60), line, font=self.font_base, fill=RED)
-        self.screen_update()
+        return self.screen_update()
 
     def key_d(self):
         self.catalog_index += 1
@@ -191,6 +302,15 @@ class UICatalog(UIModule):
         """
         ).fetchone()
         self.update_object_text()
+
+    def key_enter(self):
+        """
+        When enter is pressed, set the
+        target
+        """
+        if self.cat_object:
+            self.shared_state.set_target(dict(self.cat_object))
+            self.switch_to = "UILocate"
 
     def scroll_obj(self, direction):
         """
@@ -287,7 +407,7 @@ class UIStatus(UIModule):
 
         for i, line in enumerate(lines):
             self.draw.text((0, i * 10 + 20), line, font=self.font_base, fill=RED)
-        self.screen_update()
+        return self.screen_update()
 
 
 class UIConsole(UIModule):
@@ -297,6 +417,7 @@ class UIConsole(UIModule):
         self.dirty = True
         self.lines = ["---- TOP ---"]
         self.scroll_offset = 0
+        self.debug_mode = False
         super().__init__(*args)
 
     def set_shared_state(self, shared_state):
@@ -305,6 +426,11 @@ class UIConsole(UIModule):
     def key_number(self, number):
         if number == 0:
             self.command_queues["camera"].put("debug")
+            if self.debug_mode:
+                self.debug_mode = False
+            else:
+                self.debug_mode = True
+            self.command_queues["console"].put("Debug: " + str(self.debug_mode))
         dt = datetime.datetime(2022, 11, 15, 2, 0, 0)
         self.shared_state.set_datetime(dt)
 
@@ -344,8 +470,8 @@ class UIConsole(UIModule):
             self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
             for i, line in enumerate(self.lines[-10 - self.scroll_offset :][:10]):
                 self.draw.text((0, i * 10 + 20), line, font=self.font_base, fill=RED)
-            self.screen_update()
             self.dirty = False
+            return self.screen_update()
 
 
 class UIPreview(UIModule):
@@ -372,7 +498,7 @@ class UIPreview(UIModule):
             if self.shared_state.solve_state():
                 solution = self.shared_state.solution()
                 self.title = "PREVIEW - " + solution["constellation"]
-            self.screen_update()
+            return self.screen_update()
 
     def key_up(self):
         self.command_queues["camera"].put("exp_up")

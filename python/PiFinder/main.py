@@ -52,6 +52,13 @@ class SharedStateObj:
         self.__imu = None
         self.__location = None
         self.__datetime = None
+        self.__target = None
+
+    def target(self):
+        return self.__target
+
+    def set_target(self, target):
+        self.__target = target
 
     def solve_state(self):
         return self.__solve_state
@@ -101,6 +108,7 @@ def main():
     # init UI Modes
     command_queues = {
         "camera": camera_command_queue,
+        "console": console_queue,
     }
     cfg = config.Config()
     # init screen
@@ -162,10 +170,6 @@ def main():
         console.write("   Event Loop")
         console.update()
 
-        # init UI Modes
-        command_queues = {
-            "camera": camera_command_queue,
-        }
         ui_modes = [
             console,
             UIPreview(device, camera_image, shared_state, command_queues),
@@ -259,7 +263,12 @@ def main():
                     elif keycode == keyboard.D:
                         ui_modes[ui_mode_index].key_d()
 
-            ui_modes[ui_mode_index].update()
+            update_msg = ui_modes[ui_mode_index].update()
+            if update_msg:
+                for i, ui_class in enumerate(ui_modes):
+                    if ui_class.__class__.__name__ == update_msg:
+                        ui_mode_index = i
+                        ui_class.active()
 
 
 if __name__ == "__main__":
