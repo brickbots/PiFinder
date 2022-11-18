@@ -12,15 +12,9 @@ from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 
 import solver
 from obj_types import OBJ_TYPES
+from image_util import gamma_correct_low, subtract_background, red_image
 
 RED = (0, 0, 255)
-
-
-def gamma_correct(in_value):
-    in_value = float(in_value) / 255
-    out_value = pow(in_value, 0.5)
-    out_value = int(255 * out_value)
-    return out_value
 
 
 class UIModule:
@@ -486,7 +480,6 @@ class UIPreview(UIModule):
 
     def __init__(self, *args):
         self.last_image_update = time.time()
-        self.red_image = Image.new("RGB", (128, 128), (0, 0, 255))
         super().__init__(*args)
 
     def update(self):
@@ -495,10 +488,11 @@ class UIPreview(UIModule):
         if last_image_time > self.last_image_update:
             image_obj = self.camera_image.copy()
             image_obj = image_obj.resize((128, 128), Image.LANCZOS)
+            image_obj = subtract_background(image_obj)
             image_obj = image_obj.convert("RGB")
-            image_obj = ImageChops.multiply(image_obj, self.red_image)
-            image_obj = ImageOps.autocontrast(image_obj, cutoff=(20, 0))
-            image_obj = Image.eval(image_obj, gamma_correct)
+            image_obj = ImageChops.multiply(image_obj, red_image)
+            image_obj = ImageOps.autocontrast(image_obj)
+            image_obj = Image.eval(image_obj, gamma_correct_low)
             self.screen.paste(image_obj)
             last_image_fetched = last_image_time
 
