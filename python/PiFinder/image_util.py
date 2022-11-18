@@ -13,20 +13,25 @@ import scipy.ndimage
 
 red_image = Image.new("RGB", (128, 128), (0, 0, 255))
 
+
 def gamma_correct_low(in_value):
-    return gamma_correct(in_value, .9)
+    return gamma_correct(in_value, 0.9)
+
 
 def gamma_correct_med(in_value):
-    return gamma_correct(in_value, .7)
+    return gamma_correct(in_value, 0.7)
+
 
 def gamma_correct_high(in_value):
-    return gamma_correct(in_value, .5)
+    return gamma_correct(in_value, 0.5)
+
 
 def gamma_correct(in_value, gamma):
     in_value = float(in_value) / 255
     out_value = pow(in_value, gamma)
     out_value = int(255 * out_value)
     return out_value
+
 
 def subtract_background(image):
     image = np.asarray(image, dtype=np.float32)

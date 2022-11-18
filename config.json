@@ -1,9 +1,10 @@
 {
-    "display_brightness": 70,
+    "display_brightness": 255,
     "last_location": {
-        "lat": 34.030284,
-        "lon": -118.49167733333333,
-        "altitude": 62.8,
+        "lat": 34.030101333333334,
+        "lon": -118.49170216666667,
+        "timzone": "America/Los_Angeles",
+        "altitude": 64.5,
         "gps_lock": false
     },
     "camera_exp": 1500000,

@@ -15,6 +15,7 @@ import datetime
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
+from timezonefinder import TimezoneFinder
 
 from luma.core.interface.serial import spi
 from luma.core.render import canvas
@@ -143,7 +144,11 @@ def main():
         console.set_shared_state(shared_state)
 
         # Load last location, set lock to false
+        tz_finder = TimezoneFinder()
         initial_location = cfg.get_option("last_location")
+        initial_location["timezone"] = tz_finder.timezone_at(
+            lat=initial_location["lat"], lng=initial_location["lon"]
+        )
         shared_state.set_location(initial_location)
 
         console.write("   Camera")
@@ -154,9 +159,6 @@ def main():
             args=(shared_state, camera_image, camera_command_queue, console_queue),
         )
         image_process.start()
-
-        # Wait for camera to start....
-        time.sleep(2)
 
         # Solver
         console.write("   Solver")
@@ -198,6 +200,9 @@ def main():
                         location["altitude"] = gps_msg.altitude
                         if location["gps_lock"] == False:
                             # Write to config if we just got a lock
+                            location["timezone"] = tz_finder.timezone_at(
+                                lat=location["lat"], lng=location["lon"]
+                            )
                             cfg.set_option("last_location", location)
                             location["gps_lock"] = True
                         shared_state.set_location(location)

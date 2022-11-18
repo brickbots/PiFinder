@@ -5,6 +5,7 @@ This module contains all the UI Module classes
 
 """
 import datetime
+import pytz
 import time
 import os
 import sqlite3
@@ -362,7 +363,7 @@ class UIStatus(UIModule):
             "AZ": "--",
             "ALT": "--",
             "GPS": "--",
-            "UTC DT": "--",
+            "LCL TM": "--",
             "UTC TM": "--",
         }
         super().__init__(*args)
@@ -392,7 +393,10 @@ class UIStatus(UIModule):
 
         dt = self.shared_state.datetime()
         if dt:
-            self.status_dict["UTC DT"] = dt.date().isoformat()
+            utc_tz = pytz.timezone("UTC")
+            dt = utc_tz.localize(dt)
+            local_tz = pytz.timezone(location["timezone"])
+            self.status_dict["LCL TM"] = dt.astimezone(local_tz).time().isoformat()
             self.status_dict["UTC TM"] = dt.time().isoformat()
 
     def update(self):
