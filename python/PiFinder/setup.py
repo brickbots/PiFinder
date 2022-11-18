@@ -9,6 +9,7 @@ import sqlite3
 import os
 from obj_types import OBJ_DESCRIPTORS
 
+
 def decode_description(description):
     """
     decodes comma seperated descriptors
@@ -17,12 +18,12 @@ def decode_description(description):
     codes = description.split(",")
     for code in codes:
         code = code.strip()
-        decode = OBJ_DESCRIPTORS.get(code,code)
+        decode = OBJ_DESCRIPTORS.get(code, code)
         if decode == code:
             sub_result = []
-            #try splitting on spaces..
+            # try splitting on spaces..
             for sub_code in code.split(" "):
-                decode =OBJ_DESCRIPTORS.get(sub_code,sub_code)
+                decode = OBJ_DESCRIPTORS.get(sub_code, sub_code)
                 sub_result.append(decode)
 
             decode = " ".join(sub_result)
@@ -30,6 +31,7 @@ def decode_description(description):
         result.append(decode)
 
     return ", ".join(result)
+
 
 def load_ngc_catalog():
     """
@@ -111,7 +113,7 @@ def load_ngc_catalog():
                     l_size = l[32:33]
                     size = l[33:38]
                     mag = l[40:44]
-                    #desc = decode_description(l[46:])
+                    # desc = decode_description(l[46:])
                     desc = l[46:]
 
                     # convert ra/dec here....
@@ -210,7 +212,7 @@ def load_ngc_catalog():
     # Now add the messier names
     name_dat = os.path.join(root_dir, "astro_data", "messier_names.dat")
     with open(name_dat, "r") as names:
-        for i,l in enumerate(names):
+        for i, l in enumerate(names):
 
             ls = l.split("\t")
             common_name = ls[1][:-1]

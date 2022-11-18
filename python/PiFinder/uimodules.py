@@ -133,10 +133,7 @@ class UILocate(UIModule):
 
         # Type / Constellation
         object_type = OBJ_TYPES.get(self.target["obj_type"], self.target["obj_type"])
-        self.object_text.append(
-            f"{object_type: <14} {self.target['const']}"
-        )
-
+        self.object_text.append(f"{object_type: <14} {self.target['const']}")
 
     def aim_degrees(self):
         """
@@ -241,7 +238,7 @@ class UICatalog(UIModule):
         Generates object text
         """
         if not self.cat_object:
-            self.object_text = ["No Object Found"]
+            self.object_text = ["No Object Found", ""]
             return
 
         # look for AKAs
@@ -253,29 +250,39 @@ class UICatalog(UIModule):
         """
         ).fetchall()
 
-
         self.object_text = []
         # Type / Constellation
         object_type = OBJ_TYPES.get(
             self.cat_object["obj_type"], self.cat_object["obj_type"]
         )
-        self.object_text.append(
-            f"{object_type: <14} {self.cat_object['const']}"
-        )
-
-        if aka_recs:
-            aka_list = [r["common_name"] for r in aka_recs]
-            self.object_text.append(", ".join(aka_list))
-
+        self.object_text.append(f"{object_type: <14} {self.cat_object['const']}")
 
         # Magnitude / Size
         self.object_text.append(
-                f"Mag: {self.cat_object['mag'] : <4}" +
-                " " * 3 +
-                f"Sz: {self.cat_object['size'] : <5}"
+            f"Mag:{self.cat_object['mag'] : <4}"
+            + " " * 3
+            + f"Sz:{self.cat_object['size']}"
         )
 
+        if aka_recs:
+            aka_list = []
+            for rec in aka_recs:
+                if rec["common_name"].startswith("M"):
+                    aka_list.insert(0, rec["common_name"])
+                else:
+                    aka_list.append(rec["common_name"])
+            self.object_text.append(", ".join(aka_list))
+
         # NGC description....
+        max_line = 20
+        line = ""
+        desc_tokens = self.cat_object["desc"].split(" ")
+        for token in desc_tokens:
+            if len(line) + len(token) + 1 > max_line:
+                self.object_text.append(line)
+                line = token
+            else:
+                line = line + " " + token
 
     def active(self):
         self.update_object_text()
@@ -292,13 +299,26 @@ class UICatalog(UIModule):
 
         # ID Line in BOld
         self.draw.text((0, 48), self.object_text[0], font=self.font_bold, fill=RED)
+        # mag/size in bold
+        self.draw.text((0, 62), self.object_text[1], font=self.font_bold, fill=RED)
 
         # Remaining lines
-        for i, line in enumerate(self.object_text[1:]):
-            self.draw.text((0, i * 11 + 64), line, font=self.font_base, fill=RED)
+        for i, line in enumerate(self.object_text[2:]):
+            self.draw.text((0, i * 11 + 82), line, font=self.font_base, fill=RED)
         return self.screen_update()
 
     def key_d(self):
+        # d is for delete
+        if self.catalog_index == 2:
+            # messier
+            self.designator = ["-"] * 3
+        else:
+            self.designator = ["-"] * 4
+        self.cat_object = None
+        self.update_object_text()
+
+    def key_c(self):
+        # C is for catalog
         self.catalog_index += 1
         if self.catalog_index >= len(self.__catalogs):
             self.catalog_index = 0

@@ -173,13 +173,16 @@ def main():
         console.update()
 
         ui_modes = [
-            console,
             UIPreview(device, camera_image, shared_state, command_queues),
             UICatalog(device, camera_image, shared_state, command_queues),
             UILocate(device, camera_image, shared_state, command_queues),
             UIStatus(device, camera_image, shared_state, command_queues),
+            console,
         ]
-        ui_mode_index = 1
+        # What is the highest index for observing modes
+        # vs status/debug modes accessed by alt-A
+        ui_observing_modes = 2
+        ui_mode_index = 0
 
         while True:
             # Console
@@ -239,10 +242,19 @@ def main():
                         cfg.set_option("display_brightness", screen_brightness)
                         console.write("Brightness: " + str(screen_brightness))
 
+                    if keycode == keyboard.ALT_A:
+                        # Switch between non-observing modes
+                        ui_mode_index += 1
+                        if ui_mode_index >= len(ui_modes):
+                            ui_mode_index = ui_observing_modes + 1
+                        if ui_mode_index <= ui_observing_modes:
+                            ui_mode_index = ui_observing_modes + 1
+                        ui_modes[ui_mode_index].active()
+
                 elif keycode == keyboard.A:
                     # A key, mode switch
                     ui_mode_index += 1
-                    if ui_mode_index >= len(ui_modes):
+                    if ui_mode_index > ui_observing_modes:
                         ui_mode_index = 0
                     ui_modes[ui_mode_index].active()
 

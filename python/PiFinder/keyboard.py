@@ -18,6 +18,10 @@ C = 22
 D = 24
 ALT_UP = 101
 ALT_DN = 102
+ALT_A = 103
+ALT_B = 104
+ALT_C = 105
+ALT_D = 106
 
 cols = [16, 23, 26, 27]
 rows = [19, 17, 18, 22, 20]
@@ -34,7 +38,7 @@ alt_keymap = [
     NA, NA, NA, ALT_UP,
     NA, NA, NA, ALT_DN,
     NA, NA, NA, NA,
-    NA, NA, NA, NA,
+    ALT_A, ALT_B, ALT_C, ALT_D,
 ]
 # fmt: on
 
