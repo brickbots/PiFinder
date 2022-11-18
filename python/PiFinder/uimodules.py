@@ -34,7 +34,7 @@ class UIModule:
             "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 10
         )
         self.font_bold = ImageFont.truetype(
-            "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Bold.ttf", 10
+            "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Bold.ttf", 12
         )
         self.font_large = ImageFont.truetype(
             "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 15
@@ -105,6 +105,7 @@ class UILocate(UIModule):
     __title__ = "LOCATE"
 
     def __init__(self, *args):
+        self.target = None
         self.object_text = ["No Object Found"]
         self.__catalogs = {"N": "NGC", "I": " IC", "M": "Mes"}
         self.sf_utils = solver.Skyfield_utils()
@@ -129,10 +130,13 @@ class UILocate(UIModule):
             return
 
         self.object_text = []
+
+        # Type / Constellation
         object_type = OBJ_TYPES.get(self.target["obj_type"], self.target["obj_type"])
         self.object_text.append(
-            object_type + " " * (18 - len(object_type)) + self.target["const"]
+            f"{object_type: <14} {self.target['const']}"
         )
+
 
     def aim_degrees(self):
         """
@@ -161,16 +165,19 @@ class UILocate(UIModule):
         else:
             return None, None
 
+    def active(self):
+        self.target = self.shared_state.target()
+        self.update_object_text()
+        self.update()
+
     def update(self):
         # Clear Screen
         self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
 
-        self.target = self.shared_state.target()
         if not self.target:
             self.draw.text((0, 20), "No Target Set", font=self.font_large, fill=RED)
             return self.screen_update()
 
-        self.update_object_text()
         # Target Name
         line = self.__catalogs.get(self.target["catalog"], "UNK") + " "
         line += str(self.target["designation"])
@@ -225,6 +232,9 @@ class UICatalog(UIModule):
         self.conn.row_factory = sqlite3.Row
         self.db_c = self.conn.cursor()
         super().__init__(*args)
+        self.font_large = ImageFont.truetype(
+            "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 20
+        )
 
     def update_object_text(self):
         """
@@ -234,14 +244,42 @@ class UICatalog(UIModule):
             self.object_text = ["No Object Found"]
             return
 
+        # look for AKAs
+        aka_recs = self.conn.execute(
+            f"""
+            SELECT * from names
+            where catalog = "{self.cat_object['catalog']}"
+            and designation = "{self.cat_object['designation']}"
+        """
+        ).fetchall()
+
+
         self.object_text = []
+        # Type / Constellation
         object_type = OBJ_TYPES.get(
             self.cat_object["obj_type"], self.cat_object["obj_type"]
         )
         self.object_text.append(
-            object_type + " " * (18 - len(object_type)) + self.cat_object["const"]
+            f"{object_type: <14} {self.cat_object['const']}"
         )
-        self.object_text.append("This is line Two")
+
+        if aka_recs:
+            aka_list = [r["common_name"] for r in aka_recs]
+            self.object_text.append(", ".join(aka_list))
+
+
+        # Magnitude / Size
+        self.object_text.append(
+                f"Mag: {self.cat_object['mag'] : <4}" +
+                " " * 3 +
+                f"Sz: {self.cat_object['size'] : <5}"
+        )
+
+        # NGC description....
+
+    def active(self):
+        self.update_object_text()
+        self.update()
 
     def update(self):
         # Clear Screen
@@ -250,14 +288,14 @@ class UICatalog(UIModule):
         # catalog and entry field
         line = self.__catalogs[self.catalog_index] + " "
         line += "".join(self.designator)
-        self.draw.text((0, 25), line, font=self.font_large, fill=RED)
+        self.draw.text((0, 21), line, font=self.font_large, fill=RED)
 
         # ID Line in BOld
-        self.draw.text((0, 50), self.object_text[0], font=self.font_bold, fill=RED)
+        self.draw.text((0, 48), self.object_text[0], font=self.font_bold, fill=RED)
 
         # Remaining lines
         for i, line in enumerate(self.object_text[1:]):
-            self.draw.text((0, i * 10 + 60), line, font=self.font_base, fill=RED)
+            self.draw.text((0, i * 11 + 64), line, font=self.font_base, fill=RED)
         return self.screen_update()
 
     def key_d(self):
