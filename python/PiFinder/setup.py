@@ -7,7 +7,21 @@ and importers used during setup
 """
 import sqlite3
 import os
+from obj_types import OBJ_DESCRIPTORS
 
+def decode_description(description):
+    """
+    decodes comma seperated descriptors
+    """
+    result = []
+    codes = description.split(",")
+    for code in codes:
+        code = code.strip()
+        decode = OBJ_DESCRIPTORS.get(code,code)
+        if decode:
+            result.append(decode)
+
+    return ", ".join(result)
 
 def load_ngc_catalog():
     """
@@ -89,7 +103,7 @@ def load_ngc_catalog():
                     l_size = l[32:33]
                     size = l[33:38]
                     mag = l[40:44]
-                    desc = l[46:]
+                    desc = decode_description(l[46:])
 
                     # convert ra/dec here....
                     dec = ded + (dem / 60)
@@ -183,4 +197,28 @@ def load_ngc_catalog():
 
                     db_c.execute(q)
             conn.commit()
-    return m_objects
+
+    # Now add the messier names
+    name_dat = os.path.join(root_dir, "astro_data", "messier_names.dat")
+    with open(name_dat, "r") as names:
+        for i,l in enumerate(names):
+            print(i,l)
+
+            ls = l.split("\t")
+            common_name = ls[1][:-1]
+            catalog = "M"
+            designation = ls[0][1:]
+
+            if designation != "":
+                q = f"""
+                        INSERT INTO names
+                        values(
+                            "{common_name}",
+                            "{catalog}",
+                            {designation},
+                            "{comment.replace('"','""')}"
+                        )
+                    """
+
+                db_c.execute(q)
+        conn.commit()
