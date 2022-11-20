@@ -23,7 +23,7 @@ class Starfield:
     specified RA/DEC + roll
     """
 
-    def __init__(self, mag_limit=5, fov=10.2):
+    def __init__(self, mag_limit=7, fov=10.2):
         utctime = datetime.datetime(2023, 1, 1, 2, 0, 0).replace(tzinfo=utc)
         ts = load.timescale()
         self.t = ts.from_datetime(utctime)
@@ -38,6 +38,13 @@ class Starfield:
         with load.open(hip_path) as f:
             self.raw_stars = hipparcos.load_dataframe(f)
 
+        # constellations
+        root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        const_path = os.path.join(root_dir, "astro_data", "constellationship.fab")
+        with load.open(const_path) as f:
+            self.constellations = stellarium.parse_constellations(f)
+
+        self.set_mag_limit(mag_limit)
         self.set_fov(fov)
 
     def set_mag_limit(self, mag_limit):
@@ -51,26 +58,8 @@ class Starfield:
     def set_fov(self, fov):
         self.fov = fov
 
-    def plot_starfield(self, ra, dec, roll):
+    def plot_starfield(self, ra, dec, roll, const_lines=True):
         start_time = time.time()
-
-        # And the constellation outlines come from Stellarium.  We make a list
-        # of the stars at which each edge stars, and the star at which each edge
-        # ends.
-
-        """
-        url = ('https://raw.githubusercontent.com/Stellarium/stellarium/master'
-               '/skycultures/western_SnT/constellationship.fab')
-
-        with load.open(url) as f:
-            constellations = stellarium.parse_constellations(f)
-
-        edges = [edge for name, edges in constellations for edge in edges]
-        edges_star1 = [star1 for star1, star2 in edges]
-        edges_star2 = [star2 for star1, star2 in edges]
-        """
-
-        # We will center the chart on the comet's middle position.
 
         sky_pos = Star(
             ra=Angle(degrees=ra),
@@ -78,49 +67,45 @@ class Starfield:
         )
         center = self.earth.at(self.t).observe(sky_pos)
         projection = build_stereographic_projection(center)
-        field_of_view_degrees = self.fov
-
-        # Now that we have constructed our projection, compute the x and y
-        # coordinates that each star and the comet will have on the plot.
-
-        """
-        # The constellation lines will each begin at the x,y of one star and end
-        # at the x,y of another.  We have to "rollaxis" the resulting coordinate
-        # array into the shape that matplotlib expects.
-
-        xy1 = stars[['x', 'y']].loc[edges_star1].values
-        xy2 = stars[['x', 'y']].loc[edges_star2].values
-        lines_xy = np.rollaxis(np.array([xy1, xy2]), 1)
-        """
 
         # Time to build the figure!
-
-        """
-        # Draw the constellation lines.
-
-        ax.add_collection(LineCollection(lines_xy, colors='#00f2'))
-        """
         stars = self.stars.copy()
 
         stars["x"], stars["y"] = projection(self.star_positions)
         print(f"Plot prep: {time.time() - start_time}")
-        pil_image = self.render_starfield_pil(stars)
+        pil_image = self.render_starfield_pil(stars, const_lines)
         return pil_image.rotate(roll).crop([64, 64, 192, 192])
 
-    def render_starfield_pil(self, stars):
+    def render_starfield_pil(self, stars, const_lines):
         target_size = 128
         start_time = time.time()
         angle = np.pi - (self.fov) / 360.0 * np.pi
         limit = np.sin(angle) / (1.0 - np.cos(angle))
 
-        #image_size = int((180 / self.fov) * 128)
-        image_scale = int(target_size/limit)
-        print(image_scale)
+        image_scale = int(target_size / limit)
 
         ret_image = Image.new("RGB", (target_size * 2, target_size * 2))
         idraw = ImageDraw.Draw(ret_image)
 
         pixel_scale = image_scale / 2
+
+        # constellation lines first
+        if const_lines:
+            edges = [edge for name, edges in self.constellations for edge in edges]
+            edges_star1 = [star1 for star1, star2 in edges]
+            edges_star2 = [star2 for star1, star2 in edges]
+
+        # edges in plot space
+        xy1 = stars[["x", "y"]].loc[edges_star1].values
+        xy2 = stars[["x", "y"]].loc[edges_star2].values
+
+        for i, start_pos in enumerate(xy1):
+            end_pos = xy2[i]
+            start_x = start_pos[0] * pixel_scale + target_size
+            start_y = start_pos[1] * -1 * pixel_scale + target_size
+            end_x = end_pos[0] * pixel_scale + target_size
+            end_y = end_pos[1] * -1 * pixel_scale + target_size
+            idraw.line([start_x, start_y, end_x, end_y], fill=(32, 32, 32))
 
         stars_x = list(stars["x"])
         stars_y = list(stars["y"])
@@ -130,9 +115,12 @@ class Starfield:
             x_pos = x * pixel_scale + target_size
             y_pos = stars_y[i] * -1 * pixel_scale + target_size
             mag = stars_mag[i]
-            plot_size = (self.mag_limit - mag)/2
-            if plot_size < .5:
-                idraw.point((x_pos, y_pos), fill = (255,255,255))
+            plot_size = (self.mag_limit - mag) / 3
+            fill = (255, 255, 255)
+            if mag > 4.5:
+                fill = (128, 128, 128)
+            if plot_size < 0.5:
+                idraw.point((x_pos, y_pos), fill=fill)
             else:
                 idraw.ellipse(
                     [
@@ -144,6 +132,6 @@ class Starfield:
                     fill=(255, 255, 255),
                 )
 
-        #ret_image = ret_image.resize((256, 256))
+        # ret_image = ret_image.resize((256, 256))
         print(f"Plot plot: {time.time() - start_time}")
         return ret_image
