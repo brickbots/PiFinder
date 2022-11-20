@@ -11,7 +11,6 @@ import datetime
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 
-from matplotlib import pyplot as plt
 from skyfield.api import Star, load, utc, Angle
 from skyfield.constants import GM_SUN_Pitjeva_2005_km3_s2 as GM_SUN
 from skyfield.data import hipparcos, mpc, stellarium
@@ -105,52 +104,8 @@ class Starfield:
 
         stars["x"], stars["y"] = projection(self.star_positions)
         print(f"Plot prep: {time.time() - start_time}")
-        pil_image = self.render_starfield_mp(stars)
+        pil_image = self.render_starfield_pil(stars)
         return pil_image.rotate(roll).crop([64, 64, 192, 192])
-
-    def render_starfield_mp(self, stars):
-        start_time = time.time()
-
-        magnitude = stars["magnitude"]
-        marker_size = (0.5 + self.mag_limit - magnitude) ** 2.0
-
-        # Time to build the figure!
-
-        fig, ax = plt.subplots(figsize=[9, 9])
-
-        # Draw the stars.
-
-        ax.scatter(stars["x"], stars["y"], s=marker_size, color="k")
-
-        # Finally, title the plot and set some final parameters.
-        angle = np.pi - (self.fov * 2) / 360.0 * np.pi
-        limit = np.sin(angle) / (1.0 - np.cos(angle))
-
-        ax.set_xlim(-limit, limit)
-        ax.set_ylim(-limit, limit)
-        ax.xaxis.set_visible(False)
-        ax.yaxis.set_visible(False)
-        ax.set_aspect(1.0)
-
-        st = time.time()
-        """
-        canvas = plt.get_current_fig_manager().canvas
-        canvas.draw()
-        pil_image = Image.frombytes(
-                'RGB', canvas.get_width_height(), canvas.tostring_rgb())
-        print(time.time() - st)
-        return pil_image.resize((256,256)).rotate(roll).crop([64,64,192,192])
-        """
-
-        tmp_buff = io.BytesIO()
-
-        fig.savefig(tmp_buff, bbox_inches="tight")
-        plt.close()
-        pil_image = ImageOps.invert(
-            Image.open(tmp_buff).convert("RGB").resize((256, 256))
-        )
-        print(f"Plot plot: {time.time() - start_time}")
-        return pil_image
 
     def render_starfield_pil(self, stars):
         target_size = 128
