@@ -548,7 +548,7 @@ class UIPreview(UIModule):
         self.starfield = plot.Starfield()
         super().__init__(*args)
 
-    def update(self, force = False):
+    def update(self, force=False):
         if force:
             self.last_update = 0
         preview_mode = self.preview_modes[self.preview_index]
@@ -583,11 +583,11 @@ class UIPreview(UIModule):
                 last_solve_time = solution["solve_time"]
                 if last_solve_time > self.last_update:
                     image_obj = self.starfield.plot_starfield(
-                                solution["RA"],
-                                solution["Dec"],
-                                solution["Roll"],
-                                show_const,
-                            )
+                        solution["RA"],
+                        solution["Dec"],
+                        solution["Roll"],
+                        show_const,
+                    )
                     image_obj = ImageChops.multiply(image_obj, red_image)
                     self.screen.paste(image_obj)
                     self.last_update = last_solve_time
