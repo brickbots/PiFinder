@@ -12,6 +12,9 @@ This module is the main entry point for PiFinder it:
 import time
 import queue
 import datetime
+import json
+import uuid
+import os
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
@@ -28,6 +31,8 @@ import gps
 import config
 
 from uimodules import UIPreview, UIConsole, UIStatus, UICatalog, UILocate
+
+from image_util import subtract_background
 
 serial = spi(device=0, port=0)
 device = ssd1351(serial)
@@ -100,6 +105,10 @@ def main():
     """
     Get this show on the road!
     """
+    # Set path for test images
+    root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    test_image_path = os.path.join(root_dir, "test_images")
+
     # init queues
     console_queue = Queue()
     keyboard_queue = Queue()
@@ -250,6 +259,32 @@ def main():
                         if ui_mode_index <= ui_observing_modes:
                             ui_mode_index = ui_observing_modes + 1
                         ui_modes[ui_mode_index].active()
+
+                    if keycode == keyboard.ALT_D:
+                        # Debug snapshot
+                        uid = str(uuid.uuid1()).split("-")[0]
+                        debug_image = camera_image.copy()
+                        debug_solution = shared_state.solution()
+                        debug_location = shared_state.location()
+                        debug_dt = shared_state.datetime()
+
+                        # write images
+                        debug_image.save(f"{test_image_path}/{uid}_raw.png")
+                        debug_image = subtract_background(debug_image)
+                        debug_image = debug_image.convert("RGB")
+                        debug_image = ImageOps.autocontrast(debug_image)
+                        debug_image.save(f"{test_image_path}/{uid}_sub.png")
+
+                        with open(f"{test_image_path}/{uid}_solution.json", "w") as f:
+                            json.dump(debug_solution, f, indent=4)
+
+                        with open(f"{test_image_path}/{uid}_location.json", "w") as f:
+                            json.dump(debug_location, f, indent=4)
+
+                        with open(f"{test_image_path}/{uid}_datetime.json", "w") as f:
+                            json.dump(debug_dt.isoformat(), f, indent=4)
+
+                        console.write(f"Debug dump: {uid}")
 
                 elif keycode == keyboard.A:
                     # A key, mode switch
