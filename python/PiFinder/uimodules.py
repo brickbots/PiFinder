@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 import solver
 from obj_types import OBJ_TYPES
 from image_util import gamma_correct_low, subtract_background, red_image
+import plot
 
 RED = (0, 0, 255)
 
@@ -541,27 +542,74 @@ class UIPreview(UIModule):
     __title__ = "PREVIEW"
 
     def __init__(self, *args):
-        self.last_image_update = time.time()
+        self.preview_modes = ["image", "plot", "plot+const"]
+        self.preview_index = 0
+        self.last_update = time.time()
+        self.starfield = plot.Starfield()
         super().__init__(*args)
 
-    def update(self):
-        # display an image
-        last_image_time = self.shared_state.last_image_time()
-        if last_image_time > self.last_image_update:
-            image_obj = self.camera_image.copy()
-            image_obj = image_obj.resize((128, 128), Image.LANCZOS)
-            image_obj = subtract_background(image_obj)
-            image_obj = image_obj.convert("RGB")
-            image_obj = ImageChops.multiply(image_obj, red_image)
-            image_obj = ImageOps.autocontrast(image_obj)
-            image_obj = Image.eval(image_obj, gamma_correct_low)
-            self.screen.paste(image_obj)
-            last_image_fetched = last_image_time
+    def update(self, force = False):
+        if force:
+            self.last_update = 0
+        preview_mode = self.preview_modes[self.preview_index]
+        if preview_mode == "image":
+            # display an image
+            last_image_time = self.shared_state.last_image_time()
+            if last_image_time > self.last_update:
+                image_obj = self.camera_image.copy()
+                image_obj = image_obj.resize((128, 128), Image.LANCZOS)
+                image_obj = subtract_background(image_obj)
+                image_obj = image_obj.convert("RGB")
+                image_obj = ImageChops.multiply(image_obj, red_image)
+                image_obj = ImageOps.autocontrast(image_obj)
+                image_obj = Image.eval(image_obj, gamma_correct_low)
+                self.screen.paste(image_obj)
+                self.last_update = last_image_time
+
+                self.title = "PREVIEW"
+                if self.shared_state.solve_state():
+                    solution = self.shared_state.solution()
+                    self.title = "PREVIEW - " + solution["constellation"]
+                return self.screen_update()
+
+        if preview_mode.startswith("plot"):
+            # display plot
+            show_const = False
+            if preview_mode.endswith("const"):
+                show_const = True
 
             if self.shared_state.solve_state():
                 solution = self.shared_state.solution()
-                self.title = "PREVIEW - " + solution["constellation"]
+                last_solve_time = solution["solve_time"]
+                if last_solve_time > self.last_update:
+                    image_obj = self.starfield.plot_starfield(
+                                solution["RA"],
+                                solution["Dec"],
+                                solution["Roll"],
+                                show_const,
+                            )
+                    image_obj = ImageChops.multiply(image_obj, red_image)
+                    self.screen.paste(image_obj)
+                    self.last_update = last_solve_time
+
+                    self.title = "PLOT - " + solution["constellation"]
+            else:
+                self.title = "PLOT"
+                self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
+                self.draw.text((18, 20), "Can't plot", font=self.font_large, fill=RED)
+                self.draw.text((25, 50), "No Solve Yet", font=self.font_base, fill=RED)
+                # set preview index to end of plots
+                # so the next button press will get out
+                # of plots
+                self.preview_index = 2
+
             return self.screen_update()
+
+    def key_b(self):
+        self.preview_index += 1
+        if self.preview_index >= len(self.preview_modes):
+            self.preview_index = 0
+        self.update(force=True)
 
     def key_up(self):
         self.command_queues["camera"].put("exp_up")
