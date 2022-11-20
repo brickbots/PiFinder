@@ -50,12 +50,10 @@ class Starfield:
         )
 
     def set_fov(self, fov):
-        self.fov = fov * 1.925
+        self.fov = fov
 
     def plot_starfield(self, ra, dec, roll):
-
-        ret_image = Image.new("RGB", (256, 256))
-        idraw = ImageDraw.Draw(ret_image)
+        start_time = time.time()
 
         # And the constellation outlines come from Stellarium.  We make a list
         # of the stars at which each edge stars, and the star at which each edge
@@ -106,10 +104,12 @@ class Starfield:
         stars = self.stars.copy()
 
         stars["x"], stars["y"] = projection(self.star_positions)
+        print(f"Plot prep: {time.time() - start_time}")
+        pil_image = self.render_starfield_mp(stars)
+        return pil_image.rotate(roll).crop([64, 64, 192, 192])
 
-        # Create a True/False mask marking the stars bright enough to be
-        # included in our plot.  And go ahead and compute how large their
-        # markers will be on the plot.
+    def render_starfield_mp(self, stars):
+        start_time = time.time()
 
         magnitude = stars["magnitude"]
         marker_size = (0.5 + self.mag_limit - magnitude) ** 2.0
@@ -120,13 +120,10 @@ class Starfield:
 
         # Draw the stars.
 
-        ax.scatter(
-            stars["x"], stars["y"], s=marker_size, color="k"
-        )
-
+        ax.scatter(stars["x"], stars["y"], s=marker_size, color="k")
 
         # Finally, title the plot and set some final parameters.
-        angle = np.pi - self.fov / 360.0 * np.pi
+        angle = np.pi - (self.fov * 2) / 360.0 * np.pi
         limit = np.sin(angle) / (1.0 - np.cos(angle))
 
         ax.set_xlim(-limit, limit)
@@ -149,7 +146,49 @@ class Starfield:
 
         fig.savefig(tmp_buff, bbox_inches="tight")
         plt.close()
-        pil_image = Image.open(tmp_buff).convert("RGB")
-        print(time.time() - st)
-        return ImageOps.invert(pil_image.resize((256,256)).rotate(roll).crop([64,64,192,192]))
+        pil_image = ImageOps.invert(
+            Image.open(tmp_buff).convert("RGB").resize((256, 256))
+        )
+        print(f"Plot plot: {time.time() - start_time}")
+        return pil_image
 
+    def render_starfield_pil(self, stars):
+        target_size = 128
+        start_time = time.time()
+        angle = np.pi - (self.fov) / 360.0 * np.pi
+        limit = np.sin(angle) / (1.0 - np.cos(angle))
+
+        #image_size = int((180 / self.fov) * 128)
+        image_scale = int(target_size/limit)
+        print(image_scale)
+
+        ret_image = Image.new("RGB", (target_size * 2, target_size * 2))
+        idraw = ImageDraw.Draw(ret_image)
+
+        pixel_scale = image_scale / 2
+
+        stars_x = list(stars["x"])
+        stars_y = list(stars["y"])
+        stars_mag = list(stars["magnitude"])
+
+        for i, x in enumerate(stars_x):
+            x_pos = x * pixel_scale + target_size
+            y_pos = stars_y[i] * -1 * pixel_scale + target_size
+            mag = stars_mag[i]
+            plot_size = (self.mag_limit - mag)/2
+            if plot_size < .5:
+                idraw.point((x_pos, y_pos), fill = (255,255,255))
+            else:
+                idraw.ellipse(
+                    [
+                        x_pos - plot_size,
+                        y_pos - plot_size,
+                        x_pos + plot_size,
+                        y_pos + plot_size,
+                    ],
+                    fill=(255, 255, 255),
+                )
+
+        #ret_image = ret_image.resize((256, 256))
+        print(f"Plot plot: {time.time() - start_time}")
+        return ret_image
