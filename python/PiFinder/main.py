@@ -28,6 +28,7 @@ import keyboard
 import camera
 import solver
 import gps
+import imu
 import config
 
 from uimodules import UIPreview, UIConsole, UIStatus, UICatalog, UILocate
@@ -71,6 +72,12 @@ class SharedStateObj:
 
     def set_solve_state(self, v):
         self.__solve_state = v
+
+    def imu(self):
+        return self.__imu
+
+    def set_imu(self, v):
+        self.__imu = v
 
     def solution(self):
         return self.__solution
@@ -168,6 +175,14 @@ def main():
             args=(shared_state, camera_image, camera_command_queue, console_queue),
         )
         image_process.start()
+
+        # IMU
+        console.write("   IMU")
+        console.update()
+        imu_process = Process(
+            target=imu.imu_monitor, args=(shared_state, console_queue)
+        )
+        imu_process.start()
 
         # Solver
         console.write("   Solver")
