@@ -46,17 +46,20 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
     test_image_path = os.path.join(root_dir, "test_images", "pifinder_debug.png")
 
     while True:
-        start_time = time.time()
-        if not debug:
-            base_image = camera.capture_image("main")
-            base_image = base_image.convert("L")
-            base_image = base_image.rotate(90)
+        imu = shared_state.imu()
+        if imu and imu["moving"] and imu["status"] > 0:
+            pass
         else:
-            # load image and wait
-            base_image = Image.open(test_image_path)
-            time.sleep(1)
-        camera_image.paste(base_image)
-        shared_state.set_last_image_time(time.time())
+            if not debug:
+                base_image = camera.capture_image("main")
+                base_image = base_image.convert("L")
+                base_image = base_image.rotate(90)
+            else:
+                # load image and wait
+                base_image = Image.open(test_image_path)
+                time.sleep(1)
+            camera_image.paste(base_image)
+            shared_state.set_last_image_time(time.time())
 
         command = True
         while command:

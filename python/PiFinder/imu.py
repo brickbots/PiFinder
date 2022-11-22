@@ -17,9 +17,11 @@ class Imu:
         i2c = board.I2C()
         self.sensor = adafruit_bno055.BNO055_I2C(i2c)
         #self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
-        self.quat_history = []
+        self.quat_history = [(0,0,0,0)] * 10
         self.flip_count = 0
         self.avg_quat = (0,0,0,0)
+        self.__moving= False
+        self.calibration = 0
 
     def quat_to_euler(self, quat):
         if quat[0] + quat[1] + quat[2] + quat[3] == 0:
@@ -60,7 +62,12 @@ class Imu:
             return False
 
     def update(self):
+        # Throw out non-calibrated data
+        self.calibration = self.sensor.calibration_status[0]
+        if self.calibration == 0:
+            return True
         quat = self.sensor.quaternion
+
 
         # update moving
         if not self.flip(quat):
@@ -113,6 +120,7 @@ def imu_monitor(shared_state, console_queue):
     }
     while True:
         imu.update()
+        imu_data["status"] = imu.calibration
         if imu.moving():
             if imu_data["moving"] == False:
                 print("IMU: move start")
@@ -121,7 +129,6 @@ def imu_monitor(shared_state, console_queue):
                 imu_data["move_start"] = time.time()
                 #pprint(imu_data)
             imu_data["pos"] = imu.get_euler()
-            imu_data["status"] = imu.sensor.calibration_status[0]
             #print(imu_data["pos"], imu_data["status"])
             if shared_state != None:
                 shared_state.set_imu(imu_data)
@@ -132,7 +139,6 @@ def imu_monitor(shared_state, console_queue):
                 imu_data["moving"] = False
                 imu_data["pos"] = imu.get_euler()
                 imu_data["move_end"] = time.time()
-                imu_data["status"] = imu.sensor.calibration_status[0]
                 #pprint(imu_data)
                 if shared_state != None:
                     shared_state.set_imu(imu_data)
