@@ -8,6 +8,7 @@ import os
 import io
 import datetime
 import numpy as np
+import pandas
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 
 from skyfield.api import Star, load, utc, Angle
@@ -57,7 +58,66 @@ class Starfield:
     def set_fov(self, fov):
         self.fov = fov
 
+    def plot_markers(self, ra, dec, roll, marker_list):
+        """
+        Returns an image to add to another image
+        Marker list should be a list of
+        (RA_Hours/DEC_degrees, symbol) tuples
+        """
+        sky_pos = Star(
+            ra=Angle(degrees=ra),
+            dec_degrees=dec,
+        )
+        center = self.earth.at(self.t).observe(sky_pos)
+        projection = build_stereographic_projection(center)
+
+        markers = pandas.DataFrame(
+            marker_list, columns=["ra_hours", "dec_degrees", "symbol"]
+        )
+
+        # required, use the same epoch as stars
+        markers["epoch_year"] = 1991.25
+        marker_positions = self.earth.at(self.t).observe(Star.from_dataframe(markers))
+
+        markers["x"], markers["y"] = projection(marker_positions)
+
+        target_size = 128
+        angle = np.pi - (self.fov) / 360.0 * np.pi
+        limit = np.sin(angle) / (1.0 - np.cos(angle))
+        ret_image = Image.new("RGB", (target_size * 2, target_size * 2))
+        idraw = ImageDraw.Draw(ret_image)
+
+        image_scale = int(target_size / limit)
+        pixel_scale = image_scale / 2
+
+        markers_x = list(markers["x"])
+        markers_y = list(markers["y"])
+        markers_symbol = list(markers["symbol"])
+
+        ret_list = []
+        for i, x in enumerate(markers_x):
+            x_pos = x * pixel_scale + target_size
+            y_pos = markers_y[i] * -1 * pixel_scale + target_size
+            symbol = markers_symbol[i]
+
+            if symbol == "target":
+                idraw.line(
+                    [x_pos, y_pos - 5, x_pos, y_pos + 5],
+                    fill=(0, 0, 255),
+                )
+                idraw.line(
+                    [x_pos - 5, y_pos, x_pos + 5, y_pos],
+                    fill=(0, 0, 255),
+                )
+
+        return ret_image.rotate(roll).crop([64, 64, 192, 192])
+
     def plot_starfield(self, ra, dec, roll, const_lines=True):
+        """
+        Returns an image of the starfield at the
+        provided RA/DEC/ROLL with or without
+        constellation lines
+        """
         sky_pos = Star(
             ra=Angle(degrees=ra),
             dec_degrees=dec,

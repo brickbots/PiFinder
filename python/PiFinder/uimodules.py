@@ -66,7 +66,7 @@ class UIModule:
         writes to display
         """
         self.draw.rectangle([0, 0, 128, 16], fill=(0, 0, 0))
-        self.draw.rounded_rectangle([0, 0, 128, 16], radius=6, fill=(0, 0, 128))
+        self.draw.rounded_rectangle([0, 0, 128, 16], radius=6, fill=(0, 0, 64))
         self.draw.text((6, 1), self.title, font=self.font_bold, fill=(0, 0, 0))
 
         self.display.display(self.screen.convert(self.display.mode))
@@ -544,9 +544,55 @@ class UIPreview(UIModule):
     def __init__(self, *args):
         self.preview_modes = ["image", "plot", "plot+const"]
         self.preview_index = 0
+        self.reticle_mode = 2
         self.last_update = time.time()
         self.starfield = plot.Starfield()
+        self.solution = None
         super().__init__(*args)
+
+    def plot_target(self):
+        """
+        Plot the target....
+        """
+        # is there a target?
+        target = self.shared_state.target()
+        if not target or not self.solution:
+            return
+
+        marker_list = [
+            (plot.Angle(degrees=target["ra"])._hours, target["dec"], "target")
+        ]
+
+        marker_image = self.starfield.plot_markers(
+            self.solution["RA"],
+            self.solution["Dec"],
+            self.solution["Roll"],
+            marker_list,
+        )
+        self.screen.paste(ImageChops.add(self.screen, marker_image))
+
+    def draw_reticle(self):
+        """
+        draw the reticle if desired
+        """
+        if self.reticle_mode == 0:
+            # None....
+            return
+
+        brightness = 64
+        if self.reticle_mode == 1:
+            brightness = 32
+
+        bboxes = [
+            [39, 39, 89, 89],
+            [52, 52, 76, 76],
+            [61, 61, 67, 67],
+        ]
+        for bbox in bboxes:
+            self.draw.arc(bbox, 20, 70, fill=(0, 0, brightness))
+            self.draw.arc(bbox, 110, 160, fill=(0, 0, brightness))
+            self.draw.arc(bbox, 200, 250, fill=(0, 0, brightness))
+            self.draw.arc(bbox, 290, 340, fill=(0, 0, brightness))
 
     def update(self, force=False):
         if force:
@@ -564,13 +610,13 @@ class UIPreview(UIModule):
                 image_obj = ImageOps.autocontrast(image_obj)
                 image_obj = Image.eval(image_obj, gamma_correct_low)
                 self.screen.paste(image_obj)
+                self.plot_target()
                 self.last_update = last_image_time
 
                 self.title = "PREVIEW"
                 if self.shared_state.solve_state():
-                    solution = self.shared_state.solution()
-                    self.title = "PREVIEW - " + solution["constellation"]
-                return self.screen_update()
+                    self.solution = self.shared_state.solution()
+                    self.title = "PREVIEW - " + self.solution["constellation"]
 
         if preview_mode.startswith("plot"):
             # display plot
@@ -579,20 +625,21 @@ class UIPreview(UIModule):
                 show_const = True
 
             if self.shared_state.solve_state():
-                solution = self.shared_state.solution()
-                last_solve_time = solution["solve_time"]
+                self.solution = self.shared_state.solution()
+                last_solve_time = self.solution["solve_time"]
                 if last_solve_time > self.last_update:
                     image_obj = self.starfield.plot_starfield(
-                        solution["RA"],
-                        solution["Dec"],
-                        solution["Roll"],
+                        self.solution["RA"],
+                        self.solution["Dec"],
+                        self.solution["Roll"],
                         show_const,
                     )
                     image_obj = ImageChops.multiply(image_obj, red_image)
                     self.screen.paste(image_obj)
+                    self.plot_target()
                     self.last_update = last_solve_time
 
-                    self.title = "PLOT - " + solution["constellation"]
+                    self.title = "PLOT - " + self.solution["constellation"]
             else:
                 self.title = "PLOT"
                 self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
@@ -603,12 +650,19 @@ class UIPreview(UIModule):
                 # of plots
                 self.preview_index = 2
 
-            return self.screen_update()
+        self.draw_reticle()
+        return self.screen_update()
 
     def key_b(self):
         self.preview_index += 1
         if self.preview_index >= len(self.preview_modes):
             self.preview_index = 0
+        self.update(force=True)
+
+    def key_c(self):
+        self.reticle_mode += 1
+        if self.reticle_mode > 2:
+            self.reticle_mode = 0
         self.update(force=True)
 
     def key_up(self):

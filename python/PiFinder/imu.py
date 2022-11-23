@@ -16,11 +16,11 @@ class Imu:
     def __init__(self):
         i2c = board.I2C()
         self.sensor = adafruit_bno055.BNO055_I2C(i2c)
-        #self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
-        self.quat_history = [(0,0,0,0)] * 10
+        # self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
+        self.quat_history = [(0, 0, 0, 0)] * 10
         self.flip_count = 0
-        self.avg_quat = (0,0,0,0)
-        self.__moving= False
+        self.avg_quat = (0, 0, 0, 0)
+        self.__moving = False
         self.calibration = 0
 
     def quat_to_euler(self, quat):
@@ -68,7 +68,6 @@ class Imu:
             return True
         quat = self.sensor.quaternion
 
-
         # update moving
         if not self.flip(quat):
             dif = (
@@ -78,9 +77,9 @@ class Imu:
                 + abs(quat[3] - self.avg_quat[3])
             )
             if dif > 0.01:
-                self.__moving= True
+                self.__moving = True
             else:
-                self.__moving= False
+                self.__moving = False
 
             # add to averages
             if len(self.quat_history) == 10:
@@ -127,9 +126,9 @@ def imu_monitor(shared_state, console_queue):
                 imu_data["moving"] = True
                 imu_data["start_pos"] = imu_data["pos"]
                 imu_data["move_start"] = time.time()
-                #pprint(imu_data)
+                # pprint(imu_data)
             imu_data["pos"] = imu.get_euler()
-            #print(imu_data["pos"], imu_data["status"])
+            # print(imu_data["pos"], imu_data["status"])
             if shared_state != None:
                 shared_state.set_imu(imu_data)
         else:
@@ -139,7 +138,7 @@ def imu_monitor(shared_state, console_queue):
                 imu_data["moving"] = False
                 imu_data["pos"] = imu.get_euler()
                 imu_data["move_end"] = time.time()
-                #pprint(imu_data)
+                # pprint(imu_data)
                 if shared_state != None:
                     shared_state.set_imu(imu_data)
         if imu_calibrated == False:
