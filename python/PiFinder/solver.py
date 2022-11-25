@@ -45,6 +45,20 @@ class Skyfield_utils:
             altitude,
         )
 
+    def altaz_to_radec(self, alt, az, dt):
+        """
+        returns the ra/dec of a specfic
+        apparent alt/az at the given time
+        """
+        dt = dt.replace(tzinfo=utc)
+        ts = load.timescale()
+        t = ts.from_datetime(dt)
+
+        observer = self.observer_loc.at(t)
+        a = observer.from_altaz(alt_degrees=alt, az_degrees=az)
+        ra, dec, distance = a.radec(epoch=t)
+        return ra._degrees, dec._degrees
+
     def radec_to_altaz(self, ra, dec, dt):
         """
         returns the apparent ALT/AZ of a specfic
