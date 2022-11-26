@@ -9,6 +9,7 @@ This module is the solver
 import queue
 import pprint
 import time
+import copy
 from tetra3 import Tetra3
 from skyfield.api import (
     wgs84,
@@ -90,17 +91,40 @@ def solver(shared_state, camera_image, console_queue):
     sf_utils = Skyfield_utils()
     t3 = Tetra3("default_database")
     last_image_fetch = 0
+    imu_moving = False
+    solved = {
+        "RA": None,
+        "Dec": None,
+        "imu_pos": None,
+        "Alt": None,
+        "Az": None,
+        "solve_source": None,
+        "solve_time": None,
+        "constellation": None,
+        "last_image_solve": None,
+    }
+
+    # This holds the last image solve position info
+    # so we can delta for IMU updates
+    last_image_solve = None
     while True:
         last_image_time = shared_state.last_image_time()
         if last_image_time > last_image_fetch:
             solve_image = camera_image.copy()
-            solved = t3.solve_from_image(
+            new_solve = t3.solve_from_image(
                 solve_image,
                 fov_estimate=10.2,
                 fov_max_error=0.1,
             )
+            solved |= new_solve
             if solved["RA"] != None:
+                imu = shared_state.imu()
+                if imu:
+                    solved["imu_pos"] = imu["pos"]
+                else:
+                    solved["imu_pos"] = None
                 solved["solve_time"] = time.time()
+                solved["solve_source"] = "CAM"
                 solved["constellation"] = sf_utils.radec_to_constellation(
                     solved["RA"], solved["Dec"]
                 )
@@ -123,7 +147,51 @@ def solver(shared_state, camera_image, console_queue):
                     )
                     solved["Alt"] = alt
                     solved["Az"] = az
+
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
+                last_image_solve = copy.copy(solved)
 
             last_image_fetch = last_image_time
+        else:
+            # if we don't have an alt/az solve
+            # we can't use the IMU
+            if solved["Alt"]:
+                # No new image, check IMU
+                imu = shared_state.imu()
+                if imu:
+                    if imu["moving"] or imu_moving == True:
+                        # we track imu_moving so that we do
+                        # this one more time after we stop moving
+                        imu_moving = imu["moving"]
+                        location = shared_state.location()
+                        dt = shared_state.datetime()
+                        if last_image_solve and last_image_solve["Alt"]:
+                            # If we have alt, then we have
+                            # a position/time
+
+                            # calc new alt/az
+                            lis_imu = last_image_solve["imu_pos"]
+                            imu_pos = imu["pos"]
+                            if lis_imu != None and imu_pos != None:
+                                solved["Alt"] = (
+                                    imu_pos[1] - lis_imu[1]
+                                ) + last_image_solve["Alt"]
+                                solved["Az"] = (
+                                    imu_pos[0] - lis_imu[0]
+                                ) + last_image_solve["Az"]
+
+                                # Turn this into RA/DEC
+                                solved["Ra"], solved["Dec"] = sf_utils.altaz_to_radec(
+                                    solved["Alt"], solved["Az"], dt
+                                )
+
+                                solved["solve_time"] = time.time()
+                                solved["solve_source"] = "IMU"
+                                solved[
+                                    "constellation"
+                                ] = sf_utils.radec_to_constellation(
+                                    solved["RA"], solved["Dec"]
+                                )
+                                shared_state.set_solution(solved)
+                                shared_state.set_solve_state(True)

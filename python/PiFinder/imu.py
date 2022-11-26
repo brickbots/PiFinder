@@ -103,7 +103,7 @@ class Imu:
         )
 
     def get_euler(self):
-        return self.quat_to_euler(self.avg_quat)
+        return list(self.quat_to_euler(self.avg_quat))
 
 
 def imu_monitor(shared_state, console_queue):
@@ -126,11 +126,10 @@ def imu_monitor(shared_state, console_queue):
                 imu_data["moving"] = True
                 imu_data["start_pos"] = imu_data["pos"]
                 imu_data["move_start"] = time.time()
-                # pprint(imu_data)
             imu_data["pos"] = imu.get_euler()
-            # print(imu_data["pos"], imu_data["status"])
             if shared_state != None:
                 shared_state.set_imu(imu_data)
+                # pprint(imu_data)
         else:
             if imu_data["moving"] == True:
                 # If wer were moving and we now stopped
@@ -138,9 +137,9 @@ def imu_monitor(shared_state, console_queue):
                 imu_data["moving"] = False
                 imu_data["pos"] = imu.get_euler()
                 imu_data["move_end"] = time.time()
-                # pprint(imu_data)
                 if shared_state != None:
                     shared_state.set_imu(imu_data)
+                    # pprint(imu_data)
         if imu_calibrated == False:
             if imu_data["status"] == 3:
                 imu_calibrated = True

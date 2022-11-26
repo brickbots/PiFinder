@@ -437,7 +437,7 @@ class UIStatus(UIModule):
             # last solve time
             self.status_dict["LST SLV"] = str(
                 round(time.time() - solution["solve_time"])
-            )
+            ) + " - " + str(solution["solve_source"])
 
             self.status_dict["RA"] = str(round(solution["RA"], 3))
             self.status_dict["DEC"] = str(round(solution["Dec"], 3))

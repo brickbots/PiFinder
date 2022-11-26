@@ -14,23 +14,30 @@ def gps_monitor(gps_queue, console_queue):
     sio = io.TextIOWrapper(io.BufferedRWPair(ser, ser))
     gps_locked = False
     while True:
-        line = sio.readline()
+        line = None
         try:
-            msg = pynmea2.parse(line)
-        except pynmea2.nmea.ParseError:
-            print("Could not parse GPS line")
-            print("\t" + line)
-            msg = None
+            line = sio.readline()
+        except:
+            pass
 
-        if msg and str(msg.sentence_type) == "GGA":
-            if msg.latitude + msg.longitude != 0:
-                if gps_locked == False:
-                    console_queue.put("GPS: Locked")
-                    gps_locked = True
-            gps_queue.put(msg)
+        if line:
+            try:
+                msg = pynmea2.parse(line)
+            except pynmea2.nmea.ParseError:
+                print("Could not parse GPS line")
+                print("\t" + line)
+                msg = None
 
-        if str(msg.sentence_type) == "ZDA":
-            gps_queue.put(msg)
+            if msg:
+                if str(msg.sentence_type) == "GGA":
+                    if msg.latitude + msg.longitude != 0:
+                        if gps_locked == False:
+                            console_queue.put("GPS: Locked")
+                            gps_locked = True
+                    gps_queue.put(msg)
 
-        if str(msg.sentence_type) == "RMC":
-            gps_queue.put(msg)
+                if str(msg.sentence_type) == "ZDA":
+                    gps_queue.put(msg)
+
+                if str(msg.sentence_type) == "RMC":
+                    gps_queue.put(msg)
