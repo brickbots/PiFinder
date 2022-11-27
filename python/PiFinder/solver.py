@@ -21,6 +21,9 @@ from skyfield.api import (
     load_constellation_map,
 )
 
+IMU_ALT = 2
+IMU_AZ = 0
+
 
 class Skyfield_utils:
     """
@@ -176,11 +179,11 @@ def solver(shared_state, camera_image, console_queue):
                             lis_imu = last_image_solve["imu_pos"]
                             imu_pos = imu["pos"]
                             if lis_imu != None and imu_pos != None:
-                                alt_offset = imu_pos[1] - lis_imu[1]
+                                alt_offset = imu_pos[IMU_ALT] - lis_imu[IMU_ALT]
                                 alt_offset = (alt_offset + 180) % 360 - 180
-                                alt_upd = (last_image_solve["Alt"] + alt_offset) % 360
+                                alt_upd = (last_image_solve["Alt"] - alt_offset) % 360
 
-                                az_offset = imu_pos[0] - lis_imu[0]
+                                az_offset = imu_pos[IMU_AZ] - lis_imu[IMU_AZ]
                                 az_offset = (az_offset + 180) % 360 - 180
                                 az_upd = (last_image_solve["Az"] + az_offset) % 360
 
