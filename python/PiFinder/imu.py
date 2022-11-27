@@ -18,7 +18,15 @@ class Imu:
     def __init__(self):
         i2c = board.I2C()
         self.sensor = adafruit_bno055.BNO055_I2C(i2c)
-        # self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
+        self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
+        self.sensor.axis_remap = (
+            adafruit_bno055.AXIS_REMAP_Z,
+            adafruit_bno055.AXIS_REMAP_Y,
+            adafruit_bno055.AXIS_REMAP_X,
+            adafruit_bno055.AXIS_REMAP_POSITIVE,
+            adafruit_bno055.AXIS_REMAP_POSITIVE,
+            adafruit_bno055.AXIS_REMAP_POSITIVE,
+        )
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
         self.flip_count = 0
         self.avg_quat = (0, 0, 0, 0)
@@ -69,7 +77,7 @@ class Imu:
 
     def update(self):
         # Throw out non-calibrated data
-        self.calibration = self.sensor.calibration_status[0]
+        self.calibration = self.sensor.calibration_status[1]
         if self.calibration == 0:
             return True
         quat = self.sensor.quaternion
@@ -131,7 +139,7 @@ def imu_monitor(shared_state, console_queue):
         imu_data["status"] = imu.calibration
         if imu.moving():
             if imu_data["moving"] == False:
-                #print("IMU: move start")
+                # print("IMU: move start")
                 imu_data["moving"] = True
                 imu_data["start_pos"] = imu_data["pos"]
                 imu_data["move_start"] = time.time()
@@ -139,7 +147,7 @@ def imu_monitor(shared_state, console_queue):
         else:
             if imu_data["moving"] == True:
                 # If wer were moving and we now stopped
-                #print("IMU: move end")
+                # print("IMU: move end")
                 imu_data["moving"] = False
                 imu_data["pos"] = imu.get_euler()
                 imu_data["move_end"] = time.time()
