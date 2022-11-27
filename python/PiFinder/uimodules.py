@@ -422,6 +422,8 @@ class UIStatus(UIModule):
             "AZ": "--",
             "ALT": "--",
             "GPS": "--",
+            "IMU": "--",
+            "IMU PS": "--",
             "LCL TM": "--",
             "UTC TM": "--",
         }
@@ -435,9 +437,11 @@ class UIStatus(UIModule):
         if self.shared_state.solve_state():
             solution = self.shared_state.solution()
             # last solve time
-            self.status_dict["LST SLV"] = str(
-                round(time.time() - solution["solve_time"])
-            ) + " - " + str(solution["solve_source"])
+            self.status_dict["LST SLV"] = (
+                str(round(time.time() - solution["solve_time"]))
+                + " - "
+                + str(solution["solve_source"])
+            )
 
             self.status_dict["RA"] = str(round(solution["RA"], 3))
             self.status_dict["DEC"] = str(round(solution["Dec"], 3))
@@ -449,6 +453,11 @@ class UIStatus(UIModule):
         location = self.shared_state.location()
         if location["gps_lock"]:
             self.status_dict["GPS"] = "LOCK"
+
+        imu = self.shared_state.imu()
+        if imu:
+            self.status_dict["IMU"] = str(imu["moving"]) + " " + str(imu["status"])
+            self.status_dict["IMU PS"] = f"{imu['pos'][0] :.1f} {imu['pos'][1] :.1f}"
 
         dt = self.shared_state.datetime()
         if dt:
@@ -627,7 +636,12 @@ class UIPreview(UIModule):
             if self.shared_state.solve_state():
                 self.solution = self.shared_state.solution()
                 last_solve_time = self.solution["solve_time"]
-                if last_solve_time > self.last_update:
+                if (
+                    last_solve_time > self.last_update
+                    and self.solution["Roll"] != None
+                    and self.solution["RA"] != None
+                    and self.solution["Dec"] != None
+                ):
                     image_obj = self.starfield.plot_starfield(
                         self.solution["RA"],
                         self.solution["Dec"],

@@ -108,6 +108,7 @@ def solver(shared_state, camera_image, console_queue):
     # so we can delta for IMU updates
     last_image_solve = None
     while True:
+        # try:
         last_image_time = shared_state.last_image_time()
         if last_image_time > last_image_fetch:
             solve_image = camera_image.copy()
@@ -153,6 +154,7 @@ def solver(shared_state, camera_image, console_queue):
                 last_image_solve = copy.copy(solved)
 
             last_image_fetch = last_image_time
+        # elif False:
         else:
             # if we don't have an alt/az solve
             # we can't use the IMU
@@ -174,15 +176,19 @@ def solver(shared_state, camera_image, console_queue):
                             lis_imu = last_image_solve["imu_pos"]
                             imu_pos = imu["pos"]
                             if lis_imu != None and imu_pos != None:
-                                solved["Alt"] = (
-                                    imu_pos[1] - lis_imu[1]
-                                ) + last_image_solve["Alt"]
-                                solved["Az"] = (
-                                    imu_pos[0] - lis_imu[0]
-                                ) + last_image_solve["Az"]
+                                alt_offset = imu_pos[1] - lis_imu[1]
+                                alt_offset = (alt_offset + 180) % 360 - 180
+                                alt_upd = (last_image_solve["Alt"] + alt_offset) % 360
+
+                                az_offset = imu_pos[0] - lis_imu[0]
+                                az_offset = (az_offset + 180) % 360 - 180
+                                az_upd = (last_image_solve["Az"] + az_offset) % 360
+
+                                solved["Alt"] = alt_upd
+                                solved["Az"] = az_upd
 
                                 # Turn this into RA/DEC
-                                solved["Ra"], solved["Dec"] = sf_utils.altaz_to_radec(
+                                solved["RA"], solved["Dec"] = sf_utils.altaz_to_radec(
                                     solved["Alt"], solved["Az"], dt
                                 )
 
@@ -195,3 +201,11 @@ def solver(shared_state, camera_image, console_queue):
                                 )
                                 shared_state.set_solution(solved)
                                 shared_state.set_solve_state(True)
+
+
+"""
+    except Exception as e:
+        print("SOLVER Exception")
+        print(f"\t{e}")
+        continue
+"""

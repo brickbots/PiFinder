@@ -208,135 +208,176 @@ def main():
         ui_observing_modes = 2
         ui_mode_index = 0
 
-        while True:
-            # Console
-            try:
-                console_msg = console_queue.get(block=False)
-                console.write(console_msg)
-            except queue.Empty:
-                pass
+        # Start of main except handler
+        try:
 
-            # GPS
-            try:
-                gps_msg = gps_queue.get(block=False)
-                if gps_msg.sentence_type == "GGA":
-                    if gps_msg.latitude + gps_msg.longitude != 0:
-                        location = shared_state.location()
-                        location["lat"] = gps_msg.latitude
-                        location["lon"] = gps_msg.longitude
-                        location["altitude"] = gps_msg.altitude
-                        if location["gps_lock"] == False:
-                            # Write to config if we just got a lock
-                            location["timezone"] = tz_finder.timezone_at(
-                                lat=location["lat"], lng=location["lon"]
-                            )
-                            cfg.set_option("last_location", location)
-                            location["gps_lock"] = True
-                        shared_state.set_location(location)
-                if gps_msg.sentence_type == "RMC":
-                    if gps_msg.datestamp:
-                        if gps_msg.datestamp.year > 2021:
-                            shared_state.set_datetime(
-                                datetime.datetime.combine(
-                                    gps_msg.datestamp, gps_msg.timestamp
+            while True:
+                # Console
+                try:
+                    console_msg = console_queue.get(block=False)
+                    console.write(console_msg)
+                except queue.Empty:
+                    pass
+
+                # GPS
+                try:
+                    gps_msg = gps_queue.get(block=False)
+                    if gps_msg.sentence_type == "GGA":
+                        if gps_msg.latitude + gps_msg.longitude != 0:
+                            location = shared_state.location()
+                            location["lat"] = gps_msg.latitude
+                            location["lon"] = gps_msg.longitude
+                            location["altitude"] = gps_msg.altitude
+                            if location["gps_lock"] == False:
+                                # Write to config if we just got a lock
+                                location["timezone"] = tz_finder.timezone_at(
+                                    lat=location["lat"], lng=location["lon"]
                                 )
-                            )
-            except queue.Empty:
-                pass
+                                cfg.set_option("last_location", location)
+                                location["gps_lock"] = True
+                            shared_state.set_location(location)
+                    if gps_msg.sentence_type == "RMC":
+                        if gps_msg.datestamp:
+                            if gps_msg.datestamp.year > 2021:
+                                shared_state.set_datetime(
+                                    datetime.datetime.combine(
+                                        gps_msg.datestamp, gps_msg.timestamp
+                                    )
+                                )
+                except queue.Empty:
+                    pass
 
-            # Keyboard
-            try:
-                keycode = keyboard_queue.get(block=False)
-            except queue.Empty:
-                keycode = None
+                # Keyboard
+                try:
+                    keycode = keyboard_queue.get(block=False)
+                except queue.Empty:
+                    keycode = None
 
-            if keycode != None:
-                print(f"{keycode =}")
-                if keycode > 99:
-                    # Special codes....
-                    if keycode == keyboard.ALT_UP or keycode == keyboard.ALT_DN:
-                        if keycode == keyboard.ALT_UP:
-                            screen_brightness = screen_brightness + 10
-                            if screen_brightness > 255:
-                                screen_brightness = 255
-                        else:
-                            screen_brightness = screen_brightness - 10
-                            if screen_brightness < 1:
-                                screen_brightness = 1
-                        set_brightness(screen_brightness)
-                        cfg.set_option("display_brightness", screen_brightness)
-                        console.write("Brightness: " + str(screen_brightness))
+                if keycode != None:
+                    print(f"{keycode =}")
+                    if keycode > 99:
+                        # Special codes....
+                        if keycode == keyboard.ALT_UP or keycode == keyboard.ALT_DN:
+                            if keycode == keyboard.ALT_UP:
+                                screen_brightness = screen_brightness + 10
+                                if screen_brightness > 255:
+                                    screen_brightness = 255
+                            else:
+                                screen_brightness = screen_brightness - 10
+                                if screen_brightness < 1:
+                                    screen_brightness = 1
+                            set_brightness(screen_brightness)
+                            cfg.set_option("display_brightness", screen_brightness)
+                            console.write("Brightness: " + str(screen_brightness))
 
-                    if keycode == keyboard.ALT_A:
-                        # Switch between non-observing modes
+                        if keycode == keyboard.ALT_A:
+                            # Switch between non-observing modes
+                            ui_mode_index += 1
+                            if ui_mode_index >= len(ui_modes):
+                                ui_mode_index = ui_observing_modes + 1
+                            if ui_mode_index <= ui_observing_modes:
+                                ui_mode_index = ui_observing_modes + 1
+                            ui_modes[ui_mode_index].active()
+
+                        if keycode == keyboard.ALT_D:
+                            # Debug snapshot
+                            uid = str(uuid.uuid1()).split("-")[0]
+                            debug_image = camera_image.copy()
+                            debug_solution = shared_state.solution()
+                            debug_location = shared_state.location()
+                            debug_dt = shared_state.datetime()
+
+                            # write images
+                            debug_image.save(f"{test_image_path}/{uid}_raw.png")
+                            debug_image = subtract_background(debug_image)
+                            debug_image = debug_image.convert("RGB")
+                            debug_image = ImageOps.autocontrast(debug_image)
+                            debug_image.save(f"{test_image_path}/{uid}_sub.png")
+
+                            with open(
+                                f"{test_image_path}/{uid}_solution.json", "w"
+                            ) as f:
+                                json.dump(debug_solution, f, indent=4)
+
+                            with open(
+                                f"{test_image_path}/{uid}_location.json", "w"
+                            ) as f:
+                                json.dump(debug_location, f, indent=4)
+
+                            with open(
+                                f"{test_image_path}/{uid}_datetime.json", "w"
+                            ) as f:
+                                json.dump(debug_dt.isoformat(), f, indent=4)
+
+                            console.write(f"Debug dump: {uid}")
+
+                    elif keycode == keyboard.A:
+                        # A key, mode switch
                         ui_mode_index += 1
-                        if ui_mode_index >= len(ui_modes):
-                            ui_mode_index = ui_observing_modes + 1
-                        if ui_mode_index <= ui_observing_modes:
-                            ui_mode_index = ui_observing_modes + 1
+                        if ui_mode_index > ui_observing_modes:
+                            ui_mode_index = 0
                         ui_modes[ui_mode_index].active()
 
-                    if keycode == keyboard.ALT_D:
-                        # Debug snapshot
-                        uid = str(uuid.uuid1()).split("-")[0]
-                        debug_image = camera_image.copy()
-                        debug_solution = shared_state.solution()
-                        debug_location = shared_state.location()
-                        debug_dt = shared_state.datetime()
+                    else:
+                        if keycode < 10:
+                            ui_modes[ui_mode_index].key_number(keycode)
 
-                        # write images
-                        debug_image.save(f"{test_image_path}/{uid}_raw.png")
-                        debug_image = subtract_background(debug_image)
-                        debug_image = debug_image.convert("RGB")
-                        debug_image = ImageOps.autocontrast(debug_image)
-                        debug_image.save(f"{test_image_path}/{uid}_sub.png")
+                        elif keycode == keyboard.UP:
+                            ui_modes[ui_mode_index].key_up()
 
-                        with open(f"{test_image_path}/{uid}_solution.json", "w") as f:
-                            json.dump(debug_solution, f, indent=4)
+                        elif keycode == keyboard.DN:
+                            ui_modes[ui_mode_index].key_down()
 
-                        with open(f"{test_image_path}/{uid}_location.json", "w") as f:
-                            json.dump(debug_location, f, indent=4)
+                        elif keycode == keyboard.GO:
+                            ui_modes[ui_mode_index].key_enter()
 
-                        with open(f"{test_image_path}/{uid}_datetime.json", "w") as f:
-                            json.dump(debug_dt.isoformat(), f, indent=4)
+                        elif keycode == keyboard.B:
+                            ui_modes[ui_mode_index].key_b()
 
-                        console.write(f"Debug dump: {uid}")
+                        elif keycode == keyboard.C:
+                            ui_modes[ui_mode_index].key_c()
 
-                elif keycode == keyboard.A:
-                    # A key, mode switch
-                    ui_mode_index += 1
-                    if ui_mode_index > ui_observing_modes:
-                        ui_mode_index = 0
-                    ui_modes[ui_mode_index].active()
+                        elif keycode == keyboard.D:
+                            ui_modes[ui_mode_index].key_d()
 
-                else:
-                    if keycode < 10:
-                        ui_modes[ui_mode_index].key_number(keycode)
+                update_msg = ui_modes[ui_mode_index].update()
+                if update_msg:
+                    for i, ui_class in enumerate(ui_modes):
+                        if ui_class.__class__.__name__ == update_msg:
+                            ui_mode_index = i
+                            ui_class.active()
+        except KeyboardInterrupt:
+            print("SHUTDOWN")
+            print("\tClearing console queue...")
+            try:
+                while True:
+                    console_queue.get(block=False)
+            except queue.Empty:
+                pass
 
-                    elif keycode == keyboard.UP:
-                        ui_modes[ui_mode_index].key_up()
+            print("\tKeyboard...")
+            try:
+                while True:
+                    keyboard_queue.get(block=False)
+            except queue.Empty:
+                keyboard_process.join()
 
-                    elif keycode == keyboard.DN:
-                        ui_modes[ui_mode_index].key_down()
+            print("\tGPS...")
+            try:
+                while True:
+                    gps_queue.get(block=False)
+            except queue.Empty:
+                gps_process.join()
 
-                    elif keycode == keyboard.GO:
-                        ui_modes[ui_mode_index].key_enter()
+            print("\tImaging...")
+            image_process.join()
 
-                    elif keycode == keyboard.B:
-                        ui_modes[ui_mode_index].key_b()
+            print("\tIMU...")
+            imu_process.join()
 
-                    elif keycode == keyboard.C:
-                        ui_modes[ui_mode_index].key_c()
-
-                    elif keycode == keyboard.D:
-                        ui_modes[ui_mode_index].key_d()
-
-            update_msg = ui_modes[ui_mode_index].update()
-            if update_msg:
-                for i, ui_class in enumerate(ui_modes):
-                    if ui_class.__class__.__name__ == update_msg:
-                        ui_mode_index = i
-                        ui_class.active()
+            print("\tSolver...")
+            solver_process.join()
+            exit()
 
 
 if __name__ == "__main__":
