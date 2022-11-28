@@ -363,11 +363,7 @@ def main():
                 keyboard_process.join()
 
             print("\tGPS...")
-            try:
-                while True:
-                    gps_queue.get(block=False)
-            except queue.Empty:
-                gps_process.join()
+            gps_process.terminate()
 
             print("\tImaging...")
             image_process.join()
