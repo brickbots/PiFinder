@@ -50,6 +50,7 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
         if imu and imu["moving"] and imu["status"] > 0:
             pass
         else:
+            image_start_time = time.time()
             if not debug:
                 base_image = camera.capture_image("main")
                 base_image = base_image.convert("L")
@@ -59,7 +60,7 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
                 base_image = Image.open(test_image_path)
                 time.sleep(1)
             camera_image.paste(base_image)
-            shared_state.set_last_image_time(time.time())
+            shared_state.set_last_image_time((image_start_time, time.time()))
 
         command = True
         while command:

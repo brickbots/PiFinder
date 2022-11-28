@@ -65,9 +65,36 @@ class UIModule:
         takes self.screen adds title bar and
         writes to display
         """
-        self.draw.rectangle([0, 0, 128, 16], fill=(0, 0, 0))
-        self.draw.rounded_rectangle([0, 0, 128, 16], radius=6, fill=(0, 0, 64))
+        self.draw.rectangle([0, 0, 128, 16], fill=(0, 0, 64))
         self.draw.text((6, 1), self.title, font=self.font_bold, fill=(0, 0, 0))
+        if self.shared_state:
+            if self.shared_state.solve_state():
+                solution = self.shared_state.solution()
+                constellation = solution["constellation"]
+                self.draw.text((70,1), constellation, font=self.font_bold, fill=(0,0,0))
+
+                # Solver Status
+                time_since_solve = time.time() - solution["cam_solve_time"]
+                bg = int(64 - (time_since_solve / 6 * 64))
+                if bg < 0:
+                    bg = 0
+                self.draw.rectangle([115,2,125,14], fill = (0,0,bg))
+                self.draw.text((117,0), solution["solve_source"][0], font=self.font_bold, fill=(0,0,64))
+            else:
+                # no solve yet....
+                self.draw.rectangle([115,2,125,14], fill = (0,0,0))
+                self.draw.text((117,0), "X", font=self.font_bold, fill=(0,0,64))
+
+            # GPS status
+            if self.shared_state.location()["gps_lock"]:
+                fg = (0,0,0)
+                bg = (0,0,64)
+            else:
+                fg = (0,0,64)
+                bg = (0,0,0)
+            self.draw.rectangle([100,2,110,14], fill = bg)
+            self.draw.text((102,0), "G", font=self.font_bold, fill=fg)
+
 
         self.display.display(self.screen.convert(self.display.mode))
 
@@ -107,6 +134,8 @@ class UILocate(UIModule):
 
     def __init__(self, *args):
         self.target = None
+        self.target_list = []
+        self.target_index = None
         self.object_text = ["No Object Found"]
         self.__catalogs = {"N": "NGC", "I": " IC", "M": "Mes"}
         self.sf_utils = solver.Skyfield_utils()
@@ -121,6 +150,12 @@ class UILocate(UIModule):
         target
         """
         self.switch_to = "UICatalog"
+
+    def key_up(self):
+        self.scroll_target_history(-1)
+
+    def key_down(self):
+        self.scroll_target_history(1)
 
     def update_object_text(self):
         """
@@ -158,13 +193,22 @@ class UILocate(UIModule):
                     self.target["dec"],
                     dt,
                 )
+                az_diff = target_az - solution["Az"]
+                az_diff = (az_diff + 180) % 360 - 180
 
-                return target_az - solution["Az"], target_alt - solution["Alt"]
+                alt_diff = target_alt - solution["Alt"]
+                alt_diff = (alt_diff + 180) % 360 - 180
+
+                return az_diff, alt_diff
         else:
             return None, None
 
     def active(self):
-        self.target = self.shared_state.target()
+        state_target = self.shared_state.target()
+        if state_target != self.target:
+            self.target = state_target
+            self.target_list.append(state_target)
+            self.target_index = len(self.target_list) - 1
         self.update_object_text()
         self.update()
 
@@ -181,6 +225,12 @@ class UILocate(UIModule):
         line += str(self.target["designation"])
         self.draw.text((0, 20), line, font=self.font_large, fill=RED)
 
+        # Target history index
+        if self.target_index != None:
+            line = f"{self.target_index + 1}/{len(self.target_list)}"
+            line = f"{line : >7}"
+            self.draw.text((85, 20), line, font=self.font_base, fill=RED)
+
         # ID Line in BOld
         self.draw.text((0, 40), self.object_text[0], font=self.font_bold, fill=RED)
 
@@ -191,24 +241,46 @@ class UILocate(UIModule):
             self.draw.text((0, 84), "  --.-", font=self.font_huge, fill=RED)
         else:
             if point_az >= 0:
-                self.draw.text((0, 50), "+", font=self.font_huge, fill=RED)
+                self.draw.regular_polygon((10,75,10), 3, 90, fill=RED)
+                #self.draw.pieslice([-20,65,20,85],330, 30, fill=RED)
+                #self.draw.text((0, 50), "+", font=self.font_huge, fill=RED)
             else:
                 point_az *= -1
-                self.draw.text((0, 50), "-", font=self.font_huge, fill=RED)
+                self.draw.regular_polygon((10,75,10), 3, 270, fill=RED)
+                #self.draw.pieslice([0,65,40,85],150,210, fill=RED)
+                #self.draw.text((0, 50), "-", font=self.font_huge, fill=RED)
             self.draw.text(
                 (25, 50), f"{point_az : >5.1f}", font=self.font_huge, fill=RED
             )
 
             if point_alt >= 0:
-                self.draw.text((0, 84), "+", font=self.font_huge, fill=RED)
+                self.draw.regular_polygon((10,110,10), 3, 0, fill=RED)
+                #self.draw.pieslice([0,84,20,124],60, 120, fill=RED)
+                #self.draw.text((0, 84), "+", font=self.font_huge, fill=RED)
             else:
                 point_alt *= -1
-                self.draw.text((0, 84), "-", font=self.font_huge, fill=RED)
+                self.draw.regular_polygon((10,105,10), 3, 180, fill=RED)
+                #self.draw.pieslice([0,104,20,144],270, 330, fill=RED)
+                #self.draw.text((0, 84), "-", font=self.font_huge, fill=RED)
             self.draw.text(
                 (25, 84), f"{point_alt : >5.1f}", font=self.font_huge, fill=RED
             )
 
         return self.screen_update()
+
+    def scroll_target_history(self, direction):
+        if self.target_index !=None:
+            self.target_index += direction
+            if self.target_index >= len(self.target_list):
+                self.target_index = len(self.target_list) - 1
+
+            if self.target_index < 0:
+                self.target_index = 0
+
+            self.target = self.target_list[self.target_index]
+            self.shared_state.set_target(self.target)
+            self.update_object_text()
+            self.update()
 
 
 class UICatalog(UIModule):
@@ -286,6 +358,16 @@ class UICatalog(UIModule):
                 line = line + " " + token
 
     def active(self):
+        target = self.shared_state.target()
+        if target:
+            self.cat_object = target
+            self.catalog_index = ["N","I","M"].index(target["catalog"])
+            self.designator = list(str(target["designation"]))
+            if self.catalog_index == 2:
+                self.designator = ["-"] * (3-len(self.designator)) + self.designator
+            else:
+                self.designator = ["-"] * (4-len(self.designator)) + self.designator
+
         self.update_object_text()
         self.update()
 
@@ -609,7 +691,7 @@ class UIPreview(UIModule):
         preview_mode = self.preview_modes[self.preview_index]
         if preview_mode == "image":
             # display an image
-            last_image_time = self.shared_state.last_image_time()
+            last_image_time = self.shared_state.last_image_time()[1]
             if last_image_time > self.last_update:
                 image_obj = self.camera_image.copy()
                 image_obj = image_obj.resize((128, 128), Image.LANCZOS)
@@ -623,9 +705,6 @@ class UIPreview(UIModule):
                 self.last_update = last_image_time
 
                 self.title = "PREVIEW"
-                if self.shared_state.solve_state():
-                    self.solution = self.shared_state.solution()
-                    self.title = "PREVIEW - " + self.solution["constellation"]
 
         if preview_mode.startswith("plot"):
             # display plot
@@ -653,7 +732,6 @@ class UIPreview(UIModule):
                     self.plot_target()
                     self.last_update = last_solve_time
 
-                    self.title = "PLOT - " + self.solution["constellation"]
             else:
                 self.title = "PLOT"
                 self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))

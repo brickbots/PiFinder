@@ -93,7 +93,7 @@ class Skyfield_utils:
 def solver(shared_state, camera_image, console_queue):
     sf_utils = Skyfield_utils()
     t3 = Tetra3("default_database")
-    last_image_fetch = 0
+    last_solve_time = 0
     imu_moving = False
     solved = {
         "RA": None,
@@ -103,6 +103,7 @@ def solver(shared_state, camera_image, console_queue):
         "Az": None,
         "solve_source": None,
         "solve_time": None,
+        "cam_solve_time": 0,
         "constellation": None,
         "last_image_solve": None,
     }
@@ -111,9 +112,11 @@ def solver(shared_state, camera_image, console_queue):
     # so we can delta for IMU updates
     last_image_solve = None
     while True:
-        # try:
-        last_image_time = shared_state.last_image_time()
-        if last_image_time > last_image_fetch:
+        # use the time the exposure started here to
+        # reject images startede before the last solve
+        # which might be from the IMU
+        last_image_time = shared_state.last_image_time()[0]
+        if last_image_time > last_solve_time:
             solve_image = camera_image.copy()
             new_solve = t3.solve_from_image(
                 solve_image,
@@ -128,6 +131,7 @@ def solver(shared_state, camera_image, console_queue):
                 else:
                     solved["imu_pos"] = None
                 solved["solve_time"] = time.time()
+                solved["cam_solve_time"] = time.time()
                 solved["solve_source"] = "CAM"
                 solved["constellation"] = sf_utils.radec_to_constellation(
                     solved["RA"], solved["Dec"]
@@ -156,13 +160,12 @@ def solver(shared_state, camera_image, console_queue):
                 shared_state.set_solve_state(True)
                 last_image_solve = copy.copy(solved)
 
-            last_image_fetch = last_image_time
-        # elif False:
+            last_solve_time = last_image_time
         else:
+            # No new image, check IMU
             # if we don't have an alt/az solve
             # we can't use the IMU
             if solved["Alt"]:
-                # No new image, check IMU
                 imu = shared_state.imu()
                 if imu:
                     if imu["moving"] or imu_moving == True:
@@ -204,11 +207,4 @@ def solver(shared_state, camera_image, console_queue):
                                 )
                                 shared_state.set_solution(solved)
                                 shared_state.set_solve_state(True)
-
-
-"""
-    except Exception as e:
-        print("SOLVER Exception")
-        print(f"\t{e}")
-        continue
-"""
+                                last_solve_time = time.time()

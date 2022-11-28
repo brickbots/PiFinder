@@ -54,7 +54,7 @@ class StateManager(BaseManager):
 class SharedStateObj:
     def __init__(self):
         self.__solve_state = None
-        self.__last_image_time = 0
+        self.__last_image_time = (0, 0)
         self.__solution = None
         self.__imu = None
         self.__location = None
