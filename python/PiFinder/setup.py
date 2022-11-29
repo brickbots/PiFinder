@@ -120,7 +120,7 @@ def load_ngc_catalog():
                     dec = ded + (dem / 60)
                     if des == "-":
                         dec = dec * -1
-                    ra = rah + (ram / 60) * 15
+                    ra = (rah + (ram / 60)) * 15
 
                     q = f"""
                             INSERT INTO objects
