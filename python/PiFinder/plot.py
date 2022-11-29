@@ -39,13 +39,15 @@ class Starfield:
             self.raw_stars = hipparcos.load_dataframe(f)
 
         # constellations
-        root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
         const_path = os.path.join(root_dir, "astro_data", "constellationship.fab")
         with load.open(const_path) as f:
             self.constellations = stellarium.parse_constellations(f)
 
         self.set_mag_limit(mag_limit)
         self.set_fov(fov)
+
+        pointer_image_path = os.path.join(root_dir, "markers", "pointer.png")
+        self.pointer_image = ImageChops.multiply(Image.open(pointer_image_path), Image.new("RGB", (256,256), (0,0,32)))
 
     def set_mag_limit(self, mag_limit):
         self.mag_limit = mag_limit
@@ -109,6 +111,16 @@ class Starfield:
                     [x_pos - 5, y_pos, x_pos + 5, y_pos],
                     fill=(0, 0, 255),
                 )
+
+                # Draw pointer....
+                # if not within reticle circle
+                if x_pos > 154 or x_pos < 102 or y_pos > 157 or y_pos < 102:
+                    # calc degrees to target....
+                    deg_to_target = np.rad2deg(np.arctan2(y_pos - 128, x_pos - 128)) + 180
+                    tmp_pointer = self.pointer_image.copy()
+                    tmp_pointer = tmp_pointer.rotate(deg_to_target)
+                    ret_image= ImageChops.add(ret_image, tmp_pointer)
+
 
         return ret_image.rotate(roll).crop([64, 64, 192, 192])
 
