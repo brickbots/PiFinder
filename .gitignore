@@ -136,3 +136,6 @@ tetra3/
 *.dat
 dev/
 *_test.py
+*.gcode
+datasheets/
+kicad/PiFinder/PiFinder-backups
