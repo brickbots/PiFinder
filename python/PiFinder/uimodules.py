@@ -8,6 +8,7 @@ import datetime
 import pytz
 import time
 import os
+import uuid
 import sqlite3
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 
@@ -21,6 +22,7 @@ RED = (0, 0, 255)
 
 class UIModule:
     __title__ = "BASE"
+    __uuid__ = str(uuid.uuid1()).split("-")[0]
 
     def __init__(self, display, camera_image, shared_state, command_queues):
         self.title = self.__title__
@@ -40,6 +42,18 @@ class UIModule:
         self.font_large = ImageFont.truetype(
             "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 15
         )
+
+        # screenshot stuff
+        root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        prefix = f"{self.__uuid__}_{self.__title__}"
+        self.ss_path = os.path.join(root_dir, "screenshots", prefix)
+        self.ss_count = 0
+
+    def screengrab(self):
+        self.ss_count += 1
+        ss_imagepath = self.ss_path + f"_{self.ss_count :0>3}.png"
+        ss = self.screen.getchannel("B")
+        ss.save(ss_imagepath)
 
     def active(self):
         """

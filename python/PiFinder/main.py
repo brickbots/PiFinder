@@ -279,6 +279,11 @@ def main():
                                 ui_mode_index = ui_observing_modes + 1
                             ui_modes[ui_mode_index].active()
 
+                        if keycode == keyboard.ALT_0:
+                            # screenshot
+                            ui_modes[ui_mode_index].screengrab()
+                            console.write("Screenshot saved")
+
                         if keycode == keyboard.ALT_D:
                             # Debug snapshot
                             uid = str(uuid.uuid1()).split("-")[0]
