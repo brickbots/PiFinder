@@ -707,7 +707,9 @@ class UIPreview(UIModule):
                 image_obj = ImageOps.autocontrast(image_obj)
                 image_obj = Image.eval(image_obj, gamma_correct_low)
                 self.screen.paste(image_obj)
-                self.plot_target()
+                if self.shared_state.solve_state():
+                    self.solution = self.shared_state.solution()
+                    self.plot_target()
                 self.last_update = last_image_time
 
                 self.title = "PREVIEW"

@@ -29,7 +29,7 @@ def gps_monitor(gps_queue, console_queue):
                 msg = None
 
             if msg:
-                #print(repr(msg))
+                # print(repr(msg))
                 if str(msg.sentence_type) == "GGA":
                     if msg.latitude + msg.longitude != 0:
                         if gps_locked == False:

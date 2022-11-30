@@ -119,10 +119,10 @@ class Starfield:
                 if x_pos > 154 or x_pos < 102 or y_pos > 157 or y_pos < 102:
                     # calc degrees to target....
                     deg_to_target = (
-                        np.rad2deg(np.arctan2(128 - y_pos, x_pos - 128)) + 180
+                        np.rad2deg(np.arctan2(y_pos - 128, x_pos - 128)) + 180
                     )
                     tmp_pointer = self.pointer_image.copy()
-                    tmp_pointer = tmp_pointer.rotate(deg_to_target)
+                    tmp_pointer = tmp_pointer.rotate(-deg_to_target)
                     ret_image = ImageChops.add(ret_image, tmp_pointer)
 
         return ret_image.rotate(roll).crop([64, 64, 192, 192])
