@@ -71,30 +71,36 @@ class UIModule:
             if self.shared_state.solve_state():
                 solution = self.shared_state.solution()
                 constellation = solution["constellation"]
-                self.draw.text((70,1), constellation, font=self.font_bold, fill=(0,0,0))
+                self.draw.text(
+                    (70, 1), constellation, font=self.font_bold, fill=(0, 0, 0)
+                )
 
                 # Solver Status
                 time_since_solve = time.time() - solution["cam_solve_time"]
                 bg = int(64 - (time_since_solve / 6 * 64))
                 if bg < 0:
                     bg = 0
-                self.draw.rectangle([115,2,125,14], fill = (0,0,bg))
-                self.draw.text((117,0), solution["solve_source"][0], font=self.font_bold, fill=(0,0,64))
+                self.draw.rectangle([115, 2, 125, 14], fill=(0, 0, bg))
+                self.draw.text(
+                    (117, 0),
+                    solution["solve_source"][0],
+                    font=self.font_bold,
+                    fill=(0, 0, 64),
+                )
             else:
                 # no solve yet....
-                self.draw.rectangle([115,2,125,14], fill = (0,0,0))
-                self.draw.text((117,0), "X", font=self.font_bold, fill=(0,0,64))
+                self.draw.rectangle([115, 2, 125, 14], fill=(0, 0, 0))
+                self.draw.text((117, 0), "X", font=self.font_bold, fill=(0, 0, 64))
 
             # GPS status
             if self.shared_state.location()["gps_lock"]:
-                fg = (0,0,0)
-                bg = (0,0,64)
+                fg = (0, 0, 0)
+                bg = (0, 0, 64)
             else:
-                fg = (0,0,64)
-                bg = (0,0,0)
-            self.draw.rectangle([100,2,110,14], fill = bg)
-            self.draw.text((102,0), "G", font=self.font_bold, fill=fg)
-
+                fg = (0, 0, 64)
+                bg = (0, 0, 0)
+            self.draw.rectangle([100, 2, 110, 14], fill=bg)
+            self.draw.text((102, 0), "G", font=self.font_bold, fill=fg)
 
         self.display.display(self.screen.convert(self.display.mode))
 
@@ -241,27 +247,27 @@ class UILocate(UIModule):
             self.draw.text((0, 84), "  --.-", font=self.font_huge, fill=RED)
         else:
             if point_az >= 0:
-                self.draw.regular_polygon((10,75,10), 3, 90, fill=RED)
-                #self.draw.pieslice([-20,65,20,85],330, 30, fill=RED)
-                #self.draw.text((0, 50), "+", font=self.font_huge, fill=RED)
+                self.draw.regular_polygon((10, 75, 10), 3, 90, fill=RED)
+                # self.draw.pieslice([-20,65,20,85],330, 30, fill=RED)
+                # self.draw.text((0, 50), "+", font=self.font_huge, fill=RED)
             else:
                 point_az *= -1
-                self.draw.regular_polygon((10,75,10), 3, 270, fill=RED)
-                #self.draw.pieslice([0,65,40,85],150,210, fill=RED)
-                #self.draw.text((0, 50), "-", font=self.font_huge, fill=RED)
+                self.draw.regular_polygon((10, 75, 10), 3, 270, fill=RED)
+                # self.draw.pieslice([0,65,40,85],150,210, fill=RED)
+                # self.draw.text((0, 50), "-", font=self.font_huge, fill=RED)
             self.draw.text(
                 (25, 50), f"{point_az : >5.1f}", font=self.font_huge, fill=RED
             )
 
             if point_alt >= 0:
-                self.draw.regular_polygon((10,110,10), 3, 0, fill=RED)
-                #self.draw.pieslice([0,84,20,124],60, 120, fill=RED)
-                #self.draw.text((0, 84), "+", font=self.font_huge, fill=RED)
+                self.draw.regular_polygon((10, 110, 10), 3, 0, fill=RED)
+                # self.draw.pieslice([0,84,20,124],60, 120, fill=RED)
+                # self.draw.text((0, 84), "+", font=self.font_huge, fill=RED)
             else:
                 point_alt *= -1
-                self.draw.regular_polygon((10,105,10), 3, 180, fill=RED)
-                #self.draw.pieslice([0,104,20,144],270, 330, fill=RED)
-                #self.draw.text((0, 84), "-", font=self.font_huge, fill=RED)
+                self.draw.regular_polygon((10, 105, 10), 3, 180, fill=RED)
+                # self.draw.pieslice([0,104,20,144],270, 330, fill=RED)
+                # self.draw.text((0, 84), "-", font=self.font_huge, fill=RED)
             self.draw.text(
                 (25, 84), f"{point_alt : >5.1f}", font=self.font_huge, fill=RED
             )
@@ -269,7 +275,7 @@ class UILocate(UIModule):
         return self.screen_update()
 
     def scroll_target_history(self, direction):
-        if self.target_index !=None:
+        if self.target_index != None:
             self.target_index += direction
             if self.target_index >= len(self.target_list):
                 self.target_index = len(self.target_list) - 1
@@ -361,12 +367,12 @@ class UICatalog(UIModule):
         target = self.shared_state.target()
         if target:
             self.cat_object = target
-            self.catalog_index = ["N","I","M"].index(target["catalog"])
+            self.catalog_index = ["N", "I", "M"].index(target["catalog"])
             self.designator = list(str(target["designation"]))
             if self.catalog_index == 2:
-                self.designator = ["-"] * (3-len(self.designator)) + self.designator
+                self.designator = ["-"] * (3 - len(self.designator)) + self.designator
             else:
-                self.designator = ["-"] * (4-len(self.designator)) + self.designator
+                self.designator = ["-"] * (4 - len(self.designator)) + self.designator
 
         self.update_object_text()
         self.update()

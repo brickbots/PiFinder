@@ -6,10 +6,15 @@ This module is the solver
 * Plate solves high-res image
 
 """
+import os
 import queue
 import pprint
 import time
 import copy
+import uuid
+import json
+
+from PIL import ImageOps
 from tetra3 import Tetra3
 from skyfield.api import (
     wgs84,
@@ -20,6 +25,8 @@ from skyfield.api import (
     position_of_radec,
     load_constellation_map,
 )
+
+from image_util import subtract_background
 
 IMU_ALT = 2
 IMU_AZ = 0
@@ -90,7 +97,45 @@ class Skyfield_utils:
         return self.constellation_map(sky_pos)
 
 
+def write_debug(
+    prefix, console_queue, image, last_solution, current_solution, location, imu, dt
+):
+    """
+    Writes the image + key solver
+    info to disk
+    """
+    root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    debug_path = os.path.join(root_dir, "solver_debug_dumps", prefix)
+
+    # write images
+    image.save(f"{debug_path}_raw.png")
+    image = subtract_background(image)
+    image = image.convert("RGB")
+    image = ImageOps.autocontrast(image)
+    image.save(f"{debug_path}_sub.png")
+
+    with open(f"{debug_path}_newsolve.json", "w") as f:
+        json.dump(current_solution, f, indent=4)
+
+    with open(f"{debug_path}_oldsolve.json", "w") as f:
+        json.dump(last_solution, f, indent=4)
+
+    with open(f"{debug_path}_location.json", "w") as f:
+        json.dump(location, f, indent=4)
+
+    with open(f"{debug_path}_imu.json", "w") as f:
+        json.dump(imu, f, indent=4)
+
+    with open(f"{debug_path}_datetime.json", "w") as f:
+        json.dump(dt.isoformat(), f, indent=4)
+
+    console_queue.put(f"SLV: Debug {prefix}")
+
+
 def solver(shared_state, camera_image, console_queue):
+    debug_prefix = str(uuid.uuid1()).split("-")[0]
+    debug_index = 0
+    debug_solve = None
     sf_utils = Skyfield_utils()
     t3 = Tetra3("default_database")
     last_solve_time = 0
@@ -123,9 +168,22 @@ def solver(shared_state, camera_image, console_queue):
                 fov_estimate=10.2,
                 fov_max_error=0.1,
             )
+            if new_solve["RA"] != None and solved["solve_source"] == "IMU":
+                # we were on IMU, now we are back
+                # to image solve. Check if we have really moved...
+                if (
+                    abs(new_solve["RA"] - last_image_solve["RA"])
+                    + abs(new_solve["Dec"] - last_image_solve["Dec"])
+                    > 10
+                ):
+                    debug_solve = copy.copy(solved)
+
             solved |= new_solve
             if solved["RA"] != None:
                 imu = shared_state.imu()
+                location = shared_state.location()
+                dt = shared_state.datetime()
+
                 if imu:
                     solved["imu_pos"] = imu["pos"]
                 else:
@@ -139,8 +197,6 @@ def solver(shared_state, camera_image, console_queue):
                 # see if we can calc alt-az
                 solved["Alt"] = None
                 solved["Az"] = None
-                location = shared_state.location()
-                dt = shared_state.datetime()
                 if location and dt:
                     # We have position and time/date!
                     sf_utils.set_location(
@@ -159,6 +215,20 @@ def solver(shared_state, camera_image, console_queue):
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
                 last_image_solve = copy.copy(solved)
+                if debug_solve:
+                    debug_index += 1
+                    tmp_prefix = f"{debug_prefix}{debug_index :0>4}"
+                    write_debug(
+                        tmp_prefix,
+                        console_queue,
+                        solve_image,
+                        debug_solve,
+                        solved,
+                        location,
+                        imu,
+                        dt,
+                    )
+                    debug_solve = None
 
             last_solve_time = last_image_time
         else:

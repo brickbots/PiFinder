@@ -49,6 +49,21 @@ class Imu:
         Compares most recent reading
         with past readings
         """
+        diff_list = []
+        # compare last 4 quats
+        for quat in self.quat_history[-4:]:
+            diff = (
+                abs(quat[0] - self.quat_history[0][0])
+                + abs(quat[1] - self.quat_history[0][1])
+                + abs(quat[2] - self.quat_history[0][2])
+                + abs(quat[3] - self.quat_history[0][3])
+            )
+            diff_list.append(diff)
+
+        if diff_list[0] < diff_list[1] < diff_list[2] < diff_list[3]:
+            self.__moving = True
+        else:
+            self.__moving = False
         return self.__moving
 
     def flip(self, quat):
@@ -87,16 +102,6 @@ class Imu:
 
         # update moving
         if not self.flip(quat):
-            dif = (
-                abs(quat[0] - self.avg_quat[0])
-                + abs(quat[1] - self.avg_quat[1])
-                + abs(quat[2] - self.avg_quat[2])
-                + abs(quat[3] - self.avg_quat[3])
-            )
-            if dif > 0.005:
-                self.__moving = True
-            else:
-                self.__moving = False
 
             # add to averages
             if len(self.quat_history) == QUEUE_LEN:
@@ -139,7 +144,7 @@ def imu_monitor(shared_state, console_queue):
         imu_data["status"] = imu.calibration
         if imu.moving():
             if imu_data["moving"] == False:
-                # print("IMU: move start")
+                print("IMU: move start")
                 imu_data["moving"] = True
                 imu_data["start_pos"] = imu_data["pos"]
                 imu_data["move_start"] = time.time()
@@ -147,7 +152,7 @@ def imu_monitor(shared_state, console_queue):
         else:
             if imu_data["moving"] == True:
                 # If wer were moving and we now stopped
-                # print("IMU: move end")
+                print("IMU: move end")
                 imu_data["moving"] = False
                 imu_data["pos"] = imu.get_euler()
                 imu_data["move_end"] = time.time()

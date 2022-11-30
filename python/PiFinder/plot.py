@@ -47,7 +47,9 @@ class Starfield:
         self.set_fov(fov)
 
         pointer_image_path = os.path.join(root_dir, "markers", "pointer.png")
-        self.pointer_image = ImageChops.multiply(Image.open(pointer_image_path), Image.new("RGB", (256,256), (0,0,64)))
+        self.pointer_image = ImageChops.multiply(
+            Image.open(pointer_image_path), Image.new("RGB", (256, 256), (0, 0, 64))
+        )
 
     def set_mag_limit(self, mag_limit):
         self.mag_limit = mag_limit
@@ -116,11 +118,12 @@ class Starfield:
                 # if not within reticle circle
                 if x_pos > 154 or x_pos < 102 or y_pos > 157 or y_pos < 102:
                     # calc degrees to target....
-                    deg_to_target = np.rad2deg(np.arctan2(y_pos - 128, x_pos - 128)) + 180
+                    deg_to_target = (
+                        np.rad2deg(np.arctan2(y_pos - 128, x_pos - 128)) + 180
+                    )
                     tmp_pointer = self.pointer_image.copy()
                     tmp_pointer = tmp_pointer.rotate(deg_to_target)
-                    ret_image= ImageChops.add(ret_image, tmp_pointer)
-
+                    ret_image = ImageChops.add(ret_image, tmp_pointer)
 
         return ret_image.rotate(roll).crop([64, 64, 192, 192])
 
