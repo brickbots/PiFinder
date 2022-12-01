@@ -31,7 +31,7 @@ import gps
 import imu
 import config
 
-from uimodules import UIPreview, UIConsole, UIStatus, UICatalog, UILocate
+from uimodules import UIChart, UIPreview, UIConsole, UIStatus, UICatalog, UILocate
 
 from image_util import subtract_background
 
@@ -197,16 +197,17 @@ def main():
         console.update()
 
         ui_modes = [
-            UIPreview(device, camera_image, shared_state, command_queues),
+            UIChart(device, camera_image, shared_state, command_queues),
             UICatalog(device, camera_image, shared_state, command_queues),
             UILocate(device, camera_image, shared_state, command_queues),
+            UIPreview(device, camera_image, shared_state, command_queues),
             UIStatus(device, camera_image, shared_state, command_queues),
             console,
         ]
         # What is the highest index for observing modes
         # vs status/debug modes accessed by alt-A
         ui_observing_modes = 2
-        ui_mode_index = 0
+        ui_mode_index = 3
 
         # Start of main except handler
         try:

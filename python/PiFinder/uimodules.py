@@ -53,6 +53,8 @@ class UIModule:
         self.ss_count += 1
         ss_imagepath = self.ss_path + f"_{self.ss_count :0>3}.png"
         ss = self.screen.getchannel("B")
+        ss = ss.convert("RGB")
+        ss = ImageChops.multiply(ss, Image.new("RGB", (128,128), (255,0,0)))
         ss.save(ss_imagepath)
 
     def active(self):
@@ -649,12 +651,12 @@ class UIConsole(UIModule):
             return self.screen_update()
 
 
-class UIPreview(UIModule):
-    __title__ = "PREVIEW"
+class UIChart(UIModule):
+    __title__ = "CHART"
 
     def __init__(self, *args):
-        self.preview_modes = ["image", "plot", "plot+const"]
-        self.preview_index = 0
+        self.preview_modes = ["plot", "plot+const"]
+        self.preview_index = 1
         self.reticle_mode = 2
         self.last_update = time.time()
         self.starfield = plot.Starfield()
@@ -709,25 +711,6 @@ class UIPreview(UIModule):
         if force:
             self.last_update = 0
         preview_mode = self.preview_modes[self.preview_index]
-        if preview_mode == "image":
-            # display an image
-            last_image_time = self.shared_state.last_image_time()[1]
-            if last_image_time > self.last_update:
-                image_obj = self.camera_image.copy()
-                image_obj = image_obj.resize((128, 128), Image.LANCZOS)
-                image_obj = subtract_background(image_obj)
-                image_obj = image_obj.convert("RGB")
-                image_obj = ImageChops.multiply(image_obj, red_image)
-                image_obj = ImageOps.autocontrast(image_obj)
-                image_obj = Image.eval(image_obj, gamma_correct_low)
-                self.screen.paste(image_obj)
-                if self.shared_state.solve_state():
-                    self.solution = self.shared_state.solution()
-                    self.plot_target()
-                self.last_update = last_image_time
-
-                self.title = "PREVIEW"
-
         if preview_mode.startswith("plot"):
             # display plot
             show_const = False
@@ -755,14 +738,75 @@ class UIPreview(UIModule):
                     self.last_update = last_solve_time
 
             else:
-                self.title = "PLOT"
                 self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
                 self.draw.text((18, 20), "Can't plot", font=self.font_large, fill=RED)
                 self.draw.text((25, 50), "No Solve Yet", font=self.font_base, fill=RED)
-                # set preview index to end of plots
-                # so the next button press will get out
-                # of plots
-                self.preview_index = 2
+
+        self.draw_reticle()
+        return self.screen_update()
+
+    def key_b(self):
+        self.preview_index += 1
+        if self.preview_index >= len(self.preview_modes):
+            self.preview_index = 0
+        self.update(force=True)
+
+    def key_c(self):
+        self.reticle_mode += 1
+        if self.reticle_mode > 2:
+            self.reticle_mode = 0
+        self.update(force=True)
+
+
+class UIPreview(UIModule):
+    __title__ = "PREVIEW"
+
+    def __init__(self, *args):
+        self.reticle_mode = 2
+        self.last_update = time.time()
+        self.solution = None
+        super().__init__(*args)
+
+    def draw_reticle(self):
+        """
+        draw the reticle if desired
+        """
+        if self.reticle_mode == 0:
+            # None....
+            return
+
+        brightness = 64
+        if self.reticle_mode == 1:
+            brightness = 32
+
+        bboxes = [
+            [39, 39, 89, 89],
+            [52, 52, 76, 76],
+            [61, 61, 67, 67],
+        ]
+        for bbox in bboxes:
+            self.draw.arc(bbox, 20, 70, fill=(0, 0, brightness))
+            self.draw.arc(bbox, 110, 160, fill=(0, 0, brightness))
+            self.draw.arc(bbox, 200, 250, fill=(0, 0, brightness))
+            self.draw.arc(bbox, 290, 340, fill=(0, 0, brightness))
+
+    def update(self, force=False):
+        if force:
+            self.last_update = 0
+        # display an image
+        last_image_time = self.shared_state.last_image_time()[1]
+        if last_image_time > self.last_update:
+            image_obj = self.camera_image.copy()
+            image_obj = image_obj.resize((128, 128), Image.LANCZOS)
+            image_obj = subtract_background(image_obj)
+            image_obj = image_obj.convert("RGB")
+            image_obj = ImageChops.multiply(image_obj, red_image)
+            image_obj = ImageOps.autocontrast(image_obj)
+            image_obj = Image.eval(image_obj, gamma_correct_low)
+            self.screen.paste(image_obj)
+            self.last_update = last_image_time
+
+            self.title = "PREVIEW"
 
         self.draw_reticle()
         return self.screen_update()

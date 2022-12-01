@@ -115,8 +115,8 @@ class Starfield:
                 )
 
                 # Draw pointer....
-                # if not within reticle circle
-                if x_pos > 154 or x_pos < 102 or y_pos > 157 or y_pos < 102:
+                # if not within screen
+                if x_pos > 180 or x_pos < 76 or y_pos > 180 or y_pos < 76:
                     # calc degrees to target....
                     deg_to_target = (
                         np.rad2deg(np.arctan2(y_pos - 128, x_pos - 128)) + 180
