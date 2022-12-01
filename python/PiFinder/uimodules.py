@@ -54,7 +54,7 @@ class UIModule:
         ss_imagepath = self.ss_path + f"_{self.ss_count :0>3}.png"
         ss = self.screen.getchannel("B")
         ss = ss.convert("RGB")
-        ss = ImageChops.multiply(ss, Image.new("RGB", (128,128), (255,0,0)))
+        ss = ImageChops.multiply(ss, Image.new("RGB", (128, 128), (255, 0, 0)))
         ss.save(ss_imagepath)
 
     def active(self):
@@ -311,6 +311,16 @@ class UICatalog(UIModule):
     """
 
     __title__ = "CATALOG"
+    _config_options = {
+        "Alt Limit": [None, 10, 20, 30],
+        "Magnitude": [None, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12],
+        "Obj Type": [None] + list(OBJ_TYPES.keys()),
+    }
+    _config = {
+        "Alt Limit": 20,
+        "Magnitude": None,
+        "Obj Type": None,
+    }
 
     def __init__(self, *args):
         self.__catalogs = ["NGC", " IC", "Mes"]
