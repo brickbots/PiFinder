@@ -33,21 +33,38 @@ def decode_description(description):
 
     return ", ".join(result)
 
+
 def load_deepmap_600():
     """
-        loads the deepmap 600 file to add
-        better descriptions and flag items
-        on the list
+    loads the deepmap 600 file to add
+    better descriptions and flag items
+    on the list
     """
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
     data_path = os.path.join(root_dir, "astro_data", "deepmap_600.txt")
-    field_list = ["ID", "Catalog", "Name", "App Mag", "Type", "RA", "Dec", "Con", "Diff", "Mag1", "Mag2", "Sf Br", "Size", "CatNotes", "UserNotes"]
+    field_list = [
+        "ID",
+        "Catalog",
+        "Name",
+        "App Mag",
+        "Type",
+        "RA",
+        "Dec",
+        "Con",
+        "Diff",
+        "Mag1",
+        "Mag2",
+        "Sf Br",
+        "Size",
+        "CatNotes",
+        "UserNotes",
+    ]
     obj_list = []
     with open(data_path, "r") as deepmap:
         field_index = 0
         for l in deepmap:
             obj_rec = {}
-            l=l.strip()
+            l = l.strip()
             ll = l.split("\t")
             for i, v in enumerate(ll):
                 obj_rec[field_list[i]] = v

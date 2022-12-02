@@ -50,6 +50,7 @@ gen1 = gen1 * 2
 gen2 = gen2 * 2
 gc.set_threshold(allocs, gen1, gen2)
 
+
 def set_brightness(level):
     """
     Sets oled brightness
@@ -70,6 +71,7 @@ class SharedStateObj:
         self.__imu = None
         self.__location = None
         self.__datetime = None
+        self.__datetime_time = None
         self.__target = None
 
     def target(self):
@@ -109,10 +111,30 @@ class SharedStateObj:
         self.__last_image_time = v
 
     def datetime(self):
-        return self.__datetime
+        if self.__datetime == None:
+            return self.__datetime
+        return self.__datetime + datetime.timedelta(
+            seconds=time.time() - self.__datetime_time
+        )
 
     def set_datetime(self, dt):
-        self.__datetime = dt
+        if self.__datetime == None:
+            self.__datetime_time = time.time()
+            self.__datetime = dt
+        else:
+            # only reset if there is some significant diff
+            # as some gps recievers send multiple updates that can
+            # rewind and fastforward the clock
+            curtime = self.__datetime + datetime.timedelta(
+                seconds=time.time() - self.__datetime_time
+            )
+            if curtime > dt:
+                diff = (curtime - dt).seconds
+            else:
+                diff = (dt - curtime).seconds
+            if diff > 60:
+                self.__datetime_time = time.time()
+                self.__datetime = dt
 
 
 StateManager.register("SharedState", SharedStateObj)
@@ -364,7 +386,7 @@ def main():
                             ui_mode_index = i
                             ui_class.active()
 
-                #time.sleep(0.05)
+                # time.sleep(0.05)
 
         except KeyboardInterrupt:
             print("SHUTDOWN")

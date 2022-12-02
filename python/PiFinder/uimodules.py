@@ -530,17 +530,17 @@ class UIStatus(UIModule):
 
     def __init__(self, *args):
         self.status_dict = {
-            "LST SLV": "--",
-            "RA": "--",
-            "DEC": "--",
-            "AZ": "--",
-            "ALT": "--",
-            "GPS": "--",
-            "IMU": "--",
-            "IMU PS": "--",
-            "LCL TM": "--",
-            "UTC TM": "--",
+            "LST SLV": "           --",
+            "RA/DEC": "           --",
+            "AZ/ALT": "           --",
+            "GPS": "           --",
+            "IMU": "           --",
+            "IMU PS": "           --",
+            "LCL TM": "           --",
+            "UTC TM": "           --",
+            "CPU TMP": "           --",
         }
+        self.last_temp_time = 0
         super().__init__(*args)
 
     def update_status_dict(self):
@@ -552,34 +552,51 @@ class UIStatus(UIModule):
             solution = self.shared_state.solution()
             # last solve time
             self.status_dict["LST SLV"] = (
-                str(round(time.time() - solution["solve_time"]))
+                f"{time.time() - solution['solve_time']: >7.1f}"
                 + " - "
                 + str(solution["solve_source"])
             )
 
-            self.status_dict["RA"] = str(round(solution["RA"], 3))
-            self.status_dict["DEC"] = str(round(solution["Dec"], 3))
+            self.status_dict[
+                "RA/DEC"
+            ] = f"{solution['RA'] : >6.2f}/{solution['Dec'] : >6.2f}"
 
             if solution["Az"]:
-                self.status_dict["ALT"] = str(round(solution["Alt"], 3))
-                self.status_dict["AZ"] = str(round(solution["Az"], 3))
+                self.status_dict[
+                    "AZ/ALT"
+                ] = f"{solution['Az'] : >6.2f}/{solution['Alt'] : >6.2f}"
 
         location = self.shared_state.location()
         if location["gps_lock"]:
-            self.status_dict["GPS"] = "LOCK"
+            self.status_dict["GPS"] = "         LOCK"
 
         imu = self.shared_state.imu()
         if imu:
-            self.status_dict["IMU"] = str(imu["moving"]) + " " + str(imu["status"])
-            self.status_dict["IMU PS"] = f"{imu['pos'][0] :.1f} {imu['pos'][1] :.1f}"
+            if imu["pos"] != None:
+                if imu["moving"]:
+                    mtext = "Moving"
+                else:
+                    mtext = "Static"
+                self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu["status"])
+                self.status_dict[
+                    "IMU PS"
+                ] = f"{imu['pos'][0] : >6.1f}/{imu['pos'][1] : >6.1f}"
 
         dt = self.shared_state.datetime()
         if dt:
             utc_tz = pytz.timezone("UTC")
             dt = utc_tz.localize(dt)
             local_tz = pytz.timezone(location["timezone"])
-            self.status_dict["LCL TM"] = dt.astimezone(local_tz).time().isoformat()
-            self.status_dict["UTC TM"] = dt.time().isoformat()
+            self.status_dict["LCL TM"] = (
+                "     " + dt.astimezone(local_tz).time().isoformat()[:8]
+            )
+            self.status_dict["UTC TM"] = "     " + dt.time().isoformat()[:8]
+        # only update temp once per second....
+        if time.time() - self.last_temp_time > 1:
+            self.last_temp_time = time.time()
+            with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
+                raw_temp = int(f.read().strip())
+            self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
 
     def update(self):
         self.update_status_dict()
@@ -672,7 +689,7 @@ class UIChart(UIModule):
         self.starfield = plot.Starfield()
         self.solution = None
         self.fov_list = [5, 10.2, 15, 20, 25, 30, 40, 60]
-        self.mag_list = [7.5, 7, 6.5, 6, 5.5, 5.5, 5,5, 5,5]
+        self.mag_list = [7.5, 7, 6.5, 6, 5.5, 5.5, 5, 5, 5, 5]
         self.fov_index = 1
         super().__init__(*args)
 
@@ -710,13 +727,13 @@ class UIChart(UIModule):
             brightness = 32
 
         fov = self.fov_list[self.fov_index]
-        for circ_deg in [4,2,.5]:
-            circ_rad = ((circ_deg / fov) * 128)/2
+        for circ_deg in [4, 2, 0.5]:
+            circ_rad = ((circ_deg / fov) * 128) / 2
             bbox = [
-                64-circ_rad,
-                64-circ_rad,
-                64+circ_rad,
-                64+circ_rad,
+                64 - circ_rad,
+                64 - circ_rad,
+                64 + circ_rad,
+                64 + circ_rad,
             ]
             self.draw.arc(bbox, 20, 70, fill=(0, 0, brightness))
             self.draw.arc(bbox, 110, 160, fill=(0, 0, brightness))
@@ -849,12 +866,6 @@ class UIPreview(UIModule):
 
         self.draw_reticle()
         return self.screen_update()
-
-    def key_b(self):
-        self.preview_index += 1
-        if self.preview_index >= len(self.preview_modes):
-            self.preview_index = 0
-        self.update(force=True)
 
     def key_c(self):
         self.reticle_mode += 1

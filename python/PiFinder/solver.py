@@ -43,6 +43,7 @@ gen1 = gen1 * 2
 gen2 = gen2 * 2
 gc.set_threshold(allocs, gen1, gen2)
 
+
 class Skyfield_utils:
     """
     Class to persist various
