@@ -7,6 +7,7 @@ This module is for GPS related functions
 import io
 import pynmea2
 import serial
+import time
 
 
 def gps_monitor(gps_queue, console_queue):

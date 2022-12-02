@@ -15,6 +15,7 @@ import datetime
 import json
 import uuid
 import os
+import gc
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
@@ -31,13 +32,23 @@ import gps
 import imu
 import config
 
-from uimodules import UIPreview, UIConsole, UIStatus, UICatalog, UILocate
+from uimodules import UIChart, UIPreview, UIConsole, UIStatus, UICatalog, UILocate
 
 from image_util import subtract_background
 
 serial = spi(device=0, port=0)
 device = ssd1351(serial)
 
+# Clean up what might be garbage so far.
+gc.collect(2)
+# Exclude current items from future GC.
+gc.freeze()
+#
+allocs, gen1, gen2 = gc.get_threshold()
+allocs = 50_000  # Start the GC sequence every 50K not 700 allocations.
+gen1 = gen1 * 2
+gen2 = gen2 * 2
+gc.set_threshold(allocs, gen1, gen2)
 
 def set_brightness(level):
     """
@@ -197,16 +208,17 @@ def main():
         console.update()
 
         ui_modes = [
-            UIPreview(device, camera_image, shared_state, command_queues),
+            UIChart(device, camera_image, shared_state, command_queues),
             UICatalog(device, camera_image, shared_state, command_queues),
             UILocate(device, camera_image, shared_state, command_queues),
+            UIPreview(device, camera_image, shared_state, command_queues),
             UIStatus(device, camera_image, shared_state, command_queues),
             console,
         ]
         # What is the highest index for observing modes
         # vs status/debug modes accessed by alt-A
         ui_observing_modes = 2
-        ui_mode_index = 0
+        ui_mode_index = 3
 
         # Start of main except handler
         try:
@@ -351,6 +363,9 @@ def main():
                         if ui_class.__class__.__name__ == update_msg:
                             ui_mode_index = i
                             ui_class.active()
+
+                #time.sleep(0.05)
+
         except KeyboardInterrupt:
             print("SHUTDOWN")
             print("\tClearing console queue...")

@@ -9,6 +9,7 @@ import io
 import datetime
 import numpy as np
 import pandas
+import time
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 
 from skyfield.api import Star, load, utc, Angle
@@ -44,6 +45,13 @@ class Starfield:
             self.constellations = stellarium.parse_constellations(f)
 
         self.set_mag_limit(mag_limit)
+        # Prefilter here for mag 9, just to make sure we have enough
+        # for any plot.  Actual mag limit is enforced at plot time.
+        bright_stars = self.raw_stars.magnitude <= 7.5
+        self.stars = self.raw_stars[bright_stars]
+        self.star_positions = self.earth.at(self.t).observe(
+            Star.from_dataframe(self.stars)
+        )
         self.set_fov(fov)
 
         pointer_image_path = os.path.join(root_dir, "markers", "pointer.png")
@@ -53,11 +61,6 @@ class Starfield:
 
     def set_mag_limit(self, mag_limit):
         self.mag_limit = mag_limit
-        bright_stars = self.raw_stars.magnitude <= mag_limit
-        self.stars = self.raw_stars[bright_stars]
-        self.star_positions = self.earth.at(self.t).observe(
-            Star.from_dataframe(self.stars)
-        )
 
     def set_fov(self, fov):
         self.fov = fov
@@ -115,8 +118,8 @@ class Starfield:
                 )
 
                 # Draw pointer....
-                # if not within reticle circle
-                if x_pos > 154 or x_pos < 102 or y_pos > 157 or y_pos < 102:
+                # if not within screen
+                if x_pos > 180 or x_pos < 76 or y_pos > 180 or y_pos < 76:
                     # calc degrees to target....
                     deg_to_target = (
                         np.rad2deg(np.arctan2(y_pos - 128, x_pos - 128)) + 180
@@ -175,7 +178,7 @@ class Starfield:
                 start_y = start_pos[1] * -1 * pixel_scale + target_size
                 end_x = end_pos[0] * pixel_scale + target_size
                 end_y = end_pos[1] * -1 * pixel_scale + target_size
-                idraw.line([start_x, start_y, end_x, end_y], fill=(32, 32, 32))
+                idraw.line([start_x, start_y, end_x, end_y], fill=(32, 32, 64))
 
         stars_x = list(stars["x"])
         stars_y = list(stars["y"])
@@ -185,21 +188,21 @@ class Starfield:
             x_pos = x * pixel_scale + target_size
             y_pos = stars_y[i] * -1 * pixel_scale + target_size
             mag = stars_mag[i]
-            plot_size = (self.mag_limit - mag) / 3
-            fill = (255, 255, 255)
-            if mag > 4.5:
-                fill = (128, 128, 128)
-            if plot_size < 0.5:
-                idraw.point((x_pos, y_pos), fill=fill)
-            else:
-                idraw.ellipse(
-                    [
-                        x_pos - plot_size,
-                        y_pos - plot_size,
-                        x_pos + plot_size,
-                        y_pos + plot_size,
-                    ],
-                    fill=(255, 255, 255),
-                )
-
+            if mag < self.mag_limit:
+                plot_size = (self.mag_limit - mag) / 3
+                fill = (255, 255, 255)
+                if mag > 4.5:
+                    fill = (128, 128, 128)
+                if plot_size < 0.5:
+                    idraw.point((x_pos, y_pos), fill=fill)
+                else:
+                    idraw.ellipse(
+                        [
+                            x_pos - plot_size,
+                            y_pos - plot_size,
+                            x_pos + plot_size,
+                            y_pos + plot_size,
+                        ],
+                        fill=(255, 255, 255),
+                    )
         return ret_image
