@@ -23,6 +23,7 @@ RED = (0, 0, 255)
 class UIModule:
     __title__ = "BASE"
     __uuid__ = str(uuid.uuid1()).split("-")[0]
+    _config_options = None
 
     def __init__(self, display, camera_image, shared_state, command_queues):
         self.title = self.__title__
@@ -146,6 +147,49 @@ class UIModule:
     def key_d(self):
         pass
 
+
+class UIConfig(UIModule):
+    """
+    General module for displaying/altering a config
+    structure.
+
+    Takes a reference to a UIModule class and
+    configures it via user interaction
+    """
+    __title__ = "OPTIONS"
+
+    def __init__(self, *args):
+        self.__module = None
+        super().__init__(*args)
+
+    def set_module(self,module):
+        """
+            Sets the module to configure
+        """
+        self.__module = module
+        self.__config = module._config_options
+
+    def update(self):
+        #clear screen
+        if self.__config:
+            self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
+            lines = []
+            for k, v in self.__config.items():
+                line = f"{k: >9}: {v['value']: >8}"
+                lines.append(line)
+
+            lines.append("four")
+            lines.append("five")
+            lines.append("six")
+            lines.append("four")
+            lines.append("five")
+            lines.append("six")
+            lines.append("four")
+
+            for i, line in enumerate(lines):
+                self.draw.text((0, i * 11 + 18), str(i), font=self.font_base, fill=(0,0,255))
+                self.draw.text((12, i * 11 + 18), line, font=self.font_base, fill=(0,0,128))
+        return self.screen_update()
 
 class UILocate(UIModule):
     """
@@ -312,14 +356,21 @@ class UICatalog(UIModule):
 
     __title__ = "CATALOG"
     _config_options = {
-        "Alt Limit": [None, 10, 20, 30],
-        "Magnitude": [None, 7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12],
-        "Obj Type": [None] + list(OBJ_TYPES.keys()),
-    }
-    _config = {
-        "Alt Limit": 20,
-        "Magnitude": None,
-        "Obj Type": None,
+        "Alt Limit": {
+            "type": "enum",
+            "value": 10,
+            "options": ["None", 10, 20, 30],
+        },
+        "Magnitude": {
+            "type": "enum",
+            "value": "None",
+            "options":["None", 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+        },
+        "Obj Type": {
+            "type": "enum",
+            "value": "None",
+            "options":["None"] + list(OBJ_TYPES.keys()),
+        },
     }
 
     def __init__(self, *args):
