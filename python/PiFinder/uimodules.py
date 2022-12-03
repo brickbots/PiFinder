@@ -156,40 +156,174 @@ class UIConfig(UIModule):
     Takes a reference to a UIModule class and
     configures it via user interaction
     """
+
     __title__ = "OPTIONS"
 
     def __init__(self, *args):
         self.__module = None
+        self.__selected_item = None
+        self.__selected_item_key = None
         super().__init__(*args)
 
-    def set_module(self,module):
+    def set_module(self, module):
         """
-            Sets the module to configure
+        Sets the module to configure
         """
         self.__module = module
         self.__config = module._config_options
+        if self.__config:
+            self.__item_names = list(self.__config.keys())
 
     def update(self):
-        #clear screen
-        if self.__config:
-            self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
-            lines = []
-            for k, v in self.__config.items():
-                line = f"{k: >9}: {v['value']: >8}"
-                lines.append(line)
+        # clear screen
+        self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
+        if self.__config == None:
+            self.draw.text(
+                (20, 18), "No Config", font=self.font_base, fill=(0, 0, 255)
+            )
+        else:
 
-            lines.append("four")
-            lines.append("five")
-            lines.append("six")
-            lines.append("four")
-            lines.append("five")
-            lines.append("six")
-            lines.append("four")
+            # Draw left side item labels
+            selected_index = 0
+            for i, item_name in enumerate(self.__item_names):
+                if not self.__selected_item:
+                    self.draw.text(
+                        (0, i * 11 + 18), str(i), font=self.font_base, fill=(0, 0, 255)
+                    )
 
-            for i, line in enumerate(lines):
-                self.draw.text((0, i * 11 + 18), str(i), font=self.font_base, fill=(0,0,255))
-                self.draw.text((12, i * 11 + 18), line, font=self.font_base, fill=(0,0,128))
+                text_intensity = 128
+                if item_name == self.__selected_item:
+                    #Highlighted
+                    text_intensity = 255
+                    # Track the line number for the selected items
+                    # this allows us to cluster options around it nicely
+                    selected_index = i
+                elif self.__selected_item:
+                    # disabled
+                    text_intensity = 64
+
+                self.draw.text(
+                    (10, i * 11 + 18),
+                    f"{item_name: >9}",
+                    font=self.font_base,
+                    fill=(0, 0, text_intensity),
+                )
+
+            # Draw the right side
+            if not self.__selected_item:
+                # just show values
+                i = 0
+                for k, v in self.__config.items():
+                    value = v["value"]
+                    if isinstance(value, list):
+                        if len(value) == 1:
+                            value = value[0]
+                        else:
+                            value = "-MULT-"
+                    self.draw.text(
+                        (70, i * 11 + 18), f"{str(value)[:8]: >8}", font=self.font_base, fill=(0, 0, 128)
+                    )
+                    i += 1
+            else:
+                # something is selected, so show the appropriate input
+                # mechanism
+                selected_item = self.__config[self.__selected_item]
+                # Bool
+                if selected_item["type"] == "bool":
+                    self.draw.text(
+                        (70, selected_index * 11 + 18),
+                        f"{str(selected_item['value'])[:8]: >8}",
+                        font=self.font_base,
+                        fill=(0, 0, 255),
+                    )
+
+                if "enum" in selected_item["type"]:
+                    # Fan out the options around the selected item index
+                    option_count = len(selected_item["options"])
+                    start_index = selected_index - int(option_count / 2)
+                    end_index = selected_index + int(option_count / 2)
+                    if end_index > 10:
+                        start_index = start_index - (end_index - 10)
+                    if start_index < 0:
+                        start_index = 0
+
+                    # Show the options
+                    for i, enum in enumerate(selected_item["options"]):
+                        text_intensity = 128
+                        value = selected_item["value"]
+
+                        # convert singles to a list, just to enable the 
+                        # in check below
+                        if selected_item["type"] == "enum":
+                            value = [value]
+
+                        if enum in value:
+                            #Highlighted
+                            text_intensity = 255
+
+                        #enum
+                        self.draw.text(
+                            (70, (i + start_index) * 11 + 18),
+                            f"{str(enum)[:8]: >8}",
+                            font=self.font_base,
+                            fill=(0, 0, text_intensity),
+                        )
+
+                        # number
+                        self.draw.text(
+                            (122, (i + start_index) * 11 + 18),
+                            f"{i}",
+                            font=self.font_base,
+                            fill=(0, 0, 255),
+                        )
         return self.screen_update()
+
+    def key_enter(self):
+        # No matter where we are, enter should clear
+        # any selected item
+        self.__selected_item = None
+
+    def key_number(self, number):
+        if self.__selected_item:
+            # select the option
+            selected_item = self.__config[self.__selected_item]
+            if number >= len(selected_item["options"]):
+                # if a number is pressed that is not an option
+                # just return
+                return
+            if selected_item["type"] == "enum":
+                selected_item["value"] = selected_item["options"][number]
+                self.__selected_item = None
+
+            if selected_item["type"] == "multi_enum":
+                selected_option = selected_item["options"][number]
+                if selected_option == "None":
+                    selected_item["value"] = ["None"]
+                elif selected_option in selected_item["value"]:
+                    selected_item["value"].remove(selected_option)
+                else:
+                    selected_item["value"].append(selected_option)
+
+                # remove none if there are any other selections
+                if len(selected_item["value"]) > 1 and "None" in selected_item["value"]:
+                    selected_item["value"].remove("None")
+
+
+        else:
+            if number >= len(self.__item_names):
+                return
+            self.__selected_item = self.__item_names[number]
+            if self.__config[self.__selected_item]["type"] == "bool":
+                if self.__config[self.__selected_item]["value"] == "On":
+                    self.__config[self.__selected_item]["value"] = "Off"
+                else:
+                    self.__config[self.__selected_item]["value"] = "On"
+                self.update()
+                #sleep for a sec to give the user time to see the change
+                time.sleep(1)
+                # okay, reset and release
+                self.__selected_item = None
+
 
 class UILocate(UIModule):
     """
@@ -364,12 +498,21 @@ class UICatalog(UIModule):
         "Magnitude": {
             "type": "enum",
             "value": "None",
-            "options":["None", 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+            "options": ["None", 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
         },
-        "Obj Type": {
-            "type": "enum",
-            "value": "None",
-            "options":["None"] + list(OBJ_TYPES.keys()),
+        "Obj Types": {
+            "type": "multi_enum",
+            "value": ["None"],
+            "options": ["None"] + list(OBJ_TYPES.keys()),
+        },
+        "Tgl Test": {
+            "type": "bool",
+            "value": "On",
+        },
+        "Fan Test": {
+            "type": "multi_enum",
+            "value": ["One","Three"],
+            "options": ["Zero", "One", "Two", "Three", "Four", "Five"]
         },
     }
 
