@@ -23,6 +23,11 @@ ALT_B = 104
 ALT_C = 105
 ALT_D = 106
 ALT_0 = 110
+LNG_A = 200
+LNG_B = 201
+LNG_C = 202
+LNG_D = 203
+
 
 cols = [16, 23, 26, 27]
 rows = [19, 17, 18, 22, 20]
@@ -41,6 +46,13 @@ alt_keymap = [
     NA, ALT_0, NA, NA,
     ALT_A, ALT_B, ALT_C, ALT_D,
 ]
+long_keymap = [
+    NA, NA, NA, NA,
+    NA, NA, NA, ALT_UP,
+    NA, NA, NA, ALT_DN,
+    NA, NA, NA, NA,
+    LNG_A, LNG_B, LNG_C, LNG_D,
+]
 # fmt: on
 
 
@@ -53,8 +65,20 @@ def run_keyboard(q):
     GPIO.setup(cols, GPIO.IN, pull_up_down=GPIO.PUD_UP)
     pressed = set()
     alt_sent = False
+    hold_counter = 0
+    hold_sent = False
     while True:
         sleep(1 / 60)
+        if len(pressed) > 0 and hold_sent == False:
+            hold_counter += 1
+            if hold_counter > 60:
+                keycode = pressed.pop()
+                pressed = set()
+                q.put(long_keymap[keycode])
+                hold_counter = 0
+                hold_sent = True
+        else:
+            hold_counter = 0
         for i in range(len(rows)):
             GPIO.setup(rows[i], GPIO.OUT, initial=GPIO.LOW)
             for j in range(len(cols)):
@@ -74,6 +98,8 @@ def run_keyboard(q):
                     else:
                         if keycode == 15 and alt_sent:
                             alt_sent = False
+                        elif hold_sent:
+                            hold_sent = False
                         else:
                             q.put(keymap[keycode])
             GPIO.setup(rows[i], GPIO.IN)

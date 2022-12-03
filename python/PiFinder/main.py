@@ -32,7 +32,7 @@ import gps
 import imu
 import config
 
-from uimodules import UIChart, UIPreview, UIConsole, UIStatus, UICatalog, UILocate
+from uimodules import UIChart, UIPreview, UIConsole, UIStatus, UICatalog, UILocate, UIConfig
 
 from image_util import subtract_background
 
@@ -230,6 +230,7 @@ def main():
         console.update()
 
         ui_modes = [
+            UIConfig(device, camera_image, shared_state, command_queues),
             UIChart(device, camera_image, shared_state, command_queues),
             UICatalog(device, camera_image, shared_state, command_queues),
             UILocate(device, camera_image, shared_state, command_queues),
@@ -239,8 +240,8 @@ def main():
         ]
         # What is the highest index for observing modes
         # vs status/debug modes accessed by alt-A
-        ui_observing_modes = 2
-        ui_mode_index = 3
+        ui_observing_modes = 3
+        ui_mode_index = 4
 
         # Start of main except handler
         try:
@@ -313,6 +314,16 @@ def main():
                                 ui_mode_index = ui_observing_modes + 1
                             ui_modes[ui_mode_index].active()
 
+                        if keycode == keyboard.LNG_A and ui_mode_index > 0:
+                            # long A for config of current module
+                            target_module = ui_modes[ui_mode_index]
+                            if target_module._config_options:
+                                # only activate this if current module
+                                # has config options
+                                ui_mode_index = 0
+                                ui_modes[0].set_module(target_module)
+                                ui_modes[0].active()
+
                         if keycode == keyboard.ALT_0:
                             # screenshot
                             ui_modes[ui_mode_index].screengrab()
@@ -352,10 +363,19 @@ def main():
 
                     elif keycode == keyboard.A:
                         # A key, mode switch
-                        ui_mode_index += 1
-                        if ui_mode_index > ui_observing_modes:
-                            ui_mode_index = 0
-                        ui_modes[ui_mode_index].active()
+                        if ui_mode_index == 0:
+                            # in config mode
+                            ui_modes[0].update_target_config()
+                            # return control to original module
+                            for i, ui_class in enumerate(ui_modes):
+                                if ui_class == ui_modes[0].get_module():
+                                    ui_mode_index = i
+                                    ui_class.active()
+                        else:
+                            ui_mode_index += 1
+                            if ui_mode_index > ui_observing_modes:
+                                ui_mode_index = 1
+                            ui_modes[ui_mode_index].active()
 
                     else:
                         if keycode < 10:

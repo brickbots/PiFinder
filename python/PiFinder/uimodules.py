@@ -50,6 +50,9 @@ class UIModule:
         self.ss_path = os.path.join(root_dir, "screenshots", prefix)
         self.ss_count = 0
 
+    def update_config(self, config):
+        self._config_options=config
+
     def screengrab(self):
         self.ss_count += 1
         ss_imagepath = self.ss_path + f"_{self.ss_count :0>3}.png"
@@ -165,6 +168,9 @@ class UIConfig(UIModule):
         self.__selected_item_key = None
         super().__init__(*args)
 
+    def get_module(self):
+        return self.__module
+
     def set_module(self, module):
         """
         Sets the module to configure
@@ -173,6 +179,10 @@ class UIConfig(UIModule):
         self.__config = module._config_options
         if self.__config:
             self.__item_names = list(self.__config.keys())
+
+    def update_target_config(self):
+        self.__module.update_config(self.__config)
+        self.__selected_item = None
 
     def update(self):
         # clear screen
