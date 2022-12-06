@@ -32,7 +32,15 @@ import gps
 import imu
 import config
 
-from uimodules import UIChart, UIPreview, UIConsole, UIStatus, UICatalog, UILocate, UIConfig
+from uimodules import (
+    UIChart,
+    UIPreview,
+    UIConsole,
+    UIStatus,
+    UICatalog,
+    UILocate,
+    UIConfig,
+)
 
 from image_util import subtract_background
 

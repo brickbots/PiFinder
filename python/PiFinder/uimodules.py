@@ -51,7 +51,7 @@ class UIModule:
         self.ss_count = 0
 
     def update_config(self, config):
-        self._config_options=config
+        self._config_options = config
 
     def screengrab(self):
         self.ss_count += 1
@@ -188,9 +188,7 @@ class UIConfig(UIModule):
         # clear screen
         self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
         if self.__config == None:
-            self.draw.text(
-                (20, 18), "No Config", font=self.font_base, fill=(0, 0, 255)
-            )
+            self.draw.text((20, 18), "No Config", font=self.font_base, fill=(0, 0, 255))
         else:
 
             # Draw left side item labels
@@ -203,7 +201,7 @@ class UIConfig(UIModule):
 
                 text_intensity = 128
                 if item_name == self.__selected_item:
-                    #Highlighted
+                    # Highlighted
                     text_intensity = 255
                     # Track the line number for the selected items
                     # this allows us to cluster options around it nicely
@@ -231,7 +229,10 @@ class UIConfig(UIModule):
                         else:
                             value = "-MULT-"
                     self.draw.text(
-                        (70, i * 11 + 18), f"{str(value)[:8]: >8}", font=self.font_base, fill=(0, 0, 128)
+                        (70, i * 11 + 18),
+                        f"{str(value)[:8]: >8}",
+                        font=self.font_base,
+                        fill=(0, 0, 128),
                     )
                     i += 1
             else:
@@ -262,16 +263,16 @@ class UIConfig(UIModule):
                         text_intensity = 128
                         value = selected_item["value"]
 
-                        # convert singles to a list, just to enable the 
+                        # convert singles to a list, just to enable the
                         # in check below
                         if selected_item["type"] == "enum":
                             value = [value]
 
                         if enum in value:
-                            #Highlighted
+                            # Highlighted
                             text_intensity = 255
 
-                        #enum
+                        # enum
                         self.draw.text(
                             (70, (i + start_index) * 11 + 18),
                             f"{str(enum)[:8]: >8}",
@@ -318,7 +319,6 @@ class UIConfig(UIModule):
                 if len(selected_item["value"]) > 1 and "None" in selected_item["value"]:
                     selected_item["value"].remove("None")
 
-
         else:
             if number >= len(self.__item_names):
                 return
@@ -329,7 +329,7 @@ class UIConfig(UIModule):
                 else:
                     self.__config[self.__selected_item]["value"] = "On"
                 self.update()
-                #sleep for a sec to give the user time to see the change
+                # sleep for a sec to give the user time to see the change
                 time.sleep(1)
                 # okay, reset and release
                 self.__selected_item = None
@@ -515,15 +515,6 @@ class UICatalog(UIModule):
             "value": ["None"],
             "options": ["None"] + list(OBJ_TYPES.keys()),
         },
-        "Tgl Test": {
-            "type": "bool",
-            "value": "On",
-        },
-        "Fan Test": {
-            "type": "multi_enum",
-            "value": ["One","Three"],
-            "options": ["Zero", "One", "Two", "Three", "Four", "Five"]
-        },
     }
 
     def __init__(self, *args):
@@ -541,6 +532,12 @@ class UICatalog(UIModule):
         self.font_large = ImageFont.truetype(
             "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 20
         )
+        self.load_catalog()
+
+    def update_config(self, config):
+        self._config_options = config
+        # call load catalog to re-filter if needed
+        self.load_catalog()
 
     def update_object_text(self):
         """
@@ -646,8 +643,62 @@ class UICatalog(UIModule):
             self.designator = ["-"] * 3
         else:
             self.designator = ["-"] * 4
-        self.cat_object = None
-        self.update_object_text()
+
+        self.load_catalog()
+
+    def load_catalog(self):
+        """
+        Loads, or reloads, the current catalog
+        based on catalog_index
+
+        Does filtering based on params
+        populates self._filtered_catalog
+        """
+        catalog = self.__catalogs[self.catalog_index].strip()[0]
+        load_start_time = time.time()
+
+        where_clause = f"where catalog = '{catalog}'"
+        if self._config_options["Magnitude"]["value"] != "None":
+            where_clause += f" and mag < {self._config_options['Magnitude']['value']}"
+
+        if self._config_options["Obj Types"]["value"] != ["None"]:
+            tmp_clause = "','".join(self._config_options["Obj Types"]["value"])
+            where_clause += f" and obj_type in ('{tmp_clause}')"
+
+        print(where_clause)
+
+        cat_objects = self.conn.execute(
+            f"""
+            SELECT * from objects
+            {where_clause}
+            order by designation
+        """
+        ).fetchall()
+
+        # filter by altitude
+        #
+
+        self._filtered_catalog = list(cat_objects)
+        self._catalog_count = (5000, len(self._filtered_catalog))
+        self._catalog_item_index = 0
+        print(
+            f"Catalog loaded {time.time() - load_start_time :.1f} Items: {self._catalog_count}"
+        )
+
+        # Reset any designations....
+        self.key_d()
+
+    def find_by_designator(self, designator):
+        """
+        Searches the loaded catalog for the designator
+        """
+        for i, c in enumerate(self._filtered_catalog):
+            if c["designation"] == int(designator):
+                self.cat_object = c
+                self._catalog_item_index = i
+                return True
+
+        return False
 
     def key_number(self, number):
         self.designator = self.designator[1:]
@@ -665,15 +716,9 @@ class UICatalog(UIModule):
                     go = False
         # Check for match
         designator = "".join(self.designator).replace("-", "")
-        catalog = self.__catalogs[self.catalog_index].strip()[0]
-        self.cat_object = self.conn.execute(
-            f"""
-            SELECT * from objects
-            where catalog = "{catalog}"
-            and designation = "{designator}"
-        """
-        ).fetchone()
-        self.update_object_text()
+        found = self.find_by_designator(designator)
+        if found:
+            self.update_object_text()
 
     def key_enter(self):
         """
@@ -689,40 +734,29 @@ class UICatalog(UIModule):
         Looks for the next object up/down
         sets the designation and object
         """
-        if direction == "<":
-            sort_order = "desc"
+        self._catalog_item_index += direction
+        if self._catalog_item_index < 0:
+            self._catalog_item_index = 0
+
+        if self._catalog_item_index >= self._catalog_count[1]:
+            self._catalog_item_index = self._catalog_count[1]
+
+        self.cat_object = self._filtered_catalog[self._catalog_item_index]
+        desig = str(self.cat_object["designation"])
+        desig = list(desig)
+        if self.catalog_index == 2:
+            desig = ["-"] * (3 - len(desig)) + desig
         else:
-            sort_order = ""
+            desig = ["-"] * (4 - len(desig)) + desig
 
-        designator = "".join(self.designator).replace("-", "")
-        catalog = self.__catalogs[self.catalog_index].strip()[0]
-
-        tmp_obj = self.conn.execute(
-            f"""
-            SELECT * from objects
-            where catalog = "{catalog}"
-            and designation {direction} "{designator}"
-            order by designation {sort_order}
-        """
-        ).fetchone()
-
-        if tmp_obj:
-            self.cat_object = tmp_obj
-            desig = str(tmp_obj["designation"])
-            desig = list(desig)
-            if self.catalog_index == 2:
-                desig = ["-"] * (3 - len(desig)) + desig
-            else:
-                desig = ["-"] * (4 - len(desig)) + desig
-
-            self.designator = desig
-            self.update_object_text()
+        self.designator = desig
+        self.update_object_text()
 
     def key_up(self):
-        self.scroll_obj("<")
+        self.scroll_obj(-1)
 
     def key_down(self):
-        self.scroll_obj(">")
+        self.scroll_obj(1)
 
 
 class UIStatus(UIModule):
