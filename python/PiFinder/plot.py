@@ -151,6 +151,7 @@ class Starfield:
         return pil_image.rotate(roll).crop([64, 64, 192, 192])
 
     def render_starfield_pil(self, stars, const_lines):
+        start_time = time.time()
         target_size = 128
         angle = np.pi - (self.fov) / 360.0 * np.pi
         limit = np.sin(angle) / (1.0 - np.cos(angle))
@@ -187,22 +188,25 @@ class Starfield:
         for i, x in enumerate(stars_x):
             x_pos = x * pixel_scale + target_size
             y_pos = stars_y[i] * -1 * pixel_scale + target_size
-            mag = stars_mag[i]
-            if mag < self.mag_limit:
-                plot_size = (self.mag_limit - mag) / 3
-                fill = (255, 255, 255)
-                if mag > 4.5:
-                    fill = (128, 128, 128)
-                if plot_size < 0.5:
-                    idraw.point((x_pos, y_pos), fill=fill)
-                else:
-                    idraw.ellipse(
-                        [
-                            x_pos - plot_size,
-                            y_pos - plot_size,
-                            x_pos + plot_size,
-                            y_pos + plot_size,
-                        ],
-                        fill=(255, 255, 255),
-                    )
+            if x_pos > 0 and x_pos < target_size * 2 and  y_pos > 0 and y_pos < target_size *2:
+            #if True:
+                mag = stars_mag[i]
+                if mag < self.mag_limit:
+                    plot_size = (self.mag_limit - mag) / 3
+                    fill = (255, 255, 255)
+                    if mag > 4.5:
+                        fill = (128, 128, 128)
+                    if plot_size < 0.5:
+                        idraw.point((x_pos, y_pos), fill=fill)
+                    else:
+                        idraw.ellipse(
+                            [
+                                x_pos - plot_size,
+                                y_pos - plot_size,
+                                x_pos + plot_size,
+                                y_pos + plot_size,
+                            ],
+                            fill=(255, 255, 255),
+                        )
+        print("plot time" + str(time.time() - start_time))
         return ret_image

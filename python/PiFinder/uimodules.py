@@ -528,6 +528,7 @@ class UICatalog(UIModule):
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
         self.db_c = self.conn.cursor()
+        self.sf_utils = solver.Skyfield_utils()
         super().__init__(*args)
         self.font_large = ImageFont.truetype(
             "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 20
@@ -609,9 +610,20 @@ class UICatalog(UIModule):
         self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
 
         # catalog and entry field
-        line = self.__catalogs[self.catalog_index] + " "
+        line = self.__catalogs[self.catalog_index]
         line += "".join(self.designator)
         self.draw.text((0, 21), line, font=self.font_large, fill=RED)
+
+        # catalog counts....
+        self.draw.text(
+            (100, 21),
+            f"{self._catalog_count[1]}",
+            font=self.font_base,
+            fill=(0, 0, 128),
+        )
+        self.draw.text(
+            (100, 31), f"{self._catalog_count[0]}", font=self.font_base, fill=(0, 0, 96)
+        )
 
         # ID Line in BOld
         self.draw.text((0, 48), self.object_text[0], font=self.font_bold, fill=RED)
@@ -657,6 +669,15 @@ class UICatalog(UIModule):
         catalog = self.__catalogs[self.catalog_index].strip()[0]
         load_start_time = time.time()
 
+        # first get count of full catalog
+        full_count = self.conn.execute(
+            f"""
+                select count(*) as cnt
+                from objects
+                where catalog = '{catalog}'
+            """
+        ).fetchone()["cnt"]
+
         where_clause = f"where catalog = '{catalog}'"
         if self._config_options["Magnitude"]["value"] != "None":
             where_clause += f" and mag < {self._config_options['Magnitude']['value']}"
@@ -665,8 +686,6 @@ class UICatalog(UIModule):
             tmp_clause = "','".join(self._config_options["Obj Types"]["value"])
             where_clause += f" and obj_type in ('{tmp_clause}')"
 
-        print(where_clause)
-
         cat_objects = self.conn.execute(
             f"""
             SELECT * from objects
@@ -674,12 +693,42 @@ class UICatalog(UIModule):
             order by designation
         """
         ).fetchall()
+        self._filtered_catalog = list(cat_objects)
 
         # filter by altitude
-        #
+        altitude_filter = self._config_options["Alt Limit"]["value"]
+        if altitude_filter != "None":
+            solution = self.shared_state.solution()
+            location = self.shared_state.location()
+            dt = self.shared_state.datetime()
+            if location and dt and solution:
+                non_vis_objects = []
+                if solution["Alt"]:
+                    # We have position and time/date!
+                    self.sf_utils.set_location(
+                        location["lat"],
+                        location["lon"],
+                        location["altitude"],
+                    )
+                    #prime the pump
+                    obj_alt, obj_az = self.sf_utils.fast_radec_to_altaz(
+                        10,
+                        10,
+                        dt,
+                    )
+                    for obj in self._filtered_catalog:
+                        obj_alt, obj_az = self.sf_utils.fast_radec_to_altaz(
+                            obj["ra"],
+                            obj["dec"],
+                            None,
+                        )
+                        if obj_alt < int(altitude_filter):
+                            non_vis_objects.append(obj)
 
-        self._filtered_catalog = list(cat_objects)
-        self._catalog_count = (5000, len(self._filtered_catalog))
+                    for obj in non_vis_objects:
+                        self._filtered_catalog.remove(obj)
+
+        self._catalog_count = (full_count, len(self._filtered_catalog))
         self._catalog_item_index = 0
         print(
             f"Catalog loaded {time.time() - load_start_time :.1f} Items: {self._catalog_count}"

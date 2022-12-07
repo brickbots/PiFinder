@@ -82,6 +82,33 @@ class Skyfield_utils:
         ra, dec, distance = a.radec(epoch=t)
         return ra._degrees, dec._degrees
 
+    def fast_radec_to_altaz(self, ra, dec, dt):
+        """
+        returns the apparent ALT/AZ of a specfic
+        RA/DEC at the given time
+
+        This version re-uses dt/observer
+        and does not calculate refraction
+        """
+        return 1,1
+
+        if dt != None:
+            dt = dt.replace(tzinfo=utc)
+            ts = load.timescale()
+            t = ts.from_datetime(dt)
+
+            self.observer = self.observer_loc.at(t)
+
+        sky_pos = Star(
+            ra=Angle(degrees=ra),
+            dec_degrees=dec,
+        )
+
+        apparent = self.observer.observe(sky_pos).apparent()
+        alt, az, distance = apparent.altaz()
+        return alt.degrees, az.degrees
+
+
     def radec_to_altaz(self, ra, dec, dt):
         """
         returns the apparent ALT/AZ of a specfic
