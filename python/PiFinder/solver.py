@@ -7,15 +7,15 @@ This module is the solver
 
 """
 import os
+import sys
 import queue
 import pprint
 import time
 import copy
 import uuid
 import json
-import gc
 
-from PIL import ImageOps
+from PIL import ImageOps, Image
 from tetra3 import Tetra3
 from skyfield.api import (
     wgs84,
@@ -32,16 +32,6 @@ from image_util import subtract_background
 IMU_ALT = 2
 IMU_AZ = 0
 
-# Clean up what might be garbage so far.
-gc.collect(2)
-# Exclude current items from future GC.
-gc.freeze()
-#
-allocs, gen1, gen2 = gc.get_threshold()
-allocs = 50_000  # Start the GC sequence every 50K not 700 allocations.
-gen1 = gen1 * 2
-gen2 = gen2 * 2
-gc.set_threshold(allocs, gen1, gen2)
 
 
 class Skyfield_utils:
@@ -177,6 +167,7 @@ def solver(shared_state, camera_image, console_queue):
     debug_solve = None
     sf_utils = Skyfield_utils()
     t3 = Tetra3("default_database")
+    t3_counter = 0
     last_solve_time = 0
     imu_moving = False
     solved = {
@@ -202,6 +193,7 @@ def solver(shared_state, camera_image, console_queue):
         last_image_time = shared_state.last_image_time()[0]
         if last_image_time > last_solve_time:
             solve_image = camera_image.copy()
+
             new_solve = t3.solve_from_image(
                 solve_image,
                 fov_estimate=10.2,

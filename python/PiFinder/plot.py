@@ -151,7 +151,6 @@ class Starfield:
         return pil_image.rotate(roll).crop([64, 64, 192, 192])
 
     def render_starfield_pil(self, stars, const_lines):
-        start_time = time.time()
         target_size = 128
         angle = np.pi - (self.fov) / 360.0 * np.pi
         limit = np.sin(angle) / (1.0 - np.cos(angle))
@@ -208,5 +207,4 @@ class Starfield:
                             ],
                             fill=(255, 255, 255),
                         )
-        print("plot time" + str(time.time() - start_time))
         return ret_image
