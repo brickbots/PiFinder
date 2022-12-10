@@ -187,8 +187,13 @@ class Starfield:
         for i, x in enumerate(stars_x):
             x_pos = x * pixel_scale + target_size
             y_pos = stars_y[i] * -1 * pixel_scale + target_size
-            if x_pos > 0 and x_pos < target_size * 2 and  y_pos > 0 and y_pos < target_size *2:
-            #if True:
+            if (
+                x_pos > 0
+                and x_pos < target_size * 2
+                and y_pos > 0
+                and y_pos < target_size * 2
+            ):
+                # if True:
                 mag = stars_mag[i]
                 if mag < self.mag_limit:
                     plot_size = (self.mag_limit - mag) / 3

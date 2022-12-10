@@ -27,6 +27,7 @@ LNG_A = 200
 LNG_B = 201
 LNG_C = 202
 LNG_D = 203
+LNG_ENT = 204
 
 
 cols = [16, 23, 26, 27]
@@ -48,9 +49,9 @@ alt_keymap = [
 ]
 long_keymap = [
     NA, NA, NA, NA,
-    NA, NA, NA, ALT_UP,
-    NA, NA, NA, ALT_DN,
     NA, NA, NA, NA,
+    NA, NA, NA, NA,
+    NA, NA, NA, LNG_ENT,
     LNG_A, LNG_B, LNG_C, LNG_D,
 ]
 # fmt: on
@@ -71,7 +72,7 @@ def run_keyboard(q):
         sleep(1 / 60)
         if len(pressed) > 0 and hold_sent == False:
             hold_counter += 1
-            if hold_counter > 60:
+            if hold_counter > 60 and not alt_sent:
                 keycode = pressed.pop()
                 pressed = set()
                 q.put(long_keymap[keycode])

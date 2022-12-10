@@ -11,6 +11,50 @@ from obj_types import OBJ_DESCRIPTORS
 from pprint import pprint
 
 
+def create_logging_tables():
+    """
+    Creates the base logging tables
+    """
+
+    root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
+    if not os.path.exists(db_path):
+        print("DB does not exist!")
+        return False
+
+    # open the DB
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    db_c = conn.cursor()
+
+    # initialize tables
+    db_c.execute(
+        """
+           CREATE TABLE obs_sessions(
+                id INTEGER PRIMARY KEY,
+                start_time INTEGER,
+                lat NUMERIC,
+                lon NUMERIC,
+                UID TEXT
+           )
+        """
+    )
+
+    db_c.execute(
+        """
+           CREATE TABLE obs_objects(
+                id INTEGER PRIMARY KEY,
+                session_id INTEGER,
+                obs_time INTEGER,
+                catalog TEXT,
+                designation INTEGER,
+                solution TEXT,
+                notes TEXT
+           )
+        """
+    )
+
+
 def decode_description(description):
     """
     decodes comma seperated descriptors

@@ -39,12 +39,14 @@ from uimodules import (
     UICatalog,
     UILocate,
     UIConfig,
+    UILog,
 )
 
 from image_util import subtract_background
 
 serial = spi(device=0, port=0)
 device = ssd1351(serial)
+
 
 def set_brightness(level):
     """
@@ -233,10 +235,16 @@ def main():
             UIStatus(device, camera_image, shared_state, command_queues),
             console,
         ]
+        log_module = UILog(device, camera_image, shared_state, command_queues)
+
         # What is the highest index for observing modes
         # vs status/debug modes accessed by alt-A
         ui_observing_modes = 3
         ui_mode_index = 4
+
+        # sort of a stack when exiting logging module
+        return_module = None
+        current_module = ui_modes[ui_mode_index]
 
         # Start of main except handler
         try:
@@ -307,21 +315,29 @@ def main():
                                 ui_mode_index = ui_observing_modes + 1
                             if ui_mode_index <= ui_observing_modes:
                                 ui_mode_index = ui_observing_modes + 1
-                            ui_modes[ui_mode_index].active()
+                            current_module = ui_modes[ui_mode_index]
+                            current_module.active()
 
                         if keycode == keyboard.LNG_A and ui_mode_index > 0:
                             # long A for config of current module
-                            target_module = ui_modes[ui_mode_index]
+                            target_module = current_module
                             if target_module._config_options:
                                 # only activate this if current module
                                 # has config options
                                 ui_mode_index = 0
-                                ui_modes[0].set_module(target_module)
-                                ui_modes[0].active()
+                                current_module = ui_modes[0]
+                                current_module.set_module(target_module)
+                                current_module.active()
+
+                        if keycode == keyboard.LNG_ENT and ui_mode_index > 0:
+                            # long ENT for log observation
+                            return_module = current_module
+                            current_module = log_module
+                            current_module.active()
 
                         if keycode == keyboard.ALT_0:
                             # screenshot
-                            ui_modes[ui_mode_index].screengrab()
+                            current_module.screengrab()
                             console.write("Screenshot saved")
 
                         if keycode == keyboard.ALT_D:
@@ -365,43 +381,44 @@ def main():
                             for i, ui_class in enumerate(ui_modes):
                                 if ui_class == ui_modes[0].get_module():
                                     ui_mode_index = i
-                                    ui_class.active()
+                                    current_module = ui_class
+                                    current_module.active()
                         else:
                             ui_mode_index += 1
                             if ui_mode_index > ui_observing_modes:
                                 ui_mode_index = 1
-                            ui_modes[ui_mode_index].active()
+                            current_module = ui_modes[ui_mode_index]
+                            current_module.active()
 
                     else:
                         if keycode < 10:
-                            ui_modes[ui_mode_index].key_number(keycode)
+                            current_module.key_number(keycode)
 
                         elif keycode == keyboard.UP:
-                            ui_modes[ui_mode_index].key_up()
+                            current_module.key_up()
 
                         elif keycode == keyboard.DN:
-                            ui_modes[ui_mode_index].key_down()
+                            current_module.key_down()
 
                         elif keycode == keyboard.GO:
-                            ui_modes[ui_mode_index].key_enter()
+                            current_module.key_enter()
 
                         elif keycode == keyboard.B:
-                            ui_modes[ui_mode_index].key_b()
+                            current_module.key_b()
 
                         elif keycode == keyboard.C:
-                            ui_modes[ui_mode_index].key_c()
+                            current_module.key_c()
 
                         elif keycode == keyboard.D:
-                            ui_modes[ui_mode_index].key_d()
+                            current_module.key_d()
 
-                update_msg = ui_modes[ui_mode_index].update()
+                update_msg = current_module.update()
                 if update_msg:
                     for i, ui_class in enumerate(ui_modes):
                         if ui_class.__class__.__name__ == update_msg:
                             ui_mode_index = i
-                            ui_class.active()
-
-                # time.sleep(0.05)
+                            current_module = ui_class
+                            current_module.active()
 
         except KeyboardInterrupt:
             print("SHUTDOWN")

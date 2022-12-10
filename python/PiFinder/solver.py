@@ -33,7 +33,6 @@ IMU_ALT = 2
 IMU_AZ = 0
 
 
-
 class Skyfield_utils:
     """
     Class to persist various
@@ -80,7 +79,7 @@ class Skyfield_utils:
         This version re-uses dt/observer
         and does not calculate refraction
         """
-        return 1,1
+        return 1, 1
 
         if dt != None:
             dt = dt.replace(tzinfo=utc)
@@ -97,7 +96,6 @@ class Skyfield_utils:
         apparent = self.observer.observe(sky_pos).apparent()
         alt, az, distance = apparent.altaz()
         return alt.degrees, az.degrees
-
 
     def radec_to_altaz(self, ra, dec, dt):
         """
