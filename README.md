@@ -3,4 +3,6 @@
 
 ![PiFinder on my Dob](./images/PiFinder_on_scope.jpg)
 
- 
+## Docs
+
+* [Bill of Materials](./docs/BOM.md) 

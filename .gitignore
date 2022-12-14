@@ -139,3 +139,4 @@ dev/
 *.gcode
 datasheets/
 kicad/PiFinder/PiFinder-backups
+.obsidian

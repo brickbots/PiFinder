@@ -10,3 +10,4 @@ Packages
 Data
 * Stellerium constellation data
 * Hipparcos catalog - https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
+* Yale BSA
