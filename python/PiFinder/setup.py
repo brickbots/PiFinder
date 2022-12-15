@@ -17,10 +17,10 @@ def create_logging_tables():
     """
 
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
-    if not os.path.exists(db_path):
-        print("DB does not exist!")
-        return False
+    db_path = os.path.join(root_dir, "observations.db")
+    if os.path.exists(db_path):
+        print("DB already exists!")
+        return db_path
 
     # open the DB
     conn = sqlite3.connect(db_path)
@@ -32,9 +32,10 @@ def create_logging_tables():
         """
            CREATE TABLE obs_sessions(
                 id INTEGER PRIMARY KEY,
-                start_time INTEGER,
+                start_time_local INTEGER,
                 lat NUMERIC,
                 lon NUMERIC,
+                timezone TEXT,
                 UID TEXT
            )
         """
@@ -44,8 +45,8 @@ def create_logging_tables():
         """
            CREATE TABLE obs_objects(
                 id INTEGER PRIMARY KEY,
-                session_id INTEGER,
-                obs_time INTEGER,
+                session_uid TEXT,
+                obs_time_local INTEGER,
                 catalog TEXT,
                 designation INTEGER,
                 solution TEXT,
@@ -53,6 +54,7 @@ def create_logging_tables():
            )
         """
     )
+    return db_path
 
 
 def decode_description(description):

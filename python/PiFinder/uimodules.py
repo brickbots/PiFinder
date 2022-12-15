@@ -5,7 +5,6 @@ This module contains all the UI Module classes
 
 """
 import datetime
-import pytz
 import time
 import os
 import uuid
@@ -926,12 +925,10 @@ class UIStatus(UIModule):
                 ] = f"{imu['pos'][0] : >6.1f}/{imu['pos'][2] : >6.1f}"
 
         dt = self.shared_state.datetime()
+        local_dt = self.shared_state.local_datetime()
         if dt:
-            utc_tz = pytz.timezone("UTC")
-            dt = utc_tz.localize(dt)
-            local_tz = pytz.timezone(location["timezone"])
             self.status_dict["LCL TM"] = (
-                "     " + dt.astimezone(local_tz).time().isoformat()[:8]
+                "     " + local_dt.time().isoformat()[:8]
             )
             self.status_dict["UTC TM"] = "     " + dt.time().isoformat()[:8]
         # only update temp once per second....
