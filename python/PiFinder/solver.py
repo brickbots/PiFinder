@@ -79,7 +79,7 @@ class Skyfield_utils:
         This version re-uses dt/observer
         and does not calculate refraction
         """
-        return 1, 1
+        #return 1, 1
 
         if dt != None:
             dt = dt.replace(tzinfo=utc)

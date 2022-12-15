@@ -558,7 +558,7 @@ class UICatalog(UIModule):
     _config_options = {
         "Alt Limit": {
             "type": "enum",
-            "value": 10,
+            "value": "None",
             "options": ["None", 10, 20, 30],
         },
         "Magnitude": {
@@ -923,7 +923,7 @@ class UIStatus(UIModule):
                 self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu["status"])
                 self.status_dict[
                     "IMU PS"
-                ] = f"{imu['pos'][0] : >6.1f}/{imu['pos'][1] : >6.1f}"
+                ] = f"{imu['pos'][0] : >6.1f}/{imu['pos'][2] : >6.1f}"
 
         dt = self.shared_state.datetime()
         if dt:
