@@ -71,33 +71,7 @@ class Skyfield_utils:
         ra, dec, distance = a.radec(epoch=t)
         return ra._degrees, dec._degrees
 
-    def fast_radec_to_altaz(self, ra, dec, dt):
-        """
-        returns the apparent ALT/AZ of a specfic
-        RA/DEC at the given time
-
-        This version re-uses dt/observer
-        and does not calculate refraction
-        """
-        #return 1, 1
-
-        if dt != None:
-            dt = dt.replace(tzinfo=utc)
-            ts = load.timescale()
-            t = ts.from_datetime(dt)
-
-            self.observer = self.observer_loc.at(t)
-
-        sky_pos = Star(
-            ra=Angle(degrees=ra),
-            dec_degrees=dec,
-        )
-
-        apparent = self.observer.observe(sky_pos).apparent()
-        alt, az, distance = apparent.altaz()
-        return alt.degrees, az.degrees
-
-    def radec_to_altaz(self, ra, dec, dt):
+    def radec_to_altaz(self, ra, dec, dt, atmos=True):
         """
         returns the apparent ALT/AZ of a specfic
         RA/DEC at the given time
@@ -113,7 +87,10 @@ class Skyfield_utils:
         )
 
         apparent = observer.observe(sky_pos).apparent()
-        alt, az, distance = apparent.altaz("standard")
+        if atmos:
+            alt, az, distance = apparent.altaz("standard")
+        else:
+            alt, az, distance = apparent.altaz()
         return alt.degrees, az.degrees
 
     def radec_to_constellation(self, ra, dec):
@@ -188,8 +165,9 @@ def solver(shared_state, camera_image, console_queue):
         # use the time the exposure started here to
         # reject images startede before the last solve
         # which might be from the IMU
-        last_image_time = shared_state.last_image_time()[0]
-        if last_image_time > last_solve_time:
+        last_image_time = shared_state.last_image_time()
+        if last_image_time[0] > last_solve_time:
+            print("Solving")
             solve_image = camera_image.copy()
 
             new_solve = t3.solve_from_image(
@@ -259,7 +237,7 @@ def solver(shared_state, camera_image, console_queue):
                     )
                     debug_solve = None
 
-            last_solve_time = last_image_time
+            last_solve_time = last_image_time[1]
         else:
             # No new image, check IMU
             # if we don't have an alt/az solve
@@ -267,7 +245,7 @@ def solver(shared_state, camera_image, console_queue):
             if solved["Alt"]:
                 imu = shared_state.imu()
                 if imu:
-                    if imu["moving"] or imu_moving == True:
+                    if imu["moving"]: #or imu_moving == True:
                         # we track imu_moving so that we do
                         # this one more time after we stop moving
                         imu_moving = imu["moving"]
@@ -298,6 +276,7 @@ def solver(shared_state, camera_image, console_queue):
                                 )
 
                                 solved["solve_time"] = time.time()
+                                last_solve_time = time.time()
                                 solved["solve_source"] = "IMU"
                                 solved[
                                     "constellation"
@@ -306,4 +285,3 @@ def solver(shared_state, camera_image, console_queue):
                                 )
                                 shared_state.set_solution(solved)
                                 shared_state.set_solve_state(True)
-                                last_solve_time = time.time()

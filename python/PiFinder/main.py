@@ -260,6 +260,7 @@ def main():
         current_module = ui_modes[ui_mode_index]
 
         # Start of main except handler
+        bg_task_warmup = 5
         try:
 
             while True:
@@ -432,6 +433,13 @@ def main():
                             ui_mode_index = i
                             current_module = ui_class
                             current_module.active()
+
+                #check for BG task time...
+                bg_task_warmup -= 1
+                if bg_task_warmup == 0:
+                    bg_task_warmup = 5
+                    for module in ui_modes:
+                        module.background_update()
 
         except KeyboardInterrupt:
             print("SHUTDOWN")

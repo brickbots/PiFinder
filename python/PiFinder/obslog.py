@@ -17,12 +17,13 @@ import json
 from obj_types import OBJ_TYPES
 from setup import create_logging_tables
 
+
 class Observation_session:
     """
-        Represents a single
-        session of observations
-        in a specific location
-        with multiple objects observed
+    Represents a single
+    session of observations
+    in a specific location
+    with multiple objects observed
     """
 
     def __init__(self, shared_state):
@@ -38,9 +39,9 @@ class Observation_session:
 
     def session_uid(self):
         """
-            Returns the current session uid
-            Creates a new observing session
-            if none yet exists
+        Returns the current session uid
+        Creates a new observing session
+        if none yet exists
         """
         if self.__session_uid:
             # already initialized, abort
@@ -79,7 +80,7 @@ class Observation_session:
                 "lon": location["lon"],
                 "timezone": location["timezone"],
                 "uid": self.__session_uid,
-            }
+            },
         )
 
         return self.__session_uid
@@ -120,17 +121,7 @@ class Observation_session:
                 "designation": designation,
                 "solution": json.dumps(solution),
                 "notes": json.dumps(notes),
-            }
+            },
         )
 
         return True
-
-
-
-
-
-
-
-
-
-

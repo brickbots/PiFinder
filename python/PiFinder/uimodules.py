@@ -67,6 +67,14 @@ class UIModule:
         """
         pass
 
+    def background_update(self):
+        """
+            Called every 5th ui cycle on all modules
+            allows background tasks, like updating
+            altitude in the Catalog
+        """
+        pass
+
     def update(self):
         """
         Called to trigger UI Updates
@@ -348,7 +356,7 @@ class UILog(UIModule):
         self.target_list = []
         self.target_index = None
         self.object_text = ["No Object Found"]
-        self.__catalogs = {"N": "NGC", "I": " IC", "M": "Mes"}
+        self.__catalog_names = {"N": "NGC", "I": " IC", "M": "Mes"}
         super().__init__(*args)
 
     def key_enter(self):
@@ -380,7 +388,7 @@ class UILog(UIModule):
 
         # Target Name
         line = "Log "
-        line += self.__catalogs.get(self.target["catalog"], "UNK") + " "
+        line += self.__catalog_names.get(self.target["catalog"], "UNK") + " "
         line += str(self.target["designation"])
         self.draw.text((0, 20), line, font=self.font_large, fill=RED)
 
@@ -402,7 +410,7 @@ class UILocate(UIModule):
         self.target_list = []
         self.target_index = None
         self.object_text = ["No Object Found"]
-        self.__catalogs = {"N": "NGC", "I": " IC", "M": "Mes"}
+        self.__catalog_names = {"N": "NGC", "I": " IC", "M": "Mes"}
         self.sf_utils = solver.Skyfield_utils()
         self.font_huge = ImageFont.truetype(
             "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Bold.ttf", 35
@@ -486,7 +494,7 @@ class UILocate(UIModule):
             return self.screen_update()
 
         # Target Name
-        line = self.__catalogs.get(self.target["catalog"], "UNK") + " "
+        line = self.__catalog_names.get(self.target["catalog"], "UNK") + " "
         line += str(self.target["designation"])
         self.draw.text((0, 20), line, font=self.font_large, fill=RED)
 
@@ -557,7 +565,7 @@ class UICatalog(UIModule):
     _config_options = {
         "Alt Limit": {
             "type": "enum",
-            "value": "None",
+            "value": 10,
             "options": ["None", 10, 20, 30],
         },
         "Magnitude": {
@@ -573,7 +581,8 @@ class UICatalog(UIModule):
     }
 
     def __init__(self, *args):
-        self.__catalogs = ["NGC", " IC", "Mes"]
+        self.__catalogs = {}
+        self.__catalog_names = ["NGC", "IC", "Mes"]
         self.catalog_index = 0
         self.designator = ["-"] * 4
         self.cat_object = None
@@ -588,12 +597,26 @@ class UICatalog(UIModule):
         self.font_large = ImageFont.truetype(
             "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 20
         )
-        self.load_catalog()
+
+        self._catalog_item_index = 0
+
+        # Counters for the constantly running altitude
+        # calculations
+        self.__alt_catalog_index = 2
+        self.__alt_object_index = 0
+        self.__alt_dict = {}
+
+        self.load_catalogs()
+        self.set_catalog()
 
     def update_config(self, config):
         self._config_options = config
         # call load catalog to re-filter if needed
-        self.load_catalog()
+        self.set_catalog()
+        self._catalog_item_index = 0
+
+        # Reset any designations....
+        self.key_d()
 
     def update_object_text(self):
         """
@@ -661,11 +684,15 @@ class UICatalog(UIModule):
         self.update()
 
     def update(self):
+        # Calc some altitude!
+        for _ in range(2):
+            self.calc_altitude()
+
         # Clear Screen
         self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
 
         # catalog and entry field
-        line = self.__catalogs[self.catalog_index]
+        line = f"{self.__catalog_names[self.catalog_index]: >3}"
         line += "".join(self.designator)
         self.draw.text((0, 21), line, font=self.font_large, fill=RED)
 
@@ -682,8 +709,23 @@ class UICatalog(UIModule):
 
         # ID Line in BOld
         self.draw.text((0, 48), self.object_text[0], font=self.font_bold, fill=RED)
+
         # mag/size in bold
-        self.draw.text((0, 62), self.object_text[1], font=self.font_bold, fill=RED)
+        text_color = RED
+        if self.cat_object:
+            # check for visibility and adjust mag/size text color
+            obj_altitude = self.__alt_dict.get(
+                    self.cat_object["catalog"] + str(self.cat_object["designation"])
+            )
+            if not obj_altitude:
+                obj_altitude=self.calc_object_altitude(self.cat_object)
+
+            if obj_altitude:
+                if obj_altitude < 10:
+                    #Not really visible
+                    text_color = (0,0,128)
+
+        self.draw.text((0, 62), self.object_text[1], font=self.font_bold, fill=text_color)
 
         # Remaining lines
         for i, line in enumerate(self.object_text[2:]):
@@ -698,12 +740,13 @@ class UICatalog(UIModule):
         else:
             self.designator = ["-"] * 4
         self.cat_object = None
+        self._catalog_item_index = 0
         self.update_object_text()
 
     def key_c(self):
         # C is for catalog
         self.catalog_index += 1
-        if self.catalog_index >= len(self.__catalogs):
+        if self.catalog_index >= len(self.__catalog_names):
             self.catalog_index = 0
         if self.catalog_index == 2:
             # messier
@@ -711,91 +754,127 @@ class UICatalog(UIModule):
         else:
             self.designator = ["-"] * 4
 
-        self.load_catalog()
-
-    def load_catalog(self):
-        """
-        Loads, or reloads, the current catalog
-        based on catalog_index
-
-        Does filtering based on params
-        populates self._filtered_catalog
-        """
-        catalog = self.__catalogs[self.catalog_index].strip()[0]
-        load_start_time = time.time()
-
-        # first get count of full catalog
-        full_count = self.conn.execute(
-            f"""
-                select count(*) as cnt
-                from objects
-                where catalog = '{catalog}'
-            """
-        ).fetchone()["cnt"]
-
-        where_clause = f"where catalog = '{catalog}'"
-        if self._config_options["Magnitude"]["value"] != "None":
-            where_clause += f" and mag < {self._config_options['Magnitude']['value']}"
-
-        if self._config_options["Obj Types"]["value"] != ["None"]:
-            tmp_clause = "','".join(self._config_options["Obj Types"]["value"])
-            where_clause += f" and obj_type in ('{tmp_clause}')"
-
-        cat_objects = self.conn.execute(
-            f"""
-            SELECT * from objects
-            {where_clause}
-            order by designation
-        """
-        ).fetchall()
-        self._filtered_catalog = list(cat_objects)
-
-        # filter by altitude
-        altitude_filter = self._config_options["Alt Limit"]["value"]
-        if altitude_filter != "None":
-            solution = self.shared_state.solution()
-            location = self.shared_state.location()
-            dt = self.shared_state.datetime()
-            if location and dt and solution:
-                non_vis_objects = []
-                if solution["Alt"]:
-                    # We have position and time/date!
-                    self.sf_utils.set_location(
-                        location["lat"],
-                        location["lon"],
-                        location["altitude"],
-                    )
-                    # prime the pump
-                    obj_alt, obj_az = self.sf_utils.fast_radec_to_altaz(
-                        10,
-                        10,
-                        dt,
-                    )
-                    for obj in self._filtered_catalog:
-                        obj_alt, obj_az = self.sf_utils.fast_radec_to_altaz(
-                            obj["ra"],
-                            obj["dec"],
-                            None,
-                        )
-                        if obj_alt < int(altitude_filter):
-                            non_vis_objects.append(obj)
-
-                    for obj in non_vis_objects:
-                        self._filtered_catalog.remove(obj)
-
-        self._catalog_count = (full_count, len(self._filtered_catalog))
+        self.set_catalog()
         self._catalog_item_index = 0
-        print(
-            f"Catalog loaded {time.time() - load_start_time :.1f} Items: {self._catalog_count}"
-        )
 
         # Reset any designations....
         self.key_d()
+
+    def load_catalogs(self):
+        """
+        Loads all catalogs into memory
+        starts altitude calculation loop
+
+        """
+        for catalog_name in self.__catalog_names:
+            print("loading " + catalog_name)
+            cat_objects = self.conn.execute(
+                f"""
+                SELECT * from objects
+                where catalog='{catalog_name[0]}'
+                order by designation
+            """
+            ).fetchall()
+            self.__catalogs[catalog_name] = list(cat_objects)
+
+    def set_catalog(self):
+        """
+        Does filtering based on params
+        populates self._filtered_catalog
+        from in-memory catalogs
+        """
+        catalog_name = self.__catalog_names[self.catalog_index].strip()
+        load_start_time = time.time()
+
+        # first get count of full catalog
+        full_count = len(self.__catalogs[catalog_name])
+
+        self._filtered_catalog = []
+        magnitude_filter = self._config_options["Magnitude"]["value"]
+        type_filter = self._config_options["Obj Types"]["value"]
+        altitude_filter = self._config_options["Alt Limit"]["value"]
+        for obj in self.__catalogs[catalog_name]:
+            include_obj = True
+
+            if magnitude_filter != "None" and obj["magnitude"] >= magnitude_filter:
+                include_obj = False
+
+            if type_filter != ["None"] and obj["obj_type"] not in type_filter:
+                include_obj = False
+
+            obj_altitude = self.__alt_dict.get(obj["catalog"] + str(obj["designation"]))
+            if (
+                obj_altitude != None
+                and altitude_filter != "None"
+                and obj_altitude < altitude_filter
+            ):
+                include_obj = False
+
+            if include_obj:
+                self._filtered_catalog.append(obj)
+
+        self._catalog_count = (full_count, len(self._filtered_catalog))
+        if self._catalog_item_index >= len(self._filtered_catalog):
+            self._catalog_item_index = 0
+
+    def background_update(self):
+        self.calc_altitude()
+
+    def calc_object_altitude(self, obj):
+        solution = self.shared_state.solution()
+        location = self.shared_state.location()
+        dt = self.shared_state.datetime()
+        if location and dt and solution:
+            self.sf_utils.set_location(
+                location["lat"],
+                location["lon"],
+                location["altitude"],
+            )
+            obj_alt, obj_az = self.sf_utils.radec_to_altaz(
+                obj["ra"],
+                obj["dec"],
+                dt,
+                atmos=False,
+            )
+            self.__alt_dict[obj["catalog"] + str(obj["designation"])] = obj_alt
+            return obj_alt
+
+        return None
+
+
+    def calc_altitude(self):
+        """
+        Called each update of the ui
+        this calculates the next item
+        in the list of objects to calculate
+        """
+        current_catalog = self.__catalogs[
+            self.__catalog_names[self.__alt_catalog_index]
+        ]
+        obj = current_catalog[self.__alt_object_index]
+        obj_alt = self.calc_object_altitude(obj)
+        if obj_alt:
+            self.__alt_object_index += 1
+            if self.__alt_object_index >= len(current_catalog):
+                print(
+                    "AF: Finished " + self.__catalog_names[self.__alt_catalog_index]
+                )
+                if self.__alt_object_index == self.catalog_index:
+                    # call set catalog to re-filter display....
+                    self.set_catalog()
+
+                self.__alt_object_index = 0
+                self.__alt_catalog_index += 1
+                if self.__alt_catalog_index >= len(self.__catalog_names):
+                    self.__alt_catalog_index = 0
 
     def find_by_designator(self, designator):
         """
         Searches the loaded catalog for the designator
         """
+        if designator == "":
+            return False
+
         for i, c in enumerate(self._filtered_catalog):
             if c["designation"] == int(designator):
                 self.cat_object = c
@@ -927,9 +1006,7 @@ class UIStatus(UIModule):
         dt = self.shared_state.datetime()
         local_dt = self.shared_state.local_datetime()
         if dt:
-            self.status_dict["LCL TM"] = (
-                "     " + local_dt.time().isoformat()[:8]
-            )
+            self.status_dict["LCL TM"] = "     " + local_dt.time().isoformat()[:8]
             self.status_dict["UTC TM"] = "     " + dt.time().isoformat()[:8]
         # only update temp once per second....
         if time.time() - self.last_temp_time > 1:
