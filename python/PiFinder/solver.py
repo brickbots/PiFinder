@@ -16,7 +16,7 @@ import uuid
 import json
 
 from PIL import ImageOps, Image
-from tetra3 import Tetra3
+from PiFinder.tetra3 import Tetra3
 from skyfield.api import (
     wgs84,
     load,
@@ -27,7 +27,7 @@ from skyfield.api import (
     load_constellation_map,
 )
 
-from image_util import subtract_background
+from PiFinder.image_util import subtract_background
 
 IMU_ALT = 2
 IMU_AZ = 0
@@ -167,7 +167,6 @@ def solver(shared_state, camera_image, console_queue):
         # which might be from the IMU
         last_image_time = shared_state.last_image_time()
         if last_image_time[0] > last_solve_time:
-            print("Solving")
             solve_image = camera_image.copy()
 
             new_solve = t3.solve_from_image(
@@ -245,7 +244,7 @@ def solver(shared_state, camera_image, console_queue):
             if solved["Alt"]:
                 imu = shared_state.imu()
                 if imu:
-                    if imu["moving"]: #or imu_moving == True:
+                    if imu["moving"]:  # or imu_moving == True:
                         # we track imu_moving so that we do
                         # this one more time after we stop moving
                         imu_moving = imu["moving"]

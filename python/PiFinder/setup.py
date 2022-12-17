@@ -7,7 +7,7 @@ and importers used during setup
 """
 import sqlite3
 import os
-from obj_types import OBJ_DESCRIPTORS
+from PiFinder.obj_types import OBJ_DESCRIPTORS
 from pprint import pprint
 
 

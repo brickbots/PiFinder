@@ -17,7 +17,7 @@ import time
 from PIL import Image, ImageDraw, ImageFont, ImageChops
 from picamera2 import Picamera2
 
-import config
+from PiFinder import config
 
 RED = (0, 0, 255)
 
@@ -61,7 +61,6 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
                 time.sleep(1)
             camera_image.paste(base_image)
             shared_state.set_last_image_time((image_start_time, time.time()))
-            print("Exposed")
 
         command = True
         while command:

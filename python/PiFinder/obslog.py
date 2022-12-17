@@ -14,8 +14,8 @@ import uuid
 import sqlite3
 import json
 
-from obj_types import OBJ_TYPES
-from setup import create_logging_tables
+from PiFinder.obj_types import OBJ_TYPES
+from PiFinder.setup import create_logging_tables
 
 
 class Observation_session:

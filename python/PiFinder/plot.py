@@ -157,7 +157,7 @@ class Starfield:
 
         image_scale = int(target_size / limit)
 
-        ret_image = Image.new("RGB", (target_size * 2, target_size * 2))
+        ret_image = Image.new("L", (target_size * 2, target_size * 2))
         idraw = ImageDraw.Draw(ret_image)
 
         pixel_scale = image_scale / 2
@@ -178,15 +178,11 @@ class Starfield:
                 start_y = start_pos[1] * -1 * pixel_scale + target_size
                 end_x = end_pos[0] * pixel_scale + target_size
                 end_y = end_pos[1] * -1 * pixel_scale + target_size
-                idraw.line([start_x, start_y, end_x, end_y], fill=(32, 32, 64))
+                idraw.line([start_x, start_y, end_x, end_y], fill=(64))
 
-        stars_x = list(stars["x"])
-        stars_y = list(stars["y"])
-        stars_mag = list(stars["magnitude"])
-
-        for i, x in enumerate(stars_x):
+        for x, y, mag in zip(stars["x"], stars["y"], stars["magnitude"]):
             x_pos = x * pixel_scale + target_size
-            y_pos = stars_y[i] * -1 * pixel_scale + target_size
+            y_pos = y * -1 * pixel_scale + target_size
             if (
                 x_pos > 0
                 and x_pos < target_size * 2
@@ -194,12 +190,11 @@ class Starfield:
                 and y_pos < target_size * 2
             ):
                 # if True:
-                mag = stars_mag[i]
                 if mag < self.mag_limit:
                     plot_size = (self.mag_limit - mag) / 3
-                    fill = (255, 255, 255)
+                    fill = 255
                     if mag > 4.5:
-                        fill = (128, 128, 128)
+                        fill = 128
                     if plot_size < 0.5:
                         idraw.point((x_pos, y_pos), fill=fill)
                     else:
@@ -210,6 +205,6 @@ class Starfield:
                                 x_pos + plot_size,
                                 y_pos + plot_size,
                             ],
-                            fill=(255, 255, 255),
+                            fill=(255),
                         )
-        return ret_image
+        return ret_image.convert("RGB")

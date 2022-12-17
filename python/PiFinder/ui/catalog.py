@@ -11,151 +11,13 @@ import uuid
 import sqlite3
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 
-import solver
-from obj_types import OBJ_TYPES
-from image_util import gamma_correct_low, subtract_background, red_image
-import plot
+from PiFinder import solver
+from PiFinder.obj_types import OBJ_TYPES
+from PiFinder.image_util import gamma_correct_low, subtract_background, red_image
+from PiFinder import plot
+from PiFinder.ui.base import UIModule
 
 RED = (0, 0, 255)
-
-
-class UIModule:
-    __title__ = "BASE"
-    __uuid__ = str(uuid.uuid1()).split("-")[0]
-    _config_options = None
-
-    def __init__(self, display, camera_image, shared_state, command_queues):
-        self.title = self.__title__
-        self.switch_to = None
-        self.display = display
-        self.shared_state = shared_state
-        self.camera_image = camera_image
-        self.command_queues = command_queues
-        self.screen = Image.new("RGB", (128, 128))
-        self.draw = ImageDraw.Draw(self.screen)
-        self.font_base = ImageFont.truetype(
-            "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 10
-        )
-        self.font_bold = ImageFont.truetype(
-            "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Bold.ttf", 12
-        )
-        self.font_large = ImageFont.truetype(
-            "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 15
-        )
-
-        # screenshot stuff
-        root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        prefix = f"{self.__uuid__}_{self.__title__}"
-        self.ss_path = os.path.join(root_dir, "screenshots", prefix)
-        self.ss_count = 0
-
-    def update_config(self, config):
-        self._config_options = config
-
-    def screengrab(self):
-        self.ss_count += 1
-        ss_imagepath = self.ss_path + f"_{self.ss_count :0>3}.png"
-        ss = self.screen.getchannel("B")
-        ss = ss.convert("RGB")
-        ss = ImageChops.multiply(ss, Image.new("RGB", (128, 128), (255, 0, 0)))
-        ss.save(ss_imagepath)
-
-    def active(self):
-        """
-        Called when a module becomes active
-        i.e. foreground controlling display
-        """
-        pass
-
-    def background_update(self):
-        """
-            Called every 5th ui cycle on all modules
-            allows background tasks, like updating
-            altitude in the Catalog
-        """
-        pass
-
-    def update(self):
-        """
-        Called to trigger UI Updates
-        to be overloaded by subclases and shoud
-        end up calling self.screen_update to
-        to the actual screen draw
-        retun the results of the screen_update to
-        pass any signals back to main
-        """
-        return self.screen_update()
-
-    def screen_update(self):
-        """
-        called to trigger UI updates
-        takes self.screen adds title bar and
-        writes to display
-        """
-        self.draw.rectangle([0, 0, 128, 16], fill=(0, 0, 64))
-        self.draw.text((6, 1), self.title, font=self.font_bold, fill=(0, 0, 0))
-        if self.shared_state:
-            if self.shared_state.solve_state():
-                solution = self.shared_state.solution()
-                constellation = solution["constellation"]
-                self.draw.text(
-                    (70, 1), constellation, font=self.font_bold, fill=(0, 0, 0)
-                )
-
-                # Solver Status
-                time_since_solve = time.time() - solution["cam_solve_time"]
-                bg = int(64 - (time_since_solve / 6 * 64))
-                if bg < 0:
-                    bg = 0
-                self.draw.rectangle([115, 2, 125, 14], fill=(0, 0, bg))
-                self.draw.text(
-                    (117, 0),
-                    solution["solve_source"][0],
-                    font=self.font_bold,
-                    fill=(0, 0, 64),
-                )
-            else:
-                # no solve yet....
-                self.draw.rectangle([115, 2, 125, 14], fill=(0, 0, 0))
-                self.draw.text((117, 0), "X", font=self.font_bold, fill=(0, 0, 64))
-
-            # GPS status
-            if self.shared_state.location()["gps_lock"]:
-                fg = (0, 0, 0)
-                bg = (0, 0, 64)
-            else:
-                fg = (0, 0, 64)
-                bg = (0, 0, 0)
-            self.draw.rectangle([100, 2, 110, 14], fill=bg)
-            self.draw.text((102, 0), "G", font=self.font_bold, fill=fg)
-
-        self.display.display(self.screen.convert(self.display.mode))
-
-        # We can return a UIModule class name to force a switch here
-        tmp_return = self.switch_to
-        self.switch_to = None
-        return tmp_return
-
-    def key_number(self, number):
-        pass
-
-    def key_up(self):
-        pass
-
-    def key_down(self):
-        pass
-
-    def key_enter(self):
-        pass
-
-    def key_b(self):
-        pass
-
-    def key_c(self):
-        pass
-
-    def key_d(self):
-        pass
 
 
 class UIConfig(UIModule):
@@ -587,7 +449,9 @@ class UICatalog(UIModule):
         self.designator = ["-"] * 4
         self.cat_object = None
         self.object_text = ["No Object Found"]
-        root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        root_dir = os.path.realpath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "..")
+        )
         db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
@@ -715,17 +579,19 @@ class UICatalog(UIModule):
         if self.cat_object:
             # check for visibility and adjust mag/size text color
             obj_altitude = self.__alt_dict.get(
-                    self.cat_object["catalog"] + str(self.cat_object["designation"])
+                self.cat_object["catalog"] + str(self.cat_object["designation"])
             )
             if not obj_altitude:
-                obj_altitude=self.calc_object_altitude(self.cat_object)
+                obj_altitude = self.calc_object_altitude(self.cat_object)
 
             if obj_altitude:
                 if obj_altitude < 10:
-                    #Not really visible
-                    text_color = (0,0,128)
+                    # Not really visible
+                    text_color = (0, 0, 128)
 
-        self.draw.text((0, 62), self.object_text[1], font=self.font_bold, fill=text_color)
+        self.draw.text(
+            (0, 62), self.object_text[1], font=self.font_bold, fill=text_color
+        )
 
         # Remaining lines
         for i, line in enumerate(self.object_text[2:]):
@@ -841,7 +707,6 @@ class UICatalog(UIModule):
 
         return None
 
-
     def calc_altitude(self):
         """
         Called each update of the ui
@@ -856,9 +721,7 @@ class UICatalog(UIModule):
         if obj_alt:
             self.__alt_object_index += 1
             if self.__alt_object_index >= len(current_catalog):
-                print(
-                    "AF: Finished " + self.__catalog_names[self.__alt_catalog_index]
-                )
+                print("AF: Finished " + self.__catalog_names[self.__alt_catalog_index])
                 if self.__alt_object_index == self.catalog_index:
                     # call set catalog to re-filter display....
                     self.set_catalog()

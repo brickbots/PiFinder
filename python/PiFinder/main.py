@@ -25,25 +25,23 @@ from luma.core.interface.serial import spi
 from luma.core.render import canvas
 from luma.oled.device import ssd1351
 
-import keyboard
-import camera
-import solver
-import gps
-import imu
-import config
+from PiFinder import keyboard
+from PiFinder import camera
+from PiFinder import solver
+from PiFinder import gps
+from PiFinder import imu
+from PiFinder import config
 
-from uimodules import (
-    UIChart,
-    UIPreview,
-    UIConsole,
-    UIStatus,
-    UICatalog,
-    UILocate,
-    UIConfig,
-    UILog,
-)
+from PiFinder.ui.chart import UIChart
+from PiFinder.ui.preview import UIPreview
+from PiFinder.ui.console import UIConsole
+from PiFinder.ui.status import UIStatus
+from PiFinder.ui.catalog import UICatalog
+from PiFinder.ui.locate import UILocate
+from PiFinder.ui.config import UIConfig
+from PiFinder.ui.log import UILog
 
-from image_util import subtract_background
+from PiFinder.image_util import subtract_background
 
 serial = spi(device=0, port=0)
 device = ssd1351(serial)
@@ -434,7 +432,7 @@ def main():
                             current_module = ui_class
                             current_module.active()
 
-                #check for BG task time...
+                # check for BG task time...
                 bg_task_warmup -= 1
                 if bg_task_warmup == 0:
                     bg_task_warmup = 5
