@@ -1,14 +1,22 @@
 # PiFinder User Manual
 
-```toc 
-style: number
-min_depth: 2
-max_depth: 6
-title: "Table of Contents"
-allow_inconsistent_headings: false
-delimiter: "|"
-varied_style: false
-```
+- [Hardware](#hardware)
+- [UI Overview](#ui-overview)
+  * [Chart](#chart)
+  * [Catalog](#catalog)
+  * [Locate](#locate)
+  * [Log](#log)
+  * [Preview](#preview)
+  * [Status](#status)
+  * [Console](#console)
+- [How-To](#how-to)
+  * [Startup](#startup)
+  * [Searching for objects](#searching-for-objects)
+  * [Push-To object](#push-to-object)
+  * [Observation logging](#observation-logging)
+    + [Custom lists](#custom-lists)
+- [FAQ](#faq)
+
 
 ## Hardware
 ![Hardware UI Overview](../images/ui_reference.png)
@@ -17,7 +25,7 @@ varied_style: false
 ## UI Overview
 
 ### Chart
-![[CATALOG_001.png]]
+
 
 ### Catalog
 ### Locate
