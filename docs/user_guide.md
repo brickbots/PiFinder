@@ -1,6 +1,7 @@
 # PiFinder User Manual
 
-- [Hardware](#hardware)
+- [Introduction and Overview](#introduction)
+-  [Hardware](#hardware)
 - [UI Overview](#ui-overview)
   * [Chart](#chart)
   * [Catalog](#catalog)
@@ -17,6 +18,9 @@
     + [Custom lists](#custom-lists)
 - [FAQ](#faq)
 
+## Introduction and Overview
+
+Thanks for your interest in the PiFinder
 
 ## Hardware
 ![Hardware UI Overview](../images/ui_reference.png)
