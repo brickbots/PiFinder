@@ -1,10 +1,14 @@
 # PiFinder User Manual
 
 ## Hardware
+![Hardware UI Overview](../images/ui_reference.png)
+
 
 ## UI Overview
 
 ### Chart
+![[CATALOG_001.png]]
+
 ### Catalog
 ### Locate
 ### Log
