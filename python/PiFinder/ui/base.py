@@ -46,6 +46,22 @@ class UIModule:
     def update_config(self, config):
         self._config_options = config
 
+    def cycle_config(self, config_item, direction=1):
+        """
+        Cycles through a config option
+        wrapping if needed
+        """
+        current_index = self._config_options[config_item]["options"].index(
+            self._config_options[config_item]["value"]
+        )
+        current_index += direction
+        if current_index >= len(self._config_options[config_item]["options"]):
+            current_index = 0
+
+        self._config_options[config_item]["value"] = self._config_options[config_item][
+            "options"
+        ][current_index]
+
     def screengrab(self):
         self.ss_count += 1
         ss_imagepath = self.ss_path + f"_{self.ss_count :0>3}.png"

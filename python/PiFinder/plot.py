@@ -130,7 +130,7 @@ class Starfield:
 
         return ret_image.rotate(roll).crop([64, 64, 192, 192])
 
-    def plot_starfield(self, ra, dec, roll, const_lines=True):
+    def plot_starfield(self, ra, dec, roll, constellation_brightness=32):
         """
         Returns an image of the starfield at the
         provided RA/DEC/ROLL with or without
@@ -147,10 +147,10 @@ class Starfield:
         stars = self.stars.copy()
 
         stars["x"], stars["y"] = projection(self.star_positions)
-        pil_image = self.render_starfield_pil(stars, const_lines)
+        pil_image = self.render_starfield_pil(stars, constellation_brightness)
         return pil_image.rotate(roll).crop([64, 64, 192, 192])
 
-    def render_starfield_pil(self, stars, const_lines):
+    def render_starfield_pil(self, stars, constellation_brightness):
         target_size = 128
         angle = np.pi - (self.fov) / 360.0 * np.pi
         limit = np.sin(angle) / (1.0 - np.cos(angle))
@@ -163,7 +163,7 @@ class Starfield:
         pixel_scale = image_scale / 2
 
         # constellation lines first
-        if const_lines:
+        if constellation_brightness:
             edges = [edge for name, edges in self.constellations for edge in edges]
             edges_star1 = [star1 for star1, star2 in edges]
             edges_star2 = [star2 for star1, star2 in edges]
@@ -178,7 +178,9 @@ class Starfield:
                 start_y = start_pos[1] * -1 * pixel_scale + target_size
                 end_x = end_pos[0] * pixel_scale + target_size
                 end_y = end_pos[1] * -1 * pixel_scale + target_size
-                idraw.line([start_x, start_y, end_x, end_y], fill=(64))
+                idraw.line(
+                    [start_x, start_y, end_x, end_y], fill=(constellation_brightness)
+                )
 
         for x, y, mag in zip(stars["x"], stars["y"], stars["magnitude"]):
             x_pos = x * pixel_scale + target_size
