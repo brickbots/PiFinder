@@ -72,7 +72,7 @@ class UIConfig(UIModule):
 
                 self.draw.text(
                     (10, i * 11 + 18),
-                    f"{item_name: >9}",
+                    f"{item_name[:9]: >9}",
                     font=self.font_base,
                     fill=(0, 0, text_intensity),
                 )

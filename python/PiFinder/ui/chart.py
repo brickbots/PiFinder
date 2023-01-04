@@ -33,7 +33,7 @@ class UIChart(UIModule):
             "value": "Med",
             "options": ["Off", "Low", "Med", "High"],
         },
-        "DSO Markers": {
+        "DSOs": {
             "type": "enum",
             "value": "Med",
             "options": ["Off", "Low", "Med", "High"],
