@@ -64,14 +64,50 @@ The main way you'll interact with the PiFinder is through the Keypad and Screen 
 Along with the 1.5" oled screen, the keypad has three primary parts, a numeric keypad (0-9), four functions buttons (A, B, C, D), and three control buttons (Up, Down, Enter).  The screen will display different content depending on the mode you are in, but there will always be a Status Bar along the top which displays which mode the UI is in, the current constellation being pointed at (if a solve has been completed), GPS and Solver Status.
 
 - If the GPS has locked and provided a location, the GPS square in the status bar will be filled in and the G will be in black.  
-- The solver status will show either C (Camera) or I (IMU) depending on the source of the last postion fix.  The background of this square fades from red to black, over six seconds, indicating the time since last solve.  
+- The solver status will show either C (Camera) or I (IMU) depending on the source of the last position fix.  The background of this square fades from red to black, over six seconds, indicating the time since last solve.  
 
 ## UI Overview
+The user interface for the PiFinder is split into various screens that you can switch between to perform different tasks.  The A function button is used to cycle between the three main screens:
+
+* Chart
+* Catalog
+* Locate
+
+By holding down the Enter key and pressing the A function key you can get to the less commonly used screens:
+
+* Console
+* Status
+* Camera Preview
+
+Some actions in one screen will move you to another, for instance selecting an object from the Catalog will switch automatically to the Locate screen.  
+
+The remaining buttons serve different purposes depending on which screen you are on at the time you press them, but there are some key-combinations that act across any of the individual screens:
+
+* Long press A:  For screens with options, such a the Catalog screeen, holding down the A function key will bring up the configuration items for that screen.
+* Enter + Up/Down: This combination will adjust the screen brightness up and down at any time.
 
 ### Chart
+![Chart interface](../images/screenshots/CHART_001_docs.png)
+The chart screen will display a star chart centered around the current RA / Dec coordinates the PiFinder has determined.  By default it shows stars down to magnitude 7 and has a 10 degree field of view.  As you move your telescope the chart will be updated several times a second using either a plate solve for a captured image or an approximation based on the last plate solve and the Inertial Measurement Unit (IMU).
 
+There is a Telrad style reticle that can be used to help orient the chart.  The outer ring is four degrees in diameter, the inner two degrees and the middle 1/2 degree.
+
+If you have a target selected, an arrow around the outer rim of the reticle will point in the direction that target is located.  If the target is within the current chart, the arrow will disappear and a small X will mark the spot of the target.  
+
+While viewing the chart you can adjust it's appearance and FOV in several ways:
+
+* B Function key: Toggle reticle state.  There are several brightness levels including off.
+* C Function key: Toggle constellation lines on and off.
+* Up / Down:  Increase or decrees the field of view (zoom).  This ranges from 5 degrees to 60 degrees.
 
 ### Catalog
+![Catalog screenshot](../images/screenshots/CATALOG_001_docs.png)
+The catalog screen allows the searching and selection of astronomical objects to locate.  It has multiple catalogs available (Messier, NGC, IC) and displays some basic information about each object.  You can set filter criteria (Altitude, Magnitude, Object Type) to limit the objects surfaced via the search.
+
+
+
+
+
 ### Locate
 ### Log
 ### Preview
