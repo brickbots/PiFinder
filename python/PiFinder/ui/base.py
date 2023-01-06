@@ -146,6 +146,25 @@ class UIModule:
         self.switch_to = None
         return tmp_return
 
+    def check_hotkey(self, key):
+        """
+        Scans config for a matching
+        hotkey and if found, cycles
+        that config item.
+
+        Returns true if hotkey found
+        false if not or no config
+        """
+        if self._config_options == None:
+            return False
+
+        for config_item_name, config_item in self._config_options.items():
+            if config_item["hotkey"] == key:
+                self.cycle_config(config_item_name)
+                return True
+
+        return False
+
     def key_number(self, number):
         pass
 
@@ -159,10 +178,13 @@ class UIModule:
         pass
 
     def key_b(self):
-        pass
+        if self.check_hotkey("B"):
+            self.update(force=True)
 
     def key_c(self):
-        pass
+        if self.check_hotkey("C"):
+            self.update(force=True)
 
     def key_d(self):
-        pass
+        if self.check_hotkey("D"):
+            self.update(force=True)

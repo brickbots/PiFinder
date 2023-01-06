@@ -27,16 +27,19 @@ class UIChart(UIModule):
             "type": "enum",
             "value": "Med",
             "options": ["Off", "Low", "Med", "High"],
+            "hotkey": "B",
         },
         "Constellations": {
             "type": "enum",
             "value": "Med",
             "options": ["Off", "Low", "Med", "High"],
+            "hotkey": "C",
         },
         "DSOs": {
             "type": "enum",
             "value": "Med",
             "options": ["Off", "Low", "Med", "High"],
+            "hotkey": "D",
         },
     }
 
@@ -145,7 +148,7 @@ class UIChart(UIModule):
             self.fov_index = len(self.fov_list) - 1
         self.starfield.set_fov(self.fov_list[self.fov_index])
         self.starfield.set_mag_limit(self.mag_list[self.fov_index])
-        self.update()
+        self.update(force=True)
 
     def key_up(self):
         self.change_fov(-1)
@@ -159,11 +162,3 @@ class UIChart(UIModule):
         self.starfield.set_fov(self.fov_list[self.fov_index])
         self.starfield.set_mag_limit(self.mag_list[self.fov_index])
         self.update()
-
-    def key_c(self):
-        self.cycle_config("Constellations")
-        self.update(force=True)
-
-    def key_d(self):
-        self.cycle_config("Reticle")
-        self.update(force=True)

@@ -7,7 +7,13 @@ This module contains all the UI Module classes
 import time
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 
-from PiFinder.image_util import gamma_correct_low, subtract_background, red_image
+from PiFinder.image_util import (
+    gamma_correct_high,
+    gamma_correct_med,
+    gamma_correct_low,
+    subtract_background,
+    red_image,
+)
 from PiFinder.ui.base import UIModule
 
 RED = (0, 0, 255)
@@ -15,6 +21,26 @@ RED = (0, 0, 255)
 
 class UIPreview(UIModule):
     __title__ = "PREVIEW"
+    _config_options = {
+        "Reticle": {
+            "type": "enum",
+            "value": "Low",
+            "options": ["Off", "Low", "Med", "High"],
+            "hotkey": "B",
+        },
+        "BG Sub": {
+            "type": "bool",
+            "value": "On",
+            "options": ["On", "Off"],
+            "hotkey": "C",
+        },
+        "Gamma Adj": {
+            "type": "enum",
+            "value": "Low",
+            "options": ["Off", "Low", "Med", "High"],
+            "hotkey": "D",
+        },
+    }
 
     def __init__(self, *args):
         self.reticle_mode = 2
@@ -26,20 +52,26 @@ class UIPreview(UIModule):
         """
         draw the reticle if desired
         """
-        if self.reticle_mode == 0:
+        if self._config_options["Reticle"]["value"] == "Off":
             # None....
             return
 
-        brightness = 64
-        if self.reticle_mode == 1:
-            brightness = 32
+        brightness = (
+            self._config_options["Reticle"]["options"].index(
+                self._config_options["Reticle"]["value"]
+            )
+            * 32
+        )
 
-        bboxes = [
-            [39, 39, 89, 89],
-            [52, 52, 76, 76],
-            [61, 61, 67, 67],
-        ]
-        for bbox in bboxes:
+        fov = 10.2
+        for circ_deg in [4, 2, 0.5]:
+            circ_rad = ((circ_deg / fov) * 128) / 2
+            bbox = [
+                64 - circ_rad,
+                64 - circ_rad,
+                64 + circ_rad,
+                64 + circ_rad,
+            ]
             self.draw.arc(bbox, 20, 70, fill=(0, 0, brightness))
             self.draw.arc(bbox, 110, 160, fill=(0, 0, brightness))
             self.draw.arc(bbox, 200, 250, fill=(0, 0, brightness))
@@ -53,11 +85,19 @@ class UIPreview(UIModule):
         if last_image_time > self.last_update:
             image_obj = self.camera_image.copy()
             image_obj = image_obj.resize((128, 128), Image.LANCZOS)
-            image_obj = subtract_background(image_obj)
+            if self._config_options["BG Sub"]["value"] == "On":
+                image_obj = subtract_background(image_obj)
             image_obj = image_obj.convert("RGB")
             image_obj = ImageChops.multiply(image_obj, red_image)
             image_obj = ImageOps.autocontrast(image_obj)
-            image_obj = Image.eval(image_obj, gamma_correct_low)
+
+            if self._config_options["Gamma Adj"]["value"] == "Low":
+                image_obj = Image.eval(image_obj, gamma_correct_low)
+            if self._config_options["Gamma Adj"]["value"] == "Med":
+                image_obj = Image.eval(image_obj, gamma_correct_med)
+            if self._config_options["Gamma Adj"]["value"] == "High":
+                image_obj = Image.eval(image_obj, gamma_correct_high)
+
             self.screen.paste(image_obj)
             self.last_update = last_image_time
 
@@ -65,12 +105,6 @@ class UIPreview(UIModule):
 
         self.draw_reticle()
         return self.screen_update()
-
-    def key_c(self):
-        self.reticle_mode += 1
-        if self.reticle_mode > 2:
-            self.reticle_mode = 0
-        self.update(force=True)
 
     def key_up(self):
         self.command_queues["camera"].put("exp_up")
