@@ -44,7 +44,7 @@ class UIConfig(UIModule):
         self.__module.update_config(self.__config)
         self.__selected_item = None
 
-    def update(self):
+    def update(self, force=False):
         # clear screen
         self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
         if self.__config == None:

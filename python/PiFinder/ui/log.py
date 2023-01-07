@@ -6,10 +6,7 @@ This module contains all the UI Module classes
 """
 import datetime
 import time
-import os
-import uuid
-import sqlite3
-from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+from PIL import  ImageFont
 
 from PiFinder import solver
 from PiFinder.obj_types import OBJ_TYPES
@@ -35,7 +32,12 @@ class UILog(UIModule):
         self.target_index = None
         self.__catalog_names = {"N": "NGC", "I": " IC", "M": "Mes"}
         self._observing_session = None
-        self.logged_time = 0
+        self.modal_timer = 0
+        self.modal_duration = 0
+        self.modal_text = None
+        self.font_small = ImageFont.truetype(
+            "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Bold.ttf", 8
+        )
         super().__init__(*args)
 
     def record_object(self, _object, notes):
@@ -51,23 +53,69 @@ class UILog(UIModule):
         if self._observing_session == None:
             self._observing_session = obslog.Observation_session(self.shared_state)
 
-        self._observing_session.log_object(
+        return self._observing_session.log_object(
             catalog=_object["catalog"],
             designation=_object["designation"],
             solution=self.shared_state.solution(),
             notes=notes,
         )
 
-    def key_c(self):
+    def key_number(self, number):
         """
-        when Confirm is pressed,
-        log it!
+            A number key should
+            rate that attribute
+            and move on to the next
+            potential note
+        """
+        self.notes[self.note_active] = number
+
+        # Move to next active note...
+        note_items = list(self.notes.keys())
+        current_index = note_items.index(self.note_active)
+        current_index += 1
+        if current_index >= len(note_items):
+            current_index = 0
+        self.note_active=note_items[current_index]
+
+
+    def key_b(self):
+        """
+        when B is pressed,
+        Just log it!
         """
         self.record_object(self.target, self.notes)
 
         # Start the timer for the confirm.
-        self.logged_time = time.time()
-        self.update(force=True)
+        self.modal_timer = time.time()
+        self.modal_duration = 2
+        self.modal_text = "Logged!"
+        self.update()
+
+    def key_c(self):
+        """
+        when c is pressed,
+        photo and log it!
+        """
+        session_uid, obs_id = self.record_object(self.target, self.notes)
+
+        # Start the timer for the confirm.
+        self.modal_timer = time.time()
+        self.modal_duration = 2
+        self.modal_text = "Taking Photo"
+        filename = f"{session_uid}_{obs_id}"
+        self.command_queues["camera"].put("save_hi:" + filename)
+        self.update()
+        wait = True
+        while wait:
+            # we need to wait until we have another solve image
+            # check every 2 seconds...
+            sleep(.2)
+            self.shared_state.last_image_time() > self.modal_timer + 1:
+                wait = False
+                self.modal_timer = time.time()
+                self.modal_duration = 1
+                self.modal_text = "Logged!"
+
 
     def key_d(self):
         """
@@ -95,9 +143,25 @@ class UILog(UIModule):
             self.target = state_target
         self.update()
 
-    def update(self):
+    def update(self, force=False):
         # Clear Screen
         self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
+
+        if self.modal_text:
+            if time.time() - self.modal_timer > self.modal_duration:
+                self.switch_to = "UIChart"
+                return self.screen_update()
+
+            padded_text = (" " * int((14 - len(self.modal_text)) / 2)) + self.modal_text
+
+            self.draw.text((0, 50), padded_text, font=self.font_large, fill=RED)
+            return self.screen_update()
+
+
+        if not self.shared_state.solve_state():
+            self.draw.text((0, 20), "No Solve Yet", font=self.font_large, fill=RED)
+            return self.screen_update()
+
 
         if not self.target:
             self.draw.text((0, 20), "No Target Set", font=self.font_large, fill=RED)
@@ -129,14 +193,15 @@ class UILog(UIModule):
             i += 1
 
         # Bottom button help
-        self.draw.rectangle([8, 112, 56, 128], fill=(0, 0, 32))
-        self.draw.text((11, 111), "C", font=self.font_bold, fill=RED)
-        self.draw.text((24, 111), "Log", font=self.font_bold, fill=(0, 0, 128))
-        self.draw.rectangle([72, 112, 120, 128], fill=(0, 0, 32))
-        self.draw.text((75, 111), "D", font=self.font_bold, fill=RED)
-        self.draw.text((88, 111), "Exit", font=self.font_bold, fill=(0, 0, 128))
+        self.draw.rectangle([0, 118, 40, 128], fill=(0, 0, 32))
+        self.draw.text((2, 117), "B", font=self.font_small, fill=RED)
+        self.draw.text((10, 117), "Log", font=self.font_small, fill=(0, 0, 128))
+        self.draw.rectangle([44, 118, 84, 128], fill=(0, 0, 32))
+        self.draw.text((46, 117), "C", font=self.font_small, fill=RED)
+        self.draw.text((54, 117), "Photo", font=self.font_small, fill=(0, 0, 128))
+        self.draw.rectangle([88, 118, 128, 128], fill=(0, 0, 32))
+        self.draw.text((90, 117), "D", font=self.font_small, fill=RED)
+        self.draw.text((98, 117), "Exit", font=self.font_small, fill=(0, 0, 128))
 
         return self.screen_update()
 
-    def key_number(self, number):
-        print(number)

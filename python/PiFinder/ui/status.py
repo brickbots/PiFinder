@@ -85,7 +85,7 @@ class UIStatus(UIModule):
                 raw_temp = int(f.read().strip())
             self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
 
-    def update(self):
+    def update(self, force=False):
         self.update_status_dict()
         self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
         lines = []

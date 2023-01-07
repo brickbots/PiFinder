@@ -103,7 +103,7 @@ class UILocate(UIModule):
         self.update_object_text()
         self.update()
 
-    def update(self):
+    def update(self, force=False):
         # Clear Screen
         self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
 

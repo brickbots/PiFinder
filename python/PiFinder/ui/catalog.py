@@ -146,7 +146,7 @@ class UICatalog(UIModule):
         self.update_object_text()
         self.update()
 
-    def update(self):
+    def update(self, force=True):
         # Calc some altitude!
         for _ in range(2):
             self.calc_altitude()
@@ -343,6 +343,8 @@ class UICatalog(UIModule):
                 self._catalog_item_index = i
                 return True
 
+        self.cat_object = None
+        self._catalog_item_index = 0
         return False
 
     def key_number(self, number):
@@ -362,8 +364,7 @@ class UICatalog(UIModule):
         # Check for match
         designator = "".join(self.designator).replace("-", "")
         found = self.find_by_designator(designator)
-        if found:
-            self.update_object_text()
+        self.update_object_text()
 
     def key_enter(self):
         """
@@ -384,7 +385,7 @@ class UICatalog(UIModule):
             self._catalog_item_index = 0
 
         if self._catalog_item_index >= self._catalog_count[1]:
-            self._catalog_item_index = self._catalog_count[1]
+            self._catalog_item_index = self._catalog_count[1] - 1
 
         self.cat_object = self._filtered_catalog[self._catalog_item_index]
         desig = str(self.cat_object["designation"])

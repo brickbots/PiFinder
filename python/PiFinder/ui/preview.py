@@ -114,3 +114,7 @@ class UIPreview(UIModule):
 
     def key_enter(self):
         self.command_queues["camera"].put("exp_save")
+
+    def key_number(self, number):
+        if number == 0:
+            self.command_queues["camera"].put("save_hi:test")

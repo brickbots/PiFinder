@@ -22,21 +22,37 @@ from PiFinder import config
 RED = (0, 0, 255)
 
 
-def get_images(shared_state, camera_image, command_queue, console_queue):
-    debug = False
-    cfg = config.Config()
+def set_camera_defaults(camera, cfg):
     # Initialize camera, defaults :
     # gain: 10
     # exposure: 1.5m
     exposure_time = cfg.get_option("camera_exp")
     analog_gain = cfg.get_option("camera_gain")
-    camera = Picamera2()
+    camera.stop()
     cam_config = camera.create_still_configuration(main={"size": (512, 512)})
     camera.configure(cam_config)
     camera.set_controls({"AeEnable": False})
     camera.set_controls({"AnalogueGain": analog_gain})
     camera.set_controls({"ExposureTime": exposure_time})
     camera.start()
+
+def set_camera_highres(camera, cfg):
+    exposure_time = cfg.get_option("camera_exp")
+    analog_gain = cfg.get_option("camera_gain")
+    camera.stop()
+    cam_config = camera.create_still_configuration()
+    camera.configure(cam_config)
+    camera.set_controls({"AeEnable": False})
+    camera.set_controls({"AnalogueGain": analog_gain})
+    camera.set_controls({"ExposureTime": exposure_time})
+    camera.start()
+
+
+def get_images(shared_state, camera_image, command_queue, console_queue):
+    debug = False
+    camera = Picamera2()
+    cfg = config.Config()
+    set_camera_defaults(camera, cfg)
     # pprint.pprint(camera.camera_controls)
 
     red_image = Image.new("RGB", (128, 128), (0, 0, 255))
@@ -67,7 +83,7 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
             try:
                 command = command_queue.get(block=False)
             except queue.Empty:
-                command = None
+                command = ""
 
             if command == "debug":
                 if debug == True:
@@ -90,3 +106,12 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
                 filename = f"/home/pifinder/captures/{filename}.png"
                 camera.capture_file(filename)
                 console_queue.put("CAM: Saved Image")
+
+            if command.startswith("save_hi"):
+                # Save high res image....
+                filename = command.split(":")[1]
+                filename = f"/home/pifinder/captures/{filename}.png"
+                set_camera_highres(camera, cfg)
+                camera.capture_file(filename)
+                console_queue.put("CAM: Saved Hi Image")
+                set_camera_defaults(camera, cfg)

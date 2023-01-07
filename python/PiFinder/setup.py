@@ -19,7 +19,6 @@ def create_logging_tables():
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
     db_path = os.path.join(root_dir, "observations.db")
     if os.path.exists(db_path):
-        print("DB already exists!")
         return db_path
 
     # open the DB

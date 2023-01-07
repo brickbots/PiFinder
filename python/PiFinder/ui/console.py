@@ -64,7 +64,7 @@ class UIConsole(UIModule):
         self.dirty = True
         self.update()
 
-    def update(self):
+    def update(self, force=False):
         # display an image
         if self.dirty:
             # clear screen

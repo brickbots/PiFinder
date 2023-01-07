@@ -85,7 +85,7 @@ class UIModule:
         """
         pass
 
-    def update(self):
+    def update(self, force=False):
         """
         Called to trigger UI Updates
         to be overloaded by subclases and shoud

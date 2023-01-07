@@ -83,6 +83,8 @@ class Observation_session:
             },
         )
 
+        self.db_connection.commit()
+
         return self.__session_uid
 
     def log_object(self, catalog, designation, solution, notes):
@@ -123,5 +125,7 @@ class Observation_session:
                 "notes": json.dumps(notes),
             },
         )
+        self.db_connection.commit()
+        observation_id = 22
 
-        return True
+        return session_uid, obj_id
