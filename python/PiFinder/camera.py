@@ -52,6 +52,7 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
     debug = False
     camera = Picamera2()
     cfg = config.Config()
+    exposure_time = cfg.get_option("camera_exp")
     set_camera_defaults(camera, cfg)
     # pprint.pprint(camera.camera_controls)
 

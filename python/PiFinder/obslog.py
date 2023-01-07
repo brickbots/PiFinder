@@ -126,6 +126,9 @@ class Observation_session:
             },
         )
         self.db_connection.commit()
-        observation_id = 22
 
-        return session_uid, obj_id
+        observation_id = self.db_cursor.execute(
+                "select last_insert_rowid() as id"
+            ).fetchone()["id"]
+
+        return session_uid, observation_id

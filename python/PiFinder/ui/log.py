@@ -102,15 +102,15 @@ class UILog(UIModule):
         self.modal_timer = time.time()
         self.modal_duration = 2
         self.modal_text = "Taking Photo"
-        filename = f"{session_uid}_{obs_id}"
+        filename = f"log_{session_uid}_{obs_id}"
         self.command_queues["camera"].put("save_hi:" + filename)
         self.update()
         wait = True
         while wait:
             # we need to wait until we have another solve image
             # check every 2 seconds...
-            sleep(.2)
-            self.shared_state.last_image_time() > self.modal_timer + 1:
+            time.sleep(.2)
+            if self.shared_state.last_image_time()[1] > self.modal_timer + 1:
                 wait = False
                 self.modal_timer = time.time()
                 self.modal_duration = 1
@@ -136,8 +136,8 @@ class UILog(UIModule):
         self.logged_time = 0
 
         # Reset notes
-        self.notes = {"Visibility": None, "Appeal": None}
-        self.note_active = "Visibility"
+        self.notes = {"Eyepiece": None, "Seeing": None,  "Visibility": None, "Appeal": None}
+        self.note_active = "Eyepiece"
         state_target = self.shared_state.target()
         if state_target != self.target:
             self.target = state_target
