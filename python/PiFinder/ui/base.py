@@ -37,7 +37,7 @@ class UIModule:
 
         # screenshot stuff
         root_dir = os.path.realpath(
-            os.path.join(os.path.dirname(__file__), "..", "..", "..")
+            os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
         )
         prefix = f"{self.__uuid__}_{self.__title__}"
         self.ss_path = os.path.join(root_dir, "screenshots", prefix)
