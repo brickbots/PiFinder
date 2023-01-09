@@ -36,6 +36,7 @@ def set_camera_defaults(camera, cfg):
     camera.set_controls({"ExposureTime": exposure_time})
     camera.start()
 
+
 def set_camera_highres(camera, cfg):
     exposure_time = cfg.get_option("camera_exp")
     analog_gain = cfg.get_option("camera_gain")

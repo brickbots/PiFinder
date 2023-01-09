@@ -6,12 +6,14 @@ This module contains all the UI Module classes
 """
 import datetime
 import time
-from PIL import  ImageFont
+from PIL import ImageFont
 
 from PiFinder import solver
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder import obslog
+from skyfield.api import Angle
+from skyfield.positionlib import ICRF
 
 RED = (0, 0, 255)
 
@@ -126,13 +128,12 @@ class UILog(UIModule):
         while wait:
             # we need to wait until we have another solve image
             # check every 2 seconds...
-            time.sleep(.2)
+            time.sleep(0.2)
             if self.shared_state.last_image_time()[1] > self.modal_timer + 1:
                 wait = False
                 self.modal_timer = time.time()
                 self.modal_duration = 1
                 self.modal_text = "Logged!"
-
 
     def key_d(self):
         """
@@ -172,11 +173,9 @@ class UILog(UIModule):
             self.draw.text((0, 50), padded_text, font=self.font_large, fill=RED)
             return self.screen_update()
 
-
         if not self.shared_state.solve_state():
             self.draw.text((0, 20), "No Solve Yet", font=self.font_large, fill=RED)
             return self.screen_update()
-
 
         if not self.target:
             self.draw.text((0, 20), "No Target Set", font=self.font_large, fill=RED)
@@ -194,8 +193,24 @@ class UILog(UIModule):
         object_text = f"{object_type: <14} {self.target['const']}"
         self.draw.text((0, 40), object_text, font=self.font_bold, fill=(0, 0, 128))
 
+        self.draw.text(
+            (10, 80), "Hold A for notes", font=self.font_bold, fill=(0, 0, 128)
+        )
 
-        self.draw.text((10, 80), "Hold A for notes", font=self.font_bold, fill=(0, 0, 128))
+        # Distance to target
+        solution = self.shared_state.solution()
+        pointing_pos = ICRF.from_radec(
+            ra_hours=Angle(degrees=solution["RA"])._hours,
+            dec_degrees=solution["Dec"],
+        )
+
+        target_pos = ICRF.from_radec(
+            ra_hours=Angle(degrees=self.target["ra"])._hours,
+            dec_degrees=self.target["dec"],
+        )
+
+        distance = pointing_pos.separation_from(target_pos)
+        print(distance)
 
         # Bottom button help
         self.draw.rectangle([0, 118, 40, 128], fill=(0, 0, 32))
@@ -209,4 +224,3 @@ class UILog(UIModule):
         self.draw.text((98, 117), "Abort", font=self.font_small, fill=(0, 0, 128))
 
         return self.screen_update()
-
