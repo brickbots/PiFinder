@@ -245,16 +245,15 @@ def main():
             UIPreview(device, camera_image, shared_state, command_queues),
             UIStatus(device, camera_image, shared_state, command_queues),
             console,
+            UILog(device, camera_image, shared_state, command_queues),
         ]
-        log_module = UILog(device, camera_image, shared_state, command_queues)
 
         # What is the highest index for observing modes
         # vs status/debug modes accessed by alt-A
         ui_observing_modes = 3
         ui_mode_index = 4
+        logging_mode_index = 7
 
-        # sort of a stack when exiting logging module
-        return_module = None
         current_module = ui_modes[ui_mode_index]
 
         # Start of main except handler
@@ -343,8 +342,8 @@ def main():
 
                         if keycode == keyboard.LNG_ENT and ui_mode_index > 0:
                             # long ENT for log observation
-                            return_module = current_module
-                            current_module = log_module
+                            ui_mode_index = logging_mode_index
+                            current_module = ui_modes[logging_mode_index]
                             current_module.active()
 
                         if keycode == keyboard.ALT_0:
