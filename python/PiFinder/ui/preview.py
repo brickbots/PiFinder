@@ -40,6 +40,11 @@ class UIPreview(UIModule):
             "options": ["Off", "Low", "Med", "High"],
             "hotkey": "D",
         },
+        "Focus Hlp": {
+            "type": "bool",
+            "value": "Off",
+            "options": ["On", "Off"],
+        },
     }
 
     def __init__(self, *args):
@@ -84,7 +89,11 @@ class UIPreview(UIModule):
         last_image_time = self.shared_state.last_image_time()[1]
         if last_image_time > self.last_update:
             image_obj = self.camera_image.copy()
-            image_obj = image_obj.resize((128, 128), Image.LANCZOS)
+            if self._config_options["Focus Hlp"]["value"] == "Off":
+                # Resize
+                image_obj = image_obj.resize((128, 128))
+            else:
+                image_obj = image_obj.crop((192, 192, 320, 320))
             if self._config_options["BG Sub"]["value"] == "On":
                 image_obj = subtract_background(image_obj)
             image_obj = image_obj.convert("RGB")

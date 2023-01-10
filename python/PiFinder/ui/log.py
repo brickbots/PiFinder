@@ -37,6 +37,16 @@ class UILog(UIModule):
             "value": "NA",
             "options": ["NA", "Excl", "VGood", "Good", "Fair", "Poor"],
         },
+        "Eyepiece": {
+            "type": "enum",
+            "value": "NA",
+            "options": [
+                "NA",
+                "6mm",
+                "13mm",
+                "25mm",
+            ],
+        },
         "Obsability": {
             "type": "enum",
             "value": "NA",
@@ -193,8 +203,9 @@ class UILog(UIModule):
         object_text = f"{object_type: <14} {self.target['const']}"
         self.draw.text((0, 40), object_text, font=self.font_bold, fill=(0, 0, 128))
 
+        # Notes Prompt
         self.draw.text(
-            (10, 80), "Hold A for notes", font=self.font_bold, fill=(0, 0, 128)
+            (15, 100), "Hold A for notes", font=self.font_base, fill=(0, 0, 128)
         )
 
         # Distance to target
@@ -210,7 +221,18 @@ class UILog(UIModule):
         )
 
         distance = pointing_pos.separation_from(target_pos)
-        print(distance)
+        self.draw.text(
+            (5, 60),
+            f"Pointing {distance.degrees:0.1f} deg",
+            font=self.font_bold,
+            fill=(0, 0, 128),
+        )
+        self.draw.text((5, 75), f"from target", font=self.font_bold, fill=(0, 0, 128))
+
+        # Notes Prompt
+        self.draw.text(
+            (15, 100), "Hold A for notes", font=self.font_base, fill=(0, 0, 128)
+        )
 
         # Bottom button help
         self.draw.rectangle([0, 118, 40, 128], fill=(0, 0, 32))
