@@ -237,11 +237,18 @@ def main():
         console.write("   Event Loop")
         console.update()
 
+        locate_mode = UILocate(device, camera_image, shared_state, command_queues)
         ui_modes = [
             UIConfig(device, camera_image, shared_state, command_queues),
             UIChart(device, camera_image, shared_state, command_queues),
-            UICatalog(device, camera_image, shared_state, command_queues),
-            UILocate(device, camera_image, shared_state, command_queues),
+            UICatalog(
+                device,
+                camera_image,
+                shared_state,
+                command_queues,
+                locate_mode.target_list,
+            ),
+            locate_mode,
             UIPreview(device, camera_image, shared_state, command_queues),
             UIStatus(device, camera_image, shared_state, command_queues),
             console,

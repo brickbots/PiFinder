@@ -35,7 +35,7 @@ class UIChart(UIModule):
             "options": ["Off", "Low", "Med", "High"],
             "hotkey": "C",
         },
-        "DSOs": {
+        "Obs List": {
             "type": "enum",
             "value": "Med",
             "options": ["Off", "Low", "Med", "High"],
@@ -50,6 +50,7 @@ class UIChart(UIModule):
         self.fov_list = [5, 10.2, 15, 20, 25, 30, 40, 60]
         self.mag_list = [7.5, 7, 6.5, 6, 5.5, 5.5, 5, 5, 5, 5]
         self.fov_index = 1
+        self.obs_list = args.pop(-1)
         super().__init__(*args)
 
     def plot_target(self):

@@ -13,6 +13,14 @@ OBJ_TYPES = {
     "? ": "Unkn",
 }
 
+OBJ_TYPE_MARKERS = {
+    "Gx": "mrk_galaxy",
+    "OC": "mrk_oc",
+    "Gb": "mrk_gc",
+    "Nb": "mrk_neb",
+    "Pl": "mrk_pneb",
+}
+
 OBJ_DESCRIPTORS = {
     "ab": "about",
     "alm": "almost",
