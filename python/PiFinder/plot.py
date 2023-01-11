@@ -58,6 +58,19 @@ class Starfield:
         self.pointer_image = ImageChops.multiply(
             Image.open(pointer_image_path), Image.new("RGB", (256, 256), (0, 0, 64))
         )
+        # load markers...
+        self.markers = {}
+        marker_path = os.path.join(root_dir, "markers")
+        for filename in os.listdir(marker_path):
+            if filename.startswith("mrk_"):
+                marker_code = filename[4:-4]
+                _image = Image.new("RGB", (256, 256))
+                _image.paste(
+                    Image.open(f"{marker_path}/mrk_{marker_code}.png"), (117, 117)
+                )
+                self.markers[marker_code] = ImageChops.multiply(
+                    _image, Image.new("RGB", (256, 256), (0, 0, 256))
+                )
 
     def set_mag_limit(self, mag_limit):
         self.mag_limit = mag_limit
@@ -127,6 +140,13 @@ class Starfield:
                     tmp_pointer = self.pointer_image.copy()
                     tmp_pointer = tmp_pointer.rotate(-deg_to_target)
                     ret_image = ImageChops.add(ret_image, tmp_pointer)
+            else:
+                # if it's visible, plot it.
+                if x_pos < 180 and x_pos > 76 and y_pos < 180 and y_pos > 76:
+                    _image = ImageChops.offset(
+                        self.markers[symbol], x_pos - 128, y_pos - 128
+                    )
+                    ret_image = ImageChops.add(ret_image, _image)
 
         return ret_image.rotate(roll).crop([64, 64, 192, 192])
 

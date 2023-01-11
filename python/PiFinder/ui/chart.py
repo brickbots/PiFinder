@@ -4,16 +4,11 @@
 This module contains all the UI Module classes
 
 """
-import datetime
 import time
-import os
-import uuid
-import sqlite3
-from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+from PIL import ImageChops
 
-from PiFinder import solver
-from PiFinder.obj_types import OBJ_TYPES
-from PiFinder.image_util import gamma_correct_low, subtract_background, red_image
+from PiFinder.obj_types import OBJ_TYPE_MARKERS
+from PiFinder.image_util import red_image
 from PiFinder import plot
 from PiFinder.ui.base import UIModule
 
@@ -50,7 +45,6 @@ class UIChart(UIModule):
         self.fov_list = [5, 10.2, 15, 20, 25, 30, 40, 60]
         self.mag_list = [7.5, 7, 6.5, 6, 5.5, 5.5, 5, 5, 5, 5]
         self.fov_index = 1
-        self.obs_list = args.pop(-1)
         super().__init__(*args)
 
     def plot_target(self):
@@ -65,6 +59,16 @@ class UIChart(UIModule):
         marker_list = [
             (plot.Angle(degrees=target["ra"])._hours, target["dec"], "target")
         ]
+
+        for obs_target in self.ui_state.get("target_list", []):
+            marker = OBJ_TYPE_MARKERS.get(obs_target["obj_type"])
+            if marker:
+                marker_list.append(
+                    (
+                        plot.Angle(degrees=obs_target["ra"])._hours,
+                        obs_target["dec"],
+                    )
+                )
 
         marker_image = self.starfield.plot_markers(
             self.solution["RA"],

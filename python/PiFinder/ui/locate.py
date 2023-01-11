@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-This module contains all the UI Module classes
+This module contains the Locate module
 
 """
 import datetime
@@ -24,8 +24,9 @@ class UILocate(UIModule):
     __title__ = "LOCATE"
 
     def __init__(self, *args):
+        super().__init__(*args)
         self.target = None
-        self.target_list = []
+        self.ui_state["target_list"] = []
         self.target_index = None
         self.object_text = ["No Object Found"]
         self.__catalog_names = {"N": "NGC", "I": " IC", "M": "Mes"}
@@ -33,7 +34,6 @@ class UILocate(UIModule):
         self.font_huge = ImageFont.truetype(
             "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Bold.ttf", 35
         )
-        super().__init__(*args)
 
     def key_enter(self):
         """
@@ -98,8 +98,8 @@ class UILocate(UIModule):
         state_target = self.shared_state.target()
         if state_target != self.target:
             self.target = state_target
-            self.target_list.append(state_target)
-            self.target_index = len(self.target_list) - 1
+            self.ui_state["target_list"].append(state_target)
+            self.target_index = len(self.ui_state["target_list"]) - 1
         self.update_object_text()
         self.update()
 
@@ -118,7 +118,7 @@ class UILocate(UIModule):
 
         # Target history index
         if self.target_index != None:
-            line = f"{self.target_index + 1}/{len(self.target_list)}"
+            line = f"{self.target_index + 1}/{len(self.ui_state['target_list'])}"
             line = f"{line : >7}"
             self.draw.text((85, 20), line, font=self.font_base, fill=RED)
 
@@ -162,13 +162,13 @@ class UILocate(UIModule):
     def scroll_target_history(self, direction):
         if self.target_index != None:
             self.target_index += direction
-            if self.target_index >= len(self.target_list):
-                self.target_index = len(self.target_list) - 1
+            if self.target_index >= len(self.ui_state["target_list"]):
+                self.target_index = len(self.ui_state["target_list"]) - 1
 
             if self.target_index < 0:
                 self.target_index = 0
 
-            self.target = self.target_list[self.target_index]
+            self.target = self.ui_state["target_list"][self.target_index]
             self.shared_state.set_target(self.target)
             self.update_object_text()
             self.update()
