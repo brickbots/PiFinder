@@ -240,7 +240,7 @@ class UICatalog(UIModule):
                 order by designation
             """
             ).fetchall()
-            self.__catalogs[catalog_name] = list(cat_objects)
+            self.__catalogs[catalog_name] = [dict(x) for x in cat_objects]
 
     def set_catalog(self):
         """

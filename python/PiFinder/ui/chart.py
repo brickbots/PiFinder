@@ -5,7 +5,7 @@ This module contains all the UI Module classes
 
 """
 import time
-from PIL import ImageChops
+from PIL import ImageChops, Image
 
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder.image_util import red_image
@@ -47,6 +47,48 @@ class UIChart(UIModule):
         self.fov_index = 1
         super().__init__(*args)
 
+    def plot_obs_list(self):
+        """
+        Plot the contents of the observing list
+        """
+        # is there a target?
+        target = self.shared_state.target()
+        if not self.solution or self._config_options["Obs List"]["value"] == "Off":
+            return
+
+        marker_list = []
+        for obs_target in self.ui_state.get("target_list", []):
+            if target == None or (
+                obs_target["designation"] != target["designation"]
+                and obs_target["catalog"] != target["catalog"]
+            ):
+                marker = OBJ_TYPE_MARKERS.get(obs_target["obj_type"])
+                if marker:
+                    marker_list.append(
+                        (
+                            plot.Angle(degrees=obs_target["ra"])._hours,
+                            obs_target["dec"],
+                            marker,
+                        )
+                    )
+        if marker_list != []:
+            marker_image = self.starfield.plot_markers(
+                self.solution["RA"],
+                self.solution["Dec"],
+                self.solution["Roll"],
+                marker_list,
+            )
+            marker_brightness = 255
+            if self._config_options["Obs List"]["value"] == "Low":
+                marker_brightness = 64
+            if self._config_options["Obs List"]["value"] == "Med":
+                marker_brightness = 128
+
+            marker_image = ImageChops.multiply(
+                marker_image, Image.new("RGB",(128, 128), (0, 0, marker_brightness))
+            )
+            self.screen.paste(ImageChops.add(self.screen, marker_image))
+
     def plot_target(self):
         """
         Plot the target....
@@ -59,16 +101,6 @@ class UIChart(UIModule):
         marker_list = [
             (plot.Angle(degrees=target["ra"])._hours, target["dec"], "target")
         ]
-
-        for obs_target in self.ui_state.get("target_list", []):
-            marker = OBJ_TYPE_MARKERS.get(obs_target["obj_type"])
-            if marker:
-                marker_list.append(
-                    (
-                        plot.Angle(degrees=obs_target["ra"])._hours,
-                        obs_target["dec"],
-                    )
-                )
 
         marker_image = self.starfield.plot_markers(
             self.solution["RA"],
@@ -135,6 +167,7 @@ class UIChart(UIModule):
                 image_obj = ImageChops.multiply(image_obj, red_image)
                 self.screen.paste(image_obj)
                 self.plot_target()
+                self.plot_obs_list()
                 self.last_update = last_solve_time
 
         else:

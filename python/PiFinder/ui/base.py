@@ -162,7 +162,7 @@ class UIModule:
             return False
 
         for config_item_name, config_item in self._config_options.items():
-            if config_item["hotkey"] == key:
+            if config_item.get("hotkey") == key:
                 self.cycle_config(config_item_name)
                 return True
 

@@ -142,9 +142,9 @@ class Starfield:
                     ret_image = ImageChops.add(ret_image, tmp_pointer)
             else:
                 # if it's visible, plot it.
-                if x_pos < 180 and x_pos > 76 and y_pos < 180 and y_pos > 76:
+                if x_pos < 200 and x_pos > 60 and y_pos < 180 and y_pos > 60:
                     _image = ImageChops.offset(
-                        self.markers[symbol], x_pos - 128, y_pos - 128
+                        self.markers[symbol], int(x_pos - 123), int(y_pos - 123)
                     )
                     ret_image = ImageChops.add(ret_image, _image)
 

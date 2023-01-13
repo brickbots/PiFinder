@@ -14,11 +14,11 @@ OBJ_TYPES = {
 }
 
 OBJ_TYPE_MARKERS = {
-    "Gx": "mrk_galaxy",
-    "OC": "mrk_oc",
-    "Gb": "mrk_gc",
-    "Nb": "mrk_neb",
-    "Pl": "mrk_pneb",
+    "Gx": "galaxy",
+    "OC": "oc",
+    "Gb": "gc",
+    "Nb": "neb",
+    "Pl": "pneb",
 }
 
 OBJ_DESCRIPTORS = {
