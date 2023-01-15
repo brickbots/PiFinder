@@ -29,11 +29,20 @@ class UILocate(UIModule):
         self.ui_state["target_list"] = []
         self.target_index = None
         self.object_text = ["No Object Found"]
-        self.__catalog_names = {"N": "NGC", "I": " IC", "M": "Mes"}
+        self.__catalog_names = self.config_object.get_option("catalogs")
         self.sf_utils = solver.Skyfield_utils()
         self.font_huge = ImageFont.truetype(
             "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Bold.ttf", 35
         )
+
+    def resolve_catalog_name(self, catalog_id):
+        """
+        Takes catalog_id (single letter) and returns name
+        """
+        for catalog_name in self.__catalog_names:
+            if catalog_name.startswith(catalog_id):
+                return catalog_name
+        return "UNKN"
 
     def key_enter(self):
         """
@@ -112,7 +121,7 @@ class UILocate(UIModule):
             return self.screen_update()
 
         # Target Name
-        line = self.__catalog_names.get(self.target["catalog"], "UNK") + " "
+        line = self.resolve_catalog_name(self.target["catalog"])
         line += str(self.target["designation"])
         self.draw.text((0, 20), line, font=self.font_large, fill=RED)
 

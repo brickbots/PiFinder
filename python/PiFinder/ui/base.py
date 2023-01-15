@@ -17,7 +17,13 @@ class UIModule:
     _config_options = None
 
     def __init__(
-        self, display, camera_image, shared_state, command_queues, ui_state={}
+        self,
+        display,
+        camera_image,
+        shared_state,
+        command_queues,
+        ui_state={},
+        config_object=None,
     ):
         self.title = self.__title__
         self.switch_to = None
@@ -45,6 +51,7 @@ class UIModule:
         self.ss_path = os.path.join(root_dir, "screenshots", prefix)
         self.ss_count = 0
         self.ui_state = ui_state
+        self.config_object = config_object
 
     def update_config(self, config):
         self._config_options = config

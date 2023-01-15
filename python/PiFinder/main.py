@@ -155,20 +155,23 @@ def main():
         console.update()
 
         ui_modes = [
-            UIConfig(device, camera_image, shared_state, command_queues, ui_state),
-            UIChart(device, camera_image, shared_state, command_queues, ui_state),
+            UIConfig(device, camera_image, shared_state, command_queues, ui_state, cfg),
+            UIChart(device, camera_image, shared_state, command_queues, ui_state, cfg),
             UICatalog(
                 device,
                 camera_image,
                 shared_state,
                 command_queues,
                 ui_state,
+                cfg,
             ),
-            UILocate(device, camera_image, shared_state, command_queues, ui_state),
-            UIPreview(device, camera_image, shared_state, command_queues, ui_state),
-            UIStatus(device, camera_image, shared_state, command_queues, ui_state),
+            UILocate(device, camera_image, shared_state, command_queues, ui_state, cfg),
+            UIPreview(
+                device, camera_image, shared_state, command_queues, ui_state, cfg
+            ),
+            UIStatus(device, camera_image, shared_state, command_queues, ui_state, cfg),
             console,
-            UILog(device, camera_image, shared_state, command_queues, ui_state),
+            UILog(device, camera_image, shared_state, command_queues, ui_state, cfg),
         ]
 
         # What is the highest index for observing modes

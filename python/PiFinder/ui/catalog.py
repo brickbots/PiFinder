@@ -42,8 +42,9 @@ class UICatalog(UIModule):
     }
 
     def __init__(self, *args):
+        super().__init__(*args)
         self.__catalogs = {}
-        self.__catalog_names = ["NGC", "IC", "Mes"]
+        self.__catalog_names = self.config_object.get_option("catalogs")
         self.catalog_index = 0
         self.designator = ["-"] * 4
         self.cat_object = None
@@ -56,7 +57,6 @@ class UICatalog(UIModule):
         self.conn.row_factory = sqlite3.Row
         self.db_c = self.conn.cursor()
         self.sf_utils = solver.Skyfield_utils()
-        super().__init__(*args)
         self.font_large = ImageFont.truetype(
             "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 20
         )
