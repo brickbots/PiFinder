@@ -9,6 +9,7 @@ General Pi Setup
 * Update all packages
 	* `sudo apt update`
 	* `sudo apt upgrade`
+* `wget -O - https://raw.githubusercontent.com/brickbots/PiFinder/main/pifinder_setup.sh | bash`
 * Clock stretching - https://learn.adafruit.com/circuitpython-on-raspberrypi-linux/i2c-clock-stretching
 **  Maybe not needed any longer with updated firmware?  Need to test
 
