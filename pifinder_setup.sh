@@ -1,5 +1,5 @@
 #! /usr/bin/bash
-sudo apt install -y git python3-pip
+sudo apt -y install git python3-pip
 git clone https://github.com/brickbots/PiFinder.git
 cd PiFinder
 sudo pip install -r requirements.txt
