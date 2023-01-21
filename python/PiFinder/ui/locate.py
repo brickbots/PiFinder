@@ -32,7 +32,7 @@ class UILocate(UIModule):
         self.__catalog_names = self.config_object.get_option("catalogs")
         self.sf_utils = solver.Skyfield_utils()
         self.font_huge = ImageFont.truetype(
-            "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Bold.ttf", 35
+            "/home/pifinder/PiFinder/fonts/RobotoMono-Bold.ttf", 35
         )
 
     def resolve_catalog_name(self, catalog_id):

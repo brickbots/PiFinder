@@ -58,7 +58,7 @@ class UICatalog(UIModule):
         self.db_c = self.conn.cursor()
         self.sf_utils = solver.Skyfield_utils()
         self.font_large = ImageFont.truetype(
-            "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 20
+            "/home/pifinder/PiFinder/fonts/RobotoMono-Regular.ttf", 20
         )
 
         self._catalog_item_index = 0

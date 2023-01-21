@@ -70,7 +70,7 @@ class UILog(UIModule):
         self.modal_duration = 0
         self.modal_text = None
         self.font_small = ImageFont.truetype(
-            "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Bold.ttf", 8
+            "/home/pifinder/PiFinder/fonts/RobotoMono-Bold.ttf", 8
         )
 
     def resolve_catalog_name(self, catalog_id):

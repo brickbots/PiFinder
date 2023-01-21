@@ -34,13 +34,13 @@ class UIModule:
         self.screen = Image.new("RGB", (128, 128))
         self.draw = ImageDraw.Draw(self.screen)
         self.font_base = ImageFont.truetype(
-            "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 10
+            "/home/pifinder/PiFinder/fonts/RobotoMono-Regular.ttf", 10
         )
         self.font_bold = ImageFont.truetype(
-            "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Bold.ttf", 12
+            "/home/pifinder/PiFinder/fonts/RobotoMono-Bold.ttf", 12
         )
         self.font_large = ImageFont.truetype(
-            "/usr/share/fonts/truetype/Roboto_Mono/static/RobotoMono-Regular.ttf", 15
+            "/home/pifinder/PiFinder/fonts/RobotoMono-Regular.ttf", 15
         )
 
         # screenshot stuff
