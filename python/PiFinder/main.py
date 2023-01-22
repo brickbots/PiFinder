@@ -209,6 +209,7 @@ def main():
                                     lat=location["lat"], lng=location["lon"]
                                 )
                                 cfg.set_option("last_location", location)
+                                console.write("GPS: Location")
                                 location["gps_lock"] = True
                             shared_state.set_location(location)
                     if gps_msg.sentence_type == "RMC":
