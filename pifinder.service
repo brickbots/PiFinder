@@ -1,0 +1,12 @@
+[Unit]
+Description=PiFinder
+After=multi-user.target
+
+[Service]
+Type=idle
+User=pifinder
+WorkingDirectory=/home/pifinder/PiFinder/python
+ExecStart=/usr/bin/python -m PiFinder.main > /home/pifinder/PiFinder.log 2>&1
+
+[Install]
+WantedBy=multi-user.target
