@@ -8,7 +8,7 @@ These are the electronic bits needed to build the Display/Keypad unit that fits 
 | 1   | PCB Set                                      | https://github.com/brickbots/PiFinder/tree/main/gerbers | You'll need a PiFidner board and the PiFinder top plate                               |
 | 17  | 6 x 6mm x 7mm PCB Momentary Switch 4 Pin DIP |                                                         | Diptonics DTS63K 1nm recommended                                                      |
 | 1   | Waveshare 1.5 RGB Oled                       | https://www.waveshare.com/wiki/1.5inch_OLED_Module      |                                                                                       |
-| 1   | Adafruit IMU Fusion Breakout - BNO055        | https://www.adafruit.com/product/2472                   |                                                                                       |
+| 1   | Adafruit IMU Fusion Breakout - BNO055        | https://www.adafruit.com/product/4646                   |                                                                                       |
 | 1   | 2x20 40 Pin Stacking Female Header           | https://www.amazon.com/dp/B0827THC7R                    | Depending on your heatsink/clearance you'll need long pins on this to make up the gap |
 | 3   | M3x11 Bolts                                  |                                                         |                                                                                       |
 
