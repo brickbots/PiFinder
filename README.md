@@ -1,5 +1,5 @@
 # PiFinder
- A plate solving telescope finder based around a Raspberry PI and RPI HQ Camera
+ A plate solving telescope finder based around a Raspberry PI, RPI HQ Camera, and custom UI 'hat'
 ![Banner](./images/banner_overview.png)
 
 I'm a visual observer using a 16" f4.5 dobsonian.   The lightweight/low-eyepiece design of my scope is great for transport and use... but it also means there is no great way to add reliable encoders to get solid scope positioning.

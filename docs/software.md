@@ -19,7 +19,7 @@ Once you've built or otherwise obtained a PiFinder, here's how to setup a fresh 
 	 * Then I4 - SPI  and choose Enable
 	 * Then I5 - I2C  and choose Enable
 
-Great!  You have a nice fresh install of Raspberry Pi OS ready to go.  The rest of the setup is completed by running the `pifinder_setup.sh` script in this repo.  You can download that single file and check it out, and when you are ready, here's the command to actually set everything up:
+Great!  You have a nice fresh install of Raspberry Pi OS ready to go.  The rest of the setup is completed by running the `pifinder_setup.sh` script in this repo.  Here's the command to download and run the script in one step:
 
  `wget -O - https://raw.githubusercontent.com/brickbots/PiFinder/main/pifinder_setup.sh | bash`
 
