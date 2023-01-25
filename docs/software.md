@@ -1,44 +1,32 @@
-General Pi Setup
-* Create Image
-	* Pi OS Lite 64
-	* Setup SSh / Wifi
+# Software Setup
+
+Once you've built or otherwise obtained a PiFinder, here's how to setup a fresh SD card to run it.  You can do this completely headless (no monitor / keyboard) if desired.
+
+## General Pi Setup
+* Create Image:  I'd strongly recommend using the Rapsberry Pi imager.  It's available for most platforms and lets you easily setup wifi and SSH for your new image.
+	* Select the 64-Bit version of Pi OS Lite (No Desktop Environment)
+	* Setup SSH / Wifi / User and Host name using the gear icon.  Below is a screengrab showing the suggested settings.  The username must be pifinder, but the host name, password, network settings and locale should be customized for your needs.
 ![Raspberry Pi Imager settings](../images/raspi_imager_settings.png)
-* Setup terminfo for kitty:
-	* `kitty +kitten ssh pifinder@pifinder.local`
-* Login first time
-* Update all packages
+
+* Once the image is burned to an SD card, insert it into the PiFinder and power it up.   It will probably take a few minutes to boot the first time.
+* SSH into the Pifinder using `pifinder@pifinder.local` and the password you  setup.
+* Update all packages.  This is not strictly required, but is a good practice.
 	* `sudo apt update`
 	* `sudo apt upgrade`
-* `wget -O - https://raw.githubusercontent.com/brickbots/PiFinder/main/pifinder_setup.sh | bash`
-* Clock stretching - https://learn.adafruit.com/circuitpython-on-raspberrypi-linux/i2c-clock-stretching
-**  Maybe not needed any longer with updated firmware?  Need to test
+ * Enable SPI / I2C.  The screen and IMU use these to communicate.  
+	 * run `sudo raspi-config`
+	 * Select 3 - Interface Options
+	 * Then I4 - SPI  and choose Enable
+	 * Then I5 - I2C  and choose Enable
 
-Packages
-* pytz-2022.7.1
-* timezonefinder-6.1.9
-* luma.oled-3.9.0
-* skyfield-1.45
-* scipy-1.10.0
-* pynmea2-1.19.0
-* adafruit-blinka-8.12.0
-* adafruit-circuitpython-bno055
-* pandas-1.5.3
+Great!  You have a nice fresh install of Raspberry Pi OS ready to go.  The rest of the setup is completed by running the `pifinder_setup.sh` script in this repo.  You can download that single file and check it out, and when you are ready, here's the command to actually set everything up:
 
-Data
-* Stellerium constellation data
-* Hipparcos catalog - https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
-* Yale BSA
+ `wget -O - https://raw.githubusercontent.com/brickbots/PiFinder/main/pifinder_setup.sh | bash`
 
-Script
-* install git (sudo apt install git)
-* install pip (sudo apt install python3-pip)
-* git clone pifinder repo (https)
-* sudo pip install deps
-* Git clone tetra3 into PiFinder/python/PiFinder
-	* git clone https://github.com/esa/tetra3.git
-* enable spi / i2c
-	* `echo "dtparam=spi=on" | sudo tee -a /boot/config.txt
-	* `echo "dtparam=i2c_arm=on" | sudo tee -a /boot/config.txt`
-	* `echo "dtparam=i2c1=on" | sudo tee -a /boot/config.txt`
-* Run python script to invoke enough of AstoPy so that it downloads the data files it needs. Add this to setup.py
-* Setup PiFinder system service
+The script will clone this repo, install the needed packages/dependencies, download some  required astronomy data files and then setup a service to start on reboot.
+
+Once the script is done, reboot the PiFinder:
+`sudo shutdown -r now`
+
+It will take up to two minutes to boot, but you should see the startup screen before too long:
+![Startup log]( ../images/screenshots/CONSOLE_001_docs.png)
