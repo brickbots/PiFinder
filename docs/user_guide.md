@@ -48,6 +48,7 @@ Depending on the mounting system you printed or received for your PiFinder, you 
 ### Camera Setup
 After you mount your PiFinder the first time, you'll need to setup the camera aperture and focus.
 If you are using the recommended lens, it will have two adjustment rings on it; One to adjust the aperture (f-stop) and one for focus.
+
 ![Camera controls](../images/user_guide/camera_controls.png)
 
 #### F-Stop
@@ -104,6 +105,7 @@ The remaining buttons serve different purposes depending on which screen you are
 
 ### Chart
 ![Chart interface](../images/screenshots/CHART_001_docs.png)
+
 The chart screen will display a star chart centered around the current RA / Dec coordinates the PiFinder has determined.  By default it shows stars down to magnitude 7 and has a 10 degree field of view.  As you move your telescope the chart will be updated several times a second using either a plate solve for a captured image or an approximation based on the last plate solve and the Inertial Measurement Unit (IMU).
 
 There is a Telrad style reticle that can be used to help orient the chart.  The outer ring is four degrees in diameter, the inner two degrees and the middle 1/2 degree.
@@ -113,6 +115,7 @@ If you have a target selected, an arrow around the outer rim of the reticle will
 ![Chart interface](../images/screenshots/CHART_009_docs.png) 
 
 If the target is within the current chart, the arrow will disappear and a small X will mark the spot of the target.  
+
 ![Chart interface](../images/screenshots/CHART_010_docs.png)
 
 While viewing the chart you can adjust it's appearance and FOV in several ways:
@@ -129,9 +132,11 @@ While viewing the chart you can adjust it's appearance and FOV in several ways:
 The catalog screen allows the searching and selection of astronomical objects to locate.  It has multiple catalogs available (Messier, NGC, IC) and displays some basic information about each object.  You can set filter criteria (Altitude, Magnitude, Object Type) to limit the objects surfaced via the search.
 
 The 'C' function keys will cycle through the various catalogs available.  The upper-left will show the count of filtered objects over the total number of objects in each catalog.
+
 ![Catalog screenshot](../images/screenshots/CATALOG_002_docs.png)
 
 Use the number keys to enter the id of the object you are looking for.  As you type, any matching object will be displayed.  Typing in 74 to look for Messier 74 will bring up Messier 7 and 74 in turn as you enter numbers.
+
 ![Catalog screenshot](../images/screenshots/CATALOG_003_docs.png)
 ![Catalog screenshot](../images/screenshots/CATALOG_004_docs.png)
 
