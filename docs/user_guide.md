@@ -125,15 +125,14 @@ While viewing the chart you can adjust it's appearance and FOV in several ways:
 
 ### Catalog
 ![Catalog screenshot](../images/screenshots/CATALOG_001_docs.png)
+
 The catalog screen allows the searching and selection of astronomical objects to locate.  It has multiple catalogs available (Messier, NGC, IC) and displays some basic information about each object.  You can set filter criteria (Altitude, Magnitude, Object Type) to limit the objects surfaced via the search.
 
-The 'C' function keys will cycle through the various catalogs available.  The upper-left will show the count of filtered objects over the total number of objects in each cataglog.  
+The 'C' function keys will cycle through the various catalogs available.  The upper-left will show the count of filtered objects over the total number of objects in each catalog.
 ![Catalog screenshot](../images/screenshots/CATALOG_002_docs.png)
 
 Use the number keys to enter the id of the object you are looking for.  As you type, any matching object will be displayed.  Typing in 74 to look for Messier 74 will bring up Messier 7 and 74 in turn as you enter numbers.
-
 ![Catalog screenshot](../images/screenshots/CATALOG_003_docs.png)
-
 ![Catalog screenshot](../images/screenshots/CATALOG_004_docs.png)
 
 If the number you have entered matches an object in the catalog, information about the object will be displayed below including:
