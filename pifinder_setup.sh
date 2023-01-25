@@ -17,7 +17,7 @@ echo "dtparam=i2c_arm=on" | sudo tee -a /boot/config.txt
 echo "dtparam=i2c_arm_baudrate=10000" | sudo tee -a /boot/config.txt
 
 # Enable service
-sudo cp /home/pifinder/PiFinder/pifinder.service /etc/systemd/system/multi-user.target.wants/pifinder.service
+sudo cp /home/pifinder/PiFinder/pifinder.service /etc/systemd/system/pifinder.service
 sudo systemctl daemon-reload
 sudo systemctl enable pifinder
 
