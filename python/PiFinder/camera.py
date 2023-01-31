@@ -95,9 +95,9 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
 
             if command == "exp_up" or command == "exp_dn":
                 if command == "exp_up":
-                    exposure_time = int(exposure_time * 1.1)
+                    exposure_time = int(exposure_time * 1.25)
                 else:
-                    exposure_time = int(exposure_time * 0.9)
+                    exposure_time = int(exposure_time * 0.75)
                 camera.set_controls({"ExposureTime": exposure_time})
                 console_queue.put("CAM: Exp=" + str(exposure_time))
             if command == "exp_save":

@@ -303,10 +303,11 @@ def main():
                             ) as f:
                                 json.dump(debug_location, f, indent=4)
 
-                            with open(
-                                f"{test_image_path}/{uid}_datetime.json", "w"
-                            ) as f:
-                                json.dump(debug_dt.isoformat(), f, indent=4)
+                            if debug_dt != None:
+                                with open(
+                                    f"{test_image_path}/{uid}_datetime.json", "w"
+                                ) as f:
+                                    json.dump(debug_dt.isoformat(), f, indent=4)
 
                             console.write(f"Debug dump: {uid}")
 

@@ -5,6 +5,7 @@ This module is runs the keyboard matrix
 and adds keys to the provided queue
 
 """
+import sh
 import RPi.GPIO as GPIO
 from time import sleep
 
@@ -57,6 +58,25 @@ long_keymap = [
 # fmt: on
 
 
+def shutdown():
+    """
+    shuts down the Pi
+    """
+    print("KB: Initiating Shutdown")
+    sh.sudo("shutdown", "now")
+    return True
+
+
+def restart_pifinder():
+    """
+    Uses systemctl to restart the PiFinder
+    service
+    """
+    print("KB: Restarting PiFinder")
+    sh.sudo("systemctl", "restart", "pifinder")
+    return True
+
+
 def run_keyboard(q):
     """
     scans keyboard matrix, puts release events in queue
@@ -104,3 +124,9 @@ def run_keyboard(q):
                         else:
                             q.put(keymap[keycode])
             GPIO.setup(rows[i], GPIO.IN)
+
+        # check for extra extra special!
+        if 0 in pressed and 1 in pressed and 2 in pressed:
+            restart_pifinder()
+        if 8 in pressed and 9 in pressed and 10 in pressed:
+            shutdown()
