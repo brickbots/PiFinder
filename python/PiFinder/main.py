@@ -317,8 +317,6 @@ def main():
                     elif keycode == keyboard.A:
                         # A key, mode switch
                         if ui_mode_index == 0:
-                            # in config mode
-                            ui_modes[0].update_target_config()
                             # return control to original module
                             for i, ui_class in enumerate(ui_modes):
                                 if ui_class == ui_modes[0].get_module():

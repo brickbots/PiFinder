@@ -40,10 +40,6 @@ class UIConfig(UIModule):
         if self.__config:
             self.__item_names = list(self.__config.keys())
 
-    def update_target_config(self):
-        self.__module.update_config(self.__config)
-        self.__selected_item = None
-
     def update(self, force=False):
         # clear screen
         self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
@@ -178,6 +174,14 @@ class UIConfig(UIModule):
                 # remove none if there are any other selections
                 if len(selected_item["value"]) > 1 and "None" in selected_item["value"]:
                     selected_item["value"].remove("None")
+
+            # Now that we have set config, see if there is a callback
+            if selected_item.get("callback") != None:
+                print("{self.__module =}")
+                callback_method = getattr(self.__module, selected_item["callback"])
+                exit_config = callback_method(selected_item["value"])
+                if exit_config:
+                    self.switch_to = self.__module.__class__.__name__
 
         else:
             if number >= len(self.__item_names):

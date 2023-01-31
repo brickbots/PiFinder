@@ -53,9 +53,6 @@ class UIModule:
         self.ui_state = ui_state
         self.config_object = config_object
 
-    def update_config(self, config):
-        self._config_options = config
-
     def cycle_config(self, config_item, direction=1):
         """
         Cycles through a config option
