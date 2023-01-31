@@ -105,7 +105,9 @@ class UILog(UIModule):
             notes[k] = v["value"]
 
         if self._observing_session == None:
-            self._observing_session = obslog.Observation_session(self.shared_state)
+            self._observing_session = obslog.Observation_session(
+                self.shared_state, self.__uuid__
+            )
 
         self.reset_config()
 
@@ -119,9 +121,11 @@ class UILog(UIModule):
     def key_b(self):
         """
         when B is pressed,
-        Just log it!
+        Just log it with preview image
         """
-        self.record_object(self.target)
+        session_uuid, obs_id = self.record_object(self.target)
+        filename = f"log_{session_uuid}_{obs_id}_low"
+        self.command_queues["camera"].put("save:" + filename)
 
         # Start the timer for the confirm.
         self.modal_timer = time.time()
@@ -134,13 +138,13 @@ class UILog(UIModule):
         when c is pressed,
         photo and log it!
         """
-        session_uid, obs_id = self.record_object(self.target)
+        session_uuid, obs_id = self.record_object(self.target)
 
         # Start the timer for the confirm.
         self.modal_timer = time.time()
         self.modal_duration = 2
         self.modal_text = "Taking Photo"
-        filename = f"log_{session_uid}_{obs_id}"
+        filename = f"log_{session_uuid}_{obs_id}_high"
         self.command_queues["camera"].put("save_hi:" + filename)
         self.update()
         wait = True

@@ -10,7 +10,6 @@ This module is the camera
 """
 import os
 import queue
-import uuid
 import pprint
 import time
 
@@ -101,10 +100,11 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
                 camera.set_controls({"ExposureTime": exposure_time})
                 console_queue.put("CAM: Exp=" + str(exposure_time))
             if command == "exp_save":
+                console_queue.put("CAM: Exp Saved")
                 cfg.set_option("camera_exp", exposure_time)
 
-            if command == "save":
-                filename = str(uuid.uuid1()).split("-")[0]
+            if command.startswith("save"):
+                filename = command.split(":")[1]
                 filename = f"/home/pifinder/captures/{filename}.png"
                 camera.capture_file(filename)
                 console_queue.put("CAM: Saved Image")

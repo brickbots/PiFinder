@@ -48,10 +48,10 @@ class UIPreview(UIModule):
     }
 
     def __init__(self, *args):
+        super().__init__(*args)
         self.reticle_mode = 2
         self.last_update = time.time()
         self.solution = None
-        super().__init__(*args)
 
     def draw_reticle(self):
         """
@@ -123,7 +123,3 @@ class UIPreview(UIModule):
 
     def key_enter(self):
         self.command_queues["camera"].put("exp_save")
-
-    def key_number(self, number):
-        if number == 0:
-            self.command_queues["camera"].put("save_hi:test")

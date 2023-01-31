@@ -85,7 +85,10 @@ def main():
         "console": console_queue,
     }
     cfg = config.Config()
+
+    # Unit UI shared state
     ui_state = {}
+
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness)

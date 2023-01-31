@@ -10,7 +10,6 @@ import datetime
 import pytz
 import time
 import os
-import uuid
 import sqlite3
 import json
 
@@ -26,7 +25,7 @@ class Observation_session:
     with multiple objects observed
     """
 
-    def __init__(self, shared_state):
+    def __init__(self, shared_state, session_uuid):
         # make sure observation db exists
         db_path = create_logging_tables()
 
@@ -34,25 +33,25 @@ class Observation_session:
         self.db_connection.row_factory = sqlite3.Row
         self.db_cursor = self.db_connection.cursor()
 
-        self.__session_uid = None
+        self.__session_init = False
+        self.__session_uuid = session_uuid
         self.__shared_state = shared_state
 
-    def session_uid(self):
+    def session_uuid(self):
         """
         Returns the current session uid
         Creates a new observing session
         if none yet exists
         """
-        if self.__session_uid:
+        if self.__session_init:
             # already initialized, abort
-            return self.__session_uid
+            return self.__session_uuid
 
         location = self.__shared_state.location()
         if not location:
             return None
 
         local_time = self.__shared_state.local_datetime()
-        self.__session_uid = str(uuid.uuid1()).split("-")[0]
 
         q = """
             INSERT INTO obs_sessions(
@@ -68,7 +67,7 @@ class Observation_session:
                 :lat,
                 :lon,
                 :timezone,
-                :uid
+                :uuid
             )
         """
 
@@ -79,18 +78,18 @@ class Observation_session:
                 "lat": location["lat"],
                 "lon": location["lon"],
                 "timezone": location["timezone"],
-                "uid": self.__session_uid,
+                "uuid": self.__session_uuid,
             },
         )
 
         self.db_connection.commit()
 
-        return self.__session_uid
+        return self.__session_uuid
 
     def log_object(self, catalog, designation, solution, notes):
 
-        session_uid = self.session_uid()
-        if not session_uid:
+        session_uuid = self.session_uuid()
+        if not session_uuid:
             print("Could not create session")
             return False
 
@@ -105,7 +104,7 @@ class Observation_session:
             )
             VALUES
             (
-                :session_uid,
+                :session_uuid,
                 :obs_time,
                 :catalog,
                 :designation,
@@ -117,7 +116,7 @@ class Observation_session:
         self.db_cursor.execute(
             q,
             {
-                "session_uid": session_uid,
+                "session_uuid": session_uuid,
                 "obs_time": self.__shared_state.local_datetime(),
                 "catalog": catalog,
                 "designation": designation,
@@ -131,4 +130,4 @@ class Observation_session:
             "select last_insert_rowid() as id"
         ).fetchone()["id"]
 
-        return session_uid, observation_id
+        return session_uuid, observation_id

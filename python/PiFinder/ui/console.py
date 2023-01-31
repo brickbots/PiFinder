@@ -15,11 +15,11 @@ class UIConsole(UIModule):
     __title__ = "CONSOLE"
 
     def __init__(self, *args):
+        super().__init__(*args)
         self.dirty = True
-        self.lines = ["---- TOP ---"]
+        self.lines = ["---- TOP ---", "Sess UUID:" + self.__uuid__]
         self.scroll_offset = 0
         self.debug_mode = False
-        super().__init__(*args)
 
     def set_shared_state(self, shared_state):
         self.shared_state = shared_state
