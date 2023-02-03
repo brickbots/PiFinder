@@ -95,6 +95,7 @@ def main():
     console = UIConsole(device, None, None, command_queues)
     console.write("Starting....")
     console.update()
+    time.sleep(2)
 
     # multiprocessing.set_start_method('spawn')
     # spawn keyboard service....
@@ -136,6 +137,7 @@ def main():
             args=(shared_state, camera_image, camera_command_queue, console_queue),
         )
         image_process.start()
+        time.sleep(1)
 
         # IMU
         console.write("   IMU")

@@ -103,48 +103,49 @@ class UIModule:
         """
         return self.screen_update()
 
-    def screen_update(self):
+    def screen_update(self, title_bar=True):
         """
         called to trigger UI updates
         takes self.screen adds title bar and
         writes to display
         """
-        self.draw.rectangle([0, 0, 128, 16], fill=(0, 0, 64))
-        self.draw.text((6, 1), self.title, font=self.font_bold, fill=(0, 0, 0))
-        if self.shared_state:
-            if self.shared_state.solve_state():
-                solution = self.shared_state.solution()
-                constellation = solution["constellation"]
-                self.draw.text(
-                    (70, 1), constellation, font=self.font_bold, fill=(0, 0, 0)
-                )
+        if title_bar:
+            self.draw.rectangle([0, 0, 128, 16], fill=(0, 0, 64))
+            self.draw.text((6, 1), self.title, font=self.font_bold, fill=(0, 0, 0))
+            if self.shared_state:
+                if self.shared_state.solve_state():
+                    solution = self.shared_state.solution()
+                    constellation = solution["constellation"]
+                    self.draw.text(
+                        (70, 1), constellation, font=self.font_bold, fill=(0, 0, 0)
+                    )
 
-                # Solver Status
-                time_since_solve = time.time() - solution["cam_solve_time"]
-                bg = int(64 - (time_since_solve / 6 * 64))
-                if bg < 0:
-                    bg = 0
-                self.draw.rectangle([115, 2, 125, 14], fill=(0, 0, bg))
-                self.draw.text(
-                    (117, 0),
-                    solution["solve_source"][0],
-                    font=self.font_bold,
-                    fill=(0, 0, 64),
-                )
-            else:
-                # no solve yet....
-                self.draw.rectangle([115, 2, 125, 14], fill=(0, 0, 0))
-                self.draw.text((117, 0), "X", font=self.font_bold, fill=(0, 0, 64))
+                    # Solver Status
+                    time_since_solve = time.time() - solution["cam_solve_time"]
+                    bg = int(64 - (time_since_solve / 6 * 64))
+                    if bg < 0:
+                        bg = 0
+                    self.draw.rectangle([115, 2, 125, 14], fill=(0, 0, bg))
+                    self.draw.text(
+                        (117, 0),
+                        solution["solve_source"][0],
+                        font=self.font_bold,
+                        fill=(0, 0, 64),
+                    )
+                else:
+                    # no solve yet....
+                    self.draw.rectangle([115, 2, 125, 14], fill=(0, 0, 0))
+                    self.draw.text((117, 0), "X", font=self.font_bold, fill=(0, 0, 64))
 
-            # GPS status
-            if self.shared_state.location()["gps_lock"]:
-                fg = (0, 0, 0)
-                bg = (0, 0, 64)
-            else:
-                fg = (0, 0, 64)
-                bg = (0, 0, 0)
-            self.draw.rectangle([100, 2, 110, 14], fill=bg)
-            self.draw.text((102, 0), "G", font=self.font_bold, fill=fg)
+                # GPS status
+                if self.shared_state.location()["gps_lock"]:
+                    fg = (0, 0, 0)
+                    bg = (0, 0, 64)
+                else:
+                    fg = (0, 0, 64)
+                    bg = (0, 0, 0)
+                self.draw.rectangle([100, 2, 110, 14], fill=bg)
+                self.draw.text((102, 0), "G", font=self.font_bold, fill=fg)
 
         self.display.display(self.screen.convert(self.display.mode))
 
