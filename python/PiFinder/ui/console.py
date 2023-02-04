@@ -22,7 +22,9 @@ class UIConsole(UIModule):
         self.welcome = True
 
         # load welcome image to screen
-        root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+        root_dir = os.path.realpath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "..")
+        )
         welcome_image_path = os.path.join(root_dir, "images", "welcome.png")
         welcome_image = Image.open(welcome_image_path)
         self.screen.paste(welcome_image)
@@ -78,7 +80,7 @@ class UIConsole(UIModule):
     def update(self, force=False):
         if self.dirty:
             if self.welcome:
-                #Clear / write just top line
+                # Clear / write just top line
                 self.draw.rectangle([0, 0, 128, 16], fill=(0, 0, 0))
                 self.draw.text((0, 1), self.lines[-1], font=self.font_base, fill=RED)
                 return self.screen_update(title_bar=False)
@@ -86,6 +88,8 @@ class UIConsole(UIModule):
                 # clear screen
                 self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
                 for i, line in enumerate(self.lines[-10 - self.scroll_offset :][:10]):
-                    self.draw.text((0, i * 10 + 20), line, font=self.font_base, fill=RED)
+                    self.draw.text(
+                        (0, i * 10 + 20), line, font=self.font_base, fill=RED
+                    )
                 self.dirty = False
                 return self.screen_update()

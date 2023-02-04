@@ -6,7 +6,7 @@ After=multi-user.target
 Type=idle
 User=pifinder
 WorkingDirectory=/home/pifinder/PiFinder/python
-ExecStart=/usr/bin/python -m PiFinder.main > /home/pifinder/PiFinder.log 2>&1
+ExecStart=/usr/bin/python -m PiFinder.main
 
 [Install]
 WantedBy=multi-user.target
