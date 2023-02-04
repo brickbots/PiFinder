@@ -12,7 +12,7 @@ from time import sleep
 NA = 10
 UP = 11
 DN = 12
-GO = 13
+ENT = 13
 A = 20
 B = 21
 C = 22
@@ -38,7 +38,7 @@ keymap = [
     7 , 8 , 9 , NA,
     4 , 5 , 6 , UP,
     1 , 2 , 3 , DN,
-    NA, 0 , NA, GO,
+    NA, 0 , NA, ENT,
     A , B , C , D,
 ]
 alt_keymap = [
@@ -77,10 +77,40 @@ def restart_pifinder():
     return True
 
 
-def run_keyboard(q):
+def run_script(q, script_path):
+    """
+    Runs a keyscript for automation/testing
+    """
+    print("Running Script: " + script_path)
+    with open(script_path, "r") as script_file:
+        for script_line in script_file:
+            sleep(.5)
+            script_line = script_line.strip()
+            print(f"\t{script_line}")
+            script_tokens = script_line.split(" ")
+            if script_tokens[0].startswith("#"):
+                # comment
+                pass
+            elif script_tokens[0] == "":
+                # blank line
+                pass
+            elif script_tokens[0] == "wait":
+                sleep(int(script_tokens[1]))
+            else:
+                # must be keycode
+                if script_tokens[0].isnumeric():
+                    q.put(int(script_tokens[0]))
+                else:
+                    q.put(eval(script_tokens[0]))
+
+
+def run_keyboard(q, script_path=None):
     """
     scans keyboard matrix, puts release events in queue
     """
+    if script_path:
+        run_script(q, script_path)
+
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(rows, GPIO.IN)
     GPIO.setup(cols, GPIO.IN, pull_up_down=GPIO.PUD_UP)

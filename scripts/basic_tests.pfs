@@ -4,7 +4,6 @@ wait 10
 # Get into debug mode
 ALT_A
 ALT_A
-ALT_A
 0
 # give the solver enough time to solve 
 # the debug plate
@@ -36,7 +35,8 @@ LNG_ENT
 B # LOG
 LNG_ENT
 C # Log with highres
-# Should be bat at chart
+wait 12 # need to allow photo to happen
+# Should be back at chart
 A # back to catalog
 LNG_A # Filter options
 1 # mag

@@ -15,6 +15,7 @@ import datetime
 import json
 import uuid
 import os
+import sys
 import pytz
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 from multiprocessing import Process, Queue
@@ -65,7 +66,7 @@ StateManager.register("SharedState", SharedStateObj)
 StateManager.register("NewImage", Image.new)
 
 
-def main():
+def main(script_name=None):
     """
     Get this show on the road!
     """
@@ -101,7 +102,12 @@ def main():
     # spawn keyboard service....
     console.write("   Keyboard")
     console.update()
-    keyboard_process = Process(target=keyboard.run_keyboard, args=(keyboard_queue,))
+    script_path = None
+    if script_name:
+        script_path = os.path.join(root_dir, "scripts", script_name)
+    keyboard_process = Process(
+        target=keyboard.run_keyboard, args=(keyboard_queue, script_path)
+    )
     keyboard_process.start()
 
     # spawn gps service....
@@ -342,7 +348,7 @@ def main():
                         elif keycode == keyboard.DN:
                             current_module.key_down()
 
-                        elif keycode == keyboard.GO:
+                        elif keycode == keyboard.ENT:
                             current_module.key_enter()
 
                         elif keycode == keyboard.B:
@@ -400,4 +406,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    script_name = None
+    args = sys.argv
+    if len(args) > 1:
+        script_name = args[-1]
+    main(script_name)
