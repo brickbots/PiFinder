@@ -83,7 +83,7 @@ Along with the 1.5" oled screen, the keypad has three primary parts, a numeric k
 - If the GPS has locked and provided a location, the GPS square in the status bar will be filled in and the G will be in black.  
 - The solver status will show either C (Camera) or I (IMU) depending on the source of the last position fix.  The background of this square fades from red to black, over six seconds, indicating the time since last solve.  
 
-## UI Overview
+## UI Screens
 The user interface for the PiFinder is split into various screens that you can switch between to perform different tasks.  The A function button is used to cycle between the three main screens:
 
 * Chart
@@ -147,7 +147,7 @@ If the number you have entered matches an object in the catalog, information abo
 * Other names
 * IC/NGC coded observing notes
 
-Use the 'D' function to clear the number field out and start fresh.  If you find an object you are interested in, pressing the 'ENT' key will add it to your target list and switch to the [Locate](#Locate) module.
+Use the 'D' function to clear the number field out and start fresh.  If you find an object you are interested in, pressing the 'ENT' key will add it to your target list and switch to the [Locate](#Locate) screen.
 
 Holding the 'A' function key for two seconds will bring up the settings for the catalog.  You can filter by apparent altitude, magnitude and object type.  Pressing 'A' will bring you back to the catalog and update the count of objects that match your filter.
 
@@ -157,7 +157,7 @@ Holding the 'A' function key for two seconds will bring up the settings for the 
 ### Locate
 ![Locate Screenshot](../images/screenshots/LOCATE_001_docs.png)
 
-The Locate module uses the last solve and currently selected target to provide a visual indication of which direction to move your telescope in order to center the target.  It also provides a summary of the current target and information about the overall target list.  
+The Locate screen uses the last solve and currently selected target to provide a visual indication of which direction to move your telescope in order to center the target.  It also provides a summary of the current target and information about the overall target list.  
 
 Values are expressed in degrees with the top line being rotation in Azimuth and the bottom line in Altitude.  
 
@@ -166,10 +166,13 @@ Values are expressed in degrees with the top line being rotation in Azimuth and 
 
 The currently target is also displayed on the [Chart](#Chart) screen as a small tick mark.
 
+## Special Screens
+The screens listed below are more rarely used and do not show up when rotating through the regular UI screens using the A button.  To access these screens, rotate through them using the ENT-A combination.  
+
 ### Log
 ![Logging Interface](../images/screenshots/LOG_001_docs.png)
 
-The Log module can be accessed at any time by long holding the ENT button.  It allows you to record your observation of the currently selected target in a database as part of a session.  Each session starts when you power-up, or reset, the PiFinder and every observation logged during the session will be grouped together for later review.
+The Log screen can be accessed at any time by long holding the ENT button.  It allows you to record your observation of the currently selected target in a database as part of a session.  Each session starts when you power-up, or reset, the PiFinder and every observation logged during the session will be grouped together for later review.
 
 Summary information about the current target is displayed along with the distance from the current telescope position.  This distance allows you to make sure you are observing/logging the correct object in a crowded field, like Virgo.  
 
