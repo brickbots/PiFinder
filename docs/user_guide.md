@@ -166,6 +166,27 @@ Values are expressed in degrees with the top line being rotation in Azimuth and 
 The currently target is also displayed on the [Chart](#Chart) screen as a small tick mark.
 
 ### Log
+![Logging Interface](../images/screenshots/LOG_001_docs.png)
+The Log module can be accessed at any time by long holding the ENT button.  It allows you to record your observation of the currently selected target in a database as part of a session.  Each session starts when you power-up, or reset, the PiFinder and every observation logged during the session will be grouped together for later review.
+
+Summary information about the current target is displayed along with the distance from the current telescope position.  This distance allows you to make sure you are observing/logging the correct object in a crowded field, like Virgo.  
+
+You can add some details about your observation by holding down the A button to add notes.
+![Observation logging notes interface](../images/screenshots/LOG_002_docs.png)
+
+* Transp. :  The transparency of the sky.  This is often noted along with Seeing below
+* Seeing:  The stillness of the atmosphere. 
+* Eyepiece:  You can note which of your eyepieces you are using.
+* Obsabillit:  Observability - How easy is it to spot and recognize this object
+* Appeal: Overall rating of this object.. would you refer a friend?
+
+Pressing the A button from the Observing Notes options will bring you back to the Log screen.
+
+* B button - Logs the current target to the database and saves a 512x512 snapshot image with current exposure settings.
+* C button - Logs the current target to the database and takes a high-resolution photo.  Takes longer, but you get a nice image of a 10 degree patch of sky that should have contained your target.
+* D button - Abort and return to the previous screen
+
+
 ### Preview
 ### Status
 ### Console
