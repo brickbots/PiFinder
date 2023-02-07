@@ -156,6 +156,7 @@ Holding the 'A' function key for two seconds will bring up the settings for the 
 
 ### Locate
 ![Locate Screenshot](../images/screenshots/LOCATE_001_docs.png)
+
 The Locate module uses the last solve and currently selected target to provide a visual indication of which direction to move your telescope in order to center the target.  It also provides a summary of the current target and information about the overall target list.  
 
 Values are expressed in degrees with the top line being rotation in Azimuth and the bottom line in Altitude.  
@@ -167,6 +168,7 @@ The currently target is also displayed on the [Chart](#Chart) screen as a small 
 
 ### Log
 ![Logging Interface](../images/screenshots/LOG_001_docs.png)
+
 The Log module can be accessed at any time by long holding the ENT button.  It allows you to record your observation of the currently selected target in a database as part of a session.  Each session starts when you power-up, or reset, the PiFinder and every observation logged during the session will be grouped together for later review.
 
 Summary information about the current target is displayed along with the distance from the current telescope position.  This distance allows you to make sure you are observing/logging the correct object in a crowded field, like Virgo.  
