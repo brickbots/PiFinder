@@ -137,8 +137,7 @@ The 'C' function keys will cycle through the various catalogs available.  The up
 
 Use the number keys to enter the id of the object you are looking for.  As you type, any matching object will be displayed.  Typing in 74 to look for Messier 74 will bring up Messier 7 and 74 in turn as you enter numbers.
 
-![Catalog screenshot](../images/screenshots/CATALOG_003_docs.png)
-![Catalog screenshot](../images/screenshots/CATALOG_004_docs.png)
+![Catalog screenshot](../images/screenshots/CATALOG_003_docs.png) ![Catalog screenshot](../images/screenshots/CATALOG_004_docs.png)
 
 If the number you have entered matches an object in the catalog, information about the object will be displayed below including:
 * Object Type
@@ -148,14 +147,24 @@ If the number you have entered matches an object in the catalog, information abo
 * Other names
 * IC/NGC coded observing notes
 
-Use the 'D' function to clear the number field out and start fresh.  If you find an object you are interested in, pressing the 'ENT' key will add it to your target list and switch to the [Push-To](#Push_To) module.
+Use the 'D' function to clear the number field out and start fresh.  If you find an object you are interested in, pressing the 'ENT' key will add it to your target list and switch to the [Locate](#Locate) module.
 
 Holding the 'A' function key for two seconds will bring up the settings for the catalog.  You can filter by apparent altitude, magnitude and object type.  Pressing 'A' will bring you back to the catalog and update the count of objects that match your filter.
 
-The 'UP'/'DN' keys will scroll through the currently filtered objects.
+* The 'UP'/'DN' keys will scroll through the currently filtered objects.
 
 
 ### Locate
+![Locate Screenshot](../images/screenshots/LOCATE_001_docs.png)
+The Locate module uses the last solve and currently selected target to provide a visual indication of which direction to move your telescope in order to center the target.  It also provides a summary of the current target and information about the overall target list.  
+
+Values are expressed in degrees with the top line being rotation in Azimuth and the bottom line in Altitude.  
+
+* UP/DN will cycle through the target list.  The numbers in the upper-right corner of the screen represent the index of the current target / total number of targets in the list
+* ENT will switch back to the catalog screen to access full information about the current target
+
+The currently target is also displayed on the [Chart](#Chart) screen as a small tick mark.
+
 ### Log
 ### Preview
 ### Status
