@@ -174,6 +174,7 @@ The Log module can be accessed at any time by long holding the ENT button.  It a
 Summary information about the current target is displayed along with the distance from the current telescope position.  This distance allows you to make sure you are observing/logging the correct object in a crowded field, like Virgo.  
 
 You can add some details about your observation by holding down the A button to add notes.
+
 ![Observation logging notes interface](../images/screenshots/LOG_002_docs.png)
 
 * Transp. :  The transparency of the sky.  This is often noted along with Seeing below
