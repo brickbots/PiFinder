@@ -4,22 +4,22 @@
 - [Hardware](#hardware)
   * [Overview](#overview) 
   * [Mounting](#mounting) 
-  * [Camera Setup](#camera-setup) 
-  * [Camera Alignment](#camera-alignment) 
-- [UI Screens](#ui-screens)
+  * [Camera Setup](#camera%20setup) 
+  * [Camera Alignment](#camera%20alignment) 
+- [UI Screens](#ui%20screens)
   * [Chart](#chart)
   * [Catalog](#catalog)
   * [Locate](#locate)
-* [Special Screens](#special_screens)
+* [Special Screens](#special%20screens)
   * [Log](#log)
   * [Preview](#preview)
   * [Status](#status)
   * [Console](#console)
 - [How-To](#how-to)
   * [Startup](#startup)
-  * [Searching for objects](#searching-for-objects)
+  * [Searching for objects](#searching%20for%20objects)
   * [Push-To object](#push-to-object)
-  * [Observation logging](#observation-logging)
+  * [Observation logging](#observation%20logging)
     + [Custom lists](#custom-lists)
 - [FAQ](#faq)
 
@@ -70,7 +70,7 @@ Once your PiFinder is mounted to your telescope, you'll need to align it with th
 * To start, point your telescope at a distant object or bright star and center it in your telescope eyepiece.  
 * Turn on the PiFinder if it's not on already
 * Make sure your PiFinder is in [Preview](#preview) mode so you can see what the camera sees.
-  * If you are doing this during the day, you'll need to use the Down control button to reduce the exposure
+  * If you are doing this during the day, you'll need to use the _DN_ key to reduce the exposure
 * Use the three thumbscrews to adjust the tilt of the camera.  Between each adjustment, make sure you wait for a new exposure to be taken to see the results.  This normally takes about 1.5 seconds (at night), depending on your exposure settings.
 * If the PiFinder is not holding alignment between observing sessions, try tightening the middle screw, or selecting a stronger spring, to help hold the cell more tightly against the thumbscrews. 
 
@@ -79,13 +79,13 @@ The main way you'll interact with the PiFinder is through the Keypad and Screen 
 
 ![Hardware UI Overview](../images/ui_reference.png)
 
-Along with the 1.5" oled screen, the keypad has three primary parts, a numeric keypad (0-9), four functions buttons (A, B, C, D), and three control buttons (Up, Down, Enter).  The screen will display different content depending on the mode you are in, but there will always be a Status Bar along the top which displays which mode the UI is in, the current constellation being pointed at (if a solve has been completed), GPS and Solver Status.
+Along with the 1.5" oled screen, the keypad has three primary parts, a numeric keypad (_0-9_), four functions keys (_A, B, C, D_), and three control keys (_UP, DN, ENT_).  The screen will display different content depending on the mode you are in, but there will always be a Status Bar along the top which displays which mode the UI is in, the current constellation being pointed at (if a solve has been completed), GPS and Solver Status.
 
 - If the GPS has locked and provided a location, the GPS square in the status bar will be filled in and the G will be in black.  
 - The solver status will show either C (Camera) or I (IMU) depending on the source of the last position fix.  The background of this square fades from red to black, over six seconds, indicating the time since last solve.  
 
 ## UI Screens
-The user interface for the PiFinder is split into various screens that you can switch between to perform different tasks.  The A function button is used to cycle between the three main screens:
+The user interface for the PiFinder is split into various screens that you can switch between to perform different tasks.  The A key is used to cycle between the three main screens:
 
 * Chart
 * Catalog
@@ -99,10 +99,10 @@ By holding down the Enter key and pressing the A function key you can get to the
 
 Some actions in one screen will move you to another, for instance selecting an object from the Catalog will switch automatically to the Locate screen.  
 
-The remaining buttons serve different purposes depending on which screen you are on at the time you press them, but there are some key-combinations that act across any of the individual screens:
+The remaining function keys serve different purposes depending on which screen you are on at the time you press them, but there are some key-combinations that act across any of the individual screens:
 
-* Long press A:  For screens with options, such a the Catalog screeen, holding down the A function key will bring up the configuration items for that screen.
-* Enter + Up/Down: This combination will adjust the screen brightness up and down at any time.
+* Long press _A_:  For screens with options, such a the Catalog screeen, holding down the A function key will bring up the configuration items for that screen.
+* _ENT + UP/DN_: This combination will adjust the screen brightness up and down at any time.
 
 ### Chart
 ![Chart interface](../images/screenshots/CHART_001_docs.png)
@@ -121,22 +121,22 @@ If the target is within the current chart, the arrow will disappear and a small 
 
 While viewing the chart you can adjust it's appearance and FOV in several ways:
 
-* B Function key: Toggle reticle state.  There are several brightness levels including off.
-* C Function key: Toggle constellation line brightness.
-* D Function key: Toggle observing list marker brightness.  This will show markers for DSO objects in your observing list.
-* Up / Down:  Increase or decrees the field of view (zoom).  This ranges from 5 degrees to 60 degrees.
-* Holding the 'A' function key will bring up settings for the chart including the above reticle/constellation brightness 
+* _B_ Function key: Toggle reticle state.  There are several brightness levels including off.
+* _C_ Function key: Toggle constellation line brightness.
+* _D_ Function key: Toggle observing list marker brightness.  This will show markers for DSO objects in your observing list.
+* _UP/DN_ :  Increase or decrees the field of view (zoom).  This ranges from 5 degrees to 60 degrees.
+* Holding the _A_ function key will bring up settings for the chart including the above reticle/constellation brightness 
 
 ### Catalog
 ![Catalog screenshot](../images/screenshots/CATALOG_001_docs.png)
 
 The catalog screen allows the searching and selection of astronomical objects to locate.  It has multiple catalogs available (Messier, NGC, IC) and displays some basic information about each object.  You can set filter criteria (Altitude, Magnitude, Object Type) to limit the objects surfaced via the search.
 
-The 'C' function keys will cycle through the various catalogs available.  The upper-left will show the count of filtered objects over the total number of objects in each catalog.
+The _C_ function keys will cycle through the various catalogs available.  The upper-left will show the count of filtered objects over the total number of objects in each catalog.
 
 ![Catalog screenshot](../images/screenshots/CATALOG_002_docs.png)
 
-Use the number keys to enter the id of the object you are looking for.  As you type, any matching object will be displayed.  Typing in 74 to look for Messier 74 will bring up Messier 7 and 74 in turn as you enter numbers.
+Use the number keys to enter the id of the object you are looking for.  As you type, any matching object will be displayed.  Typing in _74_ to look for Messier 74 will bring up Messier 7 and 74 in turn as you enter numbers.
 
 ![Catalog screenshot](../images/screenshots/CATALOG_003_docs.png) ![Catalog screenshot](../images/screenshots/CATALOG_004_docs.png)
 
@@ -148,11 +148,11 @@ If the number you have entered matches an object in the catalog, information abo
 * Other names
 * IC/NGC coded observing notes
 
-Use the 'D' function to clear the number field out and start fresh.  If you find an object you are interested in, pressing the 'ENT' key will add it to your target list and switch to the [Locate](#Locate) screen.
+Use the _D_ key to clear the number field out and start fresh.  If you find an object you are interested in, pressing the _ENT_ key will add it to your target list and switch to the [Locate](#Locate) screen.
 
-Holding the 'A' function key for two seconds will bring up the settings for the catalog.  You can filter by apparent altitude, magnitude and object type.  Pressing 'A' will bring you back to the catalog and update the count of objects that match your filter.
+Holding the _A_ key for two seconds will bring up the settings for the catalog.  You can filter by apparent altitude, magnitude and object type.  Pressing _A_ will bring you back to the catalog and update the count of objects that match your filter.
 
-* The 'UP'/'DN' keys will scroll through the currently filtered objects.
+* The _UP/DN_ keys will scroll through the currently filtered objects.
 
 
 ### Locate
@@ -162,22 +162,22 @@ The Locate screen uses the last solve and currently selected target to provide a
 
 Values are expressed in degrees with the top line being rotation in Azimuth and the bottom line in Altitude.  
 
-* UP/DN will cycle through the target list.  The numbers in the upper-right corner of the screen represent the index of the current target / total number of targets in the list
-* ENT will switch back to the catalog screen to access full information about the current target
+* _UP/DN_ will cycle through the target list.  The numbers in the upper-right corner of the screen represent the index of the current target / total number of targets in the list
+* _ENT_ will switch back to the catalog screen to access full information about the current target
 
 The currently target is also displayed on the [Chart](#Chart) screen as a small tick mark.
 
 ## Special Screens
-The screens listed below are more rarely used and do not show up when rotating through the regular UI screens using the A button.  To access these screens, rotate through them using the ENT-A combination.  
+The screens listed below are more rarely used and do not show up when rotating through the regular UI screens using the _A_ key.  To access these screens, rotate through them using the _ENT-A_ combination.  
 
 ### Log
 ![Logging Interface](../images/screenshots/LOG_001_docs.png)
 
-The Log screen can be accessed at any time by long holding the ENT button.  It allows you to record your observation of the currently selected target in a database as part of a session.  Each session starts when you power-up, or reset, the PiFinder and every observation logged during the session will be grouped together for later review.
+The Log screen can be accessed at any time by long holding the ENT key.  It allows you to record your observation of the currently selected target in a database as part of a session.  Each session starts when you power-up, or reset, the PiFinder and every observation logged during the session will be grouped together for later review.
 
 Summary information about the current target is displayed along with the distance from the current telescope position.  This distance allows you to make sure you are observing/logging the correct object in a crowded field, like Virgo.  
 
-You can add some details about your observation by holding down the A button to add notes.
+You can add some details about your observation by holding down the A key to add notes.
 
 ![Observation logging notes interface](../images/screenshots/LOG_002_docs.png)
 
@@ -187,16 +187,44 @@ You can add some details about your observation by holding down the A button to 
 * Obsabillit:  Observability - How easy is it to spot and recognize this object
 * Appeal: Overall rating of this object.. would you refer a friend?
 
-Pressing the A button from the Observing Notes options will bring you back to the Log screen.
+Pressing the A key from the Observing Notes options will bring you back to the Log screen.
 
-* B button - Logs the current target to the database and saves a 512x512 snapshot image with current exposure settings.
-* C button - Logs the current target to the database and takes a high-resolution photo.  Takes longer, but you get a nice image of a 10 degree patch of sky that should have contained your target.
-* D button - Abort and return to the previous screen
+* B key - Logs the current target to the database and saves a 512x512 snapshot image with current exposure settings.
+* C key - Logs the current target to the database and takes a high-resolution photo.  Takes longer, but you get a nice image of a 10 degree patch of sky that should have contained your target.
+* D key - Abort and return to the previous screen
 
 
 ### Preview
+![Preview screen](../images/screenshots/PREVIEW_001_docs.png)
+
+The preview screen displays most recently taken exposure from the camera.  You can adjust the processing of this image (just for display purposes), adjust exposure and zoom in to focus.
+
+* _B_ key - Adjust reticle brightness or turn it off completely
+* _C_ key - Turn background subtraction on/off
+* _D_ key - Adjust gamma correction intensity
+
+In the options menu (long-press _A_) you can adjust these same display parameters and also enter Focus Help mode.  In this mode the camera image is enlarged to help achieve good focus on a star.  Since this only shows the center of frame, get a star lined up in the reticle before activating Focus Help.
+
+You can adjust overall exposure using the _UP/DN_ keys (check the [Console](#console) for specific setting).  If you'd like to save this exposure as the default for future sessions, use the _ENT_ key.
+
 ### Status
+![Status Screen](../images/screenshots/STATUS_001_docs.png)
+
+The status screen displays:
+* LST SLV: Seconds since last position solution, plus last position solution source (CAM or IMU)
+* RA/DEC: Last solved Right Ascension and Declination
+* AZ/ALT: Last solved position in Azimuth / Altitude.  This can only be displayed if a GPS lock is achieved to provide location and time information.
+* GPS: GPS Status (Locked/--)
+* IMU: Inertial Measurement Unit status.  Moving/Static + Confidence level (0-3)
+* IMU PS:  Current IMU position (Azimuth / Altitude) before conversion to astronomical AZ/ALT position.
+* LCL TM: Local time (requires GPS fix)
+* UTC TM: UTC Time (requires GPS fix)
+* CPU TMP: Temperature of the Raspberry PI CPU
+
 ### Console
+![Console screen](../images/screenshots/CONSOLE_001_docs.png)
+
+Logged information from the various parts of the PiFinder system is displayed here.
 
 ## How-To
 ### Startup
