@@ -17,6 +17,7 @@
   * [Console](#console)
 - [How-To](#how-to)
   * [Startup](#startup)
+  * [Shutdown and Restart](#shutdown%20and%20Restart)
   * [Searching for objects](#searching%20for%20objects)
   * [Push-To object](#push-to-object)
   * [Observation logging](#observation%20logging)
@@ -228,6 +229,7 @@ Logged information from the various parts of the PiFinder system is displayed he
 
 ## How-To
 ### Startup
+### Shutdown and Restart
 ### Searching for objects
 ### Push-To object
 ### Observation logging
