@@ -16,12 +16,9 @@
   * [Status](#status)
   * [Console](#console)
 - [How-To](#how-to)
-  * [Startup](#startup)
+  * [First Time Setup](#first%20time%20setup)
   * [Shutdown and Restart](#shutdown%20and%20Restart)
-  * [Searching for objects](#searching%20for%20objects)
-  * [Push-To object](#push-to-object)
-  * [Observation logging](#observation%20logging)
-    + [Custom lists](#custom-lists)
+  * [Custom lists](#custom-lists)
 - [FAQ](#faq)
 
 ## Introduction and Overview
@@ -226,13 +223,30 @@ The status screen displays:
 ![Console screen](../images/screenshots/CONSOLE_001_docs.png)
 
 Logged information from the various parts of the PiFinder system is displayed here.
+* _UP/DN_ key - Scroll the log display
 
 ## How-To
-### Startup
+### First Time Setup
+
+Here's a quick start guide for your first time operating the PiFinder:
+* Mount the PiFinder to your scope and power it on.  See the [Mount and Power](./build_guide.md) section of the build guide
+* Once the PiFinder has booted and you looking at the preview
+	* Set exposure if needed and Focus your lens. See the [Preview](#preview) screen for details on setting exposure and zooming in to check focus
+	* Use a star or distant object to align the PiFinder with your telescope
+* If it's night-time, and you've got somewhere close for exposure and focus, the PiFinder should have already started solving.  If not:
+	* Adjust exposure to make sure you see some stars in the preview display.  If the exposure is too long, relative brightness between stars will be lost and this can also prohibit solving.  
+	* Focus is somewhat less critical, but being too far out of focus will reduce the number of faint stars available for solving.
+* If you are in an open area, the GPS dongle should have achieved a lock.  Check  the status indicator in the title bar, or the [Status](#status) screen to verify.  If not, double check the status light on the dongle and make sure it has an unobstructed view of as much sky as possible.  The first solve after being off for a few days needs more satellites and will take longer.  Subsequent locks will be much quicker using some cached data in the dongle.
+
 ### Shutdown and Restart
-### Searching for objects
-### Push-To object
-### Observation logging
+There are two special key-combos for Restarting the PiFinder service and Shutting down the device before power-off.  Although shutting down is not strictly needed before power-off, the PiFinder is a computer and there is a chance of file corruption.  Some MicroSD cards are more sensitive to this than others.
+
+* Pressing the _7 8 9_ keys at the same time will restart the PiFinder software.  This should not normally be needed, but can be useful for generating a new session id which is included for a photos and logging during a particular execution of the PiFinder software.
+* Pressing the _1 2 3_ keys at the same time will shutdown the PiFinder system.  After 15 seconds you can then power off the system knowing the OS has properly closed all files.
+
 #### Custom lists
+Custom observing lists coming soon....
 
 ## FAQ
+
+Have any questions?  Please send them through to me at [rich@brickbots.com](mailto:rich@brickbots.com) and I'll do my best to help and potentially add your question here.  Better yet, feel free to fork this repo and contribute via a pull request!

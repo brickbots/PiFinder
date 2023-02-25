@@ -23,7 +23,13 @@ Great!  You have a nice fresh install of Raspberry Pi OS ready to go.  The rest 
 
  `wget -O - https://raw.githubusercontent.com/brickbots/PiFinder/main/pifinder_setup.sh | bash`
 
-The script will clone this repo, install the needed packages/dependencies, download some  required astronomy data files and then setup a service to start on reboot.
+The script:
+* Clone this repo
+* Install the needed packages/dependencies
+* Download some required astronomy data files
+* Setup Wifi access point capabilities
+* Create a samba share for pulling images, and observations logs and adding observing lists
+* Finally, setup the PiFinder service to start on reboot.
 
 Once the script is done, reboot the PiFinder:
 `sudo shutdown -r now`
