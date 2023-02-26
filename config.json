@@ -1,13 +1,17 @@
 {
-    "display_brightness": 255,
+    "display_brightness": 125,
     "last_location": {
-        "lat": 34.02918833333333,
-        "lon": -118.49124,
-        "altitude": 183.9,
-        "gps_lock": false,
+        "lat": 34.030435,
+        "lon": -118.49151833333333,
+        "altitude": 51.0,
+        "gps_lock": true,
         "timezone": "America/Los_Angeles"
     },
-    "camera_exp": 470714,
+    "camera_exp": 1500000,
     "camera_gain": 10,
-    "catalogs": ["NGC", "IC", "Mes"]
+    "catalogs": [
+        "NGC",
+        "IC",
+        "Mes"
+    ]
 }
