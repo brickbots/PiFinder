@@ -4,6 +4,14 @@ git clone https://github.com/brickbots/PiFinder.git
 cd PiFinder
 sudo pip install -r requirements.txt
 
+# data dirs
+mkdir ~/PiFinder_data
+mkdir ~/PiFinder_data/captures
+mkdir ~/PiFinder_data/obslists
+mkdir ~/PiFinder_data/screnshots
+mkdir ~/PiFinder_data/solver_debug_dumps
+mkdir ~/PiFinder_data/logs
+
 # Hipparcos catalog
 wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
 

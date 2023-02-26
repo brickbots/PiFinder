@@ -44,9 +44,7 @@ class UIModule:
         )
 
         # screenshot stuff
-        root_dir = os.path.realpath(
-            os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
-        )
+        root_dir = "/home/pifinder/PiFinder_data"
         prefix = f"{self.__uuid__}_{self.__title__}"
         self.ss_path = os.path.join(root_dir, "screenshots", prefix)
         self.ss_count = 0

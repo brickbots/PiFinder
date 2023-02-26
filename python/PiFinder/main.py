@@ -241,7 +241,6 @@ def main(script_name=None):
                     keycode = None
 
                 if keycode != None:
-                    print(f"{keycode =}")
                     if keycode > 99:
                         # Special codes....
                         if keycode == keyboard.ALT_UP or keycode == keyboard.ALT_DN:

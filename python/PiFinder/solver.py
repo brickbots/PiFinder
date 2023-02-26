@@ -108,9 +108,7 @@ def write_debug(
     Writes the image + key solver
     info to disk
     """
-    root_dir = os.path.realpath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "..")
-    )
+    root_dir = "/home/pifinder/PiFinder_data"
     debug_path = os.path.join(root_dir, "solver_debug_dumps", prefix)
 
     # write images
