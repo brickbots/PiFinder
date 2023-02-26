@@ -73,21 +73,150 @@ Check the photos below for the procedure, it's easier than it sounds!
 ![Figuring out connector spacing](../images/build_guide/IMG_4667.jpeg)
 ![Figuring out connector spacing](../images/build_guide/IMG_4668.jpeg)
 
+There you go!  The PiFinder hat is fully assembled.  
+
 ## Camera
-* Lens
-* Camera cell
+
+It's time to prepare the camera an mount it to the 3d printed cell so it can be adjusted to align with your telescope.  
+
+First step is to remove the tripod mount from the camera.  There are two hex screws securing it to the mount-ring.  Just unscrew them and it will come right off.
+
+Next, you'll need to mount the camera module to the camera cell.  Start by inserting the heat-set inserts into the part.  The part is 4mm thick, and the 4 inserts on at the corners are for M2.5 screws.  The middle is M3.
+
+Place short stand-offs in the M2.5 inserts.  Makes these as short as possible, but the spacing is not critical.
+
+![Stand off setup](../images/build_guide/IMG_4707.jpeg)
+
+Then use some short M2.5 screws to secure the camera to the cell
+
+![Stand off setup](../images/build_guide/IMG_4708.jpeg)
+
+Finally, you can attach the lens now, or a bit later in the assembly.  It screws right into the existing knurled adapter that comes with the camera.
+
+![Lens install](../images/build_guide/IMG_4716.jpeg)
+
+## Power
+
+Before continuing to the case build, you'll have to decide how you are going to power the PiFinder.   The easiest way is probably the PiSugar power systems.  They are a thin board that mounts right under the Pi between it and the 3d printed holder.  A nice battery is included and they can provide enough power for the RPI4, screen and camera without difficulty for a full observing session.
+
+In my case, I already have power on my scope from 12v batteries and there is a 5v source near where I am mounting the PiFinder.  If you have existing power, you can feed it through the USB-C port on the top of the pi, or there is an un-populated power connector on the PCB which can be used to supply REGULATED 5v power.
+
+## Mounting the PiFinder on your scope
+### GoPro
+The GoPro mounting system is very flexible and offers a lot of options.  There is a GoPro compatible mounting piece in the `/case/mount` directory of the repo.  To use this mount you'll print the `bottom_plate.3mf` file and insert M3 threaded inserts into the 4 central holes.
+
+The 3d printed GoPro mount will screw into these inserts from the bottom at the end of the build.  You should likely orient it so the slots run parallel to the short dimension of the bottom piece.  This will allow you to 'roll' the PiFinder so that you can have it oriented straight up and down on your scope.
+
+### Dovetail / Finder Shoe
+For a more sturdy and repeatable attachment, the dovetail is preferred.  Many scopes already have a shoe for a finder and they are usually the standard 'synta' size.  The dovetail files in the `/case/mount` directory will fit into these standard shoes.
+
+Print one of the 3 dovetail brackets which most closely matches the orientation of your finder shoe.  If your shoe is at the top of your scope, and is parallel to the ground, use the `dovetail_0deg` file and the PiFinder will sit upright on top of it.
+
+Finder shoes are often not right at the very top of the scope, and they will be angled relative to the ground/direction of gravity.  You can use the 15 / 30 degree models to adjust for this and get the PiFinder to sit closer to plumb.
+
+The dovetail mount parts take their own M3 heat set inserts and need to be mounted with screws through the bottom piece into the dovetail mount early in the build process.
 
 ## Case
 
-## Assembly
-* Frame
-* Camera cell adjustment
-* Camera cable routing
-* Pi Mounting
-* Power
-* PiFinder Hat
-* Shroud
+The main structure of the PiFinder is made of 3d printed pieces.  STL's for all of the pieces are in the case directory.  There are two versions of the bottom piece, one designed with inserts to allow the go-pro mount to screw into it, and the other has M3 holes to screw through the bottom into the dovetail mount.  See the [mount](#mount) section below to figure out which way you want to go.
 
-## Mounting
-### GoPro
-### Dovetail / Finder Shoe
+The image below shows all the 3d printed pieces and indicates which threaded inserts go in which hole.  All of the structural bits use M3 screws, but the Pi and Camera mount with M2.5 screws.  The case shroud and bezel only have M2.5 through holes and get secured to the stand-off's holding the Hat.
+
+![Case part ID / Insert details](../images/build_guide/case_parts.png)
+The Pi Mount piece can receive M2.5 inserts which can then have short stand-offs, or you can screw through it into stand-offs already mounted on the Pi.  This depends on your preference and the heat-sink arrangement you ended up with.  
+
+Prepare the case parts by inserting all the heat-set inserts.  All parts are 4mm thick and the inserts should push completely through and sit flush.  
+
+## Assembly
+
+All the case parts are held together with M3 screws.  6-8mm length should work great.  See the photo below for all of the parts ready for assembly.
+
+![Case assembly](../images/build_guide/IMG_4669.jpeg)
+
+
+I think mounting the Pi to the Pi Holder is a good place to start.  For these photos I'm screwing through the Pi Holder into stand-offs in already in the Pi, but you can use threaded inserts and put the standoffs in the Pi Holder first depending on your needs.
+
+If you are using a PiSugar, now is the time to fit it under the Pi between it and the holder.  I don't have photos of this, but please reach out with any questions.
+
+![Pi Mounting](../images/build_guide/IMG_4685.jpeg)
+
+![Pi Mounting](../images/build_guide/IMG_4686.jpeg)
+
+![Pi Mounting](../images/build_guide/IMG_4687.jpeg)
+
+![Pi Mounting](../images/build_guide/IMG_4688.jpeg)
+
+Next, attach the camera cable to the pi and route it around and through the hole in the Pi Mount.  This can be done later, but it's just a bit fussier.   If you have the Hat fitted, remove it first and route the cable per below
+
+![Pi Mounting](../images/build_guide/IMG_4690.jpeg)
+![Pi Mounting](../images/build_guide/IMG_4691.jpeg)
+
+If you are going to use the Dovetail mount, you need to affix it to the bottom before continuing.  My finder shoe is offset from the top of my scope, so I've got a 30 degree angle on my dovetail adaptor to make the PiFinder plumb vertically when mounted on my scope.  It's not critical that it be plumb, but I suggest using the dovetail which ends up with the PiFinder as close to plumb as possible. 
+
+If you are using the GoPro mount, you'll be able to screw that into the bottom at the end of the build.  Just make sure you've inserted the M3 threaded inserts for the mount into the bottom.
+
+See the photos below for the dovetail mounting details
+
+![Dovetail Mounting](../images/build_guide/IMG_4695.jpeg)
+
+![Dovetail Mounting](../images/build_guide/IMG_4696.jpeg)
+
+Now mount the Pi Holder to the Bottom, securing through the Pi Holder tabs into the threaded inserts on the bottom.
+![Pi Holder to bottom assembly](../images/build_guide/IMG_4698.jpeg)
+
+Next comes the back piece which screws into the bottom and the Pi Holder
+
+![Back Piece](../images/build_guide/IMG_4701.jpeg)
+
+![Back Piece](../images/build_guide/IMG_4702.jpeg)
+![Back Piece](../images/build_guide/IMG_4703.jpeg)
+
+With the frame complete you can now mount the camera cell.  Like the cell of most reflector telescopes this cell is held against 3 adjustable screws to control it's tilt.  Start by inserting the 3 thumbscrews and screwing them almost all the way in.  
+
+![Camera Mounting](../images/build_guide/IMG_4709.jpeg)
+
+![Camera Mounting](../images/build_guide/IMG_4710.jpeg)
+
+![Camera Mounting](../images/build_guide/IMG_4711.jpeg)
+
+ Now prepare the central M3 screw which is used to pull the cell against the adjustment screws.  If you have a suitable spring, it can be used to make adjustment a little easier, but less sturdy.  After using the unit for a bit, I actually prefer it without the spring.  You just need to move the screws in pairs (one out, one in) to keep tension even on the back of the cell.
+
+![Camera Mounting](../images/build_guide/IMG_4712.jpeg)
+
+Before your proceed, connect the camera cable to the camera.  When mounting the cell, the cable side goes towards the Pi and the cable sticks into the rectangular cut-out.  See the image below for final mounting orientation
+
+![Camera Mounting](../images/build_guide/IMG_4716.jpeg)
+
+Insert the tensioning screw from the back through the back piece, hold the cell in place and then thread the tensioning screw into the cell.  Be careful not to thread more than 4mm into the cell or it could come out the other side and damage the camera mounted there.
+
+Adjust the length of the tensioning screw depending on your configuration.  Below are photos with and without a spring.
+
+![Camera Mounting](../images/build_guide/IMG_4713.jpeg)
+![Camera Mounting](../images/build_guide/IMG_4714.jpeg)
+
+Adjust the spring, screw length and thumbscrews until the cell is pulled tight againt the thumbscrews
+
+![Camera Mounting](../images/build_guide/IMG_4715.jpeg)
+
+![Camera Mounting](../images/build_guide/IMG_4714.jpeg)
+
+Mount the lens now if you have not already and you are done with the frame assembly!
+![Camera Mounting](../images/build_guide/IMG_4717.jpeg)
+
+Turn the PiFinder around so that you can plug in the Hat PCB.  Make sure you have the required stand-offs in the Pi, but don't screw it in yet. 
+![Hat / Shroud assembly](../images/build_guide/IMG_4718.jpeg)
+
+The shroud slides over the PCB and lines up like so....
+![Hat / Shroud assembly](../images/build_guide/IMG_4719.jpeg)
+
+The bezel goes on next and sits in place on top of the shroud.  
+![Hat / Shroud assembly](../images/build_guide/IMG_4720.jpeg)
+
+The top plate with key legends goes on top and the whole thing is secured with 3 long M2.5 screws through the stack into the stand-offs in the Pi.
+![Hat / Shroud assembly](../images/build_guide/IMG_4721.jpeg)
+
+Plug in the GPS dongle and mount it where the top faces the sky.  Now you have your very own PiFinder!
+
+![Hat / Shroud assembly](../images/build_guide/IMG_4725.jpeg)
+
+
