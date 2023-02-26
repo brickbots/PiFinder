@@ -25,8 +25,6 @@ class UILocate(UIModule):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.target = None
-        self.ui_state["target_list"] = []
         self.target_index = None
         self.object_text = ["No Object Found"]
         self.__catalog_names = self.config_object.get_option("catalogs")
@@ -61,15 +59,19 @@ class UILocate(UIModule):
         """
         Generates object text
         """
-        if not self.target:
+        if not self.ui_state["target"]:
             self.object_text = ["No Object Found"]
             return
 
         self.object_text = []
 
         # Type / Constellation
-        object_type = OBJ_TYPES.get(self.target["obj_type"], self.target["obj_type"])
-        self.object_text.append(f"{object_type: <14} {self.target['const']}")
+        object_type = OBJ_TYPES.get(
+            self.ui_state["target"]["obj_type"], self.ui_state["target"]["obj_type"]
+        )
+        self.object_text.append(
+            f"{object_type: <14} {self.ui_state['target']['const']}"
+        )
 
     def aim_degrees(self):
         """
@@ -89,8 +91,8 @@ class UILocate(UIModule):
                     location["altitude"],
                 )
                 target_alt, target_az = self.sf_utils.radec_to_altaz(
-                    self.target["ra"],
-                    self.target["dec"],
+                    self.ui_state["target"]["ra"],
+                    self.ui_state["target"]["dec"],
                     dt,
                 )
                 az_diff = target_az - solution["Az"]
@@ -104,11 +106,10 @@ class UILocate(UIModule):
             return None, None
 
     def active(self):
-        state_target = self.shared_state.target()
-        if state_target != self.target:
-            self.target = state_target
-            self.ui_state["target_list"].append(state_target)
-            self.target_index = len(self.ui_state["target_list"]) - 1
+        try:
+            self.target_index = self.ui_state["active_list"].index(self.ui_state["target"])
+        except ValueError:
+            self.target_index = None
         self.update_object_text()
         self.update()
 
@@ -116,18 +117,18 @@ class UILocate(UIModule):
         # Clear Screen
         self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
 
-        if not self.target:
+        if not self.ui_state["target"]:
             self.draw.text((0, 20), "No Target Set", font=self.font_large, fill=RED)
             return self.screen_update()
 
         # Target Name
-        line = self.resolve_catalog_name(self.target["catalog"])
-        line += str(self.target["designation"])
+        line = self.resolve_catalog_name(self.ui_state["target"]["catalog"])
+        line += str(self.ui_state["target"]["designation"])
         self.draw.text((0, 20), line, font=self.font_large, fill=RED)
 
         # Target history index
         if self.target_index != None:
-            line = f"{self.target_index + 1}/{len(self.ui_state['target_list'])}"
+            line = f"{self.target_index + 1}/{len(self.ui_state['active_list'])}"
             line = f"{line : >7}"
             self.draw.text((85, 20), line, font=self.font_base, fill=RED)
 
@@ -171,13 +172,13 @@ class UILocate(UIModule):
     def scroll_target_history(self, direction):
         if self.target_index != None:
             self.target_index += direction
-            if self.target_index >= len(self.ui_state["target_list"]):
-                self.target_index = len(self.ui_state["target_list"]) - 1
+            if self.target_index >= len(self.ui_state["active_list"]):
+                self.target_index = len(self.ui_state["active_list"]) - 1
 
             if self.target_index < 0:
                 self.target_index = 0
 
-            self.target = self.ui_state["target_list"][self.target_index]
+            self.target = self.ui_state["active_list"][self.target_index]
             self.shared_state.set_target(self.target)
             self.update_object_text()
             self.update()

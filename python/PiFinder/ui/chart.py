@@ -52,12 +52,12 @@ class UIChart(UIModule):
         Plot the contents of the observing list
         """
         # is there a target?
-        target = self.shared_state.target()
+        target = self.ui_state["target"]
         if not self.solution or self._config_options["Obs List"]["value"] == "Off":
             return
 
         marker_list = []
-        for obs_target in self.ui_state.get("target_list", []):
+        for obs_target in self.ui_state.get("observing_list", []):
             if target == None or (
                 obs_target["designation"] != target["designation"]
                 and obs_target["catalog"] != target["catalog"]
@@ -94,7 +94,7 @@ class UIChart(UIModule):
         Plot the target....
         """
         # is there a target?
-        target = self.shared_state.target()
+        target = self.ui_state["target"]
         if not target or not self.solution:
             return
 

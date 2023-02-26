@@ -39,6 +39,12 @@ class UICatalog(UIModule):
             "value": ["None"],
             "options": ["None"] + list(OBJ_TYPES.keys()),
         },
+        "Push List": {
+            "type": "enum",
+            "value": "",
+            "options": ["Go", "Cncl"],
+            "callback": "push_list",
+        },
     }
 
     def __init__(self, *args):
@@ -72,14 +78,23 @@ class UICatalog(UIModule):
         self.load_catalogs()
         self.set_catalog()
 
-    def update_config(self, config):
-        self._config_options = config
+    def update_config(self):
         # call load catalog to re-filter if needed
         self.set_catalog()
         self._catalog_item_index = 0
 
         # Reset any designations....
         self.key_d()
+
+    def push_list(self, option):
+        self._config_options["Push List"]["value"] = ""
+        if option == "Go":
+            print("GOGOGOGOGOG")
+            self.set_catalog()
+
+            return True
+        else:
+            return False
 
     def update_object_text(self):
         """
@@ -133,7 +148,7 @@ class UICatalog(UIModule):
                 line = line + " " + token
 
     def active(self):
-        target = self.shared_state.target()
+        target = self.ui_state["target"]
         if target:
             self.cat_object = target
             self.catalog_index = ["N", "I", "M"].index(target["catalog"])
@@ -261,7 +276,13 @@ class UICatalog(UIModule):
         for obj in self.__catalogs[catalog_name]:
             include_obj = True
 
-            if magnitude_filter != "None" and obj["magnitude"] >= magnitude_filter:
+            # try to get object mag to float
+            try:
+                obj_mag=float(obj["mag"])
+            except ValueError:
+                obj_mag=0
+
+            if magnitude_filter != "None" and obj_mag >= magnitude_filter:
                 include_obj = False
 
             if type_filter != ["None"] and obj["obj_type"] not in type_filter:
@@ -372,7 +393,13 @@ class UICatalog(UIModule):
         target
         """
         if self.cat_object:
-            self.shared_state.set_target(dict(self.cat_object))
+            self.ui_state["target"] = dict(self.cat_object)
+            if len(self.ui_state["history_list"]) == 0:
+                self.ui_state["history_list"].append(self.ui_state["target"])
+            elif self.ui_state["history_list"][-1] != self.ui_state["target"]:
+                self.ui_state["history_list"].append(self.ui_state["target"])
+
+            self.ui_state["active_list"] = self.ui_state["history_list"]
             self.switch_to = "UILocate"
 
     def scroll_obj(self, direction):
