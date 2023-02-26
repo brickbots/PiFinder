@@ -1,10 +1,10 @@
 {
-    "display_brightness": 125,
+    "display_brightness": 255,
     "last_location": {
         "lat": 34.030435,
         "lon": -118.49151833333333,
         "altitude": 51.0,
-        "gps_lock": true,
+        "gps_lock": false,
         "timezone": "America/Los_Angeles"
     },
     "camera_exp": 1500000,
