@@ -52,4 +52,9 @@ UP
 DN
 DN
 DN
-
+# push all messiers to observing list
+LNG_A
+3 # push
+0 # Confirm push
+# We should be back at the catalog screen
+A # now locate

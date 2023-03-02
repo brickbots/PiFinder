@@ -84,7 +84,7 @@ def run_script(q, script_path):
     print("Running Script: " + script_path)
     with open(script_path, "r") as script_file:
         for script_line in script_file:
-            sleep(.5)
+            sleep(0.5)
             script_line = script_line.strip()
             print(f"\t{script_line}")
             script_tokens = script_line.split(" ")

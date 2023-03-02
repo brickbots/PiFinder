@@ -88,7 +88,12 @@ def main(script_name=None):
     cfg = config.Config()
 
     # Unit UI shared state
-    ui_state = {}
+    ui_state = {
+        "history_list": [],
+        "observing_list": [],
+        "target": None,
+    }
+    ui_state["active_list"] = ui_state["history_list"]
 
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
@@ -241,7 +246,6 @@ def main(script_name=None):
                     keycode = None
 
                 if keycode != None:
-                    print(f"{keycode =}")
                     if keycode > 99:
                         # Special codes....
                         if keycode == keyboard.ALT_UP or keycode == keyboard.ALT_DN:
@@ -330,6 +334,7 @@ def main(script_name=None):
                                 if ui_class == ui_modes[0].get_module():
                                     ui_mode_index = i
                                     current_module = ui_class
+                                    current_module.update_config()
                                     current_module.active()
                         else:
                             ui_mode_index += 1
