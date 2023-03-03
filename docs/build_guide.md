@@ -212,7 +212,7 @@ The shroud slides over the PCB and lines up like so....
 The bezel goes on next and sits in place on top of the shroud.  
 ![Hat / Shroud assembly](../images/build_guide/IMG_4720.jpeg)
 
-The top plate with key legends goes on top and the whole thing is secured with 3 M2.5 screws through the stack into the stand-offs in the Pi.  You'll need to use fairly long screws here as they go through the top plate, the bezel, the shroud, the Hat and finally into the standoffs.
+The top plate with key legends goes on top and the whole thing is secured with 3 M2.5 screws through the stack into the stand-offs in the Pi.  You'll need to use fairly long screws here as they go through the top plate, the bezel, the shroud, the Hat and finally into the stand-offs
 
 ![Hat / Shroud assembly](../images/build_guide/IMG_4721.jpeg)
 
