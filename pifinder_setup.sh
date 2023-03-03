@@ -1,6 +1,6 @@
 #! /usr/bin/bash
 sudo apt-get install -y git python3-pip
-git clone https://github.com/brickbots/PiFinder.git
+git clone --branch stable https://github.com/brickbots/PiFinder.git
 cd PiFinder
 sudo pip install -r requirements.txt
 
