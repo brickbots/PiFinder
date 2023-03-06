@@ -102,6 +102,13 @@ Before continuing to the case build, you'll have to decide how you are going to 
 In my case, I already have power on my scope from 12v batteries and there is a 5v source near where I am mounting the PiFinder.  If you have existing power, you can feed it through the USB-C port on the top of the pi, or there is an un-populated power connector on the PCB which can be used to supply REGULATED 5v power.
 
 ## Mounting the PiFinder on your scope
+
+### Focuser Side
+The PiFinder screen and keyboard should face the direction your focuser does, with the camera pointing forward.  To accommodate left hand and right hand orientations the Pi Mount and Back Plate have two versions denoted with lh and rh suffixes in the filenames.   The rest of the pieces work with either configurations.
+
+Left and Right hand refer to the side of the scope with the focuser when standing near the mirror and facing the aperture end.  Generally 'Behind' the scope.
+
+
 ### GoPro
 The GoPro mounting system is very flexible and offers a lot of options.  There is a GoPro compatible mounting piece in the `/case/mount` directory of the repo.  To use this mount you'll print the `bottom_plate.3mf` file and insert M3 threaded inserts into the 4 central holes.
 
@@ -118,7 +125,9 @@ The dovetail mount parts take their own M3 heat set inserts and need to be mount
 
 ## Case
 
-The main structure of the PiFinder is made of 3d printed pieces.  STL's for all of the pieces are in the case directory.  There are two versions of the bottom piece, one designed with inserts to allow the go-pro mount to screw into it, and the other has M3 holes to screw through the bottom into the dovetail mount.  See the [mount](#mount) section below to figure out which way you want to go.
+The main structure of the PiFinder is made of 3d printed pieces.  STL's for all of the pieces are in the case directory.  Some pieces are specific for either left hand or right hand focuser.  See the section above on 'Focuser Side' for details.
+
+There are two versions of the bottom piece, one designed with inserts to allow the go-pro mount to screw into it, and the other has M3 holes to screw through the bottom into the dovetail mount.  See the [mount](#mount) section below to figure out which way you want to go.
 
 The image below shows all the 3d printed pieces and indicates which threaded inserts go in which hole.  All of the structural bits use M3 screws, but the Pi and Camera mount with M2.5 screws.  The case shroud and bezel only have M2.5 through holes and get secured to the stand-off's holding the Hat.
 
