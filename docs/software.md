@@ -35,4 +35,4 @@ Once the script is done, reboot the PiFinder:
 `sudo shutdown -r now`
 
 It will take up to two minutes to boot, but you should see the startup screen before too long:
-![Startup log]( ../images/screenshots/CONSOLE_001_docs.png)
+![Startup log]( ../images/screenshots/WELCOME_001_docs.png)
