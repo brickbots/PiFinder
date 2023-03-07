@@ -197,3 +197,7 @@ class UIConfig(UIModule):
                 time.sleep(1)
                 # okay, reset and release
                 self.__selected_item = None
+
+    def active(self):
+        self.__selected_item = None
+        self.__selected_item_key = None
