@@ -24,7 +24,8 @@ class UIStatus(UIModule):
         "WiFi Mode": {
             "type": "enum",
             "value": "UNK",
-            "options": ["AP", "CLI", "exit"],
+            "options": ["AP", "Cli", "exit"],
+            "callback": "wifi_switch",
         },
         "Restart": {
             "type": "enum",
@@ -40,6 +41,17 @@ class UIStatus(UIModule):
         },
     }
 
+    def wifi_switch(self, option):
+        with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wfs:
+            current_state = wfs.read()
+        if option == current_state or option == "exit":
+            return False
+
+        if option == "AP":
+            sys_utils.go_wifi_ap()
+        else:
+            sys_utils.go_wifi_cli()
+
     def shutdown(self, option):
         if option == "Syst":
             sys_utils.shutdown()
@@ -53,6 +65,9 @@ class UIStatus(UIModule):
             return False
 
     def __init__(self, *args):
+        super().__init__(*args)
+        with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wfs:
+            self._config_options["WiFi Mode"]["value"] = wfs.read()
         self.status_dict = {
             "LST SLV": "           --",
             "RA/DEC": "           --",
@@ -64,8 +79,13 @@ class UIStatus(UIModule):
             "UTC TM": "           --",
             "CPU TMP": "           --",
         }
+
+        if self._config_options["WiFi Mode"]["value"] == "Cli":
+            self.status_dict["WIFI"] = "          Cli"
+        else:
+            self.status_dict["WIFI"] = "           AP"
+
         self.last_temp_time = 0
-        super().__init__(*args)
 
     def update_status_dict(self):
         """
@@ -132,3 +152,11 @@ class UIStatus(UIModule):
         for i, line in enumerate(lines):
             self.draw.text((0, i * 10 + 20), line, font=self.font_base, fill=RED)
         return self.screen_update()
+
+    def active(self):
+        """
+        Called when a module becomes active
+        i.e. foreground controlling display
+        """
+        with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wfs:
+            self._config_options["WiFi Mode"]["value"] = wfs.read()
