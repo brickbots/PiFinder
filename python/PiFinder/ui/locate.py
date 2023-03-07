@@ -107,7 +107,9 @@ class UILocate(UIModule):
 
     def active(self):
         try:
-            self.target_index = self.ui_state["active_list"].index(self.ui_state["target"])
+            self.target_index = self.ui_state["active_list"].index(
+                self.ui_state["target"]
+            )
         except ValueError:
             self.target_index = None
         self.update_object_text()

@@ -53,7 +53,7 @@ class UIModule:
 
     def update_config(self):
         """
-            callback when config is updated
+        callback when config is updated
         """
         return True
 

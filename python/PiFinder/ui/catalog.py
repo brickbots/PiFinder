@@ -278,9 +278,9 @@ class UICatalog(UIModule):
 
             # try to get object mag to float
             try:
-                obj_mag=float(obj["mag"])
+                obj_mag = float(obj["mag"])
             except ValueError:
-                obj_mag=0
+                obj_mag = 0
 
             if magnitude_filter != "None" and obj_mag >= magnitude_filter:
                 include_obj = False

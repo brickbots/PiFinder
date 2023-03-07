@@ -8,6 +8,7 @@ import datetime
 import time
 
 from PiFinder.ui.base import UIModule
+from PiFinder import sys_utils
 
 RED = (0, 0, 255)
 
@@ -18,6 +19,38 @@ class UIStatus(UIModule):
     """
 
     __title__ = "STATUS"
+
+    _config_options = {
+        "WiFi Mode": {
+            "type": "enum",
+            "value": "UNK",
+            "options": ["AP", "CLI", "exit"],
+        },
+        "Restart": {
+            "type": "enum",
+            "value": "",
+            "options": ["PiFi", "exit"],
+            "callback": "restart",
+        },
+        "Shutdown": {
+            "type": "enum",
+            "value": "",
+            "options": ["Syst", "exit"],
+            "callback": "shutdown",
+        },
+    }
+
+    def shutdown(self, option):
+        if option == "Syst":
+            sys_utils.shutdown()
+        else:
+            return False
+
+    def restart(self, option):
+        if option == "PiFi":
+            sys_utils.restart_pifinder()
+        else:
+            return False
 
     def __init__(self, *args):
         self.status_dict = {

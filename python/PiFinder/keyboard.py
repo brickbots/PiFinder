@@ -8,6 +8,7 @@ and adds keys to the provided queue
 import sh
 import RPi.GPIO as GPIO
 from time import sleep
+from PiFinder import sys_utils
 
 NA = 10
 UP = 11
@@ -56,25 +57,6 @@ long_keymap = [
     LNG_A, LNG_B, LNG_C, LNG_D,
 ]
 # fmt: on
-
-
-def shutdown():
-    """
-    shuts down the Pi
-    """
-    print("KB: Initiating Shutdown")
-    sh.sudo("shutdown", "now")
-    return True
-
-
-def restart_pifinder():
-    """
-    Uses systemctl to restart the PiFinder
-    service
-    """
-    print("KB: Restarting PiFinder")
-    sh.sudo("systemctl", "restart", "pifinder")
-    return True
 
 
 def run_script(q, script_path):
@@ -157,6 +139,6 @@ def run_keyboard(q, script_path=None):
 
         # check for extra extra special!
         if 0 in pressed and 1 in pressed and 2 in pressed:
-            restart_pifinder()
+            sys_utils.restart_pifinder()
         if 8 in pressed and 9 in pressed and 10 in pressed:
-            shutdown()
+            sys_utils.shutdown()
