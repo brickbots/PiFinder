@@ -7,13 +7,15 @@
   * [Camera Setup](#camera%20setup) 
   * [Camera Alignment](#camera%20alignment) 
 - [UI Screens](#ui%20screens)
+  * [Options](#options)
   * [Chart](#chart)
   * [Catalog](#catalog)
   * [Locate](#locate)
-* [Special Screens](#special%20screens)
+* [System Screens](#system%20screens)
   * [Log](#log)
   * [Preview](#preview)
   * [Status](#status)
+    * [System Options](#system%20options)
   * [Console](#console)
 - [How-To](#how-to)
   * [First Time Setup](#first%20time%20setup)
@@ -99,8 +101,31 @@ Some actions in one screen will move you to another, for instance selecting an o
 
 The remaining function keys serve different purposes depending on which screen you are on at the time you press them, but there are some key-combinations that act across any of the individual screens:
 
-* Long press _A_:  For screens with options, such a the Catalog screeen, holding down the A function key will bring up the configuration items for that screen.
+* Long press _A_:  For screens with options, such a the Catalog screeen, holding down the _A_ function key will bring up the options for that screen.  See [Options](#options) below.
 * _ENT + UP/DN_: This combination will adjust the screen brightness up and down at any time.
+
+### Options
+Many screens have options which change the way they behave or perform other less commonly used actions.  Pressing and holding the _A_ button will bring up the options for whichever screen you are currently using.  To exit the option screen press _A_ to return to the previous screen.
+
+![Options screen for Catalog](../images/screenshots/CATALOG_OPTIONS_001_docs.png)
+
+The options screen will show one option or action item per line with the name or description of the item to the left and the current value to the right.  The bright numbers along the left edge indicate the key on the keypad to press to access that item.
+
+![Options screen for Catalog, magnitude exposed](../images/screenshots/CATALOG_OPTIONS_002_docs.png)
+
+Once an item is selected the item will be highlighted and the available values or types of actions will be listed along the right hand side.   The bright numbers along the right hand side will let you select the value(s) for this item.
+
+Some types of options can only have a single value, like Magnitude above.  Others, such as Obj Types will allow you to select multiple values.  If an option only has a single value, selecting it will return you to the main options page.  For options that can have multiple values, you'll need to use the _ENT_ key to confirm your selections and return to the main option page.
+
+The Options screen can also contain less commonly used actions which will take place when a value is selected.  
+
+![Options screen for Status](../images/screenshots/STATUS_OPTIONS_001_docs.png)
+
+The Options screen shown above (for the Status screen) has general PiFinder options along with a couple actions.  Selecting an action item, such as _1_, will always have one additional step to confirm the action, or allow you exit.
+
+![Options screen for Status](../images/screenshots/STATUS_OPTIONS_002_docs.png)
+
+To exit the option screen press _A_ to return to the previous screen.
 
 ### Chart
 ![Chart interface](../images/screenshots/CHART_001_docs.png)
@@ -165,7 +190,7 @@ Values are expressed in degrees with the top line being rotation in Azimuth and 
 
 The currently target is also displayed on the [Chart](#Chart) screen as a small tick mark.
 
-## Special Screens
+## System Screens
 The screens listed below are more rarely used and do not show up when rotating through the regular UI screens using the _A_ key.  To access these screens, rotate through them using the _ENT-A_ combination.  
 
 ### Log
@@ -218,6 +243,16 @@ The status screen displays:
 * LCL TM: Local time (requires GPS fix)
 * UTC TM: UTC Time (requires GPS fix)
 * CPU TMP: Temperature of the Raspberry PI CPU
+* WiFi: Current WiFi mode, either AP for access point, or Cli for client
+* IP: Current IP address for connecting to via software such as SSH or SkySafari
+
+
+#### System Options
+The [Options](#options) page for the status screen gives access to general PiFinder options and actions.  Press and hold the _A_ key to access the option page.
+* Change [WiFi](#wifi) Mode between client and access point
+* [Restart](#shutdown%20and%20restart) the PiFinder software
+* [Shutdown](#shutdown%20and%20restart) the PiFinder
+
 
 ### Console
 ![Console screen](../images/screenshots/CONSOLE_001_docs.png)
@@ -239,10 +274,12 @@ Here's a quick start guide for your first time operating the PiFinder:
 * If you are in an open area, the GPS dongle should have achieved a lock.  Check  the status indicator in the title bar, or the [Status](#status) screen to verify.  If not, double check the status light on the dongle and make sure it has an unobstructed view of as much sky as possible.  The first solve after being off for a few days needs more satellites and will take longer.  Subsequent locks will be much quicker using some cached data in the dongle.
 
 ### Shutdown and Restart
-There are two special key-combos for Restarting the PiFinder service and Shutting down the device before power-off.  Although shutting down is not strictly needed before power-off, the PiFinder is a computer and there is a chance of file corruption.  Some MicroSD cards are more sensitive to this than others.
 
-* Pressing the _7 8 9_ keys at the same time will restart the PiFinder software.  This should not normally be needed, but can be useful for generating a new session id which is included for a photos and logging during a particular execution of the PiFinder software.
-* Pressing the _1 2 3_ keys at the same time will shutdown the PiFinder system.  After 15 seconds you can then power off the system knowing the OS has properly closed all files.
+Although shutting down is not strictly needed before power-off, the PiFinder is a computer and there is a chance of file corruption.  Some MicroSD cards are more sensitive to this than others.
+
+Shutdown and Restart actions are available from the [Options](#options) for the [Status](#status) screen.  Hold down _Ent_ and press _A_ to cycle through the system screens until you see the status screen, the press and hold _A_ to access the options.
+
+Restarting the PiFinder software should not normally be needed, but can be useful for generating a new session id which is included for a photos and logging during a particular execution of the PiFinder software.
 
 #### Custom lists
 Custom observing lists coming soon....
