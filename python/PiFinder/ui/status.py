@@ -6,6 +6,7 @@ This module contains all the UI Module classes
 """
 import datetime
 import time
+import socket
 
 from PiFinder.ui.base import UIModule
 from PiFinder import sys_utils
@@ -41,6 +42,30 @@ class UIStatus(UIModule):
         },
     }
 
+    def __init__(self, *args):
+        super().__init__(*args)
+        with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wfs:
+            self._config_options["WiFi Mode"]["value"] = wfs.read()
+        self.status_dict = {
+            "LST SLV": "           --",
+            "RA/DEC": "           --",
+            "AZ/ALT": "           --",
+            "IMU": "           --",
+            "IMU PS": "           --",
+            "LCL TM": "           --",
+            "UTC TM": "           --",
+            "CPU TMP": "           --",
+            "WIFI": "           --",
+            "IP ADDR": "           --",
+        }
+
+        if self._config_options["WiFi Mode"]["value"] == "Cli":
+            self.status_dict["WIFI"] = "          Cli"
+        else:
+            self.status_dict["WIFI"] = "           AP"
+
+        self.last_temp_time = 0
+
     def wifi_switch(self, option):
         with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wfs:
             current_state = wfs.read()
@@ -63,29 +88,6 @@ class UIStatus(UIModule):
             sys_utils.restart_pifinder()
         else:
             return False
-
-    def __init__(self, *args):
-        super().__init__(*args)
-        with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wfs:
-            self._config_options["WiFi Mode"]["value"] = wfs.read()
-        self.status_dict = {
-            "LST SLV": "           --",
-            "RA/DEC": "           --",
-            "AZ/ALT": "           --",
-            "GPS": "           --",
-            "IMU": "           --",
-            "IMU PS": "           --",
-            "LCL TM": "           --",
-            "UTC TM": "           --",
-            "CPU TMP": "           --",
-        }
-
-        if self._config_options["WiFi Mode"]["value"] == "Cli":
-            self.status_dict["WIFI"] = "          Cli"
-        else:
-            self.status_dict["WIFI"] = "           AP"
-
-        self.last_temp_time = 0
 
     def update_status_dict(self):
         """
@@ -110,10 +112,6 @@ class UIStatus(UIModule):
                     "AZ/ALT"
                 ] = f"{solution['Az'] : >6.2f}/{solution['Alt'] : >6.2f}"
 
-        location = self.shared_state.location()
-        if location["gps_lock"]:
-            self.status_dict["GPS"] = "         LOCK"
-
         imu = self.shared_state.imu()
         if imu:
             if imu["pos"] != None:
@@ -131,23 +129,27 @@ class UIStatus(UIModule):
         if dt:
             self.status_dict["LCL TM"] = "     " + local_dt.time().isoformat()[:8]
             self.status_dict["UTC TM"] = "     " + dt.time().isoformat()[:8]
-        # only update temp once per second....
+        # only update some things once per second....
         if time.time() - self.last_temp_time > 1:
+            # temp
             self.last_temp_time = time.time()
             with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
                 raw_temp = int(f.read().strip())
             self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
+
+            # IP
+            self.status_dict["IP ADDR"] = socket.gethostbyname("pifinder.local")
 
     def update(self, force=False):
         self.update_status_dict()
         self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
         lines = []
         for k, v in self.status_dict.items():
-            line = " " * (7 - len(k)) + k
-            line += ":"
-            line += " " * (10 - len(v))
-            line += v
+            line = f"{k: >7}:{v: >10}"
             lines.append(line)
+
+        # Insert IP address here...
+        lines[-1] = f'{self.status_dict["IP ADDR"]: >21}'
 
         for i, line in enumerate(lines):
             self.draw.text((0, i * 10 + 20), line, font=self.font_base, fill=RED)
