@@ -181,6 +181,6 @@ class UILocate(UIModule):
                 self.target_index = 0
 
             self.target = self.ui_state["active_list"][self.target_index]
-            self.shared_state.set_target(self.target)
+            self.ui_state["target"] = self.target
             self.update_object_text()
             self.update()

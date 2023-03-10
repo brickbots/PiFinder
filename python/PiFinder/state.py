@@ -20,12 +20,6 @@ class SharedStateObj:
         self.__datetime_time = None
         self.__target = None
 
-    def target(self):
-        return self.__target
-
-    def set_target(self, target):
-        self.__target = target
-
     def solve_state(self):
         return self.__solve_state
 
