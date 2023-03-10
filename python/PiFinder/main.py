@@ -32,6 +32,7 @@ from PiFinder import solver
 from PiFinder import gps
 from PiFinder import imu
 from PiFinder import config
+from PiFinder import pos_server
 
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.preview import UIPreview
@@ -165,6 +166,14 @@ def main(script_name=None):
             target=solver.solver, args=(shared_state, camera_image, console_queue)
         )
         solver_process.start()
+
+        # Solver
+        console.write("   Server")
+        console.update()
+        server_process = Process(
+            target=pos_server.run_server, args=(shared_state, None)
+        )
+        server_process.start()
 
         # Start main event loop
         console.write("   Event Loop")
@@ -395,6 +404,9 @@ def main(script_name=None):
                     keyboard_queue.get(block=False)
             except queue.Empty:
                 keyboard_process.join()
+
+            print("\tServer...")
+            server_process.join()
 
             print("\tGPS...")
             gps_process.terminate()
