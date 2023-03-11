@@ -89,9 +89,12 @@ class UICatalog(UIModule):
     def push_list(self, option):
         self._config_options["Push List"]["value"] = ""
         if option == "Go":
-            print("GOGOGOGOGOG")
+            # Filter the catalog one last time
             self.set_catalog()
-
+            self.ui_state["observing_list"] = self._filtered_catalog
+            self.ui_state["active_list"] = self.ui_state["observing_list"]
+            self.ui_state["target"] = self.ui_state["active_list"][0]
+            switch_to = "Locate"
             return True
         else:
             return False
