@@ -73,18 +73,22 @@ class UIStatus(UIModule):
             return False
 
         if option == "AP":
+            self.message("Switch to AP", 10)
             sys_utils.go_wifi_ap()
         else:
+            self.message("Switch to Cli", 10)
             sys_utils.go_wifi_cli()
 
     def shutdown(self, option):
         if option == "Syst":
+            self.message("Shutting down", 10)
             sys_utils.shutdown()
         else:
             return False
 
     def restart(self, option):
         if option == "PiFi":
+            self.message("Restarting", 10)
             sys_utils.restart_pifinder()
         else:
             return False

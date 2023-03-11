@@ -1,5 +1,5 @@
 #! /usr/bin/bash
-sudo apt-get install -y git python3-pip
+sudo apt-get install -y git python3-pip samba samba-common-bin dnsmasq hostapd dhcpd
 git clone --branch main https://github.com/brickbots/PiFinder.git
 cd PiFinder
 sudo pip install -r requirements.txt
@@ -11,6 +11,15 @@ mkdir ~/PiFinder_data/obslists
 mkdir ~/PiFinder_data/screnshots
 mkdir ~/PiFinder_data/solver_debug_dumps
 mkdir ~/PiFinder_data/logs
+chmod -R 777 ~/PiFinder_data
+
+# Wifi config
+sudo cp ~/PiFinder/pi_config_files/dhcpcd.* /etc
+sudo cp ~/PiFinder/pi_config_files/dhcpcd.conf.sta /etc/dhcpcd.conf
+echo -n "Cli" > ~/PiFinder/wifi_status.txt
+
+# Samba config
+sudo cp ~/PiFinder/pi_config_files/smb.conf /etc/samba/smb.conf
 
 # Hipparcos catalog
 wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat

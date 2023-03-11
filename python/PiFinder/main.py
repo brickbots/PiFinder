@@ -32,6 +32,7 @@ from PiFinder import solver
 from PiFinder import gps
 from PiFinder import imu
 from PiFinder import config
+from PiFinder import pos_server
 
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.preview import UIPreview
@@ -92,13 +93,14 @@ def main(script_name=None):
         "history_list": [],
         "observing_list": [],
         "target": None,
+        "message_timeout": 0,
     }
     ui_state["active_list"] = ui_state["history_list"]
 
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness)
-    console = UIConsole(device, None, None, command_queues)
+    console = UIConsole(device, None, None, command_queues, ui_state, cfg)
     console.write("Starting....")
     console.update()
     time.sleep(2)
@@ -165,6 +167,14 @@ def main(script_name=None):
             target=solver.solver, args=(shared_state, camera_image, console_queue)
         )
         solver_process.start()
+
+        # Solver
+        console.write("   Server")
+        console.update()
+        server_process = Process(
+            target=pos_server.run_server, args=(shared_state, None)
+        )
+        server_process.start()
 
         # Start main event loop
         console.write("   Event Loop")
@@ -395,6 +405,9 @@ def main(script_name=None):
                     keyboard_queue.get(block=False)
             except queue.Empty:
                 keyboard_process.join()
+
+            print("\tServer...")
+            server_process.join()
 
             print("\tGPS...")
             gps_process.terminate()

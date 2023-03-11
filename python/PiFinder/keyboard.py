@@ -8,7 +8,6 @@ and adds keys to the provided queue
 import sh
 import RPi.GPIO as GPIO
 from time import sleep
-from PiFinder import sys_utils
 
 NA = 10
 UP = 11
@@ -136,9 +135,3 @@ def run_keyboard(q, script_path=None):
                         else:
                             q.put(keymap[keycode])
             GPIO.setup(rows[i], GPIO.IN)
-
-        # check for extra extra special!
-        if 0 in pressed and 1 in pressed and 2 in pressed:
-            sys_utils.restart_pifinder()
-        if 8 in pressed and 9 in pressed and 10 in pressed:
-            sys_utils.shutdown()
