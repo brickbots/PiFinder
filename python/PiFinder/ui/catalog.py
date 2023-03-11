@@ -94,7 +94,7 @@ class UICatalog(UIModule):
             self.ui_state["observing_list"] = self._filtered_catalog
             self.ui_state["active_list"] = self.ui_state["observing_list"]
             self.ui_state["target"] = self.ui_state["active_list"][0]
-            switch_to = "Locate"
+            self.message("Catalog Pushed")
             return True
         else:
             return False

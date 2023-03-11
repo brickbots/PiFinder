@@ -107,6 +107,18 @@ class UIModule:
         """
         return self.screen_update()
 
+    def message(self, message, timeout=2):
+        """
+        Creates a box with text in the center of the screen.
+        Waits timeout in seconds
+        """
+
+        self.draw.rectangle([5, 44, 123, 84], fill=(0, 0, 0), outline=(0, 0, 128))
+        message = " " * int((16 - len(message)) / 2) + message
+        self.draw.text((9, 54), message, font=self.font_bold, fill=(0, 0, 256))
+        self.display.display(self.screen.convert(self.display.mode))
+        time.sleep(timeout)
+
     def screen_update(self, title_bar=True):
         """
         called to trigger UI updates
