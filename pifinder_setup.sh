@@ -16,6 +16,8 @@ chmod -R 777 ~/PiFinder_data
 # Wifi config
 sudo cp ~/PiFinder/pi_config_files/dhcpcd.* /etc
 sudo cp ~/PiFinder/pi_config_files/dhcpcd.conf.sta /etc/dhcpcd.conf
+sudo cp ~/PiFinder/pi_config_files/dnsmasq.conf /etc/dnsmasq.conf
+sudo cp ~/PiFinder/pi_config_files/hostapd.conf /etc/hostapd/hostapd.conf
 echo -n "Cli" > ~/PiFinder/wifi_status.txt
 
 # Samba config
