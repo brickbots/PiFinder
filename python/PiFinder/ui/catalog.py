@@ -89,12 +89,12 @@ class UICatalog(UIModule):
     def push_list(self, option):
         self._config_options["Push List"]["value"] = ""
         if option == "Go":
+            self.message("Catalog Pushed", 2)
             # Filter the catalog one last time
             self.set_catalog()
             self.ui_state["observing_list"] = self._filtered_catalog
             self.ui_state["active_list"] = self.ui_state["observing_list"]
             self.ui_state["target"] = self.ui_state["active_list"][0]
-            self.message("Catalog Pushed")
             return True
         else:
             return False

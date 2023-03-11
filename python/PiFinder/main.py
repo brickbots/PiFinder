@@ -93,13 +93,14 @@ def main(script_name=None):
         "history_list": [],
         "observing_list": [],
         "target": None,
+        "message_timeout": 0,
     }
     ui_state["active_list"] = ui_state["history_list"]
 
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness)
-    console = UIConsole(device, None, None, command_queues)
+    console = UIConsole(device, None, None, command_queues, ui_state, cfg)
     console.write("Starting....")
     console.update()
     time.sleep(2)
