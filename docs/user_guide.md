@@ -273,6 +273,24 @@ Here's a quick start guide for your first time operating the PiFinder:
 	* Focus is somewhat less critical, but being too far out of focus will reduce the number of faint stars available for solving.
 * If you are in an open area, the GPS dongle should have achieved a lock.  Check  the status indicator in the title bar, or the [Status](#status) screen to verify.  If not, double check the status light on the dongle and make sure it has an unobstructed view of as much sky as possible.  The first solve after being off for a few days needs more satellites and will take longer.  Subsequent locks will be much quicker using some cached data in the dongle.
 
+### WiFi
+The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the [Options](#system%20options) page of the Status screen to switch between these two modes and see which mode is currently active.
+
+Using the PiFinder in Access Point mode creates a network called AP_PiFinder with no password to allow easy connection of phones, tablets and other devices in the field.
+
+In most cases, you can use the name `pifinder.local` to connect to the PiFinder.  On older computer or those that don't support zeroconf networking, you can use the IP address provides on the [Status](#status) screen to connect.  You can connect to the PiFinder via:
+* SSH to get shell access for software updates and other admin tasks
+* SMB (Samba) to access saved images, logs an observing lists
+* LX200 protocol to allow updating of a planetarium app, such as [SkySafari](#skysafari), with the position of the telescope
+
+### SkySafari
+The PiFinder can provide real-time pointing information to a device running SkySafari via the LX200 protocol.  See this [guide](./skysafari.md) for complete details, but here is the connection info:
+* Use 'Other' telescope type
+* Mount Type: Alt-Az, GoTo.. even if your scope is Push-To.  This allows sending of targets from SkySafari to the PiFinder
+* Scope Type: Meade LX200 classic
+* IP Address: `pifinder.local` or IP address provides on the [Status](#status) screen.
+* Port: 4030
+
 ### Shutdown and Restart
 
 Although shutting down is not strictly needed before power-off, the PiFinder is a computer and there is a chance of file corruption.  Some MicroSD cards are more sensitive to this than others.
