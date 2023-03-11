@@ -30,7 +30,7 @@ In addition to the 3d printed parts detailed in the [Build Guide](./build_guide.
 | Qty | Item                  | URL | Notes                                                                                                                                                                     |
 | --- | --------------------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 3   | M3x11mm bolts           |     | To secure top plate/case bezel                                                                                                                                            |
-| 4   | M3x28mm standoffs       |     | Between Pi and Hat Depending on your heatsink and such you may need longer or shorter amounts here and you'll probably need to screw a couple together to get this length |
+| 4   | M3x20mm standoffs       |     | Between Pi and Hat Depending on your heatsink and such you may need longer or shorter amounts here and you'll probably need to screw a couple together to get this length |
 | 4   | M3x5mm standoffs        |     | Between the 3d printed Pi mount and the Pi                                                                                                                                |
 | 12   | M3x8mm bolts            |     | Hold case portions together                                                                                                                                               |
 | 20  | M3x4mm heat set inserts |     | General case assembly                                                                                                                                                     |
