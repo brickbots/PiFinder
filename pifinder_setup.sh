@@ -14,12 +14,12 @@ mkdir ~/PiFinder_data/logs
 chmod -R 777 ~/PiFinder_data
 
 # Wifi config
-cp ~/PiFinder/pi_config_files/dhcpcd.* /etc
-cp ~/PiFinder/pi_config_files/dhcpcd.conf.sta /etc/dhcpcd.conf
+sudo cp ~/PiFinder/pi_config_files/dhcpcd.* /etc
+sudo cp ~/PiFinder/pi_config_files/dhcpcd.conf.sta /etc/dhcpcd.conf
 echo -n "Cli" > ~/PiFinder/wifi_status.txt
 
 # Samba config
-cp ~/PiFinder/pi_config_files/smb.conf /etc/samba/smb.conf
+sudo cp ~/PiFinder/pi_config_files/smb.conf /etc/samba/smb.conf
 
 # Hipparcos catalog
 wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
