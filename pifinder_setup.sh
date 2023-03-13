@@ -19,6 +19,7 @@ sudo cp ~/PiFinder/pi_config_files/dhcpcd.conf.sta /etc/dhcpcd.conf
 sudo cp ~/PiFinder/pi_config_files/dnsmasq.conf /etc/dnsmasq.conf
 sudo cp ~/PiFinder/pi_config_files/hostapd.conf /etc/hostapd/hostapd.conf
 echo -n "Cli" > ~/PiFinder/wifi_status.txt
+sudo systemctl unmask hostapd
 
 # Samba config
 sudo cp ~/PiFinder/pi_config_files/smb.conf /etc/samba/smb.conf
