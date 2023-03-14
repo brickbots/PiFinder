@@ -42,6 +42,28 @@ class UILocate(UIModule):
                 return catalog_name
         return "UNKN"
 
+    def key_b(self):
+        """
+        When B is pressed, switch target lists
+        """
+        self.target_index = None
+        if self.ui_state["active_list"] == self.ui_state["history_list"]:
+            if len(self.ui_state["observing_list"]) > 0:
+                self.ui_state["active_list"] = self.ui_state["observing_list"]
+                self.target_index = 0
+            else:
+                self.message("No Obs List", 1)
+        else:
+            if len(self.ui_state["history_list"]) > 0:
+                self.ui_state["active_list"] = self.ui_state["history_list"]
+                self.target_index = len(self.ui_state["active_list"]) - 1
+            else:
+                self.message("No History", 1)
+
+        if self.target_index != None:
+            self.ui_state["target"] = self.ui_state["active_list"][self.target_index]
+            self.update_object_text()
+
     def key_enter(self):
         """
         When enter is pressed, set the
@@ -130,9 +152,14 @@ class UILocate(UIModule):
 
         # Target history index
         if self.target_index != None:
+            if self.ui_state['active_list'] == self.ui_state['history_list']:
+                list_name = 'Hist'
+            else:
+                list_name = 'Obsv'
             line = f"{self.target_index + 1}/{len(self.ui_state['active_list'])}"
-            line = f"{line : >7}"
-            self.draw.text((85, 20), line, font=self.font_base, fill=RED)
+            line = f"{line : >9}"
+            self.draw.text((72, 18), line, font=self.font_base, fill=RED)
+            self.draw.text((72, 28), f"{list_name: >9}", font=self.font_base, fill=RED)
 
         # ID Line in BOld
         self.draw.text((0, 40), self.object_text[0], font=self.font_bold, fill=RED)
