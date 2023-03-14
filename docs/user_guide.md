@@ -4,23 +4,23 @@
 - [Hardware](#hardware)
   * [Overview](#overview) 
   * [Mounting](#mounting) 
-  * [Camera Setup](#camera%20setup) 
-  * [Camera Alignment](#camera%20alignment) 
-- [UI Screens](#ui%20screens)
+  * [Camera Setup](#camera-setup) 
+  * [Camera Alignment](#camera-alignment) 
+- [UI Screens](#ui-screens)
   * [Options](#options)
   * [Chart](#chart)
   * [Catalog](#catalog)
   * [Locate](#locate)
-* [System Screens](#system%20screens)
+* [System Screens](#system-screens)
   * [Log](#log)
   * [Preview](#preview)
   * [Status](#status)
-    * [System Options](#system%20options)
+    * [System Options](#system-options)
   * [Console](#console)
 - [How-To](#how-to)
-  * [First Time Setup](#first%20time%20setup)
-  * [Shutdown and Restart](#shutdown%20and%20Restart)
-  * [Observing lists](#observing%20lists)
+  * [First Time Setup](#first-time-setup)
+  * [Shutdown and Restart](#shutdown-and-Restart)
+  * [Observing lists](#observing-lists)
 - [FAQ](#faq)
 
 ## Introduction and Overview
@@ -173,7 +173,7 @@ If the number you have entered matches an object in the catalog, information abo
 
 Use the _D_ key to clear the number field out and start fresh.  If you find an object you are interested in, pressing the _ENT_ key will add it to your target list and switch to the [Locate](#Locate) screen.
 
-Holding the _A_ key for two seconds will bring up the settings for the catalog.  You can filter by apparent altitude, magnitude and object type.  The Options page also has an action to push the currently filtered catalog to the [Observing](#observing%20lists) list. Pressing _A_ will bring you back to the catalog and update the count of objects that match your filter.
+Holding the _A_ key for two seconds will bring up the settings for the catalog.  You can filter by apparent altitude, magnitude and object type.  The Options page also has an action to push the currently filtered catalog to the [Observing](#observing-lists) list. Pressing _A_ will bring you back to the catalog and update the count of objects that match your filter.
 
 * The _UP/DN_ keys will scroll through the currently filtered objects.
 
@@ -187,7 +187,7 @@ Values are expressed in degrees with the top line being rotation in Azimuth and 
 
 * _UP/DN_ will cycle through the active list.  The numbers in the upper-right corner of the screen represent the index of the current object / total number of objects in the list and the list name is displayed directly below.
 * _ENT_ will switch back to the catalog screen to access full information about the current target
-* _B_ will toggle between the [History and Observing lists](#observing%20lists)
+* _B_ will toggle between the [History and Observing lists](#observing-lists)
 
 The currently target is also displayed on the [Chart](#Chart) screen as a small tick mark.
 
@@ -251,8 +251,8 @@ The status screen displays:
 #### System Options
 The [Options](#options) page for the status screen gives access to general PiFinder options and actions.  Press and hold the _A_ key to access the option page.
 * Change [WiFi](#wifi) Mode between client and access point
-* [Restart](#shutdown%20and%20restart) the PiFinder software
-* [Shutdown](#shutdown%20and%20restart) the PiFinder
+* [Restart](#shutdown-and-restart) the PiFinder software
+* [Shutdown](#shutdown-and-restart) the PiFinder
 
 
 ### Console
@@ -275,7 +275,7 @@ Here's a quick start guide for your first time operating the PiFinder:
 * If you are in an open area, the GPS dongle should have achieved a lock.  Check  the status indicator in the title bar, or the [Status](#status) screen to verify.  If not, double check the status light on the dongle and make sure it has an unobstructed view of as much sky as possible.  The first solve after being off for a few days needs more satellites and will take longer.  Subsequent locks will be much quicker using some cached data in the dongle.
 
 ### WiFi
-The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the [Options](#system%20options) page of the Status screen to switch between these two modes and see which mode is currently active.
+The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the [Options](#system-options) page of the Status screen to switch between these two modes and see which mode is currently active.
 
 Using the PiFinder in Access Point mode creates a network called AP_PiFinder with no password to allow easy connection of phones, tablets and other devices in the field.
 
