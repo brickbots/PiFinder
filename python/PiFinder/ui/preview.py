@@ -40,6 +40,24 @@ class UIPreview(UIModule):
             "options": ["Off", "Low", "Med", "High"],
             "hotkey": "D",
         },
+        "Exposure": {
+            "type": "enum",
+            "value": "",
+            "options": [0.2,0.4, 0.75, 1,1.25,1.5,2],
+            "callback": "set_exp",
+        },
+        "Gain": {
+            "type": "enum",
+            "value": "",
+            "options": [1,4,10,14,20],
+            "callback": "set_gain",
+        },
+        "Save Exp": {
+            "type": "enum",
+            "value": "",
+            "options": ["Save", "Exit"],
+            "callback": "save_exp",
+        },
         "Focus Hlp": {
             "type": "bool",
             "value": "Off",
@@ -49,6 +67,11 @@ class UIPreview(UIModule):
 
     def __init__(self, *args):
         super().__init__(*args)
+
+        exposure_time = cfg.get_option("camera_exp")
+        analog_gain = cfg.get_option("camera_gain")
+        self.config_item["Gain"]["value"] = analog_gain
+        self.config_item["Exposure"]["value"] = exposure_time
         self.reticle_mode = 2
         self.last_update = time.time()
         self.solution = None

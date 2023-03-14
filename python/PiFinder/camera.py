@@ -21,12 +21,14 @@ from PiFinder import config
 RED = (0, 0, 255)
 
 
+exposure_time = None
+analog_gain = None
+
 def set_camera_defaults(camera, cfg):
     # Initialize camera, defaults :
     # gain: 10
     # exposure: 1.5m
-    exposure_time = cfg.get_option("camera_exp")
-    analog_gain = cfg.get_option("camera_gain")
+    global exposure_time, analog_gain
     camera.stop()
     cam_config = camera.create_still_configuration(main={"size": (512, 512)})
     camera.configure(cam_config)
@@ -37,8 +39,7 @@ def set_camera_defaults(camera, cfg):
 
 
 def set_camera_highres(camera, cfg):
-    exposure_time = cfg.get_option("camera_exp")
-    analog_gain = cfg.get_option("camera_gain")
+    global exposure_time, analog_gain
     camera.stop()
     cam_config = camera.create_still_configuration()
     camera.configure(cam_config)
@@ -49,10 +50,12 @@ def set_camera_highres(camera, cfg):
 
 
 def get_images(shared_state, camera_image, command_queue, console_queue):
+    global exposure_time, analog_gain
     debug = False
     camera = Picamera2()
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
+    analog_gain = cfg.get_option("camera_gain")
     set_camera_defaults(camera, cfg)
     # pprint.pprint(camera.camera_controls)
 
@@ -92,6 +95,14 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
                 else:
                     debug = True
 
+            if command.starts_with("set_exp"):
+                exposure_time = int(command.split(":")[1])
+                camera.set_controls({"ExposureTime": exposure_time})
+
+            if command.starts_with("set_gain"):
+                analog_gain = int(command.split(":")[1])
+                camera.set_controls({"AnalogGain": analog_gain})
+
             if command == "exp_up" or command == "exp_dn":
                 if command == "exp_up":
                     exposure_time = int(exposure_time * 1.25)
@@ -102,6 +113,7 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
             if command == "exp_save":
                 console_queue.put("CAM: Exp Saved")
                 cfg.set_option("camera_exp", exposure_time)
+                cfg.set_option("camera_gain", analog_gain)
 
             if command.startswith("save"):
                 filename = command.split(":")[1]
