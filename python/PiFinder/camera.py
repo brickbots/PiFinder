@@ -30,7 +30,7 @@ def set_camera_defaults(camera, cfg):
     # exposure: 1.5m
     global exposure_time, analog_gain
     camera.stop()
-    cam_config = camera.create_still_configuration(main={"size": (512, 512)})
+    cam_config = camera.create_preview_configuration({"size": (512, 512)}, raw=camera.sensor_modes[2])
     camera.configure(cam_config)
     camera.set_controls({"AeEnable": False})
     camera.set_controls({"AnalogueGain": analog_gain})
