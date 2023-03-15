@@ -71,10 +71,14 @@ class UIPreview(UIModule):
         exposure_time = cfg.get_option("camera_exp")
         analog_gain = cfg.get_option("camera_gain")
         self.config_item["Gain"]["value"] = analog_gain
-        self.config_item["Exposure"]["value"] = exposure_time
+        self.config_item["Exposure"]["value"] = int(exposure_time / 1000000)
         self.reticle_mode = 2
         self.last_update = time.time()
         self.solution = None
+
+    def save_exp(self, option):
+        if option == "Save":
+            self.
 
     def draw_reticle(self):
         """
