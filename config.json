@@ -7,8 +7,8 @@
         "gps_lock": false,
         "timezone": "America/Los_Angeles"
     },
-    "camera_exp": 1500000,
-    "camera_gain": 10,
+    "camera_exp": 750000,
+    "camera_gain": 20,
     "catalogs": [
         "NGC",
         "IC",
