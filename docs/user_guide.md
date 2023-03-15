@@ -4,23 +4,23 @@
 - [Hardware](#hardware)
   * [Overview](#overview) 
   * [Mounting](#mounting) 
-  * [Camera Setup](#camera%20setup) 
-  * [Camera Alignment](#camera%20alignment) 
-- [UI Screens](#ui%20screens)
+  * [Camera Setup](#camera-setup) 
+  * [Camera Alignment](#camera-alignment) 
+- [UI Screens](#ui-screens)
   * [Options](#options)
   * [Chart](#chart)
   * [Catalog](#catalog)
   * [Locate](#locate)
-* [System Screens](#system%20screens)
+* [System Screens](#system-screens)
   * [Log](#log)
   * [Preview](#preview)
   * [Status](#status)
-    * [System Options](#system%20options)
+    * [System Options](#system-options)
   * [Console](#console)
 - [How-To](#how-to)
-  * [First Time Setup](#first%20time%20setup)
-  * [Shutdown and Restart](#shutdown%20and%20Restart)
-  * [Custom lists](#custom-lists)
+  * [First Time Setup](#first-time-setup)
+  * [Shutdown and Restart](#shutdown-and-Restart)
+  * [Observing lists](#observing-lists)
 - [FAQ](#faq)
 
 ## Introduction and Overview
@@ -148,7 +148,7 @@ While viewing the chart you can adjust it's appearance and FOV in several ways:
 * _C_ Function key: Toggle constellation line brightness.
 * _D_ Function key: Toggle observing list marker brightness.  This will show markers for DSO objects in your observing list.
 * _UP/DN_ :  Increase or decrees the field of view (zoom).  This ranges from 5 degrees to 60 degrees.
-* Holding the _A_ function key will bring up settings for the chart including the above reticle/constellation brightness 
+* Holding the _A_ function key will bring up settings for the chart including the above reticle/constellation brightness
 
 ### Catalog
 ![Catalog screenshot](../images/screenshots/CATALOG_001_docs.png)
@@ -173,7 +173,7 @@ If the number you have entered matches an object in the catalog, information abo
 
 Use the _D_ key to clear the number field out and start fresh.  If you find an object you are interested in, pressing the _ENT_ key will add it to your target list and switch to the [Locate](#Locate) screen.
 
-Holding the _A_ key for two seconds will bring up the settings for the catalog.  You can filter by apparent altitude, magnitude and object type.  Pressing _A_ will bring you back to the catalog and update the count of objects that match your filter.
+Holding the _A_ key for two seconds will bring up the settings for the catalog.  You can filter by apparent altitude, magnitude and object type.  The Options page also has an action to push the currently filtered catalog to the [Observing](#observing-lists) list. Pressing _A_ will bring you back to the catalog and update the count of objects that match your filter.
 
 * The _UP/DN_ keys will scroll through the currently filtered objects.
 
@@ -185,8 +185,9 @@ The Locate screen uses the last solve and currently selected target to provide a
 
 Values are expressed in degrees with the top line being rotation in Azimuth and the bottom line in Altitude.  
 
-* _UP/DN_ will cycle through the target list.  The numbers in the upper-right corner of the screen represent the index of the current target / total number of targets in the list
+* _UP/DN_ will cycle through the active list.  The numbers in the upper-right corner of the screen represent the index of the current object / total number of objects in the list and the list name is displayed directly below.
 * _ENT_ will switch back to the catalog screen to access full information about the current target
+* _B_ will toggle between the [History and Observing lists](#observing-lists)
 
 The currently target is also displayed on the [Chart](#Chart) screen as a small tick mark.
 
@@ -250,8 +251,8 @@ The status screen displays:
 #### System Options
 The [Options](#options) page for the status screen gives access to general PiFinder options and actions.  Press and hold the _A_ key to access the option page.
 * Change [WiFi](#wifi) Mode between client and access point
-* [Restart](#shutdown%20and%20restart) the PiFinder software
-* [Shutdown](#shutdown%20and%20restart) the PiFinder
+* [Restart](#shutdown-and-restart) the PiFinder software
+* [Shutdown](#shutdown-and-restart) the PiFinder
 
 
 ### Console
@@ -274,7 +275,7 @@ Here's a quick start guide for your first time operating the PiFinder:
 * If you are in an open area, the GPS dongle should have achieved a lock.  Check  the status indicator in the title bar, or the [Status](#status) screen to verify.  If not, double check the status light on the dongle and make sure it has an unobstructed view of as much sky as possible.  The first solve after being off for a few days needs more satellites and will take longer.  Subsequent locks will be much quicker using some cached data in the dongle.
 
 ### WiFi
-The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the [Options](#system%20options) page of the Status screen to switch between these two modes and see which mode is currently active.
+The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the [Options](#system-options) page of the Status screen to switch between these two modes and see which mode is currently active.
 
 Using the PiFinder in Access Point mode creates a network called AP_PiFinder with no password to allow easy connection of phones, tablets and other devices in the field.
 
@@ -299,8 +300,15 @@ Shutdown and Restart actions are available from the [Options](#options) for the 
 
 Restarting the PiFinder software should not normally be needed, but can be useful for generating a new session id which is included for a photos and logging during a particular execution of the PiFinder software.
 
-#### Custom lists
-Custom observing lists coming soon....
+#### Observing lists
+PiFinder maintains two lists of objects for each observing session; The History list and the Observing list.  
+
+The History list will any object that you set as a target to push-to.  It's added to as soon as you press the _ENT_ key on the catalog screen to select an object.  The main purpose of the History list is to let you scroll back through objects you have observed that session.
+
+The Observing list is a list of objects that is populated from either a filtered catalog or a file on disk.  It's a list of objects you'd like to observe during a session.  
+
+Both these lists start empty at the beginning of each session.  To populate an observing list you can push a filtered list of objects from the [Catalog](#catalog) screen.
+
 
 ## FAQ
 
