@@ -152,10 +152,10 @@ class UILocate(UIModule):
 
         # Target history index
         if self.target_index != None:
-            if self.ui_state['active_list'] == self.ui_state['history_list']:
-                list_name = 'Hist'
+            if self.ui_state["active_list"] == self.ui_state["history_list"]:
+                list_name = "Hist"
             else:
-                list_name = 'Obsv'
+                list_name = "Obsv"
             line = f"{self.target_index + 1}/{len(self.ui_state['active_list'])}"
             line = f"{line : >9}"
             self.draw.text((72, 18), line, font=self.font_base, fill=RED)

@@ -43,13 +43,13 @@ class UIPreview(UIModule):
         "Exposure": {
             "type": "enum",
             "value": "",
-            "options": [0.2,0.4, 0.75, 1,1.25,1.5,2],
+            "options": [0.05, 0.2, 0.4, 0.75, 1, 1.25, 1.5, 2],
             "callback": "set_exp",
         },
         "Gain": {
             "type": "enum",
             "value": "",
-            "options": [1,4,10,14,20],
+            "options": [1, 4, 10, 14, 20],
             "callback": "set_gain",
         },
         "Save Exp": {
@@ -62,23 +62,38 @@ class UIPreview(UIModule):
             "type": "bool",
             "value": "Off",
             "options": ["On", "Off"],
+            "callback": "exit_config",
         },
     }
 
     def __init__(self, *args):
         super().__init__(*args)
 
-        exposure_time = cfg.get_option("camera_exp")
-        analog_gain = cfg.get_option("camera_gain")
-        self.config_item["Gain"]["value"] = analog_gain
-        self.config_item["Exposure"]["value"] = int(exposure_time / 1000000)
+        exposure_time = self.config_object.get_option("camera_exp")
+        analog_gain = self.config_object.get_option("camera_gain")
+        self._config_options["Gain"]["value"] = analog_gain
+        self._config_options["Exposure"]["value"] = exposure_time / 1000000
         self.reticle_mode = 2
         self.last_update = time.time()
         self.solution = None
 
+    def set_exp(self, option):
+        new_exposure = int(option * 1000000)
+        self.command_queues["camera"].put(f"set_exp:{new_exposure}")
+        self.message("Exposure Set")
+        return False
+
+    def set_gain(self, option):
+        self.command_queues["camera"].put(f"set_gain:{option}")
+        self.message("Gain Set")
+        return False
+
     def save_exp(self, option):
         if option == "Save":
-            self.
+            self.command_queues["camera"].put("exp_save")
+            self.message("Exposure Saved")
+            return True
+        return False
 
     def draw_reticle(self):
         """

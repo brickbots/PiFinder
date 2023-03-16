@@ -10,7 +10,6 @@ This module is the camera
 """
 import os
 import queue
-import pprint
 import time
 
 from PIL import Image, ImageDraw, ImageFont, ImageChops
@@ -24,13 +23,16 @@ RED = (0, 0, 255)
 exposure_time = None
 analog_gain = None
 
-def set_camera_defaults(camera, cfg):
+
+def set_camera_defaults(camera):
     # Initialize camera, defaults :
     # gain: 10
     # exposure: 1.5m
     global exposure_time, analog_gain
     camera.stop()
-    cam_config = camera.create_preview_configuration({"size": (512, 512)}, raw=camera.sensor_modes[2])
+
+    # using this smaller scale auto-selects binning on the sensor...
+    cam_config = camera.create_still_configuration({"size": (512, 512)})
     camera.configure(cam_config)
     camera.set_controls({"AeEnable": False})
     camera.set_controls({"AnalogueGain": analog_gain})
@@ -38,7 +40,18 @@ def set_camera_defaults(camera, cfg):
     camera.start()
 
 
-def set_camera_highres(camera, cfg):
+def set_camera_config(camera):
+    # Initialize camera, defaults :
+    # gain: 10
+    # exposure: 1.5m
+    global exposure_time, analog_gain
+    camera.stop()
+    camera.set_controls({"AnalogueGain": analog_gain})
+    camera.set_controls({"ExposureTime": exposure_time})
+    camera.start()
+
+
+def set_camera_highres(camera):
     global exposure_time, analog_gain
     camera.stop()
     cam_config = camera.create_still_configuration()
@@ -56,8 +69,7 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
     analog_gain = cfg.get_option("camera_gain")
-    set_camera_defaults(camera, cfg)
-    # pprint.pprint(camera.camera_controls)
+    set_camera_defaults(camera)
 
     red_image = Image.new("RGB", (128, 128), (0, 0, 255))
 
@@ -95,13 +107,15 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
                 else:
                     debug = True
 
-            if command.starts_with("set_exp"):
+            if command.startswith("set_exp"):
                 exposure_time = int(command.split(":")[1])
-                camera.set_controls({"ExposureTime": exposure_time})
+                set_camera_config(camera)
+                console_queue.put("CAM: Exp=" + str(exposure_time))
 
-            if command.starts_with("set_gain"):
+            if command.startswith("set_gain"):
                 analog_gain = int(command.split(":")[1])
-                camera.set_controls({"AnalogGain": analog_gain})
+                set_camera_config(camera)
+                console_queue.put("CAM: Gain=" + str(analog_gain))
 
             if command == "exp_up" or command == "exp_dn":
                 if command == "exp_up":
@@ -125,7 +139,7 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
                 # Save high res image....
                 filename = command.split(":")[1]
                 filename = f"/home/pifinder/PiFinder_data/captures/{filename}.png"
-                set_camera_highres(camera, cfg)
+                set_camera_highres(camera)
                 camera.capture_file(filename)
                 console_queue.put("CAM: Saved Hi Image")
-                set_camera_defaults(camera, cfg)
+                set_camera_defaults(camera)

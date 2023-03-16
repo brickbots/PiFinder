@@ -177,7 +177,6 @@ class UIConfig(UIModule):
 
             # Now that we have set config, see if there is a callback
             if selected_item.get("callback") != None:
-                print("{self.__module =}")
                 callback_method = getattr(self.__module, selected_item["callback"])
                 exit_config = callback_method(selected_item["value"])
                 if exit_config:
@@ -187,16 +186,22 @@ class UIConfig(UIModule):
             if number >= len(self.__item_names):
                 return
             self.__selected_item = self.__item_names[number]
-            if self.__config[self.__selected_item]["type"] == "bool":
-                if self.__config[self.__selected_item]["value"] == "On":
-                    self.__config[self.__selected_item]["value"] = "Off"
+            selected_item = self.__config[self.__selected_item]
+            if selected_item["type"] == "bool":
+                if selected_item["value"] == "On":
+                    selected_item["value"] = "Off"
                 else:
-                    self.__config[self.__selected_item]["value"] = "On"
+                    selected_item["value"] = "On"
                 self.update()
                 # sleep for a sec to give the user time to see the change
                 time.sleep(1)
                 # okay, reset and release
                 self.__selected_item = None
+                if selected_item.get("callback") != None:
+                    callback_method = getattr(self.__module, selected_item["callback"])
+                    exit_config = callback_method(selected_item["value"])
+                    if exit_config:
+                        self.switch_to = self.__module.__class__.__name__
 
     def active(self):
         self.__selected_item = None
