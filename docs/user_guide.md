@@ -19,6 +19,9 @@
   * [Console](#console)
 - [How-To](#how-to)
   * [First Time Setup](#first-time-setup)
+  * [WiFi](#wifi)
+  * [SkySafari](#skysafari)
+  * [Data Access (SMB Share)](#data-access)
   * [Shutdown and Restart](#shutdown-and-Restart)
   * [Observing lists](#observing-lists)
 - [FAQ](#faq)
@@ -291,6 +294,17 @@ The PiFinder can provide real-time pointing information to a device running SkyS
 * Scope Type: Meade LX200 classic
 * IP Address: `pifinder.local` or IP address provides on the [Status](#status) screen.
 * Port: 4030
+
+### Data Access
+In the course of using the PiFinder several data files are created that may be of interest.  These are available via a SMB (samba) network share called `//pifinder.local/shared`.  Accessing this will depend on your OS, but the PiFinder should be visible in a network browser provided.  There is no password requirement, just connect as `guest` with no password provided.
+
+Once connected, you'll see:
+* `captures/`: These are images saved when logging objects.  They are named with the observation ID from the database.
+* `obslists/`: This folder holds observing saved during a PiFinder session or to load for future sessions.
+* `screenshots/`:  It's possible to take screenshots while using the PiFinder (hold down _ENT_ and press _0_).  They are stored here.
+* `solver_debug_dumps/`: If enabled, information about solver performance is stored here as a collection of images and json files.
+* `observations.db`: This is the SQLite database which holds all the logged observations.
+
 
 ### Shutdown and Restart
 
