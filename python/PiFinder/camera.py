@@ -69,6 +69,7 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
     analog_gain = cfg.get_option("camera_gain")
+    screen_direction = cfg.get_option("screen_direction")
     set_camera_defaults(camera)
 
     red_image = Image.new("RGB", (128, 128), (0, 0, 255))
@@ -86,7 +87,10 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
             if not debug:
                 base_image = camera.capture_image("main")
                 base_image = base_image.convert("L")
-                base_image = base_image.rotate(90)
+                if screen_direction == "right":
+                    base_image = base_image.rotate(90)
+                else:
+                    base_image = base_image.rotate(270)
             else:
                 # load image and wait
                 base_image = Image.open(test_image_path)
