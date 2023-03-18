@@ -11,7 +11,9 @@ import adafruit_bno055
 
 from scipy.spatial.transform import Rotation
 
-QUEUE_LEN = 5
+QUEUE_LEN = 50
+AVG_LEN = 2
+MOVE_CHECK_LEN = 10
 
 
 class Imu:
@@ -51,20 +53,23 @@ class Imu:
         with past readings
         """
         diff_list = []
-        # compare last 4 quats
-        for quat in self.quat_history[-4:]:
+        # compare last MOVE_CHECK_LEN quats
+        for quat in self.quat_history[-MOVE_CHECK_LEN:]:
             diff = (
-                abs(quat[0] - self.quat_history[0][0])
-                + abs(quat[1] - self.quat_history[0][1])
-                + abs(quat[2] - self.quat_history[0][2])
-                + abs(quat[3] - self.quat_history[0][3])
+                abs(quat[0] - self.quat_history[-MOVE_CHECK_LEN][0])
+                + abs(quat[1] - self.quat_history[-MOVE_CHECK_LEN][1])
+                + abs(quat[2] - self.quat_history[-MOVE_CHECK_LEN][2])
+                + abs(quat[3] - self.quat_history[-MOVE_CHECK_LEN][3])
             )
             diff_list.append(diff)
 
-        if diff_list[0] < diff_list[1] < diff_list[2] < diff_list[3]:
-            self.__moving = True
-        else:
-            self.__moving = False
+        self.__moving = True
+        last_diff = diff_list[0]
+        for diff in diff_list[1:]:
+            if diff <= last_diff:
+                self.__moving = False
+            last_diff = diff
+
         return self.__moving
 
     def flip(self, quat):
@@ -101,10 +106,7 @@ class Imu:
             print("IMU: Failed to get sensor values")
             return
 
-        # update moving
         if not self.flip(quat):
-
-            # add to averages
             if len(self.quat_history) == QUEUE_LEN:
                 self.quat_history = self.quat_history[1:]
             self.quat_history.append(quat)
@@ -112,17 +114,20 @@ class Imu:
 
     def calc_avg_quat(self):
         quat = [0, 0, 0, 0]
-        for q in self.quat_history:
+        if not self.__moving:
+            self.avg_quat = self.quat_history[-1]
+
+        for q in self.quat_history[-AVG_LEN:]:
             quat[0] += q[0]
             quat[1] += q[1]
             quat[2] += q[2]
             quat[3] += q[3]
 
         self.avg_quat = (
-            quat[0] / QUEUE_LEN,
-            quat[1] / QUEUE_LEN,
-            quat[2] / QUEUE_LEN,
-            quat[3] / QUEUE_LEN,
+            quat[0] / AVG_LEN,
+            quat[1] / AVG_LEN,
+            quat[2] / AVG_LEN,
+            quat[3] / AVG_LEN,
         )
 
     def get_euler(self):
@@ -157,10 +162,12 @@ def imu_monitor(shared_state, console_queue):
                 imu_data["moving"] = False
                 imu_data["pos"] = imu.get_euler()
                 imu_data["move_end"] = time.time()
+
         if imu_calibrated == False:
             if imu_data["status"] == 3:
                 imu_calibrated = True
                 console_queue.put("IMU: NDOF Calibrated!")
+
         if shared_state != None and imu_calibrated:
             shared_state.set_imu(imu_data)
             # pprint(imu_data)
