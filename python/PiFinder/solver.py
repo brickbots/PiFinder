@@ -28,6 +28,7 @@ from skyfield.api import (
 )
 
 from PiFinder.image_util import subtract_background
+from PiFinder import config
 
 IMU_ALT = 2
 IMU_AZ = 0
@@ -108,6 +109,7 @@ def write_debug(
     Writes the image + key solver
     info to disk
     """
+    st = time.time()
     root_dir = "/home/pifinder/PiFinder_data"
     debug_path = os.path.join(root_dir, "solver_debug_dumps", prefix)
 
@@ -134,6 +136,7 @@ def write_debug(
         json.dump(dt.isoformat(), f, indent=4)
 
     console_queue.put(f"SLV: Debug {prefix}")
+    console_queue.put(f"\t {time.time() - st: 0.2}")
 
 
 def solver(shared_state, camera_image, console_queue):
@@ -157,6 +160,12 @@ def solver(shared_state, camera_image, console_queue):
         "constellation": None,
         "last_image_solve": None,
     }
+    cfg = config.Config()
+    solver_debug = cfg.get_option("solver_debug")
+    if cfg.get_option("screen_direction") == "left":
+        left_handed = True
+    else:
+        left_handed = False
 
     # This holds the last image solve position info
     # so we can delta for IMU updates
@@ -174,7 +183,11 @@ def solver(shared_state, camera_image, console_queue):
                 fov_estimate=10.2,
                 fov_max_error=0.1,
             )
-            if new_solve["RA"] != None and solved["solve_source"] == "IMU":
+            if (
+                solver_debug
+                and new_solve["RA"] != None
+                and solved["solve_source"] == "IMU"
+            ):
                 # we were on IMU, now we are back
                 # to image solve. Check if we have really moved...
                 if (
@@ -244,7 +257,7 @@ def solver(shared_state, camera_image, console_queue):
             if solved["Alt"]:
                 imu = shared_state.imu()
                 if imu:
-                    if imu["moving"]:  # or imu_moving == True:
+                    if imu["moving"] or imu_moving == True:
                         # we track imu_moving so that we do
                         # this one more time after we stop moving
                         imu_moving = imu["moving"]
@@ -259,7 +272,10 @@ def solver(shared_state, camera_image, console_queue):
                             imu_pos = imu["pos"]
                             if lis_imu != None and imu_pos != None:
                                 alt_offset = imu_pos[IMU_ALT] - lis_imu[IMU_ALT]
-                                alt_offset = (alt_offset + 180) % 360 - 180
+                                if left_handed:
+                                    alt_offset = ((alt_offset + 180) % 360 - 180) * -1
+                                else:
+                                    alt_offset = (alt_offset + 180) % 360 - 180
                                 alt_upd = (last_image_solve["Alt"] - alt_offset) % 360
 
                                 az_offset = imu_pos[IMU_AZ] - lis_imu[IMU_AZ]
