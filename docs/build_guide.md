@@ -97,7 +97,13 @@ Finally, you can attach the lens now, or a bit later in the assembly.  It screws
 
 ## Power
 
-Before continuing to the case build, you'll have to decide how you are going to power the PiFinder.   The easiest way is probably the PiSugar power systems.  They are a thin board that mounts right under the Pi between it and the 3d printed holder.  A nice battery is included and they can provide enough power for the RPI4, screen and camera without difficulty for a full observing session.
+Before continuing to the case build, you'll have to decide how you are going to power the PiFinder.   If you already have 5v power on the scope, or the facility to add a batter pack somewhere, this is probably the easiest way.  
+
+If you want the unit to be fully self-contained, I suggest the PiSugar-S power system.  They are a thin board that mounts right under the Pi between it and the 3d printed holder.  A nice 5000mah battery is included and it can provide enough power for the unit for about 5 hours.  If you are going to use a PiSugar, make sure you print the case pieces with the `_ps` suffixes for best results.  The shroud is a bit longer and has a cut-out for the power switch while the back-piece is a bit wider to make room for the battery beside the camera.  Here's a photo of a left-handed unit with the PiSugar installed:
+
+![PiSugar Installed](../images/build_guide/IMG_4827.jpeg)
+
+During the build I'll include some specific instructions for incorporating the PiSugar system.
 
 In my case, I already have power on my scope from 12v batteries and there is a 5v source near where I am mounting the PiFinder.  If you have existing power, you can feed it through the USB-C port on the top of the pi, or there is an un-populated power connector on the PCB which can be used to supply REGULATED 5v power.
 
@@ -107,6 +113,8 @@ In my case, I already have power on my scope from 12v batteries and there is a 5
 The PiFinder screen and keyboard should face the direction your focuser does, with the camera pointing forward.  To accommodate left hand and right hand orientations the Pi Mount and Back Plate have two versions denoted with lh and rh suffixes in the filenames.   The rest of the pieces work with either configurations.
 
 Left and Right hand refer to the side of the scope with the focuser when standing near the mirror and facing the aperture end.  Generally 'Behind' the scope.
+
+There is a software option for left and right handed operation.  See the [User Guide](user_guide.md#switch-sides) for details on setting this.
 
 
 ### GoPro
@@ -129,7 +137,7 @@ The main structure of the PiFinder is made of 3d printed pieces.  STL's for all 
 
 There are two versions of the bottom piece, one designed with inserts to allow the go-pro mount to screw into it, and the other has M3 holes to screw through the bottom into the dovetail mount.  See the [mount](#mount) section below to figure out which way you want to go.
 
-The image below shows all the 3d printed pieces and indicates which threaded inserts go in which hole.  All of the structural bits use M3 screws, but the Pi and Camera mount with M2.5 screws.  The case shroud and bezel only have M2.5 through holes and get secured to the stand-off's holding the Hat.
+The image below shows all the 3d printed pieces and indicates which threaded inserts go in which hole.  These are early versions of some pieces and yours may not be identical, but the inserts should be the same.  All of the structural bits use M3 screws, but the Pi and Camera mount with M2.5 screws.  The case shroud and bezel only have M2.5 through holes and get secured to the stand-off's holding the Hat.
 
 ![Case part ID / Insert details](../images/build_guide/case_parts.png)
 The Pi Mount piece can receive M2.5 inserts which can then have short stand-offs, or you can screw through it into stand-offs already mounted on the Pi.  This depends on your preference and the heat-sink arrangement you ended up with.  
@@ -145,9 +153,10 @@ All the case parts are held together with M3 screws.  6-8mm length should work g
 
 I think mounting the Pi to the Pi Holder is a good place to start.  For these photos I'm screwing through the Pi Holder into stand-offs in already in the Pi, but you can use threaded inserts and put the standoffs in the Pi Holder first depending on your needs.
 
-If you are using a PiSugar, now is the time to fit it under the Pi between it and the holder.  I don't have photos of this, but please reach out with any questions.
-
 ![Pi Mounting](../images/build_guide/IMG_4685.jpeg)
+
+If you are using a PiSugar, now is the time to fit it under the Pi between it and the holder.  Use the standoffs to screw into the PiSugar securing it to the Pi, then use the double female stand-offs.
+![PiSugar Mounting](../images/build_guide/IMG_4809.jpeg)
 
 ![Pi Mounting](../images/build_guide/IMG_4686.jpeg)
 
@@ -155,10 +164,26 @@ If you are using a PiSugar, now is the time to fit it under the Pi between it an
 
 ![Pi Mounting](../images/build_guide/IMG_4688.jpeg)
 
+##### PiSugar
+Here's a photo of the PiSugar arrangement in a left-hand unit with the newer Pi mount piece is the same for builds with and without the Pi Sugar but is different for Left and Right hand builds.  
+
+![PiSugar Pi mounting](../images/build_guide/IMG_4812.jpeg)
+
+
 Next, attach the camera cable to the pi and route it around and through the hole in the Pi Mount.  This can be done later, but it's just a bit fussier.   If you have the Hat fitted, remove it first and route the cable per below
 
 ![Pi Mounting](../images/build_guide/IMG_4690.jpeg)
 ![Pi Mounting](../images/build_guide/IMG_4691.jpeg)
+
+##### PiSugar
+Before securing the Pi mount piece to the bottom, you need to prepare two zip-ties to hold the battery secure.  These slide between the PiSugar board and the mount plate and fit into the notches on the edge of the mount plate.  Keep them very loose, they just need to be there before you screw it to the bottom plate, and make sure the camera cable is routed as well. (see second image).  
+
+![Pi Mounting](../images/build_guide/IMG_4815.jpeg)
+
+![Pi Mounting](../images/build_guide/IMG_4816.jpeg)
+
+Once you have secured the Pi mount piece to the bottom plate, go head and slide in the battery, minding the cable is in the right place to plug into the PiSugar, and secure the battery with the zip ties.  Don't go tight here, it won't take much to hold this securely and you don't want to damage the battery.  If it slides a little bit, you are a-okay.
+![Pi Mounting](../images/build_guide/IMG_4820.jpeg)
 
 If you are going to use the Dovetail mount, you need to affix it to the bottom before continuing.  My finder shoe is offset from the top of my scope, so I've got a 30 degree angle on my dovetail adaptor to make the PiFinder plumb vertically when mounted on my scope.  It's not critical that it be plumb, but I suggest using the dovetail which ends up with the PiFinder as close to plumb as possible. 
 
@@ -180,6 +205,9 @@ Next comes the back piece which screws into the bottom and the Pi Holder
 ![Back Piece](../images/build_guide/IMG_4702.jpeg)
 ![Back Piece](../images/build_guide/IMG_4703.jpeg)
 
+##### PiSugar
+You'll be using a wider back piece here (indicated with the `_ps` suffix) to move the camera outboard a bit to clear the camera.  Once the back-plate is secured, make sure to plug the battery into the PiSugar board.  The rest of the build proceeds normally.. just make sure to use the `_ps` shroud piece to allow access to the PiSugar switch.
+
 With the frame complete you can now mount the camera cell.  Like the cell of most reflector telescopes this cell is held against 3 adjustable screws to control it's tilt.  Start by inserting the 3 thumbscrews and screwing them almost all the way in.  
 
 ![Camera Mounting](../images/build_guide/IMG_4709.jpeg)
@@ -188,7 +216,7 @@ With the frame complete you can now mount the camera cell.  Like the cell of mos
 
 ![Camera Mounting](../images/build_guide/IMG_4711.jpeg)
 
- Now prepare the central M3 screw which is used to pull the cell against the adjustment screws.  If you have a suitable spring, it can be used to make adjustment a little easier, but less sturdy.  After using the unit for a bit, I actually prefer it without the spring.  You just need to move the screws in pairs (one out, one in) to keep tension even on the back of the cell.
+ Now prepare the central M3 screw which is used to pull the cell against the adjustment screws.  If you have a suitable spring, it can be used to make adjustment a little easier, but less sturdy.  After using the unit for a bit, I actually prefer it without the spring and suggest you build it this way.  Pick an M3 screw that allows you to pull the camera cell snug against the three adjustment screws.  Then you just need to move the screws in pairs (one out, one in) to keep tension even on the back of the cell while adjusting.
 
 ![Camera Mounting](../images/build_guide/IMG_4712.jpeg)
 
@@ -229,4 +257,7 @@ Plug in the GPS dongle and mount it where the top faces the sky.  Now you have y
 
 ![Hat / Shroud assembly](../images/build_guide/IMG_4725.jpeg)
 
+Here's a parting shot of a right and left handed unit, with the PiSugar installed on the left-handed unit... which has the wrong shroud... use the `_ps` one!
+
+![Left/Right Handed](../images/build_guide/IMG_4825.jpeg)
 

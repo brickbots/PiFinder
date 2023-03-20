@@ -265,6 +265,7 @@ Logged information from the various parts of the PiFinder system is displayed he
 * _UP/DN_ key - Scroll the log display
 
 ## How-To
+
 ### First Time Setup
 
 Here's a quick start guide for your first time operating the PiFinder:
@@ -276,6 +277,9 @@ Here's a quick start guide for your first time operating the PiFinder:
 	* Adjust exposure to make sure you see some stars in the preview display.  If the exposure is too long, relative brightness between stars will be lost and this can also prohibit solving.  
 	* Focus is somewhat less critical, but being too far out of focus will reduce the number of faint stars available for solving.
 * If you are in an open area, the GPS dongle should have achieved a lock.  Check  the status indicator in the title bar, or the [Status](#status) screen to verify.  If not, double check the status light on the dongle and make sure it has an unobstructed view of as much sky as possible.  The first solve after being off for a few days needs more satellites and will take longer.  Subsequent locks will be much quicker using some cached data in the dongle.
+
+### Switch Sides
+By default, the PiFinder software is set for right-side focuser operation.   To switch to left-side orientation, use the [Options](#options) page of the [Status](#status) screen.  This will make sure the preview is displayed correct side up and the IMU up/down direction is correct.
 
 ### WiFi
 The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the [Options](#system-options) page of the Status screen to switch between these two modes and see which mode is currently active.
