@@ -40,3 +40,8 @@ In addition to the 3d printed parts detailed in the [Build Guide](./build_guide.
 | 4   | M2x6mm bolt             |     | Secure camera to cell                                                                                                                                                     |
 | 4   | M2 heat set inserts   |     | Secure camera to cell                                                                                                                                                     |
 | 4   | M2x2mm spacer           |     | Length is not critical                                                                                                                                                                          |
+
+## Power
+The PiFinder takes about .8amp at 5v under full load.  For battery sizing a good rule of thumb would be one hour of run time per 1000mah of battery capacity.  You can use any batter pack that will produce at least 1 amp of power and plug this into the USB-C port on the unit.
+
+If you'd like to have a fully stand-alone unit with integrated rechargeable battery, there are instructing in the build guide for integrating a [PiSugar S plus](https://github.com/PiSugar/PiSugar/wiki/PiSugarS-Plus).  This is the lower-cost version without RTC, but it has a 5000mah battery which should provide about 5 hours of run time.  

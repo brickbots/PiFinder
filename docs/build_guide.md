@@ -155,7 +155,11 @@ I think mounting the Pi to the Pi Holder is a good place to start.  For these ph
 
 ![Pi Mounting](../images/build_guide/IMG_4685.jpeg)
 
+##### PiSugar
 If you are using a PiSugar, now is the time to fit it under the Pi between it and the holder.  Use the standoffs to screw into the PiSugar securing it to the Pi, then use the double female stand-offs.
+
+IMPORTANT: If you are using the recommended S Plus unit, turn the 'Auto Startup' switch on the bottom of the unit to OFF (opposite of what is pictured below).  Having this in the ON position will prevent i2c from working and the IMU will not be used.  Once the board is mounted, it's hard to reach this switch, so turn it off now :-)
+
 ![PiSugar Mounting](../images/build_guide/IMG_4809.jpeg)
 
 ![Pi Mounting](../images/build_guide/IMG_4686.jpeg)
