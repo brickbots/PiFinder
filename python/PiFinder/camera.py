@@ -66,9 +66,18 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
     global exposure_time, analog_gain
     debug = False
     camera = Picamera2()
+
+    # Figure out camera type, hq or gs (global shutter)
+    camera_type = 'hq'
+    gain_mult = 1
+    sensor_modes = camera.sensor_modes
+    if len(sensor_modes) == 1:
+        gain_mult = 3
+        camera_type='gs'
+
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
-    analog_gain = cfg.get_option("camera_gain")
+    analog_gain = cfg.get_option("camera_gain") * gain_mult
     screen_direction = cfg.get_option("screen_direction")
     set_camera_defaults(camera)
 
@@ -89,8 +98,6 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
                 base_image = base_image.convert("L")
                 if screen_direction == "right":
                     base_image = base_image.rotate(90)
-                else:
-                    base_image = base_image.rotate(270)
             else:
                 # load image and wait
                 base_image = Image.open(test_image_path)
@@ -117,7 +124,7 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
                 console_queue.put("CAM: Exp=" + str(exposure_time))
 
             if command.startswith("set_gain"):
-                analog_gain = int(command.split(":")[1])
+                analog_gain = int(command.split(":")[1]) * gain_mult
                 set_camera_config(camera)
                 console_queue.put("CAM: Gain=" + str(analog_gain))
 
@@ -131,7 +138,7 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
             if command == "exp_save":
                 console_queue.put("CAM: Exp Saved")
                 cfg.set_option("camera_exp", exposure_time)
-                cfg.set_option("camera_gain", analog_gain)
+                cfg.set_option("camera_gain", int(analog_gain/gain_mult))
 
             if command.startswith("save"):
                 filename = command.split(":")[1]
