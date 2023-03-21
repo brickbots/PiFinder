@@ -41,4 +41,7 @@ If you are using a PiFinder, I recommend you watch releases in this repo.  Click
 
 Discussions are also active on this repo for asking quesitons and reviewing announcements and news.  Click the 'Discussions' link about to join in!
 
+## Discord
+Join the  [PiFinder Discord server](https://discord.gg/Nk5fHcAtWD) for support with your build, usage questions, and suggestions for improvement.
+
 <a href='https://ko-fi.com/brickbots' target='_blank'><img height='35' style='border:0px;height:46px;' src='https://az743702.vo.msecnd.net/cdn/kofi3.png?v=0' border='0' alt='Buy Me a Coffee at ko-fi.com' />
