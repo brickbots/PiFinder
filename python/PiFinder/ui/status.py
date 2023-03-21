@@ -163,8 +163,11 @@ class UIStatus(UIModule):
                 raw_temp = int(f.read().strip())
             self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
 
-            # IP
-            self.status_dict["IP ADDR"] = socket.gethostbyname("pifinder.local")
+            # IP address
+            try:
+                self.status_dict["IP ADDR"] = socket.gethostbyname(f"{socket.gethostname()}.local")
+            except socket.gaierror:
+                pass
 
     def update(self, force=False):
         self.update_status_dict()
