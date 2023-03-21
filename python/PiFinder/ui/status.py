@@ -28,6 +28,12 @@ class UIStatus(UIModule):
             "options": ["AP", "Cli", "exit"],
             "callback": "wifi_switch",
         },
+        "Mnt Side": {
+            "type": "enum",
+            "value": "",
+            "options": ["right", "left", "exit"],
+            "callback": "side_switch",
+        },
         "Restart": {
             "type": "enum",
             "value": "",
@@ -64,12 +70,28 @@ class UIStatus(UIModule):
         else:
             self.status_dict["WIFI"] = "           AP"
 
+        self._config_options["Mnt Side"]["value"] = self.config_object.get_option(
+            "screen_direction"
+        )
+
         self.last_temp_time = 0
+
+    def side_switch(self, option):
+        if option == "exit":
+            self._config_options["Mnt Side"]["value"] = self.config_object.get_option(
+                "screen_direction"
+            )
+            return False
+
+        self.message("Ok! Restaring", 10)
+        self.config_object.set_option("screen_direction", option)
+        sys_utils.restart_pifinder()
 
     def wifi_switch(self, option):
         with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wfs:
             current_state = wfs.read()
         if option == current_state or option == "exit":
+            self._config_options["WiFi Mode"]["value"] = curent_state
             return False
 
         if option == "AP":
@@ -141,8 +163,11 @@ class UIStatus(UIModule):
                 raw_temp = int(f.read().strip())
             self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
 
-            # IP
-            self.status_dict["IP ADDR"] = socket.gethostbyname("pifinder.local")
+            # IP address
+            try:
+                self.status_dict["IP ADDR"] = socket.gethostbyname(f"{socket.gethostname()}.local")
+            except socket.gaierror:
+                pass
 
     def update(self, force=False):
         self.update_status_dict()

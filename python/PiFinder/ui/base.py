@@ -51,6 +51,13 @@ class UIModule:
         self.ui_state = ui_state
         self.config_object = config_object
 
+    def exit_config(self, option):
+        """
+        Handy callback for exiting
+        config on option select
+        """
+        return True
+
     def update_config(self):
         """
         callback when config is updated

@@ -9,6 +9,8 @@
     },
     "camera_exp": 750000,
     "camera_gain": 20,
+    "screen_direction": "right",
+    "solver_debug": 0,
     "catalogs": [
         "NGC",
         "IC",
