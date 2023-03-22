@@ -3,7 +3,7 @@
 """
 This module handles non-volitile config options
 """
-import json
+import json, os
 
 
 class Config:
@@ -11,7 +11,12 @@ class Config:
         """
         load all settings from config file
         """
-        with open("/home/pifinder/PiFinder/config.json", "r") as config_file:
+        config_file_path = "/home/pifinder/PiFinder/config.json"
+        default_file_path = "/home/pifinder/PiFinder/default_config.json"
+        if not os.path.exists(config_file_path):
+            config_file_path = default_file_path
+
+        with open(config_file_path, "r") as config_file:
             self._config_dict = json.load(config_file)
 
     def set_option(self, option, value):
