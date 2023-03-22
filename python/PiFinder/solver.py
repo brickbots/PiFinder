@@ -144,6 +144,7 @@ def solver(shared_state, camera_image, console_queue):
     debug_index = 0
     debug_solve = None
     sf_utils = Skyfield_utils()
+
     t3 = Tetra3("default_database")
     t3_counter = 0
     last_solve_time = 0
@@ -171,6 +172,8 @@ def solver(shared_state, camera_image, console_queue):
     # so we can delta for IMU updates
     last_image_solve = None
     while True:
+        if shared_state.power_state() == 0:
+            time.sleep(0.5)
         # use the time the exposure started here to
         # reject images startede before the last solve
         # which might be from the IMU

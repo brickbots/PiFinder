@@ -67,6 +67,17 @@ StateManager.register("SharedState", SharedStateObj)
 StateManager.register("NewImage", Image.new)
 
 
+def get_sleep_timeout(cfg):
+    """
+    returns the sleep timeout amount
+    """
+    sleep_timeout_option = cfg.get_option("sleep_timeout")
+    sleep_timeout = {"Off": None, "10s": 1000, "30s": 3000, "1m": 6000}[
+        sleep_timeout_option
+    ]
+    return sleep_timeout
+
+
 def main(script_name=None):
     """
     Get this show on the road!
@@ -208,7 +219,8 @@ def main(script_name=None):
 
         current_module = ui_modes[ui_mode_index]
 
-        # Start of main except handler
+        # Start of main except handler / loop
+        power_save_warmup = get_sleep_timeout(cfg)
         bg_task_warmup = 5
         try:
 
@@ -256,124 +268,128 @@ def main(script_name=None):
                     keycode = None
 
                 if keycode != None:
-                    if keycode > 99:
-                        # Special codes....
-                        if keycode == keyboard.ALT_UP or keycode == keyboard.ALT_DN:
-                            if keycode == keyboard.ALT_UP:
-                                screen_brightness = screen_brightness + 10
-                                if screen_brightness > 255:
-                                    screen_brightness = 255
-                            else:
-                                screen_brightness = screen_brightness - 10
-                                if screen_brightness < 1:
-                                    screen_brightness = 1
-                            set_brightness(screen_brightness)
-                            cfg.set_option("display_brightness", screen_brightness)
-                            console.write("Brightness: " + str(screen_brightness))
+                    power_save_warmup = get_sleep_timeout(cfg)
 
-                        if keycode == keyboard.ALT_A:
-                            # Switch between non-observing modes
-                            ui_mode_index += 1
-                            if ui_mode_index >= len(ui_modes):
-                                ui_mode_index = ui_observing_modes + 1
-                            if ui_mode_index <= ui_observing_modes:
-                                ui_mode_index = ui_observing_modes + 1
-                            current_module = ui_modes[ui_mode_index]
-                            current_module.active()
+                    # ignore keystroke if we have been asleep
+                    if shared_state.power_state() > 0:
+                        if keycode > 99:
+                            # Special codes....
+                            if keycode == keyboard.ALT_UP or keycode == keyboard.ALT_DN:
+                                if keycode == keyboard.ALT_UP:
+                                    screen_brightness = screen_brightness + 10
+                                    if screen_brightness > 255:
+                                        screen_brightness = 255
+                                else:
+                                    screen_brightness = screen_brightness - 10
+                                    if screen_brightness < 1:
+                                        screen_brightness = 1
+                                set_brightness(screen_brightness)
+                                cfg.set_option("display_brightness", screen_brightness)
+                                console.write("Brightness: " + str(screen_brightness))
 
-                        if keycode == keyboard.LNG_A and ui_mode_index > 0:
-                            # long A for config of current module
-                            target_module = current_module
-                            if target_module._config_options:
-                                # only activate this if current module
-                                # has config options
-                                ui_mode_index = 0
-                                current_module = ui_modes[0]
-                                current_module.set_module(target_module)
+                            if keycode == keyboard.ALT_A:
+                                # Switch between non-observing modes
+                                ui_mode_index += 1
+                                if ui_mode_index >= len(ui_modes):
+                                    ui_mode_index = ui_observing_modes + 1
+                                if ui_mode_index <= ui_observing_modes:
+                                    ui_mode_index = ui_observing_modes + 1
+                                current_module = ui_modes[ui_mode_index]
                                 current_module.active()
 
-                        if keycode == keyboard.LNG_ENT and ui_mode_index > 0:
-                            # long ENT for log observation
-                            ui_mode_index = logging_mode_index
-                            current_module = ui_modes[logging_mode_index]
-                            current_module.active()
-
-                        if keycode == keyboard.ALT_0:
-                            # screenshot
-                            current_module.screengrab()
-                            console.write("Screenshot saved")
-
-                        if keycode == keyboard.ALT_D:
-                            # Debug snapshot
-                            uid = str(uuid.uuid1()).split("-")[0]
-                            debug_image = camera_image.copy()
-                            debug_solution = shared_state.solution()
-                            debug_location = shared_state.location()
-                            debug_dt = shared_state.datetime()
-
-                            # write images
-                            debug_image.save(f"{test_image_path}/{uid}_raw.png")
-                            debug_image = subtract_background(debug_image)
-                            debug_image = debug_image.convert("RGB")
-                            debug_image = ImageOps.autocontrast(debug_image)
-                            debug_image.save(f"{test_image_path}/{uid}_sub.png")
-
-                            with open(
-                                f"{test_image_path}/{uid}_solution.json", "w"
-                            ) as f:
-                                json.dump(debug_solution, f, indent=4)
-
-                            with open(
-                                f"{test_image_path}/{uid}_location.json", "w"
-                            ) as f:
-                                json.dump(debug_location, f, indent=4)
-
-                            if debug_dt != None:
-                                with open(
-                                    f"{test_image_path}/{uid}_datetime.json", "w"
-                                ) as f:
-                                    json.dump(debug_dt.isoformat(), f, indent=4)
-
-                            console.write(f"Debug dump: {uid}")
-
-                    elif keycode == keyboard.A:
-                        # A key, mode switch
-                        if ui_mode_index == 0:
-                            # return control to original module
-                            for i, ui_class in enumerate(ui_modes):
-                                if ui_class == ui_modes[0].get_module():
-                                    ui_mode_index = i
-                                    current_module = ui_class
-                                    current_module.update_config()
+                            if keycode == keyboard.LNG_A and ui_mode_index > 0:
+                                # long A for config of current module
+                                target_module = current_module
+                                if target_module._config_options:
+                                    # only activate this if current module
+                                    # has config options
+                                    ui_mode_index = 0
+                                    current_module = ui_modes[0]
+                                    current_module.set_module(target_module)
                                     current_module.active()
+
+                            if keycode == keyboard.LNG_ENT and ui_mode_index > 0:
+                                # long ENT for log observation
+                                ui_mode_index = logging_mode_index
+                                current_module = ui_modes[logging_mode_index]
+                                current_module.active()
+
+                            if keycode == keyboard.ALT_0:
+                                # screenshot
+                                current_module.screengrab()
+                                console.write("Screenshot saved")
+
+                            if keycode == keyboard.ALT_D:
+                                # Debug snapshot
+                                uid = str(uuid.uuid1()).split("-")[0]
+                                debug_image = camera_image.copy()
+                                debug_solution = shared_state.solution()
+                                debug_location = shared_state.location()
+                                debug_dt = shared_state.datetime()
+
+                                # write images
+                                debug_image.save(f"{test_image_path}/{uid}_raw.png")
+                                debug_image = subtract_background(debug_image)
+                                debug_image = debug_image.convert("RGB")
+                                debug_image = ImageOps.autocontrast(debug_image)
+                                debug_image.save(f"{test_image_path}/{uid}_sub.png")
+
+                                with open(
+                                    f"{test_image_path}/{uid}_solution.json", "w"
+                                ) as f:
+                                    json.dump(debug_solution, f, indent=4)
+
+                                with open(
+                                    f"{test_image_path}/{uid}_location.json", "w"
+                                ) as f:
+                                    json.dump(debug_location, f, indent=4)
+
+                                if debug_dt != None:
+                                    with open(
+                                        f"{test_image_path}/{uid}_datetime.json", "w"
+                                    ) as f:
+                                        json.dump(debug_dt.isoformat(), f, indent=4)
+
+                                console.write(f"Debug dump: {uid}")
+
+                        elif keycode == keyboard.A:
+                            # A key, mode switch
+                            if ui_mode_index == 0:
+                                # return control to original module
+                                for i, ui_class in enumerate(ui_modes):
+                                    if ui_class == ui_modes[0].get_module():
+                                        ui_mode_index = i
+                                        current_module = ui_class
+                                        current_module.update_config()
+                                        current_module.active()
+                            else:
+                                ui_mode_index += 1
+                                if ui_mode_index > ui_observing_modes:
+                                    ui_mode_index = 1
+                                current_module = ui_modes[ui_mode_index]
+                                current_module.active()
+
                         else:
-                            ui_mode_index += 1
-                            if ui_mode_index > ui_observing_modes:
-                                ui_mode_index = 1
-                            current_module = ui_modes[ui_mode_index]
-                            current_module.active()
+                            if keycode < 10:
+                                current_module.key_number(keycode)
 
-                    else:
-                        if keycode < 10:
-                            current_module.key_number(keycode)
+                            elif keycode == keyboard.UP:
+                                current_module.key_up()
 
-                        elif keycode == keyboard.UP:
-                            current_module.key_up()
+                            elif keycode == keyboard.DN:
+                                current_module.key_down()
 
-                        elif keycode == keyboard.DN:
-                            current_module.key_down()
+                            elif keycode == keyboard.ENT:
+                                current_module.key_enter()
 
-                        elif keycode == keyboard.ENT:
-                            current_module.key_enter()
+                            elif keycode == keyboard.B:
+                                current_module.key_b()
 
-                        elif keycode == keyboard.B:
-                            current_module.key_b()
+                            elif keycode == keyboard.C:
+                                current_module.key_c()
 
-                        elif keycode == keyboard.C:
-                            current_module.key_c()
-
-                        elif keycode == keyboard.D:
-                            current_module.key_d()
+                            elif keycode == keyboard.D:
+                                current_module.key_d()
 
                 update_msg = current_module.update()
                 if update_msg:
@@ -389,6 +405,33 @@ def main(script_name=None):
                     bg_task_warmup = 5
                     for module in ui_modes:
                         module.background_update()
+
+                # check for coming out of power save...
+                if get_sleep_timeout(cfg):
+                    # make sure that if there is a sleep
+                    # time configured, the power_save_warmup is reset
+                    if power_save_warmup == None:
+                        power_save_warmup = get_sleep_timeout(cfg)
+
+                    _imu = shared_state.imu()
+                    if _imu:
+                        if _imu["moving"]:
+                            power_save_warmup = get_sleep_timeout(cfg) - 1
+                            set_brightness(screen_brightness)
+                            shared_state.set_power_state(1)  # Normal
+
+                    if power_save_warmup == get_sleep_timeout(cfg):
+                        # It was just reset somewhere else
+                        set_brightness(screen_brightness)
+                        shared_state.set_power_state(1)  # Normal
+
+                    # Check for going into power save...
+                    power_save_warmup -= 1
+                    if power_save_warmup == 0:
+                        set_brightness(int(screen_brightness / 4))
+                        shared_state.set_power_state(0)  # sleep
+                    if power_save_warmup < 0:
+                        time.sleep(0.2)
 
         except KeyboardInterrupt:
             print("SHUTDOWN")

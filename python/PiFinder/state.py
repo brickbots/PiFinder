@@ -11,6 +11,7 @@ import pytz
 
 class SharedStateObj:
     def __init__(self):
+        self.__power_state = 1
         self.__solve_state = None
         self.__last_image_time = (0, 0)
         self.__solution = None
@@ -19,6 +20,12 @@ class SharedStateObj:
         self.__datetime = None
         self.__datetime_time = None
         self.__target = None
+
+    def power_state(self):
+        return self.__power_state
+
+    def set_power_state(self, v):
+        self.__power_state = v
 
     def solve_state(self):
         return self.__solve_state

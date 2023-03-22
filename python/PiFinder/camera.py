@@ -87,8 +87,21 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
     test_image_path = os.path.join(root_dir, "test_images", "pifinder_debug.png")
 
+    # 60 half-second cycles
+    sleep_delay = 60
     while True:
         imu = shared_state.imu()
+        if shared_state.power_state() == 0:
+            time.sleep(.5)
+
+            # Even in sleep mode, we want to take photos every
+            # so often to update positions
+            sleep_delay -= 1
+            if sleep_delay > 0:
+                continue
+            else:
+                sleep_delay = 60
+
         if imu and imu["moving"] and imu["status"] > 0:
             pass
         else:

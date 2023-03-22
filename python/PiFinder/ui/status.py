@@ -22,6 +22,12 @@ class UIStatus(UIModule):
     __title__ = "STATUS"
 
     _config_options = {
+        "Sleep Tim": {
+            "type": "enum",
+            "value": "",
+            "options": ["Off", "10s", "30s", "1m"],
+            "callback": "set_sleep_timeout",
+        },
         "WiFi Mode": {
             "type": "enum",
             "value": "UNK",
@@ -81,6 +87,9 @@ class UIStatus(UIModule):
         self._config_options["Mnt Side"]["value"] = self.config_object.get_option(
             "screen_direction"
         )
+        self._config_options["Sleep Tim"]["value"] = self.config_object.get_option(
+            "sleep_timeout"
+        )
 
         self.last_temp_time = 0
 
@@ -96,6 +105,10 @@ class UIStatus(UIModule):
             sys_utils.restart_pifinder()
         else:
             self.message("Error on Upd", 3)
+
+    def set_sleep_timeout(self, option):
+        self.config_object.set_option("sleep_timeout", option)
+        return False
 
     def side_switch(self, option):
         if option == "exit":
