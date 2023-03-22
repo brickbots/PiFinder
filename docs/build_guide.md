@@ -186,7 +186,7 @@ As you continue the assembly, keep an eye on the camera cable routing.  It's a b
 Refer to these images as needed while you complete the assembly:
 
 #### Left Handed
-For the left handed units, you'll need to get a half-twist in the cable during the routing.  It's probably easiest to do this in the space between the Pi and the UI Hat.
+For the left handed units, you'll need to get a half-twist in the cable during the routing.  It's probably easiest to do this in the space between the Pi and the UI Hat.  Thank you [u/rwills](https://www.reddit.com/user/rwills) for working out the orientation/cable routing for left hand versions and providing these photos.
 ![Left hand cable routing 1](../images/build_guide/lh_cable_route.png)
 
 #### Right Handed

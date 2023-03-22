@@ -1,5 +1,8 @@
 Here's a full list of all the items you'll need to build your own PiFinder.  It roughly follows the [Build Guide](./build_guide.md) and I've tried to provide current sources where possible.  Reach out with any questions!
 
+For those folks in the US, Digikey has most of the electronics components and this List can get you started:
+[https://www.digikey.com/en/mylists/list/JMHESEPVKV](https://www.digikey.com/en/mylists/list/JMHESEPVKV)
+
 ## PiFinder Hat Components
 These are the electronic bits needed to build the Display/Keypad unit that fits onto the Raspberry Pi as a 'Hat'.  It's all throughhole soldering so should be approachable for all skill levels.
 
@@ -10,10 +13,10 @@ These are the electronic bits needed to build the Display/Keypad unit that fits 
 | 1   | Waveshare 1.5 RGB Oled                       | https://www.waveshare.com/wiki/1.5inch_OLED_Module      |                                                                                       |
 | 1   | Adafruit IMU Fusion Breakout - BNO055        | https://www.adafruit.com/product/4646                   |                                                                                       |
 | 1   | 2x20 40 Pin Stacking Female Header           | https://www.amazon.com/dp/B0827THC7R                    | Depending on your heatsink/clearance you'll need long pins on this to make up the gap |
-| 3   | M3x11 Bolts                                  |                                                         |                                                                                       |
 
 
-## Rapsberry Pi / Camera / GPS
+
+## Raspberry Pi / Camera / GPS
 These are the bigger items/assemblies which you'll need to purchase to include in the overall build.
 
 | Qty | Item                            | URL                                           | Notes                                                                                                                    |
@@ -42,6 +45,6 @@ In addition to the 3d printed parts detailed in the [Build Guide](./build_guide.
 | 4   | M2x2mm spacer           |     | Length is not critical                                                                                                                                                                          |
 
 ## Power
-The PiFinder takes about .8amp at 5v under full load.  For battery sizing a good rule of thumb would be one hour of run time per 1000mah of battery capacity.  You can use any batter pack that will produce at least 1 amp of power and plug this into the USB-C port on the unit.
+The PiFinder takes about .9amp at 5v under full load, and about 60% of this when in power-save/idle mode.  For battery sizing a good rule of thumb would be 1.25 hour of run time per 1000mah of battery capacity.  You can use any batter pack that will produce at least 1.5 amp of power and plug this into the USB-C port on the unit.
 
 If you'd like to have a fully stand-alone unit with integrated rechargeable battery, there are instructing in the build guide for integrating a [PiSugar S plus](https://github.com/PiSugar/PiSugar/wiki/PiSugarS-Plus).  This is the lower-cost version without RTC, but it has a 5000mah battery which should provide about 5 hours of run time.  
