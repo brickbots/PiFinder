@@ -68,12 +68,12 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
     camera = Picamera2()
 
     # Figure out camera type, hq or gs (global shutter)
-    camera_type = 'hq'
+    camera_type = "hq"
     gain_mult = 1
     sensor_modes = camera.sensor_modes
     if len(sensor_modes) == 1:
         gain_mult = 3
-        camera_type='gs'
+        camera_type = "gs"
 
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
@@ -140,7 +140,7 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
             if command == "exp_save":
                 console_queue.put("CAM: Exp Saved")
                 cfg.set_option("camera_exp", exposure_time)
-                cfg.set_option("camera_gain", int(analog_gain/gain_mult))
+                cfg.set_option("camera_gain", int(analog_gain / gain_mult))
 
             if command.startswith("save"):
                 filename = command.split(":")[1]
