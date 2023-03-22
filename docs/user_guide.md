@@ -24,7 +24,7 @@
   * [Data Access (SMB Share)](#data-access)
   * [Shutdown and Restart](#shutdown-and-Restart)
   * [Observing lists](#observing-lists)
-  * [Software Update](#software-update)
+  * [Update Software](#update-software)
 - [FAQ](#faq)
 
 ## Introduction and Overview
@@ -319,7 +319,7 @@ Shutdown and Restart actions are available from the [Options](#options) for the 
 
 Restarting the PiFinder software should not normally be needed, but can be useful for generating a new session id which is included for a photos and logging during a particular execution of the PiFinder software.
 
-#### Observing lists
+### Observing lists
 PiFinder maintains two lists of objects for each observing session; The History list and the Observing list.  
 
 The History list will any object that you set as a target to push-to.  It's added to as soon as you press the _ENT_ key on the catalog screen to select an object.  The main purpose of the History list is to let you scroll back through objects you have observed that session.
@@ -328,7 +328,7 @@ The Observing list is a list of objects that is populated from either a filtered
 
 Both these lists start empty at the beginning of each session.  To populate an observing list you can push a filtered list of objects from the [Catalog](#catalog) screen.
 
-#### Update Software
+### Update Software
 ##### v1.2.2 or greater
 A Software action is available from the [Options](#options) for the [Status](#status) screen.  This will both show which version the PiFinder currently has installed and allow you to Upd the software if the PiFinder is connected to the internet.  You man need to switch [WiFi](#wifi) modes to Client if the device is in AP mode.
 
