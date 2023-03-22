@@ -10,6 +10,16 @@ def shutdown():
     return True
 
 
+def update_software():
+    """
+    Uses systemctl to git pull and then restart
+    service
+    """
+    print("SYS: Pulling software")
+    sh.git("pull")
+    return True
+
+
 def restart_pifinder():
     """
     Uses systemctl to restart the PiFinder

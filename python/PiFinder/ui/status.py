@@ -46,12 +46,20 @@ class UIStatus(UIModule):
             "options": ["Syst", "exit"],
             "callback": "shutdown",
         },
+        "Software": {
+            "type": "enum",
+            "value": "",
+            "options": ["Upd", "exit"],
+            "callback": "update_software",
+        },
     }
 
     def __init__(self, *args):
         super().__init__(*args)
         with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wfs:
             self._config_options["WiFi Mode"]["value"] = wfs.read()
+        with open("/home/pifinder/PiFinder/version.txt", "r") as ver:
+            self._config_options["Software"]["value"] = ver.read()
         self.status_dict = {
             "LST SLV": "           --",
             "RA/DEC": "           --",
@@ -75,6 +83,19 @@ class UIStatus(UIModule):
         )
 
         self.last_temp_time = 0
+
+    def update_software(self, option):
+        if option == "exit":
+            with open("/home/pifinder/PiFinder/version.txt", "r") as ver:
+                self._config_options["Software"]["value"] = ver.read()
+            return False
+
+        self.message("Updating...", 10)
+        if sys_utils.update_software():
+            self.message("Ok! Restaring", 10)
+            sys_utils.restart_pifinder()
+        else:
+            self.message("Error on Upd", 3)
 
     def side_switch(self, option):
         if option == "exit":
@@ -165,7 +186,9 @@ class UIStatus(UIModule):
 
             # IP address
             try:
-                self.status_dict["IP ADDR"] = socket.gethostbyname(f"{socket.gethostname()}.local")
+                self.status_dict["IP ADDR"] = socket.gethostbyname(
+                    f"{socket.gethostname()}.local"
+                )
             except socket.gaierror:
                 pass
 
