@@ -60,7 +60,7 @@ If you are using the recommended lens, it will have two adjustment rings on it; 
 Make sure the aperture of your lens is all the way open.  For the recommend lens, turn the f-stop ring towards you all the way if you are looking at the unit like like the image above.
 
 #### Focus
-Focus for plate solving is actually not all the critical, and defocusing a bit can even improve the solve as it spreads star light across multiple pixels.  You can either use a very distant object during the day, or a bright star at night.  
+Focus for plate solving is actually not all the critical, and defocusing a bit can even improve the solve as it spreads star light across multiple pixels.  You can either use a very distant object during the day, or a bright star at night.  Start with the focus ring all the way to the 'Far' end and you'll probably be close enough to solve most areas of the sky.  Better focus may help pick out a few dimmer stars and allow you to potentially reduce exposure time.
 
 There is a focus helper in the [Preview](#preview) options to help.  This will show a zoomed in image from the center of the camera view to help you hit focus on the small screen.
 To activate the focus helper, hold down the 'A' function key while in preview mode and turn on the option from the settings menu.  As you adjust the focus ring, you'll have to wait a second or two make after each adjustment to see the results in the exposure.
@@ -87,6 +87,12 @@ Along with the 1.5" oled screen, the keypad has three primary parts, a numeric k
 
 - If the GPS has locked and provided a location, the GPS square in the status bar will be filled in and the G will be in black.  
 - The solver status will show either C (Camera) or I (IMU) depending on the source of the last position fix.  The background of this square fades from red to black, over six seconds, indicating the time since last solve.  
+
+## Power Save Mode
+
+The PiFinder will dim the screen and reduce the frequency of exposures, solving, and other processes when it's been idle for a period of time.  This helps save battery power and can also prevent glare at the eyepiece in especially dark environments.  The default is 30 seconds and this can be configured, or turned off completely, in the [Options](#options) page of the [Status](#status) screen.
+
+Pressing any button, or moving the PFinder will wake it from power save mode.
 
 ## UI Screens
 The user interface for the PiFinder is split into various screens that you can switch between to perform different tasks.  The A key is used to cycle between the three main screens:

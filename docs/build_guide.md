@@ -97,7 +97,9 @@ Finally, you can attach the lens now, or a bit later in the assembly.  It screws
 
 ## Power
 
-Before continuing to the case build, you'll have to decide how you are going to power the PiFinder.   If you already have 5v power on the scope, or the facility to add a batter pack somewhere, this is probably the easiest way.  
+Before continuing to the case build, you'll have to decide how you are going to power the PiFinder.   If you already have 5v power on the scope, or the facility to add a battery pack somewhere, this is probably the easiest way.  
+
+The power consumption of the PiFinder averages .9amp under full load.  In power save mode (configurable in the Options page of the Status screen) it's about .5amp.  Depending on your usage you should get more than 1.25 hour of usage out of each 1000mah of your battery pack.
 
 If you want the unit to be fully self-contained, I suggest the PiSugar-S power system.  They are a thin board that mounts right under the Pi between it and the 3d printed holder.  A nice 5000mah battery is included and it can provide enough power for the unit for about 5 hours.  If you are going to use a PiSugar, make sure you print the case pieces with the `_ps` suffixes for best results.  The shroud is a bit longer and has a cut-out for the power switch while the back-piece is a bit wider to make room for the battery beside the camera.  Here's a photo of a left-handed unit with the PiSugar installed:
 
@@ -169,7 +171,7 @@ IMPORTANT: If you are using the recommended S Plus unit, turn the 'Auto Startup'
 ![Pi Mounting](../images/build_guide/IMG_4688.jpeg)
 
 ##### PiSugar
-Here's a photo of the PiSugar arrangement in a left-hand unit with the newer Pi mount piece is the same for builds with and without the Pi Sugar but is different for Left and Right hand builds.  
+Here's a photo of the PiSugar arrangement in a left-hand unit with the newer Pi mount piece.  The mount is the same for builds with and without the Pi Sugar but is different for Left and Right hand builds.  
 
 ![PiSugar Pi mounting](../images/build_guide/IMG_4812.jpeg)
 
@@ -177,7 +179,19 @@ Here's a photo of the PiSugar arrangement in a left-hand unit with the newer Pi 
 Next, attach the camera cable to the pi and route it around and through the hole in the Pi Mount.  This can be done later, but it's just a bit fussier.   If you have the Hat fitted, remove it first and route the cable per below
 
 ![Pi Mounting](../images/build_guide/IMG_4690.jpeg)
-![Pi Mounting](../images/build_guide/IMG_4691.jpeg)
+
+### Camera Cable Routing
+As you continue the assembly, keep an eye on the camera cable routing.  It's a bit delicate and it is best to be routing it as you assemble more and more of the unit.  For both right and left hand units, the cable should ultimately exit the camera from the side of the camera that faces the Pi.  
+
+Refer to these images as needed while you complete the assembly:
+
+#### Left Handed
+For the left handed units, you'll need to get a half-twist in the cable during the routing.  It's probably easiest to do this in the space between the Pi and the UI Hat.
+![Left hand cable routing 1](../images/build_guide/lh_cable_route.png)
+
+#### Right Handed
+Right handed units don't require the cable twist, but still require some forethought to make the final assembly easy and tidy.
+![Camera Mounting](../images/build_guide/IMG_4716.jpeg)
 
 ##### PiSugar
 Before securing the Pi mount piece to the bottom, you need to prepare two zip-ties to hold the battery secure.  These slide between the PiSugar board and the mount plate and fit into the notches on the edge of the mount plate.  Keep them very loose, they just need to be there before you screw it to the bottom plate, and make sure the camera cable is routed as well. (see second image).  
