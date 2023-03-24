@@ -65,11 +65,13 @@ class SharedStateObj:
             return self.datetime()
 
         dt = self.datetime()
-        utc_tz = pytz.timezone("UTC")
-        dt = utc_tz.localize(dt)
         return dt.astimezone(pytz.timezone(self.__location["timezone"]))
 
     def set_datetime(self, dt):
+        if dt.tzname() == None:
+            utc_tz = pytz.timezone("UTC")
+            dt = utc_tz.localize(dt)
+
         if self.__datetime == None:
             self.__datetime_time = time.time()
             self.__datetime = dt

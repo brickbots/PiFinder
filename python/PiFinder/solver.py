@@ -20,7 +20,6 @@ from PiFinder.tetra3 import Tetra3
 from skyfield.api import (
     wgs84,
     load,
-    utc,
     Star,
     Angle,
     position_of_radec,
@@ -63,7 +62,6 @@ class Skyfield_utils:
         returns the ra/dec of a specfic
         apparent alt/az at the given time
         """
-        dt = dt.replace(tzinfo=utc)
         ts = load.timescale()
         t = ts.from_datetime(dt)
 
@@ -77,7 +75,6 @@ class Skyfield_utils:
         returns the apparent ALT/AZ of a specfic
         RA/DEC at the given time
         """
-        dt = dt.replace(tzinfo=utc)
         ts = load.timescale()
         t = ts.from_datetime(dt)
 
