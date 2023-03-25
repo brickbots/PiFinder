@@ -8,6 +8,7 @@ and importers used during setup
 import sqlite3
 import os
 from PiFinder.obj_types import OBJ_DESCRIPTORS
+from PiFinder import config
 from pprint import pprint
 
 
@@ -47,7 +48,7 @@ def create_logging_tables():
                 session_uid TEXT,
                 obs_time_local INTEGER,
                 catalog TEXT,
-                designation INTEGER,
+                sequence INTEGER,
                 solution TEXT,
                 notes TEXT
            )
@@ -117,18 +118,13 @@ def load_deepmap_600():
     return obj_list
 
 
-def load_ngc_catalog():
+def init_catalog_tables():
     """
-    checks for presense of sqllite db
-    If found, exits
-    if not, tries to load ngc2000 data from
-    ../../astro_data/ngc2000
+    Creates blank catalog tables
+
     """
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
     db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
-    if os.path.exists(db_path):
-        print("DB Exists")
-        return False
 
     # open the DB
     conn = sqlite3.connect(db_path)
@@ -136,11 +132,13 @@ def load_ngc_catalog():
     db_c = conn.cursor()
 
     # initialize tables
+    db_c.execute("drop table if exists objects")
     db_c.execute(
         """
            CREATE TABLE objects(
                 catalog TEXT,
-                designation INTEGER,
+                catalog_short TEXT,
+                sequence INTEGER,
                 obj_type TEXT,
                 ra NUMERIC,
                 dec NUMERIC,
@@ -153,19 +151,38 @@ def load_ngc_catalog():
         """
     )
 
+    db_c.execute("drop table if exists names")
     db_c.execute(
         """
            CREATE TABLE names(
                 common_name TEXT,
                 catalog TEXT,
-                designation INTEGER,
+                sequence INTEGER,
                 comment TEXT
            )
         """
     )
 
+def load_ngc_catalog():
+    """
+    checks for presense of sqllite db
+    If found, exits
+    if not, tries to load ngc2000 data from
+    ../../astro_data/ngc2000
+    """
+    root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
+    if not os.path.exists(db_path):
+        print("DB does not exists")
+        return False
+
+    # open the DB
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    db_c = conn.cursor()
+
     # Track M objects to avoid double adding some with
-    # multiple NGC designations
+    # multiple NGC sequences
     m_objects = []
     # load em up!
     # ngc2000.dat + messier.dat
@@ -178,14 +195,21 @@ def load_ngc_catalog():
             for l in ngc:
                 add = True
                 catalog = l[0:1]
-                if catalog == " ":
-                    catalog = "N"
-                designation = int(l[1:5])
+                if catalog == " " or catalog == "N":
+                    catalog = "NGC"
+                    catalog_short = "NGC"
+                if catalog == "I":
+                    catalog == "IC"
+                    catalog_short = "IC"
                 if catalog == "M":
-                    if designation not in m_objects:
-                        m_objects.append(designation)
+                    catalog = "Messier"
+                    catalog_short = "Mes"
+                    if sequence not in m_objects:
+                        m_objects.append(sequence)
                     else:
                         add = False
+
+                sequence = int(l[1:5])
                 if add:
                     obj_type = l[6:9].strip()
                     rah = int(l[10:12])
@@ -210,7 +234,8 @@ def load_ngc_catalog():
                             INSERT INTO objects
                             VALUES(
                                 "{catalog}",
-                                {designation},
+                                "{catalog_short}",
+                                {sequence},
                                 "{obj_type}",
                                 {ra},
                                 {dec},
@@ -234,26 +259,29 @@ def load_ngc_catalog():
             for l in names:
                 common_name = l[0:35]
                 if common_name.startswith("M "):
-                    m_designation = int(common_name[2:].strip())
-                    if m_designation not in m_objects:
+                    m_sequence = int(common_name[2:].strip())
+                    if m_sequence not in m_objects:
                         catalog = l[36:37]
-                        if catalog == " ":
-                            catalog = "N"
-                        designation = l[37:41].strip()
+                        if catalog == " " or catalog == "N":
+                            catalog = "NGC"
+                        if catalog == "I":
+                            catalog = "IC"
+                        sequence = l[37:41].strip()
 
                         q = f"""
                             SELECT * from objects
                             where catalog="{catalog}"
-                            and designation="{designation}"
+                            and sequence="{sequence}"
                         """
                         tmp_row = conn.execute(q).fetchone()
                         if tmp_row:
-                            m_objects.append(m_designation)
+                            m_objects.append(m_sequence)
                             q = f"""
                                 INSERT INTO objects
                                 VALUES(
-                                    "M",
-                                    {m_designation},
+                                    "Messier",
+                                    "Mes",
+                                    {m_sequence},
                                     "{tmp_row['obj_type']}",
                                     {tmp_row['ra']},
                                     {tmp_row['dec']},
@@ -276,16 +304,21 @@ def load_ngc_catalog():
                 catalog = l[36:37]
                 if catalog == " ":
                     catalog = "N"
-                designation = l[37:41].strip()
+                if catalog == "N":
+                    catalog = "NGC"
+                if catalog == "I":
+                    catalog = "IC"
+
+                sequence = l[37:41].strip()
                 comment = l[42:]
 
-                if designation != "":
+                if sequence != "":
                     q = f"""
                             INSERT INTO names
                             values(
                                 "{common_name}",
                                 "{catalog}",
-                                {designation},
+                                {sequence},
                                 "{comment.replace('"','""')}"
                             )
                         """
@@ -300,16 +333,16 @@ def load_ngc_catalog():
 
             ls = l.split("\t")
             common_name = ls[1][:-1]
-            catalog = "M"
-            designation = ls[0][1:]
+            catalog = "Messier"
+            sequence = ls[0][1:]
 
-            if designation != "":
+            if sequence != "":
                 q = f"""
                         INSERT INTO names
                         values(
                             "{common_name}",
                             "{catalog}",
-                            {designation},
+                            {sequence},
                             "{comment.replace('"','""')}"
                         )
                     """
