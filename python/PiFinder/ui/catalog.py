@@ -6,7 +6,9 @@ This module contains all the UI Module classes
 """
 import datetime
 import time
+import pytz
 import os
+import math
 import sqlite3
 from PIL import ImageFont
 
@@ -15,6 +17,53 @@ from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 
 RED = (0, 0, 255)
+
+
+class FastAltAz:
+    def __init__(self, lat, lon, dt):
+        self.lat = lat
+        self.lon = lon
+        self.dt = dt
+
+        j2000 = datetime.datetime(2000, 1, 1, 12, 0, 0)
+        utc_tz = pytz.timezone("UTC")
+        j2000 = utc_tz.localize(j2000)
+        _d = self.dt - j2000
+        days_since_j2000 = _d.total_seconds() / 60 / 60 / 24
+
+        dec_hours = self.dt.hour + (self.dt.minute / 60)
+
+        lst = 100.46 + 0.985647 * days_since_j2000 + self.lon + 15 * dec_hours
+
+        self.local_siderial_time = lst % 360
+
+    def radec_to_altaz(self, ra, dec, alt_only=False):
+        hour_angle = (self.local_siderial_time - ra) % 360
+
+        _alt = math.sin(dec * math.pi / 180) * math.sin(
+            self.lat * math.pi / 180
+        ) + math.cos(dec * math.pi / 180) * math.cos(
+            self.lat * math.pi / 180
+        ) * math.cos(
+            hour_angle * math.pi / 180
+        )
+
+        alt = math.asin(_alt) * 180 / math.pi
+        if alt_only:
+            return alt
+
+        _az = (
+            math.sin(dec * math.pi / 180)
+            - math.sin(alt * math.pi / 180) * math.sin(self.lat * math.pi / 180)
+        ) / (math.cos(alt * math.pi / 180) * math.cos(self.lat * math.pi / 180))
+
+        _az = math.acos(_az) * 180 / math.pi
+
+        if math.sin(hour_angle * math.pi / 180) < 0:
+            az = _az
+        else:
+            az = 360 - _az
+        return alt, az
 
 
 class UICatalog(UIModule):
@@ -68,12 +117,6 @@ class UICatalog(UIModule):
         )
 
         self._catalog_item_index = 0
-
-        # Counters for the constantly running altitude
-        # calculations
-        self.__alt_catalog_index = 2
-        self.__alt_object_index = 0
-        self.__alt_dict = {}
 
         self.load_catalogs()
         self.set_catalog()
@@ -195,11 +238,7 @@ class UICatalog(UIModule):
         text_color = RED
         if self.cat_object:
             # check for visibility and adjust mag/size text color
-            obj_altitude = self.__alt_dict.get(
-                self.cat_object["catalog"] + str(self.cat_object["designation"])
-            )
-            if not obj_altitude:
-                obj_altitude = self.calc_object_altitude(self.cat_object)
+            obj_altitude = self.calc_object_altitude(self.cat_object)
 
             if obj_altitude:
                 if obj_altitude < 10:
@@ -276,6 +315,20 @@ class UICatalog(UIModule):
         magnitude_filter = self._config_options["Magnitude"]["value"]
         type_filter = self._config_options["Obj Types"]["value"]
         altitude_filter = self._config_options["Alt Limit"]["value"]
+
+        fast_aa = None
+        if altitude_filter != "None":
+            # setup
+            solution = self.shared_state.solution()
+            location = self.shared_state.location()
+            dt = self.shared_state.datetime()
+            if location and dt and solution:
+                fast_aa = FastAltAz(
+                    location["lat"],
+                    location["lon"],
+                    dt,
+                )
+
         for obj in self.__catalogs[catalog_name]:
             include_obj = True
 
@@ -291,13 +344,14 @@ class UICatalog(UIModule):
             if type_filter != ["None"] and obj["obj_type"] not in type_filter:
                 include_obj = False
 
-            obj_altitude = self.__alt_dict.get(obj["catalog"] + str(obj["designation"]))
-            if (
-                obj_altitude != None
-                and altitude_filter != "None"
-                and obj_altitude < altitude_filter
-            ):
-                include_obj = False
+            if fast_aa:
+                obj_altitude = fast_aa.radec_to_altaz(
+                    obj["ra"],
+                    obj["dec"],
+                    alt_only=True,
+                )
+                if obj_altitude < altitude_filter:
+                    include_obj = False
 
             if include_obj:
                 self._filtered_catalog.append(obj)
@@ -314,18 +368,16 @@ class UICatalog(UIModule):
         location = self.shared_state.location()
         dt = self.shared_state.datetime()
         if location and dt and solution:
-            self.sf_utils.set_location(
+            aa = FastAltAz(
                 location["lat"],
                 location["lon"],
-                location["altitude"],
+                dt,
             )
-            obj_alt, obj_az = self.sf_utils.radec_to_altaz(
+            obj_alt = aa.radec_to_altaz(
                 obj["ra"],
                 obj["dec"],
-                dt,
-                atmos=False,
+                alt_only=True,
             )
-            self.__alt_dict[obj["catalog"] + str(obj["designation"])] = obj_alt
             return obj_alt
 
         return None
@@ -336,23 +388,7 @@ class UICatalog(UIModule):
         this calculates the next item
         in the list of objects to calculate
         """
-        current_catalog = self.__catalogs[
-            self.__catalog_names[self.__alt_catalog_index]
-        ]
-        obj = current_catalog[self.__alt_object_index]
-        obj_alt = self.calc_object_altitude(obj)
-        if obj_alt:
-            self.__alt_object_index += 1
-            if self.__alt_object_index >= len(current_catalog):
-                print("AF: Finished " + self.__catalog_names[self.__alt_catalog_index])
-                if self.__alt_object_index == self.catalog_index:
-                    # call set catalog to re-filter display....
-                    self.set_catalog()
-
-                self.__alt_object_index = 0
-                self.__alt_catalog_index += 1
-                if self.__alt_catalog_index >= len(self.__catalog_names):
-                    self.__alt_catalog_index = 0
+        return
 
     def find_by_designator(self, designator):
         """
