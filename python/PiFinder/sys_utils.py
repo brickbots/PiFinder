@@ -15,8 +15,8 @@ def update_software():
     Uses systemctl to git pull and then restart
     service
     """
-    print("SYS: Pulling software")
-    sh.git("pull")
+    print("SYS: Running update")
+    sh.bash("/home/pifinder/PiFinder/pifinder_update.sh")
     return True
 
 
