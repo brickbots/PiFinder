@@ -163,6 +163,123 @@ def init_catalog_tables():
         """
     )
 
+def load_collinder():
+    root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
+    if not os.path.exists(db_path):
+        print("DB does not exists")
+        return False
+
+    # open the DB
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    db_c = conn.cursor()
+
+    coll = os.path.join(root_dir, "astro_data", "collinder.txt")
+    with open(coll, "r") as df:
+        df.readline()
+        for l in df:
+            dfs = l.split('\t')
+            sequence = dfs[0].split(' ')[0]
+            other_names =dfs[1]
+            if other_names.isnumeric():
+                other_names = "NGC" + other_names
+
+            const = dfs[2]
+            ra = dfs[3]
+            ra_h = int(ra[0:2])
+            ra_m = int(ra[4:6])
+            ra_s = float(ra[8:12])
+            ra_deg = ra_h
+            if ra_m > 0:
+                ra_deg += (60 / ra_m)
+            if ra_s > 0:
+                ra_deg += (60*60/ra_s)
+            ra_deg *= 15
+
+            dec = dfs[4]
+            dec_sign = dec[0]
+            dec_deg = int(dec[1:3])
+            dec_m = int(dec[5:7])
+            dec_s = int(dec[9:11])
+            if dec_m > 0:
+                dec_deg += (60/dec_m)
+            if dec_s > 0:
+                dec_deg += (60*60/dec_s)
+            if dec_sign == "-":
+                dec_deg *= -1
+
+            size = dfs[7]
+            desc = f"{dfs[6]} stars, like {dfs[8]}"
+
+            q = f"""
+                insert into objects(
+                    catalog,
+                    catalog_short,
+                    sequence,
+                    ra,
+                    dec,
+                    const,
+                    size,
+                    desc
+                )
+                values (
+                    "Collinder",
+                    "Col",
+                    {sequence},
+                    {ra_deg},
+                    {dec_deg},
+                    "{const}",
+                    "{size}",
+                    "{desc}"
+                )
+            """
+            db_c.execute(q)
+            if other_names !='':
+                db_c.execute(
+                    f"""
+                        insert into names(common_name, catalog, sequence)
+                        values ("{other_names}", "Collinder", {sequence})
+                    """
+                )
+
+    conn.commit()
+    type_trans={
+            "Open cluster": "OC",
+            "Asterism": "Ast",
+            "Globular cluster": "Gb",
+    }
+    coll2 = os.path.join(root_dir, "astro_data", "collinder2.txt")
+    with open(coll2, "r") as df:
+        df.readline()
+        for l in df:
+            dfs = l.split('\t')
+            sequence = dfs[0].split(' ')[1]
+            obj_type = type_trans.get(dfs[4], "OC")
+            mag = dfs[6].strip().split(' ')[0]
+            if mag == "-":
+                mag = "null"
+            other_names =dfs[2]
+
+            q = f"""
+                    UPDATE objects
+                    set
+                        obj_type = "{obj_type}",
+                        mag = {mag}
+                    where
+                        catalog = "Collinder"
+                        and sequence = {sequence}
+                """
+            db_c.execute(q)
+            if other_names !='':
+                db_c.execute(
+                    f"""
+                        insert into names(common_name, catalog, sequence)
+                        values ("{other_names}", "Collinder", {sequence})
+                    """
+                )
+    conn.commit()
+
 def load_ngc_catalog():
     """
     checks for presense of sqllite db

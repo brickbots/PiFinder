@@ -20,6 +20,10 @@ RED = (0, 0, 255)
 
 
 class FastAltAz:
+    """
+    Adapted from example at:
+    http://www.stargazing.net/kepler/altaz.html
+    """
     def __init__(self, lat, lon, dt):
         self.lat = lat
         self.lon = lon
