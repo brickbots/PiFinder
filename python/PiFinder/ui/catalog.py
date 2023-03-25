@@ -124,10 +124,10 @@ class UICatalog(UIModule):
     def update_config(self):
         # call load catalog to re-filter if needed
         self.set_catalog()
-        self._catalog_item_index = 0
 
         # Reset any designations....
-        self.key_d()
+        if not self._catalog_item_index:
+            self.key_d()
 
     def push_list(self, option):
         self._config_options["Push List"]["value"] = ""
@@ -304,7 +304,13 @@ class UICatalog(UIModule):
         Does filtering based on params
         populates self._filtered_catalog
         from in-memory catalogs
+        tries to maintain current index if applicable
         """
+        self.__last_filtered = time.time()
+        selected_object = None
+        if self._catalog_item_index:
+            selected_object = self._filtered_catalog[self._catalog_item_index]
+
         catalog_name = self.__catalog_names[self.catalog_index].strip()
         load_start_time = time.time()
 
@@ -357,11 +363,15 @@ class UICatalog(UIModule):
                 self._filtered_catalog.append(obj)
 
         self._catalog_count = (full_count, len(self._filtered_catalog))
-        if self._catalog_item_index >= len(self._filtered_catalog):
-            self._catalog_item_index = 0
+        if self._catalog_item_index:
+            if selected_object in self._filtered_catalog:
+                self._catalog_item_index = self._filtered_catalog.index(selected_object)
+            else:
+                self._catalog_item_index = 0
 
     def background_update(self):
-        self.calc_altitude()
+        if time.time() - self.__last_filtered > 60:
+            self.set_catalog()
 
     def calc_object_altitude(self, obj):
         solution = self.shared_state.solution()

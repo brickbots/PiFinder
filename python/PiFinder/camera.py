@@ -92,7 +92,7 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
     while True:
         imu = shared_state.imu()
         if shared_state.power_state() == 0:
-            time.sleep(.5)
+            time.sleep(0.5)
 
             # Even in sleep mode, we want to take photos every
             # so often to update positions
