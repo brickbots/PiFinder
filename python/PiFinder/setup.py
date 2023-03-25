@@ -137,7 +137,6 @@ def init_catalog_tables():
         """
            CREATE TABLE objects(
                 catalog TEXT,
-                catalog_short TEXT,
                 sequence INTEGER,
                 obj_type TEXT,
                 ra NUMERIC,
@@ -215,7 +214,6 @@ def load_collinder():
             q = f"""
                 insert into objects(
                     catalog,
-                    catalog_short,
                     sequence,
                     ra,
                     dec,
@@ -224,7 +222,6 @@ def load_collinder():
                     desc
                 )
                 values (
-                    "Collinder",
                     "Col",
                     {sequence},
                     {ra_deg},
@@ -239,7 +236,7 @@ def load_collinder():
                 db_c.execute(
                     f"""
                         insert into names(common_name, catalog, sequence)
-                        values ("{other_names}", "Collinder", {sequence})
+                        values ("{other_names}", "Col", {sequence})
                     """
                 )
 
@@ -267,7 +264,7 @@ def load_collinder():
                         obj_type = "{obj_type}",
                         mag = {mag}
                     where
-                        catalog = "Collinder"
+                        catalog = "Col"
                         and sequence = {sequence}
                 """
             db_c.execute(q)
@@ -275,7 +272,7 @@ def load_collinder():
                 db_c.execute(
                     f"""
                         insert into names(common_name, catalog, sequence)
-                        values ("{other_names}", "Collinder", {sequence})
+                        values ("{other_names}", "Col", {sequence})
                     """
                 )
     conn.commit()
@@ -314,13 +311,10 @@ def load_ngc_catalog():
                 catalog = l[0:1]
                 if catalog == " " or catalog == "N":
                     catalog = "NGC"
-                    catalog_short = "NGC"
                 if catalog == "I":
-                    catalog == "IC"
-                    catalog_short = "IC"
+                    catalog = "IC"
                 if catalog == "M":
-                    catalog = "Messier"
-                    catalog_short = "Mes"
+                    catalog = "Mes"
                     if sequence not in m_objects:
                         m_objects.append(sequence)
                     else:
@@ -351,7 +345,6 @@ def load_ngc_catalog():
                             INSERT INTO objects
                             VALUES(
                                 "{catalog}",
-                                "{catalog_short}",
                                 {sequence},
                                 "{obj_type}",
                                 {ra},
@@ -396,7 +389,6 @@ def load_ngc_catalog():
                             q = f"""
                                 INSERT INTO objects
                                 VALUES(
-                                    "Messier",
                                     "Mes",
                                     {m_sequence},
                                     "{tmp_row['obj_type']}",
@@ -425,6 +417,8 @@ def load_ngc_catalog():
                     catalog = "NGC"
                 if catalog == "I":
                     catalog = "IC"
+                if catalog == "M":
+                    catalog = "Mes"
 
                 sequence = l[37:41].strip()
                 comment = l[42:]
@@ -450,7 +444,7 @@ def load_ngc_catalog():
 
             ls = l.split("\t")
             common_name = ls[1][:-1]
-            catalog = "Messier"
+            catalog = "Mes"
             sequence = ls[0][1:]
 
             if sequence != "":

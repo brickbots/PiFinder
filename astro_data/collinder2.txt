@@ -1,0 +1,472 @@
+Collinder number	NGC/IC number	Other names	Image	Object type	Constellation	Apparent magnitude
+Cr 1	NGC 103		NGC 103 PanS.jpg	Open cluster	Cassiopeia	9.8
+Cr 2	NGC 129		NGC 0129 DSS.jpg	Open cluster	Cassiopeia	6.5
+Cr 3	NGC 133		NGC 133.png	Open cluster	Cassiopeia	9.4
+Cr 4	NGC 136		NGC 136 PanS.jpg	Open cluster	Cassiopeia	11.3
+Cr 5	NGC 146		NGC 146 PanS.jpg	Open cluster	Cassiopeia	9.1
+Cr 6	NGC 188			Open cluster	Cepheus	8.1
+Cr 7	NGC 225		NGC225HunterWilson.jpg	Open cluster	Cassiopeia	7.0
+Cr 8	IC 1590		NGC 0281 DSS.jpg	Open cluster	Cassiopeia	7.4
+Cr 9	NGC 366		NGC 0366 DSS.jpg	Open cluster	Cassiopeia	12.0
+Cr 10	NGC 381		NGC 381 PanS.jpg	Open cluster	Cassiopeia	9.3
+Cr 11	NGC 436		NGC 0436 DSS.jpg	Open cluster	Cassiopeia	8.8
+Cr 12	NGC 457	Owl or E.T. Cluster	NGC457.jpg	Open cluster	Cassiopeia	6.4
+Cr 13	NGC 559		NGC 559.png	Open cluster	Cassiopeia	9.5
+Cr 14	NGC 581		NGC 0581 DSS.jpg	Open cluster	Cassiopeia	7.4
+Cr 15	-	Trumpler 1	Trumpler 1.jpg	Open cluster	Cassiopeia	8.1
+Cr 16	NGC 609			Open cluster	Cassiopeia	11.0
+Cr 17	NGC 637		NGC 0637 DSS.jpg	Open cluster	Cassiopeia	8.2
+Cr 18	NGC 654		NGC 654,VdB6,LDN 1332,1334,1337 (Cassiopeia).jpg	Open cluster	Cassiopeia	6.5
+Cr 19	NGC 659		NGC 659.png	Open cluster	Cassiopeia	7.9
+Cr 20	NGC 663		NGC663HunterWilson.jpg	Open cluster	Cassiopeia	7.1
+Cr 21	-			Asterism	Triangulum	7.3
+Cr 22	NGC 744		NGC 0744 DSS.jpg	Open cluster	Perseus	7.9
+Cr 23	NGC 752		NGC 752.png	Open cluster	Andromeda	5.7
+Cr 24	NGC 869	h Persei of Double cluster	NGC869NGC884.jpg	Open cluster	Perseus	5.3
+Cr 25	NGC 884	χ Persei of Double cluster	NGC869NGC884.jpg	Open cluster	Perseus	6.1
+Cr 26	IC 1805		Melotte15HunterWilson.jpg	Open cluster	Cassiopeia	7.9
+Cr 27	NGC 956		NGC956 - SDSS DR14.jpg	Asterism	Andromeda	8.9
+Cr 28	NGC 957		NGC 0957 DSS.jpg	Open cluster	Perseus	7.6
+Cr 29	-	Trumpler 2	Tr 2.png	Open cluster	Perseus	5.9
+Cr 30	NGC 1027		NGC 1027.png	Open cluster	Cassiopeia	6.7
+Cr 31	NGC 1039		M34 2mass atlas.jpg	Open cluster	Perseus	5.2
+Cr 32	IC 1848	Westerhout 5	IC1848 JeffJohnson.jpg	Open cluster	Cassiopeia	6.5
+Cr 33	IC 1848	Westerhout 5	IC1848 JeffJohnson.jpg	Open cluster	Cassiopeia	5.9
+Cr 34	IC 1848	Westerhout 5	IC1848 JeffJohnson.jpg	Open cluster	Cassiopeia	6.8
+Cr 35	NGC 1193		NGC 1193 SDSS.jpg	Open cluster	Perseus	12.6
+Cr 36	-	Trumpler 3	Tr 3.png	Open cluster	Cassiopeia	7.0
+Cr 37	NGC 1220		NGC 1220 DSS.jpg	Open cluster	Perseus	11.8
+Cr 38	NGC 1245		NGC 1245 (8158753203).jpg	Open cluster	Perseus	8.4
+Cr 39	-	Alpha Persei Cluster	Alpha Persei Cluster.png	Open cluster	Perseus	1.2
+Cr 40	NGC 1342		NGC 1342.png	Open cluster	Perseus	6.7
+Cr 41	IC 348		Omicron Persei.jpg	Open cluster	Perseus	7.3
+Cr 42	-	Pleiades	Pleiades large.jpg	Open cluster	Taurus	1.2
+Cr 43	NGC 1444		NGC 1444 DSS.jpg	Open cluster	Perseus	6.6
+Cr 44	NGC 1496		NGC 1496 DSS.png	Open cluster	Perseus	9.6
+Cr 45	NGC 1502		NGC 1502.png	Open cluster	Camelopardalis	6.9
+Cr 46	NGC 1513		NGC 1513 DSS.jpg	Open cluster	Perseus	8.4
+Cr 47	NGC 1528		Ngc1528-RGB-crop.jpg	Open cluster	Perseus	6.4
+Cr 48	IC 361			Open cluster	Camelopardalis	11.7
+Cr 49	NGC 1545		NGC 1545.png	Open cluster	Perseus	6.2
+Cr 50	-	Hyades	Hyades.jpg	Open cluster	Taurus	0.5
+Cr 51	NGC 1582		NGC 1582.png	Open cluster	Perseus	7.0
+Cr 52	NGC 1605		NGC 1605 DSS.jpg	Open cluster	Perseus	10.7
+Cr 53	NGC 1624			Open cluster	Perseus	11.8
+Cr 54	NGC 1647		(palle)NGC 1647.jpg	Open cluster	Taurus	6.4
+Cr 55	NGC 1662		NGC 1662.png	Open cluster	Orion	6.4
+Cr 56	NGC 1664		NGC1664.jpg	Open cluster	Auriga	7.6
+Cr 57	NGC 1746		NGC 1758.jpg	Asterism	Taurus	6.1
+Cr 58	NGC 1778		NGC 1778 DSS.jpg	Open cluster	Auriga	7.7
+Cr 59	NGC 1807		NGC 1817 DSS.jpg	Open cluster	Orion, Taurus	7.0
+Cr 60	NGC 1817		NGC 1817 DSS.jpg	Open cluster	Taurus	7.7
+Cr 61	NGC 1857		NGC 1857 DSS.jpg	Open cluster	Auriga	7.0
+Cr 62	-			Open cluster	Auriga	4.2
+Cr 63	NGC 1893		NGC 1893 DSS.jpg	Open cluster	Auriga	7.5
+Cr 64	NGC 1883		NGC 1883 DSS.jpg	Open cluster	Auriga	12.0
+Cr 65	-		Cr 65.png	Open cluster	Taurus	3.0
+Cr 66	NGC 1907		IC 405 - IC 410 - M38 dss B (18857141595).jpg	Open cluster	Auriga	8.2
+Cr 67	NGC 1912		M38 Open Cluster.jpg	Open cluster	Auriga	6.4
+Cr 68	NGC 1931		NGC1931HunterWilson.jpg	Open cluster	Auriga	10.1
+Cr 69	-	Lambda Orionis Cluster	Collinder 69.jpg	Open cluster	Orion	2.8
+Cr 70	-	Orion's Belt	Orion Belt.jpg	Open cluster	Orion	0.6
+Cr 71	NGC 1960		M36 2mass.jpg	Open cluster	Auriga	6.0
+Cr 72	NGC 1980	Lower Sword	NGC 1980 DSS.jpg	Open cluster	Orion	2.5
+Cr 73	NGC 1981	Upper Sword	NGC 1981.jpg	Open cluster	Orion	4.2
+Cr 74	-			Open cluster	Orion	14.4
+Cr 75	NGC 2099		M37a.jpg	Open cluster	Auriga	5.6
+Cr 76	NGC 2112		NGC 2112 DSS.jpg	Open cluster	Orion	9.1
+Cr 77	NGC 2129		NGC2129 - SDSS DR14 (panorama).jpg	Open cluster	Gemini	6.7
+Cr 78	NGC 2126		NGC 2126 DSS.jpg	Open cluster	Auriga	10.2
+Cr 79	NGC 2141		NGC 2141 DSS.jpg	Open cluster	Orion	9.4
+Cr 80	-	Trumpler 4		Open cluster	Gemini	8.4
+Cr 81	NGC 2158		M35atlas.jpg	Open cluster	Gemini	8.6
+Cr 82	NGC 2168		M35atlas.jpg	Open cluster	Gemini	5.1
+Cr 83	NGC 2169	37 Cluster	NGC 2169.jpg	Open cluster	Orion	5.9
+Cr 84	NGC 2175		NGC2175 CDK Small 03.jpg	Open cluster	Orion	6.8
+Cr 85	NGC 2186		NGC 2186 DSS.jpg	Open cluster	Orion	8.7
+Cr 86	NGC 2192		NGC 2192 DSS.jpg	Open cluster	Auriga	10.9
+Cr 87	NGC 2194		NGC 2194 AOFPK.jpg	Open cluster	Orion	8.5
+Cr 88	NGC 2204		NGC 2204 DSS.jpg	Open cluster	Canis Major	8.6
+Cr 89	-			Open cluster	Gemini	5.7
+Cr 90	NGC 2215		NGC 2215 DSS.jpg	Open cluster	Monoceros	8.4
+Cr 91	-			Open cluster	Monoceros	6.4
+Cr 92	-			Open cluster	Monoceros	8.6
+Cr 93	NGC 2232		NGC 2232.png	Open cluster	Monoceros	4.2
+Cr 94	NGC 2236		NGC 2236 DSS.jpg	Open cluster	Monoceros	8.5
+Cr 95	-			Open cluster	Monoceros	-
+Cr 96	-			Open cluster	Monoceros	7.3
+Cr 97	-			Open cluster	Monoceros	5.4
+Cr 98	NGC 2243		NGC 2243 DSS.jpg	Open cluster	Canis Major	9.4
+Cr 99	NGC 2244	Satellite Cluster	Rosette Nebula in Monoceros.jpg	Open cluster	Monoceros	4.8
+Cr 100	NGC 2250		NGC 2250.jpg	Open cluster	Monoceros	8.9
+Cr 101	NGC 2251		NGC 2251.jpg	Open cluster	Monoceros	7.3
+Cr 102	NGC 2252		NGC 2252.jpg	Open cluster	Monoceros	7.7
+Cr 103	NGC 2254		NGC 2254.jpg	Open cluster	Monoceros	9.1
+Cr 104	-			Open cluster	Monoceros	9.6
+Cr 105	-	Trumpler 5		Open cluster	Monoceros	10.9
+Cr 106	-			Open cluster	Monoceros	4.6
+Cr 107	-			Open cluster	Monoceros	5.1
+Cr 108	NGC 2259		NGC 2259.jpg	Open cluster	Monoceros	10.8
+Cr 109	NGC 2262		NGC 2262.jpg	Open cluster	Monoceros	11.3
+Cr 110	-			Open cluster	Monoceros	10.5
+Cr 111	-			Open cluster	Monoceros	7.0
+Cr 112	NGC 2264	Christmas Tree Cluster	NGC 2264 Christmas Tree Nebula.jpg	Open cluster	Monoceros	4.1
+Cr 113	NGC 2266		NGC2266 - SDSS DR14 (panorama).jpg	Open cluster	Gemini	9.5
+Cr 114	NGC 2269		NGC 2269.jpg	Open cluster	Monoceros	10.0
+Cr 115	-			Open cluster	Monoceros	9.2
+Cr 116	NGC 2281		NGC 2281.png	Open cluster	Auriga	5.4
+Cr 117	NGC 2286		NGC 2286.jpg	Open cluster	Monoceros	7.5
+Cr 118	NGC 2287		Messier 041 2MASS.jpg	Open cluster	Canis Major	4.5
+Cr 119	NGC 2301		NGC2301 - SDSS DR14 (panorama).png	Open cluster	Monoceros	6.0
+Cr 120	NGC 2304		NGC 2304 DSS.jpg	Open cluster	Gemini	10.0
+Cr 121	-			Open cluster	Canis Major	2.6
+Cr 122	NGC 2309		NGC 2309 DSS.jpg	Open cluster	Monoceros	10.5
+Cr 123	NGC 2311		NGC 2311 DSS.jpg	Open cluster	Monoceros	9.6
+Cr 124	NGC 2323		M50a.jpg	Open cluster	Monoceros	5.9
+Cr 125	NGC 2324		NGC 2324 DSS.jpg	Open cluster	Monoceros	8.4
+Cr 126	NGC 2331		NGC 2331 DSS.jpg	Open cluster	Gemini	8.5
+Cr 127	NGC 2335		NGC 2335 DSS.jpg	Open cluster	Monoceros	7.2
+Cr 128	NGC 2343		NGC 2343 DSS.jpg	Open cluster	Monoceros	6.7
+Cr 129	NGC 2345		NGC 2345 DSS.jpg	Open cluster	Canis Major	7.7
+Cr 130	NGC 2353			Open cluster	Monoceros	7.1
+Cr 131	NGC 2354		NGC 2354.png	Open cluster	Canis Major	6.5
+Cr 132	-			Open cluster	Canis Major	3.6
+Cr 133	NGC 2355		NGC2355 - SDSS DR14 (panorama).jpg	Open cluster	Gemini	9.7
+Cr 134	NGC 2360	Caroline's Cluster	NGC 2360.png	Open cluster	Canis Major	7.2
+Cr 135	-	Pi Puppis Cluster	Pi Puppis Cluster.PNG	Open cluster	Puppis	2.1
+Cr 136	NGC 2362	Tau Canis Majoris Cluster	Starshine in Canis Major NGC 2362.tif	Open cluster	Canis Major	3.8
+Cr 137	NGC 2367		NGC 2367 DSS.png	Open cluster	Canis Major	7.9
+Cr 138	NGC 2368		NGC 2368 DSS.png	Open cluster	Monoceros	11.8
+Cr 139	NGC 2374		NGC2374 - SDSS DR14 (panorama).jpg	Open cluster	Canis Major	8.0
+Cr 140	-			Open cluster	Canis Major	3.5
+Cr 141	NGC 2383		NGC 2384 DSS.png	Open cluster	Canis Major	8.4
+Cr 142	NGC 2384a		NGC 2384 DSS.png	Open cluster	Canis Major	7.4
+Cr 143	NGC 2384b		NGC 2384 DSS.png	Open cluster	Canis Major	7.4
+Cr 144	NGC 2395		NGC 2395 DSS.jpg	Open cluster	Gemini	8.0
+Cr 145	-	Trumpler 6	Trumpler 6.jpg	Open cluster	Canis Major	10.0
+Cr 146	-	Trumpler 7	Trumpler 7.jpg	Open cluster	Puppis	7.9
+Cr 147	-	Melotte 66		Open cluster	Puppis	7.8
+Cr 148	NGC 2396		NGC 2396 DSS.png	Open cluster	Puppis	7.4
+Cr 149	NGC 2401		NGC 2401 DSS.jpg	Open cluster	Puppis	12.6
+Cr 150	NGC 2414		NGC 2414 DSS.jpg	Open cluster	Puppis	7.9
+Cr 151	NGC 2421		NGC 2421 DSS.jpg	Open cluster	Puppis	8.3
+Cr 152	NGC 2422		Eso1441a.jpg	Open cluster	Puppis	4.4
+Cr 153	NGC 2423		NGC 2423 DSS.jpg	Open cluster	Puppis	6.7
+Cr 154	NGC 2420		NGC 2420 DSS.jpg	Open cluster	Puppis	8.3
+Cr 155	-	Melotte 71		Open cluster	Puppis	7.1
+Cr 156	-	Melotte 72		Open cluster	Monoceros	10.1
+Cr 157	NGC 2432		NGC 2432 DSS.jpg	Open cluster	Puppis	10.2
+Cr 158	NGC 2439		NGC 2439.png	Open cluster	Puppis	6.9
+Cr 159	NGC 2437		Messier 46 - NGC 2437.jpg	Open cluster	Puppis	6.1
+Cr 160	NGC 2447		Messier object 093.jpg	Open cluster	Puppis	6.2
+Cr 161	NGC 2451		NGC 2451.png	Open cluster	Puppis	2.8
+Cr 162	NGC 2453		NGC 2453 DSS.jpg	Open cluster	Puppis	8.3
+Cr 163	NGC 2455		NGC 2455 DSS.jpg	Open cluster	Puppis	10.2
+Cr 164	NGC 2467		NGC 2467 and Surroundings.jpg	Open cluster	Puppis	7.1
+Cr 165	NGC 2477		NGC2477.jpg	Open cluster	Puppis	5.8
+Cr 166	NGC 2482		NGC 2482 DSS.jpg	Open cluster	Puppis	7.3
+Cr 167	-	Trumpler 8		Open cluster	Puppis	9.6
+Cr 168	-	Trumpler 9	Trumpler 9.jpg	Open cluster	Puppis	8.7
+Cr 169	NGC 2489		NGC 2489 DSS.jpg	Open cluster	Puppis	7.9
+Cr 170	NGC 2506		NGC 2506.png	Open cluster	Monoceros	7.6
+Cr 171	NGC 2509		NGC 2509 DSS.jpg	Open cluster	Puppis	9.3
+Cr 172	NGC 2516	Southern Beehive Cluster	NGC 2516.jpg	Open cluster	Carina	3.8
+Cr 173	-		Cr 173 (Vela OB2).jpg	Open cluster	Puppis, Vela	0.6
+Cr 174	NGC 2527		NGC 2527.png	Open cluster	Puppis	6.5
+Cr 175	NGC 2533		NGC 2533 DSS.jpg	Open cluster	Puppis	7.6
+Cr 176	NGC 2539		NGC 2539.png	Open cluster	Puppis	6.5
+Cr 177	NGC 2547		Star cluster NGC 2547.jpg	Open cluster	Vela	4.7
+Cr 178	NGC 2546		NGC 2546.png	Open cluster	Puppis	6.3
+Cr 179	NGC 2548		M48a.jpg	Open cluster	Hydra	5.8
+Cr 180	NGC 2567		NGC 2567 DSS.jpg	Open cluster	Puppis	7.4
+Cr 181	NGC 2571		NGC 2571 DSS.jpg	Open cluster	Puppis	7.0
+Cr 182	NGC 2579		NGC 2579 DSS.jpg	Open cluster	Puppis	7.5
+Cr 183	NGC 2580		NGC 2580 DSS.jpg	Open cluster	Puppis	9.7
+Cr 184	NGC 2587		NGC 2587 DSS.jpg	Open cluster	Puppis	9.2
+Cr 185	-			Open cluster	Puppis	7.8
+Cr 186	NGC 2588		NGC 2588 DSS.jpg	Open cluster	Puppis	11.8
+Cr 187	-			Open cluster	Puppis	9.6
+Cr 188	NGC 2627		NGC 2627 DSS.jpg	Open cluster	Pyxis	8.4
+Cr 189	NGC 2632	Beehive Cluster, Praesepe	Bf64580dfb9f301a0949e60106526057.1824x0 q100 watermark watermark opacity-10 watermark position-6 watermark text-Copyright Intihuatana.jpg	Open cluster	Cancer	3.1
+Cr 190	NGC 2635		NGC 2635 DSS.jpg	Open cluster	Pyxis	11.2
+Cr 191	IC 2391	Omicron Velorum Cluster	IC 2391 in Vele.jpg	Open cluster	Vela	2.0
+Cr 192	IC 2395		IC 2395.png	Open cluster	Vela	4.0
+Cr 193	NGC 2660		NGC 2660 DSS.jpg	Open cluster	Vela	8.8
+Cr 194	NGC 2659		NGC 2659 DSS.jpg	Open cluster	Vela	8.6
+Cr 195	NGC 2658		NGC 2658 DSS.jpg	Open cluster	Pyxis	9.2
+Cr 196	-			Open cluster	Pyxis	10.5
+Cr 197	-			Open cluster	Vela	6.7
+Cr 198	-			Open cluster	Pyxis	11.2
+Cr 199	NGC 2669		NGC 2669 DSS.jpg	Open cluster	Vela	6.1
+Cr 200	NGC 2670		NGC 2670 DSS.jpg	Open cluster	Vela	7.8
+Cr 201	NGC 2671		NGC 2671 DSS.jpg	Open cluster	Vela	11.6
+Cr 202	NGC 2669	Harvard 3	NGC 2669 DSS.jpg	Open cluster	Vela	6.1
+Cr 203	-	Trumpler 10		Open cluster	Vela	5.0
+Cr 204	NGC 2682		Messier object 067.jpg	Open cluster	Cancer	6.9
+Cr 205	-	Markarian 18		Open cluster	Cancer	7.8
+Cr 206	NGC 2818A		NGC 2818 DSS.jpg	Open cluster	Pyxis	8.2
+Cr 207	NGC 2849			Open cluster	Vela	12.5
+Cr 208	IC 2488			Open cluster	Vela	7.4
+Cr 209	NGC 2910			Open cluster	Vela	7.2
+Cr 210	NGC 2925			Open cluster	Vela	8.3
+Cr 211	NGC 2972			Open cluster	Vela	9.9
+Cr 212	NGC 3033			Open cluster	Vela	8.8
+Cr 213	-			Open cluster	Vela	9.2
+Cr 214	NGC 3105			Open cluster	Vela	9.7
+Cr 215	NGC 3114		NGC 3114.jpg	Open cluster	Carina	4.2
+Cr 216	-	Trumpler 11		Open cluster	Carina	8.1
+Cr 217	-	Trumpler 12		Open cluster	Carina	8.8
+Cr 218	NGC 3228		NGC 3228 DSS.jpg	Open cluster	Vela	6.0
+Cr 219	-	Trumpler 13		Open cluster	Carina	11.3
+Cr 220	-			Open cluster	Carina	7.6
+Cr 221	NGC 3255			Open cluster	Carina	11.0
+Cr 222	IC 2581			Open cluster	Carina	4.0
+Cr 223	-			Open cluster	Carina	9.4
+Cr 224	NGC 3293		Eso1422a.jpg	Open cluster	Carina	4.7
+Cr 225	NGC 3324		NGC 3324 The Nebula with a Face.jpg	Open cluster	Carina	6.7
+Cr 226	NGC 3330			Open cluster	Vela	7.4
+Cr 227	-	Melotte 101		Open cluster	Carina	8.0
+Cr 228	-			Open cluster	Carina	4.4
+Cr 229	IC 2602	Theta Carinae Cluster, Southern Pleiades	The Southern Pleiades (IC 2602).jpg	Open cluster	Carina	1.0
+Cr 230	-	Trumpler 14	ESO-Trumpler14-cluster.jpg	Open cluster	Carina	5.5
+Cr 231	-	Trumpler 15	Trumpler15.jpg	Open cluster	Carina	7.0
+Cr 232	-			Open cluster	Carina	6.8
+Cr 233	-	Trumpler 16	ESO - The Carina Nebula (by).jpg	Open cluster	Carina	5.0
+Cr 234	-	[note 1]	ESO - The Carina Nebula (by).jpg	Open cluster	Carina	5.0
+Cr 235	-	Trumpler 17		Open cluster	Carina	8.4
+Cr 236	-			Open cluster	Carina	7.7
+Cr 237	NGC 3496			Open cluster	Carina	8.2
+Cr 238	NGC 3532	Wishing Well Cluster	NGC 3532 in Carina.jpg	Open cluster	Carina	3.0
+Cr 239	NGC 3572			Open cluster	Carina	6.6
+Cr 240	-			Open cluster	Carina	3.9 [3]
+Cr 241	-	Trumpler 18		Open cluster	Carina	6.9
+Cr 242	NGC 3590		NGC 3590 DSS.jpg	Open cluster	Carina	8.2
+Cr 243	-	Trumpler 19		Open cluster	Carina	9.6
+Cr 244	NGC 3603		Stellar nursery NGC 3603.jpg	Open cluster	Carina	9.1
+Cr 245	IC 2714			Open cluster	Carina	8.0
+Cr 246	-	Melotte 105		Open cluster	Carina	8.5
+Cr 247	NGC 3680			Open cluster	Carina	7.6
+Cr 248	NGC 3766	Pearl Cluster	Star cluster NGC 3766.jpg	Open cluster	Centaurus	5.3
+Cr 249	-			Open cluster	Centaurus	4.0
+Cr 250	NGC 3960			Open cluster	Centaurus	8.3
+Cr 251	NGC 4052			Open cluster	Crux	8.8
+Cr 252	NGC 4103			Open cluster	Crux	7.4
+Cr 253	NGC 4203			Open cluster	Centaurus	9.4
+Cr 254	NGC 4337			Open cluster	Crux	8.9
+Cr 255	NGC 4349		NGC 4349.png	Open cluster	Crux	7.4
+Cr 256	-	Coma Star Cluster	ComaCluster.jpg	Open cluster	Coma Berenices	1.8
+Cr 257	-			Open cluster	Crux	-
+Cr 258	-			Open cluster	Crux	7.1
+Cr 259	NGC 4439			Open cluster	Crux	8.4
+Cr 260	NGC 4463			Open cluster	Musca	7.2
+Cr 261	-			Open cluster	Musca	10.7
+Cr 262	-	Trumpler 20		Open cluster	Crux	10.1
+Cr 263	NGC 4609		NGC 4609 large.png	Open cluster	Crux	6.9
+Cr 264	NGC 4755	Jewel Box	A Snapshot of the Jewel Box cluster with the ESO VLT.jpg	Open cluster	Crux	4.2
+Cr 265	NGC 4815			Open cluster	Musca	8.6
+Cr 266	NGC 4852			Open cluster	Centaurus	8.9
+Cr 267	NGC 5053		NGC5053 - SDSS DR14 (panorama).jpg	Globular cluster	Coma Berenices	9.0
+Cr 268	-			Open cluster	Musca	9.5
+Cr 269	-			Open cluster	Musca	9.2
+Cr 270	NGC 5138			Open cluster	Centaurus	7.6
+Cr 271	-			Open cluster	Centaurus	8.7
+Cr 272	-			Open cluster	Centaurus	7.7
+Cr 273	NGC 5168			Open cluster	Centaurus	9.1
+Cr 274	-	Trumpler 21		Open cluster	Centaurus	7.7
+Cr 275	-			Open cluster	Centaurus	10.2
+Cr 276	NGC 5281		NGC 5281.png	Open cluster	Centaurus	5.9
+Cr 277	-			Open cluster	Circinus	9.2
+Cr 278	NGC 5288			Open cluster	Circinus	11.8
+Cr 279	NGC 5316			Open cluster	Centaurus	6.0
+Cr 280	NGC 5460			Open cluster	Centaurus	5.6
+Cr 281	NGC 5606			Open cluster	Centaurus	7.7
+Cr 282	NGC 5617		NGC 5617.png	Open cluster	Centaurus	6.3
+Cr 283	-	Trumpler 22		Open cluster	Centaurus	7.9
+Cr 284	NGC 5662			Open cluster	Centaurus	5.5
+Cr 285	-	Ursa Major Moving Group	Ursa Major Łazy.jpg	Moving group	Ursa Major	4.4
+Cr 286	NGC 5715			Open cluster	Circinus	9.8
+Cr 287	NGC 5749			Open cluster	Lupus	8.8
+Cr 288	NGC 5764			Open cluster	Lupus	12.6
+Cr 289	NGC 5822		NGC 5822.png	Open cluster	Lupus	6.5
+Cr 290	NGC 5823		NGC 5823.png	Open cluster	Circinus	7.9
+Cr 291	NGC 5925			Open cluster	Norma	8.4
+Cr 292	-			Open cluster	Norma	7.9
+Cr 293	NGC 5999			Open cluster	Norma	9.0
+Cr 294	NGC 6005			Open cluster	Norma	10.7
+Cr 295	-	Trumpler 23		Open cluster	Norma	11.2
+Cr 296	NGC 6025		NGC 6025.jpg	Open cluster	Triangulum Australe	5.1
+Cr 297	NGC 6031			Open cluster	Norma	8.5
+Cr 298	NGC 6067		NGC 6067.png	Open cluster	Norma	5.6
+Cr 299	-	Harvard 10		Open cluster	Norma	6.9
+Cr 300	NGC 6087	S Normae Cluster	NGC 6087 full.png	Open cluster	Norma	5.4
+Cr 301	NGC 6124		NGC 6124 large.png	Open cluster	Scorpius	5.8
+Cr 302	-	Upper Scorpius association	Infrared Rho Ophiuchi Complex.jpg	Stellar association	Scorpius	1.0
+Cr 303	NGC 6134			Open cluster	Norma	7.2
+Cr 304	NGC 6152		Ngc 6152.jpg	Open cluster	Norma	8.1
+Cr 305	NGC 6167			Open cluster	Norma	6.7
+Cr 306	NGC 6169			Open cluster	Norma	6.6
+Cr 307	-			Open cluster	Norma	9.2
+Cr 308	NGC 6178			Open cluster	Scorpius	7.2
+Cr 309	NGC 6192			Open cluster	Scorpius	8.5
+Cr 310	NGC 6193		Star cluster NGC 6193 and nebula NGC 6188.jpg	Open cluster	Ara	5.2
+Cr 311	NGC 6200		NGC 6200.png	Open cluster	Ara	7.4
+Cr 312	NGC 6204		NGC 6204.png	Open cluster	Ara	8.2
+Cr 313	NGC 6208		NGC 6208.png	Open cluster	Ara	7.2
+Cr 314	NGC 6222			Open cluster	Scorpius	10.1
+Cr 315	NGC 6231		NGC6231 Chandra.jpg	Open cluster	Scorpius	2.6
+Cr 316	-	[note 2]		Open cluster	Scorpius	6.6
+Cr 317	NGC 6242		NGC 6242.png	Open cluster	Scorpius	6.4
+Cr 318	-	Trumpler 24		Open cluster	Scorpius	8.6
+Cr 319	NGC 6249			Open cluster	Scorpius	8.2
+Cr 320	NGC 6250		N6250s.jpg	Open cluster	Ara	5.9
+Cr 321	NGC 6253			Open cluster	Ara	10.2
+Cr 322	NGC 6259			Open cluster	Scorpius	8.0
+Cr 323	NGC 6268			Open cluster	Scorpius	9.5
+Cr 324	NGC 6281		NGC 6281.png	Open cluster	Scorpius	5.4
+Cr 325	NGC 6318			Open cluster	Scorpius	11.8
+Cr 326	NGC 6322			Open cluster	Scorpius	6.0
+Cr 327	IC 4651		The rich star cluster IC 4651.jpg	Open cluster	Ara	6.9
+Cr 328	NGC 6352		NGC 6352.jpg	Globular cluster	Ara	7.8
+Cr 329	-	Trumpler 25		Open cluster	Scorpius	11.7
+Cr 330	NGC 6355		NGC 6355 hst 11628 R555B438.png	Globular cluster	Ophiuchus	8.6
+Cr 331	-	Trumpler 26	Trumpler 26.jpg	Open cluster	Ophiuchus	9.5
+Cr 332	-			Open cluster	Scorpius	8.9
+Cr 333	-		Collinder 333.jpg	Open cluster	Scorpius	9.8
+Cr 334	NGC 6374 NGC 6383		NGC 6383.jpg	Open cluster	Scorpius	5.5
+Cr 335	NGC 6383		NGC 6383.jpg	Open cluster	Scorpius	5.5
+Cr 336	-	Trumpler 27	Trumpler 27.jpg	Open cluster	Scorpius	6.7
+Cr 337	-	Trumpler 28	Trumpler 28.jpg	Open cluster	Scorpius	7.7
+Cr 338	-			Open cluster	Scorpius	8.0
+Cr 339	NGC 6396			Open cluster	Scorpius	8.5
+Cr 340	NGC 6404			Open cluster	Scorpius	10.6
+Cr 341	NGC 6405	Butterfly Cluster	M6a.jpg	Open cluster	Scorpius	4.2
+Cr 342	NGC 6400		NGC 6400.png	Open cluster	Scorpius	8.8
+Cr 343	-	Trumpler 29		Open cluster	Scorpius	7.5
+Cr 344	NGC 6416		NGC 6416.jpg	Open cluster	Scorpius	5.7
+Cr 345	-			Open cluster	Scorpius	10.9
+Cr 346	NGC 6426		NGC 6426 HST 11586 R814B606.png	Globular cluster	Ophiuchus	10.9
+Cr 347	-			Open cluster	Ophiuchus	8.8
+Cr 348	NGC 6425			Open cluster	Scorpius	7.2
+Cr 349	IC 4665		IC 4665.png	Open cluster	Ophiuchus	4.2
+Cr 350	-			Open cluster	Ophiuchus	6.1
+Cr 351	-			Open cluster	Sagittarius	9.3
+Cr 352	NGC 6451			Open cluster	Scorpius	8.2
+Cr 353	NGC 6469			Open cluster	Sagittarius	8.2
+Cr 354	NGC 6475	Ptolemy Cluster	Messier7.jpg	Open cluster	Scorpius	3.3
+Cr 355	-	Trumpler 30		Open cluster	Scorpius	8.8
+Cr 356	NGC 6494		Messier object 023.jpg	Open cluster	Sagittarius	5.5
+Cr 357	-	Trumpler 31		Open cluster	Sagittarius	9.8
+Cr 358	NGC 6507			Open cluster	Sagittarius	9.6
+Cr 359	-	Melotte 186	Mel 186.png	Open cluster	Ophiuchus	3.0
+Cr 360	NGC 6514	Trifid Nebula	TrifidHunterWilson.jpg	Open cluster	Sagittarius	6.3
+Cr 361	NGC 6520		The star cluster NGC 6520 and the strangely shaped dark cloud Barnard 86.jpg	Open cluster	Sagittarius	7.6
+Cr 362	NGC 6530		M8 rvb.jpg	Open cluster	Sagittarius	4.6
+Cr 363	NGC 6531		M21a.jpg	Open cluster	Sagittarius	5.9
+Cr 364	NGC 6540			Globular cluster	Sagittarius	9.3 [4]
+Cr 365	NGC 6546			Open cluster	Sagittarius	8.0
+Cr 366	NGC 6544		NGC 6544 Hubble WikiSky.jpg	Globular cluster	Sagittarius	7.5
+Cr 367	-			Open cluster	Sagittarius	6.4
+Cr 368	NGC 6558		NGC 6558 HST 9799 R814B606.png	Globular cluster	Sagittarius	8.6
+Cr 369	NGC 6568			Open cluster	Sagittarius	8.6
+Cr 370	NGC 6583			Open cluster	Sagittarius	10.0
+Cr 371	NGC 6595			Open cluster	Sagittarius	7.0
+Cr 372	-	Trumpler 32		Open cluster	Serpens	12.2
+Cr 373	NGC 6604		The star cluster NGC 6604 and its surroundings.jpg	Open cluster	Serpens	6.5
+Cr 374	NGC 6603	[note 3]	Caustiche.jpg	Open cluster	Sagittarius	11.1
+Cr 375	NGC 6611	Eagle Nebula	Eagle Nebula from ESO.jpg	Open cluster	Serpens	6.0
+Cr 376	NGC 6613		Eso1628a-crop.png	Open cluster	Sagittarius	6.9
+Cr 377	-	[note 4]	Omega Nebula M17.jpg	Open cluster	Sagittarius	6.0
+Cr 378	-	Trumpler 33	Trumpler 33.jpg	Open cluster	Sagittarius	7.8
+Cr 379	NGC 6631			Open cluster	Scutum	11.7
+Cr 380	NGC 6633		NGC 6633.png	Open cluster	Ophiuchus	4.6
+Cr 381	NGC 6642		Standing out from the Crowd.jpg	Globular cluster	Sagittarius	8.9
+Cr 382	IC 4725		M025.jpg	Open cluster	Sagittarius	4.6
+Cr 383	NGC 6645		NGC 6645.jpg	Open cluster	Sagittarius	8.5
+Cr 384	NGC 6649		NGC 6649.jpg	Open cluster	Scutum	8.9
+Cr 385	NGC 6664		NGC 6664.png	Open cluster	Scutum	7.8
+Cr 386	IC 4756		IC 4756.png	Open cluster	Serpens	4.6
+Cr 387	-	Trumpler 34		Open cluster	Scutum	8.6
+Cr 388	-	Trumpler 35	Trumpler 35.jpg	Open cluster	Scutum	9.2
+Cr 389	NGC 6694		Messier object 026.jpg	Open cluster	Scutum	8.0
+Cr 390	NGC 6704			Open cluster	Scutum	9.2
+Cr 391	NGC 6705	Wild Duck Cluster	Eso1430a.jpg	Open cluster	Scutum	5.8
+Cr 392	NGC 6709		NGC 6709 large.png	Open cluster	Aquila	6.7
+Cr 393	NGC 6716		NGC 6716.jpg	Open cluster	Sagittarius	7.5
+Cr 394	-			Open cluster	Sagittarius	6.3
+Cr 395	NGC 6717		NGC6717 - HST - Potw2136a.jpg	Globular cluster	Sagittarius	8.4
+Cr 396	NGC 6738			Asterism	Aquila	8.3
+Cr 397	NGC 6755		NGC 6755.png	Open cluster	Aquila	7.5
+Cr 398	NGC 6756			Open cluster	Aquila	10.6
+Cr 399	-	Al Sufi's Cluster, Brocchi's Cluster, Coathanger	Cr399.jpg	Asterism	Vulpecula	3.6
+Cr 400	NGC 6802		Ngc 6802 ver.jpg	Open cluster	Vulpecula	8.8
+Cr 401	-			Open cluster	Aquila	7.0
+Cr 402	NGC 6811		NGC 6811.png	Open cluster	Cygnus	6.8
+Cr 403	NGC 6819		NGC 6819 – An Open Cluster in the Constellation Cygnus.jpg	Open cluster	Cygnus	7.3
+Cr 404	-	[note 5]	Sh 2-86RGBHaRGBHunter.jpg	Open cluster	Vulpecula	14.9
+Cr 405	NGC 6823		Sh 2-86RGBHaRGBHunter.jpg	Open cluster	Vulpecula	7.1
+Cr 406	NGC 6830		NGC 6830.jpg	Open cluster	Vulpecula	7.9
+Cr 407	NGC 6834		Ngc 6834.jpg	Open cluster	Cygnus	7.8
+Cr 408	-	Harvard 20		Open cluster	Sagitta	7.7
+Cr 409	NGC 6838		Messier 71 Hubble WikiSky.jpg	Globular cluster	Sagitta	8.4
+Cr 410	NGC 6846			Open cluster	Cygnus	14.2
+Cr 411	-	Melotte 227		Open cluster	Octans	5.3
+Cr 412	NGC 6866		NGC 6866.png	Open cluster	Cygnus	7.6
+Cr 413	NGC 6871		NGC 6871.png	Open cluster	Cygnus	5.2
+Cr 414	IC 1311		IC1311 - SDSS DR14.jpg	Globular cluster	Cygnus	13.1
+Cr 415	NGC 6883			Open cluster	Cygnus	8.0
+Cr 416	NGC 6882			Open cluster	Vulpecula	8.1
+Cr 417	NGC 6885		NGC 6885 large.png	Open cluster	Vulpecula	8.1
+Cr 418	IC 4996			Open cluster	Cygnus	7.3
+Cr 419	-			Open cluster	Cygnus	7.6
+Cr 420	NGC 6910		NGC 6910.png	Open cluster	Cygnus	7.4
+Cr 421	-		Collinder 421.jpg	Open cluster	Cygnus	10.1
+Cr 422	NGC 6913		Messier object 029.jpg	Open cluster	Cygnus	6.6
+Cr 423	NGC 6939		NGC 6939.png	Open cluster	Cepheus	7.8
+Cr 424	NGC 6940		NGC 6940.png	Open cluster	Vulpecula	6.3
+Cr 425	NGC 6996			Open cluster	Cygnus	10.0
+Cr 426	NGC 6994		Messier 073 2MASS.jpg	Asterism	Aquarius	8.9
+Cr 427	-			Open cluster	Cepheus	13.8
+Cr 428	-			Open cluster	Cygnus	8.7
+Cr 429	NGC 7023	[note 6]	Iris nebula ngc7023.jpg	Open cluster	Cepheus	7.4
+Cr 430	NGC 7031			Open cluster	Cygnus	9.1
+Cr 431	IC 1369		IC 1369.jpg	Open cluster	Cygnus	7.6
+Cr 432	NGC 7044			Open cluster	Cygnus	8.8
+Cr 433	NGC 7062		NGC 7062.png	Open cluster	Cygnus	12.0
+Cr 434	NGC 7063		NGC 7063.png	Open cluster	Cygnus	8.3
+Cr 435	NGC 7067			Open cluster	Cygnus	7.0
+Cr 436	NGC 7086		NGC 7086.png	Open cluster	Cygnus	9.7
+Cr 437	NGC 7092		M39.jpg	Open cluster	Cygnus	8.4
+Cr 438	NGC 7092		M39.jpg	Open cluster	Cygnus	4.6
+Cr 439	IC 1396	Elephant's Trunk Nebula	54345main ic1396 highres.jpg	Open cluster	Cepheus	3.5
+Cr 440	NGC 7128			Open cluster	Cygnus	9.7
+Cr 441	NGC 7129		Ngc7129 RGB2 Small2.jpg	Open cluster	Cepheus	11.5
+Cr 442	NGC 7142		NGC 7142.jpg	Open cluster	Cepheus	9.3
+Cr 443	NGC 7160		NGC 7160.png	Open cluster	Cepheus	6.1
+Cr 444	NGC 7209		NGC 7209.jpg	Open cluster	Lacerta	7.7
+Cr 445	IC 1434		IC 1434.jpg	Open cluster	Lacerta	9.0
+Cr 446	NGC 7226			Open cluster	Cepheus	9.6
+Cr 447	NGC 7235		NGC 7235.png	Open cluster	Cepheus	7.7
+Cr 448	NGC 7243		NGC 7243 .jpg	Open cluster	Lacerta	6.4
+Cr 449	NGC 7245			Open cluster	Lacerta	9.2
+Cr 450	NGC 7261			Open cluster	Cepheus	8.4
+Cr 451	NGC 7296			Open cluster	Lacerta	9.7
+Cr 452	NGC 7380		Wizard Nebula.jpg	Open cluster	Cepheus	7.2
+Cr 453	NGC 7419		NGC 7419 2MASS.jpg	Open cluster	Cepheus	13.0
+Cr 454	NGC 7510			Open cluster	Cepheus	7.9
+Cr 455	NGC 7654		M52atlas.jpg	Open cluster	Cassiopeia	6.9
+Cr 456	NGC 7686		NGC 7686.png	Open cluster	Andromeda	5.6
+Cr 457	NGC 7762			Open cluster	Cepheus	10.0
+Cr 458	-	Harvard 21		Open cluster	Cassiopeia	9.0
+Cr 459	NGC 7788		NGC 7788.png	Open cluster	Cassiopeia	9.4
+Cr 460	NGC 7789	Caroline's Rose Cluster	NGC7789HunterWilson.jpg	Open cluster	Cassiopeia	6.7
+Cr 461	NGC 7790		NGC 7790.png	Open cluster	Cassiopeia	8.5
+Cr 462	NGC 189			Open cluster	Cassiopeia	8.8
+Cr 463	-		Cr 463.png	Open cluster	Cassiopeia	5.7 [5]
+Cr 464	-			Open cluster	Camelopardalis	4.2
+Cr 465	-			Open cluster	Monoceros	10.1
+Cr 466	-			Open cluster	Monoceros	11.1
+Cr 467	-			Open cluster	Monoceros	10.1
+Cr 468	-			Open cluster	Sagittarius	11.0
+Cr 469	-			Open cluster	Sagittarius	9.1
+Cr 470	IC 5146		Cocoon-Nebula.jpg	Open cluster	Cygnus	7.2
+Cr 471	-	[note 7]	Cocoon-Nebula.jpg	Open cluster	Cepheus	-
