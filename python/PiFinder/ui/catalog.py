@@ -24,6 +24,7 @@ class FastAltAz:
     Adapted from example at:
     http://www.stargazing.net/kepler/altaz.html
     """
+
     def __init__(self, lat, lon, dt):
         self.lat = lat
         self.lon = lon
@@ -129,7 +130,7 @@ class UICatalog(UIModule):
         # call load catalog to re-filter if needed
         self.set_catalog()
 
-        # Reset any designations....
+        # Reset any sequence....
         if not self._catalog_item_index:
             self.key_d()
 
@@ -159,7 +160,7 @@ class UICatalog(UIModule):
             f"""
             SELECT * from names
             where catalog = "{self.cat_object['catalog']}"
-            and designation = "{self.cat_object['designation']}"
+            and sequence = "{self.cat_object['sequence']}"
         """
         ).fetchall()
 
@@ -201,8 +202,8 @@ class UICatalog(UIModule):
         target = self.ui_state["target"]
         if target:
             self.cat_object = target
-            self.catalog_index = ["N", "I", "M"].index(target["catalog"])
-            self.designator = list(str(target["designation"]))
+            self.catalog_index = self.__catalog_names.index(target["catalog"])
+            self.designator = list(str(target["sequence"]))
             if self.catalog_index == 2:
                 self.designator = ["-"] * (3 - len(self.designator)) + self.designator
             else:
@@ -283,7 +284,7 @@ class UICatalog(UIModule):
         self.set_catalog()
         self._catalog_item_index = 0
 
-        # Reset any designations....
+        # Reset any sequence....
         self.key_d()
 
     def load_catalogs(self):
@@ -297,8 +298,8 @@ class UICatalog(UIModule):
             cat_objects = self.conn.execute(
                 f"""
                 SELECT * from objects
-                where catalog='{catalog_name[0]}'
-                order by designation
+                where catalog='{catalog_name}'
+                order by sequence
             """
             ).fetchall()
             self.__catalogs[catalog_name] = [dict(x) for x in cat_objects]
@@ -345,7 +346,7 @@ class UICatalog(UIModule):
             # try to get object mag to float
             try:
                 obj_mag = float(obj["mag"])
-            except ValueError:
+            except (ValueError, TypeError):
                 obj_mag = 0
 
             if magnitude_filter != "None" and obj_mag >= magnitude_filter:
@@ -412,7 +413,7 @@ class UICatalog(UIModule):
             return False
 
         for i, c in enumerate(self._filtered_catalog):
-            if c["designation"] == int(designator):
+            if c["sequence"] == int(designator):
                 self.cat_object = c
                 self._catalog_item_index = i
                 return True
@@ -458,8 +459,11 @@ class UICatalog(UIModule):
     def scroll_obj(self, direction):
         """
         Looks for the next object up/down
-        sets the designation and object
+        sets the sequence and object
         """
+        if len(self._filtered_catalog) == 0:
+            return
+
         self._catalog_item_index += direction
         if self._catalog_item_index < 0:
             self._catalog_item_index = 0
@@ -468,7 +472,7 @@ class UICatalog(UIModule):
             self._catalog_item_index = self._catalog_count[1] - 1
 
         self.cat_object = self._filtered_catalog[self._catalog_item_index]
-        desig = str(self.cat_object["designation"])
+        desig = str(self.cat_object["sequence"])
         desig = list(desig)
         if self.catalog_index == 2:
             desig = ["-"] * (3 - len(desig)) + desig

@@ -162,6 +162,7 @@ def init_catalog_tables():
         """
     )
 
+
 def load_collinder():
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
     db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
@@ -178,9 +179,9 @@ def load_collinder():
     with open(coll, "r") as df:
         df.readline()
         for l in df:
-            dfs = l.split('\t')
-            sequence = dfs[0].split(' ')[0]
-            other_names =dfs[1]
+            dfs = l.split("\t")
+            sequence = dfs[0].split(" ")[0]
+            other_names = dfs[1]
             if other_names.isnumeric():
                 other_names = "NGC" + other_names
 
@@ -191,9 +192,9 @@ def load_collinder():
             ra_s = float(ra[8:12])
             ra_deg = ra_h
             if ra_m > 0:
-                ra_deg += (60 / ra_m)
+                ra_deg += 60 / ra_m
             if ra_s > 0:
-                ra_deg += (60*60/ra_s)
+                ra_deg += 60 * 60 / ra_s
             ra_deg *= 15
 
             dec = dfs[4]
@@ -202,9 +203,9 @@ def load_collinder():
             dec_m = int(dec[5:7])
             dec_s = int(dec[9:11])
             if dec_m > 0:
-                dec_deg += (60/dec_m)
+                dec_deg += 60 / dec_m
             if dec_s > 0:
-                dec_deg += (60*60/dec_s)
+                dec_deg += 60 * 60 / dec_s
             if dec_sign == "-":
                 dec_deg *= -1
 
@@ -232,7 +233,7 @@ def load_collinder():
                 )
             """
             db_c.execute(q)
-            if other_names !='':
+            if other_names != "":
                 db_c.execute(
                     f"""
                         insert into names(common_name, catalog, sequence)
@@ -241,22 +242,22 @@ def load_collinder():
                 )
 
     conn.commit()
-    type_trans={
-            "Open cluster": "OC",
-            "Asterism": "Ast",
-            "Globular cluster": "Gb",
+    type_trans = {
+        "Open cluster": "OC",
+        "Asterism": "Ast",
+        "Globular cluster": "Gb",
     }
     coll2 = os.path.join(root_dir, "astro_data", "collinder2.txt")
     with open(coll2, "r") as df:
         df.readline()
         for l in df:
-            dfs = l.split('\t')
-            sequence = dfs[0].split(' ')[1]
+            dfs = l.split("\t")
+            sequence = dfs[0].split(" ")[1]
             obj_type = type_trans.get(dfs[4], "OC")
-            mag = dfs[6].strip().split(' ')[0]
+            mag = dfs[6].strip().split(" ")[0]
             if mag == "-":
                 mag = "null"
-            other_names =dfs[2]
+            other_names = dfs[2]
 
             q = f"""
                     UPDATE objects
@@ -268,7 +269,7 @@ def load_collinder():
                         and sequence = {sequence}
                 """
             db_c.execute(q)
-            if other_names !='':
+            if other_names != "":
                 db_c.execute(
                     f"""
                         insert into names(common_name, catalog, sequence)
@@ -276,6 +277,7 @@ def load_collinder():
                     """
                 )
     conn.commit()
+
 
 def load_ngc_catalog():
     """

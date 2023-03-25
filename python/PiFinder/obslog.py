@@ -86,7 +86,7 @@ class Observation_session:
 
         return self.__session_uuid
 
-    def log_object(self, catalog, designation, solution, notes):
+    def log_object(self, catalog, sequence, solution, notes):
 
         session_uuid = self.session_uuid()
         if not session_uuid:
@@ -98,7 +98,7 @@ class Observation_session:
                 session_uid,
                 obs_time_local,
                 catalog,
-                designation,
+                sequence,
                 solution,
                 notes
             )
@@ -107,7 +107,7 @@ class Observation_session:
                 :session_uuid,
                 :obs_time,
                 :catalog,
-                :designation,
+                :sequence,
                 :solution,
                 :notes
             )
@@ -119,7 +119,7 @@ class Observation_session:
                 "session_uuid": session_uuid,
                 "obs_time": self.__shared_state.local_datetime(),
                 "catalog": catalog,
-                "designation": designation,
+                "sequence": sequence,
                 "solution": json.dumps(solution),
                 "notes": json.dumps(notes),
             },

@@ -1,5 +1,5 @@
 # Wait for the system to boot
-wait 10
+wait 7
 
 # Get into debug mode
 ALT_A
@@ -7,7 +7,7 @@ ALT_A
 0
 # give the solver enough time to solve 
 # the debug plate
-wait 4
+wait 3
 A # Back to plot
 UP
 UP
@@ -56,5 +56,7 @@ DN
 LNG_A
 3 # push
 0 # Confirm push
+wait 2
 # We should be back at the catalog screen
 A # now locate
+A # now chart

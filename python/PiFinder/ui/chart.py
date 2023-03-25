@@ -60,7 +60,7 @@ class UIChart(UIModule):
         for obs_target in self.ui_state["observing_list"]:
             if (
                 target == None
-                or obs_target["designation"] != target["designation"]
+                or obs_target["sequence"] != target["sequence"]
                 or obs_target["catalog"] != target["catalog"]
             ):
                 marker = OBJ_TYPE_MARKERS.get(obs_target["obj_type"])

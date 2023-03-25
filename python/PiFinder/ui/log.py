@@ -71,15 +71,6 @@ class UILog(UIModule):
             "/home/pifinder/PiFinder/fonts/RobotoMono-Bold.ttf", 8
         )
 
-    def resolve_catalog_name(self, catalog_id):
-        """
-        Takes catalog_id (single letter) and returns name
-        """
-        for catalog_name in self.__catalog_names:
-            if catalog_name.startswith(catalog_id):
-                return catalog_name
-        return "UNKN"
-
     def reset_config(self):
         """
         Resets object specific note items
@@ -111,7 +102,7 @@ class UILog(UIModule):
 
         return self._observing_session.log_object(
             catalog=_object["catalog"],
-            designation=_object["designation"],
+            sequence=_object["sequence"],
             solution=self.shared_state.solution(),
             notes=notes,
         )
@@ -121,40 +112,42 @@ class UILog(UIModule):
         when B is pressed,
         Just log it with preview image
         """
-        session_uuid, obs_id = self.record_object(self.target)
-        filename = f"log_{session_uuid}_{obs_id}_low"
-        self.command_queues["camera"].put("save:" + filename)
+        if self.target:
+            session_uuid, obs_id = self.record_object(self.target)
+            filename = f"log_{session_uuid}_{obs_id}_low"
+            self.command_queues["camera"].put("save:" + filename)
 
-        # Start the timer for the confirm.
-        self.modal_timer = time.time()
-        self.modal_duration = 2
-        self.modal_text = "Logged!"
-        self.update()
+            # Start the timer for the confirm.
+            self.modal_timer = time.time()
+            self.modal_duration = 2
+            self.modal_text = "Logged!"
+            self.update()
 
     def key_c(self):
         """
         when c is pressed,
         photo and log it!
         """
-        session_uuid, obs_id = self.record_object(self.target)
+        if self.target:
+            session_uuid, obs_id = self.record_object(self.target)
 
-        # Start the timer for the confirm.
-        self.modal_timer = time.time()
-        self.modal_duration = 2
-        self.modal_text = "Taking Photo"
-        filename = f"log_{session_uuid}_{obs_id}_high"
-        self.command_queues["camera"].put("save_hi:" + filename)
-        self.update()
-        wait = True
-        while wait:
-            # we need to wait until we have another solve image
-            # check every 2 seconds...
-            time.sleep(0.2)
-            if self.shared_state.last_image_time()[1] > self.modal_timer + 1:
-                wait = False
-                self.modal_timer = time.time()
-                self.modal_duration = 1
-                self.modal_text = "Logged!"
+            # Start the timer for the confirm.
+            self.modal_timer = time.time()
+            self.modal_duration = 2
+            self.modal_text = "Taking Photo"
+            filename = f"log_{session_uuid}_{obs_id}_high"
+            self.command_queues["camera"].put("save_hi:" + filename)
+            self.update()
+            wait = True
+            while wait:
+                # we need to wait until we have another solve image
+                # check every 2 seconds...
+                time.sleep(0.2)
+                if self.shared_state.last_image_time()[1] > self.modal_timer + 1:
+                    wait = False
+                    self.modal_timer = time.time()
+                    self.modal_duration = 1
+                    self.modal_text = "Logged!"
 
     def key_d(self):
         """
@@ -204,8 +197,8 @@ class UILog(UIModule):
 
         # Target Name
         line = ""
-        line += self.resolve_catalog_name(self.target["catalog"])
-        line += str(self.target["designation"])
+        line += self.target["catalog"]
+        line += str(self.target["sequence"])
         self.draw.text((0, 20), line, font=self.font_large, fill=RED)
 
         # ID Line in BOld

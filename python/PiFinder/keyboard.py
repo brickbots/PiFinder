@@ -63,7 +63,7 @@ def run_script(q, script_path):
     Runs a keyscript for automation/testing
     """
     print("Running Script: " + script_path)
-    with open(script_path, "r") as script_file:
+    with open(script_path + ".pfs", "r") as script_file:
         for script_line in script_file:
             sleep(0.5)
             script_line = script_line.strip()

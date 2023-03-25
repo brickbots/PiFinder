@@ -33,15 +33,6 @@ class UILocate(UIModule):
             "/home/pifinder/PiFinder/fonts/RobotoMono-Bold.ttf", 35
         )
 
-    def resolve_catalog_name(self, catalog_id):
-        """
-        Takes catalog_id (single letter) and returns name
-        """
-        for catalog_name in self.__catalog_names:
-            if catalog_name.startswith(catalog_id):
-                return catalog_name
-        return "UNKN"
-
     def key_b(self):
         """
         When B is pressed, switch target lists
@@ -146,8 +137,8 @@ class UILocate(UIModule):
             return self.screen_update()
 
         # Target Name
-        line = self.resolve_catalog_name(self.ui_state["target"]["catalog"])
-        line += str(self.ui_state["target"]["designation"])
+        line = self.ui_state["target"]["catalog"]
+        line += str(self.ui_state["target"]["sequence"])
         self.draw.text((0, 20), line, font=self.font_large, fill=RED)
 
         # Target history index

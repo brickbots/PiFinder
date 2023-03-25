@@ -72,9 +72,7 @@ def get_sleep_timeout(cfg):
     returns the sleep timeout amount
     """
     sleep_timeout_option = cfg.get_option("sleep_timeout")
-    sleep_timeout = {"Off": None, "10s": 1000, "30s": 3000, "1m": 6000}[
-        sleep_timeout_option
-    ]
+    sleep_timeout = {"Off": None, "10s": 10, "30s": 30, "1m": 60}[sleep_timeout_option]
     return sleep_timeout
 
 
@@ -220,7 +218,7 @@ def main(script_name=None):
         current_module = ui_modes[ui_mode_index]
 
         # Start of main except handler / loop
-        power_save_warmup = get_sleep_timeout(cfg)
+        power_save_warmup = time.time() + get_sleep_timeout(cfg)
         bg_task_warmup = 5
         try:
 
@@ -268,7 +266,9 @@ def main(script_name=None):
                     keycode = None
 
                 if keycode != None:
-                    power_save_warmup = get_sleep_timeout(cfg)
+                    power_save_warmup = time.time() + get_sleep_timeout(cfg)
+                    set_brightness(screen_brightness)
+                    shared_state.set_power_state(1)  # Normal
 
                     # ignore keystroke if we have been asleep
                     if shared_state.power_state() > 0:
@@ -411,26 +411,20 @@ def main(script_name=None):
                     # make sure that if there is a sleep
                     # time configured, the power_save_warmup is reset
                     if power_save_warmup == None:
-                        power_save_warmup = get_sleep_timeout(cfg)
+                        power_save_warmup = time.time() + get_sleep_timeout(cfg)
 
                     _imu = shared_state.imu()
                     if _imu:
                         if _imu["moving"]:
-                            power_save_warmup = get_sleep_timeout(cfg) - 1
+                            power_save_warmup = time.time() + get_sleep_timeout(cfg)
                             set_brightness(screen_brightness)
                             shared_state.set_power_state(1)  # Normal
 
-                    if power_save_warmup == get_sleep_timeout(cfg):
-                        # It was just reset somewhere else
-                        set_brightness(screen_brightness)
-                        shared_state.set_power_state(1)  # Normal
-
                     # Check for going into power save...
-                    power_save_warmup -= 1
-                    if power_save_warmup == 0:
+                    if time.time() > power_save_warmup:
                         set_brightness(int(screen_brightness / 4))
                         shared_state.set_power_state(0)  # sleep
-                    if power_save_warmup < 0:
+                    if time.time() > power_save_warmup:
                         time.sleep(0.2)
 
         except KeyboardInterrupt:
