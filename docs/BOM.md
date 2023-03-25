@@ -1,11 +1,11 @@
 Here's a full list of all the items you'll need to build your own PiFinder.  It roughly follows the [Build Guide](./build_guide.md) and I've tried to provide current sources where possible.  Reach out with any questions!
 
 ## PiFinder Hat Components
-These are the electronic bits needed to build the Display/Keypad unit that fits onto the Raspberry Pi as a 'Hat'.  It's all throughhole soldering so should be approachable for all skill levels.
+These are the electronic bits needed to build the Display/Keypad unit that fits onto the Raspberry Pi as a 'Hat'.  It's all through-hole soldering so should be approachable for all skill levels.
 
 | Qty | Item                                         | URL                                                     | Notes                                                                                 |
 | --- | -------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| 1   | PCB Set                                      | https://github.com/brickbots/PiFinder/tree/main/gerbers | You'll need a PiFidner board and the PiFinder top plate                               |
+| 1   | PCB Set                                      | https://github.com/brickbots/PiFinder/tree/main/gerbers | You'll need a PiFinder board and the PiFinder top plate                               |
 | 17  | 6 x 6mm x 7mm PCB Momentary Switch 4 Pin DIP |                                                         | Diptonics DTS63K 1nm recommended                                                      |
 | 1   | Waveshare 1.5 RGB Oled                       | https://www.waveshare.com/wiki/1.5inch_OLED_Module      |                                                                                       |
 | 1   | Adafruit IMU Fusion Breakout - BNO055        | https://www.adafruit.com/product/4646                   |                                                                                       |
