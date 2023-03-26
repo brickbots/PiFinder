@@ -180,7 +180,11 @@ class UIConfig(UIModule):
                 callback_method = getattr(self.__module, selected_item["callback"])
                 exit_config = callback_method(selected_item["value"])
                 if exit_config:
-                    self.switch_to = self.__module.__class__.__name__
+                    if exit_config == True:
+                        self.switch_to = self.__module.__class__.__name__
+                    else:
+                        # there is another module to swith to
+                        self.switch_to = exit_config
 
         else:
             if number >= len(self.__item_names):

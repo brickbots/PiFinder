@@ -131,3 +131,44 @@ class Observation_session:
         ).fetchone()["id"]
 
         return session_uuid, observation_id
+
+
+def get_logs_for_object(obj_record):
+    """
+    Returns a list of observations for a particular object
+    """
+    db_path = create_logging_tables()
+
+    db_connection = sqlite3.connect(db_path)
+    db_connection.row_factory = sqlite3.Row
+    db_cursor = db_connection.cursor()
+
+    logs = db_cursor.execute(
+        f"""
+            select * from obs_objects
+            where
+                catalog="{obj_record['catalog']}"
+                and sequence={obj_record['sequence']}
+            """
+    ).fetchall()
+
+    return logs
+
+
+def get_observed_objects():
+    """
+    Returns a list of all observed objects
+    """
+    db_path = create_logging_tables()
+
+    db_connection = sqlite3.connect(db_path)
+    db_connection.row_factory = sqlite3.Row
+    db_cursor = db_connection.cursor()
+
+    logs = db_cursor.execute(
+        f"""
+            select distinct catalog, sequence from obs_objects
+            """
+    ).fetchall()
+
+    return [(x["catalog"], x["sequence"]) for x in logs]

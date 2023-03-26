@@ -10,9 +10,12 @@ import pytz
 import os
 import math
 import sqlite3
+import pandas as pd
+import numpy as np
+from sklearn.neighbors import BallTree
 from PIL import ImageFont
 
-from PiFinder import solver
+from PiFinder import solver, obslog
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 
@@ -71,6 +74,27 @@ class FastAltAz:
         return alt, az
 
 
+def get_closest_objects(catalog, ra, dec, n):
+    """
+    Takes a catalog and returns the
+    n closest objects to ra/dec
+    """
+    object_ras = [np.deg2rad(x["ra"]) for x in catalog]
+    object_decs = [np.deg2rad(x["dec"]) for x in catalog]
+
+    objects_df = pd.DataFrame(
+        {
+            "ra": object_ras,
+            "dec": object_decs,
+        }
+    )
+    objects_bt = BallTree(objects_df[["ra", "dec"]], leaf_size=4, metric="haversine")
+
+    query_df = pd.DataFrame({"ra": [np.deg2rad(ra)], "dec": [np.deg2rad(dec)]})
+    _dist, obj_ind = objects_bt.query(query_df, k=n)
+    return [catalog[x] for x in obj_ind[0]]
+
+
 class UICatalog(UIModule):
     """
     Search catalogs for object to find
@@ -93,11 +117,18 @@ class UICatalog(UIModule):
             "value": ["None"],
             "options": ["None"] + list(OBJ_TYPES.keys()),
         },
+        "Observed": {"type": "enum", "value": ["Any"], "options": ["Any", "Yes", "No"]},
         "Push List": {
             "type": "enum",
             "value": "",
             "options": ["Go", "Cncl"],
             "callback": "push_list",
+        },
+        "Push Near": {
+            "type": "enum",
+            "value": "",
+            "options": ["Cncl", 5, 10, 15, 20],
+            "callback": "push_near",
         },
     }
 
@@ -116,10 +147,11 @@ class UICatalog(UIModule):
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
         self.db_c = self.conn.cursor()
-        self.sf_utils = solver.Skyfield_utils()
         self.font_large = ImageFont.truetype(
             "/home/pifinder/PiFinder/fonts/RobotoMono-Regular.ttf", 20
         )
+
+        self.object_display_mode = "desc"
 
         self._catalog_item_index = 0
 
@@ -143,7 +175,32 @@ class UICatalog(UIModule):
             self.ui_state["observing_list"] = self._filtered_catalog
             self.ui_state["active_list"] = self.ui_state["observing_list"]
             self.ui_state["target"] = self.ui_state["active_list"][0]
-            return True
+            return "UILocate"
+        else:
+            return False
+
+    def push_near(self, option):
+        self._config_options["Push Near"]["value"] = ""
+        if option != "Cncl":
+            solution = self.shared_state.solution()
+            if not solution:
+                self.message(f"No Solve!", 1)
+                return False
+
+            # Filter the catalog one last time
+            self.set_catalog()
+            self.message(f"Near {option} Pushed", 2)
+
+            if option > len(self._filtered_catalog):
+                near_catalog = self._filtered_catalog
+            else:
+                near_catalog = get_closest_objects(
+                    self._filtered_catalog, solution["RA"], solution["Dec"], option
+                )
+            self.ui_state["observing_list"] = near_catalog
+            self.ui_state["active_list"] = self.ui_state["observing_list"]
+            self.ui_state["target"] = self.ui_state["active_list"][0]
+            return "UILocate"
         else:
             return False
 
@@ -187,18 +244,29 @@ class UICatalog(UIModule):
                     aka_list.append(rec["common_name"])
             self.object_text.append(", ".join(aka_list))
 
-        # NGC description....
-        max_line = 20
-        line = ""
-        desc_tokens = self.cat_object["desc"].split(" ")
-        for token in desc_tokens:
-            if len(line) + len(token) + 1 > max_line:
-                self.object_text.append(line)
-                line = token
+        if self.object_display_mode == "desc":
+            # NGC description....
+            max_line = 20
+            line = ""
+            desc_tokens = self.cat_object["desc"].split(" ")
+            for token in desc_tokens:
+                if len(line) + len(token) + 1 > max_line:
+                    self.object_text.append(line)
+                    line = token
+                else:
+                    line = line + " " + token
+
+        if self.object_display_mode == "obs_log":
+            self.object_text.append("")
+            logs = obslog.get_logs_for_object(self.cat_object)
+            if len(logs) == 0:
+                self.object_text.append("No Logs")
             else:
-                line = line + " " + token
+                self.object_text.append(f"Logged {len(logs)} times")
 
     def active(self):
+        # trigger refilter
+        self.set_catalog()
         target = self.ui_state["target"]
         if target:
             self.cat_object = target
@@ -287,6 +355,14 @@ class UICatalog(UIModule):
         # Reset any sequence....
         self.key_d()
 
+    def key_b(self):
+        # switch object display text
+        if self.object_display_mode == "desc":
+            self.object_display_mode = "obs_log"
+        else:
+            self.object_display_mode = "desc"
+        self.update_object_text()
+
     def load_catalogs(self):
         """
         Loads all catalogs into memory
@@ -326,6 +402,7 @@ class UICatalog(UIModule):
         magnitude_filter = self._config_options["Magnitude"]["value"]
         type_filter = self._config_options["Obj Types"]["value"]
         altitude_filter = self._config_options["Alt Limit"]["value"]
+        observed_filter = self._config_options["Observed"]["value"]
 
         fast_aa = None
         if altitude_filter != "None":
@@ -339,6 +416,10 @@ class UICatalog(UIModule):
                     location["lon"],
                     dt,
                 )
+
+        if observed_filter != "Any":
+            # setup
+            observed_list = obslog.get_observed_objects()
 
         for obj in self.__catalogs[catalog_name]:
             include_obj = True
@@ -363,6 +444,14 @@ class UICatalog(UIModule):
                 )
                 if obj_altitude < altitude_filter:
                     include_obj = False
+
+            if observed_filter != "Any":
+                if (obj["catalog"], obj["sequence"]) in observed_list:
+                    if observed_filter == "No":
+                        include_obj = False
+                else:
+                    if observed_filter == "Yes":
+                        include_obj = False
 
             if include_obj:
                 self._filtered_catalog.append(obj)

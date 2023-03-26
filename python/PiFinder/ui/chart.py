@@ -58,20 +58,15 @@ class UIChart(UIModule):
 
         marker_list = []
         for obs_target in self.ui_state["observing_list"]:
-            if (
-                target == None
-                or obs_target["sequence"] != target["sequence"]
-                or obs_target["catalog"] != target["catalog"]
-            ):
-                marker = OBJ_TYPE_MARKERS.get(obs_target["obj_type"])
-                if marker:
-                    marker_list.append(
-                        (
-                            plot.Angle(degrees=obs_target["ra"])._hours,
-                            obs_target["dec"],
-                            marker,
-                        )
+            marker = OBJ_TYPE_MARKERS.get(obs_target["obj_type"])
+            if marker:
+                marker_list.append(
+                    (
+                        plot.Angle(degrees=obs_target["ra"])._hours,
+                        obs_target["dec"],
+                        marker,
                     )
+                )
         if marker_list != []:
             marker_image = self.starfield.plot_markers(
                 self.solution["RA"],
