@@ -157,10 +157,15 @@ class UIStatus(UIModule):
         if self.shared_state.solve_state():
             solution = self.shared_state.solution()
             # last solve time
+            if solution["solve_source"] == "CAM":
+                stars_matched = solution["Matches"]
+            else:
+                stars_matched = "--"
             self.status_dict["LST SLV"] = (
-                f"{time.time() - solution['solve_time']: >7.1f}"
+                f"{time.time() - solution['solve_time']: >6.1f}"
                 + " - "
-                + str(solution["solve_source"])
+                + str(solution["solve_source"][0])
+                + f" {stars_matched: >2}"
             )
 
             self.status_dict[

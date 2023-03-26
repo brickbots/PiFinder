@@ -117,9 +117,13 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
                 # load image and wait
                 base_image = Image.open(test_image_path)
                 time.sleep(1)
-            camera_image.paste(base_image)
-            shared_state.set_last_image_time((image_start_time, time.time()))
-
+            # check imu to make sure we're still static
+            imu = shared_state.imu()
+            if imu and imu["moving"] and imu["status"] > 0:
+                pass
+            else:
+                camera_image.paste(base_image)
+                shared_state.set_last_image_time((image_start_time, time.time()))
         command = True
         while command:
             try:

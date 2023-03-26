@@ -175,7 +175,7 @@ def solver(shared_state, camera_image, console_queue):
         # reject images startede before the last solve
         # which might be from the IMU
         last_image_time = shared_state.last_image_time()
-        if last_image_time[0] > last_solve_time:
+        if last_image_time[1] > (last_solve_time):
             solve_image = camera_image.copy()
 
             new_solve = t3.solve_from_image(
@@ -198,7 +198,13 @@ def solver(shared_state, camera_image, console_queue):
                     debug_solve = copy.copy(solved)
 
             solved |= new_solve
+
+            total_tetra_time = solved["T_extract"] + solved["T_solve"]
+            if total_tetra_time > 1000:
+                console_queue.put(f"SLV: Long: {total_tetra_time}")
+
             if solved["RA"] != None:
+
                 imu = shared_state.imu()
                 location = shared_state.location()
                 dt = shared_state.datetime()
