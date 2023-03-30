@@ -9,7 +9,7 @@ import time
 import os
 from PIL import ImageFont
 
-from PiFinder import solver
+from PiFinder import solver, obslist
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 
@@ -23,6 +23,21 @@ class UILocate(UIModule):
 
     __title__ = "LOCATE"
 
+    _config_options = {
+        "Save": {
+            "type": "enum",
+            "value": "",
+            "options": ["CANCEL", "History", "Observ"],
+            "callback": "save_list",
+        },
+        "Load": {
+            "type": "enum",
+            "value": "",
+            "options": ["CANCEL"],
+            "callback": "load_list",
+        },
+    }
+
     def __init__(self, *args):
         super().__init__(*args)
         self.target_index = None
@@ -32,6 +47,32 @@ class UILocate(UIModule):
         self.font_huge = ImageFont.truetype(
             "/home/pifinder/PiFinder/fonts/RobotoMono-Bold.ttf", 35
         )
+
+        available_lists = obslist.get_lists()
+        self._config_options["Load"]["options"] += available_lists
+
+    def load_list(self, option):
+        if option == "CANCEL":
+            self._config_options["Load"]["value"] = ""
+            return False
+
+        _load_results = obslist.read_list(option)
+        if _load_results["result"] == "error":
+            self.message(f"Err! {_load_results['message']}")
+            return False
+
+        object_count = len(_load_results["catalog"])
+        if object_count == 0:
+            self.message("No matches")
+            return False
+
+        self.ui_state["observing_list"] = _load_results["catalog"]
+        self.ui_state["active_list"] = self.ui_state["observing_list"]
+        self.target_index = 0
+        self.ui_state["target"] = self.ui_state["active_list"][self.target_index]
+        self.update_object_text()
+        self.message(f"Loaded {object_count} of {_load_results['objects_parsed']}")
+        return True
 
     def key_b(self):
         """

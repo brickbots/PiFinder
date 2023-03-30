@@ -121,13 +121,13 @@ class UICatalog(UIModule):
         "Push List": {
             "type": "enum",
             "value": "",
-            "options": ["Go", "Cncl"],
+            "options": ["Go", "CANCEL"],
             "callback": "push_list",
         },
         "Push Near": {
             "type": "enum",
             "value": "",
-            "options": ["Cncl", 5, 10, 15, 20],
+            "options": ["CANCEL", 5, 10, 15, 20],
             "callback": "push_near",
         },
     }
@@ -146,7 +146,6 @@ class UICatalog(UIModule):
         db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
-        self.db_c = self.conn.cursor()
         self.font_large = ImageFont.truetype(
             "/home/pifinder/PiFinder/fonts/RobotoMono-Regular.ttf", 20
         )

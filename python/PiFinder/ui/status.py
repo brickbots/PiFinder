@@ -31,31 +31,31 @@ class UIStatus(UIModule):
         "WiFi Mode": {
             "type": "enum",
             "value": "UNK",
-            "options": ["AP", "Cli", "exit"],
+            "options": ["AP", "Cli", "CANCEL"],
             "callback": "wifi_switch",
         },
         "Mnt Side": {
             "type": "enum",
             "value": "",
-            "options": ["right", "left", "exit"],
+            "options": ["right", "left", "CANCEL"],
             "callback": "side_switch",
         },
         "Restart": {
             "type": "enum",
             "value": "",
-            "options": ["PiFi", "exit"],
+            "options": ["PiFi", "CANCEL"],
             "callback": "restart",
         },
         "Shutdown": {
             "type": "enum",
             "value": "",
-            "options": ["Syst", "exit"],
+            "options": ["System", "CANCEL"],
             "callback": "shutdown",
         },
         "Software": {
             "type": "enum",
             "value": "",
-            "options": ["Upd", "exit"],
+            "options": ["Update", "CANCEL"],
             "callback": "update_software",
         },
     }
@@ -140,6 +140,7 @@ class UIStatus(UIModule):
             self.message("Shutting down", 10)
             sys_utils.shutdown()
         else:
+            self._config_options["Shutdown"]["value"] = ""
             return False
 
     def restart(self, option):
@@ -147,6 +148,7 @@ class UIStatus(UIModule):
             self.message("Restarting", 10)
             sys_utils.restart_pifinder()
         else:
+            self._config_options["Restart"]["value"] = ""
             return False
 
     def update_status_dict(self):
