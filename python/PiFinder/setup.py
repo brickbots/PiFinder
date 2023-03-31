@@ -327,7 +327,8 @@ def load_caldwell():
                     ra,
                     dec,
                     const,
-                    size
+                    size,
+                    desc
                 )
                 values (
                     "C",
@@ -337,7 +338,8 @@ def load_caldwell():
                     {ra_deg},
                     {dec_deg},
                     "{const}",
-                    "{size}"
+                    "{size}",
+                    ""
                 )
             """
             db_c.execute(q)
