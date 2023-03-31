@@ -18,7 +18,6 @@ DB_PATH = "/home/pifinder/PiFinder/astro_data/pifinder_objects.db"
 SKYSAFARI_CATALOG_NAMES = {
     "CAL": "C",
     "COL": "Cr",
-    "MES": "M",
 }
 
 SKYSAFARI_CATALOG_NAMES_INV = {v: k for k, v in SKYSAFARI_CATALOG_NAMES.items()}

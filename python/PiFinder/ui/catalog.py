@@ -228,8 +228,13 @@ class UICatalog(UIModule):
         self.object_text.append(f"{object_type: <14} {self.cat_object['const']}")
 
         # Magnitude / Size
+        # try to get object mag to float
+        try:
+            obj_mag = float(self.cat_object["mag"])
+        except (ValueError, TypeError):
+            obj_mag = 0
         self.object_text.append(
-            f"Mag:{self.cat_object['mag'] : <4}"
+            f"Mag:{obj_mag : <4}"
             + " " * 3
             + f"Sz:{self.cat_object['size']}"
         )
