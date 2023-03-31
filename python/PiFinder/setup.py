@@ -302,7 +302,7 @@ def load_caldwell():
             mag = dfs[4]
             if mag == "--":
                 mag = "null"
-            size = dfs[5][4:].strip()
+            size = dfs[5][5:].strip()
             ra_h = int(dfs[6])
             ra_m = float(dfs[7])
             ra_deg = ra_h
@@ -347,7 +347,7 @@ def load_caldwell():
                 db_c.execute(
                     f"""
                         insert into names(common_name, catalog, sequence)
-                        values ("{other_names}", "Col", {sequence})
+                        values ("{other_names}", "C", {sequence})
                     """
                 )
 
