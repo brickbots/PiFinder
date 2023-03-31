@@ -15,7 +15,8 @@
     "catalogs": [
         "NGC",
         "IC",
-        "Mes",
+        "M",
+        "C",
         "Col"
     ]
 }

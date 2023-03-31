@@ -14,10 +14,10 @@ class Config:
         config_file_path = "/home/pifinder/PiFinder/config.json"
         default_file_path = "/home/pifinder/PiFinder/default_config.json"
         if not os.path.exists(config_file_path):
-            config_file_path = default_file_path
-
-        with open(config_file_path, "r") as config_file:
-            self._config_dict = json.load(config_file)
+            self._config_dict ={}
+        else:
+            with open(config_file_path, "r") as config_file:
+                self._config_dict = json.load(config_file)
 
         # open default default_config
         with open(default_file_path, "r") as config_file:

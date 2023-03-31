@@ -278,6 +278,79 @@ def load_collinder():
                 )
     conn.commit()
 
+def load_caldwell():
+    root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
+    if not os.path.exists(db_path):
+        print("DB does not exists")
+        return False
+
+    # open the DB
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    db_c = conn.cursor()
+
+    cal = os.path.join(root_dir, "astro_data", "caldwell.dat")
+    with open(cal, "r") as df:
+        df.readline()
+        for l in df:
+            dfs = l.split("\t")
+            sequence = dfs[0].strip()
+            other_names = dfs[1]
+            obj_type = dfs[2]
+            const = dfs[3]
+            mag = dfs[4]
+            if mag == "--":
+                mag = "null"
+            size = dfs[5][4:].strip()
+            ra_h = int(dfs[6])
+            ra_m = float(dfs[7])
+            ra_deg = ra_h
+            if ra_m > 0:
+                ra_deg += 60 / ra_m
+            ra_deg *= 15
+
+            dec_sign = dfs[8]
+            dec_deg = int(dfs[9])
+            dec_m = float(dfs[10])
+            if dec_m > 0:
+                dec_deg += 60 / dec_m
+            if dec_sign == "-":
+                dec_deg *= -1
+
+            q = f"""
+                insert into objects(
+                    catalog,
+                    sequence,
+                    obj_type,
+                    mag,
+                    ra,
+                    dec,
+                    const,
+                    size
+                )
+                values (
+                    "C",
+                    {sequence},
+                    "{obj_type}",
+                    {mag},
+                    {ra_deg},
+                    {dec_deg},
+                    "{const}",
+                    "{size}"
+                )
+            """
+            db_c.execute(q)
+            if other_names != "":
+                db_c.execute(
+                    f"""
+                        insert into names(common_name, catalog, sequence)
+                        values ("{other_names}", "Col", {sequence})
+                    """
+                )
+
+    conn.commit()
+
 
 def load_ngc_catalog():
     """
@@ -316,7 +389,6 @@ def load_ngc_catalog():
                 if catalog == "I":
                     catalog = "IC"
                 if catalog == "M":
-                    catalog = "Mes"
                     if sequence not in m_objects:
                         m_objects.append(sequence)
                     else:
@@ -391,7 +463,7 @@ def load_ngc_catalog():
                             q = f"""
                                 INSERT INTO objects
                                 VALUES(
-                                    "Mes",
+                                    "M",
                                     {m_sequence},
                                     "{tmp_row['obj_type']}",
                                     {tmp_row['ra']},
@@ -419,8 +491,6 @@ def load_ngc_catalog():
                     catalog = "NGC"
                 if catalog == "I":
                     catalog = "IC"
-                if catalog == "M":
-                    catalog = "Mes"
 
                 sequence = l[37:41].strip()
                 comment = l[42:]
@@ -446,7 +516,7 @@ def load_ngc_catalog():
 
             ls = l.split("\t")
             common_name = ls[1][:-1]
-            catalog = "Mes"
+            catalog = "M"
             sequence = ls[0][1:]
 
             if sequence != "":
