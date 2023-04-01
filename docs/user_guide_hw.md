@@ -7,7 +7,7 @@
   * [Mounting](#mounting) 
   * [Camera Setup](#camera-setup) 
   * [Camera Alignment](#camera-alignment) 
-- [UI Screens](user_guide_ui)
+- [UI Screens](user_guide_ui.md)
 - [Setup](user_guide_setup.md)
 - [FAQ](user_guide_faq.md)
 

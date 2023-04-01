@@ -10,7 +10,7 @@
   * [Observing lists](#observing-lists)
   * [Update Software](#update-software)
 - [Hardware](user_guide_hw.md)
-- [UI Screens](user_guide_ui)
+- [UI Screens](user_guide_ui.md)
 - [Setup](user_guide_setup.md)
 - [FAQ](user_guide_faq.md)
 
