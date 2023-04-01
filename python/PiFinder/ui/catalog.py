@@ -234,9 +234,7 @@ class UICatalog(UIModule):
         except (ValueError, TypeError):
             obj_mag = 0
         self.object_text.append(
-            f"Mag:{obj_mag : <4}"
-            + " " * 3
-            + f"Sz:{self.cat_object['size']}"
+            f"Mag:{obj_mag : <4}" + " " * 3 + f"Sz:{self.cat_object['size']}"
         )
 
         if aka_recs:

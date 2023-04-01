@@ -53,8 +53,6 @@ def resolve_object(catalog_numbers, connection):
     numbers and tries to find an object
     in our DB which matches
     """
-    print("Resolving.....")
-    print(catalog_numbers)
     for catalog_number in catalog_numbers:
         catalog = catalog_number.split(" ")[0]
         catalog = SKYSAFARI_CATALOG_NAMES_INV.get(catalog, catalog)

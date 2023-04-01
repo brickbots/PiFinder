@@ -50,10 +50,29 @@ class UILocate(UIModule):
 
         available_lists = obslist.get_lists()
         self._config_options["Load"]["options"] += available_lists
+        self.obs_list_write_index = 0
+
+    def save_list(self, option):
+        self._config_options["Load"]["value"] = ""
+        if option == "CANCEL":
+            return False
+
+        if len(self.ui_state["active_list"]) == 0:
+            self.message("No objects")
+            return False
+
+        filename = f"{self.__uuid__}_{option}_{self.ss_count:02d}"
+        if option == "History":
+            obslist.write_list(self.ui_state["history_list"], filename)
+        else:
+            obslist.write_list(self.ui_state["observing_list"], filename)
+        self.obs_list_write_index += 1
+        self.message(f"Saved list - {self.ss_count:02d}")
+        return True
 
     def load_list(self, option):
+        self._config_options["Load"]["value"] = ""
         if option == "CANCEL":
-            self._config_options["Load"]["value"] = ""
             return False
 
         _load_results = obslist.read_list(option)
