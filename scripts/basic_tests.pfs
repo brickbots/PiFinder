@@ -54,7 +54,7 @@ DN
 DN
 # push all messiers to observing list
 LNG_A
-3 # push
+4 # push
 0 # Confirm push
 wait 2
 # We should be back at the locate screen after push
@@ -62,6 +62,6 @@ A # now chart
 A # back to catalog
 C # switch catlog to Collinder
 LNG_A
-4 # Push near
+5 # Push near
 3 # nearest 15
 # we sould be back at locate
