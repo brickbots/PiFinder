@@ -141,3 +141,4 @@ datasheets/
 kicad/PiFinder/PiFinder-backups
 .obsidian
 *.ps?
+config.json
