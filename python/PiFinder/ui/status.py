@@ -94,7 +94,7 @@ class UIStatus(UIModule):
         self.last_temp_time = 0
 
     def update_software(self, option):
-        if option == "exit":
+        if option == "CANCEL":
             with open("/home/pifinder/PiFinder/version.txt", "r") as ver:
                 self._config_options["Software"]["value"] = ver.read()
             return False
@@ -111,7 +111,7 @@ class UIStatus(UIModule):
         return False
 
     def side_switch(self, option):
-        if option == "exit":
+        if option == "CANCEL":
             self._config_options["Mnt Side"]["value"] = self.config_object.get_option(
                 "screen_direction"
             )
@@ -124,7 +124,7 @@ class UIStatus(UIModule):
     def wifi_switch(self, option):
         with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wfs:
             current_state = wfs.read()
-        if option == current_state or option == "exit":
+        if option == current_state or option == "CANCEL":
             self._config_options["WiFi Mode"]["value"] = curent_state
             return False
 
@@ -136,7 +136,7 @@ class UIStatus(UIModule):
             sys_utils.go_wifi_cli()
 
     def shutdown(self, option):
-        if option == "Syst":
+        if option == "System":
             self.message("Shutting down", 10)
             sys_utils.shutdown()
         else:
