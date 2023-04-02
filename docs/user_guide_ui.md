@@ -88,6 +88,8 @@ While viewing the chart you can adjust it's appearance and FOV in several ways:
 
 The catalog screen allows the searching and selection of astronomical objects to locate.  It has multiple catalogs available (Messier, NGC, IC) and displays some basic information about each object.  You can set filter criteria (Altitude, Magnitude, Object Type) to limit the objects surfaced via the search.
 
+The _B_ function keys toggles between a description of the object, if available, and information about how often you've observed that object.
+
 The _C_ function keys will cycle through the various catalogs available.  The upper-left will show the count of filtered objects over the total number of objects in each catalog.
 
 ![Catalog screenshot](../images/screenshots/CATALOG_002_docs.png)
@@ -121,6 +123,7 @@ Values are expressed in degrees with the top line being rotation in Azimuth and 
 * _UP/DN_ will cycle through the active list.  The numbers in the upper-right corner of the screen represent the index of the current object / total number of objects in the list and the list name is displayed directly below.
 * _ENT_ will switch back to the catalog screen to access full information about the current target
 * _B_ will toggle between the [History and Observing lists](user_guide_howto.md#observing-lists)
+* Holding the _A_ key will open the [Options](#options) page where you can load and save observing lists to disk
 
 The currently target is also displayed on the [Chart](#Chart) screen as a small tick mark.
 

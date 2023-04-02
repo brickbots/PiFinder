@@ -2,7 +2,8 @@
 
 - [Introduction and Overview](user_guide.md#introduction-and-overview)
 - [How-To](#how-to)
-  * [First Time Setup](#first-time-setup)
+  * [Adjust Screen Brightness](#adjust-screen-brightness)
+  * [See all the things](#see-all-the-messier)
   * [WiFi](#wifi)
   * [SkySafari](#skysafari)
   * [Data Access (SMB Share)](#data-access)
@@ -15,6 +16,74 @@
 - [FAQ](user_guide_faq.md)
 
 ## How-To
+
+### Adjust Screen Brightness
+
+At any time you can hold down the _ENT_ key and use the  _UP_ and _DN_ keys to adjust screen brightness.  The brightness level will be adjusted immediately and saved automatically.
+
+### See all the Messier (or Caldwell, or NGC....) objects
+This how to covers a lot of the basic catalog/locating/observing features of the PiFinder.   
+
+Combining the ability to filter a catalog by observation status and pushing the nearest 'X' objects to the observing list allows you to work your way through a collection of objects easily.
+
+Use the _A_ key to cycle through the main screens until you get to the [Catalog](user_guide_ui.md#catalog)
+
+![Catalog](../images/screenshots/how_to_see_CATALOG_001_docs.png)
+
+Then use the _C_ key to cycle through the available catalogs to find the Messier objects
+
+![Catalog](../images/screenshots/how_to_see_CATALOG_002_docs.png)
+
+Holding the _A_ button for about a second will bring up the [Options](user_guide_ui.md#options) page of the [Catalog](user_guide_ui.md#catalog) screen
+
+![Catalog](../images/screenshots/how_to_see_OPTIONS_003_docs.png)
+
+On this screen you can filter the catalog in various ways.  By default, it will only show items that are higher than 10degrees above the horizon right now and will include objects of any magnitude, type and regardless of whether you have observed them or not.  You can switch the observation filter to 'No' to focus on the Messier objects you've not yet observed.
+
+Press the _3_ key to bring up the Observed options
+
+![Catalog](../images/screenshots/how_to_see_OPTIONS_004_docs.png)
+
+Then press the _2_ key to select the 'No' option.  Pressing the _A_ key will return you to the Catalog page with your filters activated.  You can see in the upper-right of the screen that the number of objects matching the filter is 47 of 110
+
+![Catalog](../images/screenshots/how_to_see_CATALOG_004_docs.png)
+
+We're going to create an observing list from this filtered catalog.  Hold down the _A_ key to return to the Options page.  
+
+![Catalog](../images/screenshots/how_to_see_OPTIONS_003_docs.png)
+
+We can either push all the items that match our current filter using the _4_ Push List action, 
+or we can choose to create a list of objects near the current place the telescope is pointing.   This is a great way to easily and quickly work through objects when they might be most visible based on your particular location.
+
+Press the _5_ key to select Push Near
+
+![Catalog](../images/screenshots/how_to_see_OPTIONS_006_docs.png)
+
+You can select the number of nearby objects you want to push to the observing list.  Let's get 20 nearby Messier objects we've never logged observations for!  Press the _4_ key and you'll end up at the [Locate](user_guide_ui.md#locate) screen with a list of these 20 objects sorted by distance from the current pointing position.
+
+![Locate](../images/screenshots/how_to_see_LOCATE_001_docs.png)
+
+The locate screen serves double duty by showing you where to move the telescope to center this object, and also letting you scroll through the observing or history lists.  In the screenshot above were looking at item 1/20 in the Obsv (Observing) list.  You can use _UP_ and _DN_ to scroll through the list.  Or just push the scope in the indicated direction to observe M33.
+
+When you have observed M33, hold down the _ENT_ button to log this object using the [LOG](user_guide_ui.md#log) screen.
+
+![LOG](../images/screenshots/how_to_see_LOG_001_docs.png)
+
+The Logging screen shows you the current target, how far you are from it and allows you to press _B_ to log the item, _C_ to log with a photo and _D_ to abort the logging.  If you press and hold the _A_ key you can provide more information about your observation.
+
+![LOG](../images/screenshots/how_to_see_LOG_OPTIONS_001_docs.png)
+
+This page works just like others.  You can use the numbers on the right to select what you want to adjust and then choose an option on the right.  Once you've set your observation notes, press _A_ to return to the log screen and either _B_ or _C_ to log your observation.
+
+Now that M33 is logged, it won't show up any longer when you filter the Messier objects by 'No' observation.
+
+Another way to use the observing list is to switch to the Chart screen.  The currently selected target will be pointed to with the arrow around the reticle if it's offscreen and an X if it's on screen.  
+
+![Chart](../images/screenshots/how_to_see_CHART_001_docs.png)
+
+Use can use the _UP_ and _DN_ keys to zoom the chart in an out.  Here is the chart zoomed out showing the location of M33 along with some of the other nearby objects on the observing list.
+
+![Chart](../images/screenshots/how_to_see_CHART_002_docs.png)b
 
 ### Switch Sides
 By default, the PiFinder software is set for right-side focuser operation.   To switch to left-side orientation, use the [Options](user_guide_ui.md#options) page of the [Status](user_guide_ui.md#status) screen.  This will make sure the preview is displayed correct side up and the IMU up/down direction is correct.
