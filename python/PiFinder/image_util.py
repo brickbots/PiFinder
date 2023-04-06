@@ -7,11 +7,15 @@ mainly related to the preview
 function
 
 """
-from PIL import Image
+from PIL import Image, ImageChops
 import numpy as np
 import scipy.ndimage
 
 red_image = Image.new("RGB", (128, 128), (0, 0, 255))
+
+
+def make_red(in_image):
+    return ImageChops.multiply(in_image, red_image)
 
 
 def gamma_correct_low(in_value):
