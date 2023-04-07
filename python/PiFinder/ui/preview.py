@@ -4,6 +4,7 @@
 This module contains all the UI Module classes
 
 """
+import uuid
 import time
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 
@@ -165,3 +166,9 @@ class UIPreview(UIModule):
 
     def key_enter(self):
         self.command_queues["camera"].put("exp_save")
+
+    def key_number(self, number):
+        if number == 0:
+            _ = str(uuid.uuid1()).split("-")[0]
+            filename = f"diag_{_}"
+            self.command_queues["camera"].put("save:" + filename)

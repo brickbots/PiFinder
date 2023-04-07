@@ -33,7 +33,9 @@ def get_display_image(catalog_object, source, fov):
     if not os.path.exists(object_image_path):
         if catalog_object["catalog"] != "NGC":
             # look for any NGC aka
-            conn = sqlite3.connect("/home/pifinder/PiFinder/astro_data/pifinder_objects.db")
+            conn = sqlite3.connect(
+                "/home/pifinder/PiFinder/astro_data/pifinder_objects.db"
+            )
             conn.row_factory = sqlite3.Row
             db_c = conn.cursor()
 
@@ -53,7 +55,9 @@ def get_display_image(catalog_object, source, fov):
                     pass
 
                 if aka_sequence:
-                    return get_display_image({"catalog":"NGC", "sequence": aka_sequence}, source, fov)
+                    return get_display_image(
+                        {"catalog": "NGC", "sequence": aka_sequence}, source, fov
+                    )
         return_image = Image.new("RGB", (128, 128))
         ri_draw = ImageDraw.Draw(return_image)
         ri_draw.text((30, 50), "No Image", font=font_large, fill=(0, 0, 128))
@@ -129,7 +133,6 @@ def fetch_object_image(catalog_object, low_cut=10):
     print(f"Fetching image for {catalog_object['catalog']}{catalog_object['sequence']}")
     ra = catalog_object["RA"]
     dec = catalog_object["Dec"]
-
 
     object_image_path = resolve_image_name(catalog_object, "POSS")
     if not os.path.exists(object_image_path):

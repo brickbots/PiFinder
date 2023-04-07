@@ -160,7 +160,7 @@ class UICatalog(UIModule):
         self.object_image = None
 
         self._catalog_item_index = 0
-        self.fov_list = [1,.5,.25,.125]
+        self.fov_list = [1, 0.5, 0.25, 0.125]
         self.fov_index = 0
 
         self.load_catalogs()
