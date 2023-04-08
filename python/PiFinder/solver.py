@@ -181,7 +181,7 @@ def solver(shared_state, camera_image, console_queue):
             new_solve = t3.solve_from_image(
                 solve_image,
                 fov_estimate=10.2,
-                fov_max_error=0.1,
+                # fov_max_error=0.1,
             )
             if (
                 solver_debug

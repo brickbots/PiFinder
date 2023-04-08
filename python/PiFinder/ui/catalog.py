@@ -15,11 +15,17 @@ import numpy as np
 from sklearn.neighbors import BallTree
 from PIL import ImageFont
 
-from PiFinder import solver, obslog
+from PiFinder import solver, obslog, cat_images
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 
 RED = (0, 0, 255)
+
+# Constants for display modes
+DM_DESC = 0
+DM_OBS = 1
+DM_POSS = 2
+DM_SDSS = 3
 
 
 class FastAltAz:
@@ -150,9 +156,12 @@ class UICatalog(UIModule):
             "/home/pifinder/PiFinder/fonts/RobotoMono-Regular.ttf", 20
         )
 
-        self.object_display_mode = "desc"
+        self.object_display_mode = DM_DESC
+        self.object_image = None
 
         self._catalog_item_index = 0
+        self.fov_list = [1, 0.5, 0.25, 0.125]
+        self.fov_index = 0
 
         self.load_catalogs()
         self.set_catalog()
@@ -203,68 +212,80 @@ class UICatalog(UIModule):
         else:
             return False
 
-    def update_object_text(self):
+    def update_object_info(self):
         """
-        Generates object text
+        Generates object text and loads object images
         """
         if not self.cat_object:
             self.object_text = ["No Object Found", ""]
             return
 
-        # look for AKAs
-        aka_recs = self.conn.execute(
-            f"""
-            SELECT * from names
-            where catalog = "{self.cat_object['catalog']}"
-            and sequence = "{self.cat_object['sequence']}"
-        """
-        ).fetchall()
+        if self.object_display_mode in [DM_DESC, DM_OBS]:
+            # text stuff....
+            # look for AKAs
+            aka_recs = self.conn.execute(
+                f"""
+                SELECT * from names
+                where catalog = "{self.cat_object['catalog']}"
+                and sequence = "{self.cat_object['sequence']}"
+            """
+            ).fetchall()
 
-        self.object_text = []
-        # Type / Constellation
-        object_type = OBJ_TYPES.get(
-            self.cat_object["obj_type"], self.cat_object["obj_type"]
-        )
-        self.object_text.append(f"{object_type: <14} {self.cat_object['const']}")
+            self.object_text = []
+            # Type / Constellation
+            object_type = OBJ_TYPES.get(
+                self.cat_object["obj_type"], self.cat_object["obj_type"]
+            )
+            self.object_text.append(f"{object_type: <14} {self.cat_object['const']}")
 
-        # Magnitude / Size
-        # try to get object mag to float
-        try:
-            obj_mag = float(self.cat_object["mag"])
-        except (ValueError, TypeError):
-            obj_mag = 0
-        self.object_text.append(
-            f"Mag:{obj_mag : <4}" + " " * 3 + f"Sz:{self.cat_object['size']}"
-        )
+            # Magnitude / Size
+            # try to get object mag to float
+            try:
+                obj_mag = float(self.cat_object["mag"])
+            except (ValueError, TypeError):
+                obj_mag = 0
+            self.object_text.append(
+                f"Mag:{obj_mag : <4}" + " " * 3 + f"Sz:{self.cat_object['size']}"
+            )
 
-        if aka_recs:
-            aka_list = []
-            for rec in aka_recs:
-                if rec["common_name"].startswith("M"):
-                    aka_list.insert(0, rec["common_name"])
+            if aka_recs:
+                aka_list = []
+                for rec in aka_recs:
+                    if rec["common_name"].startswith("M"):
+                        aka_list.insert(0, rec["common_name"])
+                    else:
+                        aka_list.append(rec["common_name"])
+                self.object_text.append(", ".join(aka_list))
+
+            if self.object_display_mode == DM_DESC:
+                # NGC description....
+                max_line = 20
+                line = ""
+                desc_tokens = self.cat_object["desc"].split(" ")
+                for token in desc_tokens:
+                    if len(line) + len(token) + 1 > max_line:
+                        self.object_text.append(line)
+                        line = token
+                    else:
+                        line = line + " " + token
+
+            if self.object_display_mode == DM_OBS:
+                self.object_text.append("")
+                logs = obslog.get_logs_for_object(self.cat_object)
+                if len(logs) == 0:
+                    self.object_text.append("No Logs")
                 else:
-                    aka_list.append(rec["common_name"])
-            self.object_text.append(", ".join(aka_list))
-
-        if self.object_display_mode == "desc":
-            # NGC description....
-            max_line = 20
-            line = ""
-            desc_tokens = self.cat_object["desc"].split(" ")
-            for token in desc_tokens:
-                if len(line) + len(token) + 1 > max_line:
-                    self.object_text.append(line)
-                    line = token
-                else:
-                    line = line + " " + token
-
-        if self.object_display_mode == "obs_log":
-            self.object_text.append("")
-            logs = obslog.get_logs_for_object(self.cat_object)
-            if len(logs) == 0:
-                self.object_text.append("No Logs")
+                    self.object_text.append(f"Logged {len(logs)} times")
+        else:
+            # Image stuff...
+            if self.object_display_mode == DM_SDSS:
+                source = "SDSS"
             else:
-                self.object_text.append(f"Logged {len(logs)} times")
+                source = "POSS"
+
+            self.object_image = cat_images.get_display_image(
+                self.cat_object, source, self.fov_list[self.fov_index]
+            )
 
     def active(self):
         # trigger refilter
@@ -279,54 +300,56 @@ class UICatalog(UIModule):
             else:
                 self.designator = ["-"] * (4 - len(self.designator)) + self.designator
 
-        self.update_object_text()
+        self.update_object_info()
         self.update()
 
     def update(self, force=True):
-        # Calc some altitude!
-        for _ in range(2):
-            self.calc_altitude()
-
         # Clear Screen
         self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
 
-        # catalog and entry field
-        line = f"{self.__catalog_names[self.catalog_index]: >3}"
-        line += "".join(self.designator)
-        self.draw.text((0, 21), line, font=self.font_large, fill=RED)
+        if self.object_display_mode in [DM_DESC, DM_OBS] or self.cat_object == None:
+            # catalog and entry field
+            line = f"{self.__catalog_names[self.catalog_index]: >3}"
+            line += "".join(self.designator)
+            self.draw.text((0, 21), line, font=self.font_large, fill=RED)
 
-        # catalog counts....
-        self.draw.text(
-            (100, 21),
-            f"{self._catalog_count[1]}",
-            font=self.font_base,
-            fill=(0, 0, 128),
-        )
-        self.draw.text(
-            (100, 31), f"{self._catalog_count[0]}", font=self.font_base, fill=(0, 0, 96)
-        )
+            # catalog counts....
+            self.draw.text(
+                (100, 21),
+                f"{self._catalog_count[1]}",
+                font=self.font_base,
+                fill=(0, 0, 128),
+            )
+            self.draw.text(
+                (100, 31),
+                f"{self._catalog_count[0]}",
+                font=self.font_base,
+                fill=(0, 0, 96),
+            )
 
-        # ID Line in BOld
-        self.draw.text((0, 48), self.object_text[0], font=self.font_bold, fill=RED)
+            # ID Line in BOld
+            self.draw.text((0, 48), self.object_text[0], font=self.font_bold, fill=RED)
 
-        # mag/size in bold
-        text_color = RED
-        if self.cat_object:
-            # check for visibility and adjust mag/size text color
-            obj_altitude = self.calc_object_altitude(self.cat_object)
+            # mag/size in bold
+            text_color = RED
+            if self.cat_object:
+                # check for visibility and adjust mag/size text color
+                obj_altitude = self.calc_object_altitude(self.cat_object)
 
-            if obj_altitude:
-                if obj_altitude < 10:
-                    # Not really visible
-                    text_color = (0, 0, 128)
+                if obj_altitude:
+                    if obj_altitude < 10:
+                        # Not really visible
+                        text_color = (0, 0, 128)
 
-        self.draw.text(
-            (0, 62), self.object_text[1], font=self.font_bold, fill=text_color
-        )
+            self.draw.text(
+                (0, 62), self.object_text[1], font=self.font_bold, fill=text_color
+            )
 
-        # Remaining lines
-        for i, line in enumerate(self.object_text[2:]):
-            self.draw.text((0, i * 11 + 82), line, font=self.font_base, fill=RED)
+            # Remaining lines
+            for i, line in enumerate(self.object_text[2:]):
+                self.draw.text((0, i * 11 + 82), line, font=self.font_base, fill=RED)
+        else:
+            self.screen.paste(self.object_image)
         return self.screen_update()
 
     def key_d(self):
@@ -338,7 +361,7 @@ class UICatalog(UIModule):
             self.designator = ["-"] * 4
         self.cat_object = None
         self._catalog_item_index = 0
-        self.update_object_text()
+        self.update_object_info()
 
     def key_c(self):
         # C is for catalog
@@ -358,12 +381,15 @@ class UICatalog(UIModule):
         self.key_d()
 
     def key_b(self):
-        # switch object display text
-        if self.object_display_mode == "desc":
-            self.object_display_mode = "obs_log"
+        if self.cat_object == None:
+            self.object_display_mode = DM_DESC
         else:
-            self.object_display_mode = "desc"
-        self.update_object_text()
+            # switch object display text
+            self.object_display_mode = (
+                self.object_display_mode + 1 if self.object_display_mode < 3 else 0
+            )
+            self.update_object_info()
+            self.update()
 
     def load_catalogs(self):
         """
@@ -488,14 +514,6 @@ class UICatalog(UIModule):
 
         return None
 
-    def calc_altitude(self):
-        """
-        Called each update of the ui
-        this calculates the next item
-        in the list of objects to calculate
-        """
-        return
-
     def find_by_designator(self, designator):
         """
         Searches the loaded catalog for the designator
@@ -514,23 +532,24 @@ class UICatalog(UIModule):
         return False
 
     def key_number(self, number):
-        self.designator = self.designator[1:]
-        self.designator.append(str(number))
-        if self.designator[0] in ["0", "-"]:
-            index = 0
-            go = True
-            while go:
-                self.designator[index] = "-"
-                index += 1
-                if index >= len(self.designator) or self.designator[index] not in [
-                    "0",
-                    "-",
-                ]:
-                    go = False
-        # Check for match
-        designator = "".join(self.designator).replace("-", "")
-        found = self.find_by_designator(designator)
-        self.update_object_text()
+        if self.object_display_mode in [DM_DESC, DM_OBS]:
+            self.designator = self.designator[1:]
+            self.designator.append(str(number))
+            if self.designator[0] in ["0", "-"]:
+                index = 0
+                go = True
+                while go:
+                    self.designator[index] = "-"
+                    index += 1
+                    if index >= len(self.designator) or self.designator[index] not in [
+                        "0",
+                        "-",
+                    ]:
+                        go = False
+            # Check for match
+            designator = "".join(self.designator).replace("-", "")
+            found = self.find_by_designator(designator)
+            self.update_object_info()
 
     def key_enter(self):
         """
@@ -571,10 +590,25 @@ class UICatalog(UIModule):
             desig = ["-"] * (4 - len(desig)) + desig
 
         self.designator = desig
-        self.update_object_text()
+        self.update_object_info()
+
+    def change_fov(self, direction):
+        self.fov_index += direction
+        if self.fov_index < 0:
+            self.fov_index = 0
+        if self.fov_index >= len(self.fov_list):
+            self.fov_index = len(self.fov_list) - 1
+        self.update_object_info()
+        self.update()
 
     def key_up(self):
-        self.scroll_obj(-1)
+        if self.object_display_mode in [DM_DESC, DM_OBS]:
+            self.scroll_obj(-1)
+        else:
+            self.change_fov(-1)
 
     def key_down(self):
-        self.scroll_obj(1)
+        if self.object_display_mode in [DM_DESC, DM_OBS]:
+            self.scroll_obj(1)
+        else:
+            self.change_fov(1)
