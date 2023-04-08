@@ -162,6 +162,27 @@ def init_catalog_tables():
         """
     )
 
+def ra_to_deg(ra_h, ra_m, ra_s):
+    ra_deg = ra_h
+    if ra_m > 0:
+        ra_deg += ra_m / 60
+    if ra_s > 0:
+        ra_deg += ra_s / 60 / 60
+    ra_deg *= 15
+
+    return ra_deg
+
+def dec_to_deg(dec, dec_m, dec_s):
+    dec_deg = abs(dec)
+
+    if dec_m > 0:
+        dec_deg += dec_m / 60
+    if dec_s > 0:
+        dec_deg += dec_s/60/60
+    if dec < 0:
+        dec_deg *= -1
+
+    return dec_deg
 
 def load_collinder():
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -190,24 +211,16 @@ def load_collinder():
             ra_h = int(ra[0:2])
             ra_m = int(ra[4:6])
             ra_s = float(ra[8:12])
-            ra_deg = ra_h
-            if ra_m > 0:
-                ra_deg += 60 / ra_m
-            if ra_s > 0:
-                ra_deg += 60 * 60 / ra_s
-            ra_deg *= 15
+            ra_deg = ra_to_dec(ra_h, ra_m, ra_s)
 
             dec = dfs[4]
             dec_sign = dec[0]
             dec_deg = int(dec[1:3])
-            dec_m = int(dec[5:7])
-            dec_s = int(dec[9:11])
-            if dec_m > 0:
-                dec_deg += 60 / dec_m
-            if dec_s > 0:
-                dec_deg += 60 * 60 / dec_s
             if dec_sign == "-":
                 dec_deg *= -1
+            dec_m = int(dec[5:7])
+            dec_s = int(dec[9:11])
+            dec_deg = dec_to_deg(dec_deg,dec_m,dec_s)
 
             size = dfs[7]
             desc = f"{dfs[6]} stars, like {dfs[8]}"
@@ -306,18 +319,15 @@ def load_caldwell():
             size = dfs[5][5:].strip()
             ra_h = int(dfs[6])
             ra_m = float(dfs[7])
-            ra_deg = ra_h
-            if ra_m > 0:
-                ra_deg += 60 / ra_m
-            ra_deg *= 15
+            ra_deg = ra_to_dec(ra_h, ra_m, 0)
 
             dec_sign = dfs[8]
             dec_deg = int(dfs[9])
             dec_m = float(dfs[10])
-            if dec_m > 0:
-                dec_deg += 60 / dec_m
             if dec_sign == "-":
                 dec_deg *= -1
+
+            dec_deg = dec_to_deg(dec_deg, dec_m, 0)
 
             q = f"""
                 insert into objects(
