@@ -8,7 +8,7 @@ sudo pip install -r requirements.txt
 mkdir ~/PiFinder_data
 mkdir ~/PiFinder_data/captures
 mkdir ~/PiFinder_data/obslists
-mkdir ~/PiFinder_data/screnshots
+mkdir ~/PiFinder_data/screenshots
 mkdir ~/PiFinder_data/solver_debug_dumps
 mkdir ~/PiFinder_data/logs
 chmod -R 777 ~/PiFinder_data
