@@ -162,6 +162,7 @@ def init_catalog_tables():
         """
     )
 
+
 def ra_to_deg(ra_h, ra_m, ra_s):
     ra_deg = ra_h
     if ra_m > 0:
@@ -172,17 +173,19 @@ def ra_to_deg(ra_h, ra_m, ra_s):
 
     return ra_deg
 
+
 def dec_to_deg(dec, dec_m, dec_s):
     dec_deg = abs(dec)
 
     if dec_m > 0:
         dec_deg += dec_m / 60
     if dec_s > 0:
-        dec_deg += dec_s/60/60
+        dec_deg += dec_s / 60 / 60
     if dec < 0:
         dec_deg *= -1
 
     return dec_deg
+
 
 def load_collinder():
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -220,7 +223,7 @@ def load_collinder():
                 dec_deg *= -1
             dec_m = int(dec[5:7])
             dec_s = int(dec[9:11])
-            dec_deg = dec_to_deg(dec_deg,dec_m,dec_s)
+            dec_deg = dec_to_deg(dec_deg, dec_m, dec_s)
 
             size = dfs[7]
             desc = f"{dfs[6]} stars, like {dfs[8]}"
