@@ -5,6 +5,7 @@ This module contains all the UI Module classes
 
 """
 import uuid
+import os
 import time
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 
@@ -77,6 +78,11 @@ class UIPreview(UIModule):
         self.reticle_mode = 2
         self.last_update = time.time()
         self.solution = None
+
+        root_dir = "/home/pifinder/PiFinder_data"
+        prefix = f"{self.__uuid__}_diag"
+        self.capture_path = os.path.join(root_dir, "captures", prefix)
+        self.capture_count = 0
 
     def set_exp(self, option):
         new_exposure = int(option * 1000000)
@@ -169,6 +175,6 @@ class UIPreview(UIModule):
 
     def key_number(self, number):
         if number == 0:
-            _ = str(uuid.uuid1()).split("-")[0]
-            filename = f"diag_{_}"
-            self.command_queues["camera"].put("save:" + filename)
+            self.capture_count += 1
+            capture_imagepath = self.capture_path + f"_{self.capture_count :0>3}.png"
+            self.command_queues["camera"].put("save:" + capture_imagepath)

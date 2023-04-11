@@ -161,7 +161,6 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
 
             if command.startswith("save"):
                 filename = command.split(":")[1]
-                filename = f"/home/pifinder/PiFinder_data/captures/{filename}.png"
                 camera.capture_file(filename)
                 console_queue.put("CAM: Saved Image")
 
