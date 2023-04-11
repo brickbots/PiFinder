@@ -125,7 +125,7 @@ class UIStatus(UIModule):
         with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wfs:
             current_state = wfs.read()
         if option == current_state or option == "CANCEL":
-            self._config_options["WiFi Mode"]["value"] = curent_state
+            self._config_options["WiFi Mode"]["value"] = current_state
             return False
 
         if option == "AP":
