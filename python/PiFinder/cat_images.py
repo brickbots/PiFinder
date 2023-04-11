@@ -11,7 +11,11 @@ import os
 from PIL import Image, ImageOps, ImageDraw, ImageFont
 from PiFinder import image_util
 
-BASE_IMAGE_PATH = "/home/pifinder/PiFinder_data/catalog_images"
+#BASE_IMAGE_PATH = "/home/pifinder/PiFinder_data/catalog_images"
+BASE_IMAGE_PATH = "/Users/rich/Projects/Astronomy/PiFinder/astro_data/catalog_images"
+
+#CATALOG_PATH= "/home/pifinder/PiFinder/astro_data/pifinder_objects.db"
+CATALOG_PATH= "/Users/rich/Projects/Astronomy/PiFinder/astro_data/pifinder_objects.db"
 
 
 def get_display_image(catalog_object, source, fov):
@@ -33,9 +37,7 @@ def get_display_image(catalog_object, source, fov):
     if not os.path.exists(object_image_path):
         if catalog_object["catalog"] != "NGC":
             # look for any NGC aka
-            conn = sqlite3.connect(
-                "/home/pifinder/PiFinder/astro_data/pifinder_objects.db"
-            )
+            conn = sqlite3.connect(CATALOG_PATH)
             conn.row_factory = sqlite3.Row
             db_c = conn.cursor()
 
@@ -95,7 +97,7 @@ def resolve_image_name(catalog_object, source):
     """
     returns the image path for this objects
     """
-    return f"{BASE_IMAGE_PATH}/{str(catalog_object['sequence'])[-1]}/{catalog_object['catalog']}{catalog_object['sequence']}_{source}.png"
+    return f"{BASE_IMAGE_PATH}/{str(catalog_object['sequence'])[-1]}/{catalog_object['catalog']}{catalog_object['sequence']}_{source}.jpg"
 
 
 def check_image(image):
@@ -168,7 +170,7 @@ def fetch_object_image(catalog_object, low_cut=10):
 
 
 def fetch_catalog(catalog):
-    conn = sqlite3.connect("/home/pifinder/PiFinder/astro_data/pifinder_objects.db")
+    conn = sqlite3.connect(CATALOG_PATH)
     conn.row_factory = sqlite3.Row
     db_c = conn.cursor()
     cat_objects = conn.execute(
@@ -185,13 +187,14 @@ def create_catalog_image_dirs():
     """
     Checks for and creates catalog_image dirs
     """
-    if not os.path.exists(BASE_IMAGE_PATH):
-        os.makedirs(BASE_IMAGE_PATH)
+    if not os.path.exists(JPG_IMAGE_PATH):
+        os.makedirs(JPG_IMAGE_PATH)
 
     for i in range(0, 10):
-        _image_dir = f"{BASE_IMAGE_PATH}/{i}"
+        _image_dir = f"{JPG_IMAGE_PATH}/{i}"
         if not os.path.exists(_image_dir):
             os.makedirs(_image_dir)
+
 
 
 def get_catalog_images(catalog):
