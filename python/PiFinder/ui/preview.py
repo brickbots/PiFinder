@@ -79,9 +79,7 @@ class UIPreview(UIModule):
         self.last_update = time.time()
         self.solution = None
 
-        root_dir = "/home/pifinder/PiFinder_data"
-        prefix = f"{self.__uuid__}_diag"
-        self.capture_path = os.path.join(root_dir, "captures", prefix)
+        self.capture_prefix = f"{self.__uuid__}_diag"
         self.capture_count = 0
 
     def set_exp(self, option):
@@ -176,5 +174,5 @@ class UIPreview(UIModule):
     def key_number(self, number):
         if number == 0:
             self.capture_count += 1
-            capture_imagepath = self.capture_path + f"_{self.capture_count :0>3}.png"
+            capture_imagepath = self.capture_prefix + f"_{self.capture_count :0>3}.png"
             self.command_queues["camera"].put("save:" + capture_imagepath)

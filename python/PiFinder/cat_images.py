@@ -12,10 +12,10 @@ from PIL import Image, ImageOps, ImageDraw, ImageFont
 from PiFinder import image_util
 
 BASE_IMAGE_PATH = "/home/pifinder/PiFinder_data/catalog_images"
-#BASE_IMAGE_PATH = "/Users/rich/Projects/Astronomy/PiFinder/astro_data/catalog_images"
+# BASE_IMAGE_PATH = "/Users/rich/Projects/Astronomy/PiFinder/astro_data/catalog_images"
 
-CATALOG_PATH= "/home/pifinder/PiFinder/astro_data/pifinder_objects.db"
-#CATALOG_PATH = "/Users/rich/Projects/Astronomy/PiFinder/astro_data/pifinder_objects.db"
+CATALOG_PATH = "/home/pifinder/PiFinder/astro_data/pifinder_objects.db"
+# CATALOG_PATH = "/Users/rich/Projects/Astronomy/PiFinder/astro_data/pifinder_objects.db"
 
 
 def get_display_image(catalog_object, source, fov):
