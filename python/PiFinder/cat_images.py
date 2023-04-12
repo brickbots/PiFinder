@@ -187,11 +187,11 @@ def create_catalog_image_dirs():
     """
     Checks for and creates catalog_image dirs
     """
-    if not os.path.exists(JPG_IMAGE_PATH):
-        os.makedirs(JPG_IMAGE_PATH)
+    if not os.path.exists(BASE_IMAGE_PATH):
+        os.makedirs(BASE_IMAGE_PATH)
 
     for i in range(0, 10):
-        _image_dir = f"{JPG_IMAGE_PATH}/{i}"
+        _image_dir = f"{BASE_IMAGE_PATH}/{i}"
         if not os.path.exists(_image_dir):
             os.makedirs(_image_dir)
 
