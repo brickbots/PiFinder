@@ -1,7 +1,14 @@
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+"""
+This script runs to fetch
+images from AWS
+"""
 import requests, os
 import sqlite3
 
 from PiFinder import cat_images
+
 
 def get_catalog_objects():
     conn = sqlite3.connect(cat_images.CATALOG_PATH)
@@ -55,7 +62,7 @@ def fetch_object_image(catalog_object):
         s3_url = f"https://ddbeeedxfpnp0.cloudfront.net/catalog_images/{seq_ones}/{image_name}"
         r = requests.get(s3_url)
         if r.status_code == 200:
-            with open(object_image_path, 'wb') as f:
+            with open(object_image_path, "wb") as f:
                 f.write(r.content)
         elif r.status_code == 403:
             print("\tNot available")
@@ -70,7 +77,7 @@ def fetch_object_image(catalog_object):
         s3_url = f"https://ddbeeedxfpnp0.cloudfront.net/catalog_images/{seq_ones}/{image_name}"
         r = requests.get(s3_url)
         if r.status_code == 200:
-            with open(object_image_path, 'wb') as f:
+            with open(object_image_path, "wb") as f:
                 f.write(r.content)
         elif r.status_code == 403:
             return False
@@ -85,6 +92,7 @@ def fetch_object_image(catalog_object):
     print("\tDone!")
     return True
 
+
 def main():
     cat_images.create_catalog_image_dirs()
     all_objects = get_catalog_objects()
@@ -92,8 +100,11 @@ def main():
     i = 0
     for catalog_object in all_objects:
         i += 1
-        print(f"{i: >5}/{all_objects_count} - {i/all_objects_count*100.0:2.2f}% -  {catalog_object['catalog']}{catalog_object['sequence']}")
+        print(
+            f"{i: >5}/{all_objects_count} - {i/all_objects_count*100.0:2.2f}% -  {catalog_object['catalog']}{catalog_object['sequence']}"
+        )
         fetch_object_image(catalog_object)
+
 
 if __name__ == "__main__":
     main()

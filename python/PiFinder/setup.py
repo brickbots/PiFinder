@@ -529,7 +529,6 @@ def load_ngc_catalog():
     name_dat = os.path.join(root_dir, "astro_data", "messier_names.dat")
     with open(name_dat, "r") as names:
         for i, l in enumerate(names):
-
             ls = l.split("\t")
             common_name = ls[1][:-1]
             catalog = "M"

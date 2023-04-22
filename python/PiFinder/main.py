@@ -223,7 +223,6 @@ def main(script_name=None):
         power_save_warmup = time.time() + get_sleep_timeout(cfg)
         bg_task_warmup = 5
         try:
-
             while True:
                 # Console
                 try:

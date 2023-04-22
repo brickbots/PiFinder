@@ -46,7 +46,6 @@ class UIConfig(UIModule):
         if self.__config == None:
             self.draw.text((20, 18), "No Config", font=self.font_base, fill=(0, 0, 255))
         else:
-
             # Draw left side item labels
             selected_index = 0
             for i, item_name in enumerate(self.__item_names):

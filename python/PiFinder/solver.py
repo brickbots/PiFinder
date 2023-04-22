@@ -204,7 +204,6 @@ def solver(shared_state, camera_image, console_queue):
                 console_queue.put(f"SLV: Long: {total_tetra_time}")
 
             if solved["RA"] != None:
-
                 imu = shared_state.imu()
                 location = shared_state.location()
                 dt = shared_state.datetime()

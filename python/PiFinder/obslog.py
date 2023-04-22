@@ -87,7 +87,6 @@ class Observation_session:
         return self.__session_uuid
 
     def log_object(self, catalog, sequence, solution, notes):
-
         session_uuid = self.session_uuid()
         if not session_uuid:
             print("Could not create session")

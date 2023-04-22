@@ -66,7 +66,6 @@ def run_server(shared_state, _):
     """
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-
         # 4030 seems to be the default in SkySafari
         server_socket.bind(("", 4030))
         server_socket.listen(1)
