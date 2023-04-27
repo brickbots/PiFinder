@@ -115,7 +115,7 @@ Holding the _A_ key for two seconds will bring up the settings for the catalog. 
 * The _UP/DN_ keys will scroll through the currently filtered objects.
 
 #### Object Images
-If you have [downloaded](./user_guide_setup.md) the set of catalog images you can view what the selected object looks like via images from sky surveys.  Pressing the _B_ key will cycle through various pages of information about each object including images from the Palomar Observatory Sky Survey and potentially updated images from the Sloan Digital Sky Survey.   
+If you have [downloaded](./user_guide_setup.md#catalog-image-download) the set of catalog images you can view what the selected object looks like via images from sky surveys.  Pressing the _B_ key will cycle through various pages of information about each object including images from the Palomar Observatory Sky Survey and potentially updated images from the Sloan Digital Sky Survey.   
 
 As an example, here are the images available for M57
 

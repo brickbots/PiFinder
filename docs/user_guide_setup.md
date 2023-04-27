@@ -5,10 +5,10 @@
 - [Hardware](user_guide_hw.md)
 - [UI Screens](user_guide_ui.md)
 - [Setup](user_guide_setup.md)
-  - [First Time Setup](first-time-setup)
-  - [Camera Setup](camera-setup)
-  - [Camera Alignment](camera-alignment)
-  - [Catalog Image Download](catalog-image-download)
+  - [First Time Setup](#first-time-setup)
+  - [Camera Setup](#camera-setup)
+  - [Camera Alignment](#camera-alignment)
+  - [Catalog Image Download](#catalog-image-download)
 - [FAQ](user_guide_faq.md)
 
 ### First Time Setup
