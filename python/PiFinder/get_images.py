@@ -6,6 +6,7 @@ images from AWS
 """
 import requests, os
 import sqlite3
+from tqdm import tqdm
 
 from PiFinder import cat_images
 
@@ -21,6 +22,51 @@ def get_catalog_objects():
     """
     ).fetchall()
     return cat_objects
+
+def check_catalog_objects(cat_objects):
+    """
+        Checks through catalog objects
+        to deterine which need to be
+        fetched.
+
+        Returns the list of just objects
+        to fetch
+    """
+    return_list = []
+    for catalog_object in tqdm(cat_objects):
+        cat_dict = {"catalog": catalog_object["catalog"], "sequence": catalog_object["sequence"]}
+        if catalog_object["catalog"] not in ["NGC", "IC"]:
+            # look for any NGC aka
+            conn = sqlite3.connect(cat_images.CATALOG_PATH)
+            conn.row_factory = sqlite3.Row
+            db_c = conn.cursor()
+
+            aka_rec = conn.execute(
+                f"""
+                SELECT common_name from names
+                where catalog = "{catalog_object['catalog']}"
+                and sequence = "{catalog_object['sequence']}"
+                and common_name like "NGC%"
+            """
+            ).fetchone()
+            if aka_rec:
+                try:
+                    aka_sequence = int(aka_rec["common_name"][3:].strip())
+                except ValueError:
+                    aka_sequence = None
+                    pass
+
+                if aka_sequence:
+                    cat_dict = {"catalog": "NGC", "sequence": aka_sequence}
+
+        object_image_path = cat_images.resolve_image_name(cat_dict, "POSS")
+        if not os.path.exists(object_image_path):
+            if cat_dict not in return_list:
+                return_list.append(cat_dict)
+
+
+    return return_list
+
 
 
 def fetch_object_image(catalog_object):
@@ -86,24 +132,23 @@ def fetch_object_image(catalog_object):
             print(s3_url, r.status_code)
             return False
     else:
-        print("\tAleady fetched")
         return True
 
-    print("\tDone!")
     return True
 
 
 def main():
     cat_images.create_catalog_image_dirs()
     all_objects = get_catalog_objects()
-    all_objects_count = len(all_objects)
-    i = 0
-    for catalog_object in all_objects:
-        i += 1
-        print(
-            f"{i: >5}/{all_objects_count} - {i/all_objects_count*100.0:2.2f}% -  {catalog_object['catalog']}{catalog_object['sequence']}"
-        )
-        fetch_object_image(catalog_object)
+    print("Checking for missing images")
+    objects_to_fetch = check_catalog_objects(all_objects)
+    if len(objects_to_fetch) > 0:
+        print(f"Fetching {len(objects_to_fetch)} images....")
+        for catalog_object in tqdm(objects_to_fetch):
+            fetch_object_image(catalog_object)
+        print("Done!")
+    else:
+        print("All images downloaded")
 
 
 if __name__ == "__main__":

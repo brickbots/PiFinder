@@ -11,3 +11,4 @@ adafruit-blinka==8.12.0
 adafruit-circuitpython-bno055
 pandas==1.5.3
 sh==1.14.3
+tqdm==4.65.0
