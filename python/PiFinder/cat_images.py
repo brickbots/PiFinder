@@ -7,7 +7,7 @@ to handle catalog image loading
 import requests
 import sqlite3
 import os
-from PIL import Image, ImageOps, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 from PiFinder import image_util
 
 BASE_IMAGE_PATH = "/home/pifinder/PiFinder_data/catalog_images"
@@ -34,14 +34,14 @@ def get_ngc_aka(catalog_object):
     return aka_rec
 
 
-def get_display_image(catalog_object, source, fov, rotation):
+def get_display_image(catalog_object, source, fov, roll):
     """
     Returns a 128x128 image buffer for
     the catalog object/source
     Resizing/cropping as needed to achieve FOV
     in degrees
         fov: 1-.125
-    rotation:
+    roll:
         degrees
     """
     font_base = ImageFont.truetype(
@@ -68,7 +68,7 @@ def get_display_image(catalog_object, source, fov, rotation):
                         {"catalog": "NGC", "sequence": aka_sequence},
                         source,
                         fov,
-                        rotation,
+                        roll,
                     )
         return_image = Image.new("RGB", (128, 128))
         ri_draw = ImageDraw.Draw(return_image)
@@ -76,8 +76,8 @@ def get_display_image(catalog_object, source, fov, rotation):
     else:
         return_image = Image.open(object_image_path)
 
-        # rotate
-        return_image = return_image.rotate(rotation)
+        # rotate for roll / newtonian orientation
+        return_image = return_image.rotate(roll + 180)
 
         # FOV
         fov_size = int(1024 * fov / 2)
@@ -96,13 +96,13 @@ def get_display_image(catalog_object, source, fov, rotation):
         return_image = image_util.make_red(return_image)
 
         # circle
-        _circle_dim = Image.new("RGBA", (128, 128), (0, 0, 128))
+        _circle_dim = Image.new("RGB", (128, 128), (0, 0, 128))
         _circle_draw = ImageDraw.Draw(_circle_dim)
-        _circle_draw.circle([2, 2, 126, 126], fill=(0, 0, 256))
+        _circle_draw.ellipse([2, 2, 126, 126], fill=(0, 0, 256))
         return_image = ImageChops.multiply(return_image, _circle_dim)
 
         ri_draw = ImageDraw.Draw(return_image)
-        ri_draw.circle([2, 2, 126, 126], outline=(0, 0, 128), width=1)
+        ri_draw.ellipse([2, 2, 126, 126], outline=(0, 0, 64), width=1)
 
     # Burn In
     ri_draw.rectangle([0, 108, 30, 128], fill=(0, 0, 0))

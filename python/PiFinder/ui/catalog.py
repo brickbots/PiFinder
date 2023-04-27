@@ -283,8 +283,16 @@ class UICatalog(UIModule):
             else:
                 source = "POSS"
 
+            solution = self.shared_state.solution()
+            roll = 0
+            if solution:
+                roll = solution["Roll"]
+
             self.object_image = cat_images.get_display_image(
-                self.cat_object, source, self.fov_list[self.fov_index]
+                self.cat_object,
+                source,
+                self.fov_list[self.fov_index],
+                roll,
             )
 
     def active(self):

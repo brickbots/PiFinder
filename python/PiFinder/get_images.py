@@ -23,18 +23,22 @@ def get_catalog_objects():
     ).fetchall()
     return cat_objects
 
+
 def check_catalog_objects(cat_objects):
     """
-        Checks through catalog objects
-        to deterine which need to be
-        fetched.
+    Checks through catalog objects
+    to deterine which need to be
+    fetched.
 
-        Returns the list of just objects
-        to fetch
+    Returns the list of just objects
+    to fetch
     """
     return_list = []
     for catalog_object in tqdm(cat_objects):
-        cat_dict = {"catalog": catalog_object["catalog"], "sequence": catalog_object["sequence"]}
+        cat_dict = {
+            "catalog": catalog_object["catalog"],
+            "sequence": catalog_object["sequence"],
+        }
         if catalog_object["catalog"] not in ["NGC", "IC"]:
             # look for any NGC aka
             conn = sqlite3.connect(cat_images.CATALOG_PATH)
@@ -64,9 +68,7 @@ def check_catalog_objects(cat_objects):
             if cat_dict not in return_list:
                 return_list.append(cat_dict)
 
-
     return return_list
-
 
 
 def fetch_object_image(catalog_object):
