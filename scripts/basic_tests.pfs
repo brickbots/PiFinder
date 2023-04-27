@@ -20,6 +20,13 @@ C
 C
 7
 4
+B #Switch to second page of info
+B #Switch to image display
+DN # Zoom In
+DN # More
+UP # Back a bit
+B #Switch to secondary image display
+B #back to main catalog screen
 ENT
 # Should be on Locate screen now
 A # back to chart
@@ -65,3 +72,4 @@ LNG_A
 5 # Push near
 3 # nearest 15
 # we sould be back at locate
+
