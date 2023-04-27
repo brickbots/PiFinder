@@ -1,4 +1,4 @@
-# PiFinder User Manual
+# PiFinder User Manual - User Interface
 
 - [Introduction and Overview](user_guide.md#introduction-and-overview)
 - [How-To](user_guide_howto.md)
@@ -106,11 +106,26 @@ If the number you have entered matches an object in the catalog, information abo
 * Other names
 * IC/NGC coded observing notes
 
+Pressing the _B_ key will cycle through various pages of information about the selected object.  This includes object descriptions in NGC shorthand, information about when you have observed this object, and potentially images of the object.
+
 Use the _D_ key to clear the number field out and start fresh.  If you find an object you are interested in, pressing the _ENT_ key will add it to your target list and switch to the [Locate](#Locate) screen.
 
 Holding the _A_ key for two seconds will bring up the settings for the catalog.  You can filter by apparent altitude, magnitude and object type.  The Options page also has an action to push the currently filtered catalog to the [Observing](user_guide_howto.md#observing-lists) list. Pressing _A_ will bring you back to the catalog and update the count of objects that match your filter.
 
 * The _UP/DN_ keys will scroll through the currently filtered objects.
+
+#### Object Images
+If you have [downloaded](./user_guide_setup.md) the set of catalog images you can view what the selected object looks like via images from sky surveys.  Pressing the _B_ key will cycle through various pages of information about each object including images from the Palomar Observatory Sky Survey and potentially updated images from the Sloan Digital Sky Survey.   
+
+As an example, here are the images available for M57
+
+![Catalog Image](../images/screenshots/CATALOG_images_001_docs.png)
+![Catalog Image](../images/screenshots/CATALOG_images_002_docs.png)
+![Catalog Image](../images/screenshots/CATALOG_images_003_docs.png)
+
+These images are oriented as they would be through the eyepiece in a newtonian reflector pointing at a specific area of the sky from your current location.   You can use the _UP_ and _DN_ keys to switch between various eyepiece field of views.   If you have your telescope and eyepiece collection information entered into the PiFinder these will be used to determine the FOV's to cycle through.  The defaults are 1, 0.5, 0.25, 0.12 degrees.
+
+The bottom left of the screen shows the source of the current image and the left side shows the current FOV / Eyepiece information.
 
 
 ### Locate

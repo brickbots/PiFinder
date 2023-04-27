@@ -1,10 +1,14 @@
-# PiFinder User Manual
+# PiFinder User Manual - Setup
 
 - [Introduction and Overview](user_guide.md#introduction-and-overview)
 - [How-To](user_guide_howto.md)
 - [Hardware](user_guide_hw.md)
 - [UI Screens](user_guide_ui.md)
 - [Setup](user_guide_setup.md)
+  - [First Time Setup](first-time-setup)
+  - [Camera Setup](camera-setup)
+  - [Camera Alignment](camera-alignment)
+  - [Catalog Image Download](catalog-image-download)
 - [FAQ](user_guide_faq.md)
 
 ### First Time Setup
@@ -49,3 +53,20 @@ Once your PiFinder is mounted to your telescope, you'll need to align it with th
 * Use the three thumbscrews to adjust the tilt of the camera.  Between each adjustment, make sure you wait for a new exposure to be taken to see the results.  This normally takes about 1.5 seconds (at night), depending on your exposure settings.
 * If the PiFinder is not holding alignment between observing sessions, try tightening the middle screw, or selecting a stronger spring, to help hold the cell more tightly against the thumbscrews. 
 
+### Catalog Image Download
+The PiFinder can display images of objects in it's catalogs if they are available on your SD card.  These images take approximately 5gb of space and will likely take 5 hours or more to download... but you can cancel and resume the download process at any time.
+
+To download the catalog images, make sure your PiFinder is in WIFI client mode so it can access the internet and SSH into it using the password you setup initially.
+
+Once connected, type:
+
+```
+cd PiFinder/python
+python -m PiFinder.get_images
+```
+
+The PiFinder will quickly check which images are missing and start the download process.  You can monitor it's progress via the status bar displayed.  
+
+![Image Download ](../images/screenshots/Image_download_001.png)
+
+There are 13,000+ images, so it will take a bit of time, but can be done in multiple sessions.  The PiFinder will use whichever images you have on hand each time you observe.

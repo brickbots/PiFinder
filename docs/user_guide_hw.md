@@ -1,4 +1,4 @@
-# PiFinder User Manual
+# PiFinder User Manual - Hardware
 
 - [Introduction and Overview](user_guide.md#introduction-and-overview)
 - [How-To](user_guide_howto.md)
