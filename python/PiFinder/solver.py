@@ -2,171 +2,30 @@
 # -*- coding:utf-8 -*-
 """
 This module is the solver
-* Checks IMU
-* Plate solves high-res image
+* runs loop looking for new images
+* tries to solve them
+* If solved, emits solution into queue
 
 """
-import os
-import sys
 import queue
-import pprint
 import time
 import copy
-import uuid
-import json
 
-from PIL import ImageOps, Image
 from PiFinder.tetra3 import Tetra3
-from skyfield.api import (
-    wgs84,
-    load,
-    Star,
-    Angle,
-    position_of_radec,
-    load_constellation_map,
-)
-
-from PiFinder.image_util import subtract_background
-from PiFinder import config
-
-IMU_ALT = 2
-IMU_AZ = 0
 
 
-class Skyfield_utils:
-    """
-    Class to persist various
-    expensive items that
-    skyfield requires (ephemeris, constellations, etc)
-    and provide useful util functions using them.
-    """
-
-    def __init__(self):
-        self.eph = load("de421.bsp")
-        self.earth = self.eph["earth"]
-        self.observer_loc = None
-        self.constellation_map = load_constellation_map()
-
-    def set_location(self, lat, lon, altitude):
-        """
-        set observing location
-        """
-        self.observer_loc = self.earth + wgs84.latlon(
-            lat,
-            lon,
-            altitude,
-        )
-
-    def altaz_to_radec(self, alt, az, dt):
-        """
-        returns the ra/dec of a specfic
-        apparent alt/az at the given time
-        """
-        ts = load.timescale()
-        t = ts.from_datetime(dt)
-
-        observer = self.observer_loc.at(t)
-        a = observer.from_altaz(alt_degrees=alt, az_degrees=az)
-        ra, dec, distance = a.radec(epoch=t)
-        return ra._degrees, dec._degrees
-
-    def radec_to_altaz(self, ra, dec, dt, atmos=True):
-        """
-        returns the apparent ALT/AZ of a specfic
-        RA/DEC at the given time
-        """
-        ts = load.timescale()
-        t = ts.from_datetime(dt)
-
-        observer = self.observer_loc.at(t)
-        sky_pos = Star(
-            ra=Angle(degrees=ra),
-            dec_degrees=dec,
-        )
-
-        apparent = observer.observe(sky_pos).apparent()
-        if atmos:
-            alt, az, distance = apparent.altaz("standard")
-        else:
-            alt, az, distance = apparent.altaz()
-        return alt.degrees, az.degrees
-
-    def radec_to_constellation(self, ra, dec):
-        """
-        Take a ra/dec and return the constellation
-        """
-        sky_pos = position_of_radec(Angle(degrees=ra)._hours, dec)
-        return self.constellation_map(sky_pos)
-
-
-def write_debug(
-    prefix, console_queue, image, last_solution, current_solution, location, imu, dt
-):
-    """
-    Writes the image + key solver
-    info to disk
-    """
-    st = time.time()
-    root_dir = "/home/pifinder/PiFinder_data"
-    debug_path = os.path.join(root_dir, "solver_debug_dumps", prefix)
-
-    # write images
-    image.save(f"{debug_path}_raw.png")
-    image = subtract_background(image)
-    image = image.convert("RGB")
-    image = ImageOps.autocontrast(image)
-    image.save(f"{debug_path}_sub.png")
-
-    with open(f"{debug_path}_newsolve.json", "w") as f:
-        json.dump(current_solution, f, indent=4)
-
-    with open(f"{debug_path}_oldsolve.json", "w") as f:
-        json.dump(last_solution, f, indent=4)
-
-    with open(f"{debug_path}_location.json", "w") as f:
-        json.dump(location, f, indent=4)
-
-    with open(f"{debug_path}_imu.json", "w") as f:
-        json.dump(imu, f, indent=4)
-
-    with open(f"{debug_path}_datetime.json", "w") as f:
-        json.dump(dt.isoformat(), f, indent=4)
-
-    console_queue.put(f"SLV: Debug {prefix}")
-    console_queue.put(f"\t {time.time() - st: 0.2}")
-
-
-def solver(shared_state, camera_image, console_queue):
-    debug_prefix = str(uuid.uuid1()).split("-")[0]
-    debug_index = 0
-    debug_solve = None
-    sf_utils = Skyfield_utils()
+def solver(shared_state, solver_queue, camera_image, console_queue):
 
     t3 = Tetra3("default_database")
-    t3_counter = 0
     last_solve_time = 0
-    imu_moving = False
     solved = {
         "RA": None,
         "Dec": None,
         "imu_pos": None,
-        "Alt": None,
-        "Az": None,
-        "solve_source": None,
         "solve_time": None,
         "cam_solve_time": 0,
-        "constellation": None,
-        "last_image_solve": None,
     }
-    cfg = config.Config()
-    solver_debug = cfg.get_option("solver_debug")
-    if cfg.get_option("screen_direction") == "left":
-        left_handed = True
-    else:
-        left_handed = False
 
-    # This holds the last image solve position info
-    # so we can delta for IMU updates
     last_image_solve = None
     while True:
         if shared_state.power_state() == 0:
@@ -181,21 +40,8 @@ def solver(shared_state, camera_image, console_queue):
             new_solve = t3.solve_from_image(
                 solve_image,
                 fov_estimate=10.2,
-                # fov_max_error=0.1,
+                fov_max_error=0.5,
             )
-            if (
-                solver_debug
-                and new_solve["RA"] != None
-                and solved["solve_source"] == "IMU"
-            ):
-                # we were on IMU, now we are back
-                # to image solve. Check if we have really moved...
-                if (
-                    abs(new_solve["RA"] - last_image_solve["RA"])
-                    + abs(new_solve["Dec"] - last_image_solve["Dec"])
-                    > 10
-                ):
-                    debug_solve = copy.copy(solved)
 
             solved |= new_solve
 
@@ -205,103 +51,12 @@ def solver(shared_state, camera_image, console_queue):
 
             if solved["RA"] != None:
                 imu = shared_state.imu()
-                location = shared_state.location()
-                dt = shared_state.datetime()
-
                 if imu:
                     solved["imu_pos"] = imu["pos"]
                 else:
                     solved["imu_pos"] = None
                 solved["solve_time"] = time.time()
                 solved["cam_solve_time"] = time.time()
-                solved["solve_source"] = "CAM"
-                solved["constellation"] = sf_utils.radec_to_constellation(
-                    solved["RA"], solved["Dec"]
-                )
-                # see if we can calc alt-az
-                solved["Alt"] = None
-                solved["Az"] = None
-                if location and dt:
-                    # We have position and time/date!
-                    sf_utils.set_location(
-                        location["lat"],
-                        location["lon"],
-                        location["altitude"],
-                    )
-                    alt, az = sf_utils.radec_to_altaz(
-                        solved["RA"],
-                        solved["Dec"],
-                        dt,
-                    )
-                    solved["Alt"] = alt
-                    solved["Az"] = az
-
-                shared_state.set_solution(solved)
-                shared_state.set_solve_state(True)
-                last_image_solve = copy.copy(solved)
-                if debug_solve:
-                    debug_index += 1
-                    tmp_prefix = f"{debug_prefix}{debug_index :0>4}"
-                    write_debug(
-                        tmp_prefix,
-                        console_queue,
-                        solve_image,
-                        debug_solve,
-                        solved,
-                        location,
-                        imu,
-                        dt,
-                    )
-                    debug_solve = None
+                solver_queue.put(solved)
 
             last_solve_time = last_image_time[1]
-        else:
-            # No new image, check IMU
-            # if we don't have an alt/az solve
-            # we can't use the IMU
-            if solved["Alt"]:
-                imu = shared_state.imu()
-                if imu:
-                    if imu["moving"] or imu_moving == True:
-                        # we track imu_moving so that we do
-                        # this one more time after we stop moving
-                        imu_moving = imu["moving"]
-                        location = shared_state.location()
-                        dt = shared_state.datetime()
-                        if last_image_solve and last_image_solve["Alt"]:
-                            # If we have alt, then we have
-                            # a position/time
-
-                            # calc new alt/az
-                            lis_imu = last_image_solve["imu_pos"]
-                            imu_pos = imu["pos"]
-                            if lis_imu != None and imu_pos != None:
-                                alt_offset = imu_pos[IMU_ALT] - lis_imu[IMU_ALT]
-                                if left_handed:
-                                    alt_offset = ((alt_offset + 180) % 360 - 180) * -1
-                                else:
-                                    alt_offset = (alt_offset + 180) % 360 - 180
-                                alt_upd = (last_image_solve["Alt"] - alt_offset) % 360
-
-                                az_offset = imu_pos[IMU_AZ] - lis_imu[IMU_AZ]
-                                az_offset = (az_offset + 180) % 360 - 180
-                                az_upd = (last_image_solve["Az"] + az_offset) % 360
-
-                                solved["Alt"] = alt_upd
-                                solved["Az"] = az_upd
-
-                                # Turn this into RA/DEC
-                                solved["RA"], solved["Dec"] = sf_utils.altaz_to_radec(
-                                    solved["Alt"], solved["Az"], dt
-                                )
-
-                                solved["solve_time"] = time.time()
-                                last_solve_time = time.time()
-                                solved["solve_source"] = "IMU"
-                                solved[
-                                    "constellation"
-                                ] = sf_utils.radec_to_constellation(
-                                    solved["RA"], solved["Dec"]
-                                )
-                                shared_state.set_solution(solved)
-                                shared_state.set_solve_state(True)

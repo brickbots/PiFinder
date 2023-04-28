@@ -29,6 +29,7 @@ from luma.oled.device import ssd1351
 from PiFinder import keyboard
 from PiFinder import camera
 from PiFinder import solver
+from PiFinder import integrator
 from PiFinder import gps
 from PiFinder import imu
 from PiFinder import config
@@ -91,6 +92,7 @@ def main(script_name=None):
     keyboard_queue = Queue()
     gps_queue = Queue()
     camera_command_queue = Queue()
+    solver_queue = Queue()
 
     # init UI Modes
     command_queues = {
@@ -140,7 +142,6 @@ def main(script_name=None):
     )
     gps_process.start()
 
-    # spawn imaging service
     with StateManager() as manager:
         shared_state = manager.SharedState()
         console.set_shared_state(shared_state)
@@ -175,11 +176,21 @@ def main(script_name=None):
         console.write("   Solver")
         console.update()
         solver_process = Process(
-            target=solver.solver, args=(shared_state, camera_image, console_queue)
+            target=solver.solver,
+            args=(shared_state, solver_queue, camera_image, console_queue),
         )
         solver_process.start()
 
-        # Solver
+        # Integrator
+        console.write("   Integrator")
+        console.update()
+        integrator_process = Process(
+            target=integrator.integrator,
+            args=(shared_state, solver_queue, console_queue),
+        )
+        integrator_process.start()
+
+        # Server
         console.write("   Server")
         console.update()
         server_process = Process(
@@ -455,6 +466,9 @@ def main(script_name=None):
 
             print("\tIMU...")
             imu_process.join()
+
+            print("\Integrator...")
+            integrator_process.join()
 
             print("\tSolver...")
             solver_process.join()

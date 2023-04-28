@@ -9,7 +9,7 @@ import time
 import os
 from PIL import ImageFont
 
-from PiFinder import solver, obslist
+from PiFinder import integrator, obslist
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 
@@ -43,7 +43,7 @@ class UILocate(UIModule):
         self.target_index = None
         self.object_text = ["No Object Found"]
         self.__catalog_names = self.config_object.get_option("catalogs")
-        self.sf_utils = solver.Skyfield_utils()
+        self.sf_utils = integrator.Skyfield_utils()
         self.font_huge = ImageFont.truetype(
             "/home/pifinder/PiFinder/fonts/RobotoMono-Bold.ttf", 35
         )
