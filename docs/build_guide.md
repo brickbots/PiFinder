@@ -17,7 +17,12 @@ Switches are easy and can go first.  Place each one on a footprint and press it 
 ![PCB with switches soldered](../images/build_guide/IMG_4639.jpeg)
 
 ### IMU
-The Inertial Measurement unit is next.  The photo below shows the orientation on the back of the PCB.  Solder the headers into the PCB first, then orient the IMU, make sure it sits flat and square with the board.  It does not need to be perfect, but should be secure and low-profile. Solder it into position then trim back the leads of the header to help make sure they don't touch the Raspberry Pi later.
+The Inertial Measurement unit is next.  The IMU has an annoyingly bright green LED on it, which you will probably want to paint over with a drop of black nail polish.  It can be done after it's soldered, but it's much easier before hand.  See the image below to ID the offending component.
+
+![Green led on IMU](../images/build_guide/adafruit_IMU.png)
+
+The photo below shows the orientation on the back of the PCB.  Solder the headers into the PCB first, then orient the IMU, make sure it sits flat and square with the board.  It does not need to be perfect, but should be secure and low-profile. Solder it into position then trim back the leads of the header to help make sure they don't touch the Raspberry Pi later.
+
 
 ![PCB with switches soldered](../images/build_guide/IMG_4643.jpeg)
 
@@ -158,7 +163,9 @@ I think mounting the Pi to the Pi Holder is a good place to start.  For these ph
 ![Pi Mounting](../images/build_guide/IMG_4685.jpeg)
 
 ##### PiSugar
-If you are using a PiSugar, now is the time to fit it under the Pi between it and the holder.  Use the standoffs to screw into the PiSugar securing it to the Pi, then use the double female stand-offs.
+If you are using a PiSugar, now is the time to fit it under the Pi between it and the holder.  But, before you do, you should paint over the blue power LED with some black nail-polish.  It's shockingly bright and is not really needed as the nice red LED on the Pi itself indicates power.  
+
+Use the standoffs to screw into the PiSugar securing it to the Pi, then use the double female stand-offs.
 
 IMPORTANT: If you are using the recommended S Plus unit, turn the 'Auto Startup' switch on the bottom of the unit to OFF (opposite of what is pictured below).  Having this in the ON position will prevent i2c from working and the IMU will not be used.  Once the board is mounted, it's hard to reach this switch, so turn it off now :-)
 
