@@ -25,7 +25,7 @@ These are the bigger items/assemblies which you'll need to purchase to include i
 | 1   | Micro SD Card                    |                                               | High quality is best to avoid power sensitivity and corruption.  The software only needs a couple gigs, so almost any available size should be fine                                                                                                                     |
 | 1   | Raspberry Pi HQ camera          | https://www.adafruit.com/product/4561         |                                                                                                                          |
 | 1   | 25mm F1.4 CCTV Lens for C Mount | https://www.amazon.com/gp/product/B01IECVHB6/ | Other lenses might work here, but something fast with a 10deg FOV is ideal                                               |
-| 1   | GPS USB Dongle                  | https://www.amazon.com/gp/product/B00N32HKIW/ | Almost any GPS reciever should work here, but this is easy to position the antenna and is what the software here assumes |
+| 1   | GPS USB Dongle.  | https://www.amazon.com/gp/product/B00N32HKIW/ | Almost any GPS receiver should work here, but this is easy to position the antenna and is what has been fully tested
 
 ## Case hardware
 In addition to the 3d printed parts detailed in the [Build Guide](./build_guide.md) you'll need some bolts, heat-set inserts and standoffs to complete the build.  There is some room for improvisation here!
