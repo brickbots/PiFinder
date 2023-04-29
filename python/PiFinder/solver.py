@@ -26,7 +26,6 @@ def solver(shared_state, solver_queue, camera_image, console_queue):
         "cam_solve_time": 0,
     }
 
-    last_image_solve = None
     while True:
         if shared_state.power_state() == 0:
             time.sleep(0.5)

@@ -126,6 +126,8 @@ def integrator(shared_state, solver_queue, console_queue):
     while True:
         if shared_state.power_state() == 0:
             time.sleep(0.5)
+        else:
+            time.sleep(1 / 30)
 
         # Check for new camera solve in queue
         next_image_solve = None

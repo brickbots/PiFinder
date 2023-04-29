@@ -30,7 +30,7 @@ from PiFinder import keyboard
 from PiFinder import camera
 from PiFinder import solver
 from PiFinder import integrator
-from PiFinder import gps
+from PiFinder import gps_monitor
 from PiFinder import imu
 from PiFinder import config
 from PiFinder import pos_server
@@ -134,7 +134,7 @@ def main(script_name=None):
     console.write("   GPS")
     console.update()
     gps_process = Process(
-        target=gps.gps_monitor,
+        target=gps_monitor.gps_monitor,
         args=(
             gps_queue,
             console_queue,
@@ -244,13 +244,13 @@ def main(script_name=None):
 
                 # GPS
                 try:
-                    gps_msg = gps_queue.get(block=False)
-                    if gps_msg.sentence_type == "GGA":
-                        if gps_msg.latitude + gps_msg.longitude != 0:
+                    gps_msg, gps_content = gps_queue.get(block=False)
+                    if gps_msg == "fix":
+                        if gps_content["lat"] + gps_content["lon"] > 0:
                             location = shared_state.location()
-                            location["lat"] = gps_msg.latitude
-                            location["lon"] = gps_msg.longitude
-                            location["altitude"] = gps_msg.altitude
+                            location["lat"] = gps_content["lat"]
+                            location["lon"] = gps_content["lon"]
+                            location["altitude"] = gps_content["altitude"]
                             if location["gps_lock"] == False:
                                 # Write to config if we just got a lock
                                 location["timezone"] = tz_finder.timezone_at(
@@ -260,14 +260,12 @@ def main(script_name=None):
                                 console.write("GPS: Location")
                                 location["gps_lock"] = True
                             shared_state.set_location(location)
-                    if gps_msg.sentence_type == "RMC":
-                        if gps_msg.datestamp:
-                            if gps_msg.datestamp.year > 2021:
-                                shared_state.set_datetime(
-                                    datetime.datetime.combine(
-                                        gps_msg.datestamp, gps_msg.timestamp
-                                    )
-                                )
+                    if gps_msg == "time":
+                        shared_state.set_datetime(
+                            datetime.datetime.fromisoformat(
+                                gps_content.replace("Z", "")
+                            )
+                        )
                 except queue.Empty:
                     pass
 
@@ -467,7 +465,7 @@ def main(script_name=None):
             print("\tIMU...")
             imu_process.join()
 
-            print("\Integrator...")
+            print("\tIntegrator...")
             integrator_process.join()
 
             print("\tSolver...")
