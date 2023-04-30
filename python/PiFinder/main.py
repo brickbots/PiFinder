@@ -246,7 +246,7 @@ def main(script_name=None):
                 try:
                     gps_msg, gps_content = gps_queue.get(block=False)
                     if gps_msg == "fix":
-                        if gps_content["lat"] + gps_content["lon"] > 0:
+                        if gps_content["lat"] + gps_content["lon"] != 0:
                             location = shared_state.location()
                             location["lat"] = gps_content["lat"]
                             location["lon"] = gps_content["lon"]
@@ -261,11 +261,14 @@ def main(script_name=None):
                                 location["gps_lock"] = True
                             shared_state.set_location(location)
                     if gps_msg == "time":
-                        shared_state.set_datetime(
-                            datetime.datetime.fromisoformat(
-                                gps_content.replace("Z", "")
-                            )
+                        gps_dt = datetime.datetime.fromisoformat(
+                            gps_content.replace("Z", "")
                         )
+
+                        # Some GPS transcievers will report a time, even before
+                        # they have one.  This is a sanity check for this.
+                        if gps_dt > datetime.datetime(2023, 4, 1, 1, 1, 1):
+                            shared_state.set_datetime(gps_dt)
                 except queue.Empty:
                     pass
 
