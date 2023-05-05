@@ -22,6 +22,8 @@ from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 from timezonefinder import TimezoneFinder
 
+import RPi.GPIO as GPIO
+
 from luma.core.interface.serial import spi
 from luma.core.render import canvas
 from luma.oled.device import ssd1351
@@ -52,12 +54,33 @@ serial = spi(device=0, port=0)
 device = ssd1351(serial)
 
 
-def set_brightness(level):
+KEYPAD_LEDPIN = 13
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(KEYPAD_LEDPIN, GPIO.OUT)
+keypad_pwm = GPIO.PWM(KEYPAD_LEDPIN, 100)  # create PWM instance with frequency
+keypad_pwm.start(0)
+
+
+def set_brightness(level, cfg):
     """
     Sets oled brightness
     0-255
     """
     device.contrast(level)
+
+    # deterime offset for keypad
+    keypad_offsets = {
+        "+3": 2,
+        "+2": 1.6,
+        "+1": 1.3,
+        "0": 1,
+        "-1": 0.75,
+        "-2": 0.5,
+        "-3": 0.25,
+        "Off": 0,
+    }
+    keypad_brightness = cfg.get_option("keypad_brightness")
+    keypad_pwm.ChangeDutyCycle(level * 0.1 * keypad_offsets[keypad_brightness])
 
 
 class StateManager(BaseManager):
@@ -93,11 +116,13 @@ def main(script_name=None):
     gps_queue = Queue()
     camera_command_queue = Queue()
     solver_queue = Queue()
+    ui_queue = Queue()
 
     # init UI Modes
     command_queues = {
         "camera": camera_command_queue,
         "console": console_queue,
+        "ui_queue": ui_queue,
     }
     cfg = config.Config()
 
@@ -112,7 +137,7 @@ def main(script_name=None):
 
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
-    set_brightness(screen_brightness)
+    set_brightness(screen_brightness, cfg)
     console = UIConsole(device, None, None, command_queues, ui_state, cfg)
     console.write("Starting....")
     console.update()
@@ -272,6 +297,15 @@ def main(script_name=None):
                 except queue.Empty:
                     pass
 
+                # ui queue
+                try:
+                    ui_command = ui_queue.get(block=False)
+                except queue.Empty:
+                    ui_command = None
+                if ui_command:
+                    if ui_command == "set_brightness":
+                        set_brightness(screen_brightness, cfg)
+
                 # Keyboard
                 try:
                     keycode = keyboard_queue.get(block=False)
@@ -280,7 +314,7 @@ def main(script_name=None):
 
                 if keycode != None:
                     power_save_warmup = time.time() + get_sleep_timeout(cfg)
-                    set_brightness(screen_brightness)
+                    set_brightness(screen_brightness, cfg)
                     shared_state.set_power_state(1)  # Normal
 
                     # ignore keystroke if we have been asleep
@@ -296,7 +330,7 @@ def main(script_name=None):
                                     screen_brightness = screen_brightness - 10
                                     if screen_brightness < 1:
                                         screen_brightness = 1
-                                set_brightness(screen_brightness)
+                                set_brightness(screen_brightness, cfg)
                                 cfg.set_option("display_brightness", screen_brightness)
                                 console.write("Brightness: " + str(screen_brightness))
 
@@ -430,12 +464,12 @@ def main(script_name=None):
                     if _imu:
                         if _imu["moving"]:
                             power_save_warmup = time.time() + get_sleep_timeout(cfg)
-                            set_brightness(screen_brightness)
+                            set_brightness(screen_brightness, cfg)
                             shared_state.set_power_state(1)  # Normal
 
                     # Check for going into power save...
                     if time.time() > power_save_warmup:
-                        set_brightness(int(screen_brightness / 4))
+                        set_brightness(int(screen_brightness / 4), cfg)
                         shared_state.set_power_state(0)  # sleep
                     if time.time() > power_save_warmup:
                         time.sleep(0.2)

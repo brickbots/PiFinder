@@ -116,6 +116,7 @@ class UIStatus(UIModule):
             self.message("Error on Upd", 3)
 
     def set_key_brightness(self, option):
+        self.command_queues["ui_queue"].put("set_brightness")
         self.config_object.set_option("keypad_brightness", option)
         return False
 
