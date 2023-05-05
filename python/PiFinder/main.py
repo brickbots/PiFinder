@@ -22,6 +22,8 @@ from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 from timezonefinder import TimezoneFinder
 
+import RPi.GPIO as GPIO
+
 from luma.core.interface.serial import spi
 from luma.core.render import canvas
 from luma.oled.device import ssd1351
@@ -30,7 +32,7 @@ from PiFinder import keyboard
 from PiFinder import camera
 from PiFinder import solver
 from PiFinder import integrator
-from PiFinder import gps
+from PiFinder import gps_monitor
 from PiFinder import imu
 from PiFinder import config
 from PiFinder import pos_server
@@ -52,12 +54,33 @@ serial = spi(device=0, port=0)
 device = ssd1351(serial)
 
 
-def set_brightness(level):
+KEYPAD_LEDPIN = 13
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(KEYPAD_LEDPIN, GPIO.OUT)
+keypad_pwm = GPIO.PWM(KEYPAD_LEDPIN, 100)  # create PWM instance with frequency
+keypad_pwm.start(0)
+
+
+def set_brightness(level, cfg):
     """
     Sets oled brightness
     0-255
     """
     device.contrast(level)
+
+    # deterime offset for keypad
+    keypad_offsets = {
+        "+3": 2,
+        "+2": 1.6,
+        "+1": 1.3,
+        "0": 1,
+        "-1": 0.75,
+        "-2": 0.5,
+        "-3": 0.25,
+        "Off": 0,
+    }
+    keypad_brightness = cfg.get_option("keypad_brightness")
+    keypad_pwm.ChangeDutyCycle(level * 0.1 * keypad_offsets[keypad_brightness])
 
 
 class StateManager(BaseManager):
@@ -93,11 +116,13 @@ def main(script_name=None):
     gps_queue = Queue()
     camera_command_queue = Queue()
     solver_queue = Queue()
+    ui_queue = Queue()
 
     # init UI Modes
     command_queues = {
         "camera": camera_command_queue,
         "console": console_queue,
+        "ui_queue": ui_queue,
     }
     cfg = config.Config()
 
@@ -112,7 +137,7 @@ def main(script_name=None):
 
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
-    set_brightness(screen_brightness)
+    set_brightness(screen_brightness, cfg)
     console = UIConsole(device, None, None, command_queues, ui_state, cfg)
     console.write("Starting....")
     console.update()
@@ -134,7 +159,7 @@ def main(script_name=None):
     console.write("   GPS")
     console.update()
     gps_process = Process(
-        target=gps.gps_monitor,
+        target=gps_monitor.gps_monitor,
         args=(
             gps_queue,
             console_queue,
@@ -244,13 +269,13 @@ def main(script_name=None):
 
                 # GPS
                 try:
-                    gps_msg = gps_queue.get(block=False)
-                    if gps_msg.sentence_type == "GGA":
-                        if gps_msg.latitude + gps_msg.longitude != 0:
+                    gps_msg, gps_content = gps_queue.get(block=False)
+                    if gps_msg == "fix":
+                        if gps_content["lat"] + gps_content["lon"] != 0:
                             location = shared_state.location()
-                            location["lat"] = gps_msg.latitude
-                            location["lon"] = gps_msg.longitude
-                            location["altitude"] = gps_msg.altitude
+                            location["lat"] = gps_content["lat"]
+                            location["lon"] = gps_content["lon"]
+                            location["altitude"] = gps_content["altitude"]
                             if location["gps_lock"] == False:
                                 # Write to config if we just got a lock
                                 location["timezone"] = tz_finder.timezone_at(
@@ -260,16 +285,26 @@ def main(script_name=None):
                                 console.write("GPS: Location")
                                 location["gps_lock"] = True
                             shared_state.set_location(location)
-                    if gps_msg.sentence_type == "RMC":
-                        if gps_msg.datestamp:
-                            if gps_msg.datestamp.year > 2021:
-                                shared_state.set_datetime(
-                                    datetime.datetime.combine(
-                                        gps_msg.datestamp, gps_msg.timestamp
-                                    )
-                                )
+                    if gps_msg == "time":
+                        gps_dt = datetime.datetime.fromisoformat(
+                            gps_content.replace("Z", "")
+                        )
+
+                        # Some GPS transcievers will report a time, even before
+                        # they have one.  This is a sanity check for this.
+                        if gps_dt > datetime.datetime(2023, 4, 1, 1, 1, 1):
+                            shared_state.set_datetime(gps_dt)
                 except queue.Empty:
                     pass
+
+                # ui queue
+                try:
+                    ui_command = ui_queue.get(block=False)
+                except queue.Empty:
+                    ui_command = None
+                if ui_command:
+                    if ui_command == "set_brightness":
+                        set_brightness(screen_brightness, cfg)
 
                 # Keyboard
                 try:
@@ -279,7 +314,7 @@ def main(script_name=None):
 
                 if keycode != None:
                     power_save_warmup = time.time() + get_sleep_timeout(cfg)
-                    set_brightness(screen_brightness)
+                    set_brightness(screen_brightness, cfg)
                     shared_state.set_power_state(1)  # Normal
 
                     # ignore keystroke if we have been asleep
@@ -295,7 +330,7 @@ def main(script_name=None):
                                     screen_brightness = screen_brightness - 10
                                     if screen_brightness < 1:
                                         screen_brightness = 1
-                                set_brightness(screen_brightness)
+                                set_brightness(screen_brightness, cfg)
                                 cfg.set_option("display_brightness", screen_brightness)
                                 console.write("Brightness: " + str(screen_brightness))
 
@@ -429,12 +464,12 @@ def main(script_name=None):
                     if _imu:
                         if _imu["moving"]:
                             power_save_warmup = time.time() + get_sleep_timeout(cfg)
-                            set_brightness(screen_brightness)
+                            set_brightness(screen_brightness, cfg)
                             shared_state.set_power_state(1)  # Normal
 
                     # Check for going into power save...
                     if time.time() > power_save_warmup:
-                        set_brightness(int(screen_brightness / 4))
+                        set_brightness(int(screen_brightness / 4), cfg)
                         shared_state.set_power_state(0)  # sleep
                     if time.time() > power_save_warmup:
                         time.sleep(0.2)
@@ -467,7 +502,7 @@ def main(script_name=None):
             print("\tIMU...")
             imu_process.join()
 
-            print("\Integrator...")
+            print("\tIntegrator...")
             integrator_process.join()
 
             print("\tSolver...")

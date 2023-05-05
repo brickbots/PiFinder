@@ -51,6 +51,7 @@ class UILocate(UIModule):
         available_lists = obslist.get_lists()
         self._config_options["Load"]["options"] += available_lists
         self.obs_list_write_index = 0
+        self.last_update_time = time.time()
 
     def save_list(self, option):
         self._config_options["Load"]["value"] = ""
@@ -189,6 +190,7 @@ class UILocate(UIModule):
         self.update()
 
     def update(self, force=False):
+        time.sleep(1 / 30)
         # Clear Screen
         self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
 

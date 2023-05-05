@@ -22,6 +22,12 @@ class UIStatus(UIModule):
     __title__ = "STATUS"
 
     _config_options = {
+        "Key Brit": {
+            "type": "enum",
+            "value": "",
+            "options": ["+3", "+2", "+1", "0", "-1", "-2", "-3", "Off"],
+            "callback": "set_key_brightness",
+        },
         "Sleep Tim": {
             "type": "enum",
             "value": "",
@@ -90,6 +96,9 @@ class UIStatus(UIModule):
         self._config_options["Sleep Tim"]["value"] = self.config_object.get_option(
             "sleep_timeout"
         )
+        self._config_options["Key Brit"]["value"] = self.config_object.get_option(
+            "keypad_brightness"
+        )
 
         self.last_temp_time = 0
 
@@ -105,6 +114,11 @@ class UIStatus(UIModule):
             sys_utils.restart_pifinder()
         else:
             self.message("Error on Upd", 3)
+
+    def set_key_brightness(self, option):
+        self.command_queues["ui_queue"].put("set_brightness")
+        self.config_object.set_option("keypad_brightness", option)
+        return False
 
     def set_sleep_timeout(self, option):
         self.config_object.set_option("sleep_timeout", option)
