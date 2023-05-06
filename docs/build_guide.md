@@ -1,6 +1,8 @@
 # Build Guide
 
-Welcome to the PiFinder build guide!  Please consult the [Bill of Materials](./BOM.md) for a full list of parts required and reach out with any questions.  Below are all the parts you'll need for assembly except for the Raspberry Pi model 4 and 3D printed case parts.
+Welcome to the PiFinder build guide!  Please consult the [Bill of Materials](./BOM.md) for a full list of parts required and reach out with any questions.  Below are many of the parts you'll need for assembly.  Not pictured here are the parts for the keypad backlight which is a feature in current versions of the PiFinder.
+
+This guide currently contains a mix of photos from the older, non-backlit, version and the new backlit version, but the build is the same once you get the backlight components installed.
 
 ![Part Layout](../images/build_guide/IMG_4633.jpeg)
 ## PiFinder Hat
@@ -8,13 +10,37 @@ A key part of the PiFinder is a custom 'Hat' which matches the general form fact
 
 It's all through-hole components, so should be approachable to even beginners... but the component build order is important as some items block access to others.
 
+### Backlight Components
+The two resistors are an easy place to start.  R2 is the vertical oriented 330ohm part and R1 is the 22ohm oriented horizontally.  Direction does not matter with these, just make sure they sit flat and trim the leads on the back when they are soldered.
+
+![Resistors](../images/build_guide/led_build_02.jpeg)
+
+The LED's are the next lowest components, so they go next.  Polarity matters here, so mind the direction.  The longer lead of the LED should go through the round hole in the footprint.  The photo below shows the orientation
+
+![LED Orientation](../images/build_guide/led_build_03.jpeg)
+
+Take you time and make sure each is positioned well.  They should be pretty uniform, but little inconsistencies don't matter too much.  I like to place them all in the board, turn it upright and solder one leg of each.  Then I go back and press on each LED as I reheat the one soldered leg to make sure it's sitting flat and even-ish.
+
+![LED Orientation](../images/build_guide/led_build_05.jpeg)
+
+Once I've verified they all look okay, I'll solder the other leg and trim all the leads.
+
+![LED Orientation](../images/build_guide/led_build_06.jpeg)
+
+The final component for the keypad backlight is the drive transistor.  It's located right by R2 and the GPIO connector.  When inserting the part, the flat side of the package should line up with the flat side of the silkscreen.  Once it's inserted fold the flat side of the transistor agains the PCB so it will be clear of the keypad cover PCB
+
+You can see the position/orientation in the image below.  Once you've got it situated, solder it in and clip the leads.
+
+![LED Orientation](../images/build_guide/led_build_08.jpeg)
+
 ### Switches
-Switches are easy and can go first.  Place each one on a footprint and press it down fully.  Once they are all inserted, before you start soldering visually inspect them for any that are tilted.  It's also a good idea to place the top legend plate over them to make sure they all clear the holes properly.  Then solder them up!
-![PCB with switches](../images/build_guide/IMG_4635.jpeg)
+Switches are easy and can go next.  Place each one on a footprint and press it down fully.  Once they are all inserted, before you start soldering visually inspect them for any that are tilted.  
 
-![PCB with switches installed and leveled](../images/build_guide/IMG_4636.jpeg)
+![PCB with switches](../images/build_guide/led_build_10.jpeg)
 
-![PCB with switches soldered](../images/build_guide/IMG_4639.jpeg)
+It's also a good idea to place the top legend plate over them to make sure they all clear the holes properly.  Then solder them up!
+
+![PCB with switches soldered](../images/build_guide/led_build_11.jpeg)
 
 ### IMU
 The Inertial Measurement unit is next.  The IMU has an annoyingly bright green LED on it, which you will probably want to paint over with a drop of black nail polish.  It can be done after it's soldered, but it's much easier before hand.  See the image below to ID the offending component.

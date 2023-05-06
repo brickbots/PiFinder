@@ -28,6 +28,8 @@ Along with the 1.5" oled screen, the keypad has three primary parts, a numeric k
 - If the GPS has locked and provided a location, the GPS square in the status bar will be filled in and the G will be in black.  
 - The solver status will show either C (Camera) or I (IMU) depending on the source of the last position fix.  The background of this square fades from red to black, over six seconds, indicating the time since last solve.  
 
+### Brightness Adjustment
+At any time you can hold down the _ENT_ key and press the _UP_/_DN_ keys to adjust the screen and backlight brightness together.  If you want to change the keypad brightness relative to the screen, you can set this in the Options page of the Status screen with the rest of the global options.  The setting there allows you to make the keypad brighter or dimmer relative to the screen or turn it off all together.  Once you have the two balanced to your liking, the _ENT + UP/DN_ should be all you need during and observing session to fine-tune the overall PiFinder brightness.
 
 ### Power Save Mode
 
