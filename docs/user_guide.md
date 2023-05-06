@@ -2,6 +2,7 @@
 
 - [Introduction and Overview](user_guide.md#introduction-and-overview)
   * [Keypad and Screen](#keypad-and-screen)
+  * [Brightness Adjustment](#brightness-adjustment)
   * [Power Save Mode](#power-save-mode)
 - [How-To](user_guide_howto.md)
 - [Hardware](user_guide_hw.md)
