@@ -123,7 +123,8 @@ Then use some short M2.5 screws to secure the camera to the cell
 
 ![Stand off setup](../images/build_guide/IMG_4708.jpeg)
 
-Finally, you can attach the lens now, or a bit later in the assembly.  It screws right into the existing knurled adapter that comes with the camera.
+Finally, you can attach the lens now, or a bit later in the assembly.  It screws right into the existing knurled adapter that comes with the camera.  
+NOTE: The knurled adapter is required for the lens to reach focus, so keep it installed!
 
 ![Lens install](../images/build_guide/IMG_4716.jpeg)
 
