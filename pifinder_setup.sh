@@ -36,6 +36,7 @@ git clone https://github.com/esa/tetra3.git
 echo "dtparam=spi=on" | sudo tee -a /boot/config.txt
 echo "dtparam=i2c_arm=on" | sudo tee -a /boot/config.txt
 echo "dtparam=i2c_arm_baudrate=10000" | sudo tee -a /boot/config.txt
+echo "dtoverlay=pwm,pin=13,func=4" | sudo tee -a /boot/config.txt
 
 # Enable service
 sudo cp /home/pifinder/PiFinder/pifinder.service /etc/systemd/system/pifinder.service
