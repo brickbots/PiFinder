@@ -22,7 +22,7 @@ from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 from timezonefinder import TimezoneFinder
 
-import RPi.GPIO as GPIO
+from rpi_hardware_pwm import HardwarePWM
 
 from luma.core.interface.serial import spi
 from luma.core.render import canvas
@@ -55,9 +55,7 @@ device = ssd1351(serial)
 
 
 KEYPAD_LEDPIN = 13
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(KEYPAD_LEDPIN, GPIO.OUT)
-keypad_pwm = GPIO.PWM(KEYPAD_LEDPIN, 100)  # create PWM instance with frequency
+keypad_pwm = HardwarePWM(pwm_channel=1, hz=120)
 keypad_pwm.start(0)
 
 
@@ -80,7 +78,7 @@ def set_brightness(level, cfg):
         "Off": 0,
     }
     keypad_brightness = cfg.get_option("keypad_brightness")
-    keypad_pwm.ChangeDutyCycle(level * 0.1 * keypad_offsets[keypad_brightness])
+    keypad_pwm.change_duty_cycle(level * 0.05 * keypad_offsets[keypad_brightness])
 
 
 class StateManager(BaseManager):
