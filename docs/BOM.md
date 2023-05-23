@@ -32,21 +32,16 @@ These are the bigger items/assemblies which you'll need to purchase to include i
 | 1   | GPS USB Dongle.  | https://www.amazon.com/gp/product/B00N32HKIW/ | Almost any GPS receiver should work here, but this is easy to position the antenna and is what has been fully tested
 
 ## Case hardware
-In addition to the 3d printed parts detailed in the [Build Guide](./build_guide.md) you'll need some bolts, heat-set inserts and standoffs to complete the build.  There is some room for improvisation here!
+In addition to the 3d printed parts detailed in the [Build Guide](./build_guide.md) you'll need some bolts, heat-set inserts and standoffs to complete the build.  Everything is M2.5 and some of the lengths can vary a bit.
 
 | Qty | Item                  | URL | Notes                                                                                                                                                                     |
 | --- | --------------------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 3   | M3x11mm bolts           |     | To secure top plate/case bezel                                                                                                                                            |
-| 4   | M3x20mm standoffs       |     | Between Pi and Hat Depending on your heatsink and such you may need longer or shorter amounts here and you'll probably need to screw a couple together to get this length |
-| 4   | M3x5mm standoffs        |     | Between the 3d printed Pi mount and the Pi                                                                                                                                |
-| 12   | M3x8mm bolts            |     | Hold case portions together                                                                                                                                               |
-| 20  | M3x4mm heat set inserts |     | General case assembly                                                                                                                                                     |
-| 3   | M3x12mm thumbscrews     |     | Camera cell adjustment bolts                                                                                                                                              |
-| 1   | M3x20mm bolt            |     | Camera cell tensioner, length can vary, but it needs to be longer than the thumbscrews                                                                                                                                                        |
-| 1   | Spring                |     | Camera cell tensioner, length can vary                                                                                                                                                        |
-| 4   | M2x6mm bolt             |     | Secure camera to cell                                                                                                                                                     |
-| 4   | M2 heat set inserts   |     | Secure camera to cell                                                                                                                                                     |
-| 4   | M2x2mm spacer           |     | Length is not critical                                                                                                                                                                          |
+| 22   | M2.5x4mm heat set inserts           |     | |
+| 14   | M2.5x8mm bolts           |     | Primary fastener for case frame|
+| 4   | M2.5x20mm standoffs       |     | Between Pi and Hat Depending on your heatsink and such you may need longer or shorter amounts here and you'll probably need to screw a couple together to get this length |
+| 4   | M2.5x6mm standoffs        |     | Between the 3d printed Pi mount and the Pi                                                                                                                                |
+| 3   | M2.5x12mm thumbscrews     |     | Camera cell adjustment bolts                                                                                                                                              |
+| 4   | M2.5x12mm bolt            |     | Camera cell tensioner and 3 for the shroud/top plate attachment|
 
 ## Power
 The PiFinder takes about .9amp at 5v under full load, and about 60% of this when in power-save/idle mode.  For battery sizing a good rule of thumb would be 1.25 hour of run time per 1000mah of battery capacity.  You can use any batter pack that will produce at least 1.5 amp of power and plug this into the USB-C port on the unit.
