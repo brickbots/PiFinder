@@ -55,6 +55,7 @@ from PiFinder.state import SharedStateObj
 from PiFinder.image_util import subtract_background
 
 device = None
+keypad_pwm = None
 
 
 def init_display(fakehardware):
