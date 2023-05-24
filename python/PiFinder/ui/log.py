@@ -11,6 +11,7 @@ from PIL import ImageFont
 from PiFinder import solver
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder import obslog
 from skyfield.api import Angle
 from skyfield.positionlib import ICRF
@@ -67,9 +68,7 @@ class UILog(UIModule):
         self.modal_timer = 0
         self.modal_duration = 0
         self.modal_text = None
-        self.font_small = ImageFont.truetype(
-            "/home/pifinder/PiFinder/fonts/RobotoMono-Bold.ttf", 8
-        )
+        self.font_small = fonts.small
 
     def reset_config(self):
         """

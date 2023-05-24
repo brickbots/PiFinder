@@ -10,6 +10,8 @@ import uuid
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+from PiFinder.ui.fonts import Fonts as fonts
+from PiFinder import utils
 
 
 class UIModule:
@@ -34,20 +36,12 @@ class UIModule:
         self.command_queues = command_queues
         self.screen = Image.new("RGB", (128, 128))
         self.draw = ImageDraw.Draw(self.screen)
-        self.cwd = Path.cwd()
-        self.base_path = str(Path(self.cwd, "../fonts/RobotoMono-Regular.ttf"))
-        self.font_base = ImageFont.truetype(
-                self.base_path, 10
-        )
-        self.font_bold = ImageFont.truetype(
-            str(Path(self.cwd, "../fonts/RobotoMono-Bold.ttf")), 12
-        )
-        self.font_large = ImageFont.truetype(
-            str(Path(self.cwd, "../fonts/RobotoMono-Regular.ttf")), 15
-        )
+        self.font_base = fonts.base
+        self.font_bold = fonts.bold
+        self.font_large = fonts.large
 
         # screenshot stuff
-        root_dir = "/home/pifinder/PiFinder_data"
+        root_dir = str(utils.data_dir)
         prefix = f"{self.__uuid__}_{self.__title__}"
         self.ss_path = os.path.join(root_dir, "screenshots", prefix)
         self.ss_count = 0

@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-This module handles non-volitile config options
+This module handles non-volatile config options
 """
 import json, os
 from pathlib import Path

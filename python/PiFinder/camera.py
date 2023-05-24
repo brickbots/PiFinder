@@ -16,6 +16,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageChops
 # from picamera2 import Picamera2
 
 from PiFinder import config
+from PiFinder import utils
 
 RED = (0, 0, 255)
 
@@ -161,14 +162,14 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
 
             if command.startswith("save"):
                 filename = command.split(":")[1]
-                filename = f"/home/pifinder/PiFinder_data/captures/{filename}.png"
+                filename = f"{utils.data_dir}/captures/{filename}.png"
                 camera.capture_file(filename)
                 console_queue.put("CAM: Saved Image")
 
             if command.startswith("save_hi"):
                 # Save high res image....
                 filename = command.split(":")[1]
-                filename = f"/home/pifinder/PiFinder_data/captures/{filename}.png"
+                filename = f"{utils.data_dir}/captures/{filename}.png"
                 set_camera_highres(camera)
                 camera.capture_file(filename)
                 console_queue.put("CAM: Saved Hi Image")

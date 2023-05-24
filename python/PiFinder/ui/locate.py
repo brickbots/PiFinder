@@ -12,6 +12,7 @@ from PIL import ImageFont
 from PiFinder import integrator, obslist
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.fonts import Fonts as fonts
 
 RED = (0, 0, 255)
 
@@ -44,9 +45,7 @@ class UILocate(UIModule):
         self.object_text = ["No Object Found"]
         self.__catalog_names = self.config_object.get_option("catalogs")
         self.sf_utils = integrator.Skyfield_utils()
-        self.font_huge = ImageFont.truetype(
-            "/home/pifinder/PiFinder/fonts/RobotoMono-Bold.ttf", 35
-        )
+        self.font_huge = fonts.huge
 
         available_lists = obslist.get_lists()
         self._config_options["Load"]["options"] += available_lists

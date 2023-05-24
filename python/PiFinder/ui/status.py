@@ -10,6 +10,7 @@ import socket
 
 from PiFinder.ui.base import UIModule
 from PiFinder import sys_utils
+from PiFinder import utils
 
 RED = (0, 0, 255)
 
@@ -68,9 +69,9 @@ class UIStatus(UIModule):
 
     def __init__(self, *args):
         super().__init__(*args)
-        with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wfs:
+        with open(f"{utils.pifinder_dir}/wifi_status.txt", "r") as wfs:
             self._config_options["WiFi Mode"]["value"] = wfs.read()
-        with open("/home/pifinder/PiFinder/version.txt", "r") as ver:
+        with open(f"{utils.pifinder_dir}/version.txt", "r") as ver:
             self._config_options["Software"]["value"] = ver.read()
         self.status_dict = {
             "LST SLV": "           --",
@@ -246,5 +247,5 @@ class UIStatus(UIModule):
         Called when a module becomes active
         i.e. foreground controlling display
         """
-        with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wfs:
+        with open(f"{utils.pifinder_dir}/wifi_status.txt", "r") as wfs:
             self._config_options["WiFi Mode"]["value"] = wfs.read()

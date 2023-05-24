@@ -23,6 +23,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 from timezonefinder import TimezoneFinder
+from pathlib import Path
 
 from rpi_hardware_pwm import HardwarePWM
 
@@ -38,6 +39,7 @@ from PiFinder import integrator
 from PiFinder import gps_monitor
 from PiFinder import config
 from PiFinder import pos_server
+from PiFinder import utils
 
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.preview import UIPreview
@@ -70,6 +72,16 @@ def init_keypad():
     KEYPAD_LEDPIN = 13
     keypad_pwm = HardwarePWM(pwm_channel=1, hz=120)
     keypad_pwm.start(0)
+
+
+def setup_dirs():
+    utils.create_path(Path(utils.data_dir))
+    utils.create_path(Path(utils.data_dir, 'captures'))
+    utils.create_path(Path(utils.data_dir, 'obslists'))
+    utils.create_path(Path(utils.data_dir, 'screenshots'))
+    utils.create_path(Path(utils.data_dir, 'solver_debug_dumps'))
+    utils.create_path(Path(utils.data_dir, 'logs'))
+    os.chmod(Path(utils.data_dir), 0o777)
 
 
 def set_brightness(level, cfg):
@@ -118,6 +130,7 @@ def main(script_name, fakehardware, fakecamera, notmp):
     Get this show on the road!
     """
     init_display(fakehardware)
+    setup_dirs()
     if not fakehardware:
         init_keypad()
     # Set path for test images

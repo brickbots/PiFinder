@@ -13,11 +13,13 @@ import sqlite3
 import pandas as pd
 import numpy as np
 from sklearn.neighbors import BallTree
+from pathlib import Path
 from PIL import ImageFont
 
 from PiFinder import solver, obslog, cat_images
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.fonts import Fonts as fonts
 
 RED = (0, 0, 255)
 
@@ -152,9 +154,7 @@ class UICatalog(UIModule):
         db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
-        self.font_large = ImageFont.truetype(
-            "/home/pifinder/PiFinder/fonts/RobotoMono-Regular.ttf", 20
-        )
+        self.font_large = fonts.large
 
         self.object_display_mode = DM_DESC
         self.object_image = None
