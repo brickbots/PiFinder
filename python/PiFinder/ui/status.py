@@ -229,7 +229,7 @@ class UIStatus(UIModule):
 
     def update(self, force=False):
         self.update_status_dict()
-        self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
+        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
         lines = []
         for k, v in self.status_dict.items():
             line = f"{k: >7}:{v: >10}"
@@ -239,7 +239,7 @@ class UIStatus(UIModule):
         lines[-1] = f'{self.status_dict["IP ADDR"]: >21}'
 
         for i, line in enumerate(lines):
-            self.draw.text((0, i * 10 + 20), line, font=self.font_base, fill=RED)
+            self.draw.text((0, i * 10 + 20), line, font=self.font_base, fill=self.colors.get(255))
         return self.screen_update()
 
     def active(self):

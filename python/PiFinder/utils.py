@@ -14,4 +14,3 @@ home_dir = Path.home()
 cwd_dir = Path.cwd()
 pifinder_dir = Path('..')
 data_dir = Path(Path.home(), 'PiFinder_data')
-

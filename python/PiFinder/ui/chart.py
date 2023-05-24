@@ -130,10 +130,10 @@ class UIChart(UIModule):
                 64 + circ_rad,
                 64 + circ_rad,
             ]
-            self.draw.arc(bbox, 20, 70, fill=(0, 0, brightness))
-            self.draw.arc(bbox, 110, 160, fill=(0, 0, brightness))
-            self.draw.arc(bbox, 200, 250, fill=(0, 0, brightness))
-            self.draw.arc(bbox, 290, 340, fill=(0, 0, brightness))
+            self.draw.arc(bbox, 20, 70, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 110, 160, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 200, 250, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 290, 340, fill=self.colors.get(brightness))
 
     def update(self, force=False):
         if force:
@@ -167,9 +167,9 @@ class UIChart(UIModule):
                 self.last_update = last_solve_time
 
         else:
-            self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
-            self.draw.text((18, 20), "Can't plot", font=self.font_large, fill=RED)
-            self.draw.text((25, 50), "No Solve Yet", font=self.font_base, fill=RED)
+            self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+            self.draw.text((18, 20), "Can't plot", font=self.font_large, fill=self.colors.get(255))
+            self.draw.text((25, 50), "No Solve Yet", font=self.font_base, fill=self.colors.get(255))
 
         self.draw_reticle()
         return self.screen_update()

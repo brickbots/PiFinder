@@ -10,9 +10,35 @@ function
 from PIL import Image, ImageChops
 import numpy as np
 import scipy.ndimage
+from enum import Enum
+import functools
+
 
 red_image = Image.new("RGB", (128, 128), (0, 0, 255))
 
+
+class ScreenColor():
+    RED_RGB = np.array([1,0,0])
+    RED_BGR = np.array([0,0,1])
+    GREY = np.array([1,1,1])
+
+class Colors:
+    RED = (0, 0, 255)
+    def __init__(self, screen_color: ScreenColor):
+        self.screen_color = screen_color
+        self.RED = self.get(1)
+
+    @functools.cache    
+    def get(self, color_intensity):
+        return tuple(self.screen_color*color_intensity)
+
+class DeviceWrapper:
+    colors: Colors
+    device = None
+
+    def __init__(self, device, screen_color: ScreenColor):
+        self.device = device
+        self.colors = Colors(screen_color)
 
 def make_red(in_image):
     return ImageChops.multiply(in_image, red_image)

@@ -29,8 +29,7 @@ from rpi_hardware_pwm import HardwarePWM
 
 from luma.core.interface.serial import spi
 from luma.core.render import canvas
-from luma.oled.device import ssd1351
-from luma.emulator.device import pygame
+
 
 from PiFinder import keyboard
 from PiFinder import camera
@@ -52,7 +51,7 @@ from PiFinder.ui.log import UILog
 
 from PiFinder.state import SharedStateObj
 
-from PiFinder.image_util import subtract_background
+from PiFinder.image_util import subtract_background, DeviceWrapper, ScreenColor
 
 device = None
 keypad_pwm = None
@@ -61,12 +60,16 @@ keypad_pwm = None
 def init_display(fakehardware):
     global device
     if fakehardware:
+        from luma.emulator.device import pygame
         # init display  (SPI hardware)
         device = pygame(width=128, height=128, rotate=0, mode='RGB', transform='scale2x', scale=2, frame_rate=60)
+        device = DeviceWrapper(device, ScreenColor.RED_RGB)
     else:
+        from luma.oled.device import ssd1351
         # init display  (SPI hardware)
         serial = spi(device=0, port=0)
         device = ssd1351(serial)
+        device = DeviceWrapper(device, ScreenColor.RED_BGR)
 
 
 def init_keypad():

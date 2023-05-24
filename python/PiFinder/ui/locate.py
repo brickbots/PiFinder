@@ -191,16 +191,16 @@ class UILocate(UIModule):
     def update(self, force=False):
         time.sleep(1 / 30)
         # Clear Screen
-        self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
+        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
 
         if not self.ui_state["target"]:
-            self.draw.text((0, 20), "No Target Set", font=self.font_large, fill=RED)
+            self.draw.text((0, 20), "No Target Set", font=self.font_large, fill=self.colors.get(255))
             return self.screen_update()
 
         # Target Name
         line = self.ui_state["target"]["catalog"]
         line += str(self.ui_state["target"]["sequence"])
-        self.draw.text((0, 20), line, font=self.font_large, fill=RED)
+        self.draw.text((0, 20), line, font=self.font_large, fill=self.colors.get(255))
 
         # Target history index
         if self.target_index != None:
@@ -210,42 +210,42 @@ class UILocate(UIModule):
                 list_name = "Obsv"
             line = f"{self.target_index + 1}/{len(self.ui_state['active_list'])}"
             line = f"{line : >9}"
-            self.draw.text((72, 18), line, font=self.font_base, fill=RED)
-            self.draw.text((72, 28), f"{list_name: >9}", font=self.font_base, fill=RED)
+            self.draw.text((72, 18), line, font=self.font_base, fill=self.colors.get(255))
+            self.draw.text((72, 28), f"{list_name: >9}", font=self.font_base, fill=self.colors.get(255))
 
         # ID Line in BOld
-        self.draw.text((0, 40), self.object_text[0], font=self.font_bold, fill=RED)
+        self.draw.text((0, 40), self.object_text[0], font=self.font_bold, fill=self.colors.get(255))
 
         # Pointing Instructions
         point_az, point_alt = self.aim_degrees()
         if not point_az:
-            self.draw.text((0, 50), " ---.-", font=self.font_huge, fill=RED)
-            self.draw.text((0, 84), "  --.-", font=self.font_huge, fill=RED)
+            self.draw.text((0, 50), " ---.-", font=self.font_huge, fill=self.colors.get(255))
+            self.draw.text((0, 84), "  --.-", font=self.font_huge, fill=self.colors.get(255))
         else:
             if point_az >= 0:
-                self.draw.regular_polygon((10, 75, 10), 3, 90, fill=RED)
-                # self.draw.pieslice([-20,65,20,85],330, 30, fill=RED)
-                # self.draw.text((0, 50), "+", font=self.font_huge, fill=RED)
+                self.draw.regular_polygon((10, 75, 10), 3, 90, fill=self.colors.get(255))
+                # self.draw.pieslice([-20,65,20,85],330, 30, fill=self.colors.get(255))
+                # self.draw.text((0, 50), "+", font=self.font_huge, fill=self.colors.get(255))
             else:
                 point_az *= -1
-                self.draw.regular_polygon((10, 75, 10), 3, 270, fill=RED)
-                # self.draw.pieslice([0,65,40,85],150,210, fill=RED)
-                # self.draw.text((0, 50), "-", font=self.font_huge, fill=RED)
+                self.draw.regular_polygon((10, 75, 10), 3, 270, fill=self.colors.get(255))
+                # self.draw.pieslice([0,65,40,85],150,210, fill=self.colors.get(255))
+                # self.draw.text((0, 50), "-", font=self.font_huge, fill=self.colors.get(255))
             self.draw.text(
-                (25, 50), f"{point_az : >5.1f}", font=self.font_huge, fill=RED
+                (25, 50), f"{point_az : >5.1f}", font=self.font_huge, fill=self.colors.get(255)
             )
 
             if point_alt >= 0:
-                self.draw.regular_polygon((10, 110, 10), 3, 0, fill=RED)
-                # self.draw.pieslice([0,84,20,124],60, 120, fill=RED)
-                # self.draw.text((0, 84), "+", font=self.font_huge, fill=RED)
+                self.draw.regular_polygon((10, 110, 10), 3, 0, fill=self.colors.get(255))
+                # self.draw.pieslice([0,84,20,124],60, 120, fill=self.colors.get(255))
+                # self.draw.text((0, 84), "+", font=self.font_huge, fill=self.colors.get(255))
             else:
                 point_alt *= -1
-                self.draw.regular_polygon((10, 105, 10), 3, 180, fill=RED)
-                # self.draw.pieslice([0,104,20,144],270, 330, fill=RED)
-                # self.draw.text((0, 84), "-", font=self.font_huge, fill=RED)
+                self.draw.regular_polygon((10, 105, 10), 3, 180, fill=self.colors.get(255))
+                # self.draw.pieslice([0,104,20,144],270, 330, fill=self.colors.get(255))
+                # self.draw.text((0, 84), "-", font=self.font_huge, fill=self.colors.get(255))
             self.draw.text(
-                (25, 84), f"{point_alt : >5.1f}", font=self.font_huge, fill=RED
+                (25, 84), f"{point_alt : >5.1f}", font=self.font_huge, fill=self.colors.get(255)
             )
 
         return self.screen_update()

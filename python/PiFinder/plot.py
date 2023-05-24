@@ -123,11 +123,11 @@ class Starfield:
             if symbol == "target":
                 idraw.line(
                     [x_pos, y_pos - 5, x_pos, y_pos + 5],
-                    fill=(0, 0, 255),
+                    fill=self.colors.get(255),
                 )
                 idraw.line(
                     [x_pos - 5, y_pos, x_pos + 5, y_pos],
-                    fill=(0, 0, 255),
+                    fill=self.colors.get(255),
                 )
 
                 # Draw pointer....

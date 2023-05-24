@@ -124,10 +124,10 @@ class UIPreview(UIModule):
                 64 + circ_rad,
                 64 + circ_rad,
             ]
-            self.draw.arc(bbox, 20, 70, fill=(0, 0, brightness))
-            self.draw.arc(bbox, 110, 160, fill=(0, 0, brightness))
-            self.draw.arc(bbox, 200, 250, fill=(0, 0, brightness))
-            self.draw.arc(bbox, 290, 340, fill=(0, 0, brightness))
+            self.draw.arc(bbox, 20, 70, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 110, 160, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 200, 250, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 290, 340, fill=self.colors.get(brightness))
 
     def update(self, force=False):
         if force:

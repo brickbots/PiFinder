@@ -21,7 +21,6 @@ from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
 
-RED = (0, 0, 255)
 
 # Constants for display modes
 DM_DESC = 0
@@ -107,6 +106,7 @@ class UICatalog(UIModule):
     """
     Search catalogs for object to find
     """
+
 
     __title__ = "CATALOG"
     _config_options = {
@@ -293,6 +293,7 @@ class UICatalog(UIModule):
                 source,
                 self.fov_list[self.fov_index],
                 roll,
+                self.colors
             )
 
     def active(self):
@@ -313,30 +314,30 @@ class UICatalog(UIModule):
 
     def update(self, force=True):
         # Clear Screen
-        self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
+        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
 
         if self.object_display_mode in [DM_DESC, DM_OBS] or self.cat_object == None:
             # catalog and entry field
             line = f"{self.__catalog_names[self.catalog_index]: >3}"
             line += "".join(self.designator)
-            self.draw.text((0, 21), line, font=self.font_large, fill=RED)
+            self.draw.text((0, 21), line, font=self.font_large, fill=self.colors.get(255))
 
             # catalog counts....
             self.draw.text(
                 (100, 21),
                 f"{self._catalog_count[1]}",
                 font=self.font_base,
-                fill=(0, 0, 128),
+                fill=self.colors.get(128),
             )
             self.draw.text(
                 (100, 31),
                 f"{self._catalog_count[0]}",
                 font=self.font_base,
-                fill=(0, 0, 96),
+                fill=self.colors.get(96),
             )
 
             # ID Line in BOld
-            self.draw.text((0, 48), self.object_text[0], font=self.font_bold, fill=RED)
+            self.draw.text((0, 48), self.object_text[0], font=self.font_bold, fill=self.colors.get(255))
 
             # mag/size in bold
             text_color = RED
@@ -355,7 +356,7 @@ class UICatalog(UIModule):
 
             # Remaining lines
             for i, line in enumerate(self.object_text[2:]):
-                self.draw.text((0, i * 11 + 82), line, font=self.font_base, fill=RED)
+                self.draw.text((0, i * 11 + 82), line, font=self.font_base, fill=self.colors.get(255))
         else:
             self.screen.paste(self.object_image)
         return self.screen_update()
