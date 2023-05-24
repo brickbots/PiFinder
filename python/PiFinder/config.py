@@ -4,6 +4,7 @@
 This module handles non-volitile config options
 """
 import json, os
+from pathlib import Path
 
 
 class Config:
@@ -11,8 +12,9 @@ class Config:
         """
         load all settings from config file
         """
-        config_file_path = "/home/pifinder/PiFinder/config.json"
-        default_file_path = "/home/pifinder/PiFinder/default_config.json"
+        cwd = Path.cwd()
+        config_file_path = Path(cwd, "../config.json")
+        default_file_path = Path(cwd, "../default_config.json")
         if not os.path.exists(config_file_path):
             self._config_dict = {}
         else:
@@ -25,7 +27,7 @@ class Config:
 
     def set_option(self, option, value):
         self._config_dict[option] = value
-        with open("/home/pifinder/PiFinder/config.json", "w") as config_file:
+        with open(config_file_path, "w") as config_file:
             json.dump(self._config_dict, config_file, indent=4)
 
     def get_option(self, option):

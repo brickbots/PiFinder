@@ -29,6 +29,7 @@ from rpi_hardware_pwm import HardwarePWM
 from luma.core.interface.serial import spi
 from luma.core.render import canvas
 from luma.oled.device import ssd1351
+from luma.emulator.device import pygame
 
 from PiFinder import keyboard
 from PiFinder import camera
@@ -51,16 +52,21 @@ from PiFinder.state import SharedStateObj
 
 from PiFinder.image_util import subtract_background
 
-
-def init_display_and_keypad():
-    """
-    Initializes the display and keypad
-    """
-    # init display  (SPI hardware)
-    serial = spi(device=0, port=0)
-    device = ssd1351(serial)
+device = None
 
 
+def init_display(fakehardware):
+    global device
+    if fakehardware:
+        # init display  (SPI hardware)
+        device = pygame(width=128, height=128, rotate=0, mode='RGB', transform='scale2x', scale=2, frame_rate=60)
+    else:
+        # init display  (SPI hardware)
+        serial = spi(device=0, port=0)
+        device = ssd1351(serial)
+
+
+def init_keypad():
     KEYPAD_LEDPIN = 13
     keypad_pwm = HardwarePWM(pwm_channel=1, hz=120)
     keypad_pwm.start(0)
@@ -107,11 +113,13 @@ def get_sleep_timeout(cfg):
     return sleep_timeout
 
 
-def main(script_name=None):
+def main(script_name, fakehardware, fakecamera, notmp):
     """
     Get this show on the road!
     """
-    init_display_and_keypad()
+    init_display(fakehardware)
+    if not fakehardware:
+        init_keypad()
     # Set path for test images
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
     test_image_path = os.path.join(root_dir, "test_images")
@@ -143,7 +151,8 @@ def main(script_name=None):
 
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
-    set_brightness(screen_brightness, cfg)
+    if not fakehardware:
+        set_brightness(screen_brightness, cfg)
     console = UIConsole(device, None, None, command_queues, ui_state, cfg)
     console.write("Starting....")
     console.update()
@@ -529,16 +538,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="eFinder")
     parser.add_argument(
         "-fh",
-        "--fakehandpad",
-        help="Use a fake handpad",
-        default=False,
-        action="store_true",
-        required=False,
-    )
-    parser.add_argument(
-        "-fi",
-        "--fakeimu",
-        help="Use a fake imu",
+        "--fakehardware",
+        help="Use a fake hardware for imu, gps, keyboard",
         default=False,
         action="store_true",
         required=False,
@@ -547,14 +548,6 @@ if __name__ == "__main__":
         "-fc",
         "--fakecamera",
         help="Use a fake camera",
-        default=False,
-        action="store_true",
-        required=False,
-    )
-    parser.add_argument(
-        "-g",
-        "--hasgui",
-        help="Show the GUI",
         default=False,
         action="store_true",
         required=False,
@@ -580,7 +573,7 @@ if __name__ == "__main__":
     if args.verbose:
         logger.setLevel(logging.DEBUG)
 
-    if args.fakeimu:
+    if args.fakehardware:
         from PiFinder import imu_fake as imu
     else:
         from PiFinder import imu
@@ -601,4 +594,4 @@ if __name__ == "__main__":
     # cli_data = CLIData(
     #     not args.fakehandpad, not args.fakecamera, not args.fakenexus,
     #     images_path, args.hasgui)
-    main(script_name)
+    main(script_name, args.fakehardware, args.fakecamera, args.notmp)

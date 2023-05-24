@@ -7,6 +7,7 @@ This module contains the base UIModule class
 import os
 import time
 import uuid
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 
@@ -33,14 +34,16 @@ class UIModule:
         self.command_queues = command_queues
         self.screen = Image.new("RGB", (128, 128))
         self.draw = ImageDraw.Draw(self.screen)
+        self.cwd = Path.cwd()
+        self.base_path = str(Path(self.cwd, "../fonts/RobotoMono-Regular.ttf"))
         self.font_base = ImageFont.truetype(
-            "/home/pifinder/PiFinder/fonts/RobotoMono-Regular.ttf", 10
+                self.base_path, 10
         )
         self.font_bold = ImageFont.truetype(
-            "/home/pifinder/PiFinder/fonts/RobotoMono-Bold.ttf", 12
+            str(Path(self.cwd, "../fonts/RobotoMono-Bold.ttf")), 12
         )
         self.font_large = ImageFont.truetype(
-            "/home/pifinder/PiFinder/fonts/RobotoMono-Regular.ttf", 15
+            str(Path(self.cwd, "../fonts/RobotoMono-Regular.ttf")), 15
         )
 
         # screenshot stuff
