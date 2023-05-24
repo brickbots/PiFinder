@@ -6,7 +6,10 @@ and adds keys to the provided queue
 
 """
 import sh
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+except ModuleNotFoundError:
+    print("Not running on Raspberry Pi")
 from time import sleep
 
 NA = 10

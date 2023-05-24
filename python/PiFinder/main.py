@@ -17,6 +17,8 @@ import uuid
 import os
 import sys
 import pytz
+import logging
+import argparse
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
@@ -33,7 +35,6 @@ from PiFinder import camera
 from PiFinder import solver
 from PiFinder import integrator
 from PiFinder import gps_monitor
-from PiFinder import imu
 from PiFinder import config
 from PiFinder import pos_server
 
@@ -50,13 +51,19 @@ from PiFinder.state import SharedStateObj
 
 from PiFinder.image_util import subtract_background
 
-serial = spi(device=0, port=0)
-device = ssd1351(serial)
+
+def init_display_and_keypad():
+    """
+    Initializes the display and keypad
+    """
+    # init display  (SPI hardware)
+    serial = spi(device=0, port=0)
+    device = ssd1351(serial)
 
 
-KEYPAD_LEDPIN = 13
-keypad_pwm = HardwarePWM(pwm_channel=1, hz=120)
-keypad_pwm.start(0)
+    KEYPAD_LEDPIN = 13
+    keypad_pwm = HardwarePWM(pwm_channel=1, hz=120)
+    keypad_pwm.start(0)
 
 
 def set_brightness(level, cfg):
@@ -104,6 +111,7 @@ def main(script_name=None):
     """
     Get this show on the road!
     """
+    init_display_and_keypad()
     # Set path for test images
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
     test_image_path = os.path.join(root_dir, "test_images")
@@ -511,6 +519,86 @@ def main(script_name=None):
 if __name__ == "__main__":
     script_name = None
     args = sys.argv
+    print("starting main")
     if len(args) > 1:
         script_name = args[-1]
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    logging.basicConfig(
+        format="%(asctime)s %(name)s: %(levelname)s %(message)s")
+    parser = argparse.ArgumentParser(description="eFinder")
+    parser.add_argument(
+        "-fh",
+        "--fakehandpad",
+        help="Use a fake handpad",
+        default=False,
+        action="store_true",
+        required=False,
+    )
+    parser.add_argument(
+        "-fi",
+        "--fakeimu",
+        help="Use a fake imu",
+        default=False,
+        action="store_true",
+        required=False,
+    )
+    parser.add_argument(
+        "-fc",
+        "--fakecamera",
+        help="Use a fake camera",
+        default=False,
+        action="store_true",
+        required=False,
+    )
+    parser.add_argument(
+        "-g",
+        "--hasgui",
+        help="Show the GUI",
+        default=False,
+        action="store_true",
+        required=False,
+    )
+
+    parser.add_argument(
+        "-n",
+        "--notmp",
+        help="Don't use the /dev/shm temporary directory.\
+                (usefull if not on pi)",
+        default=False,
+        action="store_true",
+        required=False,
+    )
+    parser.add_argument(
+        "-x", "--verbose", help="Set logging to debug mode", action="store_true"
+    )
+    parser.add_argument(
+        "-l", "--log", help="Log to file", action="store_true"
+    )
+    args = parser.parse_args()
+    # add the handlers to the logger
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+
+    if args.fakeimu:
+        from PiFinder import imu_fake as imu
+    else:
+        from PiFinder import imu
+
+    if args.log:
+        datenow = datetime.now()
+        filehandler = f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"
+        fh = logging.FileHandler(filehandler)
+        fh.setLevel(logger.level)
+        logger.addHandler(fh)
+
+    # images_path = Path("/dev/shm")
+    # if args.notmp:
+    #     images_path = Path('/tmp')
+    #
+    # utils.create_path(images_path)  # create dir if it doesn't yet exist
+    #
+    # cli_data = CLIData(
+    #     not args.fakehandpad, not args.fakecamera, not args.fakenexus,
+    #     images_path, args.hasgui)
     main(script_name)

@@ -13,7 +13,7 @@ import queue
 import time
 
 from PIL import Image, ImageDraw, ImageFont, ImageChops
-from picamera2 import Picamera2
+# from picamera2 import Picamera2
 
 from PiFinder import config
 
