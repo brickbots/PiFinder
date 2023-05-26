@@ -340,7 +340,7 @@ class UICatalog(UIModule):
             self.draw.text((0, 48), self.object_text[0], font=self.font_bold, fill=self.colors.get(255))
 
             # mag/size in bold
-            text_color = RED
+            text_color = self.colors.get(255)
             if self.cat_object:
                 # check for visibility and adjust mag/size text color
                 obj_altitude = self.calc_object_altitude(self.cat_object)
@@ -348,7 +348,7 @@ class UICatalog(UIModule):
                 if obj_altitude:
                     if obj_altitude < 10:
                         # Not really visible
-                        text_color = (0, 0, 128)
+                        text_color = self.colors.get(128)
 
             self.draw.text(
                 (0, 62), self.object_text[1], font=self.font_bold, fill=text_color

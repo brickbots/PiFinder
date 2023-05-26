@@ -20,18 +20,19 @@ import pytz
 import logging
 import argparse
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, log_to_stderr
 from multiprocessing.managers import BaseManager
 from timezonefinder import TimezoneFinder
 from pathlib import Path
 
-from rpi_hardware_pwm import HardwarePWM
 
 from luma.core.interface.serial import spi
 from luma.core.render import canvas
+from PiFinder.camera_pi import CameraPI
+from PiFinder.camera_debug import CameraDebug
+from PiFinder.camera_asi import CameraASI
 
 
-from PiFinder import keyboard
 from PiFinder import camera
 from PiFinder import solver
 from PiFinder import integrator
@@ -51,10 +52,13 @@ from PiFinder.ui.log import UILog
 
 from PiFinder.state import SharedStateObj
 
-from PiFinder.image_util import subtract_background, DeviceWrapper, ScreenColor
+from PiFinder.image_util import subtract_background, DeviceWrapper
+from PiFinder.image_util import RED_RGB, RED_BGR, GREY
+from PiFinder.keyboard_pygame import KeyboardPygame
+from PiFinder.keyboard_local import KeyboardLocal
 
-device = None
-keypad_pwm = None
+
+device: DeviceWrapper = DeviceWrapper(None, RED_RGB)
 
 
 def init_display(fakehardware):
@@ -62,20 +66,15 @@ def init_display(fakehardware):
     if fakehardware:
         from luma.emulator.device import pygame
         # init display  (SPI hardware)
-        device = pygame(width=128, height=128, rotate=0, mode='RGB', transform='scale2x', scale=2, frame_rate=60)
-        device = DeviceWrapper(device, ScreenColor.RED_RGB)
+        pygame = pygame(width=128, height=128, rotate=0, mode='RGB', transform='scale2x', scale=2, frame_rate=60)
+        wrapper = DeviceWrapper(pygame, RED_RGB)
     else:
         from luma.oled.device import ssd1351
         # init display  (SPI hardware)
         serial = spi(device=0, port=0)
-        device = ssd1351(serial)
-        device = DeviceWrapper(device, ScreenColor.RED_BGR)
-
-
-def init_keypad():
-    KEYPAD_LEDPIN = 13
-    keypad_pwm = HardwarePWM(pwm_channel=1, hz=120)
-    keypad_pwm.start(0)
+        device_serial = ssd1351(serial)
+        wrapper = DeviceWrapper(device_serial, RED_BGR)
+    return wrapper
 
 
 def setup_dirs():
@@ -86,28 +85,6 @@ def setup_dirs():
     utils.create_path(Path(utils.data_dir, 'solver_debug_dumps'))
     utils.create_path(Path(utils.data_dir, 'logs'))
     os.chmod(Path(utils.data_dir), 0o777)
-
-
-def set_brightness(level, cfg):
-    """
-    Sets oled brightness
-    0-255
-    """
-    device.contrast(level)
-
-    # deterime offset for keypad
-    keypad_offsets = {
-        "+3": 2,
-        "+2": 1.6,
-        "+1": 1.3,
-        "0": 1,
-        "-1": 0.75,
-        "-2": 0.5,
-        "-3": 0.25,
-        "Off": 0,
-    }
-    keypad_brightness = cfg.get_option("keypad_brightness")
-    keypad_pwm.change_duty_cycle(level * 0.05 * keypad_offsets[keypad_brightness])
 
 
 class StateManager(BaseManager):
@@ -129,14 +106,13 @@ def get_sleep_timeout(cfg):
     return sleep_timeout
 
 
-def main(script_name, fakehardware, fakecamera, notmp):
+def main(script_name, fakehardware, camera_type):
     """
     Get this show on the road!
     """
-    init_display(fakehardware)
+    log_to_stderr(logging.DEBUG)
+    device = init_display(fakehardware)
     setup_dirs()
-    if not fakehardware:
-        init_keypad()
     # Set path for test images
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
     test_image_path = os.path.join(root_dir, "test_images")
@@ -168,8 +144,7 @@ def main(script_name, fakehardware, fakecamera, notmp):
 
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
-    if not fakehardware:
-        set_brightness(screen_brightness, cfg)
+    device.set_brightness(screen_brightness)
     console = UIConsole(device, None, None, command_queues, ui_state, cfg)
     console.write("Starting....")
     console.update()
@@ -182,11 +157,12 @@ def main(script_name, fakehardware, fakecamera, notmp):
     script_path = None
     if script_name:
         script_path = os.path.join(root_dir, "scripts", script_name)
-    keyboard_process = Process(
-        target=keyboard.run_keyboard, args=(keyboard_queue, script_path)
-    )
-    keyboard_process.start()
-
+    keyboard = KeyboardLocal(keyboard_queue)
+    # keyboard_process = Process(
+    #     target=keyboard.run_keyboard, args=(keyboard_queue, script_path)
+    # )
+    # keyboard_process.start()
+    #
     # spawn gps service....
     console.write("   GPS")
     console.update()
@@ -197,7 +173,15 @@ def main(script_name, fakehardware, fakecamera, notmp):
             console_queue,
         ),
     )
-    gps_process.start()
+    # gps_process.start()
+
+    # main_process = Process(
+    #     target=main_loop,
+    #     args=(
+    #         gps_queue,
+    #         console_queue,
+    #     ),
+    # )
 
     with StateManager() as manager:
         shared_state = manager.SharedState()
@@ -213,12 +197,18 @@ def main(script_name, fakehardware, fakecamera, notmp):
 
         console.write("   Camera")
         console.update()
+        if camera_type == "pi":
+            camera_hardware = CameraPI()
+        elif camera_type == "asi":
+            camera_hardware = CameraASI()
+        else:
+            camera_hardware = CameraDebug()
         camera_image = manager.NewImage("RGB", (512, 512))
         image_process = Process(
             target=camera.get_images,
-            args=(shared_state, camera_image, camera_command_queue, console_queue),
+            args=(shared_state, camera_hardware, camera_image, camera_command_queue, console_queue),
         )
-        image_process.start()
+        # image_process.start()
         time.sleep(1)
 
         # IMU
@@ -227,7 +217,7 @@ def main(script_name, fakehardware, fakecamera, notmp):
         imu_process = Process(
             target=imu.imu_monitor, args=(shared_state, console_queue)
         )
-        imu_process.start()
+        # imu_process.start()
 
         # Solver
         console.write("   Solver")
@@ -346,7 +336,7 @@ def main(script_name, fakehardware, fakecamera, notmp):
 
                 if keycode != None:
                     power_save_warmup = time.time() + get_sleep_timeout(cfg)
-                    set_brightness(screen_brightness, cfg)
+                    keyboard.set_brightness(screen_brightness, cfg)
                     shared_state.set_power_state(1)  # Normal
 
                     # ignore keystroke if we have been asleep
@@ -362,7 +352,7 @@ def main(script_name, fakehardware, fakecamera, notmp):
                                     screen_brightness = screen_brightness - 10
                                     if screen_brightness < 1:
                                         screen_brightness = 1
-                                set_brightness(screen_brightness, cfg)
+                                keyboard.set_brightness(screen_brightness, cfg)
                                 cfg.set_option("display_brightness", screen_brightness)
                                 console.write("Brightness: " + str(screen_brightness))
 
@@ -423,7 +413,7 @@ def main(script_name, fakehardware, fakecamera, notmp):
                                 ) as f:
                                     json.dump(debug_location, f, indent=4)
 
-                                if debug_dt != None:
+                                if debug_dt is not None:
                                     with open(
                                         f"{test_image_path}/{uid}_datetime.json", "w"
                                     ) as f:
@@ -496,12 +486,12 @@ def main(script_name, fakehardware, fakecamera, notmp):
                     if _imu:
                         if _imu["moving"]:
                             power_save_warmup = time.time() + get_sleep_timeout(cfg)
-                            set_brightness(screen_brightness, cfg)
+                            keyboard.set_brightness(screen_brightness, cfg)
                             shared_state.set_power_state(1)  # Normal
 
                     # Check for going into power save...
                     if time.time() > power_save_warmup:
-                        set_brightness(int(screen_brightness / 4), cfg)
+                        keyboard.set_brightness(int(screen_brightness / 4), cfg)
                         shared_state.set_power_state(0)  # sleep
                     if time.time() > power_save_warmup:
                         time.sleep(0.2)
@@ -562,11 +552,10 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
-        "-fc",
-        "--fakecamera",
-        help="Use a fake camera",
-        default=False,
-        action="store_true",
+        "-c",
+        "--camera",
+        help="Specify which camera to use: pi, asi or debug",
+        default="pi",
         required=False,
     )
 
@@ -602,13 +591,4 @@ if __name__ == "__main__":
         fh.setLevel(logger.level)
         logger.addHandler(fh)
 
-    # images_path = Path("/dev/shm")
-    # if args.notmp:
-    #     images_path = Path('/tmp')
-    #
-    # utils.create_path(images_path)  # create dir if it doesn't yet exist
-    #
-    # cli_data = CLIData(
-    #     not args.fakehandpad, not args.fakecamera, not args.fakenexus,
-    #     images_path, args.hasgui)
-    main(script_name, args.fakehardware, args.fakecamera, args.notmp)
+    main(script_name, args.fakehardware, args.camera)
