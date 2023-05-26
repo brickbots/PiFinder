@@ -1,10 +1,4 @@
-import enum
-from time import sleep
 from PiFinder.keyboard_interface import KeyboardInterface
-from enum import Enum
-import logging
-from curtsies import Input
-
 from PyHotKey import Key, keyboard_manager as manager
 
 
@@ -44,16 +38,4 @@ class KeyboardLocal(KeyboardInterface):
         # manager.logger = True
 
     def callback(self, key):
-        print(f"Got key: {key}")
         self.q.put(key)
-
-    def run_keyboard(self, q, script_path=None):
-        print("Ready for keyboard input")
-        while True:
-            try:
-                res = getch()
-                print(f"Got input: {res}")
-                q.put(res)
-            except Exception as e:
-                print(f"Keyboard input failed with exception: {e}")
-                pass

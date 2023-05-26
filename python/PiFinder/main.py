@@ -54,7 +54,6 @@ from PiFinder.state import SharedStateObj
 
 from PiFinder.image_util import subtract_background, DeviceWrapper
 from PiFinder.image_util import RED_RGB, RED_BGR, GREY
-from PiFinder.keyboard_pygame import KeyboardPygame
 from PiFinder.keyboard_local import KeyboardLocal
 
 
@@ -110,7 +109,7 @@ def main(script_name, fakehardware, camera_type):
     """
     Get this show on the road!
     """
-    log_to_stderr(logging.DEBUG)
+    # log_to_stderr(logging.DEBUG)
     device = init_display(fakehardware)
     setup_dirs()
     # Set path for test images
