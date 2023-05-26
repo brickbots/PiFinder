@@ -9,26 +9,6 @@ from PyHotKey import Key, keyboard_manager as manager
 
 
 class KeyboardLocal(KeyboardInterface):
-    NA = 10
-    UP = 11
-    DN = 12
-    ENT = 13
-    A = 20
-    B = 21
-    C = 22
-    D = 24
-    ALT_UP = 101
-    ALT_DN = 102
-    ALT_A = 103
-    ALT_B = 104
-    ALT_C = 105
-    ALT_D = 106
-    ALT_0 = 110
-    LNG_A = 200
-    LNG_B = 201
-    LNG_C = 202
-    LNG_D = 203
-    LNG_ENT = 204
 
     def __init__(self, q):
         self.q = q

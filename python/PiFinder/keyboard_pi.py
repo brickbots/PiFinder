@@ -1,5 +1,6 @@
 from time import sleep
 from rpi_hardware_pwm import HardwarePWM
+from PiFinder.keyboard_interface import KeyboardInterface
 
 """
 This module is runs the keyboard matrix
@@ -10,26 +11,26 @@ and adds keys to the provided queue
 
 class KeyboardPi(KeyboardInterface):
     import RPi.GPIO as GPIO
-    NA = 10
-    UP = 11
-    DN = 12
-    ENT = 13
-    A = 20
-    B = 21
-    C = 22
-    D = 24
-    ALT_UP = 101
-    ALT_DN = 102
-    ALT_A = 103
-    ALT_B = 104
-    ALT_C = 105
-    ALT_D = 106
-    ALT_0 = 110
-    LNG_A = 200
-    LNG_B = 201
-    LNG_C = 202
-    LNG_D = 203
-    LNG_ENT = 204
+    NA = KeyboardInterface.NA
+    UP = KeyboardInterface.UP
+    DN = KeyboardInterface.DN
+    ENT = KeyboardInterface.ENT
+    A = KeyboardInterface.A
+    B = KeyboardInterface.B
+    C = KeyboardInterface.C
+    D = KeyboardInterface.D
+    ALT_UP = KeyboardInterface.ALT_UP
+    ALT_DN = KeyboardInterface.ALT_DN
+    ALT_A = KeyboardInterface.ALT_A
+    ALT_B = KeyboardInterface.ALT_B
+    ALT_C = KeyboardInterface.ALT_C
+    ALT_D = KeyboardInterface.ALT_D
+    ALT_0 = KeyboardInterface.ALT_0
+    LNG_A = KeyboardInterface.LNG_A
+    LNG_B = KeyboardInterface.LNG_B
+    LNG_C = KeyboardInterface.LNG_C
+    LNG_D = KeyboardInterface.LNG_D
+    LNG_ENT = KeyboardInterface.LNG_ENT
 
     cols = [16, 23, 26, 27]
     rows = [19, 17, 18, 22, 20]
@@ -74,7 +75,7 @@ class KeyboardPi(KeyboardInterface):
             "Off": 0,
         }
         keypad_brightness = cfg.get_option("keypad_brightness")
-        self.keypad_pwm.change_duty_cycle(level * 0.05 * keypad_offsets[keypad_brightness])
+        keypad_pwm.change_duty_cycle(level * 0.05 * keypad_offsets[keypad_brightness])
 
     def run_keyboard(self, q, script_path=None):
         """
