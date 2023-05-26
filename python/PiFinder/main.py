@@ -55,6 +55,7 @@ from PiFinder.state import SharedStateObj
 from PiFinder.image_util import subtract_background, DeviceWrapper
 from PiFinder.image_util import RED_RGB, RED_BGR, GREY
 from PiFinder.keyboard_local import KeyboardLocal
+from PiFinder.keyboard_pi import KeyboardPi
 
 
 device: DeviceWrapper = DeviceWrapper(None, RED_RGB)
@@ -156,12 +157,15 @@ def main(script_name, fakehardware, camera_type):
     script_path = None
     if script_name:
         script_path = os.path.join(root_dir, "scripts", script_name)
-    keyboard = KeyboardLocal(keyboard_queue)
-    # keyboard_process = Process(
-    #     target=keyboard.run_keyboard, args=(keyboard_queue, script_path)
-    # )
-    # keyboard_process.start()
-    #
+    if fakehardware:
+        keyboard = KeyboardLocal(keyboard_queue)
+    else:
+        keyboard = KeyboardPi(keyboard_queue)
+        keyboard_process = Process(
+            target=keyboard.run_keyboard, args=(keyboard_queue, script_path)
+        )
+        keyboard_process.start()
+
     # spawn gps service....
     console.write("   GPS")
     console.update()
@@ -172,15 +176,7 @@ def main(script_name, fakehardware, camera_type):
             console_queue,
         ),
     )
-    # gps_process.start()
-
-    # main_process = Process(
-    #     target=main_loop,
-    #     args=(
-    #         gps_queue,
-    #         console_queue,
-    #     ),
-    # )
+    gps_process.start()
 
     with StateManager() as manager:
         shared_state = manager.SharedState()

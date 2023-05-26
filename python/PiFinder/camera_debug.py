@@ -36,10 +36,9 @@ class CameraDebug(CameraInterface):
         pass
 
     def set_camera_config(self, exposure_time: float, gain: float) -> None:
-        self.camera.stop()
-        self.camera.set_controls({"AnalogueGain": gain})
-        self.camera.set_controls({"ExposureTime": exposure_time})
-        self.camera.start()
+        # self.camera.set_controls({"AnalogueGain": gain})
+        # self.camera.set_controls({"ExposureTime": exposure_time})
+        pass
 
     def get_cam_type(self) -> str:
         return self.camType

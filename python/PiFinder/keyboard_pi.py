@@ -1,5 +1,4 @@
 from time import sleep
-from rpi_hardware_pwm import HardwarePWM
 from PiFinder.keyboard_interface import KeyboardInterface
 
 """
@@ -10,7 +9,6 @@ and adds keys to the provided queue
 
 
 class KeyboardPi(KeyboardInterface):
-    import RPi.GPIO as GPIO
     NA = KeyboardInterface.NA
     UP = KeyboardInterface.UP
     DN = KeyboardInterface.DN
@@ -59,6 +57,8 @@ class KeyboardPi(KeyboardInterface):
     # fmt: on
 
     def __init__(self):
+        import RPi.GPIO as GPIO
+        from rpi_hardware_pwm import HardwarePWM
         self.keypad_pwm = HardwarePWM(pwm_channel=1, hz=120)
         self.keypad_pwm.start(0)
 

@@ -6,9 +6,9 @@ class KeyboardLocal(KeyboardInterface):
 
     def __init__(self, q):
         self.q = q
-        manager.set_wetkey_on_release(Key.enter, self.callback, self.B)
-        manager.set_wetkey_on_release(Key.up, self.callback, self.B)
-        manager.set_wetkey_on_release(Key.down, self.callback, self.B)
+        manager.set_wetkey_on_release(Key.enter, self.callback, self.ENT)
+        manager.set_wetkey_on_release(Key.up, self.callback, self.UP)
+        manager.set_wetkey_on_release(Key.down, self.callback, self.DN)
         manager.set_wetkey_on_release('a', self.callback, self.A)
         manager.set_wetkey_on_release('b', self.callback, self.B)
         manager.set_wetkey_on_release('c', self.callback, self.C)

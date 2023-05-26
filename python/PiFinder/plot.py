@@ -24,7 +24,8 @@ class Starfield:
     specified RA/DEC + roll
     """
 
-    def __init__(self, mag_limit=7, fov=10.2):
+    def __init__(self, colors, mag_limit=7, fov=10.2):
+        self.colors = colors
         utctime = datetime.datetime(2023, 1, 1, 2, 0, 0).replace(tzinfo=utc)
         ts = load.timescale()
         self.t = ts.from_datetime(utctime)

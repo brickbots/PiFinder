@@ -39,8 +39,9 @@ class UIChart(UIModule):
     }
 
     def __init__(self, *args):
+        super().__init__(*args)
         self.last_update = time.time()
-        self.starfield = plot.Starfield()
+        self.starfield = plot.Starfield(self.colors)
         self.solution = None
         self.fov_list = [5, 10.2, 15, 20, 25, 30, 40, 60]
         self.mag_list = [7.5, 7, 6.5, 6, 5.5, 5.5, 5, 5, 5, 5]
