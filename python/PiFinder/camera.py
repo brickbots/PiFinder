@@ -94,9 +94,9 @@ def get_images(shared_state, camera_hardware, camera_image,
                 console_queue.put("CAM: Exp=" + str(exposure_time))
 
             if command.startswith("set_gain"):
-                analog_gain = int(command.split(":")[1]) * gain_mult
-                camera.set_camera_config(exposure_time, analog_gain)
-                console_queue.put("CAM: Gain=" + str(analog_gain))
+                analog_gain = int(command.split(":")[1])
+                exposure_time, analog_gain, gain_multiplied = camera.set_camera_config(exposure_time, analog_gain)
+                console_queue.put("CAM: Gain=" + str(gain_multiplied))
 
             if command == "exp_up" or command == "exp_dn":
                 if command == "exp_up":
@@ -108,7 +108,7 @@ def get_images(shared_state, camera_hardware, camera_image,
             if command == "exp_save":
                 console_queue.put("CAM: Exp Saved")
                 cfg.set_option("camera_exp", exposure_time)
-                cfg.set_option("camera_gain", int(analog_gain / gain_mult))
+                cfg.set_option("camera_gain", int(analog_gain))
 
             if command.startswith("save"):
                 filename = command.split(":")[1]

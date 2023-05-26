@@ -213,7 +213,7 @@ def main(script_name, fakehardware, camera_type):
         imu_process = Process(
             target=imu.imu_monitor, args=(shared_state, console_queue)
         )
-        # imu_process.start()
+        imu_process.start()
 
         # Solver
         console.write("   Solver")
@@ -322,7 +322,7 @@ def main(script_name, fakehardware, camera_type):
                     ui_command = None
                 if ui_command:
                     if ui_command == "set_brightness":
-                        device.set_brightness(screen_brightness, cfg)
+                        device.set_brightness(screen_brightness)
 
                 # Keyboard
                 try:
@@ -341,14 +341,14 @@ def main(script_name, fakehardware, camera_type):
                             # Special codes....
                             if keycode == keyboard.ALT_UP or keycode == keyboard.ALT_DN:
                                 if keycode == keyboard.ALT_UP:
-                                    device.screen_brightness = screen_brightness + 10
+                                    screen_brightness = screen_brightness + 10
                                     if screen_brightness > 255:
                                         screen_brightness = 255
                                 else:
                                     screen_brightness = screen_brightness - 10
                                     if screen_brightness < 1:
                                         screen_brightness = 1
-                                keyboard.set_brightness(screen_brightness, cfg)
+                                device.set_brightness(screen_brightness)
                                 cfg.set_option("display_brightness", screen_brightness)
                                 console.write("Brightness: " + str(screen_brightness))
 

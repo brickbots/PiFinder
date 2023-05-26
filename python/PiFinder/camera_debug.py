@@ -16,6 +16,7 @@ from PiFinder import config
 from PiFinder import utils
 from PiFinder.camera_interface import CameraInterface
 import PiFinder.utils
+from typing import Tuple
 
 
 class CameraDebug(CameraInterface):
@@ -35,10 +36,8 @@ class CameraDebug(CameraInterface):
         print("capture_file not implemented")
         pass
 
-    def set_camera_config(self, exposure_time: float, gain: float) -> None:
-        # self.camera.set_controls({"AnalogueGain": gain})
-        # self.camera.set_controls({"ExposureTime": exposure_time})
-        pass
+    def set_camera_config(self, exposure_time: float, gain: float) -> Tuple[float, float]:
+        return exposure_time, gain, gain
 
     def get_cam_type(self) -> str:
         return self.camType

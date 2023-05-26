@@ -14,6 +14,7 @@ import time
 from PIL import Image
 from PiFinder import config
 from PiFinder import utils
+from typing import Tuple
 
 
 class CameraInterface:
@@ -28,7 +29,7 @@ class CameraInterface:
     def capture_file(self, filename) -> None:
         pass
 
-    def set_camera_config(self, exposure_time: float, gain: float) -> None:
+    def set_camera_config(self, exposure_time: float, gain: float) -> Tuple[float, float, float]:
         pass
 
     def get_cam_type(self) -> str:

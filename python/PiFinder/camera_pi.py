@@ -15,6 +15,7 @@ from PIL import Image
 from PiFinder import config
 from PiFinder import utils
 from PiFinder.camera_interface import CameraInterface
+from typing import Tuple
 
 
 class CameraPI(CameraInterface):
@@ -52,11 +53,12 @@ class CameraPI(CameraInterface):
     def capture_file(self, filename) -> None:
         return self.camera.capture_file(filename)
 
-    def set_camera_config(self, exposure_time: float, gain: float) -> None:
+    def set_camera_config(self, exposure_time: float, gain: float) -> Tuple[float, float, float]:
         self.camera.stop()
-        self.camera.set_controls({"AnalogueGain": gain})
+        self.camera.set_controls({"AnalogueGain": gain * self.gain_mult})
         self.camera.set_controls({"ExposureTime": exposure_time})
         self.camera.start()
+        return exposure_time, gain, gain * gain_mult
 
     def get_cam_type(self) -> str:
         return self.camType
