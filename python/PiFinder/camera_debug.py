@@ -32,6 +32,7 @@ class CameraDebug(CameraInterface):
         return Image.open(self.path / 'pifinder_debug.png')
 
     def capture_file(self, filename) -> None:
+        print("capture_file not implemented")
         pass
 
     def set_camera_config(self, exposure_time: float, gain: float) -> None:

@@ -203,11 +203,12 @@ def main(script_name, fakehardware, camera_type):
         else:
             camera_hardware = CameraDebug()
         camera_image = manager.NewImage("RGB", (512, 512))
+        print("camera hardware is", camera_hardware)
         image_process = Process(
             target=camera.get_images,
             args=(shared_state, camera_hardware, camera_image, camera_command_queue, console_queue),
         )
-        # image_process.start()
+        image_process.start()
         time.sleep(1)
 
         # IMU
@@ -325,7 +326,7 @@ def main(script_name, fakehardware, camera_type):
                     ui_command = None
                 if ui_command:
                     if ui_command == "set_brightness":
-                        set_brightness(screen_brightness, cfg)
+                        device.set_brightness(screen_brightness, cfg)
 
                 # Keyboard
                 try:
@@ -344,7 +345,7 @@ def main(script_name, fakehardware, camera_type):
                             # Special codes....
                             if keycode == keyboard.ALT_UP or keycode == keyboard.ALT_DN:
                                 if keycode == keyboard.ALT_UP:
-                                    screen_brightness = screen_brightness + 10
+                                    device.screen_brightness = screen_brightness + 10
                                     if screen_brightness > 255:
                                         screen_brightness = 255
                                 else:

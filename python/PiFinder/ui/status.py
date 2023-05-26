@@ -215,9 +215,12 @@ class UIStatus(UIModule):
         if time.time() - self.last_temp_time > 1:
             # temp
             self.last_temp_time = time.time()
-            with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
-                raw_temp = int(f.read().strip())
-            self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
+            try:
+                with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
+                    raw_temp = int(f.read().strip())
+                self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
+            except:
+                self.status_dict["CPU TMP"] = "     Error"
 
             # IP address
             try:
