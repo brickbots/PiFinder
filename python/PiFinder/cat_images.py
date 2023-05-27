@@ -90,16 +90,16 @@ def get_display_image(catalog_object, source, fov, roll, colors):
 
         # RED
         return_image = return_image.convert("RGB")
-        return_image = image_util.make_red(return_image)
+        return_image = image_util.make_red(return_image, colors)
 
         # circle
-        _circle_dim = Image.new("RGB", (128, 128), (0, 0, 128))
+        _circle_dim = Image.new("RGB", (128, 128), colors.get(127))
         _circle_draw = ImageDraw.Draw(_circle_dim)
         _circle_draw.ellipse([2, 2, 126, 126], fill=colors.get(255))
         return_image = ImageChops.multiply(return_image, _circle_dim)
 
         ri_draw = ImageDraw.Draw(return_image)
-        ri_draw.ellipse([2, 2, 126, 126], outline=(0, 0, 64), width=1)
+        ri_draw.ellipse([2, 2, 126, 126], outline=colors.get(64), width=1)
 
     # Burn In
     ri_draw.rectangle([0, 108, 30, 128], fill=colors.get(0))

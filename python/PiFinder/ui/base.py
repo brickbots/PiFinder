@@ -119,8 +119,8 @@ class UIModule:
         Waits timeout in seconds
         """
 
-        self.draw.rectangle([10, 49, 128, 89], fill=self.colors.get(0), outline=(0, 0, 0))
-        self.draw.rectangle([5, 44, 123, 84], fill=self.colors.get(0), outline=(0, 0, 128))
+        self.draw.rectangle([10, 49, 128, 89], fill=self.colors.get(0), outline=self.colors.get(0))
+        self.draw.rectangle([5, 44, 123, 84], fill=self.colors.get(0), outline=self.colors.get(128))
         message = " " * int((16 - len(message)) / 2) + message
         self.draw.text((9, 54), message, font=self.font_bold, fill=self.colors.get(255))
         self.display.display(self.screen.convert(self.display.mode))

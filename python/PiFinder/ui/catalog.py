@@ -107,7 +107,6 @@ class UICatalog(UIModule):
     Search catalogs for object to find
     """
 
-
     __title__ = "CATALOG"
     _config_options = {
         "Alt Limit": {

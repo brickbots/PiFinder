@@ -8,11 +8,8 @@ import time
 from PIL import ImageChops, Image
 
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
-from PiFinder.image_util import red_image
 from PiFinder import plot
 from PiFinder.ui.base import UIModule
-
-RED = (0, 0, 255)
 
 
 class UIChart(UIModule):
@@ -82,7 +79,7 @@ class UIChart(UIModule):
                 marker_brightness = 128
 
             marker_image = ImageChops.multiply(
-                marker_image, Image.new("RGB", (128, 128), (0, 0, marker_brightness))
+                marker_image, Image.new("RGB", (128, 128), self.colors.get(marker_brightness))
             )
             self.screen.paste(ImageChops.add(self.screen, marker_image))
 
@@ -161,7 +158,7 @@ class UIChart(UIModule):
                     self.solution["Roll"],
                     constellation_brightness,
                 )
-                image_obj = ImageChops.multiply(image_obj, red_image)
+                image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
                 self.screen.paste(image_obj)
                 self.plot_target()
                 self.plot_obs_list()

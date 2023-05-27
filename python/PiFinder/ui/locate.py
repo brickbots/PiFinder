@@ -14,8 +14,6 @@ from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
 
-RED = (0, 0, 255)
-
 
 class UILocate(UIModule):
     """

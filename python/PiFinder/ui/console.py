@@ -9,8 +9,7 @@ import datetime
 
 from PIL import Image
 from PiFinder.ui.base import UIModule
-
-RED = (0, 0, 255)
+from PiFinder.image_util import convert_image_to_mode
 
 
 class UIConsole(UIModule):
@@ -27,11 +26,7 @@ class UIConsole(UIModule):
         )
         welcome_image_path = os.path.join(root_dir, "images", "welcome.png")
         welcome_image = Image.open(welcome_image_path)
-        if(self.colors.mode == "RGB"):
-            import numpy as np
-            img_np = np.array(welcome_image) # convert the Image object to a numpy array
-            img_bgr = img_np[:,:,::-1] # reverse the order of the last dimension (channels)
-            welcome_image = Image.fromarray(img_bgr) # convert the numpy array back to an Image object
+        welcome_image = convert_image_to_mode(welcome_image, self.colors.mode)
         self.screen.paste(welcome_image)
 
         self.lines = ["---- TOP ---", "Sess UUID:" + self.__uuid__]

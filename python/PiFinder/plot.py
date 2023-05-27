@@ -57,7 +57,7 @@ class Starfield:
 
         pointer_image_path = os.path.join(root_dir, "markers", "pointer.png")
         self.pointer_image = ImageChops.multiply(
-            Image.open(pointer_image_path), Image.new("RGB", (256, 256), (0, 0, 64))
+            Image.open(pointer_image_path), Image.new("RGB", (256, 256), colors.get(64))
         )
         # load markers...
         self.markers = {}
@@ -70,7 +70,7 @@ class Starfield:
                     Image.open(f"{marker_path}/mrk_{marker_code}.png"), (117, 117)
                 )
                 self.markers[marker_code] = ImageChops.multiply(
-                    _image, Image.new("RGB", (256, 256), (0, 0, 256))
+                    _image, Image.new("RGB", (256, 256), colors.get(256))
                 )
 
     def set_mag_limit(self, mag_limit):

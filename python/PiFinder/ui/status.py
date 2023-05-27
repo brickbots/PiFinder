@@ -12,8 +12,6 @@ from PiFinder.ui.base import UIModule
 from PiFinder import sys_utils
 from PiFinder import utils
 
-RED = (0, 0, 255)
-
 
 class UIStatus(UIModule):
     """

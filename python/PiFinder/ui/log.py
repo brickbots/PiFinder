@@ -16,8 +16,6 @@ from PiFinder import obslog
 from skyfield.api import Angle
 from skyfield.positionlib import ICRF
 
-RED = (0, 0, 255)
-
 
 class UILog(UIModule):
     """

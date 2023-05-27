@@ -8,8 +8,6 @@ import time
 
 from PiFinder.ui.base import UIModule
 
-RED = (0, 0, 255)
-
 
 class UIConfig(UIModule):
     """
