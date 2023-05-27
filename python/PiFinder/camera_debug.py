@@ -36,7 +36,7 @@ class CameraDebug(CameraInterface):
         print("capture_file not implemented")
         pass
 
-    def set_camera_config(self, exposure_time: float, gain: float) -> Tuple[float, float]:
+    def set_camera_config(self, exposure_time: float, gain: float) -> Tuple[float, float, float]:
         return exposure_time, gain, gain
 
     def get_cam_type(self) -> str:
