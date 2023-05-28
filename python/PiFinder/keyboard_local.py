@@ -1,10 +1,11 @@
 from PiFinder.keyboard_interface import KeyboardInterface
-from PyHotKey import Key, keyboard_manager as manager
 
 
 class KeyboardLocal(KeyboardInterface):
 
     def __init__(self, q):
+        # PyHotKey doesn't seem to work on the Pi
+        from PyHotKey import Key, keyboard_manager as manager
         self.q = q
         manager.set_wetkey_on_release(Key.enter, self.callback, self.ENT)
         manager.set_wetkey_on_release(Key.up, self.callback, self.UP)
