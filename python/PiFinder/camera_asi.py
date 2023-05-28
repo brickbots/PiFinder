@@ -17,7 +17,6 @@ from pathlib import Path
 from shutil import copyfile
 import time
 from PiFinder.camera_interface import CameraInterface
-import zwoasi as asi
 from typing import Dict, Tuple
 import logging
 
