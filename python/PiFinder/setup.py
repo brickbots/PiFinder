@@ -19,7 +19,7 @@ def create_logging_tables():
     """
 
     home = Path.home()
-    root_dir = Path(Path.home(), 'PiFinder_data')
+    root_dir = Path(Path.home(), "PiFinder_data")
     db_path = os.path.join(root_dir, "observations.db")
     if os.path.exists(db_path):
         return db_path

@@ -79,7 +79,8 @@ class UIChart(UIModule):
                 marker_brightness = 128
 
             marker_image = ImageChops.multiply(
-                marker_image, Image.new("RGB", (128, 128), self.colors.get(marker_brightness))
+                marker_image,
+                Image.new("RGB", (128, 128), self.colors.get(marker_brightness)),
             )
             self.screen.paste(ImageChops.add(self.screen, marker_image))
 
@@ -166,8 +167,12 @@ class UIChart(UIModule):
 
         else:
             self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
-            self.draw.text((18, 20), "Can't plot", font=self.font_large, fill=self.colors.get(255))
-            self.draw.text((25, 50), "No Solve Yet", font=self.font_base, fill=self.colors.get(255))
+            self.draw.text(
+                (18, 20), "Can't plot", font=self.font_large, fill=self.colors.get(255)
+            )
+            self.draw.text(
+                (25, 50), "No Solve Yet", font=self.font_base, fill=self.colors.get(255)
+            )
 
         self.draw_reticle()
         return self.screen_update()

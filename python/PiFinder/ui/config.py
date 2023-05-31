@@ -42,14 +42,19 @@ class UIConfig(UIModule):
         # clear screen
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
         if self.__config == None:
-            self.draw.text((20, 18), "No Config", font=self.font_base, fill=self.colors.get(255))
+            self.draw.text(
+                (20, 18), "No Config", font=self.font_base, fill=self.colors.get(255)
+            )
         else:
             # Draw left side item labels
             selected_index = 0
             for i, item_name in enumerate(self.__item_names):
                 if not self.__selected_item:
                     self.draw.text(
-                        (0, i * 11 + 18), str(i), font=self.font_base, fill=self.colors.get(255)
+                        (0, i * 11 + 18),
+                        str(i),
+                        font=self.font_base,
+                        fill=self.colors.get(255),
                     )
 
                 text_intensity = 128

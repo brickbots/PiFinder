@@ -18,7 +18,7 @@ from collections import namedtuple
 ColorMask = namedtuple("ColorMask", ["mask", "mode"])
 RED_RGB: ColorMask = ColorMask(np.array([1, 0, 0]), "RGB")
 RED_BGR: ColorMask = ColorMask(np.array([0, 0, 1]), "BGR")
-GREY: ColorMask = ColorMask(np.array([1, 1, 1]),  "RGB")
+GREY: ColorMask = ColorMask(np.array([1, 1, 1]), "RGB")
 
 
 class Colors:
@@ -29,7 +29,7 @@ class Colors:
 
     @functools.cache
     def get(self, color_intensity):
-        return tuple(self.color_mask*color_intensity)
+        return tuple(self.color_mask * color_intensity)
 
 
 class DeviceWrapper:

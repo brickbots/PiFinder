@@ -30,13 +30,15 @@ class CameraDebug(CameraInterface):
         pass
 
     def capture(self) -> Image.Image:
-        return Image.open(self.path / 'pifinder_debug.png')
+        return Image.open(self.path / "pifinder_debug.png")
 
     def capture_file(self, filename) -> None:
         print("capture_file not implemented")
         pass
 
-    def set_camera_config(self, exposure_time: float, gain: float) -> Tuple[float, float, float]:
+    def set_camera_config(
+        self, exposure_time: float, gain: float
+    ) -> Tuple[float, float, float]:
         return exposure_time, gain, gain
 
     def get_cam_type(self) -> str:

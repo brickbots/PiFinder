@@ -119,8 +119,12 @@ class UIModule:
         Waits timeout in seconds
         """
 
-        self.draw.rectangle([10, 49, 128, 89], fill=self.colors.get(0), outline=self.colors.get(0))
-        self.draw.rectangle([5, 44, 123, 84], fill=self.colors.get(0), outline=self.colors.get(128))
+        self.draw.rectangle(
+            [10, 49, 128, 89], fill=self.colors.get(0), outline=self.colors.get(0)
+        )
+        self.draw.rectangle(
+            [5, 44, 123, 84], fill=self.colors.get(0), outline=self.colors.get(128)
+        )
         message = " " * int((16 - len(message)) / 2) + message
         self.draw.text((9, 54), message, font=self.font_bold, fill=self.colors.get(255))
         self.display.display(self.screen.convert(self.display.mode))
@@ -137,13 +141,18 @@ class UIModule:
 
         if title_bar:
             self.draw.rectangle([0, 0, 128, 16], fill=self.colors.get(64))
-            self.draw.text((6, 1), self.title, font=self.font_bold, fill=self.colors.get(0))
+            self.draw.text(
+                (6, 1), self.title, font=self.font_bold, fill=self.colors.get(0)
+            )
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
                     constellation = solution["constellation"]
                     self.draw.text(
-                        (70, 1), constellation, font=self.font_bold, fill=self.colors.get(0)
+                        (70, 1),
+                        constellation,
+                        font=self.font_bold,
+                        fill=self.colors.get(0),
                     )
 
                     # Solver Status
@@ -161,7 +170,9 @@ class UIModule:
                 else:
                     # no solve yet....
                     self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(0))
-                    self.draw.text((117, 0), "X", font=self.font_bold, fill=self.colors.get(64))
+                    self.draw.text(
+                        (117, 0), "X", font=self.font_bold, fill=self.colors.get(64)
+                    )
 
                 # GPS status
                 if self.shared_state.location()["gps_lock"]:

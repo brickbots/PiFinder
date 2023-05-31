@@ -13,6 +13,7 @@ import queue
 import time
 
 from PIL import Image, ImageDraw, ImageFont, ImageChops
+
 # from picamera2 import Picamera2
 
 from PiFinder import config
@@ -23,13 +24,13 @@ exposure_time = None
 analog_gain = None
 
 
-def get_images(shared_state, camera_hardware, camera_image,
-               command_queue, console_queue):
+def get_images(
+    shared_state, camera_hardware, camera_image, command_queue, console_queue, cfg
+):
     global exposure_time, analog_gain
     debug = False
     camera = camera_hardware
 
-    cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
     analog_gain = cfg.get_option("camera_gain")
     screen_direction = cfg.get_option("screen_direction")
@@ -95,8 +96,10 @@ def get_images(shared_state, camera_hardware, camera_image,
 
             if command.startswith("set_gain"):
                 analog_gain = int(command.split(":")[1])
-                exposure_time, analog_gain, gain_multiplied = camera.set_camera_config(exposure_time, analog_gain)
-                console_queue.put("CAM: Gain=" + str(gain_multiplied))
+                exposure_time, analog_gain = camera.set_camera_config(
+                    exposure_time, analog_gain
+                )
+                console_queue.put("CAM: Gain=" + str(analog_gain))
 
             if command == "exp_up" or command == "exp_dn":
                 if command == "exp_up":

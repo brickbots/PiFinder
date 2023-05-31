@@ -65,7 +65,7 @@ def get_display_image(catalog_object, source, fov, roll, colors):
                         source,
                         fov,
                         roll,
-                        colors
+                        colors,
                     )
         return_image = Image.new("RGB", (128, 128))
         ri_draw = ImageDraw.Draw(return_image)

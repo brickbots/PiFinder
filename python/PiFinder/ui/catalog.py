@@ -292,7 +292,7 @@ class UICatalog(UIModule):
                 source,
                 self.fov_list[self.fov_index],
                 roll,
-                self.colors
+                self.colors,
             )
 
     def active(self):
@@ -319,7 +319,9 @@ class UICatalog(UIModule):
             # catalog and entry field
             line = f"{self.__catalog_names[self.catalog_index]: >3}"
             line += "".join(self.designator)
-            self.draw.text((0, 21), line, font=self.font_large, fill=self.colors.get(255))
+            self.draw.text(
+                (0, 21), line, font=self.font_large, fill=self.colors.get(255)
+            )
 
             # catalog counts....
             self.draw.text(
@@ -336,7 +338,12 @@ class UICatalog(UIModule):
             )
 
             # ID Line in BOld
-            self.draw.text((0, 48), self.object_text[0], font=self.font_bold, fill=self.colors.get(255))
+            self.draw.text(
+                (0, 48),
+                self.object_text[0],
+                font=self.font_bold,
+                fill=self.colors.get(255),
+            )
 
             # mag/size in bold
             text_color = self.colors.get(255)
@@ -355,7 +362,12 @@ class UICatalog(UIModule):
 
             # Remaining lines
             for i, line in enumerate(self.object_text[2:]):
-                self.draw.text((0, i * 11 + 82), line, font=self.font_base, fill=self.colors.get(255))
+                self.draw.text(
+                    (0, i * 11 + 82),
+                    line,
+                    font=self.font_base,
+                    fill=self.colors.get(255),
+                )
         else:
             self.screen.paste(self.object_image)
         return self.screen_update()

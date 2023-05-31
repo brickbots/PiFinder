@@ -240,7 +240,9 @@ class UIStatus(UIModule):
         lines[-1] = f'{self.status_dict["IP ADDR"]: >21}'
 
         for i, line in enumerate(lines):
-            self.draw.text((0, i * 10 + 20), line, font=self.font_base, fill=self.colors.get(255))
+            self.draw.text(
+                (0, i * 10 + 20), line, font=self.font_base, fill=self.colors.get(255)
+            )
         return self.screen_update()
 
     def active(self):

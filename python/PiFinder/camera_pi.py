@@ -16,6 +16,7 @@ from PiFinder import config
 from PiFinder import utils
 from PiFinder.camera_interface import CameraInterface
 from typing import Tuple
+from PiFinder import camera
 
 
 class CameraPI(CameraInterface):
@@ -23,17 +24,13 @@ class CameraPI(CameraInterface):
 
     def __init__(self, exposure_time, gain) -> None:
         from picamera2 import Picamera2
+
         self.camera = Picamera2()
         # Figure out camera type, hq or gs (global shutter)
         self.camera_type = "hq"
-        self.gain_mult = 1
-        self.sensor_modes = self.camera.sensor_modes
-        if len(self.sensor_modes) == 1:
-            self.gain_mult = 3
-            self.camera_type = "gs"
         self.camType = f"PI {self.camera_type}"
         self.exposure_time = exposure_time
-        self.gain = gain * self.gain_mult
+        self.gain = gain
         self.initialize()
 
     def initialize(self) -> None:
@@ -53,12 +50,29 @@ class CameraPI(CameraInterface):
     def capture_file(self, filename) -> None:
         return self.camera.capture_file(filename)
 
-    def set_camera_config(self, exposure_time: float, gain: float) -> Tuple[float, float, float]:
+    def set_camera_config(
+        self, exposure_time: float, gain: float
+    ) -> Tuple[float, float]:
         self.camera.stop()
-        self.camera.set_controls({"AnalogueGain": gain * self.gain_mult})
+        self.camera.set_controls({"AnalogueGain": gain})
         self.camera.set_controls({"ExposureTime": exposure_time})
         self.camera.start()
-        return exposure_time, gain, gain * gain_mult
+        return exposure_time, gain
 
     def get_cam_type(self) -> str:
         return self.camType
+
+
+def get_images(shared_state, camera_image, command_queue, console_queue):
+    """
+    Instantiates the camera hardware
+    then calls the universal image loop
+    """
+
+    cfg = config.Config()
+    exposure_time = cfg.get_option("camera_exp")
+    analog_gain = cfg.get_option("camera_gain")
+    camera_hardware = CameraPI(exposure_time, analog_gain)
+    camera.get_images(
+        shared_state, camera_hardware, camera_image, command_queue, console_queue, cfg
+    )
