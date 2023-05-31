@@ -71,8 +71,8 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
 
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
-    analog_gain = cfg.get_option("camera_gain")
-    camera_hardware = CameraPI(exposure_time, analog_gain)
-    camera.get_images(
-        shared_state, camera_hardware, camera_image, command_queue, console_queue, cfg
+    gain = cfg.get_option("camera_gain")
+    camera_hardware = CameraPI(exposure_time, gain)
+    camera_hardware.get_image_loop(
+        shared_state, camera_image, command_queue, console_queue, cfg
     )

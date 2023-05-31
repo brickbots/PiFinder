@@ -100,6 +100,7 @@ class UIStatus(UIModule):
         )
 
         self.last_temp_time = 0
+        self.last_IP_time = 0
 
     def update_software(self, option):
         if option == "CANCEL":
@@ -209,8 +210,9 @@ class UIStatus(UIModule):
         if dt:
             self.status_dict["LCL TM"] = "     " + local_dt.time().isoformat()[:8]
             self.status_dict["UTC TM"] = "     " + dt.time().isoformat()[:8]
-        # only update some things once per second....
-        if time.time() - self.last_temp_time > 1:
+
+        # only update some things periodically....
+        if time.time() - self.last_temp_time > 5:
             # temp
             self.last_temp_time = time.time()
             try:
@@ -220,6 +222,10 @@ class UIStatus(UIModule):
             except:
                 self.status_dict["CPU TMP"] = "     Error"
 
+        if time.time() - self.last_IP_time > 20:
+            # temp
+            self.last_IP_time = time.time()
+            print("Checking IP")
             # IP address
             try:
                 self.status_dict["IP ADDR"] = socket.gethostbyname(

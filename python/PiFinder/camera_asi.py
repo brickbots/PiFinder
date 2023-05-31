@@ -24,7 +24,7 @@ import logging
 class CameraASI(CameraInterface):
     """The camera class for PI cameras.  Implements the CameraInterface interface."""
 
-    def __init__(self) -> None:
+    def __init__(self, exposure_time, gain) -> None:
         import zwoasi as asi
 
         # find a camera
@@ -45,6 +45,8 @@ class CameraASI(CameraInterface):
             logging.info("ZWO camera found")
             time.sleep(1)
         self.camType = "ZWO"
+        self.exposure_time = exposure_time
+        self.gain = gain
 
     def initialize(self) -> None:
         """Initializes the camera and set the needed control parameters"""
@@ -77,10 +79,25 @@ class CameraASI(CameraInterface):
 
     def set_camera_config(
         self, exposure_time: float, gain: float
-    ) -> Tuple[float, float, float]:
+    ) -> Tuple[float, float]:
         self.exposure_time = exposure_time
         self.gain = gain
-        return exposure_time, gain, gain
+        return exposure_time, gain
 
     def get_cam_type(self) -> str:
         return self.camType
+
+
+def get_images(shared_state, camera_image, command_queue, console_queue):
+    """
+    Instantiates the camera hardware
+    then calls the universal image loop
+    """
+
+    cfg = config.Config()
+    exposure_time = cfg.get_option("camera_exp")
+    analog_gain = cfg.get_option("camera_gain")
+    camera_hardware = CameraASI(exposure_time, analog_gain)
+    camera_hardware.get_image_loop(
+        shared_state, camera_image, command_queue, console_queue, cfg
+    )

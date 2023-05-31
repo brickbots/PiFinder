@@ -35,6 +35,7 @@ from PiFinder import integrator
 from PiFinder import config
 from PiFinder import pos_server
 from PiFinder import utils
+from PiFinder import keyboard_interface
 
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.preview import UIPreview
@@ -161,6 +162,9 @@ def main(script_name=None):
     init_display()
     init_keypad_pwm()
     setup_dirs()
+
+    # Instantiate base keyboard class for keycode
+    keyboard_base = keyboard_interface.KeyboardInterface()
 
     # Set path for test images
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -417,8 +421,11 @@ def main(script_name=None):
                     if shared_state.power_state() > 0:
                         if keycode > 99:
                             # Special codes....
-                            if keycode == keyboard.ALT_UP or keycode == keyboard.ALT_DN:
-                                if keycode == keyboard.ALT_UP:
+                            if (
+                                keycode == keyboard_base.ALT_UP
+                                or keycode == keyboard_base.ALT_DN
+                            ):
+                                if keycode == keyboard_base.ALT_UP:
                                     screen_brightness = screen_brightness + 10
                                     if screen_brightness > 255:
                                         screen_brightness = 255
@@ -430,7 +437,7 @@ def main(script_name=None):
                                 cfg.set_option("display_brightness", screen_brightness)
                                 console.write("Brightness: " + str(screen_brightness))
 
-                            if keycode == keyboard.ALT_A:
+                            if keycode == keyboard_base.ALT_A:
                                 # Switch between non-observing modes
                                 ui_mode_index += 1
                                 if ui_mode_index >= len(ui_modes):
@@ -440,7 +447,7 @@ def main(script_name=None):
                                 current_module = ui_modes[ui_mode_index]
                                 current_module.active()
 
-                            if keycode == keyboard.LNG_A and ui_mode_index > 0:
+                            if keycode == keyboard_base.LNG_A and ui_mode_index > 0:
                                 # long A for config of current module
                                 target_module = current_module
                                 if target_module._config_options:
@@ -451,18 +458,18 @@ def main(script_name=None):
                                     current_module.set_module(target_module)
                                     current_module.active()
 
-                            if keycode == keyboard.LNG_ENT and ui_mode_index > 0:
+                            if keycode == keyboard_base.LNG_ENT and ui_mode_index > 0:
                                 # long ENT for log observation
                                 ui_mode_index = logging_mode_index
                                 current_module = ui_modes[logging_mode_index]
                                 current_module.active()
 
-                            if keycode == keyboard.ALT_0:
+                            if keycode == keyboard_base.ALT_0:
                                 # screenshot
                                 current_module.screengrab()
                                 console.write("Screenshot saved")
 
-                            if keycode == keyboard.ALT_D:
+                            if keycode == keyboard_base.ALT_D:
                                 # Debug snapshot
                                 uid = str(uuid.uuid1()).split("-")[0]
                                 debug_image = camera_image.copy()
@@ -495,7 +502,7 @@ def main(script_name=None):
 
                                 console.write(f"Debug dump: {uid}")
 
-                        elif keycode == keyboard.A:
+                        elif keycode == keyboard_base.A:
                             # A key, mode switch
                             if ui_mode_index == 0:
                                 # return control to original module
@@ -516,22 +523,22 @@ def main(script_name=None):
                             if keycode < 10:
                                 current_module.key_number(keycode)
 
-                            elif keycode == keyboard.UP:
+                            elif keycode == keyboard_base.UP:
                                 current_module.key_up()
 
-                            elif keycode == keyboard.DN:
+                            elif keycode == keyboard_base.DN:
                                 current_module.key_down()
 
-                            elif keycode == keyboard.ENT:
+                            elif keycode == keyboard_base.ENT:
                                 current_module.key_enter()
 
-                            elif keycode == keyboard.B:
+                            elif keycode == keyboard_base.B:
                                 current_module.key_b()
 
-                            elif keycode == keyboard.C:
+                            elif keycode == keyboard_base.C:
                                 current_module.key_c()
 
-                            elif keycode == keyboard.D:
+                            elif keycode == keyboard_base.D:
                                 current_module.key_d()
 
                 update_msg = current_module.update()

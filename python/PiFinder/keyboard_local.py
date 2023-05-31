@@ -1,38 +1,11 @@
 import time
 from PiFinder.keyboard_interface import KeyboardInterface
 import logging
-
-NA = 10
-UP = 11
-DN = 12
-ENT = 13
-A = 20
-B = 21
-C = 22
-D = 24
-ALT_UP = 101
-ALT_DN = 102
-ALT_A = 103
-ALT_B = 104
-ALT_C = 105
-ALT_D = 106
-ALT_0 = 110
-LNG_A = 200
-LNG_B = 201
-LNG_C = 202
-LNG_D = 203
-LNG_ENT = 204
-
-try:
-    # PyHotKey doesn't seem to work on the Pi
-    from PyHotKey import Key, keyboard_manager as manager
-except ImportError:
-    pass
+from PyHotKey import Key, keyboard_manager as manager
 
 
 class KeyboardLocal(KeyboardInterface):
     def __init__(self, q):
-        logging.debug("KeyboardLocal.__init__")
         try:
             self.q = q
             manager.set_wetkey_on_release(Key.enter, self.callback, self.ENT)
@@ -58,11 +31,11 @@ class KeyboardLocal(KeyboardInterface):
             manager.register_hotkey(
                 [Key.enter, Key.down], None, self.callback, self.ALT_DN
             )
-            manager.register_hotkey([Key.enter, "a"], None, self.callback, self.ALT_A)
-            manager.register_hotkey([Key.enter, "b"], None, self.callback, self.ALT_B)
-            manager.register_hotkey([Key.enter, "c"], None, self.callback, self.ALT_C)
-            manager.register_hotkey([Key.enter, "d"], None, self.callback, self.ALT_D)
-            manager.register_hotkey([Key.enter, "0"], None, self.callback, self.ALT_0)
+            manager.register_hotkey([Key.ctrl, "a"], None, self.callback, self.ALT_A)
+            manager.register_hotkey([Key.ctrl, "b"], None, self.callback, self.ALT_B)
+            manager.register_hotkey([Key.ctrl, "c"], None, self.callback, self.ALT_C)
+            manager.register_hotkey([Key.ctrl, "d"], None, self.callback, self.ALT_D)
+            manager.register_hotkey([Key.ctrl, "0"], None, self.callback, self.ALT_0)
             manager.register_hotkey([Key.shift, "a"], None, self.callback, self.LNG_A)
             manager.register_hotkey([Key.shift, "b"], None, self.callback, self.LNG_B)
             manager.register_hotkey([Key.shift, "c"], None, self.callback, self.LNG_C)
@@ -80,6 +53,11 @@ class KeyboardLocal(KeyboardInterface):
 
 
 def run_keyboard(q, script_path=None):
-    kb = KeyboardLocal(q)
+    keyboard = KeyboardLocal(q)
+    if script_path:
+        keyboard.run_script(script_path)
+
     while True:
-        time.sleep(0.1)
+        # the KeyboardLocal class has callbacks to handle
+        # keypresss.  We just need to not terminate here
+        time.sleep(1)

@@ -20,14 +20,9 @@ from PiFinder import config
 from PiFinder import utils
 
 
-exposure_time = None
-analog_gain = None
-
-
 def get_images(
     shared_state, camera_hardware, camera_image, command_queue, console_queue, cfg
 ):
-    global exposure_time, analog_gain
     debug = False
     camera = camera_hardware
 
@@ -118,12 +113,3 @@ def get_images(
                 filename = f"{utils.data_dir}/captures/{filename}.png"
                 camera.capture_file(filename)
                 console_queue.put("CAM: Saved Image")
-
-            if command.startswith("save_hi"):
-                # Save high res image....
-                filename = command.split(":")[1]
-                filename = f"{utils.data_dir}/captures/{filename}.png"
-                # set_camera_highres(camera)
-                camera.capture_file(filename)
-                console_queue.put("CAM: Saved Hi Image")
-                # set_camera_defaults(camera)

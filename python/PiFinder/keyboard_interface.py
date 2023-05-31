@@ -23,10 +23,13 @@ class KeyboardInterface:
     LNG_D = 203
     LNG_ENT = 204
 
-    def run_keyboard(self, q, script_path=None):
+    def __init__(self, q=None):
+        self.q = q
+
+    def run_keyboard(self):
         pass
 
-    def run_script(self, q, script_path):
+    def run_script(self, script_path):
         """
         Runs a keyscript for automation/testing
         """
@@ -48,9 +51,6 @@ class KeyboardInterface:
                 else:
                     # must be keycode
                     if script_tokens[0].isnumeric():
-                        q.put(int(script_tokens[0]))
+                        self.q.put(int(script_tokens[0]))
                     else:
-                        q.put(eval(script_tokens[0]))
-
-    def set_brightness(self, level, cfg):
-        pass
+                        self.q.put(eval("self." + script_tokens[0]))

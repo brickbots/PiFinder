@@ -120,32 +120,6 @@ class UILog(UIModule):
             self.modal_text = "Logged!"
             self.update()
 
-    def key_c(self):
-        """
-        when c is pressed,
-        photo and log it!
-        """
-        if self.target:
-            session_uuid, obs_id = self.record_object(self.target)
-
-            # Start the timer for the confirm.
-            self.modal_timer = time.time()
-            self.modal_duration = 2
-            self.modal_text = "Taking Photo"
-            filename = f"log_{session_uuid}_{obs_id}_high"
-            self.command_queues["camera"].put("save_hi:" + filename)
-            self.update()
-            wait = True
-            while wait:
-                # we need to wait until we have another solve image
-                # check every 2 seconds...
-                time.sleep(0.2)
-                if self.shared_state.last_image_time()[1] > self.modal_timer + 1:
-                    wait = False
-                    self.modal_timer = time.time()
-                    self.modal_duration = 1
-                    self.modal_text = "Logged!"
-
     def key_d(self):
         """
         when D (don't) is pressed
