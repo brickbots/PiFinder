@@ -5,6 +5,7 @@ Welcome to the PiFinder build guide!  Please consult the [Bill of Materials](./B
 This guide currently contains a mix of photos from the older, non-backlit, version and the new backlit version, but the build is the same once you get the backlight components installed.
 
 ![Part Layout](../images/build_guide/IMG_4633.jpeg)
+
 ## PiFinder Hat
 A key part of the PiFinder is a custom 'Hat' which matches the general form factor of the Raspberry Pi and connects to it's GPIO header.  It contains the switches, screen and Inertial Measurement Unit.  
 
@@ -122,7 +123,8 @@ Then use some short M2.5 screws to secure the camera to the cell
 
 ![Stand off setup](../images/build_guide/IMG_4708.jpeg)
 
-Finally, you can attach the lens now, or a bit later in the assembly.  It screws right into the existing knurled adapter that comes with the camera.
+Finally, you can attach the lens now, or a bit later in the assembly.  It screws right into the existing knurled adapter that comes with the camera.  
+NOTE: The knurled adapter is required for the lens to reach focus, so keep it installed!
 
 ![Lens install](../images/build_guide/IMG_4716.jpeg)
 
@@ -158,9 +160,11 @@ The 3d printed GoPro mount will screw into these inserts from the bottom at the 
 ### Dovetail / Finder Shoe
 For a more sturdy and repeatable attachment, the dovetail is preferred.  Many scopes already have a shoe for a finder and they are usually the standard 'synta' size.  The dovetail files in the `/case/mount` directory will fit into these standard shoes.
 
-Print one of the 3 dovetail brackets which most closely matches the orientation of your finder shoe.  If your shoe is at the top of your scope, and is parallel to the ground, use the `dovetail_0deg` file and the PiFinder will sit upright on top of it.
+Print one of the 3 dovetail brackets which most closely matches the orientation of your finder shoe.  If your shoe is at the top of your scope, and is parallel to the ground, use the `dovetail_0deg` file and the PiFinder will sit upright on top of it.  
 
-Finder shoes are often not right at the very top of the scope, and they will be angled relative to the ground/direction of gravity.  You can use the 15 / 30 degree models to adjust for this and get the PiFinder to sit closer to plumb.
+Finder shoes are often not right at the very top of the scope, and they will be angled relative to the ground/direction of gravity.  You can use the 15 / 30 degree models to adjust for this and get the PiFinder to sit closer to plumb.  See the image below for details.  The exact angle is not critical, it's just nice to have the unit pointed perpendicular to the ground for use/visibility.
+
+![Dovetail angle diagram](../images/finder_shoe_angle.png)
 
 The dovetail mount parts take their own M3 heat set inserts and need to be mounted with screws through the bottom piece into the dovetail mount early in the build process.
 
