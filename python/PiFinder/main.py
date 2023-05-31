@@ -65,7 +65,7 @@ def init_display():
     global display_device
     global hardware_platform
 
-    if hardware_platform == "fake":
+    if hardware_platform == "Fake":
         from luma.emulator.device import pygame
 
         # init display  (SPI hardware)
@@ -79,13 +79,15 @@ def init_display():
             frame_rate=60,
         )
         display_device = DeviceWrapper(pygame, RED_RGB)
-    else:
+    elif hardware_platform == "Pi":
         from luma.oled.device import ssd1351
 
         # init display  (SPI hardware)
         serial = spi(device=0, port=0)
         device_serial = ssd1351(serial)
         display_device = DeviceWrapper(device_serial, RED_BGR)
+    else:
+        print("Hardware platform not recognized")
 
 
 def init_keypad_pwm():

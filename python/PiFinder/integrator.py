@@ -203,7 +203,6 @@ def integrator(shared_state, solver_queue, console_queue):
 
         # Is the solution new?
         if solved["RA"] and solved["solve_time"] > last_solve_time:
-
             last_solve_time = time.time()
             # Update remaining solved keys
             solved["constellation"] = sf_utils.radec_to_constellation(

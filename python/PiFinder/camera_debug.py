@@ -14,6 +14,7 @@ import time
 from PIL import Image
 from PiFinder import config
 from PiFinder import utils
+from PiFinder import camera
 from PiFinder.camera_interface import CameraInterface
 import PiFinder.utils
 from typing import Tuple
@@ -43,3 +44,18 @@ class CameraDebug(CameraInterface):
 
     def get_cam_type(self) -> str:
         return self.camType
+
+
+def get_images(shared_state, camera_image, command_queue, console_queue):
+    """
+    Instantiates the camera hardware
+    then calls the universal image loop
+    """
+
+    cfg = config.Config()
+    exposure_time = cfg.get_option("camera_exp")
+    analog_gain = cfg.get_option("camera_gain")
+    camera_hardware = CameraDebug()
+    camera.get_images(
+        shared_state, camera_hardware, camera_image, command_queue, console_queue, cfg
+    )
