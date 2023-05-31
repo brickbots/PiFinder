@@ -17,7 +17,7 @@ The first step is to mount the Pi and PiSugar battery to the Pi Mount piece.  Th
 
 ![Build Guide Step](../images/build_guide/v1.4/build_guide_04.jpg)
 
-Regardless of the orientation of your build, the Rapsberry Pi and battery always mount in this same orientation.  Start by inserting the short stand-off's into the piece oriented as shown
+Regardless of the orientation of your build, the Raspberry Pi and battery always mount in this same orientation.  Start by inserting the short stand-off's into the piece oriented as shown
 
 ![Build Guide Step](../images/build_guide/v1.4/build_guide_05.jpg)
 
@@ -39,7 +39,11 @@ Once the cable is free, thread it through the PiMount assembly as shown.  Note t
 
 ![Build Guide Step](../images/build_guide/v1.4/build_guide_12.jpg)
 
-If you are using a PiSugar, it comes with some protective covers on the screen posts.  Remove these four bits of plastic or it can be very annoying later :-)
+If you are using a PiSugar, it comes with some protective covers on the screw posts.  Remove these four bits of plastic or it can be very annoying later :-). 
+
+IMPORTANT: If you are using the recommended S Plus unit, turn the 'Auto Startup' switch on the bottom of the unit to OFF. Having this in the ON position will prevent i2c from working and the IMU will not be used. Once the board is mounted, it's hard to reach this switch, so turn it off now :-)
+
+ALSO IMPORTANT:  The blue power light on the PiSugar board is very bright.  You'll definitely want to cover it with some black nail polish or something similar.  Plug it in to the battery and turn it on to make sure it's subdued.
 
 ![Build Guide Step](../images/build_guide/v1.4/build_guide_13.jpg)
 
@@ -115,7 +119,7 @@ Go ahead and screw on the camera lens.  The cap on the Pi HQ camera screws off, 
 ![Build Guide Step](../images/build_guide/v1.4/build_guide_41.jpg)
 ![Build Guide Step](../images/build_guide/v1.4/build_guide_42.jpg)
 
-Turn the unit back upright and grab the assembled UI board.  I plugs into the RPI GPIO headers.  Make sure its aligned correctly and use firm pressure to seat it all the way down.
+Turn the unit back upright and grab the assembled UI board.  It plugs into the RPI GPIO headers.  Make sure its aligned correctly and use firm pressure to seat it all the way down.
 
 ![Build Guide Step](../images/build_guide/v1.4/build_guide_44.jpg)
 ![Build Guide Step](../images/build_guide/v1.4/build_guide_45.jpg)
