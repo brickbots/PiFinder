@@ -8,49 +8,47 @@ and adds keys to the provided queue
 import sh
 import RPi.GPIO as GPIO
 from time import sleep
-
-
-cols = [16, 23, 26, 27]
-rows = [19, 17, 18, 22, 20]
-# fmt: off
-keymap = [
-    7 , 8 , 9 , NA,
-    4 , 5 , 6 , UP,
-    1 , 2 , 3 , DN,
-    NA, 0 , NA, ENT,
-    A , B , C , D,
-]
-alt_keymap = [
-    NA, NA, NA, NA,
-    NA, NA, NA, ALT_UP,
-    NA, NA, NA, ALT_DN,
-    NA, ALT_0, NA, NA,
-    ALT_A, ALT_B, ALT_C, ALT_D,
-]
-long_keymap = [
-    NA, NA, NA, NA,
-    NA, NA, NA, NA,
-    NA, NA, NA, NA,
-    NA, NA, NA, LNG_ENT,
-    LNG_A, LNG_B, LNG_C, LNG_D,
-]
-# fmt: on
+from PiFinder.keyboard_interface import KeyboardInterface
 
 
 class KeyboardPi(KeyboardInterface):
     def __init__(self, q):
         self.q = q
 
-    def run_keyboard(self, q, script_path=None):
+        self.cols = [16, 23, 26, 27]
+        self.rows = [19, 17, 18, 22, 20]
+        # fmt: off
+        self.keymap = [
+            7 , 8 , 9 , self.NA,
+            4 , 5 , 6 , self.UP,
+            1 , 2 , 3 , self.DN,
+            self.NA, 0 , self.NA, self.ENT,
+            self.A , self.B , self.C , self.D,
+        ]
+        self.alt_keymap = [
+            self.NA, self.NA, self.NA, self.NA,
+            self.NA, self.NA, self.NA, self.ALT_UP,
+            self.NA, self.NA, self.NA, self.ALT_DN,
+            self.NA, self.ALT_0, self.NA, self.NA,
+            self.ALT_A, self.ALT_B, self.ALT_C, self.ALT_D,
+        ]
+        self.long_keymap = [
+            self.NA, self.NA, self.NA, self.NA,
+            self.NA, self.NA, self.NA, self.NA,
+            self.NA, self.NA, self.NA, self.NA,
+            self.NA, self.NA, self.NA, self.LNG_ENT,
+            self.LNG_A, self.LNG_B, self.LNG_C, self.LNG_D,
+        ]
+        # fmt: on
+
+    def run_keyboard(self, script_path=None):
         """
         scans keyboard matrix, puts release events in queue
         """
-        if script_path:
-            run_script(q, script_path)
 
         GPIO.setmode(GPIO.BCM)
-        GPIO.setup(rows, GPIO.IN)
-        GPIO.setup(cols, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(self.rows, GPIO.IN)
+        GPIO.setup(self.cols, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         pressed = set()
         alt_sent = False
         hold_counter = 0
@@ -62,38 +60,37 @@ class KeyboardPi(KeyboardInterface):
                 if hold_counter > 60 and not alt_sent:
                     keycode = pressed.pop()
                     pressed = set()
-                    q.put(long_keymap[keycode])
+                    self.q.put(self.long_keymap[keycode])
                     hold_counter = 0
                     hold_sent = True
             else:
                 hold_counter = 0
-            for i in range(len(rows)):
-                GPIO.setup(rows[i], GPIO.OUT, initial=GPIO.LOW)
-                for j in range(len(cols)):
-                    keycode = i * len(cols) + j
-                    newval = GPIO.input(cols[j]) == GPIO.LOW
+            for i in range(len(self.rows)):
+                GPIO.setup(self.rows[i], GPIO.OUT, initial=GPIO.LOW)
+                for j in range(len(self.cols)):
+                    keycode = i * len(self.cols) + j
+                    newval = GPIO.input(self.cols[j]) == GPIO.LOW
                     if newval and not keycode in pressed:
                         # initial press
                         pressed.add(keycode)
-                        # print(str(keymap[keycode]), "Pressed")
                     elif not newval and keycode in pressed:
                         # release
                         pressed.discard(keycode)
                         if 15 in pressed:
                             # Released while ENT is pressed
                             alt_sent = True
-                            q.put(alt_keymap[keycode])
+                            self.q.put(self.alt_keymap[keycode])
                         else:
                             if keycode == 15 and alt_sent:
                                 alt_sent = False
                             elif hold_sent:
                                 hold_sent = False
                             else:
-                                q.put(keymap[keycode])
-                GPIO.setup(rows[i], GPIO.IN)
+                                self.q.put(self.keymap[keycode])
+                GPIO.setup(self.rows[i], GPIO.IN)
 
 
-def run_keyboard(self, q, script_path=None):
+def run_keyboard(q, script_path=None):
     keyboard = KeyboardPi(q)
     if script_path:
         keyboard.run_script(script_path)
