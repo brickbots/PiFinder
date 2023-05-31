@@ -1,0 +1,3 @@
+# dev requirements
+luma.emulator==1.4.0
+PyHotKey

@@ -382,7 +382,7 @@ if __name__ == "__main__":
     (options, arguments) = getopt.getopt(sys.argv[1:], "v")
     streaming = False
     verbose = False
-    for (switch, val) in options:
+    for switch, val in options:
         if switch == "-v":
             verbose = True
     if len(arguments) > 2:

@@ -7,11 +7,13 @@ to handle catalog image loading
 import requests
 import sqlite3
 import os
-from PIL import Image, ImageChops, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw
 from PiFinder import image_util
+from PiFinder.ui.fonts import Fonts as fonts
+from PiFinder import utils
 
-BASE_IMAGE_PATH = "/home/pifinder/PiFinder_data/catalog_images"
-CATALOG_PATH = "/home/pifinder/PiFinder/astro_data/pifinder_objects.db"
+BASE_IMAGE_PATH = f"{utils.data_dir}/catalog_images"
+CATALOG_PATH = f"{utils.pifinder_dir}/astro_data/pifinder_objects.db"
 
 
 def get_ngc_aka(catalog_object):
@@ -34,7 +36,7 @@ def get_ngc_aka(catalog_object):
     return aka_rec
 
 
-def get_display_image(catalog_object, source, fov, roll):
+def get_display_image(catalog_object, source, fov, roll, colors):
     """
     Returns a 128x128 image buffer for
     the catalog object/source
@@ -44,12 +46,6 @@ def get_display_image(catalog_object, source, fov, roll):
     roll:
         degrees
     """
-    font_base = ImageFont.truetype(
-        "/home/pifinder/PiFinder/fonts/RobotoMono-Regular.ttf", 10
-    )
-    font_large = ImageFont.truetype(
-        "/home/pifinder/PiFinder/fonts/RobotoMono-Regular.ttf", 15
-    )
 
     object_image_path = resolve_image_name(catalog_object, source)
     if not os.path.exists(object_image_path):
@@ -69,10 +65,11 @@ def get_display_image(catalog_object, source, fov, roll):
                         source,
                         fov,
                         roll,
+                        colors,
                     )
         return_image = Image.new("RGB", (128, 128))
         ri_draw = ImageDraw.Draw(return_image)
-        ri_draw.text((30, 50), "No Image", font=font_large, fill=(0, 0, 128))
+        ri_draw.text((30, 50), "No Image", font=fonts.large, fill=colors.get(128))
     else:
         return_image = Image.open(object_image_path)
 
@@ -93,23 +90,23 @@ def get_display_image(catalog_object, source, fov, roll):
 
         # RED
         return_image = return_image.convert("RGB")
-        return_image = image_util.make_red(return_image)
+        return_image = image_util.make_red(return_image, colors)
 
         # circle
-        _circle_dim = Image.new("RGB", (128, 128), (0, 0, 128))
+        _circle_dim = Image.new("RGB", (128, 128), colors.get(127))
         _circle_draw = ImageDraw.Draw(_circle_dim)
-        _circle_draw.ellipse([2, 2, 126, 126], fill=(0, 0, 256))
+        _circle_draw.ellipse([2, 2, 126, 126], fill=colors.get(255))
         return_image = ImageChops.multiply(return_image, _circle_dim)
 
         ri_draw = ImageDraw.Draw(return_image)
-        ri_draw.ellipse([2, 2, 126, 126], outline=(0, 0, 64), width=1)
+        ri_draw.ellipse([2, 2, 126, 126], outline=colors.get(64), width=1)
 
     # Burn In
-    ri_draw.rectangle([0, 108, 30, 128], fill=(0, 0, 0))
-    ri_draw.text((1, 110), source, font=font_base, fill=(0, 0, 128))
+    ri_draw.rectangle([0, 108, 30, 128], fill=colors.get(0))
+    ri_draw.text((1, 110), source, font=fonts.base, fill=colors.get(128))
 
-    ri_draw.rectangle([98, 108, 128, 128], fill=(0, 0, 0))
-    ri_draw.text((100, 110), f"{fov:0.2f}", font=font_base, fill=(0, 0, 128))
+    ri_draw.rectangle([98, 108, 128, 128], fill=colors.get(0))
+    ri_draw.text((100, 110), f"{fov:0.2f}", font=fonts.base, fill=colors.get(128))
 
     return return_image
 

@@ -8,11 +8,8 @@ import time
 from PIL import ImageChops, Image
 
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
-from PiFinder.image_util import red_image
 from PiFinder import plot
 from PiFinder.ui.base import UIModule
-
-RED = (0, 0, 255)
 
 
 class UIChart(UIModule):
@@ -39,8 +36,9 @@ class UIChart(UIModule):
     }
 
     def __init__(self, *args):
+        super().__init__(*args)
         self.last_update = time.time()
-        self.starfield = plot.Starfield()
+        self.starfield = plot.Starfield(self.colors)
         self.solution = None
         self.fov_list = [5, 10.2, 15, 20, 25, 30, 40, 60]
         self.mag_list = [7.5, 7, 6.5, 6, 5.5, 5.5, 5, 5, 5, 5]
@@ -81,7 +79,8 @@ class UIChart(UIModule):
                 marker_brightness = 128
 
             marker_image = ImageChops.multiply(
-                marker_image, Image.new("RGB", (128, 128), (0, 0, marker_brightness))
+                marker_image,
+                Image.new("RGB", (128, 128), self.colors.get(marker_brightness)),
             )
             self.screen.paste(ImageChops.add(self.screen, marker_image))
 
@@ -130,10 +129,10 @@ class UIChart(UIModule):
                 64 + circ_rad,
                 64 + circ_rad,
             ]
-            self.draw.arc(bbox, 20, 70, fill=(0, 0, brightness))
-            self.draw.arc(bbox, 110, 160, fill=(0, 0, brightness))
-            self.draw.arc(bbox, 200, 250, fill=(0, 0, brightness))
-            self.draw.arc(bbox, 290, 340, fill=(0, 0, brightness))
+            self.draw.arc(bbox, 20, 70, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 110, 160, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 200, 250, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 290, 340, fill=self.colors.get(brightness))
 
     def update(self, force=False):
         if force:
@@ -160,16 +159,20 @@ class UIChart(UIModule):
                     self.solution["Roll"],
                     constellation_brightness,
                 )
-                image_obj = ImageChops.multiply(image_obj, red_image)
+                image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
                 self.screen.paste(image_obj)
                 self.plot_target()
                 self.plot_obs_list()
                 self.last_update = last_solve_time
 
         else:
-            self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
-            self.draw.text((18, 20), "Can't plot", font=self.font_large, fill=RED)
-            self.draw.text((25, 50), "No Solve Yet", font=self.font_base, fill=RED)
+            self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+            self.draw.text(
+                (18, 20), "Can't plot", font=self.font_large, fill=self.colors.get(255)
+            )
+            self.draw.text(
+                (25, 50), "No Solve Yet", font=self.font_base, fill=self.colors.get(255)
+            )
 
         self.draw_reticle()
         return self.screen_update()

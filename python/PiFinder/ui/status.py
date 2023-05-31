@@ -10,8 +10,7 @@ import socket
 
 from PiFinder.ui.base import UIModule
 from PiFinder import sys_utils
-
-RED = (0, 0, 255)
+from PiFinder import utils
 
 
 class UIStatus(UIModule):
@@ -68,9 +67,9 @@ class UIStatus(UIModule):
 
     def __init__(self, *args):
         super().__init__(*args)
-        with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wfs:
+        with open(f"{utils.pifinder_dir}/wifi_status.txt", "r") as wfs:
             self._config_options["WiFi Mode"]["value"] = wfs.read()
-        with open("/home/pifinder/PiFinder/version.txt", "r") as ver:
+        with open(f"{utils.pifinder_dir}/version.txt", "r") as ver:
             self._config_options["Software"]["value"] = ver.read()
         self.status_dict = {
             "LST SLV": "           --",
@@ -101,6 +100,7 @@ class UIStatus(UIModule):
         )
 
         self.last_temp_time = 0
+        self.last_IP_time = 0
 
     def update_software(self, option):
         if option == "CANCEL":
@@ -210,14 +210,22 @@ class UIStatus(UIModule):
         if dt:
             self.status_dict["LCL TM"] = "     " + local_dt.time().isoformat()[:8]
             self.status_dict["UTC TM"] = "     " + dt.time().isoformat()[:8]
-        # only update some things once per second....
-        if time.time() - self.last_temp_time > 1:
+
+        # only update some things periodically....
+        if time.time() - self.last_temp_time > 5:
             # temp
             self.last_temp_time = time.time()
-            with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
-                raw_temp = int(f.read().strip())
-            self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
+            try:
+                with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
+                    raw_temp = int(f.read().strip())
+                self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
+            except:
+                self.status_dict["CPU TMP"] = "     Error"
 
+        if time.time() - self.last_IP_time > 20:
+            # temp
+            self.last_IP_time = time.time()
+            print("Checking IP")
             # IP address
             try:
                 self.status_dict["IP ADDR"] = socket.gethostbyname(
@@ -228,7 +236,7 @@ class UIStatus(UIModule):
 
     def update(self, force=False):
         self.update_status_dict()
-        self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
+        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
         lines = []
         for k, v in self.status_dict.items():
             line = f"{k: >7}:{v: >10}"
@@ -238,7 +246,9 @@ class UIStatus(UIModule):
         lines[-1] = f'{self.status_dict["IP ADDR"]: >21}'
 
         for i, line in enumerate(lines):
-            self.draw.text((0, i * 10 + 20), line, font=self.font_base, fill=RED)
+            self.draw.text(
+                (0, i * 10 + 20), line, font=self.font_base, fill=self.colors.get(255)
+            )
         return self.screen_update()
 
     def active(self):
@@ -246,5 +256,5 @@ class UIStatus(UIModule):
         Called when a module becomes active
         i.e. foreground controlling display
         """
-        with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wfs:
+        with open(f"{utils.pifinder_dir}/wifi_status.txt", "r") as wfs:
             self._config_options["WiFi Mode"]["value"] = wfs.read()

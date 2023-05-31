@@ -14,11 +14,8 @@ from PiFinder.image_util import (
     gamma_correct_med,
     gamma_correct_low,
     subtract_background,
-    red_image,
 )
 from PiFinder.ui.base import UIModule
-
-RED = (0, 0, 255)
 
 
 class UIPreview(UIModule):
@@ -124,10 +121,10 @@ class UIPreview(UIModule):
                 64 + circ_rad,
                 64 + circ_rad,
             ]
-            self.draw.arc(bbox, 20, 70, fill=(0, 0, brightness))
-            self.draw.arc(bbox, 110, 160, fill=(0, 0, brightness))
-            self.draw.arc(bbox, 200, 250, fill=(0, 0, brightness))
-            self.draw.arc(bbox, 290, 340, fill=(0, 0, brightness))
+            self.draw.arc(bbox, 20, 70, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 110, 160, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 200, 250, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 290, 340, fill=self.colors.get(brightness))
 
     def update(self, force=False):
         if force:
@@ -144,7 +141,7 @@ class UIPreview(UIModule):
             if self._config_options["BG Sub"]["value"] == "On":
                 image_obj = subtract_background(image_obj)
             image_obj = image_obj.convert("RGB")
-            image_obj = ImageChops.multiply(image_obj, red_image)
+            image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
             image_obj = ImageOps.autocontrast(image_obj)
 
             if self._config_options["Gamma Adj"]["value"] == "Low":
