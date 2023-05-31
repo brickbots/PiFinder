@@ -40,10 +40,8 @@ A # exit options
 D # Abort logging
 LNG_ENT
 B # LOG
-LNG_ENT
-C # Log with highres
-wait 12 # need to allow photo to happen
 # Should be back at chart
+wait 2
 A # back to catalog
 LNG_A # Filter options
 1 # mag

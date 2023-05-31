@@ -11,9 +11,10 @@ tools
 import os
 import sqlite3
 from textwrap import dedent
+from PiFinder import utils
 
-OBSLIST_DIR = "/home/pifinder/PiFinder_data/obslists/"
-DB_PATH = "/home/pifinder/PiFinder/astro_data/pifinder_objects.db"
+OBSLIST_DIR = f"{utils.data_dir}/obslists/"
+DB_PATH = f"{utils.pifinder_dir}/astro_data/pifinder_objects.db"
 
 SKYSAFARI_CATALOG_NAMES = {
     "CAL": "C",

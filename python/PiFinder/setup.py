@@ -10,6 +10,7 @@ import os
 from PiFinder.obj_types import OBJ_DESCRIPTORS
 from PiFinder import config
 from pprint import pprint
+from pathlib import Path
 
 
 def create_logging_tables():
@@ -17,7 +18,8 @@ def create_logging_tables():
     Creates the base logging tables
     """
 
-    root_dir = "/home/pifinder/PiFinder_data"
+    home = Path.home()
+    root_dir = Path(Path.home(), "PiFinder_data")
     db_path = os.path.join(root_dir, "observations.db")
     if os.path.exists(db_path):
         return db_path

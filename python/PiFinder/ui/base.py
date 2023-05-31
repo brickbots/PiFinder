@@ -7,8 +7,12 @@ This module contains the base UIModule class
 import os
 import time
 import uuid
+from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+from PiFinder.ui.fonts import Fonts as fonts
+from PiFinder import utils
+from PiFinder.image_util import DeviceWrapper
 
 
 class UIModule:
@@ -18,7 +22,7 @@ class UIModule:
 
     def __init__(
         self,
-        display,
+        device_wrapper: DeviceWrapper,
         camera_image,
         shared_state,
         command_queues,
@@ -27,24 +31,19 @@ class UIModule:
     ):
         self.title = self.__title__
         self.switch_to = None
-        self.display = display
+        self.display = device_wrapper.device
+        self.colors = device_wrapper.colors
         self.shared_state = shared_state
         self.camera_image = camera_image
         self.command_queues = command_queues
         self.screen = Image.new("RGB", (128, 128))
         self.draw = ImageDraw.Draw(self.screen)
-        self.font_base = ImageFont.truetype(
-            "/home/pifinder/PiFinder/fonts/RobotoMono-Regular.ttf", 10
-        )
-        self.font_bold = ImageFont.truetype(
-            "/home/pifinder/PiFinder/fonts/RobotoMono-Bold.ttf", 12
-        )
-        self.font_large = ImageFont.truetype(
-            "/home/pifinder/PiFinder/fonts/RobotoMono-Regular.ttf", 15
-        )
+        self.font_base = fonts.base
+        self.font_bold = fonts.bold
+        self.font_large = fonts.large
 
         # screenshot stuff
-        root_dir = "/home/pifinder/PiFinder_data"
+        root_dir = str(utils.data_dir)
         prefix = f"{self.__uuid__}_{self.__title__}"
         self.ss_path = os.path.join(root_dir, "screenshots", prefix)
         self.ss_count = 0
@@ -120,10 +119,14 @@ class UIModule:
         Waits timeout in seconds
         """
 
-        self.draw.rectangle([10, 49, 128, 89], fill=(0, 0, 0), outline=(0, 0, 0))
-        self.draw.rectangle([5, 44, 123, 84], fill=(0, 0, 0), outline=(0, 0, 128))
+        self.draw.rectangle(
+            [10, 49, 128, 89], fill=self.colors.get(0), outline=self.colors.get(0)
+        )
+        self.draw.rectangle(
+            [5, 44, 123, 84], fill=self.colors.get(0), outline=self.colors.get(128)
+        )
         message = " " * int((16 - len(message)) / 2) + message
-        self.draw.text((9, 54), message, font=self.font_bold, fill=(0, 0, 256))
+        self.draw.text((9, 54), message, font=self.font_bold, fill=self.colors.get(255))
         self.display.display(self.screen.convert(self.display.mode))
         self.ui_state["message_timeout"] = timeout + time.time()
 
@@ -137,14 +140,19 @@ class UIModule:
             return None
 
         if title_bar:
-            self.draw.rectangle([0, 0, 128, 16], fill=(0, 0, 64))
-            self.draw.text((6, 1), self.title, font=self.font_bold, fill=(0, 0, 0))
+            self.draw.rectangle([0, 0, 128, 16], fill=self.colors.get(64))
+            self.draw.text(
+                (6, 1), self.title, font=self.font_bold, fill=self.colors.get(0)
+            )
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
                     constellation = solution["constellation"]
                     self.draw.text(
-                        (70, 1), constellation, font=self.font_bold, fill=(0, 0, 0)
+                        (70, 1),
+                        constellation,
+                        font=self.font_bold,
+                        fill=self.colors.get(0),
                     )
 
                     # Solver Status
@@ -152,25 +160,27 @@ class UIModule:
                     bg = int(64 - (time_since_solve / 6 * 64))
                     if bg < 0:
                         bg = 0
-                    self.draw.rectangle([115, 2, 125, 14], fill=(0, 0, bg))
+                    self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
                     self.draw.text(
                         (117, 0),
                         solution["solve_source"][0],
                         font=self.font_bold,
-                        fill=(0, 0, 64),
+                        fill=self.colors.get(64),
                     )
                 else:
                     # no solve yet....
-                    self.draw.rectangle([115, 2, 125, 14], fill=(0, 0, 0))
-                    self.draw.text((117, 0), "X", font=self.font_bold, fill=(0, 0, 64))
+                    self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(0))
+                    self.draw.text(
+                        (117, 0), "X", font=self.font_bold, fill=self.colors.get(64)
+                    )
 
                 # GPS status
                 if self.shared_state.location()["gps_lock"]:
-                    fg = (0, 0, 0)
-                    bg = (0, 0, 64)
+                    fg = self.colors.get(0)
+                    bg = self.colors.get(64)
                 else:
-                    fg = (0, 0, 64)
-                    bg = (0, 0, 0)
+                    fg = self.colors.get(64)
+                    bg = self.colors.get(0)
                 self.draw.rectangle([100, 2, 110, 14], fill=bg)
                 self.draw.text((102, 0), "G", font=self.font_bold, fill=fg)
 

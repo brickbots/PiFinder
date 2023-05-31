@@ -48,7 +48,6 @@ except NameError:
 BINARY_ENCODING = "latin-1"
 
 if bytes is str:  # In Python 2 these functions can be null transformations
-
     polystr = str
     polybytes = bytes
 

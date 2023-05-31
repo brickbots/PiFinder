@@ -15,7 +15,6 @@ from PiFinder.tetra3 import Tetra3
 
 
 def solver(shared_state, solver_queue, camera_image, console_queue):
-
     t3 = Tetra3("default_database")
     last_solve_time = 0
     solved = {

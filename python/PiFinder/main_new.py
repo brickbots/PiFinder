@@ -19,23 +19,27 @@ import sys
 import pytz
 import logging
 import argparse
-from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, log_to_stderr
 from multiprocessing.managers import BaseManager
 from timezonefinder import TimezoneFinder
+from pathlib import Path
 
 
 from luma.core.interface.serial import spi
 from luma.core.render import canvas
-from luma.oled.device import ssd1351
+from PiFinder.camera_pi import CameraPI
+from PiFinder.camera_debug import CameraDebug
+from PiFinder.camera_asi import CameraASI
 
+
+from PiFinder import camera
 from PiFinder import solver
 from PiFinder import integrator
+from PiFinder import gps_monitor
 from PiFinder import config
 from PiFinder import pos_server
 from PiFinder import utils
-from PiFinder import keyboard_interface
 
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.preview import UIPreview
@@ -48,25 +52,18 @@ from PiFinder.ui.log import UILog
 
 from PiFinder.state import SharedStateObj
 
-from PiFinder.image_util import (
-    subtract_background,
-    DeviceWrapper,
-    RED_RGB,
-    RED_BGR,
-    GREY,
-)
+from PiFinder.image_util import subtract_background, DeviceWrapper
+from PiFinder.image_util import RED_RGB, RED_BGR, GREY
+from PiFinder.keyboard_local import KeyboardLocal
+from PiFinder.keyboard_pi import KeyboardPi
 
 
-hardware_platform = "Pi"
-display_device: DeviceWrapper = DeviceWrapper(None, RED_RGB)
-keypad_pwm = None
+device: DeviceWrapper = DeviceWrapper(None, RED_RGB)
 
 
-def init_display():
-    global display_device
-    global hardware_platform
-
-    if hardware_platform == "Fake":
+def init_display(fakehardware):
+    global device
+    if fakehardware:
         from luma.emulator.device import pygame
 
         # init display  (SPI hardware)
@@ -79,49 +76,15 @@ def init_display():
             scale=2,
             frame_rate=60,
         )
-        display_device = DeviceWrapper(pygame, RED_RGB)
-    elif hardware_platform == "Pi":
+        wrapper = DeviceWrapper(pygame, RED_RGB)
+    else:
         from luma.oled.device import ssd1351
 
         # init display  (SPI hardware)
         serial = spi(device=0, port=0)
         device_serial = ssd1351(serial)
-        display_device = DeviceWrapper(device_serial, RED_BGR)
-    else:
-        print("Hardware platform not recognized")
-
-
-def init_keypad_pwm():
-    # TODO: Keypad pwm class that can be faked maybe?
-    global keypad_pwm
-    global hardware_platform
-    if hardware_platform == "Pi":
-        keypad_pwm = HardwarePWM(pwm_channel=1, hz=120)
-        keypad_pwm.start(0)
-
-
-def set_brightness(level, cfg):
-    """
-    Sets oled/keypad brightness
-    0-255
-    """
-    global display_device
-    display_device.set_brightness(level)
-
-    if keypad_pwm:
-        # deterime offset for keypad
-        keypad_offsets = {
-            "+3": 2,
-            "+2": 1.6,
-            "+1": 1.3,
-            "0": 1,
-            "-1": 0.75,
-            "-2": 0.5,
-            "-3": 0.25,
-            "Off": 0,
-        }
-        keypad_brightness = cfg.get_option("keypad_brightness")
-        keypad_pwm.change_duty_cycle(level * 0.05 * keypad_offsets[keypad_brightness])
+        wrapper = DeviceWrapper(device_serial, RED_BGR)
+    return wrapper
 
 
 def setup_dirs():
@@ -153,19 +116,13 @@ def get_sleep_timeout(cfg):
     return sleep_timeout
 
 
-def main(script_name=None):
+def main(script_name, fakehardware, camera_type):
     """
     Get this show on the road!
     """
-    global display_device
-
-    init_display()
-    init_keypad_pwm()
+    # log_to_stderr(logging.DEBUG)
+    device = init_display(fakehardware)
     setup_dirs()
-
-    # Instantiate base keyboard class for keycode
-    keyboard_base = keyboard_interface.KeyboardInterface()
-
     # Set path for test images
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
     test_image_path = os.path.join(root_dir, "test_images")
@@ -197,8 +154,8 @@ def main(script_name=None):
 
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
-    set_brightness(screen_brightness, cfg)
-    console = UIConsole(display_device, None, None, command_queues, ui_state, cfg)
+    device.set_brightness(screen_brightness)
+    console = UIConsole(device, None, None, command_queues, ui_state, cfg)
     console.write("Starting....")
     console.update()
     time.sleep(2)
@@ -210,10 +167,14 @@ def main(script_name=None):
     script_path = None
     if script_name:
         script_path = os.path.join(root_dir, "scripts", script_name)
-    keyboard_process = Process(
-        target=keyboard.run_keyboard, args=(keyboard_queue, script_path)
-    )
-    keyboard_process.start()
+    if fakehardware:
+        keyboard = KeyboardLocal(keyboard_queue)
+    else:
+        keyboard = KeyboardPi()
+        keyboard_process = Process(
+            target=keyboard.run_keyboard, args=(keyboard_queue, script_path)
+        )
+        keyboard_process.start()
 
     # spawn gps service....
     console.write("   GPS")
@@ -241,10 +202,23 @@ def main(script_name=None):
 
         console.write("   Camera")
         console.update()
+        if camera_type == "pi":
+            camera_hardware = CameraPI()
+        elif camera_type == "asi":
+            camera_hardware = CameraASI()
+        else:
+            camera_hardware = CameraDebug()
         camera_image = manager.NewImage("RGB", (512, 512))
+        print("camera hardware is", camera_hardware)
         image_process = Process(
             target=camera.get_images,
-            args=(shared_state, camera_image, camera_command_queue, console_queue),
+            args=(
+                shared_state,
+                camera_hardware,
+                camera_image,
+                camera_command_queue,
+                console_queue,
+            ),
         )
         image_process.start()
         time.sleep(1)
@@ -288,63 +262,23 @@ def main(script_name=None):
         console.update()
 
         ui_modes = [
-            UIConfig(
-                display_device,
-                camera_image,
-                shared_state,
-                command_queues,
-                ui_state,
-                cfg,
-            ),
-            UIChart(
-                display_device,
-                camera_image,
-                shared_state,
-                command_queues,
-                ui_state,
-                cfg,
-            ),
+            UIConfig(device, camera_image, shared_state, command_queues, ui_state, cfg),
+            UIChart(device, camera_image, shared_state, command_queues, ui_state, cfg),
             UICatalog(
-                display_device,
+                device,
                 camera_image,
                 shared_state,
                 command_queues,
                 ui_state,
                 cfg,
             ),
-            UILocate(
-                display_device,
-                camera_image,
-                shared_state,
-                command_queues,
-                ui_state,
-                cfg,
-            ),
+            UILocate(device, camera_image, shared_state, command_queues, ui_state, cfg),
             UIPreview(
-                display_device,
-                camera_image,
-                shared_state,
-                command_queues,
-                ui_state,
-                cfg,
+                device, camera_image, shared_state, command_queues, ui_state, cfg
             ),
-            UIStatus(
-                display_device,
-                camera_image,
-                shared_state,
-                command_queues,
-                ui_state,
-                cfg,
-            ),
+            UIStatus(device, camera_image, shared_state, command_queues, ui_state, cfg),
             console,
-            UILog(
-                display_device,
-                camera_image,
-                shared_state,
-                command_queues,
-                ui_state,
-                cfg,
-            ),
+            UILog(device, camera_image, shared_state, command_queues, ui_state, cfg),
         ]
 
         # What is the highest index for observing modes
@@ -404,7 +338,7 @@ def main(script_name=None):
                     ui_command = None
                 if ui_command:
                     if ui_command == "set_brightness":
-                        set_brightness(screen_brightness, cfg)
+                        device.set_brightness(screen_brightness)
 
                 # Keyboard
                 try:
@@ -414,18 +348,15 @@ def main(script_name=None):
 
                 if keycode != None:
                     power_save_warmup = time.time() + get_sleep_timeout(cfg)
-                    set_brightness(screen_brightness, cfg)
+                    keyboard.set_brightness(screen_brightness, cfg)
                     shared_state.set_power_state(1)  # Normal
 
                     # ignore keystroke if we have been asleep
                     if shared_state.power_state() > 0:
                         if keycode > 99:
                             # Special codes....
-                            if (
-                                keycode == keyboard_base.ALT_UP
-                                or keycode == keyboard_base.ALT_DN
-                            ):
-                                if keycode == keyboard_base.ALT_UP:
+                            if keycode == keyboard.ALT_UP or keycode == keyboard.ALT_DN:
+                                if keycode == keyboard.ALT_UP:
                                     screen_brightness = screen_brightness + 10
                                     if screen_brightness > 255:
                                         screen_brightness = 255
@@ -433,11 +364,11 @@ def main(script_name=None):
                                     screen_brightness = screen_brightness - 10
                                     if screen_brightness < 1:
                                         screen_brightness = 1
-                                set_brightness(screen_brightness, cfg)
+                                device.set_brightness(screen_brightness)
                                 cfg.set_option("display_brightness", screen_brightness)
                                 console.write("Brightness: " + str(screen_brightness))
 
-                            if keycode == keyboard_base.ALT_A:
+                            if keycode == keyboard.ALT_A:
                                 # Switch between non-observing modes
                                 ui_mode_index += 1
                                 if ui_mode_index >= len(ui_modes):
@@ -447,7 +378,7 @@ def main(script_name=None):
                                 current_module = ui_modes[ui_mode_index]
                                 current_module.active()
 
-                            if keycode == keyboard_base.LNG_A and ui_mode_index > 0:
+                            if keycode == keyboard.LNG_A and ui_mode_index > 0:
                                 # long A for config of current module
                                 target_module = current_module
                                 if target_module._config_options:
@@ -458,18 +389,18 @@ def main(script_name=None):
                                     current_module.set_module(target_module)
                                     current_module.active()
 
-                            if keycode == keyboard_base.LNG_ENT and ui_mode_index > 0:
+                            if keycode == keyboard.LNG_ENT and ui_mode_index > 0:
                                 # long ENT for log observation
                                 ui_mode_index = logging_mode_index
                                 current_module = ui_modes[logging_mode_index]
                                 current_module.active()
 
-                            if keycode == keyboard_base.ALT_0:
+                            if keycode == keyboard.ALT_0:
                                 # screenshot
                                 current_module.screengrab()
                                 console.write("Screenshot saved")
 
-                            if keycode == keyboard_base.ALT_D:
+                            if keycode == keyboard.ALT_D:
                                 # Debug snapshot
                                 uid = str(uuid.uuid1()).split("-")[0]
                                 debug_image = camera_image.copy()
@@ -494,7 +425,7 @@ def main(script_name=None):
                                 ) as f:
                                     json.dump(debug_location, f, indent=4)
 
-                                if debug_dt != None:
+                                if debug_dt is not None:
                                     with open(
                                         f"{test_image_path}/{uid}_datetime.json", "w"
                                     ) as f:
@@ -502,7 +433,7 @@ def main(script_name=None):
 
                                 console.write(f"Debug dump: {uid}")
 
-                        elif keycode == keyboard_base.A:
+                        elif keycode == keyboard.A:
                             # A key, mode switch
                             if ui_mode_index == 0:
                                 # return control to original module
@@ -523,22 +454,22 @@ def main(script_name=None):
                             if keycode < 10:
                                 current_module.key_number(keycode)
 
-                            elif keycode == keyboard_base.UP:
+                            elif keycode == keyboard.UP:
                                 current_module.key_up()
 
-                            elif keycode == keyboard_base.DN:
+                            elif keycode == keyboard.DN:
                                 current_module.key_down()
 
-                            elif keycode == keyboard_base.ENT:
+                            elif keycode == keyboard.ENT:
                                 current_module.key_enter()
 
-                            elif keycode == keyboard_base.B:
+                            elif keycode == keyboard.B:
                                 current_module.key_b()
 
-                            elif keycode == keyboard_base.C:
+                            elif keycode == keyboard.C:
                                 current_module.key_c()
 
-                            elif keycode == keyboard_base.D:
+                            elif keycode == keyboard.D:
                                 current_module.key_d()
 
                 update_msg = current_module.update()
@@ -567,12 +498,12 @@ def main(script_name=None):
                     if _imu:
                         if _imu["moving"]:
                             power_save_warmup = time.time() + get_sleep_timeout(cfg)
-                            set_brightness(screen_brightness, cfg)
+                            keyboard.set_brightness(screen_brightness, cfg)
                             shared_state.set_power_state(1)  # Normal
 
                     # Check for going into power save...
                     if time.time() > power_save_warmup:
-                        set_brightness(int(screen_brightness / 4), cfg)
+                        keyboard.set_brightness(int(screen_brightness / 4), cfg)
                         shared_state.set_power_state(0)  # sleep
                     if time.time() > power_save_warmup:
                         time.sleep(0.2)
@@ -617,6 +548,8 @@ if __name__ == "__main__":
     script_name = None
     args = sys.argv
     print("starting main")
+    if len(args) > 1:
+        script_name = args[-1]
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     logging.basicConfig(format="%(asctime)s %(name)s: %(levelname)s %(message)s")
@@ -634,13 +567,6 @@ if __name__ == "__main__":
         "--camera",
         help="Specify which camera to use: pi, asi or debug",
         default="pi",
-        required=False,
-    )
-    parser.add_argument(
-        "-s",
-        "--script",
-        help="Specify a testing script to run",
-        default=None,
         required=False,
     )
 
@@ -663,18 +589,9 @@ if __name__ == "__main__":
         logger.setLevel(logging.DEBUG)
 
     if args.fakehardware:
-        hardware_platform = "Fake"
         from PiFinder import imu_fake as imu
-        from PiFinder import keyboard_local as keyboard
-        from PiFinder import camera_debug as camera
-        from PiFinder import gps_fake as gps_monitor
     else:
-        hardware_platform = "Pi"
-        from rpi_hardware_pwm import HardwarePWM
-        from PiFinder import imu_pi as imu
-        from PiFinder import keyboard_pi as keyboard
-        from PiFinder import camera_pi as camera
-        from PiFinder import gps_pi as gps_monitor
+        from PiFinder import imu
 
     if args.log:
         datenow = datetime.now()
@@ -682,7 +599,5 @@ if __name__ == "__main__":
         fh = logging.FileHandler(filehandler)
         fh.setLevel(logger.level)
         logger.addHandler(fh)
-    if args.script:
-        script_name = args.script
 
-    main(script_name)
+    main(script_name, args.fakehardware, args.camera)

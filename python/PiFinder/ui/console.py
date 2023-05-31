@@ -9,8 +9,7 @@ import datetime
 
 from PIL import Image
 from PiFinder.ui.base import UIModule
-
-RED = (0, 0, 255)
+from PiFinder.image_util import convert_image_to_mode
 
 
 class UIConsole(UIModule):
@@ -27,6 +26,7 @@ class UIConsole(UIModule):
         )
         welcome_image_path = os.path.join(root_dir, "images", "welcome.png")
         welcome_image = Image.open(welcome_image_path)
+        welcome_image = convert_image_to_mode(welcome_image, self.colors.mode)
         self.screen.paste(welcome_image)
 
         self.lines = ["---- TOP ---", "Sess UUID:" + self.__uuid__]
@@ -81,15 +81,23 @@ class UIConsole(UIModule):
         if self.dirty:
             if self.welcome:
                 # Clear / write just top line
-                self.draw.rectangle([0, 0, 128, 16], fill=(0, 0, 0))
-                self.draw.text((0, 1), self.lines[-1], font=self.font_base, fill=RED)
+                self.draw.rectangle([0, 0, 128, 16], fill=self.colors.get(0))
+                self.draw.text(
+                    (0, 1),
+                    self.lines[-1],
+                    font=self.font_base,
+                    fill=self.colors.get(255),
+                )
                 return self.screen_update(title_bar=False)
             else:
                 # clear screen
-                self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
+                self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
                 for i, line in enumerate(self.lines[-10 - self.scroll_offset :][:10]):
                     self.draw.text(
-                        (0, i * 10 + 20), line, font=self.font_base, fill=RED
+                        (0, i * 10 + 20),
+                        line,
+                        font=self.font_base,
+                        fill=self.colors.get(255),
                     )
                 self.dirty = False
                 return self.screen_update()

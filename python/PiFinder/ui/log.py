@@ -11,11 +11,10 @@ from PIL import ImageFont
 from PiFinder import solver
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder import obslog
 from skyfield.api import Angle
 from skyfield.positionlib import ICRF
-
-RED = (0, 0, 255)
 
 
 class UILog(UIModule):
@@ -67,9 +66,7 @@ class UILog(UIModule):
         self.modal_timer = 0
         self.modal_duration = 0
         self.modal_text = None
-        self.font_small = ImageFont.truetype(
-            "/home/pifinder/PiFinder/fonts/RobotoMono-Bold.ttf", 8
-        )
+        self.font_small = fonts.small
 
     def reset_config(self):
         """
@@ -123,32 +120,6 @@ class UILog(UIModule):
             self.modal_text = "Logged!"
             self.update()
 
-    def key_c(self):
-        """
-        when c is pressed,
-        photo and log it!
-        """
-        if self.target:
-            session_uuid, obs_id = self.record_object(self.target)
-
-            # Start the timer for the confirm.
-            self.modal_timer = time.time()
-            self.modal_duration = 2
-            self.modal_text = "Taking Photo"
-            filename = f"log_{session_uuid}_{obs_id}_high"
-            self.command_queues["camera"].put("save_hi:" + filename)
-            self.update()
-            wait = True
-            while wait:
-                # we need to wait until we have another solve image
-                # check every 2 seconds...
-                time.sleep(0.2)
-                if self.shared_state.last_image_time()[1] > self.modal_timer + 1:
-                    wait = False
-                    self.modal_timer = time.time()
-                    self.modal_duration = 1
-                    self.modal_text = "Logged!"
-
     def key_d(self):
         """
         when D (don't) is pressed
@@ -174,7 +145,7 @@ class UILog(UIModule):
 
     def update(self, force=False):
         # Clear Screen
-        self.draw.rectangle([0, 0, 128, 128], fill=(0, 0, 0))
+        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
 
         if self.modal_text:
             if time.time() - self.modal_timer > self.modal_duration:
@@ -184,32 +155,46 @@ class UILog(UIModule):
 
             padded_text = (" " * int((14 - len(self.modal_text)) / 2)) + self.modal_text
 
-            self.draw.text((0, 50), padded_text, font=self.font_large, fill=RED)
+            self.draw.text(
+                (0, 50), padded_text, font=self.font_large, fill=self.colors.get(255)
+            )
             return self.screen_update()
 
         if not self.shared_state.solve_state():
-            self.draw.text((0, 20), "No Solve Yet", font=self.font_large, fill=RED)
+            self.draw.text(
+                (0, 20), "No Solve Yet", font=self.font_large, fill=self.colors.get(255)
+            )
             return self.screen_update()
 
         if not self.target:
-            self.draw.text((0, 20), "No Target Set", font=self.font_large, fill=RED)
+            self.draw.text(
+                (0, 20),
+                "No Target Set",
+                font=self.font_large,
+                fill=self.colors.get(255),
+            )
             return self.screen_update()
 
         # Target Name
         line = ""
         line += self.target["catalog"]
         line += str(self.target["sequence"])
-        self.draw.text((0, 20), line, font=self.font_large, fill=RED)
+        self.draw.text((0, 20), line, font=self.font_large, fill=self.colors.get(255))
 
         # ID Line in BOld
         # Type / Constellation
         object_type = OBJ_TYPES.get(self.target["obj_type"], self.target["obj_type"])
         object_text = f"{object_type: <14} {self.target['const']}"
-        self.draw.text((0, 40), object_text, font=self.font_bold, fill=(0, 0, 128))
+        self.draw.text(
+            (0, 40), object_text, font=self.font_bold, fill=self.colors.get(128)
+        )
 
         # Notes Prompt
         self.draw.text(
-            (15, 100), "Hold A for notes", font=self.font_base, fill=(0, 0, 128)
+            (15, 100),
+            "Hold A for notes",
+            font=self.font_base,
+            fill=self.colors.get(128),
         )
 
         # Distance to target
@@ -229,24 +214,35 @@ class UILog(UIModule):
             (5, 60),
             f"Pointing {distance.degrees:0.1f} deg",
             font=self.font_bold,
-            fill=(0, 0, 128),
+            fill=self.colors.get(128),
         )
-        self.draw.text((5, 75), f"from target", font=self.font_bold, fill=(0, 0, 128))
+        self.draw.text(
+            (5, 75), f"from target", font=self.font_bold, fill=self.colors.get(128)
+        )
 
         # Notes Prompt
         self.draw.text(
-            (15, 100), "Hold A for notes", font=self.font_base, fill=(0, 0, 128)
+            (15, 100),
+            "Hold A for notes",
+            font=self.font_base,
+            fill=self.colors.get(128),
         )
 
         # Bottom button help
-        self.draw.rectangle([0, 118, 40, 128], fill=(0, 0, 32))
-        self.draw.text((2, 117), "B", font=self.font_small, fill=RED)
-        self.draw.text((10, 117), "Log", font=self.font_small, fill=(0, 0, 128))
-        self.draw.rectangle([44, 118, 84, 128], fill=(0, 0, 32))
-        self.draw.text((46, 117), "C", font=self.font_small, fill=RED)
-        self.draw.text((54, 117), "Photo", font=self.font_small, fill=(0, 0, 128))
-        self.draw.rectangle([88, 118, 128, 128], fill=(0, 0, 32))
-        self.draw.text((90, 117), "D", font=self.font_small, fill=RED)
-        self.draw.text((98, 117), "Abort", font=self.font_small, fill=(0, 0, 128))
+        self.draw.rectangle([0, 118, 40, 128], fill=self.colors.get(32))
+        self.draw.text((2, 117), "B", font=self.font_small, fill=self.colors.get(255))
+        self.draw.text(
+            (10, 117), "Log", font=self.font_small, fill=self.colors.get(128)
+        )
+        self.draw.rectangle([44, 118, 84, 128], fill=self.colors.get(32))
+        self.draw.text((46, 117), "C", font=self.font_small, fill=self.colors.get(255))
+        self.draw.text(
+            (54, 117), "Photo", font=self.font_small, fill=self.colors.get(128)
+        )
+        self.draw.rectangle([88, 118, 128, 128], fill=self.colors.get(32))
+        self.draw.text((90, 117), "D", font=self.font_small, fill=self.colors.get(255))
+        self.draw.text(
+            (98, 117), "Abort", font=self.font_small, fill=self.colors.get(128)
+        )
 
         return self.screen_update()

@@ -10,12 +10,45 @@ function
 from PIL import Image, ImageChops
 import numpy as np
 import scipy.ndimage
+from enum import Enum
+import functools
+from collections import namedtuple
 
-red_image = Image.new("RGB", (128, 128), (0, 0, 255))
+
+ColorMask = namedtuple("ColorMask", ["mask", "mode"])
+RED_RGB: ColorMask = ColorMask(np.array([1, 0, 0]), "RGB")
+RED_BGR: ColorMask = ColorMask(np.array([0, 0, 1]), "BGR")
+GREY: ColorMask = ColorMask(np.array([1, 1, 1]), "RGB")
 
 
-def make_red(in_image):
-    return ImageChops.multiply(in_image, red_image)
+class Colors:
+    def __init__(self, color_mask: ColorMask):
+        self.color_mask = color_mask[0]
+        self.mode = color_mask[1]
+        self.red_image = Image.new("RGB", (128, 128), self.get(255))
+
+    @functools.cache
+    def get(self, color_intensity):
+        return tuple(self.color_mask * color_intensity)
+
+
+class DeviceWrapper:
+    colors: Colors
+
+    def __init__(self, device, color_mask: ColorMask):
+        self.device = device
+        self.colors = Colors(color_mask)
+
+    def set_brightness(self, level):
+        """
+        Sets oled brightness
+        0-255
+        """
+        self.device.contrast(level)
+
+
+def make_red(in_image, colors):
+    return ImageChops.multiply(in_image, colors.red_image)
 
 
 def gamma_correct_low(in_value):
@@ -56,3 +89,9 @@ def subtract_background(image):
         image, size=25, output=image.dtype
     )
     return Image.fromarray(image)
+
+
+def convert_image_to_mode(image: Image.Image, mode: str):
+    if mode == "RGB":
+        return Image.fromarray(np.array(image)[:, :, ::-1])
+    return image

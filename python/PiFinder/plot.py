@@ -24,7 +24,8 @@ class Starfield:
     specified RA/DEC + roll
     """
 
-    def __init__(self, mag_limit=7, fov=10.2):
+    def __init__(self, colors, mag_limit=7, fov=10.2):
+        self.colors = colors
         utctime = datetime.datetime(2023, 1, 1, 2, 0, 0).replace(tzinfo=utc)
         ts = load.timescale()
         self.t = ts.from_datetime(utctime)
@@ -56,7 +57,7 @@ class Starfield:
 
         pointer_image_path = os.path.join(root_dir, "markers", "pointer.png")
         self.pointer_image = ImageChops.multiply(
-            Image.open(pointer_image_path), Image.new("RGB", (256, 256), (0, 0, 64))
+            Image.open(pointer_image_path), Image.new("RGB", (256, 256), colors.get(64))
         )
         # load markers...
         self.markers = {}
@@ -69,7 +70,7 @@ class Starfield:
                     Image.open(f"{marker_path}/mrk_{marker_code}.png"), (117, 117)
                 )
                 self.markers[marker_code] = ImageChops.multiply(
-                    _image, Image.new("RGB", (256, 256), (0, 0, 256))
+                    _image, Image.new("RGB", (256, 256), colors.get(256))
                 )
 
     def set_mag_limit(self, mag_limit):
@@ -123,11 +124,11 @@ class Starfield:
             if symbol == "target":
                 idraw.line(
                     [x_pos, y_pos - 5, x_pos, y_pos + 5],
-                    fill=(0, 0, 255),
+                    fill=self.colors.get(255),
                 )
                 idraw.line(
                     [x_pos - 5, y_pos, x_pos + 5, y_pos],
-                    fill=(0, 0, 255),
+                    fill=self.colors.get(255),
                 )
 
                 # Draw pointer....
