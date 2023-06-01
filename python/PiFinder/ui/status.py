@@ -112,7 +112,7 @@ class UIStatus(UIModule):
 
         self.message("Updating...", 10)
         if sys_utils.update_software():
-            self.message("Ok! Restaring", 10)
+            self.message("Ok! Restarting", 10)
             sys_utils.restart_pifinder()
         else:
             self.message("Error on Upd", 3)
@@ -197,7 +197,7 @@ class UIStatus(UIModule):
 
         imu = self.shared_state.imu()
         if imu:
-            if imu["pos"] != None:
+            if imu["pos"] is not None:
                 if imu["moving"]:
                     mtext = "Moving"
                 else:
