@@ -67,9 +67,11 @@ class UIStatus(UIModule):
 
     def __init__(self, *args):
         super().__init__(*args)
-        with open(f"{utils.pifinder_dir}/wifi_status.txt", "r") as wfs:
+        self.version_txt = f"{utils.pifinder_dir}/version.txt"
+        self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
+        with open(self.wifi_txt, "r") as wfs:
             self._config_options["WiFi Mode"]["value"] = wfs.read()
-        with open(f"{utils.pifinder_dir}/version.txt", "r") as ver:
+        with open(self.version_txt, "r") as ver:
             self._config_options["Software"]["value"] = ver.read()
         self.status_dict = {
             "LST SLV": "           --",
@@ -104,13 +106,13 @@ class UIStatus(UIModule):
 
     def update_software(self, option):
         if option == "CANCEL":
-            with open("/home/pifinder/PiFinder/version.txt", "r") as ver:
+            with open(self.version_txt, "r") as ver:
                 self._config_options["Software"]["value"] = ver.read()
             return False
 
         self.message("Updating...", 10)
         if sys_utils.update_software():
-            self.message("Ok! Restaring", 10)
+            self.message("Ok! Restarting", 10)
             sys_utils.restart_pifinder()
         else:
             self.message("Error on Upd", 3)
@@ -136,7 +138,7 @@ class UIStatus(UIModule):
         sys_utils.restart_pifinder()
 
     def wifi_switch(self, option):
-        with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wfs:
+        with open(self.wifi_txt, "r") as wfs:
             current_state = wfs.read()
         if option == current_state or option == "CANCEL":
             self._config_options["WiFi Mode"]["value"] = current_state
@@ -195,7 +197,7 @@ class UIStatus(UIModule):
 
         imu = self.shared_state.imu()
         if imu:
-            if imu["pos"] != None:
+            if imu["pos"] is not None:
                 if imu["moving"]:
                     mtext = "Moving"
                 else:
@@ -256,5 +258,5 @@ class UIStatus(UIModule):
         Called when a module becomes active
         i.e. foreground controlling display
         """
-        with open(f"{utils.pifinder_dir}/wifi_status.txt", "r") as wfs:
+        with open(self.wifi_txt, "r") as wfs:
             self._config_options["WiFi Mode"]["value"] = wfs.read()
