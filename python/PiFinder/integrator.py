@@ -18,7 +18,7 @@ import json
 from PIL import ImageOps, Image
 from skyfield.api import (
     wgs84,
-    load,
+    Loader,
     Star,
     Angle,
     position_of_radec,
@@ -27,6 +27,7 @@ from skyfield.api import (
 
 from PiFinder.image_util import subtract_background
 from PiFinder import config
+import PiFinder.utils as utils
 
 IMU_ALT = 2
 IMU_AZ = 0
@@ -41,10 +42,12 @@ class Skyfield_utils:
     """
 
     def __init__(self):
+        load = Loader(utils.astro_data_dir)
         self.eph = load("de421.bsp")
         self.earth = self.eph["earth"]
         self.observer_loc = None
         self.constellation_map = load_constellation_map()
+        self.ts = load.timescale()
 
     def set_location(self, lat, lon, altitude):
         """
@@ -98,9 +101,11 @@ class Skyfield_utils:
         return self.constellation_map(sky_pos)
 
 
-def integrator(shared_state, solver_queue, console_queue):
-    sf_utils = Skyfield_utils()
+# Create a single instance of the skyfield utils
+sf_utils = Skyfield_utils()
 
+
+def integrator(shared_state, solver_queue, console_queue):
     solved = {
         "RA": None,
         "Dec": None,

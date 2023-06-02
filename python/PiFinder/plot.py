@@ -10,12 +10,15 @@ import datetime
 import numpy as np
 import pandas
 import time
+from pathlib import Path
+from PiFinder import utils
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 
 from skyfield.api import Star, load, utc, Angle
 from skyfield.constants import GM_SUN_Pitjeva_2005_km3_s2 as GM_SUN
 from skyfield.data import hipparcos, mpc, stellarium
 from skyfield.projections import build_stereographic_projection
+from PiFinder.integrator import sf_utils
 
 
 class Starfield:
@@ -27,22 +30,20 @@ class Starfield:
     def __init__(self, colors, mag_limit=7, fov=10.2):
         self.colors = colors
         utctime = datetime.datetime(2023, 1, 1, 2, 0, 0).replace(tzinfo=utc)
-        ts = load.timescale()
+        ts = sf_utils.ts
         self.t = ts.from_datetime(utctime)
         # An ephemeris from the JPL provides Sun and Earth positions.
 
-        eph = load("de421.bsp")
-        self.earth = eph["earth"]
+        self.earth = sf_utils.earth
 
         # The Hipparcos mission provides our star catalog.
-        root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        hip_path = os.path.join(root_dir, "astro_data", "hip_main.dat")
-        with load.open(hip_path) as f:
+        hip_path = Path(utils.astro_data_dir, "hip_main.dat")
+        with load.open(str(hip_path)) as f:
             self.raw_stars = hipparcos.load_dataframe(f)
 
         # constellations
-        const_path = os.path.join(root_dir, "astro_data", "constellationship.fab")
-        with load.open(const_path) as f:
+        const_path = Path(utils.astro_data_dir, "constellationship.fab")
+        with load.open(str(const_path)) as f:
             self.constellations = stellarium.parse_constellations(f)
 
         self.set_mag_limit(mag_limit)
@@ -55,13 +56,14 @@ class Starfield:
         )
         self.set_fov(fov)
 
-        pointer_image_path = os.path.join(root_dir, "markers", "pointer.png")
+        marker_path = Path(utils.pifinder_dir, "markers")
+        pointer_image_path = Path(marker_path, "pointer.png")
         self.pointer_image = ImageChops.multiply(
-            Image.open(pointer_image_path), Image.new("RGB", (256, 256), colors.get(64))
+            Image.open(str(pointer_image_path)),
+            Image.new("RGB", (256, 256), colors.get(64)),
         )
         # load markers...
         self.markers = {}
-        marker_path = os.path.join(root_dir, "markers")
         for filename in os.listdir(marker_path):
             if filename.startswith("mrk_"):
                 marker_code = filename[4:-4]
