@@ -10,12 +10,15 @@ import datetime
 import numpy as np
 import pandas
 import time
+from pathlib import Path
+from PiFinder import utils
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 
 from skyfield.api import Star, load, utc, Angle
 from skyfield.constants import GM_SUN_Pitjeva_2005_km3_s2 as GM_SUN
 from skyfield.data import hipparcos, mpc, stellarium
 from skyfield.projections import build_stereographic_projection
+from PiFinder.integrator import sf_utils
 
 
 class Starfield:
@@ -27,22 +30,20 @@ class Starfield:
     def __init__(self, colors, mag_limit=7, fov=10.2):
         self.colors = colors
         utctime = datetime.datetime(2023, 1, 1, 2, 0, 0).replace(tzinfo=utc)
-        ts = load.timescale()
+        ts = sf_utils.ts
         self.t = ts.from_datetime(utctime)
         # An ephemeris from the JPL provides Sun and Earth positions.
 
-        eph = load("de421.bsp")
-        self.earth = eph["earth"]
+        self.earth = sf_utils.earth
 
         # The Hipparcos mission provides our star catalog.
-        root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        hip_path = os.path.join(root_dir, "astro_data", "hip_main.dat")
-        with load.open(hip_path) as f:
+        hip_path = Path(utils.astro_data_dir, "hip_main.dat")
+        with load.open(str(hip_path)) as f:
             self.raw_stars = hipparcos.load_dataframe(f)
 
         # constellations
-        const_path = os.path.join(root_dir, "astro_data", "constellationship.fab")
-        with load.open(const_path) as f:
+        const_path = Path(utils.astro_data_dir, "constellationship.fab")
+        with load.open(str(const_path)) as f:
             self.constellations = stellarium.parse_constellations(f)
 
         self.set_mag_limit(mag_limit)
@@ -55,19 +56,21 @@ class Starfield:
         )
         self.set_fov(fov)
 
-        pointer_image_path = os.path.join(root_dir, "markers", "pointer.png")
+        marker_path = Path(utils.pifinder_dir, "markers")
+        pointer_image_path = Path(marker_path, "pointer.png")
         self.pointer_image = ImageChops.multiply(
-            Image.open(pointer_image_path), Image.new("RGB", (256, 256), colors.get(64))
+            Image.open(str(pointer_image_path)), Image.new(
+                "RGB", (256, 256), colors.get(64))
         )
         # load markers...
         self.markers = {}
-        marker_path = os.path.join(root_dir, "markers")
         for filename in os.listdir(marker_path):
             if filename.startswith("mrk_"):
                 marker_code = filename[4:-4]
                 _image = Image.new("RGB", (256, 256))
                 _image.paste(
-                    Image.open(f"{marker_path}/mrk_{marker_code}.png"), (117, 117)
+                    Image.open(
+                        f"{marker_path}/mrk_{marker_code}.png"), (117, 117)
                 )
                 self.markers[marker_code] = ImageChops.multiply(
                     _image, Image.new("RGB", (256, 256), colors.get(256))
@@ -98,7 +101,8 @@ class Starfield:
 
         # required, use the same epoch as stars
         markers["epoch_year"] = 1991.25
-        marker_positions = self.earth.at(self.t).observe(Star.from_dataframe(markers))
+        marker_positions = self.earth.at(
+            self.t).observe(Star.from_dataframe(markers))
 
         markers["x"], markers["y"] = projection(marker_positions)
 
@@ -145,7 +149,8 @@ class Starfield:
                 # if it's visible, plot it.
                 if x_pos < 200 and x_pos > 60 and y_pos < 180 and y_pos > 60:
                     _image = ImageChops.offset(
-                        self.markers[symbol], int(x_pos - 123), int(y_pos - 123)
+                        self.markers[symbol], int(
+                            x_pos - 123), int(y_pos - 123)
                     )
                     ret_image = ImageChops.add(ret_image, _image)
 
@@ -185,7 +190,8 @@ class Starfield:
 
         # constellation lines first
         if constellation_brightness:
-            edges = [edge for name, edges in self.constellations for edge in edges]
+            edges = [edge for name,
+                     edges in self.constellations for edge in edges]
             edges_star1 = [star1 for star1, star2 in edges]
             edges_star2 = [star2 for star1, star2 in edges]
 
@@ -200,7 +206,8 @@ class Starfield:
                 end_x = end_pos[0] * pixel_scale + target_size
                 end_y = end_pos[1] * -1 * pixel_scale + target_size
                 idraw.line(
-                    [start_x, start_y, end_x, end_y], fill=(constellation_brightness)
+                    [start_x, start_y, end_x, end_y], fill=(
+                        constellation_brightness)
                 )
 
         for x, y, mag in zip(stars["x"], stars["y"], stars["magnitude"]):
