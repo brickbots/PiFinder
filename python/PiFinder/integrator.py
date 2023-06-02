@@ -106,7 +106,6 @@ sf_utils = Skyfield_utils()
 
 
 def integrator(shared_state, solver_queue, console_queue):
-
     solved = {
         "RA": None,
         "Dec": None,
