@@ -16,7 +16,6 @@ from PiFinder import config
 from PiFinder import utils
 from PiFinder.camera_interface import CameraInterface
 from typing import Tuple
-from PiFinder import camera
 
 
 class CameraPI(CameraInterface):

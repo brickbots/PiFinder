@@ -227,7 +227,6 @@ class UIStatus(UIModule):
         if time.time() - self.last_IP_time > 20:
             # temp
             self.last_IP_time = time.time()
-            print("Checking IP")
             # IP address
             try:
                 self.status_dict["IP ADDR"] = socket.gethostbyname(

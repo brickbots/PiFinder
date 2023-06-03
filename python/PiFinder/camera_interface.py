@@ -85,6 +85,9 @@ class CameraInterface:
                 else:
                     camera_image.paste(base_image)
                     shared_state.set_last_image_time((image_start_time, time.time()))
+
+            # Loop over any pending commands
+            # There may be more than one!
             command = True
             while command:
                 try:
