@@ -16,7 +16,6 @@ import json
 import uuid
 import os
 import sys
-import pytz
 import logging
 import argparse
 from pathlib import Path

@@ -13,7 +13,7 @@ from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder import utils
 
 BASE_IMAGE_PATH = f"{utils.data_dir}/catalog_images"
-CATALOG_PATH = f"{utils.pifinder_dir}/astro_data/pifinder_objects.db"
+CATALOG_PATH = f"{utils.astro_data_dir}/pifinder_objects.db"
 
 
 def get_ngc_aka(catalog_object):
