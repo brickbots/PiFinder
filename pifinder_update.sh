@@ -1,4 +1,5 @@
 #! /usr/bin/bash
+git checkout release
 git pull
 sudo pip install -r /home/pifinder/PiFinder/requirements.txt
 source /home/pifinder/PiFinder/pifinder_post_update.sh

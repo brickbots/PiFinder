@@ -1,7 +1,7 @@
 #! /usr/bin/bash
 sudo apt-get install -y git python3-pip samba samba-common-bin dnsmasq hostapd dhcpd gpsd
 sudo dpkg-reconfigure -plow gpsd
-git clone --branch main https://github.com/brickbots/PiFinder.git
+git clone --branch release https://github.com/brickbots/PiFinder.git
 cd PiFinder
 sudo pip install -r requirements.txt
 

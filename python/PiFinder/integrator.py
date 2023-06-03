@@ -64,8 +64,7 @@ class Skyfield_utils:
         returns the ra/dec of a specfic
         apparent alt/az at the given time
         """
-        ts = load.timescale()
-        t = ts.from_datetime(dt)
+        t = self.ts.from_datetime(dt)
 
         observer = self.observer_loc.at(t)
         a = observer.from_altaz(alt_degrees=alt, az_degrees=az)
@@ -77,8 +76,7 @@ class Skyfield_utils:
         returns the apparent ALT/AZ of a specfic
         RA/DEC at the given time
         """
-        ts = load.timescale()
-        t = ts.from_datetime(dt)
+        t = self.ts.from_datetime(dt)
 
         observer = self.observer_loc.at(t)
         sky_pos = Star(
