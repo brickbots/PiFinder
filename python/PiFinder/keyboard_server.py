@@ -2,11 +2,12 @@ import time
 from PiFinder.keyboard_interface import KeyboardInterface
 import logging
 
-class KeyboardServer(KeyboardInterface):
 
+class KeyboardServer(KeyboardInterface):
     def __init__(self, q):
         from bottle import Bottle, run, request, template
-        self.q = q 
+
+        self.q = q
         button_dict = {
             "UP": self.UP,
             "DN": self.DN,
@@ -26,26 +27,25 @@ class KeyboardServer(KeyboardInterface):
             "LNG_B": self.LNG_B,
             "LNG_C": self.LNG_C,
             "LNG_D": self.LNG_D,
-            "LNG_ENT": self.LNG_ENT
+            "LNG_ENT": self.LNG_ENT,
         }
- 
+
         app = Bottle()
 
-        @app.route('/')
+        @app.route("/")
         def home():
-            return template('index')
+            return template("index")
 
-        @app.route('/callback', method='POST')
+        @app.route("/callback", method="POST")
         def callback():
-            button = request.json.get('button')
+            button = request.json.get("button")
             if button in button_dict:
                 self.callback(button_dict[button])
             else:
                 self.callback(int(button))
             return {"message": "success"}
 
-        run(app, host='0.0.0.0', port=8080)
-
+        run(app, host="0.0.0.0", port=8080)
 
     def callback(self, key):
         self.q.put(key)

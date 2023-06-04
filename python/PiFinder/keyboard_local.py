@@ -2,6 +2,7 @@ import time
 from PiFinder.keyboard_interface import KeyboardInterface
 import logging
 
+
 class KeyboardLocal(KeyboardInterface):
     def __init__(self, q):
         try:

@@ -681,19 +681,19 @@ if __name__ == "__main__":
         from PiFinder import keyboard_pi as keyboard
         from PiFinder import gps_pi as gps_monitor
 
-    if args.camera.lower() == 'pi':
+    if args.camera.lower() == "pi":
         logging.debug("using pi camera")
         from PiFinder import camera_pi as camera
-    elif args.camera.lower() == 'debug':
+    elif args.camera.lower() == "debug":
         logging.debug("using debug camera")
         from PiFinder import camera_debug as camera
     else:
         logging.debug("using asi camera")
         from PiFinder import camera_asi as camera
 
-    if args.keyboard.lower() == 'pi':
+    if args.keyboard.lower() == "pi":
         from PiFinder import keyboard_pi as keyboard
-    elif args.keyboard.lower() == 'local':
+    elif args.keyboard.lower() == "local":
         from PiFinder import keyboard_local as keyboard
     else:
         from PiFinder import keyboard_server as keyboard
