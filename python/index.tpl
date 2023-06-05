@@ -1,6 +1,18 @@
 <!DOCTYPE html>
 <html>
 <body>
+<img id="image" src="/image" alt="Image served from Bottle server">
+
+<script>
+    setInterval(function() {
+        fetch('/image')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('image').src = data.image;
+            });
+    }, 1000);
+</script>
+
     <div id="numpad" style="display: flex; justify-content: space-between;">
         <div style="display: flex; flex-direction: column;">
             <button onclick="buttonClicked(this, 'A')">A</button>
