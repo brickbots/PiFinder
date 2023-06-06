@@ -102,10 +102,8 @@ def get_display_image(catalog_object, source, fov, roll, colors):
         ri_draw = ImageDraw.Draw(return_image)
         ri_draw.ellipse([2, 2, 126, 126], outline=colors.get(64), width=1)
 
-        # Burn In
-        # ri_draw.rectangle([0, 108, 30, 128], fill=colors.get(0))
-        # ri_draw.text((1, 110), source, font=fonts.base, fill=colors.get(128))
-        shadow2(
+        # Outlined text on image source and fov
+        shadow_outline_text(
             ri_draw,
             (1, 110),
             source,
@@ -116,9 +114,7 @@ def get_display_image(catalog_object, source, fov, roll, colors):
             shadow=(1, 1),
         )
 
-        # ri_draw.rectangle([98, 108, 128, 128], fill=colors.get(0))
-        # ri_draw.text((90, 110), f"{fov:0.2f}° ", align='left', font=fonts.base, fill=colors.get(128))
-        shadow2(
+        shadow_outline_text(
             ri_draw,
             (98, 110),
             f"{fov:0.2f}°",
@@ -132,9 +128,10 @@ def get_display_image(catalog_object, source, fov, roll, colors):
     return return_image
 
 
-def shadow2(
+def shadow_outline_text(
     ri_draw, xy, text, align, font, fill, shadow_color, shadow=None, outline=None
 ):
+    """ draw shadowed and outlined text """
     x, y = xy
     if shadow:
         ri_draw.text(
@@ -159,6 +156,7 @@ def shadow2(
 
 
 def outline_text(ri_draw, xy, text, align, font, fill, shadow_color, stroke=4):
+    """ draw outline text """
     x, y = xy
     ri_draw.text(
         xy,
