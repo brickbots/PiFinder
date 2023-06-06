@@ -25,8 +25,8 @@
         </div>
         <div style="display: flex; flex-direction: column;">
             <button onclick="buttonClicked(this, 'UP')">Up</button>
-            <button onclick="buttonClicked(this, 'ENT')">Enter</button>
             <button onclick="buttonClicked(this, 'DN')">Down</button>
+            <button onclick="buttonClicked(this, 'ENT')">Enter</button>
         </div>
     </div>
     <div style="margin-top: 20px;">
