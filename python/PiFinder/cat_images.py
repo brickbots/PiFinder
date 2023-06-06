@@ -4,6 +4,7 @@
 This module is used at runtime
 to handle catalog image loading
 """
+from queue import Queue
 import requests
 import sqlite3
 import os
@@ -101,14 +102,83 @@ def get_display_image(catalog_object, source, fov, roll, colors):
         ri_draw = ImageDraw.Draw(return_image)
         ri_draw.ellipse([2, 2, 126, 126], outline=colors.get(64), width=1)
 
-    # Burn In
-    ri_draw.rectangle([0, 108, 30, 128], fill=colors.get(0))
-    ri_draw.text((1, 110), source, font=fonts.base, fill=colors.get(128))
+        # Burn In
+        # ri_draw.rectangle([0, 108, 30, 128], fill=colors.get(0))
+        # ri_draw.text((1, 110), source, font=fonts.base, fill=colors.get(128))
+        shadow2(
+            ri_draw,
+            (1, 110),
+            source,
+            font=fonts.base,
+            align="left",
+            fill=colors.get(128),
+            shadow_color=colors.get(0),
+            shadow=(1, 1),
+        )
 
-    ri_draw.rectangle([98, 108, 128, 128], fill=colors.get(0))
-    ri_draw.text((100, 110), f"{fov:0.2f}", font=fonts.base, fill=colors.get(128))
+        # ri_draw.rectangle([98, 108, 128, 128], fill=colors.get(0))
+        # ri_draw.text((90, 110), f"{fov:0.2f}° ", align='left', font=fonts.base, fill=colors.get(128))
+        shadow2(
+            ri_draw,
+            (98, 110),
+            f"{fov:0.2f}°",
+            align="right",
+            font=fonts.base,
+            fill=colors.get(254),
+            shadow_color=colors.get(0),
+            outline=2,
+        )
 
     return return_image
+
+
+def shadow2(
+    ri_draw, xy, text, align, font, fill, shadow_color, shadow=None, outline=None
+):
+    x, y = xy
+    if shadow:
+        ri_draw.text(
+            (x + shadow[0], y + shadow[1]),
+            text,
+            align=align,
+            font=font,
+            fill=shadow_color,
+        )
+
+    if outline:
+        outline_text(
+            ri_draw,
+            xy,
+            text,
+            align=align,
+            font=font,
+            fill=fill,
+            shadow_color=shadow_color,
+            stroke=2,
+        )
+
+
+def outline_text(ri_draw, xy, text, align, font, fill, shadow_color, stroke=4):
+    x, y = xy
+    ri_draw.text(
+        xy,
+        text,
+        align=align,
+        font=font,
+        fill=fill,
+        stroke_width=stroke,
+        stroke_fill=shadow_color,
+    )
+
+
+def shadow(ri_draw, xy, text, align, font, fill, shadowcolor):
+    x, y = xy
+    # thin border
+    ri_draw.text((x - 1, y), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x + 1, y), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x, y - 1), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x, y + 1), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x, y), text, align=align, font=font, fill=fill)
 
 
 def resolve_image_name(catalog_object, source):
