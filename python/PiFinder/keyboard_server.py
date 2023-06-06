@@ -8,7 +8,7 @@ class KeyboardServer(KeyboardInterface):
 
     def __init__(self, q, shared_state):
         from bottle import Bottle, run, request, template, response
-        self.q = q 
+        self.q = q
         self.shared_state = shared_state
         button_dict = {
             "UP": self.UP,
@@ -31,8 +31,8 @@ class KeyboardServer(KeyboardInterface):
             "LNG_D": self.LNG_D,
             "LNG_ENT": self.LNG_ENT
         }
- 
-        app = Bottle() 
+
+        app = Bottle()
 
         @app.route('/')
         def home():
@@ -51,7 +51,6 @@ class KeyboardServer(KeyboardInterface):
         def serve_pil_image():
             img = Image.new('RGB', (60, 30), color = (73, 109, 137))  # create an image using PIL
             img = self.shared_state.screen()
-            print(f"{img}, {type(img)}")
             response.content_type = 'image/png'  # adjust for your image format
 
             img_byte_arr = io.BytesIO()

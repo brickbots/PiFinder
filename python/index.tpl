@@ -3,15 +3,6 @@
 <body>
 <img id="image" src="/image" alt="Image served from Bottle server">
 
-<script>
-    setInterval(function() {
-        fetch('/image')
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('image').src = data.image;
-            });
-    }, 1000);
-</script>
 
     <div id="numpad" style="display: flex; justify-content: space-between;">
         <div style="display: flex; flex-direction: column;">
@@ -43,6 +34,11 @@
         <button id="longButton" onclick="buttonPressed(this)">Long</button>
     </div>
 <script>
+        setInterval(function() {
+               const imageElement = document.getElementById('image');
+               imageElement.src = "/image?t=" + new Date().getTime();
+        }, 1000);
+
         function buttonPressed(btn) {
             const altButton = document.getElementById("altButton");
             const longButton = document.getElementById("longButton");

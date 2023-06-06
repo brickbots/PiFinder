@@ -2,6 +2,7 @@ import time
 from PiFinder.keyboard_interface import KeyboardInterface
 import logging
 
+
 class KeyboardLocal(KeyboardInterface):
     def __init__(self, q):
         try:
@@ -55,7 +56,7 @@ class KeyboardLocal(KeyboardInterface):
         self.q.put(key)
 
 
-def run_keyboard(q, script_path=None):
+def run_keyboard(q, shared_state, script_path=None):
     keyboard = KeyboardLocal(q)
     if script_path:
         keyboard.run_script(script_path)

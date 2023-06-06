@@ -6,13 +6,13 @@ and adds keys to the provided queue
 
 """
 import sh
-import RPi.GPIO as GPIO
 from time import sleep
 from PiFinder.keyboard_interface import KeyboardInterface
 
 
 class KeyboardPi(KeyboardInterface):
     def __init__(self, q):
+        import RPi.GPIO as GPIO
         self.q = q
 
         self.cols = [16, 23, 26, 27]
@@ -90,7 +90,7 @@ class KeyboardPi(KeyboardInterface):
                 GPIO.setup(self.rows[i], GPIO.IN)
 
 
-def run_keyboard(q, script_path=None):
+def run_keyboard(q, shared_state, script_path=None):
     keyboard = KeyboardPi(q)
     if script_path:
         keyboard.run_script(script_path)
