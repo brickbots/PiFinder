@@ -4,8 +4,6 @@
 This module is used at runtime
 to handle catalog image loading
 """
-from queue import Queue
-import requests
 import sqlite3
 import os
 from PIL import Image, ImageChops, ImageDraw
@@ -131,7 +129,7 @@ def get_display_image(catalog_object, source, fov, roll, colors):
 def shadow_outline_text(
     ri_draw, xy, text, align, font, fill, shadow_color, shadow=None, outline=None
 ):
-    """ draw shadowed and outlined text """
+    """draw shadowed and outlined text"""
     x, y = xy
     if shadow:
         ri_draw.text(
@@ -156,7 +154,7 @@ def shadow_outline_text(
 
 
 def outline_text(ri_draw, xy, text, align, font, fill, shadow_color, stroke=4):
-    """ draw outline text """
+    """draw outline text"""
     x, y = xy
     ri_draw.text(
         xy,
