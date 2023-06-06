@@ -13,6 +13,7 @@ from PiFinder.keyboard_interface import KeyboardInterface
 class KeyboardPi(KeyboardInterface):
     def __init__(self, q):
         import RPi.GPIO as GPIO
+
         self.q = q
 
         self.cols = [16, 23, 26, 27]

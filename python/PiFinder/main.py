@@ -202,7 +202,6 @@ def main(script_name=None):
     console.update()
     time.sleep(2)
 
-
     # spawn gps service....
     console.write("   GPS")
     console.update()
@@ -227,7 +226,8 @@ def main(script_name=None):
         if script_name:
             script_path = os.path.join(root_dir, "scripts", script_name)
         keyboard_process = Process(
-            target=keyboard.run_keyboard, args=(keyboard_queue, shared_state, script_path)
+            target=keyboard.run_keyboard,
+            args=(keyboard_queue, shared_state, script_path),
         )
         keyboard_process.start()
 
@@ -382,7 +382,9 @@ def main(script_name=None):
                                     lat=location["lat"], lng=location["lon"]
                                 )
                                 cfg.set_option("last_location", location)
-                                console.write(f'GPS: Location {location["lat"]} {location["lon"]} {location["altitude"]}')
+                                console.write(
+                                    f'GPS: Location {location["lat"]} {location["lon"]} {location["altitude"]}'
+                                )
                                 location["gps_lock"] = True
                             shared_state.set_location(location)
                     if gps_msg == "time":
@@ -682,19 +684,19 @@ if __name__ == "__main__":
         from PiFinder import keyboard_pi as keyboard
         from PiFinder import gps_pi as gps_monitor
 
-    if args.camera.lower() == 'pi':
+    if args.camera.lower() == "pi":
         logging.debug("using pi camera")
         from PiFinder import camera_pi as camera
-    elif args.camera.lower() == 'debug':
+    elif args.camera.lower() == "debug":
         logging.debug("using debug camera")
         from PiFinder import camera_debug as camera
     else:
         logging.debug("using asi camera")
         from PiFinder import camera_asi as camera
 
-    if args.keyboard.lower() == 'pi':
+    if args.keyboard.lower() == "pi":
         from PiFinder import keyboard_pi as keyboard
-    elif args.keyboard.lower() == 'local':
+    elif args.keyboard.lower() == "local":
         from PiFinder import keyboard_local as keyboard
     else:
         from PiFinder import keyboard_server as keyboard

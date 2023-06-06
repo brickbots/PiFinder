@@ -97,7 +97,7 @@ class SharedStateObj:
             if diff > 60:
                 self.__datetime_time = time.time()
                 self.__datetime = dt
-    
+
     def screen(self):
         return self.__screen
 

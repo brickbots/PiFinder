@@ -4,10 +4,11 @@ import logging
 from PIL import Image
 import io
 
-class KeyboardServer(KeyboardInterface):
 
+class KeyboardServer(KeyboardInterface):
     def __init__(self, q, shared_state):
         from bottle import Bottle, run, request, template, response
+
         self.q = q
         self.shared_state = shared_state
         button_dict = {
@@ -29,38 +30,39 @@ class KeyboardServer(KeyboardInterface):
             "LNG_B": self.LNG_B,
             "LNG_C": self.LNG_C,
             "LNG_D": self.LNG_D,
-            "LNG_ENT": self.LNG_ENT
+            "LNG_ENT": self.LNG_ENT,
         }
 
         app = Bottle()
 
-        @app.route('/')
+        @app.route("/")
         def home():
-            return template('index')
+            return template("index")
 
-        @app.route('/callback', method='POST')
+        @app.route("/callback", method="POST")
         def callback():
-            button = request.json.get('button')
+            button = request.json.get("button")
             if button in button_dict:
                 self.callback(button_dict[button])
             else:
                 self.callback(int(button))
-            return {"message": "success"    }
+            return {"message": "success"}
 
-        @app.route('/image')
+        @app.route("/image")
         def serve_pil_image():
-            img = Image.new('RGB', (60, 30), color = (73, 109, 137))  # create an image using PIL
+            img = Image.new(
+                "RGB", (60, 30), color=(73, 109, 137)
+            )  # create an image using PIL
             img = self.shared_state.screen()
-            response.content_type = 'image/png'  # adjust for your image format
+            response.content_type = "image/png"  # adjust for your image format
 
             img_byte_arr = io.BytesIO()
-            img.save(img_byte_arr, format='PNG')  # adjust for your image format
+            img.save(img_byte_arr, format="PNG")  # adjust for your image format
             img_byte_arr = img_byte_arr.getvalue()
 
             return img_byte_arr
 
-        run(app, host='0.0.0.0', port=8080, quiet=True)
-
+        run(app, host="0.0.0.0", port=8080, quiet=True)
 
     def callback(self, key):
         self.q.put(key)
