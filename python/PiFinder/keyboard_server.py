@@ -11,6 +11,7 @@ class KeyboardServer(KeyboardInterface):
 
         self.q = q
         self.shared_state = shared_state
+
         button_dict = {
             "UP": self.UP,
             "DN": self.DN,
@@ -63,6 +64,7 @@ class KeyboardServer(KeyboardInterface):
             return img_byte_arr
 
         run(app, host="0.0.0.0", port=8080, quiet=True)
+
 
     def callback(self, key):
         self.q.put(key)
