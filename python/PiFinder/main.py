@@ -675,7 +675,7 @@ if __name__ == "__main__":
     if args.fakehardware:
         hardware_platform = "Fake"
         from PiFinder import imu_fake as imu
-        from PiFinder import gps_pi as gps_monitor
+        from PiFinder import gps_fake as gps_monitor
     else:
         hardware_platform = "Pi"
         from rpi_hardware_pwm import HardwarePWM
