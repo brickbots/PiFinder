@@ -1,11 +1,15 @@
 import time
 from PiFinder.keyboard_interface import KeyboardInterface
 import logging
-from PyHotKey import Key, keyboard_manager as manager
 
 
 class KeyboardLocal(KeyboardInterface):
     def __init__(self, q):
+        try:
+            from PyHotKey import Key, keyboard_manager as manager
+        except:
+            print("pyhotkey not supported on pi hardware")
+            return
         try:
             self.q = q
             manager.set_wetkey_on_release(Key.enter, self.callback, self.ENT)
@@ -52,7 +56,7 @@ class KeyboardLocal(KeyboardInterface):
         self.q.put(key)
 
 
-def run_keyboard(q, script_path=None):
+def run_keyboard(q, shared_state, script_path=None):
     keyboard = KeyboardLocal(q)
     if script_path:
         keyboard.run_script(script_path)
