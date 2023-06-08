@@ -618,6 +618,7 @@ if __name__ == "__main__":
     print("starting main")
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
+    logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
     logging.basicConfig(format="%(asctime)s %(name)s: %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="eFinder")
     parser.add_argument(
@@ -632,6 +633,13 @@ if __name__ == "__main__":
         "-c",
         "--camera",
         help="Specify which camera to use: pi, asi or debug",
+        default="pi",
+        required=False,
+    )
+    parser.add_argument(
+        "-k",
+        "--keyboard",
+        help="Specify which keyboard to use: pi, local or server",
         default="pi",
         required=False,
     )
@@ -665,15 +673,30 @@ if __name__ == "__main__":
         hardware_platform = "Fake"
         from PiFinder import imu_fake as imu
         from PiFinder import keyboard_local as keyboard
-        from PiFinder import camera_debug as camera
         from PiFinder import gps_fake as gps_monitor
     else:
         hardware_platform = "Pi"
         from rpi_hardware_pwm import HardwarePWM
         from PiFinder import imu_pi as imu
         from PiFinder import keyboard_pi as keyboard
-        from PiFinder import camera_pi as camera
         from PiFinder import gps_pi as gps_monitor
+
+    if args.camera.lower() == "pi":
+        logging.debug("using pi camera")
+        from PiFinder import camera_pi as camera
+    elif args.camera.lower() == "debug":
+        logging.debug("using debug camera")
+        from PiFinder import camera_debug as camera
+    else:
+        logging.debug("using asi camera")
+        from PiFinder import camera_asi as camera
+
+    if args.keyboard.lower() == "pi":
+        from PiFinder import keyboard_pi as keyboard
+    elif args.keyboard.lower() == "local":
+        from PiFinder import keyboard_local as keyboard
+    else:
+        from PiFinder import keyboard_server as keyboard
 
     if args.log:
         datenow = datetime.now()
