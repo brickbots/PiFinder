@@ -13,7 +13,6 @@ import RPi.GPIO as GPIO
 
 class KeyboardPi(KeyboardInterface):
     def __init__(self, q):
-
         self.q = q
 
         self.cols = [16, 23, 26, 27]

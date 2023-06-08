@@ -627,7 +627,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-fh",
         "--fakehardware",
-        help="Use a fake hardware for imu, gps, keyboard",
+        help="Use a fake hardware for imu, gps",
         default=False,
         action="store_true",
         required=False,
@@ -675,13 +675,11 @@ if __name__ == "__main__":
     if args.fakehardware:
         hardware_platform = "Fake"
         from PiFinder import imu_fake as imu
-        from PiFinder import keyboard_local as keyboard
         from PiFinder import gps_pi as gps_monitor
     else:
         hardware_platform = "Pi"
         from rpi_hardware_pwm import HardwarePWM
         from PiFinder import imu_pi as imu
-        from PiFinder import keyboard_pi as keyboard
         from PiFinder import gps_pi as gps_monitor
 
     if args.camera.lower() == "pi":
