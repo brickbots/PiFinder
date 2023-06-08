@@ -8,9 +8,8 @@ and importers used during setup
 import sqlite3
 import os
 from PiFinder.obj_types import OBJ_DESCRIPTORS
-from PiFinder import config
-from pprint import pprint
 from pathlib import Path
+import PiFinder.utils as utils
 
 
 def create_logging_tables():
@@ -216,7 +215,7 @@ def load_collinder():
             ra_h = int(ra[0:2])
             ra_m = int(ra[4:6])
             ra_s = float(ra[8:12])
-            ra_deg = ra_to_dec(ra_h, ra_m, ra_s)
+            ra_deg = ra_to_deg(ra_h, ra_m, ra_s)
 
             dec = dfs[4]
             dec_sign = dec[0]
@@ -251,14 +250,6 @@ def load_collinder():
                 )
             """
             db_c.execute(q)
-            if other_names != "":
-                db_c.execute(
-                    f"""
-                        insert into names(common_name, catalog, sequence)
-                        values ("{other_names}", "Col", {sequence})
-                    """
-                )
-
     conn.commit()
     type_trans = {
         "Open cluster": "OC",
@@ -297,6 +288,96 @@ def load_collinder():
     conn.commit()
 
 
+def load_sac_asterisms():
+    db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
+    if not db_path.exists():
+        print("DB does not exists")
+        return False
+
+    # open the DB
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    db_c = conn.cursor()
+
+    saca = Path(utils.astro_data_dir, "SAC_Asterisms_Ver32_Fence.txt")
+    sequence = 0
+    catalog = "SaA"
+    print("Loading SAC Asterisms")
+    db_c.execute("delete from objects where catalog='SaA'")
+    db_c.execute("delete from names where catalog='SaA'")
+    with open(saca, "r") as df:
+        df.readline()
+        for l in df:
+            dfs = l.split("|")
+            dfs = [d.strip() for d in dfs]
+            other_names = dfs[1].strip()
+            if other_names == "":
+                continue
+            else:
+                sequence += 1
+
+            const = dfs[2].strip()
+            ra = dfs[3].strip()
+            dec = dfs[4].strip()
+            mag = dfs[5].strip()
+            size = (
+                dfs[6]
+                .replace(" ", "")
+                .replace("X", "x")
+                .replace("deg", "°")
+                .replace("d", "°")
+            )
+            desc = dfs[9].strip()
+
+            ra = ra.split(" ")
+            ra_h = int(ra[0])
+            ra_m = float(ra[1])
+            ra_deg = ra_to_deg(ra_h, ra_m, 0)
+
+            dec = dec.split(" ")
+            dec_d = int(dec[0])
+            dec_m = float(dec[1])
+            dec_deg = dec_to_deg(dec_d, dec_m, 0)
+
+            if mag == "none":
+                mag = "null"
+
+            q = f"""
+                insert into objects(
+                    catalog,
+                    sequence,
+                    obj_type,
+                    ra,
+                    dec,
+                    const,
+                    size,
+                    mag,
+                    desc
+                )
+                values (
+                    "{catalog}",
+                    {sequence},
+                    "Ast",
+                    {ra_deg},
+                    {dec_deg},
+                    "{const}",
+                    "{size}",
+                    "{mag}",
+                    "{desc}"
+                )
+            """
+            print(q)
+            db_c.execute(q)
+            db_c.execute(
+                f"""
+                    insert into names(common_name, catalog, sequence)
+                    values ("{other_names}", "{catalog}", {sequence})
+                """
+            )
+
+    conn.commit()
+
+
 def load_caldwell():
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
     db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
@@ -324,7 +405,7 @@ def load_caldwell():
             size = dfs[5][5:].strip()
             ra_h = int(dfs[6])
             ra_m = float(dfs[7])
-            ra_deg = ra_to_dec(ra_h, ra_m, 0)
+            ra_deg = ra_to_deg(ra_h, ra_m, 0)
 
             dec_sign = dfs[8]
             dec_deg = int(dfs[9])
