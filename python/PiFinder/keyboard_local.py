@@ -56,7 +56,7 @@ class KeyboardLocal(KeyboardInterface):
         self.q.put(key)
 
 
-def run_keyboard(q, script_path=None):
+def run_keyboard(q, shared_state, script_path=None):
     keyboard = KeyboardLocal(q)
     if script_path:
         keyboard.run_script(script_path)

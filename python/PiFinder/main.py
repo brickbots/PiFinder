@@ -202,18 +202,6 @@ def main(script_name=None):
     console.update()
     time.sleep(2)
 
-    # multiprocessing.set_start_method('spawn')
-    # spawn keyboard service....
-    console.write("   Keyboard")
-    console.update()
-    script_path = None
-    if script_name:
-        script_path = os.path.join(root_dir, "scripts", script_name)
-    keyboard_process = Process(
-        target=keyboard.run_keyboard, args=(keyboard_queue, script_path)
-    )
-    keyboard_process.start()
-
     # spawn gps service....
     console.write("   GPS")
     console.update()
@@ -229,6 +217,19 @@ def main(script_name=None):
     with StateManager() as manager:
         shared_state = manager.SharedState()
         console.set_shared_state(shared_state)
+
+        # multiprocessing.set_start_method('spawn')
+        # spawn keyboard service....
+        console.write("   Keyboard")
+        console.update()
+        script_path = None
+        if script_name:
+            script_path = os.path.join(root_dir, "scripts", script_name)
+        keyboard_process = Process(
+            target=keyboard.run_keyboard,
+            args=(keyboard_queue, shared_state, script_path),
+        )
+        keyboard_process.start()
 
         # Load last location, set lock to false
         tz_finder = TimezoneFinder()
@@ -381,7 +382,9 @@ def main(script_name=None):
                                     lat=location["lat"], lng=location["lon"]
                                 )
                                 cfg.set_option("last_location", location)
-                                console.write("GPS: Location")
+                                console.write(
+                                    f'GPS: Location {location["lat"]} {location["lon"]} {location["altitude"]}'
+                                )
                                 location["gps_lock"] = True
                             shared_state.set_location(location)
                     if gps_msg == "time":
@@ -673,7 +676,7 @@ if __name__ == "__main__":
         hardware_platform = "Fake"
         from PiFinder import imu_fake as imu
         from PiFinder import keyboard_local as keyboard
-        from PiFinder import gps_fake as gps_monitor
+        from PiFinder import gps_pi as gps_monitor
     else:
         hardware_platform = "Pi"
         from rpi_hardware_pwm import HardwarePWM

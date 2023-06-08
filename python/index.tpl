@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html>
 <body>
+<img id="image" src="/image" alt="Image served from Bottle server">
+
+
     <div id="numpad" style="display: flex; justify-content: space-between;">
         <div style="display: flex; flex-direction: column;">
             <button onclick="buttonClicked(this, 'A')">A</button>
@@ -22,8 +25,8 @@
         </div>
         <div style="display: flex; flex-direction: column;">
             <button onclick="buttonClicked(this, 'UP')">Up</button>
-            <button onclick="buttonClicked(this, 'ENT')">Enter</button>
             <button onclick="buttonClicked(this, 'DN')">Down</button>
+            <button onclick="buttonClicked(this, 'ENT')">Enter</button>
         </div>
     </div>
     <div style="margin-top: 20px;">
@@ -31,6 +34,11 @@
         <button id="longButton" onclick="buttonPressed(this)">Long</button>
     </div>
 <script>
+        setInterval(function() {
+               const imageElement = document.getElementById('image');
+               imageElement.src = "/image?t=" + new Date().getTime();
+        }, 1000);
+
         function buttonPressed(btn) {
             const altButton = document.getElementById("altButton");
             const longButton = document.getElementById("longButton");

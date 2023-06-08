@@ -20,6 +20,7 @@ class SharedStateObj:
         self.__datetime = None
         self.__datetime_time = None
         self.__target = None
+        self.__screen = None
 
     def power_state(self):
         return self.__power_state
@@ -96,3 +97,9 @@ class SharedStateObj:
             if diff > 60:
                 self.__datetime_time = time.time()
                 self.__datetime = dt
+
+    def screen(self):
+        return self.__screen
+
+    def set_screen(self, v):
+        self.__screen = v

@@ -184,7 +184,10 @@ class UIModule:
                 self.draw.rectangle([100, 2, 110, 14], fill=bg)
                 self.draw.text((102, 0), "G", font=self.font_bold, fill=fg)
 
-        self.display.display(self.screen.convert(self.display.mode))
+        screen_to_display = self.screen.convert(self.display.mode)
+        self.display.display(screen_to_display)
+        if self.shared_state:
+            self.shared_state.set_screen(screen_to_display)
 
         # We can return a UIModule class name to force a switch here
         tmp_return = self.switch_to

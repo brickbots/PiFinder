@@ -1,13 +1,17 @@
 import time
 from PiFinder.keyboard_interface import KeyboardInterface
 import logging
+from PIL import Image
+import io
 
 
 class KeyboardServer(KeyboardInterface):
-    def __init__(self, q):
-        from bottle import Bottle, run, request, template
+    def __init__(self, q, shared_state):
+        from bottle import Bottle, run, request, template, response
 
         self.q = q
+        self.shared_state = shared_state
+
         button_dict = {
             "UP": self.UP,
             "DN": self.DN,
@@ -45,11 +49,26 @@ class KeyboardServer(KeyboardInterface):
                 self.callback(int(button))
             return {"message": "success"}
 
-        run(app, host="0.0.0.0", port=8080)
+        @app.route("/image")
+        def serve_pil_image():
+            img = Image.new(
+                "RGB", (60, 30), color=(73, 109, 137)
+            )  # create an image using PIL
+            img = self.shared_state.screen()
+            response.content_type = "image/png"  # adjust for your image format
+
+            img_byte_arr = io.BytesIO()
+            img.save(img_byte_arr, format="PNG")  # adjust for your image format
+            img_byte_arr = img_byte_arr.getvalue()
+
+            return img_byte_arr
+
+        run(app, host="0.0.0.0", port=8080, quiet=True)
+
 
     def callback(self, key):
         self.q.put(key)
 
 
-def run_keyboard(q, script_path=None):
-    keyboard = KeyboardServer(q)
+def run_keyboard(q, shared_state, script_path=None):
+    keyboard = KeyboardServer(q, shared_state)
