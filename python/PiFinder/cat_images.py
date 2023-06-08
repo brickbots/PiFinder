@@ -109,7 +109,7 @@ def get_display_image(catalog_object, source, fov, roll, colors):
             align="left",
             fill=colors.get(128),
             shadow_color=colors.get(0),
-            shadow=(1, 1),
+            outline=2,
         )
 
         shadow_outline_text(

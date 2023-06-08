@@ -8,11 +8,11 @@ and adds keys to the provided queue
 import sh
 from time import sleep
 from PiFinder.keyboard_interface import KeyboardInterface
+import RPi.GPIO as GPIO
 
 
 class KeyboardPi(KeyboardInterface):
     def __init__(self, q):
-        import RPi.GPIO as GPIO
 
         self.q = q
 
