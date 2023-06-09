@@ -1,6 +1,7 @@
 import PiFinder.image_util as utils
 from PiFinder.ui.fonts import Fonts as fonts
-from typing import Tuple
+from typing import Tuple, List
+import logging
 
 
 class CatalogDesignator:
@@ -51,6 +52,7 @@ class CatalogDesignator:
         return self.catalog_index
 
     def get_catalog_name(self):
+        logging.debug("get_catalog_name", self.catalog_names, self.catalog_index)
         return self.catalog_names[self.catalog_index]
 
     def get_catalog_width(self):
@@ -66,7 +68,7 @@ class CatalogDesignator:
 
 
 class TextLayouter:
-    def __init__(self, text, draw, color, font=fonts.base, width=128, max_lines=3):
+    def __init__(self, text: List[str], draw, color, font=fonts.base, width=128, max_lines=3):
         self.text = text
         self.font = font
         self.color = color
@@ -76,6 +78,8 @@ class TextLayouter:
         self.object_text = []
 
     def set_text(self, text):
+        if not isinstance(text, list):
+            text = [text]
         self.text = text
 
     def set_color(self, color):

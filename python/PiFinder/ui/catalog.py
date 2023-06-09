@@ -182,7 +182,10 @@ class UICatalog(UIModule):
         """
         print(f"In update_oject_info, {self.cat_object=}, {self.catalog_index=}")
         if not self.cat_object:
-            self.texts["type-const"] = self.TextLayout("No Object Found")
+            self.texts["type-const"] = self.TextLayout(
+                "No Object Found", font=fonts.bold, color=self.colors.get(255)
+            )
+            self.texts = {}
             return
 
         if self.object_display_mode in [DM_DESC, DM_OBS]:
@@ -202,7 +205,9 @@ class UICatalog(UIModule):
                 self.cat_object["obj_type"], self.cat_object["obj_type"]
             )
             self.texts["type-const"] = self.TextLayout(
-                f"{object_type: <14} {self.cat_object['const']}"
+                f"{object_type: <14} {self.cat_object['const']: >3}",
+                font=fonts.bold,
+                color=self.colors.get(255),
             )
 
             # Magnitude / Size
@@ -211,10 +216,21 @@ class UICatalog(UIModule):
                 obj_mag = float(self.cat_object["mag"])
             except (ValueError, TypeError):
                 obj_mag = 0
-            mag_size = f"Mag:{obj_mag : <4} Sz:{self.cat_object['size']}"
+            spaces = 1
+            cat_obj = str(self.cat_object["size"]).strip()
+            mag_size_part = f"Sz:{cat_obj}"
+            mag_size = f"Mag:{obj_mag : <4}{'': >{spaces}}{mag_size_part}"
             if self.draw.textlength(mag_size, font=self.font_bold) > 128:
-                mag_size = f"Mag:{obj_mag : <4} {self.cat_object['size']}"
-            self.texts["magsize"] = self.TextLayout(mag_size)
+                mag_size_part = f"{cat_obj}"
+            while self.draw.textlength(mag_size, font=self.font_bold) < 128:
+                print("Spaces is now ", spaces)
+                spaces += 1
+                mag_size = f"Mag:{obj_mag : <4}{'': >{spaces}}{mag_size_part}"
+            mag_size = f"Mag:{obj_mag : <4}{'': >{max(1,spaces-2)}}{mag_size_part}"
+
+            self.texts["magsize"] = self.TextLayout(
+                mag_size, font=fonts.bold, color=self.colors.get(255)
+            )
 
             if aka_recs:
                 aka_list = []
@@ -223,7 +239,9 @@ class UICatalog(UIModule):
                         aka_list.insert(0, rec["common_name"])
                     else:
                         aka_list.append(rec["common_name"])
-                self.texts["aka"] = self.TextLayout(", ".join(aka_list), font=fonts.bold)
+                self.texts["aka"] = self.TextLayout(
+                    ", ".join(aka_list), font=fonts.bold
+                )
 
             if self.object_display_mode == DM_DESC:
                 # NGC description....
@@ -292,9 +310,9 @@ class UICatalog(UIModule):
             )
 
             # ID Line in BOld
-            aka = self.texts.get("aka")
-            if aka:
-                aka.draw((0, 48))
+            typeconst = self.texts.get("type-const")
+            if typeconst:
+                typeconst.draw((0, 48))
 
             # mag/size in bold
             magsize = self.texts.get("magsize")
@@ -310,10 +328,17 @@ class UICatalog(UIModule):
 
                 magsize.draw((0, 62))
 
+            posy = 82
+            aka = self.texts.get("aka")
+            if aka:
+                aka.draw((0, posy))
+                posy += 11
+
             # Remaining lines
             desc = self.texts.get("desc")
             if desc:
-                desc.draw((0, 82))
+                desc.draw((0, posy))
+
         else:
             self.screen.paste(self.object_image)
         return self.screen_update()
@@ -475,6 +500,7 @@ class UICatalog(UIModule):
         """
         print("Calling find by designator with", designator)
         if designator.object_number == 0:
+            print("find by designartor, objectnumber is 0")
             return False
 
         for i, c in enumerate(self._filtered_catalog):
@@ -518,15 +544,19 @@ class UICatalog(UIModule):
         """
         if len(self._filtered_catalog) == 0:
             return
-
+        print(f"scroll object , {direction=}, {self._catalog_item_index=}")
         self._catalog_item_index += direction
-        if self._catalog_item_index < 0:
-            self._catalog_item_index = 0
 
-        if self._catalog_item_index >= self._catalog_count[1]:
-            self._catalog_item_index = self._catalog_count[1] - 1
+        self._catalog_item_index %= self._catalog_count[1]
+
+        # if self._catalog_item_index < 0:
+        #     self._catalog_item_index = 0
+        #
+        # if self._catalog_item_index >= self._catalog_count[1]:
+        #     self._catalog_item_index = self._catalog_count[1] - 1
 
         self.cat_object = self._filtered_catalog[self._catalog_item_index]
+        print("scroll object selecte cat-object", self.cat_object)
         self.designatorobj.set_number(self._catalog_item_index)
         self.update_object_info()
 
