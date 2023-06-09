@@ -52,7 +52,7 @@ class CatalogDesignator:
         return self.catalog_index
 
     def get_catalog_name(self):
-        logging.debug("get_catalog_name", self.catalog_names, self.catalog_index)
+        print("get_catalog_name", self.catalog_names, self.catalog_index)
         return self.catalog_names[self.catalog_index]
 
     def get_catalog_width(self):

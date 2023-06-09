@@ -19,6 +19,7 @@ from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder.ui.ui_utils import TextLayouter, CatalogDesignator
 from PiFinder import calc_utils
 import functools
+import logging
 
 
 # Constants for display modes
@@ -240,7 +241,7 @@ class UICatalog(UIModule):
                     else:
                         aka_list.append(rec["common_name"])
                 self.texts["aka"] = self.TextLayout(
-                    ", ".join(aka_list), font=fonts.bold
+                    ", ".join(aka_list), font=fonts.base
                 )
 
             if self.object_display_mode == DM_DESC:
@@ -280,17 +281,14 @@ class UICatalog(UIModule):
         target = self.ui_state["target"]
         if target:
             self.cat_object = target
-            target_catalog = target["catalog"]
-            self.designatorobj.set_target(target_catalog, target["sequence"])
-        self.update_object_info()
-        self.update()
+            assert self.__catalog_names[self.catalog_index]
 
     def update(self, force=True):
         # Clear Screen
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
 
         if self.object_display_mode in [DM_DESC, DM_OBS] or self.cat_object == None:
-            # catalog and entry field
+            # catalog and entry field i.e. NGC-311
             self.refresh_designator()
             desig = self.texts["designator"]
             desig.draw((0, 21))
@@ -309,12 +307,12 @@ class UICatalog(UIModule):
                 fill=self.colors.get(96),
             )
 
-            # ID Line in BOld
+            # Object TYPE and Constellation i.e. 'Galaxy    PER'
             typeconst = self.texts.get("type-const")
             if typeconst:
                 typeconst.draw((0, 48))
 
-            # mag/size in bold
+            # Object Magnitude and size i.e. 'Mag:4.0   Sz:7"'
             magsize = self.texts.get("magsize")
             if magsize:
                 if self.cat_object:
@@ -328,13 +326,14 @@ class UICatalog(UIModule):
 
                 magsize.draw((0, 62))
 
+            # Common names for this object, i.e. M13 -> Hercules cluster
             posy = 82
             aka = self.texts.get("aka")
             if aka:
                 aka.draw((0, posy))
                 posy += 11
 
-            # Remaining lines
+            # Remaining lines with object description
             desc = self.texts.get("desc")
             if desc:
                 desc.draw((0, posy))
