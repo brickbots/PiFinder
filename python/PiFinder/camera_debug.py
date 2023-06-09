@@ -14,7 +14,6 @@ import time
 from PIL import Image
 from PiFinder import config
 from PiFinder import utils
-from PiFinder import camera
 from PiFinder.camera_interface import CameraInterface
 import PiFinder.utils
 from typing import Tuple

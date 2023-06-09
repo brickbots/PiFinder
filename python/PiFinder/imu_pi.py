@@ -34,6 +34,7 @@ class Imu:
         self.flip_count = 0
         self.avg_quat = (0, 0, 0, 0)
         self.__moving = False
+        self.__moving_decay = 0
         self.calibration = 0
 
     def quat_to_euler(self, quat):
@@ -67,10 +68,16 @@ class Imu:
         last_diff = diff_list[0]
         for diff in diff_list[1:]:
             if diff <= last_diff:
+                self.__moving_decay -= 1
                 self.__moving = False
             last_diff = diff
+        if self.__moving:
+            self.__moving_decay = 30
 
-        return self.__moving
+        if self.__moving_decay < 0:
+            return False
+
+        return True
 
     def flip(self, quat):
         """
