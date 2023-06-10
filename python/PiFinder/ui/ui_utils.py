@@ -4,6 +4,11 @@ from typing import Tuple, List
 import logging
 
 
+class Catalog:
+    def __init__(self):
+        pass
+
+
 class CatalogDesignator:
     """Holds the string that represents the catalog input/search field.
     Usually looks like 'NGC----' or 'M-13'"""
@@ -23,10 +28,10 @@ class CatalogDesignator:
         self.field = self.get_designator()
 
     def append_number(self, number):
-        number_str = str(self.object_number)
-        if len(number_str) >= self.get_catalog_width():
+        number_str = str(self.object_number) + str(number)
+        if len(number_str) > self.get_catalog_width():
             number_str = number_str[1:]
-        self.object_number = int(f"{self.object_number}{number}")
+        self.object_number = int(number_str)
         self.field = self.get_designator()
 
     def set_number(self, number):
@@ -68,7 +73,9 @@ class CatalogDesignator:
 
 
 class TextLayouter:
-    def __init__(self, text: List[str], draw, color, font=fonts.base, width=128, max_lines=3):
+    def __init__(
+        self, text: List[str], draw, color, font=fonts.base, width=128, max_lines=3
+    ):
         self.text = text
         self.font = font
         self.color = color

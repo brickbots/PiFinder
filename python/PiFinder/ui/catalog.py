@@ -181,7 +181,9 @@ class UICatalog(UIModule):
         """
         Generates object text and loads object images
         """
-        print(f"In update_oject_info, {self.cat_object=}, {self.catalog_index=}")
+        print(
+            f"In update_oject_info, {self.cat_object=}, {self.catalog_index=}, {self._catalog_item_index}"
+        )
         if not self.cat_object:
             self.texts["type-const"] = self.TextLayout(
                 "No Object Found", font=fonts.bold, color=self.colors.get(255)
@@ -546,17 +548,17 @@ class UICatalog(UIModule):
         print(f"scroll object , {direction=}, {self._catalog_item_index=}")
         self._catalog_item_index += direction
 
-        self._catalog_item_index %= self._catalog_count[1]
+        self._catalog_item_index %= self._catalog_count[1]+1
 
-        # if self._catalog_item_index < 0:
-        #     self._catalog_item_index = 0
-        #
-        # if self._catalog_item_index >= self._catalog_count[1]:
-        #     self._catalog_item_index = self._catalog_count[1] - 1
-
-        self.cat_object = self._filtered_catalog[self._catalog_item_index]
-        print("scroll object selecte cat-object", self.cat_object)
-        self.designatorobj.set_number(self._catalog_item_index)
+        if self._catalog_item_index != 0:
+            self.cat_object = self._filtered_catalog[self._catalog_item_index-1]
+            self.designatorobj.set_number(self.cat_object["sequence"])
+            # print(
+            #     f"scroll object selecte cat-object {self.cat_object=}, {self._catalog_item_index}, {self._filtered_catalog[0]=}, {self._filtered_catalog[1]=}, {self._filtered_catalog[self._catalog_item_index]=}"
+            # )
+        else:
+            self.cat_object = None
+            self.designatorobj.set_number(0)
         self.update_object_info()
 
     def change_fov(self, direction):
