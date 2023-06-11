@@ -1,12 +1,65 @@
 import PiFinder.image_util as utils
 from PiFinder.ui.fonts import Fonts as fonts
 from typing import Tuple, List
+import textwrap
 import logging
 
 
 class Catalog:
     def __init__(self):
         pass
+
+
+class SpaceCalculator:
+    def __init__(self, draw, width):
+        self.draw = draw
+        self.width = width
+        pass
+
+    def _calc_string(self, left, right, spaces) -> str:
+        return f"{left}{'':.<{spaces}}{right}"
+
+    def calculate_spaces(self, left, right) -> Tuple[int, str]:
+        """
+        returns number of spaces
+        """
+        spaces = 1
+        if self.draw.textlength(self._calc_string(left, right, spaces)) > self.width:
+            return -1, ""
+
+        while self.draw.textlength(self._calc_string(left, right, spaces)) < self.width:
+            spaces += 1
+
+        spaces = spaces - 1
+
+        result = self._calc_string(left, right, spaces)
+        logging.debug(f"returning {spaces=}, {result=}")
+        return spaces, result
+
+
+class SpaceCalculatorFixed:
+    def __init__(self, nr_chars):
+        self.width = nr_chars
+
+    def _calc_string(self, left, right, spaces) -> str:
+        return f"{left}{'': <{spaces}}{right}"
+
+    def calculate_spaces(self, left: str, right: str) -> Tuple[int, str]:
+        """
+        returns number of spaces
+        """
+        logging.debug(f"calculating spaces for {left=} {right=}")
+        spaces = 1
+        lenleft = len(str(left))
+        lenright = len(str(right))
+
+        if lenleft + lenright + 1 > self.width:
+            return -1, ""
+
+        spaces = self.width - (lenleft + lenright)
+        result = self._calc_string(left, right, spaces)
+        logging.debug(f"returning {spaces=}, {result=}")
+        return spaces, result
 
 
 class CatalogDesignator:
@@ -72,57 +125,44 @@ class CatalogDesignator:
         return self.field
 
 
-class TextLayouter:
-    def __init__(
-        self, text: List[str], draw, color, font=fonts.base, width=128, max_lines=3
-    ):
+class TextLayouterSimple:
+    def __init__(self, text: str, draw, color, font=fonts.base, width=128, max_lines=3):
         self.text = text
         self.font = font
         self.color = color
         self.width = width
         self.max_lines = max_lines
         self.drawobj = draw
-        self.object_text = []
+        self.object_text: List[str] = []
+        self.updated = True
 
     def set_text(self, text):
-        if not isinstance(text, list):
-            text = [text]
         self.text = text
+        self.updated = True
 
     def set_color(self, color):
         self.color = color
+        self.updated = True
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
-        # TODO take pos into account when calculating width
-        self.object_text = []
-        line = ""
-        last_line = line
-        line_nr = 1
-        line_max = self.max_lines
-        # desc = self.cat_object["desc"].replace('\t', ' ').replace('\n', '')
-        desc_tokens = self.text.split(" ")
-        try:
-            for token in desc_tokens:
-                last_line = line
-                line = line + " " + token
-                if self.drawobj.textlength(line) > self.width:
-                    if line_nr == line_max:
-                        self.object_text.append(last_line[:-3] + "...")
-                    else:
-                        self.object_text.append(last_line)
-                    line = ""
-                    last_line = ""
-                    line_nr += 1
-            self.object_text.append(line)
-        except Exception as e:
-            print(f"{e}, {line=}, {self=}")
+        if self.updated:
+            self.object_text: List[str] = [self.text]
+            self.updated = False
 
     def draw(self, pos: Tuple[int, int] = (0, 0)):
         self.layout(pos)
-        # print(f"{self.object_text=}")
-        # print(f"{self.font=}")
-        # print(f"{self.color=}")
-        # print(f"{pos=}")
+        logging.debug(f"Drawing {self.object_text=}")
         self.drawobj.multiline_text(
-            pos, "\n".join(self.object_text), font=self.font, fill=self.color
+            pos, "\n".join(self.object_text), font=self.font, fill=self.color, spacing=0
         )
+
+
+class TextLayouter(TextLayouterSimple):
+    def __init__(self, text: str, draw, color, font=fonts.base, width=21, max_lines=3):
+        super().__init__(text, draw, color, font, width, max_lines)
+        self.updated = True
+
+    def layout(self, pos: Tuple[int, int] = (0, 0)):
+        if self.updated:
+            self.object_text = textwrap.wrap(self.text, width=self.width)
+            self.updated = False

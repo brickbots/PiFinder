@@ -16,7 +16,7 @@ from PiFinder import solver, obslog, cat_images
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
-from PiFinder.ui.ui_utils import TextLayouter, CatalogDesignator
+from PiFinder.ui.ui_utils import TextLayouter, TextLayouterSimple, CatalogDesignator, SpaceCalculatorFixed
 from PiFinder import calc_utils
 import functools
 import logging
@@ -94,9 +94,13 @@ class UICatalog(UIModule):
         self.catalog_index = 0
         self.cat_object = None
         self.object_text = ["No Object Found"]
+        self.SimpleTextLayout = functools.partial(
+            TextLayouterSimple, draw=self.draw, color=self.colors.get(255)
+        )
         self.TextLayout = functools.partial(
             TextLayouter, draw=self.draw, color=self.colors.get(255)
         )
+        self.space_calculator = SpaceCalculatorFixed(18)
         self.texts = {
             "type-const": self.TextLayout(
                 "No Object Found", font=self.font_bold, color=self.colors.get(255)
@@ -122,7 +126,7 @@ class UICatalog(UIModule):
         self.set_catalog()
 
     def layout_designator(self):
-        return self.TextLayout(
+        return self.SimpleTextLayout(
             str(self.designatorobj),
             font=fonts.large,
             color=self.colors.get(255),
@@ -185,7 +189,7 @@ class UICatalog(UIModule):
             f"In update_oject_info, {self.cat_object=}, {self.catalog_index=}, {self._catalog_item_index}"
         )
         if not self.cat_object:
-            self.texts["type-const"] = self.TextLayout(
+            self.texts["type-const"] = self.SimpleTextLayout(
                 "No Object Found", font=fonts.bold, color=self.colors.get(255)
             )
             self.texts = {}
@@ -207,32 +211,40 @@ class UICatalog(UIModule):
             object_type = OBJ_TYPES.get(
                 self.cat_object["obj_type"], self.cat_object["obj_type"]
             )
-            self.texts["type-const"] = self.TextLayout(
-                f"{object_type: <14} {self.cat_object['const']: >3}",
+            # self.texts["type-const"] = self.TextLayout(
+            #     f"{object_type: <14} {self.cat_object['const']: >3}",
+            #     font=fonts.bold,
+            #     color=self.colors.get(255),
+            # )
+
+            # layout the type - constellation line
+            _, typeconst = self.space_calculator.calculate_spaces(
+                object_type, self.cat_object["const"]
+            )
+            self.texts["type-const"] = self.SimpleTextLayout(
+                typeconst,
                 font=fonts.bold,
                 color=self.colors.get(255),
             )
-
             # Magnitude / Size
             # try to get object mag to float
             try:
                 obj_mag = float(self.cat_object["mag"])
             except (ValueError, TypeError):
-                obj_mag = 0
-            spaces = 1
-            cat_obj = str(self.cat_object["size"]).strip()
-            mag_size_part = f"Sz:{cat_obj}"
-            mag_size = f"Mag:{obj_mag : <4}{'': >{spaces}}{mag_size_part}"
-            if self.draw.textlength(mag_size, font=self.font_bold) > 128:
-                mag_size_part = f"{cat_obj}"
-            while self.draw.textlength(mag_size, font=self.font_bold) < 128:
-                print("Spaces is now ", spaces)
-                spaces += 1
-                mag_size = f"Mag:{obj_mag : <4}{'': >{spaces}}{mag_size_part}"
-            mag_size = f"Mag:{obj_mag : <4}{'': >{max(1,spaces-2)}}{mag_size_part}"
+                obj_mag = "-"
 
-            self.texts["magsize"] = self.TextLayout(
-                mag_size, font=fonts.bold, color=self.colors.get(255)
+            size = str(self.cat_object["size"]).strip()
+            size = "-" if size == "" else size
+            spaces, magsize = self.space_calculator.calculate_spaces(
+                    f"Mag:{obj_mag}", f"Sz:{size}"
+            )
+            if spaces == -1:
+                spaces, magsize = self.space_calculator.calculate_spaces(
+                    obj_mag, size
+                )
+
+            self.texts["magsize"] = self.SimpleTextLayout(
+                magsize, font=fonts.bold, color=self.colors.get(255)
             )
 
             if aka_recs:
@@ -242,19 +254,19 @@ class UICatalog(UIModule):
                         aka_list.insert(0, rec["common_name"])
                     else:
                         aka_list.append(rec["common_name"])
-                self.texts["aka"] = self.TextLayout(
+                self.texts["aka"] = self.SimpleTextLayout(
                     ", ".join(aka_list), font=fonts.base
                 )
 
             if self.object_display_mode == DM_DESC:
                 # NGC description....
                 desc = self.cat_object["desc"].replace("\t", " ").replace("\n", "")
-                self.texts["desc"] = self.TextLayout(desc)
+                self.texts["desc"] = self.TextLayout(desc, font=fonts.fira_base)
 
             if self.object_display_mode == DM_OBS:
                 logs = obslog.get_logs_for_object(self.cat_object)
                 if len(logs) == 0:
-                    self.texts["obs"] = self.TextLayout("No Logs")
+                    self.texts["obs"] = self.SimpleTextLayout("No Logs")
                 else:
                     self.texts["obs"] = self.TextLayout(f"Logged {len(logs)} times")
         else:
@@ -548,10 +560,10 @@ class UICatalog(UIModule):
         print(f"scroll object , {direction=}, {self._catalog_item_index=}")
         self._catalog_item_index += direction
 
-        self._catalog_item_index %= self._catalog_count[1]+1
+        self._catalog_item_index %= self._catalog_count[1] + 1
 
         if self._catalog_item_index != 0:
-            self.cat_object = self._filtered_catalog[self._catalog_item_index-1]
+            self.cat_object = self._filtered_catalog[self._catalog_item_index - 1]
             self.designatorobj.set_number(self.cat_object["sequence"])
             # print(
             #     f"scroll object selecte cat-object {self.cat_object=}, {self._catalog_item_index}, {self._filtered_catalog[0]=}, {self._filtered_catalog[1]=}, {self._filtered_catalog[self._catalog_item_index]=}"

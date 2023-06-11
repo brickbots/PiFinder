@@ -12,3 +12,4 @@ class Fonts:
     large = ImageFont.truetype(str(Path(font_path, "RobotoMono-Regular.ttf")), 15)
     small = ImageFont.truetype(str(Path(font_path, "RobotoMono-Bold.ttf")), 8)
     huge = ImageFont.truetype(str(Path(font_path, "RobotoMono-Bold.ttf")), 35)
+    # fira_base = ImageFont.truetype(str(Path(font_path, "FiraCode-Regular.ttf")), 10)
