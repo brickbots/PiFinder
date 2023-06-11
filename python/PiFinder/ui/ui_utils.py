@@ -126,7 +126,7 @@ class CatalogDesignator:
 
 
 class TextLayouterSimple:
-    def __init__(self, text: str, draw, color, font=fonts.base, width=128, max_lines=3):
+    def __init__(self, text: str, draw, color, font=fonts.base, width=fonts.base_width, max_lines=3):
         self.text = text
         self.font = font
         self.color = color
@@ -157,8 +157,28 @@ class TextLayouterSimple:
         )
 
 
+class TextLayouterScroll(TextLayouterSimple):
+    def __init__(self, text: str, draw, color, font=fonts.base, width=fonts.base_width, max_lines=3):
+        super().__init__(text, draw, color, font, width, max_lines)
+        self.pointer = 0
+        self.textlen = len(text)
+        self.counter = 0
+
+    def layout(self, pos: Tuple[int, int] = (0, 0)):
+        if self.textlen > self.width:
+            if self.counter % 30 == 0:
+                self.object_text: List[str] = [self.text[self.pointer:self.pointer+self.width]]
+                self.pointer = (self.pointer + 1) % (self.textlen-self.width+1)
+            if self.pointer < 5:
+                self.counter += 1
+            else:
+                self.counter += 10
+        else:
+            self.object_text: List[str] = [self.text]
+
+
 class TextLayouter(TextLayouterSimple):
-    def __init__(self, text: str, draw, color, font=fonts.base, width=21, max_lines=3):
+    def __init__(self, text: str, draw, color, font=fonts.base, width=fonts.base_width, max_lines=3):
         super().__init__(text, draw, color, font, width, max_lines)
         self.updated = True
 

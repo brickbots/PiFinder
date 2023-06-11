@@ -16,7 +16,7 @@ from PiFinder import solver, obslog, cat_images
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
-from PiFinder.ui.ui_utils import TextLayouter, TextLayouterSimple, CatalogDesignator, SpaceCalculatorFixed
+from PiFinder.ui.ui_utils import TextLayouterScroll, TextLayouter, TextLayouterSimple, CatalogDesignator, SpaceCalculatorFixed
 from PiFinder import calc_utils
 import functools
 import logging
@@ -99,6 +99,9 @@ class UICatalog(UIModule):
         )
         self.TextLayout = functools.partial(
             TextLayouter, draw=self.draw, color=self.colors.get(255)
+        )
+        self.TextLayoutScroll = functools.partial(
+            TextLayouterScroll, draw=self.draw, color=self.colors.get(255)
         )
         self.space_calculator = SpaceCalculatorFixed(18)
         self.texts = {
@@ -254,14 +257,14 @@ class UICatalog(UIModule):
                         aka_list.insert(0, rec["common_name"])
                     else:
                         aka_list.append(rec["common_name"])
-                self.texts["aka"] = self.SimpleTextLayout(
+                self.texts["aka"] = self.TextLayoutScroll(
                     ", ".join(aka_list), font=fonts.base
                 )
 
             if self.object_display_mode == DM_DESC:
                 # NGC description....
                 desc = self.cat_object["desc"].replace("\t", " ").replace("\n", "")
-                self.texts["desc"] = self.TextLayout(desc, font=fonts.fira_base)
+                self.texts["desc"] = self.TextLayout(desc, font=fonts.base)
 
             if self.object_display_mode == DM_OBS:
                 logs = obslog.get_logs_for_object(self.cat_object)
