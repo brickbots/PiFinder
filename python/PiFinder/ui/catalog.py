@@ -194,7 +194,7 @@ class UICatalog(UIModule):
         """
         Generates object text and loads object images
         """
-        print(
+        logging.debug(
             f"In update_oject_info, {self.cat_object=}, {self.catalog_index=}, {self._catalog_item_index}"
         )
         if not self.cat_object:
@@ -373,7 +373,7 @@ class UICatalog(UIModule):
     def key_c(self):
         # C is for catalog
         self.catalog_index = self.designatorobj.next_catalog()
-        print("after key_c, catalog index is", self.catalog_index)
+        logging.debug("after key_c, catalog index is", self.catalog_index)
         self.set_catalog()
         self._catalog_item_index = 0
 
@@ -398,7 +398,7 @@ class UICatalog(UIModule):
 
         """
         for catalog_name in self.__catalog_names:
-            print("loading " + catalog_name)
+            logging.debug("loading " + catalog_name)
             cat_objects = self.conn.execute(
                 f"""
                 SELECT * from objects
@@ -518,15 +518,15 @@ class UICatalog(UIModule):
         """
         Searches the loaded catalog for the designator
         """
-        print("Calling find by designator with", designator)
+        logging.debug("Calling find by designator with", designator)
         if designator.object_number == 0:
-            print("find by designartor, objectnumber is 0")
+            logging.debug("find by designartor, objectnumber is 0")
             return False
 
         for i, c in enumerate(self._filtered_catalog):
-            print(f" searching: {c['sequence']=}{type(c['sequence'])=}")
+            logging.debug(f" searching: {c['sequence']=}{type(c['sequence'])=}")
             if c["sequence"] == designator.object_number:
-                print("Found", c)
+                logging.debug("Found", c)
                 self.cat_object = c
                 self._catalog_item_index = i
                 return True
@@ -564,7 +564,7 @@ class UICatalog(UIModule):
         """
         if len(self._filtered_catalog) == 0:
             return
-        print(f"scroll object , {direction=}, {self._catalog_item_index=}")
+        logging.debug(f"scroll object , {direction=}, {self._catalog_item_index=}")
         self._catalog_item_index += direction
 
         self._catalog_item_index %= self._catalog_count[1] + 1

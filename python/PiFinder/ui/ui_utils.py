@@ -133,13 +133,11 @@ class TextLayouterSimple:
         color,
         font=fonts.base,
         width=fonts.base_width,
-        max_lines=3,
     ):
         self.text = text
         self.font = font
         self.color = color
         self.width = width
-        self.max_lines = max_lines
         self.drawobj = draw
         self.object_text: List[str] = []
         self.updated = True
@@ -166,6 +164,8 @@ class TextLayouterSimple:
 
 
 class TextLayouterScroll(TextLayouterSimple):
+    """To be used as a one-line scrolling text"""
+
     def __init__(
         self,
         text: str,
@@ -173,26 +173,32 @@ class TextLayouterScroll(TextLayouterSimple):
         color,
         font=fonts.base,
         width=fonts.base_width,
-        max_lines=3,
     ):
-        super().__init__(text, draw, color, font, width, max_lines)
+        super().__init__(text, draw, color, font, width)
         self.pointer = 0
         self.textlen = len(text)
+        self.updated = True
+        if self.textlen < self.width:
+            return
+        self.dtext = text + " " * 6 + text
+        self.dtextlen = len(self.dtext)
         self.counter = 0
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.textlen > self.width:
             if self.counter % 3000 == 0:
                 self.object_text: List[str] = [
-                    self.text[self.pointer : self.pointer + self.width]
+                    self.dtext[self.pointer : self.pointer + self.width]
                 ]
-                self.pointer = (self.pointer + 1) % (self.textlen - self.width + 1)
-            if self.pointer <= 1:
+                self.pointer = (self.pointer + 1) % (self.textlen + 6)
+            # logging.debug(f"Drawing {self.object_text=}, {self.pointer=}")
+            if self.pointer == 1:
                 self.counter += 100
             else:
-                self.counter += 500
-        else:
+                self.counter += 750
+        elif self.updated:
             self.object_text: List[str] = [self.text]
+            self.updated = False
 
 
 class TextLayouter(TextLayouterSimple):
@@ -203,12 +209,24 @@ class TextLayouter(TextLayouterSimple):
         color,
         font=fonts.base,
         width=fonts.base_width,
-        max_lines=3,
+        available_lines=3,
     ):
-        super().__init__(text, draw, color, font, width, max_lines)
+        super().__init__(text, draw, color, font, width)
+        self.nr_lines = 0
+        self.start_line = 0
         self.updated = True
+        self.scrolled = False
+
+    def next(self):
+        if self.nr_lines <= self.available_lines:
+            return
+        self.start_line = (self.start_line + 1) % (self.nr_lines - self.available_lines)
+        self.scrolled = True
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.updated:
             self.object_text = textwrap.wrap(self.text, width=self.width)
+            self.nr_lines = len(self.object_text)
             self.updated = False
+        if self.scrolled:
+            self.scrolled = False
