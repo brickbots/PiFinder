@@ -52,7 +52,6 @@ class SpaceCalculatorFixed:
         """
         returns number of spaces
         """
-        logging.debug(f"calculating spaces for {left=} {right=}")
         spaces = 1
         lenleft = len(str(left))
         lenright = len(str(right))
@@ -62,7 +61,6 @@ class SpaceCalculatorFixed:
 
         spaces = self.width - (lenleft + lenright)
         result = self._calc_string(left, right, spaces)
-        logging.debug(f"returning {spaces=}, {result=}")
         return spaces, result
 
 
@@ -186,7 +184,7 @@ class TextLayouterScroll(TextLayouterSimple):
         if self.textlen > self.width:
             if self.counter % 3000 == 0:
                 self.object_text: List[str] = [
-                    self.text[self.pointer:self.pointer + self.width]
+                    self.text[self.pointer : self.pointer + self.width]
                 ]
                 self.pointer = (self.pointer + 1) % (self.textlen - self.width + 1)
             if self.pointer <= 1:

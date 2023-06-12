@@ -16,7 +16,13 @@ from PiFinder import solver, obslog, cat_images
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
-from PiFinder.ui.ui_utils import TextLayouterScroll, TextLayouter, TextLayouterSimple, CatalogDesignator, SpaceCalculatorFixed
+from PiFinder.ui.ui_utils import (
+    TextLayouterScroll,
+    TextLayouter,
+    TextLayouterSimple,
+    CatalogDesignator,
+    SpaceCalculatorFixed,
+)
 from PiFinder import calc_utils
 import functools
 import logging
@@ -239,12 +245,10 @@ class UICatalog(UIModule):
             size = str(self.cat_object["size"]).strip()
             size = "-" if size == "" else size
             spaces, magsize = self.space_calculator.calculate_spaces(
-                    f"Mag:{obj_mag}", f"Sz:{size}"
+                f"Mag:{obj_mag}", f"Sz:{size}"
             )
             if spaces == -1:
-                spaces, magsize = self.space_calculator.calculate_spaces(
-                    obj_mag, size
-                )
+                spaces, magsize = self.space_calculator.calculate_spaces(obj_mag, size)
 
             self.texts["magsize"] = self.SimpleTextLayout(
                 magsize, font=fonts.bold, color=self.colors.get(255)
