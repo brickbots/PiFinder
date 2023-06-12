@@ -11,6 +11,8 @@ class Catalog:
 
 
 class SpaceCalculator:
+    """Calculates spaces for proportional fonts"""
+
     def __init__(self, draw, width):
         self.draw = draw
         self.width = width
@@ -38,6 +40,8 @@ class SpaceCalculator:
 
 
 class SpaceCalculatorFixed:
+    """Calculates spaces for fixed-width fonts"""
+
     def __init__(self, nr_chars):
         self.width = nr_chars
 
@@ -110,11 +114,9 @@ class CatalogDesignator:
         return self.catalog_index
 
     def get_catalog_name(self):
-        print("get_catalog_name", self.catalog_names, self.catalog_index)
         return self.catalog_names[self.catalog_index]
 
     def get_catalog_width(self):
-        print(self.get_catalog_name())
         return self.CAT_DASHES[self.get_catalog_name()]
 
     def get_designator(self):
@@ -126,7 +128,15 @@ class CatalogDesignator:
 
 
 class TextLayouterSimple:
-    def __init__(self, text: str, draw, color, font=fonts.base, width=fonts.base_width, max_lines=3):
+    def __init__(
+        self,
+        text: str,
+        draw,
+        color,
+        font=fonts.base,
+        width=fonts.base_width,
+        max_lines=3,
+    ):
         self.text = text
         self.font = font
         self.color = color
@@ -151,14 +161,22 @@ class TextLayouterSimple:
 
     def draw(self, pos: Tuple[int, int] = (0, 0)):
         self.layout(pos)
-        logging.debug(f"Drawing {self.object_text=}")
+        # logging.debug(f"Drawing {self.object_text=}")
         self.drawobj.multiline_text(
             pos, "\n".join(self.object_text), font=self.font, fill=self.color, spacing=0
         )
 
 
 class TextLayouterScroll(TextLayouterSimple):
-    def __init__(self, text: str, draw, color, font=fonts.base, width=fonts.base_width, max_lines=3):
+    def __init__(
+        self,
+        text: str,
+        draw,
+        color,
+        font=fonts.base,
+        width=fonts.base_width,
+        max_lines=3,
+    ):
         super().__init__(text, draw, color, font, width, max_lines)
         self.pointer = 0
         self.textlen = len(text)
@@ -166,19 +184,29 @@ class TextLayouterScroll(TextLayouterSimple):
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.textlen > self.width:
-            if self.counter % 30 == 0:
-                self.object_text: List[str] = [self.text[self.pointer:self.pointer+self.width]]
-                self.pointer = (self.pointer + 1) % (self.textlen-self.width+1)
-            if self.pointer < 5:
-                self.counter += 1
+            if self.counter % 3000 == 0:
+                self.object_text: List[str] = [
+                    self.text[self.pointer:self.pointer + self.width]
+                ]
+                self.pointer = (self.pointer + 1) % (self.textlen - self.width + 1)
+            if self.pointer <= 1:
+                self.counter += 100
             else:
-                self.counter += 10
+                self.counter += 500
         else:
             self.object_text: List[str] = [self.text]
 
 
 class TextLayouter(TextLayouterSimple):
-    def __init__(self, text: str, draw, color, font=fonts.base, width=fonts.base_width, max_lines=3):
+    def __init__(
+        self,
+        text: str,
+        draw,
+        color,
+        font=fonts.base,
+        width=fonts.base_width,
+        max_lines=3,
+    ):
         super().__init__(text, draw, color, font, width, max_lines)
         self.updated = True
 
