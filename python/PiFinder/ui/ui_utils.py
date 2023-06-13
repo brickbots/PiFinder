@@ -35,7 +35,7 @@ class SpaceCalculator:
         spaces = spaces - 1
 
         result = self._calc_string(left, right, spaces)
-        logging.debug(f"returning {spaces=}, {result=}")
+        # logging.debug(f"returning {spaces=}, {result=}")
         return spaces, result
 
 
@@ -202,31 +202,67 @@ class TextLayouterScroll(TextLayouterSimple):
 
 
 class TextLayouter(TextLayouterSimple):
+    """To be used as a multi-line text with down scrolling"""
+    shorttop = [48, 125, 80, 125]
+    shortbottom = [48, 126, 80, 126]
+    longtop = [32, 125, 96, 125]
+    longbottom = [32, 126, 96, 126]
+    downarrow = (longtop, shortbottom)
+    uparrow = (shorttop, longbottom)
+
     def __init__(
         self,
         text: str,
         draw,
         color,
+        colors,
         font=fonts.base,
         width=fonts.base_width,
         available_lines=3,
     ):
         super().__init__(text, draw, color, font, width)
         self.nr_lines = 0
+        self.colors = colors
         self.start_line = 0
-        self.updated = True
+        self.available_lines = available_lines
         self.scrolled = False
+        self.pointer = 0
+        self.updated = True
 
     def next(self):
         if self.nr_lines <= self.available_lines:
             return
-        self.start_line = (self.start_line + 1) % (self.nr_lines - self.available_lines)
+        self.pointer = (self.pointer + 1) % (self.nr_lines - self.available_lines + 1)
         self.scrolled = True
+        self.updated = True
+
+    def draw_arrow(self, down):
+        if self.nr_lines > self.available_lines:
+            if down:
+                self._draw_arrow(*self.downarrow)
+            else:
+                self._draw_arrow(*self.uparrow)
+
+    def _draw_arrow(self, top, bottom):
+        self.drawobj.rectangle([0, 126, 128, 128], fill=self.colors.get(0))
+        self.drawobj.rectangle(
+            top, fill=self.colors.get(128)
+        )
+        self.drawobj.rectangle(
+            bottom, fill=self.colors.get(128)
+        )
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.updated:
             self.object_text = textwrap.wrap(self.text, width=self.width)
-            self.nr_lines = len(self.object_text)
-            self.updated = False
+            self.orig_object_text = self.object_text
+            self.object_text = self.object_text[0:self.available_lines]
+            self.nr_lines = len(self.orig_object_text)
         if self.scrolled:
-            self.scrolled = False
+            self.object_text = self.orig_object_text[
+                self.pointer : self.pointer + self.available_lines
+            ]
+        up = self.pointer + self.available_lines == self.nr_lines
+        self.draw_arrow(not up)
+        self.updated = False
+        self.scrolled = False

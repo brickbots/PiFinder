@@ -103,15 +103,19 @@ class UICatalog(UIModule):
         self.SimpleTextLayout = functools.partial(
             TextLayouterSimple, draw=self.draw, color=self.colors.get(255)
         )
-        self.TextLayout = functools.partial(
-            TextLayouter, draw=self.draw, color=self.colors.get(255)
+        self.descTextLayout = TextLayouter(
+            "",
+            draw=self.draw,
+            color=self.colors.get(255),
+            colors=self.colors,
+            font=fonts.base,
         )
-        self.TextLayoutScroll = functools.partial(
+        self.ScrollTextLayout = functools.partial(
             TextLayouterScroll, draw=self.draw, color=self.colors.get(255)
         )
         self.space_calculator = SpaceCalculatorFixed(18)
         self.texts = {
-            "type-const": self.TextLayout(
+            "type-const": self.SimpleTextLayout(
                 "No Object Found", font=self.font_bold, color=self.colors.get(255)
             ),
         }
@@ -150,7 +154,7 @@ class UICatalog(UIModule):
 
         # Reset any sequence....
         if not self._catalog_item_index:
-            self.key_d()
+            self.key_alt_0()
 
     def push_list(self, option):
         self._config_options["Push List"]["value"] = ""
@@ -261,21 +265,22 @@ class UICatalog(UIModule):
                         aka_list.insert(0, rec["common_name"])
                     else:
                         aka_list.append(rec["common_name"])
-                self.texts["aka"] = self.TextLayoutScroll(
+                self.texts["aka"] = self.ScrollTextLayout(
                     ", ".join(aka_list), font=fonts.base
                 )
 
             if self.object_display_mode == DM_DESC:
                 # NGC description....
                 desc = self.cat_object["desc"].replace("\t", " ").replace("\n", "")
-                self.texts["desc"] = self.TextLayout(desc, font=fonts.base)
+                self.descTextLayout.set_text(desc)
+                self.texts["desc"] = self.descTextLayout
 
             if self.object_display_mode == DM_OBS:
                 logs = obslog.get_logs_for_object(self.cat_object)
                 if len(logs) == 0:
                     self.texts["obs"] = self.SimpleTextLayout("No Logs")
                 else:
-                    self.texts["obs"] = self.TextLayout(f"Logged {len(logs)} times")
+                    self.texts["obs"] = self.DescTextLayout(f"Logged {len(logs)} times")
         else:
             # Image stuff...
             if self.object_display_mode == DM_SDSS:
@@ -348,7 +353,7 @@ class UICatalog(UIModule):
                 magsize.draw((0, 62))
 
             # Common names for this object, i.e. M13 -> Hercules cluster
-            posy = 82
+            posy = 79
             aka = self.texts.get("aka")
             if aka:
                 aka.draw((0, posy))
@@ -365,6 +370,14 @@ class UICatalog(UIModule):
 
     def key_d(self):
         # d is for delete
+        # self.designator = self.designatorobj.reset_number()
+        # self.cat_object = None
+        # self._catalog_item_index = 0
+        # self.update_object_info()
+        self.descTextLayout.next()
+
+    def key_alt_0(self):
+        # d is for delete
         self.designator = self.designatorobj.reset_number()
         self.cat_object = None
         self._catalog_item_index = 0
@@ -373,12 +386,12 @@ class UICatalog(UIModule):
     def key_c(self):
         # C is for catalog
         self.catalog_index = self.designatorobj.next_catalog()
-        logging.debug("after key_c, catalog index is", self.catalog_index)
+        logging.debug(f"after key_c, catalog index is {self.catalog_index}")
         self.set_catalog()
         self._catalog_item_index = 0
 
         # Reset any sequence....
-        self.key_d()
+        self.key_alt_0()
 
     def key_b(self):
         if self.cat_object == None:
@@ -518,7 +531,7 @@ class UICatalog(UIModule):
         """
         Searches the loaded catalog for the designator
         """
-        logging.debug("Calling find by designator with", designator)
+        logging.debug(f"Calling find by designator with: {designator}")
         if designator.object_number == 0:
             logging.debug("find by designartor, objectnumber is 0")
             return False

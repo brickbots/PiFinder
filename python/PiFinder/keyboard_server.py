@@ -63,6 +63,7 @@ class KeyboardServer(KeyboardInterface):
 
             return img_byte_arr
 
+        logging.info("Starting keyboard server on port 8080")
         run(app, host="0.0.0.0", port=8080, quiet=True)
 
     def callback(self, key):
