@@ -6,12 +6,14 @@ import logging
 
 
 class Catalog:
+    """ Keeps catalog data + keeps track of current catalog/object """
+
     def __init__(self):
         pass
 
 
 class SpaceCalculator:
-    """Calculates spaces for proportional fonts"""
+    """Calculates spaces for proportional fonts, obsolete"""
 
     def __init__(self, draw, width):
         self.draw = draw

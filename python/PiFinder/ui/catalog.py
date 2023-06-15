@@ -29,10 +29,10 @@ import logging
 
 
 # Constants for display modes
-DM_DESC = 0
-DM_OBS = 1
-DM_POSS = 2
-DM_SDSS = 3
+DM_DESC = 0  # Display mode for description
+DM_OBS = 1  # Display mode for observed
+DM_POSS = 2  # Display mode for POSS
+DM_SDSS = 3  # Display mode for SDSS
 
 
 def get_closest_objects(catalog, ra, dec, n):
@@ -544,6 +544,7 @@ class UICatalog(UIModule):
                 self._catalog_item_index = i
                 return True
 
+        logging.debug("find by designator, no match found")
         self.cat_object = None
         self._catalog_item_index = 0
         return False
