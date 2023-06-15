@@ -71,7 +71,7 @@ class CatalogDesignator:
     Usually looks like 'NGC----' or 'M-13'"""
 
     # TODO this can be queried from the DB, get the max sequence for each catalog
-    CAT_DASHES = {"NGC": 4, "M": 3, "IC": 3, "C": 3, "Col": 3, "SaA": 3}
+    CAT_DASHES = {"NGC": 4, "M": 3, "IC": 4, "C": 3, "Col": 3, "SaA": 3}
 
     def __init__(self, catalog_names, catalog_index):
         self.catalog_names = catalog_names
