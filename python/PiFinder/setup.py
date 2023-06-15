@@ -1,5 +1,3 @@
-#!/usr/bin/python
-# -*- coding:utf-8 -*-
 """
 This module holds various utils
 and importers used during setup
@@ -58,29 +56,29 @@ def create_logging_tables():
     return db_path
 
 
-def decode_description(description):
-    """
-    decodes comma seperated descriptors
-    """
-    result = []
-    codes = description.split(",")
-    for code in codes:
-        code = code.strip()
-        decode = OBJ_DESCRIPTORS.get(code, code)
-        if decode == code:
-            sub_result = []
-            # try splitting on spaces..
-            for sub_code in code.split(" "):
-                decode = OBJ_DESCRIPTORS.get(sub_code, sub_code)
-                sub_result.append(decode)
+# def decode_description(description):
+#     """
+#     decodes comma seperated descriptors
+#     """
+#     result = []
+#     codes = description.split(",")
+#     for code in codes:
+#         code = code.strip()
+#         decode = OBJ_DESCRIPTORS.get(code, code)
+#         if decode == code:
+#             sub_result = []
+#             # try splitting on spaces..
+#             for sub_code in code.split(" "):
+#                 decode = OBJ_DESCRIPTORS.get(sub_code, sub_code)
+#                 sub_result.append(decode)
+#
+#             decode = " ".join(sub_result)
+#
+#         result.append(decode)
+#
+#     return ", ".join(result)
 
-            decode = " ".join(sub_result)
-
-        result.append(decode)
-
-    return ", ".join(result)
-
-
+# not used atm
 def load_deepmap_600():
     """
     loads the deepmap 600 file to add
@@ -630,3 +628,20 @@ def load_ngc_catalog():
 
                 db_c.execute(q)
         conn.commit()
+
+
+if __name__ == "__main__":
+    print("Starting")
+    # execute all functions
+    print("Creating DB")
+    create_logging_tables()
+    print("creating catalog tables")
+    init_catalog_tables()
+    print("loading catalogs")
+    load_collinder()
+    load_sac_asterisms()
+    load_caldwell()
+    load_ngc_catalog()
+
+
+
