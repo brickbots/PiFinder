@@ -460,6 +460,17 @@ def main(script_name=None):
                                     current_module.set_module(target_module)
                                     current_module.active()
 
+                            if keycode == keyboard_base.LNG_D and ui_mode_index > 0:
+                                # long D for config of current module
+                                target_module = current_module
+                                if target_module._config_options:
+                                    # only activate this if current module
+                                    # has config options
+                                    ui_mode_index = 0
+                                    current_module = ui_modes[0]
+                                    current_module.set_module(target_module)
+                                    current_module.active()
+
                             if keycode == keyboard_base.LNG_ENT and ui_mode_index > 0:
                                 # long ENT for log observation
                                 ui_mode_index = logging_mode_index

@@ -78,6 +78,7 @@ def create_logging_tables():
 #
 #     return ", ".join(result)
 
+
 # not used atm
 def load_deepmap_600():
     """
@@ -642,6 +643,3 @@ if __name__ == "__main__":
     load_sac_asterisms()
     load_caldwell()
     load_ngc_catalog()
-
-
-

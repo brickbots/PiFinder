@@ -203,6 +203,7 @@ class TextLayouterScroll(TextLayouterSimple):
 
 class TextLayouter(TextLayouterSimple):
     """To be used as a multi-line text with down scrolling"""
+
     shorttop = [48, 125, 80, 125]
     shortbottom = [48, 126, 80, 126]
     longtop = [32, 125, 96, 125]
@@ -245,18 +246,14 @@ class TextLayouter(TextLayouterSimple):
 
     def _draw_arrow(self, top, bottom):
         self.drawobj.rectangle([0, 126, 128, 128], fill=self.colors.get(0))
-        self.drawobj.rectangle(
-            top, fill=self.colors.get(128)
-        )
-        self.drawobj.rectangle(
-            bottom, fill=self.colors.get(128)
-        )
+        self.drawobj.rectangle(top, fill=self.colors.get(128))
+        self.drawobj.rectangle(bottom, fill=self.colors.get(128))
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.updated:
             self.object_text = textwrap.wrap(self.text, width=self.width)
             self.orig_object_text = self.object_text
-            self.object_text = self.object_text[0:self.available_lines]
+            self.object_text = self.object_text[0 : self.available_lines]
             self.nr_lines = len(self.orig_object_text)
         if self.scrolled:
             self.object_text = self.orig_object_text[
