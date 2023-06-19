@@ -471,6 +471,10 @@ def main(script_name=None):
                                 current_module.screengrab()
                                 console.write("Screenshot saved")
 
+                            if keycode == keyboard_base.LNG_D:
+                                current_module.delete()
+                                console.write("Deleted")
+
                             if keycode == keyboard_base.ALT_D:
                                 # Debug snapshot
                                 uid = str(uuid.uuid1()).split("-")[0]

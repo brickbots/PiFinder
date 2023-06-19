@@ -171,7 +171,7 @@ class UICatalog(UIModule):
 
         # Reset any sequence....
         if not self._catalog_item_index:
-            self.key_alt_0()
+            self.delete()
 
     def push_list(self, option):
         self._config_options["Push List"]["value"] = ""
@@ -216,7 +216,7 @@ class UICatalog(UIModule):
         Generates object text and loads object images
         """
         logging.debug(
-            f"In update_oject_info, {self.cat_object=}, {self.catalog_index=}, {self._catalog_item_index}"
+            f"In update_oject_info, {self.cat_object=}, {self.catalog_index=}, {self._catalog_item_index=}"
         )
         if not self.cat_object:
             self.texts["type-const"] = self.SimpleTextLayout(
@@ -395,8 +395,8 @@ class UICatalog(UIModule):
         # self.update_object_info()
         self.descTextLayout.next()
 
-    def key_alt_0(self):
-        # d is for delete
+    def delete(self):
+        # long d called from main
         self.designator = self.designatorobj.reset_number()
         self.cat_object = None
         self._catalog_item_index = 0
@@ -410,7 +410,7 @@ class UICatalog(UIModule):
         self._catalog_item_index = 0
 
         # Reset any sequence....
-        self.key_alt_0()
+        self.delete()
 
     def key_b(self):
         if self.cat_object == None:
@@ -558,9 +558,9 @@ class UICatalog(UIModule):
         for i, c in enumerate(self._filtered_catalog):
             logging.debug(f" searching: {c['sequence']=}{type(c['sequence'])=}")
             if c["sequence"] == designator.object_number:
-                logging.debug("Found", c)
+                logging.debug(f"Found {c['sequence']=}, at index {i}")
                 self.cat_object = c
-                self._catalog_item_index = i
+                self._catalog_item_index = i + 1
                 return True
 
         logging.debug("find by designator, no match found")
