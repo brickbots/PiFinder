@@ -404,13 +404,11 @@ class UICatalog(UIModule):
 
     def key_c(self):
         # C is for catalog
+        # Reset any sequence....
+        self.delete()
         self.catalog_index = self.designatorobj.next_catalog()
         logging.debug(f"after key_c, catalog index is {self.catalog_index}")
         self.set_catalog()
-        self._catalog_item_index = 0
-
-        # Reset any sequence....
-        self.delete()
 
     def key_b(self):
         if self.cat_object == None:
