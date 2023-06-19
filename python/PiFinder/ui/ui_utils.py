@@ -6,7 +6,7 @@ import logging
 
 
 class Catalog:
-    """ Keeps catalog data + keeps track of current catalog/object """
+    """Keeps catalog data + keeps track of current catalog/object"""
 
     def __init__(self):
         pass
@@ -168,6 +168,10 @@ class TextLayouterSimple:
 class TextLayouterScroll(TextLayouterSimple):
     """To be used as a one-line scrolling text"""
 
+    FAST = 750
+    MEDIUM = 500
+    SLOW = 200
+
     def __init__(
         self,
         text: str,
@@ -175,6 +179,7 @@ class TextLayouterScroll(TextLayouterSimple):
         color,
         font=fonts.base,
         width=fonts.base_width,
+        scrollspeed=MEDIUM,
     ):
         super().__init__(text, draw, color, font, width)
         self.pointer = 0
@@ -185,19 +190,22 @@ class TextLayouterScroll(TextLayouterSimple):
         self.dtext = text + " " * 6 + text
         self.dtextlen = len(self.dtext)
         self.counter = 0
+        self.scrollspeed = scrollspeed
+
+    def set_scrollspeed(self, scrollspeed: float):
+        self.scrollspeed = float(scrollspeed)
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
-        if self.textlen > self.width:
+        if self.textlen > self.width and self.scrollspeed > 0:
             if self.counter % 3000 == 0:
                 self.object_text: List[str] = [
                     self.dtext[self.pointer : self.pointer + self.width]
                 ]
                 self.pointer = (self.pointer + 1) % (self.textlen + 6)
-            # logging.debug(f"Drawing {self.object_text=}, {self.pointer=}")
             if self.pointer == 1:
                 self.counter += 100
             else:
-                self.counter += 750
+                self.counter += self.scrollspeed
         elif self.updated:
             self.object_text: List[str] = [self.text]
             self.updated = False
@@ -205,6 +213,7 @@ class TextLayouterScroll(TextLayouterSimple):
 
 class TextLayouter(TextLayouterSimple):
     """To be used as a multi-line text with down scrolling"""
+
     shorttop = [48, 125, 80, 125]
     shortbottom = [48, 126, 80, 126]
     longtop = [32, 125, 96, 125]
@@ -247,18 +256,14 @@ class TextLayouter(TextLayouterSimple):
 
     def _draw_arrow(self, top, bottom):
         self.drawobj.rectangle([0, 126, 128, 128], fill=self.colors.get(0))
-        self.drawobj.rectangle(
-            top, fill=self.colors.get(128)
-        )
-        self.drawobj.rectangle(
-            bottom, fill=self.colors.get(128)
-        )
+        self.drawobj.rectangle(top, fill=self.colors.get(128))
+        self.drawobj.rectangle(bottom, fill=self.colors.get(128))
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.updated:
             self.object_text = textwrap.wrap(self.text, width=self.width)
             self.orig_object_text = self.object_text
-            self.object_text = self.object_text[0:self.available_lines]
+            self.object_text = self.object_text[0 : self.available_lines]
             self.nr_lines = len(self.orig_object_text)
         if self.scrolled:
             self.object_text = self.orig_object_text[

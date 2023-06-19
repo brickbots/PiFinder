@@ -68,6 +68,11 @@ class UICatalog(UIModule):
             "value": 10,
             "options": ["None", 10, 20, 30],
         },
+        "Scrolling": {
+            "type": "enum",
+            "value": "Med",
+            "options": ["Off", "Fast", "Med", "Slow"],
+        },
         "Magnitude": {
             "type": "enum",
             "value": "None",
@@ -148,7 +153,19 @@ class UICatalog(UIModule):
     def refresh_designator(self):
         self.texts["designator"] = self.layout_designator()
 
+    def _get_scrollspeed_config(self):
+        scroll_dict = {
+            "Off": 0,
+            "Fast": TextLayouterScroll.FAST,
+            "Med": TextLayouterScroll.MEDIUM,
+            "Slow": TextLayouterScroll.SLOW,
+        }
+        scrollspeed = self._config_options["Scrolling"]["value"]
+        return scroll_dict[scrollspeed]
+
     def update_config(self):
+        if self.texts.get("aka"):
+            self.texts["aka"].set_scrollspeed(self._get_scrollspeed_config())
         # call load catalog to re-filter if needed
         self.set_catalog()
 
@@ -266,7 +283,9 @@ class UICatalog(UIModule):
                     else:
                         aka_list.append(rec["common_name"])
                 self.texts["aka"] = self.ScrollTextLayout(
-                    ", ".join(aka_list), font=fonts.base
+                    ", ".join(aka_list),
+                    font=fonts.base,
+                    scrollspeed=self._get_scrollspeed_config(),
                 )
 
             if self.object_display_mode == DM_DESC:
