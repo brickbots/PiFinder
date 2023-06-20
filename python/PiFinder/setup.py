@@ -119,7 +119,7 @@ def init_catalog_tables():
     Creates blank catalog tables
 
     """
-    db_path = Path(utils.astro_data_dir, "astro_data", "pifinder_objects.db")
+    db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
 
     # open the DB
     conn = sqlite3.connect(db_path)
@@ -281,7 +281,7 @@ def load_collinder():
     conn.commit()
 
 
-def load_sac_asterisms():
+def load_taas200():
     db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
     if not db_path.exists():
         print("DB does not exists")
@@ -292,17 +292,31 @@ def load_sac_asterisms():
     conn.row_factory = sqlite3.Row
     db_c = conn.cursor()
 
-    saca = Path(utils.astro_data_dir, "SAC_Asterisms_Ver32_Fence.txt")
+    import re
+
+    data = Path(utils.astro_data_dir, "taas200.dat")
     sequence = 0
-    catalog = "SaA"
-    print("Loading SAC Asterisms")
-    db_c.execute("delete from objects where catalog='SaA'")
-    db_c.execute("delete from names where catalog='SaA'")
-    with open(saca, "r") as df:
+    catalog = "Ta2"
+    print("Loading Taas 200")
+    db_c.execute("delete from objects where catalog='Ta2'")
+    db_c.execute("delete from names where catalog='Ta2'")
+
+    lines = input_text.strip().split("\n")
+    headers = re.split(r"\s{2,}", lines[1])  # split header line into parts
+    data_rows = lines[2:]  # data starts from the 2nd line
+
+    with open(output_file_name, "w", newline="") as file:
+        for row in data_rows:
+            row = re.split(r"\s+", row)  # split each data row into parts
+            print(row)
+            writer.writerow(row)  # write each row to the csv
+    with open(data, "r") as df:
         df.readline()
         for l in df:
-            dfs = l.split("|")
+            print(l)
+            dfs = re.split(" \t", l)
             dfs = [d.strip() for d in dfs]
+            print(dfs)
             other_names = dfs[1].strip()
             if other_names == "":
                 continue
@@ -632,6 +646,7 @@ if __name__ == "__main__":
     init_catalog_tables()
     print("loading catalogs")
     load_collinder()
+    load_taas200()
     load_sac_asterisms()
     load_caldwell()
     load_ngc_catalog()
