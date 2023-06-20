@@ -133,7 +133,6 @@ temp/
 .DS_Store
 .*.swp
 tetra3/
-*.dat
 dev/
 *_test.py
 *.gcode
