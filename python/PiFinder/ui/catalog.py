@@ -29,10 +29,10 @@ import logging
 
 
 # Constants for display modes
-DM_DESC = 0
-DM_OBS = 1
-DM_POSS = 2
-DM_SDSS = 3
+DM_DESC = 0  # Display mode for description
+DM_OBS = 1  # Display mode for observed
+DM_POSS = 2  # Display mode for POSS
+DM_SDSS = 3  # Display mode for SDSS
 
 
 def get_closest_objects(catalog, ra, dec, n):
@@ -67,6 +67,11 @@ class UICatalog(UIModule):
             "type": "enum",
             "value": 10,
             "options": ["None", 10, 20, 30],
+        },
+        "Scrolling": {
+            "type": "enum",
+            "value": "Med",
+            "options": ["Off", "Fast", "Med", "Slow"],
         },
         "Magnitude": {
             "type": "enum",
@@ -148,13 +153,25 @@ class UICatalog(UIModule):
     def refresh_designator(self):
         self.texts["designator"] = self.layout_designator()
 
+    def _get_scrollspeed_config(self):
+        scroll_dict = {
+            "Off": 0,
+            "Fast": TextLayouterScroll.FAST,
+            "Med": TextLayouterScroll.MEDIUM,
+            "Slow": TextLayouterScroll.SLOW,
+        }
+        scrollspeed = self._config_options["Scrolling"]["value"]
+        return scroll_dict[scrollspeed]
+
     def update_config(self):
+        if self.texts.get("aka"):
+            self.texts["aka"].set_scrollspeed(self._get_scrollspeed_config())
         # call load catalog to re-filter if needed
         self.set_catalog()
 
         # Reset any sequence....
         if not self._catalog_item_index:
-            self.key_alt_0()
+            self.delete()
 
     def push_list(self, option):
         self._config_options["Push List"]["value"] = ""
@@ -199,7 +216,7 @@ class UICatalog(UIModule):
         Generates object text and loads object images
         """
         logging.debug(
-            f"In update_oject_info, {self.cat_object=}, {self.catalog_index=}, {self._catalog_item_index}"
+            f"In update_oject_info, {self.cat_object=}, {self.catalog_index=}, {self._catalog_item_index=}"
         )
         if not self.cat_object:
             self.texts["type-const"] = self.SimpleTextLayout(
@@ -266,7 +283,9 @@ class UICatalog(UIModule):
                     else:
                         aka_list.append(rec["common_name"])
                 self.texts["aka"] = self.ScrollTextLayout(
-                    ", ".join(aka_list), font=fonts.base
+                    ", ".join(aka_list),
+                    font=fonts.base,
+                    scrollspeed=self._get_scrollspeed_config(),
                 )
 
             if self.object_display_mode == DM_DESC:
@@ -376,8 +395,8 @@ class UICatalog(UIModule):
         # self.update_object_info()
         self.descTextLayout.next()
 
-    def key_alt_0(self):
-        # d is for delete
+    def delete(self):
+        # long d called from main
         self.designator = self.designatorobj.reset_number()
         self.cat_object = None
         self._catalog_item_index = 0
@@ -385,13 +404,11 @@ class UICatalog(UIModule):
 
     def key_c(self):
         # C is for catalog
+        # Reset any sequence....
+        self.delete()
         self.catalog_index = self.designatorobj.next_catalog()
         logging.debug(f"after key_c, catalog index is {self.catalog_index}")
         self.set_catalog()
-        self._catalog_item_index = 0
-
-        # Reset any sequence....
-        self.key_alt_0()
 
     def key_b(self):
         if self.cat_object == None:
@@ -539,11 +556,12 @@ class UICatalog(UIModule):
         for i, c in enumerate(self._filtered_catalog):
             logging.debug(f" searching: {c['sequence']=}{type(c['sequence'])=}")
             if c["sequence"] == designator.object_number:
-                logging.debug("Found", c)
+                logging.debug(f"Found {c['sequence']=}, at index {i}")
                 self.cat_object = c
-                self._catalog_item_index = i
+                self._catalog_item_index = i + 1
                 return True
 
+        logging.debug("find by designator, no match found")
         self.cat_object = None
         self._catalog_item_index = 0
         return False
@@ -585,9 +603,6 @@ class UICatalog(UIModule):
         if self._catalog_item_index != 0:
             self.cat_object = self._filtered_catalog[self._catalog_item_index - 1]
             self.designatorobj.set_number(self.cat_object["sequence"])
-            # print(
-            #     f"scroll object selecte cat-object {self.cat_object=}, {self._catalog_item_index}, {self._filtered_catalog[0]=}, {self._filtered_catalog[1]=}, {self._filtered_catalog[self._catalog_item_index]=}"
-            # )
         else:
             self.cat_object = None
             self.designatorobj.set_number(0)

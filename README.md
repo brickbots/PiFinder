@@ -1,7 +1,6 @@
 # PiFinder
  A plate solving telescope finder based around a Raspberry PI, RPI HQ Camera, and custom UI 'hat'
 ![Banner](./images/banner_overview.png)
-
 I'm a visual observer using a 16" f4 dobsonian.   The lightweight/low-eyepiece design of my scope is great for transport and use... but it also means there is no great way to add reliable encoders to get solid scope positioning.
 
 After seeing some people succeed building small plate-solving systems for feeding telescope position information to a laptop or tablet... I decided to try to build something similar, but with it's own user-interface rather than relying on a tablet or other device.  Thus the PiFinder was born!
@@ -13,6 +12,11 @@ The PiFinder is my attempt to improve my time at my telescope.  I don't get near
 * **Observation logging**:  I like to keep track of what I see each night.  I don't often sketch, just record what I saw when, with what eyepiece and some basic info about the experience.  If I could do this right at the eyepiece, that'd save time.
 
 My hope is that other people will find this combination of functionality useful, will build their own PiFinder and help the whole project improve by making suggestions and potentially contributing to the software.  It's a pretty easy build with off the shelf parts and beginner friendly soldering.  
+
+## Build Your Own
+The PiFinder is fully open-source hardware and software.  You can order PCB's and 3d print the case with the files in this repo and order all the parts from the [parts List](./docs/BOM.md).  
+
+If you would like pre-assembled units, kits or other items to jump start your PiFinder journey, visit [PiFinder.io](https://www.pifinder.io/build-yours) to see what's available and place an order.
 
 ## Features
 * Zero setup: Just turn it on and point it at the sky!  

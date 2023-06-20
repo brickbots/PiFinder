@@ -6,12 +6,14 @@ import logging
 
 
 class Catalog:
+    """Keeps catalog data + keeps track of current catalog/object"""
+
     def __init__(self):
         pass
 
 
 class SpaceCalculator:
-    """Calculates spaces for proportional fonts"""
+    """Calculates spaces for proportional fonts, obsolete"""
 
     def __init__(self, draw, width):
         self.draw = draw
@@ -69,7 +71,7 @@ class CatalogDesignator:
     Usually looks like 'NGC----' or 'M-13'"""
 
     # TODO this can be queried from the DB, get the max sequence for each catalog
-    CAT_DASHES = {"NGC": 4, "M": 3, "IC": 3, "C": 3, "Col": 3, "SaA": 3}
+    CAT_DASHES = {"NGC": 4, "M": 3, "IC": 4, "C": 3, "Col": 3, "SaA": 3}
 
     def __init__(self, catalog_names, catalog_index):
         self.catalog_names = catalog_names
@@ -166,6 +168,10 @@ class TextLayouterSimple:
 class TextLayouterScroll(TextLayouterSimple):
     """To be used as a one-line scrolling text"""
 
+    FAST = 750
+    MEDIUM = 500
+    SLOW = 200
+
     def __init__(
         self,
         text: str,
@@ -173,6 +179,7 @@ class TextLayouterScroll(TextLayouterSimple):
         color,
         font=fonts.base,
         width=fonts.base_width,
+        scrollspeed=MEDIUM,
     ):
         super().__init__(text, draw, color, font, width)
         self.pointer = 0
@@ -183,19 +190,22 @@ class TextLayouterScroll(TextLayouterSimple):
         self.dtext = text + " " * 6 + text
         self.dtextlen = len(self.dtext)
         self.counter = 0
+        self.scrollspeed = scrollspeed
+
+    def set_scrollspeed(self, scrollspeed: float):
+        self.scrollspeed = float(scrollspeed)
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
-        if self.textlen > self.width:
+        if self.textlen > self.width and self.scrollspeed > 0:
             if self.counter % 3000 == 0:
                 self.object_text: List[str] = [
                     self.dtext[self.pointer : self.pointer + self.width]
                 ]
                 self.pointer = (self.pointer + 1) % (self.textlen + 6)
-            # logging.debug(f"Drawing {self.object_text=}, {self.pointer=}")
             if self.pointer == 1:
                 self.counter += 100
             else:
-                self.counter += 750
+                self.counter += self.scrollspeed
         elif self.updated:
             self.object_text: List[str] = [self.text]
             self.updated = False

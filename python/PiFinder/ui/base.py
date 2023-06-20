@@ -196,12 +196,12 @@ class UIModule:
 
     def check_hotkey(self, key):
         """
-        Scans config for a matching
-        hotkey and if found, cycles
-        that config item.
+               Scans config for a matching
+        _       hotkey and if found, cycles
+               that config item.
 
-        Returns true if hotkey found
-        false if not or no config
+               Returns true if hotkey found
+               false if not or no config
         """
         if self._config_options == None:
             return False
@@ -223,6 +223,9 @@ class UIModule:
         pass
 
     def key_enter(self):
+        pass
+
+    def delete(self):
         pass
 
     def key_b(self):
