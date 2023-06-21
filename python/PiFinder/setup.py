@@ -440,9 +440,23 @@ def load_taas200():
     data = Path(utils.astro_data_dir, "TAAS_200.csv")
     sequence = 0
     catalog = "Ta2"
+    delete_catalog_from_database(db_c, catalog)
     print("Loading Taas 200")
-    db_c.execute("delete from objects where catalog='Ta2'")
-    db_c.execute("delete from names where catalog='Ta2'")
+
+    typedict = {
+        "oc": "Open Cluster",
+        "gc": "Glob. Cluster",
+        "gn": "Gaseous Neb.",
+        "?gn": "?Gaseous Neb.",
+        "pn": "Planeta. Neb.",
+        "?pn": "?Planet. Neb.",
+        "dn": "Dark Nebula",
+        "snr": "SN Remnant",
+        "eg": "Galaxy",
+        "gn + oc": "Gas. Neb.+OC",
+        "oc + oc": "OC + OC",
+        "oc + gn": "OC+Gas. Neb.",
+    }
 
     with open(data, "r") as f:
         reader = csv.DictReader(f)
@@ -453,7 +467,7 @@ def load_taas200():
             ngc = row["NGC/IC"]
             other_names = row["Name"]
             const = row["Const"]
-            type = row["Type"]
+            type = typedict[row["Type"]]
             ra = ra_to_deg(float(row["RA Hr"]), float(row["RA Min"]), 0)
             dec_deg = row["Dec Deg"]
             dec_deg = (
