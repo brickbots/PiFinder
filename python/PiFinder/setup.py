@@ -801,8 +801,6 @@ def load_ngc_catalog():
 
 if __name__ == "__main__":
     print("Starting")
-    conn, db_c = get_pifinder_database()
-    print_database(conn, db_c)
     # execute all functions
     print("Creating DB")
     create_logging_tables()
@@ -814,4 +812,5 @@ if __name__ == "__main__":
     load_sac_asterisms()
     load_caldwell()
     load_ngc_catalog()
+    conn, db_c = get_pifinder_database()
     print_database(conn, db_c)
