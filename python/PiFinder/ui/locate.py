@@ -126,6 +126,23 @@ class UILocate(UIModule):
     def key_down(self):
         self.scroll_target_history(1)
 
+    def delete(self):
+        active_list = self.ui_state["active_list"]
+        if self.target_index is not None and len(active_list) > 1:
+            del active_list[self.target_index]
+            self.target_index = (self.target_index + 1) % len(active_list)
+            self.target = self.ui_state["active_list"][self.target_index]
+            self.ui_state["target"] = self.target
+            self.update_object_text()
+            self.update()
+        elif len(active_list) == 1:
+            self.ui_state["active_list"] = []
+            self.target_index = None
+            self.target = None
+            self.switch_to = "UICatalog"
+        else:
+            self.switch_to = "UICatalog"
+
     def update_object_text(self):
         """
         Generates object text
