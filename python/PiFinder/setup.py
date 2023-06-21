@@ -315,8 +315,8 @@ def load_collinder():
                     "{desc}"
                 )
             """
-    db_c.execute(q)
-    conn.commit()
+            db_c.execute(q)
+            conn.commit()
     type_trans = {
         "Open cluster": "OC",
         "Asterism": "Ast",
@@ -465,6 +465,15 @@ def load_taas200():
         for row in reader:
             sequence = int(row["Nr"])
             ngc = row["NGC/IC"]
+            other_catalog = []
+            if ngc:
+                if ngc.startswith("IC") or ngc.startswith("B") or ngc.startswith("Col"):
+                    other_catalog.append(ngc)
+                else:
+                    split = ngc.split(";")
+                    for s in split:
+                        other_catalog.append(f"NGC {s}")
+
             other_names = row["Name"]
             const = row["Const"]
             type = typedict[row["Type"]]
@@ -519,13 +528,23 @@ def load_taas200():
                 )
             """
             db_c.execute(q)
-            names = f"""
-                    insert into names(common_name, catalog, sequence)
-                    values ("{other_names}", "{catalog}", {sequence})
-                """
-            db_c.execute(names)
+
+            # insert the other names
+            insert_names(db_c, catalog, sequence, other_names)
+            for name in other_catalog:
+                insert_names(db_c, catalog, sequence, name)
 
     conn.commit()
+
+
+def insert_names(db_c, catalog, sequence, name):
+    if name == "":
+        return
+    nameq = f"""
+            insert into names(common_name, catalog, sequence)
+            values ("{name}", "{catalog}", {sequence})
+        """
+    db_c.execute(nameq)
 
 
 def load_caldwell():

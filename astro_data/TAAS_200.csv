@@ -19,7 +19,7 @@ Nr,NGC/IC,Name,Type,Const,RA Hr,RA Min,Dec Deg,Dec Min,Magnitude,Size,GC Conc or
 18,672,,eg,TRI,1,47.9,n27,26,10.8,6.6'x2.7,SBcd,,"3 in, 20X",,"An oval egn w/ a blobby center. Nrby egn IC-1727 is big, v. fnt, & elongated. (10 in.)"
 19,752,,oc,AND,1,57.8,n37,41,5.7,45',,77,7x50mm,Y,Pretty in finders. Look for golf club hitting NGC-752 as ball!
 20,772,,eg,ARI,1,59.3,n19,1,10.3,7.1'x4.5,Sb,,4 inch,Y,Bright egn shows much structure and v. small nucleus as seen in large scopes.
-21,869 & 884,The Double Cluster,oc + oc,PER,2,20.7,n57,8,,30'+30',,350+300,7x50mm,Y,"WOW! Two large, rich, naked eye oc's that nearly touch. Magnificent!"
+21,869;884,The Double Cluster,oc + oc,PER,2,20.7,n57,8,,30'+30',,350+300,7x50mm,Y,"WOW! Two large, rich, naked eye oc's that nearly touch. Magnificent!"
 22,891,The Andromeda Edge-On,eg,AND,2,22.6,n42,21,10,13'x2.8',SBb?,,"4 in, 25X",Y,"Exquisite, perfect edge-on shows dust lane in v. lg. scopes. Beautiful in a 30 inch!"
 23,908,,eg,CET,2,23.1,s21,14,10.2,5.5'x2.8,Sc,,"3 in, 20X",Y,"V. nice, brt, lg., oval egn has a grainy texture. 3 nearby fnter egn seen. (10 in.)"
 24,925,,eg,TRI,2,27.3,n33,35,10,9.8'x6.0,SBd,,"2.4 in, 15X",,"Wow! Lg., brt, egn w/ v. grainy texture. Central bar + arms? seen w/ a 10 in. scope."
@@ -37,20 +37,20 @@ Nr,NGC/IC,Name,Type,Const,RA Hr,RA Min,Dec Deg,Dec Min,Magnitude,Size,GC Conc or
 36,1502,Part of Kemble's Cascade,oc,CAM,4,7.7,n62,20,5.7,8',,63,"2.4 in, 12X",Y,"Brt, fine oc; lies within a remarkable star chain called Kemble's Cascade. Use LP."
 37,1528,,oc,PER,4,15.4,n51,14,6.4,40',,165,10x50mm,Y,"Beautiful bright rich oc; slightly oval, resolved in 10 in. Nebular patch in finders."
 38,1535,,pn,ERI,4,14.2,s12,44,9.6,48x42,,,"3 in, 20X",Y,Brt blue-green inner ring + central star set in a fainter outer disc. (10 in.) Beautiful!
-39,Hyades,,oc,TAU,4,25,n18,0,0.5,35°,,380,naked eye,,"Huge, sprawling oc, has many multiple stars. See Burnham's Celest. Hdbk, Vol. III."
+39,,Hyades,oc,TAU,4,25,n18,0,0.5,35°,,380,naked eye,,"Huge, sprawling oc, has many multiple stars. See Burnham's Celest. Hdbk, Vol. III."
 40,1647,,oc,TAU,4,46,n19,4,6.4,45',,117,10x50mm,Y,"Lg., rich oc of 8th magn. & fnter stars w/ many brt doubles in center. Nice in finders."
 41,1664,,oc,AUR,4,51.1,n43,42,7.6,18',,101,"2.4 in, 12X",Y,"An oc of equal stars; irregular, round, and patchy. Looks like a kite with a tail."
 42,1851,,gc,COL,5,14.1,s40,3,7.3,11',II,,10x50mm,,Wow! A rich pile of fnt stars that rise to a very intense core. (10 in.) Beautiful!
 43,1893,,oc + gn,AUR,5,22.7,n33,24,7.5,11',,270,"2.4 in, 12X",,Irregular shaped oc is associated w/ gn IC-410. Try O III filter for nebula.
 44,1907,,oc,AUR,5,28,n35,19,8.2,7',,113,"3 in, 20X",Y,"Wow! A sm., rich, oc on the S edge of oc M-38. Well resolved in 10 in. V. nice field."
-45,1973-5-7,,gn + oc,ORI,5,35.5,s04,52,4.2,40'x25',,35,10x50mm,Y,"Nice refl. gn complex! Lg., w/ dark lanes; assoc. w/ a poor oc that incl's 42 & 45 Ori."
+45,1973;1975;1977,,gn + oc,ORI,5,35.5,s04,52,4.2,40'x25',,35,10x50mm,Y,"Nice refl. gn complex! Lg., w/ dark lanes; assoc. w/ a poor oc that incl's 42 & 45 Ori."
 46,2024,The Flame Nebula,gn,ORI,5,41.9,s01,51,,30'x30',,,"3 in, 20X",Y,Ghostly gn w/ dark rifts is just E of zeta Ori. Place zeta just out of field to see best.
 47,2129,,oc,GEM,6,1,n23,18,6.7,7',,73,"2.4 in, 15X",Y,Small oc of 8th-15th magn. stars developed around a bright double. Pretty group.
 48,2158,,oc,GEM,6,7.5,n24,6,8.6,5',,973,4 inch,Y,"Rich, smooth oc of v. fnt stars. Beautiful, w/ M-35 in field."
 49,2169,,oc,ORI,6,8.4,n13,57,5.9,7',,25,"2.4 in, 15X",Y,"Unique, coarse oc! Squarish, the brter stars form the letters I-SIGMA. V. pretty."
 50,2175,,gn,ORI,6,9.8,n20,19,,20',,,10x50mm,,"Lg., brt, round H II gn is centered on an 8th magn. star. Lovely w/ v. LP + O III filter!"
 51,2194,,oc,ORI,6,13.8,n12,48,8.5,8',,194,"3 in, 20X",Y,"Round, rich oc of very fnt stars. Looks like a bug's face w/ two large, black eyes."
-52,2237-44,The Rosette Nebula,gn + oc,MON,6,32.4,n04,52,4.8,90'x90',,46,7x50mm,Y,"Huge, fnt H II wreath (2237) surrounds a brt, poor oc (2244). Use vLP + or - O III filter."
+52,2237;2244,The Rosette Nebula,gn + oc,MON,6,32.4,n04,52,4.8,90'x90',,46,7x50mm,Y,"Huge, fnt H II wreath (2237) surrounds a brt, poor oc (2244). Use vLP + or - O III filter."
 53,2251,,oc,MON,6,34.7,n08,22,7.3,7',,92,12x50mm,Y,Oc w/ extreme bent wedge or triangle shape. Seems to have 2 sections. Weird.
 54,2261,Hubble's Variable Nebula,gn,MON,6,39.2,n08,44,,1.5',,,"2.4 in, 20X",,"Small, variably brt, comet shaped H II nebula. An 11th magn. star is the nucleus."
 55,2264,Christmas Tree Cluster,gn + oc,MON,6,41.1,n09,53,3.9,20',,222,7x50mm,Y,Wow! A spruce tree shaped oc + assoc. gn! Is nearby Cone nebula visible?
@@ -101,7 +101,7 @@ Nr,NGC/IC,Name,Type,Const,RA Hr,RA Min,Dec Deg,Dec Min,Magnitude,Size,GC Conc or
 100,3726,,eg,UMA,11,33.3,n47,2,10.4,6.0'x4.5,Sc,,"3 in, 20X",Y,"Large, mottled, oval, uniform disc contains a tiny nucleus. Bright! V. Nice!"
 101,3953,,eg,UMA,11,53.8,n52,20,10.1,6.6'x3.6,SBbc,,"3 in, 20X",Y,"Lg., pretty brt, oval egn, brter towards center which contains a small nucleus. Nice!"
 102,4030,,eg,VIR,12,0.4,s01,6,11.1,4.3'x3.2,Sbc,,"4 in, 25X",Y,"Round, sm., brt egn has a broadly condensed center. Nice! + 2 fld stars. (10 in.)"
-103,4038-9,The Antennae,eg,CRV,12,1.9,s18,52,10.6,7.6'x4.9,SB + S,,"3 in, 25X",Y,"WOW! Curious small, brt, kidney shaped interacting pair has much detail in 20 in."
+103,4038;4039,The Antennae,eg,CRV,12,1.9,s18,52,10.6,7.6'x4.9,SB + S,,"3 in, 25X",Y,"WOW! Curious small, brt, kidney shaped interacting pair has much detail in 20 in."
 104,4088,,eg,UMA,12,5.6,n50,33,10.5,5.8'x2.5,Sbc,,"3 in, 25X",Y,"Nice, with relatively bright nucleus. (17.5 in.)"
 105,4111,,eg,CVN,12,7.1,n43,4,10.8,4.8'x1.1,S0,,4 inch,Y,"Sm., brt, needle-like egn is brter in middle & has star like nucleus. (10 in.) V. pretty!"
 106,4151,The CVn Variable Galaxy,eg,CVN,12,10.5,n39,24,10.4,5.9'x4.4,SBab,,"4 in, 40X",Y,"Wow! Consists of a brt, bluish stellar nucleus set in a filmy haze. A Seyfert galaxy."
@@ -112,8 +112,8 @@ Nr,NGC/IC,Name,Type,Const,RA Hr,RA Min,Dec Deg,Dec Min,Magnitude,Size,GC Conc or
 111,4293,,eg,COM,12,21.2,n18,23,11.2,6.0'x3.0,SB0/a,,4 inch,Y,Large egn. Unevenly bright in large (&gt;12 in) scopes. Very nice.
 112,4361,,pn,CRV,12,24.5,s18,48,10.9,1.9'x1.9,,,4 inch,Y,Diffuse pn has tapered edges and fairly bright central star. Nice! (10 in.)
 113,4414,,eg,COM,12,26.4,n31,13,10.3,3.6'x2.2,Sc?,,"3 in, 20x",Y,"Wow! Oval egn has a sm. bright nucleus, sharp edges & much structure. (10 in.)"
-114,Mel111,Coma Berenices,oc,COM,12,25,n25,0,1.8,275',,273,naked eye,,"Large, naked eye oc of 4th magn stars and fainter."
-115,4435-38,The Eyes,eg,VIR,12,27.8,n13,3,,c. 10x4,SB0 + S0/,a,4 inch,Y,Two closeby egn look like eyes. NGC-4435: brt core; NGC-4438: more elongate.
+114,,"Mel111, Coma Berenices",oc,COM,12,25,n25,0,1.8,275',,273,naked eye,,"Large, naked eye oc of 4th magn stars and fainter."
+115,4435;4438,The Eyes,eg,VIR,12,27.8,n13,3,,c. 10x4,SB0 + S0/,a,4 inch,Y,Two closeby egn look like eyes. NGC-4435: brt core; NGC-4438: more elongate.
 116,4449,The Box Galaxy,eg,CVN,12,28.2,n44,6,9.4,5.1'x3.7,I,,"2.4 in, 15X",Y,"Exquisite irr. egn! Brt, lg., has a grainy, arrowhead shaped core. Strange! (10 in.)"
 117,4490,,eg,CVN,12,30.6,n41,40,9.8,5.9'x3.1,SBd,,"3 in, 20X",Y,"Lg., brt, oval egn has sm. distinct hub. Fnter NGC-4485 is 3' away: interacting pair."
 118,IC3568,,pn,CAM,12,32.9,n82,33,9.5,40x35,,,"3 in, 20X",,"Fine, bl-grn pn consists of brt inner disc + fnt star in outer, fnter nebula. Use Hi X."
@@ -123,7 +123,7 @@ Nr,NGC/IC,Name,Type,Const,RA Hr,RA Min,Dec Deg,Dec Min,Magnitude,Size,GC Conc or
 122,4536,,eg,VIR,12,34.5,n02,11,10.4,7.4'x3.5,Sbc,,3 in. 25X,Y,"?Cutoff oval, uniform disc has a tiny brt nucleus. V nice w/ NGC-4527 in same LP fld!"
 123,4559,,eg,COM,12,36,n27,58,9.8,10.5'x4.,Scd,,"3 in, 20X",Y,"Nice! Lg., brt egn! Shows mottling in lg. scopes. +3 fld stars. Just NE of Mel 111."
 124,4565,The Coma Edge-On Galaxy,eg,COM,12,36.3,n25,59,9.6,16.2'x2.,Sb?,,"3 in, 20X",Y,WOW! The best edge-on! Hub seen bisected in lg. scopes. Exquisitely beautiful!
-125,4567-8,The Siamese Twins,eg,VIR,12,36.6,n11,14,10.3,5'x3',Sbc + Sbc,,"3 in, 25X",Y,"Interacting egn! -67 is an oval hazy nebula in contact w/ larger, more oval -68. Nice!"
+125,4567;4568,The Siamese Twins,eg,VIR,12,36.6,n11,14,10.3,5'x3',Sbc + Sbc,,"3 in, 25X",Y,"Interacting egn! -67 is an oval hazy nebula in contact w/ larger, more oval -68. Nice!"
 126,4605,,eg,UMA,12,40,n61,37,9.6,5.5'x2.3,Sc pec,,"2.4 in, 20X",,"Brt., elongated egn has distinctly mottled core w/o nucleus. Very nice!"
 127,4631,The Humpback Whale Galaxy,eg,CVN,12,42.1,n32,32,9.3,15.1'x3.,SBd,,12x50mm,Y,"WOW! Cigar-like edge-on is v. lg., brt, & mottled. Sm. companion also seen. (8 in.)"
 128,4656,The Hockey Stick Galaxy,eg,CVN,12,44,n32,10,10.4,13.8'x3.,SB,,"3 in, 20X",Y,"Long, thin, peculiar egn has a very curious bend. Exquisitely weird and beautiful!"
@@ -169,7 +169,7 @@ Nr,NGC/IC,Name,Type,Const,RA Hr,RA Min,Dec Deg,Dec Min,Magnitude,Size,GC Conc or
 168,6652,,gc,SGR,18,35.8,s32,59,8.8,3.5',VI,,"2.4 in, 15X",,"Nice gc w/ unique football shape. Has an intense core, well resolved in a 10 in."
 169,IC4756,,oc,SER,18,39,n05,27,4.6,40',,466,7x50mm,,"V. fine, large, naked eye oc of 7th magn. & fnter stars. Impressive in binoculars."
 170,6723,,gc,SGR,18,59.6,s36,38,6.9,11',VII,,7x50mm,,"Beautiful lg., brt, rich gc is broadly condensed. Some resolution in 6 in. scope."
-171,6726-7,,gn,CRA,19,1.9,s36,57,,8'x8',,,4 inch,,"A reflection nebulae complex lit by variables R, T, & TY CRA w/ associated dn!"
+171,6726;6727,,gn,CRA,19,1.9,s36,57,,8'x8',,,4 inch,,"A reflection nebulae complex lit by variables R, T, & TY CRA w/ associated dn!"
 172,6781,Ghost of the Moon Nebula,pn,AQL,19,18.4,n06,33,10.5,1.9'x1.8,,,"3 in, 20X",Y,"Lg., diffuse, circular pn has fnter center & N edge. V. ghostly! Try UHC or O III filter."
 173,Col 399,The Coathanger,oc,VUL,19,25.4,n20,11,3.6,60',,10,7x50mm,,A curious coathanger shaped asterism or v. poor oc! Large: use binoculars.
 174,6802,,oc,VUL,19,30.6,n20,16,8.8,5',,201,"3 in, 20X",Y,"Nice oc. A rich, elongated cloud of faint stars. Lies near Col 399."
@@ -181,7 +181,7 @@ Nr,NGC/IC,Name,Type,Const,RA Hr,RA Min,Dec Deg,Dec Min,Magnitude,Size,GC Conc or
 180,6939,,oc,CEP,20,31.4,n60,38,7.8,8',,301,"2.4 in, 15X",Y,"Rich, fine oc of fnt stars w/ NGC-6946 in same LP fld! Triangular w/ dark area within."
 181,6940,,oc,VUL,20,34.6,n28,18,6.3,25',,170,10x50mm,Y,"Lovely oc. Lg., rich, football shaped, well resolved. Has lots of oval star patterns!"
 182,6946,,eg,CYG,20,34.8,n60,9,8.8,11'x10',Scd,,"2.4 in, 15X",Y,"Wow! Lg., diffuse, oval shaped egn w/ sm. fuzzy hub. Spiral arms easy in 10 inch."
-183,6960-92,The Veil Nebula,snr,CYG,20,45.7,n30,43,,see Tirion,,,10x50mm,,"WOW! Exquisite snr w/ lots of detail, esp. w/ O III filter. Eastern arc (-6992) is brter."
+183,6960;6992,The Veil Nebula,snr,CYG,20,45.7,n30,43,,see Tirion,,,10x50mm,,"WOW! Exquisite snr w/ lots of detail, esp. w/ O III filter. Eastern arc (-6992) is brter."
 184,7000,The North America Nebula,gn,CYG,20,58.8,n44,20,,100'x60',,,7x50mm,,"Huge, fairly fnt H II nebula: use naked eye or v. LP fld! O III filter really helps here."
 185,7008,,pn,CYG,21,0.6,n54,33,10,98x75,,,"4 in, 50X",,"Exquisite pn rich in detail! Seen as an incomplete, patchy, oval ring in lg. scopes."
 186,7009,The Saturn Nebula,pn,AQR,21,4.2,s11,22,8,44x23,,,"2.4 in, 15X",Y,WOW! Sm. intense bl-grn oval pn shows Saturn features in lg. scopes! Beautiful!
