@@ -1,12 +1,9 @@
-#!/usr/bin/python
-# -*- coding:utf-8 -*-
 """
 This module holds various utils
 and importers used during setup
 
 """
 import sqlite3
-import os
 from PiFinder.obj_types import OBJ_DESCRIPTORS
 from pathlib import Path
 import PiFinder.utils as utils
@@ -17,10 +14,8 @@ def create_logging_tables():
     Creates the base logging tables
     """
 
-    home = Path.home()
-    root_dir = Path(Path.home(), "PiFinder_data")
-    db_path = os.path.join(root_dir, "observations.db")
-    if os.path.exists(db_path):
+    db_path = Path(utils.home_dir, "observations.db")
+    if db_path.exists():
         return db_path
 
     # open the DB
@@ -58,37 +53,37 @@ def create_logging_tables():
     return db_path
 
 
-def decode_description(description):
-    """
-    decodes comma seperated descriptors
-    """
-    result = []
-    codes = description.split(",")
-    for code in codes:
-        code = code.strip()
-        decode = OBJ_DESCRIPTORS.get(code, code)
-        if decode == code:
-            sub_result = []
-            # try splitting on spaces..
-            for sub_code in code.split(" "):
-                decode = OBJ_DESCRIPTORS.get(sub_code, sub_code)
-                sub_result.append(decode)
+# def decode_description(description):
+#     """
+#     decodes comma seperated descriptors
+#     """
+#     result = []
+#     codes = description.split(",")
+#     for code in codes:
+#         code = code.strip()
+#         decode = OBJ_DESCRIPTORS.get(code, code)
+#         if decode == code:
+#             sub_result = []
+#             # try splitting on spaces..
+#             for sub_code in code.split(" "):
+#                 decode = OBJ_DESCRIPTORS.get(sub_code, sub_code)
+#                 sub_result.append(decode)
+#
+#             decode = " ".join(sub_result)
+#
+#         result.append(decode)
+#
+#     return ", ".join(result)
 
-            decode = " ".join(sub_result)
 
-        result.append(decode)
-
-    return ", ".join(result)
-
-
+# not used atm
 def load_deepmap_600():
     """
     loads the deepmap 600 file to add
     better descriptions and flag items
     on the list
     """
-    root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    data_path = os.path.join(root_dir, "astro_data", "deepmap_600.txt")
+    data_path = Path(utils.astro_data_dir, "deepmap_600.txt")
     field_list = [
         "ID",
         "Catalog",
@@ -124,8 +119,7 @@ def init_catalog_tables():
     Creates blank catalog tables
 
     """
-    root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
+    db_path = Path(utils.astro_data_dir, "astro_data", "pifinder_objects.db")
 
     # open the DB
     conn = sqlite3.connect(db_path)
@@ -189,9 +183,8 @@ def dec_to_deg(dec, dec_m, dec_s):
 
 
 def load_collinder():
-    root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
-    if not os.path.exists(db_path):
+    db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
+    if not db_path.exists():
         print("DB does not exists")
         return False
 
@@ -200,7 +193,7 @@ def load_collinder():
     conn.row_factory = sqlite3.Row
     db_c = conn.cursor()
 
-    coll = os.path.join(root_dir, "astro_data", "collinder.txt")
+    coll = Path(utils.astro_data_dir, "collinder.txt")
     with open(coll, "r") as df:
         df.readline()
         for l in df:
@@ -256,7 +249,7 @@ def load_collinder():
         "Asterism": "Ast",
         "Globular cluster": "Gb",
     }
-    coll2 = os.path.join(root_dir, "astro_data", "collinder2.txt")
+    coll2 = Path(utils.astro_data_dir, "collinder2.txt")
     with open(coll2, "r") as df:
         df.readline()
         for l in df:
@@ -379,9 +372,8 @@ def load_sac_asterisms():
 
 
 def load_caldwell():
-    root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
-    if not os.path.exists(db_path):
+    db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
+    if not db_path.exists():
         print("DB does not exists")
         return False
 
@@ -390,7 +382,7 @@ def load_caldwell():
     conn.row_factory = sqlite3.Row
     db_c = conn.cursor()
 
-    cal = os.path.join(root_dir, "astro_data", "caldwell.dat")
+    cal = Path(utils.astro_data_dir, "caldwell.dat")
     with open(cal, "r") as df:
         df.readline()
         for l in df:
@@ -458,9 +450,8 @@ def load_ngc_catalog():
     if not, tries to load ngc2000 data from
     ../../astro_data/ngc2000
     """
-    root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
-    if not os.path.exists(db_path):
+    db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
+    if not db_path.exists():
         print("DB does not exists")
         return False
 
@@ -475,8 +466,8 @@ def load_ngc_catalog():
     # load em up!
     # ngc2000.dat + messier.dat
     ngc_dat_files = [
-        os.path.join(root_dir, "astro_data", "ngc2000", "ngc2000.dat"),
-        os.path.join(root_dir, "astro_data", "messier_objects.dat"),
+        Path(utils.astro_data_dir, "ngc2000", "ngc2000.dat"),
+        Path(utils.astro_data_dir, "messier_objects.dat"),
     ]
     for ngc_dat in ngc_dat_files:
         with open(ngc_dat, "r") as ngc:
@@ -534,8 +525,8 @@ def load_ngc_catalog():
 
     # add records for M objects into objects....
     name_dat_files = [
-        os.path.join(root_dir, "astro_data", "ngc2000", "names.dat"),
-        os.path.join(root_dir, "astro_data", "extra_names.dat"),
+        Path(utils.astro_data_dir, "ngc2000", "names.dat"),
+        Path(utils.astro_data_dir, "ngc2000", "extra_names.dat"),
     ]
     for name_dat in name_dat_files:
         with open(name_dat, "r") as names:
@@ -609,7 +600,7 @@ def load_ngc_catalog():
             conn.commit()
 
     # Now add the messier names
-    name_dat = os.path.join(root_dir, "astro_data", "messier_names.dat")
+    name_dat = Path(utils.astro_data_dir, "messier_names.dat")
     with open(name_dat, "r") as names:
         for i, l in enumerate(names):
             ls = l.split("\t")
@@ -630,3 +621,17 @@ def load_ngc_catalog():
 
                 db_c.execute(q)
         conn.commit()
+
+
+if __name__ == "__main__":
+    print("Starting")
+    # execute all functions
+    print("Creating DB")
+    create_logging_tables()
+    print("creating catalog tables")
+    init_catalog_tables()
+    print("loading catalogs")
+    load_collinder()
+    load_sac_asterisms()
+    load_caldwell()
+    load_ngc_catalog()
