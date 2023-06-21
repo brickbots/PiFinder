@@ -1,37 +1,52 @@
 <!DOCTYPE html>
 <html>
+<head>
+<style>
+body {
+  background-color: #25383c;
+}
+.button {
+  background-color: #111111;
+  color: red;
+  border: none;
+  border-radius:5px;
+  margin: 1px;
+}
+</style>
+<title>PiFinder Remote Control</title>
+</head
 <body>
-<img id="image" src="/image" alt="Image served from Bottle server">
-
-
     <div id="numpad" style="display: flex; justify-content: space-between;">
-        <div style="display: flex; flex-direction: column;">
-            <button onclick="buttonClicked(this, 'A')">A</button>
-            <button onclick="buttonClicked(this, 'B')">B</button>
-            <button onclick="buttonClicked(this, 'C')">C</button>
-            <button onclick="buttonClicked(this, 'D')">D</button>
+        <img id="image" src="/image" alt="Image served from Bottle server">
+
+
+        <div style="display: flex; flex-direction: column; margin: 0px 5px 0px 5px">
+            <button class="button" onclick="buttonClicked(this, 'A')">A</button>
+            <button class="button" onclick="buttonClicked(this, 'B')">B</button>
+            <button class="button" onclick="buttonClicked(this, 'C')">C</button>
+            <button class="button" onclick="buttonClicked(this, 'D')">D</button>
+            <div style="margin-top: 10px;">
+                <button class="button" id="altButton" onclick="buttonPressed(this)">Ent+</button>
+                <button class="button" id="longButton" onclick="buttonPressed(this)">Long</button>
+            </div>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); margin: 0 20px;">
-            <button onclick="buttonClicked(this, '1')">1</button>
-            <button onclick="buttonClicked(this, '2')">2</button>
-            <button onclick="buttonClicked(this, '3')">3</button>
-            <button onclick="buttonClicked(this, '4')">4</button>
-            <button onclick="buttonClicked(this, '5')">5</button>
-            <button onclick="buttonClicked(this, '6')">6</button>
-            <button onclick="buttonClicked(this, '7')">7</button>
-            <button onclick="buttonClicked(this, '8')">8</button>
-            <button onclick="buttonClicked(this, '9')">9</button>
-            <button onclick="buttonClicked(this, '0')" style="grid-column: span 3;">0</button>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); margin: 0px 5px 0px 5px">
+            <button class="button" onclick="buttonClicked(this, '1')">1</button>
+            <button class="button" onclick="buttonClicked(this, '2')">2</button>
+            <button class="button" onclick="buttonClicked(this, '3')">3</button>
+            <button class="button" onclick="buttonClicked(this, '4')">4</button>
+            <button class="button" onclick="buttonClicked(this, '5')">5</button>
+            <button class="button" onclick="buttonClicked(this, '6')">6</button>
+            <button class="button" onclick="buttonClicked(this, '7')">7</button>
+            <button class="button" onclick="buttonClicked(this, '8')">8</button>
+            <button class="button" onclick="buttonClicked(this, '9')">9</button>
+            <button class="button" onclick="buttonClicked(this, '0')" style="grid-column: span 3;">0</button>
         </div>
-        <div style="display: flex; flex-direction: column;">
-            <button onclick="buttonClicked(this, 'UP')">Up</button>
-            <button onclick="buttonClicked(this, 'DN')">Down</button>
-            <button onclick="buttonClicked(this, 'ENT')">Enter</button>
+        <div style="display: flex; flex-direction: column; margin: 0px 5px 0px 5px">
+            <button class="button" onclick="buttonClicked(this, 'UP')">Up</button>
+            <button class="button" onclick="buttonClicked(this, 'DN')">Down</button>
+            <button class="button" onclick="buttonClicked(this, 'ENT')">Enter</button>
         </div>
-    </div>
-    <div style="margin-top: 20px;">
-        <button id="altButton" onclick="buttonPressed(this)">Alt</button>
-        <button id="longButton" onclick="buttonPressed(this)">Long</button>
     </div>
 <script>
         setInterval(function() {
