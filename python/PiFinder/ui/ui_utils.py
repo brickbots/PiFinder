@@ -1,8 +1,10 @@
-import PiFinder.image_util as utils
+import PiFinder.utils as utils
 from PiFinder.ui.fonts import Fonts as fonts
 from typing import Tuple, List
 import textwrap
 import logging
+from pathlib import Path
+import sqlite3
 
 
 class Catalog:
@@ -66,12 +68,25 @@ class SpaceCalculatorFixed:
         return spaces, result
 
 
+def create_catalog_sizes():
+    db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
+    # open the DB
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    db_c = conn.cursor()
+    query = "SELECT catalog, MAX(sequence) FROM objects GROUP BY catalog"
+    db_c.execute(query)
+    result = db_c.fetchall()
+    conn.close()
+    return {row["catalog"]: len(str(row["MAX(sequence)"])) for row in result}
+
+
+CAT_DASHES = create_catalog_sizes()
+
+
 class CatalogDesignator:
     """Holds the string that represents the catalog input/search field.
     Usually looks like 'NGC----' or 'M-13'"""
-
-    # TODO this can be queried from the DB, get the max sequence for each catalog
-    CAT_DASHES = {"NGC": 4, "M": 3, "IC": 4, "C": 3, "Col": 3, "SaA": 3}
 
     def __init__(self, catalog_names, catalog_index):
         self.catalog_names = catalog_names
@@ -117,11 +132,13 @@ class CatalogDesignator:
         return self.catalog_names[self.catalog_index]
 
     def get_catalog_width(self):
-        return self.CAT_DASHES[self.get_catalog_name()]
+        return CAT_DASHES[self.get_catalog_name()]
 
     def get_designator(self):
         number_str = str(self.object_number) if self.object_number > 0 else ""
-        return f"{self.get_catalog_name(): >3}{number_str:->{self.get_catalog_width()}}"
+        return (
+            f"{self.get_catalog_name(): >3} {number_str:->{self.get_catalog_width()}}"
+        )
 
     def __str__(self):
         return self.field
@@ -246,6 +263,11 @@ class TextLayouter(TextLayouterSimple):
         self.pointer = (self.pointer + 1) % (self.nr_lines - self.available_lines + 1)
         self.scrolled = True
         self.updated = True
+
+    def set_text(self, text):
+        super().set_text(text)
+        self.pointer = 0
+        self.nr_lines = len(text)
 
     def draw_arrow(self, down):
         if self.nr_lines > self.available_lines:
