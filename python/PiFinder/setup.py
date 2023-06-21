@@ -7,6 +7,7 @@ import sqlite3
 from PiFinder.obj_types import OBJ_DESCRIPTORS
 from pathlib import Path
 import PiFinder.utils as utils
+import csv
 
 
 def create_logging_tables():
@@ -281,7 +282,7 @@ def load_collinder():
     conn.commit()
 
 
-def load_taas200():
+def load_sac_asterisms():
     db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
     if not db_path.exists():
         print("DB does not exists")
@@ -292,31 +293,17 @@ def load_taas200():
     conn.row_factory = sqlite3.Row
     db_c = conn.cursor()
 
-    import re
-
-    data = Path(utils.astro_data_dir, "taas200.dat")
+    saca = Path(utils.astro_data_dir, "SAC_Asterisms_Ver32_Fence.txt")
     sequence = 0
-    catalog = "Ta2"
-    print("Loading Taas 200")
-    db_c.execute("delete from objects where catalog='Ta2'")
-    db_c.execute("delete from names where catalog='Ta2'")
-
-    lines = input_text.strip().split("\n")
-    headers = re.split(r"\s{2,}", lines[1])  # split header line into parts
-    data_rows = lines[2:]  # data starts from the 2nd line
-
-    with open(output_file_name, "w", newline="") as file:
-        for row in data_rows:
-            row = re.split(r"\s+", row)  # split each data row into parts
-            print(row)
-            writer.writerow(row)  # write each row to the csv
-    with open(data, "r") as df:
+    catalog = "SaA"
+    print("Loading SAC Asterisms")
+    db_c.execute("delete from objects where catalog='SaA'")
+    db_c.execute("delete from names where catalog='SaA'")
+    with open(saca, "r") as df:
         df.readline()
         for l in df:
-            print(l)
-            dfs = re.split(" \t", l)
+            dfs = l.split("|")
             dfs = [d.strip() for d in dfs]
-            print(dfs)
             other_names = dfs[1].strip()
             if other_names == "":
                 continue
@@ -373,7 +360,6 @@ def load_taas200():
                     "{desc}"
                 )
             """
-            print(q)
             db_c.execute(q)
             db_c.execute(
                 f"""
@@ -381,6 +367,98 @@ def load_taas200():
                     values ("{other_names}", "{catalog}", {sequence})
                 """
             )
+
+    conn.commit()
+
+
+def load_taas200():
+    db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
+    if not db_path.exists():
+        print("DB does not exists")
+        return False
+
+    # open the DB
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    db_c = conn.cursor()
+
+    import re
+
+    data = Path(utils.astro_data_dir, "TAAS_200.csv")
+    sequence = 0
+    catalog = "Ta2"
+    print("Loading Taas 200")
+    db_c.execute("delete from objects where catalog='Ta2'")
+    db_c.execute("delete from names where catalog='Ta2'")
+
+    with open(data, "r") as f:
+        reader = csv.DictReader(f)
+
+        # Iterate over each row in the file
+        for row in reader:
+            print(row)
+            sequence = int(row["Nr"])
+            ngc = row["NGC/IC"]
+            other_names = row["Name"]
+            const = row["Const"]
+            type = row["Type"]
+            ra = ra_to_deg(float(row["RA Hr"]), float(row["RA Min"]), 0)
+            dec_deg = row["Dec Deg"]
+            dec_deg = (
+                float(dec_deg[1:]) if dec_deg[0] == "n" else float(dec_deg[1:]) * -1
+            )
+            dec = dec_to_deg(dec_deg, float(row["Dec Min"]), 0)
+            mag = row["Magnitude"]
+            size = row["Size"]
+            desc = row["Description"]
+            nr_stars = row["# Stars"]
+            gc = row["GC Conc or Class"]
+            h400 = row["Herschel 400"]
+            min_ap = row["Min Aperture"]
+            extra = []
+            extra.append(f"{f'Min apert: {min_ap}' if min_ap != '' else ''}")
+            extra.append(f"{f'Nr *:{nr_stars}' if nr_stars != '' else ''}")
+            extra.append(f"{f'GC:{gc}' if gc != '' else ''}")
+            extra.append(f"{f'in Herschel 400' if h400 == 'Y' else ''}")
+            extra = [x for x in extra if x]
+            if len(extra) > 0:
+                extra_desc = "\n" + "; ".join(extra)
+                desc += extra_desc
+            print(desc)
+
+            if mag == "none":
+                mag = "null"
+
+            q = f"""
+                insert into objects(
+                    catalog,
+                    sequence,
+                    obj_type,
+                    ra,
+                    dec,
+                    const,
+                    size,
+                    mag,
+                    desc
+                )
+                values (
+                    "{catalog}",
+                    {sequence},
+                    "{type}",
+                    {ra},
+                    {dec},
+                    "{const}",
+                    "{size}",
+                    "{mag}",
+                    "{desc}"
+                )
+            """
+            db_c.execute(q)
+            names = f"""
+                    insert into names(common_name, catalog, sequence)
+                    values ("{other_names}", "{catalog}", {sequence})
+                """
+            db_c.execute(names)
 
     conn.commit()
 
@@ -540,7 +618,7 @@ def load_ngc_catalog():
     # add records for M objects into objects....
     name_dat_files = [
         Path(utils.astro_data_dir, "ngc2000", "names.dat"),
-        Path(utils.astro_data_dir, "ngc2000", "extra_names.dat"),
+        Path(utils.astro_data_dir, "extra_names.dat"),
     ]
     for name_dat in name_dat_files:
         with open(name_dat, "r") as names:

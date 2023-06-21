@@ -269,6 +269,10 @@ class UICatalog(UIModule):
                 f"Mag:{obj_mag}", f"Sz:{size}"
             )
             if spaces == -1:
+                spaces, magsize = self.space_calculator.calculate_spaces(
+                    f"Mag:{obj_mag}", size
+                )
+            if spaces == -1:
                 spaces, magsize = self.space_calculator.calculate_spaces(obj_mag, size)
 
             self.texts["magsize"] = self.SimpleTextLayout(
@@ -290,7 +294,7 @@ class UICatalog(UIModule):
 
             if self.object_display_mode == DM_DESC:
                 # NGC description....
-                desc = self.cat_object["desc"].replace("\t", " ").replace("\n", "")
+                desc = self.cat_object["desc"].replace("\t", " ")
                 self.descTextLayout.set_text(desc)
                 self.texts["desc"] = self.descTextLayout
 
