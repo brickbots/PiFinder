@@ -4,10 +4,12 @@ and importers used during setup
 
 """
 import sqlite3
+from sqlite3 import Connection, Cursor
 from PiFinder.obj_types import OBJ_DESCRIPTORS
 from pathlib import Path
 import PiFinder.utils as utils
 import csv
+from typing import Tuple
 
 
 def create_logging_tables():
@@ -121,6 +123,17 @@ def init_catalog_tables():
         """
     )
 
+    db_c.execute("drop table if exists catalogs")
+    db_c.execute(
+        """
+           CREATE TABLE catalogs(
+                catalog TEXT,
+                max_sequence INTEGER,
+                desc TEXT
+           )
+        """
+    )
+
 
 def ra_to_deg(ra_h, ra_m, ra_s):
     ra_deg = ra_h
@@ -146,10 +159,10 @@ def dec_to_deg(dec, dec_m, dec_s):
     return dec_deg
 
 
-def get_database(db_path):
+def get_database(db_path) -> Tuple[Connection, Cursor]:
     if not db_path.exists():
         print("DB does not exists")
-        return False
+        return None, None
 
     # open the DB
     conn = sqlite3.connect(db_path)
@@ -158,7 +171,7 @@ def get_database(db_path):
     return conn, db_c
 
 
-def get_pifinder_database():
+def get_pifinder_database() -> Tuple[Connection, Cursor]:
     return get_database(Path(utils.astro_data_dir, "pifinder_objects.db"))
 
 
@@ -547,6 +560,32 @@ def insert_names(db_c, catalog, sequence, name):
     db_c.execute(nameq)
 
 
+def insert_catalog(catalog_name, description_path):
+    with open(description_path, "r") as desc:
+        description = "".join(desc.readlines())
+
+    conn, db_c = get_pifinder_database()
+    max_sequence = get_catalog_sizes(catalog_name)[catalog_name]
+
+    catalogq = f"""
+            insert into catalogs(catalog, max_sequence, desc)
+            values ("{catalog_name}", "{max_sequence}", "{description}")
+        """
+    print(catalogq)
+    db_c.execute(catalogq)
+    conn.commit()
+    conn.close()
+
+
+def get_catalog_sizes(catalog_name):
+    conn, db_c = get_pifinder_database()
+    query = f"SELECT catalog, MAX(sequence) FROM objects where catalog = '{catalog_name}' GROUP BY catalog"
+    db_c.execute(query)
+    result = db_c.fetchall()
+    conn.close()
+    return {row["catalog"]: row["MAX(sequence)"] for row in result}
+
+
 def load_caldwell():
     db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
     if not db_path.exists():
@@ -626,15 +665,9 @@ def load_ngc_catalog():
     if not, tries to load ngc2000 data from
     ../../astro_data/ngc2000
     """
-    db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
-    if not db_path.exists():
-        print("DB does not exists")
+    conn, db_c = get_pifinder_database()
+    if not conn:
         return False
-
-    # open the DB
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    db_c = conn.cursor()
 
     # Track M objects to avoid double adding some with
     # multiple NGC sequences
@@ -797,6 +830,9 @@ def load_ngc_catalog():
 
                 db_c.execute(q)
         conn.commit()
+
+    # insert catalog descriptions
+    insert_catalog("NGC", Path(utils.astro_data_dir, "ngc2000", "ngc.desc"))
 
 
 if __name__ == "__main__":
