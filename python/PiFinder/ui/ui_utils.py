@@ -68,6 +68,8 @@ class SpaceCalculatorFixed:
         return spaces, result
 
 
+# determine what the highest sequence nr of a catalog is,
+# so we can determine the nr of dashes to show
 def create_catalog_sizes():
     db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
     # open the DB
@@ -206,23 +208,31 @@ class TextLayouterScroll(TextLayouterSimple):
             return
         self.dtext = text + " " * 6 + text
         self.dtextlen = len(self.dtext)
-        self.counter = 0
-        self.scrollspeed = scrollspeed
+        self.counter_max = 3000
+        self.set_scrollspeed(scrollspeed)
 
     def set_scrollspeed(self, scrollspeed: float):
         self.scrollspeed = float(scrollspeed)
+        self.counter = 0
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
+        logging.debug(
+            f"Layouting {self.text=}, {self.textlen=}, {self.pointer=}, {self.counter=}, {self.scrollspeed=}"
+        )
         if self.textlen > self.width and self.scrollspeed > 0:
-            if self.counter % 3000 == 0:
+            logging.debug(f"Inside if")
+            if self.counter == 0:
+                logging.debug(f"Inside uphane branch")
                 self.object_text: List[str] = [
                     self.dtext[self.pointer : self.pointer + self.width]
                 ]
                 self.pointer = (self.pointer + 1) % (self.textlen + 6)
+            # start goes slower
             if self.pointer == 1:
-                self.counter += 100
+                self.counter = (self.counter + 100) % self.counter_max
+            # regular scrolling
             else:
-                self.counter += self.scrollspeed
+                self.counter = (self.counter + self.scrollspeed) % self.counter_max
         elif self.updated:
             self.object_text: List[str] = [self.text]
             self.updated = False
