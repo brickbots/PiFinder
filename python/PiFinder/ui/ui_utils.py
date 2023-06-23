@@ -198,23 +198,23 @@ class TextLayouterScroll(TextLayouterSimple):
         width=fonts.base_width,
         scrollspeed=MEDIUM,
     ):
-        super().__init__(text, draw, color, font, width)
         self.pointer = 0
         self.textlen = len(text)
         self.updated = True
-        if self.textlen < self.width:
-            return
-        self.dtext = text + " " * 6 + text
-        self.dtextlen = len(self.dtext)
-        self.counter = 0
-        self.scrollspeed = scrollspeed
+        if self.textlen >= width:
+            self.dtext = text + " " * 6 + text
+            self.dtextlen = len(self.dtext)
+            self.counter = 0
+            self.counter_max = 3000
+            self.set_scrollspeed(scrollspeed)
+        super().__init__(text, draw, color, font, width)
 
     def set_scrollspeed(self, scrollspeed: float):
         self.scrollspeed = float(scrollspeed)
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.textlen > self.width and self.scrollspeed > 0:
-            if self.counter % 3000 == 0:
+            if self.counter == 0:
                 self.object_text: List[str] = [
                     self.dtext[self.pointer : self.pointer + self.width]
                 ]
