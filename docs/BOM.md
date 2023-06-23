@@ -13,7 +13,7 @@ These are the electronic bits needed to build the Display/Keypad unit that fits 
 | 17  | Red 1.8 mm (miniplast) leds| https://www.mouser.com/ProductDetail/78-TLUR2401                                                        | These need to be 2.5W x 3.3L x 3H to fit properly|
 | 1   | 2N222A NPN Transistor | https://www.mouser.com/ProductDetail/637-2N2222A                                                        | Diptonics DTS63K 1nm recommended                                                      |
 | 1   | 22ohm Axial Resistor | | R01 - 5% - 1/4w |
-| 1   | 330ohm Axial Resistor | R02 - 5% - 1/4w | |
+| 1   | 330ohm Axial Resistor| | R02 - 5% - 1/4w | 
 | 1   | Waveshare 1.5 RGB Oled                       | [https://www.waveshare.com/wiki/1.5inch_RGB_OLED_Module](https://www.waveshare.com/wiki/1.5inch_RGB_OLED_Module)      |                                                                                       |
 | 1   | Adafruit IMU Fusion Breakout - BNO055        | https://www.adafruit.com/product/4646                   |                                                                                       |
 | 1   | 2x20 40 Pin Stacking Female Header           | https://www.amazon.com/dp/B0827THC7R                    | Depending on your heatsink/clearance you'll need long pins on this to make up the gap |
