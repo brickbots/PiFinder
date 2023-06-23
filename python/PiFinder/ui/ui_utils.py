@@ -208,6 +208,7 @@ class TextLayouterScroll(TextLayouterSimple):
             return
         self.dtext = text + " " * 6 + text
         self.dtextlen = len(self.dtext)
+        self.counter = 0
         self.counter_max = 3000
         self.set_scrollspeed(scrollspeed)
 
