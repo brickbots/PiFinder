@@ -14,6 +14,7 @@ from pathlib import Path
 
 from PiFinder import solver, obslog, cat_images
 from PiFinder.obj_types import OBJ_TYPES
+import PiFinder.utils as utils
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder.ui.ui_utils import (
@@ -22,6 +23,7 @@ from PiFinder.ui.ui_utils import (
     TextLayouterSimple,
     CatalogDesignator,
     SpaceCalculatorFixed,
+    Catalog,
 )
 from PiFinder import calc_utils
 import functools
@@ -124,13 +126,14 @@ class UICatalog(UIModule):
                 "No Object Found", font=self.font_bold, color=self.colors.get(255)
             ),
         }
-        self.designatorobj = CatalogDesignator(self.__catalog_names, self.catalog_index)
-        root_dir = os.path.realpath(
-            os.path.join(os.path.dirname(__file__), "..", "..", "..")
-        )
-        db_path = os.path.join(root_dir, "astro_data", "pifinder_objects.db")
+        db_path = os.path.join(utils.astro_data_dir, "pifinder_objects.db")
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
+        self.load_catalogs()
+        catalog = self.__catalogs[self.__catalog_names[self.catalog_index]]
+        self.designatorobj = CatalogDesignator(
+            self.__catalog_names, self.catalog_index, catalog.dashes
+        )
         self.font_large = fonts.large
 
         self.object_display_mode = DM_DESC
@@ -140,7 +143,6 @@ class UICatalog(UIModule):
         self.fov_list = [1, 0.5, 0.25, 0.125]
         self.fov_index = 0
 
-        self.load_catalogs()
         self.set_catalog()
 
     def layout_designator(self):
@@ -219,10 +221,19 @@ class UICatalog(UIModule):
             f"In update_oject_info, {self.cat_object=}, {self.catalog_index=}, {self._catalog_item_index=}"
         )
         if not self.cat_object:
-            self.texts["type-const"] = self.SimpleTextLayout(
-                "No Object Found", font=fonts.bold, color=self.colors.get(255)
-            )
+            # self.texts["type-const"] = self.SimpleTextLayout(
+            #     "No Object Found", font=fonts.bold, color=self.colors.get(255)
+            # )
             self.texts = {}
+            self.texts["type-const"] = TextLayouter(
+                self.__catalogs[self.__catalog_names[self.catalog_index]].description,
+                draw=self.draw,
+                colors=self.colors,
+                font=fonts.base,
+                color=self.colors.get(255),
+                available_lines=7,
+            )
+            print("have set it", self.texts["type-const"])
             return
 
         if self.object_display_mode in [DM_DESC, DM_OBS]:
@@ -440,7 +451,24 @@ class UICatalog(UIModule):
                 order by sequence
             """
             ).fetchall()
-            self.__catalogs[catalog_name] = [dict(x) for x in cat_objects]
+            cat_data = self.conn.execute(
+                f"""
+                SELECT * from catalogs
+                where catalog='{catalog_name}'
+            """
+            ).fetchone()
+            print(cat_data)
+            if cat_data:
+                catalog = Catalog(
+                    catalog_name,
+                    [dict(x) for x in cat_objects],
+                    len(str(cat_data["max_sequence"])),
+                    cat_data["desc"],
+                )
+            else:
+                catalog = Catalog(catalog_name, [dict(x) for x in cat_objects], 0, "")
+            print(f"catalog {catalog_name} has {len(catalog.objects)} objects")
+            self.__catalogs[catalog_name] = catalog
 
     def set_catalog(self):
         """
@@ -458,7 +486,7 @@ class UICatalog(UIModule):
         load_start_time = time.time()
 
         # first get count of full catalog
-        full_count = len(self.__catalogs[catalog_name])
+        full_count = len(self.__catalogs[catalog_name].objects)
 
         self._filtered_catalog = []
         magnitude_filter = self._config_options["Magnitude"]["value"]
@@ -483,7 +511,7 @@ class UICatalog(UIModule):
             # setup
             observed_list = obslog.get_observed_objects()
 
-        for obj in self.__catalogs[catalog_name]:
+        for obj in self.__catalogs[catalog_name].objects:
             include_obj = True
 
             # try to get object mag to float

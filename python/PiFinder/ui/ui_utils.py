@@ -10,8 +10,11 @@ import sqlite3
 class Catalog:
     """Keeps catalog data + keeps track of current catalog/object"""
 
-    def __init__(self):
-        pass
+    def __init__(self, name, objects, dashes, description):
+        self.name = name
+        self.objects = objects
+        self.dashes = dashes
+        self.description = description
 
 
 class SpaceCalculator:
@@ -88,10 +91,11 @@ class CatalogDesignator:
     """Holds the string that represents the catalog input/search field.
     Usually looks like 'NGC----' or 'M-13'"""
 
-    def __init__(self, catalog_names, catalog_index):
+    def __init__(self, catalog_names, catalog_index, dashes):
         self.catalog_names = catalog_names
         self.catalog_index = catalog_index
         self.object_number = 0
+        self.dashes = dashes
         self.field = self.get_designator()
 
     def set_target(self, catalog_index, number=0):
@@ -132,7 +136,7 @@ class CatalogDesignator:
         return self.catalog_names[self.catalog_index]
 
     def get_catalog_width(self):
-        return CAT_DASHES[self.get_catalog_name()]
+        return self.dashes
 
     def get_designator(self):
         number_str = str(self.object_number) if self.object_number > 0 else ""
@@ -295,3 +299,6 @@ class TextLayouter(TextLayouterSimple):
         self.draw_arrow(not up)
         self.updated = False
         self.scrolled = False
+
+    def __str__(self):
+        return "\n".join(self.object_text)
