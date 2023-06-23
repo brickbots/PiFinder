@@ -303,7 +303,9 @@ class UICatalog(UIModule):
                 if len(logs) == 0:
                     self.texts["obs"] = self.SimpleTextLayout("No Logs")
                 else:
-                    self.texts["obs"] = self.descTextLayout(f"Logged {len(logs)} times")
+                    self.texts["obs"] = self.descTextLayout.set_text(
+                        f"Logged {len(logs)} times"
+                    )
         else:
             # Image stuff...
             if self.object_display_mode == DM_SDSS:
