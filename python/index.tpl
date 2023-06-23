@@ -50,9 +50,22 @@ body {
     </div>
 <script>
         setInterval(function() {
-               const imageElement = document.getElementById('image');
-               imageElement.src = "/image?t=" + new Date().getTime();
-        }, 1000);
+                const imageElement = document.getElementById('image');
+                fetch("/image?t=" + new Date().getTime())
+                    .then(response => {
+                        if (!response.ok) { throw Error(response.statusText); }
+                        return response.blob();
+                    })
+                    .then(imageBlob => {
+                        let imageObjectURL = URL.createObjectURL(imageBlob);
+                        imageElement.src = imageObjectURL;
+                    })
+                    .catch(error => {
+                        console.log(error);
+                        // When the image can't be fetched, display a static message
+                        imageElement.parentNode.innerHTML = "<p>PiFinder server is currently unavailable. Please try again later.</p>";
+                    });
+            }, 1000);
 
         function buttonPressed(btn) {
             const altButton = document.getElementById("altButton");
