@@ -218,7 +218,7 @@ class UICatalog(UIModule):
         Generates object text and loads object images
         """
         logging.debug(
-            f"In update_oject_info, {self.cat_object=}, {self.catalog_index=}, {self._catalog_item_index=}"
+            f"Catalog>update_object_info(), {self.cat_object=}, {self.catalog_index=}, {self._catalog_item_index=}"
         )
         if not self.cat_object:
             # self.texts["type-const"] = self.SimpleTextLayout(
@@ -314,7 +314,9 @@ class UICatalog(UIModule):
                 if len(logs) == 0:
                     self.texts["obs"] = self.SimpleTextLayout("No Logs")
                 else:
-                    self.texts["obs"] = self.DescTextLayout(f"Logged {len(logs)} times")
+                    self.texts["obs"] = self.descTextLayout.set_text(
+                        f"Logged {len(logs)} times"
+                    )
         else:
             # Image stuff...
             if self.object_display_mode == DM_SDSS:
@@ -403,11 +405,7 @@ class UICatalog(UIModule):
         return self.screen_update()
 
     def key_d(self):
-        # d is for delete
-        # self.designator = self.designatorobj.reset_number()
-        # self.cat_object = None
-        # self._catalog_item_index = 0
-        # self.update_object_info()
+        # d is for next line of description
         self.descTextLayout.next()
 
     def delete(self):

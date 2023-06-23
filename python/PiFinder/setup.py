@@ -17,7 +17,7 @@ def create_logging_tables():
     Creates the base logging tables
     """
 
-    db_path = Path(utils.home_dir, "observations.db")
+    db_path = Path(utils.data_dir, "observations.db")
     if db_path.exists():
         return db_path
 
