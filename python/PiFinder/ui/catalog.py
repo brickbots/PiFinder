@@ -26,6 +26,7 @@ from PiFinder.ui.ui_utils import (
 from PiFinder import calc_utils
 import functools
 import logging
+import itertools
 
 
 # Constants for display modes
@@ -95,6 +96,12 @@ class UICatalog(UIModule):
             "value": "",
             "options": ["CANCEL", 5, 10, 15, 20],
             "callback": "push_near",
+        },
+        "Push All Near": {
+            "type": "enum",
+            "value": "",
+            "options": ["CANCEL", 5, 10, 15, 20],
+            "callback": "push_all_near",
         },
     }
 
@@ -196,6 +203,36 @@ class UICatalog(UIModule):
 
             # Filter the catalog one last time
             self.set_catalog()
+            self.message(f"Near {option} Pushed", 2)
+
+            if option > len(self._filtered_catalog):
+                near_catalog = self._filtered_catalog
+            else:
+                near_catalog = get_closest_objects(
+                    self._filtered_catalog, solution["RA"], solution["Dec"], option
+                )
+            self.ui_state["observing_list"] = near_catalog
+            self.ui_state["active_list"] = self.ui_state["observing_list"]
+            self.ui_state["target"] = self.ui_state["active_list"][0]
+            return "UILocate"
+        else:
+            return False
+
+    def push_all_near(self, option):
+        self._config_options["Push All Near"]["value"] = ""
+        if option != "Cncl":
+            solution = self.shared_state.solution()
+            if not solution:
+                self.message(f"No Solve!", 1)
+                return False
+
+            # Filter the catalog one last time
+            self.set_catalog()
+            self._filtered_catalog = list(itertools.chain(*self.__catalogs.values()))
+            print(f"Filtered Catalog - all: {len(self._filtered_catalog)}")
+            self._filtered_catalog = self.filter_catalog(self._filtered_catalog)
+            print(f"Filtered Catalog - filtered: {len(self._filtered_catalog)}")
+
             self.message(f"Near {option} Pushed", 2)
 
             if option > len(self._filtered_catalog):
@@ -522,6 +559,64 @@ class UICatalog(UIModule):
                 self._catalog_item_index = self._filtered_catalog.index(selected_object)
             else:
                 self._catalog_item_index = 0
+
+    def filter_catalog(self, catalog):
+        filtered_catalog = []
+        magnitude_filter = self._config_options["Magnitude"]["value"]
+        type_filter = self._config_options["Obj Types"]["value"]
+        altitude_filter = self._config_options["Alt Limit"]["value"]
+        observed_filter = self._config_options["Observed"]["value"]
+        fast_aa = None
+        if altitude_filter != "None":
+            # setup
+            solution = self.shared_state.solution()
+            location = self.shared_state.location()
+            dt = self.shared_state.datetime()
+            if location and dt and solution:
+                fast_aa = calc_utils.FastAltAz(
+                    location["lat"],
+                    location["lon"],
+                    dt,
+                )
+        if observed_filter != "Any":
+            # setup
+            observed_list = obslog.get_observed_objects()
+
+        for obj in catalog:
+            include_obj = True
+
+            # try to get object mag to float
+            try:
+                obj_mag = float(obj["mag"])
+            except (ValueError, TypeError):
+                obj_mag = 99
+
+            if magnitude_filter != "None" and obj_mag >= magnitude_filter:
+                include_obj = False
+
+            if type_filter != ["None"] and obj["obj_type"] not in type_filter:
+                include_obj = False
+
+            if fast_aa:
+                obj_altitude = fast_aa.radec_to_altaz(
+                    obj["ra"],
+                    obj["dec"],
+                    alt_only=True,
+                )
+                if obj_altitude < altitude_filter:
+                    include_obj = False
+
+            if observed_filter != "Any":
+                if (obj["catalog"], obj["sequence"]) in observed_list:
+                    if observed_filter == "No":
+                        include_obj = False
+                else:
+                    if observed_filter == "Yes":
+                        include_obj = False
+
+            if include_obj:
+                filtered_catalog.append(obj)
+        return filtered_catalog
 
     def background_update(self):
         if time.time() - self.__last_filtered > 60:
