@@ -495,64 +495,7 @@ class UICatalog(UIModule):
         # first get count of full catalog
         full_count = len(self.__catalogs[catalog_name])
 
-        self._filtered_catalog = []
-        magnitude_filter = self._config_options["Magnitude"]["value"]
-        type_filter = self._config_options["Obj Types"]["value"]
-        altitude_filter = self._config_options["Alt Limit"]["value"]
-        observed_filter = self._config_options["Observed"]["value"]
-
-        fast_aa = None
-        if altitude_filter != "None":
-            # setup
-            solution = self.shared_state.solution()
-            location = self.shared_state.location()
-            dt = self.shared_state.datetime()
-            if location and dt and solution:
-                fast_aa = calc_utils.FastAltAz(
-                    location["lat"],
-                    location["lon"],
-                    dt,
-                )
-
-        if observed_filter != "Any":
-            # setup
-            observed_list = obslog.get_observed_objects()
-
-        for obj in self.__catalogs[catalog_name]:
-            include_obj = True
-
-            # try to get object mag to float
-            try:
-                obj_mag = float(obj["mag"])
-            except (ValueError, TypeError):
-                obj_mag = 0
-
-            if magnitude_filter != "None" and obj_mag >= magnitude_filter:
-                include_obj = False
-
-            if type_filter != ["None"] and obj["obj_type"] not in type_filter:
-                include_obj = False
-
-            if fast_aa:
-                obj_altitude = fast_aa.radec_to_altaz(
-                    obj["ra"],
-                    obj["dec"],
-                    alt_only=True,
-                )
-                if obj_altitude < altitude_filter:
-                    include_obj = False
-
-            if observed_filter != "Any":
-                if (obj["catalog"], obj["sequence"]) in observed_list:
-                    if observed_filter == "No":
-                        include_obj = False
-                else:
-                    if observed_filter == "Yes":
-                        include_obj = False
-
-            if include_obj:
-                self._filtered_catalog.append(obj)
-
+        self._filtered_catalog = self.filter_catalog(self.__catalogs[catalog_name])
         self._catalog_count = (full_count, len(self._filtered_catalog))
         if self._catalog_item_index:
             if selected_object in self._filtered_catalog:
