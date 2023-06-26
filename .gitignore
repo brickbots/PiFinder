@@ -135,11 +135,14 @@ temp/
 tetra3/
 dev/
 *_test.py
-*.gcode
 datasheets/
 kicad/PiFinder/PiFinder-backups
 .obsidian
 *.ps?
 config.json
+
+# 3d printing business
 *.3mf
+*.gcode
+case/my_printer
 
