@@ -91,8 +91,6 @@ class Catalog:
             # setup
             observed_list = obslog.get_observed_objects()
 
-        print(f"filtering {len(self.objects)} objects")
-        print(f"Objects type: {type(self.objects)}")
         for key, obj in self.objects.items():
             # print(f"filtering {obj}")
             include_obj = True
@@ -187,6 +185,9 @@ class CatalogDesignator:
     def __str__(self):
         return self.field
 
+    def __repr__(self):
+        return self.field
+
 
 class CatalogTracker:
     object_tracker: Dict[str, Optional[int]]
@@ -262,6 +263,7 @@ class CatalogTracker:
 
     def set_current_object(self, object_number, catalog_name=None):
         catalog_name = self._get_catalog_name(catalog_name)
+        self.current_catalog_name = catalog_name
         self.object_tracker[catalog_name] = object_number
         self.designator_tracker[catalog_name].set_number(
             object_number if object_number else 0
@@ -293,7 +295,6 @@ class CatalogTracker:
         return catalog_list
 
     def filter(self, catalogs=None):
-        logging.debug("filtering catalogs")
         catalog_list: List[Catalog] = self._select_catalogs(catalogs=catalogs)
         magnitude_filter = self.config_options["Magnitude"]["value"]
         type_filter = self.config_options["Obj Types"]["value"]

@@ -308,14 +308,12 @@ class UICatalog(UIModule):
 
     def active(self):
         # trigger refilter
-        logging.debug(f"In active, with target = {self.ui_state['target']}")
         self.catalog_tracker.filter()
         target = self.ui_state["target"]
         if target:
             self.catalog_tracker.set_current_object(
                 target["sequence"], target["catalog"]
             )
-            logging.debug(f"Set current object to {target['sequence']}")
             self.update_object_info()
 
     def update(self, force=True):
