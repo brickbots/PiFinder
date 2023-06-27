@@ -11,9 +11,8 @@ import adafruit_bno055
 
 from scipy.spatial.transform import Rotation
 
-QUEUE_LEN = 50
-AVG_LEN = 2
-MOVE_CHECK_LEN = 10
+QUEUE_LEN = 10
+MOVE_CHECK_LEN = 2
 
 
 class Imu:
@@ -31,11 +30,10 @@ class Imu:
             adafruit_bno055.AXIS_REMAP_POSITIVE,
         )
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
-        self.flip_count = 0
-        self.avg_quat = (0, 0, 0, 0)
         self.__moving = False
-        self.__moving_decay = 0
+        self.__moving_threshold = (0.005, 0.001)
         self.calibration = 0
+        self.avg_quat = (0, 0, 0, 0)
 
     def quat_to_euler(self, quat):
         if quat[0] + quat[1] + quat[2] + quat[3] == 0:
@@ -53,31 +51,20 @@ class Imu:
         Compares most recent reading
         with past readings
         """
-        diff_list = []
-        # compare last MOVE_CHECK_LEN quats
-        for quat in self.quat_history[-MOVE_CHECK_LEN:]:
-            diff = (
-                abs(quat[0] - self.quat_history[-MOVE_CHECK_LEN][0])
-                + abs(quat[1] - self.quat_history[-MOVE_CHECK_LEN][1])
-                + abs(quat[2] - self.quat_history[-MOVE_CHECK_LEN][2])
-                + abs(quat[3] - self.quat_history[-MOVE_CHECK_LEN][3])
-            )
-            diff_list.append(diff)
-
-        self.__moving = True
-        last_diff = diff_list[0]
-        for diff in diff_list[1:]:
-            if diff <= last_diff:
-                self.__moving_decay -= 1
-                self.__moving = False
-            last_diff = diff
+        self.__reading_diff = (
+            abs(self.quat_history[-1][0] - self.quat_history[-MOVE_CHECK_LEN][0])
+            + abs(self.quat_history[-1][1] - self.quat_history[-MOVE_CHECK_LEN][1])
+            + abs(self.quat_history[-1][2] - self.quat_history[-MOVE_CHECK_LEN][2])
+            + abs(self.quat_history[-1][3] - self.quat_history[-MOVE_CHECK_LEN][3])
+        )
         if self.__moving:
-            self.__moving_decay = 30
+            if self.__reading_diff < self.__moving_threshold[1]:
+                self.__moving = False
+        else:
+            if self.__reading_diff > self.__moving_threshold[0]:
+                self.__moving = True
 
-        if self.__moving_decay < 0:
-            return False
-
-        return True
+        return self.__moving
 
     def flip(self, quat):
         """
@@ -95,12 +82,8 @@ class Imu:
             + abs(quat[3] - self.quat_history[-1][3])
         )
         if dif > 0.1:
-            self.flip_count += 1
-            if self.flip_count > 10:
-                return False
             return True
         else:
-            self.flip_count = 0
             return False
 
     def update(self):
@@ -114,28 +97,13 @@ class Imu:
             return
 
         if not self.flip(quat):
+            self.avg_quat = quat
             if len(self.quat_history) == QUEUE_LEN:
                 self.quat_history = self.quat_history[1:]
-            self.quat_history.append(quat)
-            self.calc_avg_quat()
+            if self.moving():
+                print("M", self.quat_to_euler(quat))
 
-    def calc_avg_quat(self):
-        quat = [0, 0, 0, 0]
-        if not self.__moving:
-            self.avg_quat = self.quat_history[-1]
-
-        for q in self.quat_history[-AVG_LEN:]:
-            quat[0] += q[0]
-            quat[1] += q[1]
-            quat[2] += q[2]
-            quat[3] += q[3]
-
-        self.avg_quat = (
-            quat[0] / AVG_LEN,
-            quat[1] / AVG_LEN,
-            quat[2] / AVG_LEN,
-            quat[3] / AVG_LEN,
-        )
+        self.quat_history.append(quat)
 
     def get_euler(self):
         return list(self.quat_to_euler(self.avg_quat))
