@@ -16,6 +16,8 @@ from PiFinder.ui.ui_utils import (
     TextLayouter,
     TextLayouterSimple,
     SpaceCalculatorFixed,
+)
+from PiFinder.catalogs import (
     CatalogTracker,
 )
 from PiFinder import calc_utils
@@ -183,9 +185,8 @@ class UICatalog(UIModule):
         """
         Generates object text and loads object images
         """
-        logging.debug(f"In update_object_info, {self.catalog_tracker=}")
+        logging.debug(f"update_object_info with {self.catalog_tracker}")
         cat_object = self.catalog_tracker.get_current_object()
-        logging.debug(f"cat_object={cat_object}")
         if not cat_object and not self.catalog_tracker.get_designator().has_number():
             # self.texts["type-const"] = self.SimpleTextLayout(
             #     "No Object Found", font=fonts.bold, color=self.colors.get(255)
@@ -386,17 +387,14 @@ class UICatalog(UIModule):
 
     def key_c(self):
         # C is for catalog
-        # Reset any sequence....
         self.catalog_tracker.next_catalog()
         self.catalog_tracker.filter()
-        logging.debug(f"after key_c, catalog is {self.catalog_tracker.current}")
         self.update_object_info()
 
     def key_long_c(self):
         self.delete()
         self.catalog_tracker.previous_catalog()
         self.catalog_tracker.filter()
-        logging.debug(f"after key_long_c, catalog is {self.catalog_tracker.current}")
         self.update_object_info()
 
     def key_b(self):
