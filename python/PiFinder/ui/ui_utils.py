@@ -212,15 +212,11 @@ class TextLayouterScroll(TextLayouterSimple):
             self.set_scrollspeed(scrollspeed)
         super().__init__(text, draw, color, font, width)
 
-
     def set_scrollspeed(self, scrollspeed: float):
         self.scrollspeed = float(scrollspeed)
         self.counter = 0
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
-        logging.debug(
-            f"Layouting {self.text=}, {self.textlen=}, {self.pointer=}, {self.counter=}, {self.scrollspeed=}"
-        )
         if self.textlen > self.width and self.scrollspeed > 0:
             if self.counter == 0:
                 self.object_text: List[str] = [
