@@ -187,26 +187,12 @@ class UICatalog(UIModule):
         """
         logging.debug(f"update_object_info with {self.catalog_tracker}")
         cat_object = self.catalog_tracker.get_current_object()
-        if not cat_object and not self.catalog_tracker.get_designator().has_number():
-            # self.texts["type-const"] = self.SimpleTextLayout(
-            #     "No Object Found", font=fonts.bold, color=self.colors.get(255)
-            # )
+        if not cat_object:
+            has_number = self.catalog_tracker.get_designator().has_number()
             self.texts = {}
             self.texts["type-const"] = TextLayouter(
                 # self.catalog_tracker.get_current_object().description,
-                "No object selected",
-                draw=self.draw,
-                colors=self.colors,
-                font=fonts.base,
-                color=self.colors.get(255),
-                available_lines=7,
-            )
-            return
-
-        elif not cat_object and self.catalog_tracker.get_designator().has_number():
-            self.texts = {}
-            self.texts["type-const"] = TextLayouter(
-                "Object not found",
+                "No object selected" if not has_number else "Object not found",
                 draw=self.draw,
                 colors=self.colors,
                 font=fonts.base,
@@ -443,6 +429,7 @@ class UICatalog(UIModule):
 
         if searching_for in self.catalog_tracker.current.filtered_objects:
             self.catalog_tracker.set_current_object(searching_for)
+            return True
         else:
             logging.debug("find by designator, no match found")
             self.catalog_tracker.set_current_object(None)
@@ -454,7 +441,7 @@ class UICatalog(UIModule):
             designator = self.catalog_tracker.get_designator()
             designator.append_number(number)
             # Check for match
-            found = self.find_by_designator(designator)
+            self.find_by_designator(designator)
             self.update_object_info()
 
     def key_enter(self):
