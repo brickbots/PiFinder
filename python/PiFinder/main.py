@@ -475,6 +475,9 @@ def main(script_name=None):
                                 current_module.delete()
                                 console.write("Deleted")
 
+                            if keycode == keyboard_base.LNG_C:
+                                current_module.key_long_c()
+
                             if keycode == keyboard_base.ALT_D:
                                 # Debug snapshot
                                 uid = str(uuid.uuid1()).split("-")[0]

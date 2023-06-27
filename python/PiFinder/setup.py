@@ -159,7 +159,7 @@ def get_database(db_path):
 
 
 def get_pifinder_database():
-    return get_database(Path(utils.astro_data_dir, "pifinder_objects.db"))
+    return get_database(utils.pifinder_db)
 
 
 def delete_catalog_from_database(db_c, catalog):
