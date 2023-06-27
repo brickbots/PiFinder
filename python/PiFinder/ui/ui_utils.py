@@ -157,6 +157,9 @@ class CatalogDesignator:
         self.object_number = number
         self.field = self.get_designator()
 
+    def has_number(self):
+        return self.object_number > 0
+
     def reset_number(self):
         self.object_number = 0
         self.field = self.get_designator()
@@ -176,7 +179,7 @@ class CatalogDesignator:
         return CAT_DASHES[self.get_catalog_name()]
 
     def get_designator(self):
-        number_str = str(self.object_number) if self.object_number > 0 else ""
+        number_str = str(self.object_number) if self.has_number() else ""
         return (
             f"{self.get_catalog_name(): >3} {number_str:->{self.get_catalog_width()}}"
         )
@@ -245,6 +248,12 @@ class CatalogTracker:
         catalog_list = self._select_catalogs(catalogs)
         return [catalog.objects for catalog in catalog_list]
 
+    def does_filtered_have_current_object(self):
+        return (
+            self.object_tracker[self.current_catalog_name]
+            in self.current.filtered_objects
+        )
+
     def get_current_object(self):
         object_key = self.object_tracker[self.current_catalog_name]
         if object_key is None:
@@ -254,6 +263,9 @@ class CatalogTracker:
     def set_current_object(self, object_number, catalog_name=None):
         catalog_name = self._get_catalog_name(catalog_name)
         self.object_tracker[catalog_name] = object_number
+        self.designator_tracker[catalog_name].set_number(
+            object_number if object_number else 0
+        )
 
     def get_designator(self, catalog_name=None) -> CatalogDesignator:
         catalog_name = self._get_catalog_name(catalog_name)
@@ -330,7 +342,7 @@ class CatalogTracker:
         return [catalog_list_flat[x] for x in obj_ind[0]]
 
     def __repr__(self):
-        return f"CatalogTracker({self.catalog_names}), {self.current_catalog_name=}, {self.current=}, {self.object_tracker=}, {self.designator_tracker=})"
+        return f"CatalogTracker({self.catalog_names}), {self.current_catalog_name=}, {self.object_tracker=}, {self.designator_tracker=})"
 
 
 class SpaceCalculator:
@@ -440,6 +452,9 @@ class TextLayouterSimple:
         self.drawobj.multiline_text(
             pos, "\n".join(self.object_text), font=self.font, fill=self.color, spacing=0
         )
+
+    def __repr__(self):
+        return f"TextLayouterSimple({self.text=}, {self.color=}, {self.font=}, {self.width=})"
 
 
 class TextLayouterScroll(TextLayouterSimple):

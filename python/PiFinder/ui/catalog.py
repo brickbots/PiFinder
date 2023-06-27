@@ -111,7 +111,7 @@ class UICatalog(UIModule):
 
         self.catalog_tracker.filter()
 
-    def layout_designator(self):
+    def _layout_designator(self):
         return self.SimpleTextLayout(
             str(self.catalog_tracker.get_designator()),
             font=fonts.large,
@@ -119,7 +119,7 @@ class UICatalog(UIModule):
         )
 
     def refresh_designator(self):
-        self.texts["designator"] = self.layout_designator()
+        self.texts["designator"] = self._layout_designator()
 
     def _get_scrollspeed_config(self):
         scroll_dict = {
@@ -138,7 +138,7 @@ class UICatalog(UIModule):
         self.catalog_tracker.filter()
 
         # Reset any sequence....
-        if not self._catalog_item_index:
+        if not self.catalog_tracker.does_filtered_have_current_object():
             self.delete()
 
     def push_list(self, option):
@@ -183,17 +183,29 @@ class UICatalog(UIModule):
         """
         Generates object text and loads object images
         """
-        logging.debug(f"In update_oject_info, {self.catalog_tracker=}")
+        logging.debug(f"In update_object_info, {self.catalog_tracker=}")
         cat_object = self.catalog_tracker.get_current_object()
         logging.debug(f"cat_object={cat_object}")
-        if not cat_object:
+        if not cat_object and not self.catalog_tracker.get_designator().has_number():
             # self.texts["type-const"] = self.SimpleTextLayout(
             #     "No Object Found", font=fonts.bold, color=self.colors.get(255)
             # )
             self.texts = {}
             self.texts["type-const"] = TextLayouter(
                 # self.catalog_tracker.get_current_object().description,
-                "Needs catalog description",
+                "No object selected",
+                draw=self.draw,
+                colors=self.colors,
+                font=fonts.base,
+                color=self.colors.get(255),
+                available_lines=7,
+            )
+            return
+
+        elif not cat_object and self.catalog_tracker.get_designator().has_number():
+            self.texts = {}
+            self.texts["type-const"] = TextLayouter(
+                "Object not found",
                 draw=self.draw,
                 colors=self.colors,
                 font=fonts.base,
@@ -296,8 +308,15 @@ class UICatalog(UIModule):
 
     def active(self):
         # trigger refilter
+        logging.debug(f"In active, with target = {self.ui_state['target']}")
         self.catalog_tracker.filter()
         target = self.ui_state["target"]
+        if target:
+            self.catalog_tracker.set_current_object(
+                target["sequence"], target["catalog"]
+            )
+            logging.debug(f"Set current object to {target['sequence']}")
+            self.update_object_info()
 
     def update(self, force=True):
         # Clear Screen
@@ -364,13 +383,12 @@ class UICatalog(UIModule):
 
     def delete(self):
         # long d called from main
-        self.catalog_tracker.get_designator().reset_number()
+        self.catalog_tracker.set_current_object(None)
         self.update_object_info()
 
     def key_c(self):
         # C is for catalog
         # Reset any sequence....
-        self.delete()
         self.catalog_tracker.next_catalog()
         self.catalog_tracker.filter()
         logging.debug(f"after key_c, catalog is {self.catalog_tracker.current}")
@@ -422,15 +440,17 @@ class UICatalog(UIModule):
         """
         Searches the loaded catalog for the designator
         """
-        logging.debug(f"Calling find by designator with: {designator}")
-        if designator.object_number == 0:
-            logging.debug("find by designartor, objectnumber is 0")
+        searching_for = designator.object_number
+        if searching_for == 0:
+            logging.debug("find by designator, objectnumber is 0")
             return False
 
-        if designator.object_number in self.catalog_tracker.current.filtered_objects:
-            self.catalog_tracker.set_current_object(designator.object_number)
+        if searching_for in self.catalog_tracker.current.filtered_objects:
+            self.catalog_tracker.set_current_object(searching_for)
         else:
             logging.debug("find by designator, no match found")
+            self.catalog_tracker.set_current_object(None)
+            self.catalog_tracker.get_designator().set_number(searching_for)
         return False
 
     def key_number(self, number):
