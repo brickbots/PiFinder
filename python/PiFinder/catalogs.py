@@ -8,7 +8,6 @@ from PiFinder import calc_utils
 import PiFinder.utils as utils
 from PiFinder import obslog
 from sklearn.neighbors import BallTree
-from PiFinder.ui.ui_utils import CAT_DASHES
 
 # collection of all catalog-related classes
 
@@ -19,11 +18,13 @@ class Catalog:
     last_filtered: float = 0
 
     def __init__(self, catalog_name):
-        self.catalog_name = catalog_name
+        self.name = catalog_name
         self.objects = {}
         self.objects_keys_sorted = []
         self.filtered_objects = {}
         self.filtered_objects_keys_sorted = []
+        self.max_sequence = 0
+        self.desc = "No description"
         self._load_catalog()
 
     def get_count(self):
@@ -42,13 +43,28 @@ class Catalog:
         cat_objects = self.conn.execute(
             f"""
             SELECT * from objects
-            where catalog='{self.catalog_name}'
+            where catalog='{self.name}'
             order by sequence
         """
         ).fetchall()
+        cat_data = self.conn.execute(
+            f"""
+                SELECT * from catalogs
+                where catalog='{self.name}'
+            """
+        ).fetchone()
+        print(cat_data)
+        if cat_data:
+            self.max_sequence = cat_data["max_sequence"]
+            self.desc = cat_data["desc"]
+        else:
+            logging.debug(f"no catalog data for {self.name}")
         self.objects = {dict(row)["sequence"]: dict(row) for row in cat_objects}
         self.objects_keys_sorted = self._get_sorted_keys(self.objects)
-        logging.info(f"loaded {len(self.objects)} objects for {self.catalog_name}")
+        assert (
+            self.objects_keys_sorted[-1] == self.max_sequence
+        ), f"{self.name} max sequence mismatch"
+        logging.info(f"loaded {len(self.objects)} objects for {self.name}")
         self.conn.close()
 
     def _get_sorted_keys(self, dictionary):
@@ -132,9 +148,10 @@ class CatalogDesignator:
     """Holds the string that represents the catalog input/search field.
     Usually looks like 'NGC----' or 'M-13'"""
 
-    def __init__(self, catalog_name):
+    def __init__(self, catalog_name, max_sequence):
         self.catalog_name = catalog_name
         self.object_number = 0
+        self.width = len(str(max_sequence))
         self.field = self.get_designator()
 
     def set_target(self, catalog_index, number=0):
@@ -173,7 +190,7 @@ class CatalogDesignator:
         return self.catalog_name
 
     def get_catalog_width(self):
-        return CAT_DASHES[self.get_catalog_name()]
+        return self.width
 
     def get_designator(self):
         number_str = str(self.object_number) if self.has_number() else ""
@@ -199,7 +216,10 @@ class CatalogTracker:
         self.shared_state = shared_state
         self.config_options = config_options
         self.catalogs: Dict[str, Catalog] = self._load_catalogs(catalog_names)
-        self.designator_tracker = {c: CatalogDesignator(c) for c in self.catalog_names}
+        self.designator_tracker = {
+            c: CatalogDesignator(c, self.catalogs[c].max_sequence)
+            for c in self.catalog_names
+        }
         self.set_current_catalog(catalog_names[0])
         self.object_tracker = {c: None for c in self.catalog_names}
 

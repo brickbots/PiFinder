@@ -59,23 +59,6 @@ class SpaceCalculatorFixed:
         return spaces, result
 
 
-# determine what the highest sequence nr of a catalog is,
-# so we can determine the nr of dashes to show
-def create_catalog_sizes():
-    # open the DB
-    conn = sqlite3.connect(utils.pifinder_db)
-    conn.row_factory = sqlite3.Row
-    db_c = conn.cursor()
-    query = "SELECT catalog, MAX(sequence) FROM objects GROUP BY catalog"
-    db_c.execute(query)
-    result = db_c.fetchall()
-    conn.close()
-    return {row["catalog"]: len(str(row["MAX(sequence)"])) for row in result}
-
-
-CAT_DASHES = create_catalog_sizes()
-
-
 class TextLayouterSimple:
     def __init__(
         self,
