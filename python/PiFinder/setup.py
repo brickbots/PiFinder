@@ -462,6 +462,86 @@ def load_sac_asterisms():
     insert_catalog(catalog, Path(utils.astro_data_dir, "sac.desc"))
 
 
+def load_sac_multistars():
+    catalog = "SaM"
+    conn, db_c = get_pifinder_database()
+    delete_catalog_from_database(db_c, catalog)
+
+    saca = Path(utils.astro_data_dir, "SAC_Multistars_Ver40", "SAC_DBL40_Fence.txt")
+    sequence = 0
+    logging.info("Loading SAC Multistars")
+    delete_catalog_from_database(db_c, catalog)
+    with open(saca, "r") as df:
+        df.readline()
+        for l in df:
+            dfs = l.split("|")
+            dfs = [d.strip() for d in dfs]
+            other_names = dfs[2].strip()
+            if other_names == "":
+                continue
+            else:
+                sequence += 1
+
+            const = dfs[1].strip()
+            ra = dfs[3].strip()
+            dec = dfs[4].strip()
+            mag = dfs[7].strip()
+            mag2 = dfs[8].strip()
+            sep = dfs[9].strip()
+            pa = dfs[10].strip()
+            desc = dfs[11].strip()
+
+            ra = ra.split(" ")
+            ra_h = int(ra[0])
+            ra_m = float(ra[1])
+            ra_deg = ra_to_deg(ra_h, ra_m, 0)
+
+            dec = dec.split(" ")
+            dec_d = int(dec[0])
+            dec_m = float(dec[1])
+            dec_deg = dec_to_deg(dec_d, dec_m, 0)
+
+            if mag == "none":
+                mag = "null"
+
+            q = f"""
+                insert into objects(
+                    catalog,
+                    sequence,
+                    obj_type,
+                    ra,
+                    dec,
+                    const,
+                    size,
+                    mag,
+                    desc
+                )
+                values (
+                    "{catalog}",
+                    {sequence},
+                    "Dbl",
+                    {ra_deg},
+                    {dec_deg},
+                    "{const}",
+                    "{sep}/{pa}",
+                    "{mag}/{mag2}",
+                    "{desc}"
+                )
+            """
+            db_c.execute(q)
+            db_c.execute(
+                f"""
+                    insert into names(common_name, catalog, sequence)
+                    values ("{other_names}", "{catalog}", {sequence})
+                """
+            )
+
+    conn.commit()
+    insert_catalog(
+        catalog, Path(utils.astro_data_dir, "SAC_Multistars_Ver40", "sacm.desc")
+    )
+
+
 def load_taas200():
     conn, db_c = get_pifinder_database()
     data = Path(utils.astro_data_dir, "TAAS_200.csv")
@@ -889,6 +969,7 @@ if __name__ == "__main__":
     load_collinder()
     load_taas200()
     load_sac_asterisms()
+    load_sac_multistars()
     load_caldwell()
     load_ngc_catalog()
     conn, db_c = get_pifinder_database()

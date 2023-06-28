@@ -237,6 +237,10 @@ class CatalogTracker:
         self.next_catalog(-1)
 
     def next_object(self, direction=1, filtered=True):
+        """
+        direction: 1 for next, -1 for previous
+
+        """
         keys_sorted = (
             self.current.filtered_objects_keys_sorted
             if filtered
@@ -244,19 +248,20 @@ class CatalogTracker:
         )
         current_key = self.object_tracker[self.current_catalog_name]
         designator = self.get_designator()
+        # there is no current object, so set the first object the first or last
         if current_key is None:
             next_index = 0 if direction == 1 else len(keys_sorted) - 1
             next_key = keys_sorted[next_index]
             designator.set_number(next_key)
 
         else:
-            current_index = keys_sorted.index(current_key) if current_key != -1 else -1
-            next_index = (current_index + direction) % len(keys_sorted)
-            next_key = keys_sorted[next_index]
-            if next_index == 0:
+            current_index = keys_sorted.index(current_key)
+            next_index = current_index + direction
+            if next_index == -1:
                 next_key = None  # hack to get around the fact that 0 is a valid key
                 designator.set_number(0)  # todo use -1 in designator as well
             else:
+                next_key = keys_sorted[next_index % len(keys_sorted)]
                 designator.set_number(next_key)
         self.set_current_object(next_key)
         return self.get_current_object()
