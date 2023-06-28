@@ -257,7 +257,7 @@ class CatalogTracker:
         else:
             current_index = keys_sorted.index(current_key)
             next_index = current_index + direction
-            if next_index == -1:
+            if next_index == -1 or next_index >= len(keys_sorted):
                 next_key = None  # hack to get around the fact that 0 is a valid key
                 designator.set_number(0)  # todo use -1 in designator as well
             else:
