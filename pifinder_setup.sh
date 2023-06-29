@@ -1,7 +1,7 @@
 #! /usr/bin/bash
 sudo apt-get install -y git python3-pip samba samba-common-bin dnsmasq hostapd dhcpd gpsd
 sudo dpkg-reconfigure -plow gpsd
-git clone --branch release https://github.com/brickbots/PiFinder.git
+git clone --recursive --branch release https://github.com/brickbots/PiFinder.git
 cd PiFinder
 sudo pip install -r requirements.txt
 
@@ -27,10 +27,6 @@ sudo cp ~/PiFinder/pi_config_files/smb.conf /etc/samba/smb.conf
 
 # Hipparcos catalog
 wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
-
-# Tetra3 solver
-cd python/PiFinder
-git clone https://github.com/esa/tetra3.git
 
 # Enable interfaces
 echo "dtparam=spi=on" | sudo tee -a /boot/config.txt
