@@ -12,10 +12,11 @@ import time
 import copy
 
 from PiFinder.tetra3 import Tetra3
+from PiFinder import utils
 
 
 def solver(shared_state, solver_queue, camera_image, console_queue):
-    t3 = Tetra3("default_database")
+    t3 = Tetra3(utils.astro_data_dir / "pifinder_fov10-5_m7_hip.npz")
     last_solve_time = 0
     solved = {
         "RA": None,
