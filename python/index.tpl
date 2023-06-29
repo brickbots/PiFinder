@@ -65,7 +65,7 @@ body {
                         // When the image can't be fetched, display a static message
                         imageElement.parentNode.innerHTML = "<p>PiFinder server is currently unavailable. Please try again later.</p>";
                     });
-            }, 1000);
+            }, 100);
 
         function buttonPressed(btn) {
             const altButton = document.getElementById("altButton");

@@ -1,17 +1,8 @@
 import PiFinder.utils as utils
 from PiFinder.ui.fonts import Fonts as fonts
-from typing import Tuple, List
+from typing import Tuple, List, Dict, Optional
 import textwrap
-import logging
-from pathlib import Path
 import sqlite3
-
-
-class Catalog:
-    """Keeps catalog data + keeps track of current catalog/object"""
-
-    def __init__(self):
-        pass
 
 
 class SpaceCalculator:
@@ -71,9 +62,8 @@ class SpaceCalculatorFixed:
 # determine what the highest sequence nr of a catalog is,
 # so we can determine the nr of dashes to show
 def create_catalog_sizes():
-    db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
     # open the DB
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(utils.pifinder_db)
     conn.row_factory = sqlite3.Row
     db_c = conn.cursor()
     query = "SELECT catalog, MAX(sequence) FROM objects GROUP BY catalog"
@@ -84,66 +74,6 @@ def create_catalog_sizes():
 
 
 CAT_DASHES = create_catalog_sizes()
-
-
-class CatalogDesignator:
-    """Holds the string that represents the catalog input/search field.
-    Usually looks like 'NGC----' or 'M-13'"""
-
-    def __init__(self, catalog_names, catalog_index):
-        self.catalog_names = catalog_names
-        self.catalog_index = catalog_index
-        self.object_number = 0
-        self.field = self.get_designator()
-
-    def set_target(self, catalog_index, number=0):
-        self.catalog_index = catalog_index
-        self.object_number = number
-        self.field = self.get_designator()
-
-    def append_number(self, number):
-        number_str = str(self.object_number) + str(number)
-        if len(number_str) > self.get_catalog_width():
-            number_str = number_str[1:]
-        self.object_number = int(number_str)
-        self.field = self.get_designator()
-
-    def set_number(self, number):
-        self.object_number = number
-        self.field = self.get_designator()
-
-    def reset_number(self):
-        self.object_number = 0
-        self.field = self.get_designator()
-
-    def increment_number(self):
-        self.object_number += 1
-        self.field = self.get_designator()
-
-    def decrement_number(self):
-        self.object_number -= 1
-        self.field = self.get_designator()
-
-    def next_catalog(self):
-        self.catalog_index = (self.catalog_index + 1) % len(self.catalog_names)
-        self.object_number = 0
-        self.field = self.get_designator()
-        return self.catalog_index
-
-    def get_catalog_name(self):
-        return self.catalog_names[self.catalog_index]
-
-    def get_catalog_width(self):
-        return CAT_DASHES[self.get_catalog_name()]
-
-    def get_designator(self):
-        number_str = str(self.object_number) if self.object_number > 0 else ""
-        return (
-            f"{self.get_catalog_name(): >3} {number_str:->{self.get_catalog_width()}}"
-        )
-
-    def __str__(self):
-        return self.field
 
 
 class TextLayouterSimple:
@@ -182,6 +112,9 @@ class TextLayouterSimple:
         self.drawobj.multiline_text(
             pos, "\n".join(self.object_text), font=self.font, fill=self.color, spacing=0
         )
+
+    def __repr__(self):
+        return f"TextLayouterSimple({self.text=}, {self.color=}, {self.font=}, {self.width=})"
 
 
 class TextLayouterScroll(TextLayouterSimple):
