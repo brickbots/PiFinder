@@ -56,10 +56,8 @@ class KeyboardLocal(KeyboardInterface):
         self.q.put(key)
 
 
-def run_keyboard(q, shared_state, script_path=None):
-    keyboard = KeyboardLocal(q)
-    if script_path:
-        keyboard.run_script(script_path)
+def run_keyboard(q, shared_state):
+    KeyboardLocal(q)
 
     while True:
         # the KeyboardLocal class has callbacks to handle

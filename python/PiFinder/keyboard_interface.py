@@ -1,4 +1,5 @@
 from time import sleep
+import logging
 
 
 class KeyboardInterface:
@@ -29,12 +30,13 @@ class KeyboardInterface:
     def run_keyboard(self):
         pass
 
-    def run_script(self, script_path):
+    @staticmethod
+    def run_script(script_name, q):
         """
         Runs a keyscript for automation/testing
         """
-        print("Running Script: " + script_path)
-        with open(script_path + ".pfs", "r") as script_file:
+        logging.info("Running Script: " + script_name)
+        with open(script_name) as script_file:
             for script_line in script_file:
                 sleep(0.5)
                 script_line = script_line.strip()
@@ -51,6 +53,9 @@ class KeyboardInterface:
                 else:
                     # must be keycode
                     if script_tokens[0].isnumeric():
-                        self.q.put(int(script_tokens[0]))
+                        print(f"putting {script_tokens[0]}")
+                        q.put(int(script_tokens[0]))
                     else:
-                        self.q.put(eval("self." + script_tokens[0]))
+                        print(f"putting self.{script_tokens[0]}")
+                        q.put(eval("KeyboardInterface." + script_tokens[0]))
+                sleep(0.5)

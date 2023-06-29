@@ -476,7 +476,12 @@ def load_sac_multistars():
         for l in df:
             dfs = l.split("|")
             dfs = [d.strip() for d in dfs]
-            other_names = dfs[2].strip()
+            name = [dfs[2].strip()]
+            other_names = dfs[6].strip().split(";")
+            name.extend(other_names)
+            name = [x for x in name if x != ""]
+            print(name)
+            other_names = ", ".join(name)
             if other_names == "":
                 continue
             else:
@@ -485,11 +490,14 @@ def load_sac_multistars():
             const = dfs[1].strip()
             ra = dfs[3].strip()
             dec = dfs[4].strip()
+            components = dfs[5].strip()
             mag = dfs[7].strip()
             mag2 = dfs[8].strip()
             sep = dfs[9].strip()
             pa = dfs[10].strip()
             desc = dfs[11].strip()
+            print(f"'{desc=}'")
+            desc = f"{desc}\nComponents: {components}\nPA: {pa}°"
 
             ra = ra.split(" ")
             ra_h = int(ra[0])
@@ -519,11 +527,11 @@ def load_sac_multistars():
                 values (
                     "{catalog}",
                     {sequence},
-                    "Dbl",
+                    "D*",
                     {ra_deg},
                     {dec_deg},
                     "{const}",
-                    "{sep}/{pa}",
+                    '{sep}"',
                     "{mag}/{mag2}",
                     "{desc}"
                 )

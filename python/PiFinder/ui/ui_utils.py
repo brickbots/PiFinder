@@ -205,7 +205,9 @@ class TextLayouter(TextLayouterSimple):
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.updated:
-            self.object_text = textwrap.wrap(self.text, width=self.width)
+            self.object_text = textwrap.wrap(
+                self.text, width=self.width, replace_whitespace=False
+            )
             self.orig_object_text = self.object_text
             self.object_text = self.object_text[0 : self.available_lines]
             self.nr_lines = len(self.orig_object_text)
