@@ -4,25 +4,58 @@ and importers used during setup
 
 """
 import sqlite3
+from sqlite3 import Connection, Cursor, Error
 from PiFinder.obj_types import OBJ_DESCRIPTORS
 from pathlib import Path
 import PiFinder.utils as utils
 import csv
+from typing import Tuple
+import argparse
+import logging
+import datetime
 
 
-def create_logging_tables():
+def get_database(
+    db_path, delete: bool = False, must_exist: bool = False
+) -> Tuple[Connection, Cursor]:
+    if not db_path.exists() and must_exist:
+        logging.info(f"DB {db_path} does not exist")
+        raise FileNotFoundError
+    elif db_path.exists() and delete:
+        logging.info(f"DB {db_path} exists, deleting")
+        db_path.unlink()
+
+    try:
+        # open the DB
+        logging.debug(f"Opening DB {db_path}")
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        db_c = conn.cursor()
+    except Error as e:
+        logging.error(e)
+        raise e
+
+    return conn, db_c
+
+
+def get_pifinder_database() -> Tuple[Connection, Cursor]:
+    return get_database(utils.pifinder_db)
+
+
+def get_observations_database() -> Tuple[Connection, Cursor]:
+    return get_database(utils.observations_db)
+
+
+def create_logging_tables(force_delete: bool = False):
     """
     Creates the base logging tables
     """
 
-    db_path = Path(utils.data_dir, "observations.db")
-    if db_path.exists():
-        return db_path
-
-    # open the DB
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    db_c = conn.cursor()
+    db_path = utils.observations_db
+    if db_path.exists() and not force_delete:
+        logging.info(f"DB {db_path} exists, not overwriting")
+        return
+    conn, db_c = get_database(db_path, delete=force_delete)
 
     # initialize tables
     db_c.execute(
@@ -51,7 +84,7 @@ def create_logging_tables():
            )
         """
     )
-    return db_path
+    conn.close()
 
 
 # TODO not used atm + do we really want to auto-expand the ngc descriptions?
@@ -83,12 +116,8 @@ def init_catalog_tables():
     Creates blank catalog tables
 
     """
-    db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
-
-    # open the DB
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    db_c = conn.cursor()
+    db_path = Path(utils.pifinder_db)
+    conn, db_c = get_database(db_path, delete=True)
 
     # initialize tables
     db_c.execute("drop table if exists objects")
@@ -121,6 +150,18 @@ def init_catalog_tables():
         """
     )
 
+    db_c.execute("drop table if exists catalogs")
+    db_c.execute(
+        """
+           CREATE TABLE catalogs(
+                catalog TEXT,
+                max_sequence INTEGER,
+                desc TEXT
+           )
+        """
+    )
+    conn.close()
+
 
 def ra_to_deg(ra_h, ra_m, ra_s):
     ra_deg = ra_h
@@ -146,22 +187,6 @@ def dec_to_deg(dec, dec_m, dec_s):
     return dec_deg
 
 
-def get_database(db_path):
-    if not db_path.exists():
-        print("DB does not exists")
-        return False
-
-    # open the DB
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    db_c = conn.cursor()
-    return conn, db_c
-
-
-def get_pifinder_database():
-    return get_database(utils.pifinder_db)
-
-
 def delete_catalog_from_database(db_c, catalog):
     db_c.execute(f"delete from objects where catalog='{catalog}'")
     db_c.execute(f"delete from names where catalog='{catalog}'")
@@ -171,7 +196,7 @@ def count_rows_per_distinct_column(conn, db_c, table, column):
     db_c.execute(f"SELECT {column}, COUNT(*) FROM {table} GROUP BY {column}")
     result = db_c.fetchall()
     for row in result:
-        print(f"{row[0]}: {row[1]} entries")
+        logging.info(f"{row[0]}: {row[1]} entries")
     conn.close()
 
 
@@ -182,7 +207,7 @@ def count_empty_entries(conn, db_c, table, columns):
             f"SELECT COUNT(*) FROM {table} WHERE {column} IS NULL OR {column} = ''"
         )
         result = db_c.fetchone()
-        print(f"{column}: {result[0]} empty entries")
+        logging.info(f"{column}: {result[0]} empty entries")
     conn.close()
 
 
@@ -216,12 +241,11 @@ def count_empty_entries_in_tables():
     )
 
 
-def print_database(conn, db_c):
-    conn, db_c = get_pifinder_database()
-    print(">-------------------------------------------------------")
+def print_database():
+    logging.info(">-------------------------------------------------------")
     count_common_names_per_catalog()
     count_empty_entries_in_tables()
-    print("<-------------------------------------------------------")
+    logging.info("<-------------------------------------------------------")
 
 
 # not used atm
@@ -352,6 +376,8 @@ def load_collinder():
                     """
                 )
     conn.commit()
+    conn.close()
+    insert_catalog(catalog, Path(utils.astro_data_dir, "collinder.desc"))
 
 
 def load_sac_asterisms():
@@ -361,7 +387,7 @@ def load_sac_asterisms():
 
     saca = Path(utils.astro_data_dir, "SAC_Asterisms_Ver32_Fence.txt")
     sequence = 0
-    print("Loading SAC Asterisms")
+    logging.info("Loading SAC Asterisms")
     delete_catalog_from_database(db_c, catalog)
     with open(saca, "r") as df:
         df.readline()
@@ -433,6 +459,7 @@ def load_sac_asterisms():
             )
 
     conn.commit()
+    insert_catalog(catalog, Path(utils.astro_data_dir, "sac.desc"))
 
 
 def load_taas200():
@@ -441,7 +468,7 @@ def load_taas200():
     sequence = 0
     catalog = "Ta2"
     delete_catalog_from_database(db_c, catalog)
-    print("Loading Taas 200")
+    logging.info("Loading Taas 200")
 
     typedict = {
         "oc": "Open Cluster",
@@ -535,6 +562,7 @@ def load_taas200():
                 insert_names(db_c, catalog, sequence, name)
 
     conn.commit()
+    insert_catalog("Ta2", Path(utils.astro_data_dir, "taas200.desc"))
 
 
 def insert_names(db_c, catalog, sequence, name):
@@ -547,16 +575,36 @@ def insert_names(db_c, catalog, sequence, name):
     db_c.execute(nameq)
 
 
-def load_caldwell():
-    db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
-    if not db_path.exists():
-        print("DB does not exists")
-        return False
+def insert_catalog(catalog_name, description_path):
+    with open(description_path, "r") as desc:
+        description = "".join(desc.readlines())
 
-    # open the DB
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    db_c = conn.cursor()
+    conn, db_c = get_pifinder_database()
+    max_sequence = get_catalog_sizes(catalog_name)[catalog_name]
+
+    catalogq = f"""
+            insert into catalogs(catalog, max_sequence, desc)
+            values ("{catalog_name}", "{max_sequence}", "{description}")
+        """
+    logging.info(catalogq)
+    db_c.execute(catalogq)
+    conn.commit()
+    conn.close()
+
+
+def get_catalog_sizes(catalog_name):
+    conn, db_c = get_pifinder_database()
+    query = f"SELECT catalog, MAX(sequence) FROM objects where catalog = '{catalog_name}' GROUP BY catalog"
+    db_c.execute(query)
+    result = db_c.fetchall()
+    conn.close()
+    return {row["catalog"]: row["MAX(sequence)"] for row in result}
+
+
+def load_caldwell():
+    catalog = "C"
+    conn, db_c = get_pifinder_database()
+    delete_catalog_from_database(db_c, catalog)
 
     cal = Path(utils.astro_data_dir, "caldwell.dat")
     with open(cal, "r") as df:
@@ -596,7 +644,7 @@ def load_caldwell():
                     desc
                 )
                 values (
-                    "C",
+                    "{catalog}",
                     {sequence},
                     "{obj_type}",
                     {mag},
@@ -617,6 +665,7 @@ def load_caldwell():
                 )
 
     conn.commit()
+    insert_catalog("C", Path(utils.astro_data_dir, "caldwell.desc"))
 
 
 def load_ngc_catalog():
@@ -626,15 +675,7 @@ def load_ngc_catalog():
     if not, tries to load ngc2000 data from
     ../../astro_data/ngc2000
     """
-    db_path = Path(utils.astro_data_dir, "pifinder_objects.db")
-    if not db_path.exists():
-        print("DB does not exists")
-        return False
-
-    # open the DB
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    db_c = conn.cursor()
+    conn, db_c = get_pifinder_database()
 
     # Track M objects to avoid double adding some with
     # multiple NGC sequences
@@ -798,19 +839,57 @@ def load_ngc_catalog():
                 db_c.execute(q)
         conn.commit()
 
+    # insert catalog descriptions
+    insert_catalog("NGC", Path(utils.astro_data_dir, "ngc2000", "ngc.desc"))
+    insert_catalog("M", Path(utils.astro_data_dir, "messier.desc"))
+    insert_catalog("IC", Path(utils.astro_data_dir, "ic.desc"))
+
 
 if __name__ == "__main__":
-    print("Starting")
+    logging.info("starting main")
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
+    logging.basicConfig(format="%(asctime)s %(name)s: %(levelname)s %(message)s")
+    # formatter = logging.Formatter('%(asctime)s - %(name)-30s - %(levelname)-8s - %(message)s')
+
+    parser = argparse.ArgumentParser(description="eFinder")
+    parser.add_argument(
+        "-f",
+        "--force",
+        help="DANGER: overwrite observations.db",
+        default=False,
+        action="store_true",
+        required=False,
+    )
+    parser.add_argument(
+        "-x", "--verbose", help="Set logging to debug mode", action="store_true"
+    )
+    parser.add_argument("-l", "--log", help="Log to file", action="store_true")
+    args = parser.parse_args()
+    # add the handlers to the logger
+
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+
+    if args.log:
+        datenow = datetime.now()
+        filehandler = f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"
+        fh = logging.FileHandler(filehandler)
+        fh.setLevel(logger.level)
+        logger.addHandler(fh)
+
+    logging.info("Starting")
     # execute all functions
-    print("Creating DB")
-    create_logging_tables()
-    print("creating catalog tables")
+    logging.info("Creating DB")
+    create_logging_tables(args.force)
+    logging.info("creating catalog tables")
     init_catalog_tables()
-    print("loading catalogs")
+    logging.info("loading catalogs")
     load_collinder()
     load_taas200()
     load_sac_asterisms()
     load_caldwell()
     load_ngc_catalog()
     conn, db_c = get_pifinder_database()
-    print_database(conn, db_c)
+    print_database()

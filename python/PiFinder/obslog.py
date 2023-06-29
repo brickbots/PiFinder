@@ -14,7 +14,7 @@ import sqlite3
 import json
 
 from PiFinder.obj_types import OBJ_TYPES
-from PiFinder.setup import create_logging_tables
+from PiFinder.setup import create_logging_tables, get_observations_database
 
 
 class Observation_session:
@@ -27,11 +27,12 @@ class Observation_session:
 
     def __init__(self, shared_state, session_uuid):
         # make sure observation db exists
-        db_path = create_logging_tables()
+        create_logging_tables()
+        conn, db_c = get_observations_database()
 
-        self.db_connection = sqlite3.connect(db_path)
+        self.db_connection = conn
         self.db_connection.row_factory = sqlite3.Row
-        self.db_cursor = self.db_connection.cursor()
+        self.db_cursor = db_c
 
         self.__session_init = False
         self.__session_uuid = session_uuid
@@ -136,13 +137,10 @@ def get_logs_for_object(obj_record):
     """
     Returns a list of observations for a particular object
     """
-    db_path = create_logging_tables()
+    create_logging_tables()
+    conn, db_c = get_observations_database()
 
-    db_connection = sqlite3.connect(db_path)
-    db_connection.row_factory = sqlite3.Row
-    db_cursor = db_connection.cursor()
-
-    logs = db_cursor.execute(
+    logs = db_c.execute(
         f"""
             select * from obs_objects
             where
@@ -158,13 +156,10 @@ def get_observed_objects():
     """
     Returns a list of all observed objects
     """
-    db_path = create_logging_tables()
+    create_logging_tables()
+    conn, db_c = get_observations_database()
 
-    db_connection = sqlite3.connect(db_path)
-    db_connection.row_factory = sqlite3.Row
-    db_cursor = db_connection.cursor()
-
-    logs = db_cursor.execute(
+    logs = db_c.execute(
         f"""
             select distinct catalog, sequence from obs_objects
             """

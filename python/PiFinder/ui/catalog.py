@@ -112,6 +112,7 @@ class UICatalog(UIModule):
         self.fov_index = 0
 
         self.catalog_tracker.filter()
+        self.update_object_info()
 
     def _layout_designator(self):
         return self.SimpleTextLayout(
@@ -192,12 +193,14 @@ class UICatalog(UIModule):
             self.texts = {}
             self.texts["type-const"] = TextLayouter(
                 # self.catalog_tracker.get_current_object().description,
-                "No object selected" if not has_number else "Object not found",
+                self.catalog_tracker.current.desc
+                if not has_number
+                else "Object not found",
                 draw=self.draw,
                 colors=self.colors,
                 font=fonts.base,
                 color=self.colors.get(255),
-                available_lines=7,
+                available_lines=6,
             )
             return
 
@@ -365,6 +368,9 @@ class UICatalog(UIModule):
 
     def key_d(self):
         self.descTextLayout.next()
+        typeconst = self.texts.get("type-const")
+        if typeconst and isinstance(typeconst, TextLayouter):
+            typeconst.next()
 
     def delete(self):
         # long d called from main
