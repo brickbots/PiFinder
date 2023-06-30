@@ -497,7 +497,8 @@ def load_sac_multistars():
             pa = dfs[10].strip()
             desc = dfs[11].strip()
             print(f"'{desc=}'")
-            desc = f"{desc}\nComponents: {components}\nPA: {pa}°"
+            desc += f"\nComponents: {components}" if components else ""
+            desc += f"\nPA: {pa}°" if pa else ""
 
             ra = ra.split(" ")
             ra_h = int(ra[0])
