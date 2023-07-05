@@ -9,12 +9,12 @@ These are the electronic bits needed to build the Display/Keypad unit that fits 
 | Qty | Item                                         | URL                                                     | Notes                                                                                 |
 | --- | -------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------- |
 | 1   | PCB Set                                      | https://github.com/brickbots/PiFinder/tree/main/gerbers | You'll need a PiFinder board and the PiFinder top plate                               |
-| 17  | 6 x 6mm x 7mm PCB Momentary Switch 4 Pin DIP |                                                         | Diptonics DTS63K 1nm recommended                                                      |
+| 17  | 6 x 6mm x 7mm PCB Momentary Switch 4 Pin DIP | https://www.mouser.com/ProductDetail/113-DTS63KV or https://www.digikey.com/en/products/detail/apem-inc/ADTS63KV/1798560 | Diptronics DTS63K or Apem ADTS63KV recommended |
 | 17  | Red 1.8 mm (miniplast) leds| https://www.mouser.com/ProductDetail/78-TLUR2401                                                        | These need to be 2.5W x 3.3L x 3H to fit properly|
-| 1   | 2N222A NPN Transistor | https://www.mouser.com/ProductDetail/637-2N2222A                                                        | Diptonics DTS63K 1nm recommended                                                      |
+| 1   | 2N2222A NPN Transistor | https://www.mouser.com/ProductDetail/637-2N2222A                                                        |    |
 | 1   | 22ohm Axial Resistor | | R01 - 5% - 1/4w |
 | 1   | 330ohm Axial Resistor| | R02 - 5% - 1/4w | 
-| 1   | Waveshare 1.5 RGB Oled                       | [https://www.waveshare.com/wiki/1.5inch_RGB_OLED_Module](https://www.waveshare.com/wiki/1.5inch_RGB_OLED_Module)      |                                                                                       |
+| 1   | Waveshare 1.5 RGB Oled                       | [https://www.waveshare.com/wiki/1.5inch_RGB_OLED_Module](https://www.waveshare.com/wiki/1.5inch_RGB_OLED_Module)      |   |
 | 1   | Adafruit IMU Fusion Breakout - BNO055        | https://www.adafruit.com/product/4646                   |                                                                                       |
 | 1   | 2x20 40 Pin Stacking Female Header           | https://www.amazon.com/dp/B0827THC7R                    | Depending on your heatsink/clearance you'll need long pins on this to make up the gap |
 
@@ -26,7 +26,7 @@ These are the bigger items/assemblies which you'll need to purchase to include i
 | Qty | Item                            | URL                                           | Notes                                                                                                                    |
 | --- | ------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | 1   | Raspberry Pi 4b 2gb             | https://www.adafruit.com/product/4292         | More memory is fine here...                                                                                              |
-| 1   | Micro SD Card                    |                                               | High quality is best to avoid power sensitivity and corruption.  The software only needs a couple gigs, so almost any available size should be fine                                                                                                                     |
+| 1   | Micro SD Card                   |                                               | High quality is best to avoid power sensitivity and corruption.  The software only needs a couple gigs, so almost any available size should be fine|
 | 1   | Raspberry Pi HQ camera          | https://www.adafruit.com/product/4561         |                                                                                                                          |
 | 1   | 25mm F1.4 CCTV Lens for C Mount | https://www.amazon.com/gp/product/B01IECVHB6/ | Other lenses might work here, but something fast with a 10deg FOV is ideal                                               |
 | 1   | GPS USB Dongle.  | https://www.amazon.com/gp/product/B00N32HKIW/ | Almost any GPS receiver should work here, but this is easy to position the antenna and is what has been fully tested
