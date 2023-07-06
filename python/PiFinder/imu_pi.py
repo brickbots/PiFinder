@@ -100,8 +100,6 @@ class Imu:
             self.avg_quat = quat
             if len(self.quat_history) == QUEUE_LEN:
                 self.quat_history = self.quat_history[1:]
-            if self.moving():
-                print("M", self.quat_to_euler(quat))
 
         self.quat_history.append(quat)
 
@@ -145,4 +143,3 @@ def imu_monitor(shared_state, console_queue):
 
         if shared_state != None and imu_calibrated:
             shared_state.set_imu(imu_data)
-            # pprint(imu_data)
