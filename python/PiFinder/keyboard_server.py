@@ -70,5 +70,5 @@ class KeyboardServer(KeyboardInterface):
         self.q.put(key)
 
 
-def run_keyboard(q, shared_state, script_path=None):
-    keyboard = KeyboardServer(q, shared_state)
+def run_keyboard(q, shared_state):
+    KeyboardServer(q, shared_state)
