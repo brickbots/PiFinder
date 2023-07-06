@@ -233,7 +233,7 @@ class UICatalog(UIModule):
             try:
                 obj_mag = float(cat_object["mag"])
             except (ValueError, TypeError):
-                obj_mag = "-"
+                obj_mag = "-" if cat_object["mag"] == "" else cat_object["mag"]
 
             size = str(cat_object["size"]).strip()
             size = "-" if size == "" else size

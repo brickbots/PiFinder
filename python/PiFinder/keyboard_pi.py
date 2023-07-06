@@ -41,7 +41,7 @@ class KeyboardPi(KeyboardInterface):
         ]
         # fmt: on
 
-    def run_keyboard(self, script_path=None):
+    def run_keyboard(self):
         """
         scans keyboard matrix, puts release events in queue
         """
@@ -55,7 +55,7 @@ class KeyboardPi(KeyboardInterface):
         hold_sent = False
         while True:
             sleep(1 / 60)
-            if len(pressed) > 0 and hold_sent == False:
+            if len(pressed) > 0 and hold_sent is False:
                 hold_counter += 1
                 if hold_counter > 60 and not alt_sent:
                     keycode = pressed.pop()
@@ -70,7 +70,7 @@ class KeyboardPi(KeyboardInterface):
                 for j in range(len(self.cols)):
                     keycode = i * len(self.cols) + j
                     newval = GPIO.input(self.cols[j]) == GPIO.LOW
-                    if newval and not keycode in pressed:
+                    if newval and keycode not in pressed:
                         # initial press
                         pressed.add(keycode)
                     elif not newval and keycode in pressed:
@@ -90,9 +90,6 @@ class KeyboardPi(KeyboardInterface):
                 GPIO.setup(self.rows[i], GPIO.IN)
 
 
-def run_keyboard(q, shared_state, script_path=None):
+def run_keyboard(q, shared_state):
     keyboard = KeyboardPi(q)
-    if script_path:
-        keyboard.run_script(script_path)
-
     keyboard.run_keyboard()

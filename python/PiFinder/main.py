@@ -222,14 +222,17 @@ def main(script_name=None):
         # spawn keyboard service....
         console.write("   Keyboard")
         console.update()
-        script_path = None
-        if script_name:
-            script_path = os.path.join(root_dir, "scripts", script_name)
         keyboard_process = Process(
             target=keyboard.run_keyboard,
-            args=(keyboard_queue, shared_state, script_path),
+            args=(keyboard_queue, shared_state),
         )
         keyboard_process.start()
+        if script_name:
+            p = Process(
+                target=keyboard_interface.KeyboardInterface.run_script,
+                args=(script_name, keyboard_queue),
+            )
+            p.start()
 
         # Load last location, set lock to false
         tz_finder = TimezoneFinder()
@@ -623,9 +626,7 @@ def main(script_name=None):
 
 
 if __name__ == "__main__":
-    script_name = None
-    args = sys.argv
-    print("starting main")
+    print("Starting PiFinder ...")
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
@@ -712,7 +713,6 @@ if __name__ == "__main__":
         fh = logging.FileHandler(filehandler)
         fh.setLevel(logger.level)
         logger.addHandler(fh)
-    if args.script:
-        script_name = args.script
+    script_name = args.script
 
     main(script_name)
