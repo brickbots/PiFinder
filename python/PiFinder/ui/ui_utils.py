@@ -2,7 +2,8 @@ import PiFinder.utils as utils
 from PiFinder.ui.fonts import Fonts as fonts
 from typing import Tuple, List, Dict, Optional
 import textwrap
-import sqlite3
+import logging
+import re
 
 
 class SpaceCalculator:
@@ -184,7 +185,6 @@ class TextLayouter(TextLayouterSimple):
             return
         self.pointer = (self.pointer + 1) % (self.nr_lines - self.available_lines + 1)
         self.scrolled = True
-        self.updated = True
 
     def set_text(self, text):
         super().set_text(text)
@@ -205,9 +205,11 @@ class TextLayouter(TextLayouterSimple):
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.updated:
-            self.object_text = textwrap.wrap(
-                self.text, width=self.width, replace_whitespace=False
-            )
+            # logging.debug(f"Updating {self.text=}")
+            split_lines = re.split(r"\n|\n\n", self.text)
+            self.object_text = []
+            for line in split_lines:
+                self.object_text.extend(textwrap.wrap(line, width=self.width))
             self.orig_object_text = self.object_text
             self.object_text = self.object_text[0 : self.available_lines]
             self.nr_lines = len(self.orig_object_text)

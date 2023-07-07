@@ -132,7 +132,6 @@ dmypy.json
 temp/
 .DS_Store
 .*.swp
-tetra3/
 dev/
 *_test.py
 datasheets/
