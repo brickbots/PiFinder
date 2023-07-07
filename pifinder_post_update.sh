@@ -1,8 +1,8 @@
 # Switch tetra 3 to submodule
-if test -f "/home/pifinder/PiFinder/python/PiFinder/tetra3/default_database.np"; then
+if test -f "/home/pifinder/PiFinder/python/PiFinder/tetra3/default_database.npz"; then
     echo "Switching Tetra3"
-    rm -rm /home/pifinder/PiFinder/python/PiFinder/tetra3
-    git submodule --init --update
+    rm -rf /home/pifinder/PiFinder/python/PiFinder/tetra3
+    git submodule update --init
 fi
 
 # GPSD
