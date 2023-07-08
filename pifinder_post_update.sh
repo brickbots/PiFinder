@@ -1,3 +1,5 @@
+git submodule update --init --recursive
+
 # GPSD
 sudo apt install -y gpsd
 sudo dpkg-reconfigure -plow gpsd
