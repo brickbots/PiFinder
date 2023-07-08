@@ -84,7 +84,6 @@ class Imu:
                 self.__moving = False
         else:
             if self.__reading_diff > self.__moving_threshold[0]:
-                print("Start Move", self.__reading_diff)
                 self.__moving = True
 
     def get_euler(self):
