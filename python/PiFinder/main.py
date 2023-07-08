@@ -228,9 +228,10 @@ def main(script_name=None):
         )
         keyboard_process.start()
         if script_name:
+            script_path = f"../scripts/{script_name}.pfs"
             p = Process(
                 target=keyboard_interface.KeyboardInterface.run_script,
-                args=(script_name, keyboard_queue),
+                args=(script_path, keyboard_queue),
             )
             p.start()
 
