@@ -73,6 +73,12 @@ class UICatalog(UIModule):
             "options": ["CANCEL", 5, 10, 15, 20],
             "callback": "push_near",
         },
+        "Push All Near": {
+            "type": "enum",
+            "value": "",
+            "options": ["CANCEL", 5, 10, 15, 20],
+            "callback": "push_all_near",
+        },
     }
 
     def __init__(self, *args):
@@ -175,6 +181,31 @@ class UICatalog(UIModule):
                 near_catalog = self.catalog_tracker.get_closest_objects(
                     solution["RA"], solution["Dec"], option
                 )
+            self.ui_state["observing_list"] = near_catalog
+            self.ui_state["active_list"] = self.ui_state["observing_list"]
+            self.ui_state["target"] = self.ui_state["active_list"][0]
+            return "UILocate"
+        else:
+            return False
+
+    def push_all_near(self, option):
+        self._config_options["Push All Near"]["value"] = ""
+        if option != "Cncl":
+            solution = self.shared_state.solution()
+            if not solution:
+                self.message("No Solve!", 1)
+                return False
+
+            # Filter the catalog one last time
+            self.catalog_tracker.filter()
+            self.message(f"Near {option} Pushed", 2)
+            near_catalog = self.catalog_tracker.get_closest_objects(
+                solution["RA"],
+                solution["Dec"],
+                option,
+                self.catalog_tracker.catalog_names,
+            )
+            logging.debug(f"near_catalog: {near_catalog}")
             self.ui_state["observing_list"] = near_catalog
             self.ui_state["active_list"] = self.ui_state["observing_list"]
             self.ui_state["target"] = self.ui_state["active_list"][0]

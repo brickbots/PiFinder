@@ -342,7 +342,7 @@ class CatalogTracker:
                 observed_filter,
             )
 
-    def get_closest_objects(self, ra, dec, n, catalogs=None):
+    def get_closest_objects(self, ra, dec, n, catalogs: Optional[List[str]] = None):
         """
         Takes the current catalog or a list of catalogs, gets the filtered
         objects and returns the n closest objects to ra/dec
