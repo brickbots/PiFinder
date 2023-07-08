@@ -13,7 +13,11 @@ class SharedStateObj:
     def __init__(self):
         self.__power_state = 1
         self.__solve_state = None
-        self.__last_image_time = (0, 0)
+        self.__last_image_metadata = {
+            "exposure_start": 0,
+            "exposure_end": 0,
+            "imu": None,
+        }
         self.__solution = None
         self.__imu = None
         self.__location = None
@@ -52,11 +56,11 @@ class SharedStateObj:
     def set_location(self, v):
         self.__location = v
 
-    def last_image_time(self):
-        return self.__last_image_time
+    def last_image_metadata(self):
+        return self.__last_image_metadata
 
-    def set_last_image_time(self, v):
-        self.__last_image_time = v
+    def set_last_image_metadata(self, v):
+        self.__last_image_metadata = v
 
     def datetime(self):
         if self.__datetime == None:

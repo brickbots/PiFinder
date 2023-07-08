@@ -172,7 +172,7 @@ def integrator(shared_state, solver_queue, console_queue):
         # we can't use the IMU
         if solved["Alt"]:
             imu = shared_state.imu()
-            if imu and imu["moving"]:
+            if imu:
                 dt = shared_state.datetime()
                 if last_image_solve and last_image_solve["Alt"]:
                     # If we have alt, then we have
@@ -201,8 +201,10 @@ def integrator(shared_state, solver_queue, console_queue):
                             solved["Alt"], solved["Az"], dt
                         )
 
-                        solved["solve_time"] = time.time()
-                        solved["solve_source"] = "IMU"
+                        # if abs(alt_offset) + abs(az_offset) > .01:
+                        if True:
+                            solved["solve_time"] = time.time()
+                            # solved["solve_source"] = "IMU"
 
         # Is the solution new?
         if solved["RA"] and solved["solve_time"] > last_solve_time:
