@@ -19,8 +19,8 @@ class Imu:
     def __init__(self):
         i2c = board.I2C()
         self.sensor = adafruit_bno055.BNO055_I2C(i2c)
-        self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
-        # self.sensor.mode = adafruit_bno055.NDOF_MODE
+        # self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
+        self.sensor.mode = adafruit_bno055.NDOF_MODE
         self.sensor.axis_remap = (
             adafruit_bno055.AXIS_REMAP_Z,
             adafruit_bno055.AXIS_REMAP_Y,
@@ -51,40 +51,7 @@ class Imu:
         Compares most recent reading
         with past readings
         """
-        self.__reading_diff = (
-            abs(self.quat_history[-1][0] - self.quat_history[-MOVE_CHECK_LEN][0])
-            + abs(self.quat_history[-1][1] - self.quat_history[-MOVE_CHECK_LEN][1])
-            + abs(self.quat_history[-1][2] - self.quat_history[-MOVE_CHECK_LEN][2])
-            + abs(self.quat_history[-1][3] - self.quat_history[-MOVE_CHECK_LEN][3])
-        )
-        if self.__moving:
-            if self.__reading_diff < self.__moving_threshold[1]:
-                self.__moving = False
-        else:
-            if self.__reading_diff > self.__moving_threshold[0]:
-                self.__moving = True
-
         return self.__moving
-
-    def flip(self, quat):
-        """
-        Compares most recent reading
-        with past readings and find
-        and filter anomolies
-        """
-        if len(self.quat_history) < QUEUE_LEN:
-            return False
-
-        dif = (
-            abs(quat[0] - self.quat_history[-1][0])
-            + abs(quat[1] - self.quat_history[-1][1])
-            + abs(quat[2] - self.quat_history[-1][2])
-            + abs(quat[3] - self.quat_history[-1][3])
-        )
-        if dif > 0.1:
-            return True
-        else:
-            return False
 
     def update(self):
         # Throw out non-calibrated data
@@ -96,12 +63,29 @@ class Imu:
             print("IMU: Failed to get sensor values")
             return
 
-        if not self.flip(quat):
-            self.avg_quat = quat
-            if len(self.quat_history) == QUEUE_LEN:
-                self.quat_history = self.quat_history[1:]
+        self.__reading_diff = (
+            abs(quat[0] - self.quat_history[-1][0])
+            + abs(quat[1] - self.quat_history[-1][1])
+            + abs(quat[2] - self.quat_history[-1][2])
+            + abs(quat[3] - self.quat_history[-1][3])
+        )
 
+        if self.__reading_diff > 1.5:
+            # FLIP, just ignore
+            return
+
+        self.avg_quat = quat
+        if len(self.quat_history) == QUEUE_LEN:
+            self.quat_history = self.quat_history[1:]
         self.quat_history.append(quat)
+
+        if self.__moving:
+            if self.__reading_diff < self.__moving_threshold[1]:
+                self.__moving = False
+        else:
+            if self.__reading_diff > self.__moving_threshold[0]:
+                print("Start Move", self.__reading_diff)
+                self.__moving = True
 
     def get_euler(self):
         return list(self.quat_to_euler(self.avg_quat))
