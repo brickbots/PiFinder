@@ -180,7 +180,7 @@ class UIStatus(UIModule):
             else:
                 stars_matched = "--"
             self.status_dict["LST SLV"] = (
-                f"{time.time() - solution['solve_time']: >6.1f}"
+                f"{time.time() - solution['cam_solve_time']: >6.1f}"
                 + " - "
                 + str(solution["solve_source"][0])
                 + f" {stars_matched: >2}"

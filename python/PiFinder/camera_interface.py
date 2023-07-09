@@ -51,7 +51,6 @@ class CameraInterface:
         # 60 half-second cycles
         sleep_delay = 60
         while True:
-            imu = shared_state.imu()
             if shared_state.power_state() == 0:
                 time.sleep(0.5)
 
@@ -63,28 +62,43 @@ class CameraInterface:
                 else:
                     sleep_delay = 60
 
-            if imu and imu["moving"] and imu["status"] > 0:
-                pass
+            imu_start = shared_state.imu()
+            image_start_time = time.time()
+            if not debug:
+                base_image = self.capture()
+                base_image = base_image.convert("L")
+                if screen_direction == "right":
+                    base_image = base_image.rotate(90)
+                else:
+                    base_image = base_image.rotate(270)
             else:
-                image_start_time = time.time()
-                if not debug:
-                    base_image = self.capture()
-                    base_image = base_image.convert("L")
-                    if screen_direction == "right":
-                        base_image = base_image.rotate(90)
-                    else:
-                        base_image = base_image.rotate(270)
-                else:
-                    # load image and wait
-                    base_image = Image.open(test_image_path)
-                    time.sleep(1)
-                # check imu to make sure we're still static
-                imu = shared_state.imu()
-                if imu and imu["moving"] and imu["status"] > 0:
-                    pass
-                else:
-                    camera_image.paste(base_image)
-                    shared_state.set_last_image_time((image_start_time, time.time()))
+                # load image and wait
+                base_image = Image.open(test_image_path)
+                time.sleep(1)
+            image_end_time = time.time()
+            # check imu to make sure we're still static
+            imu_end = shared_state.imu()
+
+            # see if we moved during exposure
+            moved = False
+            if imu_start and imu_end:
+                reading_diff = (
+                    abs(imu_start["pos"][0] - imu_end["pos"][0])
+                    + abs(imu_start["pos"][1] - imu_end["pos"][1])
+                    + abs(imu_start["pos"][2] - imu_end["pos"][2])
+                )
+                if reading_diff > 0.1:
+                    moved = True
+
+            if not moved:
+                camera_image.paste(base_image)
+                shared_state.set_last_image_metadata(
+                    {
+                        "exposure_start": image_start_time,
+                        "exposure_end": image_end_time,
+                        "imu": imu_end,
+                    }
+                )
 
             # Loop over any pending commands
             # There may be more than one!
