@@ -61,6 +61,8 @@ class Catalog:
             logging.debug(f"no catalog data for {self.name}")
         self.objects = {dict(row)["sequence"]: dict(row) for row in cat_objects}
         self.objects_keys_sorted = self._get_sorted_keys(self.objects)
+        self.filtered_objects = self.objects
+        self.filtered_objects_keys_sorted = self.objects_keys_sorted
         assert (
             self.objects_keys_sorted[-1] == self.max_sequence
         ), f"{self.name} max sequence mismatch"
@@ -142,6 +144,13 @@ class Catalog:
             if include_obj:
                 self.filtered_objects[key] = obj
         self.filtered_objects_keys_sorted = self._get_sorted_keys(self.filtered_objects)
+
+        def __repr__(self):
+            return "catalog repr"
+            # return f"Catalog({self.name=}, {self.max_sequence=})"
+
+        def __str__(self):
+            return __repr__(self)
 
 
 class CatalogDesignator:
@@ -351,11 +360,10 @@ class CatalogTracker:
         """
         catalog_list: List[Catalog] = self._select_catalogs(catalogs=catalogs)
         catalog_list_flat = [
-            x for y in catalog_list for x in y.filtered_objects.values()
+            obj for catalog in catalog_list for obj in catalog.filtered_objects.values()
         ]
         object_ras = [np.deg2rad(x["ra"]) for x in catalog_list_flat]
         object_decs = [np.deg2rad(x["dec"]) for x in catalog_list_flat]
-
         objects_df = pd.DataFrame(
             {
                 "ra": object_ras,
