@@ -224,8 +224,8 @@ class CatalogTracker:
         self.object_tracker = {c: None for c in self.catalog_names}
 
     def set_current_catalog(self, catalog_name):
-        assert catalog_name in self.catalogs
-        self.current = self.catalogs[catalog_name]
+        assert catalog_name in self.catalogs, f"{catalog_name} not in {self.catalogs}"
+        self.current_catalog = self.catalogs[catalog_name]
         self.current_catalog_name = catalog_name
 
     def next_catalog(self, direction=1):
@@ -242,9 +242,9 @@ class CatalogTracker:
 
         """
         keys_sorted = (
-            self.current.filtered_objects_keys_sorted
+            self.current_catalog.filtered_objects_keys_sorted
             if filtered
-            else self.current.objects_keys_sorted
+            else self.current_catalog.objects_keys_sorted
         )
         current_key = self.object_tracker[self.current_catalog_name]
         designator = self.get_designator()
@@ -276,18 +276,20 @@ class CatalogTracker:
     def does_filtered_have_current_object(self):
         return (
             self.object_tracker[self.current_catalog_name]
-            in self.current.filtered_objects
+            in self.current_catalog.filtered_objects
         )
 
     def get_current_object(self):
         object_key = self.object_tracker[self.current_catalog_name]
         if object_key is None:
             return None
-        return self.current.objects[object_key]
+        return self.current_catalog.objects[object_key]
 
     def set_current_object(self, object_number, catalog_name=None):
-        catalog_name = self._get_catalog_name(catalog_name)
-        self.current_catalog_name = catalog_name
+        if catalog_name is not None:
+            self.set_current_catalog(catalog_name)
+        else:
+            catalog_name = self.current_catalog_name
         self.object_tracker[catalog_name] = object_number
         self.designator_tracker[catalog_name].set_number(
             object_number if object_number else 0
@@ -304,7 +306,7 @@ class CatalogTracker:
         return result
 
     def _get_catalog_name(self, catalog: Optional[str]) -> str:
-        catalog = catalog or self.current_catalog_name
+        catalog: str = catalog or self.current_catalog_name
         return catalog
 
     def _select_catalog(self, catalog: Optional[str]) -> Catalog:
@@ -313,7 +315,7 @@ class CatalogTracker:
 
     def _select_catalogs(self, catalogs: Optional[List[str]]) -> List[Catalog]:
         if catalogs is None:
-            catalog_list = [self.current]
+            catalog_list = [self.current_catalog]
         else:
             catalog_list = [self.catalogs.get(key) for key in catalogs]
         return catalog_list
@@ -333,8 +335,8 @@ class CatalogTracker:
                 altitude_filter,
                 observed_filter,
             )
-        if self.current not in catalog_list:
-            self.current.filter(
+        if self.current_catalog not in catalog_list:
+            self.current_catalog.filter(
                 self.shared_state,
                 magnitude_filter,
                 type_filter,
@@ -348,7 +350,9 @@ class CatalogTracker:
         objects and returns the n closest objects to ra/dec
         """
         catalog_list: List[Catalog] = self._select_catalogs(catalogs=catalogs)
-        catalog_list_flat = [x for y in catalog_list for x in y.filtered_objects]
+        catalog_list_flat = [
+            x for y in catalog_list for x in y.filtered_objects.values()
+        ]
         object_ras = [np.deg2rad(x["ra"]) for x in catalog_list_flat]
         object_decs = [np.deg2rad(x["dec"]) for x in catalog_list_flat]
 

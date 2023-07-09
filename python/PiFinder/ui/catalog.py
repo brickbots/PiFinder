@@ -175,8 +175,8 @@ class UICatalog(UIModule):
             self.catalog_tracker.filter()
             self.message(f"Near {option} Pushed", 2)
 
-            if option > self.catalog_tracker.current.get_filtered_count():
-                near_catalog = self.catalog_tracker.current.filtered_objects
+            if option > self.catalog_tracker.current_catalog.get_filtered_count():
+                near_catalog = self.catalog_tracker.current_catalog.filtered_objects
             else:
                 near_catalog = self.catalog_tracker.get_closest_objects(
                     solution["RA"], solution["Dec"], option
@@ -224,7 +224,7 @@ class UICatalog(UIModule):
             self.texts = {}
             self.texts["type-const"] = TextLayouter(
                 # self.catalog_tracker.get_current_object().description,
-                self.catalog_tracker.current.desc
+                self.catalog_tracker.current_catalog.desc
                 if not has_number
                 else "Object not found",
                 draw=self.draw,
@@ -351,13 +351,13 @@ class UICatalog(UIModule):
             # catalog counts....
             self.draw.text(
                 (100, 21),
-                f"{self.catalog_tracker.current.get_filtered_count()}",
+                f"{self.catalog_tracker.current_catalog.get_filtered_count()}",
                 font=self.font_base,
                 fill=self.colors.get(128),
             )
             self.draw.text(
                 (100, 31),
-                f"{self.catalog_tracker.current.get_count()}",
+                f"{self.catalog_tracker.current_catalog.get_count()}",
                 font=self.font_base,
                 fill=self.colors.get(96),
             )
@@ -432,7 +432,7 @@ class UICatalog(UIModule):
             self.update()
 
     def background_update(self):
-        if time.time() - self.catalog_tracker.current.last_filtered > 60:
+        if time.time() - self.catalog_tracker.current_catalog.last_filtered > 60:
             self.catalog_tracker.filter()
 
     # duplicate code in Catalog, but this is a bit different
@@ -464,7 +464,7 @@ class UICatalog(UIModule):
             logging.debug("find by designator, objectnumber is 0")
             return False
 
-        if searching_for in self.catalog_tracker.current.filtered_objects:
+        if searching_for in self.catalog_tracker.current_catalog.filtered_objects:
             self.catalog_tracker.set_current_object(searching_for)
             return True
         else:
@@ -502,7 +502,7 @@ class UICatalog(UIModule):
         Looks for the next object up/down
         sets the sequence and object
         """
-        if self.catalog_tracker.current.get_filtered_count() == 0:
+        if self.catalog_tracker.current_catalog.get_filtered_count() == 0:
             return
 
         if direction > 0:
