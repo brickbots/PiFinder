@@ -1,0 +1,7 @@
+Saguaro Astronomy Club Double Star Database Version 4.0
+
+PA = Position Angle of the pair in arc degrees clockwise from North.
+Components  = If this is a multiple system, which components of the triple (or more) are in
+this record. For instance, if this field has ABXD then this field of data
+applies to the star system D in relation to the brightest pair in this
+multiple star AB.
