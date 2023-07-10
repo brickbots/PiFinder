@@ -205,7 +205,6 @@ class UICatalog(UIModule):
                 option,
                 self.catalog_tracker.catalog_names,
             )
-            logging.debug(f"near_catalog: {near_catalog}")
             self.ui_state["observing_list"] = near_catalog
             self.ui_state["active_list"] = self.ui_state["observing_list"]
             self.ui_state["target"] = self.ui_state["active_list"][0]

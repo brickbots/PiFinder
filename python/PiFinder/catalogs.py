@@ -362,20 +362,12 @@ class CatalogTracker:
         catalog_list_flat = [
             obj for catalog in catalog_list for obj in catalog.filtered_objects.values()
         ]
-        object_ras = [np.deg2rad(x["ra"]) for x in catalog_list_flat]
-        object_decs = [np.deg2rad(x["dec"]) for x in catalog_list_flat]
-        objects_df = pd.DataFrame(
-            {
-                "ra": object_ras,
-                "dec": object_decs,
-            }
-        )
-        objects_bt = BallTree(
-            objects_df[["ra", "dec"]], leaf_size=4, metric="haversine"
-        )
-
-        query_df = pd.DataFrame({"ra": [np.deg2rad(ra)], "dec": [np.deg2rad(dec)]})
-        _dist, obj_ind = objects_bt.query(query_df, k=n)
+        object_radecs = [
+            [np.deg2rad(x["ra"]), np.deg2rad(x["dec"])] for x in catalog_list_flat
+        ]
+        objects_bt = BallTree(object_radecs, leaf_size=4, metric="haversine")
+        query = [[np.deg2rad(ra), np.deg2rad(dec)]]
+        _dist, obj_ind = objects_bt.query(query, k=n)
         return [catalog_list_flat[x] for x in obj_ind[0]]
 
     def __repr__(self):
