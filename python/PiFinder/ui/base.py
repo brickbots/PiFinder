@@ -225,6 +225,9 @@ class UIModule:
     def key_enter(self):
         pass
 
+    def key_long_c(self):
+        pass
+
     def delete(self):
         pass
 

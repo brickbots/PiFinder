@@ -419,6 +419,7 @@ def main(script_name=None):
                     keycode = None
 
                 if keycode != None:
+                    logging.debug(f"Keycode: {keycode}")
                     power_save_warmup = time.time() + get_sleep_timeout(cfg)
                     set_brightness(screen_brightness, cfg)
                     shared_state.set_power_state(1)  # Normal
@@ -709,7 +710,7 @@ if __name__ == "__main__":
         from PiFinder import keyboard_server as keyboard
 
     if args.log:
-        datenow = datetime.now()
+        datenow = datetime.datetime.now()
         filehandler = f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"
         fh = logging.FileHandler(filehandler)
         fh.setLevel(logger.level)
