@@ -21,7 +21,7 @@ Once you've built or otherwise obtained a PiFinder, here's how to setup a fresh 
 
 Great!  You have a nice fresh install of Raspberry Pi OS ready to go.  The rest of the setup is completed by running the `pifinder_setup.sh` script in this repo.  Here's the command to download and run the script in one step:
 
- `wget -O - https://raw.githubusercontent.com/brickbots/PiFinder/main/pifinder_setup.sh | bash`
+ `wget -O - https://raw.githubusercontent.com/brickbots/PiFinder/release/pifinder_setup.sh | bash`
 
 The script:
 * Clone this repo
