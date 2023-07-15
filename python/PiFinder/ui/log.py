@@ -111,6 +111,8 @@ class UILog(UIModule):
         """
         if self.target:
             session_uuid, obs_id = self.record_object(self.target)
+            if session_uuid is None: 
+                return
             filename = f"log_{session_uuid}_{obs_id}_low"
             self.command_queues["camera"].put("save:" + filename)
 

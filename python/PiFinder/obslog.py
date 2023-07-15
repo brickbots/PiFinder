@@ -91,7 +91,7 @@ class Observation_session:
         session_uuid = self.session_uuid()
         if not session_uuid:
             print("Could not create session")
-            return False
+            return None, None
 
         q = """
             INSERT INTO obs_objects(
