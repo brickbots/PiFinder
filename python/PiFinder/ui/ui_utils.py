@@ -90,12 +90,17 @@ class TextLayouterSimple:
             self.object_text: List[str] = [self.text]
             self.updated = False
 
+    def after_draw(self):
+        """draw stuff on top of the text"""
+        pass
+
     def draw(self, pos: Tuple[int, int] = (0, 0)):
         self.layout(pos)
         # logging.debug(f"Drawing {self.object_text=}")
         self.drawobj.multiline_text(
             pos, "\n".join(self.object_text), font=self.font, fill=self.color, spacing=0
         )
+        self.after_draw()
 
     def __repr__(self):
         return f"TextLayouterSimple({self.text=}, {self.color=}, {self.font=}, {self.width=})"
@@ -191,33 +196,111 @@ class TextLayouter(TextLayouterSimple):
         self.pointer = 0
         self.nr_lines = len(text)
 
-    def draw_arrow(self, down):
+    def draw_pos(self, last_line):
         if self.nr_lines > self.available_lines:
-            if down:
-                self._draw_arrow(*self.downarrow)
-            else:
-                self._draw_arrow(*self.uparrow)
+            self._draw_pos(
+                self.pointer + 1, self.nr_lines - self.available_lines + 1, last_line
+            )
 
-    def _draw_arrow(self, top, bottom):
-        self.drawobj.rectangle([0, 126, 128, 128], fill=self.colors.get(0))
-        self.drawobj.rectangle(top, fill=self.colors.get(128))
-        self.drawobj.rectangle(bottom, fill=self.colors.get(128))
+    def _draw_pos(self, current, total, last_line):
+        page_text = f"{current}/{total}"
+        # text_length = self.drawobj.textlength(page_text, font=fonts.small)
+        bbox = self.drawobj.textbbox((0, 0), page_text, font=fonts.small)
+        _, top, right, bottom = bbox
+        cleft, ctop, cright, cbottom = 127 - right, 114, 127, 114 + (bottom - top)
+        logging.debug(f"{bbox=}")
+        self.drawobj.rectangle([cleft, ctop, cright, cbottom], fill=self.colors.get(0))
+        logging.debug(f"{cleft=}, {ctop=}, {cright=}, {cbottom=}")
+        self.drawobj.rectangle(
+            [cleft - 20, ctop, cleft, cbottom],
+            fill=self.colors.get_transparent(128, 128),
+            outline=self.colors.get_transparent(128, 128),
+        )
+        logging.debug(f"{cleft-20=}, {ctop=}, {cleft=}, {cbottom=}")
+        self.drawobj.text((cleft, 114), page_text, font=fonts.small, fill=self.color)
+        print(self.drawobj)
+        # shadow_outline_text(self.drawobj, (cleft, 114), page_text,
+        #                     font=fonts.small, align="right",
+        #                     fill=self.color, shadow_color=self.colors.get(0),
+        #                     outline=4
+        #                     )
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.updated:
-            # logging.debug(f"Updating {self.text=}")
+            logging.debug(f"Updating {self.text=}")
             split_lines = re.split(r"\n|\n\n", self.text)
             self.object_text = []
             for line in split_lines:
-                self.object_text.extend(textwrap.wrap(line, width=self.width))
+                wrapped_line = textwrap.wrap(line, width=self.width)
+                self.object_text.extend(wrapped_line)
+            # if we will scroll, last line is empty so the full last line can be shown
+            if len(self.object_text) > self.available_lines:
+                self.object_text.append("")
             self.orig_object_text = self.object_text
             self.object_text = self.object_text[0 : self.available_lines]
             self.nr_lines = len(self.orig_object_text)
         if self.scrolled:
+            logging.debug(f"Scrolling {self.text=}")
             self.object_text = self.orig_object_text[
                 self.pointer : self.pointer + self.available_lines
             ]
-        up = self.pointer + self.available_lines == self.nr_lines
-        self.draw_arrow(not up)
         self.updated = False
         self.scrolled = False
+
+    def after_draw(self):
+        print("after_draw")
+        self.draw_pos(self.object_text[-1])
+        self.should_after_draw = False
+
+
+def shadow_outline_text(
+    ri_draw, xy, text, align, font, fill, shadow_color, shadow=None, outline=None
+):
+    """draw shadowed and outlined text"""
+    print("shadow_outline_text")
+    x, y = xy
+    if shadow:
+        ri_draw.text(
+            (x + shadow[0], y + shadow[1]),
+            text,
+            align=align,
+            font=font,
+            fill=shadow_color,
+        )
+
+    if outline:
+        outline_text(
+            ri_draw,
+            xy,
+            text,
+            align=align,
+            font=font,
+            fill=fill,
+            shadow_color=shadow_color,
+            stroke=2,
+        )
+
+
+def outline_text(ri_draw, xy, text, align, font, fill, shadow_color, stroke=4):
+    """draw outline text"""
+    x, y = xy
+    ri_draw.text(
+        xy,
+        text,
+        align=align,
+        font=font,
+        fill=fill,
+        stroke_width=stroke,
+        stroke_fill=shadow_color,
+    )
+
+
+def shadow(ri_draw, xy, text, align, font, fill, shadowcolor):
+    """draw shadowed text"""
+    x, y = xy
+    # thin border
+    ri_draw.text((x - 1, y), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x + 1, y), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x, y - 1), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x, y + 1), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x, y), text, align=align, font=font, fill=fill)

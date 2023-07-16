@@ -73,7 +73,7 @@ def init_display():
             width=128,
             height=128,
             rotate=0,
-            mode="RGB",
+            mode="RGBA",
             transform="scale2x",
             scale=2,
             frame_rate=60,
@@ -494,7 +494,7 @@ def main(script_name=None):
                                 # write images
                                 debug_image.save(f"{test_image_path}/{uid}_raw.png")
                                 debug_image = subtract_background(debug_image)
-                                debug_image = debug_image.convert("RGB")
+                                debug_image = debug_image.convert("RGBA")
                                 debug_image = ImageOps.autocontrast(debug_image)
                                 debug_image.save(f"{test_image_path}/{uid}_sub.png")
 
