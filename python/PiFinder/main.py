@@ -26,8 +26,6 @@ from timezonefinder import TimezoneFinder
 
 
 from luma.core.interface.serial import spi
-from luma.core.render import canvas
-from luma.oled.device import ssd1351
 
 from PiFinder import solver
 from PiFinder import integrator
@@ -84,7 +82,8 @@ def init_display():
 
         # init display  (SPI hardware)
         serial = spi(device=0, port=0)
-        device_serial = ssd1351(serial)
+        device_serial = ssd1351(serial, rotate=0, bgr=True)
+        device_serial.capabilities(width=128, height=128, rotate=0, mode="RGBA")
         display_device = DeviceWrapper(device_serial, RED_BGR)
     else:
         print("Hardware platform not recognized")

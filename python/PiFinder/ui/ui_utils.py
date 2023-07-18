@@ -1,9 +1,11 @@
+from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 import PiFinder.utils as utils
 from PiFinder.ui.fonts import Fonts as fonts
 from typing import Tuple, List, Dict, Optional
 import textwrap
 import logging
 import re
+import math
 
 
 class SpaceCalculator:
@@ -90,7 +92,7 @@ class TextLayouterSimple:
             self.object_text: List[str] = [self.text]
             self.updated = False
 
-    def after_draw(self):
+    def after_draw(self, pos):
         """draw stuff on top of the text"""
         pass
 
@@ -100,7 +102,7 @@ class TextLayouterSimple:
         self.drawobj.multiline_text(
             pos, "\n".join(self.object_text), font=self.font, fill=self.color, spacing=0
         )
-        self.after_draw()
+        self.after_draw(pos)
 
     def __repr__(self):
         return f"TextLayouterSimple({self.text=}, {self.color=}, {self.font=}, {self.width=})"
@@ -196,61 +198,43 @@ class TextLayouter(TextLayouterSimple):
         self.pointer = 0
         self.nr_lines = len(text)
 
-    def draw_pos(self, last_line):
-        if self.nr_lines > self.available_lines:
-            self._draw_pos(
-                self.pointer + 1, self.nr_lines - self.available_lines + 1, last_line
-            )
-
-    def _draw_pos(self, current, total, last_line):
-        page_text = f"{current}/{total}"
-        # text_length = self.drawobj.textlength(page_text, font=fonts.small)
-        bbox = self.drawobj.textbbox((0, 0), page_text, font=fonts.small)
-        _, top, right, bottom = bbox
-        cleft, ctop, cright, cbottom = 127 - right, 114, 127, 114 + (bottom - top)
-        logging.debug(f"{bbox=}")
-        self.drawobj.rectangle([cleft, ctop, cright, cbottom], fill=self.colors.get(0))
-        logging.debug(f"{cleft=}, {ctop=}, {cright=}, {cbottom=}")
-        self.drawobj.rectangle(
-            [cleft - 20, ctop, cleft, cbottom],
-            fill=self.colors.get_transparent(128, 128),
-            outline=self.colors.get_transparent(128, 128),
-        )
-        logging.debug(f"{cleft-20=}, {ctop=}, {cleft=}, {cbottom=}")
-        self.drawobj.text((cleft, 114), page_text, font=fonts.small, fill=self.color)
-        print(self.drawobj)
-        # shadow_outline_text(self.drawobj, (cleft, 114), page_text,
-        #                     font=fonts.small, align="right",
-        #                     fill=self.color, shadow_color=self.colors.get(0),
-        #                     outline=4
-        #                     )
+    def _draw_pos(self, pos):
+        xpos = 127
+        starty = pos[1] + 1
+        endy = 127
+        therange = endy - starty
+        blockextent = math.floor((self.available_lines / self.nr_lines) * therange)
+        blockstart = ((self.pointer) / self.nr_lines) * therange
+        start = [xpos, starty, xpos, endy]
+        end = [
+            xpos,
+            math.floor(starty + blockstart),
+            xpos,
+            math.floor(starty + blockstart + blockextent),
+        ]
+        self.drawobj.line(start, fill=self.colors.get(64), width=1)
+        self.drawobj.line(end, fill=self.colors.get(128), width=1)
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.updated:
-            logging.debug(f"Updating {self.text=}")
+            # logging.debug(f"Updating {self.text=}")
             split_lines = re.split(r"\n|\n\n", self.text)
             self.object_text = []
             for line in split_lines:
-                wrapped_line = textwrap.wrap(line, width=self.width)
-                self.object_text.extend(wrapped_line)
-            # if we will scroll, last line is empty so the full last line can be shown
-            if len(self.object_text) > self.available_lines:
-                self.object_text.append("")
+                self.object_text.extend(textwrap.wrap(line, width=self.width))
             self.orig_object_text = self.object_text
             self.object_text = self.object_text[0 : self.available_lines]
             self.nr_lines = len(self.orig_object_text)
         if self.scrolled:
-            logging.debug(f"Scrolling {self.text=}")
             self.object_text = self.orig_object_text[
                 self.pointer : self.pointer + self.available_lines
             ]
         self.updated = False
         self.scrolled = False
 
-    def after_draw(self):
-        print("after_draw")
-        self.draw_pos(self.object_text[-1])
-        self.should_after_draw = False
+    def after_draw(self, pos):
+        if self.nr_lines > self.available_lines:
+            self._draw_pos(pos)
 
 
 def shadow_outline_text(
