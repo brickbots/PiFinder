@@ -45,6 +45,12 @@ class UIStatus(UIModule):
             "options": ["right", "left", "flat", "CANCEL"],
             "callback": "side_switch",
         },
+        "Cam Rot": {
+            "type": "enum",
+            "value": "",
+            "options": ["0", "90", "180", "270", "CANCEL"],
+            "callback": "camera_rotation",
+        },
         "Restart": {
             "type": "enum",
             "value": "",
@@ -133,8 +139,23 @@ class UIStatus(UIModule):
             )
             return False
 
-        self.message("Ok! Restaring", 10)
+        self.message("Ok! Restarting", 10)
         self.config_object.set_option("screen_direction", option)
+        if option == "right":
+            self.config_object.set_option("camera_rotation", "90")
+        elif option == "left":
+            self.config_object.set_option("camera_rotation", "270")
+        sys_utils.restart_pifinder()
+    
+    def camera_rotation(self, option):
+        if option == "CANCEL":
+            self._config_options["Cam Rot"]["value"] = self.config_object.get_option(
+                "camera_rotation"
+            )
+            return False
+
+        self.message("Ok! Restarting", 10)
+        self.config_object.set_option("camera_rotation", option)
         sys_utils.restart_pifinder()
 
     def wifi_switch(self, option):

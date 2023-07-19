@@ -15,7 +15,6 @@ from PiFinder import config
 
 QUEUE_LEN = 10
 MOVE_CHECK_LEN = 2
-cfg = config.Config()
 
 class Imu:
     def __init__(self):
@@ -23,6 +22,7 @@ class Imu:
         self.sensor = adafruit_bno055.BNO055_I2C(i2c)
         # self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
         self.sensor.mode = adafruit_bno055.NDOF_MODE
+        cfg = config.Config()
         if cfg.get_option("screen_direction") == "flat":
             self.sensor.axis_remap = (
                 adafruit_bno055.AXIS_REMAP_Y,

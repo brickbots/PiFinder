@@ -11,6 +11,7 @@
     "camera_exp": 750000,
     "camera_gain": 20,
     "screen_direction": "right",
+    "camera_rotation": "90",
     "solver_debug": 0,
     "sleep_timeout": "30s",
     "catalogs": [
