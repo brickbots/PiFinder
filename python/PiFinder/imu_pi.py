@@ -22,9 +22,9 @@ class Imu:
         # self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
         self.sensor.mode = adafruit_bno055.NDOF_MODE
         self.sensor.axis_remap = (
-            adafruit_bno055.AXIS_REMAP_Z,
             adafruit_bno055.AXIS_REMAP_Y,
             adafruit_bno055.AXIS_REMAP_X,
+            adafruit_bno055.AXIS_REMAP_Z,
             adafruit_bno055.AXIS_REMAP_POSITIVE,
             adafruit_bno055.AXIS_REMAP_POSITIVE,
             adafruit_bno055.AXIS_REMAP_POSITIVE,
