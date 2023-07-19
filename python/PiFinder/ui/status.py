@@ -42,7 +42,7 @@ class UIStatus(UIModule):
         "Mnt Side": {
             "type": "enum",
             "value": "",
-            "options": ["right", "left", "CANCEL"],
+            "options": ["right", "left", "flat", "CANCEL"],
             "callback": "side_switch",
         },
         "Restart": {
