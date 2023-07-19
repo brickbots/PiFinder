@@ -11,9 +11,11 @@ import adafruit_bno055
 
 from scipy.spatial.transform import Rotation
 
+from PiFinder import config
+
 QUEUE_LEN = 10
 MOVE_CHECK_LEN = 2
-
+cfg = config.Config()
 
 class Imu:
     def __init__(self):
@@ -21,14 +23,24 @@ class Imu:
         self.sensor = adafruit_bno055.BNO055_I2C(i2c)
         # self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
         self.sensor.mode = adafruit_bno055.NDOF_MODE
-        self.sensor.axis_remap = (
-            adafruit_bno055.AXIS_REMAP_Y,
-            adafruit_bno055.AXIS_REMAP_X,
-            adafruit_bno055.AXIS_REMAP_Z,
-            adafruit_bno055.AXIS_REMAP_POSITIVE,
-            adafruit_bno055.AXIS_REMAP_POSITIVE,
-            adafruit_bno055.AXIS_REMAP_POSITIVE,
-        )
+        if cfg.get_option("screen_direction") == "flat":
+            self.sensor.axis_remap = (
+                adafruit_bno055.AXIS_REMAP_Y,
+                adafruit_bno055.AXIS_REMAP_X,
+                adafruit_bno055.AXIS_REMAP_Z,
+                adafruit_bno055.AXIS_REMAP_POSITIVE,
+                adafruit_bno055.AXIS_REMAP_POSITIVE,
+                adafruit_bno055.AXIS_REMAP_NEGATIVE,
+            )
+        else:
+            self.sensor.axis_remap = (
+                adafruit_bno055.AXIS_REMAP_Z,
+                adafruit_bno055.AXIS_REMAP_Y,
+                adafruit_bno055.AXIS_REMAP_X,
+                adafruit_bno055.AXIS_REMAP_POSITIVE,
+                adafruit_bno055.AXIS_REMAP_POSITIVE,
+                adafruit_bno055.AXIS_REMAP_POSITIVE,
+            )
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
         self.__moving = False
         self.__moving_threshold = (0.005, 0.001)
