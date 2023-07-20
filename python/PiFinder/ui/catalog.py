@@ -61,13 +61,13 @@ class UICatalog(UIModule):
             "options": ["None"] + list(OBJ_TYPES.keys()),
         },
         "Observed": {"type": "enum", "value": ["Any"], "options": ["Any", "Yes", "No"]},
-        "Push List": {
+        "Push Cat.": {
             "type": "enum",
             "value": "",
             "options": ["Go", "CANCEL"],
-            "callback": "push_list",
+            "callback": "push_cat",
         },
-        "Push Near": {
+        "Near Obj.": {
             "type": "enum",
             "value": "",
             "options": ["CANCEL", 5, 10, 15, 20],
@@ -144,8 +144,8 @@ class UICatalog(UIModule):
         if not self.catalog_tracker.does_filtered_have_current_object():
             self.delete()
 
-    def push_list(self, option):
-        self._config_options["Push List"]["value"] = ""
+    def push_cat(self, option):
+        self._config_options["Push Cat."]["value"] = ""
         if option == "Go":
             self.message("Catalog Pushed", 2)
             # Filter the catalog one last time
@@ -158,7 +158,7 @@ class UICatalog(UIModule):
             return False
 
     def push_near(self, option):
-        self._config_options["Push Near"]["value"] = ""
+        self._config_options["Near Obj."]["value"] = ""
         if option != "Cncl":
             solution = self.shared_state.solution()
             if not solution:

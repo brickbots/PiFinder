@@ -8,6 +8,7 @@ import datetime
 import time
 import os
 from PIL import ImageFont
+import logging
 
 from PiFinder import integrator, obslist
 from PiFinder.obj_types import OBJ_TYPES
@@ -152,14 +153,18 @@ class UILocate(UIModule):
             return
 
         self.object_text = []
-
-        # Type / Constellation
-        object_type = OBJ_TYPES.get(
-            self.ui_state["target"]["obj_type"], self.ui_state["target"]["obj_type"]
-        )
-        self.object_text.append(
-            f"{object_type: <14} {self.ui_state['target']['const']}"
-        )
+        try:
+            # Type / Constellation
+            object_type = OBJ_TYPES.get(
+                self.ui_state["target"]["obj_type"], self.ui_state["target"]["obj_type"]
+            )
+            self.object_text.append(
+                f"{object_type: <14} {self.ui_state['target']['const']}"
+            )
+        except Exception as e:
+            logging.error(
+                f"Error generating object text: {e}, {self.ui_state['target']}"
+            )
 
     def aim_degrees(self):
         """

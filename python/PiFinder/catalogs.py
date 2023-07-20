@@ -19,10 +19,10 @@ class Catalog:
 
     def __init__(self, catalog_name):
         self.name = catalog_name
-        self.objects = {}
-        self.objects_keys_sorted = []
-        self.filtered_objects = {}
-        self.filtered_objects_keys_sorted = []
+        self.objects: Dict[str, Dict] = {}
+        self.objects_keys_sorted: List[str] = []
+        self.filtered_objects: Dict[str, Dict] = {}
+        self.filtered_objects_keys_sorted: List[str] = []
         self.max_sequence = 0
         self.desc = "No description"
         self._load_catalog()
@@ -255,7 +255,7 @@ class CatalogTracker:
             designator.set_number(next_key)
 
         else:
-            current_index = keys_sorted.index(current_key)
+            current_index = keys_sorted.index(str(current_key))
             next_index = current_index + direction
             if next_index == -1 or next_index >= len(keys_sorted):
                 next_key = None  # hack to get around the fact that 0 is a valid key
@@ -269,9 +269,12 @@ class CatalogTracker:
     def previous_object(self):
         return self.next_object(-1)
 
-    def get_objects(self, catalogs=None):
+    def get_objects(self, catalogs=None) -> List[Dict]:
         catalog_list = self._select_catalogs(catalogs)
-        return [catalog.objects for catalog in catalog_list]
+        flattened_objects = [
+            obj for entry in catalog_list for obj in entry.objects.values()
+        ]
+        return flattened_objects
 
     def does_filtered_have_current_object(self):
         return (
@@ -283,7 +286,7 @@ class CatalogTracker:
         object_key = self.object_tracker[self.current_catalog_name]
         if object_key is None:
             return None
-        return self.current.objects[object_key]
+        return self.current.objects[str(object_key)]
 
     def set_current_object(self, object_number, catalog_name=None):
         catalog_name = self._get_catalog_name(catalog_name)
@@ -312,6 +315,7 @@ class CatalogTracker:
         return self.catalogs.get(catalog)
 
     def _select_catalogs(self, catalogs: Optional[List[str]]) -> List[Catalog]:
+        catalog_list: List[Catalog] = []
         if catalogs is None:
             catalog_list = [self.current]
         else:
