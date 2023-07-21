@@ -19,10 +19,10 @@ class Catalog:
 
     def __init__(self, catalog_name):
         self.name = catalog_name
-        self.objects: Dict[str, Dict] = {}
-        self.objects_keys_sorted: List[str] = []
-        self.filtered_objects: Dict[str, Dict] = {}
-        self.filtered_objects_keys_sorted: List[str] = []
+        self.objects: Dict[int, Dict] = {}
+        self.objects_keys_sorted: List[int] = []
+        self.filtered_objects: Dict[int, Dict] = {}
+        self.filtered_objects_keys_sorted: List[int] = []
         self.max_sequence = 0
         self.desc = "No description"
         self._load_catalog()
@@ -59,7 +59,7 @@ class Catalog:
             self.desc = cat_data["desc"]
         else:
             logging.debug(f"no catalog data for {self.name}")
-        self.objects = {dict(row)["sequence"]: dict(row) for row in cat_objects}
+        self.objects = {int(dict(row)["sequence"]): dict(row) for row in cat_objects}
         self.objects_keys_sorted = self._get_sorted_keys(self.objects)
         self.filtered_objects = self.objects
         self.filtered_objects_keys_sorted = self.objects_keys_sorted
@@ -264,7 +264,7 @@ class CatalogTracker:
             designator.set_number(next_key)
 
         else:
-            current_index = keys_sorted.index(str(current_key))
+            current_index = keys_sorted.index(current_key)
             next_index = current_index + direction
             if next_index == -1 or next_index >= len(keys_sorted):
                 next_key = None  # hack to get around the fact that 0 is a valid key
