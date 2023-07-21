@@ -1,0 +1,316 @@
+        SAGUARO ASTRONOMY CLUB DOUBLE STAR DATABASE VERSION 4.0
+                    dated July 4, 2008
+           Steve Coe  email:  stevecoe at cloudynights dot com
+
+Many members of our astronomy club have always enjoyed the beauty of multiple 
+stars and in an effort to provide a list of these objects, this project was 
+begun. We are not foolish enough to believe that it is complete, but it 
+should be a good starting point for many amateur double star observers with 
+modest telescopes.
+
+The previous versions of the SAC double star database have been created by 
+starting with a large professional set of data, usually the Washington 
+Double Star (WDS) catalog. We found that approach to provide plenty of 
+stars but we found that size just created an overwhelming observing list. 
+
+So, this time we came at the problem from the other direction. Instead 
+of creating a double star database from a huge file, we would put together 
+the information from a wide variety of modest sources and created a larger 
+file of multiple stars that have been discussed in the astronomical 
+literature. In other words--someone at some point said that these stars 
+are worth observing.
+
+There are three versions of the database in this release, in an effort to 
+provide the users of the data the most useful format for their computer.  
+The "fence" version is a text file that has a vertical bar, or fence, 
+between each field.  The "QCQ" version is a quote comma quote delimited (CSV) 
+version so that the user can easier import it into a variety of spreadsheets 
+or database managers.  The third version is in the form or an Excel 
+spreadsheet.  
+
+A description of the fields and what data they contain follows:
+
+          Database Format Summary:
+
+    FIELD NAME         TYPE     WIDTH
+ 1  Con                Char       3
+ 2  Name               Char      15
+ 3  RA                 Char       7   (HH MM.M)
+ 4  Dec                Char       6   (+DD MM)
+ 5  Comp               Char       5
+ 6  Other Names        Char      27
+ 7  Mag1               Char       4
+ 8  Mag2               Char       4
+ 9  Sep                Num        6   (9999.9)
+10  PA                 Char       3
+11  Notes              Char      62
+12  U2000              Char       3
+13  Tirion             Char       2
+14  Bright Star Atlas  Char       2
+15  SAO		       Num        6
+    ------------------------------
+  ** Total **                   155
+
+
+Details about each field follows:
+
+Field Number:  1    Name:  CON           Size:   3  (Char)
+Constellation in which the object is found in IAU format, given in the table
+below. Only upper case abbreviations are used for ease of programming using
+case-sensitive commands.
+
+ANDROMEDA           AND                 LACERTA             LAC
+ANTLIA              ANT                 LEO                 LEO
+APUS                APS                 LEO MINOR           LMI
+AQUARIUS            AQR                 LEPUS               LEP
+AQUILA              AQL                 LIBRA               LIB
+ARA                 ARA                 LUPUS               LUP
+ARIES               ARI                 LYNX                LYN
+AURIGA              AUR                 LYRA                LYR
+BOOTES              BOO                 MENSA               MEN
+CAELUM              CAE                 MICROSCOPIUM        MIC
+CAMELOPARDALIS      CAM                 MONOCEROS           MON
+CANCER              CNC                 MUSCA               MUS
+CANES VENATICI      CVN                 NORMA               NOR
+CANIS MAJOR         CMA                 OCTANS              OCT
+CANIS MINOR         CMI                 OPHIUCHUS           OPH
+CAPRICORNUS         CAP                 ORION               ORI
+CARINA              CAR                 PAVO                PAV
+CASSIOPEIA          CAS                 PEGASUS             PEG
+CENTAURUS           CEN                 PERSEUS             PER
+CEPHEUS             CEP                 PHOENIX             PHE
+CETUS               CET                 PICTOR              PIC
+CHAMAELEON          CHA                 PISCES              PSC
+CIRCINUS            CIR                 PISCES AUSTRINUS    PSA
+COLUMBA             COL                 PUPPIS              PUP
+COMA BERENICES      COM                 PYXIS               PYX
+CORONA AUSTRALIS    CRA                 RETICULUM           RET
+CORONA BOREALIS     CRB                 SAGITTA             SGE
+CORVUS              CRV                 SAGITTARIUS         SGR
+CRATER              CRT                 SCORPIUS            SCO
+CRUX                CRU                 SCULPTOR            SCL
+CYGNUS              CYG                 SCUTUM              SCT
+DELPHINUS           DEL                 SERPENS             SER
+DORADO              DOR                 SEXTANS             SEX
+DRACO               DRA                 TAURUS              TAU
+EQUULEUS            EQU                 TELESCOPIUM         TEL
+ERIDANUS            ERI                 TRIANGULUM AUSTRALE TRA
+FORNAX              FOR                 TRIANGULUM          TRI
+GEMINI              GEM                 TUCANA              TUC
+GRUS                GRU                 URSA MAJOR          UMA
+HERCULES            HER                 URSA MINOR          UMI
+HOROLOGIUM          HOR                 VELA                VEL
+HYDRA               HYA                 VIRGO               VIR
+HYDRUS              HYI                 VOLANS              VOL
+INDUS               IND                 VULPECULA           VUL
+
+
+Field Number:  2    Name:  NAME          Size:  15  (Char)
+Name of the discoverer of this multiple system. 
+
+    A    Aitken, R.G.                          HRG  Hargrave, L.      
+    AC   Clark, Alvan                          HU   Hussey, W.L.      
+    AG   AG catalog                            I    Innes, R.T.A.     
+    ARG  Argelander, F.                        J    Jonckheere, R.    
+    B    Bos, W.H. van den                     JC   Jacob, W.S.       
+    BrsO Brisbane Obs.                         Kr   Kruger, A         
+    BUP  Burnham, S.W. pm                      L    Lewis, T.         
+    COO  Cordoba Obs.                          LAL  Lalande, F. de    
+    COU  Couteau, P.                           MLB  Milburn, W.       
+    CPO  Cape Observatory                      MLO  Melbourne Obs.    
+    DON  Donner, H.F.                          PZ   Piazzi, G.        
+    ES   Espin, T.E.                           R    Russell, H.C.     
+    GLI  Gilliss, J.M.                         RMK  Rumker, C.        
+    GRB  Groombridge, S.                       SEE  See, T.J.         
+    H    Herschel, W.                          SEI  Scheiner, J.      
+    H N  Herschel, W.                          Sh   South & Herschel  
+    H V  Herschel, W.                          SLR  Sellors, R.P.     
+    H VI Herschel, W.                          STF  Struve, F.G.W.    
+    HDO  Harvard Obs.                          STT  Struve, Otto      
+    HEI  Heintz, W.D.                          WEI  Weisse, M.        
+    h    Herschel, J.                          WNC  Winnecke, A.      
+                                               
+If the object was not listed in a preceding catalog, we used the star's 
+Bayer or Flamsteed designation or the full name of the observer.
+
+
+Field Number:  3    Name:  RA                           Size:   7  (Char)
+Epoch 2000 position in hours and minutes of Right Ascension.
+(The format is: HH MM.M)
+
+
+Field Number:  4    Name:  DEC                          Size:   6  (Char)
+Epoch 2000 position in Declination degrees and minutes.
+(The format is: SDD MM)
+
+
+Field Number:  5    Name:  COMP                         Size:   5  (Char)
+If this is a multiple system, which components of the triple (or more) are in
+this record. For instance, if this field has ABXD then this field of data
+applies to the star system D in relation to the brightest pair in this
+multiple star AB.
+
+
+Field Number:  6    Name:  OTHER NAMES                  Size:  27  (Char)
+If there is another name for a star, its designation is included here. There
+may be several "A.K.A"s here.
+
+
+Field Number:  7    Name:  MAG1                         Size:   4  (Char)
+Magnitude of the primary star.
+
+
+Field Number:  8    Name:  MAG2                         Size:   4  (Char)
+Magnitude of the secondary star.
+
+
+Field Number:  9    Name:  SEP                          Size:   6  (Numeric)
+Separation of the pair in arc seconds.
+
+
+Field Number: 10    Name:  PA                           Size:   3  (Char)
+Position Angle of the pair in arc degrees clockwise from North.
+
+
+Field Number: 11    Name:  NOTES                        Size:  62  (Char)
+To prevent errors in some database import programs, we did not use a 
+double quote mark (") for arc seconds, two single quotes ('') were used.
+
+Several abbreviations were used in the Notes section:
+
+CoCo = Color Contrast, the star exhibits a difference in color between the
+       primary and secondary.
+
+Colors   =   B  = blue,
+             BG = blue-green
+             BW = blue-white
+             Gn = green
+             Gy = gray
+             L  = lilac
+             O  = orange
+             P  = purple
+             R  = red,
+             T  = topaz (pale yellow)
+             V  = violet
+             W  = white
+             Y  = yellow
+
+Magnitude Contrast = the stars appear very different in brightness.
+
+var = variable, the magnitude of the star changes with time.
+
+We are well aware of the "wildness" of some of the colors, some of which cannot
+be possible considering Planck's Radiation Law. However, they are historical
+and based on the possibility that the response of the eye is rather variable
+and the mind of the observer sometimes may get fanciful. Use your own
+judgement.
+
+If the binary pair is generally no more than half a magnitude different and
+the spectral class is close, the term "Almost Matched Pair" is used. If the
+magnitude difference is less than 0.2 of a magnitude and the spectral classes
+of the members is almost the same or actually the same, the term "Well Matched
+Pair" is used. There are problems with this method in that different sources
+might have different values for either or both magnitude and spectral class.
+So, here again, consider the terms general and use your own judgement.
+
+
+Field Number: 12    Name:  U2000                        Size:   3  (Char)
+The charts in the Uranometria 2000.0 that map the area of sky in which the
+star is located. It is not guaranteed that all multiple stars plotted on U2000
+are contained in the database but we are trying.
+
+
+Field Number: 13    Name:  TIRION                       Size:   2  (Char)
+The charts in the Tirion Sky Atlas 2000.0 that map the area of sky in which
+the star is located. This is included so that a less detailed view of the area
+will be available to star hoppers.
+
+
+Field Number: 14    Name:  BRIGHT STAR ATLAS            Size:   3  (Char)
+The charts in the Bright Star Atlas that map the area of sky in which the star
+is located. Of the three chart names included this is the smallest scale.
+
+Field Number: 15    Name:  SAO                          Size:   6  (Char)
+The number for this star in the Smithsonian Astrophysical Observatory survey.
+There are several digital finder systems that use this number.
+
+                        CONTRIBUTORS
+
+Bill Anderson put a number of different data sources into the original Master 
+Data File after getting numerous fields to have some uniformity, organizing 
+the data so as to make subsequent work much easier and doing a lot of 
+reorganization as the project continued. He also wrote the program for 
+determining the Tirion, U2000 and Bright Star Atlas chart numbers.
+
+Steve Coe wrote the file you are reading and checked and entered data. He 
+is also the one to do the internet work associated with questions and 
+uploading the files. His particular expertise was finding the SAO numbers 
+so that users of telescopes with computers that have that data installed 
+can easily find these stars.  One interesting touch was his adding in 
+binaries in which one of the members was a carbon star. Look in the "NOTES" 
+for those additions.
+
+A.J. Crayon and Al Steiweg did error corrections.
+
+Brian Skiff provided us with error checking data and gave us input on 
+what to include for each entry.
+
+
+
+                       REVISION HISTORY
+
+Version  1.0 was the raw data from the output of a Quick Basic search routine
+that was written by Bill Anderson and Steve Coe and run against the Washington
+Double Star catalog as we received it.
+
+Version  1.1 was the output from Alan Gore's dBase III+ program to parse the
+star names from the NOTES.
+
+Version  1.2 contained the precessed values for position and added the chart
+numbers. Steve Stanford wrote the chart numbering program and Kent Hepburn
+interfaced it with the data from the WDS.
+
+Version  1.3 was a quick check to make certain that we had not lost any
+"famous" doubles while dealing with the above operations.
+
+Version  1.4 was the output of a comprehensive check that lasted several
+months trying to catch any errors, large or small, in the data or
+documentation. All the above versions were internal to the SAC and did not get
+a general release to the public.
+
+Versions 1.5 thru 1.8 were intermediate revisions done by Dan Ward to
+eliminate some data format inconsistencies. A few non-SAC members received
+copies of one or more of these versions. When Dan finished 1.9, the rest of
+the team went through it again to make one more check prior to release.
+
+Version  2.0 is hereby placed in the public domain. It is our first release of
+the double star database for general use.
+
+Version  2.1 is released to fix a problem that Quick Basic had with values of
+Declination near the equator. The algorithms in QB just don't understand
+negative zero!! A dec such as - 00 32 was forced to become positive. So we had
+to go through all the stars near the equator and check their declinations.
+
+Version  3.0 is a brand new attempt to create a useful double star database
+that contains a listing of multiple stars that are worth observing. Many
+sources of information about double stars were combined to provide as complete
+a set of data as could be found.
+
+Version 3.1 fixed three or four problems.  It would not have been released so
+quickly, except several of the stars are famous and would have stood out.
+
+Version 3.3 added some doubles that were sent to me by email from several 
+sources, a few of the stars are bright and have Flamsteed numbers, so I 
+added them in and made a new release.
+
+Version 4.0 was an effort to make the data as clean as possible.  The data was reviewed and a few errors were found in positions and seperations.  Some NOTES were added to provide more information about each star.
+
+                         FINAL NOTES
+
+We realize that such an undertaking could not possibly be completed without
+some errors or typos creeping into the database. We would like you to get in
+contact with us if you find any problems. 
+
+www.saguaroastro.org
+
+

@@ -1,0 +1,9 @@
+# Wait for the system to boot
+wait 7
+
+# Get into catalog mode
+A
+A
+LNG_A
+7
+2

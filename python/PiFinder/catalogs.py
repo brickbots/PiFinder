@@ -61,6 +61,8 @@ class Catalog:
             logging.debug(f"no catalog data for {self.name}")
         self.objects = {dict(row)["sequence"]: dict(row) for row in cat_objects}
         self.objects_keys_sorted = self._get_sorted_keys(self.objects)
+        self.filtered_objects = self.objects
+        self.filtered_objects_keys_sorted = self.objects_keys_sorted
         assert (
             self.objects_keys_sorted[-1] == self.max_sequence
         ), f"{self.name} max sequence mismatch"
@@ -143,6 +145,13 @@ class Catalog:
                 self.filtered_objects[key] = obj
         self.filtered_objects_keys_sorted = self._get_sorted_keys(self.filtered_objects)
 
+        def __repr__(self):
+            return "catalog repr"
+            # return f"Catalog({self.name=}, {self.max_sequence=})"
+
+        def __str__(self):
+            return __repr__(self)
+
 
 class CatalogDesignator:
     """Holds the string that represents the catalog input/search field.
@@ -224,8 +233,8 @@ class CatalogTracker:
         self.object_tracker = {c: None for c in self.catalog_names}
 
     def set_current_catalog(self, catalog_name):
-        assert catalog_name in self.catalogs
-        self.current = self.catalogs[catalog_name]
+        assert catalog_name in self.catalogs, f"{catalog_name} not in {self.catalogs}"
+        self.current_catalog = self.catalogs[catalog_name]
         self.current_catalog_name = catalog_name
 
     def next_catalog(self, direction=1):
@@ -242,9 +251,9 @@ class CatalogTracker:
 
         """
         keys_sorted = (
-            self.current.filtered_objects_keys_sorted
+            self.current_catalog.filtered_objects_keys_sorted
             if filtered
-            else self.current.objects_keys_sorted
+            else self.current_catalog.objects_keys_sorted
         )
         current_key = self.object_tracker[self.current_catalog_name]
         designator = self.get_designator()
@@ -279,18 +288,20 @@ class CatalogTracker:
     def does_filtered_have_current_object(self):
         return (
             self.object_tracker[self.current_catalog_name]
-            in self.current.filtered_objects
+            in self.current_catalog.filtered_objects
         )
 
     def get_current_object(self):
         object_key = self.object_tracker[self.current_catalog_name]
         if object_key is None:
             return None
-        return self.current.objects[str(object_key)]
+        return self.current_catalog.objects[object_key]
 
     def set_current_object(self, object_number, catalog_name=None):
-        catalog_name = self._get_catalog_name(catalog_name)
-        self.current_catalog_name = catalog_name
+        if catalog_name is not None:
+            self.set_current_catalog(catalog_name)
+        else:
+            catalog_name = self.current_catalog_name
         self.object_tracker[catalog_name] = object_number
         self.designator_tracker[catalog_name].set_number(
             object_number if object_number else 0
@@ -307,7 +318,7 @@ class CatalogTracker:
         return result
 
     def _get_catalog_name(self, catalog: Optional[str]) -> str:
-        catalog = catalog or self.current_catalog_name
+        catalog: str = catalog or self.current_catalog_name
         return catalog
 
     def _select_catalog(self, catalog: Optional[str]) -> Catalog:
@@ -317,7 +328,7 @@ class CatalogTracker:
     def _select_catalogs(self, catalogs: Optional[List[str]]) -> List[Catalog]:
         catalog_list: List[Catalog] = []
         if catalogs is None:
-            catalog_list = [self.current]
+            catalog_list = [self.current_catalog]
         else:
             catalog_list = [self.catalogs.get(key) for key in catalogs]
         return catalog_list
@@ -337,8 +348,8 @@ class CatalogTracker:
                 altitude_filter,
                 observed_filter,
             )
-        if self.current not in catalog_list:
-            self.current.filter(
+        if self.current_catalog not in catalog_list:
+            self.current_catalog.filter(
                 self.shared_state,
                 magnitude_filter,
                 type_filter,
@@ -346,28 +357,21 @@ class CatalogTracker:
                 observed_filter,
             )
 
-    def get_closest_objects(self, ra, dec, n, catalogs=None):
+    def get_closest_objects(self, ra, dec, n, catalogs: Optional[List[str]] = None):
         """
         Takes the current catalog or a list of catalogs, gets the filtered
         objects and returns the n closest objects to ra/dec
         """
         catalog_list: List[Catalog] = self._select_catalogs(catalogs=catalogs)
-        catalog_list_flat = [x for y in catalog_list for x in y.filtered_objects]
-        object_ras = [np.deg2rad(x["ra"]) for x in catalog_list_flat]
-        object_decs = [np.deg2rad(x["dec"]) for x in catalog_list_flat]
-
-        objects_df = pd.DataFrame(
-            {
-                "ra": object_ras,
-                "dec": object_decs,
-            }
-        )
-        objects_bt = BallTree(
-            objects_df[["ra", "dec"]], leaf_size=4, metric="haversine"
-        )
-
-        query_df = pd.DataFrame({"ra": [np.deg2rad(ra)], "dec": [np.deg2rad(dec)]})
-        _dist, obj_ind = objects_bt.query(query_df, k=n)
+        catalog_list_flat = [
+            obj for catalog in catalog_list for obj in catalog.filtered_objects.values()
+        ]
+        object_radecs = [
+            [np.deg2rad(x["ra"]), np.deg2rad(x["dec"])] for x in catalog_list_flat
+        ]
+        objects_bt = BallTree(object_radecs, leaf_size=4, metric="haversine")
+        query = [[np.deg2rad(ra), np.deg2rad(dec)]]
+        _dist, obj_ind = objects_bt.query(query, k=n)
         return [catalog_list_flat[x] for x in obj_ind[0]]
 
     def __repr__(self):

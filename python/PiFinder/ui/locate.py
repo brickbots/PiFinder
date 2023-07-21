@@ -4,9 +4,7 @@
 This module contains the Locate module
 
 """
-import datetime
 import time
-import os
 from PIL import ImageFont
 import logging
 
