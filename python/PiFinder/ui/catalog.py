@@ -107,7 +107,7 @@ class UICatalog(UIModule):
         self.catalog_tracker = CatalogTracker(
             self.catalog_names, self.shared_state, self._config_options
         )
-        self.conn = sqlite3.connect(utils.pifinder_db)
+        self.conn = sqlite3.connect(utils.objects_db)
         self.conn.row_factory = sqlite3.Row
         self.font_large = fonts.large
 

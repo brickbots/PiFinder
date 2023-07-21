@@ -38,7 +38,7 @@ class Catalog:
         Loads all catalogs into memory
 
         """
-        self.conn = sqlite3.connect(utils.pifinder_db)
+        self.conn = sqlite3.connect(utils.objects_db)
         self.conn.row_factory = sqlite3.Row
         cat_objects = self.conn.execute(
             f"""
