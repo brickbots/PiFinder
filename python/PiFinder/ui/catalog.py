@@ -73,12 +73,6 @@ class UICatalog(UIModule):
             "options": ["CANCEL", 5, 10, 15, 20],
             "callback": "push_near",
         },
-        "Push All Near": {
-            "type": "enum",
-            "value": "",
-            "options": ["CANCEL", 5, 10, 15, 20],
-            "callback": "push_all_near",
-        },
     }
 
     def __init__(self, *args):
@@ -143,54 +137,31 @@ class UICatalog(UIModule):
     def update_config(self):
         if self.texts.get("aka"):
             self.texts["aka"].set_scrollspeed(self._get_scrollspeed_config())
-        # call load catalog to re-filter if needed
+        # re-filter if needed
         self.catalog_tracker.filter()
 
         # Reset any sequence....
         if not self.catalog_tracker.does_filtered_have_current_object():
             self.delete()
 
-    def push_cat(self, option):
+    def push_cat(self, obj_amount):
         self._config_options["Push Cat."]["value"] = ""
-        if option == "Go":
+        if obj_amount == "Go":
             self.message("Catalog Pushed", 2)
             # Filter the catalog one last time
             self.catalog_tracker.filter()
-            self.ui_state["observing_list"] = self.catalog_tracker.get_objects()
+            self.ui_state["observing_list"] = self.catalog_tracker.get_objects(
+                filtered=True
+            )
             self.ui_state["active_list"] = self.ui_state["observing_list"]
             self.ui_state["target"] = self.ui_state["active_list"][0]
             return "UILocate"
         else:
             return False
 
-    def push_near(self, option):
+    def push_near(self, obj_amount):
         self._config_options["Near Obj."]["value"] = ""
-        if option != "Cncl":
-            solution = self.shared_state.solution()
-            if not solution:
-                self.message(f"No Solve!", 1)
-                return False
-
-            # Filter the catalog one last time
-            self.catalog_tracker.filter()
-            self.message(f"Near {option} Pushed", 2)
-
-            if option > self.catalog_tracker.current_catalog.get_filtered_count():
-                near_catalog = self.catalog_tracker.current_catalog.filtered_objects
-            else:
-                near_catalog = self.catalog_tracker.get_closest_objects(
-                    solution["RA"], solution["Dec"], option
-                )
-            self.ui_state["observing_list"] = near_catalog
-            self.ui_state["active_list"] = self.ui_state["observing_list"]
-            self.ui_state["target"] = self.ui_state["active_list"][0]
-            return "UILocate"
-        else:
-            return False
-
-    def push_all_near(self, option):
-        self._config_options["Push All Near"]["value"] = ""
-        if option != "Cncl":
+        if obj_amount != "Cncl":
             solution = self.shared_state.solution()
             if not solution:
                 self.message("No Solve!", 1)
@@ -198,13 +169,14 @@ class UICatalog(UIModule):
 
             # Filter the catalog one last time
             self.catalog_tracker.filter()
-            self.message(f"Near {option} Pushed", 2)
+            self.message(f"Near {obj_amount} Pushed", 2)
             near_catalog = self.catalog_tracker.get_closest_objects(
                 solution["RA"],
                 solution["Dec"],
-                option,
-                self.catalog_tracker.catalog_names,
+                obj_amount,
+                catalogs=self.catalog_tracker.catalog_names,
             )
+            # self.ui_state["observing_list"] = self.catalog_tracker.get_objects(catalogs=self.catalog_tracker.catalog_names, filtered=True)
             self.ui_state["observing_list"] = near_catalog
             self.ui_state["active_list"] = self.ui_state["observing_list"]
             self.ui_state["target"] = self.ui_state["active_list"][0]
@@ -503,12 +475,7 @@ class UICatalog(UIModule):
         """
         if self.catalog_tracker.current_catalog.get_filtered_count() == 0:
             return
-
-        if direction > 0:
-            self.catalog_tracker.next_object()
-        else:
-            self.catalog_tracker.previous_object()
-
+        self.catalog_tracker.next_object(direction)
         self.update_object_info()
 
     def change_fov(self, direction):
