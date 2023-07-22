@@ -493,7 +493,7 @@ def main(script_name=None):
                                 # write images
                                 debug_image.save(f"{test_image_path}/{uid}_raw.png")
                                 debug_image = subtract_background(debug_image)
-                                debug_image = debug_image.convert("RGBA")
+                                debug_image = debug_image.convert("RGB")
                                 debug_image = ImageOps.autocontrast(debug_image)
                                 debug_image.save(f"{test_image_path}/{uid}_sub.png")
 
