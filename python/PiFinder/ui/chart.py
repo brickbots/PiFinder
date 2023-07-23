@@ -80,7 +80,7 @@ class UIChart(UIModule):
 
             marker_image = ImageChops.multiply(
                 marker_image,
-                Image.new("RGB", (128, 128), self.colors.get(marker_brightness)),
+                Image.new("RGBA", (128, 128), self.colors.get(marker_brightness)),
             )
             self.screen.paste(ImageChops.add(self.screen, marker_image))
 

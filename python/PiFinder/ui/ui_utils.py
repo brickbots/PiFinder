@@ -1,9 +1,11 @@
+from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 import PiFinder.utils as utils
 from PiFinder.ui.fonts import Fonts as fonts
 from typing import Tuple, List, Dict, Optional
 import textwrap
 import logging
 import re
+import math
 
 
 class SpaceCalculator:
@@ -90,12 +92,17 @@ class TextLayouterSimple:
             self.object_text: List[str] = [self.text]
             self.updated = False
 
+    def after_draw(self, pos):
+        """draw stuff on top of the text"""
+        pass
+
     def draw(self, pos: Tuple[int, int] = (0, 0)):
         self.layout(pos)
         # logging.debug(f"Drawing {self.object_text=}")
         self.drawobj.multiline_text(
             pos, "\n".join(self.object_text), font=self.font, fill=self.color, spacing=0
         )
+        self.after_draw(pos)
 
     def __repr__(self):
         return f"TextLayouterSimple({self.text=}, {self.color=}, {self.font=}, {self.width=})"
@@ -191,17 +198,22 @@ class TextLayouter(TextLayouterSimple):
         self.pointer = 0
         self.nr_lines = len(text)
 
-    def draw_arrow(self, down):
-        if self.nr_lines > self.available_lines:
-            if down:
-                self._draw_arrow(*self.downarrow)
-            else:
-                self._draw_arrow(*self.uparrow)
-
-    def _draw_arrow(self, top, bottom):
-        self.drawobj.rectangle([0, 126, 128, 128], fill=self.colors.get(0))
-        self.drawobj.rectangle(top, fill=self.colors.get(128))
-        self.drawobj.rectangle(bottom, fill=self.colors.get(128))
+    def _draw_pos(self, pos):
+        xpos = 127
+        starty = pos[1] + 1
+        endy = 127
+        therange = endy - starty
+        blockextent = math.floor((self.available_lines / self.nr_lines) * therange)
+        blockstart = ((self.pointer) / self.nr_lines) * therange
+        start = [xpos, starty, xpos, endy]
+        end = [
+            xpos,
+            math.floor(starty + blockstart),
+            xpos,
+            math.floor(starty + blockstart + blockextent),
+        ]
+        self.drawobj.line(start, fill=self.colors.get(64), width=1)
+        self.drawobj.line(end, fill=self.colors.get(128), width=1)
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.updated:
@@ -217,7 +229,62 @@ class TextLayouter(TextLayouterSimple):
             self.object_text = self.orig_object_text[
                 self.pointer : self.pointer + self.available_lines
             ]
-        up = self.pointer + self.available_lines == self.nr_lines
-        self.draw_arrow(not up)
         self.updated = False
         self.scrolled = False
+
+    def after_draw(self, pos):
+        if self.nr_lines > self.available_lines:
+            self._draw_pos(pos)
+
+
+def shadow_outline_text(
+    ri_draw, xy, text, align, font, fill, shadow_color, shadow=None, outline=None
+):
+    """draw shadowed and outlined text"""
+    print("shadow_outline_text")
+    x, y = xy
+    if shadow:
+        ri_draw.text(
+            (x + shadow[0], y + shadow[1]),
+            text,
+            align=align,
+            font=font,
+            fill=shadow_color,
+        )
+
+    if outline:
+        outline_text(
+            ri_draw,
+            xy,
+            text,
+            align=align,
+            font=font,
+            fill=fill,
+            shadow_color=shadow_color,
+            stroke=2,
+        )
+
+
+def outline_text(ri_draw, xy, text, align, font, fill, shadow_color, stroke=4):
+    """draw outline text"""
+    x, y = xy
+    ri_draw.text(
+        xy,
+        text,
+        align=align,
+        font=font,
+        fill=fill,
+        stroke_width=stroke,
+        stroke_fill=shadow_color,
+    )
+
+
+def shadow(ri_draw, xy, text, align, font, fill, shadowcolor):
+    """draw shadowed text"""
+    x, y = xy
+    # thin border
+    ri_draw.text((x - 1, y), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x + 1, y), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x, y - 1), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x, y + 1), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x, y), text, align=align, font=font, fill=fill)
