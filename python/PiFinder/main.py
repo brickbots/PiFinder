@@ -714,6 +714,5 @@ if __name__ == "__main__":
         fh = logging.FileHandler(filehandler)
         fh.setLevel(logger.level)
         logger.addHandler(fh)
-    script_name = args.script
 
-    main(script_name)
+    main(args.script)
