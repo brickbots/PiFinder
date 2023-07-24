@@ -1,7 +1,8 @@
 import logging
 import sqlite3
 import time
-from db.db import Database, ObjectsDatabase
+from PiFinder.db.db import Database
+from PiFinder.db.objects_db import ObjectsDatabase
 import numpy as np
 import pandas as pd
 from typing import List, Dict, Optional
@@ -19,8 +20,9 @@ class Objects:
 
     def __init__(self):
         self.db = ObjectsDatabase()
-        result = self.db.get_objects()
-        self.objects = {row["object_id"]: row for row in result}
+        result = self.db.get_all_objects()
+        print(dict(result[0]))
+        self.objects = {row["id"]: row for row in result}
         print(f"Loaded {len(self.objects)} objects from database")
         print(self.objects[1])
 

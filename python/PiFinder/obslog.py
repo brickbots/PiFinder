@@ -14,10 +14,8 @@ import sqlite3
 import json
 
 from PiFinder.obj_types import OBJ_TYPES
-from PiFinder.db import (
+from PiFinder.db.observations_db import (
     ObservationsDatabase,
-    create_logging_tables,
-    get_observations_database,
 )
 
 
