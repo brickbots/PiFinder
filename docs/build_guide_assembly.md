@@ -41,9 +41,12 @@ Once the cable is free, thread it through the PiMount assembly as shown.  Note t
 
 If you are using a PiSugar, it comes with some protective covers on the screw posts.  Remove these four bits of plastic or it can be very annoying later :-). 
 
-IMPORTANT: If you are using the recommended S Plus unit, turn the 'Auto Startup' switch on the bottom of the unit to OFF. Having this in the ON position will prevent i2c from working and the IMU will not be used. Once the board is mounted, it's hard to reach this switch, so turn it off now :-)
+IMPORTANT: If you are using the recommended S Plus unit, turn the 'Auto Startup' switch on the bottom of the unit to OFF. Having this in the ON position will prevent i2c from working and the IMU will not be used. Once the board is mounted, it's hard to reach this switch, so turn it off now :-). See the image below:  It's the switch in the orange box, and the photos shows the correct OFF position. 
 
-ALSO IMPORTANT:  The blue power light on the PiSugar board is very bright.  You'll definitely want to cover it with some black nail polish or something similar.  Plug it in to the battery and turn it on to make sure it's subdued.
+ALSO IMPORTANT:  The blue power light on the PiSugar board is very bright.  You'll definitely want to cover it with some black nail polish or something similar.  Plug it in to the battery and turn it on to make sure it's subdued.  Check the image below for the position of this LED.  It's already blacked out with nail polish in the photo, but the orange arrow indicates which one you'll want to cover.
+
+![Build Guide Step](../images/build_guide/pisugar_setup.jpg)
+
 
 ![Build Guide Step](../images/build_guide/v1.4/build_guide_13.jpg)
 
