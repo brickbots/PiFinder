@@ -1,6 +1,7 @@
 import logging
 import sqlite3
 import time
+from db.db import Database, ObjectsDatabase
 import numpy as np
 import pandas as pd
 from typing import List, Dict, Optional
@@ -10,6 +11,18 @@ from PiFinder import obslog
 from sklearn.neighbors import BallTree
 
 # collection of all catalog-related classes
+
+
+class Objects:
+    db: Database
+    objects: Dict[int, Dict] = {}
+
+    def __init__(self):
+        self.db = ObjectsDatabase()
+        result = self.db.get_objects()
+        self.objects = {row["object_id"]: row for row in result}
+        print(f"Loaded {len(self.objects)} objects from database")
+        print(self.objects[1])
 
 
 class Catalog:
@@ -224,6 +237,7 @@ class CatalogTracker:
         self.catalog_names = catalog_names
         self.shared_state = shared_state
         self.config_options = config_options
+        obj = Objects()
         self.catalogs: Dict[str, Catalog] = self._load_catalogs(catalog_names)
         self.designator_tracker = {
             c: CatalogDesignator(c, self.catalogs[c].max_sequence)

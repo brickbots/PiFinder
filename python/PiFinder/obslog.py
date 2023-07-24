@@ -14,7 +14,11 @@ import sqlite3
 import json
 
 from PiFinder.obj_types import OBJ_TYPES
-from PiFinder.setup import create_logging_tables, get_observations_database
+from PiFinder.db import (
+    ObservationsDatabase,
+    create_logging_tables,
+    get_observations_database,
+)
 
 
 class Observation_session:
@@ -26,13 +30,9 @@ class Observation_session:
     """
 
     def __init__(self, shared_state, session_uuid):
-        # make sure observation db exists
-        create_logging_tables()
-        conn, db_c = get_observations_database()
-
-        self.db_connection = conn
-        self.db_connection.row_factory = sqlite3.Row
-        self.db_cursor = db_c
+        self.db = ObservationsDatabase()
+        if not self.db.exists():
+            self.db.create_tables()
 
         self.__session_init = False
         self.__session_uuid = session_uuid
