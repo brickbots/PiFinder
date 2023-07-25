@@ -7,7 +7,7 @@ This module contains the Locate module
 import time
 from PIL import ImageFont
 
-from PiFinder import integrator, obslist
+from PiFinder import integrator, obslist, config
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
@@ -42,6 +42,7 @@ class UILocate(UIModule):
         self.__catalog_names = self.config_object.get_option("catalogs")
         self.sf_utils = integrator.Skyfield_utils()
         self.font_huge = fonts.huge
+        self.screen_direction = config.Config().get_option("screen_direction")
 
         available_lists = obslist.get_lists()
         self._config_options["Load"]["options"] += available_lists
@@ -183,7 +184,7 @@ class UILocate(UIModule):
                 )
                 az_diff = target_az - solution["Az"]
                 az_diff = (az_diff + 180) % 360 - 180
-                if self.cfg.get_option("screen_direction") == "flat":
+                if self.screen_direction == "flat":
                     az_diff *= -1
                 
                 alt_diff = target_alt - solution["Alt"]
