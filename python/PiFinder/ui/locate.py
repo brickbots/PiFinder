@@ -7,7 +7,7 @@ This module contains the Locate module
 import time
 from PIL import ImageFont
 
-from PiFinder import integrator, obslist, config
+from PiFinder import integrator, obslist
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
@@ -34,7 +34,6 @@ class UILocate(UIModule):
             "callback": "load_list",
         },
     }
-    cfg = config.Config()
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -184,8 +183,9 @@ class UILocate(UIModule):
                 )
                 az_diff = target_az - solution["Az"]
                 az_diff = (az_diff + 180) % 360 - 180
-                if cfg.get_option("screen_direction") == "flat":
-                    az_diff *= -1              
+                cfg = config.Config()
+                if self.cfg.get_option("screen_direction") == "flat":
+                    az_diff *= -1
                 
                 alt_diff = target_alt - solution["Alt"]
                 alt_diff = (alt_diff + 180) % 360 - 180
