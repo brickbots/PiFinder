@@ -26,6 +26,7 @@ import sqlite3
 import logging
 
 from PiFinder.db.observations_db import ObservationsDatabase
+from PiFinder.catalogs import CompositeObject
 
 
 # Constants for display modes
@@ -103,8 +104,6 @@ class UICatalog(UIModule):
         self.catalog_tracker = CatalogTracker(
             self.catalog_names, self.shared_state, self._config_options
         )
-        self.conn = sqlite3.connect(utils.objects_db)
-        self.conn.row_factory = sqlite3.Row
         self.observations_db = ObservationsDatabase()
         self.font_large = fonts.large
 
@@ -191,13 +190,11 @@ class UICatalog(UIModule):
         """
         Generates object text and loads object images
         """
-        logging.debug(f"update_object_info with {self.catalog_tracker}")
-        cat_object = self.catalog_tracker.get_current_object()
+        cat_object: CompositeObject = self.catalog_tracker.get_current_object()
         if not cat_object:
             has_number = self.catalog_tracker.get_designator().has_number()
             self.texts = {}
             self.texts["type-const"] = TextLayouter(
-                # self.catalog_tracker.get_current_object().description,
                 self.catalog_tracker.current_catalog.desc
                 if not has_number
                 else "Object not found",
@@ -211,15 +208,6 @@ class UICatalog(UIModule):
 
         if self.object_display_mode in [DM_DESC, DM_OBS]:
             # text stuff....
-            # look for AKAs
-            aka_recs = None
-            # aka_recs = self.conn.execute(
-            #     f"""
-            #     SELECT * from names
-            #     where catalog = "{cat_object['catalog']}"
-            #     and sequence = "{cat_object['sequence']}"
-            # """
-            # ).fetchall()
 
             self.texts = {}
             # Type / Constellation
@@ -257,22 +245,24 @@ class UICatalog(UIModule):
                 magsize, font=fonts.bold, color=self.colors.get(255)
             )
 
+            aka_recs = self.catalog_tracker.current_catalog.common_names.get(
+                cat_object.object_id
+            )
             if aka_recs:
-                aka_list = []
-                for rec in aka_recs:
-                    if rec["common_name"].startswith("M"):
-                        aka_list.insert(0, rec["common_name"])
-                    else:
-                        aka_list.append(rec["common_name"])
+                # aka_list = []
+                # for rec in aka_recs:
+                #     if rec["common_name"].startswith("M"):
+                #         aka_list.insert(0, rec["common_name"])
+                #     else:
+                #         aka_list.append(rec["common_name"])
                 self.texts["aka"] = self.ScrollTextLayout(
-                    ", ".join(aka_list),
+                    ", ".join(aka_recs),
                     font=fonts.base,
                     scrollspeed=self._get_scrollspeed_config(),
                 )
 
             if self.object_display_mode == DM_DESC:
                 # NGC description....
-                print(cat_object)
                 desc = cat_object.description.replace("\t", " ")
                 self.descTextLayout.set_text(desc)
                 self.texts["desc"] = self.descTextLayout

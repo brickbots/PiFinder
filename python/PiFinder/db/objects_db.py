@@ -1,7 +1,8 @@
 import PiFinder.utils as utils
 from sqlite3 import Connection, Cursor, Error
-from typing import Tuple
+from typing import Tuple, DefaultDict, List
 from PiFinder.db.db import Database
+from collections import defaultdict
 import logging
 
 
@@ -122,6 +123,17 @@ class ObjectsDatabase(Database):
     def get_name_by_object_id(self, object_id):
         self.cursor.execute("SELECT * FROM names WHERE object_id = ?;", (object_id,))
         return self.cursor.fetchone()
+
+    def get_names(self) -> DefaultDict[int, List[str]]:
+        """
+        Returns a dictionary of object_id: [common_name, common_name, ...]
+        """
+        self.cursor.execute("SELECT object_id, common_name FROM names;")
+        results = self.cursor.fetchall()
+        name_dict = defaultdict(list)
+        for object_id, common_name in results:
+            name_dict[object_id].append(common_name.strip())
+        return name_dict
 
     # ---- CATALOGS methods ----
 

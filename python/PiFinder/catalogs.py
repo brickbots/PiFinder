@@ -1,16 +1,11 @@
 import logging
-import sqlite3
 import time
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 import numpy as np
 import pandas as pd
-from typing import List, Dict, Optional, Type
-from PiFinder import calc_utils
-import PiFinder.utils as utils
-from PiFinder import obslog
-from sklearn.neighbors import BallTree
+from typing import List, Dict, DefaultDict, Optional
 
 # collection of all catalog-related classes
 
@@ -35,7 +30,7 @@ class CompositeObject:
             )
 
     def __str__(self):
-        return str(self._data)
+        return f"CompositeObject: {str(self._data)}"
 
 
 class Objects:
@@ -50,14 +45,37 @@ class Objects:
     def __init__(self):
         self.db = ObjectsDatabase()
         result = self.db.get_objects()
-        print(dict(result[0]))
         self.objects = {row["id"]: dict(row) for row in result}
-        print(f"Loaded {len(self.objects)} objects from database")
-        print(self.objects[1])
+        logging.debug(f"Loaded {len(self.objects)} objects from database")
 
     def create_composite_object(self, catalog_objects: Dict) -> CompositeObject:
         thedict = self.objects[catalog_objects["id"]] | catalog_objects
-        return CompositeObject(thedict)
+        result = CompositeObject(thedict)
+        return result
+
+
+class Names:
+    """
+    Holds all name related info
+    """
+
+    db: Database
+    names: DefaultDict[int, List[str]] = {}
+
+    def __init__(self):
+        self.db = ObjectsDatabase()
+        self.names = self.db.get_names()
+        self._sort_names()
+        logging.debug(f"Loaded {len(self.names)} names from database")
+
+    def _sort_names(self):
+        """
+        sort the names according to some hierarchy
+        """
+        pass
+
+    def get(self, object_id) -> List[str]:
+        return self.names[object_id]
 
 
 class Catalog:
@@ -70,10 +88,11 @@ class Catalog:
         self.db = ObjectsDatabase()
         self.observations_db = ObservationsDatabase()
         self.name = catalog_code
+        self.common_names: DefaultDict[int, List[str]] = Names()
         self.obj = obj
-        self.objects: Dict[int, Dict] = {}
+        self.objects: Dict[int, CompositeObject] = {}
         self.objects_keys_sorted: List[int] = []
-        self.filtered_objects: Dict[int, Dict] = {}
+        self.filtered_objects: Dict[int, CompositeObject] = {}
         self.filtered_objects_keys_sorted: List[int] = []
         self.max_sequence = 0
         self.desc = "No description"
@@ -337,10 +356,11 @@ class CatalogTracker:
             in self.current_catalog.filtered_objects
         )
 
-    def get_current_object(self):
+    def get_current_object(self) -> CompositeObject:
         object_key = self.object_tracker[self.current_catalog_name]
         if object_key is None:
             return None
+        result = self.current_catalog.objects[object_key]
         return self.current_catalog.objects[object_key]
 
     def set_current_object(self, object_number, catalog_name=None):
