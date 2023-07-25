@@ -183,7 +183,6 @@ class UILocate(UIModule):
                 )
                 az_diff = target_az - solution["Az"]
                 az_diff = (az_diff + 180) % 360 - 180
-                cfg = config.Config()
                 if self.cfg.get_option("screen_direction") == "flat":
                     az_diff *= -1
                 
