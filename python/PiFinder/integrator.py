@@ -190,7 +190,7 @@ def integrator(shared_state, solver_queue, console_queue):
                         alt_upd = (last_image_solve["Alt"] - alt_offset) % 360
 
                         az_offset = imu_pos[IMU_AZ] - lis_imu[IMU_AZ]
-                        az_offset = (az_offset + 180) % 360 - 180
+                        az_offset = ((az_offset + 180) % 360 - 180) * -1
                         az_upd = (last_image_solve["Az"] + az_offset) % 360
 
                         solved["Alt"] = alt_upd
