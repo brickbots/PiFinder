@@ -92,7 +92,7 @@ class ObjectsDatabase(Database):
         self.conn.commit()
         return self.cursor.lastrowid
 
-    def get_all_objects(self):
+    def get_objects(self):
         self.cursor.execute("SELECT * FROM objects;")
         return self.cursor.fetchall()
 
@@ -141,6 +141,10 @@ class ObjectsDatabase(Database):
         )
         return self.cursor.fetchone()
 
+    def get_catalogs(self):
+        self.cursor.execute("SELECT * FROM catalogs;")
+        return self.cursor.fetchall()
+
     # ---- CATALOG_OBJECTS methods ----
 
     def insert_catalog_object(self, object_id, catalog_code, sequence, description):
@@ -168,6 +172,12 @@ class ObjectsDatabase(Database):
             (catalog_code, sequence),
         )
         return self.cursor.fetchone()
+
+    def get_catalog_object_by_catalog_code(self, catalog_code):
+        self.cursor.execute(
+            "SELECT * FROM catalog_objects WHERE catalog_code = ?;", (catalog_code,)
+        )
+        return self.cursor.fetchall()
 
     # Generic delete method for all tables
     def delete_by_id(self, table, record_id):

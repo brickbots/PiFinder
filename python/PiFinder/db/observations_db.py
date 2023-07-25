@@ -41,94 +41,107 @@ class ObservationsDatabase(Database):
                )
             """
         )
-        self.obs_conn.close()
+        self.conn.commit()
 
     def get_observations_database(self) -> Tuple[Connection, Cursor]:
         return self.get_database(utils.observations_db)
 
-    # ---- OBJECTS methods ----
+    def create_obs_session(self, start_time, lat, lon, timezone, uuid):
+        q = """
+            INSERT INTO obs_sessions(
+                start_time_local,
+                lat,
+                lon,
+                timezone,
+                uid
+            )
+            VALUES
+            (
+                :start_time,
+                :lat,
+                :lon,
+                :timezone,
+                :uuid
+            )
+        """
 
-    def insert_object(self, obj_type, ra, dec, const, l_size, size, mag):
         self.cursor.execute(
-            """
-            INSERT INTO objects (obj_type, ra, dec, const, l_size, size, mag)
-            VALUES (?, ?, ?, ?, ?, ?, ?);
-        """,
-            (obj_type, ra, dec, const, l_size, size, mag),
+            q,
+            {
+                "start_time": start_time,
+                "lat": lat,
+                "lon": lon,
+                "timezone": timezone,
+                "uuid": uuid,
+            },
         )
-        self.self.obs_conn.commit()
+        self.conn.commit()
 
-    def get_all_objects(self):
-        self.cursor.execute("SELECT * FROM objects;")
-        return self.cursor.fetchall()
+    def log_object(self, session_uuid, obs_time, catalog, sequence, solution, notes):
+        q = """
+            INSERT INTO obs_objects(
+                session_uid,
+                obs_time_local,
+                catalog,
+                sequence,
+                solution,
+                notes
+            )
+            VALUES
+            (
+                :session_uuid,
+                :obs_time,
+                :catalog,
+                :sequence,
+                :solution,
+                :notes
+            )
+        """
 
-    def get_object_by_id(self, object_id):
-        self.cursor.execute("SELECT * FROM objects WHERE id = ?;", (object_id,))
-        return self.cursor.fetchone()
-
-    def update_object_by_id(self, object_id, **kwargs):
-        columns = ", ".join([f"{key} = ?" for key in kwargs])
-        values = list(kwargs.values())
-        values.append(object_id)
-        self.cursor.execute(f"UPDATE objects SET {columns} WHERE id = ?;", values)
-        self.self.obs_conn.commit()
-
-    # ---- NAMES methods ----
-
-    def insert_name(self, object_id, common_name, description):
         self.cursor.execute(
-            """
-            INSERT INTO names (object_id, common_name, description)
-            VALUES (?, ?);
-        """,
-            (object_id, common_name),
+            q,
+            {
+                "session_uuid": session_uuid,
+                "obs_time": obs_time,
+                "catalog": catalog,
+                "sequence": sequence,
+                "solution": solution,
+                "notes": notes,
+            },
         )
-        self.self.obs_conn.commit()
+        self.db.conn.commit()
 
-    def get_name_by_object_id(self, object_id):
-        self.cursor.execute("SELECT * FROM names WHERE object_id = ?;", (object_id,))
-        return self.cursor.fetchone()
+        observation_id = self.db_cursor.execute(
+            "select last_insert_rowid() as id"
+        ).fetchone()["id"]
+        return observation_id
 
-    # ---- CATALOGS methods ----
+    def get_logs_for_object(self, obj_record):
+        """
+        Returns a list of observations for a particular object
+        """
+        logs = self.cursor.execute(
+            f"""
+                select * from obs_objects
+                where catalog = :catalog
+                and sequence = :sequence
+            """,
+            {"catalog": obj_record["catalog"], "sequence": obj_record["sequence"]},
+        ).fetchall()
 
-    def insert_catalog(self, catalog_code, max_sequence, desc):
-        self.cursor.execute(
-            """
-            INSERT INTO catalogs (catalog_code, max_sequence, desc)
-            VALUES (?, ?, ?);
-        """,
-            (catalog_code, max_sequence, desc),
-        )
-        self.self.obs_conn.commit()
+        return logs
 
-    def get_catalog_by_code(self, catalog_code):
-        self.cursor.execute(
-            "SELECT * FROM catalogs WHERE catalog_code = ?;", (catalog_code,)
-        )
-        return self.cursor.fetchone()
+    def get_observed_objects(self):
+        """
+        Returns a list of all observed objects
+        """
+        logs = self.cursor.execute(
+            f"""
+                select distinct catalog, sequence from obs_objects
+                """
+        ).fetchall()
 
-    # ---- CATALOG_OBJECTS methods ----
-
-    def insert_catalog_object(self, object_id, catalog_code, sequence, description):
-        self.cursor.execute(
-            """
-            INSERT INTO catalog_objects (object_id, catalog_code, sequence, description)
-            VALUES (?, ?, ?, ?);
-        """,
-            (object_id, catalog_code, sequence, description),
-        )
-        self.self.obs_conn.commit()
-
-    def get_catalog_objects_by_object_id(self, object_id):
-        self.cursor.execute(
-            "SELECT * FROM catalog_objects WHERE object_id = ?;", (object_id,)
-        )
-        return self.cursor.fetchall()
-
-    # Generic delete method for all tables
-    def delete_by_id(self, table, record_id):
-        self.cursor.execute(f"DELETE FROM {table} WHERE id = ?;", (record_id,))
-        self.self.obs_conn.commit()
+        return logs
 
     def close(self):
-        self.self.obs_conn.close()
+        self.conn.close()

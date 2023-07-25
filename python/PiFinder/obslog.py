@@ -51,37 +51,13 @@ class Observation_session:
             return None
 
         local_time = self.__shared_state.local_datetime()
-
-        q = """
-            INSERT INTO obs_sessions(
-                start_time_local,
-                lat,
-                lon,
-                timezone,
-                uid
-            )
-            VALUES
-            (
-                :start_time,
-                :lat,
-                :lon,
-                :timezone,
-                :uuid
-            )
-        """
-
-        self.db_cursor.execute(
-            q,
-            {
-                "start_time": local_time.timestamp(),
-                "lat": location["lat"],
-                "lon": location["lon"],
-                "timezone": location["timezone"],
-                "uuid": self.__session_uuid,
-            },
+        self.db.create_obs_session(
+            local_time.timestamp(),
+            location["lat"],
+            location["lon"],
+            location["timezone"],
+            self.__session_uuid,
         )
-
-        self.db_connection.commit()
 
         return self.__session_uuid
 
@@ -91,76 +67,27 @@ class Observation_session:
             print("Could not create session")
             return False
 
-        q = """
-            INSERT INTO obs_objects(
-                session_uid,
-                obs_time_local,
-                catalog,
-                sequence,
-                solution,
-                notes
-            )
-            VALUES
-            (
-                :session_uuid,
-                :obs_time,
-                :catalog,
-                :sequence,
-                :solution,
-                :notes
-            )
-        """
-
-        self.db_cursor.execute(
-            q,
-            {
-                "session_uuid": session_uuid,
-                "obs_time": self.__shared_state.local_datetime(),
-                "catalog": catalog,
-                "sequence": sequence,
-                "solution": json.dumps(solution),
-                "notes": json.dumps(notes),
-            },
+        observation_id = self.db.log_object(
+            session_uuid,
+            self.__shared_state.local_datetime().timestamp(),
+            catalog,
+            sequence,
+            solution,
+            notes,
         )
-        self.db_connection.commit()
-
-        observation_id = self.db_cursor.execute(
-            "select last_insert_rowid() as id"
-        ).fetchone()["id"]
 
         return session_uuid, observation_id
 
+    def get_logs_for_object(self, obj_record):
+        """
+        Returns a list of observations for a particular object
+        """
+        return self.db.get_logs_for_object(obj_record)
 
-def get_logs_for_object(obj_record):
-    """
-    Returns a list of observations for a particular object
-    """
-    create_logging_tables()
-    conn, db_c = get_observations_database()
+    def get_observed_objects(self):
+        """
+        Returns a list of all observed objects
+        """
+        logs = self.db.get_observed_objects()
 
-    logs = db_c.execute(
-        f"""
-            select * from obs_objects
-            where
-                catalog="{obj_record['catalog']}"
-                and sequence={obj_record['sequence']}
-            """
-    ).fetchall()
-
-    return logs
-
-
-def get_observed_objects():
-    """
-    Returns a list of all observed objects
-    """
-    create_logging_tables()
-    conn, db_c = get_observations_database()
-
-    logs = db_c.execute(
-        f"""
-            select distinct catalog, sequence from obs_objects
-            """
-    ).fetchall()
-
-    return [(x["catalog"], x["sequence"]) for x in logs]
+        return [(x["catalog"], x["sequence"]) for x in logs]

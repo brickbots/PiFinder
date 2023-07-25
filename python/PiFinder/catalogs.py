@@ -3,9 +3,10 @@ import sqlite3
 import time
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
+from PiFinder.db.observations_db import ObservationsDatabase
 import numpy as np
 import pandas as pd
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Type
 from PiFinder import calc_utils
 import PiFinder.utils as utils
 from PiFinder import obslog
@@ -15,25 +16,38 @@ from sklearn.neighbors import BallTree
 
 
 class Objects:
+    """
+    Holds all object_ids and their data.
+    Provides helper method to merge object_id info with extra catalog info
+    """
+
     db: Database
     objects: Dict[int, Dict] = {}
 
     def __init__(self):
         self.db = ObjectsDatabase()
-        result = self.db.get_all_objects()
+        result = self.db.get_objects()
         print(dict(result[0]))
-        self.objects = {row["id"]: row for row in result}
+        self.objects = {row["id"]: dict(row) for row in result}
         print(f"Loaded {len(self.objects)} objects from database")
         print(self.objects[1])
+
+    def create_full_object(self, catalog_objects: Dict):
+        thedict = self.objects[catalog_objects["id"]] | catalog_objects
+        return type("Object", (), thedict)
 
 
 class Catalog:
     """Keeps catalog data + keeps track of current catalog/object"""
 
     last_filtered: float = 0
+    db: Database
 
-    def __init__(self, catalog_name):
-        self.name = catalog_name
+    def __init__(self, catalog_code, obj: Objects):
+        self.db = ObjectsDatabase()
+        self.observations_db = ObservationsDatabase()
+        self.name = catalog_code
+        self.obj = obj
         self.objects: Dict[int, Dict] = {}
         self.objects_keys_sorted: List[int] = []
         self.filtered_objects: Dict[int, Dict] = {}
@@ -53,28 +67,18 @@ class Catalog:
         Loads all catalogs into memory
 
         """
-        self.conn = sqlite3.connect(utils.objects_db)
-        self.conn.row_factory = sqlite3.Row
-        cat_objects = self.conn.execute(
-            f"""
-            SELECT * from objects
-            where catalog='{self.name}'
-            order by sequence
-        """
-        ).fetchall()
-        cat_data = self.conn.execute(
-            f"""
-                SELECT * from catalogs
-                where catalog='{self.name}'
-            """
-        ).fetchone()
-        print(cat_data)
-        if cat_data:
-            self.max_sequence = cat_data["max_sequence"]
-            self.desc = cat_data["desc"]
+        catalogs = self.db.get_catalog_by_code(self.name)
+        cat_objects = self.db.get_catalog_object_by_catalog_code(self.name)
+        if catalogs:
+            self.max_sequence = catalogs["max_sequence"]
         else:
-            logging.debug(f"no catalog data for {self.name}")
-        self.objects = {int(dict(row)["sequence"]): dict(row) for row in cat_objects}
+            logging.error(f"catalog {self.name} not found")
+            return
+        self.desc = catalogs["desc"]
+        self.objects = {
+            int(dict(row)["sequence"]): self.obj.create_full_object(dict(row))
+            for row in cat_objects
+        }
         self.objects_keys_sorted = self._get_sorted_keys(self.objects)
         self.filtered_objects = self.objects
         self.filtered_objects_keys_sorted = self.objects_keys_sorted
@@ -82,7 +86,6 @@ class Catalog:
             self.objects_keys_sorted[-1] == self.max_sequence
         ), f"{self.name} max sequence mismatch"
         logging.info(f"loaded {len(self.objects)} objects for {self.name}")
-        self.conn.close()
 
     def _get_sorted_keys(self, dictionary):
         return sorted(dictionary.keys())
@@ -121,7 +124,7 @@ class Catalog:
 
         if observed_filter != "Any":
             # setup
-            observed_list = obslog.get_observed_objects()
+            observed_list = self.observations_db.get_observed_objects()
 
         for key, obj in self.objects.items():
             # print(f"filtering {obj}")
@@ -239,7 +242,7 @@ class CatalogTracker:
         self.catalog_names = catalog_names
         self.shared_state = shared_state
         self.config_options = config_options
-        obj = Objects()
+        self.obj = Objects()
         self.catalogs: Dict[str, Catalog] = self._load_catalogs(catalog_names)
         self.designator_tracker = {
             c: CatalogDesignator(c, self.catalogs[c].max_sequence)
@@ -334,7 +337,7 @@ class CatalogTracker:
     def _load_catalogs(self, catalogs: List[str]) -> Dict[str, Catalog]:
         result = {}
         for catalog in catalogs:
-            result[catalog] = Catalog(catalog)
+            result[catalog] = Catalog(catalog, self.obj)
         return result
 
     def _get_catalog_name(self, catalog: Optional[str]) -> str:

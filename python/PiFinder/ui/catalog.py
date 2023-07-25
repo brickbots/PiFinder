@@ -25,6 +25,8 @@ import functools
 import sqlite3
 import logging
 
+from PiFinder.db.observations_db import ObservationsDatabase
+
 
 # Constants for display modes
 DM_DESC = 0  # Display mode for description
@@ -103,6 +105,7 @@ class UICatalog(UIModule):
         )
         self.conn = sqlite3.connect(utils.objects_db)
         self.conn.row_factory = sqlite3.Row
+        self.observations_db = ObservationsDatabase()
         self.font_large = fonts.large
 
         self.object_display_mode = DM_DESC
@@ -273,7 +276,7 @@ class UICatalog(UIModule):
                 self.texts["desc"] = self.descTextLayout
 
             if self.object_display_mode == DM_OBS:
-                logs = obslog.get_logs_for_object(cat_object)
+                logs = self.observations_db.get_logs_for_object(cat_object)
                 if len(logs) == 0:
                     self.texts["obs"] = self.SimpleTextLayout("No Logs")
                 else:

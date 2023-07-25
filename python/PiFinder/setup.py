@@ -518,17 +518,19 @@ def insert_catalog(catalog_name, description_path):
     with open(description_path, "r") as desc:
         description = "".join(desc.readlines())
 
-    # max_sequence = get_catalog_sizes(catalog_name)[catalog_name]
-
     objects_db.insert_catalog(catalog_name, -1, description)
 
 
-def get_catalog_sizes(catalog_name):
+def insert_catalog_max_sequence(catalog_name):
     conn, db_c = objects_db.get_conn_cursor()
-    query = f"SELECT catalogs, MAX(sequence) FROM objects where catalog = '{catalog_name}' GROUP BY catalog"
+    query = f"SELECT MAX(sequence) FROM catalog_objects where catalog_code = '{catalog_name}' GROUP BY catalog_code"
     db_c.execute(query)
-    result = db_c.fetchall()
-    return {row["catalog"]: row["MAX(sequence)"] for row in result}
+    result = db_c.fetchone()
+    print(dict(result))
+    query = f"update catalogs set max_sequence = {dict(result)['MAX(sequence)']} where catalog_code = '{catalog_name}'"
+    print(query)
+    db_c.execute(query)
+    conn.commit()
 
 
 def load_caldwell():
@@ -683,6 +685,9 @@ def load_ngc_catalog():
                     else:
                         logging.debug(f"Can't find object id {catalog=}, {sequence=}")
             conn.commit()
+    insert_catalog_max_sequence("NGC")
+    insert_catalog_max_sequence("IC")
+    insert_catalog_max_sequence("M")
     logging.info("NGC catalog loaded.")
 
 
