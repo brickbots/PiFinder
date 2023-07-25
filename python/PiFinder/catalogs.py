@@ -15,6 +15,29 @@ from sklearn.neighbors import BallTree
 # collection of all catalog-related classes
 
 
+class CompositeObject:
+    """
+    Represents an object that is a combination of
+    catalog data and extra data from the objects database
+    """
+
+    def __init__(self, data_dict):
+        self._data = data_dict
+
+    def __getattr__(self, name):
+        # Return the value if it exists in the dictionary.
+        # If not, raise an AttributeError.
+        try:
+            return self._data[name]
+        except KeyError:
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{name}'"
+            )
+
+    def __str__(self):
+        return str(self._data)
+
+
 class Objects:
     """
     Holds all object_ids and their data.
@@ -32,9 +55,9 @@ class Objects:
         print(f"Loaded {len(self.objects)} objects from database")
         print(self.objects[1])
 
-    def create_full_object(self, catalog_objects: Dict):
+    def create_composite_object(self, catalog_objects: Dict) -> CompositeObject:
         thedict = self.objects[catalog_objects["id"]] | catalog_objects
-        return type("Object", (), thedict)
+        return CompositeObject(thedict)
 
 
 class Catalog:
@@ -76,7 +99,7 @@ class Catalog:
             return
         self.desc = catalogs["desc"]
         self.objects = {
-            int(dict(row)["sequence"]): self.obj.create_full_object(dict(row))
+            int(dict(row)["sequence"]): self.obj.create_composite_object(dict(row))
             for row in cat_objects
         }
         self.objects_keys_sorted = self._get_sorted_keys(self.objects)
@@ -132,27 +155,27 @@ class Catalog:
 
             # try to get object mag to float
             try:
-                obj_mag = float(obj["mag"])
+                obj_mag = float(obj.mag)
             except (ValueError, TypeError):
                 obj_mag = 99
 
             if magnitude_filter != "None" and obj_mag >= magnitude_filter:
                 include_obj = False
 
-            if type_filter != ["None"] and obj["obj_type"] not in type_filter:
+            if type_filter != ["None"] and obj.obj_type not in type_filter:
                 include_obj = False
 
             if fast_aa:
                 obj_altitude = fast_aa.radec_to_altaz(
-                    obj["ra"],
-                    obj["dec"],
+                    obj.ra,
+                    obj.dec,
                     alt_only=True,
                 )
                 if obj_altitude < altitude_filter:
                     include_obj = False
 
             if observed_filter != "Any":
-                if (obj["catalog"], obj["sequence"]) in observed_list:
+                if (obj.catalog_code, obj.sequence) in observed_list:
                     if observed_filter == "No":
                         include_obj = False
                 else:

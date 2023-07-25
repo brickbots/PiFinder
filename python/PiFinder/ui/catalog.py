@@ -212,21 +212,22 @@ class UICatalog(UIModule):
         if self.object_display_mode in [DM_DESC, DM_OBS]:
             # text stuff....
             # look for AKAs
-            aka_recs = self.conn.execute(
-                f"""
-                SELECT * from names
-                where catalog = "{cat_object['catalog']}"
-                and sequence = "{cat_object['sequence']}"
-            """
-            ).fetchall()
+            aka_recs = None
+            # aka_recs = self.conn.execute(
+            #     f"""
+            #     SELECT * from names
+            #     where catalog = "{cat_object['catalog']}"
+            #     and sequence = "{cat_object['sequence']}"
+            # """
+            # ).fetchall()
 
             self.texts = {}
             # Type / Constellation
-            object_type = OBJ_TYPES.get(cat_object["obj_type"], cat_object["obj_type"])
+            object_type = OBJ_TYPES.get(cat_object.obj_type, cat_object.obj_type)
 
             # layout the type - constellation line
             _, typeconst = self.space_calculator.calculate_spaces(
-                object_type, cat_object["const"]
+                object_type, cat_object.const
             )
             self.texts["type-const"] = self.SimpleTextLayout(
                 typeconst,
@@ -236,11 +237,11 @@ class UICatalog(UIModule):
             # Magnitude / Size
             # try to get object mag to float
             try:
-                obj_mag = float(cat_object["mag"])
+                obj_mag = float(cat_object.mag)
             except (ValueError, TypeError):
-                obj_mag = "-" if cat_object["mag"] == "" else cat_object["mag"]
+                obj_mag = "-" if cat_object.mag == "" else cat_object.mag
 
-            size = str(cat_object["size"]).strip()
+            size = str(cat_object.size).strip()
             size = "-" if size == "" else size
             spaces, magsize = self.space_calculator.calculate_spaces(
                 f"Mag:{obj_mag}", f"Sz:{size}"
@@ -271,7 +272,8 @@ class UICatalog(UIModule):
 
             if self.object_display_mode == DM_DESC:
                 # NGC description....
-                desc = cat_object["desc"].replace("\t", " ")
+                print(cat_object)
+                desc = cat_object.description.replace("\t", " ")
                 self.descTextLayout.set_text(desc)
                 self.texts["desc"] = self.descTextLayout
 
@@ -421,8 +423,8 @@ class UICatalog(UIModule):
                 dt,
             )
             obj_alt = aa.radec_to_altaz(
-                obj["ra"],
-                obj["dec"],
+                obj.ra,
+                obj.dec,
                 alt_only=True,
             )
             return obj_alt
