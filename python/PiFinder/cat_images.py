@@ -10,6 +10,7 @@ from PIL import Image, ImageChops, ImageDraw
 from PiFinder import image_util
 from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder import utils
+import PiFinder.ui.ui_utils as ui_utils
 
 BASE_IMAGE_PATH = f"{utils.data_dir}/catalog_images"
 CATALOG_PATH = f"{utils.astro_data_dir}/pifinder_objects.db"
@@ -66,7 +67,7 @@ def get_display_image(catalog_object, source, fov, roll, colors):
                         roll,
                         colors,
                     )
-        return_image = Image.new("RGB", (128, 128))
+        return_image = Image.new("RGBA", (128, 128))
         ri_draw = ImageDraw.Draw(return_image)
         ri_draw.text((30, 50), "No Image", font=fonts.large, fill=colors.get(128))
     else:
@@ -88,11 +89,11 @@ def get_display_image(catalog_object, source, fov, roll, colors):
         return_image = return_image.resize((128, 128), Image.LANCZOS)
 
         # RED
-        return_image = return_image.convert("RGB")
+        return_image = return_image.convert("RGBA")
         return_image = image_util.make_red(return_image, colors)
 
         # circle
-        _circle_dim = Image.new("RGB", (128, 128), colors.get(127))
+        _circle_dim = Image.new("RGBA", (128, 128), colors.get(127))
         _circle_draw = ImageDraw.Draw(_circle_dim)
         _circle_draw.ellipse([2, 2, 126, 126], fill=colors.get(255))
         return_image = ImageChops.multiply(return_image, _circle_dim)
@@ -101,7 +102,7 @@ def get_display_image(catalog_object, source, fov, roll, colors):
         ri_draw.ellipse([2, 2, 126, 126], outline=colors.get(64), width=1)
 
         # Outlined text on image source and fov
-        shadow_outline_text(
+        ui_utils.shadow_outline_text(
             ri_draw,
             (1, 110),
             source,
@@ -112,7 +113,7 @@ def get_display_image(catalog_object, source, fov, roll, colors):
             outline=2,
         )
 
-        shadow_outline_text(
+        ui_utils.shadow_outline_text(
             ri_draw,
             (98, 110),
             f"{fov:0.2f}°",
@@ -124,57 +125,6 @@ def get_display_image(catalog_object, source, fov, roll, colors):
         )
 
     return return_image
-
-
-def shadow_outline_text(
-    ri_draw, xy, text, align, font, fill, shadow_color, shadow=None, outline=None
-):
-    """draw shadowed and outlined text"""
-    x, y = xy
-    if shadow:
-        ri_draw.text(
-            (x + shadow[0], y + shadow[1]),
-            text,
-            align=align,
-            font=font,
-            fill=shadow_color,
-        )
-
-    if outline:
-        outline_text(
-            ri_draw,
-            xy,
-            text,
-            align=align,
-            font=font,
-            fill=fill,
-            shadow_color=shadow_color,
-            stroke=2,
-        )
-
-
-def outline_text(ri_draw, xy, text, align, font, fill, shadow_color, stroke=4):
-    """draw outline text"""
-    x, y = xy
-    ri_draw.text(
-        xy,
-        text,
-        align=align,
-        font=font,
-        fill=fill,
-        stroke_width=stroke,
-        stroke_fill=shadow_color,
-    )
-
-
-def shadow(ri_draw, xy, text, align, font, fill, shadowcolor):
-    x, y = xy
-    # thin border
-    ri_draw.text((x - 1, y), text, align=align, font=font, fill=shadowcolor)
-    ri_draw.text((x + 1, y), text, align=align, font=font, fill=shadowcolor)
-    ri_draw.text((x, y - 1), text, align=align, font=font, fill=shadowcolor)
-    ri_draw.text((x, y + 1), text, align=align, font=font, fill=shadowcolor)
-    ri_draw.text((x, y), text, align=align, font=font, fill=fill)
 
 
 def resolve_image_name(catalog_object, source):
