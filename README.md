@@ -42,10 +42,6 @@ If you'd like to learn more about how it works, and potentially build your own, 
 
 If you are using a PiFinder, I recommend you watch releases in this repo.  Click the 'Watch' button up at the top right of the page, choose 'Custom' and then 'Releases' to make sure you don't miss any new features!
 
-## Discussions
-
-Discussions are also active on this repo for asking quesitons and reviewing announcements and news.  Click the 'Discussions' link about to join in!
-
 ## Discord
 Join the  [PiFinder Discord server](https://discord.gg/Nk5fHcAtWD) for support with your build, usage questions, and suggestions for improvement.
 
