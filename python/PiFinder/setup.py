@@ -8,6 +8,7 @@ import argparse
 import logging
 import datetime
 from pathlib import Path
+from typing import Dict
 from PiFinder.obj_types import OBJ_DESCRIPTORS
 import PiFinder.utils as utils
 from PiFinder.db.objects_db import ObjectsDatabase
@@ -15,6 +16,29 @@ from PiFinder.db.observations_db import ObservationsDatabase
 
 objects_db: ObjectsDatabase
 observations_db: ObservationsDatabase
+
+
+class ObjectFinder:
+    """
+    Finds object id for a given catalog code and sequence number.
+    Should be reinited for every catalog as the database changes.
+    """
+
+    mappings: Dict[str, str]
+
+    def __init__(self):
+        self.objects_db = ObjectsDatabase()
+        self.catalog_objects = self.objects_db.get_catalog_objects()
+        self.mappings = {
+            f"{row['catalog_code']} {row['sequence']}": row["object_id"]
+            for row in self.catalog_objects
+        }
+
+    def get_object_id(self, object: str):
+        return self.mappings.get(object)
+
+    def get_object_id_by_parts(self, catalog_code: str, sequence: int):
+        return self.mappings.get(f"{catalog_code} {sequence}")
 
 
 def ra_to_deg(ra_h, ra_m, ra_s):
@@ -41,9 +65,13 @@ def dec_to_deg(dec, dec_m, dec_s):
     return dec_deg
 
 
-def delete_catalog_from_database(db_c, catalog):
-    db_c.execute(f"delete from objects where catalog='{catalog}'")
-    db_c.execute(f"delete from names where catalog='{catalog}'")
+def delete_catalog_from_database(catalog_code: str):
+    conn, db_c = objects_db.get_conn_cursor()
+    # 1. Delete related records from the `catalog_objects` table
+    db_c.execute("DELETE FROM catalog_objects WHERE catalog_code = ?", (catalog_code,))
+    # 2. Delete the catalog record from the `catalogs` table
+    db_c.execute("DELETE FROM catalogs WHERE catalog_code = ?", (catalog_code,))
+    conn.commit()
 
 
 def count_rows_per_distinct_column(conn, db_c, table, column):
@@ -84,7 +112,6 @@ def count_empty_entries_in_tables():
             "ra",
             "dec",
             "const",
-            "l_size",
             "size",
             "mag",
             "desc",
@@ -536,8 +563,10 @@ def insert_catalog_max_sequence(catalog_name):
 def load_caldwell():
     catalog = "C"
     conn, db_c = objects_db.get_conn_cursor()
-    delete_catalog_from_database(db_c, catalog)
-
+    delete_catalog_from_database(catalog)
+    insert_catalog("C", Path(utils.astro_data_dir, "caldwell.desc"))
+    # getting all mappings so we can find
+    object_finder = ObjectFinder()
     cal = Path(utils.astro_data_dir, "caldwell.dat")
     with open(cal, "r") as df:
         df.readline()
@@ -562,42 +591,16 @@ def load_caldwell():
                 dec_deg *= -1
 
             dec_deg = dec_to_deg(dec_deg, dec_m, 0)
-
-            q = f"""
-                insert into objects(
-                    catalog,
-                    sequence,
-                    obj_type,
-                    mag,
-                    ra,
-                    dec,
-                    const,
-                    size,
-                    desc
+            desc = ""
+            object_id = object_finder.get_object_id(other_names)
+            if not object_id:
+                object_id = objects_db.insert_object(
+                    obj_type, ra_deg, dec_deg, const, size, mag
                 )
-                values (
-                    "{catalog}",
-                    {sequence},
-                    "{obj_type}",
-                    {mag},
-                    {ra_deg},
-                    {dec_deg},
-                    "{const}",
-                    "{size}",
-                    ""
-                )
-            """
-            db_c.execute(q)
-            if other_names != "":
-                db_c.execute(
-                    f"""
-                        insert into names(common_name, catalog, sequence)
-                        values ("{other_names}", "C", {sequence})
-                    """
-                )
-
+                logging.debug(f"inserting unknown object", object_id)
+            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
+    insert_catalog_max_sequence("C")
     conn.commit()
-    insert_catalog("C", Path(utils.astro_data_dir, "caldwell.desc"))
 
 
 def load_ngc_catalog():
@@ -639,7 +642,7 @@ def load_ngc_catalog():
                     dem = int(l[23:25])
                     const = l[29:32]
                     l_size = l[32:33]
-                    size = l[33:38]
+                    size = l_size + l[33:38]
                     mag = l[40:44]
                     desc = l[46:].strip()
 
@@ -648,7 +651,7 @@ def load_ngc_catalog():
                         dec = dec * -1
                     ra = (rah + (ram / 60)) * 15
                     object_id = objects_db.insert_object(
-                        obj_type, ra, dec, const, l_size, size, mag
+                        obj_type, ra, dec, const, size, mag
                     )
                     logging.debug(f"object id is {object_id}")
                     objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
@@ -731,15 +734,15 @@ if __name__ == "__main__":
     objects_db = ObjectsDatabase()
     observations_db = ObservationsDatabase()
     logging.info("creating catalog tables")
-    objects_db.destroy_tables()
+    # objects_db.destroy_tables()
     objects_db.create_tables()
     if not observations_db.exists():
         observations_db.create_tables()
     logging.info("loading catalogs")
-    load_ngc_catalog()
+    # load_ngc_catalog()
     # load_collinder()
     # load_taas200()
     # load_sac_asterisms()
     # load_sac_multistars()
-    # load_caldwell()
+    load_caldwell()
     # print_database()

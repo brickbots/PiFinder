@@ -49,7 +49,7 @@ class Objects:
         logging.debug(f"Loaded {len(self.objects)} objects from database")
 
     def create_composite_object(self, catalog_objects: Dict) -> CompositeObject:
-        thedict = self.objects[catalog_objects["id"]] | catalog_objects
+        thedict = self.objects[catalog_objects["object_id"]] | catalog_objects
         result = CompositeObject(thedict)
         return result
 
@@ -79,7 +79,7 @@ class Names:
 
 
 class Catalog:
-    """Keeps catalog data + keeps track of current catalog/object"""
+    """Keeps catalog data + filtered objects"""
 
     last_filtered: float = 0
     db: Database
@@ -106,17 +106,17 @@ class Catalog:
 
     def _load_catalog(self):
         """
-        Loads all catalogs into memory
+        Loads the catalog data, compositing objects and this catalogs extra data
 
         """
-        catalogs = self.db.get_catalog_by_code(self.name)
-        cat_objects = self.db.get_catalog_object_by_catalog_code(self.name)
-        if catalogs:
-            self.max_sequence = catalogs["max_sequence"]
+        catalog = self.db.get_catalog_by_code(self.name)
+        cat_objects = self.db.get_catalog_objects_by_catalog_code(self.name)
+        if catalog:
+            self.max_sequence = catalog["max_sequence"]
         else:
             logging.error(f"catalog {self.name} not found")
             return
-        self.desc = catalogs["desc"]
+        self.desc = catalog["desc"]
         self.objects = {
             int(dict(row)["sequence"]): self.obj.create_composite_object(dict(row))
             for row in cat_objects

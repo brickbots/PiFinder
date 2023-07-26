@@ -23,8 +23,7 @@ class ObjectsDatabase(Database):
                 ra NUMERIC,
                 dec NUMERIC,
                 const TEXT,
-                l_size TEXT,
-                size NUMERIC,
+                size TEXT,
                 mag NUMERIC
             );
         """
@@ -82,13 +81,13 @@ class ObjectsDatabase(Database):
 
     # ---- OBJECTS methods ----
 
-    def insert_object(self, obj_type, ra, dec, const, l_size, size, mag):
+    def insert_object(self, obj_type, ra, dec, const, size, mag):
         self.cursor.execute(
             """
-            INSERT INTO objects (obj_type, ra, dec, const, l_size, size, mag)
-            VALUES (?, ?, ?, ?, ?, ?, ?);
+            INSERT INTO objects (obj_type, ra, dec, const, size, mag)
+            VALUES (?, ?, ?, ?, ?, ?);
         """,
-            (obj_type, ra, dec, const, l_size, size, mag),
+            (obj_type, ra, dec, const, size, mag),
         )
         self.conn.commit()
         return self.cursor.lastrowid
@@ -185,10 +184,14 @@ class ObjectsDatabase(Database):
         )
         return self.cursor.fetchone()
 
-    def get_catalog_object_by_catalog_code(self, catalog_code):
+    def get_catalog_objects_by_catalog_code(self, catalog_code):
         self.cursor.execute(
             "SELECT * FROM catalog_objects WHERE catalog_code = ?;", (catalog_code,)
         )
+        return self.cursor.fetchall()
+
+    def get_catalog_objects(self):
+        self.cursor.execute("SELECT * FROM catalog_objects;")
         return self.cursor.fetchall()
 
     # Generic delete method for all tables
