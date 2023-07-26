@@ -191,7 +191,7 @@ class UILocate(UIModule):
                 az_diff = (az_diff + 180) % 360 - 180
                 if self.screen_direction == "flat":
                     az_diff *= -1
-                
+
                 alt_diff = target_alt - solution["Alt"]
                 alt_diff = (alt_diff + 180) % 360 - 180
 

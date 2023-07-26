@@ -118,7 +118,10 @@ def integrator(shared_state, solver_queue, console_queue):
             "constellation": None,
         }
         cfg = config.Config()
-        if cfg.get_option("screen_direction") == "left" or cfg.get_option("screen_direction") == "flat":
+        if (
++           cfg.get_option("screen_direction") == "left"
++           or cfg.get_option("screen_direction") == "flat"
++       ):
             flip_alt_offset = True
         else:
             flip_alt_offset = False
