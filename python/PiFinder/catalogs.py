@@ -19,10 +19,10 @@ class Catalog:
 
     def __init__(self, catalog_name):
         self.name = catalog_name
-        self.objects = {}
-        self.objects_keys_sorted = []
-        self.filtered_objects = {}
-        self.filtered_objects_keys_sorted = []
+        self.objects: Dict[int, Dict] = {}
+        self.objects_keys_sorted: List[int] = []
+        self.filtered_objects: Dict[int, Dict] = {}
+        self.filtered_objects_keys_sorted: List[int] = []
         self.max_sequence = 0
         self.desc = "No description"
         self._load_catalog()
@@ -59,7 +59,7 @@ class Catalog:
             self.desc = cat_data["desc"]
         else:
             logging.debug(f"no catalog data for {self.name}")
-        self.objects = {dict(row)["sequence"]: dict(row) for row in cat_objects}
+        self.objects = {int(dict(row)["sequence"]): dict(row) for row in cat_objects}
         self.objects_keys_sorted = self._get_sorted_keys(self.objects)
         self.filtered_objects = self.objects
         self.filtered_objects_keys_sorted = self.objects_keys_sorted
@@ -258,7 +258,7 @@ class CatalogTracker:
         current_key = self.object_tracker[self.current_catalog_name]
         designator = self.get_designator()
         # there is no current object, so set the first object the first or last
-        if current_key is None:
+        if current_key is None or current_key not in keys_sorted:
             next_index = 0 if direction == 1 else len(keys_sorted) - 1
             next_key = keys_sorted[next_index]
             designator.set_number(next_key)
@@ -278,9 +278,16 @@ class CatalogTracker:
     def previous_object(self):
         return self.next_object(-1)
 
-    def get_objects(self, catalogs=None):
+    def get_objects(self, catalogs=None, filtered=False) -> List[Dict]:
         catalog_list = self._select_catalogs(catalogs)
-        return [catalog.objects for catalog in catalog_list]
+        object_values = []
+        for catalog in catalog_list:
+            if filtered:
+                object_values.extend(catalog.filtered_objects.values())
+            else:
+                object_values.extend(catalog.objects.values())
+        flattened_objects = [obj for entry in catalog_list for obj in object_values]
+        return flattened_objects
 
     def does_filtered_have_current_object(self):
         return (
@@ -323,6 +330,7 @@ class CatalogTracker:
         return self.catalogs.get(catalog)
 
     def _select_catalogs(self, catalogs: Optional[List[str]]) -> List[Catalog]:
+        catalog_list: List[Catalog] = []
         if catalogs is None:
             catalog_list = [self.current_catalog]
         else:
@@ -344,6 +352,7 @@ class CatalogTracker:
                 altitude_filter,
                 observed_filter,
             )
+        #  do we need this? might just be hiding a bug somewhere
         if self.current_catalog not in catalog_list:
             self.current_catalog.filter(
                 self.shared_state,
