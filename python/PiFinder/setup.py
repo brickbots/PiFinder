@@ -13,6 +13,7 @@ from PiFinder.obj_types import OBJ_DESCRIPTORS
 import PiFinder.utils as utils
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
+from collections import namedtuple
 
 objects_db: ObjectsDatabase
 observations_db: ObservationsDatabase
@@ -167,8 +168,24 @@ def load_deepmap_600():
 def load_collinder():
     catalog = "Col"
     conn, db_c = objects_db.get_conn_cursor()
-    objects_db.delete_catalog_by_code(catalog)
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, Path(utils.astro_data_dir, "collinder.desc"))
+    object_finder = ObjectFinder()
     coll = Path(utils.astro_data_dir, "collinder.txt")
+    Collinder = namedtuple(
+        "Collinder",
+        [
+            "sequence",
+            "other_names",
+            "const",
+            "ra_deg",
+            "dec_deg",
+            "size",
+            "desc",
+            "object_id",
+        ],
+    )
+    c_dict = {}
     with open(coll, "r") as df:
         df.readline()
         for l in df:
@@ -197,28 +214,21 @@ def load_collinder():
             size = dfs[7]
             desc = f"{dfs[6]} stars, like {dfs[8]}"
 
-            q = f"""
-                insert into objects(
-                    catalog,
-                    sequence,
-                    ra,
-                    dec,
-                    const,
-                    size,
-                    desc
-                )
-                values (
-                    "{catalog}",
-                    {sequence},
-                    {ra_deg},
-                    {dec_deg},
-                    "{const}",
-                    "{size}",
-                    "{desc}"
-                )
-            """
-            db_c.execute(q)
-            conn.commit()
+            object_id = object_finder.get_object_id(other_names)
+            # Assuming all the parsing logic is done and all variables are available...
+
+            collinder = Collinder(
+                sequence=sequence,
+                other_names=other_names,
+                const=const,
+                ra_deg=ra_deg,
+                dec_deg=dec_deg,
+                size=size,
+                desc=desc,
+                object_id=object_id,
+            )
+            c_dict[sequence] = collinder
+
     type_trans = {
         "Open cluster": "OC",
         "Asterism": "Ast",
@@ -234,27 +244,32 @@ def load_collinder():
             mag = dfs[6].strip().split(" ")[0]
             if mag == "-":
                 mag = "null"
-            other_names = dfs[2]
-
-            q = f"""
-                    UPDATE objects
-                    set
-                        obj_type = "{obj_type}",
-                        mag = {mag}
-                    where
-                        catalog = "{catalog}"
-                        and sequence = {sequence}
-                """
-            db_c.execute(q)
-            if other_names != "":
-                db_c.execute(
-                    f"""
-                        insert into names(common_name, catalog, sequence)
-                        values ("{other_names}", "{catalog}", {sequence})
-                    """
+            other_names = dfs[2].strip()
+            c_tuple = c_dict[sequence]
+            object_id = c_tuple.object_id
+            if object_id is None:
+                object_id = objects_db.insert_object(
+                    obj_type,
+                    c_tuple.ra_deg,
+                    c_tuple.dec_deg,
+                    c_tuple.const,
+                    c_tuple.size,
+                    mag,
                 )
+                logging.debug(f"inserting unknown object {object_id=}")
+            objects_db.insert_catalog_object(object_id, catalog, sequence, c_tuple.desc)
+            first_other_names = c_tuple.other_names.strip()
+            if first_other_names and not first_other_names.startswith(
+                ("[note", "Tr.", "Harv.", "Mel.")
+            ):
+                logging.debug(f"{first_other_names=}")
+                objects_db.insert_name(object_id, first_other_names)
+            if other_names and not other_names.startswith(("[note")):
+                logging.debug(f"{other_names=}")
+                objects_db.insert_name(object_id, other_names)
+
+    insert_catalog_max_sequence(catalog)
     conn.commit()
-    insert_catalog(catalog, Path(utils.astro_data_dir, "collinder.desc"))
 
 
 def load_sac_asterisms():
@@ -564,7 +579,7 @@ def load_caldwell():
     catalog = "C"
     conn, db_c = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
-    insert_catalog("C", Path(utils.astro_data_dir, "caldwell.desc"))
+    insert_catalog(catalog, Path(utils.astro_data_dir, "caldwell.desc"))
     # getting all mappings so we can find
     object_finder = ObjectFinder()
     cal = Path(utils.astro_data_dir, "caldwell.dat")
@@ -597,64 +612,61 @@ def load_caldwell():
                 object_id = objects_db.insert_object(
                     obj_type, ra_deg, dec_deg, const, size, mag
                 )
-                logging.debug(f"inserting unknown object", object_id)
+                logging.debug(f"inserting unknown object {object_id=}")
             objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
-    insert_catalog_max_sequence("C")
+            objects_db.insert_name(object_id, other_names)
+    insert_catalog_max_sequence(catalog)
     conn.commit()
 
 
 def load_ngc_catalog():
     logging.info("Loading NGC catalog")
     conn, db_c = objects_db.get_conn_cursor()
-    m_objects = []
+    object_id_desc_dict = {}
 
     ngc_dat_files = [
         Path(utils.astro_data_dir, "ngc2000", "ngc2000.dat"),
         Path(utils.astro_data_dir, "messier_objects.dat"),
     ]
     # Add records for catalog descriptions
+    delete_catalog_from_database("NGC")
     insert_catalog("NGC", Path(utils.astro_data_dir, "ngc2000", "ngc.desc"))
+    delete_catalog_from_database("M")
     insert_catalog("M", Path(utils.astro_data_dir, "messier.desc"))
+    delete_catalog_from_database("IC")
     insert_catalog("IC", Path(utils.astro_data_dir, "ic.desc"))
 
     for ngc_dat in ngc_dat_files:
         with open(ngc_dat, "r") as ngc:
             for l in ngc:
+                sequence = int(l[1:5])
                 add = True
                 catalog = l[0:1]
                 if catalog == " " or catalog == "N":
                     catalog = "NGC"
                 if catalog == "I":
                     catalog = "IC"
-                if catalog == "M":
-                    if sequence not in m_objects:
-                        m_objects.append(sequence)
-                    else:
-                        add = False
+                obj_type = l[6:9].strip()
+                rah = int(l[10:12])
+                ram = float(l[13:17])
+                des = l[19:20]
+                ded = int(l[20:22])
+                dem = int(l[23:25])
+                const = l[29:32]
+                l_size = l[32:33]
+                size = l_size + l[33:38]
+                mag = l[40:44]
+                desc = l[46:].strip()
 
-                sequence = int(l[1:5])
-                if add:
-                    obj_type = l[6:9].strip()
-                    rah = int(l[10:12])
-                    ram = float(l[13:17])
-                    des = l[19:20]
-                    ded = int(l[20:22])
-                    dem = int(l[23:25])
-                    const = l[29:32]
-                    l_size = l[32:33]
-                    size = l_size + l[33:38]
-                    mag = l[40:44]
-                    desc = l[46:].strip()
-
-                    dec = ded + (dem / 60)
-                    if des == "-":
-                        dec = dec * -1
-                    ra = (rah + (ram / 60)) * 15
-                    object_id = objects_db.insert_object(
-                        obj_type, ra, dec, const, size, mag
-                    )
-                    logging.debug(f"object id is {object_id}")
-                    objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
+                dec = ded + (dem / 60)
+                if des == "-":
+                    dec = dec * -1
+                ra = (rah + (ram / 60)) * 15
+                object_id = objects_db.insert_object(
+                    obj_type, ra, dec, const, size, mag
+                )
+                objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
+                object_id_desc_dict[object_id] = desc
 
     # Additional processing for names and messier objects... (similarly transformed as above)
     # Now add the names
@@ -666,9 +678,11 @@ def load_ngc_catalog():
     for name_dat in name_dat_files:
         with open(name_dat, "r") as names:
             for l in names:
+                m_sequence = ""
                 common_name = l[0:35]
                 if common_name.startswith("M "):
-                    common_name = "M" + common_name[2:].strip()
+                    m_sequence = common_name[2:].strip()
+                    common_name = "M" + m_sequence
                 catalog = l[36:37]
                 if catalog == " ":
                     catalog = "N"
@@ -677,17 +691,25 @@ def load_ngc_catalog():
                 if catalog == "I":
                     catalog = "IC"
 
-                sequence = l[37:41].strip()
+                ngc_ic_sequence = l[37:41].strip()
                 comment = l[42:]
 
-                if sequence != "":
-                    obj = objects_db.get_catalog_object_by_sequence(catalog, sequence)
+                if ngc_ic_sequence != "":
+                    obj = objects_db.get_catalog_object_by_sequence(
+                        catalog, ngc_ic_sequence
+                    )
                     if obj:
                         object_id = obj["object_id"]
                         objects_db.insert_name(object_id, common_name)
+                        if m_sequence != "":
+                            desc = object_id_desc_dict[object_id]
+                            objects_db.insert_catalog_object(
+                                object_id, "M", m_sequence, desc
+                            )
                     else:
                         logging.debug(f"Can't find object id {catalog=}, {sequence=}")
-            conn.commit()
+
+    conn.commit()
     insert_catalog_max_sequence("NGC")
     insert_catalog_max_sequence("IC")
     insert_catalog_max_sequence("M")
@@ -739,8 +761,8 @@ if __name__ == "__main__":
     if not observations_db.exists():
         observations_db.create_tables()
     logging.info("loading catalogs")
-    # load_ngc_catalog()
-    # load_collinder()
+    load_ngc_catalog()
+    load_collinder()
     # load_taas200()
     # load_sac_asterisms()
     # load_sac_multistars()

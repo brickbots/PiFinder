@@ -88,7 +88,7 @@ class Catalog:
         self.db = ObjectsDatabase()
         self.observations_db = ObservationsDatabase()
         self.name = catalog_code
-        self.common_names: DefaultDict[int, List[str]] = Names()
+        self.common_names: Names = Names()
         self.obj = obj
         self.objects: Dict[int, CompositeObject] = {}
         self.objects_keys_sorted: List[int] = []
