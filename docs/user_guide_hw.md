@@ -26,6 +26,10 @@ In the photo on the left above, you can see two of the three thumbscrews used to
 ### Mounting
 Depending on the mounting system you printed or received for your PiFinder, you will either have a rail on the bottom which fits a standard finder shoe, or a Go-Pro style mount.  As with any finder, a sturdy and stable mounting method is needed; Ideally with the ability to take off the finder and re-attach it while retaining it's relationship with the telescope.
 
+There are currently 3 different mounting configurations supported. Right, left, and flat. Right and left mounts are commonly used with reflector style telescopes where it is required for the screen to face the side due to the focuser position. In these 2 mounting styles, the PiFinder is upright. Flat mount is more commonly used for reflectors or cassegrains where the user sits behind the telescope. In this mounting orientaiton, the PiFinder lays flat with the screen pointing up. See photo below for an example of the flat mount.
+
+![Flat mount](../images/flat_mount.png)
+
 ### Camera Setup
 After you mount your PiFinder the first time, you'll need to setup the camera aperture and focus.
 If you are using the recommended lens, it will have two adjustment rings on it; One to adjust the aperture (f-stop) and one for focus.
