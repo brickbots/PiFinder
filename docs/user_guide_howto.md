@@ -89,10 +89,42 @@ Use can use the _UP_ and _DN_ keys to zoom the chart in an out.  Here is the cha
 By default, the PiFinder software is set for right-side focuser operation.   To switch to left-side orientation, use the [Options](user_guide_ui.md#options) page of the [Status](user_guide_ui.md#status) screen.  This will make sure the preview is displayed correct side up and the IMU up/down direction is correct.
 
 ### WiFi
+#### Access Point and Client Mode
 The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the [Options](user_guide_ui.md#system-options) page of the Status screen to switch between these two modes and see which mode is currently active.
 
 Using the PiFinder in Access Point mode creates a network called AP_PiFinder with no password to allow easy connection of phones, tablets and other devices in the field.
 
+#### Changing Wifi networks
+When in client mode, the PiFinder will attempt to connect to one or more networks which have been previously configured.  If you set up your PiFinder via the instructions [here](software.md) you likely already have one network configured.
+
+If you purchased a kit that came with an SD card, or you want to change network configuration, please see the instructions below to change your network settings:
+
+* Shutdown and power off the PiFinder
+* Remove the SD card from your PiFinder and insert it into another computer.  
+	* Windows may prompt you to format the card, don't do so! There is a partition on there (/boot) that windows should be able to read/write to.
+* Create a file called wpa_supplicant.conf in the root of the SD card with these contents:
+
+```
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+country=<Insert 2 letter ISO 3166-1 country code here>
+update_config=1
+
+network={
+ ssid="<Name of your wireless LAN>"
+ psk="<Password for your wireless LAN>"
+}
+```
+* Set `country` to your two letter country code.
+* Set SSID to your WiFi network name, preserving the surrounding quotes.
+* Set PSK to the password for your WiFi network, again preserving the surrounding quotes.
+* Save this file (make sure it ends up with the .conf extension)
+* Insert it back into the PiFinder and power back on.
+
+That file will be moved from the `/boot` partition and the PiFinder should connect to your network. 
+
+Alternatively, you can switch the PiFinder to AP mode, SSH into it and edit `/etc/wpa_supplicant.conf` in place to change or add networks.
+
+#### PiFinder address
 In most cases, you can use the name `pifinder.local` to connect to the PiFinder.  On older computer or those that don't support zeroconf networking, you can use the IP address provides on the [Status](user_guide_ui.md#status) screen to connect.  You can connect to the PiFinder via:
 * SSH to get shell access for software updates and other admin tasks
 * SMB (Samba) to access saved images, logs an observing lists
