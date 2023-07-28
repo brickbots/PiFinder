@@ -19,6 +19,8 @@ Once you've built or otherwise obtained a PiFinder, here's how to setup a fresh 
 	 * Then I4 - SPI  and choose Enable
 	 * Then I5 - I2C  and choose Enable
 
+## PiFinder Software Install
+
 Great!  You have a nice fresh install of Raspberry Pi OS ready to go.  The rest of the setup is completed by running the `pifinder_setup.sh` script in this repo.  Here's the command to download and run the script in one step:
 
  `wget -O - https://raw.githubusercontent.com/brickbots/PiFinder/release/pifinder_setup.sh | bash`
@@ -36,3 +38,6 @@ Once the script is done, reboot the PiFinder:
 
 It will take up to two minutes to boot, but you should see the startup screen before too long:
 ![Startup log]( ../images/screenshots/WELCOME_001_docs.png)
+
+## Catalog Images
+You may now want to install all the catalog images.  These allow you to view an image of every object in the catalog system.  For more details please see the [Catalog Image Download](https://github.com/brickbots/PiFinder/blob/main/docs/user_guide_setup.md#catalog-image-download) instructions.
