@@ -31,7 +31,7 @@ class ObjectFinder:
         self.objects_db = ObjectsDatabase()
         self.catalog_objects = self.objects_db.get_catalog_objects()
         self.mappings = {
-            f"{row['catalog_code']} {row['sequence']}": row["object_id"]
+            f"{row['catalog_code']}{row['sequence']}": row["object_id"]
             for row in self.catalog_objects
         }
 
@@ -39,7 +39,7 @@ class ObjectFinder:
         return self.mappings.get(object)
 
     def get_object_id_by_parts(self, catalog_code: str, sequence: int):
-        return self.mappings.get(f"{catalog_code} {sequence}")
+        return self.mappings.get(f"{catalog_code}{sequence}")
 
 
 def ra_to_deg(ra_h, ra_m, ra_s):
@@ -243,7 +243,7 @@ def load_collinder():
             obj_type = type_trans.get(dfs[4], "OC")
             mag = dfs[6].strip().split(" ")[0]
             if mag == "-":
-                mag = "null"
+                mag = ""
             other_names = dfs[2].strip()
             c_tuple = c_dict[sequence]
             object_id = c_tuple.object_id
@@ -256,7 +256,7 @@ def load_collinder():
                     c_tuple.size,
                     mag,
                 )
-                logging.debug(f"inserting unknown object {object_id=}")
+                logging.debug(f"inserting unknown object {object_id=}, {c_tuple=}")
             objects_db.insert_catalog_object(object_id, catalog, sequence, c_tuple.desc)
             first_other_names = c_tuple.other_names.strip()
             if first_other_names and not first_other_names.startswith(
@@ -264,12 +264,18 @@ def load_collinder():
             ):
                 logging.debug(f"{first_other_names=}")
                 objects_db.insert_name(object_id, first_other_names)
-            if other_names and not other_names.startswith(("[note")):
+            if (
+                other_names
+                and not other_names == first_other_names
+                and not other_names.startswith(("[note"))
+            ):
                 logging.debug(f"{other_names=}")
                 objects_db.insert_name(object_id, other_names)
 
     insert_catalog_max_sequence(catalog)
+    print("before commit")
     conn.commit()
+    print("after commit")
 
 
 def load_sac_asterisms():
@@ -761,10 +767,10 @@ if __name__ == "__main__":
     if not observations_db.exists():
         observations_db.create_tables()
     logging.info("loading catalogs")
-    load_ngc_catalog()
+    # load_ngc_catalog()
     load_collinder()
     # load_taas200()
     # load_sac_asterisms()
     # load_sac_multistars()
-    load_caldwell()
+    # load_caldwell()
     # print_database()
