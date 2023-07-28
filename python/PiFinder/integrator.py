@@ -119,13 +119,12 @@ def integrator(shared_state, solver_queue, console_queue):
         }
         cfg = config.Config()
         if (
-+           cfg.get_option("screen_direction") == "left"
-+           or cfg.get_option("screen_direction") == "flat"
-+       ):
+            cfg.get_option("screen_direction") == "left"
+            or cfg.get_option("screen_direction") == "flat"
+        ):
             flip_alt_offset = True
         else:
             flip_alt_offset = False
-
 
         # This holds the last image solve position info
         # so we can delta for IMU updates
