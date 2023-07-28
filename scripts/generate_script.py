@@ -25,7 +25,6 @@ def generate_commands(filename, num_lines, command_weights):
                     break
 
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate a text file with commands.")
     parser.add_argument("filename", type=str, help="The name of the file to generate.")
