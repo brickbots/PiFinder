@@ -53,6 +53,8 @@ class Observation_session:
             return None
 
         local_time = self.__shared_state.local_datetime()
+        if not local_time:
+            return None
 
         q = """
             INSERT INTO obs_sessions(
