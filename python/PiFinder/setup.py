@@ -18,6 +18,8 @@ from collections import namedtuple
 objects_db: ObjectsDatabase
 observations_db: ObservationsDatabase
 
+duplicate_names = set()
+
 
 class ObjectFinder:
     """
@@ -259,18 +261,23 @@ def load_collinder():
                 logging.debug(f"inserting unknown object {object_id=}, {c_tuple=}")
             objects_db.insert_catalog_object(object_id, catalog, sequence, c_tuple.desc)
             first_other_names = c_tuple.other_names.strip()
-            if first_other_names and not first_other_names.startswith(
-                ("[note", "Tr.", "Harv.", "Mel.")
+            if (
+                first_other_names
+                and not first_other_names in duplicate_names
+                and not first_other_names.startswith(("[note", "Tr.", "Harv.", "Mel."))
             ):
                 logging.debug(f"{first_other_names=}")
                 objects_db.insert_name(object_id, first_other_names)
+                duplicate_names.add(first_other_names)
             if (
                 other_names
                 and not other_names == first_other_names
+                and not other_names in duplicate_names
                 and not other_names.startswith(("[note"))
             ):
                 logging.debug(f"{other_names=}")
                 objects_db.insert_name(object_id, other_names)
+                duplicate_names.add(first_other_names)
 
     insert_catalog_max_sequence(catalog)
     print("before commit")
@@ -767,7 +774,7 @@ if __name__ == "__main__":
     if not observations_db.exists():
         observations_db.create_tables()
     logging.info("loading catalogs")
-    # load_ngc_catalog()
+    load_ngc_catalog()
     load_collinder()
     # load_taas200()
     # load_sac_asterisms()

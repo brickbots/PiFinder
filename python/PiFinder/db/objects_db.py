@@ -110,6 +110,10 @@ class ObjectsDatabase(Database):
     # ---- NAMES methods ----
 
     def insert_name(self, object_id, common_name):
+        logging.debug(f"Inserting {common_name} into {object_id}")
+        common_name = common_name.strip()
+        if common_name == "":
+            return
         self.cursor.execute(
             """
             INSERT INTO names (object_id, common_name)
@@ -126,12 +130,15 @@ class ObjectsDatabase(Database):
     def get_names(self) -> DefaultDict[int, List[str]]:
         """
         Returns a dictionary of object_id: [common_name, common_name, ...]
+        duplicates are removed.
         """
         self.cursor.execute("SELECT object_id, common_name FROM names;")
         results = self.cursor.fetchall()
         name_dict = defaultdict(list)
         for object_id, common_name in results:
             name_dict[object_id].append(common_name.strip())
+        for object_id in name_dict:
+            name_dict[object_id] = list(set(name_dict[object_id]))
         return name_dict
 
     # ---- CATALOGS methods ----
@@ -159,9 +166,9 @@ class ObjectsDatabase(Database):
     # ---- CATALOG_OBJECTS methods ----
 
     def insert_catalog_object(self, object_id, catalog_code, sequence, description):
-        logging.debug(
-            f"Inserting catalog object {object_id} into {catalog_code}-{sequence}, {description=}"
-        )
+        # logging.debug(
+        #     f"Inserting catalog object {object_id} into {catalog_code}-{sequence}, {description=}"
+        # )
         self.cursor.execute(
             """
             INSERT INTO catalog_objects (object_id, catalog_code, sequence, description)
