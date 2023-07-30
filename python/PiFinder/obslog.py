@@ -53,6 +53,8 @@ class Observation_session:
             return None
 
         local_time = self.__shared_state.local_datetime()
+        if not local_time:
+            return None
 
         q = """
             INSERT INTO obs_sessions(
@@ -91,7 +93,7 @@ class Observation_session:
         session_uuid = self.session_uuid()
         if not session_uuid:
             print("Could not create session")
-            return False
+            return None, None
 
         q = """
             INSERT INTO obs_objects(
