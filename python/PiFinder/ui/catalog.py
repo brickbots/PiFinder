@@ -161,7 +161,7 @@ class UICatalog(UIModule):
 
     def push_near(self, obj_amount):
         self._config_options["Near Obj."]["value"] = ""
-        if obj_amount != "Cncl":
+        if obj_amount != "CANCEL":
             solution = self.shared_state.solution()
             if not solution:
                 self.message("No Solve!", 1)

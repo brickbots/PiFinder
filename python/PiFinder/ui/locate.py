@@ -193,8 +193,7 @@ class UILocate(UIModule):
                 alt_diff = (alt_diff + 180) % 360 - 180
 
                 return az_diff, alt_diff
-        else:
-            return None, None
+        return None, None
 
     def active(self):
         try:
