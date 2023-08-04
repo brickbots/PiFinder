@@ -118,10 +118,13 @@ def integrator(shared_state, solver_queue, console_queue):
             "constellation": None,
         }
         cfg = config.Config()
-        if cfg.get_option("screen_direction") == "left":
-            left_handed = True
+        if (
+            cfg.get_option("screen_direction") == "left"
+            or cfg.get_option("screen_direction") == "flat"
+        ):
+            flip_alt_offset = True
         else:
-            left_handed = False
+            flip_alt_offset = False
 
         # This holds the last image solve position info
         # so we can delta for IMU updates
@@ -185,7 +188,7 @@ def integrator(shared_state, solver_queue, console_queue):
                         imu_pos = imu["pos"]
                         if lis_imu != None and imu_pos != None:
                             alt_offset = imu_pos[IMU_ALT] - lis_imu[IMU_ALT]
-                            if left_handed:
+                            if flip_alt_offset:
                                 alt_offset = ((alt_offset + 180) % 360 - 180) * -1
                             else:
                                 alt_offset = (alt_offset + 180) % 360 - 180
