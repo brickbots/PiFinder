@@ -67,7 +67,7 @@ def get_display_image(catalog_object, source, fov, roll, colors):
                         roll,
                         colors,
                     )
-        return_image = Image.new("RGBA", (128, 128))
+        return_image = Image.new("RGB", (128, 128))
         ri_draw = ImageDraw.Draw(return_image)
         ri_draw.text((30, 50), "No Image", font=fonts.large, fill=colors.get(128))
     else:
@@ -89,11 +89,10 @@ def get_display_image(catalog_object, source, fov, roll, colors):
         return_image = return_image.resize((128, 128), Image.LANCZOS)
 
         # RED
-        return_image = return_image.convert("RGBA")
         return_image = image_util.make_red(return_image, colors)
 
         # circle
-        _circle_dim = Image.new("RGBA", (128, 128), colors.get(127))
+        _circle_dim = Image.new("RGB", (128, 128), colors.get(127))
         _circle_draw = ImageDraw.Draw(_circle_dim)
         _circle_draw.ellipse([2, 2, 126, 126], fill=colors.get(255))
         return_image = ImageChops.multiply(return_image, _circle_dim)

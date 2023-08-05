@@ -29,6 +29,7 @@ class UIModule:
         ui_state={},
         config_object=None,
     ):
+        logging.debug(f"Initializing {self.__title__}, {device_wrapper=}")
         self.title = self.__title__
         self.switch_to = None
         self.display = device_wrapper.device
@@ -36,7 +37,7 @@ class UIModule:
         self.shared_state = shared_state
         self.camera_image = camera_image
         self.command_queues = command_queues
-        self.screen = Image.new("RGBA", (128, 128))
+        self.screen = Image.new("RGB", (128, 128))
         self.draw = ImageDraw.Draw(self.screen)
         self.font_base = fonts.base
         self.font_bold = fonts.bold
@@ -83,8 +84,8 @@ class UIModule:
         self.ss_count += 1
         ss_imagepath = self.ss_path + f"_{self.ss_count :0>3}.png"
         ss = self.screen.getchannel("B")
-        ss = ss.convert("RGBA")
-        ss = ImageChops.multiply(ss, Image.new("RGBA", (128, 128), (255, 0, 0)))
+        ss = ss.convert("RGB")
+        ss = ImageChops.multiply(ss, Image.new("RGB", (128, 128), (255, 0, 0)))
         ss.save(ss_imagepath)
 
     def active(self):

@@ -71,7 +71,7 @@ def init_display():
             width=128,
             height=128,
             rotate=0,
-            mode="RGBA",
+            mode="RGB",
             transform="scale2x",
             scale=2,
             frame_rate=60,
@@ -83,8 +83,8 @@ def init_display():
         # init display  (SPI hardware)
         serial = spi(device=0, port=0)
         device_serial = ssd1351(serial, rotate=0, bgr=True)
-        device_serial.capabilities(width=128, height=128, rotate=0, mode="RGBA")
-        display_device = DeviceWrapper(device_serial, RED_BGR)
+        device_serial.capabilities(width=128, height=128, rotate=0, mode="RGB")
+        display_device = DeviceWrapper(device_serial, RED_RGB)
     else:
         print("Hardware platform not recognized")
 
@@ -714,6 +714,5 @@ if __name__ == "__main__":
         fh = logging.FileHandler(filehandler)
         fh.setLevel(logger.level)
         logger.addHandler(fh)
-    script_name = args.script
 
-    main(script_name)
+    main(args.script)

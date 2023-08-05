@@ -15,6 +15,7 @@ from PiFinder import utils
 
 
 def solver(shared_state, solver_queue, camera_image, console_queue):
+    logging.getLogger("tetra3.Tetra3").addHandler(logging.NullHandler())
     t3 = Tetra3(utils.astro_data_dir / "pifinder_fov10-5_m7_hip.npz")
     last_solve_time = 0
     solved = {

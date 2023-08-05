@@ -42,7 +42,7 @@ class UIStatus(UIModule):
         "Mnt Side": {
             "type": "enum",
             "value": "",
-            "options": ["right", "left", "CANCEL"],
+            "options": ["right", "left", "flat", "CANCEL"],
             "callback": "side_switch",
         },
         "Restart": {
@@ -133,7 +133,7 @@ class UIStatus(UIModule):
             )
             return False
 
-        self.message("Ok! Restaring", 10)
+        self.message("Ok! Restarting", 10)
         self.config_object.set_option("screen_direction", option)
         sys_utils.restart_pifinder()
 

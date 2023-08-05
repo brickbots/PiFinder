@@ -227,12 +227,12 @@ class Catalog:
                 self.filtered_objects[key] = obj
         self.filtered_objects_keys_sorted = self._get_sorted_keys(self.filtered_objects)
 
-        def __repr__(self):
-            return "catalog repr"
-            # return f"Catalog({self.name=}, {self.max_sequence=})"
+    def __repr__(self):
+        return "catalog repr"
+        # return f"Catalog({self.name=}, {self.max_sequence=})"
 
-        def __str__(self):
-            return __repr__(self)
+    def __str__(self):
+        return self.__repr__()
 
 
 class CatalogDesignator:
