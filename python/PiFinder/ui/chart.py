@@ -155,7 +155,9 @@ class UIChart(UIModule):
                     self.solution["Roll"],
                     constellation_brightness,
                 )
-                image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
+                image_obj = ImageChops.multiply(
+                    image_obj.convert("RGB"), self.colors.red_image
+                )
                 self.screen.paste(image_obj)
                 self.plot_target()
                 self.plot_obs_list()

@@ -29,7 +29,6 @@ class UIModule:
         ui_state={},
         config_object=None,
     ):
-        logging.debug(f"Initializing {self.__title__}, {device_wrapper=}")
         self.title = self.__title__
         self.switch_to = None
         self.display = device_wrapper.device
