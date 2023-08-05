@@ -28,8 +28,8 @@ def get_ngc_aka(catalog_object):
     aka_rec = conn.execute(
         f"""
         SELECT common_name from names
-        where catalog = "{catalog_object['catalog']}"
-        and sequence = "{catalog_object['sequence']}"
+        where catalog_code = "{catalog_object.catalog_code}"
+        and sequence = "{catalog_object.sequence}"
         and common_name like "NGC%"
     """
     ).fetchone()
@@ -49,7 +49,7 @@ def get_display_image(catalog_object, source, fov, roll, colors):
 
     object_image_path = resolve_image_name(catalog_object, source)
     if not os.path.exists(object_image_path):
-        if catalog_object["catalog"] != "NGC":
+        if catalog_object.catalog_code != "NGC":
             # look for any NGC aka
             aka_rec = get_ngc_aka(catalog_object)
             if aka_rec:
@@ -131,7 +131,7 @@ def resolve_image_name(catalog_object, source):
     """
     returns the image path for this objects
     """
-    return f"{BASE_IMAGE_PATH}/{str(catalog_object['sequence'])[-1]}/{catalog_object['catalog']}{catalog_object['sequence']}_{source}.jpg"
+    return f"{BASE_IMAGE_PATH}/{str(catalog_object.sequence)[-1]}/{catalog_object.catalog_code}{catalog_object.sequence}_{source}.jpg"
 
 
 def create_catalog_image_dirs():

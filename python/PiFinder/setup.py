@@ -7,6 +7,7 @@ import csv
 import argparse
 import logging
 import datetime
+import re
 from pathlib import Path
 from typing import Dict
 from PiFinder.obj_types import OBJ_DESCRIPTORS
@@ -17,8 +18,6 @@ from collections import namedtuple
 
 objects_db: ObjectsDatabase
 observations_db: ObservationsDatabase
-
-duplicate_names = set()
 
 
 class ObjectFinder:
@@ -33,15 +32,16 @@ class ObjectFinder:
         self.objects_db = ObjectsDatabase()
         self.catalog_objects = self.objects_db.get_catalog_objects()
         self.mappings = {
-            f"{row['catalog_code']}{row['sequence']}": row["object_id"]
+            f"{row['catalog_code']} {row['sequence']}": row["object_id"]
             for row in self.catalog_objects
         }
 
     def get_object_id(self, object: str):
+        logging.debug(f"Looking up object id for {object}")
         return self.mappings.get(object)
 
     def get_object_id_by_parts(self, catalog_code: str, sequence: int):
-        return self.mappings.get(f"{catalog_code}{sequence}")
+        return self.mappings.get(f"{catalog_code} {sequence}")
 
 
 def ra_to_deg(ra_h, ra_m, ra_s):
@@ -66,6 +66,17 @@ def dec_to_deg(dec, dec_m, dec_s):
         dec_deg *= -1
 
     return dec_deg
+
+
+def add_space_after_prefix(s):
+    """
+    Convert a string like 'NGC1234' to 'NGC 1234'
+    """
+    # Use regex to match prefixes and numbers, and then join them with a space
+    match = re.match(r"([a-zA-Z\-]+)(\d+)", s)
+    if match:
+        return " ".join(match.groups())
+    return s
 
 
 def delete_catalog_from_database(catalog_code: str):
@@ -127,6 +138,34 @@ def print_database():
     count_common_names_per_catalog()
     count_empty_entries_in_tables()
     logging.info("<-------------------------------------------------------")
+
+
+def insert_names(db_c, catalog, sequence, name):
+    if name == "":
+        return
+    nameq = f"""
+            insert into names(common_name, catalog, sequence)
+            values ("{name}", "{catalog}", {sequence})
+        """
+    db_c.execute(nameq)
+
+
+def insert_catalog(catalog_name, description_path):
+    with open(description_path, "r") as desc:
+        description = "".join(desc.readlines())
+    objects_db.insert_catalog(catalog_name, -1, description)
+
+
+def insert_catalog_max_sequence(catalog_name):
+    conn, db_c = objects_db.get_conn_cursor()
+    query = f"SELECT MAX(sequence) FROM catalog_objects where catalog_code = '{catalog_name}' GROUP BY catalog_code"
+    db_c.execute(query)
+    result = db_c.fetchone()
+    print(dict(result))
+    query = f"update catalogs set max_sequence = {dict(result)['MAX(sequence)']} where catalog_code = '{catalog_name}'"
+    print(query)
+    db_c.execute(query)
+    conn.commit()
 
 
 # not used atm
@@ -195,7 +234,7 @@ def load_collinder():
             sequence = dfs[0].split(" ")[0]
             other_names = dfs[1]
             if other_names.isnumeric():
-                other_names = "NGC" + other_names
+                other_names = "NGC " + other_names
 
             const = dfs[2]
             ra = dfs[3]
@@ -238,6 +277,7 @@ def load_collinder():
     }
     coll2 = Path(utils.astro_data_dir, "collinder2.txt")
     with open(coll2, "r") as df:
+        duplicate_names = set()
         df.readline()
         for l in df:
             dfs = l.split("\t")
@@ -258,7 +298,6 @@ def load_collinder():
                     c_tuple.size,
                     mag,
                 )
-                logging.debug(f"inserting unknown object {object_id=}, {c_tuple=}")
             objects_db.insert_catalog_object(object_id, catalog, sequence, c_tuple.desc)
             first_other_names = c_tuple.other_names.strip()
             if (
@@ -267,7 +306,7 @@ def load_collinder():
                 and not first_other_names.startswith(("[note", "Tr.", "Harv.", "Mel."))
             ):
                 logging.debug(f"{first_other_names=}")
-                objects_db.insert_name(object_id, first_other_names)
+                objects_db.insert_name(object_id, first_other_names, catalog + "1")
                 duplicate_names.add(first_other_names)
             if (
                 other_names
@@ -276,13 +315,11 @@ def load_collinder():
                 and not other_names.startswith(("[note"))
             ):
                 logging.debug(f"{other_names=}")
-                objects_db.insert_name(object_id, other_names)
+                objects_db.insert_name(object_id, other_names, catalog + "2")
                 duplicate_names.add(first_other_names)
 
     insert_catalog_max_sequence(catalog)
-    print("before commit")
     conn.commit()
-    print("after commit")
 
 
 def load_sac_asterisms():
@@ -457,12 +494,14 @@ def load_sac_multistars():
 
 
 def load_taas200():
-    conn, db_c = get_pifinder_database()
+    logging.info("Loading Taas 200")
+    catalog = "Ta2"
+    conn, _ = objects_db.get_conn_cursor()
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, Path(utils.astro_data_dir, "taas200.desc"))
+    object_finder = ObjectFinder()
     data = Path(utils.astro_data_dir, "TAAS_200.csv")
     sequence = 0
-    catalog = "Ta2"
-    delete_catalog_from_database(db_c, catalog)
-    logging.info("Loading Taas 200")
 
     typedict = {
         "oc": "Open Cluster",
@@ -484,20 +523,25 @@ def load_taas200():
 
         # Iterate over each row in the file
         for row in reader:
+            duplicate_names = set()
             sequence = int(row["Nr"])
+            logging.debug(
+                f"<----------------- TAAS catalog {sequence=} ----------------->"
+            )
             ngc = row["NGC/IC"]
             other_catalog = []
             if ngc:
                 if ngc.startswith("IC") or ngc.startswith("B") or ngc.startswith("Col"):
-                    other_catalog.append(ngc)
+                    other_catalog.append(add_space_after_prefix(ngc))
                 else:
                     split = ngc.split(";")
                     for s in split:
                         other_catalog.append(f"NGC {s}")
 
             other_names = row["Name"]
+            logging.debug(f"TAAS catalog {other_catalog=} {other_names=}")
             const = row["Const"]
-            type = typedict[row["Type"]]
+            obj_type = typedict[row["Type"]]
             ra = ra_to_deg(float(row["RA Hr"]), float(row["RA Min"]), 0)
             dec_deg = row["Dec Deg"]
             dec_deg = (
@@ -524,84 +568,49 @@ def load_taas200():
             if mag == "none":
                 mag = "null"
 
-            q = f"""
-                insert into objects(
-                    catalog,
-                    sequence,
-                    obj_type,
-                    ra,
-                    dec,
-                    const,
-                    size,
-                    mag,
-                    desc
+            if len(other_catalog) > 0:
+                object_id = object_finder.get_object_id(other_catalog[0])
+                if not object_id:
+                    object_id = objects_db.insert_object(
+                        obj_type, ra, dec, const, size, mag
+                    )
+                    logging.debug(f"inserting unknown object {object_id=}")
+                logging.debug(f"TAAS inserting {object_id=}, {catalog=}, {sequence=}")
+                objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
+
+                if other_names not in duplicate_names:
+                    objects_db.insert_name(object_id, other_names, catalog)
+                    duplicate_names.add(other_names)
+                for catalog_name in other_catalog:
+                    if catalog_name not in duplicate_names:
+                        objects_db.insert_name(object_id, catalog_name, catalog)
+                        duplicate_names.add(catalog_name)
+                logging.debug(
+                    f"-----------------> STOP TAAS catalog {sequence=} <-----------------"
                 )
-                values (
-                    "{catalog}",
-                    {sequence},
-                    "{type}",
-                    {ra},
-                    {dec},
-                    "{const}",
-                    "{size}",
-                    "{mag}",
-                    "{desc}"
-                )
-            """
-            db_c.execute(q)
 
-            # insert the other names
-            insert_names(db_c, catalog, sequence, other_names)
-            for name in other_catalog:
-                insert_names(db_c, catalog, sequence, name)
-
-    conn.commit()
-    insert_catalog("Ta2", Path(utils.astro_data_dir, "taas200.desc"))
-
-
-def insert_names(db_c, catalog, sequence, name):
-    if name == "":
-        return
-    nameq = f"""
-            insert into names(common_name, catalog, sequence)
-            values ("{name}", "{catalog}", {sequence})
-        """
-    db_c.execute(nameq)
-
-
-def insert_catalog(catalog_name, description_path):
-    with open(description_path, "r") as desc:
-        description = "".join(desc.readlines())
-
-    objects_db.insert_catalog(catalog_name, -1, description)
-
-
-def insert_catalog_max_sequence(catalog_name):
-    conn, db_c = objects_db.get_conn_cursor()
-    query = f"SELECT MAX(sequence) FROM catalog_objects where catalog_code = '{catalog_name}' GROUP BY catalog_code"
-    db_c.execute(query)
-    result = db_c.fetchone()
-    print(dict(result))
-    query = f"update catalogs set max_sequence = {dict(result)['MAX(sequence)']} where catalog_code = '{catalog_name}'"
-    print(query)
-    db_c.execute(query)
-    conn.commit()
+        insert_catalog_max_sequence(catalog)
+        conn.commit()
 
 
 def load_caldwell():
+    logging.info("Loading Caldwell")
     catalog = "C"
-    conn, db_c = objects_db.get_conn_cursor()
+    conn, _ = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, Path(utils.astro_data_dir, "caldwell.desc"))
-    # getting all mappings so we can find
     object_finder = ObjectFinder()
-    cal = Path(utils.astro_data_dir, "caldwell.dat")
-    with open(cal, "r") as df:
+    data = Path(utils.astro_data_dir, "caldwell.dat")
+    with open(data, "r") as df:
         df.readline()
+        print(f"{df=}")
         for l in df:
             dfs = l.split("\t")
             sequence = dfs[0].strip()
-            other_names = dfs[1]
+            logging.debug(
+                f"<----------------- START Caldwell {sequence=} ----------------->"
+            )
+            other_names = add_space_after_prefix(dfs[1])
             obj_type = dfs[2]
             const = dfs[3]
             mag = dfs[4]
@@ -627,7 +636,8 @@ def load_caldwell():
                 )
                 logging.debug(f"inserting unknown object {object_id=}")
             objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
-            objects_db.insert_name(object_id, other_names)
+            objects_db.insert_name(object_id, other_names, catalog)
+            logging.debug(f"<----------------- STOP Caldwell ----------------->")
     insert_catalog_max_sequence(catalog)
     conn.commit()
 
@@ -713,7 +723,7 @@ def load_ngc_catalog():
                     )
                     if obj:
                         object_id = obj["object_id"]
-                        objects_db.insert_name(object_id, common_name)
+                        objects_db.insert_name(object_id, common_name, catalog)
                         if m_sequence != "":
                             desc = object_id_desc_dict[object_id]
                             objects_db.insert_catalog_object(
@@ -776,8 +786,9 @@ if __name__ == "__main__":
     logging.info("loading catalogs")
     load_ngc_catalog()
     load_collinder()
-    # load_taas200()
+    load_taas200()
     # load_sac_asterisms()
     # load_sac_multistars()
-    # load_caldwell()
+    load_caldwell()
+    # print_database()
     # print_database()

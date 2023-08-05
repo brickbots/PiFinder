@@ -36,6 +36,7 @@ class ObjectsDatabase(Database):
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 object_id INTEGER,
                 common_name TEXT,
+                origin TEXT,
                 FOREIGN KEY (object_id) REFERENCES objects(id)
             );
         """
@@ -82,6 +83,9 @@ class ObjectsDatabase(Database):
     # ---- OBJECTS methods ----
 
     def insert_object(self, obj_type, ra, dec, const, size, mag):
+        logging.debug(
+            f"Inserting object {obj_type}, {ra}, {dec}, {const}, {size}, {mag}"
+        )
         self.cursor.execute(
             """
             INSERT INTO objects (obj_type, ra, dec, const, size, mag)
@@ -109,17 +113,18 @@ class ObjectsDatabase(Database):
 
     # ---- NAMES methods ----
 
-    def insert_name(self, object_id, common_name):
-        logging.debug(f"Inserting {common_name} into {object_id}")
+    def insert_name(self, object_id, common_name, origin=""):
         common_name = common_name.strip()
         if common_name == "":
+            logging.debug(f"Skipping empty name for {object_id}")
             return
+        logging.debug(f"Inserting name {common_name} into {object_id}")
         self.cursor.execute(
             """
-            INSERT INTO names (object_id, common_name)
-            VALUES (?, ?);
+            INSERT INTO names (object_id, common_name, origin)
+            VALUES (?, ?, ?);
         """,
-            (object_id, common_name),
+            (object_id, common_name, origin),
         )
         self.conn.commit()
 
@@ -166,9 +171,9 @@ class ObjectsDatabase(Database):
     # ---- CATALOG_OBJECTS methods ----
 
     def insert_catalog_object(self, object_id, catalog_code, sequence, description):
-        # logging.debug(
-        #     f"Inserting catalog object {object_id} into {catalog_code}-{sequence}, {description=}"
-        # )
+        logging.debug(
+            f"Inserting catalog object '{object_id}' into '{catalog_code}-{sequence}', {description=}"
+        )
         self.cursor.execute(
             """
             INSERT INTO catalog_objects (object_id, catalog_code, sequence, description)

@@ -1,10 +1,12 @@
 import logging
 import time
+import PiFinder.calc_utils as calc_utils
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 import numpy as np
 import pandas as pd
+from collections import defaultdict
 from typing import List, Dict, DefaultDict, Optional
 
 # collection of all catalog-related classes
@@ -36,22 +38,46 @@ class CompositeObject:
 class Objects:
     """
     Holds all object_ids and their data.
-    Provides helper method to merge object_id info with extra catalog info
+    Merges object table data and catalog_object table data
     """
 
     db: Database
+    # key:object_id value:all data from an Object table row
     objects: Dict[int, Dict] = {}
+    # key:object_id values:list of CompositeObjects pointing to that object_id
+    composite_objects: Dict[int, List[CompositeObject]] = {}
 
     def __init__(self):
         self.db = ObjectsDatabase()
-        result = self.db.get_objects()
-        self.objects = {row["id"]: dict(row) for row in result}
+        cat_objects: List[Dict] = [dict(row) for row in self.db.get_catalog_objects()]
+        objects = self.db.get_objects()
+        self.objects = {row["id"]: dict(row) for row in objects}
+        self.composite_objects = self._init_composite_objects(cat_objects)
         logging.debug(f"Loaded {len(self.objects)} objects from database")
 
-    def create_composite_object(self, catalog_objects: Dict) -> CompositeObject:
-        thedict = self.objects[catalog_objects["object_id"]] | catalog_objects
-        result = CompositeObject(thedict)
-        return result
+    def _init_composite_objects(self, catalog_objects: List[Dict]):
+        composite_objects = defaultdict(list)
+
+        for catalog_obj in catalog_objects:
+            object_id = catalog_obj["object_id"]
+
+            # Merge the two dictionaries
+            composite_data = self.objects[object_id] | catalog_obj
+
+            # Assuming you have a CompositeObject class that can be instantiated with the merged dictionary
+            composite_instance = CompositeObject(composite_data)
+
+            # Append to the result dictionary
+            composite_objects[object_id].append(composite_instance)
+        return composite_objects
+
+    def get_catalog_dict(self, catalog_code: str) -> Dict[int, CompositeObject]:
+        return {
+            composite_obj.sequence: composite_obj
+            for object_list in self.composite_objects.values()
+            for composite_obj in object_list
+            if composite_obj.catalog_code == catalog_code
+        }
 
 
 class Names:
@@ -90,8 +116,8 @@ class Catalog:
         self.name = catalog_code
         self.common_names: Names = Names()
         self.obj = obj
-        self.objects: Dict[int, CompositeObject] = {}
-        self.objects_keys_sorted: List[int] = []
+        self.cobjects: Dict[int, CompositeObject] = {}
+        self.cobjects_keys_sorted: List[int] = []
         self.filtered_objects: Dict[int, CompositeObject] = {}
         self.filtered_objects_keys_sorted: List[int] = []
         self.max_sequence = 0
@@ -99,7 +125,7 @@ class Catalog:
         self._load_catalog()
 
     def get_count(self):
-        return len(self.objects)
+        return len(self.cobjects)
 
     def get_filtered_count(self):
         return len(self.filtered_objects)
@@ -110,24 +136,20 @@ class Catalog:
 
         """
         catalog = self.db.get_catalog_by_code(self.name)
-        cat_objects = self.db.get_catalog_objects_by_catalog_code(self.name)
         if catalog:
             self.max_sequence = catalog["max_sequence"]
         else:
             logging.error(f"catalog {self.name} not found")
             return
         self.desc = catalog["desc"]
-        self.objects = {
-            int(dict(row)["sequence"]): self.obj.create_composite_object(dict(row))
-            for row in cat_objects
-        }
-        self.objects_keys_sorted = self._get_sorted_keys(self.objects)
-        self.filtered_objects = self.objects
-        self.filtered_objects_keys_sorted = self.objects_keys_sorted
+        self.cobjects = self.obj.get_catalog_dict(self.name)
+        self.cobjects_keys_sorted = self._get_sorted_keys(self.cobjects)
+        self.filtered_objects = self.cobjects
+        self.filtered_objects_keys_sorted = self.cobjects_keys_sorted
         assert (
-            self.objects_keys_sorted[-1] == self.max_sequence
-        ), f"{self.name} max sequence mismatch"
-        logging.info(f"loaded {len(self.objects)} objects for {self.name}")
+            self.cobjects_keys_sorted[-1] == self.max_sequence
+        ), f"{self.name} max sequence mismatch, {self.cobjects_keys_sorted[-1]} != {self.max_sequence}"
+        logging.info(f"loaded {len(self.cobjects)} objects for {self.name}")
 
     def _get_sorted_keys(self, dictionary):
         return sorted(dictionary.keys())
@@ -168,7 +190,7 @@ class Catalog:
             # setup
             observed_list = self.observations_db.get_observed_objects()
 
-        for key, obj in self.objects.items():
+        for key, obj in self.cobjects.items():
             # print(f"filtering {obj}")
             include_obj = True
 
@@ -314,7 +336,7 @@ class CatalogTracker:
         keys_sorted = (
             self.current_catalog.filtered_objects_keys_sorted
             if filtered
-            else self.current_catalog.objects_keys_sorted
+            else self.current_catalog.cobjects_keys_sorted
         )
         current_key = self.object_tracker[self.current_catalog_name]
         designator = self.get_designator()
@@ -346,7 +368,7 @@ class CatalogTracker:
             if filtered:
                 object_values.extend(catalog.filtered_objects.values())
             else:
-                object_values.extend(catalog.objects.values())
+                object_values.extend(catalog.cobjects.values())
         flattened_objects = [obj for entry in catalog_list for obj in object_values]
         return flattened_objects
 
@@ -360,8 +382,7 @@ class CatalogTracker:
         object_key = self.object_tracker[self.current_catalog_name]
         if object_key is None:
             return None
-        result = self.current_catalog.objects[object_key]
-        return self.current_catalog.objects[object_key]
+        return self.current_catalog.cobjects[object_key]
 
     def set_current_object(self, object_number, catalog_name=None):
         if catalog_name is not None:

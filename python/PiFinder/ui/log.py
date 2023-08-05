@@ -177,14 +177,14 @@ class UILog(UIModule):
 
         # Target Name
         line = ""
-        line += self.target["catalog"]
-        line += str(self.target["sequence"])
+        line += self.target.catalog_code
+        line += str(self.target.sequence)
         self.draw.text((0, 20), line, font=self.font_large, fill=self.colors.get(255))
 
         # ID Line in BOld
         # Type / Constellation
-        object_type = OBJ_TYPES.get(self.target["obj_type"], self.target["obj_type"])
-        object_text = f"{object_type: <14} {self.target['const']}"
+        object_type = OBJ_TYPES.get(self.target.obj_type, self.target.obj_type)
+        object_text = f"{object_type: <14} {self.target.const}"
         self.draw.text(
             (0, 40), object_text, font=self.font_bold, fill=self.colors.get(128)
         )
@@ -205,8 +205,8 @@ class UILog(UIModule):
         )
 
         target_pos = ICRF.from_radec(
-            ra_hours=Angle(degrees=self.target["ra"])._hours,
-            dec_degrees=self.target["dec"],
+            ra_hours=Angle(degrees=self.target.ra)._hours,
+            dec_degrees=self.target.dec,
         )
 
         distance = pointing_pos.separation_from(target_pos)

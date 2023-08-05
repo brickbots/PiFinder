@@ -299,7 +299,7 @@ class UICatalog(UIModule):
         target = self.ui_state["target"]
         if target:
             self.catalog_tracker.set_current_object(
-                target["sequence"], target["catalog"]
+                target.sequence, target.catalog_code
             )
             self.update_object_info()
 
@@ -452,9 +452,9 @@ class UICatalog(UIModule):
         When enter is pressed, set the
         target
         """
-        cat_object = self.catalog_tracker.get_current_object()
+        cat_object: CompositeObject = self.catalog_tracker.get_current_object()
         if cat_object:
-            self.ui_state["target"] = dict(cat_object)
+            self.ui_state["target"] = cat_object
             if len(self.ui_state["history_list"]) == 0:
                 self.ui_state["history_list"].append(self.ui_state["target"])
             elif self.ui_state["history_list"][-1] != self.ui_state["target"]:

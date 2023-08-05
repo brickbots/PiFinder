@@ -36,10 +36,10 @@ def check_catalog_objects(cat_objects):
     return_list = []
     for catalog_object in tqdm(cat_objects):
         cat_dict = {
-            "catalog": catalog_object["catalog"],
-            "sequence": catalog_object["sequence"],
+            "catalog": catalog_object.catalog,
+            "sequence": catalog_object.sequence,
         }
-        if catalog_object["catalog"] not in ["NGC", "IC"]:
+        if catalog_object.catalog not in ["NGC", "IC"]:
             # look for any NGC aka
             conn = sqlite3.connect(cat_images.CATALOG_PATH)
             conn.row_factory = sqlite3.Row
@@ -48,8 +48,8 @@ def check_catalog_objects(cat_objects):
             aka_rec = conn.execute(
                 f"""
                 SELECT common_name from names
-                where catalog = "{catalog_object['catalog']}"
-                and sequence = "{catalog_object['sequence']}"
+                where catalog = "{catalog_object.catalog_code}"
+                and sequence = "{catalog_object.sequence}"
                 and common_name like "NGC%"
             """
             ).fetchone()
@@ -78,7 +78,7 @@ def fetch_object_image(catalog_object):
 
     Returns image path
     """
-    if catalog_object["catalog"] not in ["NGC", "IC"]:
+    if catalog_object.catalog not in ["NGC", "IC"]:
         # look for any NGC aka
         conn = sqlite3.connect(cat_images.CATALOG_PATH)
         conn.row_factory = sqlite3.Row
@@ -87,8 +87,8 @@ def fetch_object_image(catalog_object):
         aka_rec = conn.execute(
             f"""
             SELECT common_name from names
-            where catalog = "{catalog_object['catalog']}"
-            and sequence = "{catalog_object['sequence']}"
+            where catalog = "{catalog_object.catalog_code}"
+            and sequence = "{catalog_object.sequence}"
             and common_name like "NGC%"
         """
         ).fetchone()

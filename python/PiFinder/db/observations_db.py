@@ -126,7 +126,7 @@ class ObservationsDatabase(Database):
                 where catalog = :catalog
                 and sequence = :sequence
             """,
-            {"catalog": obj_record["catalog"], "sequence": obj_record["sequence"]},
+            {"catalog": obj_record.catalog_code, "sequence": obj_record.sequence},
         ).fetchall()
 
         return logs
