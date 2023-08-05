@@ -59,20 +59,20 @@ class Starfield:
         marker_path = Path(utils.pifinder_dir, "markers")
         pointer_image_path = Path(marker_path, "pointer.png")
         self.pointer_image = ImageChops.multiply(
-            Image.open(str(pointer_image_path)).convert("RGBA"),
-            Image.new("RGBA", (256, 256), colors.get(64)),
+            Image.open(str(pointer_image_path)),
+            Image.new("RGB", (256, 256), colors.get(64)),
         )
         # load markers...
         self.markers = {}
         for filename in os.listdir(marker_path):
             if filename.startswith("mrk_"):
                 marker_code = filename[4:-4]
-                _image = Image.new("RGBA", (256, 256))
+                _image = Image.new("RGB", (256, 256))
                 _image.paste(
                     Image.open(f"{marker_path}/mrk_{marker_code}.png"), (117, 117)
                 )
                 self.markers[marker_code] = ImageChops.multiply(
-                    _image, Image.new("RGBA", (256, 256), colors.get(256))
+                    _image, Image.new("RGB", (256, 256), colors.get(256))
                 )
 
     def set_mag_limit(self, mag_limit):
@@ -107,7 +107,7 @@ class Starfield:
         target_size = 128
         angle = np.pi - (self.fov) / 360.0 * np.pi
         limit = np.sin(angle) / (1.0 - np.cos(angle))
-        ret_image = Image.new("RGBA", (target_size * 2, target_size * 2))
+        ret_image = Image.new("RGB", (target_size * 2, target_size * 2))
         idraw = ImageDraw.Draw(ret_image)
 
         image_scale = int(target_size / limit)
@@ -232,4 +232,4 @@ class Starfield:
                             ],
                             fill=(255),
                         )
-        return ret_image.convert("RGBA")
+        return ret_image
