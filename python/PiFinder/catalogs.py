@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from collections import defaultdict
 from typing import List, Dict, DefaultDict, Optional
+from sklearn.neighbors import BallTree
 
 # collection of all catalog-related classes
 
@@ -15,7 +16,7 @@ from typing import List, Dict, DefaultDict, Optional
 class CompositeObject:
     """
     Represents an object that is a combination of
-    catalog data and extra data from the objects database
+    catalog data and the basic data from the objects table
     """
 
     def __init__(self, data_dict):
@@ -33,6 +34,9 @@ class CompositeObject:
 
     def __str__(self):
         return f"CompositeObject: {str(self._data)}"
+
+    def __repr__(self):
+        return f"CompositeObject: {self.catalog_code} {self.sequence}"
 
 
 class Objects:
@@ -455,12 +459,40 @@ class CatalogTracker:
             obj for catalog in catalog_list for obj in catalog.filtered_objects.values()
         ]
         object_radecs = [
-            [np.deg2rad(x["ra"]), np.deg2rad(x["dec"])] for x in catalog_list_flat
+            [np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in catalog_list_flat
         ]
         objects_bt = BallTree(object_radecs, leaf_size=4, metric="haversine")
         query = [[np.deg2rad(ra), np.deg2rad(dec)]]
         _dist, obj_ind = objects_bt.query(query, k=n)
-        return [catalog_list_flat[x] for x in obj_ind[0]]
+        results = [catalog_list_flat[x] for x in obj_ind[0]]
+        deduplicated = self._deduplicate(results)
+        return deduplicated
+
+    def _deduplicate(self, unfiltered_results):
+        deduplicated_results = []
+        seen_ids = set()
+
+        for obj in unfiltered_results:
+            if obj.object_id not in seen_ids:
+                seen_ids.add(obj.object_id)
+                deduplicated_results.append(obj)
+            else:
+                # If the object_id is already seen, we look at the catalog_code
+                # and replace the existing object if the new object has a higher precedence catalog_code
+                existing_obj_index = next(
+                    i
+                    for i, existing_obj in enumerate(deduplicated_results)
+                    if existing_obj.object_id == obj.object_id
+                )
+                existing_obj = deduplicated_results[existing_obj_index]
+
+                if (obj.catalog_code == "M" and existing_obj.catalog_code != "M") or (
+                    obj.catalog_code == "NGC"
+                    and existing_obj.catalog_code not in ["M", "NGC"]
+                ):
+                    deduplicated_results[existing_obj_index] = obj
+
+        return deduplicated_results
 
     def __repr__(self):
         return f"CatalogTracker(Current:{self.current_catalog_name} {self.object_tracker[self.current_catalog_name]}, Designator:{self.designator_tracker})"
