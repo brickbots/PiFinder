@@ -95,7 +95,6 @@ def subtract_background(image):
 
 
 def convert_image_to_mode(image: Image.Image, mode: str):
-    print(f"mode is {mode=}")
     if mode == "RGB":
         return Image.fromarray(np.array(image)[:, :, ::-1])
     return image

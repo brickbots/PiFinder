@@ -107,28 +107,23 @@ def count_empty_entries(conn, db_c, table, columns):
 
 def count_common_names_per_catalog():
     conn, db_c = objects_db.get_conn_cursor()
-    count_rows_per_distinct_column(conn, db_c, "names", "catalog")
+    count_rows_per_distinct_column(conn, db_c, "names", "origin")
 
 
 def count_empty_entries_in_tables():
     conn, db_c = objects_db.get_conn_cursor()
-    count_empty_entries(
-        conn, db_c, "names", ["common_name", "catalog", "sequence", "comment"]
-    )
+    count_empty_entries(conn, db_c, "names", ["object_id", "common_name", "origin"])
     count_empty_entries(
         conn,
         db_c,
         "objects",
         [
-            "catalog",
-            "sequence",
             "obj_type",
             "ra",
             "dec",
             "const",
             "size",
             "mag",
-            "desc",
         ],
     )
 
@@ -323,16 +318,18 @@ def load_collinder():
 
 
 def load_sac_asterisms():
+    logging.info("Loading SAC Asterisms")
     catalog = "SaA"
-    conn, db_c = get_pifinder_database()
-    delete_catalog_from_database(db_c, catalog)
+    conn, _ = objects_db.get_conn_cursor()
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, Path(utils.astro_data_dir, "sac.desc"))
 
     saca = Path(utils.astro_data_dir, "SAC_Asterisms_Ver32_Fence.txt")
     sequence = 0
     logging.info("Loading SAC Asterisms")
-    delete_catalog_from_database(db_c, catalog)
     with open(saca, "r") as df:
         df.readline()
+        obj_type = "Ast"
         for l in df:
             dfs = l.split("|")
             dfs = [d.strip() for d in dfs]
@@ -342,6 +339,9 @@ def load_sac_asterisms():
             else:
                 sequence += 1
 
+            logging.debug(
+                f"-----------------> SAC Asterisms {sequence=} <-----------------"
+            )
             const = dfs[2].strip()
             ra = dfs[3].strip()
             dec = dfs[4].strip()
@@ -366,69 +366,45 @@ def load_sac_asterisms():
             dec_deg = dec_to_deg(dec_d, dec_m, 0)
 
             if mag == "none":
-                mag = "null"
+                mag = ""
 
-            q = f"""
-                insert into objects(
-                    catalog,
-                    sequence,
-                    obj_type,
-                    ra,
-                    dec,
-                    const,
-                    size,
-                    mag,
-                    desc
-                )
-                values (
-                    "{catalog}",
-                    {sequence},
-                    "Ast",
-                    {ra_deg},
-                    {dec_deg},
-                    "{const}",
-                    "{size}",
-                    "{mag}",
-                    "{desc}"
-                )
-            """
-            db_c.execute(q)
-            db_c.execute(
-                f"""
-                    insert into names(common_name, catalog, sequence)
-                    values ("{other_names}", "{catalog}", {sequence})
-                """
+            object_id = objects_db.insert_object(
+                obj_type, ra_deg, dec_deg, const, size, mag
             )
-
+            objects_db.insert_name(object_id, other_names, catalog)
+            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
+    insert_catalog_max_sequence(catalog)
     conn.commit()
-    insert_catalog(catalog, Path(utils.astro_data_dir, "sac.desc"))
 
 
 def load_sac_multistars():
-    catalog = "SaM"
-    conn, db_c = get_pifinder_database()
-    delete_catalog_from_database(db_c, catalog)
-
-    saca = Path(utils.astro_data_dir, "SAC_Multistars_Ver40", "SAC_DBL40_Fence.txt")
-    sequence = 0
     logging.info("Loading SAC Multistars")
-    delete_catalog_from_database(db_c, catalog)
+    catalog = "SaM"
+    conn, _ = objects_db.get_conn_cursor()
+    delete_catalog_from_database(catalog)
+    sam_path = Path(utils.astro_data_dir, "SAC_Multistars_Ver40")
+    insert_catalog(catalog, sam_path / "sacm.desc")
+    saca = sam_path / "SAC_DBL40_Fence.txt"
+    sequence = 0
     with open(saca, "r") as df:
         df.readline()
+        obj_type = "D*"
         for l in df:
             dfs = l.split("|")
             dfs = [d.strip() for d in dfs]
             name = [dfs[2].strip()]
             other_names = dfs[6].strip().split(";")
             name.extend(other_names)
-            name = [x for x in name if x != ""]
-            print(name)
+            name = [trim_string(x.strip()) for x in name if x != ""]
             other_names = ", ".join(name)
             if other_names == "":
                 continue
             else:
                 sequence += 1
 
+            logging.debug(
+                f"-----------------> SAC Multistars {sequence=} <-----------------"
+            )
             const = dfs[1].strip()
             ra = dfs[3].strip()
             dec = dfs[4].strip()
@@ -438,7 +414,6 @@ def load_sac_multistars():
             sep = dfs[9].strip()
             pa = dfs[10].strip()
             desc = dfs[11].strip()
-            print(f"'{desc=}'")
             desc += f"\nComponents: {components}" if components else ""
             desc += f"\nPA: {pa}°" if pa else ""
 
@@ -453,44 +428,20 @@ def load_sac_multistars():
             dec_deg = dec_to_deg(dec_d, dec_m, 0)
 
             if mag == "none":
-                mag = "null"
+                mag = ""
 
-            q = f"""
-                insert into objects(
-                    catalog,
-                    sequence,
-                    obj_type,
-                    ra,
-                    dec,
-                    const,
-                    size,
-                    mag,
-                    desc
-                )
-                values (
-                    "{catalog}",
-                    {sequence},
-                    "D*",
-                    {ra_deg},
-                    {dec_deg},
-                    "{const}",
-                    '{sep}"',
-                    "{mag}/{mag2}",
-                    "{desc}"
-                )
-            """
-            db_c.execute(q)
-            db_c.execute(
-                f"""
-                    insert into names(common_name, catalog, sequence)
-                    values ("{other_names}", "{catalog}", {sequence})
-                """
+            object_id = objects_db.insert_object(
+                obj_type, ra_deg, dec_deg, const, sep, f"{mag}/{mag2}"
             )
+            objects_db.insert_name(object_id, other_names, catalog)
+            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
 
+    insert_catalog_max_sequence(catalog)
     conn.commit()
-    insert_catalog(
-        catalog, Path(utils.astro_data_dir, "SAC_Multistars_Ver40", "sacm.desc")
-    )
+
+
+def trim_string(s):
+    return " ".join(s.split())
 
 
 def load_taas200():
@@ -525,9 +476,7 @@ def load_taas200():
         for row in reader:
             duplicate_names = set()
             sequence = int(row["Nr"])
-            logging.debug(
-                f"<----------------- TAAS catalog {sequence=} ----------------->"
-            )
+            logging.debug(f"<----------------- TAAS {sequence=} ----------------->")
             ngc = row["NGC/IC"]
             other_catalog = []
             if ngc:
@@ -585,9 +534,6 @@ def load_taas200():
                     if catalog_name not in duplicate_names:
                         objects_db.insert_name(object_id, catalog_name, catalog)
                         duplicate_names.add(catalog_name)
-                logging.debug(
-                    f"-----------------> STOP TAAS catalog {sequence=} <-----------------"
-                )
 
         insert_catalog_max_sequence(catalog)
         conn.commit()
@@ -602,14 +548,10 @@ def load_caldwell():
     object_finder = ObjectFinder()
     data = Path(utils.astro_data_dir, "caldwell.dat")
     with open(data, "r") as df:
-        df.readline()
-        print(f"{df=}")
         for l in df:
             dfs = l.split("\t")
             sequence = dfs[0].strip()
-            logging.debug(
-                f"<----------------- START Caldwell {sequence=} ----------------->"
-            )
+            logging.debug(f"<----------------- Caldwell {sequence=} ----------------->")
             other_names = add_space_after_prefix(dfs[1])
             obj_type = dfs[2]
             const = dfs[3]
@@ -637,7 +579,6 @@ def load_caldwell():
                 logging.debug(f"inserting unknown object {object_id=}")
             objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
             objects_db.insert_name(object_id, other_names, catalog)
-            logging.debug(f"<----------------- STOP Caldwell ----------------->")
     insert_catalog_max_sequence(catalog)
     conn.commit()
 
@@ -663,7 +604,7 @@ def load_ngc_catalog():
         with open(ngc_dat, "r") as ngc:
             for l in ngc:
                 sequence = int(l[1:5])
-                add = True
+                # add = True
                 catalog = l[0:1]
                 if catalog == " " or catalog == "N":
                     catalog = "NGC"
@@ -787,8 +728,7 @@ if __name__ == "__main__":
     load_ngc_catalog()
     load_collinder()
     load_taas200()
-    # load_sac_asterisms()
-    # load_sac_multistars()
+    load_sac_asterisms()
+    load_sac_multistars()
     load_caldwell()
-    # print_database()
-    # print_database()
+    print_database()
