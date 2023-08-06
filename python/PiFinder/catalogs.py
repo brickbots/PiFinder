@@ -53,7 +53,6 @@ class Catalog:
                 where catalog='{self.name}'
             """
         ).fetchone()
-        print(cat_data)
         if cat_data:
             self.max_sequence = cat_data["max_sequence"]
             self.desc = cat_data["desc"]

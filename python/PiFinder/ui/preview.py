@@ -141,7 +141,7 @@ class UIPreview(UIModule):
             if self._config_options["BG Sub"]["value"] == "On":
                 image_obj = subtract_background(image_obj)
             image_obj = image_obj.convert("RGB")
-            image_obj = ImageChops.multiply(image_obj, self.colors.red_image_rgb)
+            image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
             image_obj = ImageOps.autocontrast(image_obj)
 
             if self._config_options["Gamma Adj"]["value"] == "Low":

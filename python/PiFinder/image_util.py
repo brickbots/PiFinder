@@ -26,22 +26,12 @@ class Colors:
     def __init__(self, color_mask: ColorMask):
         self.color_mask = color_mask[0]
         self.mode = color_mask[1]
-        self.red_image = Image.new("RGBA", (128, 128), self.get(255))
-        self.red_image_rgb = Image.new("RGB", (128, 128), self.get(255))
+        self.red_image = Image.new("RGB", (128, 128), self.get(255))
 
     @functools.cache
     def get(self, color_intensity):
         arr = self.color_mask * color_intensity
-        np.append(arr, 254)
         result = tuple(arr)
-        return result
-
-    # @functools.cache
-    def get_transparent(self, color_intensity, transparency: int):
-        intensity_mask = self.color_mask * color_intensity
-        transp_mask = np.append(intensity_mask, transparency)
-        result = tuple(transp_mask)
-        logging.debug(f"get_transparent: {result}")
         return result
 
 
@@ -105,6 +95,7 @@ def subtract_background(image):
 
 
 def convert_image_to_mode(image: Image.Image, mode: str):
+    print(f"mode is {mode=}")
     if mode == "RGB":
         return Image.fromarray(np.array(image)[:, :, ::-1])
     return image
