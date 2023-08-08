@@ -75,7 +75,7 @@ class ObjectsDatabase(Database):
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 object_id INTEGER,
                 image_path TEXT,
-                FOREIGN KEY (object_id) REFERENCES objects(id),
+                FOREIGN KEY (object_id) REFERENCES objects(id)
             );
         """
         )
