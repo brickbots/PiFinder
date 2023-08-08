@@ -51,7 +51,7 @@ class DeviceWrapper:
 
 
 def make_red(in_image, colors):
-    return ImageChops.multiply(in_image, colors.red_image)
+    return ImageChops.multiply(in_image.convert("RGB"), colors.red_image)
 
 
 def gamma_correct_low(in_value):

@@ -33,7 +33,7 @@ def write_list(catalog, name):
     with open(OBSLIST_DIR + name + ".skylist", "w") as skylist:
         skylist.write("SkySafariObservingListVersion=3.0\n")
         for obj in catalog:
-            catalog_name = SKYSAFARI_CATALOG_NAMES.get(obj["catalog"], obj["catalog"])
+            catalog_name = SKYSAFARI_CATALOG_NAMES.get(obj.catalog, obj.catalog)
             catalog_number = f"{catalog_name} {obj.sequence}"
             entry_text = dedent(
                 f"""

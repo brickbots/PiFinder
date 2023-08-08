@@ -68,6 +68,18 @@ class ObjectsDatabase(Database):
         """
         )
 
+        # Create images_objects table
+        self.cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS images_objects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                object_id INTEGER,
+                image_path TEXT,
+                FOREIGN KEY (object_id) REFERENCES objects(id),
+            );
+        """
+        )
+
         # Commit changes to the database
         self.conn.commit()
 
@@ -205,6 +217,17 @@ class ObjectsDatabase(Database):
     def get_catalog_objects(self):
         self.cursor.execute("SELECT * FROM catalog_objects;")
         return self.cursor.fetchall()
+
+    # ---- IMAGES_OBJECTS methods ----
+    def insert_image_object(self, image_id, object_id):
+        self.cursor.execute(
+            """
+            INSERT INTO images_objects (object_id, image_path)
+            VALUES (?, ?);
+        """,
+            (object_id, image_path),
+        )
+        self.conn.commit()
 
     # Generic delete method for all tables
     def delete_by_id(self, table, record_id):

@@ -90,4 +90,4 @@ class Observation_session:
         """
         logs = self.db.get_observed_objects()
 
-        return [(x["catalog"], x["sequence"]) for x in logs]
+        return [(x.catalog_code, x.sequence) for x in logs]

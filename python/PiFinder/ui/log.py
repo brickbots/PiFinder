@@ -12,6 +12,7 @@ from PiFinder import solver
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
+from PiFinder.catalogs import CompositeObject
 from PiFinder import obslog
 from skyfield.api import Angle
 from skyfield.positionlib import ICRF
@@ -76,12 +77,12 @@ class UILog(UIModule):
         self._config_options["Obsability"]["value"] = "NA"
         self._config_options["Appeal"]["value"] = "NA"
 
-    def record_object(self, _object):
+    def record_object(self, _object: CompositeObject):
         """
         Creates a session if needed
         then records the current target
 
-        _object should be a target like dict
+        _object should be a target like CompositeObject
 
         These will be jsonified when logging
         """
@@ -98,8 +99,8 @@ class UILog(UIModule):
         self.reset_config()
 
         return self._observing_session.log_object(
-            catalog=_object["catalog"],
-            sequence=_object["sequence"],
+            catalog=_object.catalog_code,
+            sequence=_object.sequence,
             solution=self.shared_state.solution(),
             notes=notes,
         )
