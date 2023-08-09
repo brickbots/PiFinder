@@ -444,6 +444,70 @@ def trim_string(s):
     return " ".join(s.split())
 
 
+def load_sac_redstars():
+    logging.info("Loading SAC Redstars")
+    catalog = "SaR"
+    conn, _ = objects_db.get_conn_cursor()
+    delete_catalog_from_database(catalog)
+
+    sam_path = Path(utils.astro_data_dir, "SAC_RedStars_Ver20")
+    insert_catalog(catalog, sam_path / "sacr.desc")
+    sac = sam_path / "SAC_RedStars_ver20_FENCE.TXT"
+    sequence = 0
+    with open(sac, "r") as df:
+        df.readline()
+        obj_type = "D*"
+        for l in df:
+            dfs = l.split("|")
+            dfs = [d.strip() for d in dfs]
+            name = [dfs[1].strip()]
+            other_names = dfs[2].strip().split(";")
+            name.extend(other_names)
+            name = [trim_string(x.strip()) for x in name if x != ""]
+            other_names = ", ".join(name)
+            if other_names == "":
+                continue
+            else:
+                sequence += 1
+
+            logging.debug(
+                f"-----------------> SAC Red Stars {sequence=} <-----------------"
+            )
+            const = dfs[3].strip()
+            ra = dfs[4].strip()
+            dec = dfs[5].strip()
+            size = ""
+            mag = dfs[6].strip()
+            bv = dfs[7].strip()
+            spec = dfs[8].strip()
+            notes = dfs[9].strip()
+            desc = notes
+            desc += f"\nB-V: {bv}"
+            desc += f", Spec: {spec}"
+
+            ra = ra.split(" ")
+            ra_h = int(ra[0])
+            ra_m = float(ra[1])
+            ra_deg = ra_to_deg(ra_h, ra_m, 0)
+
+            dec = dec.split(" ")
+            dec_d = int(dec[0])
+            dec_m = float(dec[1])
+            dec_deg = dec_to_deg(dec_d, dec_m, 0)
+
+            if mag == "none":
+                mag = ""
+
+            object_id = objects_db.insert_object(
+                obj_type, ra_deg, dec_deg, const, size, mag
+            )
+            objects_db.insert_name(object_id, other_names, catalog)
+            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
+
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
+
+
 def load_taas200():
     logging.info("Loading Taas 200")
     catalog = "Ta2"
@@ -730,5 +794,6 @@ if __name__ == "__main__":
     load_taas200()
     load_sac_asterisms()
     load_sac_multistars()
+    load_sac_redstars()
     load_caldwell()
     print_database()
