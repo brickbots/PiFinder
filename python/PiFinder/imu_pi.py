@@ -43,10 +43,19 @@ class Imu:
                 adafruit_bno055.AXIS_REMAP_POSITIVE,
             )
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
-        self.__moving = False
-        self.__moving_threshold = (0.005, 0.001)
         self.calibration = 0
         self.avg_quat = (0, 0, 0, 0)
+        self.__moving = False
+
+        self.last_sample_time = time.time()
+
+        # Calibration settings
+        self.imu_sample_frequency = 1 / 30
+
+        # First value is delta to exceed between samples
+        # to start moving, second is threshold to fall below
+        # to stop moving.
+        self.__moving_threshold = (0.001, 0.0005)
 
     def quat_to_euler(self, quat):
         if quat[0] + quat[1] + quat[2] + quat[3] == 0:
@@ -67,6 +76,12 @@ class Imu:
         return self.__moving
 
     def update(self):
+        # check for update frequency
+        if time.time() - self.last_sample_time < self.imu_sample_frequency:
+            return
+
+        self.last_sample_time = time.time()
+
         # Throw out non-calibrated data
         self.calibration = self.sensor.calibration_status[1]
         if self.calibration == 0:
