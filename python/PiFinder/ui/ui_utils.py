@@ -241,7 +241,6 @@ def shadow_outline_text(
     ri_draw, xy, text, align, font, fill, shadow_color, shadow=None, outline=None
 ):
     """draw shadowed and outlined text"""
-    print("shadow_outline_text")
     x, y = xy
     if shadow:
         ri_draw.text(

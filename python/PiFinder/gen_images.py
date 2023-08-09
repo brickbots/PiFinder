@@ -27,8 +27,8 @@ def get_ngc_aka(catalog_object):
     aka_rec = conn.execute(
         f"""
         SELECT common_name from names
-        where catalog = "{catalog_object['catalog']}"
-        and sequence = "{catalog_object['sequence']}"
+        where catalog = "{catalog_object.catalog_code}"
+        and sequence = "{catalog_object.sequence}"
         and common_name like "NGC%"
     """
     ).fetchone()
@@ -55,7 +55,7 @@ def resolve_image_name(catalog_object, source):
     """
     returns the image path for this objects
     """
-    return f"{BASE_IMAGE_PATH}/{str(catalog_object['sequence'])[-1]}/{catalog_object['catalog']}{catalog_object['sequence']}_{source}.jpg"
+    return f"{BASE_IMAGE_PATH}/{str(catalog_object.sequence)[-1]}/{catalog_object.catalog_code}{catalog_object.sequence}_{source}.jpg"
 
 
 def check_image(image):
@@ -90,7 +90,7 @@ def fetch_object_image(catalog_object, low_cut=10):
 
     Returns image path
     """
-    print(f"Fetching image for {catalog_object['catalog']}{catalog_object['sequence']}")
+    print(f"Fetching image for {catalog_object.catalog_code}{catalog_object.sequence}")
     ra = catalog_object["RA"]
     dec = catalog_object["Dec"]
 

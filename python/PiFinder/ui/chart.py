@@ -49,19 +49,17 @@ class UIChart(UIModule):
         """
         Plot the contents of the observing list
         """
-        # is there a target?
-        target = self.ui_state["target"]
         if not self.solution or self._config_options["Obs List"]["value"] == "Off":
             return
 
         marker_list = []
         for obs_target in self.ui_state["observing_list"]:
-            marker = OBJ_TYPE_MARKERS.get(obs_target["obj_type"])
+            marker = OBJ_TYPE_MARKERS.get(obs_target.obj_type)
             if marker:
                 marker_list.append(
                     (
-                        plot.Angle(degrees=obs_target["ra"])._hours,
-                        obs_target["dec"],
+                        plot.Angle(degrees=obs_target.ra)._hours,
+                        obs_target.dec,
                         marker,
                     )
                 )
@@ -93,9 +91,7 @@ class UIChart(UIModule):
         if not target or not self.solution:
             return
 
-        marker_list = [
-            (plot.Angle(degrees=target["ra"])._hours, target["dec"], "target")
-        ]
+        marker_list = [(plot.Angle(degrees=target.ra)._hours, target.dec, "target")]
 
         marker_image = self.starfield.plot_markers(
             self.solution["RA"],
@@ -159,7 +155,9 @@ class UIChart(UIModule):
                     self.solution["Roll"],
                     constellation_brightness,
                 )
-                image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
+                image_obj = ImageChops.multiply(
+                    image_obj.convert("RGB"), self.colors.red_image
+                )
                 self.screen.paste(image_obj)
                 self.plot_target()
                 self.plot_obs_list()

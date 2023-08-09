@@ -418,7 +418,7 @@ def main(script_name=None):
                     keycode = None
 
                 if keycode != None:
-                    logging.debug(f"Keycode: {keycode}")
+                    # logging.debug(f"Keycode: {keycode}")
                     power_save_warmup = time.time() + get_sleep_timeout(cfg)
                     set_brightness(screen_brightness, cfg)
                     shared_state.set_power_state(1)  # Normal

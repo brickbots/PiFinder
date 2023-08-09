@@ -12,6 +12,7 @@ from PiFinder import solver
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
+from PiFinder.catalogs import CompositeObject
 from PiFinder import obslog
 from skyfield.api import Angle
 from skyfield.positionlib import ICRF
@@ -76,12 +77,12 @@ class UILog(UIModule):
         self._config_options["Obsability"]["value"] = "NA"
         self._config_options["Appeal"]["value"] = "NA"
 
-    def record_object(self, _object):
+    def record_object(self, _object: CompositeObject):
         """
         Creates a session if needed
         then records the current target
 
-        _object should be a target like dict
+        _object should be a target like CompositeObject
 
         These will be jsonified when logging
         """
@@ -98,8 +99,8 @@ class UILog(UIModule):
         self.reset_config()
 
         return self._observing_session.log_object(
-            catalog=_object["catalog"],
-            sequence=_object["sequence"],
+            catalog=_object.catalog_code,
+            sequence=_object.sequence,
             solution=self.shared_state.solution(),
             notes=notes,
         )
@@ -179,14 +180,14 @@ class UILog(UIModule):
 
         # Target Name
         line = ""
-        line += self.target["catalog"]
-        line += str(self.target["sequence"])
+        line += self.target.catalog_code
+        line += str(self.target.sequence)
         self.draw.text((0, 20), line, font=self.font_large, fill=self.colors.get(255))
 
         # ID Line in BOld
         # Type / Constellation
-        object_type = OBJ_TYPES.get(self.target["obj_type"], self.target["obj_type"])
-        object_text = f"{object_type: <14} {self.target['const']}"
+        object_type = OBJ_TYPES.get(self.target.obj_type, self.target.obj_type)
+        object_text = f"{object_type: <14} {self.target.const}"
         self.draw.text(
             (0, 40), object_text, font=self.font_bold, fill=self.colors.get(128)
         )
@@ -207,8 +208,8 @@ class UILog(UIModule):
         )
 
         target_pos = ICRF.from_radec(
-            ra_hours=Angle(degrees=self.target["ra"])._hours,
-            dec_degrees=self.target["dec"],
+            ra_hours=Angle(degrees=self.target.ra)._hours,
+            dec_degrees=self.target.dec,
         )
 
         distance = pointing_pos.separation_from(target_pos)

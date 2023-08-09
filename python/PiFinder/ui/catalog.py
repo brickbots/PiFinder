@@ -25,6 +25,9 @@ import functools
 import sqlite3
 import logging
 
+from PiFinder.db.observations_db import ObservationsDatabase
+from PiFinder.catalogs import CompositeObject
+
 
 # Constants for display modes
 DM_DESC = 0  # Display mode for description
@@ -101,8 +104,7 @@ class UICatalog(UIModule):
         self.catalog_tracker = CatalogTracker(
             self.catalog_names, self.shared_state, self._config_options
         )
-        self.conn = sqlite3.connect(utils.pifinder_db)
-        self.conn.row_factory = sqlite3.Row
+        self.observations_db = ObservationsDatabase()
         self.font_large = fonts.large
 
         self.object_display_mode = DM_DESC
@@ -188,13 +190,11 @@ class UICatalog(UIModule):
         """
         Generates object text and loads object images
         """
-        logging.debug(f"update_object_info with {self.catalog_tracker}")
-        cat_object = self.catalog_tracker.get_current_object()
+        cat_object: CompositeObject = self.catalog_tracker.get_current_object()
         if not cat_object:
             has_number = self.catalog_tracker.get_designator().has_number()
             self.texts = {}
             self.texts["type-const"] = TextLayouter(
-                # self.catalog_tracker.get_current_object().description,
                 self.catalog_tracker.current_catalog.desc
                 if not has_number
                 else "Object not found",
@@ -208,22 +208,14 @@ class UICatalog(UIModule):
 
         if self.object_display_mode in [DM_DESC, DM_OBS]:
             # text stuff....
-            # look for AKAs
-            aka_recs = self.conn.execute(
-                f"""
-                SELECT * from names
-                where catalog = "{cat_object['catalog']}"
-                and sequence = "{cat_object['sequence']}"
-            """
-            ).fetchall()
 
             self.texts = {}
             # Type / Constellation
-            object_type = OBJ_TYPES.get(cat_object["obj_type"], cat_object["obj_type"])
+            object_type = OBJ_TYPES.get(cat_object.obj_type, cat_object.obj_type)
 
             # layout the type - constellation line
             _, typeconst = self.space_calculator.calculate_spaces(
-                object_type, cat_object["const"]
+                object_type, cat_object.const
             )
             self.texts["type-const"] = self.SimpleTextLayout(
                 typeconst,
@@ -233,11 +225,11 @@ class UICatalog(UIModule):
             # Magnitude / Size
             # try to get object mag to float
             try:
-                obj_mag = float(cat_object["mag"])
+                obj_mag = float(cat_object.mag)
             except (ValueError, TypeError):
-                obj_mag = "-" if cat_object["mag"] == "" else cat_object["mag"]
+                obj_mag = "-" if cat_object.mag == "" else cat_object.mag
 
-            size = str(cat_object["size"]).strip()
+            size = str(cat_object.size).strip()
             size = "-" if size == "" else size
             spaces, magsize = self.space_calculator.calculate_spaces(
                 f"Mag:{obj_mag}", f"Sz:{size}"
@@ -253,27 +245,30 @@ class UICatalog(UIModule):
                 magsize, font=fonts.bold, color=self.colors.get(255)
             )
 
+            aka_recs = self.catalog_tracker.current_catalog.common_names.get(
+                cat_object.object_id
+            )
             if aka_recs:
-                aka_list = []
-                for rec in aka_recs:
-                    if rec["common_name"].startswith("M"):
-                        aka_list.insert(0, rec["common_name"])
-                    else:
-                        aka_list.append(rec["common_name"])
+                # aka_list = []
+                # for rec in aka_recs:
+                #     if rec["common_name"].startswith("M"):
+                #         aka_list.insert(0, rec["common_name"])
+                #     else:
+                #         aka_list.append(rec["common_name"])
                 self.texts["aka"] = self.ScrollTextLayout(
-                    ", ".join(aka_list),
+                    ", ".join(aka_recs),
                     font=fonts.base,
                     scrollspeed=self._get_scrollspeed_config(),
                 )
 
             if self.object_display_mode == DM_DESC:
                 # NGC description....
-                desc = cat_object["desc"].replace("\t", " ")
+                desc = cat_object.description.replace("\t", " ")
                 self.descTextLayout.set_text(desc)
                 self.texts["desc"] = self.descTextLayout
 
             if self.object_display_mode == DM_OBS:
-                logs = obslog.get_logs_for_object(cat_object)
+                logs = self.observations_db.get_logs_for_object(cat_object)
                 if len(logs) == 0:
                     self.texts["obs"] = self.SimpleTextLayout("No Logs")
                 else:
@@ -304,7 +299,7 @@ class UICatalog(UIModule):
         target = self.ui_state["target"]
         if target:
             self.catalog_tracker.set_current_object(
-                target["sequence"], target["catalog"]
+                target.sequence, target.catalog_code
             )
             self.update_object_info()
 
@@ -418,8 +413,8 @@ class UICatalog(UIModule):
                 dt,
             )
             obj_alt = aa.radec_to_altaz(
-                obj["ra"],
-                obj["dec"],
+                obj.ra,
+                obj.dec,
                 alt_only=True,
             )
             return obj_alt
@@ -457,9 +452,9 @@ class UICatalog(UIModule):
         When enter is pressed, set the
         target
         """
-        cat_object = self.catalog_tracker.get_current_object()
+        cat_object: CompositeObject = self.catalog_tracker.get_current_object()
         if cat_object:
-            self.ui_state["target"] = dict(cat_object)
+            self.ui_state["target"] = cat_object
             if len(self.ui_state["history_list"]) == 0:
                 self.ui_state["history_list"].append(self.ui_state["target"])
             elif self.ui_state["history_list"][-1] != self.ui_state["target"]:
