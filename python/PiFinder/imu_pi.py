@@ -91,15 +91,25 @@ class Imu:
             print("IMU: Failed to get sensor values")
             return
 
-        self.__reading_diff = (
-            abs(quat[0] - self.quat_history[-1][0])
-            + abs(quat[1] - self.quat_history[-1][1])
-            + abs(quat[2] - self.quat_history[-1][2])
-            + abs(quat[3] - self.quat_history[-1][3])
-        )
+        _quat_diff = []
+        for i in range(4):
+            _quat_diff.append(abs(quat[i] - self.quat_history[-1][i]))
 
+        self.__reading_diff = sum(_quat_diff)
+
+        # This seems to be some sort of defect / side effect
+        # of the integration system in the BNO055
+        # When not moving quat output will vaccilate
+        # by exactly this amount... so filter this out
+        if self.__reading_diff == 0.0078125:
+            self.__reading_diff = 0
+            return
+
+        # Sometimes the quat output will 'flip' and change by 2.0+
+        # from one reading to another.  This is clearly noise or an
+        # artifact, so filter them out
         if self.__reading_diff > 1.5:
-            # FLIP, just ignore
+            self.__reading_diff = 0
             return
 
         self.avg_quat = quat
@@ -112,6 +122,9 @@ class Imu:
                 self.__moving = False
         else:
             if self.__reading_diff > self.__moving_threshold[0]:
+                print(f"MO {self.__reading_diff}")
+                print(self.quat_history[-1])
+                print(self.quat_history[-2])
                 self.__moving = True
 
     def get_euler(self):
@@ -125,8 +138,8 @@ def imu_monitor(shared_state, console_queue):
         "moving": False,
         "move_start": None,
         "move_end": None,
-        "pos": None,
-        "start_pos": None,
+        "pos": [0, 0, 0],
+        "start_pos": [0, 0, 0],
         "status": 0,
     }
     while True:
