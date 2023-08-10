@@ -122,9 +122,6 @@ class Imu:
                 self.__moving = False
         else:
             if self.__reading_diff > self.__moving_threshold[0]:
-                print(f"MO {self.__reading_diff}")
-                print(self.quat_history[-1])
-                print(self.quat_history[-2])
                 self.__moving = True
 
     def get_euler(self):
