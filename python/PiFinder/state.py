@@ -17,6 +17,7 @@ class SharedStateObj:
             "exposure_start": 0,
             "exposure_end": 0,
             "imu": None,
+            "imu_delta": 0,
         }
         self.__solution = None
         self.__imu = None
