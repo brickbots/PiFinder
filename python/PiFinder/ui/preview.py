@@ -37,7 +37,6 @@ class UIPreview(UIModule):
             "type": "enum",
             "value": "Low",
             "options": ["Off", "Low", "Med", "High"],
-            "hotkey": "D",
         },
         "Exposure": {
             "type": "enum",
@@ -57,11 +56,12 @@ class UIPreview(UIModule):
             "options": ["Save", "Exit"],
             "callback": "save_exp",
         },
-        "Focus Hlp": {
+        "Zoom View": {
             "type": "bool",
             "value": "Off",
             "options": ["On", "Off"],
             "callback": "exit_config",
+            "hotkey": "D",
         },
     }
 
