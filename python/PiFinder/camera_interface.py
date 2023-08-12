@@ -46,7 +46,7 @@ class CameraInterface:
 
         # Set path for test images
         root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        test_image_path = os.path.join(root_dir, "test_images", "pifinder_debug.png")
+        test_image_path = os.path.join(root_dir, "test_images", "pifinder_debug_02.png")
 
         # 60 half-second cycles
         sleep_delay = 60
@@ -80,25 +80,23 @@ class CameraInterface:
             imu_end = shared_state.imu()
 
             # see if we moved during exposure
-            moved = False
+            reading_diff = 0
             if imu_start and imu_end:
                 reading_diff = (
                     abs(imu_start["pos"][0] - imu_end["pos"][0])
                     + abs(imu_start["pos"][1] - imu_end["pos"][1])
                     + abs(imu_start["pos"][2] - imu_end["pos"][2])
                 )
-                if reading_diff > 0.1:
-                    moved = True
 
-            if not moved:
-                camera_image.paste(base_image)
-                shared_state.set_last_image_metadata(
-                    {
-                        "exposure_start": image_start_time,
-                        "exposure_end": image_end_time,
-                        "imu": imu_end,
-                    }
-                )
+            camera_image.paste(base_image)
+            shared_state.set_last_image_metadata(
+                {
+                    "exposure_start": image_start_time,
+                    "exposure_end": image_end_time,
+                    "imu": imu_end,
+                    "imu_delta": reading_diff,
+                }
+            )
 
             # Loop over any pending commands
             # There may be more than one!
