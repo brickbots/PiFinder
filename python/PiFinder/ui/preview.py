@@ -133,7 +133,7 @@ class UIPreview(UIModule):
         last_image_time = self.shared_state.last_image_metadata()["exposure_end"]
         if last_image_time > self.last_update:
             image_obj = self.camera_image.copy()
-            if self._config_options["Focus Hlp"]["value"] == "Off":
+            if self._config_options["Zoom View"]["value"] == "Off":
                 # Resize
                 image_obj = image_obj.resize((128, 128))
             else:
