@@ -33,7 +33,10 @@ def solver(shared_state, solver_queue, camera_image, console_queue):
             # reject images startede before the last solve
             # which might be from the IMU
             last_image_metadata = shared_state.last_image_metadata()
-            if last_image_metadata["exposure_end"] > (last_solve_time):
+            if (
+                last_image_metadata["exposure_end"] > (last_solve_time)
+                and last_image_metadata["imu_delta"] < 0.1
+            ):
                 solve_image = camera_image.copy()
 
                 new_solve = t3.solve_from_image(
