@@ -46,7 +46,7 @@ class CameraInterface:
 
         # Set path for test images
         root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        test_image_path = os.path.join(root_dir, "test_images", "pifinder_debug.png")
+        test_image_path = os.path.join(root_dir, "test_images", "pifinder_debug_02.png")
 
         # 60 half-second cycles
         sleep_delay = 60

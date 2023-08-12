@@ -57,6 +57,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue):
                     solved["solve_time"] = time.time()
                     solved["cam_solve_time"] = time.time()
                     solver_queue.put(solved)
+                print(solved)
 
                 last_solve_time = last_image_metadata["exposure_end"]
     except EOFError:
