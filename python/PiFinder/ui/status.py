@@ -7,6 +7,7 @@ This module contains all the UI Module classes
 import datetime
 import time
 import socket
+from math import modf
 
 from PiFinder.ui.base import UIModule
 from PiFinder import sys_utils
