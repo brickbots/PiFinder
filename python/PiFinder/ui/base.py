@@ -163,7 +163,7 @@ class UIModule:
                     self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
                     self.draw.text(
                         (117, 0),
-                        solution["solve_source"][0],
+                        "" if solution["solve_source"] == "CAM" else "",
                         font=self.font_bold,
                         fill=self.colors.get(64),
                     )
@@ -178,11 +178,8 @@ class UIModule:
                 if self.shared_state.location()["gps_lock"]:
                     fg = self.colors.get(0)
                     bg = self.colors.get(64)
-                else:
-                    fg = self.colors.get(64)
-                    bg = self.colors.get(0)
-                self.draw.rectangle([100, 2, 110, 14], fill=bg)
-                self.draw.text((102, 0), "G", font=self.font_bold, fill=fg)
+                    self.draw.rectangle([100, 2, 110, 14], fill=fg)
+                    self.draw.text((102, 0), "󰤉", font=self.font_bold, fill=bg)
 
         screen_to_display = self.screen.convert(self.display.mode)
         self.display.display(screen_to_display)

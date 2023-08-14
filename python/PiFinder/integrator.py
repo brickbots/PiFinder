@@ -210,7 +210,7 @@ def integrator(shared_state, solver_queue, console_queue):
                             # if abs(alt_offset) + abs(az_offset) > .01:
                             if True:
                                 solved["solve_time"] = time.time()
-                                # solved["solve_source"] = "IMU"
+                                solved["solve_source"] = "IMU"
 
             # Is the solution new?
             if solved["RA"] and solved["solve_time"] > last_solve_time:
