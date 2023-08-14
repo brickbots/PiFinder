@@ -186,9 +186,14 @@ class UIStatus(UIModule):
                 + f" {stars_matched: >2}"
             )
 
+            ra = solution["RA"]
+            if ra < 0.0:
+                ra = ra + 360
+            mm, hh = modf(ra / 15.0)
+            _, mm = modf(mm * 60.0)
             self.status_dict[
                 "RA/DEC"
-            ] = f"{solution['RA'] : >6.2f}/{solution['Dec'] : >6.2f}"
+            ] = f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec'] : >6.2f}"
 
             if solution["Az"]:
                 self.status_dict[
