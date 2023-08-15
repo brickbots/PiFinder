@@ -178,8 +178,8 @@ class UIModule:
                 if self.shared_state.location()["gps_lock"]:
                     fg = self.colors.get(0)
                     bg = self.colors.get(64)
-                    self.draw.rectangle([100, 2, 110, 14], fill=fg)
-                    self.draw.text((102, 0), "󰤉", font=self.font_bold, fill=bg)
+                    self.draw.rectangle([100, 2, 110, 14], fill=bg)
+                    self.draw.text((102, 0), "󰤉", font=self.font_bold, fill=fg)
 
         screen_to_display = self.screen.convert(self.display.mode)
         self.display.display(screen_to_display)
