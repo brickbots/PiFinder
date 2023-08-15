@@ -5,33 +5,35 @@ from PIL import Image
 import io
 
 
-class KeyboardServer(KeyboardInterface):
-    def __init__(self, q, shared_state):
+class Server:
+    def __init__(self, q, gps_queue, shared_state):
         from bottle import Bottle, run, request, template, response
 
         self.q = q
+        self.gps_queue = gps_queue
         self.shared_state = shared_state
+        self.ki = KeyboardInterface()
 
         button_dict = {
-            "UP": self.UP,
-            "DN": self.DN,
-            "ENT": self.ENT,
-            "A": self.A,
-            "B": self.B,
-            "C": self.C,
-            "D": self.D,
-            "ALT_UP": self.ALT_UP,
-            "ALT_DN": self.ALT_DN,
-            "ALT_A": self.ALT_A,
-            "ALT_B": self.ALT_B,
-            "ALT_C": self.ALT_C,
-            "ALT_D": self.ALT_D,
-            "ALT_0": self.ALT_0,
-            "LNG_A": self.LNG_A,
-            "LNG_B": self.LNG_B,
-            "LNG_C": self.LNG_C,
-            "LNG_D": self.LNG_D,
-            "LNG_ENT": self.LNG_ENT,
+            "UP": self.ki.UP,
+            "DN": self.ki.DN,
+            "ENT": self.ki.ENT,
+            "A": self.ki.A,
+            "B": self.ki.B,
+            "C": self.ki.C,
+            "D": self.ki.D,
+            "ALT_UP": self.ki.ALT_UP,
+            "ALT_DN": self.ki.ALT_DN,
+            "ALT_A": self.ki.ALT_A,
+            "ALT_B": self.ki.ALT_B,
+            "ALT_C": self.ki.ALT_C,
+            "ALT_D": self.ki.ALT_D,
+            "ALT_0": self.ki.ALT_0,
+            "LNG_A": self.ki.LNG_A,
+            "LNG_B": self.ki.LNG_B,
+            "LNG_C": self.ki.LNG_C,
+            "LNG_D": self.ki.LNG_D,
+            "LNG_ENT": self.ki.LNG_ENT,
         }
 
         app = Bottle()
@@ -66,6 +68,18 @@ class KeyboardServer(KeyboardInterface):
 
             return img_byte_arr
 
+        @app.route("/gps-lock")
+        def gps_lock():
+            msg = (
+                "fix",
+                {
+                    "lat": 50,
+                    "lon": 3,
+                    "altitude": 10,
+                },
+            )
+            self.gps_queue.put(msg)
+
         logging.info("Starting keyboard server on port 8080")
         run(app, host="0.0.0.0", port=8080, quiet=True)
 
@@ -73,5 +87,5 @@ class KeyboardServer(KeyboardInterface):
         self.q.put(key)
 
 
-def run_keyboard(q, shared_state):
-    KeyboardServer(q, shared_state)
+def run_server(q, gps_q, shared_state):
+    Server(q, gps_q, shared_state)

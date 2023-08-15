@@ -19,7 +19,7 @@ import sys
 import logging
 import argparse
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 from timezonefinder import TimezoneFinder
@@ -32,6 +32,7 @@ from PiFinder import integrator
 from PiFinder import config
 from PiFinder import pos_server
 from PiFinder import utils
+from PiFinder import server
 from PiFinder import keyboard_interface
 
 from PiFinder.ui.chart import UIChart
@@ -151,7 +152,7 @@ def get_sleep_timeout(cfg):
     return sleep_timeout
 
 
-def main(script_name=None):
+def main(script_name=None, has_server=False):
     """
     Get this show on the road!
     """
@@ -233,6 +234,12 @@ def main(script_name=None):
                 args=(script_path, keyboard_queue),
             )
             p.start()
+        if has_server:
+            server_process = Process(
+                target=server.run_server,
+                args=(keyboard_queue, gps_queue, shared_state),
+            )
+            server_process.start()
 
         # Load last location, set lock to false
         tz_finder = TimezoneFinder()
@@ -656,10 +663,17 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
-        "-s",
         "--script",
         help="Specify a testing script to run",
         default=None,
+        required=False,
+    )
+    parser.add_argument(
+        "-s",
+        "--server",
+        help="Start a server to control the pifinder",
+        default=False,
+        action="store_true",
         required=False,
     )
 
@@ -705,8 +719,6 @@ if __name__ == "__main__":
         from PiFinder import keyboard_pi as keyboard
     elif args.keyboard.lower() == "local":
         from PiFinder import keyboard_local as keyboard
-    else:
-        from PiFinder import keyboard_server as keyboard
 
     if args.log:
         datenow = datetime.datetime.now()
@@ -715,4 +727,4 @@ if __name__ == "__main__":
         fh.setLevel(logger.level)
         logger.addHandler(fh)
 
-    main(args.script)
+    main(args.script, args.server)
