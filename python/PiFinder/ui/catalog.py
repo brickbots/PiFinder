@@ -149,7 +149,12 @@ class UICatalog(UIModule):
     def push_cat(self, obj_amount):
         self._config_options["Push Cat."]["value"] = ""
         if obj_amount == "Go":
+            solution = self.shared_state.solution()
+            if not solution:
+                self.message("No Solve!", 1)
+                return False
             self.message("Catalog Pushed", 2)
+
             # Filter the catalog one last time
             self.catalog_tracker.filter()
             self.ui_state["observing_list"] = self.catalog_tracker.get_objects(
@@ -168,10 +173,10 @@ class UICatalog(UIModule):
             if not solution:
                 self.message("No Solve!", 1)
                 return False
+            self.message(f"Near {obj_amount} Pushed", 2)
 
             # Filter the catalog one last time
             self.catalog_tracker.filter()
-            self.message(f"Near {obj_amount} Pushed", 2)
             near_catalog = self.catalog_tracker.get_closest_objects(
                 solution["RA"],
                 solution["Dec"],

@@ -15,6 +15,7 @@ from PIL import Image
 from PiFinder import config
 from PiFinder import utils
 from typing import Tuple
+import logging
 
 
 class CameraInterface:
@@ -31,7 +32,7 @@ class CameraInterface:
 
     def set_camera_config(
         self, exposure_time: float, gain: float
-    ) -> Tuple[float, float, float]:
+    ) -> Tuple[float, float]:
         pass
 
     def get_cam_type(self) -> str:
