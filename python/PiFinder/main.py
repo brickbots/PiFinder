@@ -697,9 +697,12 @@ if __name__ == "__main__":
     elif args.camera.lower() == "debug":
         logging.debug("using debug camera")
         from PiFinder import camera_debug as camera
-    else:
+    elif args.camera.lower() == "asi":
         logging.debug("using asi camera")
-        from PiFinder import camera_asi as camera
+        from PiFinder import camera_asi as camera_debug
+    else:
+        logging.debug("not using camera")
+        from PiFinder import camera_none as camera
 
     if args.keyboard.lower() == "pi":
         from PiFinder import keyboard_pi as keyboard
