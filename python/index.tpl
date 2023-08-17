@@ -47,6 +47,7 @@ body {
             <button class="button" onclick="buttonClicked(this, 'UP')">Up</button>
             <button class="button" onclick="buttonClicked(this, 'DN')">Down</button>
             <button class="button" onclick="buttonClicked(this, 'ENT')">Enter</button>
+            <button class="button" onclick="gpsLock()">GPSLOCK</button>
         </div>
     </div>
 <script>
@@ -78,6 +79,17 @@ body {
 
         // Start the first fetch operation
         fetchImage();
+
+        function gpsLock() {
+            fetch('/gps-lock', {
+                method: 'GET',
+            })
+            .then(response => response.json())
+            .then(data => console.log(data))
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
 
         function buttonPressed(btn) {
             const altButton = document.getElementById("altButton");
