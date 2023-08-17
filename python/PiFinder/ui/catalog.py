@@ -153,6 +153,10 @@ class UICatalog(UIModule):
     def push_list(self, option):
         self._config_options["Push List"]["value"] = ""
         if option == "Go":
+            solution = self.shared_state.solution()
+            if not solution:
+                self.message("No Solve!", 1)
+                return False
             self.message("Catalog Pushed", 2)
             # Filter the catalog one last time
             self.catalog_tracker.filter()
@@ -168,7 +172,7 @@ class UICatalog(UIModule):
         if option != "Cncl":
             solution = self.shared_state.solution()
             if not solution:
-                self.message(f"No Solve!", 1)
+                self.message("No Solve!", 1)
                 return False
 
             # Filter the catalog one last time
