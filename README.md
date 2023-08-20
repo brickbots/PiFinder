@@ -23,7 +23,7 @@ My hope is that other people will find this combination of functionality useful,
 ## Build Your Own
 The PiFinder is fully open-source hardware and software.  You can order PCB's and 3d print the case with the files in this repo and order all the parts from the [parts List](./docs/BOM.md).  
 
-If you would like pre-assembled units, kits or other items to jump start your PiFinder journey, visit [PiFinder.io](https://www.pifinder.io/build-yours) to see what's available and place an order.
+If you would like pre-assembled units, kits or other items to jump start your PiFinder journey, visit [PiFinder.io](https://www.pifinder.io/build-pifinder) to see what's available and place an order.
 
 ## Docs
 
