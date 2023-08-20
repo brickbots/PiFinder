@@ -82,7 +82,7 @@ class UICatalog(UIModule):
         super().__init__(*args)
         self.catalog_names = self.config_object.get_option("catalogs")
         self.object_text = ["No Object Found"]
-        self.SimpleTextLayout = functools.partial(
+        self.simpleTextLayout = functools.partial(
             TextLayouterSimple, draw=self.draw, color=self.colors.get(255)
         )
         self.descTextLayout = TextLayouter(
@@ -97,7 +97,7 @@ class UICatalog(UIModule):
         )
         self.space_calculator = SpaceCalculatorFixed(18)
         self.texts = {
-            "type-const": self.SimpleTextLayout(
+            "type-const": self.simpleTextLayout(
                 "No Object Found", font=self.font_bold, color=self.colors.get(255)
             ),
         }
@@ -117,7 +117,7 @@ class UICatalog(UIModule):
         self.update_object_info()
 
     def _layout_designator(self):
-        return self.SimpleTextLayout(
+        return self.simpleTextLayout(
             str(self.catalog_tracker.get_designator()),
             font=fonts.large,
             color=self.colors.get(255),
@@ -222,7 +222,7 @@ class UICatalog(UIModule):
             _, typeconst = self.space_calculator.calculate_spaces(
                 object_type, cat_object.const
             )
-            self.texts["type-const"] = self.SimpleTextLayout(
+            self.texts["type-const"] = self.simpleTextLayout(
                 typeconst,
                 font=fonts.bold,
                 color=self.colors.get(255),
@@ -246,7 +246,7 @@ class UICatalog(UIModule):
             if spaces == -1:
                 spaces, magsize = self.space_calculator.calculate_spaces(obj_mag, size)
 
-            self.texts["magsize"] = self.SimpleTextLayout(
+            self.texts["magsize"] = self.simpleTextLayout(
                 magsize, font=fonts.bold, color=self.colors.get(255)
             )
 
@@ -275,9 +275,11 @@ class UICatalog(UIModule):
             if self.object_display_mode == DM_OBS:
                 logs = self.observations_db.get_logs_for_object(cat_object)
                 if len(logs) == 0:
-                    self.texts["obs"] = self.SimpleTextLayout("No Logs")
+                    self.texts["desc"] = self.simpleTextLayout("No Logs")
                 else:
-                    self.texts["obs"] = self.DescTextLayout(f"Logged {len(logs)} times")
+                    self.texts["desc"] = self.simpleTextLayout(
+                        f"Logged {len(logs)} times"
+                    )
         else:
             # Image stuff...
             if self.object_display_mode == DM_SDSS:
