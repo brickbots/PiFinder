@@ -223,8 +223,8 @@ class UILocate(UIModule):
             return self.screen_update()
 
         # Target Name
-        line = self.ui_state["target"]["catalog"]
-        line += str(self.ui_state["target"]["sequence"])
+        line = self.ui_state["target"].get("catalog", "ERR")
+        line += str(self.ui_state["target"].get("sequence", "000"))
         self.draw.text((0, 20), line, font=self.font_large, fill=self.colors.get(255))
 
         # Target history index
