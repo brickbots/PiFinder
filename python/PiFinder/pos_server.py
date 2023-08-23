@@ -8,6 +8,7 @@ Protocol based on Meade LX200
 """
 import socket
 from math import modf
+import logging
 
 
 def get_telescope_ra(shared_state):
@@ -75,6 +76,7 @@ def run_server(shared_state, _):
             while True:
                 in_data = client_socket.recv(1024).decode()
                 if in_data:
+                    logging.debug(f"Received from skysafari: {in_data}")
                     if in_data.startswith(":"):
                         # command
                         command = in_data[1:].split("#")[0]

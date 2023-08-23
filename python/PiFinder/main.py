@@ -651,7 +651,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-c",
         "--camera",
-        help="Specify which camera to use: pi, asi or debug",
+        help="Specify which camera to use: pi, asi, debug or none",
         default="pi",
         required=False,
     )
