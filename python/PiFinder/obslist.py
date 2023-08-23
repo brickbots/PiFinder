@@ -12,9 +12,10 @@ import os
 import sqlite3
 from textwrap import dedent
 from PiFinder import utils
+import logging
+from PiFinder.db.objects_db import ObjectsDatabase
 
 OBSLIST_DIR = f"{utils.data_dir}/obslists/"
-DB_PATH = f"{utils.pifinder_dir}/astro_data/pifinder_objects.db"
 
 SKYSAFARI_CATALOG_NAMES = {
     "CAL": "C",
@@ -48,33 +49,25 @@ def write_list(catalog, name):
             index_num += 1
 
 
-def resolve_object(catalog_numbers, connection):
+def resolve_object(catalog_numbers, db):
     """
     Takes a list of SkySafari catalog
     numbers and tries to find an object
     in our DB which matches
     """
     for catalog_number in catalog_numbers:
-        catalog = catalog_number.split(" ")[0]
-        catalog = SKYSAFARI_CATALOG_NAMES_INV.get(catalog, catalog)
-        sequence = catalog_number.split(" ")[1].strip()
         try:
+            logging.debug(f"trying to resolve {catalog_number}")
+            catalog = catalog_number.split(" ")[0]
+            catalog = SKYSAFARI_CATALOG_NAMES_INV.get(catalog, catalog)
+            sequence = catalog_number.split(" ")[1].strip()
             sequence = int(sequence)
-        except ValueError:
+        except:
             return None
 
-        _object = connection.execute(
-            f"""
-                    select * from
-                    objects
-                    where catalog='{catalog}'
-                    and sequence={sequence}
-
-                """
-        ).fetchone()
+        _object = db.get_catalog_object_by_sequence(catalog, sequence)
         if _object:
             return dict(_object)
-    print("Failed")
     return None
 
 
@@ -84,9 +77,7 @@ def read_list(name):
     list.  Matches against catalogs
     and returns a catalog list
     """
-
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    db = ObjectsDatabase()
 
     list_catalog = []
     objects_parsed = 0
@@ -120,7 +111,7 @@ def read_list(name):
                     }
 
                 # see if we can resolve an object
-                _object = resolve_object(catalog_numbers, conn)
+                _object = resolve_object(catalog_numbers, db)
 
                 if _object:
                     list_catalog.append(_object)
@@ -144,21 +135,13 @@ def read_list(name):
             else:
                 pass
 
+    db.close()
     return {
         "result": "success",
         "objects_parsed": objects_parsed,
         "message": "Complete",
         "catalog": list_catalog,
     }
-
-    cat_objects = self.conn.execute(
-        f"""
-        SELECT * from objects
-        where catalog='{catalog_name}'
-        order by sequence
-    """
-    ).fetchall()
-
 
 def get_lists():
     """
