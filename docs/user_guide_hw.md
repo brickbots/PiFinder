@@ -32,6 +32,10 @@ There are currently 3 different mounting configurations supported. Right, Left, 
 
 For information about which parts to print for which configuration, please see the [Parts](build_guide_parts.md) section of the build guide.  The dovetail mounting system included with the PiFinder will fit into the most common finder brackets found on telescopes.  For the left and right hand configurations the dovetail bracket is adjustable so that the PiFinder can site upright and the screen is easily viewable no matter where around the circumference of your telescope the finder bracket is mounted.
 
+There are currently 3 different mounting configurations supported. Right, Left, and Flat. Right and Left mounts are commonly used with reflector style telescopes where it is required for the screen to face the side due to the focuser position. In these 2 mounting styles, the PiFinder is upright. Flat mount is more commonly used for refrectors or catadioptrics where the user sits behind the telescope. In this mounting orientaiton, the PiFinder lays flat with the screen pointing up. See photo below for an example of the flat mount.
+
+![Flat mount](../images/flat_mount.png)
+
 ### Camera Setup
 After you mount your PiFinder the first time, you'll need to setup the camera aperture and focus.
 If you are using the recommended lens, it will have two adjustment rings on it; One to adjust the aperture (f-stop) and one for focus.
