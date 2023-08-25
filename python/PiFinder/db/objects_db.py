@@ -109,7 +109,12 @@ class ObjectsDatabase(Database):
         return self.cursor.lastrowid
 
     def get_objects(self):
-        self.cursor.execute("SELECT * FROM objects;")
+        self.cursor.execute(
+            """
+                SELECT objects.*,image_name FROM objects
+                LEFT JOIN object_images on object_id=objects.id;
+            """
+        )
         return self.cursor.fetchall()
 
     def get_object_by_id(self, object_id):
