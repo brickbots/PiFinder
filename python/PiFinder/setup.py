@@ -214,10 +214,12 @@ def resolve_object_images():
             if not catalog_entry:
                 logging.warning(f"No catalog entries for object: {obj_record['id']}")
             else:
-                resolved_name = f"{catalog_entry['catalog_code']}{catalog_entry['sequence']}"
+                resolved_name = (
+                    f"{catalog_entry['catalog_code']}{catalog_entry['sequence']}"
+                )
 
         if resolved_name:
-            objects_db.insert_image_object(obj_record['id'], resolved_name)
+            objects_db.insert_image_object(obj_record["id"], resolved_name)
 
 
 # not used atm
