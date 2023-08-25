@@ -4,6 +4,7 @@ and importers used during setup
 
 """
 import csv
+import sys
 import argparse
 import logging
 import datetime
@@ -163,8 +164,64 @@ def insert_catalog_max_sequence(catalog_name):
     conn.commit()
 
 
+def resolve_object_images():
+    # This is the list of catalogs to search for
+    # objects to match against image names
+    resolution_priority = [
+        "NGC",
+        "IC",
+        "M",
+        "C",
+    ]
+    # load all objects in objects table
+    conn, db_c = objects_db.get_conn_cursor()
+    all_objects = db_c.execute(
+        """
+                SELECT id
+                FROM objects
+            """
+    ).fetchall()
+
+    for obj_record in all_objects:
+        resolved_name = None
+        for catalog_code in resolution_priority:
+            catalog_check = db_c.execute(
+                f"""
+                    SELECT sequence
+                    FROM catalog_objects
+                    WHERE catalog_code = '{catalog_code}'
+                    AND object_id = {obj_record['id']}
+                """
+            ).fetchone()
+            if catalog_check:
+                # Found a match!
+                resolved_name = f"{catalog_code}{catalog_check['sequence']}"
+
+        if resolved_name == None:
+            # Didn't find a name in the priority list
+            # Pick one from the remainders, but sort
+            # by catalog code so this is deterministic
+            catalog_entry = db_c.execute(
+                f"""
+                    SELECT catalog_code, sequence
+                    FROM catalog_objects
+                    WHERE object_id = {obj_record['id']}
+                    ORDER BY catalog_code
+                    LIMIT 1
+                """
+            ).fetchone()
+
+            if not catalog_entry:
+                logging.warning(f"No catalog entries for object: {obj_record['id']}")
+            else:
+                resolved_name = f"{catalog_entry['catalog_code']}{catalog_entry['sequence']}"
+
+        if resolved_name:
+            objects_db.insert_image_object(obj_record['id'], resolved_name)
+
+
 # not used atm
-def load_deepmap_600():
+def _load_deepmap_600():
     """
     loads the deepmap 600 file to add
     better descriptions and flag items
@@ -784,16 +841,25 @@ if __name__ == "__main__":
     objects_db = ObjectsDatabase()
     observations_db = ObservationsDatabase()
     logging.info("creating catalog tables")
-    # objects_db.destroy_tables()
+    objects_db.destroy_tables()
     objects_db.create_tables()
     if not observations_db.exists():
         observations_db.create_tables()
     logging.info("loading catalogs")
-    load_ngc_catalog()
-    load_collinder()
-    load_taas200()
-    load_sac_asterisms()
-    load_sac_multistars()
-    load_sac_redstars()
-    load_caldwell()
+
+    # Execute all functions starting with load_
+    # in the current module
+    for _item in dir(sys.modules[__name__]):
+        if _item.startswith("load_"):
+            eval(f"{_item}()")
+    # load_ngc_catalog()
+    # load_collinder()
+    # load_taas200()
+    # load_sac_asterisms()
+    # load_sac_multistars()
+    # load_sac_redstars()
+    # load_caldwell()
+    # Populate the images table
+    logging.info("Resolving object images...")
+    resolve_object_images()
     print_database()
