@@ -849,18 +849,14 @@ if __name__ == "__main__":
         observations_db.create_tables()
     logging.info("loading catalogs")
 
-    # Execute all functions starting with load_
-    # in the current module
-    for _item in dir(sys.modules[__name__]):
-        if _item.startswith("load_"):
-            eval(f"{_item}()")
-    # load_ngc_catalog()
-    # load_collinder()
-    # load_taas200()
-    # load_sac_asterisms()
-    # load_sac_multistars()
-    # load_sac_redstars()
-    # load_caldwell()
+    load_ngc_catalog()
+    load_collinder()
+    load_taas200()
+    load_sac_asterisms()
+    load_sac_multistars()
+    load_sac_redstars()
+    load_caldwell()
+
     # Populate the images table
     logging.info("Resolving object images...")
     resolve_object_images()

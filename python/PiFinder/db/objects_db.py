@@ -87,7 +87,7 @@ class ObjectsDatabase(Database):
         return self.get_database(utils.pifinder_db)
 
     def destroy_tables(self):
-        tables = ["catalog_objects", "names", "objects", "catalogs"]
+        tables = ["catalog_objects", "names", "object_images", "objects", "catalogs"]
         for table in tables:
             self.cursor.execute(f"DROP TABLE IF EXISTS {table};")
         self.conn.commit()
