@@ -91,6 +91,7 @@ def fetch_object_image(_obj, low_cut=10):
 
     return True
 
+
 def create_catalog_image_dirs():
     """
     Checks for and creates catalog_image dirs
@@ -110,6 +111,7 @@ def main():
     all_objects = objects_db.get_objects()
     for catalog_object in tqdm(all_objects):
         fetch_object_image(catalog_object)
+
 
 if __name__ == "__main__":
     main()
