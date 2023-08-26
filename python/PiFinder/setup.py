@@ -196,6 +196,7 @@ def resolve_object_images():
             if catalog_check:
                 # Found a match!
                 resolved_name = f"{catalog_code}{catalog_check['sequence']}"
+                break
 
         if resolved_name == None:
             # Didn't find a name in the priority list
@@ -676,6 +677,7 @@ def load_caldwell():
             sequence = dfs[0].strip()
             logging.debug(f"<----------------- Caldwell {sequence=} ----------------->")
             other_names = add_space_after_prefix(dfs[1])
+            print(sequence, other_names)
             obj_type = dfs[2]
             const = dfs[3]
             mag = dfs[4]
