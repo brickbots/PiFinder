@@ -9,22 +9,11 @@ import sqlite3
 from tqdm import tqdm
 
 from PiFinder import cat_images
+from PiFinder.db.objects_db import ObjectsDatabase
+from PiFinder.catalogs import CompositeObject
 
 
-def get_catalog_objects():
-    conn = sqlite3.connect(cat_images.CATALOG_PATH)
-    conn.row_factory = sqlite3.Row
-    db_c = conn.cursor()
-    cat_objects = conn.execute(
-        f"""
-        SELECT * from objects
-        order by catalog desc ,sequence
-    """
-    ).fetchall()
-    return cat_objects
-
-
-def check_catalog_objects(cat_objects):
+def check_catalog_objects(objects):
     """
     Checks through catalog objects
     to deterine which need to be
@@ -34,39 +23,11 @@ def check_catalog_objects(cat_objects):
     to fetch
     """
     return_list = []
-    for catalog_object in tqdm(cat_objects):
-        cat_dict = {
-            "catalog": catalog_object.catalog,
-            "sequence": catalog_object.sequence,
-        }
-        if catalog_object.catalog not in ["NGC", "IC"]:
-            # look for any NGC aka
-            conn = sqlite3.connect(cat_images.CATALOG_PATH)
-            conn.row_factory = sqlite3.Row
-            db_c = conn.cursor()
-
-            aka_rec = conn.execute(
-                f"""
-                SELECT common_name from names
-                where catalog = "{catalog_object.catalog_code}"
-                and sequence = "{catalog_object.sequence}"
-                and common_name like "NGC%"
-            """
-            ).fetchone()
-            if aka_rec:
-                try:
-                    aka_sequence = int(aka_rec["common_name"][3:].strip())
-                except ValueError:
-                    aka_sequence = None
-                    pass
-
-                if aka_sequence:
-                    cat_dict = {"catalog": "NGC", "sequence": aka_sequence}
-
-        object_image_path = cat_images.resolve_image_name(cat_dict, "POSS")
+    for _obj in tqdm(objects):
+        catalog_object = CompositeObject(dict(_obj))
+        object_image_path = cat_images.resolve_image_name(catalog_object, "POSS")
         if not os.path.exists(object_image_path):
-            if cat_dict not in return_list:
-                return_list.append(cat_dict)
+            return_list.append(catalog_object)
 
     return return_list
 
@@ -78,29 +39,6 @@ def fetch_object_image(catalog_object):
 
     Returns image path
     """
-    if catalog_object.catalog not in ["NGC", "IC"]:
-        # look for any NGC aka
-        conn = sqlite3.connect(cat_images.CATALOG_PATH)
-        conn.row_factory = sqlite3.Row
-        db_c = conn.cursor()
-
-        aka_rec = conn.execute(
-            f"""
-            SELECT common_name from names
-            where catalog = "{catalog_object.catalog_code}"
-            and sequence = "{catalog_object.sequence}"
-            and common_name like "NGC%"
-        """
-        ).fetchone()
-        if aka_rec:
-            try:
-                aka_sequence = int(aka_rec["common_name"][3:].strip())
-            except ValueError:
-                aka_sequence = None
-                pass
-
-            if aka_sequence:
-                catalog_object = {"catalog": "NGC", "sequence": aka_sequence}
 
     object_image_path = cat_images.resolve_image_name(catalog_object, "POSS")
     if not os.path.exists(object_image_path):
@@ -113,7 +51,7 @@ def fetch_object_image(catalog_object):
             with open(object_image_path, "wb") as f:
                 f.write(r.content)
         elif r.status_code == 403:
-            print("\tNot available")
+            print(f"\t{image_name} Not available")
             return False
         else:
             print(s3_url, r.status_code)
@@ -141,9 +79,9 @@ def fetch_object_image(catalog_object):
 
 def main():
     cat_images.create_catalog_image_dirs()
-    all_objects = get_catalog_objects()
+    objects_db = ObjectsDatabase()
     print("Checking for missing images")
-    objects_to_fetch = check_catalog_objects(all_objects)
+    objects_to_fetch = check_catalog_objects(objects_db.get_objects())
     if len(objects_to_fetch) > 0:
         print(f"Fetching {len(objects_to_fetch)} images....")
         for catalog_object in tqdm(objects_to_fetch):
