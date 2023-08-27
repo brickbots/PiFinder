@@ -43,6 +43,8 @@ With the camera module at hand, let's assemble the camera enclosure.  The camera
 
 ![Build Guide Step](../images/build_guide/v1.6/build_guide_08.jpeg)
 
+If you are building a flat unit, just set the camera cable to the side as it gets routed in a different manner.  For left/right builds, it's easier to get the cable roughly positioned now.
+
 Return to the Raspberry Pi assembly and thread the camera cable through as shown.  Note the orientation/direction of the silver contacts at each end of the cable.  The photo below shows the Right hand cable routing.  For the left-hand version, the routing goes the opposite direction.
 
 ![Build Guide Step](../images/build_guide/v1.6/build_guide_08b.jpeg)
