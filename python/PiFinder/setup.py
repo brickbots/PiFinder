@@ -158,9 +158,9 @@ def insert_catalog_max_sequence(catalog_name):
     query = f"SELECT MAX(sequence) FROM catalog_objects where catalog_code = '{catalog_name}' GROUP BY catalog_code"
     db_c.execute(query)
     result = db_c.fetchone()
-    #print(dict(result))
+    # print(dict(result))
     query = f"update catalogs set max_sequence = {dict(result)['MAX(sequence)']} where catalog_code = '{catalog_name}'"
-    #print(query)
+    # print(query)
     db_c.execute(query)
     conn.commit()
 
@@ -183,7 +183,7 @@ def resolve_object_images():
     for obj_record in tqdm(all_objects):
         resolved_name = None
         for entry in resolution_priority:
-            catalog_code = entry['catalog_code']
+            catalog_code = entry["catalog_code"]
             catalog_check = db_c.execute(
                 f"""
                     SELECT sequence
@@ -196,7 +196,6 @@ def resolve_object_images():
                 # Found a match!
                 resolved_name = f"{catalog_code}{catalog_check['sequence']}"
                 break
-
 
         if not resolved_name:
             logging.warning(f"No catalog entries for object: {obj_record['id']}")
