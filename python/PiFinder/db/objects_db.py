@@ -71,10 +71,10 @@ class ObjectsDatabase(Database):
         # Create images_objects table
         self.cursor.execute(
             """
-            CREATE TABLE IF NOT EXISTS images_objects (
+            CREATE TABLE IF NOT EXISTS object_images (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 object_id INTEGER,
-                image_path TEXT,
+                image_name TEXT,
                 FOREIGN KEY (object_id) REFERENCES objects(id)
             );
         """
@@ -87,7 +87,7 @@ class ObjectsDatabase(Database):
         return self.get_database(utils.pifinder_db)
 
     def destroy_tables(self):
-        tables = ["catalog_objects", "names", "objects", "catalogs"]
+        tables = ["catalog_objects", "names", "object_images", "objects", "catalogs"]
         for table in tables:
             self.cursor.execute(f"DROP TABLE IF EXISTS {table};")
         self.conn.commit()
@@ -109,7 +109,12 @@ class ObjectsDatabase(Database):
         return self.cursor.lastrowid
 
     def get_objects(self):
-        self.cursor.execute("SELECT * FROM objects;")
+        self.cursor.execute(
+            """
+                SELECT objects.*,image_name FROM objects
+                LEFT JOIN object_images on object_id=objects.id;
+            """
+        )
         return self.cursor.fetchall()
 
     def get_object_by_id(self, object_id):
@@ -219,13 +224,13 @@ class ObjectsDatabase(Database):
         return self.cursor.fetchall()
 
     # ---- IMAGES_OBJECTS methods ----
-    def insert_image_object(self, image_id, object_id):
+    def insert_image_object(self, object_id, image_name):
         self.cursor.execute(
             """
-            INSERT INTO images_objects (object_id, image_path)
+            INSERT INTO object_images(object_id, image_name)
             VALUES (?, ?);
         """,
-            (object_id, image_path),
+            (object_id, image_name),
         )
         self.conn.commit()
 

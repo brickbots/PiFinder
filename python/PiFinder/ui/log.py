@@ -237,11 +237,6 @@ class UILog(UIModule):
         self.draw.text(
             (10, 117), "Log", font=self.font_small, fill=self.colors.get(128)
         )
-        self.draw.rectangle([44, 118, 84, 128], fill=self.colors.get(32))
-        self.draw.text((46, 117), "C", font=self.font_small, fill=self.colors.get(255))
-        self.draw.text(
-            (54, 117), "Photo", font=self.font_small, fill=self.colors.get(128)
-        )
         self.draw.rectangle([88, 118, 128, 128], fill=self.colors.get(32))
         self.draw.text((90, 117), "D", font=self.font_small, fill=self.colors.get(255))
         self.draw.text(

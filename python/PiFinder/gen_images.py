@@ -7,55 +7,22 @@ to handle catalog image loading
 import requests
 import sqlite3
 import os
+from tqdm import tqdm
 from PIL import Image, ImageOps, ImageDraw, ImageFont
 from PiFinder import image_util, cat_images
+from PiFinder.db.objects_db import ObjectsDatabase
+from PiFinder.catalogs import CompositeObject
 
 BASE_IMAGE_PATH = "/Users/rich/Projects/Astronomy/PiFinder/astro_data/catalog_images"
 
 CATALOG_PATH = "/Users/rich/Projects/Astronomy/PiFinder/astro_data/pifinder_objects.db"
 
 
-def get_ngc_aka(catalog_object):
-    """
-    returns the NGC aka for this object
-    if available
-    """
-    conn = sqlite3.connect(CATALOG_PATH)
-    conn.row_factory = sqlite3.Row
-    db_c = conn.cursor()
-
-    aka_rec = conn.execute(
-        f"""
-        SELECT common_name from names
-        where catalog = "{catalog_object.catalog_code}"
-        and sequence = "{catalog_object.sequence}"
-        and common_name like "NGC%"
-    """
-    ).fetchone()
-    if not aka_rec:
-        return None
-
-    try:
-        aka_sequence = int(aka_rec["common_name"][3:].strip())
-    except ValueError:
-        return None
-
-    aka_rec = conn.execute(
-        f"""
-        SELECT *
-        from objects
-        where catalog = "NGC"
-        and sequence = "{aka_sequence}"
-    """
-    ).fetchone()
-    return aka_rec
-
-
 def resolve_image_name(catalog_object, source):
     """
     returns the image path for this objects
     """
-    return f"{BASE_IMAGE_PATH}/{str(catalog_object.sequence)[-1]}/{catalog_object.catalog_code}{catalog_object.sequence}_{source}.jpg"
+    return f"{BASE_IMAGE_PATH}/{str(catalog_object.image_name)[-1]}/{catalog_object.image_name}_{source}.jpg"
 
 
 def check_image(image):
@@ -83,23 +50,20 @@ def check_image(image):
     return True
 
 
-def fetch_object_image(catalog_object, low_cut=10):
+def fetch_object_image(_obj, low_cut=10):
     """
     Check if image exists
     or fetch it.
 
     Returns image path
     """
-    print(f"Fetching image for {catalog_object.catalog_code}{catalog_object.sequence}")
-    ra = catalog_object["RA"]
-    dec = catalog_object["Dec"]
+    catalog_object = CompositeObject(dict(_obj))
+    ra = catalog_object.ra
+    dec = catalog_object.dec
 
     object_image_path = resolve_image_name(catalog_object, "POSS")
     if not os.path.exists(object_image_path):
-        # look for any NGC aka
-        aka_rec = get_ngc_aka(catalog_object)
-        if aka_rec:
-            return fetch_object_image(aka_rec, low_cut)
+        print(f"Fetching {object_image_path}")
         # POSS
         # this url has less contrast and requires a low-cut on the autoconstrast
         fetch_url = f"https://skyview.gsfc.nasa.gov/current/cgi/runquery.pl?Survey=digitized+sky+survey&position={ra},{dec}&Return=JPEG&size=1&pixels=1024"
@@ -128,20 +92,6 @@ def fetch_object_image(catalog_object, low_cut=10):
     return True
 
 
-def fetch_catalog(catalog):
-    conn = sqlite3.connect(CATALOG_PATH)
-    conn.row_factory = sqlite3.Row
-    db_c = conn.cursor()
-    cat_objects = conn.execute(
-        f"""
-        SELECT * from objects
-        where catalog='{catalog}'
-        order by sequence
-    """
-    ).fetchall()
-    return cat_objects
-
-
 def create_catalog_image_dirs():
     """
     Checks for and creates catalog_image dirs
@@ -155,8 +105,13 @@ def create_catalog_image_dirs():
             os.makedirs(_image_dir)
 
 
-def get_catalog_images(catalog):
+def main():
+    objects_db = ObjectsDatabase()
     create_catalog_image_dirs()
-    cat = fetch_catalog(catalog)
-    for catalog_object in cat:
+    all_objects = objects_db.get_objects()
+    for catalog_object in tqdm(all_objects):
         fetch_object_image(catalog_object)
+
+
+if __name__ == "__main__":
+    main()
