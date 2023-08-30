@@ -14,8 +14,10 @@ PiFinder needs 3.9 or 3.10 python with a working pip
 # setup
 
 ## install python dependencies
+```
 pip install -r requirements.txt
 pip install -r requirements_dev.txt
+```
 
 ## install other dependencies
 
@@ -23,19 +25,19 @@ pip install -r requirements_dev.txt
 
 Download the hipparcos catalog, change the download location.
 
-'''wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat'''
+```wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat```
 
 ### Tetra3 solver
 
-'''
+```
 cd python/PiFinder
 git clone https://github.com/esa/tetra3.git
-'''
+```
 
 # running
 
 Run the following command from the ./python folder
-'''python3 -m PiFinder.main -fh -k server --camera debug -x'''
+```python3 -m PiFinder.main -fh -k server --camera debug -x```
 
 
 # debugging
