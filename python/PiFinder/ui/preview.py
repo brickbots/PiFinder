@@ -8,6 +8,8 @@ import uuid
 import os
 import time
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+from PiFinder.ui.fonts import Fonts as fonts
+from PiFinder import tetra3
 
 from PiFinder.image_util import (
     gamma_correct_high,
@@ -79,6 +81,8 @@ class UIPreview(UIModule):
         self.capture_prefix = f"{self.__uuid__}_diag"
         self.capture_count = 0
 
+        self.indicate_stars = True
+
     def set_exp(self, option):
         new_exposure = int(option * 1000000)
         self.command_queues["camera"].put(f"set_exp:{new_exposure}")
@@ -126,6 +130,33 @@ class UIPreview(UIModule):
             self.draw.arc(bbox, 200, 250, fill=self.colors.get(brightness))
             self.draw.arc(bbox, 290, 340, fill=self.colors.get(brightness))
 
+    def draw_star_selectors(self, star_list):
+        # Draw star selectors
+        if star_list.shape[0] >= 3:
+            for _i in range(3):
+                raw_y, raw_x = star_list[_i]
+                star_x = int(raw_x / 4)
+                star_y = int(raw_y / 4)
+
+                self.draw.line(
+                    [
+                        (star_x, star_y - 4),
+                        (star_x, star_y - 10),
+                    ],
+                    fill=self.colors.get(128),
+                )
+
+                self.draw.line(
+                    [
+                        (star_x + 4, star_y),
+                        (star_x + 10, star_y),
+                    ],
+                    fill=self.colors.get(128),
+                )
+
+                self.draw.text((star_x + 6, star_y-12), str(_i + 1), font=fonts.small, fill=self.colors.get(128))
+
+
     def update(self, force=False):
         if force:
             self.last_update = 0
@@ -133,6 +164,11 @@ class UIPreview(UIModule):
         last_image_time = self.shared_state.last_image_metadata()["exposure_end"]
         if last_image_time > self.last_update:
             image_obj = self.camera_image.copy()
+
+            # Fetch Centroids before image is altered
+            if self.indicate_stars:
+                star_list = tetra3.get_centroids_from_image(image_obj)
+
             if self._config_options["Zoom View"]["value"] == "Off":
                 # Resize
                 image_obj = image_obj.resize((128, 128))
@@ -155,6 +191,9 @@ class UIPreview(UIModule):
             self.last_update = last_image_time
 
             self.title = "PREVIEW"
+
+            if self.indicate_stars:
+                self.draw_star_selectors(star_list)
 
         self.draw_reticle()
         return self.screen_update()
