@@ -237,7 +237,7 @@ class UIPreview(UIModule):
         if self.align_mode:
             if number == 0:
                 # reset reticle
-                self.shared_state.set_align_offset(256, 256)
+                self.shared_state.set_solve_pixel(256, 256)
                 self.config_object.set_option("solve_pixel", (256, 256))
                 self.align_mode = False
                 self.update(force=True)
