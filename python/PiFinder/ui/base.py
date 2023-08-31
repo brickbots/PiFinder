@@ -26,7 +26,6 @@ class UIModule:
         camera_image,
         shared_state,
         command_queues,
-        ui_state={},
         config_object=None,
     ):
         self.title = self.__title__
@@ -34,6 +33,7 @@ class UIModule:
         self.display = device_wrapper.device
         self.colors = device_wrapper.colors
         self.shared_state = shared_state
+        self.ui_state = shared_state.ui_state()
         self.camera_image = camera_image
         self.command_queues = command_queues
         self.screen = Image.new("RGB", (128, 128))
@@ -47,7 +47,6 @@ class UIModule:
         prefix = f"{self.__uuid__}_{self.__title__}"
         self.ss_path = os.path.join(root_dir, "screenshots", prefix)
         self.ss_count = 0
-        self.ui_state = ui_state
         self.config_object = config_object
 
     def exit_config(self, option):
@@ -128,7 +127,7 @@ class UIModule:
         message = " " * int((16 - len(message)) / 2) + message
         self.draw.text((9, 54), message, font=self.font_bold, fill=self.colors.get(255))
         self.display.display(self.screen.convert(self.display.mode))
-        self.ui_state["message_timeout"] = timeout + time.time()
+        self.ui_state.set_message_timeout(timeout + time.time())
 
     def screen_update(self, title_bar=True):
         """
@@ -136,7 +135,7 @@ class UIModule:
         takes self.screen adds title bar and
         writes to display
         """
-        if time.time() < self.ui_state["message_timeout"]:
+        if time.time() < self.ui_state.message_timeout():
             return None
 
         if title_bar:

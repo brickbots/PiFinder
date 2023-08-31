@@ -55,15 +55,15 @@ class UILocate(UIModule):
         if option == "CANCEL":
             return False
 
-        if len(self.ui_state["active_list"]) == 0:
+        if len(self.ui_state.active_list()) == 0:
             self.message("No objects")
             return False
 
         filename = f"{self.__uuid__}_{option}_{self.ss_count:02d}"
         if option == "History":
-            obslist.write_list(self.ui_state["history_list"], filename)
+            obslist.write_list(self.ui_state.history_list(), filename)
         else:
-            obslist.write_list(self.ui_state["observing_list"], filename)
+            obslist.write_list(self.ui_state.observing_list(), filename)
         self.obs_list_write_index += 1
         self.message(f"Saved list - {self.ss_count:02d}")
         return True
@@ -83,10 +83,10 @@ class UILocate(UIModule):
             self.message("No matches")
             return False
 
-        self.ui_state["observing_list"] = _load_results["catalog"]
-        self.ui_state["active_list"] = self.ui_state["observing_list"]
+        self.ui_state.set_observing_list(_load_results["catalog"])
+        self.ui_state.set_active_list_to_observing_list()
         self.target_index = 0
-        self.ui_state["target"] = self.ui_state["active_list"][self.target_index]
+        self.ui_state.set_target(self.ui_state.active_list()[self.target_index])
         self.update_object_text()
         self.message(f"Loaded {object_count} of {_load_results['objects_parsed']}")
         return True
@@ -96,21 +96,21 @@ class UILocate(UIModule):
         When B is pressed, switch target lists
         """
         self.target_index = None
-        if self.ui_state["active_list"] == self.ui_state["history_list"]:
-            if len(self.ui_state["observing_list"]) > 0:
-                self.ui_state["active_list"] = self.ui_state["observing_list"]
+        if self.ui_state.active_list_is_history_list():
+            if len(self.ui_state.observing_list()) > 0:
+                self.ui_state.active_list_to_observing_list()
                 self.target_index = 0
             else:
                 self.message("No Obs List", 1)
         else:
-            if len(self.ui_state["history_list"]) > 0:
-                self.ui_state["active_list"] = self.ui_state["history_list"]
-                self.target_index = len(self.ui_state["active_list"]) - 1
+            if len(self.ui_state.history_list()) > 0:
+                self.ui_state.active_list_to_history_list()
+                self.target_index = len(self.ui_state.active_list()) - 1
             else:
                 self.message("No History", 1)
 
         if self.target_index != None:
-            self.ui_state["target"] = self.ui_state["active_list"][self.target_index]
+            self.ui_state.set_target_to_active_list_index(self.target_index)
             self.update_object_text()
 
     def key_enter(self):
@@ -127,18 +127,16 @@ class UILocate(UIModule):
         self.scroll_target_history(1)
 
     def delete(self):
-        active_list = self.ui_state["active_list"]
+        active_list = self.ui_state.active_list()
         if self.target_index is not None and len(active_list) > 1:
             del active_list[self.target_index]
             self.target_index = (self.target_index + 1) % len(active_list)
-            self.target = self.ui_state["active_list"][self.target_index]
-            self.ui_state["target"] = self.target
+            self.uit_state.set_target_to_active_list_index(self.target_index)
             self.update_object_text()
             self.update()
         elif len(active_list) == 1:
-            self.ui_state["active_list"] = []
+            self.ui_state.set_active_list([])
             self.target_index = None
-            self.target = None
             self.switch_to = "UICatalog"
         else:
             self.switch_to = "UICatalog"
@@ -147,7 +145,7 @@ class UILocate(UIModule):
         """
         Generates object text
         """
-        target = self.ui_state["target"]
+        target = self.ui_state.target()
         if not target:
             self.object_text = ["No Object Found"]
             return
@@ -178,8 +176,8 @@ class UILocate(UIModule):
                     location["altitude"],
                 )
                 target_alt, target_az = self.sf_utils.radec_to_altaz(
-                    self.ui_state["target"].ra,
-                    self.ui_state["target"].dec,
+                    self.ui_state.target().ra,
+                    self.ui_state.target().dec,
                     dt,
                 )
                 az_diff = target_az - solution["Az"]
@@ -195,8 +193,8 @@ class UILocate(UIModule):
 
     def active(self):
         try:
-            self.target_index = self.ui_state["active_list"].index(
-                self.ui_state["target"]
+            self.target_index = self.ui_state.active_list().index(
+                self.ui_state.target()
             )
         except ValueError:
             self.target_index = None
@@ -208,7 +206,7 @@ class UILocate(UIModule):
         # Clear Screen
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
 
-        target = self.ui_state["target"]
+        target = self.ui_state.target()
         if not target:
             self.draw.text(
                 (0, 20),
@@ -225,11 +223,11 @@ class UILocate(UIModule):
 
         # Target history index
         if self.target_index != None:
-            if self.ui_state["active_list"] == self.ui_state["history_list"]:
+            if self.ui_state.active_list_is_history_list():
                 list_name = "Hist"
             else:
                 list_name = "Obsv"
-            line = f'{self.target_index + 1}/{len(self.ui_state["active_list"])}'
+            line = f"{self.target_index + 1}/{len(self.ui_state.active_list())}"
             line = f"{line : >9}"
             self.draw.text(
                 (72, 18), line, font=self.font_base, fill=self.colors.get(255)
@@ -301,13 +299,13 @@ class UILocate(UIModule):
     def scroll_target_history(self, direction):
         if self.target_index != None:
             self.target_index += direction
-            if self.target_index >= len(self.ui_state["active_list"]):
-                self.target_index = len(self.ui_state["active_list"]) - 1
+            active_list_len = len(self.ui_state.active_list())
+            if self.target_index >= active_list_len:
+                self.target_index = active_list_len - 1
 
             if self.target_index < 0:
                 self.target_index = 0
 
-            self.target = self.ui_state["active_list"][self.target_index]
-            self.ui_state["target"] = self.target
+            self.ui_state.set_target_to_active_list_index(self.target_index)
             self.update_object_text()
             self.update()

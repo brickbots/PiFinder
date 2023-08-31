@@ -44,7 +44,7 @@ from PiFinder.ui.locate import UILocate
 from PiFinder.ui.config import UIConfig
 from PiFinder.ui.log import UILog
 
-from PiFinder.state import SharedStateObj
+from PiFinder.state import SharedStateObj, UIState
 
 from PiFinder.image_util import (
     subtract_background,
@@ -138,6 +138,7 @@ class StateManager(BaseManager):
 
 
 StateManager.register("SharedState", SharedStateObj)
+StateManager.register("UIState", UIState)
 StateManager.register("NewImage", Image.new)
 
 
@@ -185,37 +186,30 @@ def main(script_name=None, has_server=False):
     }
     cfg = config.Config()
 
-    # Unit UI shared state
-    ui_state = {
-        "history_list": [],
-        "observing_list": [],
-        "target": None,
-        "message_timeout": 0,
-    }
-    ui_state["active_list"] = ui_state["history_list"]
-
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness, cfg)
-    console = UIConsole(display_device, None, None, command_queues, ui_state, cfg)
-    console.write("Starting....")
-    console.update()
-    time.sleep(2)
-
-    # spawn gps service....
-    console.write("   GPS")
-    console.update()
-    gps_process = Process(
-        target=gps_monitor.gps_monitor,
-        args=(
-            gps_queue,
-            console_queue,
-        ),
-    )
-    gps_process.start()
 
     with StateManager() as manager:
         shared_state = manager.SharedState()
+        ui_state = manager.UIState()
+        shared_state.set_ui_state(ui_state)
+        console = UIConsole(display_device, None, shared_state, command_queues, cfg)
+        console.write("Starting....")
+        console.update()
+        time.sleep(2)
+
+        # spawn gps service....
+        console.write("   GPS")
+        console.update()
+        gps_process = Process(
+            target=gps_monitor.gps_monitor,
+            args=(
+                gps_queue,
+                console_queue,
+            ),
+        )
+        gps_process.start()
         console.set_shared_state(shared_state)
 
         # multiprocessing.set_start_method('spawn')
@@ -303,7 +297,6 @@ def main(script_name=None, has_server=False):
                 camera_image,
                 shared_state,
                 command_queues,
-                ui_state,
                 cfg,
             ),
             UIChart(
@@ -311,7 +304,6 @@ def main(script_name=None, has_server=False):
                 camera_image,
                 shared_state,
                 command_queues,
-                ui_state,
                 cfg,
             ),
             UICatalog(
@@ -319,7 +311,6 @@ def main(script_name=None, has_server=False):
                 camera_image,
                 shared_state,
                 command_queues,
-                ui_state,
                 cfg,
             ),
             UILocate(
@@ -327,7 +318,6 @@ def main(script_name=None, has_server=False):
                 camera_image,
                 shared_state,
                 command_queues,
-                ui_state,
                 cfg,
             ),
             UIPreview(
@@ -335,7 +325,6 @@ def main(script_name=None, has_server=False):
                 camera_image,
                 shared_state,
                 command_queues,
-                ui_state,
                 cfg,
             ),
             UIStatus(
@@ -343,7 +332,6 @@ def main(script_name=None, has_server=False):
                 camera_image,
                 shared_state,
                 command_queues,
-                ui_state,
                 cfg,
             ),
             console,
@@ -352,7 +340,6 @@ def main(script_name=None, has_server=False):
                 camera_image,
                 shared_state,
                 command_queues,
-                ui_state,
                 cfg,
             ),
         ]

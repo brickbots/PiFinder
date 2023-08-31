@@ -157,11 +157,11 @@ class UICatalog(UIModule):
 
             # Filter the catalog one last time
             self.catalog_tracker.filter()
-            self.ui_state["observing_list"] = self.catalog_tracker.get_objects(
-                filtered=True
+            self.ui_state.set_observing_list(
+                self.catalog_tracker.get_objects(filtered=True)
             )
-            self.ui_state["active_list"] = self.ui_state["observing_list"]
-            self.ui_state["target"] = self.ui_state["active_list"][0]
+            self.ui_state.set_active_list_to_observing_list()
+            self.ui_state.set_target_to_active_list(0)
             return "UILocate"
         else:
             return False
@@ -183,10 +183,10 @@ class UICatalog(UIModule):
                 obj_amount,
                 catalogs=self.catalog_tracker.catalog_names,
             )
-            # self.ui_state["observing_list"] = self.catalog_tracker.get_objects(catalogs=self.catalog_tracker.catalog_names, filtered=True)
-            self.ui_state["observing_list"] = near_catalog
-            self.ui_state["active_list"] = self.ui_state["observing_list"]
-            self.ui_state["target"] = self.ui_state["active_list"][0]
+            # self.shared_state["observing_list"] = self.catalog_tracker.get_objects(catalogs=self.catalog_tracker.catalog_names, filtered=True)
+            self.ui_state.set_observing_list(near_catalog)
+            self.ui_state.set_active_list_to_observing_list()
+            self.ui_state.set_target_to_active_list(0)
             return "UILocate"
         else:
             return False
@@ -301,7 +301,7 @@ class UICatalog(UIModule):
     def active(self):
         # trigger refilter
         self.catalog_tracker.filter()
-        target = self.ui_state["target"]
+        target = self.ui_state.target()
         if target:
             self.catalog_tracker.set_current_object(
                 target.sequence, target.catalog_code
@@ -459,13 +459,8 @@ class UICatalog(UIModule):
         """
         cat_object: CompositeObject = self.catalog_tracker.get_current_object()
         if cat_object:
-            self.ui_state["target"] = cat_object
-            if len(self.ui_state["history_list"]) == 0:
-                self.ui_state["history_list"].append(self.ui_state["target"])
-            elif self.ui_state["history_list"][-1] != self.ui_state["target"]:
-                self.ui_state["history_list"].append(self.ui_state["target"])
-
-            self.ui_state["active_list"] = self.ui_state["history_list"]
+            self.ui_state.set_target_and_add_to_history(cat_object)
+            self.ui_state.set_active_list_to_history_list()
             self.switch_to = "UILocate"
 
     def scroll_obj(self, direction):

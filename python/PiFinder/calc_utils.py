@@ -1,6 +1,5 @@
 import datetime
 import pytz
-import math
 
 
 class FastAltAz:
@@ -53,3 +52,27 @@ class FastAltAz:
         else:
             az = 360 - _az
         return alt, az
+
+
+def ra_to_deg(ra_h, ra_m, ra_s):
+    ra_deg = ra_h
+    if ra_m > 0:
+        ra_deg += ra_m / 60
+    if ra_s > 0:
+        ra_deg += ra_s / 60 / 60
+    ra_deg *= 15
+
+    return ra_deg
+
+
+def dec_to_deg(dec, dec_m, dec_s):
+    dec_deg = abs(dec)
+
+    if dec_m > 0:
+        dec_deg += dec_m / 60
+    if dec_s > 0:
+        dec_deg += dec_s / 60 / 60
+    if dec < 0:
+        dec_deg *= -1
+
+    return dec_deg

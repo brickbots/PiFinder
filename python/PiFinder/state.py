@@ -9,6 +9,80 @@ import datetime
 import pytz
 
 
+class UIState:
+    def __init__(self):
+        self.__observing_list = []
+        self.__history_list = []
+        self.__active_list = []
+        self.__target = None
+        self.__message_timeout = 0
+
+    def observing_list(self):
+        return self.__observing_list
+
+    def set_observing_list(self, v):
+        self.__observing_list = v
+
+    def history_list(self):
+        return self.__history_list
+
+    def set_history_list(self, v):
+        self.__history_list = v
+
+    def active_list(self):
+        return self.__active_list
+
+    def set_active_list(self, v):
+        self.__active_list = v
+
+    def target(self):
+        return self.__target
+
+    def set_target(self, v):
+        self.__target = v
+
+    def message_timeout(self):
+        return self.__message_timeout
+
+    def set_message_timeout(self, v):
+        self.__message_timeout = v
+
+    def set_active_list_to_observing_list(self):
+        self.__active_list = self.__observing_list
+
+    def active_list_is_history_list(self):
+        return self.__active_list == self.__history_list
+
+    def set_active_list_to_history_list(self):
+        self.__active_list = self.__history_list
+
+    def set_target_to_active_list_index(self, index: int):
+        self.__target = self.__active_list[index]
+
+    def set_target_and_add_to_history(self, target):
+        print("set_target_and_add_to_history")
+        print(f"setting target to {target}")
+        self.__target = target
+        if len(self.__history_list) == 0:
+            self.__history_list.append(self.__target)
+        elif self.__history_list[-1] != self.__target:
+            self.__history_list.append(self.__target)
+
+    def __str__(self):
+        return str(
+            {
+                "observing_list": self.__observing_list,
+                "history_list": self.__history_list,
+                "active_list": self.__active_list,
+                "target": self.__target,
+                "message_timeout": self.__message_timeout,
+            }
+        )
+
+    def __repr__(self):
+        return self.__str__()
+
+
 class SharedStateObj:
     def __init__(self):
         self.__power_state = 1
@@ -26,6 +100,7 @@ class SharedStateObj:
         self.__datetime_time = None
         self.__target = None
         self.__screen = None
+        self.__ui_state = None
 
     def power_state(self):
         return self.__power_state
@@ -108,3 +183,28 @@ class SharedStateObj:
 
     def set_screen(self, v):
         self.__screen = v
+
+    def ui_state(self):
+        return self.__ui_state
+
+    def set_ui_state(self, v):
+        self.__ui_state = v
+
+    def __str__(self):
+        return str(
+            {
+                "power_state": self.__power_state,
+                "solve_state": self.__solve_state,
+                "last_image_metadata": self.__last_image_metadata,
+                "solution": self.__solution,
+                "imu": self.__imu,
+                "location": self.__location,
+                "datetime": self.__datetime,
+                "target": self.__target,
+                "screen": self.__screen,
+                "ui_state": self.__ui_state,
+            }
+        )
+
+    def __repr__(self):
+        return self.__str__()

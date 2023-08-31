@@ -10,10 +10,16 @@ import socket
 from math import modf
 import logging
 import re
-from typing import Tuple
+from typing import Tuple, List
+from PiFinder.calc_utils import ra_to_deg, dec_to_deg
+from PiFinder.catalogs import CompositeObject
 
 
-def get_telescope_ra(shared_state):
+sr_result = None
+sequence = 0
+
+
+def get_telescope_ra(shared_state, _):
     """
     Extract RA from current solution
     format for LX200 protocol
@@ -32,7 +38,7 @@ def get_telescope_ra(shared_state):
     return f"{hh:02.0f}:{mm:02.0f}:{ss:02.0f}"
 
 
-def get_telescope_dec(shared_state):
+def get_telescope_dec(shared_state, _):
     """
     Extract DEC from current solution
     format for LX200 protocol
@@ -55,19 +61,19 @@ def get_telescope_dec(shared_state):
     return f"{sign}{hh:02.0f}*{mm:02.0f}'{ss:02.0f}"
 
 
-def respond_none(shared_state):
+def respond_none(shared_state, input_str):
     return None
 
 
-def respond_zero(shared_state):
+def respond_zero(shared_state, input_str):
     return "0"
 
 
-def respond_one(shared_state):
+def respond_one(shared_state, input_str):
     return "1"
 
 
-def not_implemented(shared_state):
+def not_implemented(shared_state, input_str):
     return "not implemented"
 
 
@@ -82,20 +88,61 @@ def _match_to_hms(pattern: str, input_str: str) -> Tuple[int, int, int]:
         return None
 
 
-def parse_sr_command(input_str: str):
+def parse_sr_command(_, input_str: str):
+    global sr_result
     pattern = r":Sr([-+]?\d{2}):(\d{2}):(\d{2})#"
-    return _match_to_hms(pattern, input_str)
+    match = _match_to_hms(pattern, input_str)
+    if match:
+        sr_result = match
+        return "1"
+    else:
+        return "0"
 
 
-def parse_sd_command(input_str: str):
+def parse_sd_command(shared_state, input_str: str):
+    global sr_result
     pattern = r":Sd([-+]?\d{2})\*(\d{2}):(\d{2})#"
-    return _match_to_hms(pattern, input_str)
+    match = _match_to_hms(pattern, input_str)
+    if match and sr_result:
+        return handle_goto_command(shared_state, sr_result, match)
+    else:
+        return "0"
 
 
-def handle_goto_command(ra_parsed, dec_parsed):
-    ra_hours, ra_minutes, ra_seconds = ra_parsed
-    dec_hours, dec_minutes, dec_seconds = dec_parsed
+def handle_goto_command(shared_state, ra_parsed, dec_parsed):
+    global sequence
+    ra = ra_to_deg(*ra_parsed)
+    dec = dec_to_deg(*dec_parsed)
     logging.debug(f"goto {ra_parsed} {dec_parsed}")
+    sequence += 1
+    obj = CompositeObject(
+        {
+            "id": -1,
+            "obj_type": "",
+            "ra": ra,
+            "dec": dec,
+            "const": "",
+            "size": "",
+            "mag": "",
+            "catalog_code": "PUSH",
+            "sequence": sequence,
+            "description": f"Skysafari object nr {sequence}",
+        }
+    )
+    print(f"shared state: {shared_state}")
+    shared_state.ui_state().set_target_and_add_to_history(obj)
+    return "1"
+
+
+def parse_command(input_str: str) -> List:
+    command = input_str[1:3]
+    logging.debug(f"command: '{command}'")
+    command_handler = lx_command_dict.get(command)
+    if command_handler:
+        return command_handler()
+    else:
+        logging.debug(f"Unknown Command: '{input_str}'")
+        return "0"
 
 
 def run_server(shared_state, _):
@@ -106,7 +153,6 @@ def run_server(shared_state, _):
             server_socket.bind(("", 4030))
             server_socket.listen(1)
             out_data = None
-            sr_result = None
             while True:
                 client_socket, address = server_socket.accept()
                 while True:
@@ -114,39 +160,14 @@ def run_server(shared_state, _):
                     if in_data:
                         print(f"Received from skysafari: ''{in_data}''")
                         logging.debug(f"Received from skysafari: '{in_data}'")
-                        if in_data.startswith(":Sr"):
-                            parsed_data = parse_sr_command(in_data)
-                            if parsed_data:
-                                sr_result = parsed_data
-                                out_data = "1"
-                            else:
-                                logging.warning(
-                                    f"Invalid command format for Sr {parsed_data}"
-                                )
-                                out_data = "0"
-                        elif in_data.startswith(":Sd"):
-                            if sr_result:
-                                parsed_data = parse_sd_command(in_data)
-                                if parsed_data:
-                                    handle_goto_command(sr_result, parsed_data)
-                                    out_data = "1"
-                                    # out_data = ":Q" # stop the goto
-                                else:
-                                    logging.warning("Invalid command format for Sd")
-                                    out_data = "0"
-                            else:
-                                logging.warning(
-                                    ":Sd command without preceding :Sr command"
-                                )
-                                out_data = "0"
-                        elif in_data.startswith(":"):
-                            command = in_data[1:].split("#")[0]
+                        if in_data.startswith(":"):
+                            command = in_data[1:3]
                             command_handler = lx_command_dict.get(command, None)
                             if command_handler:
-                                out_data = command_handler(shared_state)
+                                out_data = command_handler(shared_state, in_data)
                             else:
                                 print("Unknown Command:", in_data)
-                                out_data = not_implemented(shared_state)
+                                out_data = not_implemented(shared_state, in_data)
                     else:
                         break
 
@@ -167,4 +188,6 @@ lx_command_dict = {
     "GR": get_telescope_ra,
     "RS": respond_none,
     "MS": respond_zero,
+    "Sd": parse_sd_command,
+    "Sr": parse_sr_command,
 }

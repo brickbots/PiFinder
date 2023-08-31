@@ -53,7 +53,7 @@ class UIChart(UIModule):
             return
 
         marker_list = []
-        for obs_target in self.ui_state["observing_list"]:
+        for obs_target in self.ui_state.observing_list():
             marker = OBJ_TYPE_MARKERS.get(obs_target.obj_type)
             if marker:
                 marker_list.append(
@@ -87,7 +87,7 @@ class UIChart(UIModule):
         Plot the target....
         """
         # is there a target?
-        target = self.ui_state["target"]
+        target = self.ui_state.target()
         if not target or not self.solution:
             return
 

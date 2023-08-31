@@ -140,7 +140,7 @@ class UILog(UIModule):
     def active(self):
         # Make sure we set the logged time to 0 to indicate we
         # have not logged yet
-        state_target = self.ui_state["target"]
+        state_target = self.ui_state.target()
         if state_target != self.target:
             self.target = state_target
             self.reset_config()

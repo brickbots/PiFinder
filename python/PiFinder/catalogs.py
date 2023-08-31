@@ -20,20 +20,24 @@ class CompositeObject:
     """
 
     def __init__(self, data_dict):
-        self._data = data_dict
+        self.data = data_dict
 
     def __getattr__(self, name):
         # Return the value if it exists in the dictionary.
         # If not, raise an AttributeError.
+        if name == "data":
+            raise AttributeError(
+                f"'{type(self).__name__}' object has not been properly initialized"
+            )
         try:
-            return self._data[name]
+            return self.data[name]
         except KeyError:
             raise AttributeError(
                 f"'{type(self).__name__}' object has no attribute '{name}'"
             )
 
     def __str__(self):
-        return f"CompositeObject: {str(self._data)}"
+        return f"CompositeObject: {str(self.data)}"
 
     def __repr__(self):
         return f"CompositeObject: {self.catalog_code} {self.sequence}"
@@ -53,6 +57,7 @@ class Objects:
 
     def __init__(self):
         self.db = ObjectsDatabase()
+        # list of dicts, one dict for each entry in the catalog_objects table
         cat_objects: List[Dict] = [dict(row) for row in self.db.get_catalog_objects()]
         objects = self.db.get_objects()
         self.objects = {row["id"]: dict(row) for row in objects}
@@ -108,7 +113,16 @@ class Names:
         return self.names[object_id]
 
 
-class Catalog:
+# TODO: Objects is not a clear class, what does it do?
+# what does catalog expose that is used? Only methods should be used.
+# refactor till we can create a catalog from a list of CompositeObject
+# with all the catalog functionality working.
+class CatalogBase:
+    def __init__(self, catalog_code, obj: Objects):
+        pass
+
+
+class Catalog(CatalogBase):
     """Keeps catalog data + filtered objects"""
 
     last_filtered: float = 0
@@ -319,7 +333,17 @@ class CatalogTracker:
         self.set_current_catalog(catalog_names[0])
         self.object_tracker = {c: None for c in self.catalog_names}
 
+    def add_foreign_catalog(self, catalog_name):
+        """foreign objects not in our databasa, e.g. skysafari coords"""
+        self.catalogs[catalog_name] = Catalog(catalog_name, self.obj)
+        self.catalog_names.append(catalog_name)
+        self.designator_tracker[catalog_name] = CatalogDesignator(catalog_name, 1)
+        self.object_tracker[catalog_name] = None
+
     def set_current_catalog(self, catalog_name):
+        if catalog_name not in self.catalogs:
+            self.add_foreign_catalog(catalog_name)
+
         assert catalog_name in self.catalogs, f"{catalog_name} not in {self.catalogs}"
         self.current_catalog = self.catalogs[catalog_name]
         self.current_catalog_name = catalog_name
