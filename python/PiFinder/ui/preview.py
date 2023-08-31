@@ -132,7 +132,7 @@ class UIPreview(UIModule):
 
     def draw_star_selectors(self):
         # Draw star selectors
-        if self.star_list.shape[0] >= 3:
+        if self.star_list.shape[0] > 3:
             for _i in range(3):
                 raw_y, raw_x = self.star_list[_i]
                 star_x = int(raw_x / 4)
@@ -244,7 +244,7 @@ class UIPreview(UIModule):
             if number in (1, 2, 3):
                 # They picked a star to align....
                 star_index = number - 1
-                if self.star_list.shape[0] >= star_index:
+                if self.star_list.shape[0] > star_index:
                     self.shared_state.set_solve_pixel(
                         (self.star_list[star_index][0], self.star_list[star_index][1])
                     )
