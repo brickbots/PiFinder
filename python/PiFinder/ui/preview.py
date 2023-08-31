@@ -28,6 +28,8 @@ class UIPreview(UIModule):
             "type": "enum",
             "value": "Low",
             "options": ["Off", "Low", "Med", "High"],
+            "hotkey": "D",
+            "callback": "exit_config",
         },
         "BG Sub": {
             "type": "bool",
@@ -57,13 +59,6 @@ class UIPreview(UIModule):
             "value": "",
             "options": ["Save", "Exit"],
             "callback": "save_exp",
-        },
-        "Zoom View": {
-            "type": "bool",
-            "value": "Off",
-            "options": ["On", "Off"],
-            "callback": "exit_config",
-            "hotkey": "D",
         },
     }
 
@@ -143,24 +138,36 @@ class UIPreview(UIModule):
                 star_x = int(raw_x / 4)
                 star_y = int(raw_y / 4)
 
+                x_direction = 1
+                x_text_offset = 6
+                y_direction = 1
+                y_text_offset = -12
+
+                if star_x > 108:
+                    x_direction = -1
+                    x_text_offset = -10
+                if star_y < 38:
+                    y_direction = -1
+                    y_text_offset = 1
+
                 self.draw.line(
                     [
-                        (star_x, star_y - 4),
-                        (star_x, star_y - 10),
+                        (star_x, star_y - (4 * y_direction)),
+                        (star_x, star_y - (12 * y_direction)),
                     ],
                     fill=self.colors.get(128),
                 )
 
                 self.draw.line(
                     [
-                        (star_x + 4, star_y),
-                        (star_x + 10, star_y),
+                        (star_x + (4 * x_direction), star_y),
+                        (star_x + (12 * x_direction), star_y),
                     ],
                     fill=self.colors.get(128),
                 )
 
                 self.draw.text(
-                    (star_x + 6, star_y - 12),
+                    (star_x + x_text_offset, star_y + y_text_offset),
                     str(_i + 1),
                     font=fonts.small,
                     fill=self.colors.get(128),
@@ -180,11 +187,8 @@ class UIPreview(UIModule):
             if self.align_mode:
                 self.star_list = tetra3.get_centroids_from_image(image_obj)
 
-            if self._config_options["Zoom View"]["value"] == "Off":
-                # Resize
-                image_obj = image_obj.resize((128, 128))
-            else:
-                image_obj = image_obj.crop((192, 192, 320, 320))
+            # Resize
+            image_obj = image_obj.resize((128, 128))
             if self._config_options["BG Sub"]["value"] == "On":
                 image_obj = subtract_background(image_obj)
             image_obj = image_obj.convert("RGB")
