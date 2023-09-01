@@ -40,4 +40,4 @@ def gps_monitor(gps_queue, console_queue):
         else:
             print("Error in GPS session")
 
-        time.sleep(0.5)
+        time.sleep(5)

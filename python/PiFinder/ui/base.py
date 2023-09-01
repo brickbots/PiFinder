@@ -50,6 +50,11 @@ class UIModule:
         self.ui_state = ui_state
         self.config_object = config_object
 
+        # FPS
+        self.fps=0
+        self.frame_count=0
+        self.last_fps_sample_time = time.time()
+
     def exit_config(self, option):
         """
         Handy callback for exiting
@@ -186,6 +191,16 @@ class UIModule:
 
         screen_to_display = self.screen.convert(self.display.mode)
         self.display.display(screen_to_display)
+
+        # FPS
+        self.frame_count += 1
+        if int(time.time()) - self.last_fps_sample_time > 0:
+            # flipped second
+            self.fps=self.frame_count
+            self.frame_count = 0
+            self.last_fps_sample_time = int(time.time())
+            print(f"{self.fps=}")
+
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
 

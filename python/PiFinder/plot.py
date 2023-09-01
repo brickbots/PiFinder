@@ -46,11 +46,23 @@ class Starfield:
         with load.open(str(const_path)) as f:
             self.constellations = stellarium.parse_constellations(f)
 
+        # Image size stuff
+        self.target_size = 128
+        self.diag_mult = 1.422
+        self.render_size = (int(self.target_size * self.diag_mult), int(self.target_size * self.diag_mult))
+        self.render_center = (int(self.render_size[0] / 2),int(self.render_size[1] / 2))
+        self.render_crop = [
+            int((self.render_size[0] - self.target_size) / 2),
+            int((self.render_size[1] - self.target_size) / 2),
+            int((self.render_size[0] - self.target_size) / 2) + self.target_size,
+            int((self.render_size[1] - self.target_size) / 2) + self.target_size,
+        ]
+
         self.set_mag_limit(mag_limit)
         # Prefilter here for mag 9, just to make sure we have enough
         # for any plot.  Actual mag limit is enforced at plot time.
         bright_stars = self.raw_stars.magnitude <= 7.5
-        self.stars = self.raw_stars[bright_stars]
+        self.stars = self.raw_stars[bright_stars].copy()
         self.star_positions = self.earth.at(self.t).observe(
             Star.from_dataframe(self.stars)
         )
@@ -60,26 +72,32 @@ class Starfield:
         pointer_image_path = Path(marker_path, "pointer.png")
         self.pointer_image = ImageChops.multiply(
             Image.open(str(pointer_image_path)),
-            Image.new("RGB", (256, 256), colors.get(64)),
+            Image.new("RGB", self.render_size, colors.get(64)),
         )
         # load markers...
         self.markers = {}
         for filename in os.listdir(marker_path):
             if filename.startswith("mrk_"):
                 marker_code = filename[4:-4]
-                _image = Image.new("RGB", (256, 256))
+                _image = Image.new("RGB", self.render_size)
                 _image.paste(
-                    Image.open(f"{marker_path}/mrk_{marker_code}.png"), (117, 117)
+                    Image.open(f"{marker_path}/mrk_{marker_code}.png"), (self.render_center[0]-11, self.render_center[1]-11)
                 )
                 self.markers[marker_code] = ImageChops.multiply(
-                    _image, Image.new("RGB", (256, 256), colors.get(256))
+                    _image, Image.new("RGB", self.render_size, colors.get(256))
                 )
+
 
     def set_mag_limit(self, mag_limit):
         self.mag_limit = mag_limit
 
     def set_fov(self, fov):
         self.fov = fov
+        angle = np.pi - (self.fov) / 360.0 * np.pi
+        limit = np.sin(angle) / (1.0 - np.cos(angle))
+
+        self.image_scale = int(self.target_size / limit)
+        self.pixel_scale = self.image_scale / 2
 
     def plot_markers(self, ra, dec, roll, marker_list):
         """
@@ -104,14 +122,8 @@ class Starfield:
 
         markers["x"], markers["y"] = projection(marker_positions)
 
-        target_size = 128
-        angle = np.pi - (self.fov) / 360.0 * np.pi
-        limit = np.sin(angle) / (1.0 - np.cos(angle))
-        ret_image = Image.new("RGB", (target_size * 2, target_size * 2))
+        ret_image = Image.new("RGB", self.render_size)
         idraw = ImageDraw.Draw(ret_image)
-
-        image_scale = int(target_size / limit)
-        pixel_scale = image_scale / 2
 
         markers_x = list(markers["x"])
         markers_y = list(markers["y"])
@@ -119,8 +131,8 @@ class Starfield:
 
         ret_list = []
         for i, x in enumerate(markers_x):
-            x_pos = x * pixel_scale + target_size
-            y_pos = markers_y[i] * -1 * pixel_scale + target_size
+            x_pos = int(x * self.pixel_scale + self.target_size)
+            y_pos = int(markers_y[i] * -1 * self.pixel_scale + self.target_size)
             symbol = markers_symbol[i]
 
             if symbol == "target":
@@ -135,23 +147,23 @@ class Starfield:
 
                 # Draw pointer....
                 # if not within screen
-                if x_pos > 180 or x_pos < 76 or y_pos > 180 or y_pos < 76:
+                if x_pos > self.render_crop[2] or x_pos < self.render_crop[0] or y_pos > self.render_crop[3] or y_pos < self.render_crop[1]:
                     # calc degrees to target....
                     deg_to_target = (
-                        np.rad2deg(np.arctan2(y_pos - 128, x_pos - 128)) + 180
+                        np.rad2deg(np.arctan2(y_pos - self.render_center[1], x_pos - self.render_center[0])) + 180
                     )
                     tmp_pointer = self.pointer_image.copy()
                     tmp_pointer = tmp_pointer.rotate(-deg_to_target)
                     ret_image = ImageChops.add(ret_image, tmp_pointer)
             else:
                 # if it's visible, plot it.
-                if x_pos < 200 and x_pos > 60 and y_pos < 180 and y_pos > 60:
+                if x_pos < self.render_size[0] and x_pos > 0 and y_pos < self.render_size[1] and y_pos > 0:
                     _image = ImageChops.offset(
-                        self.markers[symbol], int(x_pos - 123), int(y_pos - 123)
+                        self.markers[symbol], x_pos - (self.render_center[0]-5), y_pos - (self.render_center[1]-5)
                     )
                     ret_image = ImageChops.add(ret_image, _image)
 
-        return ret_image.rotate(roll).crop([64, 64, 192, 192])
+        return ret_image.rotate(roll).crop(self.render_crop)
 
     def plot_starfield(self, ra, dec, roll, constellation_brightness=32):
         """
@@ -167,23 +179,14 @@ class Starfield:
         projection = build_stereographic_projection(center)
 
         # Time to build the figure!
-        stars = self.stars.copy()
-
-        stars["x"], stars["y"] = projection(self.star_positions)
-        pil_image = self.render_starfield_pil(stars, constellation_brightness)
-        return pil_image.rotate(roll).crop([64, 64, 192, 192])
+        self.stars["x"], self.stars["y"] = projection(self.star_positions)
+        pil_image = self.render_starfield_pil(self.stars, constellation_brightness)
+        return pil_image.rotate(roll).crop(self.render_crop)
 
     def render_starfield_pil(self, stars, constellation_brightness):
-        target_size = 128
-        angle = np.pi - (self.fov) / 360.0 * np.pi
-        limit = np.sin(angle) / (1.0 - np.cos(angle))
 
-        image_scale = int(target_size / limit)
-
-        ret_image = Image.new("L", (target_size * 2, target_size * 2))
+        ret_image = Image.new("L", self.render_size)
         idraw = ImageDraw.Draw(ret_image)
-
-        pixel_scale = image_scale / 2
 
         # constellation lines first
         if constellation_brightness:
@@ -197,22 +200,35 @@ class Starfield:
 
             for i, start_pos in enumerate(xy1):
                 end_pos = xy2[i]
-                start_x = start_pos[0] * pixel_scale + target_size
-                start_y = start_pos[1] * -1 * pixel_scale + target_size
-                end_x = end_pos[0] * pixel_scale + target_size
-                end_y = end_pos[1] * -1 * pixel_scale + target_size
-                idraw.line(
-                    [start_x, start_y, end_x, end_y], fill=(constellation_brightness)
-                )
+                start_x = start_pos[0] * self.pixel_scale + self.render_center[0]
+                start_y = start_pos[1] * -1 * self.pixel_scale + self.render_center[1]
+                end_x = end_pos[0] * self.pixel_scale + self.render_center[0]
+                end_y = end_pos[1] * -1 * self.pixel_scale + self.render_center[1]
+                # is start or end in frame?
+                if (
+                    end_x > 0
+                    and end_x < self.render_size[0]
+                    and end_y > 0
+                    and end_y < self.render_size[1]
+                ) or (
+                    start_x > 0
+                    and start_x < self.render_size[0]
+                    and start_y > 0
+                    and start_y < self.render_size[1]
+                ):
+
+                    idraw.line(
+                        [start_x, start_y, end_x, end_y], fill=(constellation_brightness)
+                    )
 
         for x, y, mag in zip(stars["x"], stars["y"], stars["magnitude"]):
-            x_pos = x * pixel_scale + target_size
-            y_pos = y * -1 * pixel_scale + target_size
+            x_pos = x * self.pixel_scale + self.render_center[0]
+            y_pos = y * -1 * self.pixel_scale + self.render_center[1]
             if (
                 x_pos > 0
-                and x_pos < target_size * 2
+                and x_pos < self.render_size[0]
                 and y_pos > 0
-                and y_pos < target_size * 2
+                and y_pos < self.render_size[1]
             ):
                 # if True:
                 if mag < self.mag_limit:
