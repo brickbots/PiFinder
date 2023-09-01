@@ -5,25 +5,27 @@
 - [Part Printing and Prep](build_guide_parts.md)
 - [Assembly](build_guide_assembly.md)
 
-## Parts ID
-
 The PiFinder can be built in a left, right or flat configuration to work well on many types of telescopes.  See the [Hardware Users Guide](user_guid_hw.md) for more information including example photos.  To build each configuration, only a subset of the available parts are required.
+
+### Inserts
+
+In the photos below you can see the location of most of the heat-set inserts.  The remainder are inserted into the edge of the Back (2x) and RPI Mount (4x) pieces.  If there is a hole in the edge of a piece, it gets an insert.   
 
 ### Common Parts
 There are many parts which are common to all three configurations.  The Bezel, Camera Cell, Camera Cover and RPI Mount are used in all configurations. 
 
 ### Right and Left configurations
 
-Below is an image showing the three specific parts required to build a left or right hand PiFinder.  Note that the Back Plate piece comes in two versions, one for use with a PiSugar (PS) and one without.  The PiSugar piece moves the camera slightly outboard to make room for the PiSugar battery pack.  You'll only need one of these or the other.
+Below is an image showing all the parts required to build a left or right hand PiFinder.  Note that the Back Plate piece comes in two versions, one for use with a PiSugar (PS) and one without.  The PiSugar piece moves the camera slightly outboard to make room for the PiSugar battery pack.  You'll only need one of these or the other.
 
-![Parts List](../images/build_guide/v1.4/build_guide_25.jpg)
+![Parts List](../images/build_guide/v1.6/build_guide_02.jpeg)
 
 Due to the use of edge inserts, these pieces can be assembled in either left, or right, handed configurations so you just need the one set of parts regardless of which side your focuser is facing.  In the assembly guide you'll find info about how to orient the pieces as you put them together. 
 
 ### Flat Configuration
 The pieces required for building the flat versions are pictured below.  The same parts are used with or without a PiSugar battery.
 
-
+![Parts List](../images/build_guide/v1.6/build_guide_03.jpeg)
 ## Printing
 
 These pieces will print without supports in the orientation shown on the photo.  I use 3 perimeter layers and 15% infill, but the pieces are not large and don't need to handle heavy forces so almost any print settings should work.
@@ -46,9 +48,21 @@ You can see a closer view of the through and blind inserts below
 
 ## Mounting
 
-Most people will want to print a dovetail mount which fits into the finder shoe included on most telescopes.  The Flat configuration has it's own fixed dovetail mount, and the left/right hand version has an angle adjustable dovetail mount.  This is to allow the PiFinder to sit upright so the screen is easily visible.   See the image below for a better explanation:
+Most people will want to print the dovetail mount which fits into the finder shoe included on most telescopes.  The Flat configuration has it's own fixed dovetail mount, and the left/right hand version has an angle adjustable dovetail mount.  This is to allow the PiFinder to sit upright so the screen is easily visible.   See the image below for a better explanation:
 
 ![Finder shoe angle](../images/finder_shoe_angle.png)
+
+### Adjustable Dovetail Assembly
+
+If you purchased a kit, the dovetail will already be assembled.  If you print your own parts, you'll need to add heat-set inserts as pictured in the first phot below.  Note that the inserts must be inserted from the outside of the bottom piece, as pictured.  The holes on the inside are not large enough for inserts, they just allow the screws to pass through into the inserts.
+
+See the photos below for how the pieces fit together.  Once assembled you can loosen both screws to adjust the angle up to 40 degrees from horizontal and then secure them again.  No need to go too tight, but a bit of friction will be required to hold the angle.
+
+![Dovetail assembly](../images/build_guide/adjustable_dovetail/DSC_8569.jpeg)
+![Dovetail assembly](../images/build_guide/adjustable_dovetail/DSC_8574.jpeg)
+![Dovetail assembly](../images/build_guide/adjustable_dovetail/DSC_8575.jpeg)
+![Dovetail assembly](../images/build_guide/adjustable_dovetail/DSC_8578.jpeg)
+
 
 If you need more flexibility, there is also a go-pro compatible plate that will bolt into the bottom plate.  You'll need to add inserts into the bottom plate mounting footprint to use this option.
 
