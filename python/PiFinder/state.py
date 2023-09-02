@@ -7,6 +7,7 @@
 import time
 import datetime
 import pytz
+from PiFinder import config
 
 
 class SharedStateObj:
@@ -26,6 +27,20 @@ class SharedStateObj:
         self.__datetime_time = None
         self.__target = None
         self.__screen = None
+        self.__solve_pixel = config.Config().get_option("solve_pixel")
+
+    def solve_pixel(self, screen_space=False):
+        """
+        solve_pixel is (Y,X) in camera image (512x512) space
+
+        if screen_space=True, this is returned as (X,Y) in screen (128x128) space
+        """
+        if screen_space:
+            return (int(self.__solve_pixel[1] / 4), int(self.__solve_pixel[0] / 4))
+        return self.__solve_pixel
+
+    def set_solve_pixel(self, coords):
+        self.__solve_pixel = coords
 
     def power_state(self):
         return self.__power_state
