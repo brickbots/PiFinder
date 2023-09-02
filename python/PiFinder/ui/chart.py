@@ -40,7 +40,7 @@ class UIChart(UIModule):
         self.last_update = time.time()
         self.starfield = plot.Starfield(self.colors)
         self.solution = None
-        self.fov_list = [5, 10.2, 15, 20, 25, 30, 40, 60]
+        self.fov_list = [5, 10.2, 20, 30, 60]
         self.fov_index = 1
         self.fov_set_time = time.time()
         self.fov_target_time = None
@@ -48,29 +48,37 @@ class UIChart(UIModule):
         self.fov = self.desired_fov
         self.set_fov(self.desired_fov)
 
-    def plot_obs_list(self):
+    def plot_markers(self):
         """
         Plot the contents of the observing list
+        and target if there is one
         """
-        if not self.solution or self._config_options["Obs List"]["value"] == "Off":
+        if not self.solution:
             return
 
         marker_list = []
-        for obs_target in self.ui_state["observing_list"]:
-            marker = OBJ_TYPE_MARKERS.get(obs_target.obj_type)
-            if marker:
-                marker_list.append(
-                    (
-                        plot.Angle(degrees=obs_target.ra)._hours,
-                        obs_target.dec,
-                        marker,
+
+        # is there a target?
+        target = self.ui_state["target"]
+        if target:
+            marker_list.append(
+                (plot.Angle(degrees=target.ra)._hours, target.dec, "target")
+            )
+
+        if self._config_options["Obs List"]["value"] != "Off":
+            for obs_target in self.ui_state["observing_list"]:
+                marker = OBJ_TYPE_MARKERS.get(obs_target.obj_type)
+                if marker:
+                    marker_list.append(
+                        (
+                            plot.Angle(degrees=obs_target.ra)._hours,
+                            obs_target.dec,
+                            marker,
+                        )
                     )
-                )
+
         if marker_list != []:
             marker_image = self.starfield.plot_markers(
-                self.solution["RA"],
-                self.solution["Dec"],
-                self.solution["Roll"],
                 marker_list,
             )
             marker_brightness = 255
@@ -84,25 +92,6 @@ class UIChart(UIModule):
                 Image.new("RGB", (128, 128), self.colors.get(marker_brightness)),
             )
             self.screen.paste(ImageChops.add(self.screen, marker_image))
-
-    def plot_target(self):
-        """
-        Plot the target....
-        """
-        # is there a target?
-        target = self.ui_state["target"]
-        if not target or not self.solution:
-            return
-
-        marker_list = [(plot.Angle(degrees=target.ra)._hours, target.dec, "target")]
-
-        marker_image = self.starfield.plot_markers(
-            self.solution["RA"],
-            self.solution["Dec"],
-            self.solution["Roll"],
-            marker_list,
-        )
-        self.screen.paste(ImageChops.add(self.screen, marker_image))
 
     def draw_reticle(self):
         """
@@ -174,6 +163,7 @@ class UIChart(UIModule):
                 and self.solution["RA"] != None
                 and self.solution["Dec"] != None
             ):
+                # This needs to be called first to set RA/DEC/ROLL
                 image_obj = self.starfield.plot_starfield(
                     self.solution["RA"],
                     self.solution["Dec"],
@@ -184,8 +174,8 @@ class UIChart(UIModule):
                     image_obj.convert("RGB"), self.colors.red_image
                 )
                 self.screen.paste(image_obj)
-                self.plot_target()
-                self.plot_obs_list()
+
+                self.plot_markers()
                 self.last_update = last_solve_time
 
         else:

@@ -138,12 +138,14 @@ class Starfield:
         mag_setting = mag_range[0] - ((mag_range[0] - mag_range[1]) * perc_fov)
         self.set_mag_limit(mag_setting)
 
-    def plot_markers(self, ra, dec, roll, marker_list):
+    def plot_markers(self, marker_list):
         """
         Returns an image to add to another image
         Marker list should be a list of
         (RA_Hours/DEC_degrees, symbol) tuples
         """
+        ret_image = Image.new("RGB", self.render_size)
+        idraw = ImageDraw.Draw(ret_image)
 
         markers = pandas.DataFrame(
             marker_list, columns=["ra_hours", "dec_degrees", "symbol"]
@@ -155,19 +157,25 @@ class Starfield:
 
         markers["x"], markers["y"] = self.projection(marker_positions)
 
-        ret_image = Image.new("RGB", self.render_size)
-        idraw = ImageDraw.Draw(ret_image)
+        # Rasterize star positions
+        markers = markers.assign(
+            x_pos=markers["x"] * self.pixel_scale + self.render_center[0],
+            y_pos=markers["y"] * -1 * self.pixel_scale + self.render_center[1],
+        )
+        # now filter by visiblity
+        markers = markers[
+            (
+                (markers["x_pos"] > 0)
+                & (markers["x_pos"] < self.render_size[0])
+                & (markers["y_pos"] > 0)
+                & (markers["y_pos"] < self.render_size[1])
+            )
+            | (markers["symbol"] == "target")
+        ]
 
-        markers_x = list(markers["x"])
-        markers_y = list(markers["y"])
-        markers_symbol = list(markers["symbol"])
-
-        ret_list = []
-        for i, x in enumerate(markers_x):
-            x_pos = int(x * self.pixel_scale + self.render_center[0])
-            y_pos = int(markers_y[i] * -1 * self.pixel_scale + self.render_center[1])
-            symbol = markers_symbol[i]
-
+        for x_pos, y_pos, symbol in zip(
+            markers["x_pos"], markers["y_pos"], markers["symbol"]
+        ):
             if symbol == "target":
                 idraw.line(
                     [x_pos, y_pos - 5, x_pos, y_pos + 5],
@@ -200,21 +208,14 @@ class Starfield:
                     tmp_pointer = tmp_pointer.rotate(-deg_to_target)
                     ret_image = ImageChops.add(ret_image, tmp_pointer)
             else:
-                # if it's visible, plot it.
-                if (
-                    x_pos < self.render_size[0]
-                    and x_pos > 0
-                    and y_pos < self.render_size[1]
-                    and y_pos > 0
-                ):
-                    _image = ImageChops.offset(
-                        self.markers[symbol],
-                        x_pos - (self.render_center[0] - 5),
-                        y_pos - (self.render_center[1] - 5),
-                    )
-                    ret_image = ImageChops.add(ret_image, _image)
+                _image = ImageChops.offset(
+                    self.markers[symbol],
+                    int(x_pos) - (self.render_center[0] - 5),
+                    int(y_pos) - (self.render_center[1] - 5),
+                )
+                ret_image = ImageChops.add(ret_image, _image)
 
-        return ret_image.rotate(roll).crop(self.render_crop)
+        return ret_image.rotate(self.roll).crop(self.render_crop)
 
     def update_projection(self, ra, dec):
         """
@@ -235,6 +236,7 @@ class Starfield:
         constellation lines
         """
         self.update_projection(ra, dec)
+        self.roll = roll
 
         # Set star x/y for projection
         self.stars["x"], self.stars["y"] = self.projection(self.star_positions)
@@ -248,7 +250,7 @@ class Starfield:
         )
 
         pil_image = self.render_starfield_pil(constellation_brightness)
-        return pil_image.rotate(roll).crop(self.render_crop)
+        return pil_image.rotate(self.roll).crop(self.render_crop)
 
     def render_starfield_pil(self, constellation_brightness):
         ret_image = Image.new("L", self.render_size)
