@@ -34,17 +34,12 @@ class Starfield:
         self.t = ts.from_datetime(utctime)
         # An ephemeris from the JPL provides Sun and Earth positions.
 
-        self.earth = sf_utils.earth
+        self.earth = sf_utils.earth.at(self.t)
 
         # The Hipparcos mission provides our star catalog.
         hip_path = Path(utils.astro_data_dir, "hip_main.dat")
         with load.open(str(hip_path)) as f:
             self.raw_stars = hipparcos.load_dataframe(f)
-
-        # constellations
-        const_path = Path(utils.astro_data_dir, "constellationship.fab")
-        with load.open(str(const_path)) as f:
-            self.constellations = stellarium.parse_constellations(f)
 
         # Image size stuff
         self.target_size = 128
@@ -69,10 +64,28 @@ class Starfield:
         # for any plot.  Actual mag limit is enforced at plot time.
         bright_stars = self.raw_stars.magnitude <= 7.5
         self.stars = self.raw_stars[bright_stars].copy()
-        self.star_positions = self.earth.at(self.t).observe(
-            Star.from_dataframe(self.stars)
-        )
+
+        self.star_positions = self.earth.observe(Star.from_dataframe(self.stars))
         self.set_fov(fov)
+
+        # constellations
+        const_path = Path(utils.astro_data_dir, "constellationship.fab")
+        with load.open(str(const_path)) as f:
+            self.constellations = stellarium.parse_constellations(f)
+        edges = [edge for name, edges in self.constellations for edge in edges]
+        const_start_stars = [star1 for star1, star2 in edges]
+        const_end_stars = [star2 for star1, star2 in edges]
+
+        # Start the main dataframe to hold edge info (start + end stars)
+        self.const_edges_df = self.stars.loc[const_start_stars]
+
+        # We need position lists for both start/end
+        self.const_start_star_positions = self.earth.observe(
+            Star.from_dataframe(self.const_edges_df)
+        )
+        self.const_end_star_positions = self.earth.observe(
+            Star.from_dataframe(self.stars.loc[const_end_stars])
+        )
 
         marker_path = Path(utils.pifinder_dir, "markers")
         pointer_image_path = Path(marker_path, "pointer.png")
@@ -131,12 +144,6 @@ class Starfield:
         Marker list should be a list of
         (RA_Hours/DEC_degrees, symbol) tuples
         """
-        sky_pos = Star(
-            ra=Angle(degrees=ra),
-            dec_degrees=dec,
-        )
-        center = self.earth.at(self.t).observe(sky_pos)
-        projection = build_stereographic_projection(center)
 
         markers = pandas.DataFrame(
             marker_list, columns=["ra_hours", "dec_degrees", "symbol"]
@@ -144,9 +151,9 @@ class Starfield:
 
         # required, use the same epoch as stars
         markers["epoch_year"] = 1991.25
-        marker_positions = self.earth.at(self.t).observe(Star.from_dataframe(markers))
+        marker_positions = self.earth.observe(Star.from_dataframe(markers))
 
-        markers["x"], markers["y"] = projection(marker_positions)
+        markers["x"], markers["y"] = self.projection(marker_positions)
 
         ret_image = Image.new("RGB", self.render_size)
         idraw = ImageDraw.Draw(ret_image)
@@ -209,21 +216,37 @@ class Starfield:
 
         return ret_image.rotate(roll).crop(self.render_crop)
 
+    def update_projection(self, ra, dec):
+        """
+        Updates the shared projection used for various plotting
+        routines
+        """
+        sky_pos = Star(
+            ra=Angle(degrees=ra),
+            dec_degrees=dec,
+        )
+        center = self.earth.observe(sky_pos)
+        self.projection = build_stereographic_projection(center)
+
     def plot_starfield(self, ra, dec, roll, constellation_brightness=32):
         """
         Returns an image of the starfield at the
         provided RA/DEC/ROLL with or without
         constellation lines
         """
-        sky_pos = Star(
-            ra=Angle(degrees=ra),
-            dec_degrees=dec,
-        )
-        center = self.earth.at(self.t).observe(sky_pos)
-        projection = build_stereographic_projection(center)
+        self.update_projection(ra, dec)
 
-        # Time to build the figure!
-        self.stars["x"], self.stars["y"] = projection(self.star_positions)
+        # Set star x/y for projection
+        self.stars["x"], self.stars["y"] = self.projection(self.star_positions)
+
+        # set start/end star x/y for const
+        self.const_edges_df["sx"], self.const_edges_df["sy"] = self.projection(
+            self.const_start_star_positions
+        )
+        self.const_edges_df["ex"], self.const_edges_df["ey"] = self.projection(
+            self.const_end_star_positions
+        )
+
         pil_image = self.render_starfield_pil(constellation_brightness)
         return pil_image.rotate(roll).crop(self.render_crop)
 
@@ -231,61 +254,61 @@ class Starfield:
         ret_image = Image.new("L", self.render_size)
         idraw = ImageDraw.Draw(ret_image)
 
-        # Rasterize star positions
-        stars = self.stars.assign(
-            x_pos=self.stars["x"] * self.pixel_scale + self.render_center[0],
-            y_pos=self.stars["y"] * -1 * self.pixel_scale + self.render_center[1],
-        )
-
         # constellation lines first
         if constellation_brightness:
-            edges = [edge for name, edges in self.constellations for edge in edges]
-            edges_star1 = [star1 for star1, star2 in edges]
-            edges_star2 = [star2 for star1, star2 in edges]
-
-            """
-            start_edge_stars = stars.loc(edges_star1)
-            end_edge_stars = (
-                stars.loc(edges_star2)
-                .rename(columns={"x_pos": "end_x_pos", "y_pos": "end_y_pos"})
-                .reindex(start_edge_stars.index)
+            # Rasterize edge start/end positions
+            const_edges = self.const_edges_df.assign(
+                sx_pos=self.const_edges_df["sx"] * self.pixel_scale
+                + self.render_center[0],
+                sy_pos=self.const_edges_df["sy"] * -1 * self.pixel_scale
+                + self.render_center[1],
+                ex_pos=self.const_edges_df["ex"] * self.pixel_scale
+                + self.render_center[0],
+                ey_pos=self.const_edges_df["ey"] * -1 * self.pixel_scale
+                + self.render_center[1],
             )
-            edge_stars = pandas.concat([start_edge_stars, end_edge_stars], axis=1)
-            """
 
-            # edges in plot space
-            xy1 = stars[["x_pos", "y_pos"]].loc[edges_star1].values
-            xy2 = stars[["x_pos", "y_pos"]].loc[edges_star2].values
+            # filter for visibility
+            visible_edges = const_edges[
+                (
+                    (const_edges["sx_pos"] > 0)
+                    & (const_edges["sx_pos"] < self.render_size[0])
+                    & (const_edges["sy_pos"] > 0)
+                    & (const_edges["sy_pos"] < self.render_size[1])
+                )
+                | (
+                    (const_edges["ex_pos"] > 0)
+                    & (const_edges["ex_pos"] < self.render_size[0])
+                    & (const_edges["ey_pos"] > 0)
+                    & (const_edges["ey_pos"] < self.render_size[1])
+                )
+            ]
 
-            for start_pos, end_pos in zip(xy1, xy2):
-                start_x = start_pos[0]
-                start_y = start_pos[1]
-                end_x = end_pos[0]
-                end_y = end_pos[1]
-                # is start or end in frame?
-                if (
-                    end_x > 0
-                    and end_x < self.render_size[0]
-                    and end_y > 0
-                    and end_y < self.render_size[1]
-                ) or (
-                    start_x > 0
-                    and start_x < self.render_size[0]
-                    and start_y > 0
-                    and start_y < self.render_size[1]
-                ):
-                    idraw.line(
-                        [start_x, start_y, end_x, end_y],
-                        fill=(constellation_brightness),
-                    )
+            for start_x, start_y, end_x, end_y in zip(
+                visible_edges["sx_pos"],
+                visible_edges["sy_pos"],
+                visible_edges["ex_pos"],
+                visible_edges["ey_pos"],
+            ):
+                idraw.line(
+                    [start_x, start_y, end_x, end_y],
+                    fill=(constellation_brightness),
+                )
 
-        # filter stars by visibility/magnitude
-        visible_stars = stars[
-            (stars["x_pos"] > 0)
-            & (stars["x_pos"] < self.render_size[0])
-            & (stars["y_pos"] > 0)
-            & (stars["y_pos"] < self.render_size[1])
-            & (stars["magnitude"] < self.mag_limit)
+        # filter stars by magnitude
+        visible_stars = self.stars[self.stars["magnitude"] < self.mag_limit]
+
+        # Rasterize star positions
+        visible_stars = visible_stars.assign(
+            x_pos=visible_stars["x"] * self.pixel_scale + self.render_center[0],
+            y_pos=visible_stars["y"] * -1 * self.pixel_scale + self.render_center[1],
+        )
+        # now filter by visiblity
+        visible_stars = visible_stars[
+            (visible_stars["x_pos"] > 0)
+            & (visible_stars["x_pos"] < self.render_size[0])
+            & (visible_stars["y_pos"] > 0)
+            & (visible_stars["y_pos"] < self.render_size[1])
         ]
 
         for x_pos, y_pos, mag in zip(
