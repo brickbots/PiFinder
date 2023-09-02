@@ -49,8 +49,14 @@ class Starfield:
         # Image size stuff
         self.target_size = 128
         self.diag_mult = 1.422
-        self.render_size = (int(self.target_size * self.diag_mult), int(self.target_size * self.diag_mult))
-        self.render_center = (int(self.render_size[0] / 2),int(self.render_size[1] / 2))
+        self.render_size = (
+            int(self.target_size * self.diag_mult),
+            int(self.target_size * self.diag_mult),
+        )
+        self.render_center = (
+            int(self.render_size[0] / 2),
+            int(self.render_size[1] / 2),
+        )
         self.render_crop = [
             int((self.render_size[0] - self.target_size) / 2),
             int((self.render_size[1] - self.target_size) / 2),
@@ -70,8 +76,16 @@ class Starfield:
 
         marker_path = Path(utils.pifinder_dir, "markers")
         pointer_image_path = Path(marker_path, "pointer.png")
+        _pointer_image = Image.open(str(pointer_image_path)).crop(
+            [
+                int((256 - self.render_size[0]) / 2),
+                int((256 - self.render_size[1]) / 2),
+                int((256 - self.render_size[0]) / 2) + self.render_size[0],
+                int((256 - self.render_size[1]) / 2) + self.render_size[1],
+            ]
+        )
         self.pointer_image = ImageChops.multiply(
-            Image.open(str(pointer_image_path)),
+            _pointer_image,
             Image.new("RGB", self.render_size, colors.get(64)),
         )
         # load markers...
@@ -81,12 +95,12 @@ class Starfield:
                 marker_code = filename[4:-4]
                 _image = Image.new("RGB", self.render_size)
                 _image.paste(
-                    Image.open(f"{marker_path}/mrk_{marker_code}.png"), (self.render_center[0]-11, self.render_center[1]-11)
+                    Image.open(f"{marker_path}/mrk_{marker_code}.png"),
+                    (self.render_center[0] - 11, self.render_center[1] - 11),
                 )
                 self.markers[marker_code] = ImageChops.multiply(
                     _image, Image.new("RGB", self.render_size, colors.get(256))
                 )
-
 
     def set_mag_limit(self, mag_limit):
         self.mag_limit = mag_limit
@@ -131,8 +145,8 @@ class Starfield:
 
         ret_list = []
         for i, x in enumerate(markers_x):
-            x_pos = int(x * self.pixel_scale + self.target_size)
-            y_pos = int(markers_y[i] * -1 * self.pixel_scale + self.target_size)
+            x_pos = int(x * self.pixel_scale + self.render_center[0])
+            y_pos = int(markers_y[i] * -1 * self.pixel_scale + self.render_center[1])
             symbol = markers_symbol[i]
 
             if symbol == "target":
@@ -147,19 +161,37 @@ class Starfield:
 
                 # Draw pointer....
                 # if not within screen
-                if x_pos > self.render_crop[2] or x_pos < self.render_crop[0] or y_pos > self.render_crop[3] or y_pos < self.render_crop[1]:
+                if (
+                    x_pos > self.render_crop[2]
+                    or x_pos < self.render_crop[0]
+                    or y_pos > self.render_crop[3]
+                    or y_pos < self.render_crop[1]
+                ):
                     # calc degrees to target....
                     deg_to_target = (
-                        np.rad2deg(np.arctan2(y_pos - self.render_center[1], x_pos - self.render_center[0])) + 180
+                        np.rad2deg(
+                            np.arctan2(
+                                y_pos - self.render_center[1],
+                                x_pos - self.render_center[0],
+                            )
+                        )
+                        + 180
                     )
                     tmp_pointer = self.pointer_image.copy()
                     tmp_pointer = tmp_pointer.rotate(-deg_to_target)
                     ret_image = ImageChops.add(ret_image, tmp_pointer)
             else:
                 # if it's visible, plot it.
-                if x_pos < self.render_size[0] and x_pos > 0 and y_pos < self.render_size[1] and y_pos > 0:
+                if (
+                    x_pos < self.render_size[0]
+                    and x_pos > 0
+                    and y_pos < self.render_size[1]
+                    and y_pos > 0
+                ):
                     _image = ImageChops.offset(
-                        self.markers[symbol], x_pos - (self.render_center[0]-5), y_pos - (self.render_center[1]-5)
+                        self.markers[symbol],
+                        x_pos - (self.render_center[0] - 5),
+                        y_pos - (self.render_center[1] - 5),
                     )
                     ret_image = ImageChops.add(ret_image, _image)
 
@@ -184,7 +216,6 @@ class Starfield:
         return pil_image.rotate(roll).crop(self.render_crop)
 
     def render_starfield_pil(self, stars, constellation_brightness):
-
         ret_image = Image.new("L", self.render_size)
         idraw = ImageDraw.Draw(ret_image)
 
@@ -216,9 +247,9 @@ class Starfield:
                     and start_y > 0
                     and start_y < self.render_size[1]
                 ):
-
                     idraw.line(
-                        [start_x, start_y, end_x, end_y], fill=(constellation_brightness)
+                        [start_x, start_y, end_x, end_y],
+                        fill=(constellation_brightness),
                     )
 
         for x, y, mag in zip(stars["x"], stars["y"], stars["magnitude"]):

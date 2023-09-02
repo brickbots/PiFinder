@@ -51,8 +51,8 @@ class UIModule:
         self.config_object = config_object
 
         # FPS
-        self.fps=0
-        self.frame_count=0
+        self.fps = 0
+        self.frame_count = 0
         self.last_fps_sample_time = time.time()
 
     def exit_config(self, option):
@@ -196,7 +196,7 @@ class UIModule:
         self.frame_count += 1
         if int(time.time()) - self.last_fps_sample_time > 0:
             # flipped second
-            self.fps=self.frame_count
+            self.fps = self.frame_count
             self.frame_count = 0
             self.last_fps_sample_time = int(time.time())
             print(f"{self.fps=}")
