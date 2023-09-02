@@ -146,9 +146,14 @@ class UIModule:
 
         if title_bar:
             self.draw.rectangle([0, 0, 128, 16], fill=self.colors.get(64))
-            self.draw.text(
-                (6, 1), self.title, font=self.font_bold, fill=self.colors.get(0)
-            )
+            if self.ui_state.get("show_fps"):
+                self.draw.text(
+                    (6, 1), str(self.fps), font=self.font_bold, fill=self.colors.get(0)
+                )
+            else:
+                self.draw.text(
+                    (6, 1), self.title, font=self.font_bold, fill=self.colors.get(0)
+                )
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
@@ -199,10 +204,9 @@ class UIModule:
             self.fps = self.frame_count
             self.frame_count = 0
             self.last_fps_sample_time = int(time.time())
-            print(f"{self.fps=}")
 
-        if self.shared_state:
-            self.shared_state.set_screen(screen_to_display)
+        # if self.shared_state:
+        #    self.shared_state.set_screen(screen_to_display)
 
         # We can return a UIModule class name to force a switch here
         tmp_return = self.switch_to

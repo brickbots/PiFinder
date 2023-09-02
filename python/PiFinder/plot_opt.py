@@ -113,18 +113,6 @@ class Starfield:
         self.image_scale = int(self.target_size / limit)
         self.pixel_scale = self.image_scale / 2
 
-        # figure out magnitude limit for fov
-        mag_range = (7.5, 5)
-        fov_range = (5, 40)
-        perc_fov = (fov - fov_range[0]) / (fov_range[1] - fov_range[0])
-        if perc_fov > 1:
-            perc_fov = 1
-        if perc_fov < 0:
-            perc_fov = 0
-
-        mag_setting = mag_range[0] - ((mag_range[0] - mag_range[1]) * perc_fov)
-        self.set_mag_limit(mag_setting)
-
     def plot_markers(self, ra, dec, roll, marker_list):
         """
         Returns an image to add to another image

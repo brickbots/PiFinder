@@ -152,7 +152,7 @@ def get_sleep_timeout(cfg):
     return sleep_timeout
 
 
-def main(script_name=None, has_server=False):
+def main(script_name=None, has_server=False, show_fps=False):
     """
     Get this show on the road!
     """
@@ -191,6 +191,7 @@ def main(script_name=None, has_server=False):
         "observing_list": [],
         "target": None,
         "message_timeout": 0,
+        "show_fps": show_fps,
     }
     ui_state["active_list"] = ui_state["history_list"]
 
@@ -678,6 +679,15 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "-f",
+        "--fps",
+        help="Display FPS in title bar",
+        default=False,
+        action="store_true",
+        required=False,
+    )
+
+    parser.add_argument(
         "-n",
         "--notmp",
         help="Don't use the /dev/shm temporary directory.\
@@ -730,4 +740,4 @@ if __name__ == "__main__":
         fh.setLevel(logger.level)
         logger.addHandler(fh)
 
-    main(args.script, args.server)
+    main(args.script, args.server, args.fps)

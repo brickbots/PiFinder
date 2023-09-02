@@ -41,9 +41,12 @@ class UIChart(UIModule):
         self.starfield = plot.Starfield(self.colors)
         self.solution = None
         self.fov_list = [5, 10.2, 15, 20, 25, 30, 40, 60]
-        self.mag_list = [7.5, 7, 6.5, 6, 5.5, 5.5, 5, 5, 5, 5]
         self.fov_index = 1
-        super().__init__(*args)
+        self.fov_set_time = time.time()
+        self.fov_target_time = None
+        self.desired_fov = self.fov_list[self.fov_index]
+        self.fov = self.desired_fov
+        self.set_fov(self.desired_fov)
 
     def plot_obs_list(self):
         """
@@ -116,7 +119,7 @@ class UIChart(UIModule):
             * 32
         )
 
-        fov = self.fov_list[self.fov_index]
+        fov = self.fov
         for circ_deg in [4, 2, 0.5]:
             circ_rad = ((circ_deg / fov) * 128) / 2
             bbox = [
@@ -130,11 +133,33 @@ class UIChart(UIModule):
             self.draw.arc(bbox, 200, 250, fill=self.colors.get(brightness))
             self.draw.arc(bbox, 290, 340, fill=self.colors.get(brightness))
 
+    def set_fov(self, fov):
+        self.starting_fov = self.fov
+        self.fov_starting_time = time.time()
+        self.desired_fov = fov
+
+    def animate_fov(self):
+        if self.fov == self.desired_fov:
+            return
+
+        fov_progress = (time.time() - self.fov_starting_time) * 20
+        if self.desired_fov > self.starting_fov:
+            current_fov = self.starting_fov + fov_progress
+            if current_fov > self.desired_fov:
+                current_fov = self.desired_fov
+        else:
+            current_fov = self.starting_fov - fov_progress
+            if current_fov < self.desired_fov:
+                current_fov = self.desired_fov
+        self.fov = current_fov
+        self.starfield.set_fov(current_fov)
+
     def update(self, force=False):
         if force:
             self.last_update = 0
 
         if self.shared_state.solve_state():
+            self.animate_fov()
             constellation_brightness = (
                 self._config_options["Constellations"]["options"].index(
                     self._config_options["Constellations"]["value"]
@@ -181,8 +206,7 @@ class UIChart(UIModule):
             self.fov_index = 0
         if self.fov_index >= len(self.fov_list):
             self.fov_index = len(self.fov_list) - 1
-        self.starfield.set_fov(self.fov_list[self.fov_index])
-        self.starfield.set_mag_limit(self.mag_list[self.fov_index])
+        self.set_fov(self.fov_list[self.fov_index])
         self.update(force=True)
 
     def key_up(self):
@@ -194,6 +218,5 @@ class UIChart(UIModule):
     def key_enter(self):
         # Set back to 10.2 to match the camera view
         self.fov_index = 1
-        self.starfield.set_fov(self.fov_list[self.fov_index])
-        self.starfield.set_mag_limit(self.mag_list[self.fov_index])
+        self.set_fov(self.fov_list[self.fov_index])
         self.update()
