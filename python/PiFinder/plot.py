@@ -212,12 +212,18 @@ class Starfield:
 
         # Time to build the figure!
         self.stars["x"], self.stars["y"] = projection(self.star_positions)
-        pil_image = self.render_starfield_pil(self.stars, constellation_brightness)
+        pil_image = self.render_starfield_pil(constellation_brightness)
         return pil_image.rotate(roll).crop(self.render_crop)
 
-    def render_starfield_pil(self, stars, constellation_brightness):
+    def render_starfield_pil(self, constellation_brightness):
         ret_image = Image.new("L", self.render_size)
         idraw = ImageDraw.Draw(ret_image)
+
+        # Rasterize star positions
+        stars = self.stars.assign(
+            x_pos=self.stars["x"] * self.pixel_scale + self.render_center[0],
+            y_pos=self.stars["y"] * -1 * self.pixel_scale + self.render_center[1],
+        )
 
         # constellation lines first
         if constellation_brightness:
@@ -225,16 +231,25 @@ class Starfield:
             edges_star1 = [star1 for star1, star2 in edges]
             edges_star2 = [star2 for star1, star2 in edges]
 
-            # edges in plot space
-            xy1 = stars[["x", "y"]].loc[edges_star1].values
-            xy2 = stars[["x", "y"]].loc[edges_star2].values
+            """
+            start_edge_stars = stars.loc(edges_star1)
+            end_edge_stars = (
+                stars.loc(edges_star2)
+                .rename(columns={"x_pos": "end_x_pos", "y_pos": "end_y_pos"})
+                .reindex(start_edge_stars.index)
+            )
+            edge_stars = pandas.concat([start_edge_stars, end_edge_stars], axis=1)
+            """
 
-            for i, start_pos in enumerate(xy1):
-                end_pos = xy2[i]
-                start_x = start_pos[0] * self.pixel_scale + self.render_center[0]
-                start_y = start_pos[1] * -1 * self.pixel_scale + self.render_center[1]
-                end_x = end_pos[0] * self.pixel_scale + self.render_center[0]
-                end_y = end_pos[1] * -1 * self.pixel_scale + self.render_center[1]
+            # edges in plot space
+            xy1 = stars[["x_pos", "y_pos"]].loc[edges_star1].values
+            xy2 = stars[["x_pos", "y_pos"]].loc[edges_star2].values
+
+            for start_pos, end_pos in zip(xy1, xy2):
+                start_x = start_pos[0]
+                start_y = start_pos[1]
+                end_x = end_pos[0]
+                end_y = end_pos[1]
                 # is start or end in frame?
                 if (
                     end_x > 0
@@ -252,31 +267,32 @@ class Starfield:
                         fill=(constellation_brightness),
                     )
 
-        for x, y, mag in zip(stars["x"], stars["y"], stars["magnitude"]):
-            x_pos = x * self.pixel_scale + self.render_center[0]
-            y_pos = y * -1 * self.pixel_scale + self.render_center[1]
-            if (
-                x_pos > 0
-                and x_pos < self.render_size[0]
-                and y_pos > 0
-                and y_pos < self.render_size[1]
-            ):
-                # if True:
-                if mag < self.mag_limit:
-                    plot_size = (self.mag_limit - mag) / 3
-                    fill = 255
-                    if mag > 4.5:
-                        fill = 128
-                    if plot_size < 0.5:
-                        idraw.point((x_pos, y_pos), fill=fill)
-                    else:
-                        idraw.ellipse(
-                            [
-                                x_pos - plot_size,
-                                y_pos - plot_size,
-                                x_pos + plot_size,
-                                y_pos + plot_size,
-                            ],
-                            fill=(255),
-                        )
+        # filter stars by visibility/magnitude
+        visible_stars = stars[
+            (stars["x_pos"] > 0)
+            & (stars["x_pos"] < self.render_size[0])
+            & (stars["y_pos"] > 0)
+            & (stars["y_pos"] < self.render_size[1])
+            & (stars["magnitude"] < self.mag_limit)
+        ]
+
+        for x_pos, y_pos, mag in zip(
+            visible_stars["x_pos"], visible_stars["y_pos"], visible_stars["magnitude"]
+        ):
+            plot_size = (self.mag_limit - mag) / 3
+            fill = 255
+            if mag > 4.5:
+                fill = 128
+            if plot_size < 0.5:
+                idraw.point((x_pos, y_pos), fill=fill)
+            else:
+                idraw.ellipse(
+                    [
+                        x_pos - plot_size,
+                        y_pos - plot_size,
+                        x_pos + plot_size,
+                        y_pos + plot_size,
+                    ],
+                    fill=(255),
+                )
         return ret_image
