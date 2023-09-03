@@ -1,7 +1,8 @@
-import PiFinder.utils as utils
+import json
 from sqlite3 import Connection, Cursor, Error
 from typing import Tuple
 from PiFinder.db.db import Database
+import PiFinder.utils as utils
 
 
 class ObservationsDatabase(Database):
@@ -105,13 +106,13 @@ class ObservationsDatabase(Database):
                 "obs_time": obs_time,
                 "catalog": catalog,
                 "sequence": sequence,
-                "solution": solution,
-                "notes": notes,
+                "solution": json.dumps(solution),
+                "notes": json.dumps(notes),
             },
         )
-        self.db.conn.commit()
+        self.conn.commit()
 
-        observation_id = self.db_cursor.execute(
+        observation_id = self.cursor.execute(
             "select last_insert_rowid() as id"
         ).fetchone()["id"]
         return observation_id

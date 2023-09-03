@@ -4,10 +4,12 @@ and importers used during setup
 
 """
 import csv
+import sys
 import argparse
 import logging
 import datetime
 import re
+from tqdm import tqdm
 from pathlib import Path
 from typing import Dict
 from PiFinder.obj_types import OBJ_DESCRIPTORS
@@ -156,15 +158,53 @@ def insert_catalog_max_sequence(catalog_name):
     query = f"SELECT MAX(sequence) FROM catalog_objects where catalog_code = '{catalog_name}' GROUP BY catalog_code"
     db_c.execute(query)
     result = db_c.fetchone()
-    print(dict(result))
+    # print(dict(result))
     query = f"update catalogs set max_sequence = {dict(result)['MAX(sequence)']} where catalog_code = '{catalog_name}'"
-    print(query)
+    # print(query)
     db_c.execute(query)
     conn.commit()
 
 
+def resolve_object_images():
+    # This is the list of catalogs to search for
+    # objects to match against image names
+    conn, db_c = objects_db.get_conn_cursor()
+    resolution_priority = db_c.execute(
+        f"""
+            SELECT catalog_code
+            FROM catalogs
+            ORDER BY rowid
+        """
+    ).fetchall()
+
+    # load all objects in objects table
+    all_objects = objects_db.get_objects()
+
+    for obj_record in tqdm(all_objects):
+        resolved_name = None
+        for entry in resolution_priority:
+            catalog_code = entry["catalog_code"]
+            catalog_check = db_c.execute(
+                f"""
+                    SELECT sequence
+                    FROM catalog_objects
+                    WHERE catalog_code = '{catalog_code}'
+                    AND object_id = {obj_record['id']}
+                """
+            ).fetchone()
+            if catalog_check:
+                # Found a match!
+                resolved_name = f"{catalog_code}{catalog_check['sequence']}"
+                break
+
+        if not resolved_name:
+            logging.warning(f"No catalog entries for object: {obj_record['id']}")
+        else:
+            objects_db.insert_image_object(obj_record["id"], resolved_name)
+
+
 # not used atm
-def load_deepmap_600():
+def _load_deepmap_600():
     """
     loads the deepmap 600 file to add
     better descriptions and flag items
@@ -326,11 +366,10 @@ def load_sac_asterisms():
 
     saca = Path(utils.astro_data_dir, "SAC_Asterisms_Ver32_Fence.txt")
     sequence = 0
-    logging.info("Loading SAC Asterisms")
     with open(saca, "r") as df:
         df.readline()
         obj_type = "Ast"
-        for l in df:
+        for l in tqdm(list(df)):
             dfs = l.split("|")
             dfs = [d.strip() for d in dfs]
             other_names = dfs[1].strip()
@@ -389,7 +428,7 @@ def load_sac_multistars():
     with open(saca, "r") as df:
         df.readline()
         obj_type = "D*"
-        for l in df:
+        for l in tqdm(list(df)):
             dfs = l.split("|")
             dfs = [d.strip() for d in dfs]
             name = [dfs[2].strip()]
@@ -457,7 +496,7 @@ def load_sac_redstars():
     with open(sac, "r") as df:
         df.readline()
         obj_type = "D*"
-        for l in df:
+        for l in tqdm(list(df)):
             dfs = l.split("|")
             dfs = [d.strip() for d in dfs]
             name = [dfs[1].strip()]
@@ -537,7 +576,7 @@ def load_taas200():
         reader = csv.DictReader(f)
 
         # Iterate over each row in the file
-        for row in reader:
+        for row in tqdm(list(reader)):
             duplicate_names = set()
             sequence = int(row["Nr"])
             logging.debug(f"<----------------- TAAS {sequence=} ----------------->")
@@ -612,7 +651,7 @@ def load_caldwell():
     object_finder = ObjectFinder()
     data = Path(utils.astro_data_dir, "caldwell.dat")
     with open(data, "r") as df:
-        for l in df:
+        for l in tqdm(list(df)):
             dfs = l.split("\t")
             sequence = dfs[0].strip()
             logging.debug(f"<----------------- Caldwell {sequence=} ----------------->")
@@ -659,14 +698,14 @@ def load_ngc_catalog():
     # Add records for catalog descriptions
     delete_catalog_from_database("NGC")
     insert_catalog("NGC", Path(utils.astro_data_dir, "ngc2000", "ngc.desc"))
-    delete_catalog_from_database("M")
-    insert_catalog("M", Path(utils.astro_data_dir, "messier.desc"))
     delete_catalog_from_database("IC")
     insert_catalog("IC", Path(utils.astro_data_dir, "ic.desc"))
+    delete_catalog_from_database("M")
+    insert_catalog("M", Path(utils.astro_data_dir, "messier.desc"))
 
     for ngc_dat in ngc_dat_files:
         with open(ngc_dat, "r") as ngc:
-            for l in ngc:
+            for l in tqdm(list(ngc)):
                 sequence = int(l[1:5])
                 # add = True
                 catalog = l[0:1]
@@ -741,7 +780,6 @@ def load_ngc_catalog():
     insert_catalog_max_sequence("NGC")
     insert_catalog_max_sequence("IC")
     insert_catalog_max_sequence("M")
-    logging.info("NGC catalog loaded.")
 
 
 if __name__ == "__main__":
@@ -784,16 +822,24 @@ if __name__ == "__main__":
     objects_db = ObjectsDatabase()
     observations_db = ObservationsDatabase()
     logging.info("creating catalog tables")
-    # objects_db.destroy_tables()
+    objects_db.destroy_tables()
     objects_db.create_tables()
     if not observations_db.exists():
         observations_db.create_tables()
     logging.info("loading catalogs")
+
+    # These load functions must be kept in this order
+    # to keep some of the object referencing working
+    # particularly starting with the NGC as the base
     load_ngc_catalog()
+    load_caldwell()
     load_collinder()
     load_taas200()
     load_sac_asterisms()
     load_sac_multistars()
     load_sac_redstars()
-    load_caldwell()
+
+    # Populate the images table
+    logging.info("Resolving object images...")
+    resolve_object_images()
     print_database()
