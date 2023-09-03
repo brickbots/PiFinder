@@ -104,7 +104,7 @@ class UILocate(UIModule):
                 self.message("No Obs List", 1)
         else:
             if len(self.ui_state.history_list()) > 0:
-                self.ui_state.active_list_to_history_list()
+                self.ui_state.set_active_list_to_history_list()
                 self.target_index = len(self.ui_state.active_list()) - 1
             else:
                 self.message("No History", 1)
