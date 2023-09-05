@@ -18,6 +18,7 @@ import os
 import sys
 import logging
 import argparse
+import pickle
 from pathlib import Path
 from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
@@ -167,7 +168,6 @@ def main(script_name=None, has_server=False):
 
     # Set path for test images
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    test_image_path = os.path.join(root_dir, "test_images")
 
     # init queues
     console_queue = Queue()
@@ -498,29 +498,50 @@ def main(script_name=None, has_server=False):
                                 debug_dt = shared_state.datetime()
 
                                 # write images
-                                debug_image.save(f"{test_image_path}/{uid}_raw.png")
+                                debug_image.save(
+                                    f"{utils.debug_dump_dir}/{uid}_raw.png"
+                                )
                                 debug_image = subtract_background(debug_image)
                                 debug_image = debug_image.convert("RGB")
                                 debug_image = ImageOps.autocontrast(debug_image)
-                                debug_image.save(f"{test_image_path}/{uid}_sub.png")
+                                debug_image.save(
+                                    f"{utils.debug_dump_dir}/{uid}_sub.png"
+                                )
+
+                                # Screenshot
+                                ss = current_module.screen.copy()
+                                ss.save(f"{utils.debug_dump_dir}/{uid}_screenshot.png")
 
                                 with open(
-                                    f"{test_image_path}/{uid}_solution.json", "w"
+                                    f"{utils.debug_dump_dir}/{uid}_solution.json", "w"
                                 ) as f:
                                     json.dump(debug_solution, f, indent=4)
 
                                 with open(
-                                    f"{test_image_path}/{uid}_location.json", "w"
+                                    f"{utils.debug_dump_dir}/{uid}_location.json", "w"
                                 ) as f:
                                     json.dump(debug_location, f, indent=4)
 
                                 if debug_dt != None:
                                     with open(
-                                        f"{test_image_path}/{uid}_datetime.json", "w"
+                                        f"{utils.debug_dump_dir}/{uid}_datetime.json",
+                                        "w",
                                     ) as f:
                                         json.dump(debug_dt.isoformat(), f, indent=4)
 
+                                # Dump shared state
+                                shared_state.serialize(
+                                    f"{utils.debug_dump_dir}/{uid}_sharedstate.pkl"
+                                )
+
+                                # Dump UI State
+                                with open(
+                                    f"{utils.debug_dump_dir}/{uid}_uistate.json", "wb"
+                                ) as f:
+                                    pickle.dump(ui_state, f)
+
                                 console.write(f"Debug dump: {uid}")
+                                current_module.message("Debug Info Saved")
 
                         elif keycode == keyboard_base.A:
                             # A key, mode switch

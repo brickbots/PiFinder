@@ -82,9 +82,7 @@ class UIModule:
     def screengrab(self):
         self.ss_count += 1
         ss_imagepath = self.ss_path + f"_{self.ss_count :0>3}.png"
-        ss = self.screen.getchannel("B")
-        ss = ss.convert("RGB")
-        ss = ImageChops.multiply(ss, Image.new("RGB", (128, 128), (255, 0, 0)))
+        ss = self.screen.copy()
         ss.save(ss_imagepath)
 
     def active(self):
