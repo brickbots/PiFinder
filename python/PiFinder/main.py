@@ -497,6 +497,9 @@ def main(script_name=None, has_server=False):
                                 debug_location = shared_state.location()
                                 debug_dt = shared_state.datetime()
 
+                                # current screen
+                                ss = current_module.screen.copy()
+
                                 # write images
                                 debug_image.save(
                                     f"{utils.debug_dump_dir}/{uid}_raw.png"
@@ -508,8 +511,6 @@ def main(script_name=None, has_server=False):
                                     f"{utils.debug_dump_dir}/{uid}_sub.png"
                                 )
 
-                                # Screenshot
-                                ss = current_module.screen.copy()
                                 ss.save(f"{utils.debug_dump_dir}/{uid}_screenshot.png")
 
                                 with open(
