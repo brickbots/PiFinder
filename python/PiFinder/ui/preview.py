@@ -189,7 +189,13 @@ class UIPreview(UIModule):
             # Do this at least once to get a numpy array in
             # star_list
             if self.align_mode:
-                self.star_list = tetra3.get_centroids_from_image(image_obj)
+                self.star_list = tetra3.get_centroids_from_image(
+                    image_obj,
+                    # bg_sub_mode='local_median',
+                    sigma_mode="local_median_abs",
+                    filtsize=13,
+                    # max_area=200,
+                )
 
             # Resize
             image_obj = image_obj.resize((128, 128))
@@ -211,11 +217,10 @@ class UIPreview(UIModule):
 
             self.title = "PREVIEW"
 
-            if self.align_mode:
-                self.draw_star_selectors()
-
         self.draw_reticle()
-        return self.screen_update()
+        if self.align_mode:
+            self.draw_star_selectors()
+        return self.screen_update(title_bar=not self.align_mode)
 
     def key_b(self):
         """
