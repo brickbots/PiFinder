@@ -231,15 +231,6 @@ class UIPreview(UIModule):
 
         self.update(force=True)
 
-    def key_up(self):
-        self.command_queues["camera"].put("exp_up")
-
-    def key_down(self):
-        self.command_queues["camera"].put("exp_dn")
-
-    def key_enter(self):
-        self.command_queues["camera"].put("exp_save")
-
     def key_number(self, number):
         if self.align_mode:
             if number == 0:
@@ -264,10 +255,3 @@ class UIPreview(UIModule):
                     )
                 self.align_mode = False
                 self.update(force=True)
-        else:
-            if number == 0:
-                self.capture_count += 1
-                capture_imagepath = (
-                    self.capture_prefix + f"_{self.capture_count :0>3}.png"
-                )
-                self.command_queues["camera"].put("save:" + capture_imagepath)

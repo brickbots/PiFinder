@@ -6,6 +6,7 @@
 """
 import time
 import datetime
+import pickle
 import pytz
 from PiFinder import config
 
@@ -28,6 +29,10 @@ class SharedStateObj:
         self.__target = None
         self.__screen = None
         self.__solve_pixel = config.Config().get_option("solve_pixel")
+
+    def serialize(self, output_file):
+        with open(output_file, "wb") as f:
+            pickle.dump(self, f)
 
     def solve_pixel(self, screen_space=False):
         """
