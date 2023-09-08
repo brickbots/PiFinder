@@ -191,10 +191,8 @@ class UIPreview(UIModule):
             if self.align_mode:
                 self.star_list = tetra3.get_centroids_from_image(
                     image_obj,
-                    # bg_sub_mode='local_median',
                     sigma_mode="local_median_abs",
                     filtsize=13,
-                    # max_area=200,
                 )
 
             # Resize
