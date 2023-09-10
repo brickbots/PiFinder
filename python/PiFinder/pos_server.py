@@ -65,32 +65,35 @@ def run_server(shared_state, _):
     Answers request with info from shared state
     """
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-        # 4030 seems to be the default in SkySafari
-        server_socket.bind(("", 4030))
-        server_socket.listen(1)
-        out_data = None
-        while True:
-            client_socket, address = server_socket.accept()
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+            # 4030 seems to be the default in SkySafari
+            server_socket.bind(("", 4030))
+            server_socket.listen(1)
+            out_data = None
             while True:
-                in_data = client_socket.recv(1024).decode()
-                if in_data:
-                    if in_data.startswith(":"):
-                        # command
-                        command = in_data[1:].split("#")[0]
-                        command_handler = lx_command_dict.get(command, None)
-                        if command_handler:
-                            out_data = command_handler(shared_state)
-                        else:
-                            print("Unkown Command:", in_data)
-                            out_data = not_implemented(shared_state)
-                else:
-                    break
+                client_socket, address = server_socket.accept()
+                while True:
+                    in_data = client_socket.recv(1024).decode()
+                    if in_data:
+                        if in_data.startswith(":"):
+                            # command
+                            command = in_data[1:].split("#")[0]
+                            command_handler = lx_command_dict.get(command, None)
+                            if command_handler:
+                                out_data = command_handler(shared_state)
+                            else:
+                                print("Unkown Command:", in_data)
+                                out_data = not_implemented(shared_state)
+                    else:
+                        break
 
-                if out_data:
-                    client_socket.send(bytes(out_data + "#", "utf-8"))
-                    out_data = None
-            client_socket.close()
+                    if out_data:
+                        client_socket.send(bytes(out_data + "#", "utf-8"))
+                        out_data = None
+                client_socket.close()
+    except Exception as e:
+        print("Exception in LX200 server:", e)
 
 
 lx_command_dict = {
