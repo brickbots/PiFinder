@@ -398,14 +398,12 @@ def main(script_name=None, has_server=False):
                                 location["gps_lock"] = True
                             shared_state.set_location(location)
                     if gps_msg == "time":
-                        gps_dt = datetime.datetime.fromisoformat(
-                            gps_content.replace("Z", "")
-                        )
+                        gps_dt = gps_content
 
                         # Some GPS transcievers will report a time, even before
                         # they have one.  This is a sanity check for this.
-                        if gps_dt > datetime.datetime(2023, 4, 1, 1, 1, 1):
-                            shared_state.set_datetime(gps_dt)
+                        # if gps_dt > datetime.datetime(2023, 4, 1, 1, 1, 1):
+                        shared_state.set_datetime(gps_dt)
                 except queue.Empty:
                     pass
 
@@ -660,6 +658,7 @@ if __name__ == "__main__":
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
+    logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
     logging.basicConfig(format="%(asctime)s %(name)s: %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="eFinder")
     parser.add_argument(

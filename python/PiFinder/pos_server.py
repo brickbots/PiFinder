@@ -77,6 +77,7 @@ def run_server(shared_state, _):
                 client_socket, address = server_socket.accept()
                 while True:
                     in_data = client_socket.recv(1024).decode()
+                    logging.debug(f"Received: {in_data}")
                     if in_data:
                         if in_data.startswith(":"):
                             # command
