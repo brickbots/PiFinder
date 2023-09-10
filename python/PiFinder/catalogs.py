@@ -126,41 +126,20 @@ class Catalog(CatalogBase):
     """Keeps catalog data + filtered objects"""
 
     last_filtered: float = 0
-    db: Database
 
-    def __init__(self, catalog_code, obj: Objects):
-        self.db = ObjectsDatabase()
+    def __init__(
+        self, catalog_code, max_sequence, desc, catalog_objs: Dict[int, CompositeObject]
+    ):
         self.observations_db = ObservationsDatabase()
         self.name = catalog_code
         self.common_names: Names = Names()
-        self.obj = obj
         self.cobjects: Dict[int, CompositeObject] = {}
         self.cobjects_keys_sorted: List[int] = []
         self.filtered_objects: Dict[int, CompositeObject] = {}
         self.filtered_objects_keys_sorted: List[int] = []
-        self.max_sequence = 0
-        self.desc = "No description"
-        self._load_catalog()
-
-    def get_count(self):
-        return len(self.cobjects)
-
-    def get_filtered_count(self):
-        return len(self.filtered_objects)
-
-    def _load_catalog(self):
-        """
-        Loads the catalog data, compositing objects and this catalogs extra data
-
-        """
-        catalog = self.db.get_catalog_by_code(self.name)
-        if catalog:
-            self.max_sequence = catalog["max_sequence"]
-        else:
-            logging.error(f"catalog {self.name} not found")
-            return
-        self.desc = catalog["desc"]
-        self.cobjects = self.obj.get_catalog_dict(self.name)
+        self.max_sequence = max_sequence
+        self.desc = desc
+        self.cobjects = catalog_objs
         self.cobjects_keys_sorted = self._get_sorted_keys(self.cobjects)
         self.filtered_objects = self.cobjects
         self.filtered_objects_keys_sorted = self.cobjects_keys_sorted
@@ -168,6 +147,12 @@ class Catalog(CatalogBase):
             self.cobjects_keys_sorted[-1] == self.max_sequence
         ), f"{self.name} max sequence mismatch, {self.cobjects_keys_sorted[-1]} != {self.max_sequence}"
         logging.info(f"loaded {len(self.cobjects)} objects for {self.name}")
+
+    def get_count(self):
+        return len(self.cobjects)
+
+    def get_filtered_count(self):
+        return len(self.filtered_objects)
 
     def _get_sorted_keys(self, dictionary):
         return sorted(dictionary.keys())
@@ -253,6 +238,26 @@ class Catalog(CatalogBase):
         return self.__repr__()
 
 
+def load_catalog(db, obj: Objects, catalog_code: str) -> Catalog:
+    catalog = db.get_catalog_by_code(catalog_code)
+    if catalog:
+        max_sequence = catalog["max_sequence"]
+        desc = catalog["desc"]
+    else:
+        logging.error(f"catalog {catalog_code} not found")
+        return
+    return Catalog(catalog_code, max_sequence, desc, obj.get_catalog_dict(catalog_code))
+
+
+def load_catalogs(catalogs: List[str]) -> Dict[str, Catalog]:
+    db = ObjectsDatabase()
+    obj = Objects()
+    result = {}
+    for catalog_code in catalogs:
+        result[catalog_code] = load_catalog(db, obj, catalog_code)
+    return result
+
+
 class CatalogDesignator:
     """Holds the string that represents the catalog input/search field.
     Usually looks like 'NGC----' or 'M-13'"""
@@ -320,21 +325,21 @@ class CatalogTracker:
     current: Catalog
     current_catalog_name: str
 
-    def __init__(self, catalog_names: List[str], shared_state, config_options):
-        self.catalog_names = catalog_names
+    def __init__(self, catalogs: Dict[str, Catalog], shared_state, config_options):
         self.shared_state = shared_state
         self.config_options = config_options
-        self.obj = Objects()
-        self.catalogs: Dict[str, Catalog] = self._load_catalogs(catalog_names)
+        self.catalogs = catalogs
+        self.catalog_names = list(catalogs.keys())
         self.designator_tracker = {
             c: CatalogDesignator(c, self.catalogs[c].max_sequence)
             for c in self.catalog_names
         }
-        self.set_current_catalog(catalog_names[0])
+        self.set_current_catalog(self.catalog_names[0])
         self.object_tracker = {c: None for c in self.catalog_names}
 
     def add_foreign_catalog(self, catalog_name):
         """foreign objects not in our databasa, e.g. skysafari coords"""
+        print(f"adding foreign catalog {catalog_name}")
         self.catalogs[catalog_name] = Catalog(catalog_name, self.obj)
         self.catalog_names.append(catalog_name)
         self.designator_tracker[catalog_name] = CatalogDesignator(catalog_name, 1)
@@ -426,11 +431,11 @@ class CatalogTracker:
         catalog_name = self._get_catalog_name(catalog_name)
         return self.designator_tracker[catalog_name]
 
-    def _load_catalogs(self, catalogs: List[str]) -> Dict[str, Catalog]:
-        result = {}
-        for catalog in catalogs:
-            result[catalog] = Catalog(catalog, self.obj)
-        return result
+    # def _load_catalogs(self, catalogs: List[str]) -> Dict[str, Catalog]:
+    #     result = {}
+    #     for catalog in catalogs:
+    #         result[catalog] = Catalog(catalog, self.obj)
+    #     return result
 
     def _get_catalog_name(self, catalog: Optional[str]) -> str:
         catalog: str = catalog or self.current_catalog_name

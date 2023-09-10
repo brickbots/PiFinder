@@ -22,11 +22,10 @@ from PiFinder.catalogs import (
 )
 from PiFinder import calc_utils
 import functools
-import sqlite3
 import logging
 
 from PiFinder.db.observations_db import ObservationsDatabase
-from PiFinder.catalogs import CompositeObject
+from PiFinder.catalogs import CompositeObject, load_catalogs
 
 
 # Constants for display modes
@@ -101,8 +100,9 @@ class UICatalog(UIModule):
                 "No Object Found", font=self.font_bold, color=self.colors.get(255)
             ),
         }
+        self.catalogs = load_catalogs(self.catalog_names)
         self.catalog_tracker = CatalogTracker(
-            self.catalog_names, self.shared_state, self._config_options
+            self.catalogs, self.shared_state, self._config_options
         )
         self.observations_db = ObservationsDatabase()
         self.font_large = fonts.large
