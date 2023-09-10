@@ -64,6 +64,7 @@ def run_server(shared_state, _):
     """
     Answers request with info from shared state
     """
+    print("Starting LX200 server")
 
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
