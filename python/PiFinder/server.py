@@ -7,7 +7,8 @@ import io
 
 class Server:
     def __init__(self, q, gps_queue, shared_state):
-        from bottle import Bottle, run, request, template, response
+        from bottle import Bottle, run, request, template, response, abort
+        from geventwebsocket import WebSocketError
 
         self.q = q
         self.gps_queue = gps_queue
@@ -82,6 +83,19 @@ class Server:
 
         logging.info("Starting keyboard server on port 8080")
         run(app, host="0.0.0.0", port=8080, quiet=True)
+
+        @app.route("/gps-stream")
+        def handle_websocket():
+            wsock = request.environ.get("wsgi.websocket")
+            if not wsock:
+                abort(400, "Expected WebSocket request.")
+
+            while True:
+                try:
+                    gps_data = self.gps_queue.get()
+                    wsock.send(str(gps_data))
+                except geventwebsocket.WebSocketError:
+                    break
 
     def callback(self, key):
         self.q.put(key)
