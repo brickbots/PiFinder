@@ -65,7 +65,6 @@ def run_server(shared_state, _):
     """
     Answers request with info from shared state
     """
-    print("Starting LX200 server")
     logging.info("Starting LX200 server")
 
     try:
@@ -96,7 +95,7 @@ def run_server(shared_state, _):
                         out_data = None
                 client_socket.close()
     except Exception as e:
-        print("Exception in LX200 server:", e)
+        logging.warning(f"Exception in LX200 server: {e}")
 
 
 lx_command_dict = {
