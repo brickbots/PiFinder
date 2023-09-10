@@ -8,6 +8,7 @@ Protocol based on Meade LX200
 """
 import socket
 from math import modf
+import logging
 
 
 def get_telescope_ra(shared_state):
@@ -65,6 +66,7 @@ def run_server(shared_state, _):
     Answers request with info from shared state
     """
     print("Starting LX200 server")
+    logging.info("Starting LX200 server")
 
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
