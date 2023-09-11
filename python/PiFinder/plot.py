@@ -60,7 +60,7 @@ class Starfield:
         ]
 
         self.set_mag_limit(mag_limit)
-        # Prefilter here for mag 9, just to make sure we have enough
+        # Prefilter here for mag 7.5, just to make sure we have enough
         # for any plot.  Actual mag limit is enforced at plot time.
         bright_stars = self.raw_stars.magnitude <= 7.5
         self.stars = self.raw_stars[bright_stars].copy()
@@ -68,7 +68,7 @@ class Starfield:
         self.star_positions = self.earth.observe(Star.from_dataframe(self.stars))
         self.set_fov(fov)
 
-        # constellations
+        # constellations data ===========================
         const_path = Path(utils.astro_data_dir, "constellationship.fab")
         with load.open(str(const_path)) as f:
             self.constellations = stellarium.parse_constellations(f)
@@ -79,7 +79,7 @@ class Starfield:
         # Start the main dataframe to hold edge info (start + end stars)
         self.const_edges_df = self.stars.loc[const_start_stars]
 
-        # We need position lists for both start/end
+        # We need position lists for both start/end of constellation lines
         self.const_start_star_positions = self.earth.observe(
             Star.from_dataframe(self.const_edges_df)
         )
@@ -157,7 +157,7 @@ class Starfield:
 
         markers["x"], markers["y"] = self.projection(marker_positions)
 
-        # Rasterize star positions
+        # Rasterize marker positions
         markers = markers.assign(
             x_pos=markers["x"] * self.pixel_scale + self.render_center[0],
             y_pos=markers["y"] * -1 * self.pixel_scale + self.render_center[1],
@@ -177,6 +177,7 @@ class Starfield:
             markers["x_pos"], markers["y_pos"], markers["symbol"]
         ):
             if symbol == "target":
+                # Draw cross
                 idraw.line(
                     [x_pos, y_pos - 5, x_pos, y_pos + 5],
                     fill=self.colors.get(255),
@@ -239,6 +240,8 @@ class Starfield:
         self.roll = roll
 
         # Set star x/y for projection
+        # This is in a -1 to 1 space for the entire sky
+        # with 0,0 being the provided RA/DEC
         self.stars["x"], self.stars["y"] = self.projection(self.star_positions)
 
         # set start/end star x/y for const
@@ -258,7 +261,8 @@ class Starfield:
 
         # constellation lines first
         if constellation_brightness:
-            # Rasterize edge start/end positions
+            # convert projection positions to screen space
+            # using pandas to interate
             const_edges = self.const_edges_df.assign(
                 sx_pos=self.const_edges_df["sx"] * self.pixel_scale
                 + self.render_center[0],
@@ -270,6 +274,8 @@ class Starfield:
                 + self.render_center[1],
             )
 
+            # Now that all the star/end points are in screen space
+            # remove any where both the start/end are not on screen
             # filter for visibility
             visible_edges = const_edges[
                 (
@@ -286,6 +292,8 @@ class Starfield:
                 )
             ]
 
+            # This seems strange, but is one of the generally recommended
+            # way to iterate through pandas frames.
             for start_x, start_y, end_x, end_y in zip(
                 visible_edges["sx_pos"],
                 visible_edges["sy_pos"],
@@ -300,12 +308,12 @@ class Starfield:
         # filter stars by magnitude
         visible_stars = self.stars[self.stars["magnitude"] < self.mag_limit]
 
-        # Rasterize star positions
+        # convert star positions to screen space
         visible_stars = visible_stars.assign(
             x_pos=visible_stars["x"] * self.pixel_scale + self.render_center[0],
             y_pos=visible_stars["y"] * -1 * self.pixel_scale + self.render_center[1],
         )
-        # now filter by visiblity
+        # now filter by visiblity on screen
         visible_stars = visible_stars[
             (visible_stars["x_pos"] > 0)
             & (visible_stars["x_pos"] < self.render_size[0])
@@ -316,6 +324,8 @@ class Starfield:
         for x_pos, y_pos, mag in zip(
             visible_stars["x_pos"], visible_stars["y_pos"], visible_stars["magnitude"]
         ):
+            # This could be moved to a pandas assign after filtering
+            # for vis for a small boost
             plot_size = (self.mag_limit - mag) / 3
             fill = 255
             if mag > 4.5:
