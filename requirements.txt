@@ -13,3 +13,4 @@ sh==1.14.3
 skyfield==1.45
 timezonefinder==6.1.9
 tqdm==4.65.0
+gpsdclient==1.3.2
