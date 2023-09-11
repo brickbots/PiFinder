@@ -386,7 +386,7 @@ def main(script_name=None, has_server=False):
                             location["lat"] = gps_content["lat"]
                             location["lon"] = gps_content["lon"]
                             location["altitude"] = gps_content["altitude"]
-                            if location["gps_lock"] == False:
+                            if location["gps_lock"] is False:
                                 # Write to config if we just got a lock
                                 location["timezone"] = tz_finder.timezone_at(
                                     lat=location["lat"], lng=location["lon"]
@@ -399,10 +399,6 @@ def main(script_name=None, has_server=False):
                             shared_state.set_location(location)
                     if gps_msg == "time":
                         gps_dt = gps_content
-
-                        # Some GPS transcievers will report a time, even before
-                        # they have one.  This is a sanity check for this.
-                        # if gps_dt > datetime.datetime(2023, 4, 1, 1, 1, 1):
                         shared_state.set_datetime(gps_dt)
                 except queue.Empty:
                     pass
