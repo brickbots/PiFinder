@@ -824,8 +824,6 @@ if __name__ == "__main__":
     logging.info("creating catalog tables")
     objects_db.destroy_tables()
     objects_db.create_tables()
-    if not observations_db.exists():
-        observations_db.create_tables()
     logging.info("loading catalogs")
 
     # These load functions must be kept in this order

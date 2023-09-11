@@ -29,9 +29,6 @@ class Observation_session:
 
     def __init__(self, shared_state, session_uuid):
         self.db = ObservationsDatabase()
-        if not self.db.exists():
-            self.db.create_tables()
-
         self.__session_init = False
         self.__session_uuid = session_uuid
         self.__shared_state = shared_state

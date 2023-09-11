@@ -53,15 +53,18 @@ class Server:
 
         @app.route("/image")
         def serve_pil_image():
-            img = Image.new(
+            empty_img = Image.new(
                 "RGB", (60, 30), color=(73, 109, 137)
             )  # create an image using PIL
+            img = None
             try:
                 img = self.shared_state.screen()
             except (BrokenPipeError, EOFError):
                 pass
             response.content_type = "image/png"  # adjust for your image format
 
+            if img is None:
+                img = empty_img
             img_byte_arr = io.BytesIO()
             img.save(img_byte_arr, format="PNG")  # adjust for your image format
             img_byte_arr = img_byte_arr.getvalue()

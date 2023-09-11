@@ -15,9 +15,6 @@ class Database:
         self.cursor = cursor
         self.db_path = db_path
 
-    def exists(self) -> bool:
-        return self.db_path.exists()
-
     def get_conn_cursor(self) -> Tuple[Connection, Cursor]:
         return self.conn, self.cursor
 
