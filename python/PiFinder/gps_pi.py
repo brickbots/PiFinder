@@ -46,4 +46,4 @@ def gps_monitor(gps_queue, console_queue):
                         logging.debug(f"Setting time to {result.get('time')}")
                         gps_queue.put(msg)
 
-        time.sleep(0.5)
+        time.sleep(5)
