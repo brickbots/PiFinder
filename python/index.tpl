@@ -50,10 +50,6 @@ body {
             <button class="button" onclick="gpsLock()">GPSLOCK</button>
         </div>
     </div>
-     <div id="gpsDataWindow" style="margin-top: 20px; border: 1px solid white; padding: 10px;">
-        <h3>GPS Stream:</h3>
-        <pre id="gpsDataStream"></pre>
-    </div>
 <script>
         function fetchImage() {
             const imageElement = document.getElementById('image');
@@ -140,23 +136,6 @@ body {
                 console.error('Error:', error);
             });
         }
-
-        // WebSocket connection for GPS stream
-        const ws = new WebSocket('ws://' + window.location.host + '/gps-stream');
-
-        let gpsData = [];
-
-        ws.onmessage = function(event) {
-            gpsData.push(event.data);
-
-            // Keep only the last 5 entries
-            if (gpsData.length > 5) {
-                gpsData.shift();
-            }
-
-            // Update the content of the div with the GPS data
-            document.getElementById("gpsDataStream").textContent = gpsData.join("\n");
-        };
     </script>
 
     <style>
