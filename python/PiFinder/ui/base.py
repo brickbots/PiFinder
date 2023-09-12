@@ -203,8 +203,8 @@ class UIModule:
             self.frame_count = 0
             self.last_fps_sample_time = int(time.time())
 
-        # if self.shared_state:
-        #    self.shared_state.set_screen(screen_to_display)
+        if self.shared_state:
+            self.shared_state.set_screen(screen_to_display)
 
         # We can return a UIModule class name to force a switch here
         tmp_return = self.switch_to
@@ -220,7 +220,7 @@ class UIModule:
                Returns true if hotkey found
                false if not or no config
         """
-        if self._config_options == None:
+        if self._config_options is None:
             return False
 
         for config_item_name, config_item in self._config_options.items():
