@@ -37,7 +37,7 @@ git clone https://github.com/esa/tetra3.git
 # running
 
 Run the following command from the ./python folder
-```python3 -m PiFinder.main -fh -k server --camera debug -x```
+```python -m PiFinder.main -fh --camera debug -k local -s  -x```
 
 
 # debugging
