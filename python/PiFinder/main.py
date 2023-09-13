@@ -248,6 +248,7 @@ def main(script_name=None, has_server=False, show_fps=False):
         initial_location["timezone"] = tz_finder.timezone_at(
             lat=initial_location["lat"], lng=initial_location["lon"]
         )
+        initial_location["last_gps_lock"] = None
         shared_state.set_location(initial_location)
 
         console.write("   Camera")
@@ -387,6 +388,9 @@ def main(script_name=None, has_server=False, show_fps=False):
                             location["lat"] = gps_content["lat"]
                             location["lon"] = gps_content["lon"]
                             location["altitude"] = gps_content["altitude"]
+                            location["last_gps_lock"] = (
+                                datetime.datetime.now().time().isoformat()[:8]
+                            )
                             if location["gps_lock"] is False:
                                 # Write to config if we just got a lock
                                 location["timezone"] = tz_finder.timezone_at(
