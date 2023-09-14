@@ -259,9 +259,7 @@ class UIStatus(UIModule):
         # Insert IP address here...
         for k, v in self.status_dict.items():
             key = f"{k:<7}"
-            print(f"'{key}' '{v}'")
             _, result = self.spacecalc.calculate_spaces(key, v, empty_if_exceeds=False)
-            print(f"Result: '{key}' -> '{result}'")
             lines.append(result)
         outline = "\n".join(lines)
         self.text_layout.set_text(outline, reset_pointer=False)

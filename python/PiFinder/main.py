@@ -248,6 +248,7 @@ def main(script_name=None, has_server=False, show_fps=False):
         initial_location["timezone"] = tz_finder.timezone_at(
             lat=initial_location["lat"], lng=initial_location["lon"]
         )
+        initial_location["gps_lock"] = False
         initial_location["last_gps_lock"] = None
         shared_state.set_location(initial_location)
 
@@ -660,6 +661,7 @@ if __name__ == "__main__":
     logger.setLevel(logging.INFO)
     logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
     logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
+    logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
     logging.basicConfig(format="%(asctime)s %(name)s: %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="eFinder")
     parser.add_argument(
