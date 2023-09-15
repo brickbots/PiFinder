@@ -20,6 +20,9 @@ class UIModule:
     __uuid__ = str(uuid.uuid1()).split("-")[0]
     _config_options = None
     _title_bar_y = 16
+    _CAM_ICON = ""
+    _IMU_ICON = ""
+    _GPS_ICON = "󰤉"
 
     def __init__(
         self,
@@ -174,23 +177,28 @@ class UIModule:
                     self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
                     self.draw.text(
                         (117, 0),
-                        "" if solution["solve_source"] == "CAM" else "",
+                        self._CAM_ICON
+                        if solution["solve_source"] == "CAM"
+                        else self._IMU_ICON,
                         font=self.font_bold,
                         fill=self.colors.get(64),
                     )
                 else:
                     # no solve yet....
-                    self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(0))
-                    self.draw.text(
-                        (117, 0), "X", font=self.font_bold, fill=self.colors.get(64)
-                    )
+                    pass
+                    # self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(0))
+                    # self.draw.text(
+                    #     (117, 0), "X", font=self.font_bold, fill=self.colors.get(64)
+                    # )
 
                 # GPS status
                 if self.shared_state.location()["gps_lock"]:
                     fg = self.colors.get(0)
                     bg = self.colors.get(64)
                     self.draw.rectangle([100, 2, 110, 14], fill=bg)
-                    self.draw.text((102, 0), "󰤉", font=self.font_bold, fill=fg)
+                    self.draw.text(
+                        (102, 0), self._GPS_ICON, font=self.font_bold, fill=fg
+                    )
 
         screen_to_display = self.screen.convert(self.display.mode)
         self.display.display(screen_to_display)
