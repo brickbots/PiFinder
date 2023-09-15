@@ -46,19 +46,22 @@ class SpaceCalculatorFixed:
     def _calc_string(self, left, right, spaces) -> str:
         return f"{left}{'': <{spaces}}{right}"
 
-    def calculate_spaces(self, left: str, right: str) -> Tuple[int, str]:
+    def calculate_spaces(
+        self, left: str, right: str, empty_if_exceeds=True
+    ) -> Tuple[int, str]:
         """
         returns number of spaces
         """
-        spaces = 1
         lenleft = len(str(left))
         lenright = len(str(right))
-
-        if lenleft + lenright + 1 > self.width:
-            return -1, ""
-
-        spaces = self.width - (lenleft + lenright)
+        spaces = max(1, self.width - (lenleft + lenright))
         result = self._calc_string(left, right, spaces)
+        if len(result) > self.width:
+            if empty_if_exceeds:
+                return -1, ""
+            else:
+                result = result[: self.width]
+                result = result[-3] + "..."
         return spaces, result
 
 
@@ -98,7 +101,6 @@ class TextLayouterSimple:
 
     def draw(self, pos: Tuple[int, int] = (0, 0)):
         self.layout(pos)
-        # logging.debug(f"Drawing {self.object_text=}")
         self.drawobj.multiline_text(
             pos, "\n".join(self.object_text), font=self.font, fill=self.color, spacing=0
         )
@@ -183,20 +185,25 @@ class TextLayouter(TextLayouterSimple):
         self.colors = colors
         self.start_line = 0
         self.available_lines = available_lines
-        self.scrolled = False
         self.pointer = 0
         self.updated = True
 
-    def next(self):
+    def next(self, direction=1):
         if self.nr_lines <= self.available_lines:
             return
-        self.pointer = (self.pointer + 1) % (self.nr_lines - self.available_lines + 1)
-        self.scrolled = True
+        self.pointer = (self.pointer + direction) % (
+            self.nr_lines - self.available_lines + 1
+        )
+        self.updated = True
 
-    def set_text(self, text):
+    def previous(self):
+        self.next(-1)
+
+    def set_text(self, text, reset_pointer=True):
         super().set_text(text)
-        self.pointer = 0
         self.nr_lines = len(text)
+        if reset_pointer:
+            self.pointer = 0
 
     def _draw_pos(self, pos):
         xpos = 127
@@ -217,20 +224,15 @@ class TextLayouter(TextLayouterSimple):
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.updated:
-            # logging.debug(f"Updating {self.text=}")
             split_lines = re.split(r"\n|\n\n", self.text)
             self.object_text = []
             for line in split_lines:
                 self.object_text.extend(textwrap.wrap(line, width=self.width))
-            self.orig_object_text = self.object_text
-            self.object_text = self.object_text[0 : self.available_lines]
-            self.nr_lines = len(self.orig_object_text)
-        if self.scrolled:
-            self.object_text = self.orig_object_text[
+            self.nr_lines = len(self.object_text)
+            self.object_text = self.object_text[
                 self.pointer : self.pointer + self.available_lines
             ]
         self.updated = False
-        self.scrolled = False
 
     def after_draw(self, pos):
         if self.nr_lines > self.available_lines:
