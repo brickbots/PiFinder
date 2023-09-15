@@ -18,6 +18,7 @@ import os
 import sys
 import logging
 import argparse
+import pickle
 from pathlib import Path
 from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
@@ -152,7 +153,7 @@ def get_sleep_timeout(cfg):
     return sleep_timeout
 
 
-def main(script_name=None, has_server=False):
+def main(script_name=None, has_server=False, show_fps=False):
     """
     Get this show on the road!
     """
@@ -167,7 +168,6 @@ def main(script_name=None, has_server=False):
 
     # Set path for test images
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    test_image_path = os.path.join(root_dir, "test_images")
 
     # init queues
     console_queue = Queue()
@@ -191,6 +191,7 @@ def main(script_name=None, has_server=False):
         "observing_list": [],
         "target": None,
         "message_timeout": 0,
+        "show_fps": show_fps,
     }
     ui_state["active_list"] = ui_state["history_list"]
 
@@ -386,7 +387,7 @@ def main(script_name=None, has_server=False):
                             location["lat"] = gps_content["lat"]
                             location["lon"] = gps_content["lon"]
                             location["altitude"] = gps_content["altitude"]
-                            if location["gps_lock"] == False:
+                            if location["gps_lock"] is False:
                                 # Write to config if we just got a lock
                                 location["timezone"] = tz_finder.timezone_at(
                                     lat=location["lat"], lng=location["lon"]
@@ -398,14 +399,8 @@ def main(script_name=None, has_server=False):
                                 location["gps_lock"] = True
                             shared_state.set_location(location)
                     if gps_msg == "time":
-                        gps_dt = datetime.datetime.fromisoformat(
-                            gps_content.replace("Z", "")
-                        )
-
-                        # Some GPS transcievers will report a time, even before
-                        # they have one.  This is a sanity check for this.
-                        if gps_dt > datetime.datetime(2023, 4, 1, 1, 1, 1):
-                            shared_state.set_datetime(gps_dt)
+                        gps_dt = gps_content
+                        shared_state.set_datetime(gps_dt)
                 except queue.Empty:
                     pass
 
@@ -497,30 +492,52 @@ def main(script_name=None, has_server=False):
                                 debug_location = shared_state.location()
                                 debug_dt = shared_state.datetime()
 
+                                # current screen
+                                ss = current_module.screen.copy()
+
                                 # write images
-                                debug_image.save(f"{test_image_path}/{uid}_raw.png")
+                                debug_image.save(
+                                    f"{utils.debug_dump_dir}/{uid}_raw.png"
+                                )
                                 debug_image = subtract_background(debug_image)
                                 debug_image = debug_image.convert("RGB")
                                 debug_image = ImageOps.autocontrast(debug_image)
-                                debug_image.save(f"{test_image_path}/{uid}_sub.png")
+                                debug_image.save(
+                                    f"{utils.debug_dump_dir}/{uid}_sub.png"
+                                )
+
+                                ss.save(f"{utils.debug_dump_dir}/{uid}_screenshot.png")
 
                                 with open(
-                                    f"{test_image_path}/{uid}_solution.json", "w"
+                                    f"{utils.debug_dump_dir}/{uid}_solution.json", "w"
                                 ) as f:
                                     json.dump(debug_solution, f, indent=4)
 
                                 with open(
-                                    f"{test_image_path}/{uid}_location.json", "w"
+                                    f"{utils.debug_dump_dir}/{uid}_location.json", "w"
                                 ) as f:
                                     json.dump(debug_location, f, indent=4)
 
                                 if debug_dt != None:
                                     with open(
-                                        f"{test_image_path}/{uid}_datetime.json", "w"
+                                        f"{utils.debug_dump_dir}/{uid}_datetime.json",
+                                        "w",
                                     ) as f:
                                         json.dump(debug_dt.isoformat(), f, indent=4)
 
+                                # Dump shared state
+                                shared_state.serialize(
+                                    f"{utils.debug_dump_dir}/{uid}_sharedstate.pkl"
+                                )
+
+                                # Dump UI State
+                                with open(
+                                    f"{utils.debug_dump_dir}/{uid}_uistate.json", "wb"
+                                ) as f:
+                                    pickle.dump(ui_state, f)
+
                                 console.write(f"Debug dump: {uid}")
+                                current_module.message("Debug Info Saved")
 
                         elif keycode == keyboard_base.A:
                             # A key, mode switch
@@ -638,6 +655,7 @@ if __name__ == "__main__":
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
+    logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
     logging.basicConfig(format="%(asctime)s %(name)s: %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="eFinder")
     parser.add_argument(
@@ -672,6 +690,15 @@ if __name__ == "__main__":
         "-s",
         "--server",
         help="Start a server to control the pifinder",
+        default=False,
+        action="store_true",
+        required=False,
+    )
+
+    parser.add_argument(
+        "-f",
+        "--fps",
+        help="Display FPS in title bar",
         default=False,
         action="store_true",
         required=False,
@@ -730,4 +757,4 @@ if __name__ == "__main__":
         fh.setLevel(logger.level)
         logger.addHandler(fh)
 
-    main(args.script, args.server)
+    main(args.script, args.server, args.fps)

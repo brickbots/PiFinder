@@ -5,39 +5,45 @@ This module is for GPS related functions
 
 """
 import time
-from PiFinder import gps
+from gpsdclient import GPSDClient
+import logging
+
+
+def is_tpv_accurate(tpv_dict):
+    """
+    Check the accuracy of the GPS fix
+    """
+    if tpv_dict.get("mode") == 3 and tpv_dict.get("ecefpAcc") < 100:
+        return True
+    else:
+        logging.debug(f"GPS: TPV accuracy not good enough: {tpv_dict}")
+        return False
 
 
 def gps_monitor(gps_queue, console_queue):
-    session = gps.gps(mode=gps.WATCH_ENABLE)
     gps_locked = False
     while True:
-        if session.read() == 0:
-            if session.valid:
-                if session.fix.mode == 3:  # 3d fix
-                    if (
-                        gps.isfinite(session.fix.latitude)
-                        and gps.isfinite(session.fix.longitude)
-                        and gps.isfinite(session.fix.altitude)
-                    ):
-                        if gps_locked == False:
+        with GPSDClient(host="127.0.0.1") as client:
+            # see https://www.mankier.com/5/gpsd_json for the list of fields
+            for result in client.dict_stream(convert_datetime=True, filter=["TPV"]):
+                if is_tpv_accurate(result):
+                    if result.get("lat") and result.get("lon") and result.get("altHAE"):
+                        if gps_locked is False:
                             console_queue.put("GPS: Locked")
                             gps_locked = True
                         msg = (
                             "fix",
                             {
-                                "lat": session.fix.latitude,
-                                "lon": session.fix.longitude,
-                                "altitude": session.fix.altitude,
+                                "lat": result.get("lat"),
+                                "lon": result.get("lon"),
+                                "altitude": result.get("altHAE"),
                             },
                         )
+                        logging.debug(f"GPS fix: {msg}")
+                        gps_queue.put(msg)
+                    if result.get("time"):
+                        msg = ("time", result.get("time"))
+                        logging.debug(f"Setting time to {result.get('time')}")
                         gps_queue.put(msg)
 
-                if gps.TIME_SET and session.utc:
-                    msg = ("time", session.utc)
-                    gps_queue.put(msg)
-
-        else:
-            print("Error in GPS session")
-
-        time.sleep(0.5)
+        time.sleep(5)

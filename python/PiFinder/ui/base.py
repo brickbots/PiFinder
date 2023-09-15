@@ -50,6 +50,11 @@ class UIModule:
         self.ui_state = ui_state
         self.config_object = config_object
 
+        # FPS
+        self.fps = 0
+        self.frame_count = 0
+        self.last_fps_sample_time = time.time()
+
     def exit_config(self, option):
         """
         Handy callback for exiting
@@ -82,9 +87,7 @@ class UIModule:
     def screengrab(self):
         self.ss_count += 1
         ss_imagepath = self.ss_path + f"_{self.ss_count :0>3}.png"
-        ss = self.screen.getchannel("B")
-        ss = ss.convert("RGB")
-        ss = ImageChops.multiply(ss, Image.new("RGB", (128, 128), (255, 0, 0)))
+        ss = self.screen.copy()
         ss.save(ss_imagepath)
 
     def active(self):
@@ -141,9 +144,14 @@ class UIModule:
 
         if title_bar:
             self.draw.rectangle([0, 0, 128, 16], fill=self.colors.get(64))
-            self.draw.text(
-                (6, 1), self.title, font=self.font_bold, fill=self.colors.get(0)
-            )
+            if self.ui_state.get("show_fps"):
+                self.draw.text(
+                    (6, 1), str(self.fps), font=self.font_bold, fill=self.colors.get(0)
+                )
+            else:
+                self.draw.text(
+                    (6, 1), self.title, font=self.font_bold, fill=self.colors.get(0)
+                )
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
@@ -183,8 +191,17 @@ class UIModule:
 
         screen_to_display = self.screen.convert(self.display.mode)
         self.display.display(screen_to_display)
-        if self.shared_state:
-            self.shared_state.set_screen(screen_to_display)
+
+        # FPS
+        self.frame_count += 1
+        if int(time.time()) - self.last_fps_sample_time > 0:
+            # flipped second
+            self.fps = self.frame_count
+            self.frame_count = 0
+            self.last_fps_sample_time = int(time.time())
+
+        # if self.shared_state:
+        #    self.shared_state.set_screen(screen_to_display)
 
         # We can return a UIModule class name to force a switch here
         tmp_return = self.switch_to

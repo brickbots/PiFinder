@@ -1,5 +1,5 @@
 # Wait for the system to boot
-wait 7
+wait 5
 
 # Get into debug mode
 ALT_A
@@ -7,5 +7,4 @@ ALT_A
 0
 # give the solver enough time to solve 
 # the debug plate
-wait 3
 A # Back to plot
