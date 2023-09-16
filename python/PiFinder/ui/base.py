@@ -185,11 +185,10 @@ class UIModule:
                     )
                 else:
                     # no solve yet....
-                    pass
-                    # self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(0))
-                    # self.draw.text(
-                    #     (117, 0), "X", font=self.font_bold, fill=self.colors.get(64)
-                    # )
+                    self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(0))
+                    self.draw.text(
+                        (117, 0), "X", font=self.font_bold, fill=self.colors.get(64)
+                    )
 
                 # GPS status
                 if self.shared_state.location()["gps_lock"]:
