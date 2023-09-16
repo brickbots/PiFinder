@@ -8,6 +8,7 @@ import os
 import time
 import uuid
 from pathlib import Path
+import logging
 
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 from PiFinder.ui.fonts import Fonts as fonts
@@ -147,41 +148,36 @@ class UIModule:
             return None
 
         if title_bar:
-            self.draw.rectangle(
-                [0, 0, 128, self._title_bar_y], fill=self.colors.get(64)
-            )
+            print("in title bar")
+            fg = self.colors.get(0)
+            bg = self.colors.get(64)
+            self.draw.rectangle([0, 0, 128, self._title_bar_y], fill=bg)
             if self.ui_state.get("show_fps"):
-                self.draw.text(
-                    (6, 1), str(self.fps), font=self.font_bold, fill=self.colors.get(0)
-                )
+                self.draw.text((6, 1), str(self.fps), font=self.font_bold, fill=fg)
             else:
-                self.draw.text(
-                    (6, 1), self.title, font=self.font_bold, fill=self.colors.get(0)
-                )
+                self.draw.text((6, 1), self.title, font=self.font_bold, fill=fg)
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
+                    is_cam_solve = solution["solve_source"] == "CAM"
                     constellation = solution["constellation"]
                     self.draw.text(
                         (70, 1),
                         constellation,
                         font=self.font_bold,
-                        fill=self.colors.get(0),
+                        fill=fg if is_cam_solve else self.colors.get(32),
                     )
 
                     # Solver Status
+                    logging.debug("Solve status %s", solution)
                     time_since_solve = time.time() - solution["cam_solve_time"]
-                    bg = int(64 - (time_since_solve / 6 * 64))
-                    if bg < 0:
-                        bg = 0
-                    self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
+                    var_bg = max(0, int(64 - (time_since_solve / 6 * 64)))
+                    self.draw.rectangle([115, 2, 125, 14], fill=var_bg)
                     self.draw.text(
                         (117, 0),
-                        self._CAM_ICON
-                        if solution["solve_source"] == "CAM"
-                        else self._IMU_ICON,
+                        self._CAM_ICON if is_cam_solve else self._IMU_ICON,
                         font=self.font_bold,
-                        fill=self.colors.get(64),
+                        fill=fg,
                     )
                 else:
                     # no solve yet....
@@ -190,10 +186,19 @@ class UIModule:
                         (117, 0), "X", font=self.font_bold, fill=self.colors.get(64)
                     )
 
+                # when moving the unit, nothing else matters
+                imu = self.shared_state.imu()
+                if imu and imu["pos"] and imu["moving"]:
+                    self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
+                    self.draw.text(
+                        (117, 0),
+                        self._IMU_ICON,
+                        font=self.font_bold,
+                        fill=fg,
+                    )
+
                 # GPS status
                 if self.shared_state.location()["gps_lock"]:
-                    fg = self.colors.get(0)
-                    bg = self.colors.get(64)
                     self.draw.rectangle([100, 2, 110, 14], fill=bg)
                     self.draw.text(
                         (102, 0), self._GPS_ICON, font=self.font_bold, fill=fg
