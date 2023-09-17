@@ -13,6 +13,8 @@ class Fonts:
     base_width = 21
     bold = ImageFont.truetype(boldttf, 12)
     bold_width = 18
+    # for indicator icon usage only
+    icon_bold_large = ImageFont.truetype(boldttf, 15)
     large = ImageFont.truetype(regularttf, 15)
     small = ImageFont.truetype(boldttf, 8)
     huge = ImageFont.truetype(boldttf, 35)

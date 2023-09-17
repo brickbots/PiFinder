@@ -148,7 +148,7 @@ class UIModule:
             return None
 
         if title_bar:
-            print("in title bar")
+            logging.debug("in title bar")
             fg = self.colors.get(0)
             bg = self.colors.get(64)
             self.draw.rectangle(
@@ -163,10 +163,10 @@ class UIModule:
                     (6, 1), self.title, font=self.font_bold, fill=fg
                 )
             if self.shared_state:
-
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
                     is_cam_solve = solution["solve_source"] == "CAM"
+                    logging.debug("Is cam solve %s", is_cam_solve)
                     constellation = solution["constellation"]
                     self.draw.text(
                         (70, 1),
@@ -178,30 +178,30 @@ class UIModule:
                     # Solver Status
                     logging.debug("Solve status %s", solution)
                     time_since_solve = time.time() - solution["cam_solve_time"]
-                    var_bg = max(0, int(64 - (time_since_solve / 6 * 64)))
-                    self.draw.rectangle([115, 2, 125, 14], fill=var_bg)
+                    var_fg = min(64, int(time_since_solve / 6 * 64))
+                    self.draw.rectangle([115, 2, 125, 14], fill=bg)
                     self.draw.text(
-                        (117, 0),
+                        (117, -2),
                         self._CAM_ICON if is_cam_solve else self._IMU_ICON,
-                        font=self.font_bold,
-                        fill=fg,
+                        font=fonts.icon_bold_large,
+                        fill=var_fg,
                     )
                 else:
                     # no solve yet....
-                    pass
-                    # self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(0))
-                    # self.draw.text(
-                    #     (117, 0), "X", font=self.font_bold, fill=self.colors.get(64)
-                    # )
+                    self.draw.rectangle([115, 2, 125, 14], fill=bg)
+                    self.draw.text(
+                        (117, 0), "X", font=self.font_bold, fill=fg
+                    )
                     
                 # when moving the unit, nothing else matters
                 imu = self.shared_state.imu()
                 if imu and imu["pos"] and imu["moving"]:
+                    logging.debug("imu moving %s", imu["moving"])
                     self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
                     self.draw.text(
-                        (117, 0),
+                        (117, -2),
                         self._IMU_ICON,
-                        font=self.font_bold,
+                        font=fonts.icon_bold_large,
                         fill=fg,
                     )
 
@@ -209,7 +209,7 @@ class UIModule:
                 if self.shared_state.location()["gps_lock"]:
                     self.draw.rectangle([100, 2, 110, 14], fill=bg)
                     self.draw.text(
-                        (102, 0), self._GPS_ICON, font=self.font_bold, fill=fg
+                        (102, -2), self._GPS_ICON, font=fonts.icon_bold_large, fill=fg
                     )
 
         screen_to_display = self.screen.convert(self.display.mode)
