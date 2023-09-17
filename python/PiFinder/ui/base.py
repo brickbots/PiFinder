@@ -148,7 +148,6 @@ class UIModule:
             return None
 
         if title_bar:
-            logging.debug("in title bar")
             fg = self.colors.get(0)
             bg = self.colors.get(64)
             self.draw.rectangle([0, 0, 128, self._title_bar_y], fill=bg)
@@ -156,17 +155,21 @@ class UIModule:
                 self.draw.text((6, 1), str(self.fps), font=self.font_bold, fill=fg)
             else:
                 self.draw.text((6, 1), self.title, font=self.font_bold, fill=fg)
+                
+            imu = self.shared_state.imu()
+            moving = True if imu and imu["pos"] and imu["moving"] else False
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
                     is_cam_solve = solution["solve_source"] == "CAM"
                     logging.debug("Is cam solve %s", is_cam_solve)
+                    
                     constellation = solution["constellation"]
                     self.draw.text(
                         (70, 1),
                         constellation,
                         font=self.font_bold,
-                        fill=fg if is_cam_solve else self.colors.get(32),
+                        fill=fg if is_cam_solve or not moving else self.colors.get(32),
                     )
 
                     # Solver Status
@@ -176,7 +179,7 @@ class UIModule:
                     self.draw.rectangle([115, 2, 125, 14], fill=bg)
                     self.draw.text(
                         (117, -2),
-                        self._CAM_ICON if is_cam_solve else self._IMU_ICON,
+                        self._CAM_ICON, # if is_cam_solve else self._IMU_ICON,
                         font=fonts.icon_bold_large,
                         fill=var_fg,
                     )
@@ -188,8 +191,7 @@ class UIModule:
                     )
                     
                 # when moving the unit, nothing else matters
-                imu = self.shared_state.imu()
-                if imu and imu["pos"] and imu["moving"]:
+                if moving and not is_cam_solve:
                     logging.debug("imu moving %s", imu["moving"])
                     self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
                     self.draw.text(

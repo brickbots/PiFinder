@@ -172,11 +172,10 @@ def integrator(shared_state, solver_queue, console_queue):
                     solved["Az"] = az
 
                 last_image_solve = copy.copy(solved)
-
             # generate new solution by offsetting last camera solve
             # if we don't have an alt/az solve
             # we can't use the IMU
-            if solved["Alt"]:
+            elif solved["Alt"]:
                 imu = shared_state.imu()
                 if imu:
                     dt = shared_state.datetime()

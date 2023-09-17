@@ -17,6 +17,8 @@ from PiFinder import utils
 from PiFinder.camera_interface import CameraInterface
 import PiFinder.utils
 from typing import Tuple
+import time
+import logging
 
 
 class CameraDebug(CameraInterface):
@@ -26,16 +28,20 @@ class CameraDebug(CameraInterface):
 
     """
 
-    def __init__(self) -> None:
+    def __init__(self, exposure_time) -> None:
+        print("init camera debug")
         self.camType = "Debug camera"
         self.path = utils.pifinder_dir / "test_images"
-        self.exposure_time = 1000
+        self.exposure_time = exposure_time
         self.gain = 10
 
     def initialize(self) -> None:
         pass
 
     def capture(self) -> Image.Image:
+        print("starting camera debug sleep")
+        time.sleep(self.exposure_time / 1000000)
+        print("stopping camera debug sleep")
         return Image.open(self.path / "pifinder_debug.png")
 
     def capture_file(self, filename) -> None:
@@ -56,9 +62,9 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
     Instantiates the camera hardware
     then calls the universal image loop
     """
-
     cfg = config.Config()
-    camera_hardware = CameraDebug()
+    exposure_time = cfg.get_option("camera_exp")
+    camera_hardware = CameraDebug(exposure_time)
     camera_hardware.get_image_loop(
         shared_state, camera_image, command_queue, console_queue, cfg
     )
