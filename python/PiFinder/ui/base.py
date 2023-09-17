@@ -155,7 +155,6 @@ class UIModule:
                 self.draw.text((6, 1), str(self.fps), font=self.font_bold, fill=fg)
             else:
                 self.draw.text((6, 1), self.title, font=self.font_bold, fill=fg)
-                
             imu = self.shared_state.imu()
             moving = True if imu and imu["pos"] and imu["moving"] else False
             if self.shared_state:
@@ -163,7 +162,7 @@ class UIModule:
                     solution = self.shared_state.solution()
                     is_cam_solve = solution["solve_source"] == "CAM"
                     logging.debug("Is cam solve %s", is_cam_solve)
-                    
+
                     constellation = solution["constellation"]
                     self.draw.text(
                         (70, 1),
@@ -179,17 +178,15 @@ class UIModule:
                     self.draw.rectangle([115, 2, 125, 14], fill=bg)
                     self.draw.text(
                         (117, -2),
-                        self._CAM_ICON, # if is_cam_solve else self._IMU_ICON,
+                        self._CAM_ICON,  # if is_cam_solve else self._IMU_ICON,
                         font=fonts.icon_bold_large,
                         fill=var_fg,
                     )
                 else:
                     # no solve yet....
                     self.draw.rectangle([115, 2, 125, 14], fill=bg)
-                    self.draw.text(
-                        (117, 0), "X", font=self.font_bold, fill=fg
-                    )
-                    
+                    self.draw.text((117, 0), "X", font=self.font_bold, fill=fg)
+
                 # when moving the unit, nothing else matters
                 if moving and not is_cam_solve:
                     logging.debug("imu moving %s", imu["moving"])
