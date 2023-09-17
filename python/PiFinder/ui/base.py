@@ -151,17 +151,11 @@ class UIModule:
             logging.debug("in title bar")
             fg = self.colors.get(0)
             bg = self.colors.get(64)
-            self.draw.rectangle(
-                [0, 0, 128, self._title_bar_y], fill=bg
-            )
+            self.draw.rectangle([0, 0, 128, self._title_bar_y], fill=bg)
             if self.ui_state.get("show_fps"):
-                self.draw.text(
-                    (6, 1), str(self.fps), font=self.font_bold, fill=fg
-                )
+                self.draw.text((6, 1), str(self.fps), font=self.font_bold, fill=fg)
             else:
-                self.draw.text(
-                    (6, 1), self.title, font=self.font_bold, fill=fg
-                )
+                self.draw.text((6, 1), self.title, font=self.font_bold, fill=fg)
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
