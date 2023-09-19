@@ -631,16 +631,14 @@ def main(script_name=None, has_server=False, show_fps=False):
                             shared_state.set_power_state(1)  # Normal
 
                     power_state = shared_state.power_state()
-                    if power_state < 1:
-                        time.sleep(0.2)
                     # Check for going into power save...
                     if screen_off and time.time() > screen_off and power_state != -1:
-                        shared_state.set_power_state(-1)  # sleep
+                        shared_state.set_power_state(-1)  # screen off
                         display_device.device.hide()
-                        time.sleep(0.2)
                     elif time.time() > power_save_warmup and power_state == 1:
-                        shared_state.set_power_state(0)  # sleep
+                        shared_state.set_power_state(0)  # screen dimmed
                         set_brightness(int(screen_brightness / 4), cfg)
+                    if power_state < 1:
                         time.sleep(0.2)
 
         except KeyboardInterrupt:
