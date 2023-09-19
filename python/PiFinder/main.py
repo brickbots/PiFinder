@@ -109,7 +109,7 @@ def set_brightness(level, cfg):
     display_device.set_brightness(level)
 
     if keypad_pwm:
-        # deterime offset for keypad
+        # determine offset for keypad
         keypad_offsets = {
             "+3": 2,
             "+2": 1.6,
@@ -151,6 +151,21 @@ def get_sleep_timeout(cfg):
         sleep_timeout_option
     ]
     return sleep_timeout
+
+
+def get_screen_off_timeout(cfg):
+    """
+    returns the screen off timeout amount
+    """
+    screen_off_option = cfg.get_option("screen_off_timeout")
+    screen_off = {"Off": -1, "30s": 30, "1m": 60, "10m": 600}[screen_off_option]
+    return screen_off
+
+
+def _calculate_timeouts(cfg):
+    t = time.time()
+    screen_off = get_screen_off_timeout(cfg)
+    return t + get_sleep_timeout(cfg), t + screen_off if screen_off > 0 else None
 
 
 def main(script_name=None, has_server=False, show_fps=False):
@@ -367,7 +382,7 @@ def main(script_name=None, has_server=False, show_fps=False):
         current_module = ui_modes[ui_mode_index]
 
         # Start of main except handler / loop
-        power_save_warmup = time.time() + get_sleep_timeout(cfg)
+        power_save_warmup, screen_off = _calculate_timeouts(cfg)
         bg_task_warmup = 5
         try:
             while True:
@@ -419,14 +434,16 @@ def main(script_name=None, has_server=False, show_fps=False):
                 except queue.Empty:
                     keycode = None
 
-                if keycode != None:
+                if keycode is not None:
                     # logging.debug(f"Keycode: {keycode}")
-                    power_save_warmup = time.time() + get_sleep_timeout(cfg)
+                    power_save_warmup, screen_off = _calculate_timeouts(cfg)
                     set_brightness(screen_brightness, cfg)
+                    display_device.device.show()
+                    original_power_state = shared_state.power_state()
                     shared_state.set_power_state(1)  # Normal
 
                     # ignore keystroke if we have been asleep
-                    if shared_state.power_state() > 0:
+                    if original_power_state > 0:
                         if keycode > 99:
                             # Special codes....
                             if (
@@ -441,6 +458,7 @@ def main(script_name=None, has_server=False, show_fps=False):
                                     screen_brightness = screen_brightness - 10
                                     if screen_brightness < 1:
                                         screen_brightness = 1
+
                                 set_brightness(screen_brightness, cfg)
                                 cfg.set_option("display_brightness", screen_brightness)
                                 console.write("Brightness: " + str(screen_brightness))
@@ -594,24 +612,30 @@ def main(script_name=None, has_server=False, show_fps=False):
                         module.background_update()
 
                 # check for coming out of power save...
-                if get_sleep_timeout(cfg):
+                if get_sleep_timeout(cfg) or get_screen_off_timeout(cfg):
                     # make sure that if there is a sleep
                     # time configured, the power_save_warmup is reset
-                    if power_save_warmup == None:
-                        power_save_warmup = time.time() + get_sleep_timeout(cfg)
+                    if power_save_warmup is None:
+                        power_save_warmup, screen_off = _calculate_timeouts(cfg)
 
                     _imu = shared_state.imu()
                     if _imu:
                         if _imu["moving"]:
-                            power_save_warmup = time.time() + get_sleep_timeout(cfg)
+                            power_save_warmup, screen_off = _calculate_timeouts(cfg)
                             set_brightness(screen_brightness, cfg)
                             shared_state.set_power_state(1)  # Normal
 
+                    power_state = shared_state.power_state()
+                    if power_state < 1:
+                        time.sleep(0.2)
                     # Check for going into power save...
-                    if time.time() > power_save_warmup:
-                        set_brightness(int(screen_brightness / 4), cfg)
+                    if screen_off and time.time() > screen_off and power_state != -1:
+                        shared_state.set_power_state(-1)  # sleep
+                        display_device.device.hide()
+                        time.sleep(0.2)
+                    elif time.time() > power_save_warmup and power_state == 1:
                         shared_state.set_power_state(0)  # sleep
-                    if time.time() > power_save_warmup:
+                        set_brightness(int(screen_brightness / 4), cfg)
                         time.sleep(0.2)
 
         except KeyboardInterrupt:

@@ -133,7 +133,7 @@ def integrator(shared_state, solver_queue, console_queue):
         last_solved = None
         last_solve_time = time.time()
         while True:
-            if shared_state.power_state() == 0:
+            if shared_state.power_state() <= 0:
                 time.sleep(0.5)
             else:
                 time.sleep(1 / 30)
