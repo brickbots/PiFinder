@@ -47,7 +47,8 @@ body {
             <button class="button" onclick="buttonClicked(this, 'UP')">Up</button>
             <button class="button" onclick="buttonClicked(this, 'DN')">Down</button>
             <button class="button" onclick="buttonClicked(this, 'ENT')">Enter</button>
-            <button class="button" onclick="gpsLock()">GPSLOCK</button>
+            <button class="button" onclick="gpsLock()">GPS</button>
+            <button class="button" onclick="timeLock()">TIME</button>
         </div>
     </div>
 <script>
@@ -82,6 +83,17 @@ body {
 
         function gpsLock() {
             fetch('/gps-lock', {
+                method: 'GET',
+            })
+            .then(response => response.json())
+            .then(data => console.log(data))
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+
+        function timeLock() {
+            fetch('/time-lock', {
                 method: 'GET',
             })
             .then(response => response.json())
