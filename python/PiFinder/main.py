@@ -170,6 +170,13 @@ def _calculate_timeouts(cfg):
     screen_off = t + screen_off if screen_off > 0 else None
     return screen_dim, screen_off
 
+def wake_screen(screen_brightness, shared_state, cfg) -> int:
+    set_brightness(screen_brightness, cfg)
+    display_device.device.show()
+    orig_power_state = shared_state.power_state()
+    shared_state.set_power_state(1)  # Normal
+    return orig_power_state
+
 
 def main(script_name=None, has_server=False, show_fps=False):
     """
@@ -445,10 +452,7 @@ def main(script_name=None, has_server=False, show_fps=False):
                 if keycode is not None:
                     # logging.debug(f"Keycode: {keycode}")
                     screen_dim, screen_off = _calculate_timeouts(cfg)
-                    set_brightness(screen_brightness, cfg)
-                    display_device.device.show()
-                    original_power_state = shared_state.power_state()
-                    shared_state.set_power_state(1)  # Normal
+                    original_power_state = wake_screen(screen_brightness, shared_state, cfg)
 
                     # ignore keystroke if we have been asleep
                     if original_power_state > 0:
@@ -630,13 +634,15 @@ def main(script_name=None, has_server=False, show_fps=False):
                     if _imu:
                         if _imu["moving"]:
                             screen_dim, screen_off = _calculate_timeouts(cfg)
-                            set_brightness(screen_brightness, cfg)
+                            wake_screen(screen_brightness, shared_state, cfg)
                             shared_state.set_power_state(1)  # Normal
 
                     power_state = shared_state.power_state()
                     # Check for going into power save...
                     if screen_off and time.time() > screen_off and power_state != -1:
+                        logging.debug("Calling screen off")
                         shared_state.set_power_state(-1)  # screen off
+                        set_brightness(60, cfg)
                         display_device.device.hide()
                     elif screen_dim and time.time() > screen_dim and power_state == 1:
                         shared_state.set_power_state(0)  # screen dimmed
