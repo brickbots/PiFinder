@@ -13,6 +13,7 @@ import logging
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder import utils
+from PiFinder import calc_utils
 from PiFinder.image_util import DeviceWrapper
 
 
@@ -162,7 +163,6 @@ class UIModule:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
                     is_cam_solve = solution["solve_source"] == "CAM"
-                    logging.debug("Is cam solve %s", is_cam_solve)
                     
                     constellation = solution["constellation"]
                     self.draw.text(
@@ -173,7 +173,7 @@ class UIModule:
                     )
 
                     # Solver Status
-                    logging.debug("Solve status %s", solution)
+                    logging.debug("Solve status %s %s", calc_utils.hash_dict(solution)[:10], solution["solve_source"])
                     time_since_solve = time.time() - solution["cam_solve_time"]
                     var_fg = min(64, int(time_since_solve / 6 * 64))
                     self.draw.rectangle([115, 2, 125, 14], fill=bg)
