@@ -164,8 +164,11 @@ def get_screen_off_timeout(cfg):
 
 def _calculate_timeouts(cfg):
     t = time.time()
+    screen_dim = get_sleep_timeout(cfg)
+    screen_dim = t + screen_dim if screen_dim > 0 else None
     screen_off = get_screen_off_timeout(cfg)
-    return t + get_sleep_timeout(cfg), t + screen_off if screen_off > 0 else None
+    screen_off = t + screen_off if screen_off > 0 else None
+    return screen_dim, screen_off
 
 
 def main(script_name=None, has_server=False, show_fps=False):
@@ -384,7 +387,7 @@ def main(script_name=None, has_server=False, show_fps=False):
         current_module = ui_modes[ui_mode_index]
 
         # Start of main except handler / loop
-        power_save_warmup, screen_off = _calculate_timeouts(cfg)
+        screen_dim, screen_off = _calculate_timeouts(cfg)
         bg_task_warmup = 5
         try:
             while True:
@@ -441,7 +444,7 @@ def main(script_name=None, has_server=False, show_fps=False):
 
                 if keycode is not None:
                     # logging.debug(f"Keycode: {keycode}")
-                    power_save_warmup, screen_off = _calculate_timeouts(cfg)
+                    screen_dim, screen_off = _calculate_timeouts(cfg)
                     set_brightness(screen_brightness, cfg)
                     display_device.device.show()
                     original_power_state = shared_state.power_state()
@@ -619,14 +622,14 @@ def main(script_name=None, has_server=False, show_fps=False):
                 # check for coming out of power save...
                 if get_sleep_timeout(cfg) or get_screen_off_timeout(cfg):
                     # make sure that if there is a sleep
-                    # time configured, the power_save_warmup is reset
-                    if power_save_warmup is None:
-                        power_save_warmup, screen_off = _calculate_timeouts(cfg)
+                    # time configured, the timouts are reset
+                    if screen_dim is None:
+                        screen_dim, screen_off = _calculate_timeouts(cfg)
 
                     _imu = shared_state.imu()
                     if _imu:
                         if _imu["moving"]:
-                            power_save_warmup, screen_off = _calculate_timeouts(cfg)
+                            screen_dim, screen_off = _calculate_timeouts(cfg)
                             set_brightness(screen_brightness, cfg)
                             shared_state.set_power_state(1)  # Normal
 
@@ -635,7 +638,7 @@ def main(script_name=None, has_server=False, show_fps=False):
                     if screen_off and time.time() > screen_off and power_state != -1:
                         shared_state.set_power_state(-1)  # screen off
                         display_device.device.hide()
-                    elif time.time() > power_save_warmup and power_state == 1:
+                    elif screen_dim and time.time() > screen_dim and power_state == 1:
                         shared_state.set_power_state(0)  # screen dimmed
                         set_brightness(int(screen_brightness / 4), cfg)
                     if power_state < 1:
