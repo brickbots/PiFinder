@@ -3,6 +3,7 @@ from PiFinder.keyboard_interface import KeyboardInterface
 import logging
 from PIL import Image
 import io
+import datetime
 
 
 class Server:
@@ -81,6 +82,11 @@ class Server:
                     "altitude": 10,
                 },
             )
+            self.gps_queue.put(msg)
+
+        @app.route("/time-lock")
+        def time_lock():
+            msg = ("time", datetime.datetime.now())
             self.gps_queue.put(msg)
 
         logging.info("Starting keyboard server on port 8080")

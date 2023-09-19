@@ -19,6 +19,7 @@ class UIModule:
     __title__ = "BASE"
     __uuid__ = str(uuid.uuid1()).split("-")[0]
     _config_options = None
+    _title_bar_y = 16
 
     def __init__(
         self,
@@ -143,7 +144,9 @@ class UIModule:
             return None
 
         if title_bar:
-            self.draw.rectangle([0, 0, 128, 16], fill=self.colors.get(64))
+            self.draw.rectangle(
+                [0, 0, 128, self._title_bar_y], fill=self.colors.get(64)
+            )
             if self.ui_state.get("show_fps"):
                 self.draw.text(
                     (6, 1), str(self.fps), font=self.font_bold, fill=self.colors.get(0)
