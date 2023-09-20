@@ -169,7 +169,9 @@ def get_screen_off_timeout(cfg):
     returns the screen off timeout amount
     """
     screen_off_option = cfg.get_option("screen_off_timeout")
-    screen_off = {"Off": -1, "30s": 30, "1m": 60, "10m": 600}[screen_off_option]
+    screen_off = {"Off": -1, "30s": 30, "1m": 60, "10m": 600, "30m": 1800}[
+        screen_off_option
+    ]
     return screen_off
 
 

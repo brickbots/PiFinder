@@ -37,7 +37,7 @@ class UIStatus(UIModule):
         "Screen Off": {
             "type": "enum",
             "value": "",
-            "options": ["Off", "30s", "1m", "10m"],
+            "options": ["Off", "30s", "1m", "10m", "30m"],
             "callback": "set_screen_off_timeout",
         },
         "WiFi Mode": {
