@@ -35,6 +35,12 @@ class UIStatus(UIModule):
             "options": ["Off", "10s", "30s", "1m"],
             "callback": "set_sleep_timeout",
         },
+        "Screen Off": {
+            "type": "enum",
+            "value": "",
+            "options": ["Off", "30s", "1m", "10m", "30m"],
+            "callback": "set_screen_off_timeout",
+        },
         "WiFi Mode": {
             "type": "enum",
             "value": "UNK",
@@ -104,6 +110,9 @@ class UIStatus(UIModule):
         self._config_options["Sleep Tim"]["value"] = self.config_object.get_option(
             "sleep_timeout"
         )
+        self._config_options["Screen Off"]["value"] = self.config_object.get_option(
+            "screen_off_timeout"
+        )
         self._config_options["Key Brit"]["value"] = self.config_object.get_option(
             "keypad_brightness"
         )
@@ -139,6 +148,10 @@ class UIStatus(UIModule):
 
     def set_sleep_timeout(self, option):
         self.config_object.set_option("sleep_timeout", option)
+        return False
+
+    def set_screen_off_timeout(self, option):
+        self.config_object.set_option("screen_off_timeout", option)
         return False
 
     def side_switch(self, option):
