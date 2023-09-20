@@ -101,7 +101,7 @@ def init_keypad_pwm():
 
 
 def set_keypad_brightness(percentage: float):
-    """keypad brightness between 0-100"""
+    """keypad brightness between 0-100, although effective range seems 0-12"""
     global keypad_pwm
     if percentage < 0 or percentage > 100:
         logging.error("Invalid percentage for keypad brightness")
@@ -653,7 +653,8 @@ def main(script_name=None, has_server=False, show_fps=False):
                     # Check for going into power save...
                     if screen_off and time.time() > screen_off and power_state != -1:
                         shared_state.set_power_state(-1)  # screen off
-                        set_keypad_brightness(10)
+                        keypad_value = 3 if cfg.get_option("keypad_brightness") != "Off" else 0
+                        set_keypad_brightness(keypad_value)
                         display_device.device.hide()
                     elif screen_dim and time.time() > screen_dim and power_state == 1:
                         shared_state.set_power_state(0)  # screen dimmed
