@@ -57,7 +57,7 @@ class CameraInterface:
             # 60 half-second cycles
             sleep_delay = 60
             while True:
-                if shared_state.power_state() == 0:
+                if shared_state.power_state() <= 0:
                     time.sleep(0.5)
 
                     # Even in sleep mode, we want to take photos every

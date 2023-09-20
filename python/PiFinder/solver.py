@@ -27,7 +27,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue):
     }
     try:
         while True:
-            if shared_state.power_state() == 0:
+            if shared_state.power_state() <= 0:
                 time.sleep(0.5)
             # use the time the exposure started here to
             # reject images startede before the last solve
