@@ -100,6 +100,15 @@ def init_keypad_pwm():
         keypad_pwm.start(0)
 
 
+def set_keypad_brightness(percentage: float):
+    """keypad brightness between 0-100"""
+    global keypad_pwm
+    if percentage < 0 or percentage > 100:
+        logging.error("Invalid percentage for keypad brightness")
+        percentage = max(0, min(100, percentage))
+    keypad_pwm.change_duty_cycle(percentage)
+
+
 def set_brightness(level, cfg):
     """
     Sets oled/keypad brightness
@@ -121,7 +130,7 @@ def set_brightness(level, cfg):
             "Off": 0,
         }
         keypad_brightness = cfg.get_option("keypad_brightness")
-        keypad_pwm.change_duty_cycle(level * 0.05 * keypad_offsets[keypad_brightness])
+        set_keypad_brightness(level * 0.05 * keypad_offsets[keypad_brightness])
 
 
 def setup_dirs():
@@ -644,7 +653,7 @@ def main(script_name=None, has_server=False, show_fps=False):
                     # Check for going into power save...
                     if screen_off and time.time() > screen_off and power_state != -1:
                         shared_state.set_power_state(-1)  # screen off
-                        set_brightness(60, cfg)
+                        set_keypad_brightness(10)
                         display_device.device.hide()
                     elif screen_dim and time.time() > screen_dim and power_state == 1:
                         shared_state.set_power_state(0)  # screen dimmed
