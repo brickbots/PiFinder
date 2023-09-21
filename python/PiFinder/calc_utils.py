@@ -58,6 +58,7 @@ class FastAltAz:
 import json
 import hashlib
 
+
 def hash_dict(d):
     serialized_data = json.dumps(d, sort_keys=True).encode()
     return hashlib.sha256(serialized_data).hexdigest()
