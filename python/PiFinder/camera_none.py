@@ -21,11 +21,10 @@ from typing import Tuple
 class CameraNone(CameraInterface):
     """Simulate a camera not solving"""
 
-    def __init__(self, exposure_time, gain) -> None:
+    def __init__(self) -> None:
         self.camera_type = "none"
         self.camType = f"None {self.camera_type}"
-        self.exposure_time = exposure_time
-        self.gain = gain
+        self.image = Image.new("RGB", (128, 128))
         self.initialize()
 
     def initialize(self) -> None:
@@ -33,18 +32,14 @@ class CameraNone(CameraInterface):
         return
 
     def capture(self) -> Image.Image:
-        return self.camera.capture_image()
+        return self.image
 
     def capture_file(self, filename) -> None:
-        return self.camera.capture_file(filename)
+        print("capture_file not implemented")
 
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
-        self.camera.stop()
-        self.camera.set_controls({"AnalogueGain": gain})
-        self.camera.set_controls({"ExposureTime": exposure_time})
-        self.camera.start()
         return exposure_time, gain
 
     def get_cam_type(self) -> str:
@@ -56,3 +51,8 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
     Instantiates the camera hardware
     then calls the universal image loop
     """
+    cfg = config.Config()
+    camera_hardware = CameraNone()
+    camera_hardware.get_image_loop(
+        shared_state, camera_image, command_queue, console_queue, cfg
+    )
