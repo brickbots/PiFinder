@@ -54,7 +54,8 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
     then calls the universal image loop
     """
     cfg = config.Config()
-    camera_hardware = CameraNone()
+    exposure_time = cfg.get_option("camera_exp")
+    camera_hardware = CameraNone(exposure_time)
     camera_hardware.get_image_loop(
         shared_state, camera_image, command_queue, console_queue, cfg
     )
