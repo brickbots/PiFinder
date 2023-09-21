@@ -3,12 +3,18 @@ from sqlite3 import Connection, Cursor, Error
 from typing import Tuple
 from PiFinder.db.db import Database
 import PiFinder.utils as utils
+from pathlib import Path
 
 
 class ObservationsDatabase(Database):
-    def __init__(self, db_path=utils.observations_db):
+    def __init__(self, db_path: Path = utils.observations_db):
+        new_db = False
+        if not db_path.exists():
+            new_db = True
         conn, cursor = self.get_database(db_path)
         super().__init__(conn, cursor, db_path)
+        if new_db:
+            self.create_tables()
 
     def create_tables(self, force_delete: bool = False):
         """
