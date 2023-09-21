@@ -142,12 +142,12 @@ def integrator(shared_state, solver_queue, console_queue):
             next_image_solve = None
             try:
                 next_image_solve = solver_queue.get(block=False)
+                logging.debug("Next image solve is %s", next_image_solve)
             except queue.Empty:
                 pass
 
             if next_image_solve:
                 solved = next_image_solve
-                solved["solve_source"] = "CAM"
 
                 # see if we can generate alt/az
                 location = shared_state.location()
@@ -172,11 +172,12 @@ def integrator(shared_state, solver_queue, console_queue):
                     solved["Az"] = az
 
                 last_image_solve = copy.copy(solved)
+                solved["solve_source"] = "CAM"
 
             # generate new solution by offsetting last camera solve
             # if we don't have an alt/az solve
             # we can't use the IMU
-            if solved["Alt"]:
+            elif solved["Alt"]:
                 imu = shared_state.imu()
                 if imu:
                     dt = shared_state.datetime()
@@ -207,10 +208,8 @@ def integrator(shared_state, solver_queue, console_queue):
                                 solved["Alt"], solved["Az"], dt
                             )
 
-                            # if abs(alt_offset) + abs(az_offset) > .01:
-                            if True:
-                                solved["solve_time"] = time.time()
-                                # solved["solve_source"] = "IMU"
+                            solved["solve_time"] = time.time()
+                            solved["solve_source"] = "IMU"
 
             # Is the solution new?
             if solved["RA"] and solved["solve_time"] > last_solve_time:

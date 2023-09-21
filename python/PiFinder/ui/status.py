@@ -12,6 +12,7 @@ from PiFinder.ui.base import UIModule
 from PiFinder import sys_utils
 from PiFinder import utils
 from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed
+from PiFinder.ui.fonts import Fonts as fonts
 
 
 class UIStatus(UIModule):
@@ -81,7 +82,7 @@ class UIStatus(UIModule):
             self._config_options["WiFi Mode"]["value"] = wfs.read()
         with open(self.version_txt, "r") as ver:
             self._config_options["Software"]["value"] = ver.read()
-        self.spacecalc = SpaceCalculatorFixed(21)
+        self.spacecalc = SpaceCalculatorFixed(fonts.base_width)
         self.status_dict = {
             "LST SLV": "--",
             "RA/DEC": "--",
