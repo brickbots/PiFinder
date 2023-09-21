@@ -13,6 +13,7 @@ import scipy.ndimage
 from enum import Enum
 import functools
 from collections import namedtuple
+import logging
 
 
 ColorMask = namedtuple("ColorMask", ["mask", "mode"])
@@ -29,7 +30,9 @@ class Colors:
 
     @functools.cache
     def get(self, color_intensity):
-        return tuple(self.color_mask * color_intensity)
+        arr = self.color_mask * color_intensity
+        result = tuple(arr)
+        return result
 
 
 class DeviceWrapper:
@@ -48,7 +51,7 @@ class DeviceWrapper:
 
 
 def make_red(in_image, colors):
-    return ImageChops.multiply(in_image, colors.red_image)
+    return ImageChops.multiply(in_image.convert("RGB"), colors.red_image)
 
 
 def gamma_correct_low(in_value):

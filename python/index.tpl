@@ -17,6 +17,7 @@ body {
 </head
 <body>
     <div id="numpad" style="display: flex; justify-content: space-between;">
+        <p id="error"></p>
         <img id="image" src="/image" alt="Image served from Bottle server">
 
 
@@ -46,26 +47,61 @@ body {
             <button class="button" onclick="buttonClicked(this, 'UP')">Up</button>
             <button class="button" onclick="buttonClicked(this, 'DN')">Down</button>
             <button class="button" onclick="buttonClicked(this, 'ENT')">Enter</button>
+            <button class="button" onclick="gpsLock()">GPS</button>
+            <button class="button" onclick="timeLock()">TIME</button>
         </div>
     </div>
 <script>
-        setInterval(function() {
-                const imageElement = document.getElementById('image');
-                fetch("/image?t=" + new Date().getTime())
-                    .then(response => {
-                        if (!response.ok) { throw Error(response.statusText); }
-                        return response.blob();
-                    })
-                    .then(imageBlob => {
-                        let imageObjectURL = URL.createObjectURL(imageBlob);
-                        imageElement.src = imageObjectURL;
-                    })
-                    .catch(error => {
-                        console.log(error);
-                        // When the image can't be fetched, display a static message
-                        imageElement.parentNode.innerHTML = "<p>PiFinder server is currently unavailable. Please try again later.</p>";
-                    });
-            }, 100);
+        function fetchImage() {
+            const imageElement = document.getElementById('image');
+            fetch("/image?t=" + new Date().getTime())
+                .then(response => {
+                    if (!response.ok) { throw Error(response.statusText); }
+                    return response.blob();
+                })
+                .then(imageBlob => {
+                    let imageObjectURL = URL.createObjectURL(imageBlob);
+                    imageElement.src = imageObjectURL;
+                    // When the image can't be fetched, display a static message
+                    const errorElement = document.getElementById('error');
+                    errorElement.innerHTML = "";
+                })
+                .catch(error => {
+                    console.log(error);
+                    // When the image can't be fetched, display a static message
+                    const errorElement = document.getElementById('error');
+                    errorElement.innerHTML = "PiFinder server is currently unavailable. Please try again later.";
+                })
+                .finally(() => {
+                    // Schedule the next fetch operation after 100 milliseconds, whether this operation was successful or not
+                    setTimeout(fetchImage, 100);
+                });
+        }
+
+        // Start the first fetch operation
+        fetchImage();
+
+        function gpsLock() {
+            fetch('/gps-lock', {
+                method: 'GET',
+            })
+            .then(response => response.json())
+            .then(data => console.log(data))
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
+
+        function timeLock() {
+            fetch('/time-lock', {
+                method: 'GET',
+            })
+            .then(response => response.json())
+            .then(data => console.log(data))
+            .catch((error) => {
+                console.error('Error:', error);
+            });
+        }
 
         function buttonPressed(btn) {
             const altButton = document.getElementById("altButton");

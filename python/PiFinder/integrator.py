@@ -80,6 +80,7 @@ class Skyfield_utils:
         t = self.ts.from_datetime(dt)
 
         observer = self.observer_loc.at(t)
+        # logging.debug(f"radec_to_altaz: '{ra}' '{dec}' '{dt}'")
         sky_pos = Star(
             ra=Angle(degrees=ra),
             dec_degrees=dec,
@@ -132,7 +133,7 @@ def integrator(shared_state, solver_queue, console_queue):
         last_solved = None
         last_solve_time = time.time()
         while True:
-            if shared_state.power_state() == 0:
+            if shared_state.power_state() <= 0:
                 time.sleep(0.5)
             else:
                 time.sleep(1 / 30)
@@ -141,12 +142,12 @@ def integrator(shared_state, solver_queue, console_queue):
             next_image_solve = None
             try:
                 next_image_solve = solver_queue.get(block=False)
+                logging.debug("Next image solve is %s", next_image_solve)
             except queue.Empty:
                 pass
 
             if next_image_solve:
                 solved = next_image_solve
-                solved["solve_source"] = "CAM"
 
                 # see if we can generate alt/az
                 location = shared_state.location()
@@ -171,11 +172,12 @@ def integrator(shared_state, solver_queue, console_queue):
                     solved["Az"] = az
 
                 last_image_solve = copy.copy(solved)
+                solved["solve_source"] = "CAM"
 
             # generate new solution by offsetting last camera solve
             # if we don't have an alt/az solve
             # we can't use the IMU
-            if solved["Alt"]:
+            elif solved["Alt"]:
                 imu = shared_state.imu()
                 if imu:
                     dt = shared_state.datetime()
@@ -206,10 +208,8 @@ def integrator(shared_state, solver_queue, console_queue):
                                 solved["Alt"], solved["Az"], dt
                             )
 
-                            # if abs(alt_offset) + abs(az_offset) > .01:
-                            if True:
-                                solved["solve_time"] = time.time()
-                                # solved["solve_source"] = "IMU"
+                            solved["solve_time"] = time.time()
+                            solved["solve_source"] = "IMU"
 
             # Is the solution new?
             if solved["RA"] and solved["solve_time"] > last_solve_time:

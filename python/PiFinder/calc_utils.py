@@ -1,6 +1,8 @@
 import datetime
 import pytz
 import math
+import json
+import hashlib
 
 
 class FastAltAz:
@@ -62,3 +64,8 @@ def ra_to_hms(ra):
     _, mm = math.modf(mm * 60.0)
     ss = round(_ * 60.0)
     return hh, mm, ss
+
+
+def hash_dict(d):
+    serialized_data = json.dumps(d, sort_keys=True).encode()
+    return hashlib.sha256(serialized_data).hexdigest()

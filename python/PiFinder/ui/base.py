@@ -8,10 +8,12 @@ import os
 import time
 import uuid
 from pathlib import Path
+import logging
 
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder import utils
+from PiFinder import calc_utils
 from PiFinder.image_util import DeviceWrapper
 
 
@@ -19,6 +21,11 @@ class UIModule:
     __title__ = "BASE"
     __uuid__ = str(uuid.uuid1()).split("-")[0]
     _config_options = None
+    _title_bar_y = 16
+    _CAM_ICON = ""
+    _IMU_ICON = ""
+    _GPS_ICON = "󰤉"
+    _unmoved = False  # has the telescope moved since the last cam solve?
 
     def __init__(
         self,
@@ -49,6 +56,11 @@ class UIModule:
         self.ss_count = 0
         self.ui_state = ui_state
         self.config_object = config_object
+
+        # FPS
+        self.fps = 0
+        self.frame_count = 0
+        self.last_fps_sample_time = time.time()
 
     def exit_config(self, option):
         """
@@ -82,9 +94,7 @@ class UIModule:
     def screengrab(self):
         self.ss_count += 1
         ss_imagepath = self.ss_path + f"_{self.ss_count :0>3}.png"
-        ss = self.screen.getchannel("B")
-        ss = ss.convert("RGB")
-        ss = ImageChops.multiply(ss, Image.new("RGB", (128, 128), (255, 0, 0)))
+        ss = self.screen.copy()
         ss.save(ss_imagepath)
 
     def active(self):
@@ -140,52 +150,75 @@ class UIModule:
             return None
 
         if title_bar:
-            self.draw.rectangle([0, 0, 128, 16], fill=self.colors.get(64))
-            self.draw.text(
-                (6, 1), self.title, font=self.font_bold, fill=self.colors.get(0)
-            )
+            fg = self.colors.get(0)
+            bg = self.colors.get(64)
+            self.draw.rectangle([0, 0, 128, self._title_bar_y], fill=bg)
+            if self.ui_state.get("show_fps"):
+                self.draw.text((6, 1), str(self.fps), font=self.font_bold, fill=fg)
+            else:
+                self.draw.text((6, 1), self.title, font=self.font_bold, fill=fg)
+            imu = self.shared_state.imu()
+            moving = True if imu and imu["pos"] and imu["moving"] else False
+
+            # GPS status
+            if self.shared_state.location()["gps_lock"]:
+                self.draw.rectangle([100, 2, 110, 14], fill=bg)
+                self.draw.text(
+                    (102, -2), self._GPS_ICON, font=fonts.icon_bold_large, fill=fg
+                )
+
+            # when moving the unit, nothing else matters
+            if moving:
+                # logging.debug("imu moving %s", imu["moving"])
+                self._unmoved = False
+                self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
+                self.draw.text(
+                    (117, -2),
+                    self._IMU_ICON,
+                    font=fonts.icon_bold_large,
+                    fill=fg,
+                )
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
+                    cam_active = solution["solve_time"] == solution["cam_solve_time"]
+                    # a fresh cam solve sets unmoved to True
+                    self._unmoved = True if cam_active else self._unmoved
+                    if self._unmoved:
+                        time_since_cam_solve = time.time() - solution["cam_solve_time"]
+                        var_fg = min(64, int(time_since_cam_solve / 6 * 64))
+                    self.draw.rectangle([115, 2, 125, 14], fill=bg)
+                    # draw the CAM or IMU icon
+                    self.draw.text(
+                        (117, -2),
+                        self._CAM_ICON if self._unmoved else self._IMU_ICON,
+                        font=fonts.icon_bold_large,
+                        fill=var_fg if self._unmoved else fg,
+                    )
+                    # draw the constellation
                     constellation = solution["constellation"]
                     self.draw.text(
                         (70, 1),
                         constellation,
                         font=self.font_bold,
-                        fill=self.colors.get(0),
-                    )
-
-                    # Solver Status
-                    time_since_solve = time.time() - solution["cam_solve_time"]
-                    bg = int(64 - (time_since_solve / 6 * 64))
-                    if bg < 0:
-                        bg = 0
-                    self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
-                    self.draw.text(
-                        (117, 0),
-                        solution["solve_source"][0],
-                        font=self.font_bold,
-                        fill=self.colors.get(64),
+                        fill=fg if self._unmoved else self.colors.get(32),
                     )
                 else:
                     # no solve yet....
-                    self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(0))
-                    self.draw.text(
-                        (117, 0), "X", font=self.font_bold, fill=self.colors.get(64)
-                    )
-
-                # GPS status
-                if self.shared_state.location()["gps_lock"]:
-                    fg = self.colors.get(0)
-                    bg = self.colors.get(64)
-                else:
-                    fg = self.colors.get(64)
-                    bg = self.colors.get(0)
-                self.draw.rectangle([100, 2, 110, 14], fill=bg)
-                self.draw.text((102, 0), "G", font=self.font_bold, fill=fg)
+                    self.draw.rectangle([115, 2, 125, 14], fill=bg)
+                    self.draw.text((117, 0), "X", font=self.font_bold, fill=fg)
 
         screen_to_display = self.screen.convert(self.display.mode)
         self.display.display(screen_to_display)
+
+        # FPS
+        self.frame_count += 1
+        if int(time.time()) - self.last_fps_sample_time > 0:
+            # flipped second
+            self.fps = self.frame_count
+            self.frame_count = 0
+            self.last_fps_sample_time = int(time.time())
+
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
 
@@ -203,7 +236,7 @@ class UIModule:
                Returns true if hotkey found
                false if not or no config
         """
-        if self._config_options == None:
+        if self._config_options is None:
             return False
 
         for config_item_name, config_item in self._config_options.items():
