@@ -214,8 +214,9 @@ class UIStatus(UIModule):
                 + str(solution["solve_source"][0])
                 + f" {stars_matched: >2}"
             )
-
-            self.status_dict["RA/DEC"] = f"{solution['RA'] :.2f}/{solution['Dec'] :.2f}"
+            hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
+            self.status_dict["RA/DEC"] = f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec'] :.2f}"
+            # self.status_dict["RA/DEC"] = f"{solution['RA'] :.2f}/{solution['Dec'] :.2f}"
 
             if solution["Az"]:
                 self.status_dict[
