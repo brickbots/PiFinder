@@ -25,6 +25,7 @@ class UIModule:
     _CAM_ICON = ""
     _IMU_ICON = ""
     _GPS_ICON = "󰤉"
+    _unmoved = False  # has the telescope moved since the last cam solve?
 
     def __init__(
         self,
@@ -158,51 +159,54 @@ class UIModule:
                 self.draw.text((6, 1), self.title, font=self.font_bold, fill=fg)
             imu = self.shared_state.imu()
             moving = True if imu and imu["pos"] and imu["moving"] else False
+
+            # GPS status
+            if self.shared_state.location()["gps_lock"]:
+                self.draw.rectangle([100, 2, 110, 14], fill=bg)
+                self.draw.text(
+                    (102, -2), self._GPS_ICON, font=fonts.icon_bold_large, fill=fg
+                )
+
+            # when moving the unit, nothing else matters
+            if moving:
+                # logging.debug("imu moving %s", imu["moving"])
+                self._unmoved = False
+                self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
+                self.draw.text(
+                    (117, -2),
+                    self._IMU_ICON,
+                    font=fonts.icon_bold_large,
+                    fill=fg,
+                )
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
-                    is_cam_solve = solution["solve_source"] == "CAM"
+                    cam_active = solution["solve_time"] == solution["cam_solve_time"]
+                    # a fresh cam solve sets unmoved to True
+                    self._unmoved = True if cam_active else self._unmoved
+                    if self._unmoved:
+                        time_since_cam_solve = time.time() - solution["cam_solve_time"]
+                        var_fg = min(64, int(time_since_cam_solve / 6 * 64))
+                    self.draw.rectangle([115, 2, 125, 14], fill=bg)
+                    # draw the CAM or IMU icon
+                    self.draw.text(
+                        (117, -2),
+                        self._CAM_ICON if self._unmoved else self._IMU_ICON,
+                        font=fonts.icon_bold_large,
+                        fill=var_fg if self._unmoved else fg,
+                    )
+                    # draw the constellation
                     constellation = solution["constellation"]
                     self.draw.text(
                         (70, 1),
                         constellation,
                         font=self.font_bold,
-                        fill=fg if is_cam_solve or not moving else self.colors.get(32),
-                    )
-
-                    # Solver Status
-                    logging.debug("Solve status %s %s", calc_utils.hash_dict(solution)[:10], solution["solve_source"])
-                    time_since_solve = time.time() - solution["cam_solve_time"]
-                    var_fg = min(64, int(time_since_solve / 6 * 64))
-                    self.draw.rectangle([115, 2, 125, 14], fill=bg)
-                    self.draw.text(
-                        (117, -2),
-                        self._CAM_ICON,  # if is_cam_solve else self._IMU_ICON,
-                        font=fonts.icon_bold_large,
-                        fill=var_fg,
+                        fill=fg if self._unmoved else self.colors.get(32),
                     )
                 else:
                     # no solve yet....
                     self.draw.rectangle([115, 2, 125, 14], fill=bg)
                     self.draw.text((117, 0), "X", font=self.font_bold, fill=fg)
-
-                # when moving the unit, nothing else matters
-                if moving and not is_cam_solve:
-                    logging.debug("imu moving %s", imu["moving"])
-                    self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
-                    self.draw.text(
-                        (117, -2),
-                        self._IMU_ICON,
-                        font=fonts.icon_bold_large,
-                        fill=fg,
-                    )
-
-                # GPS status
-                if self.shared_state.location()["gps_lock"]:
-                    self.draw.rectangle([100, 2, 110, 14], fill=bg)
-                    self.draw.text(
-                        (102, -2), self._GPS_ICON, font=fonts.icon_bold_large, fill=fg
-                    )
 
         screen_to_display = self.screen.convert(self.display.mode)
         self.display.display(screen_to_display)

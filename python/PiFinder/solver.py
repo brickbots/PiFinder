@@ -62,7 +62,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue):
                     else:
                         solved["imu_pos"] = None
                     solved["solve_time"] = time.time()
-                    solved["cam_solve_time"] = time.time()
+                    solved["cam_solve_time"] = solved["solve_time"]
                     solver_queue.put(solved)
 
                 last_solve_time = last_image_metadata["exposure_end"]

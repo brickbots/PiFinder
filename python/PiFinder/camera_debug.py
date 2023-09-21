@@ -34,15 +34,16 @@ class CameraDebug(CameraInterface):
         self.path = utils.pifinder_dir / "test_images"
         self.exposure_time = exposure_time
         self.gain = 10
+        self.image = Image.open(self.path / "pifinder_debug.png")
 
     def initialize(self) -> None:
         pass
 
     def capture(self) -> Image.Image:
-        print("starting camera debug sleep")
-        time.sleep(self.exposure_time / 1000000)
-        print("stopping camera debug sleep")
-        return Image.open(self.path / "pifinder_debug.png")
+        sleep_time = self.exposure_time / 1000000
+        time.sleep(sleep_time)
+        logging.debug("CameraDebug exposed for %s seconds", sleep_time)
+        return self.image
 
     def capture_file(self, filename) -> None:
         print("capture_file not implemented")
