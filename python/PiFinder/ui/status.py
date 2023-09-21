@@ -12,6 +12,7 @@ from PiFinder.ui.base import UIModule
 from PiFinder import sys_utils
 from PiFinder import utils
 from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed
+from PiFinder.ui.fonts import Fonts as fonts
 
 
 class UIStatus(UIModule):
@@ -33,6 +34,12 @@ class UIStatus(UIModule):
             "value": "",
             "options": ["Off", "10s", "30s", "1m"],
             "callback": "set_sleep_timeout",
+        },
+        "Screen Off": {
+            "type": "enum",
+            "value": "",
+            "options": ["Off", "30s", "1m", "10m", "30m"],
+            "callback": "set_screen_off_timeout",
         },
         "WiFi Mode": {
             "type": "enum",
@@ -75,7 +82,7 @@ class UIStatus(UIModule):
             self._config_options["WiFi Mode"]["value"] = wfs.read()
         with open(self.version_txt, "r") as ver:
             self._config_options["Software"]["value"] = ver.read()
-        self.spacecalc = SpaceCalculatorFixed(21)
+        self.spacecalc = SpaceCalculatorFixed(fonts.base_width)
         self.status_dict = {
             "LST SLV": "--",
             "RA/DEC": "--",
@@ -102,6 +109,9 @@ class UIStatus(UIModule):
         )
         self._config_options["Sleep Tim"]["value"] = self.config_object.get_option(
             "sleep_timeout"
+        )
+        self._config_options["Screen Off"]["value"] = self.config_object.get_option(
+            "screen_off_timeout"
         )
         self._config_options["Key Brit"]["value"] = self.config_object.get_option(
             "keypad_brightness"
@@ -138,6 +148,10 @@ class UIStatus(UIModule):
 
     def set_sleep_timeout(self, option):
         self.config_object.set_option("sleep_timeout", option)
+        return False
+
+    def set_screen_off_timeout(self, option):
+        self.config_object.set_option("screen_off_timeout", option)
         return False
 
     def side_switch(self, option):

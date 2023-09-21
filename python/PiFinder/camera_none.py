@@ -8,22 +8,21 @@ This module is the camera
 * Takes full res images on demand
 
 """
-import os
-import queue
 import time
 from PIL import Image
 from PiFinder import config
-from PiFinder import utils
 from PiFinder.camera_interface import CameraInterface
 from typing import Tuple
+import logging
 
 
 class CameraNone(CameraInterface):
     """Simulate a camera not solving"""
 
-    def __init__(self) -> None:
+    def __init__(self, exposure_time) -> None:
         self.camera_type = "none"
         self.camType = f"None {self.camera_type}"
+        self.exposure_time = exposure_time
         self.image = Image.new("RGB", (128, 128))
         self.initialize()
 
@@ -32,6 +31,9 @@ class CameraNone(CameraInterface):
         return
 
     def capture(self) -> Image.Image:
+        sleep_time = self.exposure_time / 1000000
+        time.sleep(sleep_time)
+        logging.debug("CameraNone exposed for %s seconds", sleep_time)
         return self.image
 
     def capture_file(self, filename) -> None:
