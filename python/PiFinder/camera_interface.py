@@ -94,47 +94,6 @@ class CameraInterface:
                         + abs(imu_start["pos"][2] - imu_end["pos"][2])
                     )
 
-<<<<<<< HEAD
-            # see if we moved during exposure
-            reading_diff = 0
-            if imu_start and imu_end:
-                reading_diff = (
-                    abs(imu_start["pos"][0] - imu_end["pos"][0])
-                    + abs(imu_start["pos"][1] - imu_end["pos"][1])
-                    + abs(imu_start["pos"][2] - imu_end["pos"][2])
-                )
-
-            camera_image.paste(base_image)
-            shared_state.set_last_image_metadata(
-                {
-                    "exposure_start": image_start_time,
-                    "exposure_end": image_end_time,
-                    "imu": imu_end,
-                    "imu_delta": reading_diff,
-                }
-            )
-||||||| 243172b
-            # see if we moved during exposure
-            moved = False
-            if imu_start and imu_end:
-                reading_diff = (
-                    abs(imu_start["pos"][0] - imu_end["pos"][0])
-                    + abs(imu_start["pos"][1] - imu_end["pos"][1])
-                    + abs(imu_start["pos"][2] - imu_end["pos"][2])
-                )
-                if reading_diff > 0.1:
-                    moved = True
-
-            if not moved:
-                camera_image.paste(base_image)
-                shared_state.set_last_image_metadata(
-                    {
-                        "exposure_start": image_start_time,
-                        "exposure_end": image_end_time,
-                        "imu": imu_end,
-                    }
-                )
-=======
                 camera_image.paste(base_image)
                 shared_state.set_last_image_metadata(
                     {
@@ -144,7 +103,6 @@ class CameraInterface:
                         "imu_delta": reading_diff,
                     }
                 )
->>>>>>> upstream/main
 
                 # Loop over any pending commands
                 # There may be more than one!
