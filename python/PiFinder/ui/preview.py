@@ -139,8 +139,8 @@ class UIPreview(UIModule):
 
             for _i in range(self.highlight_count):
                 raw_y, raw_x = self.star_list[_i]
-                star_x = int(raw_x / 4)
-                star_y = int(raw_y / 4)
+                star_x = int(raw_x / 2)
+                star_y = int(raw_y / 2)
 
                 x_direction = 1
                 x_text_offset = 6
@@ -189,10 +189,12 @@ class UIPreview(UIModule):
             # Do this at least once to get a numpy array in
             # star_list
             if self.align_mode:
+                cent_image_obj = image_obj.resize((256, 256))
+                _t = time.time()
                 self.star_list = tetra3.get_centroids_from_image(
-                    image_obj,
+                    cent_image_obj,
                     sigma_mode="local_median_abs",
-                    filtsize=13,
+                    filtsize=11,
                 )
 
             # Resize
@@ -215,9 +217,9 @@ class UIPreview(UIModule):
 
             self.title = "PREVIEW"
 
-        self.draw_reticle()
-        if self.align_mode:
-            self.draw_star_selectors()
+            self.draw_reticle()
+            if self.align_mode:
+                self.draw_star_selectors()
         return self.screen_update(title_bar=not self.align_mode)
 
     def key_b(self):
@@ -243,15 +245,12 @@ class UIPreview(UIModule):
                 # They picked a star to align....
                 star_index = number - 1
                 if self.star_list.shape[0] > star_index:
-                    self.shared_state.set_solve_pixel(
-                        (self.star_list[star_index][0], self.star_list[star_index][1])
-                    )
+                    star_cam_x = self.star_list[star_index][0] * 2
+                    star_cam_y = self.star_list[star_index][1] * 2
+                    self.shared_state.set_solve_pixel((star_cam_x, star_cam_y))
                     self.config_object.set_option(
                         "solve_pixel",
-                        (
-                            float(self.star_list[star_index][0]),
-                            float(self.star_list[star_index][1]),
-                        ),
+                        (star_cam_x, star_cam_y),
                     )
                 self.align_mode = False
                 self.update(force=True)
