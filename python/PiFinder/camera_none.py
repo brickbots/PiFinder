@@ -8,43 +8,36 @@ This module is the camera
 * Takes full res images on demand
 
 """
+import time
 from PIL import Image
 from PiFinder import config
-from PiFinder import utils
 from PiFinder.camera_interface import CameraInterface
 from typing import Tuple
-import time
 import logging
 
 
-class CameraDebug(CameraInterface):
-    """The debug camera class.  Implements the CameraInterface interface.
-
-    Loads an image from disk and returns it for each exposure
-
-    """
+class CameraNone(CameraInterface):
+    """Simulate a camera not solving"""
 
     def __init__(self, exposure_time) -> None:
-        print("init camera debug")
-        self.camType = "Debug camera"
-        self.path = utils.pifinder_dir / "test_images"
+        self.camera_type = "none"
+        self.camType = f"None {self.camera_type}"
         self.exposure_time = exposure_time
-        self.gain = 10
-        self.image = Image.open(self.path / "pifinder_debug.png")
+        self.image = Image.new("RGB", (128, 128))
         self.initialize()
 
     def initialize(self) -> None:
-        pass
+        """Initializes the camera and set the needed control parameters"""
+        return
 
     def capture(self) -> Image.Image:
         sleep_time = self.exposure_time / 1000000
         time.sleep(sleep_time)
-        logging.debug("CameraDebug exposed for %s seconds", sleep_time)
+        logging.debug("CameraNone exposed for %s seconds", sleep_time)
         return self.image
 
     def capture_file(self, filename) -> None:
         print("capture_file not implemented")
-        pass
 
     def set_camera_config(
         self, exposure_time: float, gain: float
@@ -62,7 +55,7 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
     """
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
-    camera_hardware = CameraDebug(exposure_time)
+    camera_hardware = CameraNone(exposure_time)
     camera_hardware.get_image_loop(
         shared_state, camera_image, command_queue, console_queue, cfg
     )
