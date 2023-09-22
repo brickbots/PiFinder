@@ -81,6 +81,7 @@ class UIPreview(UIModule):
         # the centroiding returns an ndarray
         # so we're initialiazing one here
         self.star_list = ndarray((0, 2))
+        self.highlight_count = 0
 
     def set_exp(self, option):
         new_exposure = int(option * 1000000)
