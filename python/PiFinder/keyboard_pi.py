@@ -53,7 +53,7 @@ class KeyboardPi(KeyboardInterface):
         alt_sent = False
         hold_counter = 0
         hold_sent = False
-        scan_freq = 30
+        scan_freq = 60
         while True:
             sleep(1 / scan_freq)
             if len(pressed) > 0 and hold_sent is False:
