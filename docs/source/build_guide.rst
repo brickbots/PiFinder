@@ -1,12 +1,12 @@
+Build Guide
+===========
 
-Build Guide - UI Board
-======================
+Introduction and Overview
+-------------------------
 
+Welcome to the PiFinder build guide!  This guide is split into three main parts, one for building the `UI Board <build_guide_ui.md>`_ with Screen and Buttons, a section related to `3d printing <build_guide_parts.md>`_ and preparing the case parts, and one for `final assembly <build_guide_assembly.md>`_.   Along with these sections, please consult the `Bill of Materials <./BOM.md>`_ for a full list of parts required and reach out with any questions via `email <mailto:info@pifinder.io>`_ or `discord <https://discord.gg/Nk5fHcAtWD>`_
 
-* `Introduction and Overview <build_guide.md>`_
-* `UI Board <build_guide_ui.md>`_
-* `Part Printing and Prep <build_guide_parts.md>`_
-* `Assembly <build_guide_assembly.md>`_
+If you've received a kit with an assembled UI Board + 3d Parts, you can jump right to the `final assembly <build_guide_assembly.md>`_.  Otherwise, fire up that 3d printer and get the `parts printing <build_guide_parts.md>`_ while you work to assemble the `UI Board <build_guide_ui.md>`_ 
 
 PiFinder UI Hat
 ---------------
@@ -23,32 +23,32 @@ Backlight Components
 The two resistors are an easy place to start.  R2 is the vertical oriented 330ohm part and R1 is the 22ohm oriented horizontally.  Direction does not matter with these, just make sure they sit flat and trim the leads on the back when they are soldered.
 
 
-.. image:: ../../../images/build_guide/led_build_02.jpeg
-   :target: ../../../images/build_guide/led_build_02.jpeg
+.. image:: ../../images/build_guide/led_build_02.jpeg
+   :target: ../../images/build_guide/led_build_02.jpeg
    :alt: Resistors
 
 
 The LED's are the next lowest components, so they go next.  Polarity matters here, so mind the direction.  The longer lead of the LED should go through the round hole in the footprint.  The photo below shows the orientation
 
 
-.. image:: ../../../images/build_guide/led_build_03.jpeg
-   :target: ../../../images/build_guide/led_build_03.jpeg
+.. image:: ../../images/build_guide/led_build_03.jpeg
+   :target: ../../images/build_guide/led_build_03.jpeg
    :alt: LED Orientation
 
 
 Take you time and make sure each is positioned well.  They should be pretty uniform, but little inconsistencies don't matter too much.  I like to place them all in the board, turn it upright and solder one leg of each.  Then I go back and press on each LED as I reheat the one soldered leg to make sure it's sitting flat and even-ish.
 
 
-.. image:: ../../../images/build_guide/led_build_05.jpeg
-   :target: ../../../images/build_guide/led_build_05.jpeg
+.. image:: ../../images/build_guide/led_build_05.jpeg
+   :target: ../../images/build_guide/led_build_05.jpeg
    :alt: LED Orientation
 
 
 Once I've verified they all look okay, I'll solder the other leg and trim all the leads.
 
 
-.. image:: ../../../images/build_guide/led_build_06.jpeg
-   :target: ../../../images/build_guide/led_build_06.jpeg
+.. image:: ../../images/build_guide/led_build_06.jpeg
+   :target: ../../images/build_guide/led_build_06.jpeg
    :alt: LED Orientation
 
 
@@ -57,8 +57,8 @@ The final component for the keypad backlight is the drive transistor.  It's loca
 You can see the position/orientation in the image below.  Once you've got it situated, solder it in and clip the leads.
 
 
-.. image:: ../../../images/build_guide/led_build_08.jpeg
-   :target: ../../../images/build_guide/led_build_08.jpeg
+.. image:: ../../images/build_guide/led_build_08.jpeg
+   :target: ../../images/build_guide/led_build_08.jpeg
    :alt: LED Orientation
 
 
@@ -68,16 +68,16 @@ Switches
 Switches are easy and can go next.  Place each one on a footprint and press it down fully.  Once they are all inserted, before you start soldering visually inspect them for any that are tilted.  
 
 
-.. image:: ../../../images/build_guide/led_build_10.jpeg
-   :target: ../../../images/build_guide/led_build_10.jpeg
+.. image:: ../../images/build_guide/led_build_10.jpeg
+   :target: ../../images/build_guide/led_build_10.jpeg
    :alt: PCB with switches
 
 
 It's also a good idea to place the top legend plate over them to make sure they all clear the holes properly.  Then solder them up!
 
 
-.. image:: ../../../images/build_guide/led_build_11.jpeg
-   :target: ../../../images/build_guide/led_build_11.jpeg
+.. image:: ../../images/build_guide/led_build_11.jpeg
+   :target: ../../images/build_guide/led_build_11.jpeg
    :alt: PCB with switches soldered
 
 
@@ -87,16 +87,16 @@ IMU
 The Inertial Measurement unit is next.  The IMU has an annoyingly bright green LED on it, which you will probably want to paint over with a drop of black nail polish.  It can be done after it's soldered, but it's much easier before hand.  See the image below to ID the offending component.
 
 
-.. image:: ../../../images/build_guide/adafruit_IMU.png
-   :target: ../../../images/build_guide/adafruit_IMU.png
+.. image:: ../../images/build_guide/adafruit_IMU.png
+   :target: ../../images/build_guide/adafruit_IMU.png
    :alt: Green led on IMU
 
 
 The photo below shows the orientation on the back of the PCB.  Solder the headers into the PCB first, then orient the IMU, make sure it sits flat and square with the board.  It does not need to be perfect, but should be secure and low-profile. Solder it into position then trim back the leads of the header to help make sure they don't touch the Raspberry Pi later.
 
 
-.. image:: ../../../images/build_guide/IMG_4643.jpeg
-   :target: ../../../images/build_guide/IMG_4643.jpeg
+.. image:: ../../images/build_guide/IMG_4643.jpeg
+   :target: ../../images/build_guide/IMG_4643.jpeg
    :alt: PCB with switches soldered
 
 
@@ -108,60 +108,60 @@ The display comes next and will cover the solder points for the IMU header, so d
 You'll need to remove the stand-offs by unscrewing them from the front.  
 
 
-.. image:: ../../../images/build_guide/IMG_4648.jpeg
-   :target: ../../../images/build_guide/IMG_4648.jpeg
+.. image:: ../../images/build_guide/IMG_4648.jpeg
+   :target: ../../images/build_guide/IMG_4648.jpeg
    :alt: Display as shipped
 
 
 
-.. image:: ../../../images/build_guide/IMG_4649.jpeg
-   :target: ../../../images/build_guide/IMG_4649.jpeg
+.. image:: ../../images/build_guide/IMG_4649.jpeg
+   :target: ../../images/build_guide/IMG_4649.jpeg
    :alt: Display with standoffs removed
 
 
 Next you'll need to remove the plug from the underside of the board.  This is not absolutely necessary, but will help the display sit lower and flatter.  Use a sharp pair of cutters to cut each of the leads to the connector first.  Cut down low, but the exact location is not critical.  Once this is done, you can use clippers to cut away the plastic at the attachment points on both of the short sides.
 
 
-.. image:: ../../../images/build_guide/IMG_4650.jpeg
-   :target: ../../../images/build_guide/IMG_4650.jpeg
+.. image:: ../../images/build_guide/IMG_4650.jpeg
+   :target: ../../images/build_guide/IMG_4650.jpeg
    :alt: Connector cut free
 
 
 It's a good idea to trim and insulate the IMU header pins.  There should be clearance, but it's easy to do and will avoid potential problems later.
 
 
-.. image:: ../../../images/build_guide/IMG_4651.jpeg
-   :target: ../../../images/build_guide/IMG_4651.jpeg
+.. image:: ../../images/build_guide/IMG_4651.jpeg
+   :target: ../../images/build_guide/IMG_4651.jpeg
    :alt: Insulate that header
 
 
 To make the top plate fit a bit better and look tidier, I suggest sanding back or simply cutting the bottom tabs on the display PCB.  There is no circuitry there, they are just providing screw points which are not needed.
 
 
-.. image:: ../../../images/build_guide/IMG_4652.jpeg
-   :target: ../../../images/build_guide/IMG_4652.jpeg
+.. image:: ../../images/build_guide/IMG_4652.jpeg
+   :target: ../../images/build_guide/IMG_4652.jpeg
    :alt: Cut/Sand tabs on displya
 
 
 Test fit the screen with the header installed and the top-plate.  Everything should fit nicely and be square.  It's nice to face the longer pins of the header down for a cleaner look up top.
 
 
-.. image:: ../../../images/build_guide/IMG_4653.jpeg
-   :target: ../../../images/build_guide/IMG_4653.jpeg
+.. image:: ../../images/build_guide/IMG_4653.jpeg
+   :target: ../../images/build_guide/IMG_4653.jpeg
    :alt: Screen test fit
 
 
 Remove the screen, turn over the board and solder the header into place
 
 
-.. image:: ../../../images/build_guide/IMG_4656.jpeg
-   :target: ../../../images/build_guide/IMG_4656.jpeg
+.. image:: ../../images/build_guide/IMG_4656.jpeg
+   :target: ../../images/build_guide/IMG_4656.jpeg
    :alt: Headers in place
 
 
 
-.. image:: ../../../images/build_guide/IMG_4657.jpeg
-   :target: ../../../images/build_guide/IMG_4657.jpeg
+.. image:: ../../images/build_guide/IMG_4657.jpeg
+   :target: ../../images/build_guide/IMG_4657.jpeg
    :alt: Headers in place
 
 
@@ -181,33 +181,33 @@ Depending on your heatsink, you may need a more complicated stand-off arrangemen
 Check the photos below for the procedure, it's easier than it sounds!
 
 
-.. image:: ../../../images/build_guide/IMG_4661.jpeg
-   :target: ../../../images/build_guide/IMG_4661.jpeg
+.. image:: ../../images/build_guide/IMG_4661.jpeg
+   :target: ../../images/build_guide/IMG_4661.jpeg
    :alt: Figuring out connector spacing
 
 
-.. image:: ../../../images/build_guide/IMG_4662.jpeg
-   :target: ../../../images/build_guide/IMG_4662.jpeg
+.. image:: ../../images/build_guide/IMG_4662.jpeg
+   :target: ../../images/build_guide/IMG_4662.jpeg
    :alt: Figuring out connector spacing
 
 
-.. image:: ../../../images/build_guide/IMG_4663.jpeg
-   :target: ../../../images/build_guide/IMG_4663.jpeg
+.. image:: ../../images/build_guide/IMG_4663.jpeg
+   :target: ../../images/build_guide/IMG_4663.jpeg
    :alt: Figuring out connector spacing
 
 
-.. image:: ../../../images/build_guide/IMG_4666.jpeg
-   :target: ../../../images/build_guide/IMG_4666.jpeg
+.. image:: ../../images/build_guide/IMG_4666.jpeg
+   :target: ../../images/build_guide/IMG_4666.jpeg
    :alt: Figuring out connector spacing
 
 
-.. image:: ../../../images/build_guide/IMG_4667.jpeg
-   :target: ../../../images/build_guide/IMG_4667.jpeg
+.. image:: ../../images/build_guide/IMG_4667.jpeg
+   :target: ../../images/build_guide/IMG_4667.jpeg
    :alt: Figuring out connector spacing
 
 
-.. image:: ../../../images/build_guide/IMG_4668.jpeg
-   :target: ../../../images/build_guide/IMG_4668.jpeg
+.. image:: ../../images/build_guide/IMG_4668.jpeg
+   :target: ../../images/build_guide/IMG_4668.jpeg
    :alt: Figuring out connector spacing
 
 
