@@ -27,7 +27,7 @@ Features
 
 Build Your Own
 --------------
-The PiFinder is fully open-source hardware and software.  You can order PCB's and 3d print the case with the files in this repo and order all the parts from the [parts List](./docs/BOM.md).  
+The PiFinder is fully open-source hardware and software.  You can order PCB's and 3d print the case with the files in this repo and order all the parts from the :doc:`Parts List <BOM>`
 
 If you would like pre-assembled units, kits or other items to jump start your PiFinder journey, visit `PiFinder.io <https://www.pifinder.io/build-pifinder>`_ to see what's available and place an order.
 
