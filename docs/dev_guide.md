@@ -25,7 +25,7 @@ pip install -r requirements_dev.txt
 
 Download the hipparcos catalog, change the download location.
 
-```wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat```
+```wget -O $HOME/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat```
 
 ### Tetra3 solver
 

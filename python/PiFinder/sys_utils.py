@@ -16,7 +16,7 @@ def update_software():
     service
     """
     print("SYS: Running update")
-    sh.bash("/home/pifinder/PiFinder/pifinder_update.sh")
+    sh.bash("$HOME/PiFinder/pifinder_update.sh")
     return True
 
 
@@ -32,11 +32,11 @@ def restart_pifinder():
 
 def go_wifi_ap():
     print("SYS: Switching to AP")
-    sh.sudo("/home/pifinder/PiFinder/switch-ap.sh")
+    sh.sudo("$HOME/PiFinder/switch-ap.sh")
     return True
 
 
 def go_wifi_cli():
     print("SYS: Switching to Client")
-    sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
+    sh.sudo("$HOME/PiFinder/switch-cli.sh")
     return True
