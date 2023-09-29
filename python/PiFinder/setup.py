@@ -184,19 +184,18 @@ def resolve_object_images():
         resolved_name = None
         for entry in resolution_priority:
             catalog_code = entry["catalog_code"]
-            if catalog_code != "Str":
-                catalog_check = db_c.execute(
-                    f"""
-                        SELECT sequence
-                        FROM catalog_objects
-                        WHERE catalog_code = '{catalog_code}'
-                        AND object_id = {obj_record['id']}
-                    """
-                ).fetchone()
-                if catalog_check:
-                    # Found a match!
-                    resolved_name = f"{catalog_code}{catalog_check['sequence']}"
-                    break
+            catalog_check = db_c.execute(
+                f"""
+                    SELECT sequence
+                    FROM catalog_objects
+                    WHERE catalog_code = '{catalog_code}'
+                    AND object_id = {obj_record['id']}
+                """
+            ).fetchone()
+            if catalog_check:
+                # Found a match!
+                resolved_name = f"{catalog_code}{catalog_check['sequence']}"
+                break
 
         if not resolved_name:
             logging.warning(f"No catalog entries for object: {obj_record['id']}")
@@ -373,7 +372,7 @@ def load_bright_stars():
         for l in tqdm(list(df)):
             dfs = l.split(",")
             dfs = [d.strip() for d in dfs]
-            other_names = dfs[1:2]
+            other_names = dfs[1:3]
             sequence = int(dfs[0])
 
             logging.debug(
