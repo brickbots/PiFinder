@@ -43,6 +43,11 @@ class UICatalog(UIModule):
 
     __title__ = "CATALOG"
     _config_options = {
+        "Catalogs": {
+            "type": "multi_enum",
+            "value": [],
+            "options": [],
+        },
         "Alt Limit": {
             "type": "enum",
             "value": 10,
@@ -80,7 +85,12 @@ class UICatalog(UIModule):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.catalog_names = self.config_object.get_option("catalogs")
+
+        self.catalog_names = self.config_object.get_option("active_catalogs")
+
+        self._config_options["Catalogs"]["value"] = self.catalog_names.copy()
+        self._config_options["Catalogs"]["options"] = self.config_object.get_option("catalogs")
+
         self.object_text = ["No Object Found"]
         self.simpleTextLayout = functools.partial(
             TextLayouterSimple, draw=self.draw, color=self.colors.get(255)
@@ -139,6 +149,16 @@ class UICatalog(UIModule):
     def update_config(self):
         if self.texts.get("aka"):
             self.texts["aka"].set_scrollspeed(self._get_scrollspeed_config())
+
+        # Update catalog names if needed
+        if self.catalog_names != self._config_options["Catalogs"]["value"]:
+            self.message("Updating Cats.", 0)
+            self.catalog_names = self._config_options["Catalogs"]["value"].copy()
+            self.config_object.set_option("active_catalogs", self.catalog_names)
+            self.catalog_tracker = CatalogTracker(
+                self.catalog_names, self.shared_state, self._config_options
+            )
+
         # re-filter if needed
         self.catalog_tracker.filter()
 

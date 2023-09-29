@@ -2,8 +2,8 @@
     "display_brightness": 255,
     "keypad_brightness": "0",
     "last_location": {
-        "lat": 34.030435,
-        "lon": -118.49151833333333,
+        "lat": 34.0,
+        "lon": -118.0,
         "altitude": 51.0,
         "gps_lock": false,
         "timezone": "America/Los_Angeles"
@@ -16,6 +16,17 @@
     "screen_off_timeout": "Off",
     "solve_pixel": [256, 256],
     "catalogs": [
+        "NGC",
+        "IC",
+        "M",
+        "C",
+        "Col",
+        "SaA",
+        "SaM",
+        "SaR",
+        "Ta2"
+    ],
+    "active_catalogs": [
         "NGC",
         "IC",
         "M",
