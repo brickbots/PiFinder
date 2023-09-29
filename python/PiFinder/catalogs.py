@@ -57,6 +57,9 @@ class Objects:
         objects = self.db.get_objects()
         self.objects = {row["id"]: dict(row) for row in objects}
         self.composite_objects = self._init_composite_objects(cat_objects)
+        # This is used for caching catalog dicts
+        # to speed up repeated searches
+        self.catalog_dicts = {}
         logging.debug(f"Loaded {len(self.objects)} objects from database")
 
     def _init_composite_objects(self, catalog_objects: List[Dict]):
@@ -76,12 +79,18 @@ class Objects:
         return composite_objects
 
     def get_catalog_dict(self, catalog_code: str) -> Dict[int, CompositeObject]:
-        return {
-            composite_obj.sequence: composite_obj
-            for object_list in self.composite_objects.values()
-            for composite_obj in object_list
-            if composite_obj.catalog_code == catalog_code
-        }
+        if self.catalog_dicts.get(catalog_code) == None:
+            self.catalog_dicts[catalog_code] = {
+                composite_obj.sequence: composite_obj
+                for object_list in self.composite_objects.values()
+                for composite_obj in object_list
+                if composite_obj.catalog_code == catalog_code
+            }
+
+        return self.catalog_dicts[catalog_code]
+
+    def get_object_by_catalog_sequence(self, catalog_code: str, sequence: int):
+        return self.get_catalog_dict(catalog_code).get(sequence, None)
 
 
 class Names:
