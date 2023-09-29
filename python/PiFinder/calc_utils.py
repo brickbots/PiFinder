@@ -1,6 +1,15 @@
 import datetime
 import pytz
 import math
+from skyfield.api import (
+    wgs84,
+    Loader,
+    Star,
+    Angle,
+    position_of_radec,
+    load_constellation_map,
+)
+import PiFinder.utils as utils
 
 
 class FastAltAz:
@@ -62,3 +71,74 @@ import hashlib
 def hash_dict(d):
     serialized_data = json.dumps(d, sort_keys=True).encode()
     return hashlib.sha256(serialized_data).hexdigest()
+
+
+class Skyfield_utils:
+    """
+    Class to persist various
+    expensive items that
+    skyfield requires (ephemeris, constellations, etc)
+    and provide useful util functions using them.
+    """
+
+    def __init__(self):
+        load = Loader(utils.astro_data_dir)
+        self.eph = load("de421.bsp")
+        self.earth = self.eph["earth"]
+        self.observer_loc = None
+        self.constellation_map = load_constellation_map()
+        self.ts = load.timescale()
+
+    def set_location(self, lat, lon, altitude):
+        """
+        set observing location
+        """
+        self.observer_loc = self.earth + wgs84.latlon(
+            lat,
+            lon,
+            altitude,
+        )
+
+    def altaz_to_radec(self, alt, az, dt):
+        """
+        returns the ra/dec of a specfic
+        apparent alt/az at the given time
+        """
+        t = self.ts.from_datetime(dt)
+
+        observer = self.observer_loc.at(t)
+        a = observer.from_altaz(alt_degrees=alt, az_degrees=az)
+        ra, dec, distance = a.radec(epoch=t)
+        return ra._degrees, dec._degrees
+
+    def radec_to_altaz(self, ra, dec, dt, atmos=True):
+        """
+        returns the apparent ALT/AZ of a specfic
+        RA/DEC at the given time
+        """
+        t = self.ts.from_datetime(dt)
+
+        observer = self.observer_loc.at(t)
+        # logging.debug(f"radec_to_altaz: '{ra}' '{dec}' '{dt}'")
+        sky_pos = Star(
+            ra=Angle(degrees=ra),
+            dec_degrees=dec,
+        )
+
+        apparent = observer.observe(sky_pos).apparent()
+        if atmos:
+            alt, az, distance = apparent.altaz("standard")
+        else:
+            alt, az, distance = apparent.altaz()
+        return alt.degrees, az.degrees
+
+    def radec_to_constellation(self, ra, dec):
+        """
+        Take a ra/dec and return the constellation
+        """
+        sky_pos = position_of_radec(Angle(degrees=ra)._hours, dec)
+        return self.constellation_map(sky_pos)
+
+
+# Create a single instance of the skyfield utils
+sf_utils = Skyfield_utils()
