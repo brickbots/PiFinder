@@ -12,7 +12,7 @@ def create_path(apath: Path):
 
 home_dir = Path.home()
 cwd_dir = Path.cwd()
-pifinder_dir = Path("..")
+pifinder_dir = Path.home() / "PiFinder"
 astro_data_dir = pifinder_dir / "astro_data"
 data_dir = Path(Path.home(), "PiFinder_data")
 pifinder_db = astro_data_dir / "pifinder_objects.db"
