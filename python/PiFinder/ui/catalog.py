@@ -89,7 +89,9 @@ class UICatalog(UIModule):
         self.catalog_names = self.config_object.get_option("active_catalogs")
 
         self._config_options["Catalogs"]["value"] = self.catalog_names.copy()
-        self._config_options["Catalogs"]["options"] = self.config_object.get_option("catalogs")
+        self._config_options["Catalogs"]["options"] = self.config_object.get_option(
+            "catalogs"
+        )
 
         self.object_text = ["No Object Found"]
         self.simpleTextLayout = functools.partial(
