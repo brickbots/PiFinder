@@ -405,6 +405,39 @@ def load_bright_stars():
     conn.commit()
 
 
+def load_herschel400():
+    logging.info("Loading Herschel 400")
+    catalog = "Her"
+    conn, _ = objects_db.get_conn_cursor()
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, Path(utils.astro_data_dir, "herschel400.desc"))
+
+    hcat = Path(utils.astro_data_dir, "herschel400.tsv")
+    sequence = 0
+    with open(hcat, "r") as df:
+        # skip column headers
+        df.readline()
+        for l in tqdm(list(df)):
+            dfs = l.split("\t")
+            dfs = [d.strip() for d in dfs]
+            NGC_sequence = dfs[0]
+            h_name = dfs[7]
+            h_desc = dfs[8]
+            sequence += 1
+
+            logging.debug(
+                f"-----------------> Herschel 400 {sequence=} <-----------------"
+            )
+
+            object_id = objects_db.get_catalog_object_by_sequence("NGC", NGC_sequence)[
+                "id"
+            ]
+            objects_db.insert_name(object_id, h_name, catalog)
+            objects_db.insert_catalog_object(object_id, catalog, sequence, h_desc)
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
+
+
 def load_sac_asterisms():
     logging.info("Loading SAC Asterisms")
     catalog = "SaA"
@@ -881,6 +914,7 @@ if __name__ == "__main__":
     load_caldwell()
     load_collinder()
     load_taas200()
+    load_herschel400()
     load_sac_asterisms()
     load_sac_multistars()
     load_sac_redstars()
