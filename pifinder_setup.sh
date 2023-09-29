@@ -35,6 +35,8 @@ echo "dtparam=i2c_arm_baudrate=10000" | sudo tee -a /boot/config.txt
 echo "dtoverlay=pwm,pin=13,func=4" | sudo tee -a /boot/config.txt
 
 # Enable service
+# The service will be run as the same user running this install script.
+sed s/\$USER/$USER/g $HOME/PiFinder/pifinder.service.template > $HOME/PiFinder/pifinder.service
 sudo cp $HOME/PiFinder/pifinder.service /etc/systemd/system/pifinder.service
 sudo systemctl daemon-reload
 sudo systemctl enable pifinder

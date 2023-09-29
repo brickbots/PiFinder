@@ -4,8 +4,8 @@ After=multi-user.target
 
 [Service]
 Type=idle
-User=pifinder
-WorkingDirectory=$HOME/PiFinder/python
+User=$USER
+WorkingDirectory=/home/$USER/PiFinder/python
 ExecStart=/usr/bin/python -m PiFinder.main
 
 [Install]
