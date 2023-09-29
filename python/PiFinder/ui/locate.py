@@ -78,12 +78,12 @@ class UILocate(UIModule):
             self.message(f"Err! {_load_results['message']}")
             return False
 
-        object_count = len(_load_results["catalog"])
+        object_count = len(_load_results["catalog_objects"])
         if object_count == 0:
             self.message("No matches")
             return False
 
-        self.ui_state["observing_list"] = _load_results["catalog"]
+        self.ui_state["observing_list"] = _load_results["catalog_objects"]
         self.ui_state["active_list"] = self.ui_state["observing_list"]
         self.target_index = 0
         self.ui_state["target"] = self.ui_state["active_list"][self.target_index]
