@@ -21,20 +21,16 @@
         "M",
         "C",
         "Col",
+        "Ta2",
+        "Str",
         "SaA",
         "SaM",
-        "SaR",
-        "Ta2"
+        "SaR"
     ],
     "active_catalogs": [
         "NGC",
         "IC",
         "M",
-        "C",
-        "Col",
-        "SaA",
-        "SaM",
-        "SaR",
-        "Ta2"
+        "Str"
     ]
 }

@@ -184,18 +184,19 @@ def resolve_object_images():
         resolved_name = None
         for entry in resolution_priority:
             catalog_code = entry["catalog_code"]
-            catalog_check = db_c.execute(
-                f"""
-                    SELECT sequence
-                    FROM catalog_objects
-                    WHERE catalog_code = '{catalog_code}'
-                    AND object_id = {obj_record['id']}
-                """
-            ).fetchone()
-            if catalog_check:
-                # Found a match!
-                resolved_name = f"{catalog_code}{catalog_check['sequence']}"
-                break
+            if catalog_code != "Str":
+                catalog_check = db_c.execute(
+                    f"""
+                        SELECT sequence
+                        FROM catalog_objects
+                        WHERE catalog_code = '{catalog_code}'
+                        AND object_id = {obj_record['id']}
+                    """
+                ).fetchone()
+                if catalog_check:
+                    # Found a match!
+                    resolved_name = f"{catalog_code}{catalog_check['sequence']}"
+                    break
 
         if not resolved_name:
             logging.warning(f"No catalog entries for object: {obj_record['id']}")
@@ -353,6 +354,54 @@ def load_collinder():
                 objects_db.insert_name(object_id, other_names, catalog + "2")
                 duplicate_names.add(first_other_names)
 
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
+
+
+def load_bright_stars():
+    logging.info("Loading Bright Named Stars")
+    catalog = "Str"
+    conn, _ = objects_db.get_conn_cursor()
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, Path(utils.astro_data_dir, "Str.desc"))
+
+    bstr = Path(utils.astro_data_dir, "bright_stars.csv")
+    with open(bstr, "r") as df:
+        # skip header
+        df.readline()
+        obj_type = "* "
+        for l in tqdm(list(df)):
+            dfs = l.split(",")
+            dfs = [d.strip() for d in dfs]
+            other_names = dfs[1:2]
+            sequence = int(dfs[0])
+
+            logging.debug(
+                f"-----------------> Bright Stars {sequence=} <-----------------"
+            )
+            size = ""
+            const = dfs[2].strip()
+            desc = ""
+
+            ra_h = int(dfs[3])
+            ra_m = float(dfs[4])
+            ra_deg = ra_to_deg(ra_h, ra_m, 0)
+
+            dec_d = int(dfs[5])
+            dec_m = float(dfs[6])
+            dec_deg = dec_to_deg(dec_d, dec_m, 0)
+
+            mag = dfs[7].strip()
+            const = dfs[8].strip()
+
+            object_id = objects_db.insert_object(
+                obj_type, ra_deg, dec_deg, const, size, mag
+            )
+
+            for other_name in other_names:
+                objects_db.insert_name(object_id, other_name, catalog)
+
+            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
     insert_catalog_max_sequence(catalog)
     conn.commit()
 
@@ -836,6 +885,7 @@ if __name__ == "__main__":
     load_sac_asterisms()
     load_sac_multistars()
     load_sac_redstars()
+    load_bright_stars()
 
     # Populate the images table
     logging.info("Resolving object images...")
