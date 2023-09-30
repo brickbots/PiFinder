@@ -406,6 +406,11 @@ def load_bright_stars():
 
 
 def load_herschel400():
+    """
+    This TSV is from a web scrape of the
+    Saguaro Astro Club h400 list as noted in their
+    master DB
+    """
     logging.info("Loading Herschel 400")
     catalog = "Her"
     conn, _ = objects_db.get_conn_cursor()
