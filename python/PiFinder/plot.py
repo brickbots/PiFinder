@@ -8,7 +8,7 @@ import os
 import io
 import datetime
 import numpy as np
-import pandas
+import polars as pl
 import time
 from pathlib import Path
 from PiFinder import utils
@@ -33,13 +33,12 @@ class Starfield:
         ts = sf_utils.ts
         self.t = ts.from_datetime(utctime)
         # An ephemeris from the JPL provides Sun and Earth positions.
-
         self.earth = sf_utils.earth.at(self.t)
 
         # The Hipparcos mission provides our star catalog.
         hip_path = Path(utils.astro_data_dir, "hip_main.dat")
         with load.open(str(hip_path)) as f:
-            self.raw_stars = hipparcos.load_dataframe(f)
+            self.raw_stars = pl.DataFrame(hipparcos.load_dataframe(f))
 
         # Image size stuff
         self.target_size = 128
@@ -60,31 +59,63 @@ class Starfield:
         ]
 
         self.set_mag_limit(mag_limit)
+        self.stars = self.raw_stars
         # Prefilter here for mag 7.5, just to make sure we have enough
         # for any plot.  Actual mag limit is enforced at plot time.
-        bright_stars = self.raw_stars.magnitude <= 7.5
-        self.stars = self.raw_stars[bright_stars].copy()
+        # self.stars = self.raw_stars.filter(pl.col("magnitude") <= 7.5)
+        self.stars = self.stars.with_row_count("index")
+        print(self.stars.describe())
+        maxstars = self.stars.select(pl.max("index"))[0]
+        print(maxstars)
 
-        self.star_positions = self.earth.observe(Star.from_dataframe(self.stars))
         self.set_fov(fov)
 
         # constellations data ===========================
         const_path = Path(utils.astro_data_dir, "constellationship.fab")
         with load.open(str(const_path)) as f:
             self.constellations = stellarium.parse_constellations(f)
+        print("constellations", self.constellations)
         edges = [edge for name, edges in self.constellations for edge in edges]
-        const_start_stars = [star1 for star1, star2 in edges]
-        const_end_stars = [star2 for star1, star2 in edges]
+        const_start_stars = pl.DataFrame([star1 for star1, star2 in edges]).filter(
+            pl.col("column_0") <= maxstars
+        )["column_0"]
+        const_end_stars = pl.DataFrame([star2 for star1, star2 in edges]).filter(
+            pl.col("column_0") <= maxstars
+        )["column_0"]
+        assert len(const_start_stars) == len(const_end_stars)
+        print(
+            f"min/max of constellation indexes is {min(const_start_stars)=} {max(const_start_stars)=}, {min(const_end_stars)=} {max(const_end_stars)=}"
+        )
 
+        print(
+            f"const_start_stars {len(const_start_stars)} const_end_stars {len(const_end_stars)}"
+        )
         # Start the main dataframe to hold edge info (start + end stars)
-        self.const_edges_df = self.stars.loc[const_start_stars]
+        print(f"length of self.stars {len(self.stars)}")
+        self.const_edges_df = self.stars.filter(
+            pl.col("index").is_in(const_start_stars)
+        )
+        print("is not in", self.stars.filter(~pl.col("index").is_in(const_start_stars)))
+        print(f"length of self.stars {len(self.stars)}")
+        self.const_edges_end_df = self.stars.filter(
+            pl.col("index").is_in(const_end_stars)
+        )
+        print(
+            "self.const_edges_df ",
+            self.const_edges_df,
+            "const_edges_end_df",
+            self.const_edges_end_df,
+        )
 
         # We need position lists for both start/end of constellation lines
         self.const_start_star_positions = self.earth.observe(
-            Star.from_dataframe(self.const_edges_df)
+            Star.from_dataframe(self.const_edges_df.to_pandas())
         )
         self.const_end_star_positions = self.earth.observe(
-            Star.from_dataframe(self.stars.loc[const_end_stars])
+            Star.from_dataframe(self.const_edges_end_df.to_pandas())
+        )
+        self.star_positions = self.earth.observe(
+            Star.from_dataframe(self.stars.to_pandas())
         )
 
         marker_path = Path(utils.pifinder_dir, "markers")
@@ -147,13 +178,18 @@ class Starfield:
         ret_image = Image.new("RGB", self.render_size)
         idraw = ImageDraw.Draw(ret_image)
 
-        markers = pandas.DataFrame(
-            marker_list, columns=["ra_hours", "dec_degrees", "symbol"]
+        markers = pl.DataFrame(
+            marker_list,
+            schema={
+                "ra_hours": pl.Float64,
+                "dec_degrees": pl.Float64,
+                "symbol": pl.Utf8,
+            },
         )
 
         # required, use the same epoch as stars
         markers["epoch_year"] = 1991.25
-        marker_positions = self.earth.observe(Star.from_dataframe(markers))
+        marker_positions = self.earth.observe(Star.from_dataframe(markers.to_pandas()))
 
         markers["x"], markers["y"] = self.projection(marker_positions)
 
@@ -242,14 +278,32 @@ class Starfield:
         # Set star x/y for projection
         # This is in a -1 to 1 space for the entire sky
         # with 0,0 being the provided RA/DEC
-        self.stars["x"], self.stars["y"] = self.projection(self.star_positions)
+        x_array, y_array = self.projection(self.star_positions)
+        self.stars = self.stars.with_columns(pl.Series("x", x_array))
+        self.stars = self.stars.with_columns(pl.Series("y", y_array))
 
-        # set start/end star x/y for const
-        self.const_edges_df["sx"], self.const_edges_df["sy"] = self.projection(
-            self.const_start_star_positions
+        print("self.const_edges_df", self.const_edges_df)
+        # For start star positions
+        sx_array, sy_array = self.projection(self.const_start_star_positions)
+        print(f"len(sx_array) {len(sx_array)}, len(sy_array) {len(sy_array)}")
+        print(f"{self.const_start_star_positions=}")
+        self.const_edges_df = self.const_edges_df.with_columns(
+            pl.Series("sx", sx_array)
         )
-        self.const_edges_df["ex"], self.const_edges_df["ey"] = self.projection(
-            self.const_end_star_positions
+        self.const_edges_df = self.const_edges_df.with_columns(
+            pl.Series("sy", sy_array)
+        )
+
+        print("self.const_edges_df", self.const_edges_df)
+        # For end star positions
+        ex_array, ey_array = self.projection(self.const_end_star_positions)
+        print(f"{self.const_end_star_positions=}")
+        print(f"len(ex_array) {len(ex_array)}, len(ey_array) {len(ey_array)}")
+        self.const_edges_df = self.const_edges_df.with_columns(
+            pl.Series("ex", ex_array[: len(sx_array)])
+        )
+        self.const_edges_df = self.const_edges_df.with_columns(
+            pl.Series("ey", ey_array[: len(sy_array)])
         )
 
         pil_image = self.render_starfield_pil(constellation_brightness)
@@ -263,83 +317,104 @@ class Starfield:
         if constellation_brightness:
             # convert projection positions to screen space
             # using pandas to interate
-            const_edges = self.const_edges_df.assign(
-                sx_pos=self.const_edges_df["sx"] * self.pixel_scale
-                + self.render_center[0],
-                sy_pos=self.const_edges_df["sy"] * -1 * self.pixel_scale
-                + self.render_center[1],
-                ex_pos=self.const_edges_df["ex"] * self.pixel_scale
-                + self.render_center[0],
-                ey_pos=self.const_edges_df["ey"] * -1 * self.pixel_scale
-                + self.render_center[1],
+            const_edges = (
+                self.const_edges_df.lazy()
+                .with_columns(
+                    pl.Series(
+                        "sx_pos",
+                        self.const_edges_df["sx"] * self.pixel_scale
+                        + self.render_center[0],
+                    )
+                )
+                .with_columns(
+                    pl.Series(
+                        "sy_pos",
+                        self.const_edges_df["sy"] * -1 * self.pixel_scale
+                        + self.render_center[1],
+                    )
+                )
+                .with_columns(
+                    pl.Series(
+                        "ex_pos",
+                        self.const_edges_df["ex"] * self.pixel_scale
+                        + self.render_center[0],
+                    )
+                )
+                .with_columns(
+                    pl.Series(
+                        "ey_pos",
+                        self.const_edges_df["ey"] * -1 * self.pixel_scale
+                        + self.render_center[1],
+                    )
+                )
             )
 
             # Now that all the star/end points are in screen space
             # remove any where both the start/end are not on screen
             # filter for visibility
-            visible_edges = const_edges[
+            visible_edges = const_edges.filter(
                 (
-                    (const_edges["sx_pos"] > 0)
-                    & (const_edges["sx_pos"] < self.render_size[0])
-                    & (const_edges["sy_pos"] > 0)
-                    & (const_edges["sy_pos"] < self.render_size[1])
+                    (pl.col("sx_pos") > 0)
+                    & (pl.col("sx_pos") < self.render_size[0])
+                    & (pl.col("sy_pos") > 0)
+                    & (pl.col("sy_pos") < self.render_size[1])
                 )
                 | (
-                    (const_edges["ex_pos"] > 0)
-                    & (const_edges["ex_pos"] < self.render_size[0])
-                    & (const_edges["ey_pos"] > 0)
-                    & (const_edges["ey_pos"] < self.render_size[1])
+                    (pl.col("ex_pos") > 0)
+                    & (pl.col("ex_pos") < self.render_size[0])
+                    & (pl.col("ey_pos") > 0)
+                    & (pl.col("ey_pos") < self.render_size[1])
                 )
-            ]
+            ).collect()
 
+            print("visible_edges", visible_edges)
             # This seems strange, but is one of the generally recommended
             # way to iterate through pandas frames.
-            for start_x, start_y, end_x, end_y in zip(
-                visible_edges["sx_pos"],
-                visible_edges["sy_pos"],
-                visible_edges["ex_pos"],
-                visible_edges["ey_pos"],
-            ):
+            for row in visible_edges.rows():
+                print(row)
+                start_x = row[13]
+                start_y = row[14]
+                end_x = row[15]
+                end_y = row[16]
                 idraw.line(
                     [start_x, start_y, end_x, end_y],
                     fill=(constellation_brightness),
                 )
 
         # filter stars by magnitude
-        visible_stars = self.stars[self.stars["magnitude"] < self.mag_limit]
+        visible_stars = self.stars.filter(pl.col("magnitude") < self.mag_limit)
 
         # convert star positions to screen space
-        visible_stars = visible_stars.assign(
-            x_pos=visible_stars["x"] * self.pixel_scale + self.render_center[0],
-            y_pos=visible_stars["y"] * -1 * self.pixel_scale + self.render_center[1],
+        visible_stars = visible_stars.with_columns(
+            [
+                (pl.col("x") * self.pixel_scale + self.render_center[0]).alias("x_pos"),
+                (pl.col("y") * -1 * self.pixel_scale + self.render_center[1]).alias(
+                    "y_pos"
+                ),
+            ]
         )
-        # now filter by visiblity on screen
-        visible_stars = visible_stars[
-            (visible_stars["x_pos"] > 0)
-            & (visible_stars["x_pos"] < self.render_size[0])
-            & (visible_stars["y_pos"] > 0)
-            & (visible_stars["y_pos"] < self.render_size[1])
-        ]
 
-        for x_pos, y_pos, mag in zip(
-            visible_stars["x_pos"], visible_stars["y_pos"], visible_stars["magnitude"]
-        ):
-            # This could be moved to a pandas assign after filtering
-            # for vis for a small boost
-            plot_size = (self.mag_limit - mag) / 3
-            fill = 255
-            if mag > 4.5:
-                fill = 128
+        # now filter by visibility on screen
+        visible_stars = visible_stars.filter(
+            (pl.col("x_pos") > 0)
+            & (pl.col("x_pos") < self.render_size[0])
+            & (pl.col("y_pos") > 0)
+            & (pl.col("y_pos") < self.render_size[1])
+        )
+
+        # Collect the data and iterate through rows
+        x_pos, y_pos, mag = visible_stars.select(["x_pos", "y_pos", "magnitude"])
+
+        for x, y, m in zip(x_pos, y_pos, mag):
+            plot_size = (self.mag_limit - m) / 3
+            fill = 255 if m <= 4.5 else 128
+
             if plot_size < 0.5:
-                idraw.point((x_pos, y_pos), fill=fill)
+                idraw.point((x, y), fill=fill)
             else:
                 idraw.ellipse(
-                    [
-                        x_pos - plot_size,
-                        y_pos - plot_size,
-                        x_pos + plot_size,
-                        y_pos + plot_size,
-                    ],
-                    fill=(255),
+                    [x - plot_size, y - plot_size, x + plot_size, y + plot_size],
+                    fill=255,
                 )
+
         return ret_image

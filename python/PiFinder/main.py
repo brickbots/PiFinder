@@ -76,7 +76,7 @@ def init_display():
             mode="RGB",
             transform="scale2x",
             scale=2,
-            frame_rate=60,
+            frame_rate=1000,
         )
         display_device = DeviceWrapper(pygame, RED_RGB)
     elif hardware_platform == "Pi":
