@@ -31,7 +31,7 @@ class UILocate(UIModule):
         "Load": {
             "type": "enum",
             "value": "",
-            "options": ["CANCEL"],
+            "options": [],
             "callback": "load_list",
         },
     }
@@ -46,7 +46,7 @@ class UILocate(UIModule):
         self.screen_direction = config.Config().get_option("screen_direction")
 
         available_lists = obslist.get_lists()
-        self._config_options["Load"]["options"] += available_lists
+        self._config_options["Load"]["options"] = ["CANCEL"] + available_lists
         self.obs_list_write_index = 0
         self.last_update_time = time.time()
 
@@ -194,6 +194,9 @@ class UILocate(UIModule):
         return None, None
 
     def active(self):
+        super().active()
+        available_lists = obslist.get_lists()
+        self._config_options["Load"]["options"] = ["CANCEL"] + available_lists
         try:
             self.target_index = self.ui_state["active_list"].index(
                 self.ui_state["target"]
