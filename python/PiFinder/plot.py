@@ -64,9 +64,7 @@ class Starfield:
         # for any plot.  Actual mag limit is enforced at plot time.
         # self.stars = self.raw_stars.filter(pl.col("magnitude") <= 7.5)
         self.stars = self.stars.with_row_count("index")
-        print(self.stars.describe())
         maxstars = self.stars.select(pl.max("index"))[0]
-        print(maxstars)
 
         self.set_fov(fov)
 
@@ -74,7 +72,6 @@ class Starfield:
         const_path = Path(utils.astro_data_dir, "constellationship.fab")
         with load.open(str(const_path)) as f:
             self.constellations = stellarium.parse_constellations(f)
-        print("constellations", self.constellations)
         edges = [edge for name, edges in self.constellations for edge in edges]
         const_start_stars = pl.DataFrame([star1 for star1, star2 in edges]).filter(
             pl.col("column_0") <= maxstars
@@ -82,29 +79,12 @@ class Starfield:
         const_end_stars = pl.DataFrame([star2 for star1, star2 in edges]).filter(
             pl.col("column_0") <= maxstars
         )["column_0"]
-        assert len(const_start_stars) == len(const_end_stars)
-        print(
-            f"min/max of constellation indexes is {min(const_start_stars)=} {max(const_start_stars)=}, {min(const_end_stars)=} {max(const_end_stars)=}"
-        )
-
-        print(
-            f"const_start_stars {len(const_start_stars)} const_end_stars {len(const_end_stars)}"
-        )
         # Start the main dataframe to hold edge info (start + end stars)
-        print(f"length of self.stars {len(self.stars)}")
         self.const_edges_df = self.stars.filter(
             pl.col("index").is_in(const_start_stars)
         )
-        print("is not in", self.stars.filter(~pl.col("index").is_in(const_start_stars)))
-        print(f"length of self.stars {len(self.stars)}")
         self.const_edges_end_df = self.stars.filter(
             pl.col("index").is_in(const_end_stars)
-        )
-        print(
-            "self.const_edges_df ",
-            self.const_edges_df,
-            "const_edges_end_df",
-            self.const_edges_end_df,
         )
 
         # We need position lists for both start/end of constellation lines
@@ -282,11 +262,8 @@ class Starfield:
         self.stars = self.stars.with_columns(pl.Series("x", x_array))
         self.stars = self.stars.with_columns(pl.Series("y", y_array))
 
-        print("self.const_edges_df", self.const_edges_df)
         # For start star positions
         sx_array, sy_array = self.projection(self.const_start_star_positions)
-        print(f"len(sx_array) {len(sx_array)}, len(sy_array) {len(sy_array)}")
-        print(f"{self.const_start_star_positions=}")
         self.const_edges_df = self.const_edges_df.with_columns(
             pl.Series("sx", sx_array)
         )
@@ -294,11 +271,8 @@ class Starfield:
             pl.Series("sy", sy_array)
         )
 
-        print("self.const_edges_df", self.const_edges_df)
         # For end star positions
         ex_array, ey_array = self.projection(self.const_end_star_positions)
-        print(f"{self.const_end_star_positions=}")
-        print(f"len(ex_array) {len(ex_array)}, len(ey_array) {len(ey_array)}")
         self.const_edges_df = self.const_edges_df.with_columns(
             pl.Series("ex", ex_array[: len(sx_array)])
         )
@@ -367,11 +341,9 @@ class Starfield:
                 )
             ).collect()
 
-            print("visible_edges", visible_edges)
             # This seems strange, but is one of the generally recommended
             # way to iterate through pandas frames.
             for row in visible_edges.rows():
-                print(row)
                 start_x = row[13]
                 start_y = row[14]
                 end_x = row[15]
