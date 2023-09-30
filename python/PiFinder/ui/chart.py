@@ -14,6 +14,11 @@ from PiFinder.ui.base import UIModule
 
 class UIChart(UIModule):
     __title__ = "CHART"
+    __button_hints__ = {
+        "B": "Reticl",
+        "C": "Const",
+        "D": "DSOs",
+    }
     _config_options = {
         "Reticle": {
             "type": "enum",

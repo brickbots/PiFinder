@@ -1,5 +1,6 @@
 {
     "display_brightness": 255,
+    "hint_timeout": 2,
     "keypad_brightness": "0",
     "last_location": {
         "lat": 34.030435,
