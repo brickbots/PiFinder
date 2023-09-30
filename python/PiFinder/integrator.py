@@ -105,6 +105,25 @@ class Skyfield_utils:
 sf_utils = Skyfield_utils()
 
 
+def imu_moved(imu_a, imu_b):
+    """
+    Compares two IMU states to determine if they are the 'same'
+    if either is none, returns False
+    """
+    if imu_a == None:
+        return False
+    if imu_b == None:
+        return False
+
+    # figure out the abs difference
+    diff = (
+        abs(imu_a[0] - imu_b[0]) + abs(imu_a[1] - imu_b[1]) + abs(imu_a[2] - imu_b[2])
+    )
+    if diff > 0.001:
+        return True
+    return False
+
+
 def integrator(shared_state, solver_queue, console_queue):
     try:
         solved = {
@@ -188,7 +207,7 @@ def integrator(shared_state, solver_queue, console_queue):
                         # calc new alt/az
                         lis_imu = last_image_solve["imu_pos"]
                         imu_pos = imu["pos"]
-                        if lis_imu != None and imu_pos != None:
+                        if imu_moved(lis_imu, imu_pos):
                             alt_offset = imu_pos[IMU_ALT] - lis_imu[IMU_ALT]
                             if flip_alt_offset:
                                 alt_offset = ((alt_offset + 180) % 360 - 180) * -1
