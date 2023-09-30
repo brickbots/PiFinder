@@ -154,9 +154,11 @@ class UIModule:
         if time.time() < self.ui_state["message_timeout"]:
             return None
 
+        hint_timeout_decode = {"Off": 0, "2s": 2, "4s": 4, "On": 1000}
         if (
             button_hints
-            and time.time() - self.button_hints_timer < self.ui_state["hint_timeout"]
+            and time.time() - self.button_hints_timer
+            < hint_timeout_decode.get(self.ui_state["hint_timeout"], 2)
         ):
             # Bottom button help
 
