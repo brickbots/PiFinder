@@ -68,7 +68,7 @@ class UICatalog(UIModule):
             "value": ["None"],
             "options": ["None"] + list(OBJ_TYPES.keys()),
         },
-        "Observed": {"type": "enum", "value": ["Any"], "options": ["Any", "Yes", "No"]},
+        "Observed": {"type": "enum", "value": "Any", "options": ["Any", "Yes", "No"]},
         "Push Cat.": {
             "type": "enum",
             "value": "",

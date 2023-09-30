@@ -199,10 +199,6 @@ class Catalog:
                     dt,
                 )
 
-        if observed_filter != "Any":
-            # setup
-            observed_list = self.observations_db.get_observed_objects()
-
         for key, obj in self.cobjects.items():
             # print(f"filtering {obj}")
             include_obj = True
@@ -229,7 +225,8 @@ class Catalog:
                     include_obj = False
 
             if observed_filter != "Any":
-                if (obj.catalog_code, obj.sequence) in observed_list:
+                observed = self.observations_db.check_logged(obj)
+                if observed:
                     if observed_filter == "No":
                         include_obj = False
                 else:

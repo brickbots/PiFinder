@@ -123,6 +123,22 @@ class ObservationsDatabase(Database):
         ).fetchone()["id"]
         return observation_id
 
+    def check_logged(self, obj_record):
+        """
+        Returns true/false if this object has been observed
+        """
+        logs = self.cursor.execute(
+            f"""
+                select count(*) as observations from obs_objects
+                where catalog = :catalog
+                and sequence = :sequence
+            """,
+            {"catalog": obj_record.catalog_code, "sequence": obj_record.sequence},
+        ).fetchone()
+        if logs["observations"] > 0:
+            return True
+        return False
+
     def get_logs_for_object(self, obj_record):
         """
         Returns a list of observations for a particular object
@@ -145,7 +161,7 @@ class ObservationsDatabase(Database):
         logs = self.cursor.execute(
             f"""
                 select distinct catalog, sequence from obs_objects
-                """
+            """
         ).fetchall()
 
         return logs
