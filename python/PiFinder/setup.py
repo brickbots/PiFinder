@@ -357,6 +357,92 @@ def load_collinder():
     conn.commit()
 
 
+def load_bright_stars():
+    logging.info("Loading Bright Named Stars")
+    catalog = "Str"
+    conn, _ = objects_db.get_conn_cursor()
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, Path(utils.astro_data_dir, "Str.desc"))
+
+    bstr = Path(utils.astro_data_dir, "bright_stars.csv")
+    with open(bstr, "r") as df:
+        # skip header
+        df.readline()
+        obj_type = "* "
+        for l in tqdm(list(df)):
+            dfs = l.split(",")
+            dfs = [d.strip() for d in dfs]
+            other_names = dfs[1:3]
+            sequence = int(dfs[0]) + 1
+
+            logging.debug(
+                f"-----------------> Bright Stars {sequence=} <-----------------"
+            )
+            size = ""
+            const = dfs[2].strip()
+            desc = ""
+
+            ra_h = int(dfs[3])
+            ra_m = float(dfs[4])
+            ra_deg = ra_to_deg(ra_h, ra_m, 0)
+
+            dec_d = int(dfs[5])
+            dec_m = float(dfs[6])
+            dec_deg = dec_to_deg(dec_d, dec_m, 0)
+
+            mag = dfs[7].strip()
+            const = dfs[8].strip()
+
+            object_id = objects_db.insert_object(
+                obj_type, ra_deg, dec_deg, const, size, mag
+            )
+
+            for other_name in other_names:
+                objects_db.insert_name(object_id, other_name, catalog)
+
+            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
+
+
+def load_herschel400():
+    """
+    This TSV is from a web scrape of the
+    Saguaro Astro Club h400 list as noted in their
+    master DB
+    """
+    logging.info("Loading Herschel 400")
+    catalog = "H"
+    conn, _ = objects_db.get_conn_cursor()
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, Path(utils.astro_data_dir, "herschel400.desc"))
+
+    hcat = Path(utils.astro_data_dir, "herschel400.tsv")
+    sequence = 0
+    with open(hcat, "r") as df:
+        # skip column headers
+        df.readline()
+        for l in tqdm(list(df)):
+            dfs = l.split("\t")
+            dfs = [d.strip() for d in dfs]
+            NGC_sequence = dfs[0]
+            h_name = dfs[7]
+            h_desc = dfs[8]
+            sequence += 1
+
+            logging.debug(
+                f"-----------------> Herschel 400 {sequence=} <-----------------"
+            )
+
+            object_id = objects_db.get_catalog_object_by_sequence("NGC", NGC_sequence)[
+                "id"
+            ]
+            objects_db.insert_name(object_id, h_name, catalog)
+            objects_db.insert_catalog_object(object_id, catalog, sequence, h_desc)
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
+
+
 def load_sac_asterisms():
     logging.info("Loading SAC Asterisms")
     catalog = "SaA"
@@ -833,9 +919,11 @@ if __name__ == "__main__":
     load_caldwell()
     load_collinder()
     load_taas200()
+    load_herschel400()
     load_sac_asterisms()
     load_sac_multistars()
     load_sac_redstars()
+    load_bright_stars()
 
     # Populate the images table
     logging.info("Resolving object images...")
