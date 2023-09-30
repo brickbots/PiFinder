@@ -5,7 +5,11 @@ Once you've built or otherwise obtained a PiFinder, here's how to setup a fresh 
 ## General Pi Setup
 * Create Image:  I'd strongly recommend using the Rapsberry Pi imager.  It's available for most platforms and lets you easily setup wifi and SSH for your new image.
 	* Select the 64-Bit version of Pi OS Lite (No Desktop Environment)
-	* Setup SSH / Wifi / User and Host name using the gear icon.  Below is a screengrab showing the suggested settings.  The username must be `pifinder`, but the host name, password, network settings and locale should be customized for your needs.
+	* Setup SSH / Wifi / User and Host name using the gear icon.  Below is a screengrab showing the suggested settings.
+        * _The username must be `pifinder`_
+        * The host name, password, network settings and locale should be customized for your needs.
+
+
 ![Raspberry Pi Imager settings](../images/raspi_imager_settings.png)
 
 * Once the image is burned to an SD card, insert it into the PiFinder and power it up.   It will probably take a few minutes to boot the first time.
