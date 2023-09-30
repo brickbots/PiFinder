@@ -21,7 +21,7 @@
         "M",
         "C",
         "Col",
-        "Her",
+        "H",
         "Ta2",
         "Str",
         "SaA",
@@ -30,8 +30,10 @@
     ],
     "active_catalogs": [
         "NGC",
-        "IC",
         "M",
-        "Str"
+        "H",
+        "Ta2",
+        "Str",
+        "SaA"
     ]
 }

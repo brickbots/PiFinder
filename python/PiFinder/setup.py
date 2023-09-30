@@ -373,7 +373,7 @@ def load_bright_stars():
             dfs = l.split(",")
             dfs = [d.strip() for d in dfs]
             other_names = dfs[1:3]
-            sequence = int(dfs[0])
+            sequence = int(dfs[0]) + 1
 
             logging.debug(
                 f"-----------------> Bright Stars {sequence=} <-----------------"
@@ -412,7 +412,7 @@ def load_herschel400():
     master DB
     """
     logging.info("Loading Herschel 400")
-    catalog = "Her"
+    catalog = "H"
     conn, _ = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, Path(utils.astro_data_dir, "herschel400.desc"))
