@@ -1,0 +1,3 @@
+[tool.black]
+# 'extend-exclude' excludes files or directories in addition to the defaults
+extend-exclude = 'tetra3'
