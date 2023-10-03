@@ -1,42 +1,18 @@
 import logging
 import time
+from typing import List, Dict, DefaultDict, Optional
+import numpy as np
+import pandas as pd
+from collections import defaultdict
+from sklearn.neighbors import BallTree
+
 import PiFinder.calc_utils as calc_utils
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
-import numpy as np
-import pandas as pd
-from collections import defaultdict
-from typing import List, Dict, DefaultDict, Optional
-from sklearn.neighbors import BallTree
+from PiFinder.composite_object import CompositeObject
 
 # collection of all catalog-related classes
-
-
-class CompositeObject:
-    """
-    Represents an object that is a combination of
-    catalog data and the basic data from the objects table
-    """
-
-    def __init__(self, data_dict):
-        self._data = data_dict
-
-    def __getattr__(self, name):
-        # Return the value if it exists in the dictionary.
-        # If not, raise an AttributeError.
-        try:
-            return self._data[name]
-        except KeyError:
-            raise AttributeError(
-                f"'{type(self).__name__}' object has no attribute '{name}'"
-            )
-
-    def __str__(self):
-        return f"CompositeObject: {str(self._data)}"
-
-    def __repr__(self):
-        return f"CompositeObject: {self.catalog_code} {self.sequence}"
 
 
 class Objects:
@@ -185,6 +161,10 @@ class Catalog:
         self.last_filtered = time.time()
 
         self.filtered_objects = {}
+
+        if observed_filter != "Any":
+            # prep observations db cache
+            self.observations_db.load_observed_objects_cache()
 
         fast_aa = None
         if altitude_filter != "None":
