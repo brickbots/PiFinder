@@ -374,9 +374,16 @@ class CatalogTracker:
             return None
         return self.current_catalog.cobjects[object_key]
 
-    def set_current_object(self, object_number, catalog_name=None):
+    def set_current_object(self, object_number: int, catalog_name: str = None):
         if catalog_name is not None:
-            self.set_current_catalog(catalog_name)
+            try:
+                self.set_current_catalog(catalog_name)
+            except AssertionError:
+                # Requested catalog not in tracker!
+                # Set to current catalog/zero
+                catalog_name = self.current_catalog_name
+                self.designator_tracker[catalog_name].set_number(0)
+                return
         else:
             catalog_name = self.current_catalog_name
         self.object_tracker[catalog_name] = object_number
