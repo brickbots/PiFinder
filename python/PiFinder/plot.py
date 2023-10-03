@@ -123,6 +123,9 @@ class Starfield:
         angle = np.pi - (self.fov) / 360.0 * np.pi
         limit = np.sin(angle) / (1.0 - np.cos(angle))
 
+        # Used for vis culling in projection space
+        self.limit = limit
+
         self.image_scale = int(self.target_size / limit)
         self.pixel_scale = self.image_scale / 2
 
@@ -308,18 +311,19 @@ class Starfield:
         # filter stars by magnitude
         visible_stars = self.stars[self.stars["magnitude"] < self.mag_limit]
 
+        # now filter by visiblity on screen in projection space
+        visible_stars = visible_stars[
+            (visible_stars["x"] > -self.limit)
+            & (visible_stars["x"] < self.limit)
+            & (visible_stars["y"] > -self.limit)
+            & (visible_stars["y"] < self.limit)
+        ]
+
         # convert star positions to screen space
         visible_stars = visible_stars.assign(
             x_pos=visible_stars["x"] * self.pixel_scale + self.render_center[0],
             y_pos=visible_stars["y"] * -1 * self.pixel_scale + self.render_center[1],
         )
-        # now filter by visiblity on screen
-        visible_stars = visible_stars[
-            (visible_stars["x_pos"] > 0)
-            & (visible_stars["x_pos"] < self.render_size[0])
-            & (visible_stars["y_pos"] > 0)
-            & (visible_stars["y_pos"] < self.render_size[1])
-        ]
 
         for x_pos, y_pos, mag in zip(
             visible_stars["x_pos"], visible_stars["y_pos"], visible_stars["magnitude"]
