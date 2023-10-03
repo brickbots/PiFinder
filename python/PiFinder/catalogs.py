@@ -444,6 +444,8 @@ class CatalogTracker:
         catalog_list_flat = [
             obj for catalog in catalog_list for obj in catalog.filtered_objects.values()
         ]
+        if len(catalog_list_flat) < n:
+            n = len(catalog_list_flat)
         object_radecs = [
             [np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in catalog_list_flat
         ]
