@@ -20,6 +20,11 @@ class UILocate(UIModule):
     """
 
     __title__ = "LOCATE"
+    __button_hints__ = {
+        "B": "Histry",
+        "C": "Observ",
+        "D": "Remove",
+    }
 
     _config_options = {
         "Save": {
@@ -93,21 +98,33 @@ class UILocate(UIModule):
 
     def key_b(self):
         """
-        When B is pressed, switch target lists
+        When B is pressed, switch to history
         """
-        self.target_index = None
         if self.ui_state["active_list"] == self.ui_state["history_list"]:
-            if len(self.ui_state["observing_list"]) > 0:
-                self.ui_state["active_list"] = self.ui_state["observing_list"]
-                self.target_index = 0
-            else:
-                self.message("No Obs List", 1)
+            pass
         else:
             if len(self.ui_state["history_list"]) > 0:
                 self.ui_state["active_list"] = self.ui_state["history_list"]
                 self.target_index = len(self.ui_state["active_list"]) - 1
             else:
                 self.message("No History", 1)
+
+        if self.target_index != None:
+            self.ui_state["target"] = self.ui_state["active_list"][self.target_index]
+            self.update_object_text()
+
+    def key_c(self):
+        """
+        When C is pressed, switch to observing list
+        """
+        if self.ui_state["active_list"] == self.ui_state["observing_list"]:
+            pass
+        else:
+            if len(self.ui_state["observing_list"]) > 0:
+                self.ui_state["active_list"] = self.ui_state["observing_list"]
+                self.target_index = 0
+            else:
+                self.message("No Obs List", 1)
 
         if self.target_index != None:
             self.ui_state["target"] = self.ui_state["active_list"][self.target_index]
@@ -126,7 +143,7 @@ class UILocate(UIModule):
     def key_down(self):
         self.scroll_target_history(1)
 
-    def delete(self):
+    def key_d(self):
         active_list = self.ui_state["active_list"]
         if self.target_index is not None and len(active_list) > 1:
             del active_list[self.target_index]

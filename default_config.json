@@ -14,6 +14,7 @@
     "solver_debug": 0,
     "sleep_timeout": "30s",
     "screen_off_timeout": "Off",
+    "hint_timeout": "2s",
     "solve_pixel": [256, 256],
     "catalogs": [
         "NGC",

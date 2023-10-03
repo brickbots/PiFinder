@@ -19,6 +19,7 @@ from PiFinder.image_util import DeviceWrapper
 
 class UIModule:
     __title__ = "BASE"
+    __button_hints__ = {}
     __uuid__ = str(uuid.uuid1()).split("-")[0]
     _config_options = None
     _title_bar_y = 16
@@ -37,6 +38,8 @@ class UIModule:
         config_object=None,
     ):
         self.title = self.__title__
+        self.button_hints = self.__button_hints__
+        self.button_hints_timer = time.time()
         self.switch_to = None
         self.display = device_wrapper.device
         self.colors = device_wrapper.colors
@@ -48,6 +51,7 @@ class UIModule:
         self.font_base = fonts.base
         self.font_bold = fonts.bold
         self.font_large = fonts.large
+        self.font_small = fonts.small
 
         # screenshot stuff
         root_dir = str(utils.data_dir)
@@ -102,6 +106,7 @@ class UIModule:
         Called when a module becomes active
         i.e. foreground controlling display
         """
+        self.button_hints_timer = time.time()
         pass
 
     def background_update(self):
@@ -140,7 +145,7 @@ class UIModule:
         self.display.display(self.screen.convert(self.display.mode))
         self.ui_state["message_timeout"] = timeout + time.time()
 
-    def screen_update(self, title_bar=True):
+    def screen_update(self, title_bar=True, button_hints=True):
         """
         called to trigger UI updates
         takes self.screen adds title bar and
@@ -148,6 +153,51 @@ class UIModule:
         """
         if time.time() < self.ui_state["message_timeout"]:
             return None
+
+        hint_timeout_decode = {"Off": 0, "2s": 2, "4s": 4, "On": 1000}
+        if (
+            button_hints
+            and time.time() - self.button_hints_timer
+            < hint_timeout_decode.get(self.ui_state["hint_timeout"], 2)
+        ):
+            # Bottom button help
+
+            # B
+            if self.button_hints.get("B"):
+                self.draw.rectangle([0, 118, 40, 128], fill=self.colors.get(32))
+                self.draw.text(
+                    (2, 117), "B", font=self.font_small, fill=self.colors.get(255)
+                )
+                self.draw.text(
+                    (10, 117),
+                    self.button_hints.get("B"),
+                    font=self.font_small,
+                    fill=self.colors.get(128),
+                )
+            # C
+            if self.button_hints.get("C"):
+                self.draw.rectangle([44, 118, 84, 128], fill=self.colors.get(32))
+                self.draw.text(
+                    (46, 117), "C", font=self.font_small, fill=self.colors.get(255)
+                )
+                self.draw.text(
+                    (54, 117),
+                    self.button_hints.get("C"),
+                    font=self.font_small,
+                    fill=self.colors.get(128),
+                )
+            # D
+            if self.button_hints.get("D"):
+                self.draw.rectangle([88, 118, 128, 128], fill=self.colors.get(32))
+                self.draw.text(
+                    (90, 117), "D", font=self.font_small, fill=self.colors.get(255)
+                )
+                self.draw.text(
+                    (98, 117),
+                    self.button_hints.get("D"),
+                    font=self.font_small,
+                    fill=self.colors.get(128),
+                )
 
         if title_bar:
             fg = self.colors.get(0)

@@ -31,9 +31,8 @@ from PiFinder.catalogs import CompositeObject
 
 # Constants for display modes
 DM_DESC = 0  # Display mode for description
-DM_OBS = 1  # Display mode for observed
-DM_POSS = 2  # Display mode for POSS
-DM_SDSS = 3  # Display mode for SDSS
+DM_POSS = 1  # Display mode for POSS
+DM_SDSS = 2  # Display mode for SDSS
 
 
 class UICatalog(UIModule):
@@ -42,6 +41,11 @@ class UICatalog(UIModule):
     """
 
     __title__ = "CATALOG"
+    __button_hints__ = {
+        "B": "Image",
+        "C": "Catalog",
+        "D": "More",
+    }
     _config_options = {
         "Catalogs": {
             "type": "multi_enum",
@@ -233,7 +237,7 @@ class UICatalog(UIModule):
             )
             return
 
-        if self.object_display_mode in [DM_DESC, DM_OBS]:
+        if self.object_display_mode == DM_DESC:
             # text stuff....
 
             self.texts = {}
@@ -288,20 +292,17 @@ class UICatalog(UIModule):
                     scrollspeed=self._get_scrollspeed_config(),
                 )
 
-            if self.object_display_mode == DM_DESC:
-                # NGC description....
-                desc = cat_object.description.replace("\t", " ")
-                self.descTextLayout.set_text(desc)
-                self.texts["desc"] = self.descTextLayout
+            # NGC description....
+            logs = self.observations_db.get_logs_for_object(cat_object)
+            desc = cat_object.description.replace("\t", " ") + "\n"
+            if len(logs) == 0:
+                desc = desc + "** Not Logged"
+            else:
+                desc = desc + f"** {len(logs)} Logs"
 
-            if self.object_display_mode == DM_OBS:
-                logs = self.observations_db.get_logs_for_object(cat_object)
-                if len(logs) == 0:
-                    self.texts["desc"] = self.simpleTextLayout("No Logs")
-                else:
-                    self.texts["desc"] = self.simpleTextLayout(
-                        f"Logged {len(logs)} times"
-                    )
+            self.descTextLayout.set_text(desc)
+            self.texts["desc"] = self.descTextLayout
+
         else:
             # Image stuff...
             if self.object_display_mode == DM_SDSS:
@@ -324,6 +325,7 @@ class UICatalog(UIModule):
 
     def active(self):
         # trigger refilter
+        super().active()
         self.catalog_tracker.filter()
         target = self.ui_state["target"]
         if target:
@@ -337,7 +339,7 @@ class UICatalog(UIModule):
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
         cat_object = self.catalog_tracker.get_current_object()
 
-        if self.object_display_mode in [DM_DESC, DM_OBS] or cat_object is None:
+        if self.object_display_mode == DM_DESC or cat_object is None:
             # catalog and entry field i.e. NGC-311
             self.refresh_designator()
             desig = self.texts["designator"]
@@ -421,7 +423,7 @@ class UICatalog(UIModule):
         else:
             # switch object display text
             self.object_display_mode = (
-                self.object_display_mode + 1 if self.object_display_mode < 3 else 0
+                self.object_display_mode + 1 if self.object_display_mode < 2 else 0
             )
             self.update_object_info()
             self.update()
@@ -469,7 +471,7 @@ class UICatalog(UIModule):
         return False
 
     def key_number(self, number):
-        if self.object_display_mode in [DM_DESC, DM_OBS]:
+        if self.object_display_mode == DM_DESC:
             designator = self.catalog_tracker.get_designator()
             designator.append_number(number)
             # Check for match
@@ -512,13 +514,13 @@ class UICatalog(UIModule):
         self.update()
 
     def key_up(self):
-        if self.object_display_mode in [DM_DESC, DM_OBS]:
+        if self.object_display_mode == DM_DESC:
             self.scroll_obj(-1)
         else:
             self.change_fov(-1)
 
     def key_down(self):
-        if self.object_display_mode in [DM_DESC, DM_OBS]:
+        if self.object_display_mode == DM_DESC:
             self.scroll_obj(1)
         else:
             self.change_fov(1)
