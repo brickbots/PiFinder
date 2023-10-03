@@ -62,3 +62,7 @@ class KeyboardInterface:
                         except:
                             q.put(KeyboardInterface.NA)
                 sleep(0.1)
+        logging.info("Script Complete")
+        import os
+
+        os._exit(1)

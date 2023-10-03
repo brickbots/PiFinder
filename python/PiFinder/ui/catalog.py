@@ -25,12 +25,14 @@ import functools
 import sqlite3
 import logging
 
+from PiFinder.db.observations_db import ObservationsDatabase
+from PiFinder.catalogs import CompositeObject
+
 
 # Constants for display modes
 DM_DESC = 0  # Display mode for description
-DM_OBS = 1  # Display mode for observed
-DM_POSS = 2  # Display mode for POSS
-DM_SDSS = 3  # Display mode for SDSS
+DM_POSS = 1  # Display mode for POSS
+DM_SDSS = 2  # Display mode for SDSS
 
 
 class UICatalog(UIModule):
@@ -39,7 +41,17 @@ class UICatalog(UIModule):
     """
 
     __title__ = "CATALOG"
+    __button_hints__ = {
+        "B": "Image",
+        "C": "Catalog",
+        "D": "More",
+    }
     _config_options = {
+        "Catalogs": {
+            "type": "multi_enum",
+            "value": [],
+            "options": [],
+        },
         "Alt Limit": {
             "type": "enum",
             "value": 10,
@@ -60,7 +72,7 @@ class UICatalog(UIModule):
             "value": ["None"],
             "options": ["None"] + list(OBJ_TYPES.keys()),
         },
-        "Observed": {"type": "enum", "value": ["Any"], "options": ["Any", "Yes", "No"]},
+        "Observed": {"type": "enum", "value": "Any", "options": ["Any", "Yes", "No"]},
         "Push Cat.": {
             "type": "enum",
             "value": "",
@@ -77,9 +89,16 @@ class UICatalog(UIModule):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.catalog_names = self.config_object.get_option("catalogs")
+
+        self.catalog_names = self.config_object.get_option("active_catalogs")
+
+        self._config_options["Catalogs"]["value"] = self.catalog_names.copy()
+        self._config_options["Catalogs"]["options"] = self.config_object.get_option(
+            "catalogs"
+        )[:10]
+
         self.object_text = ["No Object Found"]
-        self.SimpleTextLayout = functools.partial(
+        self.simpleTextLayout = functools.partial(
             TextLayouterSimple, draw=self.draw, color=self.colors.get(255)
         )
         self.descTextLayout = TextLayouter(
@@ -94,15 +113,14 @@ class UICatalog(UIModule):
         )
         self.space_calculator = SpaceCalculatorFixed(18)
         self.texts = {
-            "type-const": self.SimpleTextLayout(
+            "type-const": self.simpleTextLayout(
                 "No Object Found", font=self.font_bold, color=self.colors.get(255)
             ),
         }
         self.catalog_tracker = CatalogTracker(
             self.catalog_names, self.shared_state, self._config_options
         )
-        self.conn = sqlite3.connect(utils.pifinder_db)
-        self.conn.row_factory = sqlite3.Row
+        self.observations_db = ObservationsDatabase()
         self.font_large = fonts.large
 
         self.object_display_mode = DM_DESC
@@ -115,7 +133,7 @@ class UICatalog(UIModule):
         self.update_object_info()
 
     def _layout_designator(self):
-        return self.SimpleTextLayout(
+        return self.simpleTextLayout(
             str(self.catalog_tracker.get_designator()),
             font=fonts.large,
             color=self.colors.get(255),
@@ -137,6 +155,16 @@ class UICatalog(UIModule):
     def update_config(self):
         if self.texts.get("aka"):
             self.texts["aka"].set_scrollspeed(self._get_scrollspeed_config())
+
+        # Update catalog names if needed
+        if self.catalog_names != self._config_options["Catalogs"]["value"]:
+            self.message("Updating Cats.", 0)
+            self.catalog_names = self._config_options["Catalogs"]["value"].copy()
+            self.config_object.set_option("active_catalogs", self.catalog_names)
+            self.catalog_tracker = CatalogTracker(
+                self.catalog_names, self.shared_state, self._config_options
+            )
+
         # re-filter if needed
         self.catalog_tracker.filter()
 
@@ -147,7 +175,9 @@ class UICatalog(UIModule):
     def push_cat(self, obj_amount):
         self._config_options["Push Cat."]["value"] = ""
         if obj_amount == "Go":
+            solution = self.shared_state.solution()
             self.message("Catalog Pushed", 2)
+
             # Filter the catalog one last time
             self.catalog_tracker.filter()
             self.ui_state["observing_list"] = self.catalog_tracker.get_objects(
@@ -161,22 +191,21 @@ class UICatalog(UIModule):
 
     def push_near(self, obj_amount):
         self._config_options["Near Obj."]["value"] = ""
-        if obj_amount != "Cncl":
+        if obj_amount != "CANCEL":
             solution = self.shared_state.solution()
             if not solution:
                 self.message("No Solve!", 1)
                 return False
-
-            # Filter the catalog one last time
-            self.catalog_tracker.filter()
             self.message(f"Near {obj_amount} Pushed", 2)
+
+            # Filter the catalogs one last time
+            self.catalog_tracker.filter(catalogs=self.catalog_tracker.catalog_names)
             near_catalog = self.catalog_tracker.get_closest_objects(
                 solution["RA"],
                 solution["Dec"],
                 obj_amount,
                 catalogs=self.catalog_tracker.catalog_names,
             )
-            # self.ui_state["observing_list"] = self.catalog_tracker.get_objects(catalogs=self.catalog_tracker.catalog_names, filtered=True)
             self.ui_state["observing_list"] = near_catalog
             self.ui_state["active_list"] = self.ui_state["observing_list"]
             self.ui_state["target"] = self.ui_state["active_list"][0]
@@ -188,13 +217,11 @@ class UICatalog(UIModule):
         """
         Generates object text and loads object images
         """
-        logging.debug(f"update_object_info with {self.catalog_tracker}")
-        cat_object = self.catalog_tracker.get_current_object()
+        cat_object: CompositeObject = self.catalog_tracker.get_current_object()
         if not cat_object:
             has_number = self.catalog_tracker.get_designator().has_number()
             self.texts = {}
             self.texts["type-const"] = TextLayouter(
-                # self.catalog_tracker.get_current_object().description,
                 self.catalog_tracker.current_catalog.desc
                 if not has_number
                 else "Object not found",
@@ -206,26 +233,18 @@ class UICatalog(UIModule):
             )
             return
 
-        if self.object_display_mode in [DM_DESC, DM_OBS]:
+        if self.object_display_mode == DM_DESC:
             # text stuff....
-            # look for AKAs
-            aka_recs = self.conn.execute(
-                f"""
-                SELECT * from names
-                where catalog = "{cat_object['catalog']}"
-                and sequence = "{cat_object['sequence']}"
-            """
-            ).fetchall()
 
             self.texts = {}
             # Type / Constellation
-            object_type = OBJ_TYPES.get(cat_object["obj_type"], cat_object["obj_type"])
+            object_type = OBJ_TYPES.get(cat_object.obj_type, cat_object.obj_type)
 
             # layout the type - constellation line
             _, typeconst = self.space_calculator.calculate_spaces(
-                object_type, cat_object["const"]
+                object_type, cat_object.const
             )
-            self.texts["type-const"] = self.SimpleTextLayout(
+            self.texts["type-const"] = self.simpleTextLayout(
                 typeconst,
                 font=fonts.bold,
                 color=self.colors.get(255),
@@ -233,11 +252,11 @@ class UICatalog(UIModule):
             # Magnitude / Size
             # try to get object mag to float
             try:
-                obj_mag = float(cat_object["mag"])
+                obj_mag = float(cat_object.mag)
             except (ValueError, TypeError):
-                obj_mag = "-" if cat_object["mag"] == "" else cat_object["mag"]
+                obj_mag = "-" if cat_object.mag == "" else cat_object.mag
 
-            size = str(cat_object["size"]).strip()
+            size = str(cat_object.size).strip()
             size = "-" if size == "" else size
             spaces, magsize = self.space_calculator.calculate_spaces(
                 f"Mag:{obj_mag}", f"Sz:{size}"
@@ -249,35 +268,37 @@ class UICatalog(UIModule):
             if spaces == -1:
                 spaces, magsize = self.space_calculator.calculate_spaces(obj_mag, size)
 
-            self.texts["magsize"] = self.SimpleTextLayout(
+            self.texts["magsize"] = self.simpleTextLayout(
                 magsize, font=fonts.bold, color=self.colors.get(255)
             )
 
+            aka_recs = self.catalog_tracker.current_catalog.common_names.get(
+                cat_object.object_id
+            )
             if aka_recs:
-                aka_list = []
-                for rec in aka_recs:
-                    if rec["common_name"].startswith("M"):
-                        aka_list.insert(0, rec["common_name"])
-                    else:
-                        aka_list.append(rec["common_name"])
+                # aka_list = []
+                # for rec in aka_recs:
+                #     if rec["common_name"].startswith("M"):
+                #         aka_list.insert(0, rec["common_name"])
+                #     else:
+                #         aka_list.append(rec["common_name"])
                 self.texts["aka"] = self.ScrollTextLayout(
-                    ", ".join(aka_list),
+                    ", ".join(aka_recs),
                     font=fonts.base,
                     scrollspeed=self._get_scrollspeed_config(),
                 )
 
-            if self.object_display_mode == DM_DESC:
-                # NGC description....
-                desc = cat_object["desc"].replace("\t", " ")
-                self.descTextLayout.set_text(desc)
-                self.texts["desc"] = self.descTextLayout
+            # NGC description....
+            logs = self.observations_db.get_logs_for_object(cat_object)
+            desc = cat_object.description.replace("\t", " ") + "\n"
+            if len(logs) == 0:
+                desc = desc + "** Not Logged"
+            else:
+                desc = desc + f"** {len(logs)} Logs"
 
-            if self.object_display_mode == DM_OBS:
-                logs = obslog.get_logs_for_object(cat_object)
-                if len(logs) == 0:
-                    self.texts["obs"] = self.SimpleTextLayout("No Logs")
-                else:
-                    self.texts["obs"] = self.DescTextLayout(f"Logged {len(logs)} times")
+            self.descTextLayout.set_text(desc)
+            self.texts["desc"] = self.descTextLayout
+
         else:
             # Image stuff...
             if self.object_display_mode == DM_SDSS:
@@ -300,11 +321,12 @@ class UICatalog(UIModule):
 
     def active(self):
         # trigger refilter
+        super().active()
         self.catalog_tracker.filter()
         target = self.ui_state["target"]
         if target:
             self.catalog_tracker.set_current_object(
-                target["sequence"], target["catalog"]
+                target.sequence, target.catalog_code
             )
             self.update_object_info()
 
@@ -313,7 +335,7 @@ class UICatalog(UIModule):
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
         cat_object = self.catalog_tracker.get_current_object()
 
-        if self.object_display_mode in [DM_DESC, DM_OBS] or cat_object is None:
+        if self.object_display_mode == DM_DESC or cat_object is None:
             # catalog and entry field i.e. NGC-311
             self.refresh_designator()
             desig = self.texts["designator"]
@@ -397,7 +419,7 @@ class UICatalog(UIModule):
         else:
             # switch object display text
             self.object_display_mode = (
-                self.object_display_mode + 1 if self.object_display_mode < 3 else 0
+                self.object_display_mode + 1 if self.object_display_mode < 2 else 0
             )
             self.update_object_info()
             self.update()
@@ -418,8 +440,8 @@ class UICatalog(UIModule):
                 dt,
             )
             obj_alt = aa.radec_to_altaz(
-                obj["ra"],
-                obj["dec"],
+                obj.ra,
+                obj.dec,
                 alt_only=True,
             )
             return obj_alt
@@ -445,7 +467,7 @@ class UICatalog(UIModule):
         return False
 
     def key_number(self, number):
-        if self.object_display_mode in [DM_DESC, DM_OBS]:
+        if self.object_display_mode == DM_DESC:
             designator = self.catalog_tracker.get_designator()
             designator.append_number(number)
             # Check for match
@@ -457,9 +479,9 @@ class UICatalog(UIModule):
         When enter is pressed, set the
         target
         """
-        cat_object = self.catalog_tracker.get_current_object()
+        cat_object: CompositeObject = self.catalog_tracker.get_current_object()
         if cat_object:
-            self.ui_state["target"] = dict(cat_object)
+            self.ui_state["target"] = cat_object
             if len(self.ui_state["history_list"]) == 0:
                 self.ui_state["history_list"].append(self.ui_state["target"])
             elif self.ui_state["history_list"][-1] != self.ui_state["target"]:
@@ -488,13 +510,13 @@ class UICatalog(UIModule):
         self.update()
 
     def key_up(self):
-        if self.object_display_mode in [DM_DESC, DM_OBS]:
+        if self.object_display_mode == DM_DESC:
             self.scroll_obj(-1)
         else:
             self.change_fov(-1)
 
     def key_down(self):
-        if self.object_display_mode in [DM_DESC, DM_OBS]:
+        if self.object_display_mode == DM_DESC:
             self.scroll_obj(1)
         else:
             self.change_fov(1)

@@ -8,7 +8,7 @@ import time
 from PIL import ImageFont
 import logging
 
-from PiFinder import integrator, obslist
+from PiFinder import integrator, obslist, config
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
@@ -20,6 +20,11 @@ class UILocate(UIModule):
     """
 
     __title__ = "LOCATE"
+    __button_hints__ = {
+        "B": "Histry",
+        "C": "Observ",
+        "D": "Remove",
+    }
 
     _config_options = {
         "Save": {
@@ -31,7 +36,7 @@ class UILocate(UIModule):
         "Load": {
             "type": "enum",
             "value": "",
-            "options": ["CANCEL"],
+            "options": [],
             "callback": "load_list",
         },
     }
@@ -43,9 +48,10 @@ class UILocate(UIModule):
         self.__catalog_names = self.config_object.get_option("catalogs")
         self.sf_utils = integrator.Skyfield_utils()
         self.font_huge = fonts.huge
+        self.screen_direction = config.Config().get_option("screen_direction")
 
         available_lists = obslist.get_lists()
-        self._config_options["Load"]["options"] += available_lists
+        self._config_options["Load"]["options"] = ["CANCEL"] + available_lists
         self.obs_list_write_index = 0
         self.last_update_time = time.time()
 
@@ -77,12 +83,12 @@ class UILocate(UIModule):
             self.message(f"Err! {_load_results['message']}")
             return False
 
-        object_count = len(_load_results["catalog"])
+        object_count = len(_load_results["catalog_objects"])
         if object_count == 0:
             self.message("No matches")
             return False
 
-        self.ui_state["observing_list"] = _load_results["catalog"]
+        self.ui_state["observing_list"] = _load_results["catalog_objects"]
         self.ui_state["active_list"] = self.ui_state["observing_list"]
         self.target_index = 0
         self.ui_state["target"] = self.ui_state["active_list"][self.target_index]
@@ -92,21 +98,33 @@ class UILocate(UIModule):
 
     def key_b(self):
         """
-        When B is pressed, switch target lists
+        When B is pressed, switch to history
         """
-        self.target_index = None
         if self.ui_state["active_list"] == self.ui_state["history_list"]:
-            if len(self.ui_state["observing_list"]) > 0:
-                self.ui_state["active_list"] = self.ui_state["observing_list"]
-                self.target_index = 0
-            else:
-                self.message("No Obs List", 1)
+            pass
         else:
             if len(self.ui_state["history_list"]) > 0:
                 self.ui_state["active_list"] = self.ui_state["history_list"]
                 self.target_index = len(self.ui_state["active_list"]) - 1
             else:
                 self.message("No History", 1)
+
+        if self.target_index != None:
+            self.ui_state["target"] = self.ui_state["active_list"][self.target_index]
+            self.update_object_text()
+
+    def key_c(self):
+        """
+        When C is pressed, switch to observing list
+        """
+        if self.ui_state["active_list"] == self.ui_state["observing_list"]:
+            pass
+        else:
+            if len(self.ui_state["observing_list"]) > 0:
+                self.ui_state["active_list"] = self.ui_state["observing_list"]
+                self.target_index = 0
+            else:
+                self.message("No Obs List", 1)
 
         if self.target_index != None:
             self.ui_state["target"] = self.ui_state["active_list"][self.target_index]
@@ -125,7 +143,7 @@ class UILocate(UIModule):
     def key_down(self):
         self.scroll_target_history(1)
 
-    def delete(self):
+    def key_d(self):
         active_list = self.ui_state["active_list"]
         if self.target_index is not None and len(active_list) > 1:
             del active_list[self.target_index]
@@ -146,23 +164,18 @@ class UILocate(UIModule):
         """
         Generates object text
         """
-        if not self.ui_state["target"]:
+        target = self.ui_state["target"]
+        if not target:
             self.object_text = ["No Object Found"]
             return
 
         self.object_text = []
         try:
             # Type / Constellation
-            object_type = OBJ_TYPES.get(
-                self.ui_state["target"]["obj_type"], self.ui_state["target"]["obj_type"]
-            )
-            self.object_text.append(
-                f"{object_type: <14} {self.ui_state['target']['const']}"
-            )
+            object_type = OBJ_TYPES.get(target.obj_type, target.obj_type)
+            self.object_text.append(f"{object_type: <14} {target.const}")
         except Exception as e:
-            logging.error(
-                f"Error generating object text: {e}, {self.ui_state['target']}"
-            )
+            logging.error(f"Error generating object text: {e}, {target}")
 
     def aim_degrees(self):
         """
@@ -182,21 +195,25 @@ class UILocate(UIModule):
                     location["altitude"],
                 )
                 target_alt, target_az = self.sf_utils.radec_to_altaz(
-                    self.ui_state["target"]["ra"],
-                    self.ui_state["target"]["dec"],
+                    self.ui_state["target"].ra,
+                    self.ui_state["target"].dec,
                     dt,
                 )
                 az_diff = target_az - solution["Az"]
                 az_diff = (az_diff + 180) % 360 - 180
+                if self.screen_direction == "flat":
+                    az_diff *= -1
 
                 alt_diff = target_alt - solution["Alt"]
                 alt_diff = (alt_diff + 180) % 360 - 180
 
                 return az_diff, alt_diff
-        else:
-            return None, None
+        return None, None
 
     def active(self):
+        super().active()
+        available_lists = obslist.get_lists()
+        self._config_options["Load"]["options"] = ["CANCEL"] + available_lists
         try:
             self.target_index = self.ui_state["active_list"].index(
                 self.ui_state["target"]
@@ -211,7 +228,8 @@ class UILocate(UIModule):
         # Clear Screen
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
 
-        if not self.ui_state["target"]:
+        target = self.ui_state["target"]
+        if not target:
             self.draw.text(
                 (0, 20),
                 "No Target Set",
@@ -221,8 +239,8 @@ class UILocate(UIModule):
             return self.screen_update()
 
         # Target Name
-        line = self.ui_state["target"]["catalog"]
-        line += str(self.ui_state["target"]["sequence"])
+        line = target.catalog_code
+        line += str(target.sequence)
         self.draw.text((0, 20), line, font=self.font_large, fill=self.colors.get(255))
 
         # Target history index
@@ -231,7 +249,7 @@ class UILocate(UIModule):
                 list_name = "Hist"
             else:
                 list_name = "Obsv"
-            line = f"{self.target_index + 1}/{len(self.ui_state['active_list'])}"
+            line = f'{self.target_index + 1}/{len(self.ui_state["active_list"])}'
             line = f"{line : >9}"
             self.draw.text(
                 (72, 18), line, font=self.font_base, fill=self.colors.get(255)

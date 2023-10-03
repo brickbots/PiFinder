@@ -1,73 +1,144 @@
 import logging
-import sqlite3
 import time
+from typing import List, Dict, DefaultDict, Optional
 import numpy as np
 import pandas as pd
-from typing import List, Dict, Optional
-from PiFinder import calc_utils
-import PiFinder.utils as utils
-from PiFinder import obslog
+from collections import defaultdict
 from sklearn.neighbors import BallTree
+
+import PiFinder.calc_utils as calc_utils
+from PiFinder.db.db import Database
+from PiFinder.db.objects_db import ObjectsDatabase
+from PiFinder.db.observations_db import ObservationsDatabase
+from PiFinder.composite_object import CompositeObject
 
 # collection of all catalog-related classes
 
 
+class Objects:
+    """
+    Holds all object_ids and their data.
+    Merges object table data and catalog_object table data
+    """
+
+    db: Database
+    # key:object_id value:all data from an Object table row
+    objects: Dict[int, Dict] = {}
+    # key:object_id values:list of CompositeObjects pointing to that object_id
+    composite_objects: Dict[int, List[CompositeObject]] = {}
+
+    def __init__(self):
+        self.db = ObjectsDatabase()
+        cat_objects: List[Dict] = [dict(row) for row in self.db.get_catalog_objects()]
+        objects = self.db.get_objects()
+        self.objects = {row["id"]: dict(row) for row in objects}
+        self.composite_objects = self._init_composite_objects(cat_objects)
+        # This is used for caching catalog dicts
+        # to speed up repeated searches
+        self.catalog_dicts = {}
+        logging.debug(f"Loaded {len(self.objects)} objects from database")
+
+    def _init_composite_objects(self, catalog_objects: List[Dict]):
+        composite_objects = defaultdict(list)
+
+        for catalog_obj in catalog_objects:
+            object_id = catalog_obj["object_id"]
+
+            # Merge the two dictionaries
+            composite_data = self.objects[object_id] | catalog_obj
+
+            # Assuming you have a CompositeObject class that can be instantiated with the merged dictionary
+            composite_instance = CompositeObject(composite_data)
+
+            # Append to the result dictionary
+            composite_objects[object_id].append(composite_instance)
+        return composite_objects
+
+    def get_catalog_dict(self, catalog_code: str) -> Dict[int, CompositeObject]:
+        if self.catalog_dicts.get(catalog_code) == None:
+            self.catalog_dicts[catalog_code] = {
+                composite_obj.sequence: composite_obj
+                for object_list in self.composite_objects.values()
+                for composite_obj in object_list
+                if composite_obj.catalog_code == catalog_code
+            }
+
+        return self.catalog_dicts[catalog_code]
+
+    def get_object_by_catalog_sequence(self, catalog_code: str, sequence: int):
+        return self.get_catalog_dict(catalog_code).get(sequence, None)
+
+
+class Names:
+    """
+    Holds all name related info
+    """
+
+    db: Database
+    names: DefaultDict[int, List[str]] = {}
+
+    def __init__(self):
+        self.db = ObjectsDatabase()
+        self.names = self.db.get_names()
+        self._sort_names()
+        logging.debug(f"Loaded {len(self.names)} names from database")
+
+    def _sort_names(self):
+        """
+        sort the names according to some hierarchy
+        """
+        pass
+
+    def get(self, object_id) -> List[str]:
+        return self.names[object_id]
+
+
 class Catalog:
-    """Keeps catalog data + keeps track of current catalog/object"""
+    """Keeps catalog data + filtered objects"""
 
     last_filtered: float = 0
+    db: Database
 
-    def __init__(self, catalog_name):
-        self.name = catalog_name
-        self.objects: Dict[int, Dict] = {}
-        self.objects_keys_sorted: List[int] = []
-        self.filtered_objects: Dict[int, Dict] = {}
+    def __init__(self, catalog_code, obj: Objects):
+        self.db = ObjectsDatabase()
+        self.observations_db = ObservationsDatabase()
+        self.name = catalog_code
+        self.common_names: Names = Names()
+        self.obj = obj
+        self.cobjects: Dict[int, CompositeObject] = {}
+        self.cobjects_keys_sorted: List[int] = []
+        self.filtered_objects: Dict[int, CompositeObject] = {}
         self.filtered_objects_keys_sorted: List[int] = []
         self.max_sequence = 0
         self.desc = "No description"
         self._load_catalog()
 
     def get_count(self):
-        return len(self.objects)
+        return len(self.cobjects)
 
     def get_filtered_count(self):
         return len(self.filtered_objects)
 
     def _load_catalog(self):
         """
-        Loads all catalogs into memory
+        Loads the catalog data, compositing objects and this catalogs extra data
 
         """
-        self.conn = sqlite3.connect(utils.pifinder_db)
-        self.conn.row_factory = sqlite3.Row
-        cat_objects = self.conn.execute(
-            f"""
-            SELECT * from objects
-            where catalog='{self.name}'
-            order by sequence
-        """
-        ).fetchall()
-        cat_data = self.conn.execute(
-            f"""
-                SELECT * from catalogs
-                where catalog='{self.name}'
-            """
-        ).fetchone()
-        print(cat_data)
-        if cat_data:
-            self.max_sequence = cat_data["max_sequence"]
-            self.desc = cat_data["desc"]
+        catalog = self.db.get_catalog_by_code(self.name)
+        if catalog:
+            self.max_sequence = catalog["max_sequence"]
         else:
-            logging.debug(f"no catalog data for {self.name}")
-        self.objects = {int(dict(row)["sequence"]): dict(row) for row in cat_objects}
-        self.objects_keys_sorted = self._get_sorted_keys(self.objects)
-        self.filtered_objects = self.objects
-        self.filtered_objects_keys_sorted = self.objects_keys_sorted
+            logging.error(f"catalog {self.name} not found")
+            return
+        self.desc = catalog["desc"]
+        self.cobjects = self.obj.get_catalog_dict(self.name)
+        self.cobjects_keys_sorted = self._get_sorted_keys(self.cobjects)
+        self.filtered_objects = self.cobjects
+        self.filtered_objects_keys_sorted = self.cobjects_keys_sorted
         assert (
-            self.objects_keys_sorted[-1] == self.max_sequence
-        ), f"{self.name} max sequence mismatch"
-        logging.info(f"loaded {len(self.objects)} objects for {self.name}")
-        self.conn.close()
+            self.cobjects_keys_sorted[-1] == self.max_sequence
+        ), f"{self.name} max sequence mismatch, {self.cobjects_keys_sorted[-1]} != {self.max_sequence}"
+        logging.info(f"loaded {len(self.cobjects)} objects for {self.name}")
 
     def _get_sorted_keys(self, dictionary):
         return sorted(dictionary.keys())
@@ -91,6 +162,10 @@ class Catalog:
 
         self.filtered_objects = {}
 
+        if observed_filter != "Any":
+            # prep observations db cache
+            self.observations_db.load_observed_objects_cache()
+
         fast_aa = None
         if altitude_filter != "None":
             # setup
@@ -104,37 +179,34 @@ class Catalog:
                     dt,
                 )
 
-        if observed_filter != "Any":
-            # setup
-            observed_list = obslog.get_observed_objects()
-
-        for key, obj in self.objects.items():
+        for key, obj in self.cobjects.items():
             # print(f"filtering {obj}")
             include_obj = True
 
             # try to get object mag to float
             try:
-                obj_mag = float(obj["mag"])
+                obj_mag = float(obj.mag)
             except (ValueError, TypeError):
                 obj_mag = 99
 
             if magnitude_filter != "None" and obj_mag >= magnitude_filter:
                 include_obj = False
 
-            if type_filter != ["None"] and obj["obj_type"] not in type_filter:
+            if type_filter != ["None"] and obj.obj_type not in type_filter:
                 include_obj = False
 
             if fast_aa:
                 obj_altitude = fast_aa.radec_to_altaz(
-                    obj["ra"],
-                    obj["dec"],
+                    obj.ra,
+                    obj.dec,
                     alt_only=True,
                 )
                 if obj_altitude < altitude_filter:
                     include_obj = False
 
             if observed_filter != "Any":
-                if (obj["catalog"], obj["sequence"]) in observed_list:
+                observed = self.observations_db.check_logged(obj)
+                if observed:
                     if observed_filter == "No":
                         include_obj = False
                 else:
@@ -145,12 +217,12 @@ class Catalog:
                 self.filtered_objects[key] = obj
         self.filtered_objects_keys_sorted = self._get_sorted_keys(self.filtered_objects)
 
-        def __repr__(self):
-            return "catalog repr"
-            # return f"Catalog({self.name=}, {self.max_sequence=})"
+    def __repr__(self):
+        return "catalog repr"
+        # return f"Catalog({self.name=}, {self.max_sequence=})"
 
-        def __str__(self):
-            return __repr__(self)
+    def __str__(self):
+        return self.__repr__()
 
 
 class CatalogDesignator:
@@ -224,6 +296,7 @@ class CatalogTracker:
         self.catalog_names = catalog_names
         self.shared_state = shared_state
         self.config_options = config_options
+        self.obj = Objects()
         self.catalogs: Dict[str, Catalog] = self._load_catalogs(catalog_names)
         self.designator_tracker = {
             c: CatalogDesignator(c, self.catalogs[c].max_sequence)
@@ -253,7 +326,7 @@ class CatalogTracker:
         keys_sorted = (
             self.current_catalog.filtered_objects_keys_sorted
             if filtered
-            else self.current_catalog.objects_keys_sorted
+            else self.current_catalog.cobjects_keys_sorted
         )
         current_key = self.object_tracker[self.current_catalog_name]
         designator = self.get_designator()
@@ -285,7 +358,7 @@ class CatalogTracker:
             if filtered:
                 object_values.extend(catalog.filtered_objects.values())
             else:
-                object_values.extend(catalog.objects.values())
+                object_values.extend(catalog.cobjects.values())
         flattened_objects = [obj for entry in catalog_list for obj in object_values]
         return flattened_objects
 
@@ -295,15 +368,22 @@ class CatalogTracker:
             in self.current_catalog.filtered_objects
         )
 
-    def get_current_object(self):
+    def get_current_object(self) -> CompositeObject:
         object_key = self.object_tracker[self.current_catalog_name]
         if object_key is None:
             return None
-        return self.current_catalog.objects[object_key]
+        return self.current_catalog.cobjects[object_key]
 
-    def set_current_object(self, object_number, catalog_name=None):
+    def set_current_object(self, object_number: int, catalog_name: str = None):
         if catalog_name is not None:
-            self.set_current_catalog(catalog_name)
+            try:
+                self.set_current_catalog(catalog_name)
+            except AssertionError:
+                # Requested catalog not in tracker!
+                # Set to current catalog/zero
+                catalog_name = self.current_catalog_name
+                self.designator_tracker[catalog_name].set_number(0)
+                return
         else:
             catalog_name = self.current_catalog_name
         self.object_tracker[catalog_name] = object_number
@@ -318,7 +398,7 @@ class CatalogTracker:
     def _load_catalogs(self, catalogs: List[str]) -> Dict[str, Catalog]:
         result = {}
         for catalog in catalogs:
-            result[catalog] = Catalog(catalog)
+            result[catalog] = Catalog(catalog, self.obj)
         return result
 
     def _get_catalog_name(self, catalog: Optional[str]) -> str:
@@ -371,13 +451,43 @@ class CatalogTracker:
         catalog_list_flat = [
             obj for catalog in catalog_list for obj in catalog.filtered_objects.values()
         ]
+        if len(catalog_list_flat) < n:
+            n = len(catalog_list_flat)
         object_radecs = [
-            [np.deg2rad(x["ra"]), np.deg2rad(x["dec"])] for x in catalog_list_flat
+            [np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in catalog_list_flat
         ]
         objects_bt = BallTree(object_radecs, leaf_size=4, metric="haversine")
         query = [[np.deg2rad(ra), np.deg2rad(dec)]]
         _dist, obj_ind = objects_bt.query(query, k=n)
-        return [catalog_list_flat[x] for x in obj_ind[0]]
+        results = [catalog_list_flat[x] for x in obj_ind[0]]
+        deduplicated = self._deduplicate(results)
+        return deduplicated
+
+    def _deduplicate(self, unfiltered_results):
+        deduplicated_results = []
+        seen_ids = set()
+
+        for obj in unfiltered_results:
+            if obj.object_id not in seen_ids:
+                seen_ids.add(obj.object_id)
+                deduplicated_results.append(obj)
+            else:
+                # If the object_id is already seen, we look at the catalog_code
+                # and replace the existing object if the new object has a higher precedence catalog_code
+                existing_obj_index = next(
+                    i
+                    for i, existing_obj in enumerate(deduplicated_results)
+                    if existing_obj.object_id == obj.object_id
+                )
+                existing_obj = deduplicated_results[existing_obj_index]
+
+                if (obj.catalog_code == "M" and existing_obj.catalog_code != "M") or (
+                    obj.catalog_code == "NGC"
+                    and existing_obj.catalog_code not in ["M", "NGC"]
+                ):
+                    deduplicated_results[existing_obj_index] = obj
+
+        return deduplicated_results
 
     def __repr__(self):
         return f"CatalogTracker(Current:{self.current_catalog_name} {self.object_tracker[self.current_catalog_name]}, Designator:{self.designator_tracker})"

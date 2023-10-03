@@ -8,6 +8,9 @@ import uuid
 import os
 import time
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+from PiFinder.ui.fonts import Fonts as fonts
+from PiFinder import tetra3
+from numpy import ndarray
 
 from PiFinder.image_util import (
     gamma_correct_high,
@@ -19,25 +22,30 @@ from PiFinder.ui.base import UIModule
 
 
 class UIPreview(UIModule):
-    __title__ = "PREVIEW"
+    __title__ = "CAMERA"
+    __button_hints__ = {
+        "B": "Align",
+        "C": "BG Sub",
+        "D": "Reticle",
+    }
     _config_options = {
         "Reticle": {
             "type": "enum",
-            "value": "Low",
+            "value": "High",
             "options": ["Off", "Low", "Med", "High"],
-            "hotkey": "B",
+            "hotkey": "D",
+            "callback": "exit_config",
         },
         "BG Sub": {
             "type": "bool",
-            "value": "On",
-            "options": ["On", "Off"],
+            "value": "Half",
+            "options": ["Off", "Half", "Full"],
             "hotkey": "C",
         },
         "Gamma Adj": {
             "type": "enum",
             "value": "Low",
             "options": ["Off", "Low", "Med", "High"],
-            "hotkey": "D",
         },
         "Exposure": {
             "type": "enum",
@@ -57,12 +65,6 @@ class UIPreview(UIModule):
             "options": ["Save", "Exit"],
             "callback": "save_exp",
         },
-        "Focus Hlp": {
-            "type": "bool",
-            "value": "Off",
-            "options": ["On", "Off"],
-            "callback": "exit_config",
-        },
     }
 
     def __init__(self, *args):
@@ -75,9 +77,17 @@ class UIPreview(UIModule):
         self.reticle_mode = 2
         self.last_update = time.time()
         self.solution = None
+        self.font_small = fonts.small
 
         self.capture_prefix = f"{self.__uuid__}_diag"
         self.capture_count = 0
+
+        self.align_mode = False
+
+        # the centroiding returns an ndarray
+        # so we're initialiazing one here
+        self.star_list = ndarray((0, 2))
+        self.highlight_count = 0
 
     def set_exp(self, option):
         new_exposure = int(option * 1000000)
@@ -113,18 +123,66 @@ class UIPreview(UIModule):
         )
 
         fov = 10.2
+        solve_pixel = self.shared_state.solve_pixel(screen_space=True)
         for circ_deg in [4, 2, 0.5]:
             circ_rad = ((circ_deg / fov) * 128) / 2
             bbox = [
-                64 - circ_rad,
-                64 - circ_rad,
-                64 + circ_rad,
-                64 + circ_rad,
+                solve_pixel[0] - circ_rad,
+                solve_pixel[1] - circ_rad,
+                solve_pixel[0] + circ_rad,
+                solve_pixel[1] + circ_rad,
             ]
             self.draw.arc(bbox, 20, 70, fill=self.colors.get(brightness))
             self.draw.arc(bbox, 110, 160, fill=self.colors.get(brightness))
             self.draw.arc(bbox, 200, 250, fill=self.colors.get(brightness))
             self.draw.arc(bbox, 290, 340, fill=self.colors.get(brightness))
+
+    def draw_star_selectors(self):
+        # Draw star selectors
+        if self.star_list.shape[0] > 0:
+            self.highlight_count = 3
+            if self.star_list.shape[0] < self.highlight_count:
+                self.highlight_count = self.star_list.shape[0]
+
+            for _i in range(self.highlight_count):
+                raw_y, raw_x = self.star_list[_i]
+                star_x = int(raw_x / 2)
+                star_y = int(raw_y / 2)
+
+                x_direction = 1
+                x_text_offset = 6
+                y_direction = 1
+                y_text_offset = -12
+
+                if star_x > 108:
+                    x_direction = -1
+                    x_text_offset = -10
+                if star_y < 38:
+                    y_direction = -1
+                    y_text_offset = 1
+
+                self.draw.line(
+                    [
+                        (star_x, star_y - (4 * y_direction)),
+                        (star_x, star_y - (12 * y_direction)),
+                    ],
+                    fill=self.colors.get(128),
+                )
+
+                self.draw.line(
+                    [
+                        (star_x + (4 * x_direction), star_y),
+                        (star_x + (12 * x_direction), star_y),
+                    ],
+                    fill=self.colors.get(128),
+                )
+
+                self.draw.text(
+                    (star_x + x_text_offset, star_y + y_text_offset),
+                    str(_i + 1),
+                    font=fonts.small,
+                    fill=self.colors.get(128),
+                )
 
     def update(self, force=False):
         if force:
@@ -133,15 +191,28 @@ class UIPreview(UIModule):
         last_image_time = self.shared_state.last_image_metadata()["exposure_end"]
         if last_image_time > self.last_update:
             image_obj = self.camera_image.copy()
-            if self._config_options["Focus Hlp"]["value"] == "Off":
-                # Resize
-                image_obj = image_obj.resize((128, 128))
-            else:
-                image_obj = image_obj.crop((192, 192, 320, 320))
-            if self._config_options["BG Sub"]["value"] == "On":
-                image_obj = subtract_background(image_obj)
+
+            # Fetch Centroids before image is altered
+            # Do this at least once to get a numpy array in
+            # star_list
+            if self.align_mode:
+                cent_image_obj = image_obj.resize((256, 256))
+                _t = time.time()
+                self.star_list = tetra3.get_centroids_from_image(
+                    cent_image_obj,
+                    sigma_mode="local_median_abs",
+                    filtsize=11,
+                )
+
+            # Resize
+            image_obj = image_obj.resize((128, 128))
+            if self._config_options["BG Sub"]["value"] != "Off":
+                if self._config_options["BG Sub"]["value"] == "Half":
+                    image_obj = subtract_background(image_obj, percent=0.5)
+                if self._config_options["BG Sub"]["value"] == "Full":
+                    image_obj = subtract_background(image_obj, percent=1)
             image_obj = image_obj.convert("RGB")
-            image_obj = ImageChops.multiply(image_obj, self.colors.red_image_rgb)
+            image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
             image_obj = ImageOps.autocontrast(image_obj)
 
             if self._config_options["Gamma Adj"]["value"] == "Low":
@@ -154,22 +225,42 @@ class UIPreview(UIModule):
             self.screen.paste(image_obj)
             self.last_update = last_image_time
 
-            self.title = "PREVIEW"
+            self.draw_reticle()
+            if self.align_mode:
+                self.draw_star_selectors()
+        return self.screen_update(
+            title_bar=not self.align_mode, button_hints=not self.align_mode
+        )
 
-        self.draw_reticle()
-        return self.screen_update()
+    def key_b(self):
+        """
+        Enter bright star alignment mode
+        """
+        if self.align_mode:
+            self.align_mode = False
+        else:
+            self.align_mode = True
 
-    def key_up(self):
-        self.command_queues["camera"].put("exp_up")
-
-    def key_down(self):
-        self.command_queues["camera"].put("exp_dn")
-
-    def key_enter(self):
-        self.command_queues["camera"].put("exp_save")
+        self.update(force=True)
 
     def key_number(self, number):
-        if number == 0:
-            self.capture_count += 1
-            capture_imagepath = self.capture_prefix + f"_{self.capture_count :0>3}.png"
-            self.command_queues["camera"].put("save:" + capture_imagepath)
+        if self.align_mode:
+            if number == 0:
+                # reset reticle
+                self.shared_state.set_solve_pixel((256, 256))
+                self.config_object.set_option("solve_pixel", (256, 256))
+                self.align_mode = False
+                self.update(force=True)
+            if number in list(range(1, self.highlight_count + 1)):
+                # They picked a star to align....
+                star_index = number - 1
+                if self.star_list.shape[0] > star_index:
+                    star_cam_x = self.star_list[star_index][0] * 2
+                    star_cam_y = self.star_list[star_index][1] * 2
+                    self.shared_state.set_solve_pixel((star_cam_x, star_cam_y))
+                    self.config_object.set_option(
+                        "solve_pixel",
+                        (star_cam_x, star_cam_y),
+                    )
+                self.align_mode = False
+                self.update(force=True)
