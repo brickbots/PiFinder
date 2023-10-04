@@ -65,7 +65,7 @@ class UICatalog(UIModule):
         "Magnitude": {
             "type": "enum",
             "value": "None",
-            "options": ["None", 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+            "options": ["None", 6, 7, 8, 9, 10, 11, 12, 13, 14],
         },
         "Obj Types": {
             "type": "multi_enum",
