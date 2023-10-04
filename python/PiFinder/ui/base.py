@@ -8,17 +8,25 @@ import os
 import time
 import uuid
 from pathlib import Path
+import logging
 
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder import utils
+from PiFinder import calc_utils
 from PiFinder.image_util import DeviceWrapper
 
 
 class UIModule:
     __title__ = "BASE"
+    __button_hints__ = {}
     __uuid__ = str(uuid.uuid1()).split("-")[0]
     _config_options = None
+    _title_bar_y = 16
+    _CAM_ICON = ""
+    _IMU_ICON = ""
+    _GPS_ICON = "󰤉"
+    _unmoved = False  # has the telescope moved since the last cam solve?
 
     def __init__(
         self,
@@ -30,17 +38,20 @@ class UIModule:
         config_object=None,
     ):
         self.title = self.__title__
+        self.button_hints = self.__button_hints__
+        self.button_hints_timer = time.time()
         self.switch_to = None
         self.display = device_wrapper.device
         self.colors = device_wrapper.colors
         self.shared_state = shared_state
         self.camera_image = camera_image
         self.command_queues = command_queues
-        self.screen = Image.new("RGBA", (128, 128))
+        self.screen = Image.new("RGB", (128, 128))
         self.draw = ImageDraw.Draw(self.screen)
         self.font_base = fonts.base
         self.font_bold = fonts.bold
         self.font_large = fonts.large
+        self.font_small = fonts.small
 
         # screenshot stuff
         root_dir = str(utils.data_dir)
@@ -49,6 +60,11 @@ class UIModule:
         self.ss_count = 0
         self.ui_state = ui_state
         self.config_object = config_object
+
+        # FPS
+        self.fps = 0
+        self.frame_count = 0
+        self.last_fps_sample_time = time.time()
 
     def exit_config(self, option):
         """
@@ -82,9 +98,7 @@ class UIModule:
     def screengrab(self):
         self.ss_count += 1
         ss_imagepath = self.ss_path + f"_{self.ss_count :0>3}.png"
-        ss = self.screen.getchannel("B")
-        ss = ss.convert("RGBA")
-        ss = ImageChops.multiply(ss, Image.new("RGBA", (128, 128), (255, 0, 0)))
+        ss = self.screen.copy()
         ss.save(ss_imagepath)
 
     def active(self):
@@ -92,6 +106,7 @@ class UIModule:
         Called when a module becomes active
         i.e. foreground controlling display
         """
+        self.button_hints_timer = time.time()
         pass
 
     def background_update(self):
@@ -130,7 +145,7 @@ class UIModule:
         self.display.display(self.screen.convert(self.display.mode))
         self.ui_state["message_timeout"] = timeout + time.time()
 
-    def screen_update(self, title_bar=True):
+    def screen_update(self, title_bar=True, button_hints=True):
         """
         called to trigger UI updates
         takes self.screen adds title bar and
@@ -139,53 +154,121 @@ class UIModule:
         if time.time() < self.ui_state["message_timeout"]:
             return None
 
+        hint_timeout_decode = {"Off": 0, "2s": 2, "4s": 4, "On": 1000}
+        if (
+            button_hints
+            and time.time() - self.button_hints_timer
+            < hint_timeout_decode.get(self.ui_state["hint_timeout"], 2)
+        ):
+            # Bottom button help
+
+            # B
+            if self.button_hints.get("B"):
+                self.draw.rectangle([0, 118, 40, 128], fill=self.colors.get(32))
+                self.draw.text(
+                    (2, 117), "B", font=self.font_small, fill=self.colors.get(255)
+                )
+                self.draw.text(
+                    (10, 117),
+                    self.button_hints.get("B"),
+                    font=self.font_small,
+                    fill=self.colors.get(128),
+                )
+            # C
+            if self.button_hints.get("C"):
+                self.draw.rectangle([44, 118, 84, 128], fill=self.colors.get(32))
+                self.draw.text(
+                    (46, 117), "C", font=self.font_small, fill=self.colors.get(255)
+                )
+                self.draw.text(
+                    (54, 117),
+                    self.button_hints.get("C"),
+                    font=self.font_small,
+                    fill=self.colors.get(128),
+                )
+            # D
+            if self.button_hints.get("D"):
+                self.draw.rectangle([88, 118, 128, 128], fill=self.colors.get(32))
+                self.draw.text(
+                    (90, 117), "D", font=self.font_small, fill=self.colors.get(255)
+                )
+                self.draw.text(
+                    (98, 117),
+                    self.button_hints.get("D"),
+                    font=self.font_small,
+                    fill=self.colors.get(128),
+                )
+
         if title_bar:
-            self.draw.rectangle([0, 0, 128, 16], fill=self.colors.get(64))
-            self.draw.text(
-                (6, 1), self.title, font=self.font_bold, fill=self.colors.get(0)
-            )
+            fg = self.colors.get(0)
+            bg = self.colors.get(64)
+            self.draw.rectangle([0, 0, 128, self._title_bar_y], fill=bg)
+            if self.ui_state.get("show_fps"):
+                self.draw.text((6, 1), str(self.fps), font=self.font_bold, fill=fg)
+            else:
+                self.draw.text((6, 1), self.title, font=self.font_bold, fill=fg)
+            imu = self.shared_state.imu()
+            moving = True if imu and imu["pos"] and imu["moving"] else False
+
+            # GPS status
+            if self.shared_state.location()["gps_lock"]:
+                self.draw.rectangle([100, 2, 110, 14], fill=bg)
+                self.draw.text(
+                    (102, -2), self._GPS_ICON, font=fonts.icon_bold_large, fill=fg
+                )
+
+            # when moving the unit, nothing else matters
+            if moving:
+                # logging.debug("imu moving %s", imu["moving"])
+                self._unmoved = False
+                self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
+                self.draw.text(
+                    (117, -2),
+                    self._IMU_ICON,
+                    font=fonts.icon_bold_large,
+                    fill=fg,
+                )
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
+                    cam_active = solution["solve_time"] == solution["cam_solve_time"]
+                    # a fresh cam solve sets unmoved to True
+                    self._unmoved = True if cam_active else self._unmoved
+                    if self._unmoved:
+                        time_since_cam_solve = time.time() - solution["cam_solve_time"]
+                        var_fg = min(64, int(time_since_cam_solve / 6 * 64))
+                    self.draw.rectangle([115, 2, 125, 14], fill=bg)
+                    # draw the CAM or IMU icon
+                    self.draw.text(
+                        (117, -2),
+                        self._CAM_ICON if self._unmoved else self._IMU_ICON,
+                        font=fonts.icon_bold_large,
+                        fill=var_fg if self._unmoved else fg,
+                    )
+                    # draw the constellation
                     constellation = solution["constellation"]
                     self.draw.text(
                         (70, 1),
                         constellation,
                         font=self.font_bold,
-                        fill=self.colors.get(0),
-                    )
-
-                    # Solver Status
-                    time_since_solve = time.time() - solution["cam_solve_time"]
-                    bg = int(64 - (time_since_solve / 6 * 64))
-                    if bg < 0:
-                        bg = 0
-                    self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
-                    self.draw.text(
-                        (117, 0),
-                        solution["solve_source"][0],
-                        font=self.font_bold,
-                        fill=self.colors.get(64),
+                        fill=fg if self._unmoved else self.colors.get(32),
                     )
                 else:
                     # no solve yet....
-                    self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(0))
-                    self.draw.text(
-                        (117, 0), "X", font=self.font_bold, fill=self.colors.get(64)
-                    )
-
-                # GPS status
-                if self.shared_state.location()["gps_lock"]:
-                    fg = self.colors.get(0)
-                    bg = self.colors.get(64)
-                else:
-                    fg = self.colors.get(64)
-                    bg = self.colors.get(0)
-                self.draw.rectangle([100, 2, 110, 14], fill=bg)
-                self.draw.text((102, 0), "G", font=self.font_bold, fill=fg)
+                    self.draw.rectangle([115, 2, 125, 14], fill=bg)
+                    self.draw.text((117, 0), "X", font=self.font_bold, fill=fg)
 
         screen_to_display = self.screen.convert(self.display.mode)
         self.display.display(screen_to_display)
+
+        # FPS
+        self.frame_count += 1
+        if int(time.time()) - self.last_fps_sample_time > 0:
+            # flipped second
+            self.fps = self.frame_count
+            self.frame_count = 0
+            self.last_fps_sample_time = int(time.time())
+
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
 
@@ -203,7 +286,7 @@ class UIModule:
                Returns true if hotkey found
                false if not or no config
         """
-        if self._config_options == None:
+        if self._config_options is None:
             return False
 
         for config_item_name, config_item in self._config_options.items():

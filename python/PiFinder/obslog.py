@@ -14,7 +14,9 @@ import sqlite3
 import json
 
 from PiFinder.obj_types import OBJ_TYPES
-from PiFinder.setup import create_logging_tables, get_observations_database
+from PiFinder.db.observations_db import (
+    ObservationsDatabase,
+)
 
 
 class Observation_session:
@@ -26,14 +28,7 @@ class Observation_session:
     """
 
     def __init__(self, shared_state, session_uuid):
-        # make sure observation db exists
-        create_logging_tables()
-        conn, db_c = get_observations_database()
-
-        self.db_connection = conn
-        self.db_connection.row_factory = sqlite3.Row
-        self.db_cursor = db_c
-
+        self.db = ObservationsDatabase()
         self.__session_init = False
         self.__session_uuid = session_uuid
         self.__shared_state = shared_state
@@ -53,39 +48,13 @@ class Observation_session:
             return None
 
         local_time = self.__shared_state.local_datetime()
-        if not local_time:
-            return None
-
-        q = """
-            INSERT INTO obs_sessions(
-                start_time_local,
-                lat,
-                lon,
-                timezone,
-                uid
-            )
-            VALUES
-            (
-                :start_time,
-                :lat,
-                :lon,
-                :timezone,
-                :uuid
-            )
-        """
-
-        self.db_cursor.execute(
-            q,
-            {
-                "start_time": local_time.timestamp(),
-                "lat": location["lat"],
-                "lon": location["lon"],
-                "timezone": location["timezone"],
-                "uuid": self.__session_uuid,
-            },
+        self.db.create_obs_session(
+            local_time.timestamp(),
+            location["lat"],
+            location["lon"],
+            location["timezone"],
+            self.__session_uuid,
         )
-
-        self.db_connection.commit()
 
         return self.__session_uuid
 
@@ -93,78 +62,29 @@ class Observation_session:
         session_uuid = self.session_uuid()
         if not session_uuid:
             print("Could not create session")
-            return None, None
+            return False
 
-        q = """
-            INSERT INTO obs_objects(
-                session_uid,
-                obs_time_local,
-                catalog,
-                sequence,
-                solution,
-                notes
-            )
-            VALUES
-            (
-                :session_uuid,
-                :obs_time,
-                :catalog,
-                :sequence,
-                :solution,
-                :notes
-            )
-        """
-
-        self.db_cursor.execute(
-            q,
-            {
-                "session_uuid": session_uuid,
-                "obs_time": self.__shared_state.local_datetime(),
-                "catalog": catalog,
-                "sequence": sequence,
-                "solution": json.dumps(solution),
-                "notes": json.dumps(notes),
-            },
+        observation_id = self.db.log_object(
+            session_uuid,
+            self.__shared_state.local_datetime().timestamp(),
+            catalog,
+            sequence,
+            solution,
+            notes,
         )
-        self.db_connection.commit()
-
-        observation_id = self.db_cursor.execute(
-            "select last_insert_rowid() as id"
-        ).fetchone()["id"]
 
         return session_uuid, observation_id
 
+    def get_logs_for_object(self, obj_record):
+        """
+        Returns a list of observations for a particular object
+        """
+        return self.db.get_logs_for_object(obj_record)
 
-def get_logs_for_object(obj_record):
-    """
-    Returns a list of observations for a particular object
-    """
-    create_logging_tables()
-    conn, db_c = get_observations_database()
+    def get_observed_objects(self):
+        """
+        Returns a list of all observed objects
+        """
+        logs = self.db.get_observed_objects()
 
-    logs = db_c.execute(
-        f"""
-            select * from obs_objects
-            where
-                catalog="{obj_record['catalog']}"
-                and sequence={obj_record['sequence']}
-            """
-    ).fetchall()
-
-    return logs
-
-
-def get_observed_objects():
-    """
-    Returns a list of all observed objects
-    """
-    create_logging_tables()
-    conn, db_c = get_observations_database()
-
-    logs = db_c.execute(
-        f"""
-            select distinct catalog, sequence from obs_objects
-            """
-    ).fetchall()
-
-    return [(x["catalog"], x["sequence"]) for x in logs]
+        return [(x.catalog_code, x.sequence) for x in logs]

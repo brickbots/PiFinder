@@ -16,4 +16,5 @@ pifinder_dir = Path("..")
 astro_data_dir = pifinder_dir / "astro_data"
 data_dir = Path(Path.home(), "PiFinder_data")
 pifinder_db = astro_data_dir / "pifinder_objects.db"
-observations_db = astro_data_dir / "observations.db"
+observations_db = data_dir / "observations.db"
+debug_dump_dir = data_dir / "solver_debug_dumps"
