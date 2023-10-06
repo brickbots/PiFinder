@@ -14,7 +14,7 @@ def is_tpv_accurate(tpv_dict):
     """
     Check the accuracy of the GPS fix
     """
-    error = tpv_dict.get("ecepAcc", tpv_dict.get("sep", 499))
+    error = tpv_dict.get("ecefpAcc", tpv_dict.get("sep", 499))
     # logging.debug("GPS: TPV: mode=%s, error=%s",  tpv_dict.get('mode'), error)
     if tpv_dict.get("mode") == 3 and error < 500:
         return True
