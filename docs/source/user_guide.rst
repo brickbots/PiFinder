@@ -1,6 +1,6 @@
 
 ====================
-PiFinder User Manual
+User Manual
 ====================
 
 
@@ -40,7 +40,7 @@ At any time you can hold down the *ENT* key and press the *UP*\ /\ *DN* keys to 
 Power Save Mode
 -------------------------
 
-The PiFinder will dim the screen and reduce the frequency of exposures, solving, and other processes when it's been idle for a period of time.  This helps save battery power and can also prevent glare at the eyepiece in especially dark environments.  The default is 30 seconds and this can be configured, or turned off completely, in the `Options <user_guide_ui.md#options>`_ page of the `Status <user_guide_ui.md#status>`_ screen.
+The PiFinder will dim the screen and reduce the frequency of exposures, solving, and other processes when it's been idle for a period of time.  This helps save battery power and can also prevent glare at the eyepiece in especially dark environments.  The default is 30 seconds and this can be configured, or turned off completely, in the `Options <#options>`_ page of the `Status <#status>`_ screen.
 
 Pressing any button, or moving the PFinder will wake it from power save mode.
 
@@ -199,7 +199,7 @@ Pressing the *B* key will cycle through various pages of information about the s
 
 Use the *D* key to clear the number field out and start fresh.  If you find an object you are interested in, pressing the *ENT* key will add it to your target list and switch to the `Locate <#Locate>`_ screen.
 
-Holding the *A* key for two seconds will bring up the settings for the catalog.  You can filter by apparent altitude, magnitude and object type.  The Options page also has an action to push the currently filtered catalog to the `Observing <user_guide_howto.md#observing-lists>`_ list. Pressing *A* will bring you back to the catalog and update the count of objects that match your filter.
+Holding the *A* key for two seconds will bring up the settings for the catalog.  You can filter by apparent altitude, magnitude and object type.  The Options page also has an action to push the currently filtered catalog to the `Observing <#observing-lists>`_ list. Pressing *A* will bring you back to the catalog and update the count of objects that match your filter.
 
 
 * The *UP/DN* keys will scroll through the currently filtered objects.
@@ -207,7 +207,7 @@ Holding the *A* key for two seconds will bring up the settings for the catalog. 
 Object Images
 ~~~~~~~~~~~~~
 
-If you have `downloaded <./user_guide_setup.md#catalog-image-download>`_ the set of catalog images you can view what the selected object looks like via images from sky surveys.  Pressing the *B* key will cycle through various pages of information about each object including images from the Palomar Observatory Sky Survey and potentially updated images from the Sloan Digital Sky Survey.   
+If you have `downloaded <#catalog-image-download>`_ the set of catalog images you can view what the selected object looks like via images from sky surveys.  Pressing the *B* key will cycle through various pages of information about each object including images from the Palomar Observatory Sky Survey and potentially updated images from the Sloan Digital Sky Survey.   
 
 As an example, here are the images available for M57
 
@@ -247,7 +247,7 @@ Values are expressed in degrees with the top line being rotation in Azimuth and 
 
 * *UP/DN* will cycle through the active list.  The numbers in the upper-right corner of the screen represent the index of the current object / total number of objects in the list and the list name is displayed directly below.
 * *ENT* will switch back to the catalog screen to access full information about the current target
-* *B* will toggle between the `History and Observing lists <user_guide_howto.md#observing-lists>`_
+* *B* will toggle between the `History and Observing lists <#observing-lists>`_
 * Holding the *A* key will open the `Options <#options>`_ page where you can load and save observing lists to disk
 
 The currently target is also displayed on the `Chart <#Chart>`_ screen as a small tick mark.
@@ -342,12 +342,12 @@ System Options
 The `Options <#options>`_ page for the status screen gives access to general PiFinder options and actions.  Press and hold the *A* key to access the option page.
 
 
-* Set the `Power Save <user_guide.md#power-save>`_ timeout
-* Change `WiFi <user_guide_howto.md#wifi>`_ Mode between client and access point
+* Set the `Power Save <#power-save>`_ timeout
+* Change `WiFi <#wifi>`_ Mode between client and access point
 * Switch between left/right `side <build_guide.md#focuser-side>`_ orientation
-* `Restart <user_guide_howto.md#shutdown-and-restart>`_ the PiFinder software
-* `Shutdown <user_guide_howto.md#shutdown-and-restart>`_ the PiFinder
-* `Update <user_guide_howto.md#update-software>`_ the PiFinder software
+* `Restart <#shutdown-and-restart>`_ the PiFinder software
+* `Shutdown <#shutdown-and-restart>`_ the PiFinder
+* `Update <#update-software>`_ the PiFinder software
 
 Console
 ^^^^^^^
@@ -473,7 +473,7 @@ This how to covers a lot of the basic catalog/locating/observing features of the
 
 Combining the ability to filter a catalog by observation status and pushing the nearest 'X' objects to the observing list allows you to work your way through a collection of objects easily.
 
-Use the *A* key to cycle through the main screens until you get to the `Catalog <user_guide_ui.md#catalog>`_
+Use the *A* key to cycle through the main screens until you get to the `Catalog <#catalog>`_
 
 
 .. image:: ../../images/screenshots/how_to_see_CATALOG_001_docs.png
@@ -489,7 +489,7 @@ Then use the *C* key to cycle through the available catalogs to find the Messier
    :alt: Catalog
 
 
-Holding the *A* button for about a second will bring up the `Options <user_guide_ui.md#options>`_ page of the `Catalog <user_guide_ui.md#catalog>`_ screen
+Holding the *A* button for about a second will bring up the `Options <#options>`_ page of the `Catalog <#catalog>`_ screen
 
 
 .. image:: ../../images/screenshots/how_to_see_OPTIONS_003_docs.png
@@ -534,7 +534,7 @@ Press the *5* key to select Push Near
    :alt: Catalog
 
 
-You can select the number of nearby objects you want to push to the observing list.  Let's get 20 nearby Messier objects we've never logged observations for!  Press the *4* key and you'll end up at the `Locate <user_guide_ui.md#locate>`_ screen with a list of these 20 objects sorted by distance from the current pointing position.
+You can select the number of nearby objects you want to push to the observing list.  Let's get 20 nearby Messier objects we've never logged observations for!  Press the *4* key and you'll end up at the `Locate <#locate>`_ screen with a list of these 20 objects sorted by distance from the current pointing position.
 
 
 .. image:: ../../images/screenshots/how_to_see_LOCATE_001_docs.png
@@ -544,7 +544,7 @@ You can select the number of nearby objects you want to push to the observing li
 
 The locate screen serves double duty by showing you where to move the telescope to center this object, and also letting you scroll through the observing or history lists.  In the screenshot above were looking at item 1/20 in the Obsv (Observing) list.  You can use *UP* and *DN* to scroll through the list.  Or just push the scope in the indicated direction to observe M33.
 
-When you have observed M33, hold down the *ENT* button to log this object using the `LOG <user_guide_ui.md#log>`_ screen.
+When you have observed M33, hold down the *ENT* button to log this object using the `LOG <#log>`_ screen.
 
 
 .. image:: ../../images/screenshots/how_to_see_LOG_001_docs.png
@@ -582,7 +582,7 @@ Use can use the *UP* and *DN* keys to zoom the chart in an out.  Here is the cha
 Switch Sides
 ------------------------------------------------------
 
-By default, the PiFinder software is set for right-side focuser operation.   To switch to left-side orientation, use the `Options <user_guide_ui.md#options>`_ page of the `Status <user_guide_ui.md#status>`_ screen.  This will make sure the preview is displayed correct side up and the IMU up/down direction is correct.
+By default, the PiFinder software is set for right-side focuser operation.   To switch to left-side orientation, use the `Options <#options>`_ page of the `Status <#status>`_ screen.  This will make sure the preview is displayed correct side up and the IMU up/down direction is correct.
 
 WiFi
 ------
@@ -590,7 +590,7 @@ WiFi
 Access Point and Client Mode
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the `Options <user_guide_ui.md#system-options>`_ page of the Status screen to switch between these two modes and see which mode is currently active.
+The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the `Options <#system-options>`_ page of the Status screen to switch between these two modes and see which mode is currently active.
 
 Using the PiFinder in Access Point mode creates a network called AP_PiFinder with no password to allow easy connection of phones, tablets and other devices in the field.
 
@@ -634,7 +634,7 @@ Alternatively, you can switch the PiFinder to AP mode, SSH into it and edit ``/e
 PiFinder address
 -----------------
 
-In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computer or those that don't support zeroconf networking, you can use the IP address provides on the `Status <user_guide_ui.md#status>`_ screen to connect.  You can connect to the PiFinder via:
+In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computer or those that don't support zeroconf networking, you can use the IP address provides on the `Status <#status>`_ screen to connect.  You can connect to the PiFinder via:
 
 
 * SSH to get shell access for software updates and other admin tasks
@@ -650,7 +650,7 @@ The PiFinder can provide real-time pointing information to a device running SkyS
 * Use 'Other' telescope type
 * Mount Type: Alt-Az, GoTo.. even if your scope is Push-To.  This allows sending of targets from SkySafari to the PiFinder
 * Scope Type: Meade LX200 classic
-* IP Address: ``pifinder.local`` or IP address provides on the `Status <user_guide_ui.md#status>`_ screen.
+* IP Address: ``pifinder.local`` or IP address provides on the `Status <#status>`_ screen.
 * Port: 4030
 
 Data Access
@@ -672,20 +672,20 @@ Shutdown and Restart
 
 Although shutting down is not strictly needed before power-off, the PiFinder is a computer and there is a chance of file corruption.  Some MicroSD cards are more sensitive to this than others.
 
-Shutdown and Restart actions are available from the `Options <user_guide_ui.md#options>`_ for the `Status <user_guide_ui.md#status>`_ screen.  Hold down *Ent* and press *A* to cycle through the system screens until you see the status screen, the press and hold *A* to access the options.
+Shutdown and Restart actions are available from the `Options <#options>`_ for the `Status <#status>`_ screen.  Hold down *Ent* and press *A* to cycle through the system screens until you see the status screen, the press and hold *A* to access the options.
 
 Restarting the PiFinder software should not normally be needed, but can be useful for generating a new session id which is included for a photos and logging during a particular execution of the PiFinder software.
 
 Observing lists
 -----------------
 
-PiFinder maintains two lists of objects for each observing session; The History list and the Observing list.  The `Locate <user_guide_ui.md#locate>`_ screen lets you scroll through these lists and push the telescope to any object on them.
+PiFinder maintains two lists of objects for each observing session; The History list and the Observing list.  The `Locate <#locate>`_ screen lets you scroll through these lists and push the telescope to any object on them.
 
 The History list will record any object that you set as a target to push-to.  It's added to as soon as you press the *ENT* key on the catalog screen to select an object.  The main purpose of the History list is to let you scroll back through objects you have observed that session.
 
 The Observing list is a list of objects that is populated from either a filtered catalog or a file on disk.  It's a list of objects you'd like to observe during a session.  
 
-Both these lists start empty at the beginning of each session.  To populate an observing list you can push a filtered list of objects from the `Catalog <user_guide_ui.md#catalog>`_ screen or use the `Options <user_guide_ui.md#options>`_ page of the `Locate <user_guide_ui.md#locate>`_ screen to load an observing list from disk.  The PiFinder supports .skylist file format used in SkySafari and adopted in many other applications as well.
+Both these lists start empty at the beginning of each session.  To populate an observing list you can push a filtered list of objects from the `Catalog <#catalog>`_ screen or use the `Options <#options>`_ page of the `Locate <#locate>`_ screen to load an observing list from disk.  The PiFinder supports .skylist file format used in SkySafari and adopted in many other applications as well.
 
 Update Software
 -----------------
@@ -696,19 +696,6 @@ v1.2.2 or greater
 A Software action is available from the `Options <#options>`_ for the `Status <#status>`_ screen.  This will both show which version the PiFinder currently has installed and allow you to Upd the software if the PiFinder is connected to the internet.  You man need to switch `WiFi <#wifi>`_ modes to Client if the device is in AP mode.
 
 Select the option for 'Software' and then 'Upd'.  You should see a message that says 'Updating...' followed by 'Ok! Restarting'.  The PiFinder should restart and the new software version should be displayed when checking the `Options <#options>`_ for the `Status <#status>`_ screen
-
-Pre v1.2.2
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Prior to version 1.2.2 you'll need to SSH into the PiFinder to update the software.  Once connected to the PiFinder and logged in type:
-
-.. code-block::
-
-   cd PiFinder
-   git stash
-   git pull
-
-This should update to the latest release and from then forward you'll be able to use the built-in software update system.
 
 
 Setup
