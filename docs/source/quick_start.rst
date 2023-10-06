@@ -1,0 +1,122 @@
+Quick Start
+================
+
+Congratulations on getting your hands on a PiFinder! Whether you’ve built it from scratch, or ordered a completed model from BBLabs, you’re on your way to a whole new level of accuracy and ease while observing the night sky.
+
+This manual will help get you set up, and teach you how to use the PiFinder so you never have to read this again!
+
+We’ll walk you through getting your PiFinder up and running for the first time, give you step-by-step instructions for your first night out, show you how to change your settings, and get you confident in understanding how PiFinder works. 
+
+PiFinder uses its camera to take continuous pictures of the stars it sees, compares those stars to its database, and then tells you exactly where you’re pointed. It does that process, called “plate solving”, constantly, so it always knows where you’re aimed. It also uses an accelerometer (much like most modern mobile phones) to feel when you move the scope, and these two processes help tell it where you are, and the PiFinder in turn can tell you where you need to go.
+
+PiFinder was created by software engineer and amature astronomer Richard Wolff-Jacobson, who realized he could use his engineering and coding experience to create a brand new way to get more out of his time at the telescope. He saw that plate solving technology could be handled by the famous Raspberry Pi single-board computer and a simple camera. The software and rig he developed will turn your telescope into an accurate guide through the night sky.
+
+
+Unboxing
+--------
+
+First, let’s get to know your PiFinder.
+
+There are two parts of your PiFinder that you’ll interact with: the camera, and the keypad/screen.
+[[Photo of PiFinder showing screen AND camera behind]]
+
+The power button is the small white switch located above the screen as shown. Slide it right to turn it on, left to turn it off. 
+[[Photo of PiFinder with power switch identified]]
+
+Note that when you turn on your PiFinder, it will take a minute to start up. During startup, no image will appear on screen. This is normal.
+
+Powering the PiFinder
+----------------------
+If you purchased or built your PiFinder with the optional internal battery, you’ll need to , charge the battery before first use. Plug a USB-C charging cable into the port on the top of the PiFinder, closest to the camera, as indicated below. 
+[[Photo of location of USB-C charging location with USB-C port indicated, perhaps showing a USB-C cable about to plug in?]]
+
+
+If you use an external power source, hook up your 5v 2amp battery pack cable to the same USB-C port as shown above. If you have a dobsonian telescope, we recommend mounting your power source on your primary mirror box, as this can also serve as a counterweight for the PiFinder.
+
+Once the PiFinder is powered on, it will take 15-20 seconds for it to initialize and for an image to appear on the screen.  You’ll then see some information about the loading process and finally the CAMERA screen!
+
+
+Camera Setup
+------------
+
+In this step we’ll get the camera ready for use. Once you’ve set it, you likely won’t need to adjust it very often. The camera has an aperture and focus ring indicated in orange and green below. 
+[[PHOTO OF CAMERA WITH APERTURE AND FOCUS RINGS VISIBLE]]
+
+First, remove the lens cap. 
+Next, use your fingers to gently turn the aperture ring until it is fully open (you can even see it open through the front lens). This allows in the most light from the stars.
+[[Maybe photo of open vs. closed aperture?]]
+Lastly, turn the focuser all the way in the Far direction indicated on the lens and back it off about ¼ turn.  This should get you close to focus, and you can refine focus using the CAMERA screen explained later in this manual, when you are using the PiFinder for the first time under the stars.
+
+Your camera is now all set for use! If you ever have troubles with alignment or plate solving, you can troubleshoot these steps to make sure your camera is set up correctly.
+
+Mounting
+---------
+
+The PiFinder comes set up for a dovetail mount, with the following dimensions: ______________. [photo of mounting shoe]
+
+The PiFinder must be mounted in a way that is close to perpendicular to the ground, otherwise it will give you bad directions during object location. The beauty of the PiFinder is that it always knows where it’s looking in the sky and it is programmed to assume it is perpendicular to the earth, so it will give you instructions based on that assumption.
+
+The dovetail that comes with the PiFinder is adjustable to allow the PiFinder to sit upright, even if your finder shoe is not right at the top of your optical tube.  Loosen the two screws in the dovetail, put the PiFinder on your scope and adjust the angle until it’s roughly perpendicular to the ground.  Once you’re happy, remove the PiFinder and tighten the two adjustment screws.  You should be all set for a night of observing!
+
+Pro-Tips: 
+Make sure to mount the PiFinder in such a way that the camera has an unimpeded view of the sky. 
+There are different versions of the PiFinder for left, right and flat mounting and the software needs to be configured properly for each.  See the ‘Global Config Options’ section to see how to adjust this.
+
+First Time Out
+--------------
+
+Once your PiFinder is charged and your mount is set on your scope, you’re ready to  head out to your observing site! Set up your scope, mount your PiFinder, and read on…
+
+You’ll be able to turn on your PiFinder and start using it as soon as you see multiple stars in the part of the sky where the PiFinder is pointed. PiFinder uses the stars (and its internal GPS sensor) to learn where it is and what it’s looking at, so it needs a few stars in order to get started. This may happen a little after sunset, or, if you’re in an area with light pollution, you may have to wait until full darkness. 
+
+There are two icons in the upper right of the screen that will tell you if the PiFinder knows where it is: one shows when GPS signal and location has been acquired (usually happens right away upon start up), and another shows when the PiFinder has plate-solved its current view (which will come and go as you move your scope around). 
+[[Image of GPS icon before and after with labels; Image of Plate Solve icon before and after, with labels]]
+
+No GPS / No Solve
+
+
+GPS + Camera Solve
+
+
+GPS + IMU Estimate
+
+
+Adjusting Brightness
+^^^^^^^^^^^^^^^^^^^^^
+
+The PiFinder is designed to allow you to adjust the brightness of the screen and keypad at any time: simply hold down the ENT button and push UP for brighter, or DN for dimmer. In a dark sky site, you can turn the brightness down to preserve your dark-adapted vision.
+
+Setting Focus & First Solve
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Once you see stars populating the sky, turn on your PiFinder and aim your scope at the best clump of stars you can see. Make sure your lens cap is off, and immediately PiFinder will get to work solving what it sees. When the Plate Solving Icon is complete, it means it knows where it is! 
+
+[[ Need image of unfocused/focused stars ]]
+
+TROUBLESHOOTING PLATE SOLVING
+Can’t get a plate solve? Check to make sure your lens cap is off, your aperture is all the way open, and your focus is at infinity. Still not working? Make sure nothing is impeding PiFinder’s view of the sky, and its screen has not dewed or fogged over. Still stuck? See “RESETTING THE CAMERA” on page ____.
+
+Alignment
+^^^^^^^^^^^
+In order to get the most out of PiFinder, you must align it. Even the smallest change in how your PiFinder sits in its mount can change where it aims, so our first step will be to get a bright star in the center of your eyepiece. Any star you can identify with the naked eye will work.
+
+When you first start up PiFinder, it will load in the “CAMERA” screen, which shows the live image from the camera.  You should be able to see your chosen star in the PiFinder’s screen.  
+
+
+
+Next, press B to enter ALIGN mode. (If you’ve moved away from CAMERA Mode, push the A button three times to cycle through PiFinder’s other modes until you return to the CAMERA screen). PiFinder will identify up to three bright stars in the field of view, and give each a number from 1-3. 
+
+
+
+Choose the number that represents the star currently in your telescope’s eyepiece, and press that number on PiFinder’s number pad. You will be taken back to the CAMERA screen, and now your chosen star will be centered in the reticle. You are now aligned, and ready to explore the universe!
+
+
+
+TROUBLESHOOTING ALIGNMENT
+Can’t find your star on the ALIGN screen? See “mechanical alignment” on page ___.
+
+
+Find Your First Object
+^^^^^^^^^^^^^^^^^^^^^^^^
+Now that you’re aligned, it’s time to explore!
+
