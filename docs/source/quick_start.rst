@@ -18,7 +18,11 @@ Unboxing
 First, let’s get to know your PiFinder.
 
 There are two parts of your PiFinder that you’ll interact with: the camera, and the keypad/screen.
-[[Photo of PiFinder showing screen AND camera behind]]
+
+.. image:: images/quick_start/pf_front.jpeg
+   :width: 45%
+.. image:: images/quick_start/pf_rear.jpeg
+   :width: 45%
 
 The power button is the small white switch located above the screen as shown. Slide it right to turn it on, left to turn it off. 
 [[Photo of PiFinder with power switch identified]]
@@ -28,8 +32,8 @@ Note that when you turn on your PiFinder, it will take a minute to start up. Dur
 Powering the PiFinder
 ----------------------
 If you purchased or built your PiFinder with the optional internal battery, you’ll need to , charge the battery before first use. Plug a USB-C charging cable into the port on the top of the PiFinder, closest to the camera, as indicated below. 
-[[Photo of location of USB-C charging location with USB-C port indicated, perhaps showing a USB-C cable about to plug in?]]
 
+.. image:: images/quick_start/power.jpeg
 
 If you use an external power source, hook up your 5v 2amp battery pack cable to the same USB-C port as shown above. If you have a dobsonian telescope, we recommend mounting your power source on your primary mirror box, as this can also serve as a counterweight for the PiFinder.
 
@@ -40,11 +44,14 @@ Camera Setup
 ------------
 
 In this step we’ll get the camera ready for use. Once you’ve set it, you likely won’t need to adjust it very often. The camera has an aperture and focus ring indicated in orange and green below. 
-[[PHOTO OF CAMERA WITH APERTURE AND FOCUS RINGS VISIBLE]]
+
+.. image:: images/quick_start/cam_adjustments.jpeg
 
 First, remove the lens cap. 
 Next, use your fingers to gently turn the aperture ring until it is fully open (you can even see it open through the front lens). This allows in the most light from the stars.
+
 [[Maybe photo of open vs. closed aperture?]]
+
 Lastly, turn the focuser all the way in the Far direction indicated on the lens and back it off about ¼ turn.  This should get you close to focus, and you can refine focus using the CAMERA screen explained later in this manual, when you are using the PiFinder for the first time under the stars.
 
 Your camera is now all set for use! If you ever have troubles with alignment or plate solving, you can troubleshoot these steps to make sure your camera is set up correctly.
@@ -69,22 +76,29 @@ Once your PiFinder is charged and your mount is set on your scope, you’re read
 
 You’ll be able to turn on your PiFinder and start using it as soon as you see multiple stars in the part of the sky where the PiFinder is pointed. PiFinder uses the stars (and its internal GPS sensor) to learn where it is and what it’s looking at, so it needs a few stars in order to get started. This may happen a little after sunset, or, if you’re in an area with light pollution, you may have to wait until full darkness. 
 
-There are two icons in the upper right of the screen that will tell you if the PiFinder knows where it is: one shows when GPS signal and location has been acquired (usually happens right away upon start up), and another shows when the PiFinder has plate-solved its current view (which will come and go as you move your scope around). 
-[[Image of GPS icon before and after with labels; Image of Plate Solve icon before and after, with labels]]
+There are two icons in the upper right of the screen that will tell you if the PiFinder knows where it is: one shows a sattelite dish when GPS signal and location has been acquired, and the other shows how the PiFinder has determined your current telescope poition.  I will displya a camera if it has plate-solved its current view, and a cross of arrows if the scope is moving and it's using the acceleromiter.  If you see an 'X', the PiFinder has yet to determine where it's pointing (see :ref:`first_solve`)
 
-No GPS / No Solve
+.. list-table::
 
+   * - .. figure:: images/quick_start/status_CAMERA_001_docs.png
 
-GPS + Camera Solve
+          No GPS, No Solve
 
+     - .. figure:: images/quick_start/status_CAMERA_002_docs.png
 
-GPS + IMU Estimate
+          GPS + Camera Solve
+
+     - .. figure:: images/quick_start/status_CAMERA_003_docs.png
+
+          GPS + IMU Estimate
 
 
 Adjusting Brightness
 ^^^^^^^^^^^^^^^^^^^^^
 
 The PiFinder is designed to allow you to adjust the brightness of the screen and keypad at any time: simply hold down the ENT button and push UP for brighter, or DN for dimmer. In a dark sky site, you can turn the brightness down to preserve your dark-adapted vision.
+
+.. _first_solve:
 
 Setting Focus & First Solve
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -102,15 +116,17 @@ In order to get the most out of PiFinder, you must align it. Even the smallest c
 
 When you first start up PiFinder, it will load in the “CAMERA” screen, which shows the live image from the camera.  You should be able to see your chosen star in the PiFinder’s screen.  
 
-
+.. image:: images/quick_start/align_CAMERA_001_docs.png
 
 Next, press B to enter ALIGN mode. (If you’ve moved away from CAMERA Mode, push the A button three times to cycle through PiFinder’s other modes until you return to the CAMERA screen). PiFinder will identify up to three bright stars in the field of view, and give each a number from 1-3. 
 
 
+.. image:: images/quick_start/align_CAMERA_004_docs.png
 
-Choose the number that represents the star currently in your telescope’s eyepiece, and press that number on PiFinder’s number pad. You will be taken back to the CAMERA screen, and now your chosen star will be centered in the reticle. You are now aligned, and ready to explore the universe!
+Choose the number that represents the star currently in your telescope’s eyepiece, and press that number on PiFinder’s number pad. You will be taken back to the CAMERA screen, and now the reticle will be centered on your chosen star. You are now aligned, and ready to explore the universe!
 
 
+.. image:: images/quick_start/align_CAMERA_006_docs.png
 
 TROUBLESHOOTING ALIGNMENT
 Can’t find your star on the ALIGN screen? See “mechanical alignment” on page ___.
