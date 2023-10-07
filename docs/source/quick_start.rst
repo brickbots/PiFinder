@@ -112,7 +112,7 @@ Can’t get a plate solve? Check to make sure your lens cap is off, your apertur
 
 Alignment
 ^^^^^^^^^^^
-In order to get the most out of PiFinder, you must align it. Even the smallest change in how your PiFinder sits in its mount can change where it aims, so our first step will be to get a bright star in the center of your eyepiece. Any star you can identify with the naked eye will work.
+In order to get the most out of PiFinder, you must align it with your telescope. Even the smallest change in how your PiFinder sits in its mount as you setup your scope from night to night can change where it aims, so our first step will be to get a bright star in the center of your eyepiece.  This will be used to tell the PiFinder what part of the sky your telescope is seeing. Any star you can identify with the naked eye will work.
 
 When you first start up PiFinder, it will load in the “CAMERA” screen, which shows the live image from the camera.  You should be able to see your chosen star in the PiFinder’s screen.  
 
