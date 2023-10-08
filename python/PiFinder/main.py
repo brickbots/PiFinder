@@ -108,7 +108,8 @@ def set_keypad_brightness(percentage: float):
     if percentage < 0 or percentage > 100:
         logging.error("Invalid percentage for keypad brightness")
         percentage = max(0, min(100, percentage))
-    keypad_pwm.change_duty_cycle(percentage)
+    if keypad_pwm:
+        keypad_pwm.change_duty_cycle(percentage)
 
 
 def set_brightness(level, cfg):

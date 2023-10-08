@@ -118,7 +118,7 @@ def integrator(shared_state, solver_queue, console_queue):
                         # calc new alt/az
                         lis_imu = last_image_solve["imu_pos"]
                         imu_pos = imu["pos"]
-                        if lis_imu != None and imu_pos != None:
+                        if imu_moved(lis_imu, imu_pos):
                             alt_offset = imu_pos[IMU_ALT] - lis_imu[IMU_ALT]
                             if flip_alt_offset:
                                 alt_offset = ((alt_offset + 180) % 360 - 180) * -1
