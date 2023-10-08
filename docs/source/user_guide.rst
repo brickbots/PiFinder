@@ -21,16 +21,28 @@ Keypad and Screen
 The main way you'll interact with the PiFinder is through the Keypad and Screen located on the front.  Ideally this will be mounted near your eyepiece for easy access. 
 
 
-.. image:: ../../images/ui_reference.png
-   :target: ../../images/ui_reference.png
+.. image:: ../../images/user_guide/ui_reference.png
    :alt: Hardware UI Overview
 
 
 Along with the 1.5" oled screen, the keypad has three primary parts, a numeric keypad (\ *0-9*\ ), four functions keys (\ *A, B, C, D*\ ), and three control keys (\ *UP, DN, ENT*\ ).  The screen will display different content depending on the mode you are in, but there will always be a Status Bar along the top which displays which mode the UI is in, the current constellation being pointed at (if a solve has been completed), GPS and Solver Status.
 
+.. list-table::
 
-* If the GPS has locked and provided a location, the GPS square in the status bar will be filled in and the G will be in black.  
-* The solver status will show either C (Camera) or I (IMU) depending on the source of the last position fix.  The background of this square fades from red to black, over six seconds, indicating the time since last solve.  
+   * - .. figure:: images/quick_start/status_CAMERA_001_docs.png
+
+          No GPS, No Solve
+
+     - .. figure:: images/quick_start/status_CAMERA_002_docs.png
+
+          GPS + Camera Solve
+
+     - .. figure:: images/quick_start/status_CAMERA_003_docs.png
+
+          GPS + IMU Estimate
+
+Each time you switch screens using the 'A' function key, a hint will be displayed for the three other functions keys.  You can adjust the lengh of time these hints are displayed and turn them off completely.
+
 
 Brightness Adjustment
 -------------------------
@@ -51,19 +63,17 @@ User Interface
 UI Screens
 ----------
 
-The user interface for the PiFinder is split into various screens that you can switch between to perform different tasks.  The A key is used to cycle between the three main screens:
+The user interface for the PiFinder is split into various screens that you can switch between to perform different tasks.  The A key is used to cycle between the four main screens:
 
-
+* Camera
 * Chart
 * Catalog
 * Locate
 
 By holding down the Enter key and pressing the A function key you can get to the less commonly used screens:
 
-
 * Console
 * Status
-* Camera Preview
 
 Some actions in one screen will move you to another, for instance selecting an object from the Catalog will switch automatically to the Locate screen.  
 

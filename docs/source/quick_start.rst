@@ -134,5 +134,25 @@ Can’t find your star on the ALIGN screen? See “mechanical alignment” on pa
 
 Find Your First Object
 ^^^^^^^^^^^^^^^^^^^^^^^^
-Now that you’re aligned, it’s time to explore!
+Now that you’re aligned, it’s time to explore!  We'll walk you through the steps to look up an object in the catalog, get some informaiton about it, select it to find and push your scope so it's in the eyepiece.
+
+The 'A' function key will move you through the main observing screens and if you press it twice from the CAMERA screen, you'll go through the CHART screen and end up on the CATALOG screen.
+
+.. image:: images/quick_start/firstobj_CHART_001_docs.png
+.. image:: images/quick_start/firstobj_CATALOG_001_docs.png
+
+The CATALOG screen let's you browse and search through all 16,000+ objects the PiFinder can guide you to.  These objects are grouped into several popular catalogs and the 'C' function key (for Catalog) will switch between the various active catalogs.  Press 'C' until you find a catalog containing an object you'd like to look at.  In this case, we've selected Messier 13, but you'll have to adjust for your location and time of year.
+
+.. image:: images/quick_start/firstobj_CATALOG_002_docs.png
+
+Once you have selected the catalog your object is in, use the number keys to type in the object ID.  As you type, the PiFinder will present matching objects.  
+
+.. image:: images/quick_start/firstobj_CATALOG_003_docs.png
+
+PRO-TIP:  If you don't find the particular object you are looking for, it may be filtered!  By default, the PiFinder will only show objects in it's catalog that are currently visible from your location at your time.
+
+When you've typed in the object ID, you can press the ENT key to select it and the PiFinder will switch to the LOCATE screen to help guide you to it!
+
+.. image:: images/quick_start/firstobj_LOCATE_001_docs.png
+
 
