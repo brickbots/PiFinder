@@ -37,7 +37,7 @@ class UIPreview(UIModule):
             "callback": "exit_config",
         },
         "BG Sub": {
-            "type": "bool",
+            "type": "enum",
             "value": "Half",
             "options": ["Off", "Half", "Full"],
             "hotkey": "C",
