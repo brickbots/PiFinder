@@ -40,5 +40,6 @@ Join the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ for support 
    quick_start
    user_guide
    build_guide
+   software
    dev_guide
    BOM
