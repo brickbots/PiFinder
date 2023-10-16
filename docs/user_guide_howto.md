@@ -167,21 +167,10 @@ The Observing list is a list of objects that is populated from either a filtered
 Both these lists start empty at the beginning of each session.  To populate an observing list you can push a filtered list of objects from the [Catalog](user_guide_ui.md#catalog) screen or use the [Options](user_guide_ui.md#options) page of the [Locate](user_guide_ui.md#locate) screen to load an observing list from disk.  The PiFinder supports .skylist file format used in SkySafari and adopted in many other applications as well.
 
 ### Update Software
-##### v1.2.2 or greater
+
 A Software action is available from the [Options](#options) for the [Status](#status) screen.  This will both show which version the PiFinder currently has installed and allow you to Upd the software if the PiFinder is connected to the internet.  You man need to switch [WiFi](#wifi) modes to Client if the device is in AP mode.
 
 Select the option for 'Software' and then 'Upd'.  You should see a message that says 'Updating...' followed by 'Ok! Restarting'.  The PiFinder should restart and the new software version should be displayed when checking the [Options](#options) for the [Status](#status) screen
-
-##### Pre v1.2.2
-Prior to version 1.2.2 you'll need to SSH into the PiFinder to update the software.  Once connected to the PiFinder and logged in type:
-
-```
-cd PiFinder
-git stash
-git pull
-```
-
-This should update to the latest release and from then forward you'll be able to use the built-in software update system.
 
 
 ## FAQ
