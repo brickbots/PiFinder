@@ -16,6 +16,13 @@ then
     rm /home/pifinder/PiFinder/astro_data/observations.db
 fi
 
+# Migrate Config files
+if ! [ -f "/home/pifinder/PiFinder_data/config.json" ]
+then
+    echo "Migrating config.json"
+    mv /home/pifinder/PiFinder/config.json /home/pifinder/PiFinder_data/config.json
+fi
+
 # DONE
 echo "Post Update Complete"
 
