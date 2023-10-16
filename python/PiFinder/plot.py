@@ -34,45 +34,85 @@ class Starfield:
         self.t = ts.from_datetime(utctime)
         # An ephemeris from the JPL provides Sun and Earth positions.
 
-        self.earth = sf_utils.earth
+        self.earth = sf_utils.earth.at(self.t)
 
         # The Hipparcos mission provides our star catalog.
         hip_path = Path(utils.astro_data_dir, "hip_main.dat")
         with load.open(str(hip_path)) as f:
             self.raw_stars = hipparcos.load_dataframe(f)
 
-        # constellations
+        # Image size stuff
+        self.target_size = 128
+        self.diag_mult = 1.422
+        self.render_size = (
+            int(self.target_size * self.diag_mult),
+            int(self.target_size * self.diag_mult),
+        )
+        self.render_center = (
+            int(self.render_size[0] / 2),
+            int(self.render_size[1] / 2),
+        )
+        self.render_crop = [
+            int((self.render_size[0] - self.target_size) / 2),
+            int((self.render_size[1] - self.target_size) / 2),
+            int((self.render_size[0] - self.target_size) / 2) + self.target_size,
+            int((self.render_size[1] - self.target_size) / 2) + self.target_size,
+        ]
+
+        self.set_mag_limit(mag_limit)
+        # Prefilter here for mag 7.5, just to make sure we have enough
+        # for any plot.  Actual mag limit is enforced at plot time.
+        bright_stars = self.raw_stars.magnitude <= 7.5
+        self.stars = self.raw_stars[bright_stars].copy()
+
+        self.star_positions = self.earth.observe(Star.from_dataframe(self.stars))
+        self.set_fov(fov)
+
+        # constellations data ===========================
         const_path = Path(utils.astro_data_dir, "constellationship.fab")
         with load.open(str(const_path)) as f:
             self.constellations = stellarium.parse_constellations(f)
+        edges = [edge for name, edges in self.constellations for edge in edges]
+        const_start_stars = [star1 for star1, star2 in edges]
+        const_end_stars = [star2 for star1, star2 in edges]
 
-        self.set_mag_limit(mag_limit)
-        # Prefilter here for mag 9, just to make sure we have enough
-        # for any plot.  Actual mag limit is enforced at plot time.
-        bright_stars = self.raw_stars.magnitude <= 7.5
-        self.stars = self.raw_stars[bright_stars]
-        self.star_positions = self.earth.at(self.t).observe(
-            Star.from_dataframe(self.stars)
+        # Start the main dataframe to hold edge info (start + end stars)
+        self.const_edges_df = self.stars.loc[const_start_stars]
+
+        # We need position lists for both start/end of constellation lines
+        self.const_start_star_positions = self.earth.observe(
+            Star.from_dataframe(self.const_edges_df)
         )
-        self.set_fov(fov)
+        self.const_end_star_positions = self.earth.observe(
+            Star.from_dataframe(self.stars.loc[const_end_stars])
+        )
 
         marker_path = Path(utils.pifinder_dir, "markers")
         pointer_image_path = Path(marker_path, "pointer.png")
+        _pointer_image = Image.open(str(pointer_image_path)).crop(
+            [
+                int((256 - self.render_size[0]) / 2),
+                int((256 - self.render_size[1]) / 2),
+                int((256 - self.render_size[0]) / 2) + self.render_size[0],
+                int((256 - self.render_size[1]) / 2) + self.render_size[1],
+            ]
+        )
         self.pointer_image = ImageChops.multiply(
-            Image.open(str(pointer_image_path)),
-            Image.new("RGB", (256, 256), colors.get(64)),
+            _pointer_image,
+            Image.new("RGB", self.render_size, colors.get(64)),
         )
         # load markers...
         self.markers = {}
         for filename in os.listdir(marker_path):
             if filename.startswith("mrk_"):
                 marker_code = filename[4:-4]
-                _image = Image.new("RGB", (256, 256))
+                _image = Image.new("RGB", self.render_size)
                 _image.paste(
-                    Image.open(f"{marker_path}/mrk_{marker_code}.png"), (117, 117)
+                    Image.open(f"{marker_path}/mrk_{marker_code}.png"),
+                    (self.render_center[0] - 11, self.render_center[1] - 11),
                 )
                 self.markers[marker_code] = ImageChops.multiply(
-                    _image, Image.new("RGB", (256, 256), colors.get(256))
+                    _image, Image.new("RGB", self.render_size, colors.get(256))
                 )
 
     def set_mag_limit(self, mag_limit):
@@ -80,19 +120,35 @@ class Starfield:
 
     def set_fov(self, fov):
         self.fov = fov
+        angle = np.pi - (self.fov) / 360.0 * np.pi
+        limit = np.sin(angle) / (1.0 - np.cos(angle))
 
-    def plot_markers(self, ra, dec, roll, marker_list):
+        # Used for vis culling in projection space
+        self.limit = limit
+
+        self.image_scale = int(self.target_size / limit)
+        self.pixel_scale = self.image_scale / 2
+
+        # figure out magnitude limit for fov
+        mag_range = (7.5, 5)
+        fov_range = (5, 40)
+        perc_fov = (fov - fov_range[0]) / (fov_range[1] - fov_range[0])
+        if perc_fov > 1:
+            perc_fov = 1
+        if perc_fov < 0:
+            perc_fov = 0
+
+        mag_setting = mag_range[0] - ((mag_range[0] - mag_range[1]) * perc_fov)
+        self.set_mag_limit(mag_setting)
+
+    def plot_markers(self, marker_list):
         """
         Returns an image to add to another image
         Marker list should be a list of
         (RA_Hours/DEC_degrees, symbol) tuples
         """
-        sky_pos = Star(
-            ra=Angle(degrees=ra),
-            dec_degrees=dec,
-        )
-        center = self.earth.at(self.t).observe(sky_pos)
-        projection = build_stereographic_projection(center)
+        ret_image = Image.new("RGB", self.render_size)
+        idraw = ImageDraw.Draw(ret_image)
 
         markers = pandas.DataFrame(
             marker_list, columns=["ra_hours", "dec_degrees", "symbol"]
@@ -100,30 +156,31 @@ class Starfield:
 
         # required, use the same epoch as stars
         markers["epoch_year"] = 1991.25
-        marker_positions = self.earth.at(self.t).observe(Star.from_dataframe(markers))
+        marker_positions = self.earth.observe(Star.from_dataframe(markers))
 
-        markers["x"], markers["y"] = projection(marker_positions)
+        markers["x"], markers["y"] = self.projection(marker_positions)
 
-        target_size = 128
-        angle = np.pi - (self.fov) / 360.0 * np.pi
-        limit = np.sin(angle) / (1.0 - np.cos(angle))
-        ret_image = Image.new("RGB", (target_size * 2, target_size * 2))
-        idraw = ImageDraw.Draw(ret_image)
+        # Rasterize marker positions
+        markers = markers.assign(
+            x_pos=markers["x"] * self.pixel_scale + self.render_center[0],
+            y_pos=markers["y"] * -1 * self.pixel_scale + self.render_center[1],
+        )
+        # now filter by visiblity
+        markers = markers[
+            (
+                (markers["x_pos"] > 0)
+                & (markers["x_pos"] < self.render_size[0])
+                & (markers["y_pos"] > 0)
+                & (markers["y_pos"] < self.render_size[1])
+            )
+            | (markers["symbol"] == "target")
+        ]
 
-        image_scale = int(target_size / limit)
-        pixel_scale = image_scale / 2
-
-        markers_x = list(markers["x"])
-        markers_y = list(markers["y"])
-        markers_symbol = list(markers["symbol"])
-
-        ret_list = []
-        for i, x in enumerate(markers_x):
-            x_pos = x * pixel_scale + target_size
-            y_pos = markers_y[i] * -1 * pixel_scale + target_size
-            symbol = markers_symbol[i]
-
+        for x_pos, y_pos, symbol in zip(
+            markers["x_pos"], markers["y_pos"], markers["symbol"]
+        ):
             if symbol == "target":
+                # Draw cross
                 idraw.line(
                     [x_pos, y_pos - 5, x_pos, y_pos + 5],
                     fill=self.colors.get(255),
@@ -135,23 +192,46 @@ class Starfield:
 
                 # Draw pointer....
                 # if not within screen
-                if x_pos > 180 or x_pos < 76 or y_pos > 180 or y_pos < 76:
+                if (
+                    x_pos > self.render_crop[2]
+                    or x_pos < self.render_crop[0]
+                    or y_pos > self.render_crop[3]
+                    or y_pos < self.render_crop[1]
+                ):
                     # calc degrees to target....
                     deg_to_target = (
-                        np.rad2deg(np.arctan2(y_pos - 128, x_pos - 128)) + 180
+                        np.rad2deg(
+                            np.arctan2(
+                                y_pos - self.render_center[1],
+                                x_pos - self.render_center[0],
+                            )
+                        )
+                        + 180
                     )
                     tmp_pointer = self.pointer_image.copy()
                     tmp_pointer = tmp_pointer.rotate(-deg_to_target)
                     ret_image = ImageChops.add(ret_image, tmp_pointer)
             else:
-                # if it's visible, plot it.
-                if x_pos < 200 and x_pos > 60 and y_pos < 180 and y_pos > 60:
-                    _image = ImageChops.offset(
-                        self.markers[symbol], int(x_pos - 123), int(y_pos - 123)
-                    )
-                    ret_image = ImageChops.add(ret_image, _image)
+                _image = ImageChops.offset(
+                    self.markers[symbol],
+                    int(x_pos) - (self.render_center[0] - 5),
+                    int(y_pos) - (self.render_center[1] - 5),
+                )
+                ret_image = ImageChops.add(ret_image, _image)
 
-        return ret_image.rotate(roll).crop([64, 64, 192, 192])
+        return ret_image.rotate(self.roll).crop(self.render_crop)
+
+    def update_projection(self, ra, dec):
+        """
+        Updates the shared projection used for various plotting
+        routines
+        """
+        sky_pos = Star(
+            ra=Angle(degrees=ra),
+            dec_degrees=dec,
+        )
+        center = self.earth.observe(sky_pos)
+        self.projection = build_stereographic_projection(center)
 
     def plot_starfield(self, ra, dec, roll, constellation_brightness=32):
         """
@@ -159,77 +239,111 @@ class Starfield:
         provided RA/DEC/ROLL with or without
         constellation lines
         """
-        sky_pos = Star(
-            ra=Angle(degrees=ra),
-            dec_degrees=dec,
+        self.update_projection(ra, dec)
+        self.roll = roll
+
+        # Set star x/y for projection
+        # This is in a -1 to 1 space for the entire sky
+        # with 0,0 being the provided RA/DEC
+        self.stars["x"], self.stars["y"] = self.projection(self.star_positions)
+
+        # set start/end star x/y for const
+        self.const_edges_df["sx"], self.const_edges_df["sy"] = self.projection(
+            self.const_start_star_positions
         )
-        center = self.earth.at(self.t).observe(sky_pos)
-        projection = build_stereographic_projection(center)
+        self.const_edges_df["ex"], self.const_edges_df["ey"] = self.projection(
+            self.const_end_star_positions
+        )
 
-        # Time to build the figure!
-        stars = self.stars.copy()
+        pil_image = self.render_starfield_pil(constellation_brightness)
+        return pil_image.rotate(self.roll).crop(self.render_crop)
 
-        stars["x"], stars["y"] = projection(self.star_positions)
-        pil_image = self.render_starfield_pil(stars, constellation_brightness)
-        return pil_image.rotate(roll).crop([64, 64, 192, 192])
-
-    def render_starfield_pil(self, stars, constellation_brightness):
-        target_size = 128
-        angle = np.pi - (self.fov) / 360.0 * np.pi
-        limit = np.sin(angle) / (1.0 - np.cos(angle))
-
-        image_scale = int(target_size / limit)
-
-        ret_image = Image.new("L", (target_size * 2, target_size * 2))
+    def render_starfield_pil(self, constellation_brightness):
+        ret_image = Image.new("L", self.render_size)
         idraw = ImageDraw.Draw(ret_image)
-
-        pixel_scale = image_scale / 2
 
         # constellation lines first
         if constellation_brightness:
-            edges = [edge for name, edges in self.constellations for edge in edges]
-            edges_star1 = [star1 for star1, star2 in edges]
-            edges_star2 = [star2 for star1, star2 in edges]
+            # convert projection positions to screen space
+            # using pandas to interate
+            const_edges = self.const_edges_df.assign(
+                sx_pos=self.const_edges_df["sx"] * self.pixel_scale
+                + self.render_center[0],
+                sy_pos=self.const_edges_df["sy"] * -1 * self.pixel_scale
+                + self.render_center[1],
+                ex_pos=self.const_edges_df["ex"] * self.pixel_scale
+                + self.render_center[0],
+                ey_pos=self.const_edges_df["ey"] * -1 * self.pixel_scale
+                + self.render_center[1],
+            )
 
-            # edges in plot space
-            xy1 = stars[["x", "y"]].loc[edges_star1].values
-            xy2 = stars[["x", "y"]].loc[edges_star2].values
+            # Now that all the star/end points are in screen space
+            # remove any where both the start/end are not on screen
+            # filter for visibility
+            visible_edges = const_edges[
+                (
+                    (const_edges["sx_pos"] > 0)
+                    & (const_edges["sx_pos"] < self.render_size[0])
+                    & (const_edges["sy_pos"] > 0)
+                    & (const_edges["sy_pos"] < self.render_size[1])
+                )
+                | (
+                    (const_edges["ex_pos"] > 0)
+                    & (const_edges["ex_pos"] < self.render_size[0])
+                    & (const_edges["ey_pos"] > 0)
+                    & (const_edges["ey_pos"] < self.render_size[1])
+                )
+            ]
 
-            for i, start_pos in enumerate(xy1):
-                end_pos = xy2[i]
-                start_x = start_pos[0] * pixel_scale + target_size
-                start_y = start_pos[1] * -1 * pixel_scale + target_size
-                end_x = end_pos[0] * pixel_scale + target_size
-                end_y = end_pos[1] * -1 * pixel_scale + target_size
+            # This seems strange, but is one of the generally recommended
+            # way to iterate through pandas frames.
+            for start_x, start_y, end_x, end_y in zip(
+                visible_edges["sx_pos"],
+                visible_edges["sy_pos"],
+                visible_edges["ex_pos"],
+                visible_edges["ey_pos"],
+            ):
                 idraw.line(
-                    [start_x, start_y, end_x, end_y], fill=(constellation_brightness)
+                    [start_x, start_y, end_x, end_y],
+                    fill=(constellation_brightness),
                 )
 
-        for x, y, mag in zip(stars["x"], stars["y"], stars["magnitude"]):
-            x_pos = x * pixel_scale + target_size
-            y_pos = y * -1 * pixel_scale + target_size
-            if (
-                x_pos > 0
-                and x_pos < target_size * 2
-                and y_pos > 0
-                and y_pos < target_size * 2
-            ):
-                # if True:
-                if mag < self.mag_limit:
-                    plot_size = (self.mag_limit - mag) / 3
-                    fill = 255
-                    if mag > 4.5:
-                        fill = 128
-                    if plot_size < 0.5:
-                        idraw.point((x_pos, y_pos), fill=fill)
-                    else:
-                        idraw.ellipse(
-                            [
-                                x_pos - plot_size,
-                                y_pos - plot_size,
-                                x_pos + plot_size,
-                                y_pos + plot_size,
-                            ],
-                            fill=(255),
-                        )
-        return ret_image.convert("RGB")
+        # filter stars by magnitude
+        visible_stars = self.stars[self.stars["magnitude"] < self.mag_limit]
+
+        # now filter by visiblity on screen in projection space
+        visible_stars = visible_stars[
+            (visible_stars["x"] > -self.limit)
+            & (visible_stars["x"] < self.limit)
+            & (visible_stars["y"] > -self.limit)
+            & (visible_stars["y"] < self.limit)
+        ]
+
+        # convert star positions to screen space
+        visible_stars = visible_stars.assign(
+            x_pos=visible_stars["x"] * self.pixel_scale + self.render_center[0],
+            y_pos=visible_stars["y"] * -1 * self.pixel_scale + self.render_center[1],
+        )
+
+        for x_pos, y_pos, mag in zip(
+            visible_stars["x_pos"], visible_stars["y_pos"], visible_stars["magnitude"]
+        ):
+            # This could be moved to a pandas assign after filtering
+            # for vis for a small boost
+            plot_size = (self.mag_limit - mag) / 3
+            fill = 255
+            if mag > 4.5:
+                fill = 128
+            if plot_size < 0.5:
+                idraw.point((x_pos, y_pos), fill=fill)
+            else:
+                idraw.ellipse(
+                    [
+                        x_pos - plot_size,
+                        y_pos - plot_size,
+                        x_pos + plot_size,
+                        y_pos + plot_size,
+                    ],
+                    fill=(255),
+                )
+        return ret_image

@@ -27,7 +27,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue):
     }
     try:
         while True:
-            if shared_state.power_state() == 0:
+            if shared_state.power_state() <= 0:
                 time.sleep(0.5)
             # use the time the exposure started here to
             # reject images startede before the last solve
@@ -40,7 +40,11 @@ def solver(shared_state, solver_queue, camera_image, console_queue):
                 solve_image = camera_image.copy()
 
                 new_solve = t3.solve_from_image(
-                    solve_image, fov_estimate=10.2, fov_max_error=0.5, solve_timeout=500
+                    solve_image,
+                    fov_estimate=10.2,
+                    fov_max_error=0.5,
+                    solve_timeout=500,
+                    target_pixel=shared_state.solve_pixel(),
                 )
 
                 solved |= new_solve
@@ -50,12 +54,15 @@ def solver(shared_state, solver_queue, camera_image, console_queue):
                     console_queue.put(f"SLV: Long: {total_tetra_time}")
 
                 if solved["RA"] != None:
+                    # map the RA/DEC to the target pixel RA/DEC
+                    solved["RA"] = solved["RA_target"]
+                    solved["Dec"] = solved["Dec_target"]
                     if last_image_metadata["imu"]:
                         solved["imu_pos"] = last_image_metadata["imu"]["pos"]
                     else:
                         solved["imu_pos"] = None
                     solved["solve_time"] = time.time()
-                    solved["cam_solve_time"] = time.time()
+                    solved["cam_solve_time"] = solved["solve_time"]
                     solver_queue.put(solved)
 
                 last_solve_time = last_image_metadata["exposure_end"]

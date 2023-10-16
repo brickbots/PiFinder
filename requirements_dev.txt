@@ -2,5 +2,4 @@
 luma.emulator==1.4.0
 PyHotKey
 bottle
-Sphinx==7.2.6
-sphinx-rtd-theme==1.3.0
+black[colorama]==23.7.0

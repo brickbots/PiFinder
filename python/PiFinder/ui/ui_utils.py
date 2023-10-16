@@ -1,9 +1,11 @@
+from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 import PiFinder.utils as utils
 from PiFinder.ui.fonts import Fonts as fonts
 from typing import Tuple, List, Dict, Optional
 import textwrap
 import logging
 import re
+import math
 
 
 class SpaceCalculator:
@@ -44,19 +46,22 @@ class SpaceCalculatorFixed:
     def _calc_string(self, left, right, spaces) -> str:
         return f"{left}{'': <{spaces}}{right}"
 
-    def calculate_spaces(self, left: str, right: str) -> Tuple[int, str]:
+    def calculate_spaces(
+        self, left: str, right: str, empty_if_exceeds=True
+    ) -> Tuple[int, str]:
         """
         returns number of spaces
         """
-        spaces = 1
         lenleft = len(str(left))
         lenright = len(str(right))
-
-        if lenleft + lenright + 1 > self.width:
-            return -1, ""
-
-        spaces = self.width - (lenleft + lenright)
+        spaces = max(1, self.width - (lenleft + lenright))
         result = self._calc_string(left, right, spaces)
+        if len(result) > self.width:
+            if empty_if_exceeds:
+                return -1, ""
+            else:
+                result = result[: self.width]
+                result = result[-3] + "..."
         return spaces, result
 
 
@@ -90,12 +95,16 @@ class TextLayouterSimple:
             self.object_text: List[str] = [self.text]
             self.updated = False
 
+    def after_draw(self, pos):
+        """draw stuff on top of the text"""
+        pass
+
     def draw(self, pos: Tuple[int, int] = (0, 0)):
         self.layout(pos)
-        # logging.debug(f"Drawing {self.object_text=}")
         self.drawobj.multiline_text(
             pos, "\n".join(self.object_text), font=self.font, fill=self.color, spacing=0
         )
+        self.after_draw(pos)
 
     def __repr__(self):
         return f"TextLayouterSimple({self.text=}, {self.color=}, {self.font=}, {self.width=})"
@@ -176,48 +185,107 @@ class TextLayouter(TextLayouterSimple):
         self.colors = colors
         self.start_line = 0
         self.available_lines = available_lines
-        self.scrolled = False
         self.pointer = 0
         self.updated = True
 
-    def next(self):
+    def next(self, direction=1):
         if self.nr_lines <= self.available_lines:
             return
-        self.pointer = (self.pointer + 1) % (self.nr_lines - self.available_lines + 1)
-        self.scrolled = True
+        self.pointer = (self.pointer + direction) % (
+            self.nr_lines - self.available_lines + 1
+        )
+        self.updated = True
 
-    def set_text(self, text):
+    def previous(self):
+        self.next(-1)
+
+    def set_text(self, text, reset_pointer=True):
         super().set_text(text)
-        self.pointer = 0
         self.nr_lines = len(text)
+        if reset_pointer:
+            self.pointer = 0
 
-    def draw_arrow(self, down):
-        if self.nr_lines > self.available_lines:
-            if down:
-                self._draw_arrow(*self.downarrow)
-            else:
-                self._draw_arrow(*self.uparrow)
-
-    def _draw_arrow(self, top, bottom):
-        self.drawobj.rectangle([0, 126, 128, 128], fill=self.colors.get(0))
-        self.drawobj.rectangle(top, fill=self.colors.get(128))
-        self.drawobj.rectangle(bottom, fill=self.colors.get(128))
+    def _draw_pos(self, pos):
+        xpos = 127
+        starty = pos[1] + 1
+        endy = 127
+        therange = endy - starty
+        blockextent = math.floor((self.available_lines / self.nr_lines) * therange)
+        blockstart = ((self.pointer) / self.nr_lines) * therange
+        start = [xpos, starty, xpos, endy]
+        end = [
+            xpos,
+            math.floor(starty + blockstart),
+            xpos,
+            math.floor(starty + blockstart + blockextent),
+        ]
+        self.drawobj.line(start, fill=self.colors.get(64), width=1)
+        self.drawobj.line(end, fill=self.colors.get(128), width=1)
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.updated:
-            # logging.debug(f"Updating {self.text=}")
             split_lines = re.split(r"\n|\n\n", self.text)
             self.object_text = []
             for line in split_lines:
                 self.object_text.extend(textwrap.wrap(line, width=self.width))
-            self.orig_object_text = self.object_text
-            self.object_text = self.object_text[0 : self.available_lines]
-            self.nr_lines = len(self.orig_object_text)
-        if self.scrolled:
-            self.object_text = self.orig_object_text[
+            self.nr_lines = len(self.object_text)
+            self.object_text = self.object_text[
                 self.pointer : self.pointer + self.available_lines
             ]
-        up = self.pointer + self.available_lines == self.nr_lines
-        self.draw_arrow(not up)
         self.updated = False
-        self.scrolled = False
+
+    def after_draw(self, pos):
+        if self.nr_lines > self.available_lines:
+            self._draw_pos(pos)
+
+
+def shadow_outline_text(
+    ri_draw, xy, text, align, font, fill, shadow_color, shadow=None, outline=None
+):
+    """draw shadowed and outlined text"""
+    x, y = xy
+    if shadow:
+        ri_draw.text(
+            (x + shadow[0], y + shadow[1]),
+            text,
+            align=align,
+            font=font,
+            fill=shadow_color,
+        )
+
+    if outline:
+        outline_text(
+            ri_draw,
+            xy,
+            text,
+            align=align,
+            font=font,
+            fill=fill,
+            shadow_color=shadow_color,
+            stroke=2,
+        )
+
+
+def outline_text(ri_draw, xy, text, align, font, fill, shadow_color, stroke=4):
+    """draw outline text"""
+    x, y = xy
+    ri_draw.text(
+        xy,
+        text,
+        align=align,
+        font=font,
+        fill=fill,
+        stroke_width=stroke,
+        stroke_fill=shadow_color,
+    )
+
+
+def shadow(ri_draw, xy, text, align, font, fill, shadowcolor):
+    """draw shadowed text"""
+    x, y = xy
+    # thin border
+    ri_draw.text((x - 1, y), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x + 1, y), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x, y - 1), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x, y + 1), text, align=align, font=font, fill=shadowcolor)
+    ri_draw.text((x, y), text, align=align, font=font, fill=fill)

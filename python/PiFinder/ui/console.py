@@ -81,7 +81,9 @@ class UIConsole(UIModule):
         if self.dirty:
             if self.welcome:
                 # Clear / write just top line
-                self.draw.rectangle([0, 0, 128, 16], fill=self.colors.get(0))
+                self.draw.rectangle(
+                    [0, 0, 128, self._title_bar_y], fill=self.colors.get(0)
+                )
                 self.draw.text(
                     (0, 1),
                     self.lines[-1],

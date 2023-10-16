@@ -21,8 +21,8 @@ def generate_commands(filename, num_lines, command_weights):
             for idx, cumulative_percentage in enumerate(cumulative_percentages):
                 if rand_num < cumulative_percentage:
                     command = all_commands[idx]
+                    f.write(command + "\n")
                     break
-            f.write(command + "\n")
 
 
 if __name__ == "__main__":
@@ -47,7 +47,7 @@ if __name__ == "__main__":
         "7": 4,
         "8": 4,
         "9": 4,
-        "LNG_A": 3,
+        "LNG_A": 10,
         "LNG_B": 3,
         "LNG_C": 3,
         "LNG_D": 3,
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         "LNG_7": 1,
         "LNG_8": 1,
         "LNG_9": 1,
-        "ALT_A": 10,
+        "ALT_A": 7,
         "ALT_B": 3,
         "ALT_C": 3,
         "ALT_D": 3,

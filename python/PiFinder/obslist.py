@@ -11,10 +11,9 @@ tools
 import os
 import sqlite3
 from textwrap import dedent
-from PiFinder import utils
+from PiFinder import utils, catalogs
 
 OBSLIST_DIR = f"{utils.data_dir}/obslists/"
-DB_PATH = f"{utils.pifinder_dir}/astro_data/pifinder_objects.db"
 
 SKYSAFARI_CATALOG_NAMES = {
     "CAL": "C",
@@ -24,17 +23,19 @@ SKYSAFARI_CATALOG_NAMES = {
 SKYSAFARI_CATALOG_NAMES_INV = {v: k for k, v in SKYSAFARI_CATALOG_NAMES.items()}
 
 
-def write_list(catalog, name):
+def write_list(catalog_objects, name):
     """
-    Writes the catalog (list of object records)
+    Writes the list of catalog objects
     to a file.
     """
     index_num = 0
     with open(OBSLIST_DIR + name + ".skylist", "w") as skylist:
         skylist.write("SkySafariObservingListVersion=3.0\n")
-        for obj in catalog:
-            catalog_name = SKYSAFARI_CATALOG_NAMES.get(obj["catalog"], obj["catalog"])
-            catalog_number = f"{catalog_name} {obj['sequence']}"
+        for obj in catalog_objects:
+            catalog_name = SKYSAFARI_CATALOG_NAMES.get(
+                obj.catalog_code, obj.catalog_code
+            )
+            catalog_number = f"{catalog_name} {obj.sequence}"
             entry_text = dedent(
                 f"""
                 SkyObject=BeginObject
@@ -48,7 +49,7 @@ def write_list(catalog, name):
             index_num += 1
 
 
-def resolve_object(catalog_numbers, connection):
+def resolve_object(catalog_numbers, objects):
     """
     Takes a list of SkySafari catalog
     numbers and tries to find an object
@@ -57,23 +58,16 @@ def resolve_object(catalog_numbers, connection):
     for catalog_number in catalog_numbers:
         catalog = catalog_number.split(" ")[0]
         catalog = SKYSAFARI_CATALOG_NAMES_INV.get(catalog, catalog)
-        sequence = catalog_number.split(" ")[1].strip()
         try:
+            sequence = catalog_number.split(" ")[1].strip()
             sequence = int(sequence)
-        except ValueError:
-            return None
+        except (ValueError, IndexError):
+            sequence = None
 
-        _object = connection.execute(
-            f"""
-                    select * from
-                    objects
-                    where catalog='{catalog}'
-                    and sequence={sequence}
-
-                """
-        ).fetchone()
-        if _object:
-            return dict(_object)
+        if sequence != None:
+            _object = objects.get_object_by_catalog_sequence(catalog, sequence)
+            if _object:
+                return _object
     print("Failed")
     return None
 
@@ -85,8 +79,7 @@ def read_list(name):
     and returns a catalog list
     """
 
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    objects = catalogs.Objects()
 
     list_catalog = []
     objects_parsed = 0
@@ -101,7 +94,7 @@ def read_list(name):
                         "result": "error",
                         "objects_parsed": objects_parsed,
                         "message": "Bad start tag",
-                        "catalog": list_catalog,
+                        "catalog_objects": list_catalog,
                     }
 
                 catalog_numbers = []
@@ -116,11 +109,11 @@ def read_list(name):
                         "result": "error",
                         "objects_parsed": objects_parsed,
                         "message": "Bad end tag",
-                        "catalog": list_catalog,
+                        "catalog_objects": list_catalog,
                     }
 
                 # see if we can resolve an object
-                _object = resolve_object(catalog_numbers, conn)
+                _object = resolve_object(catalog_numbers, objects)
 
                 if _object:
                     list_catalog.append(_object)
@@ -137,7 +130,7 @@ def read_list(name):
                         "result": "error",
                         "objects_parsed": objects_parsed,
                         "message": "Bad catalog tag",
-                        "catalog": list_catalog,
+                        "catalog_objects": list_catalog,
                     }
                 catalog_numbers.append(l.split("=")[1])
 
@@ -148,16 +141,8 @@ def read_list(name):
         "result": "success",
         "objects_parsed": objects_parsed,
         "message": "Complete",
-        "catalog": list_catalog,
+        "catalog_objects": list_catalog,
     }
-
-    cat_objects = self.conn.execute(
-        f"""
-        SELECT * from objects
-        where catalog='{catalog_name}'
-        order by sequence
-    """
-    ).fetchall()
 
 
 def get_lists():

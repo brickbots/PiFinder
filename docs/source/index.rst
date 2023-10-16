@@ -40,11 +40,14 @@ Discord
 Join the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ for support with your build, usage questions, and suggestions for improvement.
 
 .. toctree::
+   :hidden:
    :maxdepth: 2
    :caption: Contents:
    :glob:
 
    self
+   quick_start
+   user_guide
    build_guide
    dev_guide
    BOM

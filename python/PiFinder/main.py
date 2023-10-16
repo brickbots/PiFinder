@@ -18,22 +18,22 @@ import os
 import sys
 import logging
 import argparse
+import pickle
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 from timezonefinder import TimezoneFinder
 
 
 from luma.core.interface.serial import spi
-from luma.core.render import canvas
-from luma.oled.device import ssd1351
 
 from PiFinder import solver
 from PiFinder import integrator
 from PiFinder import config
 from PiFinder import pos_server
 from PiFinder import utils
+from PiFinder import server
 from PiFinder import keyboard_interface
 
 from PiFinder.ui.chart import UIChart
@@ -84,8 +84,9 @@ def init_display():
 
         # init display  (SPI hardware)
         serial = spi(device=0, port=0)
-        device_serial = ssd1351(serial)
-        display_device = DeviceWrapper(device_serial, RED_BGR)
+        device_serial = ssd1351(serial, rotate=0, bgr=True)
+        device_serial.capabilities(width=128, height=128, rotate=0, mode="RGB")
+        display_device = DeviceWrapper(device_serial, RED_RGB)
     else:
         print("Hardware platform not recognized")
 
@@ -99,6 +100,18 @@ def init_keypad_pwm():
         keypad_pwm.start(0)
 
 
+def set_keypad_brightness(percentage: float):
+    """
+    keypad brightness between 0-100, although effective range seems 0-12
+    """
+    global keypad_pwm
+    if percentage < 0 or percentage > 100:
+        logging.error("Invalid percentage for keypad brightness")
+        percentage = max(0, min(100, percentage))
+    if keypad_pwm:
+        keypad_pwm.change_duty_cycle(percentage)
+
+
 def set_brightness(level, cfg):
     """
     Sets oled/keypad brightness
@@ -108,7 +121,7 @@ def set_brightness(level, cfg):
     display_device.set_brightness(level)
 
     if keypad_pwm:
-        # deterime offset for keypad
+        # determine offset for keypad
         keypad_offsets = {
             "+3": 2,
             "+2": 1.6,
@@ -120,7 +133,7 @@ def set_brightness(level, cfg):
             "Off": 0,
         }
         keypad_brightness = cfg.get_option("keypad_brightness")
-        keypad_pwm.change_duty_cycle(level * 0.05 * keypad_offsets[keypad_brightness])
+        set_keypad_brightness(level * 0.05 * keypad_offsets[keypad_brightness])
 
 
 def setup_dirs():
@@ -152,7 +165,35 @@ def get_sleep_timeout(cfg):
     return sleep_timeout
 
 
-def main(script_name=None):
+def get_screen_off_timeout(cfg):
+    """
+    returns the screen off timeout amount
+    """
+    screen_off_option = cfg.get_option("screen_off_timeout")
+    screen_off = {"Off": -1, "30s": 30, "1m": 60, "10m": 600, "30m": 1800}[
+        screen_off_option
+    ]
+    return screen_off
+
+
+def _calculate_timeouts(cfg):
+    t = time.time()
+    screen_dim = get_sleep_timeout(cfg)
+    screen_dim = t + screen_dim if screen_dim > 0 else None
+    screen_off = get_screen_off_timeout(cfg)
+    screen_off = t + screen_off if screen_off > 0 else None
+    return screen_dim, screen_off
+
+
+def wake_screen(screen_brightness, shared_state, cfg) -> int:
+    set_brightness(screen_brightness, cfg)
+    display_device.device.show()
+    orig_power_state = shared_state.power_state()
+    shared_state.set_power_state(1)  # Normal
+    return orig_power_state
+
+
+def main(script_name=None, has_server=False, show_fps=False):
     """
     Get this show on the road!
     """
@@ -167,7 +208,6 @@ def main(script_name=None):
 
     # Set path for test images
     root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    test_image_path = os.path.join(root_dir, "test_images")
 
     # init queues
     console_queue = Queue()
@@ -191,6 +231,8 @@ def main(script_name=None):
         "observing_list": [],
         "target": None,
         "message_timeout": 0,
+        "show_fps": show_fps,
+        "hint_timeout": cfg.get_option("hint_timeout"),
     }
     ui_state["active_list"] = ui_state["history_list"]
 
@@ -234,6 +276,12 @@ def main(script_name=None):
                 args=(script_path, keyboard_queue),
             )
             p.start()
+        if has_server:
+            server_process = Process(
+                target=server.run_server,
+                args=(keyboard_queue, gps_queue, shared_state),
+            )
+            server_process.start()
 
         # Load last location, set lock to false
         tz_finder = TimezoneFinder()
@@ -241,6 +289,8 @@ def main(script_name=None):
         initial_location["timezone"] = tz_finder.timezone_at(
             lat=initial_location["lat"], lng=initial_location["lon"]
         )
+        initial_location["gps_lock"] = False
+        initial_location["last_gps_lock"] = None
         shared_state.set_location(initial_location)
 
         console.write("   Camera")
@@ -353,14 +403,14 @@ def main(script_name=None):
 
         # What is the highest index for observing modes
         # vs status/debug modes accessed by alt-A
-        ui_observing_modes = 3
+        ui_observing_modes = 4
         ui_mode_index = 4
         logging_mode_index = 7
 
         current_module = ui_modes[ui_mode_index]
 
         # Start of main except handler / loop
-        power_save_warmup = time.time() + get_sleep_timeout(cfg)
+        screen_dim, screen_off = _calculate_timeouts(cfg)
         bg_task_warmup = 5
         try:
             while True:
@@ -380,7 +430,10 @@ def main(script_name=None):
                             location["lat"] = gps_content["lat"]
                             location["lon"] = gps_content["lon"]
                             location["altitude"] = gps_content["altitude"]
-                            if location["gps_lock"] == False:
+                            location["last_gps_lock"] = (
+                                datetime.datetime.now().time().isoformat()[:8]
+                            )
+                            if location["gps_lock"] is False:
                                 # Write to config if we just got a lock
                                 location["timezone"] = tz_finder.timezone_at(
                                     lat=location["lat"], lng=location["lon"]
@@ -392,14 +445,8 @@ def main(script_name=None):
                                 location["gps_lock"] = True
                             shared_state.set_location(location)
                     if gps_msg == "time":
-                        gps_dt = datetime.datetime.fromisoformat(
-                            gps_content.replace("Z", "")
-                        )
-
-                        # Some GPS transcievers will report a time, even before
-                        # they have one.  This is a sanity check for this.
-                        if gps_dt > datetime.datetime(2023, 4, 1, 1, 1, 1):
-                            shared_state.set_datetime(gps_dt)
+                        gps_dt = gps_content
+                        shared_state.set_datetime(gps_dt)
                 except queue.Empty:
                     pass
 
@@ -418,14 +465,15 @@ def main(script_name=None):
                 except queue.Empty:
                     keycode = None
 
-                if keycode != None:
-                    logging.debug(f"Keycode: {keycode}")
-                    power_save_warmup = time.time() + get_sleep_timeout(cfg)
-                    set_brightness(screen_brightness, cfg)
-                    shared_state.set_power_state(1)  # Normal
+                if keycode is not None:
+                    # logging.debug(f"Keycode: {keycode}")
+                    screen_dim, screen_off = _calculate_timeouts(cfg)
+                    original_power_state = wake_screen(
+                        screen_brightness, shared_state, cfg
+                    )
 
                     # ignore keystroke if we have been asleep
-                    if shared_state.power_state() > 0:
+                    if original_power_state > 0:
                         if keycode > 99:
                             # Special codes....
                             if (
@@ -440,6 +488,7 @@ def main(script_name=None):
                                     screen_brightness = screen_brightness - 10
                                     if screen_brightness < 1:
                                         screen_brightness = 1
+
                                 set_brightness(screen_brightness, cfg)
                                 cfg.set_option("display_brightness", screen_brightness)
                                 console.write("Brightness: " + str(screen_brightness))
@@ -491,30 +540,52 @@ def main(script_name=None):
                                 debug_location = shared_state.location()
                                 debug_dt = shared_state.datetime()
 
+                                # current screen
+                                ss = current_module.screen.copy()
+
                                 # write images
-                                debug_image.save(f"{test_image_path}/{uid}_raw.png")
+                                debug_image.save(
+                                    f"{utils.debug_dump_dir}/{uid}_raw.png"
+                                )
                                 debug_image = subtract_background(debug_image)
                                 debug_image = debug_image.convert("RGB")
                                 debug_image = ImageOps.autocontrast(debug_image)
-                                debug_image.save(f"{test_image_path}/{uid}_sub.png")
+                                debug_image.save(
+                                    f"{utils.debug_dump_dir}/{uid}_sub.png"
+                                )
+
+                                ss.save(f"{utils.debug_dump_dir}/{uid}_screenshot.png")
 
                                 with open(
-                                    f"{test_image_path}/{uid}_solution.json", "w"
+                                    f"{utils.debug_dump_dir}/{uid}_solution.json", "w"
                                 ) as f:
                                     json.dump(debug_solution, f, indent=4)
 
                                 with open(
-                                    f"{test_image_path}/{uid}_location.json", "w"
+                                    f"{utils.debug_dump_dir}/{uid}_location.json", "w"
                                 ) as f:
                                     json.dump(debug_location, f, indent=4)
 
                                 if debug_dt != None:
                                     with open(
-                                        f"{test_image_path}/{uid}_datetime.json", "w"
+                                        f"{utils.debug_dump_dir}/{uid}_datetime.json",
+                                        "w",
                                     ) as f:
                                         json.dump(debug_dt.isoformat(), f, indent=4)
 
+                                # Dump shared state
+                                shared_state.serialize(
+                                    f"{utils.debug_dump_dir}/{uid}_sharedstate.pkl"
+                                )
+
+                                # Dump UI State
+                                with open(
+                                    f"{utils.debug_dump_dir}/{uid}_uistate.json", "wb"
+                                ) as f:
+                                    pickle.dump(ui_state, f)
+
                                 console.write(f"Debug dump: {uid}")
+                                current_module.message("Debug Info Saved")
 
                         elif keycode == keyboard_base.A:
                             # A key, mode switch
@@ -571,24 +642,32 @@ def main(script_name=None):
                         module.background_update()
 
                 # check for coming out of power save...
-                if get_sleep_timeout(cfg):
+                if get_sleep_timeout(cfg) or get_screen_off_timeout(cfg):
                     # make sure that if there is a sleep
-                    # time configured, the power_save_warmup is reset
-                    if power_save_warmup == None:
-                        power_save_warmup = time.time() + get_sleep_timeout(cfg)
+                    # time configured, the timouts are reset
+                    if screen_dim is None:
+                        screen_dim, screen_off = _calculate_timeouts(cfg)
 
                     _imu = shared_state.imu()
                     if _imu:
                         if _imu["moving"]:
-                            power_save_warmup = time.time() + get_sleep_timeout(cfg)
-                            set_brightness(screen_brightness, cfg)
+                            screen_dim, screen_off = _calculate_timeouts(cfg)
+                            wake_screen(screen_brightness, shared_state, cfg)
                             shared_state.set_power_state(1)  # Normal
 
+                    power_state = shared_state.power_state()
                     # Check for going into power save...
-                    if time.time() > power_save_warmup:
+                    if screen_off and time.time() > screen_off and power_state != -1:
+                        shared_state.set_power_state(-1)  # screen off
+                        keypad_value = (
+                            3 if cfg.get_option("keypad_brightness") != "Off" else 0
+                        )
+                        set_keypad_brightness(keypad_value)
+                        display_device.device.hide()
+                    elif screen_dim and time.time() > screen_dim and power_state == 1:
+                        shared_state.set_power_state(0)  # screen dimmed
                         set_brightness(int(screen_brightness / 4), cfg)
-                        shared_state.set_power_state(0)  # sleep
-                    if time.time() > power_save_warmup:
+                    if power_state < 1:
                         time.sleep(0.2)
 
         except KeyboardInterrupt:
@@ -632,6 +711,8 @@ if __name__ == "__main__":
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
+    logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
+    logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
     logging.basicConfig(format="%(asctime)s %(name)s: %(levelname)s %(message)s")
     parser = argparse.ArgumentParser(description="eFinder")
     parser.add_argument(
@@ -657,10 +738,26 @@ if __name__ == "__main__":
         required=False,
     )
     parser.add_argument(
-        "-s",
         "--script",
         help="Specify a testing script to run",
         default=None,
+        required=False,
+    )
+    parser.add_argument(
+        "-s",
+        "--server",
+        help="Start a server to control the pifinder",
+        default=False,
+        action="store_true",
+        required=False,
+    )
+
+    parser.add_argument(
+        "-f",
+        "--fps",
+        help="Display FPS in title bar",
+        default=False,
+        action="store_true",
         required=False,
     )
 
@@ -698,16 +795,17 @@ if __name__ == "__main__":
     elif args.camera.lower() == "debug":
         logging.debug("using debug camera")
         from PiFinder import camera_debug as camera
-    else:
+    elif args.camera.lower() == "asi":
         logging.debug("using asi camera")
-        from PiFinder import camera_asi as camera
+        from PiFinder import camera_asi as camera_debug
+    else:
+        logging.debug("not using camera")
+        from PiFinder import camera_none as camera
 
     if args.keyboard.lower() == "pi":
         from PiFinder import keyboard_pi as keyboard
     elif args.keyboard.lower() == "local":
         from PiFinder import keyboard_local as keyboard
-    else:
-        from PiFinder import keyboard_server as keyboard
 
     if args.log:
         datenow = datetime.datetime.now()
@@ -715,6 +813,5 @@ if __name__ == "__main__":
         fh = logging.FileHandler(filehandler)
         fh.setLevel(logger.level)
         logger.addHandler(fh)
-    script_name = args.script
 
-    main(script_name)
+    main(args.script, args.server, args.fps)
