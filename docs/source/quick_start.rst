@@ -153,7 +153,7 @@ Choose the number that represents the star currently in your telescope’s eyepi
 .. image:: images/quick_start/align_CAMERA_004_docs.png
 
 .. note::
-   **Can’t find your star on the ALIGN screen?** See :ref:`user_guide:Camera Alignment`
+   **Can’t find your star on the ALIGN screen?** See the section on :ref:`Hardware Camera Alignment<user_guide:Camera Alignment>`
 
 
 Find Your First Object
