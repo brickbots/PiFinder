@@ -54,6 +54,7 @@ UI Screens
 The user interface for the PiFinder is split into various screens that you can switch between to perform different tasks.  The A key is used to cycle between the three main screens:
 
 
+* Camera
 * Chart
 * Catalog
 * Locate
@@ -63,7 +64,6 @@ By holding down the Enter key and pressing the A function key you can get to the
 
 * Console
 * Status
-* Camera Preview
 
 Some actions in one screen will move you to another, for instance selecting an object from the Catalog will switch automatically to the Locate screen.  
 
@@ -113,6 +113,26 @@ The Options screen shown above (for the Status screen) has general PiFinder opti
 
 
 To exit the option screen press *A* to return to the previous screen.
+
+Camera
+^^^^^^^
+
+
+.. image:: ../../images/screenshots/PREVIEW_001_docs.png
+   :target: ../../images/screenshots/PREVIEW_001_docs.png
+   :alt: Camera screen
+
+
+The Camera screen displays most recently taken exposure from the camera.  You can adjust the processing of this image (just for display purposes), adjust exposure and zoom in to focus.
+
+
+* *B* key - Adjust reticle brightness or turn it off completely
+* *C* key - Turn background subtraction on/off
+* *D* key - Adjust gamma correction intensity
+
+In the options menu (long-press *A*\ ) you can adjust these same display parameters and also enter Focus Help mode.  In this mode the camera image is enlarged to help achieve good focus on a star.  Since this only shows the center of frame, get a star lined up in the reticle before activating Focus Help.
+
+You can adjust overall exposure using the *UP/DN* keys (check the `Console <#console>`_ for specific setting).  If you'd like to save this exposure as the default for future sessions, use the *ENT* key.
 
 Chart
 ^^^^^
@@ -292,25 +312,6 @@ Pressing the A key from the Observing Notes options will bring you back to the L
 * C key - Logs the current target to the database and takes a high-resolution photo.  Takes longer, but you get a nice image of a 10 degree patch of sky that should have contained your target.
 * D key - Abort and return to the previous screen
 
-Camera
-^^^^^^^
-
-
-.. image:: ../../images/screenshots/PREVIEW_001_docs.png
-   :target: ../../images/screenshots/PREVIEW_001_docs.png
-   :alt: Preview screen
-
-
-The preview screen displays most recently taken exposure from the camera.  You can adjust the processing of this image (just for display purposes), adjust exposure and zoom in to focus.
-
-
-* *B* key - Adjust reticle brightness or turn it off completely
-* *C* key - Turn background subtraction on/off
-* *D* key - Adjust gamma correction intensity
-
-In the options menu (long-press *A*\ ) you can adjust these same display parameters and also enter Focus Help mode.  In this mode the camera image is enlarged to help achieve good focus on a star.  Since this only shows the center of frame, get a star lined up in the reticle before activating Focus Help.
-
-You can adjust overall exposure using the *UP/DN* keys (check the `Console <#console>`_ for specific setting).  If you'd like to save this exposure as the default for future sessions, use the *ENT* key.
 
 Status
 ^^^^^^
@@ -433,29 +434,29 @@ Focus
 
 Focus for plate solving is actually not all the critical, and defocusing a bit can even improve the solve as it spreads star light across multiple pixels.  You can either use a very distant object during the day, or a bright star at night.  Start with the focus ring all the way to the 'Far' end and you'll probably be close enough to solve most areas of the sky.  Better focus may help pick out a few dimmer stars and allow you to potentially reduce exposure time.
 
-There is a focus helper in the `Preview <#preview>`_ options to help.  This will show a zoomed in image from the center of the camera view to help you hit focus on the small screen.
-To activate the focus helper, hold down the 'A' function key while in preview mode and turn on the option from the settings menu.  As you adjust the focus ring, you'll have to wait a second or two make after each adjustment to see the results in the exposure.
+As you adjust the focus ring, you'll have to wait a second or two make after each adjustment to see the results in the exposure.
 
-Camera alignment
+Camera Alignment
 ^^^^^^^^^^^^^^^^^^^
 
 Once your PiFinder is mounted to your telescope, you'll need to align it with the optical axis of your telescope just like a RACI or red-dot finder.   To do this, you can use the three thumbscrews at the back of the unit to adjust where the camera is pointing:
 
 
-.. image:: ../../images/camera_thumbscrews.png
-   :target: ../../images/camera_thumbscrews.png
+.. image:: images/user_guide/camera_thumbscrews.jpeg
    :alt: Camera Thumbscrews
-
 
 
 * To start, point your telescope at a distant object or bright star and center it in your telescope eyepiece.  
 * Turn on the PiFinder if it's not on already
-* Make sure your PiFinder is in `Preview <#preview>`_ mode so you can see what the camera sees.
+* Make sure your PiFinder is in :ref:`Camera <user_guide:camera>` mode so you can see what the camera sees.
 
   * If you are doing this during the day, you'll need to use the *DN* key to reduce the exposure
 
 * Use the three thumbscrews to adjust the tilt of the camera.  Between each adjustment, make sure you wait for a new exposure to be taken to see the results.  This normally takes about 1.5 seconds (at night), depending on your exposure settings.
-* If the PiFinder is not holding alignment between observing sessions, try tightening the middle screw, or selecting a stronger spring, to help hold the cell more tightly against the thumbscrews. 
+
+.. note::
+   If the PiFinder is not holding alignment between observing sessions, try tightening the middle screw to help hold the cell more tightly against the thumbscrews.
+
 
 How To
 =============================
@@ -690,96 +691,11 @@ Both these lists start empty at the beginning of each session.  To populate an o
 Update Software
 -----------------
 
-v1.2.2 or greater
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+A Software action is available from the :ref:`user_guide:options` for the :ref:`user_guide:status` screen.  This will both show which version the PiFinder currently has installed and allow you to Upd the software if the PiFinder is connected to the internet.  You man need to switch :ref:`user_guide:WiFi` modes to Client if the device is in AP mode.
 
-A Software action is available from the `Options <#options>`_ for the `Status <#status>`_ screen.  This will both show which version the PiFinder currently has installed and allow you to Upd the software if the PiFinder is connected to the internet.  You man need to switch `WiFi <#wifi>`_ modes to Client if the device is in AP mode.
-
-Select the option for 'Software' and then 'Upd'.  You should see a message that says 'Updating...' followed by 'Ok! Restarting'.  The PiFinder should restart and the new software version should be displayed when checking the `Options <#options>`_ for the `Status <#status>`_ screen
-
-Pre v1.2.2
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Prior to version 1.2.2 you'll need to SSH into the PiFinder to update the software.  Once connected to the PiFinder and logged in type:
-
-.. code-block::
-
-   cd PiFinder
-   git stash
-   git pull
-
-This should update to the latest release and from then forward you'll be able to use the built-in software update system.
+Select the option for 'Software' and then 'Upd'.  You should see a message that says 'Updating...' followed by 'Ok! Restarting'.  The PiFinder should restart and the new software version should be displayed when checking the :ref:`user_guide:Options` for the :ref:`user_guide:Status` screen
 
 
-Setup
-============================
-
-
-First Time Setup
---------------------
-
-Here's a quick start guide for your first time operating the PiFinder:
-
-
-* Check that your camera aperture and focus are roughly set
-* Mount the PiFinder to your scope and power it on.  See the `Mount and Power <./build_guide.md>`_ section of the build guide
-* Once the PiFinder has booted and you looking at the preview
-
-  * Set exposure if needed and Focus your lens. See the `Preview <#preview>`_ screen for details on setting exposure and zooming in to check focus
-  * Use a star or distant object to align the PiFinder with your telescope
-
-* If it's night-time, and you've got somewhere close for exposure and focus, the PiFinder should have already started solving.  If not:
-
-  * Adjust exposure to make sure you see some stars in the preview display.  If the exposure is too long, relative brightness between stars will be lost and this can also prohibit solving.  
-  * Focus is somewhat less critical, but being too far out of focus will reduce the number of faint stars available for solving.
-
-* If you are in an open area, the GPS dongle should have achieved a lock.  Check  the status indicator in the title bar, or the `Status <#status>`_ screen to verify.  If not, double check the status light on the dongle and make sure it has an unobstructed view of as much sky as possible.  The first solve after being off for a few days needs more satellites and will take longer.  Subsequent locks will be much quicker using some cached data in the dongle.
-
-Camera Setup
---------------------
-
-After you mount your PiFinder the first time, you'll need to setup the camera aperture and focus.
-If you are using the recommended lens, it will have two adjustment rings on it; One to adjust the aperture (f-stop) and one for focus.
-
-
-.. image:: ../../images/user_guide/camera_controls.png
-   :target: ../../images/user_guide/camera_controls.png
-   :alt: Camera controls
-
-
-F-Stop
-^^^^^^^
-
-Make sure the aperture of your lens is all the way open.  For the recommend lens, turn the f-stop ring towards you all the way if you are looking at the unit like like the image above.
-
-Focus
-^^^^^^^
-
-Focus for plate solving is actually not all the critical, and defocusing a bit can even improve the solve as it spreads star light across multiple pixels.  You can either use a very distant object during the day, or a bright star at night.  Start with the focus ring all the way to the 'Far' end and you'll probably be close enough to solve most areas of the sky.  Better focus may help pick out a few dimmer stars and allow you to potentially reduce exposure time.
-
-There is a focus helper in the `Preview <#preview>`_ options to help.  This will show a zoomed in image from the center of the camera view to help you hit focus on the small screen.
-To activate the focus helper, hold down the 'A' function key while in preview mode and turn on the option from the settings menu.  As you adjust the focus ring, you'll have to wait a second or two make after each adjustment to see the results in the exposure.
-
-Camera alignment
---------------------
-
-Once your PiFinder is mounted to your telescope, you'll need to align it with the optical axis of your telescope just like a RACI or red-dot finder.   To do this, you can use the three thumbscrews at the back of the unit to adjust where the camera is pointing:
-
-
-.. image:: ../../images/camera_thumbscrews.png
-   :target: ../../images/camera_thumbscrews.png
-   :alt: Camera Thumbscrews
-
-
-
-* To start, point your telescope at a distant object or bright star and center it in your telescope eyepiece.  
-* Turn on the PiFinder if it's not on already
-* Make sure your PiFinder is in `Preview <#preview>`_ mode so you can see what the camera sees.
-
-  * If you are doing this during the day, you'll need to use the *DN* key to reduce the exposure
-
-* Use the three thumbscrews to adjust the tilt of the camera.  Between each adjustment, make sure you wait for a new exposure to be taken to see the results.  This normally takes about 1.5 seconds (at night), depending on your exposure settings.
-* If the PiFinder is not holding alignment between observing sessions, try tightening the middle screw, or selecting a stronger spring, to help hold the cell more tightly against the thumbscrews. 
 
 Catalog Image Download
 -----------------------
