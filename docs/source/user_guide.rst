@@ -436,7 +436,7 @@ Focus for plate solving is actually not all the critical, and defocusing a bit c
 There is a focus helper in the `Preview <#preview>`_ options to help.  This will show a zoomed in image from the center of the camera view to help you hit focus on the small screen.
 To activate the focus helper, hold down the 'A' function key while in preview mode and turn on the option from the settings menu.  As you adjust the focus ring, you'll have to wait a second or two make after each adjustment to see the results in the exposure.
 
-Camera alignment
+Camera Alignment
 ^^^^^^^^^^^^^^^^^^^
 
 Once your PiFinder is mounted to your telescope, you'll need to align it with the optical axis of your telescope just like a RACI or red-dot finder.   To do this, you can use the three thumbscrews at the back of the unit to adjust where the camera is pointing:

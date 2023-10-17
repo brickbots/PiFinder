@@ -88,7 +88,7 @@ General Pi Setup
     * Then I5 - I2C  and choose Enable
 
 PiFinder Software Install
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Great!  You have a nice fresh install of Raspberry Pi OS ready to go.  The rest of the setup is completed by running the ``pifinder_setup.sh`` script in this repo.  Here's the command to download and run the script in one step:
 
