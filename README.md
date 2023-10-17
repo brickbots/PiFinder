@@ -27,6 +27,7 @@ If you would like pre-assembled units, kits or other items to jump start your Pi
 
 ## Docs
 
+* [Quick Start](https://pifinder.readthedocs.io/en/release/quick_start.html)
 * [User Manual](https://pifinder.readthedocs.io/en/release/user_guide.html)
 * [Parts List](https://pifinder.readthedocs.io/en/release/BOM.html)
 * [Build Guide](https://pifinder.readthedocs.io/en/release/build_guide.html)
