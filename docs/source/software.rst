@@ -23,7 +23,6 @@ The image files on our release pages contain the proper version of the Raspberry
    :target: images/software/rpi_imager_002.png
    :width: 47%
 
-* **Do not set the hostname or username/password**  SSH is enabled on this image by default.
 
 * If you'd like to set up your network so the PiFinder can connect to it, click the gear icon at the lower left and fill in:
 
@@ -40,6 +39,9 @@ The image files on our release pages contain the proper version of the Raspberry
 .. image:: images/software/rpi_imager_004.png
    :target: images/software/rpi_imager_004.png
    :width: 47%
+
+.. important::
+   Do not set the hostname or username/password.  SSH is enabled on this image by default.
 
 * Click the 'Select Storage' button and choose the SD card on your computer
 * Then click the 'Write' button to start.
@@ -114,8 +116,27 @@ It will take up to two minutes to boot, but you should see the startup screen be
    :alt: Startup log
 
 
-Catalog Images
-^^^^^^^^^^^^^^^^^^^^^^^^
+Catalog Image Download
+^^^^^^^^^^^^^^^^^^^^^^
 
-You may now want to install all the catalog images.  These allow you to view an image of every object in the catalog system.  For more details please see the :ref:
-`Catalog Image Download <user_guide:catalog-image-download>`_ instructions.
+The PiFinder can display images of objects in it's catalogs if they are available on your SD card.  These images take approximately 5gb of space and will likely take 5 hours or more to download... but you can cancel and resume the download process at any time.
+
+To download the catalog images, make sure your PiFinder is in WIFI client mode so it can access the internet and SSH into it using the password you setup initially.
+
+Once connected, type:
+
+.. code-block::
+
+   cd PiFinder/python
+   python -m PiFinder.get_images
+
+The PiFinder will quickly check which images are missing and start the download process.  You can monitor it's progress via the status bar displayed.  
+
+
+.. image:: ../../images/screenshots/Image_download_001.png
+   :target: ../../images/screenshots/Image_download_001.png
+   :alt: Image Download 
+
+
+There are 13,000+ images, so it will take a bit of time, but can be done in multiple sessions.  The PiFinder will use whichever images you have on hand each time you observe.
+

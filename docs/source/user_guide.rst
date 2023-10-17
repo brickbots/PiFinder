@@ -696,31 +696,6 @@ A Software action is available from the :ref:`user_guide:options` for the :ref:`
 Select the option for 'Software' and then 'Upd'.  You should see a message that says 'Updating...' followed by 'Ok! Restarting'.  The PiFinder should restart and the new software version should be displayed when checking the :ref:`user_guide:Options` for the :ref:`user_guide:Status` screen
 
 
-
-Catalog Image Download
------------------------
-
-The PiFinder can display images of objects in it's catalogs if they are available on your SD card.  These images take approximately 5gb of space and will likely take 5 hours or more to download... but you can cancel and resume the download process at any time.
-
-To download the catalog images, make sure your PiFinder is in WIFI client mode so it can access the internet and SSH into it using the password you setup initially.
-
-Once connected, type:
-
-.. code-block::
-
-   cd PiFinder/python
-   python -m PiFinder.get_images
-
-The PiFinder will quickly check which images are missing and start the download process.  You can monitor it's progress via the status bar displayed.  
-
-
-.. image:: ../../images/screenshots/Image_download_001.png
-   :target: ../../images/screenshots/Image_download_001.png
-   :alt: Image Download 
-
-
-There are 13,000+ images, so it will take a bit of time, but can be done in multiple sessions.  The PiFinder will use whichever images you have on hand each time you observe.
-
 FAQ
 ====
 
