@@ -160,24 +160,29 @@ Find Your First Object
 ^^^^^^^^^^^^^^^^^^^^^^^^
 Now that you’re aligned, it’s time to explore!  We'll walk you through the steps to look up an object in the catalog, get some informaiton about it, select it to find and push your scope so it's in the eyepiece.
 
-The 'A' function key will move you through the main observing screens and if you press it twice from the CAMERA screen, you'll go through the CHART screen and end up on the CATALOG screen.
+The 'A' function key will move you through the main observing screens and if you press it twice from the CAMERA screen, you'll end up on the CATALOG screen.
 
-.. image:: images/quick_start/firstobj_CHART_001_docs.png
 .. image:: images/quick_start/firstobj_CATALOG_001_docs.png
 
 The CATALOG screen let's you browse and search through all 16,000+ objects the PiFinder can guide you to.  These objects are grouped into several popular catalogs and the 'C' function key (for Catalog) will switch between the various active catalogs.  Press 'C' until you find a catalog containing an object you'd like to look at.  In this case, we've selected Messier 13, but you'll have to adjust for your location and time of year.
 
 .. image:: images/quick_start/firstobj_CATALOG_002_docs.png
 
-Once you have selected the catalog your object is in, use the number keys to type in the object ID.  As you type, the PiFinder will present matching objects.  
+.. note::
+   To figure out what great objects are in the sky tonight, use an astronomy app like SkySafari or SkyGuide, or consult a pocket sky atlas.
+
+
+Once you have selected the catalog your object is in, use the number keys to type in the object ID number.  As you type, the PiFinder will present matching objects.
 
 .. image:: images/quick_start/firstobj_CATALOG_003_docs.png
 
 .. note::
    If you don't find the particular object you are looking for, it may be filtered!  By default, the PiFinder will only show objects in it's catalog that are currently visible from your location at your time.  To adjust filter settings check out :ref:`user_guide:Catalog`
 
-When you've typed in the object ID, you can press the ENT key to select it and the PiFinder will switch to the LOCATE screen to help guide you to it!
+Once you've typed in the object ID number, you can press the ENT key to select it, and the PiFinder will switch to the LOCATE screen to help guide you to it!
 
 .. image:: images/quick_start/firstobj_LOCATE_001_docs.png
 
-Use the arrows and numbers to push the scope towards your target.  When the numbers reach Zero, the object should be visible in your eyepiece.  If not, verify your :ref:`quick_start:alignment` and try again.
+Now that you’re on the LOCATE screen, you’ll see two arrows and two large numbers. The top arrow and number tell you which direction to spin your scope clockwise vs. counterclockwise, and how far in degrees. The lower arrow tells you whether to move your scope up towards zenith, or down towards the horizon, and how far in degrees.
+
+Once you’re at 0.0 in both numbers, look through your eyepiece–if you’ve selected the right magnification eyepiece for the object you’re observing, the object will appear in the field of view!If not, verify your :ref:`quick_start:alignment` and try again.
