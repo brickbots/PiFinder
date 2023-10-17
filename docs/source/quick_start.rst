@@ -166,10 +166,11 @@ The 'A' function key will move you through the main observing screens and if you
 
 The CATALOG screen let's you browse and search through all 16,000+ objects the PiFinder can guide you to.  These objects are grouped into several popular catalogs and the 'C' function key (for Catalog) will switch between the various active catalogs.  Press 'C' until you find a catalog containing an object you'd like to look at.  In this case, we've selected Messier 13, but you'll have to adjust for your location and time of year.
 
-.. image:: images/quick_start/firstobj_CATALOG_002_docs.png
-
 .. note::
    To figure out what great objects are in the sky tonight, use an astronomy app like SkySafari or SkyGuide, or consult a pocket sky atlas.
+
+
+.. image:: images/quick_start/firstobj_CATALOG_002_docs.png
 
 
 Once you have selected the catalog your object is in, use the number keys to type in the object ID number.  As you type, the PiFinder will present matching objects.
