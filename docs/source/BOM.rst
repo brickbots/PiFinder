@@ -114,6 +114,10 @@ In addition to the 3d printed parts detailed in the `Build Guide <./build_guide.
      - M2.5x20mm standoffs
      - 
      - Between Pi and Hat Depending on your heatsink and such you may need longer or shorter amounts here and you'll probably need to screw a couple together to get this length
+   * - 4
+     - M2.5x6mm standoffs
+     - 
+     - Between the 3d printed Pi mount and the Pi
    * - 3
      - M2.5x12mm thumbscrews
      - 

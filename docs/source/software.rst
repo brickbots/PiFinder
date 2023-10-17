@@ -20,7 +20,7 @@ General Pi Setup
     * The host name, password, network settings and locale should be customized for your needs.
 
 
-.. image:: ../images/raspi_imager_settings.png
+.. image:: ../../images/raspi_imager_settings.png
    :target: ../images/raspi_imager_settings.png
    :alt: Raspberry Pi Imager settings
 
@@ -46,7 +46,7 @@ Great!  You have a nice fresh install of Raspberry Pi OS ready to go.  The rest 
 
  ``wget -O - https://raw.githubusercontent.com/brickbots/PiFinder/release/pifinder_setup.sh | bash``
 
-The script:
+The script will do the following:
 
 
 * Clone this repo
@@ -61,7 +61,7 @@ Once the script is done, reboot the PiFinder:
 
 It will take up to two minutes to boot, but you should see the startup screen before too long:
 
-.. image:: ../images/screenshots/WELCOME_001_docs.png
+.. image:: ../../images/screenshots/WELCOME_001_docs.png
    :target: ../images/screenshots/WELCOME_001_docs.png
    :alt: Startup log
 
@@ -69,4 +69,5 @@ It will take up to two minutes to boot, but you should see the startup screen be
 Catalog Images
 --------------
 
-You may now want to install all the catalog images.  These allow you to view an image of every object in the catalog system.  For more details please see the `Catalog Image Download <https://github.com/brickbots/PiFinder/blob/main/docs/user_guide_setup.md#catalog-image-download>`_ instructions.
+You may now want to install all the catalog images.  These allow you to view an image of every object in the catalog system.  For more details please see the :ref:
+`Catalog Image Download <user_guide:catalog-image-download>`_ instructions.
