@@ -33,4 +33,5 @@ html_static_path = ["_static"]
 html_theme_options = {
     "style_nav_header_background": "#343131",
     "logo_only": True,
+    "prev_next_buttons_location": "None",
 }

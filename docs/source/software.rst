@@ -119,7 +119,9 @@ It will take up to two minutes to boot, but you should see the startup screen be
 Catalog Image Download
 ^^^^^^^^^^^^^^^^^^^^^^
 
-The PiFinder can display images of objects in it's catalogs if they are available on your SD card.  These images take approximately 5gb of space and will likely take 5 hours or more to download... but you can cancel and resume the download process at any time.
+The PiFinder can display images of objects in it's catalogs if they are available on your SD card.  These images take approximately 5gb of space and could potentially take several hours or more to download... but you can cancel and resume the download process at any time.
+
+The :ref:`software:prebuilt release image` already has these images downloaded and is much quicker to download as a single file from your main computer.
 
 To download the catalog images, make sure your PiFinder is in WIFI client mode so it can access the internet and SSH into it using the password you setup initially.
 
