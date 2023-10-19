@@ -4,7 +4,7 @@ PiFinder User Manual
 ====================
 
 
-Thanks for your interest in the PiFinder!  This guide describes how to use a PiFinder but if you want information on building one, please see the `Build Guide <build_guide>`_ and the `Bill of Materials <BOM.md>`_.
+Thanks for your interest in the PiFinder!  This guide describes how to use a PiFinder but if you want information on building one, please see the :doc:`Build Guide <build_guide>` and the :doc:`Bill of Materials <BOM>`.
 
 The PiFinder is a self-contained telescope positioning device.  It will let you know where your telescope is pointed, provide the ability to choose a particular target (like a Galaxy or other DSO) and direct you on how to move your telescope to find that object.  There are some other nice features along with these core functions, but the PiFinder is designed primarily as a way to get interesting objects into your eyepiece so you can take a look at them.
 
@@ -13,79 +13,215 @@ The primary way PiFinder determines where your telescope is pointing is by takin
 This user manual is divided into several sections which you can access using the links at the top of any section.  
 
 
-User Interface
+Observing Screens
 =====================================
 
+The observing functions of the PiFinder are split into various screens that you can switch between. Each screen makes use of the B, C, D, UP, DN, and ENT keys in their own way... but the A key always switches between them.
 
-UI Screens
-----------
+The **A** key on it's own cycles between the four main screens:
 
-The user interface for the PiFinder is split into various screens that you can switch between to perform different tasks.  The A key is used to cycle between the three main screens:
+.. list-table::
+   :width: 100%
+
+   * - .. image:: images/user_guide/CAMERA_001_docs.png
+
+     - **Camera**
+
+       The Camera screen shows a live preview of what the
+
+       camera is currently seeing.  This screen is used 
+
+       for setting focus and aligning the view of the PiFinder 
+
+       with your telescope
+    
+       | 
+
+       *Function Keys*
+
+       * B - Bright star alignment
+       * C - Background subtraction toggle
+       * D - Adjust reticle brightness
+       
+       Click for more info about the :ref:`user_guide:camera` screen.
+
+   * - .. image:: images/user_guide/CHART_001_docs.png
+
+     - **Chart**
+
+       This screen shows a star chart centered on your 
+
+       telescopes position.  As you move your scope it
+
+       will be updated in real time and can show contellation
+
+       lines as well as DSO's from your observing list!
 
 
-* Camera
-* Chart
-* Catalog
-* Locate
+       | 
+       | The reticle circles are 0.5, 2, 4 degrees.
 
-By holding down the Enter key and pressing the A function key you can get to the less commonly used screens:
+       
+       *Function Keys*
+
+       * B - Adjust reticle brightness
+       * C - Adjust constellation line brightness
+       * D - Adjust DSO Brightness
+       * UP/DN - Zoom in and out
+       * ENT - Reset FOV to 10 degrees
+         
+       Click for more info about the :ref:`user_guide:chart` screen.
+
+   * - .. image:: images/user_guide/CATALOG_001_docs.png
+
+     - **Catalog**
+
+       From the catalog screen you can search for
+
+       and select deep-sky objects to locate.  There
+
+       is a variety of information about each object
+
+       and you can filter by various criteria.
+
+       | 
+       
+       *Function Keys*
+
+       * B - Switch Between Info and Images
+       * C - Cycle through catalogs
+       * D - Scroll information display
+       * UP/DN - Previous/Next object
+       * ENT - Select object to find
+
+       Click for more info about the :ref:`user_guide:catalog` screen.
+
+   * - .. image:: images/user_guide/LOCATE_001_docs.png
+
+     - **Locate**
+
+       Once an object is selected from the catalog 
+
+       the Locate screen will show you how to move
+
+       your telescope to find that object.  
+
+       | 
+       
+       *Function Keys*
+
+       * B - Switch to history list
+       * C - Switch to observing list
+       * D - Hold down to remove object
+       * UP/DN - Previous/Next object
+       * ENT - View catalog info for object
+
+       Click for more info about the :ref:`user_guide:locate` screen.
 
 
-* Console
-* Status
+Utility Screens
+================
 
-Some actions in one screen will move you to another, for instance selecting an object from the Catalog will switch automatically to the Locate screen.  
+There are two screens that are not often needed and provide deeper information about the PiFinder.  Most nights observing you'll never need to access these.
 
-The remaining function keys serve different purposes depending on which screen you are on at the time you press them, but there are some key-combinations that act across any of the individual screens:
+By holding down the Enter key and pressing the A (**ENT-A**) function key you can get to the less commonly used screens:
+
+.. list-table::
+   :width: 100%
+
+   * - .. image:: images/user_guide/STATUS_001_docs.png
+
+     - **Status**
+       
+       The Status screen provides information about the 
+
+       PiFinder and it's various bits of hardware like 
+
+       the accleromiter and GPS.  There is also information 
+
+       about the solving state and other functions.  
+
+       |
+       | This is also the screen which allows you to set :ref:`user_guide:global options`
+
+       *Function Keys*
+
+       * UP/DN - Scroll status items
+       
+       Click for more info about the :ref:`user_guide:status` screen.
+
+   * - .. image:: images/user_guide/CONSOLE_001_docs.png
+
+     - **Console**
+
+       In normal operation the PiFinder will sometimes 
+
+       note information here about things that have 
+
+       happened.  You can scroll through these
+
+       on this screen.
+
+       | 
+
+       
+       *Function Keys*
+
+       * UP/DN - Scroll the console messages up and down
+         
+       Click for more info about the :ref:`user_guide:console` screen.
 
 
-* Long press *A*\ :  For screens with options, such a the Catalog screeen, holding down the *A* function key will bring up the options for that screen.  See `Options <#options>`_ below.
-* *ENT + UP/DN*\ : This combination will adjust the screen brightness up and down at any time.
 
-Options
-^^^^^^^
+Option Pages
+===============
 
 Many screens have options which change the way they behave or perform other less commonly used actions.  Pressing and holding the *A* button will bring up the options for whichever screen you are currently using.  To exit the option screen press *A* to return to the previous screen.
 
+The options screen will show one option or action item per line with the name or description of the item to the left and the current value to the right.  The bright numbers along the left edge indicate the key on the keypad to press to access that item.
 
-.. image:: ../../images/screenshots/CATALOG_OPTIONS_001_docs.png
-   :target: ../../images/screenshots/CATALOG_OPTIONS_001_docs.png
+.. image:: images/user_guide/CATALOG_OPTIONS_001_docs.png
    :alt: Options screen for Catalog
 
 
-The options screen will show one option or action item per line with the name or description of the item to the left and the current value to the right.  The bright numbers along the left edge indicate the key on the keypad to press to access that item.
+Once an item is selected the item will be highlighted and the available values or types of actions will be listed along the right hand side.   The bright numbers along the right hand side will let you select the value(s) for this item.
 
 
-.. image:: ../../images/screenshots/CATALOG_OPTIONS_002_docs.png
-   :target: ../../images/screenshots/CATALOG_OPTIONS_002_docs.png
+.. image:: images/user_guide/CATALOG_OPTIONS_002_docs.png
    :alt: Options screen for Catalog, magnitude exposed
 
-
-Once an item is selected the item will be highlighted and the available values or types of actions will be listed along the right hand side.   The bright numbers along the right hand side will let you select the value(s) for this item.
 
 Some types of options can only have a single value, like Magnitude above.  Others, such as Obj Types will allow you to select multiple values.  If an option only has a single value, selecting it will return you to the main options page.  For options that can have multiple values, you'll need to use the *ENT* key to confirm your selections and return to the main option page.
 
 The Options screen can also contain less commonly used actions which will take place when a value is selected.  
 
+
 Global Options
-^^^^^^^^^^^^^^^^^^^^^^
-.. image:: ../../images/screenshots/STATUS_OPTIONS_001_docs.png
-   :target: ../../images/screenshots/STATUS_OPTIONS_001_docs.png
+----------------
+
+.. image:: images/user_guide/STATUS_OPTIONS_001_docs.png
    :alt: Options screen for Status
 
 
-The Options screen shown above (for the Status screen) has general PiFinder options along with a couple actions.  Selecting an action item, such as *1*\ , will always have one additional step to confirm the action, or allow you exit.
+The Options page for the Status screen is special and gives access to general PiFinder options and actions.  Used the **ENT-A** combo to cycle through the utility screens until you get to the :ref:`user_guide:Status` screen.  Then press and hold the **A** key to access the option page.
 
 
-.. image:: ../../images/screenshots/STATUS_OPTIONS_002_docs.png
-   :target: ../../images/screenshots/STATUS_OPTIONS_002_docs.png
-   :alt: Options screen for Status
+* Adjust the key backlight brightness relative to the screen
+* Set the power saving sleep time
+* Set the screen saver time
+* Choose how long hints are visible when switching screens
+* Change :ref:`user_guide:wifi` Mode between client and access point
+* Switch between left/right/flat orientation
+* Restart the PiFinder software
+* Shutdown the PiFinder before powering it off
+* :ref:`Update <user_guide:update software>` the PiFinder software
 
 
-To exit the option screen press *A* to return to the previous screen.
+Screen Details
+===============
 
 Camera
-^^^^^^^
+-----------------
 
 
 .. image:: ../../images/screenshots/PREVIEW_001_docs.png
@@ -105,7 +241,7 @@ In the options menu (long-press *A*\ ) you can adjust these same display paramet
 You can adjust overall exposure using the *UP/DN* keys (check the `Console <#console>`_ for specific setting).  If you'd like to save this exposure as the default for future sessions, use the *ENT* key.
 
 Chart
-^^^^^
+-----------------
 
 
 .. image:: ../../images/screenshots/CHART_001_docs.png
@@ -143,7 +279,7 @@ While viewing the chart you can adjust it's appearance and FOV in several ways:
 * Holding the *A* function key will bring up settings for the chart including the above reticle/constellation brightness
 
 Catalog
-^^^^^^^
+-----------------
 
 
 .. image:: ../../images/screenshots/CATALOG_001_docs.png
@@ -195,7 +331,7 @@ Holding the *A* key for two seconds will bring up the settings for the catalog. 
 * The *UP/DN* keys will scroll through the currently filtered objects.
 
 Object Images
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^^
 
 If you have `downloaded <./user_guide_setup.md#catalog-image-download>`_ the set of catalog images you can view what the selected object looks like via images from sky surveys.  Pressing the *B* key will cycle through various pages of information about each object including images from the Palomar Observatory Sky Survey and potentially updated images from the Sloan Digital Sky Survey.   
 
@@ -222,7 +358,7 @@ These images are oriented as they would be through the eyepiece in a newtonian r
 The bottom left of the screen shows the source of the current image and the left side shows the current FOV / Eyepiece information.
 
 Locate
-^^^^^^
+-----------------
 
 
 .. image:: ../../images/screenshots/LOCATE_001_docs.png
@@ -242,13 +378,9 @@ Values are expressed in degrees with the top line being rotation in Azimuth and 
 
 The currently target is also displayed on the `Chart <#Chart>`_ screen as a small tick mark.
 
-System Screens
---------------
-
-The screens listed below are more rarely used and do not show up when rotating through the regular UI screens using the *A* key.  To access these screens, rotate through them using the *ENT-A* combination.  
 
 Log
-^^^
+-----------------
 
 
 .. image:: ../../images/screenshots/LOG_001_docs.png
@@ -284,7 +416,7 @@ Pressing the A key from the Observing Notes options will bring you back to the L
 
 
 Status
-^^^^^^
+---------
 
 
 .. image:: ../../images/screenshots/STATUS_001_docs.png
@@ -307,21 +439,9 @@ The status screen displays:
 * WiFi: Current WiFi mode, either AP for access point, or Cli for client
 * IP: Current IP address for connecting to via software such as SSH or SkySafari
 
-System Options
-~~~~~~~~~~~~~~
-
-The `Options <#options>`_ page for the status screen gives access to general PiFinder options and actions.  Press and hold the *A* key to access the option page.
-
-
-* Set the `Power Save <user_guide.md#power-save>`_ timeout
-* Change `WiFi <user_guide_howto.md#wifi>`_ Mode between client and access point
-* Switch between left/right `side <build_guide.md#focuser-side>`_ orientation
-* `Restart <user_guide_howto.md#shutdown-and-restart>`_ the PiFinder software
-* `Shutdown <user_guide_howto.md#shutdown-and-restart>`_ the PiFinder
-* `Update <user_guide_howto.md#update-software>`_ the PiFinder software
 
 Console
-^^^^^^^
+---------
 
 
 .. image:: ../../images/screenshots/CONSOLE_001_docs.png
@@ -661,9 +781,9 @@ Both these lists start empty at the beginning of each session.  To populate an o
 Update Software
 -----------------
 
-A Software action is available from the :ref:`user_guide:options` for the :ref:`user_guide:status` screen.  This will both show which version the PiFinder currently has installed and allow you to Upd the software if the PiFinder is connected to the internet.  You man need to switch :ref:`user_guide:WiFi` modes to Client if the device is in AP mode.
+A Software action is available from the :ref:`user_guide:option pages` for the :ref:`user_guide:status` screen.  This will both show which version the PiFinder currently has installed and allow you to Upd the software if the PiFinder is connected to the internet.  You man need to switch :ref:`user_guide:WiFi` modes to Client if the device is in AP mode.
 
-Select the option for 'Software' and then 'Upd'.  You should see a message that says 'Updating...' followed by 'Ok! Restarting'.  The PiFinder should restart and the new software version should be displayed when checking the :ref:`user_guide:Options` for the :ref:`user_guide:Status` screen
+Select the option for 'Software' and then 'Upd'.  You should see a message that says 'Updating...' followed by 'Ok! Restarting'.  The PiFinder should restart and the new software version should be displayed when checking the :ref:`user_guide:option pages` for the :ref:`user_guide:Status` screen
 
 
 FAQ
