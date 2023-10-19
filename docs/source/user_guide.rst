@@ -6,9 +6,16 @@ PiFinder User Manual
 
 Thanks for your interest in the PiFinder!  This guide describes how to use a PiFinder but if you want information on building one, please see the :doc:`Build Guide <build_guide>` and the :doc:`Bill of Materials <BOM>`.
 
+This user manual is divided into several sections which you can access using the links to the left.  Now, let's dig deeper into the various functions of the PiFinder!
+
+How It Works
+===============
+
 The PiFinder is a self-contained telescope positioning device.  It will let you know where your telescope is pointed, provide the ability to choose a particular target (like a Galaxy or other DSO) and direct you on how to move your telescope to find that object.  There are some other nice features along with these core functions, but the PiFinder is designed primarily as a way to get interesting objects into your eyepiece so you can take a look at them.
 
-This user manual is divided into several sections which you can access using the links to the left.  Now, let's dig deeper into the various functions of the PiFinder!
+In order to direct you to wonders of the night sky, the PiFinder needs to know where your telescope is currently pointed.  The primary way it does this is directly, but taking photos of the night sky and examining the star patterns to determine what section of the sky it's seeing.  It can do this incredibly fast (up to two times per second!) and very accurately.  This only works well if your telescope is not moving, so it couples this very accurate system with an accelerometer to provide an estimate of how far your telescope has moved from the last known position.  This estimate will contain some error, but as soon as you stop moving the scope a new photo will be taken and any inaccuracty will be corrected.
+
+Along with knowing where your telescope is pointing, the PiFidner knows where thousands of interesting objects are located. It can use these two pieces of information to indicate how you should move your telescope to bring any of those thousands of objects into your eyepiece.  Since it's directly observing where your telescope is pointing, you can be assured you are on target!
 
 
 Observing Screens
@@ -37,11 +44,10 @@ The **A** key on it's own cycles between the four main screens:
 
        *Function Keys*
 
-       * B - Bright star alignment
+       * B - :ref:`Bright star alignment<quick_start:alignment>`
        * C - Background subtraction toggle
        * D - Adjust reticle brightness
        
-       Click for more info about the :ref:`user_guide:camera` screen.
 
    * - .. image:: images/user_guide/CHART_001_docs.png
 
@@ -68,8 +74,6 @@ The **A** key on it's own cycles between the four main screens:
        * UP/DN - Zoom in and out
        * ENT - Reset FOV to 10 degrees
          
-       Click for more info about the :ref:`user_guide:chart` screen.
-
    * - .. image:: images/user_guide/CATALOG_001_docs.png
 
      - **Catalog**
@@ -92,7 +96,7 @@ The **A** key on it's own cycles between the four main screens:
        * UP/DN - Previous/Next object
        * ENT - Select object to find
 
-       Click for more info about the :ref:`user_guide:catalog` screen.
+       Click for more info about the :ref:`user_guide:catalog` system.
 
    * - .. image:: images/user_guide/LOCATE_001_docs.png
 
@@ -114,7 +118,7 @@ The **A** key on it's own cycles between the four main screens:
        * UP/DN - Previous/Next object
        * ENT - View catalog info for object
 
-       Click for more info about the :ref:`user_guide:locate` screen.
+       Click for more info about the :ref:`user_guide:observing lists` screen and observing lists
 
 
 Utility Screens
@@ -146,7 +150,6 @@ By holding down the Enter key and pressing the A (**ENT-A**) function key you ca
 
        * UP/DN - Scroll status items
        
-       Click for more info about the :ref:`user_guide:status` screen.
 
    * - .. image:: images/user_guide/CONSOLE_001_docs.png
 
@@ -167,8 +170,6 @@ By holding down the Enter key and pressing the A (**ENT-A**) function key you ca
 
        * UP/DN - Scroll the console messages up and down
          
-       Click for more info about the :ref:`user_guide:console` screen.
-
 
 
 Option Pages
@@ -201,7 +202,7 @@ Global Options
    :alt: Options screen for Status
 
 
-The Options page for the Status screen is special and gives access to general PiFinder options and actions.  Used the **ENT-A** combo to cycle through the utility screens until you get to the :ref:`user_guide:Status` screen.  Then press and hold the **A** key to access the option page.
+The Options page for the Status screen is special and gives access to general PiFinder options and actions.  Used the **ENT-A** combo to cycle through the utility screens until you get to the Status screen.  Then press and hold the **A** key to access the option page.
 
 
 * Adjust the key backlight brightness relative to the screen
@@ -215,75 +216,12 @@ The Options page for the Status screen is special and gives access to general Pi
 * :ref:`Update <user_guide:update software>` the PiFinder software
 
 
-Screen Details
-===============
-
-Camera
------------------
-
-
-.. image:: ../../images/screenshots/PREVIEW_001_docs.png
-   :target: ../../images/screenshots/PREVIEW_001_docs.png
-   :alt: Camera screen
-
-
-The Camera screen displays most recently taken exposure from the camera.  You can adjust the processing of this image (just for display purposes), adjust exposure and zoom in to focus.
-
-
-* *B* key - Adjust reticle brightness or turn it off completely
-* *C* key - Turn background subtraction on/off
-* *D* key - Adjust gamma correction intensity
-
-In the options menu (long-press *A*\ ) you can adjust these same display parameters and also enter Focus Help mode.  In this mode the camera image is enlarged to help achieve good focus on a star.  Since this only shows the center of frame, get a star lined up in the reticle before activating Focus Help.
-
-You can adjust overall exposure using the *UP/DN* keys (check the `Console <#console>`_ for specific setting).  If you'd like to save this exposure as the default for future sessions, use the *ENT* key.
-
-Chart
------------------
-
-
-.. image:: ../../images/screenshots/CHART_001_docs.png
-   :target: ../../images/screenshots/CHART_001_docs.png
-   :alt: Chart interface
-
-
-The chart screen will display a star chart centered around the current RA / Dec coordinates the PiFinder has determined.  By default it shows stars down to magnitude 7 and has a 10 degree field of view.  As you move your telescope the chart will be updated several times a second using either a plate solve for a captured image or an approximation based on the last plate solve and the Inertial Measurement Unit (IMU).
-
-There is a Telrad style reticle that can be used to help orient the chart.  The outer ring is four degrees in diameter, the inner two degrees and the middle 1/2 degree.
-
-If you have a target selected, an arrow around the outer rim of the reticle will point in the direction that target is located. 
-
-
-.. image:: ../../images/screenshots/CHART_009_docs.png
-   :target: ../../images/screenshots/CHART_009_docs.png
-   :alt: Chart interface
- 
-
-If the target is within the current chart, the arrow will disappear and a small X will mark the spot of the target.  
-
-
-.. image:: ../../images/screenshots/CHART_010_docs.png
-   :target: ../../images/screenshots/CHART_010_docs.png
-   :alt: Chart interface
-
-
-While viewing the chart you can adjust it's appearance and FOV in several ways:
-
-
-* *B* Function key: Toggle reticle state.  There are several brightness levels including off.
-* *C* Function key: Toggle constellation line brightness.
-* *D* Function key: Toggle observing list marker brightness.  This will show markers for DSO objects in your observing list.
-* *UP/DN* :  Increase or decrees the field of view (zoom).  This ranges from 5 degrees to 60 degrees.
-* Holding the *A* function key will bring up settings for the chart including the above reticle/constellation brightness
 
 Catalog
------------------
+======================
 
 
-.. image:: ../../images/screenshots/CATALOG_001_docs.png
-   :target: ../../images/screenshots/CATALOG_001_docs.png
-   :alt: Catalog screenshot
-
+.. image:: images/user_guide/CATALOG_001_docs.png
 
 The catalog screen allows the searching and selection of astronomical objects to locate.  It has multiple catalogs available (Messier, NGC, IC) and displays some basic information about each object.  You can set filter criteria (Altitude, Magnitude, Object Type) to limit the objects surfaced via the search.
 
@@ -329,7 +267,7 @@ Holding the *A* key for two seconds will bring up the settings for the catalog. 
 * The *UP/DN* keys will scroll through the currently filtered objects.
 
 Object Images
-^^^^^^^^^^^^^^
+---------------
 
 If you have `downloaded <./user_guide_setup.md#catalog-image-download>`_ the set of catalog images you can view what the selected object looks like via images from sky surveys.  Pressing the *B* key will cycle through various pages of information about each object including images from the Palomar Observatory Sky Survey and potentially updated images from the Sloan Digital Sky Survey.   
 
@@ -355,34 +293,37 @@ These images are oriented as they would be through the eyepiece in a newtonian r
 
 The bottom left of the screen shows the source of the current image and the left side shows the current FOV / Eyepiece information.
 
-Locate
------------------
+Observing Lists
+======================
 
 
-.. image:: ../../images/screenshots/LOCATE_001_docs.png
-   :target: ../../images/screenshots/LOCATE_001_docs.png
-   :alt: Locate Screenshot
-
+.. image:: images/user_guide/LOCATE_001_docs.png
 
 The Locate screen uses the last solve and currently selected target to provide a visual indication of which direction to move your telescope in order to center the target.  It also provides a summary of the current target and information about the overall target list.  
 
 Values are expressed in degrees with the top line being rotation in Azimuth and the bottom line in Altitude.  
 
-
 * *UP/DN* will cycle through the active list.  The numbers in the upper-right corner of the screen represent the index of the current object / total number of objects in the list and the list name is displayed directly below.
 * *ENT* will switch back to the catalog screen to access full information about the current target
-* *B* will toggle between the `History and Observing lists <user_guide_howto.md#observing-lists>`_
-* Holding the *A* key will open the `Options <#options>`_ page where you can load and save observing lists to disk
+* *B* will 
+* Holding the *A* key will open the :ref:`Options<user_guide:Option Pages>` page where you can load and save observing lists to disk
 
-The currently target is also displayed on the `Chart <#Chart>`_ screen as a small tick mark.
+The currently target is also displayed on the screen as a small tick mark.
+
+PiFinder maintains two lists of objects for each observing session; The History list and the Observing list.  The Locate screen lets you scroll through these lists and push the telescope to any object on them.
+
+The History list will record any object that you set as a target to push-to.  It's added to as soon as you press the *ENT* key on the catalog screen to select an object.  The main purpose of the History list is to let you scroll back through objects you have observed that session.
+
+The Observing list is a list of objects that is populated from either a filtered catalog or a file on disk.  It's a list of objects you'd like to observe during a session.  
+
+Both these lists start empty at the beginning of each session.  To populate an observing list you can push a filtered list of objects from the :ref:`user_guide:catalog` screen or use the Options page to load an observing list from disk.  The PiFinder supports .skylist file format used in SkySafari and adopted in many other applications as well.
 
 
-Log
------------------
+Logging Observations
+======================
 
 
-.. image:: ../../images/screenshots/LOG_001_docs.png
-   :target: ../../images/screenshots/LOG_001_docs.png
+.. image:: images/user_guide/LOG_001_docs.png
    :alt: Logging Interface
 
 
@@ -393,10 +334,8 @@ Summary information about the current target is displayed along with the distanc
 You can add some details about your observation by holding down the A key to add notes.
 
 
-.. image:: ../../images/screenshots/LOG_002_docs.png
-   :target: ../../images/screenshots/LOG_002_docs.png
+.. image:: images/user_guide/LOG_OPTIONS_001_docs.png
    :alt: Observation logging notes interface
-
 
 
 * Transp. :  The transparency of the sky.  This is often noted along with Seeing below
@@ -408,155 +347,12 @@ You can add some details about your observation by holding down the A key to add
 Pressing the A key from the Observing Notes options will bring you back to the Log screen.
 
 
-* B key - Logs the current target to the database and saves a 512x512 snapshot image with current exposure settings.
-* C key - Logs the current target to the database and takes a high-resolution photo.  Takes longer, but you get a nice image of a 10 degree patch of sky that should have contained your target.
+* B key - Logs the current target to the database
 * D key - Abort and return to the previous screen
 
 
-Status
----------
-
-
-.. image:: ../../images/screenshots/STATUS_001_docs.png
-   :target: ../../images/screenshots/STATUS_001_docs.png
-   :alt: Status Screen
-
-
-The status screen displays:
-
-
-* LST SLV: Seconds since last position solution, plus last position solution source (CAM or IMU)
-* RA/DEC: Last solved Right Ascension and Declination
-* AZ/ALT: Last solved position in Azimuth / Altitude.  This can only be displayed if a GPS lock is achieved to provide location and time information.
-* GPS: GPS Status (Locked/--)
-* IMU: Inertial Measurement Unit status.  Moving/Static + Confidence level (0-3)
-* IMU PS:  Current IMU position (Azimuth / Altitude) before conversion to astronomical AZ/ALT position.
-* LCL TM: Local time (requires GPS fix)
-* UTC TM: UTC Time (requires GPS fix)
-* CPU TMP: Temperature of the Raspberry PI CPU
-* WiFi: Current WiFi mode, either AP for access point, or Cli for client
-* IP: Current IP address for connecting to via software such as SSH or SkySafari
-
-
-Console
----------
-
-
-.. image:: ../../images/screenshots/CONSOLE_001_docs.png
-   :target: ../../images/screenshots/CONSOLE_001_docs.png
-   :alt: Console screen
-
-
-Logged information from the various parts of the PiFinder system is displayed here.
-
-
-* *UP/DN* key - Scroll the log display
-
-
-Hardware
-===============================
-
-You may have build the PiFinder you are going to use, but if not, here's a quick overview of the unit. 
-
-Overview
-------------------
-
-One side has the keypad and screen, while the other has the camera, lens and camera mounting cell.  There is likely also a GPS transciever plugged into one of the USB ports with an antenna mounted on top.  
-
-
-.. image:: ../../images/hardware_overview.png
-   :target: ../../images/hardware_overview.png
-   :alt: Hardware overview
-
-
-Depending on how your unit was built it may have internal batteries or it may be powered from your telescope through the available USB-C port.
-
-In the photo on the left above, you can see two of the three thumbscrews used to tilt the camera mounting cell.  These thumbscrews allow alignment of the camera with your telescope optical axis after it's mounted.
-
-Mounting
-------------------
-
-There are currently 3 different mounting configurations supported. Right, Left, and Flat. Right and Left mounts are commonly used with reflector style telescopes where it is required for the screen to face the side due to the focuser position.  In these 2 mounting styles, the PiFinder is upright and the screen faces either left, or right, depending the focuser position. Flat mount is more commonly used for refractors or catadioptrics where the user sits behind the telescope. In this mounting orientation, the PiFinder lays flat with the screen pointing up. See photo below for an example of the right-hand and flat configurations.
-
-
-.. image:: ../../images/PiFinder_on_scope.jpg
-   :target: ../../images/PiFinder_on_scope.jpg
-   :alt: Right hand mount
-
-
-
-.. image:: ../../images/flat_mount.png
-   :target: ../../images/flat_mount.png
-   :alt: Flat mount
-
-
-For information about which parts to print for which configuration, please see the `Parts <build_guide_parts.md>`_ section of the build guide.  The dovetail mounting system included with the PiFinder will fit into the most common finder brackets found on telescopes.  For the left and right hand configurations the dovetail bracket is adjustable so that the PiFinder can site upright and the screen is easily viewable no matter where around the circumference of your telescope the finder bracket is mounted.
-
-There are currently 3 different mounting configurations supported. Right, Left, and Flat. Right and Left mounts are commonly used with reflector style telescopes where it is required for the screen to face the side due to the focuser position. In these 2 mounting styles, the PiFinder is upright. Flat mount is more commonly used for refrectors or catadioptrics where the user sits behind the telescope. In this mounting orientaiton, the PiFinder lays flat with the screen pointing up. See photo below for an example of the flat mount.
-
-
-.. image:: ../../images/flat_mount.png
-   :target: ../../images/flat_mount.png
-   :alt: Flat mount
-
-
-Camera Setup
-------------------
-
-After you mount your PiFinder the first time, you'll need to setup the camera aperture and focus.
-If you are using the recommended lens, it will have two adjustment rings on it; One to adjust the aperture (f-stop) and one for focus.
-
-
-.. image:: ../../images/user_guide/camera_controls.png
-   :target: ../../images/user_guide/camera_controls.png
-   :alt: Camera controls
-
-
-F-Stop
-^^^^^^^^^^^^^^
-
-Make sure the aperture of your lens is all the way open.  For the recommend lens, turn the f-stop ring towards you all the way if you are looking at the unit like like the image above.
-
-Focus
-^^^^^^^^^^^^^^
-
-Focus for plate solving is actually not all the critical, and defocusing a bit can even improve the solve as it spreads star light across multiple pixels.  You can either use a very distant object during the day, or a bright star at night.  Start with the focus ring all the way to the 'Far' end and you'll probably be close enough to solve most areas of the sky.  Better focus may help pick out a few dimmer stars and allow you to potentially reduce exposure time.
-
-As you adjust the focus ring, you'll have to wait a second or two make after each adjustment to see the results in the exposure.
-
-Camera Alignment
-^^^^^^^^^^^^^^^^^^^
-
-Once your PiFinder is mounted to your telescope, you'll need to align it with the optical axis of your telescope just like a RACI or red-dot finder.   To do this, you can use the three thumbscrews at the back of the unit to adjust where the camera is pointing:
-
-
-.. image:: images/user_guide/camera_thumbscrews.jpeg
-   :alt: Camera Thumbscrews
-
-
-* To start, point your telescope at a distant object or bright star and center it in your telescope eyepiece.  
-* Turn on the PiFinder if it's not on already
-* Make sure your PiFinder is in :ref:`Camera <user_guide:camera>` mode so you can see what the camera sees.
-
-  * If you are doing this during the day, you'll need to use the *DN* key to reduce the exposure
-
-* Use the three thumbscrews to adjust the tilt of the camera.  Between each adjustment, make sure you wait for a new exposure to be taken to see the results.  This normally takes about 1.5 seconds (at night), depending on your exposure settings.
-
-.. note::
-   If the PiFinder is not holding alignment between observing sessions, try tightening the middle screw to help hold the cell more tightly against the thumbscrews.
-
-
-How To
-=============================
-
-
-Adjust Screen Brightness
-----------------------------------
-
-At any time you can hold down the *ENT* key and use the  *UP* and *DN* keys to adjust screen brightness.  The brightness level will be adjusted immediately and saved automatically.
-
-See all the Messier (or Caldwell, or NGC....) objects
-------------------------------------------------------
+Observing Projects
+===================
 
 This how to covers a lot of the basic catalog/locating/observing features of the PiFinder.   
 
@@ -623,7 +419,7 @@ Press the *5* key to select Push Near
    :alt: Catalog
 
 
-You can select the number of nearby objects you want to push to the observing list.  Let's get 20 nearby Messier objects we've never logged observations for!  Press the *4* key and you'll end up at the `Locate <user_guide_ui.md#locate>`_ screen with a list of these 20 objects sorted by distance from the current pointing position.
+You can select the number of nearby objects you want to push to the observing list.  Let's get 20 nearby Messier objects we've never logged observations for!  Press the *4* key and you'll end up at the Locate screen with a list of these 20 objects sorted by distance from the current pointing position.
 
 
 .. image:: ../../images/screenshots/how_to_see_LOCATE_001_docs.png
@@ -668,23 +464,19 @@ Use can use the *UP* and *DN* keys to zoom the chart in an out.  Here is the cha
    :target: ../../images/screenshots/how_to_see_CHART_002_docs.png
    :alt: Chart
 
-Switch Sides
-------------------------------------------------------
-
-By default, the PiFinder software is set for right-side focuser operation.   To switch to left-side orientation, use the `Options <user_guide_ui.md#options>`_ page of the `Status <user_guide_ui.md#status>`_ screen.  This will make sure the preview is displayed correct side up and the IMU up/down direction is correct.
 
 WiFi
-------
+==========================
 
 Access Point and Client Mode
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------------
 
-The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the `Options <user_guide_ui.md#system-options>`_ page of the Status screen to switch between these two modes and see which mode is currently active.
+The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the :ref:`user_guide:Global Options` page of the Status screen to switch between these two modes and see which mode is currently active.
 
-Using the PiFinder in Access Point mode creates a network called AP_PiFinder with no password to allow easy connection of phones, tablets and other devices in the field.
+Using the PiFinder in Access Point mode creates a network called APPiFinder with no password to allow easy connection of phones, tablets and other devices in the field.
 
 Changing Wifi networks
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+----------------------------------
 
 When in client mode, the PiFinder will attempt to connect to one or more networks which have been previously configured.  If you set up your PiFinder via the instructions `here <software.md>`_ you likely already have one network configured.
 
@@ -728,22 +520,22 @@ In most cases, you can use the name ``pifinder.local`` to connect to the PiFinde
 
 * SSH to get shell access for software updates and other admin tasks
 * SMB (Samba) to access saved images, logs an observing lists
-* LX200 protocol to allow updating of a planetarium app, such as `SkySafari <#skysafari>`_\ , with the position of the telescope
+* LX200 protocol to allow updating of a planetarium app, such as :doc:`skysafari` , with the position of the telescope
 
 SkySafari
------------------
+===================
 
-The PiFinder can provide real-time pointing information to a device running SkySafari via the LX200 protocol.  See this `guide <./skysafari.md>`_ for complete details, but here is the connection info:
+The PiFinder can provide real-time pointing information to a device running SkySafari via the LX200 protocol.  See this :doc:`skysafari` document for complete details, but here is the connection info:
 
 
 * Use 'Other' telescope type
 * Mount Type: Alt-Az, GoTo.. even if your scope is Push-To.  This allows sending of targets from SkySafari to the PiFinder
 * Scope Type: Meade LX200 classic
-* IP Address: ``pifinder.local`` or IP address provides on the `Status <user_guide_ui.md#status>`_ screen.
+* IP Address: ``pifinder.local`` or IP address provides on the Status screen
 * Port: 4030
 
-Data Access
------------------
+Shared Data Access
+===================
 
 In the course of using the PiFinder several data files are created that may be of interest.  These are available via a SMB (samba) network share called ``//pifinder.local/shared``.  Accessing this will depend on your OS, but the PiFinder should be visible in a network browser provided.  There is no password requirement, just connect as ``guest`` with no password provided.
 
@@ -756,32 +548,12 @@ Once connected, you'll see:
 * ``solver_debug_dumps/``\ : If enabled, information about solver performance is stored here as a collection of images and json files.
 * ``observations.db``\ : This is the SQLite database which holds all the logged observations.
 
-Shutdown and Restart
----------------------
-
-Although shutting down is not strictly needed before power-off, the PiFinder is a computer and there is a chance of file corruption.  Some MicroSD cards are more sensitive to this than others.
-
-Shutdown and Restart actions are available from the `Options <user_guide_ui.md#options>`_ for the `Status <user_guide_ui.md#status>`_ screen.  Hold down *Ent* and press *A* to cycle through the system screens until you see the status screen, the press and hold *A* to access the options.
-
-Restarting the PiFinder software should not normally be needed, but can be useful for generating a new session id which is included for a photos and logging during a particular execution of the PiFinder software.
-
-Observing lists
------------------
-
-PiFinder maintains two lists of objects for each observing session; The History list and the Observing list.  The `Locate <user_guide_ui.md#locate>`_ screen lets you scroll through these lists and push the telescope to any object on them.
-
-The History list will record any object that you set as a target to push-to.  It's added to as soon as you press the *ENT* key on the catalog screen to select an object.  The main purpose of the History list is to let you scroll back through objects you have observed that session.
-
-The Observing list is a list of objects that is populated from either a filtered catalog or a file on disk.  It's a list of objects you'd like to observe during a session.  
-
-Both these lists start empty at the beginning of each session.  To populate an observing list you can push a filtered list of objects from the `Catalog <user_guide_ui.md#catalog>`_ screen or use the `Options <user_guide_ui.md#options>`_ page of the `Locate <user_guide_ui.md#locate>`_ screen to load an observing list from disk.  The PiFinder supports .skylist file format used in SkySafari and adopted in many other applications as well.
-
 Update Software
------------------
+==================
 
-A Software action is available from the :ref:`user_guide:option pages` for the :ref:`user_guide:status` screen.  This will both show which version the PiFinder currently has installed and allow you to Upd the software if the PiFinder is connected to the internet.  You man need to switch :ref:`user_guide:WiFi` modes to Client if the device is in AP mode.
+A Software action is available from the :ref:`user_guide:global options` screen.  This will both show which version the PiFinder currently has installed and allow you to Upd the software if the PiFinder is connected to the internet.  You man need to switch :ref:`user_guide:WiFi` modes to Client if the device is in AP mode.
 
-Select the option for 'Software' and then 'Upd'.  You should see a message that says 'Updating...' followed by 'Ok! Restarting'.  The PiFinder should restart and the new software version should be displayed when checking the :ref:`user_guide:option pages` for the :ref:`user_guide:Status` screen
+Select the option for 'Software' and then 'Upd'.  You should see a message that says 'Updating...' followed by 'Ok! Restarting'.  The PiFinder should restart and the new software version should be displayed when checking the :ref:`user_guide:option pages` for the Status screen
 
 
 FAQ

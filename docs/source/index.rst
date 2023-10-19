@@ -2,7 +2,7 @@ PiFinder Welcome
 ================
 A plate solving telescope finder based around a Raspberry PI, RPI HQ Camera, and custom UI 'hat'
 
-For an overview of what the PiFinder is and how it came to be visit the official project website at `PiFinder.io <https://www.pifinder.io/build-yours>`_
+For an overview of what the PiFinder is and how it came to be visit the official project website at `PiFinder.io <https://www.pifinder.io/>`_
 
 .. image:: ../../images/banner_overview.png
 
@@ -29,7 +29,7 @@ Build Your Own
 --------------
 The PiFinder is fully open-source hardware and software.  You can order PCB's and 3d print the case with the files in this repo and order all the parts from the :doc:`Parts List <BOM>`
 
-If you would like pre-assembled units, kits or other items to jump start your PiFinder journey, visit `PiFinder.io <https://www.pifinder.io/build-pifinder>`_ to see what's available and place an order.
+If you would like pre-assembled units, kits or other items to jump start your PiFinder journey, visit `PiFinder.io <https://www.pifinder.io/>`_ to see what's available and place an order.
 
 .. image:: ../../images/PiFinder_on_scope.jpg
 
@@ -50,5 +50,6 @@ Join the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ for support 
    user_guide
    build_guide
    software
+   skysafari
    dev_guide
    BOM
