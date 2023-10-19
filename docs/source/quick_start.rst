@@ -90,7 +90,7 @@ Once your PiFinder is charged and your mount is set on your scope, you’re read
 
 You’ll be able to turn on your PiFinder and start using it as soon as you see multiple stars in the part of the sky where the PiFinder is pointed. PiFinder uses the stars (and its internal GPS sensor) to learn where it is and what it’s looking at, so it needs a few stars in order to get started. This may happen a little after sunset, or, if you’re in an area with light pollution, you may have to wait until full darkness. 
 
-There are two icons in the upper right of the screen that will tell you if the PiFinder knows where it is: one shows a sattelite dish when GPS signal and location has been acquired, and the other shows how the PiFinder has determined your current telescope poition.  I will displya a camera if it has plate-solved its current view, and a cross of arrows if the scope is moving and it's using the acceleromiter.  If you see an 'X', the PiFinder has yet to determine where it's pointing (see :ref:`first_solve`)
+There are two icons in the upper right of the screen that will tell you if the PiFinder knows where it is: one shows a sattelite dish when GPS signal and location has been acquired, and the other shows how the PiFinder has determined your current telescope poition.  I will display a camera if it has plate-solved its current view, and a cross of arrows if the scope is moving and it's using the acceleromiter.  If you see an 'X', the PiFinder has yet to determine where it's pointing (see :ref:`quick_start:setting focus & first solve`)
 
 .. list-table::
 
@@ -112,7 +112,11 @@ Adjusting Brightness
 
 The PiFinder is designed to allow you to adjust the brightness of the screen and keypad at any time: simply hold down the ENT button and push UP for brighter, or DN for dimmer. In a dark sky site, you can turn the brightness down to preserve your dark-adapted vision.
 
-.. _first_solve:
+.. note::
+   The PiFinder will dim the screen and reduce the frequency of exposures, solving, and other processes when it’s been idle for a period of time. This helps save battery power and can also prevent glare at the eyepiece in especially dark environments. The default is 30 seconds and this can be configured, or turned off completely, in the :ref:`user_guide:global options`
+
+   Pressing any button, or moving the PFinder will wake it from power save mode.
+
 
 Setting Focus & First Solve
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -153,7 +157,7 @@ Choose the number that represents the star currently in your telescope’s eyepi
 .. image:: images/quick_start/align_CAMERA_004_docs.png
 
 .. note::
-   **Can’t find your star on the ALIGN screen?** See the section on :ref:`Hardware Camera Alignment<user_guide:Camera Alignment>`
+   **Can’t find your star on the ALIGN screen?** You can use the hardware thumbscrews on the back of the PiFinder to adjust where the camera is pointing relative to your telescope.  Loosen some screws as you tighten others and wait between each adjusment for a new image to be taken.
 
 
 Find Your First Object
@@ -186,4 +190,14 @@ Once you've typed in the object ID number, you can press the ENT key to select i
 
 Now that you’re on the LOCATE screen, you’ll see two arrows and two large numbers. The top arrow and number tell you which direction to spin your scope clockwise vs. counterclockwise, and how far in degrees. The lower arrow tells you whether to move your scope up towards zenith, or down towards the horizon, and how far in degrees.
 
-Once you’re at 0.0 in both numbers, look through your eyepiece–if you’ve selected the right magnification eyepiece for the object you’re observing, the object will appear in the field of view!If not, verify your :ref:`quick_start:alignment` and try again.
+Once you’re at 0.0 in both numbers, look through your eyepiece–if you’ve selected the right magnification eyepiece for the object you’re observing, the object will appear in the field of view! If not, verify your :ref:`quick_start:alignment` and try again.
+
+Shutting down the PiFinder
+---------------------------
+
+Although shutting down is not strictly needed before power-off, the PiFinder is a computer and there is a chance of file corruption if you do not.  Some MicroSD cards are more sensitive to this than others.
+
+An option to shutdown is available in the :ref:`user_guide:global options` screen. Hold down *Ent* and press *A* to cycle through the system screens until you see the status screen, the press and hold *A* to access the Global Options
+
+
+You've now got the basics of using the PiFinder sorted, to learn more you can continue on to the full :ref:`user_guide:pifinder user manual`
