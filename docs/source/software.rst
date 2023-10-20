@@ -16,11 +16,9 @@ The image files on our release pages contain the proper version of the Raspberry
 * Run the imager and click 'Choose OS' and select 'Use Custom' then select the image you downloaded
 
 .. image:: images/software/rpi_imager_001.png
-   :target: images/software/rpi_imager_001.png
    :width: 47%
 
 .. image:: images/software/rpi_imager_002.png
-   :target: images/software/rpi_imager_002.png
    :width: 47%
 
 
@@ -33,11 +31,9 @@ The image files on our release pages contain the proper version of the Raspberry
 * You can also setup your locale and keyboard settings if you like, but these are not used by the PiFinder software and only affect the language of the underlying operating system.
 
 .. image:: images/software/rpi_imager_003.png
-   :target: images/software/rpi_imager_003.png
    :width: 47%
 
 .. image:: images/software/rpi_imager_004.png
-   :target: images/software/rpi_imager_004.png
    :width: 47%
 
 .. important::
@@ -71,7 +67,6 @@ General Pi Setup
 
 
 .. image:: ../../images/raspi_imager_settings.png
-   :target: ../images/raspi_imager_settings.png
    :alt: Raspberry Pi Imager settings
 
 
@@ -112,7 +107,6 @@ Once the script is done, reboot the PiFinder:
 It will take up to two minutes to boot, but you should see the startup screen before too long:
 
 .. image:: ../../images/screenshots/WELCOME_001_docs.png
-   :target: ../images/screenshots/WELCOME_001_docs.png
    :alt: Startup log
 
 
@@ -136,7 +130,6 @@ The PiFinder will quickly check which images are missing and start the download 
 
 
 .. image:: ../../images/screenshots/Image_download_001.png
-   :target: ../../images/screenshots/Image_download_001.png
    :alt: Image Download 
 
 
