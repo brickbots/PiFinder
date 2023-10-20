@@ -21,7 +21,7 @@ Along with knowing where your telescope is pointing, the PiFidner knows where th
 Observing Screens
 =====================================
 
-The observing functions of the PiFinder are split into various screens that you can switch between. Each screen makes use of the B, C, D, UP, DN, and ENT keys in their own way... but the A key always switches between them.
+The observing functions of the PiFinder are split into various screens that you can switch between. Each screen makes use of the B, C, D, UP, DN, and ENT keys in their own way... but the A key always switches between them.  When switching between screens a hint is displayed at the bottom to remind you what the B/C/D keys do for that particular screen.
 
 The **A** key on it's own cycles between the four main screens:
 
@@ -44,9 +44,9 @@ The **A** key on it's own cycles between the four main screens:
 
        *Function Keys*
 
-       * B - :ref:`Bright star alignment<quick_start:alignment>`
-       * C - Background subtraction toggle
-       * D - Adjust reticle brightness
+       * **B** - :ref:`Bright star alignment<quick_start:alignment>`
+       * **C** - Background subtraction toggle
+       * **D** - Adjust reticle brightness
        
 
    * - .. image:: images/user_guide/CHART_001_docs.png
@@ -68,11 +68,11 @@ The **A** key on it's own cycles between the four main screens:
        
        *Function Keys*
 
-       * B - Adjust reticle brightness
-       * C - Adjust constellation line brightness
-       * D - Adjust DSO Brightness
-       * UP/DN - Zoom in and out
-       * ENT - Reset FOV to 10 degrees
+       * **B** - Adjust reticle brightness
+       * **C** - Adjust constellation line brightness
+       * **D** - Adjust DSO Brightness
+       * **UP/DN** - Zoom in and out
+       * **ENT** - Reset FOV to 10 degrees
          
    * - .. image:: images/user_guide/CATALOG_001_docs.png
 
@@ -90,11 +90,11 @@ The **A** key on it's own cycles between the four main screens:
        
        *Function Keys*
 
-       * B - Switch Between Info and Images
-       * C - Cycle through catalogs
-       * D - Scroll information display
-       * UP/DN - Previous/Next object
-       * ENT - Select object to find
+       * **B** - Switch Between Info and Images
+       * **C** - Cycle through catalogs
+       * **D** - Scroll information display
+       * **UP/DN** - Previous/Next object
+       * **ENT** - Select object to find
 
        Click for more info about the :ref:`user_guide:catalog` system.
 
@@ -112,11 +112,11 @@ The **A** key on it's own cycles between the four main screens:
        
        *Function Keys*
 
-       * B - Switch to history list
-       * C - Switch to observing list
-       * D - Hold down to remove object
-       * UP/DN - Previous/Next object
-       * ENT - View catalog info for object
+       * **B** - Switch to history list
+       * **C** - Switch to observing list
+       * **D** - Hold down to remove object
+       * **UP/DN** - Previous/Next object
+       * **ENT** - View catalog info for object
 
        Click for more info about the :ref:`user_guide:observing lists` screen and observing lists
 
@@ -148,7 +148,7 @@ By holding down the Enter key and pressing the A (**ENT-A**) function key you ca
 
        *Function Keys*
 
-       * UP/DN - Scroll status items
+       * **UP/DN** - Scroll status items
        
 
    * - .. image:: images/user_guide/CONSOLE_001_docs.png
@@ -168,14 +168,14 @@ By holding down the Enter key and pressing the A (**ENT-A**) function key you ca
        
        *Function Keys*
 
-       * UP/DN - Scroll the console messages up and down
+       * **UP/DN** - Scroll the console messages up and down
          
 
 
 Option Pages
 ===============
 
-Many screens have options which change the way they behave or perform other less commonly used actions.  Pressing and holding the *A* button will bring up the options for whichever screen you are currently using.  To exit the option screen press *A* to return to the previous screen.
+Many screens have options which change the way they behave or perform other less commonly used actions.  Pressing and holding the **A** button will bring up the options for whichever screen you are currently using.  To exit the option screen press **A** to return to the previous screen.
 
 The options screen will show one option or action item per line with the name or description of the item to the left and the current value to the right.  The bright numbers along the left edge indicate the key on the keypad to press to access that item.
 
@@ -190,7 +190,7 @@ Once an item is selected the item will be highlighted and the available values o
    :alt: Options screen for Catalog, magnitude exposed
 
 
-Some types of options can only have a single value, like Magnitude above.  Others, such as Obj Types will allow you to select multiple values.  If an option only has a single value, selecting it will return you to the main options page.  For options that can have multiple values, you'll need to use the *ENT* key to confirm your selections and return to the main option page.
+Some types of options can only have a single value, like Magnitude above.  Others, such as Obj Types will allow you to select multiple values.  If an option only has a single value, selecting it will return you to the main options page.  For options that can have multiple values, you'll need to use the **ENT** key to confirm your selections and return to the main option page.
 
 The Options screen can also contain less commonly used actions which will take place when a value is selected.  
 
@@ -223,15 +223,14 @@ Catalog
 
 .. image:: images/user_guide/CATALOG_001_docs.png
 
-The catalog screen allows the searching and selection of astronomical objects to locate.  It has multiple catalogs available (Messier, NGC, IC) and displays some basic information about each object.  You can set filter criteria (Altitude, Magnitude, Object Type) to limit the objects surfaced via the search.
+The catalog screen allows the searching and selection of astronomical objects to locate.  It has multiple catalogs available and displays some basic information about each object.  You can set filter criteria to limit the objects listed for each catalog.
 
-The *B* function keys toggles between a description of the object, if available, and information about how often you've observed that object.
+The **B** function keys toggles between a description of the object, if available, and information about how often you've observed that object.
 
-The *C* function keys will cycle through the various catalogs available.  The upper-left will show the count of filtered objects over the total number of objects in each catalog.
+The **C** function keys will cycle through the various catalogs available.  The upper-left will show the count of filtered objects over the total number of objects in each catalog.
 
 
-.. image:: ../../images/screenshots/CATALOG_002_docs.png
-   :target: ../../images/screenshots/CATALOG_002_docs.png
+.. image:: images/user_guide/CATALOG_002_docs.png
    :alt: Catalog screenshot
 
 
@@ -256,20 +255,20 @@ If the number you have entered matches an object in the catalog, information abo
 * Size
 * Other names
 * IC/NGC coded observing notes
+* Number of times you have :ref:`logged<user_guide:logging observations>` that object
 
-Pressing the *B* key will cycle through various pages of information about the selected object.  This includes object descriptions in NGC shorthand, information about when you have observed this object, and potentially images of the object.
+Pressing the **B** key will switch between the text description and :ref:`user_guide:object images`
 
-Use the *D* key to clear the number field out and start fresh.  If you find an object you are interested in, pressing the *ENT* key will add it to your target list and switch to the `Locate <#Locate>`_ screen.
+Use the **D** key to clear the number field out and start fresh.  If you find an object you are interested in, pressing the **ENT** key will add it to your target list and switch to the Locate screen
 
-Holding the *A* key for two seconds will bring up the settings for the catalog.  You can filter by apparent altitude, magnitude and object type.  The Options page also has an action to push the currently filtered catalog to the `Observing <user_guide_howto.md#observing-lists>`_ list. Pressing *A* will bring you back to the catalog and update the count of objects that match your filter.
-
+Holding the **A** key for two seconds will bring up the settings for the catalog.  You can filter by apparent altitude, magnitude and object type.  The Options page also has an action to push the currently filtered catalog to the :ref:`observing list<user_guide:observing lists>`. Pressing **A** will bring you back to the catalog and update the count of objects that match your filter.
 
 * The *UP/DN* keys will scroll through the currently filtered objects.
 
 Object Images
 ---------------
 
-If you have `downloaded <./user_guide_setup.md#catalog-image-download>`_ the set of catalog images you can view what the selected object looks like via images from sky surveys.  Pressing the *B* key will cycle through various pages of information about each object including images from the Palomar Observatory Sky Survey and potentially updated images from the Sloan Digital Sky Survey.   
+If you have used the prebuilt PiFinder image or have :ref:`downloaded<software:catalog image download>` the set of catalog images you can view what the selected object looks like via images from sky surveys.  Pressing the **B** key will cycle through various pages of information about each object including images from the Palomar Observatory Sky Survey and potentially updated images from the Sloan Digital Sky Survey.   
 
 As an example, here are the images available for M57
 
@@ -289,7 +288,7 @@ As an example, here are the images available for M57
    :alt: Catalog Image
 
 
-These images are oriented as they would be through the eyepiece in a newtonian reflector pointing at a specific area of the sky from your current location.   You can use the *UP* and *DN* keys to switch between various eyepiece field of views.   If you have your telescope and eyepiece collection information entered into the PiFinder these will be used to determine the FOV's to cycle through.  The defaults are 1, 0.5, 0.25, 0.12 degrees.
+These images are oriented as they would be through the eyepiece in a newtonian reflector pointing at a specific area of the sky from your current location.   You can use the **UP** and **DN** keys to switch between various eyepiece field of views.   If you have your telescope and eyepiece collection information entered into the PiFinder these will be used to determine the FOV's to cycle through.  The defaults are 1, 0.5, 0.25, 0.12 degrees.
 
 The bottom left of the screen shows the source of the current image and the left side shows the current FOV / Eyepiece information.
 
@@ -303,16 +302,16 @@ The Locate screen uses the last solve and currently selected target to provide a
 
 Values are expressed in degrees with the top line being rotation in Azimuth and the bottom line in Altitude.  
 
-* *UP/DN* will cycle through the active list.  The numbers in the upper-right corner of the screen represent the index of the current object / total number of objects in the list and the list name is displayed directly below.
-* *ENT* will switch back to the catalog screen to access full information about the current target
-* *B* will 
-* Holding the *A* key will open the :ref:`Options<user_guide:Option Pages>` page where you can load and save observing lists to disk
+* **UP/DN** will cycle through the active list.  The numbers in the upper-right corner of the screen represent the index of the current object / total number of objects in the list and the list name is displayed directly below.
+* **ENT** will switch back to the catalog screen to access full information about the current target
+* **B** will 
+* Holding the **A** key will open the :ref:`Options<user_guide:Option Pages>` page where you can load and save observing lists to disk
 
 The currently target is also displayed on the screen as a small tick mark.
 
 PiFinder maintains two lists of objects for each observing session; The History list and the Observing list.  The Locate screen lets you scroll through these lists and push the telescope to any object on them.
 
-The History list will record any object that you set as a target to push-to.  It's added to as soon as you press the *ENT* key on the catalog screen to select an object.  The main purpose of the History list is to let you scroll back through objects you have observed that session.
+The History list will record any object that you set as a target to push-to.  It's added to as soon as you press the **ENT** key on the catalog screen to select an object.  The main purpose of the History list is to let you scroll back through objects you have observed that session.
 
 The Observing list is a list of objects that is populated from either a filtered catalog or a file on disk.  It's a list of objects you'd like to observe during a session.  
 
@@ -327,7 +326,7 @@ Logging Observations
    :alt: Logging Interface
 
 
-The Log screen can be accessed at any time by long holding the ENT key.  It allows you to record your observation of the currently selected target in a database as part of a session.  Each session starts when you power-up, or reset, the PiFinder and every observation logged during the session will be grouped together for later review.
+The Log screen can be accessed at any time by long holding the **ENT** key.  It allows you to record your observation of the currently selected target in a database as part of a session.  Each session starts when you power-up, or reset, the PiFinder and every observation logged during the session will be grouped together for later review.
 
 Summary information about the current target is displayed along with the distance from the current telescope position.  This distance allows you to make sure you are observing/logging the correct object in a crowded field, like Virgo.  
 
@@ -344,21 +343,23 @@ You can add some details about your observation by holding down the A key to add
 * Obsabillit:  Observability - How easy is it to spot and recognize this object
 * Appeal: Overall rating of this object.. would you refer a friend?
 
-Pressing the A key from the Observing Notes options will bring you back to the Log screen.
+Pressing the **A** key from the Observing Notes options will bring you back to the Log screen.
 
 
-* B key - Logs the current target to the database
-* D key - Abort and return to the previous screen
+* **B** key - Logs the current target to the database
+* **D** key - Abort and return to the previous screen
 
 
 Observing Projects
 ===================
 
-This how to covers a lot of the basic catalog/locating/observing features of the PiFinder.   
+If you are like me, you may enjoy various observing projects, such as observing all the Messier or Herschel objects.  The PiFinder makes these longer term efforts easy by allowing you to log each object and then only showing you objects you have left that are visible during any observing session!
+
+This section covers a lot of the basic catalog/locating/observing features of the PiFinder and how it can be used to pursue such a project.
 
 Combining the ability to filter a catalog by observation status and pushing the nearest 'X' objects to the observing list allows you to work your way through a collection of objects easily.
 
-Use the *A* key to cycle through the main screens until you get to the `Catalog <user_guide_ui.md#catalog>`_
+Use the **A** key to cycle through the main screens until you get to the `Catalog <user_guide_ui.md#catalog>`_
 
 
 .. image:: ../../images/screenshots/how_to_see_CATALOG_001_docs.png
@@ -366,7 +367,7 @@ Use the *A* key to cycle through the main screens until you get to the `Catalog 
    :alt: Catalog
 
 
-Then use the *C* key to cycle through the available catalogs to find the Messier objects
+Then use the **C** key to cycle through the available catalogs to find the Messier objects
 
 
 .. image:: ../../images/screenshots/how_to_see_CATALOG_002_docs.png
@@ -374,7 +375,7 @@ Then use the *C* key to cycle through the available catalogs to find the Messier
    :alt: Catalog
 
 
-Holding the *A* button for about a second will bring up the `Options <user_guide_ui.md#options>`_ page of the `Catalog <user_guide_ui.md#catalog>`_ screen
+Holding the **A** button for about a second will bring up the `Options <user_guide_ui.md#options>`_ page of the `Catalog <user_guide_ui.md#catalog>`_ screen
 
 
 .. image:: ../../images/screenshots/how_to_see_OPTIONS_003_docs.png
@@ -384,7 +385,7 @@ Holding the *A* button for about a second will bring up the `Options <user_guide
 
 On this screen you can filter the catalog in various ways.  By default, it will only show items that are higher than 10degrees above the horizon right now and will include objects of any magnitude, type and regardless of whether you have observed them or not.  You can switch the observation filter to 'No' to focus on the Messier objects you've not yet observed.
 
-Press the *3* key to bring up the Observed options
+Press the **3** key to bring up the Observed options
 
 
 .. image:: ../../images/screenshots/how_to_see_OPTIONS_004_docs.png
@@ -392,7 +393,7 @@ Press the *3* key to bring up the Observed options
    :alt: Catalog
 
 
-Then press the *2* key to select the 'No' option.  Pressing the *A* key will return you to the Catalog page with your filters activated.  You can see in the upper-right of the screen that the number of objects matching the filter is 47 of 110
+Then press the **2** key to select the 'No' option.  Pressing the **A** key will return you to the Catalog page with your filters activated.  You can see in the upper-right of the screen that the number of objects matching the filter is 47 of 110
 
 
 .. image:: ../../images/screenshots/how_to_see_CATALOG_004_docs.png
@@ -400,7 +401,7 @@ Then press the *2* key to select the 'No' option.  Pressing the *A* key will ret
    :alt: Catalog
 
 
-We're going to create an observing list from this filtered catalog.  Hold down the *A* key to return to the Options page.  
+We're going to create an observing list from this filtered catalog.  Hold down the **A** key to return to the Options page.  
 
 
 .. image:: ../../images/screenshots/how_to_see_OPTIONS_003_docs.png
@@ -408,10 +409,10 @@ We're going to create an observing list from this filtered catalog.  Hold down t
    :alt: Catalog
 
 
-We can either push all the items that match our current filter using the *4* Push List action, 
+We can either push all the items that match our current filter using the **4** Push List action, 
 or we can choose to create a list of objects near the current place the telescope is pointing.   This is a great way to easily and quickly work through objects when they might be most visible based on your particular location.
 
-Press the *5* key to select Push Near
+Press the **5** key to select Push Near
 
 
 .. image:: ../../images/screenshots/how_to_see_OPTIONS_006_docs.png
@@ -419,7 +420,7 @@ Press the *5* key to select Push Near
    :alt: Catalog
 
 
-You can select the number of nearby objects you want to push to the observing list.  Let's get 20 nearby Messier objects we've never logged observations for!  Press the *4* key and you'll end up at the Locate screen with a list of these 20 objects sorted by distance from the current pointing position.
+You can select the number of nearby objects you want to push to the observing list.  Let's get 20 nearby Messier objects we've never logged observations for!  Press the **4** key and you'll end up at the Locate screen with a list of these 20 objects sorted by distance from the current pointing position.
 
 
 .. image:: ../../images/screenshots/how_to_see_LOCATE_001_docs.png
@@ -427,25 +428,14 @@ You can select the number of nearby objects you want to push to the observing li
    :alt: Locate
 
 
-The locate screen serves double duty by showing you where to move the telescope to center this object, and also letting you scroll through the observing or history lists.  In the screenshot above were looking at item 1/20 in the Obsv (Observing) list.  You can use *UP* and *DN* to scroll through the list.  Or just push the scope in the indicated direction to observe M33.
+The locate screen serves double duty by showing you where to move the telescope to center this object, and also letting you scroll through the observing or history lists.  In the screenshot above were looking at item 1/20 in the Obsv (Observing) list.  You can use **UP** and **DN** to scroll through the list.  Or just push the scope in the indicated direction to observe M33.
 
-When you have observed M33, hold down the *ENT* button to log this object using the `LOG <user_guide_ui.md#log>`_ screen.
+When you have observed M33, hold down the **ENT** button to :ref:`log<user_guide:logging observations>` this object.
 
 
 .. image:: ../../images/screenshots/how_to_see_LOG_001_docs.png
    :target: ../../images/screenshots/how_to_see_LOG_001_docs.png
    :alt: LOG
-
-
-The Logging screen shows you the current target, how far you are from it and allows you to press *B* to log the item, *C* to log with a photo and *D* to abort the logging.  If you press and hold the *A* key you can provide more information about your observation.
-
-
-.. image:: ../../images/screenshots/how_to_see_LOG_OPTIONS_001_docs.png
-   :target: ../../images/screenshots/how_to_see_LOG_OPTIONS_001_docs.png
-   :alt: LOG
-
-
-This page works just like others.  You can use the numbers on the right to select what you want to adjust and then choose an option on the right.  Once you've set your observation notes, press *A* to return to the log screen and either *B* or *C* to log your observation.
 
 Now that M33 is logged, it won't show up any longer when you filter the Messier objects by 'No' observation.
 
@@ -457,7 +447,7 @@ Another way to use the observing list is to switch to the Chart screen.  The cur
    :alt: Chart
 
 
-Use can use the *UP* and *DN* keys to zoom the chart in an out.  Here is the chart zoomed out showing the location of M33 along with some of the other nearby objects on the observing list.
+Use can use the **UP** and **DN** keys to zoom the chart in an out.  Here is the chart zoomed out showing the location of M33 along with some of the other nearby objects on the observing list.
 
 
 .. image:: ../../images/screenshots/how_to_see_CHART_002_docs.png
@@ -544,7 +534,7 @@ Once connected, you'll see:
 
 * ``captures/``\ : These are images saved when logging objects.  They are named with the observation ID from the database.
 * ``obslists/``\ : This folder holds observing saved during a PiFinder session or to load for future sessions.
-* ``screenshots/``\ :  It's possible to take screenshots while using the PiFinder (hold down *ENT* and press *0*\ ).  They are stored here.
+* ``screenshots/``\ :  It's possible to take screenshots while using the PiFinder (hold down **ENT** and press *0*\ ).  They are stored here.
 * ``solver_debug_dumps/``\ : If enabled, information about solver performance is stored here as a collection of images and json files.
 * ``observations.db``\ : This is the SQLite database which holds all the logged observations.
 

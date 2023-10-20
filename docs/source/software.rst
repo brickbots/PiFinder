@@ -112,7 +112,6 @@ Once the script is done, reboot the PiFinder:
 It will take up to two minutes to boot, but you should see the startup screen before too long:
 
 .. image:: ../../images/screenshots/WELCOME_001_docs.png
-   :target: ../images/screenshots/WELCOME_001_docs.png
    :alt: Startup log
 
 
