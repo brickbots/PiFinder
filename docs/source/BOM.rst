@@ -1,7 +1,7 @@
 Parts List
 ==========
 
-Here's a full list of all the items you'll need to build your own PiFinder.  It roughly follows the `Build Guide <./build_guide.md>`_ and I've tried to provide current sources where possible.  Reach out with any questions!
+Here's a full list of all the items you'll need to build your own PiFinder.  It roughly follows the :doc:`Build Guide<build_guide>` and I've tried to provide current sources where possible.  Reach out with any questions!
 
 For those folks in the US, Digikey has most of the electronics components and this List can get you started:
 `https://www.digikey.com/en/mylists/list/JMHESEPVKV <https://www.digikey.com/en/mylists/list/JMHESEPVKV>`_
@@ -93,7 +93,7 @@ These are the bigger items/assemblies which you'll need to purchase to include i
 Case hardware
 -------------
 
-In addition to the 3d printed parts detailed in the `Build Guide <./build_guide.md>`_ you'll need some bolts, heat-set inserts and standoffs to complete the build.  Everything is M2.5 and some of the lengths can vary a bit.
+In addition to the 3d printed parts detailed in the :doc:`Build Guide<build_guide>` you'll need some bolts, heat-set inserts and standoffs to complete the build.  Everything is M2.5 and some of the lengths can vary a bit.
 
 .. list-table::
    :header-rows: 1

@@ -6,7 +6,7 @@ SkySafari
 Network Setup
 =============
 
-Before using this guide, make sure that your device is on the same network as the PiFinder.  See the `User Guide <./user_guide.md#wifi>`_ for details on changing WiFi modes and finding the IP address of the PiFinder
+Before using this guide, make sure that your device is on the same network as the PiFinder.  See the :ref:`User Guide<user_guide:wifi>` for details on changing WiFi modes and finding the IP address of the PiFinder
 
 App Setup
 ===============
@@ -46,7 +46,7 @@ Select 'Meade LX200 Classic' for the scope type and click 'Next'
    :alt: Setup
 
 
-You should be able to use ``pifinder.local`` for the IP address, but if this does not work, check the `Status screen <./user_guide#status>`_ for the numeric IP address of the PiFinder.  Port 4030 seems to be the default for SkySafari, but change it to 4030 if there is another value populated.
+You should be able to use ``pifinder.local`` for the IP address, but if this does not work, check the Status screen for the numeric IP address of the PiFinder.  Port 4030 seems to be the default for SkySafari, but change it to 4030 if there is another value populated.
 
 Click 'Next' to continue
 
