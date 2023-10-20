@@ -10,11 +10,8 @@ Welcome to the PiFinder build guide!  This guide is split into three main parts,
 
 If you've received a kit with an assembled UI Board + 3d Parts, you can jump right to the `final assembly <build_guide_assembly.md>`_.  Otherwise, fire up that 3d printer and get the `parts printing <build_guide_parts.md>`_ while you work to assemble the `UI Board <build_guide_ui.md>`_ 
 
-Electronics
-=================================
-
 PiFinder UI Hat
----------------
+========================
 
 A key part of the PiFinder is a custom 'Hat' which matches the general form factor of the Raspberry Pi and connects to it's GPIO header.  It contains the switches, screen and Inertial Measurement Unit along with keypad backlight components
 
@@ -23,7 +20,7 @@ It's all through-hole components, so should be approachable to even beginners...
 There are still some older photos here from the v1 non-backlit board, but the assembly is the same once the backlight components are in place.
 
 Backlight Components
-^^^^^^^^^^^^^^^^^^^^
+------------------------
 
 The two resistors are an easy place to start.  R2 is the vertical oriented 330ohm part and R1 is the 22ohm oriented horizontally.  Direction does not matter with these, just make sure they sit flat and trim the leads on the back when they are soldered.
 
@@ -68,7 +65,7 @@ You can see the position/orientation in the image below.  Once you've got it sit
 
 
 Switches
-^^^^^^^^
+------------------------
 
 Switches are easy and can go next.  Place each one on a footprint and press it down fully.  Once they are all inserted, before you start soldering visually inspect them for any that are tilted.  
 
@@ -87,7 +84,7 @@ It's also a good idea to place the top legend plate over them to make sure they 
 
 
 IMU
-^^^
+------------------------
 
 The Inertial Measurement unit is next.  The IMU has an annoyingly bright green LED on it, which you will probably want to paint over with a drop of black nail polish.  It can be done after it's soldered, but it's much easier before hand.  See the image below to ID the offending component.
 
@@ -106,7 +103,7 @@ The photo below shows the orientation on the back of the PCB.  Solder the header
 
 
 Display
-^^^^^^^
+------------------
 
 The display comes next and will cover the solder points for the IMU header, so double check your solder joints there before proceeding!
 
@@ -173,7 +170,7 @@ Remove the screen, turn over the board and solder the header into place
 Trim these leads back when done.  Then flip the board back over, place the screen and solder it in.  Take your time and make sure it's nice and lined up for a clean look.
 
 Connector
-^^^^^^^^^
+------------------
 
 Attaching the GPIO connector is the last soldered bit for the Hat.  To get this properly spaced, you'll need to mount the PCB to your Pi using the stand-off's you'll be using for final assembly.  
 
@@ -218,14 +215,9 @@ Check the photos below for the procedure, it's easier than it sounds!
 
 There you go!  The PiFinder hat is fully assembled and you can move on to the `assembly <build_guide_assembly.md>`_ of the rest of the unit.
 
-Build Guide - Printed Parts
+Printed Parts
 ===========================
 
-
-* `Introduction and Overview <build_guide.md>`_
-* `UI Board <build_guide_ui.md>`_
-* `Part Printing and Prep <build_guide_parts.md>`_
-* `Assembly <build_guide_assembly.md>`_
 
 The PiFinder can be built in a left, right or flat configuration to work well on many types of telescopes.  See the `Hardware Users Guide <user_guid_hw.md>`_ for more information including example photos.  To build each configuration, only a subset of the available parts are required.
 
@@ -336,7 +328,7 @@ If you need more flexibility, there is also a go-pro compatible plate that will 
 
 Once you've got all the parts printed and inserts inserted, you're ready to `assemble <build_guide_assembly.md>`_\ !
 
-Build Guide - Assembly
+Assembly
 ======================
 
 
@@ -469,13 +461,8 @@ The combined PiSugar/RPI stack then gets secured to the PI Mount using the 20mm 
    :alt: Build Guide Step
 
 
-Flat Configuration
-^^^^^^^^^^^^^^^^^^
-
-Please see the `Flat Build Guide <build_guide_flat.md>`_ for the remainder of the instructions for the Flat Build
-
 Right / Left Configuration
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------
 
 Continue on with this document to build a Right/Left hand unit.  The build progresses the same for both versions, but the initial orientations are a bit different and will be noted where appropriate. 
 
@@ -687,8 +674,8 @@ Continue on to the `software setup <software.md>`_ if you've not already prepare
    :alt: Build Guide Step
 
 
-Build Guide - Flat Assembly
-===========================
+Flat Assembly
+----------------
 
 This section of the build guide contains the steps to complete a Flat build.  This configuration is great for refractors, SCT's and other scopes with rear-focusers as the screen is 'flat' when mounted and the camera faces forward:
 
@@ -816,9 +803,5 @@ The only remaining thing to do is to affix the camera lens.  Unscrew the cap fro
    :alt: Assembly Steps
 
 
-Now that your PiFinder is complete, here are some more resources for you:
+Congratulations, you have a PiFinder! See the :doc:`Software Setup<software>` guide for next steps!
 
-
-* `Software Setup <software.md>`_
-* `User Guide <user_buide.md>`_
-* `Frequently Asked Questions <user_guide_faq.md>`_
