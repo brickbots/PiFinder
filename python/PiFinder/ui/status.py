@@ -42,6 +42,12 @@ class UIStatus(UIModule):
             "options": ["Off", "30s", "1m", "10m", "30m"],
             "callback": "set_screen_off_timeout",
         },
+        "Hint Time": {
+            "type": "enum",
+            "value": "2s",
+            "options": ["Off", "2s", "4s", "On"],
+            "callback": "set_hint_timeout",
+        },
         "WiFi Mode": {
             "type": "enum",
             "value": "UNK",
@@ -114,6 +120,9 @@ class UIStatus(UIModule):
         self._config_options["Screen Off"]["value"] = self.config_object.get_option(
             "screen_off_timeout"
         )
+        self._config_options["Hint Time"]["value"] = self.config_object.get_option(
+            "hint_timeout"
+        )
         self._config_options["Key Brit"]["value"] = self.config_object.get_option(
             "keypad_brightness"
         )
@@ -149,6 +158,11 @@ class UIStatus(UIModule):
 
     def set_sleep_timeout(self, option):
         self.config_object.set_option("sleep_timeout", option)
+        return False
+
+    def set_hint_timeout(self, option):
+        self.config_object.set_option("hint_timeout", option)
+        self.ui_state["hint_timeout"] = option
         return False
 
     def set_screen_off_timeout(self, option):

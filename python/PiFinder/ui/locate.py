@@ -20,6 +20,11 @@ class UILocate(UIModule):
     """
 
     __title__ = "LOCATE"
+    __button_hints__ = {
+        "B": "Histry",
+        "C": "Observ",
+        "D": "Remove",
+    }
 
     _config_options = {
         "Save": {
@@ -31,7 +36,7 @@ class UILocate(UIModule):
         "Load": {
             "type": "enum",
             "value": "",
-            "options": ["CANCEL"],
+            "options": [],
             "callback": "load_list",
         },
     }
@@ -46,7 +51,7 @@ class UILocate(UIModule):
         self.screen_direction = config.Config().get_option("screen_direction")
 
         available_lists = obslist.get_lists()
-        self._config_options["Load"]["options"] += available_lists
+        self._config_options["Load"]["options"] = ["CANCEL"] + available_lists
         self.obs_list_write_index = 0
         self.last_update_time = time.time()
 
@@ -93,21 +98,33 @@ class UILocate(UIModule):
 
     def key_b(self):
         """
-        When B is pressed, switch target lists
+        When B is pressed, switch to history
         """
-        self.target_index = None
         if self.ui_state["active_list"] == self.ui_state["history_list"]:
-            if len(self.ui_state["observing_list"]) > 0:
-                self.ui_state["active_list"] = self.ui_state["observing_list"]
-                self.target_index = 0
-            else:
-                self.message("No Obs List", 1)
+            pass
         else:
             if len(self.ui_state["history_list"]) > 0:
                 self.ui_state["active_list"] = self.ui_state["history_list"]
                 self.target_index = len(self.ui_state["active_list"]) - 1
             else:
                 self.message("No History", 1)
+
+        if self.target_index != None:
+            self.ui_state["target"] = self.ui_state["active_list"][self.target_index]
+            self.update_object_text()
+
+    def key_c(self):
+        """
+        When C is pressed, switch to observing list
+        """
+        if self.ui_state["active_list"] == self.ui_state["observing_list"]:
+            pass
+        else:
+            if len(self.ui_state["observing_list"]) > 0:
+                self.ui_state["active_list"] = self.ui_state["observing_list"]
+                self.target_index = 0
+            else:
+                self.message("No Obs List", 1)
 
         if self.target_index != None:
             self.ui_state["target"] = self.ui_state["active_list"][self.target_index]
@@ -126,7 +143,7 @@ class UILocate(UIModule):
     def key_down(self):
         self.scroll_target_history(1)
 
-    def delete(self):
+    def key_d(self):
         active_list = self.ui_state["active_list"]
         if self.target_index is not None and len(active_list) > 1:
             del active_list[self.target_index]
@@ -194,6 +211,9 @@ class UILocate(UIModule):
         return None, None
 
     def active(self):
+        super().active()
+        available_lists = obslist.get_lists()
+        self._config_options["Load"]["options"] = ["CANCEL"] + available_lists
         try:
             self.target_index = self.ui_state["active_list"].index(
                 self.ui_state["target"]

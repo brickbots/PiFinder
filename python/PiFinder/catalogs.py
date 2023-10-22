@@ -1,42 +1,18 @@
 import logging
 import time
+from typing import List, Dict, DefaultDict, Optional
+import numpy as np
+import pandas as pd
+from collections import defaultdict
+from sklearn.neighbors import BallTree
+
 import PiFinder.calc_utils as calc_utils
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
-import numpy as np
-import pandas as pd
-from collections import defaultdict
-from typing import List, Dict, DefaultDict, Optional
-from sklearn.neighbors import BallTree
+from PiFinder.composite_object import CompositeObject
 
 # collection of all catalog-related classes
-
-
-class CompositeObject:
-    """
-    Represents an object that is a combination of
-    catalog data and the basic data from the objects table
-    """
-
-    def __init__(self, data_dict):
-        self._data = data_dict
-
-    def __getattr__(self, name):
-        # Return the value if it exists in the dictionary.
-        # If not, raise an AttributeError.
-        try:
-            return self._data[name]
-        except KeyError:
-            raise AttributeError(
-                f"'{type(self).__name__}' object has no attribute '{name}'"
-            )
-
-    def __str__(self):
-        return f"CompositeObject: {str(self._data)}"
-
-    def __repr__(self):
-        return f"CompositeObject: {self.catalog_code} {self.sequence}"
 
 
 class Objects:
@@ -186,6 +162,10 @@ class Catalog:
 
         self.filtered_objects = {}
 
+        if observed_filter != "Any":
+            # prep observations db cache
+            self.observations_db.load_observed_objects_cache()
+
         fast_aa = None
         if altitude_filter != "None":
             # setup
@@ -198,10 +178,6 @@ class Catalog:
                     location["lon"],
                     dt,
                 )
-
-        if observed_filter != "Any":
-            # setup
-            observed_list = self.observations_db.get_observed_objects()
 
         for key, obj in self.cobjects.items():
             # print(f"filtering {obj}")
@@ -229,7 +205,8 @@ class Catalog:
                     include_obj = False
 
             if observed_filter != "Any":
-                if (obj.catalog_code, obj.sequence) in observed_list:
+                observed = self.observations_db.check_logged(obj)
+                if observed:
                     if observed_filter == "No":
                         include_obj = False
                 else:
@@ -397,9 +374,16 @@ class CatalogTracker:
             return None
         return self.current_catalog.cobjects[object_key]
 
-    def set_current_object(self, object_number, catalog_name=None):
+    def set_current_object(self, object_number: int, catalog_name: str = None):
         if catalog_name is not None:
-            self.set_current_catalog(catalog_name)
+            try:
+                self.set_current_catalog(catalog_name)
+            except AssertionError:
+                # Requested catalog not in tracker!
+                # Set to current catalog/zero
+                catalog_name = self.current_catalog_name
+                self.designator_tracker[catalog_name].set_number(0)
+                return
         else:
             catalog_name = self.current_catalog_name
         self.object_tracker[catalog_name] = object_number
@@ -467,6 +451,8 @@ class CatalogTracker:
         catalog_list_flat = [
             obj for catalog in catalog_list for obj in catalog.filtered_objects.values()
         ]
+        if len(catalog_list_flat) < n:
+            n = len(catalog_list_flat)
         object_radecs = [
             [np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in catalog_list_flat
         ]

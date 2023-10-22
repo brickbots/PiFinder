@@ -21,17 +21,18 @@ My hope is that other people will find this combination of functionality useful,
 - Wifi Access Point / SkySafari Integration:  The PiFinder can act as a WIFI access point to connect your tablet or phone to sync SkySafari or other planetarium software with your scope.
 
 ## Build Your Own
-The PiFinder is fully open-source hardware and software.  You can order PCB's and 3d print the case with the files in this repo and order all the parts from the [parts List](./docs/BOM.md).  
+The PiFinder is fully open-source hardware and software.  You can order PCB's and 3d print the case with the files in this repo and order all the parts from the [parts List](https://pifinder.readthedocs.io/en/release/BOM.html).
 
-If you would like pre-assembled units, kits or other items to jump start your PiFinder journey, visit [PiFinder.io](https://www.pifinder.io/build-yours) to see what's available and place an order.
+If you would like pre-assembled units, kits or other items to jump start your PiFinder journey, visit [PiFinder.io](https://www.pifinder.io/build-pifinder) to see what's available and place an order.
 
 ## Docs
 
-* [User Manual](./docs/user_guide.md)
-* [Parts List](./docs/BOM.md) 
-* [Build Guide](./docs/build_guide.md)
-* [Software Setup](./docs/software.md)
-* [Developer Guide](./docs/dev_guide.md)
+* [Quick Start](https://pifinder.readthedocs.io/en/release/quick_start.html)
+* [User Manual](https://pifinder.readthedocs.io/en/release/user_guide.html)
+* [Parts List](https://pifinder.readthedocs.io/en/release/BOM.html)
+* [Build Guide](https://pifinder.readthedocs.io/en/release/build_guide.html)
+* [Software Setup](https://pifinder.readthedocs.io/en/release/software.html)
+* [Developer Guide](https://pifinder.readthedocs.io/en/release/dev_guide.html)
 
 ## Releases and Updates
 
@@ -39,7 +40,7 @@ If you are using a PiFinder, I recommend you watch releases in this repo.  Click
 
 ![PiFinder on my Dob](./images/PiFinder_on_scope.jpg)
 
-If you'd like to learn more about how it works, and potentially build your own, everything you need should be here.  I recommend starting with the [User Manual](./docs/user_guide.md) and then checking out the build process using the links below.
+If you'd like to learn more about how it works, and potentially build your own, everything you need should be here.  I recommend starting with the [User Manual](https://pifinder.readthedocs.io/en/release/user_guide.html) and then checking out the build process using the links below.
 
 ## Discord
 Join the  [PiFinder Discord server](https://discord.gg/Nk5fHcAtWD) for support with your build, usage questions, and suggestions for improvement.

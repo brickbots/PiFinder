@@ -22,19 +22,24 @@ from PiFinder.ui.base import UIModule
 
 
 class UIPreview(UIModule):
-    __title__ = "PREVIEW"
+    __title__ = "CAMERA"
+    __button_hints__ = {
+        "B": "Align",
+        "C": "BG Sub",
+        "D": "Reticle",
+    }
     _config_options = {
         "Reticle": {
             "type": "enum",
-            "value": "Low",
+            "value": "High",
             "options": ["Off", "Low", "Med", "High"],
             "hotkey": "D",
             "callback": "exit_config",
         },
         "BG Sub": {
-            "type": "bool",
-            "value": "On",
-            "options": ["On", "Off"],
+            "type": "enum",
+            "value": "Half",
+            "options": ["Off", "Half", "Full"],
             "hotkey": "C",
         },
         "Gamma Adj": {
@@ -72,6 +77,7 @@ class UIPreview(UIModule):
         self.reticle_mode = 2
         self.last_update = time.time()
         self.solution = None
+        self.font_small = fonts.small
 
         self.capture_prefix = f"{self.__uuid__}_diag"
         self.capture_count = 0
@@ -200,8 +206,11 @@ class UIPreview(UIModule):
 
             # Resize
             image_obj = image_obj.resize((128, 128))
-            if self._config_options["BG Sub"]["value"] == "On":
-                image_obj = subtract_background(image_obj)
+            if self._config_options["BG Sub"]["value"] != "Off":
+                if self._config_options["BG Sub"]["value"] == "Half":
+                    image_obj = subtract_background(image_obj, percent=0.5)
+                if self._config_options["BG Sub"]["value"] == "Full":
+                    image_obj = subtract_background(image_obj, percent=1)
             image_obj = image_obj.convert("RGB")
             image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
             image_obj = ImageOps.autocontrast(image_obj)
@@ -216,12 +225,12 @@ class UIPreview(UIModule):
             self.screen.paste(image_obj)
             self.last_update = last_image_time
 
-            self.title = "PREVIEW"
-
             self.draw_reticle()
             if self.align_mode:
                 self.draw_star_selectors()
-        return self.screen_update(title_bar=not self.align_mode)
+        return self.screen_update(
+            title_bar=not self.align_mode, button_hints=not self.align_mode
+        )
 
     def key_b(self):
         """

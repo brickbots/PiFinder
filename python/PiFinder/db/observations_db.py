@@ -1,9 +1,10 @@
 import json
-from sqlite3 import Connection, Cursor, Error
+from pathlib import Path
 from typing import Tuple
+from sqlite3 import Connection, Cursor, Error
 from PiFinder.db.db import Database
 import PiFinder.utils as utils
-from pathlib import Path
+from PiFinder.composite_object import CompositeObject
 
 
 class ObservationsDatabase(Database):
@@ -15,6 +16,8 @@ class ObservationsDatabase(Database):
         super().__init__(conn, cursor, db_path)
         if new_db:
             self.create_tables()
+
+        self.observed_objects_cache = None
 
     def create_tables(self, force_delete: bool = False):
         """
@@ -123,7 +126,43 @@ class ObservationsDatabase(Database):
         ).fetchone()["id"]
         return observation_id
 
-    def get_logs_for_object(self, obj_record):
+    def get_observed_objects(self):
+        """
+        Returns a list of all observed objects
+        """
+        logs = self.cursor.execute(
+            f"""
+                select distinct catalog, sequence from obs_objects
+            """
+        ).fetchall()
+
+        return logs
+
+    def load_observed_objects_cache(self):
+        """
+        (re)Loads the logged object cache
+        """
+        self.observed_objects_cache = [
+            (x["catalog"], x["sequence"]) for x in self.get_observed_objects()
+        ]
+
+    def check_logged(self, obj_record: CompositeObject):
+        """
+        Returns true/false if this object has been observed
+        """
+        # safety check
+        if self.observed_objects_cache == None:
+            self.load_observed_objects_cache()
+
+        if (
+            obj_record.catalog_code,
+            obj_record.sequence,
+        ) in self.observed_objects_cache:
+            return True
+
+        return False
+
+    def get_logs_for_object(self, obj_record: CompositeObject):
         """
         Returns a list of observations for a particular object
         """
@@ -134,18 +173,6 @@ class ObservationsDatabase(Database):
                 and sequence = :sequence
             """,
             {"catalog": obj_record.catalog_code, "sequence": obj_record.sequence},
-        ).fetchall()
-
-        return logs
-
-    def get_observed_objects(self):
-        """
-        Returns a list of all observed objects
-        """
-        logs = self.cursor.execute(
-            f"""
-                select distinct catalog, sequence from obs_objects
-                """
         ).fetchall()
 
         return logs
