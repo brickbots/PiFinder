@@ -290,12 +290,21 @@ class UILocate(UIModule):
                 )
                 # self.draw.pieslice([0,65,40,85],150,210, fill=self.colors.get(255))
                 # self.draw.text((0, 50), "-", font=self.font_huge, fill=self.colors.get(255))
-            self.draw.text(
-                (25, 50),
-                f"{point_az : >5.1f}",
-                font=self.font_huge,
-                fill=self.colors.get(indicator_color),
-            )
+
+            if point_az < 1:
+                self.draw.text(
+                    (25, 50),
+                    f"{point_az : >5.2f}",
+                    font=self.font_huge,
+                    fill=self.colors.get(indicator_color),
+                )
+            else:
+                self.draw.text(
+                    (25, 50),
+                    f"{point_az : >5.1f}",
+                    font=self.font_huge,
+                    fill=self.colors.get(indicator_color),
+                )
 
             if point_alt >= 0:
                 self.draw.regular_polygon(
@@ -310,12 +319,20 @@ class UILocate(UIModule):
                 )
                 # self.draw.pieslice([0,104,20,144],270, 330, fill=self.colors.get(255))
                 # self.draw.text((0, 84), "-", font=self.font_huge, fill=self.colors.get(255))
-            self.draw.text(
-                (25, 84),
-                f"{point_alt : >5.1f}",
-                font=self.font_huge,
-                fill=self.colors.get(indicator_color),
-            )
+            if point_alt < 1:
+                self.draw.text(
+                    (25, 84),
+                    f"{point_alt : >5.2f}",
+                    font=self.font_huge,
+                    fill=self.colors.get(indicator_color),
+                )
+            else:
+                self.draw.text(
+                    (25, 84),
+                    f"{point_alt : >5.1f}",
+                    font=self.font_huge,
+                    fill=self.colors.get(indicator_color),
+                )
 
         return self.screen_update()
 
