@@ -267,6 +267,7 @@ class UILocate(UIModule):
         )
 
         # Pointing Instructions
+        indicator_color = 255 if self._unmoved else 128
         point_az, point_alt = self.aim_degrees()
         if not point_az:
             self.draw.text(
@@ -278,14 +279,14 @@ class UILocate(UIModule):
         else:
             if point_az >= 0:
                 self.draw.regular_polygon(
-                    (10, 75, 10), 3, 90, fill=self.colors.get(255)
+                    (10, 75, 10), 3, 90, fill=self.colors.get(indicator_color)
                 )
                 # self.draw.pieslice([-20,65,20,85],330, 30, fill=self.colors.get(255))
                 # self.draw.text((0, 50), "+", font=self.font_huge, fill=self.colors.get(255))
             else:
                 point_az *= -1
                 self.draw.regular_polygon(
-                    (10, 75, 10), 3, 270, fill=self.colors.get(255)
+                    (10, 75, 10), 3, 270, fill=self.colors.get(indicator_color)
                 )
                 # self.draw.pieslice([0,65,40,85],150,210, fill=self.colors.get(255))
                 # self.draw.text((0, 50), "-", font=self.font_huge, fill=self.colors.get(255))
@@ -293,19 +294,19 @@ class UILocate(UIModule):
                 (25, 50),
                 f"{point_az : >5.1f}",
                 font=self.font_huge,
-                fill=self.colors.get(255),
+                fill=self.colors.get(indicator_color),
             )
 
             if point_alt >= 0:
                 self.draw.regular_polygon(
-                    (10, 110, 10), 3, 0, fill=self.colors.get(255)
+                    (10, 110, 10), 3, 0, fill=self.colors.get(indicator_color)
                 )
                 # self.draw.pieslice([0,84,20,124],60, 120, fill=self.colors.get(255))
                 # self.draw.text((0, 84), "+", font=self.font_huge, fill=self.colors.get(255))
             else:
                 point_alt *= -1
                 self.draw.regular_polygon(
-                    (10, 105, 10), 3, 180, fill=self.colors.get(255)
+                    (10, 105, 10), 3, 180, fill=self.colors.get(indicator_color)
                 )
                 # self.draw.pieslice([0,104,20,144],270, 330, fill=self.colors.get(255))
                 # self.draw.text((0, 84), "-", font=self.font_huge, fill=self.colors.get(255))
@@ -313,7 +314,7 @@ class UILocate(UIModule):
                 (25, 84),
                 f"{point_alt : >5.1f}",
                 font=self.font_huge,
-                fill=self.colors.get(255),
+                fill=self.colors.get(indicator_color),
             )
 
         return self.screen_update()
