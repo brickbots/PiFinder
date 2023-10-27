@@ -217,17 +217,9 @@ class UIModule:
                     (102, -2), self._GPS_ICON, font=fonts.icon_bold_large, fill=fg
                 )
 
-            # when moving the unit, nothing else matters
             if moving:
-                # logging.debug("imu moving %s", imu["moving"])
                 self._unmoved = False
                 self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
-                self.draw.text(
-                    (117, -2),
-                    self._IMU_ICON,
-                    font=fonts.icon_bold_large,
-                    fill=fg,
-                )
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
@@ -238,13 +230,14 @@ class UIModule:
                         time_since_cam_solve = time.time() - solution["cam_solve_time"]
                         var_fg = min(64, int(time_since_cam_solve / 6 * 64))
                     self.draw.rectangle([115, 2, 125, 14], fill=bg)
-                    # draw the CAM or IMU icon
-                    self.draw.text(
-                        (117, -2),
-                        self._CAM_ICON if self._unmoved else self._IMU_ICON,
-                        font=fonts.icon_bold_large,
-                        fill=var_fg if self._unmoved else fg,
-                    )
+
+                    if self._unmoved:
+                        self.draw.text(
+                            (117, -2),
+                            self._CAM_ICON,
+                            font=fonts.icon_bold_large,
+                            fill=var_fg,
+                        )
                     # draw the constellation
                     constellation = solution["constellation"]
                     self.draw.text(
