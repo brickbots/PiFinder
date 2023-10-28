@@ -60,12 +60,6 @@ class UIStatus(UIModule):
             "options": ["right", "left", "flat", "CANCEL"],
             "callback": "side_switch",
         },
-        "Restart": {
-            "type": "enum",
-            "value": "",
-            "options": ["PiFi", "CANCEL"],
-            "callback": "restart",
-        },
         "Shutdown": {
             "type": "enum",
             "value": "",
