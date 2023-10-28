@@ -66,12 +66,6 @@ class UIStatus(UIModule):
             "options": ["Alt/Az", "EQ", "CANCEL"],
             "callback": "mount_switch",
         },
-        "Restart": {
-            "type": "enum",
-            "value": "",
-            "options": ["PiFi", "CANCEL"],
-            "callback": "restart",
-        },
         "Shutdown": {
             "type": "enum",
             "value": "",
