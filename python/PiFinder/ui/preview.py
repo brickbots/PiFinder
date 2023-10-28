@@ -53,12 +53,6 @@ class UIPreview(UIModule):
             "options": [0.05, 0.2, 0.4, 0.75, 1, 1.25, 1.5, 2],
             "callback": "set_exp",
         },
-        "Gain": {
-            "type": "enum",
-            "value": "",
-            "options": [1, 4, 10, 14, 20],
-            "callback": "set_gain",
-        },
         "Save Exp": {
             "type": "enum",
             "value": "",
