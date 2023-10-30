@@ -53,12 +53,6 @@ class UIPreview(UIModule):
             "options": [0.05, 0.2, 0.4, 0.75, 1, 1.25, 1.5, 2],
             "callback": "set_exp",
         },
-        "Gain": {
-            "type": "enum",
-            "value": "",
-            "options": [1, 4, 10, 14, 20],
-            "callback": "set_gain",
-        },
         "Save Exp": {
             "type": "enum",
             "value": "",
@@ -72,7 +66,6 @@ class UIPreview(UIModule):
 
         exposure_time = self.config_object.get_option("camera_exp")
         analog_gain = self.config_object.get_option("camera_gain")
-        self._config_options["Gain"]["value"] = analog_gain
         self._config_options["Exposure"]["value"] = exposure_time / 1000000
         self.reticle_mode = 2
         self.last_update = time.time()

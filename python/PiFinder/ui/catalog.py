@@ -406,6 +406,7 @@ class UICatalog(UIModule):
         self.catalog_tracker.next_catalog()
         self.catalog_tracker.filter()
         self.update_object_info()
+        self.object_display_mode = DM_DESC
 
     def key_long_c(self):
         self.delete()

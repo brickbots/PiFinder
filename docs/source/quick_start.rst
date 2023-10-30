@@ -9,7 +9,7 @@ We’ll walk you through getting your PiFinder up and running for the first time
 
 PiFinder uses its camera to take continuous pictures of the stars it sees, compares those stars to its database, and then tells you exactly where you’re pointed. It does that process, called “plate solving”, constantly, so it always knows where you’re aimed. It also uses an accelerometer (much like most modern mobile phones) to feel when you move the scope, and these two processes help tell it where you are, and the PiFinder in turn can tell you where you need to go.
 
-PiFinder was created by software engineer and amature astronomer Richard Wolff-Jacobson, who realized he could use his engineering and coding experience to create a brand new way to get more out of his time at the telescope. He saw that plate solving technology could be handled by the famous Raspberry Pi single-board computer and a simple camera. The software and rig he developed will turn your telescope into an accurate guide through the night sky.
+PiFinder was created by software engineer and amateur astronomer Richard Wolff-Jacobson, who realized he could use his engineering and coding experience to create a brand new way to get more out of his time at the telescope. He saw that plate solving technology could be handled by the famous Raspberry Pi single-board computer and a simple camera. The software and rig he developed will turn your telescope into an accurate guide through the night sky.
 
 
 Unboxing
@@ -17,7 +17,7 @@ Unboxing
 
 First, let’s get to know your PiFinder.
 
-There are two parts of your PiFinder that you’ll interact with: the camera, and the keypad/screen.
+There are two parts of your PiFinder that you’ll interact with: the keypad/screen and the camera.
 
 .. image:: images/quick_start/pf_front.jpeg
    :width: 45%
@@ -27,13 +27,13 @@ There are two parts of your PiFinder that you’ll interact with: the camera, an
 
 Powering the PiFinder
 ----------------------
-If you purchased or built your PiFinder with the optional internal battery, you’ll need to , charge the battery before first use. Plug a USB-C charging cable into the port on the top of the PiFinder, closest to the camera, as indicated below. For battery powered units, the power button is the small white switch located on top of the PiFinder above the screen as shown below with the right hand arrow. While facing the screen slide it right to turn it on, left to turn it off. 
+If you purchased or built your PiFinder with the optional internal battery, you’ll need to charge the battery before first use. Plug a USB-C charging cable into the port on the top of the PiFinder, closest to the camera, as indicated below. For battery powered units, the power switch is the small white switch located on top of the PiFinder above the screen as shown below with the right hand arrow. While facing the screen slide it right to turn it on, left to turn it off. 
 
 .. image:: images/quick_start/power.jpeg
 
-If you use an external power source, hook up your 5v 2amp battery pack cable to the USB-C port as shown above, there will be only one. If you have a dobsonian telescope, we recommend mounting your power source on your primary mirror box, as this can also serve as a counterweight for the PiFinder.
+If you use an external power source, hook up your battery pack (5v/2A) to the USB-C port on the Raspberry Pi which is closest to the keypad, there may be only one if you don't have the internal battery. If you have a dobsonian telescope, we recommend mounting your power source on your primary mirror box, as this can also serve as a counterweight for the PiFinder.
 
-Note that when you turn on your PiFinder for the first time, it will take a minute to start up. During startup, no image will appear on screen. This is normal and start up will be faster on subsequen power-ons.
+Note that when you turn on your PiFinder for the first time, it will take a minute to start up. During startup, no image will appear on screen. This is normal and start up will be faster on subsequent power-ons.
 
 Once the PiFinder is powered on, an welcome image will appear on the screen.  You’ll then see some information about the loading process and finally the CAMERA screen!
 
