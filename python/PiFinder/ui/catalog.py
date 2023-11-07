@@ -133,10 +133,24 @@ class UICatalog(UIModule):
         self.update_object_info()
 
     def _layout_designator(self):
+        """
+        Generates designator layout object
+        If there is a selected object which
+        is in the catalog, but not in the filtered
+        catalog, dim the designator out
+        """
+        designator_color = 255
+        current_designator = self.catalog_tracker.get_designator()
+        if (
+            current_designator.has_number()
+            and current_designator.object_number
+            not in self.catalog_tracker.current_catalog.filtered_objects
+        ):
+            designator_color = 128
         return self.simpleTextLayout(
-            str(self.catalog_tracker.get_designator()),
+            str(current_designator),
             font=fonts.large,
-            color=self.colors.get(255),
+            color=self.colors.get(designator_color),
         )
 
     def refresh_designator(self):
@@ -458,7 +472,9 @@ class UICatalog(UIModule):
             logging.debug("find by designator, objectnumber is 0")
             return False
 
-        if searching_for in self.catalog_tracker.current_catalog.filtered_objects:
+        # Use all objects here, not filtered, so we can
+        # surface any valid object in the catalog
+        if searching_for in self.catalog_tracker.current_catalog.cobjects:
             self.catalog_tracker.set_current_object(searching_for)
             return True
         else:
