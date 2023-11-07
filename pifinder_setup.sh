@@ -41,8 +41,10 @@ echo "dtoverlay=uart3" | sudo tee -a /boot/config.txt
 
 # Enable service
 sudo cp /home/pifinder/PiFinder/pifinder.service /etc/systemd/system/pifinder.service
+sudo cp /home/pifinder/PiFinder/pi_config_files/pifinder_splash.service /etc/systemd/system/pifinder_splash.service
 sudo systemctl daemon-reload
 sudo systemctl enable pifinder
+sudo systemctl enable pifinder_splash
 
 echo "PiFinder setup complete, please restart the Pi"
 
