@@ -1,0 +1,9 @@
+[Unit]
+Description=PiFinderSplash
+
+[Service]
+WorkingDirectory=/home/pifinder/PiFinder/python
+ExecStart=/usr/bin/python -m PiFinder.splash
+
+[Install]
+WantedBy=basic.target
