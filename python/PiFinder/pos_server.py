@@ -29,12 +29,7 @@ def get_telescope_ra(shared_state, _):
     if not solution:
         return "00:00:01"
 
-    ra = solution["RA"]
-    if ra < 0.0:
-        ra = ra + 360
-    mm, hh = modf(ra / 15.0)
-    _, mm = modf(mm * 60.0)
-    ss = round(_ * 60.0)
+    hh, mm, ss = calc_utils.ra_to_hms(solution["RA"])
     return f"{hh:02.0f}:{mm:02.0f}:{ss:02.0f}"
 
 

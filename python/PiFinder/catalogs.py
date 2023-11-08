@@ -1,46 +1,18 @@
 import logging
 import time
+from typing import List, Dict, DefaultDict, Optional
+import numpy as np
+import pandas as pd
+from collections import defaultdict
+from sklearn.neighbors import BallTree
+
 import PiFinder.calc_utils as calc_utils
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
-import numpy as np
-import pandas as pd
-from collections import defaultdict
-from typing import List, Dict, DefaultDict, Optional
-from sklearn.neighbors import BallTree
+from PiFinder.composite_object import CompositeObject
 
 # collection of all catalog-related classes
-
-
-class CompositeObject:
-    """
-    Represents an object that is a combination of
-    catalog data and the basic data from the objects table
-    """
-
-    def __init__(self, data_dict):
-        self.data = data_dict
-
-    def __getattr__(self, name):
-        # Return the value if it exists in the dictionary.
-        # If not, raise an AttributeError.
-        if name == "data":
-            raise AttributeError(
-                f"'{type(self).__name__}' object has not been properly initialized"
-            )
-        try:
-            return self.data[name]
-        except KeyError:
-            raise AttributeError(
-                f"'{type(self).__name__}' object has no attribute '{name}'"
-            )
-
-    def __str__(self):
-        return f"CompositeObject: {str(self.data)}"
-
-    def __repr__(self):
-        return f"CompositeObject: {self.catalog_code} {self.sequence}"
 
 
 class Objects:
@@ -62,6 +34,9 @@ class Objects:
         objects = self.db.get_objects()
         self.objects = {row["id"]: dict(row) for row in objects}
         self.composite_objects = self._init_composite_objects(cat_objects)
+        # This is used for caching catalog dicts
+        # to speed up repeated searches
+        self.catalog_dicts = {}
         logging.debug(f"Loaded {len(self.objects)} objects from database")
 
     def _init_composite_objects(self, catalog_objects: List[Dict]):
@@ -81,12 +56,18 @@ class Objects:
         return composite_objects
 
     def get_catalog_dict(self, catalog_code: str) -> Dict[int, CompositeObject]:
-        return {
-            composite_obj.sequence: composite_obj
-            for object_list in self.composite_objects.values()
-            for composite_obj in object_list
-            if composite_obj.catalog_code == catalog_code
-        }
+        if self.catalog_dicts.get(catalog_code) == None:
+            self.catalog_dicts[catalog_code] = {
+                composite_obj.sequence: composite_obj
+                for object_list in self.composite_objects.values()
+                for composite_obj in object_list
+                if composite_obj.catalog_code == catalog_code
+            }
+
+        return self.catalog_dicts[catalog_code]
+
+    def get_object_by_catalog_sequence(self, catalog_code: str, sequence: int):
+        return self.get_catalog_dict(catalog_code).get(sequence, None)
 
 
 class Names:
@@ -176,6 +157,10 @@ class Catalog(CatalogBase):
 
         self.filtered_objects = {}
 
+        if observed_filter != "Any":
+            # prep observations db cache
+            self.observations_db.load_observed_objects_cache()
+
         fast_aa = None
         if altitude_filter != "None":
             # setup
@@ -188,10 +173,6 @@ class Catalog(CatalogBase):
                     location["lon"],
                     dt,
                 )
-
-        if observed_filter != "Any":
-            # setup
-            observed_list = self.observations_db.get_observed_objects()
 
         for key, obj in self.cobjects.items():
             # print(f"filtering {obj}")
@@ -219,7 +200,8 @@ class Catalog(CatalogBase):
                     include_obj = False
 
             if observed_filter != "Any":
-                if (obj.catalog_code, obj.sequence) in observed_list:
+                observed = self.observations_db.check_logged(obj)
+                if observed:
                     if observed_filter == "No":
                         include_obj = False
                 else:
@@ -417,9 +399,16 @@ class CatalogTracker:
             return None
         return self.current_catalog.cobjects[object_key]
 
-    def set_current_object(self, object_number, catalog_name=None):
+    def set_current_object(self, object_number: int, catalog_name: str = None):
         if catalog_name is not None:
-            self.set_current_catalog(catalog_name)
+            try:
+                self.set_current_catalog(catalog_name)
+            except AssertionError:
+                # Requested catalog not in tracker!
+                # Set to current catalog/zero
+                catalog_name = self.current_catalog_name
+                self.designator_tracker[catalog_name].set_number(0)
+                return
         else:
             catalog_name = self.current_catalog_name
         self.object_tracker[catalog_name] = object_number
@@ -487,6 +476,8 @@ class CatalogTracker:
         catalog_list_flat = [
             obj for catalog in catalog_list for obj in catalog.filtered_objects.values()
         ]
+        if len(catalog_list_flat) < n:
+            n = len(catalog_list_flat)
         object_radecs = [
             [np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in catalog_list_flat
         ]

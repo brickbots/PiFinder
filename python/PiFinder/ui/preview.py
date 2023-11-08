@@ -22,19 +22,24 @@ from PiFinder.ui.base import UIModule
 
 
 class UIPreview(UIModule):
-    __title__ = "PREVIEW"
+    __title__ = "CAMERA"
+    __button_hints__ = {
+        "B": "Align",
+        "C": "BG Sub",
+        "D": "Reticle",
+    }
     _config_options = {
         "Reticle": {
             "type": "enum",
-            "value": "Low",
+            "value": "High",
             "options": ["Off", "Low", "Med", "High"],
             "hotkey": "D",
             "callback": "exit_config",
         },
         "BG Sub": {
-            "type": "bool",
-            "value": "On",
-            "options": ["On", "Off"],
+            "type": "enum",
+            "value": "Half",
+            "options": ["Off", "Half", "Full"],
             "hotkey": "C",
         },
         "Gamma Adj": {
@@ -47,12 +52,6 @@ class UIPreview(UIModule):
             "value": "",
             "options": [0.05, 0.2, 0.4, 0.75, 1, 1.25, 1.5, 2],
             "callback": "set_exp",
-        },
-        "Gain": {
-            "type": "enum",
-            "value": "",
-            "options": [1, 4, 10, 14, 20],
-            "callback": "set_gain",
         },
         "Save Exp": {
             "type": "enum",
@@ -67,11 +66,11 @@ class UIPreview(UIModule):
 
         exposure_time = self.config_object.get_option("camera_exp")
         analog_gain = self.config_object.get_option("camera_gain")
-        self._config_options["Gain"]["value"] = analog_gain
         self._config_options["Exposure"]["value"] = exposure_time / 1000000
         self.reticle_mode = 2
         self.last_update = time.time()
         self.solution = None
+        self.font_small = fonts.small
 
         self.capture_prefix = f"{self.__uuid__}_diag"
         self.capture_count = 0
@@ -81,6 +80,7 @@ class UIPreview(UIModule):
         # the centroiding returns an ndarray
         # so we're initialiazing one here
         self.star_list = ndarray((0, 2))
+        self.highlight_count = 0
 
     def set_exp(self, option):
         new_exposure = int(option * 1000000)
@@ -139,8 +139,8 @@ class UIPreview(UIModule):
 
             for _i in range(self.highlight_count):
                 raw_y, raw_x = self.star_list[_i]
-                star_x = int(raw_x / 4)
-                star_y = int(raw_y / 4)
+                star_x = int(raw_x / 2)
+                star_y = int(raw_y / 2)
 
                 x_direction = 1
                 x_text_offset = 6
@@ -189,12 +189,21 @@ class UIPreview(UIModule):
             # Do this at least once to get a numpy array in
             # star_list
             if self.align_mode:
-                self.star_list = tetra3.get_centroids_from_image(image_obj)
+                cent_image_obj = image_obj.resize((256, 256))
+                _t = time.time()
+                self.star_list = tetra3.get_centroids_from_image(
+                    cent_image_obj,
+                    sigma_mode="local_median_abs",
+                    filtsize=11,
+                )
 
             # Resize
             image_obj = image_obj.resize((128, 128))
-            if self._config_options["BG Sub"]["value"] == "On":
-                image_obj = subtract_background(image_obj)
+            if self._config_options["BG Sub"]["value"] != "Off":
+                if self._config_options["BG Sub"]["value"] == "Half":
+                    image_obj = subtract_background(image_obj, percent=0.5)
+                if self._config_options["BG Sub"]["value"] == "Full":
+                    image_obj = subtract_background(image_obj, percent=1)
             image_obj = image_obj.convert("RGB")
             image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
             image_obj = ImageOps.autocontrast(image_obj)
@@ -209,13 +218,12 @@ class UIPreview(UIModule):
             self.screen.paste(image_obj)
             self.last_update = last_image_time
 
-            self.title = "PREVIEW"
-
+            self.draw_reticle()
             if self.align_mode:
                 self.draw_star_selectors()
-
-        self.draw_reticle()
-        return self.screen_update()
+        return self.screen_update(
+            title_bar=not self.align_mode, button_hints=not self.align_mode
+        )
 
     def key_b(self):
         """
@@ -227,15 +235,6 @@ class UIPreview(UIModule):
             self.align_mode = True
 
         self.update(force=True)
-
-    def key_up(self):
-        self.command_queues["camera"].put("exp_up")
-
-    def key_down(self):
-        self.command_queues["camera"].put("exp_dn")
-
-    def key_enter(self):
-        self.command_queues["camera"].put("exp_save")
 
     def key_number(self, number):
         if self.align_mode:
@@ -249,22 +248,12 @@ class UIPreview(UIModule):
                 # They picked a star to align....
                 star_index = number - 1
                 if self.star_list.shape[0] > star_index:
-                    self.shared_state.set_solve_pixel(
-                        (self.star_list[star_index][0], self.star_list[star_index][1])
-                    )
+                    star_cam_x = self.star_list[star_index][0] * 2
+                    star_cam_y = self.star_list[star_index][1] * 2
+                    self.shared_state.set_solve_pixel((star_cam_x, star_cam_y))
                     self.config_object.set_option(
                         "solve_pixel",
-                        (
-                            float(self.star_list[star_index][0]),
-                            float(self.star_list[star_index][1]),
-                        ),
+                        (star_cam_x, star_cam_y),
                     )
                 self.align_mode = False
                 self.update(force=True)
-        else:
-            if number == 0:
-                self.capture_count += 1
-                capture_imagepath = (
-                    self.capture_prefix + f"_{self.capture_count :0>3}.png"
-                )
-                self.command_queues["camera"].put("save:" + capture_imagepath)

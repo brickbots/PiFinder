@@ -6,8 +6,47 @@
 """
 import time
 import datetime
+import pickle
 import pytz
 from PiFinder import config
+
+"""
+Example shared_state object:
+
+SharedStateObj(
+    power_state=1,
+    solve_state=True,
+    solution={'RA': 22.86683471463411, 'Dec': 15.347716050003328, 'imu_pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
+              'solve_time': 1695297930.5532792, 'cam_solve_time': 1695297930.5532837, 'Roll': 306.2951794424281, 'FOV': 10.200729425086111,
+              'RMSE': 21.995567413046142, 'Matches': 12, 'Prob': 6.987725483613384e-13, 'T_solve': 15.00384000246413, 'RA_target': 22.86683471463411,
+              'Dec_target': 15.347716050003328, 'T_extract': 75.79255499877036, 'Alt': None, 'Az': None, 'solve_source': 'CAM', 'constellation': 'Psc'},
+    imu={'moving': False, 'move_start': 1695297928.69749, 'move_end': 1695297928.764207, 'pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
+         'start_pos': [171.4009455613444, 202.76321535004726, 358.2587208386012], 'status': 3},
+    location={'lat': 59.05139745, 'lon': 7.987654, 'altitude': 151.4, 'gps_lock': False, 'timezone': 'Europe/Stockholm', 'last_gps_lock': None},
+    datetime=None,
+    screen=<PIL.Image.Image image mode=RGB size=128x128 at 0xE693C910>,
+    solve_pixel=[305.6970520019531, 351.9438781738281]
+)
+"""
+
+"""
+Example shared_state object:
+
+SharedStateObj(
+    power_state=1,
+    solve_state=True,
+    solution={'RA': 22.86683471463411, 'Dec': 15.347716050003328, 'imu_pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
+              'solve_time': 1695297930.5532792, 'cam_solve_time': 1695297930.5532837, 'Roll': 306.2951794424281, 'FOV': 10.200729425086111,
+              'RMSE': 21.995567413046142, 'Matches': 12, 'Prob': 6.987725483613384e-13, 'T_solve': 15.00384000246413, 'RA_target': 22.86683471463411,
+              'Dec_target': 15.347716050003328, 'T_extract': 75.79255499877036, 'Alt': None, 'Az': None, 'solve_source': 'CAM', 'constellation': 'Psc'},
+    imu={'moving': False, 'move_start': 1695297928.69749, 'move_end': 1695297928.764207, 'pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
+         'start_pos': [171.4009455613444, 202.76321535004726, 358.2587208386012], 'status': 3},
+    location={'lat': 59.05139745, 'lon': 7.987654, 'altitude': 151.4, 'gps_lock': False, 'timezone': 'Europe/Stockholm', 'last_gps_lock': None},
+    datetime=None,
+    screen=<PIL.Image.Image image mode=RGB size=128x128 at 0xE693C910>,
+    solve_pixel=[305.6970520019531, 351.9438781738281]
+)
+"""
 
 
 class UIState:
@@ -103,6 +142,10 @@ class SharedStateObj:
         self.__screen = None
         self.__ui_state = None
         self.__solve_pixel = config.Config().get_option("solve_pixel")
+
+    def serialize(self, output_file):
+        with open(output_file, "wb") as f:
+            pickle.dump(self, f)
 
     def solve_pixel(self, screen_space=False):
         """
@@ -205,21 +248,30 @@ class SharedStateObj:
     def set_ui_state(self, v):
         self.__ui_state = v
 
-    def __str__(self):
-        return str(
-            {
-                "power_state": self.__power_state,
-                "solve_state": self.__solve_state,
-                "last_image_metadata": self.__last_image_metadata,
-                "solution": self.__solution,
-                "imu": self.__imu,
-                "location": self.__location,
-                "datetime": self.__datetime,
-                "target": self.__target,
-                "screen": self.__screen,
-                "ui_state": self.__ui_state,
-            }
+    def __repr__(self):
+        # A simple representation showing key attributes (adjust as needed)
+        return (
+            f"SharedStateObj("
+            f"power_state={self.__power_state}, "
+            f"solve_state={self.__solve_state}, "
+            f"solution={self.__solution}, "
+            f"imu={self.__imu}, "
+            f"location={self.__location}, "
+            f"datetime={self.datetime()}, "
+            f"screen={self.__screen}, "
+            f"solve_pixel={self.__solve_pixel})"
         )
 
-    def __repr__(self):
-        return self.__str__()
+    def __str__(self):
+        # A more human-friendly representation (adjust as needed)
+        return (
+            f"Shared State Object:\n"
+            f"Power State: {self.__power_state}\n"
+            f"Solve State: {self.__solve_state}\n"
+            f"Solution: {self.__solution}\n"
+            f"IMU: {self.__imu}\n"
+            f"Location: {self.__location}\n"
+            f"Date-Time: {self.datetime()}\n"
+            f"Screen: {self.__screen}\n"
+            f"Solve Pixel: {self.__solve_pixel}"
+        )

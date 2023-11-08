@@ -20,6 +20,11 @@ class UILocate(UIModule):
     """
 
     __title__ = "LOCATE"
+    __button_hints__ = {
+        "B": "Histry",
+        "C": "Observ",
+        "D": "Remove",
+    }
 
     _config_options = {
         "Save": {
@@ -31,7 +36,7 @@ class UILocate(UIModule):
         "Load": {
             "type": "enum",
             "value": "",
-            "options": ["CANCEL"],
+            "options": [],
             "callback": "load_list",
         },
     }
@@ -46,7 +51,7 @@ class UILocate(UIModule):
         self.screen_direction = config.Config().get_option("screen_direction")
 
         available_lists = obslist.get_lists()
-        self._config_options["Load"]["options"] += available_lists
+        self._config_options["Load"]["options"] = ["CANCEL"] + available_lists
         self.obs_list_write_index = 0
         self.last_update_time = time.time()
 
@@ -78,7 +83,7 @@ class UILocate(UIModule):
             self.message(f"Err! {_load_results['message']}")
             return False
 
-        object_count = len(_load_results["catalog"])
+        object_count = len(_load_results["catalog_objects"])
         if object_count == 0:
             self.message("No matches")
             return False
@@ -93,15 +98,11 @@ class UILocate(UIModule):
 
     def key_b(self):
         """
-        When B is pressed, switch target lists
+        When B is pressed, switch to history
         """
         self.target_index = None
         if self.ui_state.active_list_is_history_list():
-            if len(self.ui_state.observing_list()) > 0:
-                self.ui_state.active_list_to_observing_list()
-                self.target_index = 0
-            else:
-                self.message("No Obs List", 1)
+            pass
         else:
             if len(self.ui_state.history_list()) > 0:
                 self.ui_state.set_active_list_to_history_list()
@@ -111,6 +112,40 @@ class UILocate(UIModule):
 
         if self.target_index != None:
             self.ui_state.set_target_to_active_list_index(self.target_index)
+            self.update_object_text()
+
+    def key_c(self):
+        """
+        When C is pressed, switch to observing list
+        """
+        if self.ui_state["active_list"] == self.ui_state["observing_list"]:
+            pass
+        else:
+            if len(self.ui_state["observing_list"]) > 0:
+                self.ui_state["active_list"] = self.ui_state["observing_list"]
+                self.target_index = 0
+            else:
+                self.message("No Obs List", 1)
+
+        if self.target_index != None:
+            self.ui_state.set_target_to_active_list_index(self.target_index)
+            self.update_object_text()
+
+    def key_c(self):
+        """
+        When C is pressed, switch to observing list
+        """
+        if self.ui_state["active_list"] == self.ui_state["observing_list"]:
+            pass
+        else:
+            if len(self.ui_state["observing_list"]) > 0:
+                self.ui_state["active_list"] = self.ui_state["observing_list"]
+                self.target_index = 0
+            else:
+                self.message("No Obs List", 1)
+
+        if self.target_index != None:
+            self.ui_state["target"] = self.ui_state["active_list"][self.target_index]
             self.update_object_text()
 
     def key_enter(self):
@@ -192,6 +227,9 @@ class UILocate(UIModule):
         return None, None
 
     def active(self):
+        super().active()
+        available_lists = obslist.get_lists()
+        self._config_options["Load"]["options"] = ["CANCEL"] + available_lists
         try:
             self.target_index = self.ui_state.active_list().index(
                 self.ui_state.target()
@@ -245,6 +283,7 @@ class UILocate(UIModule):
         )
 
         # Pointing Instructions
+        indicator_color = 255 if self._unmoved else 128
         point_az, point_alt = self.aim_degrees()
         if not point_az:
             self.draw.text(
@@ -256,43 +295,60 @@ class UILocate(UIModule):
         else:
             if point_az >= 0:
                 self.draw.regular_polygon(
-                    (10, 75, 10), 3, 90, fill=self.colors.get(255)
+                    (10, 75, 10), 3, 90, fill=self.colors.get(indicator_color)
                 )
                 # self.draw.pieslice([-20,65,20,85],330, 30, fill=self.colors.get(255))
                 # self.draw.text((0, 50), "+", font=self.font_huge, fill=self.colors.get(255))
             else:
                 point_az *= -1
                 self.draw.regular_polygon(
-                    (10, 75, 10), 3, 270, fill=self.colors.get(255)
+                    (10, 75, 10), 3, 270, fill=self.colors.get(indicator_color)
                 )
                 # self.draw.pieslice([0,65,40,85],150,210, fill=self.colors.get(255))
                 # self.draw.text((0, 50), "-", font=self.font_huge, fill=self.colors.get(255))
-            self.draw.text(
-                (25, 50),
-                f"{point_az : >5.1f}",
-                font=self.font_huge,
-                fill=self.colors.get(255),
-            )
+
+            if point_az < 1:
+                self.draw.text(
+                    (25, 50),
+                    f"{point_az : >5.2f}",
+                    font=self.font_huge,
+                    fill=self.colors.get(indicator_color),
+                )
+            else:
+                self.draw.text(
+                    (25, 50),
+                    f"{point_az : >5.1f}",
+                    font=self.font_huge,
+                    fill=self.colors.get(indicator_color),
+                )
 
             if point_alt >= 0:
                 self.draw.regular_polygon(
-                    (10, 110, 10), 3, 0, fill=self.colors.get(255)
+                    (10, 110, 10), 3, 0, fill=self.colors.get(indicator_color)
                 )
                 # self.draw.pieslice([0,84,20,124],60, 120, fill=self.colors.get(255))
                 # self.draw.text((0, 84), "+", font=self.font_huge, fill=self.colors.get(255))
             else:
                 point_alt *= -1
                 self.draw.regular_polygon(
-                    (10, 105, 10), 3, 180, fill=self.colors.get(255)
+                    (10, 105, 10), 3, 180, fill=self.colors.get(indicator_color)
                 )
                 # self.draw.pieslice([0,104,20,144],270, 330, fill=self.colors.get(255))
                 # self.draw.text((0, 84), "-", font=self.font_huge, fill=self.colors.get(255))
-            self.draw.text(
-                (25, 84),
-                f"{point_alt : >5.1f}",
-                font=self.font_huge,
-                fill=self.colors.get(255),
-            )
+            if point_alt < 1:
+                self.draw.text(
+                    (25, 84),
+                    f"{point_alt : >5.2f}",
+                    font=self.font_huge,
+                    fill=self.colors.get(indicator_color),
+                )
+            else:
+                self.draw.text(
+                    (25, 84),
+                    f"{point_alt : >5.1f}",
+                    font=self.font_huge,
+                    fill=self.colors.get(indicator_color),
+                )
 
         return self.screen_update()
 

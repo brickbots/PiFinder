@@ -73,7 +73,7 @@ def gamma_correct(in_value, gamma):
     return out_value
 
 
-def subtract_background(image):
+def subtract_background(image, percent=1):
     image = np.asarray(image, dtype=np.float32)
     if image.ndim == 3:
         assert image.shape[2] in (1, 3), "Colour image must have 1 or 3 colour channels"
@@ -88,8 +88,9 @@ def subtract_background(image):
     else:
         assert image.ndim == 2, "Image must be 2D or 3D array"
 
-    image = image - scipy.ndimage.filters.uniform_filter(
-        image, size=25, output=image.dtype
+    image = image - (
+        scipy.ndimage.filters.uniform_filter(image, size=25, output=image.dtype)
+        * percent
     )
     return Image.fromarray(image)
 

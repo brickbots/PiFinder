@@ -2,8 +2,8 @@
     "display_brightness": 255,
     "keypad_brightness": "0",
     "last_location": {
-        "lat": 34.030435,
-        "lon": -118.49151833333333,
+        "lat": 34.0,
+        "lon": -118.0,
         "altitude": 51.0,
         "gps_lock": false,
         "timezone": "America/Los_Angeles"
@@ -13,6 +13,8 @@
     "screen_direction": "right",
     "solver_debug": 0,
     "sleep_timeout": "30s",
+    "screen_off_timeout": "Off",
+    "hint_timeout": "2s",
     "solve_pixel": [256, 256],
     "catalogs": [
         "NGC",
@@ -20,9 +22,19 @@
         "M",
         "C",
         "Col",
+        "H",
+        "Ta2",
+        "Str",
         "SaA",
         "SaM",
-        "SaR",
-        "Ta2"
+        "SaR"
+    ],
+    "active_catalogs": [
+        "NGC",
+        "M",
+        "H",
+        "Ta2",
+        "Str",
+        "SaA"
     ]
 }
