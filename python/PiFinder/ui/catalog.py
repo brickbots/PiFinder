@@ -88,9 +88,7 @@ class UICatalog(UIModule):
 
     def __init__(self, *args):
         super().__init__(*args)
-
         self.catalog_names = self.config_object.get_option("active_catalogs")
-
         self._config_options["Catalogs"]["value"] = self.catalog_names.copy()
         self._config_options["Catalogs"]["options"] = self.config_object.get_option(
             "catalogs"
@@ -175,7 +173,6 @@ class UICatalog(UIModule):
     def push_cat(self, obj_amount):
         self._config_options["Push Cat."]["value"] = ""
         if obj_amount == "Go":
-            solution = self.shared_state.solution()
             self.message("Catalog Pushed", 2)
 
             # Filter the catalog one last time

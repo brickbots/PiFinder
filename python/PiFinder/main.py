@@ -226,17 +226,6 @@ def main(script_name=None, has_server=False, show_fps=False):
     }
     cfg = config.Config()
 
-    # Unit UI shared state
-    ui_state = {
-        "history_list": [],
-        "observing_list": [],
-        "target": None,
-        "message_timeout": 0,
-        "show_fps": show_fps,
-        "hint_timeout": cfg.get_option("hint_timeout"),
-    }
-    ui_state["active_list"] = ui_state["history_list"]
-
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness, cfg)
@@ -244,7 +233,11 @@ def main(script_name=None, has_server=False, show_fps=False):
     with StateManager() as manager:
         shared_state = manager.SharedState()
         ui_state = manager.UIState()
+        ui_state.set_show_fps(show_fps)
+        ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
+        ui_state.set_active_list_to_history_list()
         shared_state.set_ui_state(ui_state)
+        logging.debug("Ui state in main is" + str(shared_state.ui_state()))
         console = UIConsole(display_device, None, shared_state, command_queues, cfg)
         console.write("Starting....")
         console.update()

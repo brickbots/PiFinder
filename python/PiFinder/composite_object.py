@@ -1,4 +1,5 @@
 # CompositeObject class
+import logging
 
 
 class CompositeObject:
@@ -14,11 +15,22 @@ class CompositeObject:
         # Return the value if it exists in the dictionary.
         # If not, raise an AttributeError.
         try:
-            return self._data[name]
+            if name in self._data:
+                return self._data[name]
+            else:
+                logging.debug("CompositeObject: %s not found in %s", name, self._data)
         except KeyError:
             raise AttributeError(
                 f"'{type(self).__name__}' object has no attribute '{name}'"
             )
+
+    # getstate and setstate are needed because of the pickling that happens in the manager.
+    # we should probably not use the manager for interthread communication
+    def __getstate__(self):
+        return self._data
+
+    def __setstate__(self, state):
+        self._data = state
 
     def __str__(self):
         return f"CompositeObject: {str(self._data)}"

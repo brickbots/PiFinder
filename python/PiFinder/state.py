@@ -9,44 +9,7 @@ import datetime
 import pickle
 import pytz
 from PiFinder import config
-
-"""
-Example shared_state object:
-
-SharedStateObj(
-    power_state=1,
-    solve_state=True,
-    solution={'RA': 22.86683471463411, 'Dec': 15.347716050003328, 'imu_pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
-              'solve_time': 1695297930.5532792, 'cam_solve_time': 1695297930.5532837, 'Roll': 306.2951794424281, 'FOV': 10.200729425086111,
-              'RMSE': 21.995567413046142, 'Matches': 12, 'Prob': 6.987725483613384e-13, 'T_solve': 15.00384000246413, 'RA_target': 22.86683471463411,
-              'Dec_target': 15.347716050003328, 'T_extract': 75.79255499877036, 'Alt': None, 'Az': None, 'solve_source': 'CAM', 'constellation': 'Psc'},
-    imu={'moving': False, 'move_start': 1695297928.69749, 'move_end': 1695297928.764207, 'pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
-         'start_pos': [171.4009455613444, 202.76321535004726, 358.2587208386012], 'status': 3},
-    location={'lat': 59.05139745, 'lon': 7.987654, 'altitude': 151.4, 'gps_lock': False, 'timezone': 'Europe/Stockholm', 'last_gps_lock': None},
-    datetime=None,
-    screen=<PIL.Image.Image image mode=RGB size=128x128 at 0xE693C910>,
-    solve_pixel=[305.6970520019531, 351.9438781738281]
-)
-"""
-
-"""
-Example shared_state object:
-
-SharedStateObj(
-    power_state=1,
-    solve_state=True,
-    solution={'RA': 22.86683471463411, 'Dec': 15.347716050003328, 'imu_pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
-              'solve_time': 1695297930.5532792, 'cam_solve_time': 1695297930.5532837, 'Roll': 306.2951794424281, 'FOV': 10.200729425086111,
-              'RMSE': 21.995567413046142, 'Matches': 12, 'Prob': 6.987725483613384e-13, 'T_solve': 15.00384000246413, 'RA_target': 22.86683471463411,
-              'Dec_target': 15.347716050003328, 'T_extract': 75.79255499877036, 'Alt': None, 'Az': None, 'solve_source': 'CAM', 'constellation': 'Psc'},
-    imu={'moving': False, 'move_start': 1695297928.69749, 'move_end': 1695297928.764207, 'pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
-         'start_pos': [171.4009455613444, 202.76321535004726, 358.2587208386012], 'status': 3},
-    location={'lat': 59.05139745, 'lon': 7.987654, 'altitude': 151.4, 'gps_lock': False, 'timezone': 'Europe/Stockholm', 'last_gps_lock': None},
-    datetime=None,
-    screen=<PIL.Image.Image image mode=RGB size=128x128 at 0xE693C910>,
-    solve_pixel=[305.6970520019531, 351.9438781738281]
-)
-"""
+import logging
 
 
 class UIState:
@@ -56,6 +19,8 @@ class UIState:
         self.__active_list = []
         self.__target = None
         self.__message_timeout = 0
+        self.__hint_timeout = 0
+        self.__show_fps = False
 
     def observing_list(self):
         return self.__observing_list
@@ -87,11 +52,26 @@ class UIState:
     def set_message_timeout(self, v):
         self.__message_timeout = v
 
+    def hint_timeout(self):
+        return self.__hint_timeout
+
+    def set_hint_timeout(self, v):
+        self.__hint_timeout = v
+
+    def show_fps(self):
+        return self.__show_fps
+
+    def set_show_fps(self, v: bool):
+        self.__show_fps = v
+
     def set_active_list_to_observing_list(self):
         self.__active_list = self.__observing_list
 
     def active_list_is_history_list(self):
         return self.__active_list == self.__history_list
+
+    def active_list_is_observing_list(self):
+        return self.__active_list == self.__observing_list
 
     def set_active_list_to_history_list(self):
         self.__active_list = self.__history_list
@@ -100,8 +80,8 @@ class UIState:
         self.__target = self.__active_list[index]
 
     def set_target_and_add_to_history(self, target):
-        print("set_target_and_add_to_history")
-        print(f"setting target to {target}")
+        logging.debug("set_target_and_add_to_history")
+        logging.debug(f"setting target to {target}")
         self.__target = target
         if len(self.__history_list) == 0:
             self.__history_list.append(self.__target)
@@ -121,6 +101,26 @@ class UIState:
 
     def __repr__(self):
         return self.__str__()
+
+
+"""
+Example shared_state object:
+
+SharedStateObj(
+    power_state=1,
+    solve_state=True,
+    solution={'RA': 22.86683471463411, 'Dec': 15.347716050003328, 'imu_pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
+              'solve_time': 1695297930.5532792, 'cam_solve_time': 1695297930.5532837, 'Roll': 306.2951794424281, 'FOV': 10.200729425086111,
+              'RMSE': 21.995567413046142, 'Matches': 12, 'Prob': 6.987725483613384e-13, 'T_solve': 15.00384000246413, 'RA_target': 22.86683471463411,
+              'Dec_target': 15.347716050003328, 'T_extract': 75.79255499877036, 'Alt': None, 'Az': None, 'solve_source': 'CAM', 'constellation': 'Psc'},
+    imu={'moving': False, 'move_start': 1695297928.69749, 'move_end': 1695297928.764207, 'pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
+         'start_pos': [171.4009455613444, 202.76321535004726, 358.2587208386012], 'status': 3},
+    location={'lat': 59.05139745, 'lon': 7.987654, 'altitude': 151.4, 'gps_lock': False, 'timezone': 'Europe/Stockholm', 'last_gps_lock': None},
+    datetime=None,
+    screen=<PIL.Image.Image image mode=RGB size=128x128 at 0xE693C910>,
+    solve_pixel=[305.6970520019531, 351.9438781738281]
+)
+"""
 
 
 class SharedStateObj:

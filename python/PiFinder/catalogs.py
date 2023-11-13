@@ -213,8 +213,7 @@ class Catalog(CatalogBase):
         self.filtered_objects_keys_sorted = self._get_sorted_keys(self.filtered_objects)
 
     def __repr__(self):
-        return "catalog repr"
-        # return f"Catalog({self.name=}, {self.max_sequence=})"
+        return f"Catalog({self.name=}, {self.max_sequence=})"
 
     def __str__(self):
         return self.__repr__()
@@ -321,7 +320,6 @@ class CatalogTracker:
 
     def add_foreign_catalog(self, catalog_name):
         """foreign objects not in our databasa, e.g. skysafari coords"""
-        print(f"adding foreign catalog {catalog_name}")
         self.catalogs[catalog_name] = Catalog(catalog_name, self.obj)
         self.catalog_names.append(catalog_name)
         self.designator_tracker[catalog_name] = CatalogDesignator(catalog_name, 1)

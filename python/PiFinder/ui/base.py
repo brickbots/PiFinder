@@ -15,6 +15,7 @@ from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder import utils
 from PiFinder import calc_utils
 from PiFinder.image_util import DeviceWrapper
+from PiFinder.config import Config
 
 
 class UIModule:
@@ -34,8 +35,9 @@ class UIModule:
         camera_image,
         shared_state,
         command_queues,
-        config_object=None,
+        config_object,
     ):
+        assert shared_state is not None
         self.title = self.__title__
         self.button_hints = self.__button_hints__
         self.button_hints_timer = time.time()
@@ -58,7 +60,7 @@ class UIModule:
         prefix = f"{self.__uuid__}_{self.__title__}"
         self.ss_path = os.path.join(root_dir, "screenshots", prefix)
         self.ss_count = 0
-        self.config_object = config_object
+        self.config_object: Config = config_object
 
         # FPS
         self.fps = 0
@@ -157,7 +159,7 @@ class UIModule:
         if (
             button_hints
             and time.time() - self.button_hints_timer
-            < hint_timeout_decode.get(self.ui_state["hint_timeout"], 2)
+            < hint_timeout_decode.get(self.ui_state.hint_timeout(), 2)
         ):
             # Bottom button help
 
@@ -202,7 +204,7 @@ class UIModule:
             fg = self.colors.get(0)
             bg = self.colors.get(64)
             self.draw.rectangle([0, 0, 128, self._title_bar_y], fill=bg)
-            if self.ui_state.get("show_fps"):
+            if self.ui_state.show_fps():
                 self.draw.text((6, 1), str(self.fps), font=self.font_bold, fill=fg)
             else:
                 self.draw.text((6, 1), self.title, font=self.font_bold, fill=fg)

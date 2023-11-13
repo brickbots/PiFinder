@@ -118,34 +118,17 @@ class UILocate(UIModule):
         """
         When C is pressed, switch to observing list
         """
-        if self.ui_state["active_list"] == self.ui_state["observing_list"]:
+        if self.ui_state.active_list_is_observing_list():
             pass
         else:
-            if len(self.ui_state["observing_list"]) > 0:
-                self.ui_state["active_list"] = self.ui_state["observing_list"]
+            if len(self.ui_state.observing_list()) > 0:
+                self.ui_state.set_active_list_to_observing_list()
                 self.target_index = 0
             else:
                 self.message("No Obs List", 1)
 
-        if self.target_index != None:
+        if self.target_index is not None:
             self.ui_state.set_target_to_active_list_index(self.target_index)
-            self.update_object_text()
-
-    def key_c(self):
-        """
-        When C is pressed, switch to observing list
-        """
-        if self.ui_state["active_list"] == self.ui_state["observing_list"]:
-            pass
-        else:
-            if len(self.ui_state["observing_list"]) > 0:
-                self.ui_state["active_list"] = self.ui_state["observing_list"]
-                self.target_index = 0
-            else:
-                self.message("No Obs List", 1)
-
-        if self.target_index != None:
-            self.ui_state["target"] = self.ui_state["active_list"][self.target_index]
             self.update_object_text()
 
     def key_enter(self):
