@@ -319,8 +319,21 @@ class CatalogTracker:
         self.object_tracker = {c: None for c in self.catalog_names}
 
     def add_foreign_catalog(self, catalog_name):
-        """foreign objects not in our databasa, e.g. skysafari coords"""
-        self.catalogs[catalog_name] = Catalog(catalog_name, self.obj)
+        """foreign objects not in our database, e.g. skysafari coords"""
+        print(f"adding foreign catalog {catalog_name}")
+        print(f"current catalog names: {self.catalog_names}")
+        print(f"current catalog name: {self.current_catalog_name}")
+        print(f"current catalog: {self.current_catalog}")
+        print(f"current object: {self.get_current_object()}")
+        print(f"current designator: {self.get_designator()}")
+        print(f"ui state: {str(self.shared_state.ui_state)}")
+        self.catalogs[catalog_name] = Catalog(
+            "PUSH",
+            1,
+            "Skysafari push",
+            catalog_name,
+            {1: self.shared_state.ui_state.target()},
+        )
         self.catalog_names.append(catalog_name)
         self.designator_tracker[catalog_name] = CatalogDesignator(catalog_name, 1)
         self.object_tracker[catalog_name] = None

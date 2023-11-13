@@ -260,6 +260,7 @@ class SharedStateObj:
             f"datetime={self.datetime()}, "
             f"screen={self.__screen}, "
             f"solve_pixel={self.__solve_pixel})"
+            f"UI_state={self.__ui_state})"
         )
 
     def __str__(self):
@@ -274,4 +275,5 @@ class SharedStateObj:
             f"Date-Time: {self.datetime()}\n"
             f"Screen: {self.__screen}\n"
             f"Solve Pixel: {self.__solve_pixel}"
+            f"UI_state={self.__ui_state})"
         )

@@ -11,7 +11,7 @@ from math import modf
 import logging
 import re
 from typing import Tuple, List
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg
+from PiFinder.calc_utils import ra_to_deg, dec_to_deg, ra_to_hms
 from PiFinder.catalogs import CompositeObject
 
 
@@ -29,7 +29,7 @@ def get_telescope_ra(shared_state, _):
     if not solution:
         return "00:00:01"
 
-    hh, mm, ss = calc_utils.ra_to_hms(solution["RA"])
+    hh, mm, ss = ra_to_hms(solution["RA"])
     return f"{hh:02.0f}:{mm:02.0f}:{ss:02.0f}"
 
 
@@ -87,6 +87,7 @@ def parse_sr_command(_, input_str: str):
     global sr_result
     pattern = r":Sr([-+]?\d{2}):(\d{2}):(\d{2})#"
     match = _match_to_hms(pattern, input_str)
+    # logging.debug(f"Parsing sr command, match: {match}")
     if match:
         sr_result = match
         return "1"
@@ -98,6 +99,7 @@ def parse_sd_command(shared_state, input_str: str):
     global sr_result
     pattern = r":Sd([-+]?\d{2})\*(\d{2}):(\d{2})#"
     match = _match_to_hms(pattern, input_str)
+    # logging.debug(f"Parsing sd command, match: {match}, sr_result: {sr_result}")
     if match and sr_result:
         return handle_goto_command(shared_state, sr_result, match)
     else:
@@ -108,7 +110,7 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
     global sequence
     ra = ra_to_deg(*ra_parsed)
     dec = dec_to_deg(*dec_parsed)
-    logging.debug(f"goto {ra_parsed} {dec_parsed}")
+    logging.debug(f"Goto {ra_parsed},{dec_parsed} or {ra},{dec}")
     sequence += 1
     obj = CompositeObject(
         {
@@ -124,27 +126,32 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
             "description": f"Skysafari object nr {sequence}",
         }
     )
-    print(f"shared state: {shared_state}")
     shared_state.ui_state().set_target_and_add_to_history(obj)
     return "1"
 
 
-def parse_command(input_str: str) -> List:
-    command = input_str[1:3]
-    logging.debug(f"command: '{command}'")
-    command_handler = lx_command_dict.get(command)
-    if command_handler:
-        return command_handler()
-    else:
-        logging.debug(f"Unknown Command: '{input_str}'")
-        return "0"
+def init_logging():
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
+
+
+def nop(shared_state, input_str: str):
+    pass
+
+
+# Function to extract command
+def extract_command(s):
+    match = re.search(r":([A-Za-z]+)", s)
+    return match.group(1) if match else None
 
 
 def run_server(shared_state, _):
     try:
-        print("Starting skysafari")
+        init_logging()
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-            logging.info("starting skysafari server")
+            logging.info("Starting SkySafari server")
             server_socket.bind(("", 4030))
             server_socket.listen(1)
             out_data = None
@@ -153,15 +160,14 @@ def run_server(shared_state, _):
                 while True:
                     in_data = client_socket.recv(1024).decode()
                     if in_data:
-                        print(f"Received from skysafari: ''{in_data}''")
-                        logging.debug(f"Received from skysafari: '{in_data}'")
-                        if in_data.startswith(":"):
-                            command = in_data[1:3]
+                        # logging.debug(f"Received from skysafari: '{in_data}'")
+                        command = extract_command(in_data)
+                        if command:
                             command_handler = lx_command_dict.get(command, None)
                             if command_handler:
                                 out_data = command_handler(shared_state, in_data)
                             else:
-                                print("Unknown Command:", in_data)
+                                logging.warn("Unknown Command: %s", in_data)
                                 out_data = not_implemented(shared_state, in_data)
                     else:
                         break
@@ -176,6 +182,7 @@ def run_server(shared_state, _):
     except Exception as e:
         print(e)
         print("exited skysafari")
+        logging.exception("An error occurred in the skysafari server")
 
 
 lx_command_dict = {
@@ -185,4 +192,5 @@ lx_command_dict = {
     "MS": respond_zero,
     "Sd": parse_sd_command,
     "Sr": parse_sr_command,
+    "Q": nop,
 }
