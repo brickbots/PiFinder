@@ -359,7 +359,7 @@ This section covers a lot of the basic catalog/locating/observing features of th
 
 Combining the ability to filter a catalog by observation status and pushing the nearest 'X' objects to the observing list allows you to work your way through a collection of objects easily.
 
-Use the **A** key to cycle through the main screens until you get to the `Catalog <user_guide_ui.md#catalog>`_
+Use the **A** key to cycle through the main screens until you get to the :ref:`Catalog<user_guide:catalog>`
 
 
 .. image:: ../../images/screenshots/how_to_see_CATALOG_001_docs.png
@@ -375,7 +375,7 @@ Then use the **C** key to cycle through the available catalogs to find the Messi
    :alt: Catalog
 
 
-Holding the **A** button for about a second will bring up the `Options <user_guide_ui.md#options>`_ page of the `Catalog <user_guide_ui.md#catalog>`_ screen
+Holding the **A** button for about a second will bring up the :ref:`Options<user_guide:option pages>` page of the :ref:`Catalog<user_guide:catalog>` screen
 
 
 .. image:: ../../images/screenshots/how_to_see_OPTIONS_003_docs.png
@@ -468,7 +468,7 @@ Using the PiFinder in Access Point mode creates a network called APPiFinder with
 Changing Wifi networks
 ----------------------------------
 
-When in client mode, the PiFinder will attempt to connect to one or more networks which have been previously configured.  If you set up your PiFinder via the instructions `here <software.md>`_ you likely already have one network configured.
+When in client mode, the PiFinder will attempt to connect to one or more networks which have been previously configured.  If you set up your PiFinder via the instructions :doc:`here<software>` you likely already have one network configured.
 
 If you purchased a kit that came with an SD card, or you want to change network configuration, please see the instructions below to change your network settings:
 
@@ -505,7 +505,7 @@ Alternatively, you can switch the PiFinder to AP mode, SSH into it and edit ``/e
 PiFinder address
 -----------------
 
-In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computer or those that don't support zeroconf networking, you can use the IP address provides on the `Status <user_guide_ui.md#status>`_ screen to connect.  You can connect to the PiFinder via:
+In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computer or those that don't support zeroconf networking, you can use the IP address provides on the :ref:`Global Options<user_guide:global options>` screen to connect.  You can connect to the PiFinder via:
 
 
 * SSH to get shell access for software updates and other admin tasks

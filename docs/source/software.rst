@@ -44,6 +44,8 @@ The image files on our release pages contain the proper version of the Raspberry
 
 Once the image writing is complete, you can insert the SD card into your PiFinder and power it up.  The first boot will take a bit longer as it will expand the filesystem to fill the entire SD card, so be patient.
 
+Now that you have the software installed, you're ready to hit the :doc:`Quick Start Guide<quick_start>` to get ready for a night of observing!
+
 Build From Scratch
 ------------------
 
@@ -52,6 +54,10 @@ You can do this completely headless (no monitor / keyboard) if desired.
 
 General Pi Setup
 ^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. important::
+
+   You must use the specific Raspberry Pi OS version listed here or the PiFinder software will not work.  The software is designed and tested for a specific version with each release.
 
 
 * Create Image:  I'd strongly recommend using the Rapsberry Pi imager.  It's available for most platforms and lets you easily setup wifi and SSH for your new image.

@@ -27,6 +27,7 @@ There are two parts of your PiFinder that you’ll interact with: the keypad/scr
 
 Powering the PiFinder
 ----------------------
+
 If you purchased or built your PiFinder with the optional internal battery, you’ll need to charge the battery before first use. Plug a USB-C charging cable into the port on the top of the PiFinder, closest to the camera, as indicated below. For battery powered units, the power switch is the small white switch located on top of the PiFinder above the screen as shown below with the right hand arrow. While facing the screen slide it right to turn it on, left to turn it off. 
 
 .. image:: images/quick_start/power.jpeg
@@ -37,6 +38,21 @@ Note that when you turn on your PiFinder for the first time, it will take a minu
 
 Once the PiFinder is powered on, an welcome image will appear on the screen.  You’ll then see some information about the loading process and finally the CAMERA screen!
 
+
+Configuration Setup
+--------------------
+
+The PiFinder is available in left hand, right hand, and flat configurations.  You'll need to set the correct configuration in the software so the PiFinder can provide appropriate pointing directions for your specific set up.
+
+Press and hold the **ENT** key and press the **A** function button to cycle through the two utility screens until you have the STATUS screen displayed
+
+.. image:: images/quick_start/STATUS_001_docs.png
+
+From here, hold the **A** key until the options page appears.  This is the global configuration screen where you can set your prefernces for how the PiFinder works, perform some general utility actions, and set the type of PiFinder you have.  
+
+.. image:: images/quick_start/STATUS_OPTIONS_001_docs.png
+
+To set the configuration style, press the **5** key to select the 'mnt side' option and then press the number to the right of your configuration.  This will save the option and restart the PiFinder software.  Now you're ready to do the first time setup of the camera!
 
 Camera Setup
 ------------
