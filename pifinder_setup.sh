@@ -1,6 +1,10 @@
 #! /usr/bin/bash
 sudo apt-get install -y git python3-pip samba samba-common-bin dnsmasq hostapd dhcpd gpsd
+
+# Setup GPSD
 sudo dpkg-reconfigure -plow gpsd
+sudo cp ~/PiFinder/pi_config_files/gpsd.conf /etc/default/gpsd
+
 git clone --recursive --branch release https://github.com/brickbots/PiFinder.git
 cd PiFinder
 sudo pip install -r requirements.txt
@@ -33,11 +37,14 @@ echo "dtparam=spi=on" | sudo tee -a /boot/config.txt
 echo "dtparam=i2c_arm=on" | sudo tee -a /boot/config.txt
 echo "dtparam=i2c_arm_baudrate=10000" | sudo tee -a /boot/config.txt
 echo "dtoverlay=pwm,pin=13,func=4" | sudo tee -a /boot/config.txt
+echo "dtoverlay=uart3" | sudo tee -a /boot/config.txt
 
 # Enable service
 sudo cp /home/pifinder/PiFinder/pifinder.service /etc/systemd/system/pifinder.service
+sudo cp /home/pifinder/PiFinder/pi_config_files/pifinder_splash.service /etc/systemd/system/pifinder_splash.service
 sudo systemctl daemon-reload
 sudo systemctl enable pifinder
+sudo systemctl enable pifinder_splash
 
 echo "PiFinder setup complete, please restart the Pi"
 
