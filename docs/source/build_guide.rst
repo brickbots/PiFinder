@@ -584,33 +584,43 @@ For the left hand version you will need a twist in the cable before it enters th
 
 Grab the camera assembly you prepared earlier.  It is held in place with one M2.5 12mm screw and rests against the three thumbscrews so it can be aligned with your telescope.
 
+.. list-table::
 
-.. image:: ../../images/build_guide/v1.6/build_guide_27.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_27.jpeg
-   :alt: Build Guide Step
+   * - .. image:: images/build_guide/assembly_left_11.jpeg
+
+     - .. image:: images/build_guide/assembly_right_11.jpeg
+
 
 Screw in the three thumbscrews so they have some travel left, but stick out to support the camera cell.  Depending on your printer, inserts, and luck, you may need to clear some plastic from the screwholes to get the thumbscrews moving freely.  
 
+.. list-table::
 
-.. image:: ../../images/build_guide/v1.6/build_guide_28.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_28.jpeg
-   :alt: Build Guide Step
+   * - .. image:: images/build_guide/assembly_left_12.jpeg
+
+     - .. image:: images/build_guide/assembly_right_12.jpeg
+
 
 
 Connect the camera end of the ribbon cable to the camera.  
 
+.. list-table::
 
-.. image:: ../../images/build_guide/v1.6/build_guide_29.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_29.jpeg
-   :alt: Build Guide Step
+   * - .. image:: images/build_guide/assembly_left_13.jpeg
+
+     - .. image:: images/build_guide/assembly_right_13.jpeg
 
 
 Use one of the M2.5 12mm screws through the back plate into the center insert in the camera cell to pull the camera cell against the thumbscrews.  Don't over-tighten this screw!  It should apply enough pressure to hold the cell against the thumbscrews, but also allow some adjustment.
 
+.. list-table::
 
-.. image:: ../../images/build_guide/v1.6/build_guide_31.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_31.jpeg
-   :alt: Build Guide Step
+   * - .. image:: images/build_guide/assembly_left_14.jpeg
+
+     - .. image:: images/build_guide/assembly_right_14.jpeg
+
+.. note::
+   The remainder of the build is the same for left or right hand units.  The photos below are primarily of a right-hand build and any important difference will be noted with a photo for the left-hand version.
+
 
 If you are using a PiSugar, connect the battery now if you have not already.  See the image below:
 
@@ -626,11 +636,12 @@ Turn the unit back upright and grab the assembled UI Module.  It plugs into the 
    :target: ../../images/build_guide/v1.6/build_guide_32.jpeg
    :alt: Build Guide Step
 
+.. list-table::
 
+   * - .. image:: images/build_guide/assembly_left_17.jpeg
 
-.. image:: ../../images/build_guide/v1.6/build_guide_33.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_33.jpeg
-   :alt: Build Guide Step
+     - .. image:: images/build_guide/assembly_right_17.jpeg
+
 
 
 The screw holes on the UI Board should line up with three of the four stand-offs.  The fourth provides support, but does is not used to secure the outer case. 
