@@ -60,6 +60,12 @@ class UIStatus(UIModule):
             "options": ["right", "left", "flat", "CANCEL"],
             "callback": "side_switch",
         },
+        "Mnt Type": {
+            "type": "enum",
+            "value": "",
+            "options": ["Alt/Az", "EQ", "CANCEL"],
+            "callback": "mount_switch",
+        },
         "Shutdown": {
             "type": "enum",
             "value": "",
@@ -105,6 +111,9 @@ class UIStatus(UIModule):
         else:
             self.status_dict["WIFI"] = "AP"
 
+        self._config_options["Mnt Type"]["value"] = self.config_object.get_option(
+            "mount_type"
+        )
         self._config_options["Mnt Side"]["value"] = self.config_object.get_option(
             "screen_direction"
         )
@@ -162,6 +171,17 @@ class UIStatus(UIModule):
     def set_screen_off_timeout(self, option):
         self.config_object.set_option("screen_off_timeout", option)
         return False
+
+    def mount_switch(self, option):
+        if option == "CANCEL":
+            self._config_options["Mnt Type"]["value"] = self.config_object.get_option(
+                "mount_type"
+            )
+            return False
+
+        self.message("Ok! Restarting", 10)
+        self.config_object.set_option("mount_type", option)
+        sys_utils.restart_pifinder()
 
     def side_switch(self, option):
         if option == "CANCEL":
