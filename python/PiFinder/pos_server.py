@@ -69,7 +69,8 @@ def respond_one(shared_state, input_str):
 
 
 def not_implemented(shared_state, input_str):
-    return "not implemented"
+    # return "not implemented"
+    return respond_none(shared_state, input_str)
 
 
 def _match_to_hms(pattern: str, input_str: str) -> Tuple[int, int, int]:
@@ -137,10 +138,6 @@ def init_logging():
     )
 
 
-def nop(shared_state, input_str: str):
-    pass
-
-
 # Function to extract command
 def extract_command(s):
     match = re.search(r":([A-Za-z]+)", s)
@@ -192,5 +189,5 @@ lx_command_dict = {
     "MS": respond_zero,
     "Sd": parse_sd_command,
     "Sr": parse_sr_command,
-    "Q": nop,
+    "Q": respond_none,
 }
