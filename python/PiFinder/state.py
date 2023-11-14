@@ -16,7 +16,7 @@ class UIState:
     def __init__(self):
         self.__observing_list = []
         self.__history_list = []
-        self.__active_list = []
+        self.__active_list = []  # either observing or history
         self.__target = None
         self.__message_timeout = 0
         self.__hint_timeout = 0
