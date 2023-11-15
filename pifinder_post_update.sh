@@ -23,6 +23,18 @@ then
     mv /home/pifinder/PiFinder/config.json /home/pifinder/PiFinder_data/config.json
 fi
 
+# Adjust service definition / add PiFinder_splash
+if ! [ -f "/lib/systemd/system/pifinder_spash.service" ]
+then
+    sudo systemctl disable pifinder
+    sudo cp /home/pifinder/PiFinder/pi_config_files/pifinder.service /lib/systemd/system/pifinder.service
+    sudo cp /home/pifinder/PiFinder/pi_config_files/pifinder_splash.service /lib/systemd/system/pifinder_splash.service
+    sudo systemctl daemon-reload
+    sudo systemctl enable pifinder_splash
+    sudo systemctl enable pifinder
+fi
+
+
 # DONE
 echo "Post Update Complete"
 

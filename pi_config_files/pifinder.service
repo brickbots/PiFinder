@@ -1,6 +1,6 @@
 [Unit]
 Description=PiFinder
-After=multi-user.target
+After=basic.target
 
 [Service]
 Type=idle
@@ -9,4 +9,4 @@ WorkingDirectory=/home/pifinder/PiFinder/python
 ExecStart=/usr/bin/python -m PiFinder.main
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=basic.target
