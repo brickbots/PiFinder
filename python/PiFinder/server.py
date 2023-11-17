@@ -89,8 +89,8 @@ class Server:
             msg = ("time", datetime.datetime.now())
             self.gps_queue.put(msg)
 
-        logging.info("Starting keyboard server on port 8080")
-        run(app, host="0.0.0.0", port=8080, quiet=True)
+        logging.info("Starting web interface server")
+        run(app, host="0.0.0.0", port=80, quiet=True)
 
     def callback(self, key):
         self.q.put(key)
