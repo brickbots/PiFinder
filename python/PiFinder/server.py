@@ -4,12 +4,11 @@ import logging
 from PIL import Image
 import io
 import datetime
+from bottle import Bottle, run, request, template, response, static_file
 
 
 class Server:
     def __init__(self, q, gps_queue, shared_state):
-        from bottle import Bottle, run, request, template, response
-
         self.q = q
         self.gps_queue = gps_queue
         self.shared_state = shared_state
@@ -39,17 +38,25 @@ class Server:
 
         app = Bottle()
 
+        @app.route("/images/<filename:re:.*\.png>")
+        def send_image(filename):
+            return static_file(filename, root="views/images", mimetype="image/png")
+
+        @app.route("/static/<filename>")
+        def send_static(filename):
+            return static_file(filename, root="views/static")
+
         @app.route("/")
         def home():
             return template("index")
 
-        @app.route("/callback", method="POST")
-        def callback():
+        @app.route("/key_callback", method="POST")
+        def key_callback():
             button = request.json.get("button")
             if button in button_dict:
-                self.callback(button_dict[button])
+                self.key_callback(button_dict[button])
             else:
-                self.callback(int(button))
+                self.key_callback(int(button))
             return {"message": "success"}
 
         @app.route("/image")
@@ -90,9 +97,9 @@ class Server:
             self.gps_queue.put(msg)
 
         logging.info("Starting web interface server")
-        run(app, host="0.0.0.0", port=80, quiet=True)
+        run(app, host="0.0.0.0", port=80, quiet=True, debug=True)
 
-    def callback(self, key):
+    def key_callback(self, key):
         self.q.put(key)
 
 
