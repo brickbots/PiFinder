@@ -1,5 +1,27 @@
 import sh
+import socket
 
+class network():
+    """
+    Provides wifi network info
+    """
+
+    def __init__(self):
+        with open(os.path.join(root_dir, "wifi_status.txt"), "r") as wifi_f:
+            self._wifi_mode = wifi_f.read()
+
+    def wifi_mode(self):
+        return self._wifi_mode
+
+    def local_ip(self):
+        try:
+            ip = socket.gethostbyname(
+                socket.gethostname()
+            )
+        except socket.gaierror:
+            ip = '0.0.0.0'
+
+        return ip
 
 def shutdown():
     """

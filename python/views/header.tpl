@@ -12,9 +12,10 @@
     <aside class="sidebar">
       <nav>
         <div class="sidebar-item" onClick="location.href='/';">Home</div>
-        <div class="sidebar-item">Status</div>
-        <div class="sidebar-item">Options</div>
-        <div class="sidebar-item">Network</div>
+        <div class="sidebar-item" onClick="location.href='/remote';">Remote</div>
+        <div class="sidebar-item" onCLick="location.href='/status';">Status</div>
+        <div class="sidebar-item" onCLick="location.href='/options';">Options</div>
+        <div class="sidebar-item" onCLick="location.href='/network';">Network</div>
       </nav>
     </aside>
     <div class="header">

@@ -1,10 +1,13 @@
 import time
-from PiFinder.keyboard_interface import KeyboardInterface
 import logging
-from PIL import Image
 import io
 import datetime
+
 from bottle import Bottle, run, request, template, response, static_file
+from PIL import Image
+
+from PiFinder.keyboard_interface import KeyboardInterface
+from PiFinder import sys_utils
 
 
 class Server:
@@ -48,7 +51,17 @@ class Server:
 
         @app.route("/")
         def home():
-            return template("index")
+            # need to collect alittle status info here
+            with open(os.path.join(root_dir, "version.txt"), "r") as ver_f:
+                software_version = ver_f.read()
+
+            net = sys_utils.network()
+            return template(
+                "index",
+                software_version=software_version,
+                wifi_mode=net.wifi_mode(),
+                ip=net.local_ip(),
+            )
 
         @app.route("/key_callback", method="POST")
         def key_callback():
