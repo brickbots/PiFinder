@@ -1,8 +1,16 @@
 % include("header.tpl", title="PiFinder UI")
 
 <div id="error" class="error-message"></div>
-<img id="image" src="" alt="PiFinder Screen" style="height:256px; width:256px">
-<div>Software Version: {{software_version}}</div>
+<img id="image" src="" alt="PiFinder Screen" class="pifinder-screen">
+
+<div class="status-items">
+    <div class="item">
+        <div class="key">Software Version</div><div class="value">{{software_version}}</div>
+    </div>
+    <div class="item">
+        <div class="key">WiFi Mode</div><div class="value">{{wifi_mode}}</div>
+    </div>
+</div>
 
 <script>
 function fetchImage() {

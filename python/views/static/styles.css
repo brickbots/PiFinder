@@ -6,8 +6,11 @@ body {
 
 .main-body-container {
     top: 3.5rem;
-    left: 1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
     position: absolute;
+    width: 100%;
+    max-width: 400px;
 }
 
 .header {
@@ -21,13 +24,46 @@ body {
   padding-left: 60px;
 }
 
-.button {
+.pifinder-screen {
+  width: 100%;
+  height: 100%;
+}
+
+.status-items {
+  display: flex;
+  flex-direction: column;
+  gap: .2em;
+}
+
+.status-items .item {
+  display: flex;
+  flex-direction: row;
+  font-size: x-large;
+  gap: .2em;
+}
+
+.status-items .key {
+  color: #555;
+  background: #999;
+  width: 60%;
+  text-align: right;
+  padding: 0.4rem;
+}
+
+.status-items .value {
+  color: #222;
+  background: #999;
+  padding: 0.4rem;
+  width: 40%;
+}
+
+.remote-button {
   background-color: #111111;
   color: red;
   border: none;
   border-radius:5px;
   margin: 0.1rem;
-  width: 3.5rem;
+  width: 4.5rem;
   height: 3.5rem;
 }
 

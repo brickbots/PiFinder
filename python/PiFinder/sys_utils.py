@@ -1,5 +1,6 @@
 import sh
 import socket
+from PiFinder import utils
 
 class network():
     """
@@ -7,7 +8,8 @@ class network():
     """
 
     def __init__(self):
-        with open(os.path.join(root_dir, "wifi_status.txt"), "r") as wifi_f:
+        self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
+        with open(self.wifi_txt, "r") as wifi_f:
             self._wifi_mode = wifi_f.read()
 
     def wifi_mode(self):

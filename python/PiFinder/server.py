@@ -3,15 +3,16 @@ import logging
 import io
 import datetime
 
-from bottle import Bottle, run, request, template, response, static_file
+from bottle import Bottle, run, request, template, response, static_file, debug
 from PIL import Image
 
 from PiFinder.keyboard_interface import KeyboardInterface
-from PiFinder import sys_utils
+from PiFinder import sys_utils, utils
 
 
 class Server:
     def __init__(self, q, gps_queue, shared_state):
+        self.version_txt = f"{utils.pifinder_dir}/version.txt"
         self.q = q
         self.gps_queue = gps_queue
         self.shared_state = shared_state
@@ -40,6 +41,7 @@ class Server:
         }
 
         app = Bottle()
+        debug(True)
 
         @app.route("/images/<filename:re:.*\.png>")
         def send_image(filename):
@@ -52,7 +54,7 @@ class Server:
         @app.route("/")
         def home():
             # need to collect alittle status info here
-            with open(os.path.join(root_dir, "version.txt"), "r") as ver_f:
+            with open(self.version_txt, "r") as ver_f:
                 software_version = ver_f.read()
 
             net = sys_utils.network()
@@ -61,6 +63,12 @@ class Server:
                 software_version=software_version,
                 wifi_mode=net.wifi_mode(),
                 ip=net.local_ip(),
+            )
+
+        @app.route("/remote")
+        def remote():
+            return template(
+                "remote",
             )
 
         @app.route("/key_callback", method="POST")
