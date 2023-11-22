@@ -132,6 +132,7 @@ class UIStatus(UIModule):
 
         self.last_temp_time = 0
         self.last_IP_time = 0
+        self.net = sys_utils.network()
         self.text_layout = TextLayouter(
             "",
             draw=self.draw,
@@ -287,15 +288,9 @@ class UIStatus(UIModule):
                 self.status_dict["CPU TMP"] = "Error"
 
         if time.time() - self.last_IP_time > 20:
-            # temp
             self.last_IP_time = time.time()
             # IP address
-            try:
-                self.status_dict["IP ADDR"] = socket.gethostbyname(
-                    f"{socket.gethostname()}.local"
-                )
-            except socket.gaierror:
-                pass
+            self.status_dict["IP ADDR"] = self.net.local_ip()
 
     def update(self, force=False):
         self.update_status_dict()

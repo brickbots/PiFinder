@@ -73,7 +73,6 @@ class Server:
                 lat_text = str(location["lat"])
                 lon_text = str(location["lon"])
 
-
             ra_text = "0"
             dec_text = "0"
             camera_icon = "broken_image"
@@ -151,8 +150,13 @@ class Server:
             msg = ("time", datetime.datetime.now())
             self.gps_queue.put(msg)
 
-        logging.info("Starting web interface server")
-        run(app, host="0.0.0.0", port=80, quiet=True, debug=True)
+        # If the PiFinder software is running as a service
+        # it can grab port 80.  If not, it needs to use 8080
+        try:
+            run(app, host="0.0.0.0", port=80, quiet=True, debug=True)
+        except PermissionError:
+            logging.info("Web Interface on port 8080")
+            run(app, host="0.0.0.0", port=8080, quiet=True, debug=True)
 
     def key_callback(self, key):
         self.q.put(key)

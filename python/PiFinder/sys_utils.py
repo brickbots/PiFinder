@@ -2,7 +2,8 @@ import sh
 import socket
 from PiFinder import utils
 
-class network():
+
+class network:
     """
     Provides wifi network info
     """
@@ -16,14 +17,16 @@ class network():
         return self._wifi_mode
 
     def local_ip(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
-            ip = socket.gethostbyname(
-                socket.gethostname()
-            )
-        except socket.gaierror:
-            ip = '0.0.0.0'
-
+            s.connect(("192.255.255.255", 1))
+            ip = s.getsockname()[0]
+        except:
+            ip = "127.0.0.1"
+        finally:
+            s.close()
         return ip
+
 
 def shutdown():
     """
