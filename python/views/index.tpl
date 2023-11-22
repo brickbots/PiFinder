@@ -1,17 +1,41 @@
 % include("header.tpl", title="PiFinder UI")
 
 <div id="error" class="error-message"></div>
-<img id="image" src="" alt="PiFinder Screen" class="pifinder-screen">
-
-<div class="status-items">
-    <div class="item">
-        <div class="key">Software Version</div><div class="value">{{software_version}}</div>
-    </div>
-    <div class="item">
-        <div class="key">WiFi Mode</div><div class="value">{{wifi_mode}}</div>
-    </div>
+<div class="center-align">
+    <img id="image" src="" alt="PiFinder Screen" class="pifinder-screen">
 </div>
-
+<center>
+<table class="grey-text" style="max-width: 512px;">
+<tr>
+    <td>
+      <i class="material-icons medium">wifi</i>
+    </td>
+    <td class="grey-text text-lighten-1">{{wifi_mode}} Mode<br>{{ip}}</td>
+    <td><a href="/network" class="grey-text"><i class="material-icons">edit</i></a></td>
+</tr>
+<tr>
+    <td>
+      <i class="material-icons medium">{{gps_icon}}</i>
+    </td>
+    <td class="grey-text text-lighten-1">{{gps_text}}<br>lat: {{lat_text}} / lon: {{lon_text}}</td>
+    <td></td>
+</tr>
+<tr>
+    <td>
+      <i class="material-icons medium">{{camera_icon}}</i>
+    </td>
+    <td class="grey-text text-lighten-1">Sky Position<br>RA: {{ra_text}} / DEC: {{dec_text}}</td>
+    <td></td>
+</tr>
+<tr>
+    <td>
+      <i class="material-icons medium">sd_card</i>
+    </td>
+    <td class="grey-text text-lighten-1">Software Version<br>{{software_version}}</td>
+    <td></td>
+</tr>
+</table>
+</center>
 <script>
 function fetchImage() {
     const imageElement = document.getElementById('image');

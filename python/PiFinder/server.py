@@ -7,7 +7,7 @@ from bottle import Bottle, run, request, template, response, static_file, debug
 from PIL import Image
 
 from PiFinder.keyboard_interface import KeyboardInterface
-from PiFinder import sys_utils, utils
+from PiFinder import sys_utils, utils, calc_utils
 
 
 class Server:
@@ -47,9 +47,13 @@ class Server:
         def send_image(filename):
             return static_file(filename, root="views/images", mimetype="image/png")
 
-        @app.route("/static/<filename>")
+        @app.route("/js/<filename>")
         def send_static(filename):
-            return static_file(filename, root="views/static")
+            return static_file(filename, root="views/js")
+
+        @app.route("/css/<filename>")
+        def send_static(filename):
+            return static_file(filename, root="views/css")
 
         @app.route("/")
         def home():
@@ -57,12 +61,42 @@ class Server:
             with open(self.version_txt, "r") as ver_f:
                 software_version = ver_f.read()
 
+            location = self.shared_state.location()
+
+            lat_text = ""
+            lon_text = ""
+            gps_icon = "gps_off"
+            gps_text = "Not Locked"
+            if location["gps_lock"] == True:
+                gps_icon = "gps_fixed"
+                gps_text = "Locked"
+                lat_text = str(location["lat"])
+                lon_text = str(location["lon"])
+
+
+            ra_text = "0"
+            dec_text = "0"
+            camera_icon = "broken_image"
+            if self.shared_state.solve_state() == True:
+                camera_icon = "camera_alt"
+                solution = self.shared_state.solution()
+                hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
+                ra_text = f"{hh:02.0f}h{mm:02.0f}m"
+                dec_text = f"{solution['Dec']: .2f}"
+
             net = sys_utils.network()
             return template(
                 "index",
                 software_version=software_version,
                 wifi_mode=net.wifi_mode(),
                 ip=net.local_ip(),
+                gps_icon=gps_icon,
+                gps_text=gps_text,
+                lat_text=lat_text,
+                lon_text=lon_text,
+                camera_icon=camera_icon,
+                ra_text=ra_text,
+                dec_text=dec_text,
             )
 
         @app.route("/remote")
