@@ -304,7 +304,8 @@ Values are expressed in degrees with the top line being rotation in Azimuth and 
 
 * **UP/DN** will cycle through the active list.  The numbers in the upper-right corner of the screen represent the index of the current object / total number of objects in the list and the list name is displayed directly below.
 * **ENT** will switch back to the catalog screen to access full information about the current target
-* **B** will 
+* **B** will switch to your History list
+* **C** will switch to the active Observing list, if there is one
 * Holding the **A** key will open the :ref:`Options<user_guide:Option Pages>` page where you can load and save observing lists to disk
 
 The currently target is also displayed on the screen as a small tick mark.
