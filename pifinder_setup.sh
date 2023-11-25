@@ -1,13 +1,13 @@
 #! /usr/bin/bash
 sudo apt-get install -y git python3-pip samba samba-common-bin dnsmasq hostapd dhcpd gpsd
 
-# Setup GPSD
-sudo dpkg-reconfigure -plow gpsd
-sudo cp ~/PiFinder/pi_config_files/gpsd.conf /etc/default/gpsd
-
 git clone --recursive --branch release https://github.com/brickbots/PiFinder.git
 cd PiFinder
 sudo pip install -r requirements.txt
+
+# Setup GPSD
+sudo dpkg-reconfigure -plow gpsd
+sudo cp ~/PiFinder/pi_config_files/gpsd.conf /etc/default/gpsd
 
 # data dirs
 mkdir ~/PiFinder_data
