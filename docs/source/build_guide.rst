@@ -19,6 +19,8 @@ It's all through-hole components, so should be approachable to even beginners...
 
 There are still some older photos here from the v1 non-backlit board, but the assembly is the same once the backlight components are in place.
 
+You'll need the TWO pcb's to start with.  One contains the electronic components and the other has the shine-through legends and goes on top of the assembled board at the end.  You can find the gerber files for both in the main `PiFinder git repo <https://github.com/brickbots/PiFinder/tree/release/gerbers>`_
+
 Backlight Components
 ------------------------
 
@@ -238,6 +240,8 @@ There are three different ways to build a PiFinder allowing it to be convienient
 Any configuration can technically work with any scope, but since the camera always needs to face the sky the different configurations allow the screen and keyboard to be placed for easy access.  The Left and Right configruations are primarily for newtonian style scopes, like dobsonians, which have the focuser perpendicular to the light path.
 
 The Flat configuration places the keypad and screen in easy reach for refractors, SCT's and other rear-focuser scopes.  When the scope is pointed upward, the screen is tilted towards you for quick access.
+
+All the STL files for the PiFinder case parts can be found in the main `PiFinder git repo <https://github.com/brickbots/PiFinder/tree/release/case>`_
 
 
 Printed Parts
