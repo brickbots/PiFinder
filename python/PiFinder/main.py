@@ -786,12 +786,13 @@ if __name__ == "__main__":
     else:
         hardware_platform = "Pi"
         from rpi_hardware_pwm import HardwarePWM
-        from PiFinder import imu_pi as imu
+        #from PiFinder import imu_pi_LSMcombo as imu
+        from PiFinder import imu_fake as imu
         from PiFinder import gps_pi as gps_monitor
 
     if args.camera.lower() == "pi":
         logging.debug("using pi camera")
-        from PiFinder import camera_pi as camera
+        from PiFinder import camera_pi_imx462_12mmlens as camera
     elif args.camera.lower() == "debug":
         logging.debug("using debug camera")
         from PiFinder import camera_debug as camera
