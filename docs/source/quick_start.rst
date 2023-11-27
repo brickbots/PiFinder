@@ -24,11 +24,15 @@ There are two parts of your PiFinder that you’ll interact with: the keypad/scr
 .. image:: images/quick_start/pf_rear.jpeg
    :width: 45%
 
+Your PiFinder was shipped with the lens disconnected for more secure packaging.  Installing it is easy, simply remove the cover from the silver threaded end of the lens, then remove the plastic cover from the camera module (leave the metal knurled portion!) and screw the lens into the camera module.  Refer to the photo above if in doubt.
+
 
 Powering the PiFinder
 ----------------------
 
-If you purchased or built your PiFinder with the optional internal battery, you’ll need to charge the battery before first use. Plug a USB-C charging cable into the port on the top of the PiFinder, closest to the camera, as indicated below. For battery powered units, the power switch is the small white switch located on top of the PiFinder above the screen as shown below with the right hand arrow. While facing the screen slide it right to turn it on, left to turn it off. 
+If you purchased or built your PiFinder with the optional internal battery, you’ll need to charge the battery before first use. Plug a USB-C charging cable into the port on the top of the PiFinder, closest to the camera, as indicated below.  The charging indicator will glow blue when charging and switch to green when complete.
+
+For battery powered units, the power switch is the small white switch located on top of the PiFinder above the screen as shown below with the right hand arrow. While facing the screen slide it right to turn it on, left to turn it off. 
 
 .. image:: images/quick_start/power.jpeg
 
