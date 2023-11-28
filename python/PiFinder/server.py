@@ -83,7 +83,7 @@ class Server:
                 ra_text = f"{hh:02.0f}h{mm:02.0f}m"
                 dec_text = f"{solution['Dec']: .2f}"
 
-            net = sys_utils.network()
+            net = sys_utils.Network()
             return template(
                 "index",
                 software_version=software_version,
@@ -102,6 +102,14 @@ class Server:
         def remote():
             return template(
                 "remote",
+            )
+
+        @app.route("/network")
+        def network():
+            net = sys_utils.Network()
+            return template(
+                "network",
+                net=net,
             )
 
         @app.route("/key_callback", method="POST")

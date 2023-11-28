@@ -1,10 +1,3 @@
-/* Custom Stylesheet */
-/**
- * Use this file to override Materialize files so you can update
- * the core Materialize files in the future
- *
- * Made By MaterializeCSS.com
- */
 body {
      display: flex;
      min-height: 100vh;
@@ -30,6 +23,30 @@ main {
 .pifinder-screen {
   width: 100%;
   max-width: 256px;
-  padding: 1rem;
+  margin: 1rem;
  
+}
+
+.remote-button {
+  height: 3rem;
+}
+
+.pressed {
+  background-color: #000 !important;
+}
+
+.btn, .btn:focus {
+  background-color: #555;
+}
+
+@media (hover: hover) {
+  .btn:hover {
+    background-color: #777;
+  }
+}
+
+@media (hover: none) {
+  .btn:hover {
+    background-color: #555;
+  }
 }

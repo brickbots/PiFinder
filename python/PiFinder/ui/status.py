@@ -132,7 +132,7 @@ class UIStatus(UIModule):
 
         self.last_temp_time = 0
         self.last_IP_time = 0
-        self.net = sys_utils.network()
+        self.net = sys_utils.Network()
         self.text_layout = TextLayouter(
             "",
             draw=self.draw,

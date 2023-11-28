@@ -1,9 +1,10 @@
 import sh
+from sh import iwgetid, wpa_cli
 import socket
 from PiFinder import utils
 
 
-class network:
+class Network:
     """
     Provides wifi network info
     """
@@ -12,6 +13,69 @@ class network:
         self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
         with open(self.wifi_txt, "r") as wifi_f:
             self._wifi_mode = wifi_f.read()
+
+        self.populate_wifi_networks()
+
+    def populate_wifi_networks(self):
+        """
+        Uses wpa_cli to get current network config
+        """
+        self._wifi_networks = []
+
+        _net_list = wpa_cli("list_networks").split("\n")
+
+        # skip first two lines
+        for net in _net_list[2:]:
+            _net = net.split()
+            if len(_net) > 2:
+                self._wifi_networks.append(
+                    {
+                        "id": _net[0],
+                        "ssid": _net[1],
+                        "password": None,
+                        "key_mgmt": None,
+                        "status": "saved",
+                    }
+                )
+
+        # need to call wpa_cli for each network to get key type
+        for net in self._wifi_networks:
+            _output = wpa_cli("get_network", net["id"], "key_mgmt")
+            net["key_mgmt"] = _output.split("\n")[-1].strip()
+
+    def get_wifi_networks(self):
+        return self._wifi_networks
+
+    def get_ap_name(self):
+        with open(f"/etc/hostapd/hostapd.conf", "r") as conf:
+            for l in conf:
+                if l.startswith("ssid="):
+                    return l[5:-1]
+        return "UNKN"
+
+    def set_ap_name(self, ap_name):
+        with open(f"/tmp/hostapd.conf", "w") as new_conf:
+            with open(f"/etc/hostapd/hostapd.conf", "r") as conf:
+                for l in conf:
+                    if l.startswith("ssid="):
+                        l = f"ssid={ap_name}\n"
+                    new_conf.write(l)
+        sh.sudo("cp", "/tmp/hostapd.conf", "/etc/hostapd/hostapd.conf")
+
+    def get_host_name(self):
+        return socket.gethostname()
+
+    def get_connected_ssid(self):
+        """
+        Returns the SSID of the connected wifi network or
+        None if not connected or in AP mode
+        """
+        # get output from iwgetid
+        _t = iwgetid().strip()
+        return _t.split(":")[-1].strip('"')
+
+    def set_host_name(self, hostname):
+        sh.sudo("hostname", hostname)
 
     def wifi_mode(self):
         return self._wifi_mode

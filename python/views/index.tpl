@@ -1,11 +1,11 @@
-% include("header.tpl", title="PiFinder UI")
+% include("header.tpl", title="Home")
 
 <div id="error" class="error-message"></div>
 <div class="center-align">
-    <img id="image" src="" alt="PiFinder Screen" class="pifinder-screen">
+    <img id="image" src="" alt="PiFinder Screen" class="pifinder-screen z-depth-2">
 </div>
 <center>
-<table class="grey-text" style="max-width: 512px;">
+<table class="grey darken-2 grey-text z-depth-1" style="max-width: 512px;">
 <tr>
     <td>
       <i class="material-icons medium">wifi</i>
