@@ -11,6 +11,11 @@ PiFinder uses its camera to take continuous pictures of the stars it sees, compa
 
 PiFinder was created by software engineer and amateur astronomer Richard Wolff-Jacobson, who realized he could use his engineering and coding experience to create a brand new way to get more out of his time at the telescope. He saw that plate solving technology could be handled by the famous Raspberry Pi single-board computer and a simple camera. The software and rig he developed will turn your telescope into an accurate guide through the night sky.
 
+.. image:: images/quick_start/hardware_revision2.jpeg
+
+.. note::
+   We've recently updated the hardware and design of the PiFinder and are working to take new photographs and update this documentation.  The photo above shows the latest version of the PiFinder which has the GPS module fully integrated and does not have the physical camera adjustment system with the thumbscrews, but some of the photos below will show previous versions of the PiFinder.  Please `reach out <mailto: info@pifinder.io>`_ with any questions.
+
 
 Unboxing
 --------
@@ -177,7 +182,7 @@ Choose the number that represents the star currently in your telescope’s eyepi
 .. image:: images/quick_start/align_CAMERA_004_docs.png
 
 .. note::
-   **Can’t find your star on the ALIGN screen?** You can use the hardware thumbscrews on the back of the PiFinder to adjust where the camera is pointing relative to your telescope.  Loosen some screws as you tighten others and wait between each adjusment for a new image to be taken.
+   **Can’t find your star on the ALIGN screen?** The PiFinder camera field of view is 10 degrees, which is about 20 full moons wide.  If the star you are looking at with your telescope is not in this field, check the physical alignment of your finder shoe to make sure it's roughly parallel to your telescopes optical tube. 
 
 
 Find Your First Object
