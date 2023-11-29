@@ -41,7 +41,7 @@ For battery powered units, the power switch is the small white switch located on
 
 .. image:: images/quick_start/power.jpeg
 
-If you use an external power source, hook up your battery pack (5v/2A) to the USB-C port on the Raspberry Pi which is closest to the keypad, there may be only one if you don't have the internal battery. If you have a dobsonian telescope, we recommend mounting your power source on your primary mirror box, as this can also serve as a counterweight for the PiFinder.
+If you use an external power source, you can use either USB-C port to power the unit.  The USB-C port on the Raspberry Pi which is closest to the keypad (there will be only one if you don't have the internal battery) will power the unit, but not charge the internal battery. You can use the regular charging connector to both power the unit and charge the battery from external power if you turn the white power switch to the 'On' position.
 
 Note that when you turn on your PiFinder for the first time, it will take a minute to start up. During startup, no image will appear on screen. This is normal and start up will be faster on subsequent power-ons.
 
@@ -222,7 +222,7 @@ Shutting down the PiFinder
 
 Although shutting down is not strictly needed before power-off, the PiFinder is a computer and there is a chance of file corruption if you do not.  Some MicroSD cards are more sensitive to this than others.
 
-An option to shutdown is available in the :ref:`user_guide:global options` screen. Hold down *Ent* and press *A* to cycle through the system screens until you see the status screen, the press and hold *A* to access the Global Options
+An option to shutdown is available in the :ref:`user_guide:global options` screen. Hold down *Ent* and press *A* to cycle through the system screens until you see the status screen, the press and hold *A* to access the Global Options.  When you select this option the screen and keypad will turn off after a few seconds and it's then safe to turn off the unit using the white power switch or unplugging the battery.
 
 
 You've now got the basics of using the PiFinder sorted, to learn more you can continue on to the full :ref:`user_guide:pifinder user manual`
