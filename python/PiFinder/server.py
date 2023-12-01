@@ -40,6 +40,8 @@ class Server:
             "LNG_ENT": self.ki.LNG_ENT,
         }
 
+        self.network = sys_utils.Network()
+
         app = Bottle()
         debug(True)
 
@@ -83,12 +85,12 @@ class Server:
                 ra_text = f"{hh:02.0f}h{mm:02.0f}m"
                 dec_text = f"{solution['Dec']: .2f}"
 
-            net = sys_utils.Network()
             return template(
                 "index",
                 software_version=software_version,
-                wifi_mode=net.wifi_mode(),
-                ip=net.local_ip(),
+                wifi_mode="AP" if self.network.wifi_mode() == "AP" else "Client",
+                ip=self.network.local_ip(),
+                network_name=self.network.get_connected_ssid(),
                 gps_icon=gps_icon,
                 gps_text=gps_text,
                 lat_text=lat_text,
@@ -105,12 +107,24 @@ class Server:
             )
 
         @app.route("/network")
-        def network():
-            net = sys_utils.Network()
+        def network_page():
+            show_new_form = request.query.add_new or 0
+
             return template(
                 "network",
-                net=net,
+                net=self.network,
+                show_new_form=show_new_form,
             )
+
+        @app.route("/network/delete/<network_id>")
+        def network_delete(network_id):
+            self.network.delete_wifi_network(network_id)
+            return network_page()
+
+        @app.route("/network/undelete/<network_id>")
+        def network_undelete(network_id):
+            self.network.undelete_wifi_network(network_id)
+            return network_page()
 
         @app.route("/key_callback", method="POST")
         def key_callback():

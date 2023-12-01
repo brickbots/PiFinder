@@ -46,6 +46,73 @@ class Network:
     def get_wifi_networks(self):
         return self._wifi_networks
 
+    def save_wifi_config(self):
+        """
+        Iterates through all wifi networks
+        actions changes indicated
+        saves config file
+        reconfigures wpi_supplicatn
+        """
+
+        # Update networks
+        for network in self._wifi_networks:
+            if network["status"] == "deleted":
+                net_id = network["id"]
+                wpa_cli("disable_network", net_id)
+                wpa_cli("remove_network", net_id)
+
+            if network["status"] == "new":
+                new_id = wpa_cli("add_network").split("\n")[1].strip()
+                wpa_cli("set_network", new_id, "ssid", f'"{network["ssid"]}"')
+                print(wpa_cli("set_network", new_id, "key_mgmt", network["key_mgmt"]))
+                if network["key_mgmt"] == "WPA-PSK":
+                    print(
+                        wpa_cli(
+                            "set_network", new_id, "psk", f'"{network["password"]}"'
+                        )
+                    )
+                wpa_cli("enable_network", new_id)
+
+        # Save config
+        wpa_cli("save_config")
+
+        # Reconfigure
+        wpa_cli("reconfigure")
+
+        self.populate_wifi_networks()
+
+    def undelete_wifi_network(self, network_id):
+        """
+        Marks a wifi network as not deleted!
+        """
+        for network in self._wifi_networks:
+            if int(network["id"]) == int(network_id):
+                network["status"] = "saved"
+
+    def delete_wifi_network(self, network_id):
+        """
+        Marks a wifi network for deletion
+        Deletion happens on 'save'
+        """
+        for network in self._wifi_networks:
+            if int(network["id"]) == int(network_id):
+                network["status"] = "deleted"
+
+    def add_wifi_network(self, ssid, key_mgmt, password=None):
+        """
+        Add a wifi network to the network dictionary.
+        Creation happens on 'save'
+        """
+        self._wifi_networks.append(
+            {
+                "id": len(self._wifi_networks),
+                "ssid": ssid,
+                "key_mgmt": key_mgmt,
+                "password": password,
+                "status": "new",
+            }
+        )
+
     def get_ap_name(self):
         with open(f"/etc/hostapd/hostapd.conf", "r") as conf:
             for l in conf:

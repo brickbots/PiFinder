@@ -10,7 +10,7 @@
     <td>
       <i class="material-icons medium">wifi</i>
     </td>
-    <td class="grey-text text-lighten-1">{{wifi_mode}} Mode<br>{{ip}}</td>
+    <td class="grey-text text-lighten-1">{{wifi_mode}} Mode<br>{{network_name}}<br>{{ip}}</td>
     <td><a href="/network" class="grey-text"><i class="material-icons">edit</i></a></td>
 </tr>
 <tr>

@@ -6,13 +6,13 @@
   <title>PiFinder - {{title}}</title>
 
   <!-- CSS  -->
-  <link href="css/material_icons.css" rel="stylesheet">
-  <link href="css/materialize.css" type="text/css" rel="stylesheet" media="screen,projection"/>
-  <link href="css/style.css" type="text/css" rel="stylesheet" media="screen,projection"/>
+  <link href="/css/material_icons.css" rel="stylesheet">
+  <link href="/css/materialize.css" type="text/css" rel="stylesheet" media="screen,projection"/>
+  <link href="/css/style.css" type="text/css" rel="stylesheet" media="screen,projection"/>
 </head>
 <body class="grey darken-3">
   <nav class="grey darken-1" role="navigation">
-    <div class="nav-wrapper container"><a id="logo-container" href="#" class="brand-logo"><img src="images/WebLogo_RED.png" class="pf-logo"></a>
+    <div class="nav-wrapper container"><a id="logo-container" href="#" class="brand-logo"><img src="/images/WebLogo_RED.png" class="pf-logo"></a>
       <ul class="right hide-on-med-and-down">
         <li><a href="/">Home</a></li>
         <li><a href="/remote">Remote</a></li>
