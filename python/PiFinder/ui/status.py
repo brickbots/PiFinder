@@ -51,7 +51,7 @@ class UIStatus(UIModule):
         "WiFi Mode": {
             "type": "enum",
             "value": "UNK",
-            "options": ["AP", "Cli", "CANCEL"],
+            "options": ["AP", "Client", "CANCEL"],
             "callback": "wifi_switch",
         },
         "Mnt Side": {
@@ -206,8 +206,10 @@ class UIStatus(UIModule):
             self.message("Switch to AP", 10)
             sys_utils.go_wifi_ap()
         else:
-            self.message("Switch to Cli", 10)
+            self.message("Switch to Client", 10)
             sys_utils.go_wifi_cli()
+
+        sys_utils.restart_system()
 
     def shutdown(self, option):
         if option == "System":

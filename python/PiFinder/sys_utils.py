@@ -18,100 +18,85 @@ class Network:
 
     def populate_wifi_networks(self):
         """
-        Uses wpa_cli to get current network config
+        Parses wpa_supplicant.conf to get current config
         """
         self._wifi_networks = []
 
-        _net_list = wpa_cli("list_networks").split("\n")
-
-        # skip first two lines
-        for net in _net_list[2:]:
-            _net = net.split()
-            if len(_net) > 2:
-                self._wifi_networks.append(
-                    {
-                        "id": _net[0],
-                        "ssid": _net[1],
-                        "password": None,
+        with open("/etc/wpa_supplicant/wpa_supplicant.conf", "r") as wpa_conf:
+            network_id = 0
+            in_network_block = False
+            for l in wpa_conf:
+                if l.startswith("network={"):
+                    in_network_block = True
+                    network_dict = {
+                        "id": network_id,
+                        "ssid": None,
+                        "psk": None,
                         "key_mgmt": None,
-                        "status": "saved",
                     }
-                )
 
-        # need to call wpa_cli for each network to get key type
-        for net in self._wifi_networks:
-            _output = wpa_cli("get_network", net["id"], "key_mgmt")
-            net["key_mgmt"] = _output.split("\n")[-1].strip()
+                elif l.strip() == "}" and in_network_block:
+                    in_network_block = False
+                    self._wifi_networks.append(network_dict)
+                    network_id += 1
+
+                elif in_network_block:
+                    key, value = l.strip().split("=")
+                    network_dict[key] = value.strip('"')
 
     def get_wifi_networks(self):
         return self._wifi_networks
 
-    def save_wifi_config(self):
+    def delete_wifi_network(self, network_id):
         """
-        Iterates through all wifi networks
-        actions changes indicated
-        saves config file
-        reconfigures wpi_supplicatn
+        Immediately deletes a wifi network
         """
+        self._wifi_networks.pop(network_id)
 
-        # Update networks
-        for network in self._wifi_networks:
-            if network["status"] == "deleted":
-                net_id = network["id"]
-                wpa_cli("disable_network", net_id)
-                wpa_cli("remove_network", net_id)
+        with open("/etc/wpa_supplicant/wpa_supplicant.conf", "r") as wpa_conf:
+            wpa_contents = list(wpa_conf)
 
-            if network["status"] == "new":
-                new_id = wpa_cli("add_network").split("\n")[1].strip()
-                wpa_cli("set_network", new_id, "ssid", f'"{network["ssid"]}"')
-                print(wpa_cli("set_network", new_id, "key_mgmt", network["key_mgmt"]))
-                if network["key_mgmt"] == "WPA-PSK":
-                    print(
-                        wpa_cli(
-                            "set_network", new_id, "psk", f'"{network["password"]}"'
-                        )
-                    )
-                wpa_cli("enable_network", new_id)
+        with open("/etc/wpa_supplicant/wpa_supplicant.conf", "w") as wpa_conf:
+            in_networks = False
+            for l in wpa_contents:
+                if not in_networks:
+                    if l.startswith("network={"):
+                        in_networks = True
+                    else:
+                        wpa_conf.write(l)
 
-        # Save config
-        wpa_cli("save_config")
+            for network in self._wifi_networks:
+                ssid = network["ssid"]
+                key_mgmt = network["key_mgmt"]
+                psk = network["psk"]
 
-        # Reconfigure
-        wpa_cli("reconfigure")
+                wpa_conf.write("\nnetwork={\n")
+                wpa_conf.write(f'\tssid="{ssid}"\n')
+                if key_mgmt == "WPA-PSK":
+                    wpa_conf.write(f'\tpsk="{psk}"\n')
+                wpa_conf.write(f"\tkey_mgmt={key_mgmt}\n")
+
+                wpa_conf.write("}\n")
 
         self.populate_wifi_networks()
 
-    def undelete_wifi_network(self, network_id):
+    def add_wifi_network(self, ssid, key_mgmt, psk=None):
         """
-        Marks a wifi network as not deleted!
+        Add a wifi network
         """
-        for network in self._wifi_networks:
-            if int(network["id"]) == int(network_id):
-                network["status"] = "saved"
+        with open("/etc/wpa_supplicant/wpa_supplicant.conf", "a") as wpa_conf:
+            wpa_conf.write("\nnetwork={\n")
+            wpa_conf.write(f'\tssid="{ssid}"\n')
+            if key_mgmt == "WPA-PSK":
+                wpa_conf.write(f'\tpsk="{psk}"\n')
+            wpa_conf.write(f"\tkey_mgmt={key_mgmt}\n")
 
-    def delete_wifi_network(self, network_id):
-        """
-        Marks a wifi network for deletion
-        Deletion happens on 'save'
-        """
-        for network in self._wifi_networks:
-            if int(network["id"]) == int(network_id):
-                network["status"] = "deleted"
+            wpa_conf.write("}\n")
 
-    def add_wifi_network(self, ssid, key_mgmt, password=None):
-        """
-        Add a wifi network to the network dictionary.
-        Creation happens on 'save'
-        """
-        self._wifi_networks.append(
-            {
-                "id": len(self._wifi_networks),
-                "ssid": ssid,
-                "key_mgmt": key_mgmt,
-                "password": password,
-                "status": "new",
-            }
-        )
+        self.populate_wifi_networks()
+        if self._wifi_mode == "Client":
+            # Restart the supplicant
+            wpa_cli("reconfigure")
 
     def get_ap_name(self):
         with open(f"/etc/hostapd/hostapd.conf", "r") as conf:
@@ -121,6 +106,8 @@ class Network:
         return "UNKN"
 
     def set_ap_name(self, ap_name):
+        if ap_name == self.get_ap_name():
+            return
         with open(f"/tmp/hostapd.conf", "w") as new_conf:
             with open(f"/etc/hostapd/hostapd.conf", "r") as conf:
                 for l in conf:
@@ -142,10 +129,21 @@ class Network:
         return _t.split(":")[-1].strip('"')
 
     def set_host_name(self, hostname):
+        if hostname == self.get_host_name():
+            return
         sh.sudo("hostname", hostname)
 
     def wifi_mode(self):
         return self._wifi_mode
+
+    def set_wifi_mode(self, mode):
+        if mode == self._wifi_mode:
+            return
+        if mode == "AP":
+            go_wifi_ap()
+
+        if mode == "Client":
+            go_wifi_cli()
 
     def local_ip(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -186,6 +184,14 @@ def restart_pifinder():
     print("SYS: Restarting PiFinder")
     sh.sudo("systemctl", "restart", "pifinder")
     return True
+
+
+def restart_system():
+    """
+    Restarts the system
+    """
+    print("SYS: Initiating System Restart")
+    sh.sudo("shutdown", "-r", "now")
 
 
 def go_wifi_ap():

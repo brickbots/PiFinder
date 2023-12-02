@@ -88,7 +88,7 @@ class Server:
             return template(
                 "index",
                 software_version=software_version,
-                wifi_mode="AP" if self.network.wifi_mode() == "AP" else "Client",
+                wifi_mode=self.network.wifi_mode(),
                 ip=self.network.local_ip(),
                 network_name=self.network.get_connected_ssid(),
                 gps_icon=gps_icon,
@@ -116,14 +116,32 @@ class Server:
                 show_new_form=show_new_form,
             )
 
-        @app.route("/network/delete/<network_id>")
+        @app.route("/network/add", method="post")
+        def network_update():
+            ssid = request.forms.get("ssid")
+            psk = request.forms.get("psk")
+            if len(psk) < 8:
+                key_mgmt = "NONE"
+            else:
+                key_mgmt = "WPA-PSK"
+
+            self.network.add_wifi_network(ssid, key_mgmt, psk)
+            return network_page()
+
+        @app.route("/network/delete/<network_id:int>")
         def network_delete(network_id):
             self.network.delete_wifi_network(network_id)
             return network_page()
 
-        @app.route("/network/undelete/<network_id>")
-        def network_undelete(network_id):
-            self.network.undelete_wifi_network(network_id)
+        @app.route("/network/update", method="post")
+        def network_update():
+            wifi_mode = request.forms.get("wifi_mode")
+            ap_name = request.forms.get("ap_name")
+            host_name = request.forms.get("host_name")
+
+            self.network.set_wifi_mode(wifi_mode)
+            self.network.set_ap_name(ap_name)
+            self.network.set_host_name(host_name)
             return network_page()
 
         @app.route("/key_callback", method="POST")
