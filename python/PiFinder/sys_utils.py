@@ -125,7 +125,7 @@ class Network:
         None if not connected or in AP mode
         """
         # get output from iwgetid
-        _t = iwgetid().strip()
+        _t = iwgetid(_ok_code=(0, 255)).strip()
         return _t.split(":")[-1].strip('"')
 
     def set_host_name(self, hostname):
@@ -146,6 +146,9 @@ class Network:
             go_wifi_cli()
 
     def local_ip(self):
+        if self._wifi_mode == "AP":
+            return "10.10.10.1"
+
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             s.connect(("192.255.255.255", 1))
