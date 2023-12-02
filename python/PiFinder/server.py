@@ -161,6 +161,10 @@ class Server:
             sys_utils.restart_pifinder()
             return "restarting"
 
+        @app.route("/observations")
+        def tools():
+            return template("observations")
+
         @app.route("/tools")
         def tools():
             return template("tools")
