@@ -142,7 +142,16 @@ class Server:
             self.network.set_wifi_mode(wifi_mode)
             self.network.set_ap_name(ap_name)
             self.network.set_host_name(host_name)
-            return network_page()
+            return template("restart")
+
+        @app.route("/system/restart")
+        def system_restart():
+            """
+            Restarts the system
+            """
+
+            sys_utils.restart_system()
+            return "restarting"
 
         @app.route("/key_callback", method="POST")
         def key_callback():

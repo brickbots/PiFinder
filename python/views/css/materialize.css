@@ -3198,10 +3198,10 @@ td, th {
 
 .progress {
   position: relative;
-  height: 4px;
+  height: 6px;
   display: block;
   width: 100%;
-  background-color: #acece6;
+  background-color: #222;
   border-radius: 2px;
   margin: 0.5rem 0 1rem 0;
   overflow: hidden;

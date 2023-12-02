@@ -131,7 +131,7 @@ class Network:
     def set_host_name(self, hostname):
         if hostname == self.get_host_name():
             return
-        sh.sudo("hostname", hostname)
+        result = sh.sudo("hostnamectl", "set-hostname", hostname)
 
     def wifi_mode(self):
         return self._wifi_mode
