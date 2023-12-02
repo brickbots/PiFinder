@@ -1,7 +1,10 @@
+import glob
 import sh
-from sh import iwgetid, wpa_cli
+from sh import iwgetid, wpa_cli, unzip
 import socket
 from PiFinder import utils
+
+BACKUP_PATH = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
 
 
 class Network:
@@ -158,6 +161,46 @@ class Network:
         finally:
             s.close()
         return ip
+
+
+def remove_backup():
+    """
+    Removes backup file
+    """
+    sh.sudo("rm", BACKUP_PATH, _ok_code=(0, 1))
+
+
+def backup_userdata():
+    """
+    Back up userdata to a single zip file for later
+    restore.  Returns the path to the zip file.
+
+    Backs up:
+        config.json
+        observations.db
+        obslist/*
+    """
+
+    remove_backup()
+
+    _zip = sh.Command("zip")
+    _zip(
+        BACKUP_PATH,
+        "/home/pifinder/PiFinder_data/config.json",
+        "/home/pifinder/PiFinder_data/observations.db",
+        glob.glob("/home/pifinder/PiFinder_data/obslists/*"),
+    )
+
+    return zip_path
+
+
+def restore_userdata(zip_path):
+    """
+    Compliment to backup_userdata
+    restores userdata
+    OVERWRITES existing data!
+    """
+    unzip("-d", "/", "-o", zip_path)
 
 
 def shutdown():

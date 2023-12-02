@@ -27,7 +27,7 @@
         <div class="row">
             <div class="input-field col s12">
                 <input value="{{net.get_ap_name()}}" id="ap_name" type="text" name="ap_name">
-                <label for="host_name">AP Network Name</label>
+                <label for="ap_name">AP Network Name</label>
             </div>
         </div>
         <div class="row">

@@ -1,7 +1,7 @@
-% include("header.tpl", title="Home")
+% include("header.tpl", title="Restart")
 <div class="row valign-wrapper" style="margin: 0px;">
   <div class="col s12 align-center">
-        <h5 class="grey-text text-lighter-1">Restarting PiFinder</h5>
+        <h5 class="grey-text text-lighter-1">Restarting System</h5>
         <p class="grey-text">This will take approximately 45 seconds and you should
         be redirected to the home page.
 

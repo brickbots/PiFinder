@@ -18,6 +18,7 @@
         <li><a href="/remote">Remote</a></li>
         <li><a href="/network">Network Setup</a></li>
         <li><a href="/observations">Observations</a></li>
+        <li><a href="/tools">Tools</a></li>
       </ul>
 
       <ul id="nav-mobile" class="sidenav">
@@ -25,6 +26,7 @@
         <li><a href="/remote">Remote</a></li>
         <li><a href="/network">Network Setup</a></li>
         <li><a href="/observations">Observations</a></li>
+        <li><a href="/tools">Tools</a></li>
       </ul>
       <a href="#" data-target="nav-mobile" class="sidenav-trigger"><i class="material-icons">menu</i></a>
     </div>

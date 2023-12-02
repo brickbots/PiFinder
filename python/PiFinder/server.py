@@ -147,11 +147,43 @@ class Server:
         @app.route("/system/restart")
         def system_restart():
             """
-            Restarts the system
+            Restarts the RPI system
             """
 
             sys_utils.restart_system()
             return "restarting"
+
+        @app.route("/system/restart_pifinder")
+        def system_restart():
+            """
+            Restarts just the PiFinder software
+            """
+            sys_utils.restart_pifinder()
+            return "restarting"
+
+        @app.route("/tools")
+        def tools():
+            return template("tools")
+
+        @app.route("/tools/backup")
+        def tools_backup():
+            backup_file = sys_utils.backup_userdata()
+
+            # Assumes the standard backup location
+            return static_file("PiFinder_backup.zip", "/home/pifinder/PiFinder_data")
+
+        @app.route("/tools/restore", method="post")
+        def tools_backup():
+            sys_utils.remove_backup()
+            backup_file = request.files.get("backup_file")
+            backup_file.filename = "PiFinder_backup.zip"
+            backup_file.save("/home/pifinder/PiFinder_data")
+
+            sys_utils.restore_userdata(
+                "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
+            )
+
+            return template("restart_pifinder")
 
         @app.route("/key_callback", method="POST")
         def key_callback():
