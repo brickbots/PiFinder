@@ -179,3 +179,43 @@ class ObservationsDatabase(Database):
 
     def close(self):
         self.conn.close()
+
+    def get_sessions(self):
+        """
+        returns a list of observing session dictionaries
+        """
+        sessions = self.cursor.execute(
+            """
+                Select * from obs_sessions
+            """
+        ).fetchall()
+
+        return sessions
+
+    def get_session(self, session_uid):
+        """
+        returns a record for a specific session
+        """
+        session = self.cursor.execute(
+            """
+                Select * from obs_sessions
+                where uid= :session_uid
+            """,
+            {"session_uid": session_uid},
+        ).fetchall()
+
+        return session
+
+    def get_logs_by_session(self, session_uid):
+        """
+        returns a list of observed objects for session
+        """
+        objects = self.cursor.execute(
+            """
+                Select * from obs_objects
+                where session_uid= :session_uid
+            """,
+            {"session_uid": session_uid},
+        ).fetchall()
+
+        return objects
