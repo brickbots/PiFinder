@@ -183,14 +183,45 @@ class ObservationsDatabase(Database):
     def get_sessions(self):
         """
         returns a list of observing session dictionaries
+
+        There was a bug that would double up session
+        entries for the same PiFinder software run
+        so this does some sanitizing of the data
+
         """
         sessions = self.cursor.execute(
             """
-                Select * from obs_sessions
+                Select
+                    uid,
+                    timezone,
+                    min(start_time_local) as start_time_local,
+                    avg(lat) as lat,
+                    avg(lon) as lon
+                from obs_sessions
+                group by 1,2
+                order by start_time_local
             """
         ).fetchall()
 
-        return sessions
+        # now enrich them....
+        ret_sessions = []
+        for sess in sessions:
+            sess = dict(sess)
+            _sess_info = self.cursor.execute(
+                """
+                    select
+                        count(*) as observations,
+                        (max(obs_time_local) - min(obs_time_local)) / 60 /60 as duration
+                    from obs_objects
+                    where session_uid= :sess_uid
+                """,
+                {"sess_uid": sess["UID"]},
+            ).fetchone()
+            sess = sess | dict(_sess_info)
+            if sess["observations"] > 0:
+                ret_sessions.append(sess)
+
+        return ret_sessions
 
     def get_session(self, session_uid):
         """

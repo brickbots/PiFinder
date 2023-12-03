@@ -52,7 +52,7 @@ def show_splash():
     screen_draw.rectangle([0, 0, 128, 16], fill=(0, 0, 0))
     screen_draw.text(
         (0, 1),
-        f"Wifi:{wifi_mode: <3}  {version: >11}",
+        f"Wifi:{wifi_mode: <6}  {version: >8}",
         font=fonts.base,
         fill=(255, 0, 0),
     )

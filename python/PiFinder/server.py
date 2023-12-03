@@ -8,6 +8,9 @@ from PIL import Image
 
 from PiFinder.keyboard_interface import KeyboardInterface
 from PiFinder import sys_utils, utils, calc_utils
+from PiFinder.db.observations_db import (
+    ObservationsDatabase,
+)
 
 
 class Server:
@@ -162,8 +165,15 @@ class Server:
             return "restarting"
 
         @app.route("/observations")
-        def tools():
-            return template("observations")
+        def obs_sessions():
+            obs_db = ObservationsDatabase()
+            sessions = obs_db.get_sessions()
+            metadata = {
+                "sess_count": len(sessions),
+                "object_count": sum(x["observations"] for x in sessions),
+                "total_duration": sum(x["duration"] for x in sessions),
+            }
+            return template("obs_sessions", sessions=sessions, metadata=metadata)
 
         @app.route("/tools")
         def tools():
