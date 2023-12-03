@@ -38,6 +38,7 @@ echo "dtparam=i2c_arm=on" | sudo tee -a /boot/config.txt
 echo "dtparam=i2c_arm_baudrate=10000" | sudo tee -a /boot/config.txt
 echo "dtoverlay=pwm,pin=13,func=4" | sudo tee -a /boot/config.txt
 echo "dtoverlay=uart3" | sudo tee -a /boot/config.txt
+echo "dtoverlay=imx462,clock-frequency=74250000" | sudo tee -a /boot/config.txt
 
 # Enable service
 sudo cp /home/pifinder/PiFinder/pi_config_files/pifinder.service /lib/systemd/system/pifinder.service

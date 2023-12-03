@@ -793,6 +793,9 @@ if __name__ == "__main__":
     if args.camera.lower() == "pi":
         logging.debug("using pi camera")
         from PiFinder import camera_pi_imx462_12mmlens as camera
+    elif args.camera.lower() == "imx462_12mm":
+        logging.debug("using imx462 camera")
+        from PiFinder import camera_pi_imx462_12mmlens as camera
     elif args.camera.lower() == "debug":
         logging.debug("using debug camera")
         from PiFinder import camera_debug as camera

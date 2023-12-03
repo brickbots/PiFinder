@@ -25,9 +25,8 @@ class CameraPI(CameraInterface):
         from picamera2 import Picamera2
 
         self.camera = Picamera2()
-        # Figure out camera type, hq or gs (global shutter)
-        self.camera_type = "hq"
-        self.camType = f"PI {self.camera_type}"
+        self.camera_type = "hq" # should this be changed?
+        self.camType = f"IMX462 12mm lens"
         self.exposure_time = exposure_time
         self.gain = gain
         self.initialize()
