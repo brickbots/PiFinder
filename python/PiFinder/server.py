@@ -2,8 +2,19 @@ import time
 import logging
 import io
 import datetime
+import uuid
 
-from bottle import Bottle, run, request, template, response, static_file, debug
+from bottle import (
+    Bottle,
+    run,
+    request,
+    template,
+    response,
+    static_file,
+    debug,
+    redirect,
+)
+
 from PIL import Image
 
 from PiFinder.keyboard_interface import KeyboardInterface
@@ -11,6 +22,21 @@ from PiFinder import sys_utils, utils, calc_utils
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
+
+# Generate a secret to validate the auth cookie
+SESSION_SECRET = str(uuid.uuid4())
+
+
+def auth_required(func):
+    def auth_wrapper(*args, **kwargs):
+        # check for and validate cookie
+        auth_cookie = request.get_cookie("pf_auth", secret=SESSION_SECRET)
+        if auth_cookie:
+            return func(*args, **kwargs)
+
+        return template("login", origin_url=request.url)
+
+    return auth_wrapper
 
 
 class Server:
@@ -103,13 +129,29 @@ class Server:
                 dec_text=dec_text,
             )
 
+        @app.route("/login", method="post")
+        def login():
+            password = request.forms.get("password")
+            origin_url = request.forms.get("origin_url", "/")
+            if sys_utils.verify_password("pifinder", password):
+                # set auth cookie, doesnt matter whats in it, just as long
+                # as it's there and cryptographically valid
+                response.set_cookie("pf_auth", str(uuid.uuid4()), secret=SESSION_SECRET)
+                redirect(origin_url)
+            else:
+                return template(
+                    "login", origin_url=origin_url, error_message="Invalid Password"
+                )
+
         @app.route("/remote")
+        @auth_required
         def remote():
             return template(
                 "remote",
             )
 
         @app.route("/network")
+        @auth_required
         def network_page():
             show_new_form = request.query.add_new or 0
 
@@ -120,6 +162,7 @@ class Server:
             )
 
         @app.route("/network/add", method="post")
+        @auth_required
         def network_update():
             ssid = request.forms.get("ssid")
             psk = request.forms.get("psk")
@@ -132,11 +175,13 @@ class Server:
             return network_page()
 
         @app.route("/network/delete/<network_id:int>")
+        @auth_required
         def network_delete(network_id):
             self.network.delete_wifi_network(network_id)
             return network_page()
 
         @app.route("/network/update", method="post")
+        @auth_required
         def network_update():
             wifi_mode = request.forms.get("wifi_mode")
             ap_name = request.forms.get("ap_name")
@@ -147,7 +192,30 @@ class Server:
             self.network.set_host_name(host_name)
             return template("restart")
 
+        @app.route("/tools/pwchange", method="post")
+        @auth_required
+        def password_change():
+            current_password = request.forms.get("current_password")
+            new_passworda = request.forms.get("new_passworda")
+            new_passwordb = request.forms.get("new_passwordb")
+
+            if new_passworda == "" or current_password == "" or new_passwordb == "":
+                return template(
+                    "tools", error_message="You must fill in all password fields"
+                )
+
+            if new_passworda == new_passwordb:
+                if sys_utils.change_password(
+                    "pifinder", current_password, new_passworda
+                ):
+                    return template("tools", status_message="Password Changed")
+                else:
+                    return template("tools", error_message="Incorrect current password")
+            else:
+                return template("tools", error_message="New passwords do not match")
+
         @app.route("/system/restart")
+        @auth_required
         def system_restart():
             """
             Restarts the RPI system
@@ -157,6 +225,7 @@ class Server:
             return "restarting"
 
         @app.route("/system/restart_pifinder")
+        @auth_required
         def system_restart():
             """
             Restarts just the PiFinder software
@@ -165,6 +234,7 @@ class Server:
             return "restarting"
 
         @app.route("/observations")
+        @auth_required
         def obs_sessions():
             obs_db = ObservationsDatabase()
             sessions = obs_db.get_sessions()
@@ -176,10 +246,12 @@ class Server:
             return template("obs_sessions", sessions=sessions, metadata=metadata)
 
         @app.route("/tools")
+        @auth_required
         def tools():
             return template("tools")
 
         @app.route("/tools/backup")
+        @auth_required
         def tools_backup():
             backup_file = sys_utils.backup_userdata()
 
@@ -187,6 +259,7 @@ class Server:
             return static_file("PiFinder_backup.zip", "/home/pifinder/PiFinder_data")
 
         @app.route("/tools/restore", method="post")
+        @auth_required
         def tools_backup():
             sys_utils.remove_backup()
             backup_file = request.files.get("backup_file")
@@ -200,6 +273,7 @@ class Server:
             return template("restart_pifinder")
 
         @app.route("/key_callback", method="POST")
+        @auth_required
         def key_callback():
             button = request.json.get("button")
             if button in button_dict:
@@ -229,6 +303,7 @@ class Server:
             return img_byte_arr
 
         @app.route("/gps-lock")
+        @auth_required
         def gps_lock():
             msg = (
                 "fix",
@@ -241,6 +316,7 @@ class Server:
             self.gps_queue.put(msg)
 
         @app.route("/time-lock")
+        @auth_required
         def time_lock():
             msg = ("time", datetime.datetime.now())
             self.gps_queue.put(msg)

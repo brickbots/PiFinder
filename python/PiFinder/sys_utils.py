@@ -1,6 +1,6 @@
 import glob
 import sh
-from sh import iwgetid, wpa_cli, unzip
+from sh import iwgetid, wpa_cli, unzip, su, passwd
 import socket
 from PiFinder import utils
 
@@ -250,3 +250,31 @@ def go_wifi_cli():
     print("SYS: Switching to Client")
     sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
     return True
+
+
+def verify_password(username, password):
+    """
+    Checks the provided password against the provided user
+    password
+    """
+    result = su(username, "-c", "echo", _in=f"{password}\n", _ok_code=(0, 1))
+    if result.exit_code == 0:
+        return True
+    else:
+        return False
+
+
+def change_password(username, current_password, new_password):
+    """
+    Changes the PiFinder User password
+    """
+    result = passwd(
+        username,
+        _in=f"{current_password}\n{new_password}\n{new_password}\n",
+        _ok_code=(0, 10),
+    )
+
+    if result.exit_code == 0:
+        return True
+    else:
+        return False
