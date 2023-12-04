@@ -180,7 +180,7 @@ class ObservationsDatabase(Database):
     def close(self):
         self.conn.close()
 
-    def get_sessions(self):
+    def get_sessions(self, session_uid=None):
         """
         returns a list of observing session dictionaries
 
@@ -189,8 +189,7 @@ class ObservationsDatabase(Database):
         so this does some sanitizing of the data
 
         """
-        sessions = self.cursor.execute(
-            """
+        q = """
                 Select
                     uid,
                     timezone,
@@ -198,10 +197,19 @@ class ObservationsDatabase(Database):
                     avg(lat) as lat,
                     avg(lon) as lon
                 from obs_sessions
+            """
+        if session_uid != None:
+            # add in a where clause
+            q += """
+                where uid= :sess_uid
+            """
+
+        q += """
                 group by 1,2
                 order by start_time_local
             """
-        ).fetchall()
+
+        sessions = self.cursor.execute(q, {"sess_uid": session_uid}).fetchall()
 
         # now enrich them....
         ret_sessions = []
@@ -226,16 +234,9 @@ class ObservationsDatabase(Database):
     def get_session(self, session_uid):
         """
         returns a record for a specific session
+        applies the same enrichment
         """
-        session = self.cursor.execute(
-            """
-                Select * from obs_sessions
-                where uid= :session_uid
-            """,
-            {"session_uid": session_uid},
-        ).fetchall()
-
-        return session
+        return get_sessions(session_uid=session_uid)[0]
 
     def get_logs_by_session(self, session_uid):
         """
@@ -243,10 +244,56 @@ class ObservationsDatabase(Database):
         """
         objects = self.cursor.execute(
             """
-                Select * from obs_objects
+                Select
+                    session_uid,
+                    ifnull(datetime(obs_time_local, "unixepoch"), datetime(obs_time_local)) as obs_time_local,
+                    catalog,
+                    sequence,
+                    notes
+                from obs_objects
                 where session_uid= :session_uid
             """,
             {"session_uid": session_uid},
         ).fetchall()
 
         return objects
+
+    def observations_as_tsv(self, session_uid=None):
+        """
+        Returns all observations for a session
+        or all sessions
+        """
+        rows_list = []
+        headers_list = [
+            "Session_ID",
+            "Session_Start_Time",
+            "Session_Time_Zone",
+            "Session_Lat",
+            "Session_Lon",
+            "Observation_Time",
+            "Catalog",
+            "Sequence",
+            "Notes",
+        ]
+        rows_list.append("\t".join(headers_list))
+
+        sessions = self.get_sessions(session_uid=session_uid)
+        for session in sessions:
+            base_row = [
+                session["UID"],
+                session["start_time_local"],
+                session["timezone"],
+                str(session["lat"]),
+                str(session["lon"]),
+            ]
+            objects = self.get_logs_by_session(session["UID"])
+            for obj in objects:
+                object_row = base_row + [
+                    obj["obs_time_local"],
+                    obj["catalog"],
+                    str(obj["sequence"]),
+                    obj["notes"],
+                ]
+                rows_list.append("\t".join(object_row))
+
+        return "\n".join(rows_list)

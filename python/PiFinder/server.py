@@ -3,6 +3,7 @@ import logging
 import io
 import datetime
 import uuid
+import json
 
 from bottle import (
     Bottle,
@@ -237,6 +238,17 @@ class Server:
         @auth_required
         def obs_sessions():
             obs_db = ObservationsDatabase()
+            if request.query.get("download", 0) == "1":
+                # Download all as TSV
+                observations = obs_db.observations_as_tsv()
+
+                response.set_header(
+                    "Content-Disposition", "attachment; filename=observations.tsv"
+                )
+                response.set_header("Content-Type", "text/tsv")
+                return observations
+
+            # regular html page of sessions
             sessions = obs_db.get_sessions()
             metadata = {
                 "sess_count": len(sessions),
@@ -244,6 +256,33 @@ class Server:
                 "total_duration": sum(x["duration"] for x in sessions),
             }
             return template("obs_sessions", sessions=sessions, metadata=metadata)
+
+        @app.route("/observations/<session_id>")
+        @auth_required
+        def obs_session(session_id):
+            obs_db = ObservationsDatabase()
+            if request.query.get("download", 0) == "1":
+                # Download all as TSV
+                observations = obs_db.observations_as_tsv(session_id)
+
+                response.set_header(
+                    "Content-Disposition",
+                    f"attachment; filename=observations_{session_id}.tsv",
+                )
+                response.set_header("Content-Type", "text/tsv")
+                return observations
+
+            session = obs_db.get_sessions(session_id)[0]
+            objects = obs_db.get_logs_by_session(session_id)
+            ret_objects = []
+            for obj in objects:
+                obj_ = dict(obj)
+                obj_notes = json.loads(obj_["notes"])
+                obj_["notes"] = "<br>".join(
+                    [f"{key}: {value}" for key, value in obj_notes.items()]
+                )
+                ret_objects.append(obj_)
+            return template("obs_session_log", session=session, objects=ret_objects)
 
         @app.route("/tools")
         @auth_required
