@@ -194,7 +194,7 @@ class ObservationsDatabase(Database):
                 Select
                     uid,
                     timezone,
-                    min(start_time_local) as start_time_local,
+                    datetime(min(start_time_local), "unixepoch") as start_time_local,
                     avg(lat) as lat,
                     avg(lon) as lon
                 from obs_sessions

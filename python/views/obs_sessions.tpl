@@ -17,8 +17,16 @@
 <center>
 <table class="grey darken-2 grey-text z-depth-1">
 <tr>
-<th>Date</th><th>Location</th><th>Objects</th>
+<th>Date</th><th>Location</th><th>Hours</th><th>Objects</th>
 </tr>
+% for session in sessions:
+<tr>
+  <td>{{session["start_time_local"]}}</td>
+  <td>{{session["timezone"]}}<br>{{round(session["lat"], 2)}} / {{round(session["lon"], 2)}}</td>
+  <td>{{round(session["duration"], 1)}}</td>
+  <td>{{session["observations"]}}</td>
+</tr>
+% end
 </table>
 </center>
 
