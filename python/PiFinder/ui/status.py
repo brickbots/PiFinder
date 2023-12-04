@@ -51,7 +51,7 @@ class UIStatus(UIModule):
         "WiFi Mode": {
             "type": "enum",
             "value": "UNK",
-            "options": ["AP", "Cli", "CANCEL"],
+            "options": ["AP", "Client", "CANCEL"],
             "callback": "wifi_switch",
         },
         "Mnt Side": {
@@ -132,6 +132,7 @@ class UIStatus(UIModule):
 
         self.last_temp_time = 0
         self.last_IP_time = 0
+        self.net = sys_utils.Network()
         self.text_layout = TextLayouter(
             "",
             draw=self.draw,
@@ -205,8 +206,10 @@ class UIStatus(UIModule):
             self.message("Switch to AP", 10)
             sys_utils.go_wifi_ap()
         else:
-            self.message("Switch to Cli", 10)
+            self.message("Switch to Client", 10)
             sys_utils.go_wifi_cli()
+
+        sys_utils.restart_system()
 
     def shutdown(self, option):
         if option == "System":
@@ -287,15 +290,9 @@ class UIStatus(UIModule):
                 self.status_dict["CPU TMP"] = "Error"
 
         if time.time() - self.last_IP_time > 20:
-            # temp
             self.last_IP_time = time.time()
             # IP address
-            try:
-                self.status_dict["IP ADDR"] = socket.gethostbyname(
-                    f"{socket.gethostname()}.local"
-                )
-            except socket.gaierror:
-                pass
+            self.status_dict["IP ADDR"] = self.net.local_ip()
 
     def update(self, force=False):
         self.update_status_dict()

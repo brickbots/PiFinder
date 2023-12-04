@@ -56,6 +56,7 @@ class Observation_session:
             self.__session_uuid,
         )
 
+        self.__session_init = True
         return self.__session_uuid
 
     def log_object(self, catalog, sequence, solution, notes):
