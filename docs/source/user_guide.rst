@@ -462,7 +462,7 @@ WiFi
 Access Point and Client Mode
 ----------------------------------
 
-The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the :ref:`user_guid:Web Interface` or the :ref:`user_guide:Global Options` page of the Status screen to switch between these two modes and see which mode is currently active.
+The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the :ref:`user_guide:Web Interface` or the :ref:`user_guide:Global Options` page of the Status screen to switch between these two modes and see which mode is currently active.
 
 Using the PiFinder in Access Point mode creates a network called PiFinderAP with no password to allow easy connection of phones, tablets and other devices in the field.
 
@@ -491,7 +491,31 @@ The PiFinder provides an easy to use web interface which allows you to:
 To access the web interface for the first time, make sure the PiFinder is in Access Point mode (see :ref:`user_guide:Global Options`).  This is the default for new PiFinders to make first time set up easier.  Using a phone, tablet or computer, connect to the PiFinder's wireless network called PiFinderAP.  It's an open network with no password required.  Once connected, open your web browser and visit:
 ``http://pifinder.local``
 
-The home screen showing general PiFinder status info and a live view of the screen does not require a password, but most other functions will.  The password for the web interface is the same as what is used for the ``pifinder`` user and changing one will change the other.  The default password for new images and PiFinders is ``solveit``.  This can be changed using the Tools option in the web interface.
+.. list-table::
+   :width: 100%
+
+   * - .. image:: images/user_guide/pf_web_home_fullnav.jpg
+
+     - .. image:: images/user_guide/pf_web_home_hamburger.jpg
+
+The home screen shows the general PiFinder status info and a live view of the screen.  Depending on your screen size you'll either see a navigation bar along the top of the page, or a 'hamburger' menu in the upper-left.  
+
+While the home screen not require a password, most other functions will.  The password for the web interface is the same as what is used for the ``pifinder`` user and changing one will change the other.  The default password for new images and PiFinders is ``solveit``.  This can be changed using the Tools option in the web interface.
+
+Connecting to a new WiFi network
+---------------------------------
+
+To connect to a new WiFi network, navigate to the Network Setup page and click the + button near the list of WiFi networks.  Enter your network information and click the Save icon.  If your network does not have a password, leave that field as None.
+
+.. list-table::
+   :width: 100%
+
+   * - .. image:: images/user_guide/pf_web_net1.jpg
+
+     - .. image:: images/user_guide/pf_web_net2.jpg
+
+Once you have added a new WiFi network to connect to, you can change the WiFi mode to Client in the Network Settings section and click Update and Restart.  After confirming your choice, the PiFinder will restart and attempt to connect to any configured WiFi networks.  If your computer or phone are on the same network, you can reload the web interface to confirm the PiFinder found and connected to the new WiFi network.
+
 
 SkySafari
 ===================
