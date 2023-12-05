@@ -8,6 +8,9 @@ sudo cp ~/PiFinder/pi_config_files/gpsd.conf /etc/default/gpsd
 # PWM
 sudo sed -zi '/dtoverlay=pwm,pin=13,func=4\n/!s/$/\ndtoverlay=pwm,pin=13,func=4\n/' /boot/config.txt
 
+# Uart for GPS
+sudo sed -zi '/dtoverlay=uart3\n/!s/$/\ndtoverlay=uart3\n/' /boot/config.txt
+
 # Migrate DB
 if [ -f "/home/pifinder/PiFinder/astro_data/observations.db" ]
 then
