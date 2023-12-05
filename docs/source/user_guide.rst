@@ -462,56 +462,36 @@ WiFi
 Access Point and Client Mode
 ----------------------------------
 
-The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the :ref:`user_guide:Global Options` page of the Status screen to switch between these two modes and see which mode is currently active.
+The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the :ref:`user_guid:Web Interface` or the :ref:`user_guide:Global Options` page of the Status screen to switch between these two modes and see which mode is currently active.
 
-Using the PiFinder in Access Point mode creates a network called APPiFinder with no password to allow easy connection of phones, tablets and other devices in the field.
-
-Changing Wifi networks
-----------------------------------
-
-When in client mode, the PiFinder will attempt to connect to one or more networks which have been previously configured.  If you set up your PiFinder via the instructions :doc:`here<software>` you likely already have one network configured.
-
-If you purchased a kit that came with an SD card, or you want to change network configuration, please see the instructions below to change your network settings:
-
-
-* Shutdown and power off the PiFinder
-* Remove the SD card from your PiFinder and insert it into another computer.  
-
-  * Windows may prompt you to format the card, don't do so! There is a partition on there (/boot) that windows should be able to read/write to.
-
-* Create a file called wpa_supplicant.conf in the root of the SD card with these contents:
-
-.. code-block::
-
-   ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
-   country=<Insert 2 letter ISO 3166-1 country code here>
-   update_config=1
-
-   network={
-    ssid="<Name of your wireless LAN>"
-    psk="<Password for your wireless LAN>"
-   }
-
-
-* Set ``country`` to your two letter country code.
-* Set SSID to your WiFi network name, preserving the surrounding quotes.
-* Set PSK to the password for your WiFi network, again preserving the surrounding quotes.
-* Save this file (make sure it ends up with the .conf extension)
-* Insert it back into the PiFinder and power back on.
-
-That file will be moved from the ``/boot`` partition and the PiFinder should connect to your network. 
-
-Alternatively, you can switch the PiFinder to AP mode, SSH into it and edit ``/etc/wpa_supplicant.conf`` in place to change or add networks.
+Using the PiFinder in Access Point mode creates a network called PiFinderAP with no password to allow easy connection of phones, tablets and other devices in the field.
 
 PiFinder address
 -----------------
 
-In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computer or those that don't support zeroconf networking, you can use the IP address provides on the :ref:`Global Options<user_guide:global options>` screen to connect.  You can connect to the PiFinder via:
+In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computers or those that don't support zeroconf networking, you can use the IP address provides on the :ref:`Global Options<user_guide:global options>` screen to connect.  You can connect to the PiFinder via:
 
 
+* A web browser to use the :ref:`user_guide:Web Interface` for remote control or configuration changes
 * SSH to get shell access for software updates and other admin tasks
 * SMB (Samba) to access saved images, logs an observing lists
 * LX200 protocol to allow updating of a planetarium app, such as :doc:`skysafari` , with the position of the telescope
+
+Web Interface
+==============
+
+The PiFinder provides an easy to use web interface which allows you to:
+
+* See the current PiFinder status
+* Remote control the PiFinder via a virtural screen and keypad
+* Change network settings and connect to new WiFi networks
+* Backup and restore your observing logs, settings and other data
+* View and download your logged observations
+
+To access the web interface for the first time, make sure the PiFinder is in Access Point mode (see :ref:`user_guide:Global Options`).  This is the default for new PiFinders to make first time set up easier.  Using a phone, tablet or computer, connect to the PiFinder's wireless network called PiFinderAP.  It's an open network with no password required.  Once connected, open your web browser and visit:
+``http://pifinder.local``
+
+The home screen showing general PiFinder status info and a live view of the screen does not require a password, but most other functions will.  The password for the web interface is the same as what is used for the ``pifinder`` user and changing one will change the other.  The default password for new images and PiFinders is ``solveit``.  This can be changed using the Tools option in the web interface.
 
 SkySafari
 ===================
