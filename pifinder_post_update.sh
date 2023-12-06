@@ -29,7 +29,7 @@ fi
 
 # Adjust service definition
 sudo systemctl disable pifinder
-rm /etc/systemd/system/pifinder.service
+sudo rm /etc/systemd/system/pifinder.service
 sudo cp /home/pifinder/PiFinder/pi_config_files/pifinder.service /lib/systemd/system/pifinder.service
 sudo systemctl daemon-reload
 sudo systemctl enable pifinder
