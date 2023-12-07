@@ -24,46 +24,34 @@ You'll need the TWO pcb's to start with.  One contains the electronic components
 Backlight Components
 ------------------------
 
-The two resistors are an easy place to start.  R2 is the vertical oriented 330ohm part and R1 is the 22ohm oriented horizontally.  Direction does not matter with these, just make sure they sit flat and trim the leads on the back when they are soldered.
+I like to start with the LEDs.  They sit close to the board and doing them first makes it 
+easier to make sure they are all aligned.  
+
+.. image:: images/build_guide/ui_module_1.jpeg
 
 
-.. image:: ../../images/build_guide/led_build_02.jpeg
-   :target: ../../images/build_guide/led_build_02.jpeg
-   :alt: Resistors
-
-
-The LED's are the next lowest components, so they go next.  Polarity matters here, so mind the direction.  The longer lead of the LED should go through the round hole in the footprint.  The photo below shows the orientation
-
+Polarity matters here, so mind the direction.  The longer lead of the LED should go through the round hole in the footprint.  The photo below shows the orientation
 
 .. image:: ../../images/build_guide/led_build_03.jpeg
-   :target: ../../images/build_guide/led_build_03.jpeg
-   :alt: LED Orientation
 
+Take you time and make sure each is positioned well.  They should be pretty uniform, but little inconsistencies don't matter too much.  I like to place them all in the board, and then tape them in place.
 
-Take you time and make sure each is positioned well.  They should be pretty uniform, but little inconsistencies don't matter too much.  I like to place them all in the board, turn it upright and solder one leg of each.  Then I go back and press on each LED as I reheat the one soldered leg to make sure it's sitting flat and even-ish.
+.. image:: images/build_guide/ui_module_2.jpeg
 
+.. image:: images/build_guide/ui_module_3.jpeg
 
-.. image:: ../../images/build_guide/led_build_05.jpeg
-   :target: ../../images/build_guide/led_build_05.jpeg
-   :alt: LED Orientation
+Pull the legs straight and solder one of each LED.  Then remove the tape and check them again.  If any
+are wildly out of place, you can heat up the solder on the one leg and adjust.  
 
+.. image:: images/build_guide/ui_module_4.jpeg
 
-Once I've verified they all look okay, I'll solder the other leg and trim all the leads.
+When satisfied, solder the remaining legs and clip the leads
 
+.. image:: images/build_guide/ui_module_5.jpeg
 
-.. image:: ../../images/build_guide/led_build_06.jpeg
-   :target: ../../images/build_guide/led_build_06.jpeg
-   :alt: LED Orientation
+The two resistors and transitor are next.  R2 is the vertical oriented 330ohm part and R1 is the 22ohm oriented horizontally.  Direction does not matter with these, but it's important for the transistor. Check the photo below for orientation and make sure this is bent flat against the PCB and the resistors are low.  Solder them from the back and clip the leads once you've verified they look good.
 
-
-The final component for the keypad backlight is the drive transistor.  It's located right by R2 and the GPIO connector.  When inserting the part, the flat side of the package should line up with the flat side of the silkscreen.  Once it's inserted fold the flat side of the transistor agains the PCB so it will be clear of the keypad cover PCB
-
-You can see the position/orientation in the image below.  Once you've got it situated, solder it in and clip the leads.
-
-
-.. image:: ../../images/build_guide/led_build_08.jpeg
-   :target: ../../images/build_guide/led_build_08.jpeg
-   :alt: LED Orientation
+.. image:: images/build_guide/ui_module_6a.jpeg
 
 
 Switches
@@ -72,36 +60,54 @@ Switches
 Switches are easy and can go next.  Place each one on a footprint and press it down fully.  Once they are all inserted, before you start soldering visually inspect them for any that are tilted.  
 
 
-.. image:: ../../images/build_guide/led_build_10.jpeg
-   :target: ../../images/build_guide/led_build_10.jpeg
-   :alt: PCB with switches
+.. image:: images/build_guide/ui_module_6b.jpeg
 
 
-It's also a good idea to place the top legend plate over them to make sure they all clear the holes properly.  Then solder them up!
+It's also a good idea to place the top legend plate over them to make sure they all clear the holes properly.  Then solder them up!  You don't need to clip the leads on all the switches, they have plenty of room.
+
+.. image:: images/build_guide/ui_module_6c.jpeg
 
 
-.. image:: ../../images/build_guide/led_build_11.jpeg
-   :target: ../../images/build_guide/led_build_11.jpeg
-   :alt: PCB with switches soldered
+Headers
+---------
+
+I like to do all the headers next.  These will eventually receive the IMU, GPS and Screen.  The procedure is roughly the same for 
+all three: Insert them, solder one pin, check that they are flat and straight and then solder the rest of the pins.  Clip them flush and apply some insulating tape.  
+
+Start with the IMU header.  It goes on the underside of the board and is soldered from the top
+
+.. image:: images/build_guide/ui_module_7.jpeg
+
+.. image:: images/build_guide/ui_module_8.jpeg
+
+Apply the insulating tape and move on to the screen header.  It goes in from the top side:
+
+.. image:: images/build_guide/ui_module_9.jpeg
+
+Trim the pins and tape it up
+
+.. image:: images/build_guide/ui_module_10.jpeg
+
+The GPS header is next. The modules come with a yellow header, but any will do.  It gets inserted from the bottom, soldered and taped liked the rest.
+
+.. image:: images/build_guide/ui_module_11.jpeg
+
+.. image:: images/build_guide/ui_module_12.jpeg
 
 
 IMU
 ------------------------
 
-The Inertial Measurement unit is next.  The IMU has an annoyingly bright green LED on it, which you will probably want to paint over with a drop of black nail polish.  It can be done after it's soldered, but it's much easier before hand.  See the image below to ID the offending component.
-
+The Inertial Measurement unit is next.  The IMU has an annoyingly bright green LED on it, which you will either want to paint over with a few laywers of black nail polish, or you can use your soldering iron to destroy it.  It can be handled  after it's soldered if you forget, but it's much easier before hand.  See the image below to ID the offending component.
 
 .. image:: ../../images/build_guide/adafruit_IMU.png
    :target: ../../images/build_guide/adafruit_IMU.png
    :alt: Green led on IMU
 
 
-The photo below shows the orientation on the back of the PCB.  Solder the headers into the PCB first, then orient the IMU, make sure it sits flat and square with the board.  It does not need to be perfect, but should be secure and low-profile. Solder it into position then trim back the leads of the header to help make sure they don't touch the Raspberry Pi later.
+The photo below shows the orientation on the back of the PCB. Make sure it sits flat and square with the board.  It does not need to be perfect, but should be secure and low-profile. Solder it into position and you're good to go!
 
-
-.. image:: ../../images/build_guide/IMG_4643.jpeg
-   :target: ../../images/build_guide/IMG_4643.jpeg
-   :alt: PCB with switches soldered
+.. image:: images/build_guide/ui_module_13.jpeg
 
 
 Display
@@ -131,14 +137,6 @@ Next you'll need to remove the plug from the underside of the board.  This is no
    :alt: Connector cut free
 
 
-It's a good idea to trim and insulate the IMU header pins.  There should be clearance, but it's easy to do and will avoid potential problems later.
-
-
-.. image:: ../../images/build_guide/IMG_4651.jpeg
-   :target: ../../images/build_guide/IMG_4651.jpeg
-   :alt: Insulate that header
-
-
 To make the top plate fit a bit better and look tidier, I suggest sanding back or simply cutting the bottom tabs on the display PCB.  There is no circuitry there, they are just providing screw points which are not needed.
 
 
@@ -147,7 +145,7 @@ To make the top plate fit a bit better and look tidier, I suggest sanding back o
    :alt: Cut/Sand tabs on displya
 
 
-Test fit the screen with the header installed and the top-plate.  Everything should fit nicely and be square.  It's nice to face the longer pins of the header down for a cleaner look up top.
+It's not a bad idea to test fit the screen with the header installed and the top-plate in place.  Everything should fit nicely and be square. 
 
 
 .. image:: ../../images/build_guide/IMG_4653.jpeg
@@ -155,21 +153,16 @@ Test fit the screen with the header installed and the top-plate.  Everything sho
    :alt: Screen test fit
 
 
-Remove the screen, turn over the board and solder the header into place
+When you are ready, solder the screen in place.  Do one pin first and check it all around to make sure it's sitting flat.  If not, heat that one joint and adjust.
 
+.. image:: images/build_guide/ui_module_14.jpeg
 
-.. image:: ../../images/build_guide/IMG_4656.jpeg
-   :target: ../../images/build_guide/IMG_4656.jpeg
-   :alt: Headers in place
+GPS
+------------------
 
+The last active component is the GPS module.  It goes component side up so you can access the antenna plug.  Check the photo below and solder it securely.
 
-
-.. image:: ../../images/build_guide/IMG_4657.jpeg
-   :target: ../../images/build_guide/IMG_4657.jpeg
-   :alt: Headers in place
-
-
-Trim these leads back when done.  Then flip the board back over, place the screen and solder it in.  Take your time and make sure it's nice and lined up for a clean look.
+.. image:: images/build_guide/ui_module_15.jpeg
 
 Connector
 ------------------
@@ -178,42 +171,18 @@ Attaching the GPIO connector is the last soldered bit for the Hat.  To get this 
 
 The pins on the connector are long to accommodate various spacings.  Plug the connector firmly into your Pi and once you have mounted the PiFinder hat to your Pi with stand-offs/screws you'll be able to solder the connector with the correct spacing.
 
-Make sure you've added any heatsinks you plan to use.  In these photos, I'm using a RP3 for assembly and I know what spacing I need.  Take your time here and make sure the hat is secured properly to the Pi, that there is no mechanical interference, and that you're satisfied with the spacing before soldering the connector.  
+Make sure you've added any heatsinks you plan to use. Take your time here and make sure the hat is secured properly to the Pi, that there is no mechanical interference, and that you're satisfied with the spacing before soldering the connector.  
 
-Depending on your heatsink, you may need a more complicated stand-off arrangement.  You want the hat to completely clear the Pi, but be as low-profile as possible after than.  
+Check the photos below for the procedure, it's easier than it sounds!  There are a lot of pins, make sure each is secure as this
+part can have force applied as the hat is installed and removed.  
 
-Check the photos below for the procedure, it's easier than it sounds!
+.. image:: images/build_guide/ui_module_16.jpeg
 
+.. image:: images/build_guide/ui_module_17.jpeg
 
-.. image:: ../../images/build_guide/IMG_4661.jpeg
-   :target: ../../images/build_guide/IMG_4661.jpeg
-   :alt: Figuring out connector spacing
+After you have all the pins soldrerd, it's a good time to insert the SD card and power it up to double check everything is working
 
-
-.. image:: ../../images/build_guide/IMG_4662.jpeg
-   :target: ../../images/build_guide/IMG_4662.jpeg
-   :alt: Figuring out connector spacing
-
-
-.. image:: ../../images/build_guide/IMG_4663.jpeg
-   :target: ../../images/build_guide/IMG_4663.jpeg
-   :alt: Figuring out connector spacing
-
-
-.. image:: ../../images/build_guide/IMG_4666.jpeg
-   :target: ../../images/build_guide/IMG_4666.jpeg
-   :alt: Figuring out connector spacing
-
-
-.. image:: ../../images/build_guide/IMG_4667.jpeg
-   :target: ../../images/build_guide/IMG_4667.jpeg
-   :alt: Figuring out connector spacing
-
-
-.. image:: ../../images/build_guide/IMG_4668.jpeg
-   :target: ../../images/build_guide/IMG_4668.jpeg
-   :alt: Figuring out connector spacing
-
+.. image:: images/build_guide/ui_module_18.jpeg
 
 There you go!  The PiFinder hat is fully assembled and you can move on to printing your parts or :ref:`final assembly<build_guide:assembly>`
 
