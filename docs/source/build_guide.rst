@@ -343,8 +343,8 @@ Pi Mounting and Camera Prep
 The first step is to mount the Pi and PiSugar battery to the Pi Mount piece.  The pieces you'll need are shown below
 
 
-.. image:: ../../images/build_guide/v1.6/build_guide_04.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_04.jpeg
+.. image:: images/build_guide/common_1.jpeg
+   :target: images/build_guide/common_1.jpeg
    :alt: Build Guide Step
 
 
@@ -396,20 +396,6 @@ Now is a good time to route the camera cable, so you'll need to remove it from t
    :alt: Build Guide Step
 
 
-With the camera module at hand, let's assemble the camera enclosure.  The camera sits on top of the camera cell, the cover goes over both pieces and then the screws hold everything together.  Check the photos below:
-
-
-.. image:: ../../images/build_guide/v1.6/build_guide_07.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_07.jpeg
-   :alt: Build Guide Step
-
-
-
-.. image:: ../../images/build_guide/v1.6/build_guide_08.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_08.jpeg
-   :alt: Build Guide Step
-
-
 If you are building a flat unit, just set the camera cable to the side as it gets routed in a different manner.  For left/right builds, it's easier to get the cable roughly positioned now.
 
 Return to the Raspberry Pi assembly and thread the camera cable through as shown.  Note the orientation/direction of the silver contacts at each end of the cable.  The photos below show the cable routing for left and right hand builds.
@@ -455,7 +441,7 @@ The combined PiSugar/RPI stack then gets secured to the PI Mount using the 20mm 
      
           Left hand PiSugar stack
 
-     - .. figure:: images/build_guide/pisugar_stack_right01.jpeg
+     - .. figure:: images/build_guide/right_2.jpeg
      
           Right hand PiSugar stack
 
@@ -463,20 +449,23 @@ The combined PiSugar/RPI stack then gets secured to the PI Mount using the 20mm 
      
           Secured with stand offs
 
-     - .. figure:: images/build_guide/pisugar_stack_right02.jpeg
+     - .. figure:: images/build_guide/right_3.jpeg
      
-          Secured wiith stand offa
+          Secured wiith stand offs
 
 
 
 Right / Left Configuration
 ---------------------------
 
-Continue on with this section to build a Right/Left hand unit.  The build progresses the same for both versions with some differences in the part orientation.  You'll see photos for each step with left hand version on the left and right on the right.
+Continue on with this section to build a Right/Left hand unit.  The build progresses the same for both versions with some differences in the part orientation.  
+You'll see photos for each step with left hand version on the left and right on the right.
 
-Now that the RPI is mounted, it's time to secure the mount plate to the bottom plate.  The bottom plate can be flipped to allow for the screen to be facing the right, or left side.  As you can see from the two photos below.
+Now that the RPI is mounted, it's time to secure the mount plate to the bottom plate.  The bottom plate can be flipped to allow for the screen to 
+be facing the right, or left side.  As you can see from the two photos below.
 
-In both cases, the RPI/Screen will always be face the same direction as the long, flat side of the bottom piece.  The angled cut out is always on the camera side, and the lens faces the angled portion.  
+In both cases, the RPI/Screen will always be face the same direction as the long, flat side of the bottom piece.  The angled cut out is 
+always on the camera side, and the lens faces the angled portion.  
 
 .. list-table::
 
@@ -485,62 +474,81 @@ In both cases, the RPI/Screen will always be face the same direction as the long
      - .. image:: images/build_guide/assembly_right_01.jpeg
 
 
-Before affixing the RPI Mount sub-section to the bottom plate, it's time to mount the dovetail.  This can be done after the attaching the RPI mount to the bottom plate, but it's difficult, especially with the PiSugar battery.
-
-See the mounting section of the :ref:`Parts<build_guide:mounting>` build guide for more information about the dovetail mount assembly.  Even if you are going to use the PiFinder with no angle on the finder shoe, it helps to angle it a bit to assure the proper orientation.  The high side of the dovetail mount should face the flat side of the bottom plate.   Place the bottom plate on top of the dovetail and secure with 4 of the M2.5 8mm screws through the bottom plate into the inserts in the dovetail.
-
-.. list-table::
-
-   * - .. image:: images/build_guide/assembly_left_02.jpeg
-
-     - .. image:: images/build_guide/assembly_right_02.jpeg
-
-   * - .. image:: images/build_guide/assembly_left_03.jpeg
-
-     - .. image:: images/build_guide/assembly_right_03.jpeg
-
-
-Once the dovetail is mounted to the bottom plate, turn the RPI mount sub-assembly over so that the edge inserts are facing up.  Flip the bottom plate/dovetail over as you'll be securing it through the bottom into the inserts in the edge of the RPI Mount.
+The first step is to screw the Pi Mount assembly to the bottom plate.  You'll use two screws from underneath running through the bottom plate into the threaded
+inserts in the side of the Pi Mount piece.
 
 
 .. list-table::
 
-   * - .. image:: images/build_guide/assembly_left_04.jpeg
+   * - .. image:: images/build_guide/left_2.jpeg
 
-     - .. image:: images/build_guide/assembly_right_04.jpeg
-
-
-The bottom plate then goes on-top of this and is secured with two M2.5 8mm screws through the bottom plate into the edge of the PiMount plate. 
-
-.. list-table::
-
-   * - .. image:: images/build_guide/assembly_left_05.jpeg
-
-     - .. image:: images/build_guide/assembly_right_05.jpeg
-
-   * - .. image:: images/build_guide/assembly_left_06.jpeg
-
-     - .. image:: images/build_guide/assembly_right_06.jpeg
+     - .. image:: images/build_guide/right_5.jpeg
 
 
 
-
-The back piece is next.  It secures to the rest of the assembly via three M2.5 8mm screws.  One goes through the back plate into the side-insert in the RPI Mount, there is one of these inserts on either side of the RPI Mount for left/right hand builds.  The other two go through the bottom plate into the side-inserts on the back plate. 
-
+The back piece is next, but first screw in the four short stand-offs which will support the camera module.  These stand-offs
+can be screwed in either side for left or right hand configurations.  Take a look at photos below to match up how the 
+back piece fits with both configurations to decide which side to put the stand-offs in.
 
 .. list-table::
 
    * - .. image:: images/build_guide/assembly_left_07.jpeg
 
-     - .. image:: images/build_guide/assembly_right_07.jpeg
+     - .. image:: images/build_guide/right_6.jpeg
 
    * - .. image:: images/build_guide/assembly_left_08.jpeg
 
-     - .. image:: images/build_guide/assembly_right_08.jpeg
+     - .. image:: images/build_guide/right_7.jpeg
+
+Then the back piece secures to the rest of the assembly via three M2.5 8mm screws.  One goes through the 
+back plate into the side-insert in the RPI Mount, there is one of these inserts on either side of the 
+RPI Mount for left/right hand builds.  The other two go through the bottom plate into the side-inserts 
+on the back plate. 
+
+
+.. list-table::
 
    * - .. image:: images/build_guide/assembly_left_09.jpeg
 
-     - .. image:: images/build_guide/assembly_right_09.jpeg
+     - .. image:: images/build_guide/right_8.jpeg
+
+   * - .. image:: images/build_guide/assembly_left_09.jpeg
+
+     - .. image:: images/build_guide/right_9.jpeg
+
+Now it's time to mount the camera module.  You'll need the module, cover and four 8mm screws.
+
+.. list-table::
+
+   * - .. image:: images/build_guide/assembly_left_07.jpeg
+
+     - .. image:: images/build_guide/right_10.jpeg
+
+Start by connecting the camera to the cable, being careful with the orientation and the connector.  Insert the cable as show below and then carefully close the connector by pushing the grey portion down.
+
+.. image:: images/build_guide/common_2.jpeg
+
+Once the cable is connected, turn the PiFinder so the back is facing upwards to make mounting the camera easier.  Place the module on the
+four stand-offs, slide the cover down over it, and then secure everything with the four screws.
+
+.. list-table::
+
+   * - .. image:: images/build_guide/assembly_left_07.jpeg
+
+     - .. image:: images/build_guide/right_11.jpeg
+
+   * - .. image:: images/build_guide/assembly_left_07.jpeg
+
+     - .. image:: images/build_guide/right_12.jpeg
+
+
+If you've not done so already, now is a good time to make sure the battery cable is connected 
+
+.. list-table::
+
+   * - .. image:: images/build_guide/assembly_left_07.jpeg
+
+     - .. image:: images/build_guide/right_13.jpeg
 
 
 Flip the unit over and connect the RPI end of the camera cable.  The photo below show the proper orientation of the cable into the connector.  Note the silver contacts facing the white portion of the connector.
@@ -553,139 +561,104 @@ For the left hand version you will need a twist in the cable before it enters th
 
    * - .. image:: images/build_guide/assembly_left_10.jpeg
 
-     - .. image:: images/build_guide/assembly_right_10.jpeg
-
-Grab the camera assembly you prepared earlier.  It is held in place with one M2.5 12mm screw and rests against the three thumbscrews so it can be aligned with your telescope.
-
-.. list-table::
-
-   * - .. image:: images/build_guide/assembly_left_11.jpeg
-
-     - .. image:: images/build_guide/assembly_right_11.jpeg
-
-
-Screw in the three thumbscrews so they have some travel left, but stick out to support the camera cell.  Depending on your printer, inserts, and luck, you may need to clear some plastic from the screwholes to get the thumbscrews moving freely.  
-
-.. list-table::
-
-   * - .. image:: images/build_guide/assembly_left_12.jpeg
-
-     - .. image:: images/build_guide/assembly_right_12.jpeg
-
-
-
-Connect the camera end of the ribbon cable to the camera.  
-
-.. list-table::
-
-   * - .. image:: images/build_guide/assembly_left_13.jpeg
-
-     - .. image:: images/build_guide/assembly_right_13.jpeg
-
-
-Use one of the M2.5 12mm screws through the back plate into the center insert in the camera cell to pull the camera cell against the thumbscrews.  Don't over-tighten this screw!  It should apply enough pressure to hold the cell against the thumbscrews, but also allow some adjustment.
-
-.. list-table::
-
-   * - .. image:: images/build_guide/assembly_left_14.jpeg
-
-     - .. image:: images/build_guide/assembly_right_14.jpeg
+     - .. image:: images/build_guide/right_14.jpeg
 
 .. note::
-   The remainder of the build is the same for left or right hand units.  The photos below are primarily of a right-hand build and any important difference will be noted with a photo for the left-hand version.
+   The remainder of the build is almost the same for left or right hand units.  The photos below are a mix of left and 
+   right handed builds, but where there are important differences, you'll see both indicated for clarity.
 
 
-If you are using a PiSugar, connect the battery now if you have not already.  See the image below:
-
-.. image:: ../../images/build_guide/v1.6/build_guide_30.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_30.jpeg
-   :alt: Build Guide Step
-
-
-Turn the unit back upright and grab the assembled UI Module.  It plugs into the RPI GPIO headers.  Make sure its aligned correctly and use firm pressure to seat it all the way down.  Check the camera cable as you plug in the UI Module to make sure it's clear of the stand-offs and not caught on anything
-
-
-.. image:: ../../images/build_guide/v1.6/build_guide_32.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_32.jpeg
-   :alt: Build Guide Step
+Next up is to connect the UI Board and affix the shroud.  Start by pluggin in the GPS antenna to the UI board.  See
+the photos below and be patient.  It's a small connector and won't require much force as long as the alignment is 
+good.  
 
 .. list-table::
 
-   * - .. image:: images/build_guide/assembly_left_17.jpeg
+   * - .. image:: images/build_guide/common_3.jpeg
 
-     - .. image:: images/build_guide/assembly_right_17.jpeg
+     - .. image:: images/build_guide/common_4.jpeg
 
+Once this is done, layout the board as it will be connected and slide the antenna into the holder on the Pi Mount piece.  
+The ceramic top with the silver dimple on it needs to face upwards.  Consult the photos below
 
+.. image:: images/build_guide/right_16.jpeg
 
-The screw holes on the UI Board should line up with three of the four stand-offs.  The fourth provides support, but does is not used to secure the outer case. 
+.. image:: images/build_guide/right_17.jpeg
 
-
-.. image:: ../../images/build_guide/v1.6/build_guide_34.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_34.jpeg
-   :alt: Build Guide Step
-
-
-The shroud has two extra openings, one for the PiSugar power switch on top, and one for the SD Card on the side if you want easier access.  They are secured with two small tabs, indicated below, which can be cut.  Once these two tabs are cut, bend the cover portion out and it should snap cleanly off leaving an opening.
-
-The cutout for the SD card is on the side opposite the USB opening and can be opened in the same way as the PiSugar power switch opening on top.
+.. image:: images/build_guide/right_18.jpeg
 
 
-.. image:: ../../images/build_guide/v1.6/build_guide_35.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_35.jpeg
-   :alt: Build Guide Step
+Now carefully plug the UI Module into the Raspberry Pi.  Make sure both rows of pins are aligned and take your time to 
+manage the camera and GPS cables.  The photos below show the left and right configurations for the cable routing.
+
+.. list-table::
+
+   * - .. image:: images/build_guide/left_20.jpeg
+
+     - .. image:: images/build_guide/right_20.jpeg
 
 
-.. image:: ../../images/build_guide/v1.6/build_guide_36.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_36.jpeg
-   :alt: Build Guide Step
+The screw holes on the UI Board should line up with three of the four stand-offs.  The fourth provides support, but does is not used to secure the outer case. Collect up the Shroud, Bezel and cover plate along with three of the 12mm screws for the next steps
+
+.. image:: images/build_guide/common_5.jpeg
+   :target: images/build_guide/common_5.jpeg
 
 
-To complete the assembly, the shroud, front PCB plate and bezel get secured with the remaining 3 M2.5 12mm screws.
+The shroud has three optional openings, one for the PiSugar power switch on top, one for the USB ports, 
+and one for the SD Card on the side if you want easier access.  These can all be removed with a little force 
+or a sharp knife.  If you are using a PiSugar battery, you'll absolutely need to make sure that tab is removed
+See the photo below:
 
-.. image:: ../../images/build_guide/v1.6/build_guide_37.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_37.jpeg
-   :alt: Build Guide Step
+.. image:: images/build_guide/common_6.jpeg
+
+Slide the shroud over the unit then stack the bezel and the front PCB plate on top and secure
+them all with the three screws
+
+.. image:: images/build_guide/common_6.jpeg
+
+That's looking great!  Now we just need a way to mount it to the scope.  The top portion of the adjustable dovetail
+gets screwed directly to the bottom of the PiFinder and then the bottom portion of the dovetail gets secured to the 
+top portion.  The orientation of the top part is important to make sure the dovetail adjusts the proper way.  See
+the left/right hand photos below:
+
+.. list-table::
+
+   * - .. image:: images/build_guide/left_21.jpeg
+
+     - .. image:: images/build_guide/right_21.jpeg
+
+   * - .. image:: images/build_guide/left_22.jpeg
+
+     - .. image:: images/build_guide/right_22.jpeg
 
 
-.. image:: ../../images/build_guide/v1.6/build_guide_38.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_38.jpeg
-   :alt: Build Guide Step
+It's tricky to photograph the final dovetail assembly details on the PiFinder, so check these photos below
+and secure the bottom dovetail portion to the top:
 
+.. image:: images/build_guide/adjustable_dovetail/DSC_8574.jpeg
 
-Go ahead and screw on the camera lens.  The cap on the Pi HQ camera screws off, but leave the knurled metal spacer there or the lens will not reach focus properly. 
+.. image:: images/build_guide/adjustable_dovetail/DSC_8575.jpeg
+
+The final step is to Go ahead and screw on the camera lens.  The cap on the Pi HQ camera screws off, 
+but leave the knurled metal spacer there or the lens will not reach focus properly. 
 
 Gently screw the lens into the camera module.  You'll need to hold the module with your hand as you tighten the lens.
 
 
-.. image:: ../../images/build_guide/v1.6/build_guide_39.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_39.jpeg
-   :alt: Build Guide Step
+.. image:: images/build_guide/common_7.jpeg
+   :target: images/build_guide/common_7.jpeg
+
+.. image:: images/build_guide/common_8.jpeg
+   :target: images/build_guide/common_8.jpeg
 
 
-.. image:: ../../images/build_guide/v1.6/build_guide_40.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_40.jpeg
-   :alt: Build Guide Step
-
-
-To complete the unit, use the velcro to secure the GPS transceiver on top of the unit, with the label facing upwards.  Plug in the USB cable and you're done!
-
-
-.. image:: ../../images/build_guide/v1.6/build_guide_41.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_41.jpeg
-   :alt: Build Guide Step
-
-
-.. image:: ../../images/build_guide/v1.6/build_guide_42.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_42.jpeg
-   :alt: Build Guide Step
-
+That's it! You now have a fully assembled PiFinder!  
 
 Continue on to the :doc:`software setup<software>` if you've not already prepared a SD card.  
 
 
-.. image:: ../../images/build_guide/v1.6/build_guide_44.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_44.jpeg
-   :alt: Build Guide Step
+.. image:: images/build_guide/common_9.jpeg
+   :target: images/build_guide/common_9.jpeg
 
 
 Flat Assembly
