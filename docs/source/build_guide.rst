@@ -219,53 +219,102 @@ Printed Parts
 
 The PiFinder can be built in a left, right or flat configuration to work well on many types of telescopes.  See the :ref:`configurations overview<build_guide:configurations overview>` for more information including example photos.  To build each configuration, only a subset of the available parts are required.
 
-Inserts
----------
-
-In the photos below you can see the location of most of the heat-set inserts.  The remainder are inserted into the edge of the Back (2x) and RPI Mount (4x) pieces.  If there is a hole in the edge of a piece, it gets an insert.   
 
 Common Parts
 -----------------------
 
-There are many parts which are common to all three configurations.  The Bezel, Camera Cell, Camera Cover and RPI Mount are used in all configurations. 
+There are some parts which are common to all three configurations.  The Bezel, Camera Cover and RPI Mount are used in all configurations. 
 
 Right and Left configurations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Below is an image showing all the parts required to build a left or right hand PiFinder.  Note that the Back Plate piece comes in two versions, one for use with a PiSugar (PS) and one without.  The PiSugar piece moves the camera slightly outboard to make room for the PiSugar battery pack.  You'll only need one of these or the other.
+Below is an image showing all the parts required to build a left or right hand PiFinder.  
+Due to the use of edge inserts, these pieces can be assembled in either left, or right, handed 
+configurations so you just need the one set of parts regardless of which side your focuser is 
+facing.  In the assembly guide you'll find info about how to orient the pieces as you put them together. 
+
+.. image:: images/build_guide/parts_1.jpeg
+   :target: images/build_guide/parts_1.jpeg
 
 
-.. image:: ../../images/build_guide/v1.6/build_guide_02.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_02.jpeg
-   :alt: Parts List
-
-
-Due to the use of edge inserts, these pieces can be assembled in either left, or right, handed configurations so you just need the one set of parts regardless of which side your focuser is facing.  In the assembly guide you'll find info about how to orient the pieces as you put them together. 
 
 Flat Configuration
 ^^^^^^^^^^^^^^^^^^
 
 The pieces required for building the flat versions are pictured below.  The same parts are used with or without a PiSugar battery.
 
-
-.. image:: ../../images/build_guide/v1.6/build_guide_03.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_03.jpeg
-   :alt: Parts List
+.. image:: images/build_guide/parts_2.jpeg
+   :target: images/build_guide/parts_2.jpeg
 
 
 Printing
 --------
 
-These pieces will print without supports in the orientation shown on the photo.  I use 3 perimeter layers and 15% infill, but the pieces are not large and don't need to handle heavy forces so almost any print settings should work.
+These pieces will print without supports in the orientation shown in the photos.  I use 3 perimeter layers and 15% infill, but the pieces are not large and don't need to handle heavy forces so almost any print settings should work.
 
 You will want to consider using a material other than PLA, as your PiFinder is likely to experience some sunlight in it's lifetime and PLA degrades under moderate heat and UV.  PETG or some co-polymer like NGen would be a good choice.  Prusamint Galaxy PETG is the official PiFinder filament and is pictured in most of the build guide, except where grey provided needed contrast.
 
 Inserts
 -------
 
-Only some holes receive inserts, the rest have M2.5 screws inserted through them into the inserts in other pieces.  The brass inserts used in this project are M2.5 x 4mm long.  There are some inserts that go into holes through the entire piece thickness, and some that go into blind holes in the edges.  The edge inserts are indicated in the image above with arrows.
+Only some holes receive inserts, the rest have M2.5 screws inserted through them into the inserts in other pieces.  The brass inserts used in this project are 
+M2.5 x 4mm long.  There are some inserts that go into holes through the entire piece thickness, and some that go into blind holes in the edges.  Each part
+with inserts is pictured below for reference:
 
-The Bottom Plate, Shroud, Bezel and Camera Cover have no inserts in them at all.
+Pi Mount
+^^^^^^^^^
+
+There are eight inserts total for the Pi Mount.  Four go in the printed stand-offs and four go into the edges.
+
+.. image:: images/build_guide/parts_3.jpeg
+   :target: images/build_guide/parts_3.jpeg
+
+.. image:: images/build_guide/parts_4.jpeg
+   :target: images/build_guide/parts_4.jpeg
+
+Bottom
+^^^^^^^
+
+For left/right builds this is the bottom piece.  It needs four inserts for attaching the dovetail mount.
+
+.. image:: images/build_guide/parts_5.jpeg
+   :target: images/build_guide/parts_5.jpeg
+
+
+Flat Adaptor
+^^^^^^^^^^^^^
+
+This piece takes the place of the bottom and back piece in the left/right build.  It needs eight inserts, 
+four to attach the dovetail mount and four to attach the camera
+
+.. image:: images/build_guide/parts_6.jpeg
+   :target: images/build_guide/parts_6.jpeg
+
+
+Back
+^^^^^^^^^
+
+The back piece holds the camera for left/right builds and reinforces the PiMount and Bottom piece to 
+help keep everything squar and sturdy.  It needs six inserts; four to mount the camera and two in the bottom
+edge to connect with the bottom piece
+
+.. image:: images/build_guide/parts_7.jpeg
+   :target: images/build_guide/parts_7.jpeg
+
+Dovetail Bottom
+^^^^^^^^^^^^^^^^
+
+The dovetail bottom has two inserts to receive the longer 12mm screws which allow angle adjustment.  These inserts
+are placed in the side opposite where the top piece connects.  The screws pass through the top piece and part of the 
+bottom before engaging with the inserts.  This makes this assembly strong enough to hold the set angle with the screws 
+sufficiently tightend.
+
+.. image:: images/build_guide/parts_8.jpeg
+   :target: images/build_guide/parts_8.jpeg
+
+
+Installation
+^^^^^^^^^^^^^
 
 Because I use a lot of these inserts, I use a tool to help seat them plumb into the parts,  but I've done plenty freehand and it's not overly difficult.  Use a temperature a bit below your normal printing temperature (for reference, I print PETG at 230c and use 170-200c for inserts) and give the plastic time to melt around them.  
 
@@ -275,18 +324,12 @@ Because I use a lot of these inserts, I use a tool to help seat them plumb into 
    :alt: Insert Inserting
 
 
-You can see a closer view of the through and blind inserts below
-
-
-.. image:: ../../images/build_guide/v1.4/build_guide_03.jpg
-   :target: ../../images/build_guide/v1.4/build_guide_03.jpg
-   :alt: Insert Inserting
- 
 
 Mounting
 --------
 
-Most people will want to print the dovetail mount which fits into the finder shoe included on most telescopes.  The Flat configuration has it's own fixed dovetail mount, and the left/right hand version has an angle adjustable dovetail mount.  This is to allow the PiFinder to sit upright so the screen is easily visible.   See the image below for a better explanation:
+Most people will want to print the dovetail mount which fits into the finder shoe included on most telescopes.  
+The dovetail mount is angle adjustable.  This is to allow the PiFinder to sit upright so the screen is easily visible.   See the image below for a better explanation:
 
 
 .. image:: ../../images/finder_shoe_angle.png
@@ -297,7 +340,7 @@ Most people will want to print the dovetail mount which fits into the finder sho
 Adjustable Dovetail Assembly
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you purchased a kit, the dovetail will already be assembled.  If you print your own parts, you'll need to add heat-set inserts as pictured in the first phot below.  Note that the inserts must be inserted from the outside of the bottom piece, as pictured.  The holes on the inside are not large enough for inserts, they just allow the screws to pass through into the inserts.
+If you print your own parts, you'll need to add heat-set inserts as pictured in the photo above.  Note that the inserts must be inserted from the outside of the bottom piece, as pictured.  The holes on the inside are not large enough for inserts, they just allow the screws to pass through into the inserts.
 
 See the photos below for how the pieces fit together.  Once assembled you can loosen both screws to adjust the angle up to 40 degrees from horizontal and then secure them again.  No need to go too tight, but a bit of friction will be required to hold the angle.
 
@@ -378,7 +421,6 @@ Now is a good time to route the camera cable, so you'll need to remove it from t
 
 .. image:: ../../images/build_guide/v1.4/build_guide_08.jpg
    :target: ../../images/build_guide/v1.4/build_guide_08.jpg
-   :alt: Build Guide Step
 
 
 .. image:: ../../images/build_guide/v1.4/build_guide_09.jpg
@@ -406,7 +448,7 @@ Return to the Raspberry Pi assembly and thread the camera cable through as shown
 
           Left hand cable routing
 
-     - .. figure:: images/build_guide/cable_routing_right01.jpeg
+     - .. figure:: images/build_guide/right_1.jpeg
 
           Right hand cable routing
 
