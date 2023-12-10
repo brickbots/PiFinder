@@ -107,8 +107,8 @@ class UIStatus(UIModule):
             "CPU TMP": "--",
         }
 
-        if self._config_options["WiFi Mode"]["value"] == "Cli":
-            self.status_dict["WIFI"] = "Cli"
+        if self._config_options["WiFi Mode"]["value"] == "Client":
+            self.status_dict["WIFI"] = "Client"
         else:
             self.status_dict["WIFI"] = "AP"
 
