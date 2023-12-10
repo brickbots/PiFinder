@@ -127,6 +127,8 @@ class Network:
         Returns the SSID of the connected wifi network or
         None if not connected or in AP mode
         """
+        if self.wifi_mode() == "AP":
+            return None
         # get output from iwgetid
         _t = iwgetid(_ok_code=(0, 255)).strip()
         return _t.split(":")[-1].strip('"')
@@ -157,7 +159,7 @@ class Network:
             s.connect(("192.255.255.255", 1))
             ip = s.getsockname()[0]
         except:
-            ip = "127.0.0.1"
+            ip = "NONE"
         finally:
             s.close()
         return ip
@@ -191,7 +193,7 @@ def backup_userdata():
         glob.glob("/home/pifinder/PiFinder_data/obslists/*"),
     )
 
-    return zip_path
+    return BACKUP_PATH
 
 
 def restore_userdata(zip_path):
