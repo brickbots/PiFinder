@@ -94,6 +94,9 @@ class UIStatus(UIModule):
             "LST SLV": "--",
             "RA/DEC": "--",
             "AZ/ALT": "--",
+            "WIFI": "--",
+            "IP ADDR": "--",
+            "SSID": "--",
             "IMU": "--",
             "IMU PS": "--",
             "GPS": "--",
@@ -102,8 +105,6 @@ class UIStatus(UIModule):
             "LCL TM": "--",
             "UTC TM": "--",
             "CPU TMP": "--",
-            "WIFI": "--",
-            "IP ADDR": "--",
         }
 
         if self._config_options["WiFi Mode"]["value"] == "Cli":
@@ -293,6 +294,10 @@ class UIStatus(UIModule):
             self.last_IP_time = time.time()
             # IP address
             self.status_dict["IP ADDR"] = self.net.local_ip()
+            if self.net.wifi_mode() == "AP":
+                self.status_dict["SSID"] = self.net.get_ap_name()
+            else:
+                self.status_dict["SSID"] = self.net.get_connected_ssid()
 
     def update(self, force=False):
         self.update_status_dict()
