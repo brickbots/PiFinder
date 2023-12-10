@@ -14,6 +14,7 @@ from bottle import (
     static_file,
     debug,
     redirect,
+    CherootServer,
 )
 
 from PIL import Image
@@ -363,10 +364,24 @@ class Server:
         # If the PiFinder software is running as a service
         # it can grab port 80.  If not, it needs to use 8080
         try:
-            run(app, host="0.0.0.0", port=80, quiet=True, debug=True)
-        except PermissionError:
+            run(
+                app,
+                host="0.0.0.0",
+                port=80,
+                quiet=True,
+                debug=True,
+                server=CherootServer,
+            )
+        except (PermissionError, OSError):
             logging.info("Web Interface on port 8080")
-            run(app, host="0.0.0.0", port=8080, quiet=True, debug=True)
+            run(
+                app,
+                host="0.0.0.0",
+                port=8080,
+                quiet=True,
+                debug=True,
+                server=CherootServer,
+            )
 
     def key_callback(self, key):
         self.q.put(key)
