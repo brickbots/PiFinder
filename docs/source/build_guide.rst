@@ -387,17 +387,15 @@ If you are using a PiSugar it's time to mount the battery pack.  If not, just sk
 Mind the orientation of the battery pack to make sure the connector is situated in the notch as shown below
 
 
-.. image:: ../../images/build_guide/v1.6/build_guide_05.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_05.jpeg
-   :alt: Build Guide Step
+.. image:: images/build_guide/common_1b.jpeg
+   :target: _images/common_1b.jpeg
 
 
 Snip the zip-ties off and you are ready to move on.
 
 
-.. image:: ../../images/build_guide/v1.6/build_guide_06.jpeg
-   :target: ../../images/build_guide/v1.6/build_guide_06.jpeg
-   :alt: Build Guide Step
+.. image:: images/build_guide/common_1c.jpeg
+   :target: images/build_guide/common_1c.jpeg
 
 
 Now is a good time to route the camera cable, so you'll need to remove it from the camera module.  Start by removing the tripod mount, then gently pull up on the connector locking piece and slide the cable out.  See the photos below for more details
@@ -433,13 +431,15 @@ Return to the Raspberry Pi assembly and thread the camera cable through as shown
 
 .. list-table::
 
-   * - .. figure:: images/build_guide/left_1.jpeg
+   * - .. image:: images/build_guide/left_1.jpeg
+          :target: images/build_guide/left_1.jpeg 
 
-          Left hand cable routing
+       Left hand cable routing
 
-     - .. figure:: images/build_guide/right_1.jpeg
+     - .. image:: images/build_guide/right_1.jpeg
+          :target: images/build_guide/right_1.jpeg 
 
-          Right hand cable routing
+       Right hand cable routing
 
 .. important::
     If you are using the recommended S Plus unit, now is the time to make sure you've got it all prepared.
