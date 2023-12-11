@@ -288,9 +288,10 @@ As an example, here are the images available for M57
    :alt: Catalog Image
 
 
-These images are oriented as they would be through the eyepiece in a newtonian reflector pointing at a specific area of the sky from your current location.   You can use the **UP** and **DN** keys to switch between various eyepiece field of views.   If you have your telescope and eyepiece collection information entered into the PiFinder these will be used to determine the FOV's to cycle through.  The defaults are 1, 0.5, 0.25, 0.12 degrees.
+These images are oriented as they would be through the eyepiece in a newtonian reflector pointing at a specific area of the sky from your current location.   You can use the **UP** and **DN** keys to switch between several eyepiece field of view: 1, 0.5, 0.25, 0.12 degrees
 
-The bottom left of the screen shows the source of the current image and the left side shows the current FOV / Eyepiece information.
+The bottom left of the screen shows the source of the current image and the left side shows the current FOV information.
+
 
 Observing Lists
 ======================
