@@ -345,24 +345,13 @@ If you print your own parts, you'll need to add heat-set inserts as pictured in 
 See the photos below for how the pieces fit together.  Once assembled you can loosen both screws to adjust the angle up to 40 degrees from horizontal and then secure them again.  No need to go too tight, but a bit of friction will be required to hold the angle.
 
 
-.. image:: ../../images/build_guide/adjustable_dovetail/DSC_8569.jpeg
-   :target: ../../images/build_guide/adjustable_dovetail/DSC_8569.jpeg
-   :alt: Dovetail assembly
+.. image:: images/build_guide/dovetail_1.jpeg
 
+.. image:: images/build_guide/dovetail_2.jpeg
 
-.. image:: ../../images/build_guide/adjustable_dovetail/DSC_8574.jpeg
-   :target: ../../images/build_guide/adjustable_dovetail/DSC_8574.jpeg
-   :alt: Dovetail assembly
+.. image:: images/build_guide/dovetail_3.jpeg
 
-
-.. image:: ../../images/build_guide/adjustable_dovetail/DSC_8575.jpeg
-   :target: ../../images/build_guide/adjustable_dovetail/DSC_8575.jpeg
-   :alt: Dovetail assembly
-
-
-.. image:: ../../images/build_guide/adjustable_dovetail/DSC_8578.jpeg
-   :target: ../../images/build_guide/adjustable_dovetail/DSC_8578.jpeg
-   :alt: Dovetail assembly
+.. image:: images/build_guide/dovetail_4.jpeg
 
 
 If you need more flexibility, there is also a go-pro compatible plate that will bolt into the bottom plate.  You'll need to add inserts into the bottom plate mounting footprint to use this option.
@@ -444,7 +433,7 @@ Return to the Raspberry Pi assembly and thread the camera cable through as shown
 
 .. list-table::
 
-   * - .. figure:: images/build_guide/cable_routing_left01.jpeg
+   * - .. figure:: images/build_guide/left_1.jpeg
 
           Left hand cable routing
 
@@ -479,7 +468,7 @@ The combined PiSugar/RPI stack then gets secured to the PI Mount using the 20mm 
 
 .. list-table::
 
-   * - .. figure:: images/build_guide/pisugar_stack_left01.jpeg
+   * - .. figure:: images/build_guide/left_2.jpeg
      
           Left hand PiSugar stack
 
@@ -487,7 +476,7 @@ The combined PiSugar/RPI stack then gets secured to the PI Mount using the 20mm 
      
           Right hand PiSugar stack
 
-   * - .. figure:: images/build_guide/pisugar_stack_left02.jpeg
+   * - .. figure:: images/build_guide/left_3.jpeg
      
           Secured with stand offs
 
@@ -511,9 +500,9 @@ always on the camera side, and the lens faces the angled portion.
 
 .. list-table::
 
-   * - .. image:: images/build_guide/assembly_left_01.jpeg
+   * - .. image:: images/build_guide/left_4.jpeg
 
-     - .. image:: images/build_guide/assembly_right_01.jpeg
+     - .. image:: images/build_guide/right_4.jpeg
 
 
 The first step is to screw the Pi Mount assembly to the bottom plate.  You'll use two screws from underneath running through the bottom plate into the threaded
@@ -522,7 +511,7 @@ inserts in the side of the Pi Mount piece.
 
 .. list-table::
 
-   * - .. image:: images/build_guide/left_2.jpeg
+   * - .. image:: images/build_guide/left_5.jpeg
 
      - .. image:: images/build_guide/right_5.jpeg
 
@@ -534,11 +523,11 @@ back piece fits with both configurations to decide which side to put the stand-o
 
 .. list-table::
 
-   * - .. image:: images/build_guide/assembly_left_07.jpeg
+   * - .. image:: images/build_guide/left_6.jpeg
 
      - .. image:: images/build_guide/right_6.jpeg
 
-   * - .. image:: images/build_guide/assembly_left_08.jpeg
+   * - .. image:: images/build_guide/left_7.jpeg
 
      - .. image:: images/build_guide/right_7.jpeg
 
@@ -550,11 +539,11 @@ on the back plate.
 
 .. list-table::
 
-   * - .. image:: images/build_guide/assembly_left_09.jpeg
+   * - .. image:: images/build_guide/left_8.jpeg
 
      - .. image:: images/build_guide/right_8.jpeg
 
-   * - .. image:: images/build_guide/assembly_left_09.jpeg
+   * - .. image:: images/build_guide/left_9.jpeg
 
      - .. image:: images/build_guide/right_9.jpeg
 
@@ -562,7 +551,7 @@ Now it's time to mount the camera module.  You'll need the module, cover and fou
 
 .. list-table::
 
-   * - .. image:: images/build_guide/assembly_left_07.jpeg
+   * - .. image:: images/build_guide/left_10.jpeg
 
      - .. image:: images/build_guide/right_10.jpeg
 
@@ -575,22 +564,13 @@ four stand-offs, slide the cover down over it, and then secure everything with t
 
 .. list-table::
 
-   * - .. image:: images/build_guide/assembly_left_07.jpeg
+   * - .. image:: images/build_guide/left_11.jpeg
 
      - .. image:: images/build_guide/right_11.jpeg
 
-   * - .. image:: images/build_guide/assembly_left_07.jpeg
+   * - .. image:: images/build_guide/left_12.jpeg
 
      - .. image:: images/build_guide/right_12.jpeg
-
-
-If you've not done so already, now is a good time to make sure the battery cable is connected 
-
-.. list-table::
-
-   * - .. image:: images/build_guide/assembly_left_07.jpeg
-
-     - .. image:: images/build_guide/right_13.jpeg
 
 
 Flip the unit over and connect the RPI end of the camera cable.  The photo below show the proper orientation of the cable into the connector.  Note the silver contacts facing the white portion of the connector.
@@ -601,7 +581,7 @@ For the left hand version you will need a twist in the cable before it enters th
 
 .. list-table::
 
-   * - .. image:: images/build_guide/assembly_left_10.jpeg
+   * - .. image:: images/build_guide/left_14.jpeg
 
      - .. image:: images/build_guide/right_14.jpeg
 
@@ -656,30 +636,36 @@ See the photo below:
 Slide the shroud over the unit then stack the bezel and the front PCB plate on top and secure
 them all with the three screws
 
-.. image:: images/build_guide/common_6.jpeg
+.. image:: images/build_guide/common_7.jpeg
+
+.. image:: images/build_guide/common_8.jpeg
+
+.. image:: images/build_guide/common_9.jpeg
+
+.. image:: images/build_guide/common_10.jpeg
 
 That's looking great!  Now we just need a way to mount it to the scope.  The top portion of the adjustable dovetail
 gets screwed directly to the bottom of the PiFinder and then the bottom portion of the dovetail gets secured to the 
 top portion.  The orientation of the top part is important to make sure the dovetail adjusts the proper way.  See
 the left/right hand photos below:
 
-.. list-table::
 
-   * - .. image:: images/build_guide/left_21.jpeg
+.. image:: images/build_guide/right_21.jpeg
 
-     - .. image:: images/build_guide/right_21.jpeg
-
-   * - .. image:: images/build_guide/left_22.jpeg
-
-     - .. image:: images/build_guide/right_22.jpeg
+.. image:: images/build_guide/right_22.jpeg
 
 
 It's tricky to photograph the final dovetail assembly details on the PiFinder, so check these photos below
 and secure the bottom dovetail portion to the top:
 
-.. image:: images/build_guide/adjustable_dovetail/DSC_8574.jpeg
+.. image:: images/build_guide/dovetail_1.jpeg
 
-.. image:: images/build_guide/adjustable_dovetail/DSC_8575.jpeg
+.. image:: images/build_guide/dovetail_2.jpeg
+
+.. image:: images/build_guide/dovetail_3.jpeg
+
+.. image:: images/build_guide/dovetail_4.jpeg
+
 
 The final step is to Go ahead and screw on the camera lens.  The cap on the Pi HQ camera screws off, 
 but leave the knurled metal spacer there or the lens will not reach focus properly. 
@@ -687,11 +673,11 @@ but leave the knurled metal spacer there or the lens will not reach focus proper
 Gently screw the lens into the camera module.  You'll need to hold the module with your hand as you tighten the lens.
 
 
-.. image:: images/build_guide/common_7.jpeg
-   :target: images/build_guide/common_7.jpeg
+.. image:: images/build_guide/cam_1.jpeg
+   :target: images/build_guide/cam_1.jpeg
 
-.. image:: images/build_guide/common_8.jpeg
-   :target: images/build_guide/common_8.jpeg
+.. image:: images/build_guide/cam_2.jpeg
+   :target: images/build_guide/cam_2.jpeg
 
 
 That's it! You now have a fully assembled PiFinder!  
@@ -699,8 +685,8 @@ That's it! You now have a fully assembled PiFinder!
 Continue on to the :doc:`software setup<software>` if you've not already prepared a SD card.  
 
 
-.. image:: images/build_guide/common_9.jpeg
-   :target: images/build_guide/common_9.jpeg
+.. image:: images/build_guide/common_11.jpeg
+   :target: images/build_guide/common_11.jpeg
 
 
 Flat Assembly
