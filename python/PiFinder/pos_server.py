@@ -10,6 +10,7 @@ import socket
 from math import modf
 import logging
 import re
+from multiprocessing import Queue
 from typing import Tuple, List
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg, ra_to_hms
 from PiFinder.catalogs import CompositeObject
@@ -17,6 +18,7 @@ from PiFinder.catalogs import CompositeObject
 
 sr_result = None
 sequence = 0
+ui_queue: Queue = None
 
 
 def get_telescope_ra(shared_state, _):
@@ -108,12 +110,12 @@ def parse_sd_command(shared_state, input_str: str):
 
 
 def handle_goto_command(shared_state, ra_parsed, dec_parsed):
-    global sequence
+    global sequence, ui_queue
     ra = ra_to_deg(*ra_parsed)
     dec = dec_to_deg(*dec_parsed)
     logging.debug(f"Goto {ra_parsed},{dec_parsed} or {ra},{dec}")
     sequence += 1
-    obj = CompositeObject(
+    obj = CompositeObject.from_dict(
         {
             "id": -1,
             "obj_type": "",
@@ -127,7 +129,8 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
             "description": f"Skysafari object nr {sequence}",
         }
     )
-    shared_state.ui_state().set_target_and_add_to_history(obj)
+    shared_state.ui_state().push_object(obj)
+    ui_queue.put("push_object")
     return "1"
 
 
@@ -144,9 +147,11 @@ def extract_command(s):
     return match.group(1) if match else None
 
 
-def run_server(shared_state, _):
+def run_server(shared_state, p_ui_queue):
+    global ui_queue
     try:
         init_logging()
+        ui_queue = p_ui_queue
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
             logging.info("Starting SkySafari server")
             server_socket.bind(("", 4030))

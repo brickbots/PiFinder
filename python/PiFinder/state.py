@@ -88,6 +88,10 @@ class UIState:
         elif self.__history_list[-1] != self.__target:
             self.__history_list.append(self.__target)
 
+    def push_object(self, target):
+        self.set_target_and_add_to_history(target)
+        self.set_active_list_to_history_list()
+
     def __str__(self):
         return str(
             {

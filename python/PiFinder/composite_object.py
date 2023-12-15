@@ -1,39 +1,31 @@
 # CompositeObject class
-import logging
+from dataclasses import dataclass, field
 
 
+@dataclass
 class CompositeObject:
-    """
-    Represents an object that is a combination of
-    catalog data and the basic data from the objects table
-    """
+    """A catalog object, augmented with related DB data"""
 
-    def __init__(self, data_dict):
-        self._data = data_dict
+    # id is the primary key of the catalog_objects table
+    id: int = field(default=-1)
+    # object_id is the primary key of the objects table
+    object_id: int = field(default=-1)
+    obj_type: str = field(default="")
+    ra: float = field(default=0.0)
+    dec: float = field(default=0.0)
+    const: str = field(default="")
+    size: str = field(default="")
+    mag: str = field(default="")
+    catalog_code: str = field(default="")
+    # we want catalogs of M and NGC etc, so sequence should be a name like M 31
+    # deduplicated from names. Catalog code stays, because this collection of
+    # things has a name
+    sequence: int = field(default=0)
+    description: str = field(default="")
+    names: list = field(default_factory=list)
+    image_name: str = field(default="")
+    logged: bool = field(default=False)
 
-    def __getattr__(self, name):
-        # Return the value if it exists in the dictionary.
-        # If not, raise an AttributeError.
-        try:
-            if name in self._data:
-                return self._data[name]
-            else:
-                logging.debug("CompositeObject: %s not found in %s", name, self._data)
-        except KeyError:
-            raise AttributeError(
-                f"'{type(self).__name__}' object has no attribute '{name}'"
-            )
-
-    # getstate and setstate are needed because of the pickling that happens in the manager.
-    # we should probably not use the manager for interthread communication
-    def __getstate__(self):
-        return self._data
-
-    def __setstate__(self, state):
-        self._data = state
-
-    def __str__(self):
-        return f"CompositeObject: {str(self._data)}"
-
-    def __repr__(self):
-        return f"CompositeObject: {self.catalog_code} {self.sequence}"
+    @classmethod
+    def from_dict(cls, d):
+        return cls(**d)

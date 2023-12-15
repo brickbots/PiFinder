@@ -25,7 +25,7 @@ import functools
 import logging
 
 from PiFinder.db.observations_db import ObservationsDatabase
-from PiFinder.catalogs import CompositeObject, load_catalogs
+from PiFinder.catalogs import CompositeObject, CatalogBuilder, Catalogs
 
 
 # Constants for display modes
@@ -114,7 +114,8 @@ class UICatalog(UIModule):
                 "No Object Found", font=self.font_bold, color=self.colors.get(255)
             ),
         }
-        self.catalogs = load_catalogs(self.catalog_names)
+        self.catalogs: Catalogs = CatalogBuilder().build()
+        # print("in UI module, catalogs is", self.catalogs, self.catalogs.catalogs[0].get_objects())
         self.catalog_tracker = CatalogTracker(
             self.catalogs, self.shared_state, self._config_options
         )
@@ -284,16 +285,10 @@ class UICatalog(UIModule):
                 magsize, font=fonts.bold, color=self.colors.get(255)
             )
 
-            aka_recs = self.catalog_tracker.current_catalog.common_names.get(
-                cat_object.object_id
-            )
+            aka_recs = self.catalog_tracker.current_catalog.get_object_by_sequence(
+                cat_object.sequence
+            ).names
             if aka_recs:
-                # aka_list = []
-                # for rec in aka_recs:
-                #     if rec["common_name"].startswith("M"):
-                #         aka_list.insert(0, rec["common_name"])
-                #     else:
-                #         aka_list.append(rec["common_name"])
                 self.texts["aka"] = self.ScrollTextLayout(
                     ", ".join(aka_recs),
                     font=fonts.base,
@@ -352,6 +347,7 @@ class UICatalog(UIModule):
             self.refresh_designator()
             desig = self.texts["designator"]
             desig.draw((0, 21))
+            # print("Drawing designator", self.catalog_tracker.current_catalog, self.catalog_tracker.current_catalog.get_objects())
 
             # catalog counts....
             self.draw.text(
@@ -472,7 +468,7 @@ class UICatalog(UIModule):
 
         # Use all objects here, not filtered, so we can
         # surface any valid object in the catalog
-        if searching_for in self.catalog_tracker.current_catalog.cobjects:
+        if self.catalog_tracker.current_catalog.get_object_by_sequence(searching_for):
             self.catalog_tracker.set_current_object(searching_for)
             return True
         else:

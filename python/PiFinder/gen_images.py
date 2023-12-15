@@ -57,7 +57,7 @@ def fetch_object_image(_obj, low_cut=10):
 
     Returns image path
     """
-    catalog_object = CompositeObject(dict(_obj))
+    catalog_object = CompositeObject.from_dict(dict(_obj))
     ra = catalog_object.ra
     dec = catalog_object.dec
 

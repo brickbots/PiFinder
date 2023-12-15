@@ -329,7 +329,7 @@ def main(script_name=None, has_server=False, show_fps=False):
         console.write("   Server")
         console.update()
         server_process = Process(
-            target=pos_server.run_server, args=(shared_state, None)
+            target=pos_server.run_server, args=(shared_state, ui_queue)
         )
         server_process.start()
 
@@ -444,9 +444,13 @@ def main(script_name=None, has_server=False, show_fps=False):
                     ui_command = ui_queue.get(block=False)
                 except queue.Empty:
                     ui_command = None
-                if ui_command:
-                    if ui_command == "set_brightness":
+                match ui_command:
+                    case "set_brightness":
                         set_brightness(screen_brightness, cfg)
+                    case "push_object":
+                        ui_mode_index = 3
+                        current_module = ui_modes[ui_mode_index]
+                        current_module.active()
 
                 # Keyboard
                 try:
