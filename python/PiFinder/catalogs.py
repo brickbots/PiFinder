@@ -170,15 +170,18 @@ class CatalogBase:
         self.objects.sort(key=self.sort)
 
     def get_object_by_id(self, id: int) -> CompositeObject:
-        return self.objects[self.id_to_pos[id]]
+        if id in self.id_to_pos:
+            return self.objects[self.id_to_pos[id]]
+        else:
+            return None
 
     def get_object_by_sequence(self, sequence: int) -> CompositeObject:
-        return self.objects[self.sequence_to_pos[sequence]]
+        if sequence in self.sequence_to_pos:
+            return self.objects[self.sequence_to_pos[sequence]]
+        else:
+            return None
 
     def get_objects(self) -> List[CompositeObject]:
-        print(
-            f"get_objects: {self.catalog_code=}, {self.max_sequence=}, count={len(self.objects)}"
-        )
         return self.objects
 
     def get_count(self) -> int:
@@ -231,33 +234,54 @@ class Catalog(CatalogBase):
 class Catalogs:
     """Holds all catalogs"""
 
-    catalogs: List[Catalog]
-    catalog_dict: Dict[str, Catalog] = {}
-
     def __init__(self, catalogs: List[Catalog]):
-        self.catalogs = catalogs
+        self.catalogs: List[Catalog] = catalogs
+        self._code_to_pos: Dict[str, int] = {}
 
     def set(self, catalogs: List[Catalog]):
         self.catalogs = catalogs
-        self.catalog_dict = {}
+        self._code_to_pos = {}
 
     def add(self, catalog: Catalog):
-        cd = self.get_dict().keys()
-        if catalog.catalog_code not in cd:
+        self.__refresh_code_to_pos()
+        if catalog.catalog_code not in self._code_to_pos:
             self.catalogs.append(catalog)
-            self.catalog_dict = {}
+            self._code_to_pos = {}
         else:
             logging.warning(f"Catalog {catalog.catalog_code} already exists")
 
-    def get_names(self) -> List[str]:
-        return list(self.get_dict().keys())
+    def get_codes(self) -> List[str]:
+        self.__refresh_code_to_pos()
+        return list(self._code_to_pos.keys())
 
-    def get_dict(self) -> Dict[str, Catalog]:
-        if not self.catalog_dict:
-            self.catalog_dict = {
-                catalog.catalog_code: catalog for catalog in self.catalogs
+    def get_catalog_by_code(self, catalog_code: str) -> Optional[Catalog]:
+        self.__refresh_code_to_pos()
+        if catalog_code in self._code_to_pos:
+            return self.catalogs[self._code_to_pos[catalog_code]]
+        else:
+            return None
+
+    def get_catalog_by_pos(self, pos: int) -> Optional[Catalog]:
+        if pos < self.count():
+            return self.catalogs[pos]
+        else:
+            return None
+
+    def get_catalog_pos_by_code(self, catalog_code: str) -> Optional[int]:
+        self.__refresh_code_to_pos()
+        if catalog_code in self._code_to_pos:
+            return self._code_to_pos[catalog_code]
+        else:
+            return None
+
+    def count(self) -> int:
+        return len(self.catalogs)
+
+    def __refresh_code_to_pos(self, force=False):
+        if not self._code_to_pos or force:
+            self._code_to_pos = {
+                catalog.catalog_code: idx for idx, catalog in enumerate(self.catalogs)
             }
-        return self.catalog_dict
 
     def __repr__(self):
         return f"Catalogs({self.catalogs=})"
@@ -331,137 +355,17 @@ class CatalogBuilder:
                 max_sequence=catalog_info["max_sequence"],
                 desc=catalog_info["desc"],
             )
-            print(
-                f"catalogBase {catalog_code} has {len(catalog.get_objects())} objects"
-            )
             catalog.add_objects(composite_dict.get(catalog_code, []))
-            print(f"catalog {catalog_code} has {len(catalog.get_objects())} objects")
             catalog_list.append(catalog)
             catalog = None
         return Catalogs(catalog_list)
-
-
-# class CatalogState(Catalog):
-#     """Keeps catalog data + filtered objects"""
-#
-#     last_filtered: float = 0
-#
-#     def __init__(
-#         self, catalog_code, max_sequence, desc, catalog_objs: Dict[int, CompositeObject]
-#     ):
-#         self.observations_db = ObservationsDatabase()
-#         self.name = catalog_code
-#         self.common_names: Names = Names()
-#         self.cobjects: Dict[int, CompositeObject] = {}
-#         self.cobjects_keys_sorted: List[int] = []
-#         self.filtered_objects: Dict[int, CompositeObject] = {}
-#         self.filtered_objects_keys_sorted: List[int] = []
-#         self.max_sequence = max_sequence
-#         self.desc = desc
-#         self.cobjects = catalog_objs
-#         self.cobjects_keys_sorted = self._get_sorted_keys(self.cobjects)
-#         self.filtered_objects = self.cobjects
-#         self.filtered_objects_keys_sorted = self.cobjects_keys_sorted
-#         assert (
-#             self.cobjects_keys_sorted[-1] == self.max_sequence
-#         ), f"{self.name} max sequence mismatch, {self.cobjects_keys_sorted[-1]} != {self.max_sequence}"
-#         logging.info(f"loaded {len(self.cobjects)} objects for {self.name}")
-#
-#     def get_count(self):
-#         return len(self.cobjects)
-#
-#     def get_filtered_count(self):
-#         return len(self.filtered_objects)
-#
-#     def _get_sorted_keys(self, dictionary):
-#         return sorted(dictionary.keys())
-#
-#     def filter(
-#         self,
-#         shared_state,
-#         magnitude_filter,
-#         type_filter,
-#         altitude_filter,
-#         observed_filter,
-#     ):
-#         """
-#         Does filtering based on params
-#         populates self._filtered_catalog
-#         from in-memory catalogs
-#         does not try to maintain current index because it has no notion of that
-#         should be done in catalog.py
-#         """
-#         self.last_filtered = time.time()
-#
-#         self.filtered_objects = {}
-#
-#         if observed_filter != "Any":
-#             # prep observations db cache
-#             self.observations_db.load_observed_objects_cache()
-#
-#         fast_aa = None
-#         if altitude_filter != "None":
-#             # setup
-#             solution = shared_state.solution()
-#             location = shared_state.location()
-#             dt = shared_state.datetime()
-#             if location and dt and solution:
-#                 fast_aa = calc_utils.FastAltAz(
-#                     location["lat"],
-#                     location["lon"],
-#                     dt,
-#                 )
-#
-#         for key, obj in self.cobjects.items():
-#             # print(f"filtering {obj}")
-#             include_obj = True
-#
-#             # try to get object mag to float
-#             try:
-#                 obj_mag = float(obj.mag)
-#             except (ValueError, TypeError):
-#                 obj_mag = 99
-#
-#             if magnitude_filter != "None" and obj_mag >= magnitude_filter:
-#                 include_obj = False
-#
-#             if type_filter != ["None"] and obj.obj_type not in type_filter:
-#                 include_obj = False
-#
-#             if fast_aa:
-#                 obj_altitude = fast_aa.radec_to_altaz(
-#                     obj.ra,
-#                     obj.dec,
-#                     alt_only=True,
-#                 )
-#                 if obj_altitude < altitude_filter:
-#                     include_obj = False
-#
-#             if observed_filter != "Any":
-#                 observed = self.observations_db.check_logged(obj)
-#                 if observed:
-#                     if observed_filter == "No":
-#                         include_obj = False
-#                 else:
-#                     if observed_filter == "Yes":
-#                         include_obj = False
-#
-#             if include_obj:
-#                 self.filtered_objects[key] = obj
-#         self.filtered_objects_keys_sorted = self._get_sorted_keys(self.filtered_objects)
-#
-#     def __repr__(self):
-#         return f"Catalog({self.name=}, {self.max_sequence=})"
-#
-#     def __str__(self):
-#         return self.__repr__()
 
 
 class CatalogDesignator:
     """Holds the string that represents the catalog input/search field.
     Usually looks like 'NGC----' or 'M-13'"""
 
-    def __init__(self, catalog_name, max_sequence):
+    def __init__(self, catalog_name: str, max_sequence: int):
         self.catalog_name = catalog_name
         self.object_number = 0
         self.width = len(str(max_sequence))
@@ -529,22 +433,19 @@ class CatalogTracker:
         self.config_options = config_options
         self.catalogs = catalogs
         self.designator_tracker = {
-            c: CatalogDesignator(c, self.dict()[c].max_sequence) for c in self.names()
+            c.catalog_code: CatalogDesignator(c.catalog_code, c.max_sequence)
+            for c in self.catalogs.catalogs
         }
-        self.set_current_catalog(self.catalogs.get_names()[0])
-        self.object_tracker = {c: None for c in self.names()}
-
-    def names(self):
-        return self.catalogs.get_names()
-
-    def dict(self):
-        return self.catalogs.get_dict()
+        print("designator tracker", self.designator_tracker)
+        catalog_codes = self.catalogs.get_codes()
+        self.set_current_catalog(catalog_codes[0])
+        self.object_tracker = {c: None for c in catalog_codes}
 
     def add_foreign_catalog(self, catalog_name):
         """foreign objects not in our database, e.g. skysafari coords"""
         ui_state = self.shared_state.ui_state()
         print(f"adding foreign catalog {catalog_name}")
-        print(f"current catalog names: {self.names()}")
+        print(f"current catalog names: {self.catalogs.get_codes()}")
         print(f"current catalog name: {self.current_catalog_name}")
         print(f"current catalog: {self.current_catalog}")
         print(f"current object: {self.get_current_object()}")
@@ -561,20 +462,24 @@ class CatalogTracker:
         self.designator_tracker[catalog_name] = CatalogDesignator(catalog_name, 1)
         self.object_tracker[catalog_name] = None
 
-    def set_current_catalog(self, catalog_name):
-        if catalog_name not in self.dict():
+    def set_current_catalog(self, catalog_name: str):
+        if catalog_name not in self.catalogs.get_codes():
             self.add_foreign_catalog(catalog_name)
 
         assert (
-            catalog_name in self.dict().keys()
-        ), f"{catalog_name} not in {self.dict()}"
-        self.current_catalog = self.dict()[catalog_name]
+            catalog_name in self.catalogs.get_codes()
+        ), f"{catalog_name} not in {self.catalogs.get_codes}"
+        self.current_catalog = self.catalogs.get_catalog_by_code(catalog_name)
         self.current_catalog_name = catalog_name
 
     def next_catalog(self, direction=1):
-        current_index = self.names().index(self.current_catalog_name)
-        next_index = (current_index + direction) % len(self.names())
-        self.set_current_catalog(self.names()[next_index])
+        current_index = (
+            self.catalogs.get_catalog_pos_by_code(self.current_catalog_name) or 0
+        )
+        next_index = (current_index + direction) % self.catalogs.count()
+        self.set_current_catalog(
+            self.catalogs.get_catalog_by_pos(next_index).catalog_code
+        )
 
     def previous_catalog(self):
         self.next_catalog(-1)
@@ -657,8 +562,8 @@ class CatalogTracker:
             object_number if object_number else 0
         )
 
-    def get_designator(self, catalog_name=None) -> CatalogDesignator:
-        catalog_name = catalog_name or self.current_catalog_name
+    def get_designator(self, catalog_name: str = None) -> CatalogDesignator:
+        catalog_name: str = catalog_name or self.current_catalog_name
         return self.designator_tracker[catalog_name]
 
     def _select_catalog(self, catalog: Optional[str]) -> Catalog:

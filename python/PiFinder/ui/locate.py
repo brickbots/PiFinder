@@ -149,7 +149,7 @@ class UILocate(UIModule):
         if self.target_index is not None and len(active_list) > 1:
             del active_list[self.target_index]
             self.target_index = (self.target_index + 1) % len(active_list)
-            self.uit_state.set_target_to_active_list_index(self.target_index)
+            self.ui_state.set_target_to_active_list_index(self.target_index)
             self.update_object_text()
             self.update()
         elif len(active_list) == 1:

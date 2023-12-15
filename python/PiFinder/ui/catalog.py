@@ -175,7 +175,7 @@ class UICatalog(UIModule):
             self.catalog_names = self._config_options["Catalogs"]["value"].copy()
             self.config_object.set_option("active_catalogs", self.catalog_names)
             self.catalog_tracker = CatalogTracker(
-                self.catalog_names, self.shared_state, self._config_options
+                self.catalogs, self.shared_state, self._config_options
             )
 
         # re-filter if needed
@@ -287,10 +287,10 @@ class UICatalog(UIModule):
 
             aka_recs = self.catalog_tracker.current_catalog.get_object_by_sequence(
                 cat_object.sequence
-            ).names
+            )
             if aka_recs:
                 self.texts["aka"] = self.ScrollTextLayout(
-                    ", ".join(aka_recs),
+                    ", ".join(aka_recs.names),
                     font=fonts.base,
                     scrollspeed=self._get_scrollspeed_config(),
                 )
