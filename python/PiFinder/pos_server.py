@@ -19,6 +19,10 @@ from PiFinder.catalogs import CompositeObject
 sr_result = None
 sequence = 0
 ui_queue: Queue = None
+from skyfield.positionlib import position_of_radec
+from skyfield.api import load
+
+skyfield_ts = load.timescale()
 
 
 def get_telescope_ra(shared_state, _):
@@ -31,7 +35,16 @@ def get_telescope_ra(shared_state, _):
     if not solution:
         return "00:00:01"
 
-    hh, mm, ss = ra_to_hms(solution["RA"])
+    # Convert from J2000 to now epoch
+    RA_deg = solution["RA"]
+    Dec_deg = solution["Dec"]
+    _p = position_of_radec(
+        ra_hours=RA_deg / 15.0, dec_degrees=Dec_deg, epoch=skyfield_ts.J2000
+    )
+
+    RA_h, Dec, _dist = _p.radec(epoch=skyfield_ts.now())
+
+    hh, mm, ss = RA_h.hms()
     return f"{hh:02.0f}:{mm:02.0f}:{ss:02.0f}"
 
 
@@ -46,15 +59,27 @@ def get_telescope_dec(shared_state, _):
         return "+00*00'01"
 
     dec = solution["Dec"]
+
+    # Convert from J2000 to now epoch
+    RA_deg = solution["RA"]
+    Dec_deg = solution["Dec"]
+    _p = position_of_radec(
+        ra_hours=RA_deg / 15.0, dec_degrees=Dec_deg, epoch=skyfield_ts.J2000
+    )
+
+    RA_h, Dec, _dist = _p.radec(epoch=skyfield_ts.now())
+
+    dec = Dec.degrees
+
+    mm, hh = modf(dec)
+    fractional_mm, mm = modf(mm * 60.0)
+    ss = round(fractional_mm * 60.0)
+
     if dec < 0:
         dec = abs(dec)
         sign = "-"
     else:
         sign = "+"
-
-    mm, hh = modf(dec)
-    fractional_mm, mm = modf(mm * 60.0)
-    ss = round(fractional_mm * 60.0)
     return f"{sign}{hh:02.0f}*{mm:02.0f}'{ss:02.0f}"
 
 

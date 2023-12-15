@@ -54,6 +54,10 @@ These are the electronic bits needed to build the Display/Keypad unit that fits 
      - 2x20 40 Pin Stacking Female Header
      - https://www.amazon.com/dp/B0827THC7R
      - Depending on your heatsink/clearance you'll need long pins on this to make up the gap
+   * - 1
+     - GT-U7 GPS Transceiver board
+     - https://www.amazon.com/Microcontroller-Compatible-Sensitivity-Navigation-Positioning/dp/B07P8YMVNT
+     - There may be other pin compatible devices, but this one works great and the antenna fits the holder
 
 
 Raspberry Pi / Camera / GPS
@@ -84,11 +88,6 @@ These are the bigger items/assemblies which you'll need to purchase to include i
      - 25mm F1.4 CCTV Lens for C Mount
      - https://www.amazon.com/gp/product/B01IECVHB6/
      - Other lenses might work here, but something fast with a 10deg FOV is ideal
-   * - 1
-     - GPS USB Dongle.
-     - https://www.amazon.com/gp/product/B00N32HKIW/
-     - Almost any GPS receiver should work here, but this is easy to position the antenna and is what has been fully tested
-
 
 Case hardware
 -------------
@@ -117,15 +116,11 @@ In addition to the 3d printed parts detailed in the :doc:`Build Guide<build_guid
    * - 4
      - M2.5x6mm standoffs
      - 
-     - Between the 3d printed Pi mount and the Pi
-   * - 3
-     - M2.5x12mm thumbscrews
-     - 
-     - Camera cell adjustment bolts
-   * - 4
+     - Between the Camera and the 3d printed back piece
+   * - 5
      - M2.5x12mm bolt
      - 
-     - Camera cell tensioner and 3 for the shroud/top plate attachment
+     - 2 for the adjustable dovetail mount and 3 for the shroud/top plate attachment
 
 
 Power

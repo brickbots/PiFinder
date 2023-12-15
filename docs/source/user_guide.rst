@@ -15,7 +15,7 @@ The PiFinder is a self-contained telescope positioning device.  It will let you 
 
 In order to direct you to wonders of the night sky, the PiFinder needs to know where your telescope is currently pointed.  The primary way it does this is directly, but taking photos of the night sky and examining the star patterns to determine what section of the sky it's seeing.  It can do this incredibly fast (up to two times per second!) and very accurately.  This only works well if your telescope is not moving, so it couples this very accurate system with an accelerometer to provide an estimate of how far your telescope has moved from the last known position.  This estimate will contain some error, but as soon as you stop moving the scope a new photo will be taken and any inaccuracty will be corrected.
 
-Along with knowing where your telescope is pointing, the PiFidner knows where thousands of interesting objects are located. It can use these two pieces of information to indicate how you should move your telescope to bring any of those thousands of objects into your eyepiece.  Since it's directly observing where your telescope is pointing, you can be assured you are on target!
+Along with knowing where your telescope is pointing, the PiFinder knows where thousands of interesting objects are located. It can use these two pieces of information to indicate how you should move your telescope to bring any of those thousands of objects into your eyepiece.  Since it's directly observing where your telescope is pointing, you can be assured you are on target!
 
 
 Observing Screens
@@ -288,9 +288,10 @@ As an example, here are the images available for M57
    :alt: Catalog Image
 
 
-These images are oriented as they would be through the eyepiece in a newtonian reflector pointing at a specific area of the sky from your current location.   You can use the **UP** and **DN** keys to switch between various eyepiece field of views.   If you have your telescope and eyepiece collection information entered into the PiFinder these will be used to determine the FOV's to cycle through.  The defaults are 1, 0.5, 0.25, 0.12 degrees.
+These images are oriented as they would be through the eyepiece in a newtonian reflector pointing at a specific area of the sky from your current location.   You can use the **UP** and **DN** keys to switch between several eyepiece field of view: 1, 0.5, 0.25, 0.12 degrees
 
-The bottom left of the screen shows the source of the current image and the left side shows the current FOV / Eyepiece information.
+The bottom left of the screen shows the source of the current image and the left side shows the current FOV information.
+
 
 Observing Lists
 ======================
@@ -304,7 +305,8 @@ Values are expressed in degrees with the top line being rotation in Azimuth and 
 
 * **UP/DN** will cycle through the active list.  The numbers in the upper-right corner of the screen represent the index of the current object / total number of objects in the list and the list name is displayed directly below.
 * **ENT** will switch back to the catalog screen to access full information about the current target
-* **B** will 
+* **B** will switch to your History list
+* **C** will switch to the active Observing list, if there is one
 * Holding the **A** key will open the :ref:`Options<user_guide:Option Pages>` page where you can load and save observing lists to disk
 
 The currently target is also displayed on the screen as a small tick mark.
@@ -359,7 +361,7 @@ This section covers a lot of the basic catalog/locating/observing features of th
 
 Combining the ability to filter a catalog by observation status and pushing the nearest 'X' objects to the observing list allows you to work your way through a collection of objects easily.
 
-Use the **A** key to cycle through the main screens until you get to the `Catalog <user_guide_ui.md#catalog>`_
+Use the **A** key to cycle through the main screens until you get to the :ref:`Catalog<user_guide:catalog>`
 
 
 .. image:: ../../images/screenshots/how_to_see_CATALOG_001_docs.png
@@ -375,7 +377,7 @@ Then use the **C** key to cycle through the available catalogs to find the Messi
    :alt: Catalog
 
 
-Holding the **A** button for about a second will bring up the `Options <user_guide_ui.md#options>`_ page of the `Catalog <user_guide_ui.md#catalog>`_ screen
+Holding the **A** button for about a second will bring up the :ref:`Options<user_guide:option pages>` page of the :ref:`Catalog<user_guide:catalog>` screen
 
 
 .. image:: ../../images/screenshots/how_to_see_OPTIONS_003_docs.png
@@ -461,56 +463,60 @@ WiFi
 Access Point and Client Mode
 ----------------------------------
 
-The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the :ref:`user_guide:Global Options` page of the Status screen to switch between these two modes and see which mode is currently active.
+The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the :ref:`user_guide:Web Interface` or the :ref:`user_guide:Global Options` page of the Status screen to switch between these two modes and see which mode is currently active.
 
-Using the PiFinder in Access Point mode creates a network called APPiFinder with no password to allow easy connection of phones, tablets and other devices in the field.
-
-Changing Wifi networks
-----------------------------------
-
-When in client mode, the PiFinder will attempt to connect to one or more networks which have been previously configured.  If you set up your PiFinder via the instructions `here <software.md>`_ you likely already have one network configured.
-
-If you purchased a kit that came with an SD card, or you want to change network configuration, please see the instructions below to change your network settings:
-
-
-* Shutdown and power off the PiFinder
-* Remove the SD card from your PiFinder and insert it into another computer.  
-
-  * Windows may prompt you to format the card, don't do so! There is a partition on there (/boot) that windows should be able to read/write to.
-
-* Create a file called wpa_supplicant.conf in the root of the SD card with these contents:
-
-.. code-block::
-
-   ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
-   country=<Insert 2 letter ISO 3166-1 country code here>
-   update_config=1
-
-   network={
-    ssid="<Name of your wireless LAN>"
-    psk="<Password for your wireless LAN>"
-   }
-
-
-* Set ``country`` to your two letter country code.
-* Set SSID to your WiFi network name, preserving the surrounding quotes.
-* Set PSK to the password for your WiFi network, again preserving the surrounding quotes.
-* Save this file (make sure it ends up with the .conf extension)
-* Insert it back into the PiFinder and power back on.
-
-That file will be moved from the ``/boot`` partition and the PiFinder should connect to your network. 
-
-Alternatively, you can switch the PiFinder to AP mode, SSH into it and edit ``/etc/wpa_supplicant.conf`` in place to change or add networks.
+Using the PiFinder in Access Point mode creates a network called PiFinderAP with no password to allow easy connection of phones, tablets and other devices in the field.
 
 PiFinder address
 -----------------
 
-In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computer or those that don't support zeroconf networking, you can use the IP address provides on the `Status <user_guide_ui.md#status>`_ screen to connect.  You can connect to the PiFinder via:
+In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computers or those that don't support zeroconf networking, you can use the IP address provides on the :ref:`Global Options<user_guide:global options>` screen to connect.  You can connect to the PiFinder via:
 
 
+* A web browser to use the :ref:`user_guide:Web Interface` for remote control or configuration changes
 * SSH to get shell access for software updates and other admin tasks
 * SMB (Samba) to access saved images, logs an observing lists
 * LX200 protocol to allow updating of a planetarium app, such as :doc:`skysafari` , with the position of the telescope
+
+Web Interface
+==============
+
+The PiFinder provides an easy to use web interface which allows you to:
+
+* See the current PiFinder status
+* Remote control the PiFinder via a virtural screen and keypad
+* Change network settings and connect to new WiFi networks
+* Backup and restore your observing logs, settings and other data
+* View and download your logged observations
+
+To access the web interface for the first time, make sure the PiFinder is in Access Point mode (see :ref:`user_guide:Global Options`).  This is the default for new PiFinders to make first time set up easier.  Using a phone, tablet or computer, connect to the PiFinder's wireless network called PiFinderAP.  It's an open network with no password required.  Once connected, open your web browser and visit:
+``http://pifinder.local``
+
+.. list-table::
+   :width: 100%
+
+   * - .. image:: images/user_guide/pf_web_home_fullnav.jpg
+
+     - .. image:: images/user_guide/pf_web_home_hamburger.jpg
+
+The home screen shows the general PiFinder status info and a live view of the screen.  Depending on your screen size you'll either see a navigation bar along the top of the page, or a 'hamburger' menu in the upper-left.  
+
+While the home screen not require a password, most other functions will.  The password for the web interface is the same as what is used for the ``pifinder`` user and changing one will change the other.  The default password for new images and PiFinders is ``solveit``.  This can be changed using the Tools option in the web interface.
+
+Connecting to a new WiFi network
+---------------------------------
+
+To connect to a new WiFi network, navigate to the Network Setup page and click the + button near the list of WiFi networks.  Enter your network information and click the Save icon.  If your network does not have a password, leave that field as None.
+
+.. list-table::
+   :width: 100%
+
+   * - .. image:: images/user_guide/pf_web_net1.jpg
+
+     - .. image:: images/user_guide/pf_web_net2.jpg
+
+Once you have added a new WiFi network to connect to, you can change the WiFi mode to Client in the Network Settings section and click Update and Restart.  After confirming your choice, the PiFinder will restart and attempt to connect to any configured WiFi networks.  If your computer or phone are on the same network, you can reload the web interface to confirm the PiFinder found and connected to the new WiFi network.
+
 
 SkySafari
 ===================

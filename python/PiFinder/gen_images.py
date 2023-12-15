@@ -1,8 +1,8 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-This module is used at runtime
-to handle catalog image loading
+This module fetchs images from sky survey sources on the internet
+and prepares them for PiFinder use.
 """
 import requests
 import sqlite3

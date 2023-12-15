@@ -11,9 +11,10 @@ This module is the main entry point for PiFinder it:
 """
 import os
 from time import sleep
-from PIL import Image
+from PIL import Image, ImageDraw
 from luma.core.interface.serial import spi
 import numpy as np
+from PiFinder.ui.fonts import Fonts as fonts
 
 
 def do_nothing():
@@ -40,6 +41,22 @@ def show_splash():
     welcome_image_path = os.path.join(root_dir, "images", "welcome.png")
     welcome_image = Image.open(welcome_image_path)
     welcome_image = Image.fromarray(np.array(welcome_image)[:, :, ::-1])
+    screen_draw = ImageDraw.Draw(welcome_image)
+
+    # Display version and Wifi mode
+    with open(os.path.join(root_dir, "version.txt"), "r") as ver_f:
+        version = "v" + ver_f.read()
+
+    with open(os.path.join(root_dir, "wifi_status.txt"), "r") as wifi_f:
+        wifi_mode = wifi_f.read()
+    screen_draw.rectangle([0, 0, 128, 16], fill=(0, 0, 0))
+    screen_draw.text(
+        (0, 1),
+        f"Wifi:{wifi_mode: <6}  {version: >8}",
+        font=fonts.base,
+        fill=(255, 0, 0),
+    )
+
     display.display(welcome_image.convert(display.mode))
 
 

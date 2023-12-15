@@ -1,13 +1,13 @@
 #! /usr/bin/bash
 sudo apt-get install -y git python3-pip samba samba-common-bin dnsmasq hostapd dhcpd gpsd
 
-# Setup GPSD
-sudo dpkg-reconfigure -plow gpsd
-sudo cp ~/PiFinder/pi_config_files/gpsd.conf /etc/default/gpsd
-
 git clone --recursive --branch release https://github.com/brickbots/PiFinder.git
 cd PiFinder
 sudo pip install -r requirements.txt
+
+# Setup GPSD
+sudo dpkg-reconfigure -plow gpsd
+sudo cp ~/PiFinder/pi_config_files/gpsd.conf /etc/default/gpsd
 
 # data dirs
 mkdir ~/PiFinder_data
@@ -23,8 +23,11 @@ sudo cp ~/PiFinder/pi_config_files/dhcpcd.* /etc
 sudo cp ~/PiFinder/pi_config_files/dhcpcd.conf.sta /etc/dhcpcd.conf
 sudo cp ~/PiFinder/pi_config_files/dnsmasq.conf /etc/dnsmasq.conf
 sudo cp ~/PiFinder/pi_config_files/hostapd.conf /etc/hostapd/hostapd.conf
-echo -n "Cli" > ~/PiFinder/wifi_status.txt
+echo -n "Client" > ~/PiFinder/wifi_status.txt
 sudo systemctl unmask hostapd
+
+# open permissisons on wpa_supplicant file so we can adjust network config
+sudo chmod 666 /etc/wpa_supplicant/wpa_supplicant.conf
 
 # Samba config
 sudo cp ~/PiFinder/pi_config_files/smb.conf /etc/samba/smb.conf
@@ -40,8 +43,8 @@ echo "dtoverlay=pwm,pin=13,func=4" | sudo tee -a /boot/config.txt
 echo "dtoverlay=uart3" | sudo tee -a /boot/config.txt
 
 # Enable service
-sudo cp /home/pifinder/PiFinder/pifinder.service /etc/systemd/system/pifinder.service
-sudo cp /home/pifinder/PiFinder/pi_config_files/pifinder_splash.service /etc/systemd/system/pifinder_splash.service
+sudo cp /home/pifinder/PiFinder/pi_config_files/pifinder.service /lib/systemd/system/pifinder.service
+sudo cp /home/pifinder/PiFinder/pi_config_files/pifinder_splash.service /lib/systemd/system/pifinder_splash.service
 sudo systemctl daemon-reload
 sudo systemctl enable pifinder
 sudo systemctl enable pifinder_splash

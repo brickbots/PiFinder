@@ -51,7 +51,7 @@ class UIStatus(UIModule):
         "WiFi Mode": {
             "type": "enum",
             "value": "UNK",
-            "options": ["AP", "Cli", "CANCEL"],
+            "options": ["AP", "Client", "CANCEL"],
             "callback": "wifi_switch",
         },
         "Mnt Side": {
@@ -59,6 +59,12 @@ class UIStatus(UIModule):
             "value": "",
             "options": ["right", "left", "flat", "CANCEL"],
             "callback": "side_switch",
+        },
+        "Mnt Type": {
+            "type": "enum",
+            "value": "",
+            "options": ["Alt/Az", "EQ", "CANCEL"],
+            "callback": "mount_switch",
         },
         "Shutdown": {
             "type": "enum",
@@ -88,6 +94,9 @@ class UIStatus(UIModule):
             "LST SLV": "--",
             "RA/DEC": "--",
             "AZ/ALT": "--",
+            "WIFI": "--",
+            "IP ADDR": "--",
+            "SSID": "--",
             "IMU": "--",
             "IMU PS": "--",
             "GPS": "--",
@@ -96,15 +105,16 @@ class UIStatus(UIModule):
             "LCL TM": "--",
             "UTC TM": "--",
             "CPU TMP": "--",
-            "WIFI": "--",
-            "IP ADDR": "--",
         }
 
-        if self._config_options["WiFi Mode"]["value"] == "Cli":
-            self.status_dict["WIFI"] = "Cli"
+        if self._config_options["WiFi Mode"]["value"] == "Client":
+            self.status_dict["WIFI"] = "Client"
         else:
             self.status_dict["WIFI"] = "AP"
 
+        self._config_options["Mnt Type"]["value"] = self.config_object.get_option(
+            "mount_type"
+        )
         self._config_options["Mnt Side"]["value"] = self.config_object.get_option(
             "screen_direction"
         )
@@ -123,6 +133,7 @@ class UIStatus(UIModule):
 
         self.last_temp_time = 0
         self.last_IP_time = 0
+        self.net = sys_utils.Network()
         self.text_layout = TextLayouter(
             "",
             draw=self.draw,
@@ -163,6 +174,17 @@ class UIStatus(UIModule):
         self.config_object.set_option("screen_off_timeout", option)
         return False
 
+    def mount_switch(self, option):
+        if option == "CANCEL":
+            self._config_options["Mnt Type"]["value"] = self.config_object.get_option(
+                "mount_type"
+            )
+            return False
+
+        self.message("Ok! Restarting", 10)
+        self.config_object.set_option("mount_type", option)
+        sys_utils.restart_pifinder()
+
     def side_switch(self, option):
         if option == "CANCEL":
             self._config_options["Mnt Side"]["value"] = self.config_object.get_option(
@@ -185,8 +207,10 @@ class UIStatus(UIModule):
             self.message("Switch to AP", 10)
             sys_utils.go_wifi_ap()
         else:
-            self.message("Switch to Cli", 10)
+            self.message("Switch to Client", 10)
             sys_utils.go_wifi_cli()
+
+        sys_utils.restart_system()
 
     def shutdown(self, option):
         if option == "System":
@@ -267,15 +291,13 @@ class UIStatus(UIModule):
                 self.status_dict["CPU TMP"] = "Error"
 
         if time.time() - self.last_IP_time > 20:
-            # temp
             self.last_IP_time = time.time()
             # IP address
-            try:
-                self.status_dict["IP ADDR"] = socket.gethostbyname(
-                    f"{socket.gethostname()}.local"
-                )
-            except socket.gaierror:
-                pass
+            self.status_dict["IP ADDR"] = self.net.local_ip()
+            if self.net.wifi_mode() == "AP":
+                self.status_dict["SSID"] = self.net.get_ap_name()
+            else:
+                self.status_dict["SSID"] = self.net.get_connected_ssid()
 
     def update(self, force=False):
         self.update_status_dict()

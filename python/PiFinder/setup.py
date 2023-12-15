@@ -208,7 +208,68 @@ def _load_deepmap_600():
     return obj_list
 
 
+def load_egc():
+    """
+    Loads the PiFinder specific catalog of
+    extragalactic globulars.  Brightest
+    of M31 + extras
+    """
+    logging.info("Loading EGC")
+    catalog = "EGC"
+    conn, db_c = objects_db.get_conn_cursor()
+    delete_catalog_from_database(catalog)
+
+    insert_catalog(catalog, Path(utils.astro_data_dir, "EGC.desc"))
+    object_finder = ObjectFinder()
+    egc = Path(utils.astro_data_dir, "egc.tsv")
+    with open(egc, "r") as df:
+        # skip title line
+        df.readline()
+        for l in tqdm(list(df)):
+            dfs = l.split("\t")
+            sequence = dfs[0]
+            other_names = dfs[1].split(",")
+
+            const = dfs[6]
+            ra = dfs[2].split()
+            ra_h = int(ra[0])
+            ra_m = int(ra[1])
+            ra_s = float(ra[2])
+            ra_deg = ra_to_deg(ra_h, ra_m, ra_s)
+
+            dec = dfs[3].split()
+            dec_deg = int(dec[0])
+            dec_m = int(dec[1])
+            dec_s = int(dec[2])
+            dec_deg = dec_to_deg(dec_deg, dec_m, dec_s)
+
+            size = dfs[5]
+            mag = dfs[4]
+            desc = dfs[7]
+
+            object_id = None
+            for name in other_names:
+                if name.startswith("NGC"):
+                    object_id = object_finder.get_object_id(name)
+
+            # Assuming all the parsing logic is done and all variables are available...
+            if object_id == None:
+                obj_type = "Gb"
+                object_id = objects_db.insert_object(
+                    obj_type, ra_deg, dec_deg, const, size, mag
+                )
+
+            for other_name in other_names:
+                objects_db.insert_name(object_id, other_name, catalog)
+
+            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
+
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
+
+
 def load_collinder():
+    logging.info("Loading Collinder")
     catalog = "Col"
     conn, db_c = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
@@ -231,7 +292,7 @@ def load_collinder():
     c_dict = {}
     with open(coll, "r") as df:
         df.readline()
-        for l in df:
+        for l in tqdm(list(df)):
             dfs = l.split("\t")
             sequence = dfs[0].split(" ")[0]
             other_names = dfs[1]
@@ -281,7 +342,7 @@ def load_collinder():
     with open(coll2, "r") as df:
         duplicate_names = set()
         df.readline()
-        for l in df:
+        for l in tqdm(list(df)):
             dfs = l.split("\t")
             sequence = dfs[0].split(" ")[1]
             obj_type = type_trans.get(dfs[4], "OC")
@@ -447,7 +508,7 @@ def load_sac_asterisms():
             )
             desc = dfs[9].strip()
 
-            ra = ra.split(" ")
+            ra = ra.split()
             ra_h = int(ra[0])
             ra_m = float(ra[1])
             ra_deg = ra_to_deg(ra_h, ra_m, 0)
@@ -509,7 +570,7 @@ def load_sac_multistars():
             desc += f"\nComponents: {components}" if components else ""
             desc += f"\nPA: {pa}°" if pa else ""
 
-            ra = ra.split(" ")
+            ra = ra.split()
             ra_h = int(ra[0])
             ra_m = float(ra[1])
             ra_deg = ra_to_deg(ra_h, ra_m, 0)
@@ -891,6 +952,7 @@ if __name__ == "__main__":
     load_sac_multistars()
     load_sac_redstars()
     load_bright_stars()
+    load_egc()
 
     # Populate the images table
     logging.info("Resolving object images...")

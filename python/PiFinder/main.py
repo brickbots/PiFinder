@@ -194,7 +194,7 @@ def wake_screen(screen_brightness, shared_state, cfg) -> int:
     return orig_power_state
 
 
-def main(script_name=None, has_server=False, show_fps=False):
+def main(script_name=None, show_fps=False):
     """
     Get this show on the road!
     """
@@ -272,12 +272,12 @@ def main(script_name=None, has_server=False, show_fps=False):
                 args=(script_path, keyboard_queue),
             )
             p.start()
-        if has_server:
-            server_process = Process(
-                target=server.run_server,
-                args=(keyboard_queue, gps_queue, shared_state),
-            )
-            server_process.start()
+
+        server_process = Process(
+            target=server.run_server,
+            args=(keyboard_queue, gps_queue, shared_state),
+        )
+        server_process.start()
 
         # Load last location, set lock to false
         tz_finder = TimezoneFinder()
@@ -736,14 +736,6 @@ if __name__ == "__main__":
         default=None,
         required=False,
     )
-    parser.add_argument(
-        "-s",
-        "--server",
-        help="Start a server to control the pifinder",
-        default=False,
-        action="store_true",
-        required=False,
-    )
 
     parser.add_argument(
         "-f",
@@ -807,4 +799,4 @@ if __name__ == "__main__":
         fh.setLevel(logger.level)
         logger.addHandler(fh)
 
-    main(args.script, args.server, args.fps)
+    main(args.script, args.fps)
