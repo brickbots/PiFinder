@@ -6,7 +6,7 @@ After=basic.target
 Type=idle
 User=pifinder
 WorkingDirectory=/home/pifinder/PiFinder/python
-ExecStart=/usr/bin/bash pifinder_start.sh
+ExecStart=/usr/bin/bash /home/pifinder/PiFinder/pifinder_start.sh
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 
 [Install]

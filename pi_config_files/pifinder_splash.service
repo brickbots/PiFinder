@@ -3,7 +3,7 @@ Description=PiFinderSplash
 
 [Service]
 WorkingDirectory=/home/pifinder/PiFinder/python
-ExecStart=/usr/bin/bash pifinder_splash.sh
+ExecStart=/usr/bin/bash /home/pifinder/PiFinder/pifinder_splash.sh
 
 [Install]
 WantedBy=basic.target
