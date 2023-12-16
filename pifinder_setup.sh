@@ -1,11 +1,11 @@
 #! /usr/bin/bash
-sudo apt-get install -y git python3-pip samba samba-common-bin dnsmasq hostapd dhcpd gpsd
+sudo apt-get install -y git python3-pip samba samba-common-bin dnsmasq hostapd dhcpd gpsd python3-picamera2
 
 git clone --recursive --branch bookworm https://github.com/brickbots/PiFinder.git
 cd PiFinder
-python -m venv python/venv
+python -m venv --system-site-packages python/venv
 source python/venv/bin/activate
-sudo pip install -r requirements.txt
+pip install -r requirements.txt
 
 # Setup GPSD
 sudo dpkg-reconfigure -plow gpsd
