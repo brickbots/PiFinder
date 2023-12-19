@@ -13,7 +13,7 @@ from PiFinder.ui.base import UIModule
 try:
     from PiFinder import sys_utils
 except ImportError:
-    from PiFinder import sys_utils_fake as sys_util
+    from PiFinder import sys_utils_fake as sys_utils
 from PiFinder import calc_utils
 from PiFinder import utils
 from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed
