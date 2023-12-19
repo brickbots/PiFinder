@@ -211,7 +211,7 @@ class UICatalog(UIModule):
             self.message(f"Near {obj_amount} Pushed", 2)
 
             # Filter the catalogs one last time
-            self.catalog_tracker.filter(catalogs=self.catalog_tracker.catalog_names)
+            self.catalog_tracker.filter(catalogs=self.catalog_tracker.catalogs)
             near_catalog = self.catalog_tracker.get_closest_objects(
                 solution["RA"],
                 solution["Dec"],

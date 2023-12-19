@@ -80,7 +80,9 @@ class CatalogFilter:
                 dt,
             )
         else:
-            logging.warning("Calc_fast_aa: location, dt, or solution not set")
+            logging.warning(
+                f"Calc_fast_aa: {'solution' if not solution else 'location' if not location else 'datetime' if not dt else 'nothing'} not set"
+            )
 
     def apply_filter(self, obj: CompositeObject):
         # check altitude
@@ -469,7 +471,7 @@ class CatalogTracker:
         assert (
             catalog_name in self.catalogs.get_codes()
         ), f"{catalog_name} not in {self.catalogs.get_codes}"
-        self.current_catalog = self.catalogs.get_catalog_by_code(catalog_name)
+        self.current_catalog: Catalog = self.catalogs.get_catalog_by_code(catalog_name)
         self.current_catalog_name = catalog_name
 
     def next_catalog(self, direction=1):

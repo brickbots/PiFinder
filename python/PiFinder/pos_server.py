@@ -15,7 +15,6 @@ from typing import Tuple, List
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg, ra_to_hms
 from PiFinder.catalogs import CompositeObject
 
-
 sr_result = None
 sequence = 0
 ui_queue: Queue = None
@@ -179,15 +178,20 @@ def run_server(shared_state, p_ui_queue):
         ui_queue = p_ui_queue
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
             logging.info("Starting SkySafari server")
+            logging.debug("Starting SkySafari server")
+            server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             server_socket.bind(("", 4030))
             server_socket.listen(1)
             out_data = None
             while True:
+                logging.debug("accepting connection")
                 client_socket, address = server_socket.accept()
+                logging.debug("after accepting connection")
                 while True:
+                    logging.debug("receiving")
                     in_data = client_socket.recv(1024).decode()
                     if in_data:
-                        # logging.debug(f"Received from skysafari: '{in_data}'")
+                        logging.debug(f"Received from skysafari: '{in_data}'")
                         command = extract_command(in_data)
                         if command:
                             command_handler = lx_command_dict.get(command, None)
