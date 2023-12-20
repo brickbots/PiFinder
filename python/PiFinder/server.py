@@ -157,6 +157,13 @@ class Server:
                 "remote",
             )
 
+        @app.route("/advanced")
+        @auth_required
+        def advanced():
+            return template(
+                "advanced",
+            )
+
         @app.route("/network")
         @auth_required
         def network_page():
@@ -359,12 +366,14 @@ class Server:
                 },
             )
             self.gps_queue.put(msg)
+            logging.debug("Putting location msg on gps_queue")
 
         @app.route("/time-lock")
         @auth_required
         def time_lock():
             msg = ("time", datetime.datetime.now())
             self.gps_queue.put(msg)
+            logging.debug("Putting time msg on gps_queue")
 
         # If the PiFinder software is running as a service
         # it can grab port 80.  If not, it needs to use 8080
