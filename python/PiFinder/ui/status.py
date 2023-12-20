@@ -9,7 +9,11 @@ import time
 import socket
 
 from PiFinder.ui.base import UIModule
-from PiFinder import sys_utils
+
+try:
+    from PiFinder import sys_utils
+except ImportError:
+    from PiFinder import sys_utils_fake as sys_utils
 from PiFinder import calc_utils
 from PiFinder import utils
 from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed
