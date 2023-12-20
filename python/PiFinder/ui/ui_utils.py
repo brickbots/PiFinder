@@ -61,7 +61,7 @@ class SpaceCalculatorFixed:
                 return -1, ""
             else:
                 result = result[: self.width]
-                result = result[-3] + "..."
+                result = result[:-3] + "..."
         return spaces, result
 
 
