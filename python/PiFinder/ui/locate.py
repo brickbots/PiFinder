@@ -212,8 +212,8 @@ class UILocate(UIModule):
                     return az_diff, alt_diff
             else:
                 # EQ Mount type
-                ra_diff = self.ui_state["target"].ra - solution["RA"]
-                dec_diff = self.ui_state["target"].dec - solution["Dec"]
+                ra_diff = self.ui_state.target().ra - solution["RA"]
+                dec_diff = self.ui_state.target().dec - solution["Dec"]
                 dec_diff = (dec_diff + 180) % 360 - 180
                 return ra_diff, dec_diff
         return None, None
