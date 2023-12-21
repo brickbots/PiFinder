@@ -20,7 +20,12 @@ from bottle import (
 from PIL import Image
 
 from PiFinder.keyboard_interface import KeyboardInterface
-from PiFinder import sys_utils, utils, calc_utils
+
+try:
+    from PiFinder import sys_utils
+except ImportError:
+    from PiFinder import sys_utils_fake as sys_utils
+from PiFinder import utils, calc_utils
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
@@ -150,6 +155,13 @@ class Server:
         def remote():
             return template(
                 "remote",
+            )
+
+        @app.route("/advanced")
+        @auth_required
+        def advanced():
+            return template(
+                "advanced",
             )
 
         @app.route("/network")
@@ -354,12 +366,14 @@ class Server:
                 },
             )
             self.gps_queue.put(msg)
+            logging.debug("Putting location msg on gps_queue")
 
         @app.route("/time-lock")
         @auth_required
         def time_lock():
             msg = ("time", datetime.datetime.now())
             self.gps_queue.put(msg)
+            logging.debug("Putting time msg on gps_queue")
 
         # If the PiFinder software is running as a service
         # it can grab port 80.  If not, it needs to use 8080
