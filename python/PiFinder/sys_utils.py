@@ -1,10 +1,202 @@
 import glob
 import sh
-from sh import iwgetid, wpa_cli, unzip, su, passwd
+from sh import iwgetid, nmcli, unzip, su, passwd
 import socket
 from PiFinder import utils
 
 BACKUP_PATH = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
+
+
+class BaseSystem:
+    """
+    Base class for all system related functions
+    """
+
+    _backup_file_path = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
+
+    def get_wifi_networks(self):
+        """
+        Returns a list of dictionaires
+        representing all defined networks
+        that are eligible for auto-connection
+        """
+        return []
+
+    def delete_wifi_network(self, network_id):
+        """
+        Removes a wifi network config identified
+        by network_id
+        This is immediate and may cause network
+        disconnect
+        """
+        return True
+
+    def add_wifi_network(self, ssid, key_mgmt, psk=None):
+        """
+        Add a wifi network to the list of networks
+        for potential connection
+
+        returns the new network_id
+        """
+        return None
+
+    def get_ap_name(self):
+        """
+        Returns the SSID of the PiFinder's
+        access point
+        """
+        return "UNKN"
+
+    def set_ap_name(self, ap_name):
+        """
+        Sets the SSID of the PiFinder's
+        access point
+        """
+        return True
+
+    def get_host_name(self):
+        """
+        Returns the PiFinder's host name
+        """
+        return "UNKN"
+
+    def set_host_name(self, hostname):
+        """
+        Change the PiFinder host name
+        """
+        return True
+
+    def get_connected_ssid(self):
+        """
+        Returns the SSID of the connected wifi network or
+        None if not connected or in AP mode
+        """
+        return None
+
+    def wifi_mode(self):
+        """
+        Returns 'Client' or 'AP' to indicate
+        which wifi mode the PiFinder is in
+        """
+        return "Client"
+
+    def set_wifi_mode(self, mode):
+        """
+        Sets the wifi mode. Mode can be:
+            'Client'
+            'AP'
+        """
+        return True
+
+    def get_local_ip(self):
+        """
+        Return the best IP address for external network access
+        """
+        return "NONE"
+
+    def get_backup_path(self):
+        """
+        Returns the expected location
+        of the backup file
+        """
+        return self._backup_file_path
+
+    def remove_backup_file(self):
+        """
+        Removes backup file
+        """
+        return True
+
+    def backup_userdata():
+        """
+        Back up userdata to a single zip file for later
+        restore.  Returns the path to the zip file.
+
+        Backs up:
+            config.json
+            observations.db
+            obslist/*
+        """
+        return self.get_backup_path()
+
+    def restore_userdata(zip_path):
+        """
+        Compliment to backup_userdata
+        restores userdata
+        OVERWRITES existing data!
+        """
+        unzip("-d", "/", "-o", zip_path)
+
+    def shutdown():
+        """
+        shuts down the Pi
+        """
+        print("SYS: Initiating Shutdown")
+        sh.sudo("shutdown", "now")
+        return True
+
+    def update_software():
+        """
+        Uses systemctl to git pull and then restart
+        service
+        """
+        print("SYS: Running update")
+        sh.bash("/home/pifinder/PiFinder/pifinder_update.sh")
+        return True
+
+    def restart_pifinder():
+        """
+        Uses systemctl to restart the PiFinder
+        service
+        """
+        print("SYS: Restarting PiFinder")
+        sh.sudo("systemctl", "restart", "pifinder")
+        return True
+
+    def restart_system():
+        """
+        Restarts the system
+        """
+        print("SYS: Initiating System Restart")
+        sh.sudo("shutdown", "-r", "now")
+
+    def go_wifi_ap():
+        print("SYS: Switching to AP")
+        sh.sudo("/home/pifinder/PiFinder/switch-ap.sh")
+        return True
+
+    def go_wifi_cli():
+        print("SYS: Switching to Client")
+        sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
+        return True
+
+
+def verify_password(username, password):
+    """
+    Checks the provided password against the provided user
+    password
+    """
+    result = su(username, "-c", "echo", _in=f"{password}\n", _ok_code=(0, 1))
+    if result.exit_code == 0:
+        return True
+    else:
+        return False
+
+
+def change_password(username, current_password, new_password):
+    """
+    Changes the PiFinder User password
+    """
+    result = passwd(
+        username,
+        _in=f"{current_password}\n{new_password}\n{new_password}\n",
+        _ok_code=(0, 10),
+    )
+
+    if result.exit_code == 0:
+        return True
+    else:
+        return False
 
 
 class Network:
@@ -21,31 +213,31 @@ class Network:
 
     def populate_wifi_networks(self):
         """
-        Parses wpa_supplicant.conf to get current config
+        Fetches all wifi networks configured
+        using nmcli
         """
         self._wifi_networks = []
 
-        with open("/etc/wpa_supplicant/wpa_supplicant.conf", "r") as wpa_conf:
-            network_id = 0
-            in_network_block = False
-            for l in wpa_conf:
-                if l.startswith("network={"):
-                    in_network_block = True
-                    network_dict = {
-                        "id": network_id,
-                        "ssid": None,
-                        "psk": None,
-                        "key_mgmt": None,
-                    }
-
-                elif l.strip() == "}" and in_network_block:
-                    in_network_block = False
-                    self._wifi_networks.append(network_dict)
-                    network_id += 1
-
-                elif in_network_block:
-                    key, value = l.strip().split("=")
-                    network_dict[key] = value.strip('"')
+        connection_list = nmcli("-c=no", "-t", "c")
+        for connection in connection_list.split("\n")[:-1]:
+            connection_info = connection.split(":")
+            if connection_info[2] == "802-11-wireless":
+                connection_id = connection_info[0]
+                # get all the info
+                connection_details = {}
+                connection_details_items = nmcli(
+                    "-c=no", "-t", "c", "show", connection_id
+                ).split("\n")[:-1]
+                for detail in connection_details_items:
+                    key, value = detail.split(":")[0:2]
+                    connection_details[key] = value
+                network_dict = {
+                    "id": connection_id,
+                    "ssid": connection_details["802-11-wireless.ssid"],
+                    "psk": None,
+                    "key_mgmt": connection_details["802-11-wireless-security.key-mgmt"],
+                }
+                self._wifi_networks.append(network_dict)
 
     def get_wifi_networks(self):
         return self._wifi_networks
