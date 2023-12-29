@@ -131,6 +131,7 @@ class SharedStateObj:
     def __init__(self):
         self.__power_state = 1
         self.__solve_state = None
+        self.__ui_state = None
         self.__last_image_metadata = {
             "exposure_start": 0,
             "exposure_end": 0,
@@ -142,9 +143,7 @@ class SharedStateObj:
         self.__location = None
         self.__datetime = None
         self.__datetime_time = None
-        self.__target = None
         self.__screen = None
-        self.__ui_state = None
         self.__solve_pixel = config.Config().get_option("solve_pixel")
 
     def serialize(self, output_file):
@@ -258,13 +257,13 @@ class SharedStateObj:
             f"SharedStateObj("
             f"power_state={self.__power_state}, "
             f"solve_state={self.__solve_state}, "
+            f"UI_state={self.__ui_state})"
             f"solution={self.__solution}, "
             f"imu={self.__imu}, "
             f"location={self.__location}, "
             f"datetime={self.datetime()}, "
             f"screen={self.__screen}, "
             f"solve_pixel={self.__solve_pixel})"
-            f"UI_state={self.__ui_state})"
         )
 
     def __str__(self):
@@ -273,11 +272,11 @@ class SharedStateObj:
             f"Shared State Object:\n"
             f"Power State: {self.__power_state}\n"
             f"Solve State: {self.__solve_state}\n"
+            f"UI_state={self.__ui_state})"
             f"Solution: {self.__solution}\n"
             f"IMU: {self.__imu}\n"
             f"Location: {self.__location}\n"
             f"Date-Time: {self.datetime()}\n"
             f"Screen: {self.__screen}\n"
             f"Solve Pixel: {self.__solve_pixel}"
-            f"UI_state={self.__ui_state})"
         )

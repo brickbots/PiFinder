@@ -11,7 +11,9 @@ class CompositeObject:
     # object_id is the primary key of the objects table
     object_id: int = field(default=-1)
     obj_type: str = field(default="")
+    # ra in degrees, J2000
     ra: float = field(default=0.0)
+    # dec in degrees, J2000
     dec: float = field(default=0.0)
     const: str = field(default="")
     size: str = field(default="")

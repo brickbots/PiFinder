@@ -11,15 +11,16 @@ from math import modf
 import logging
 import re
 from multiprocessing import Queue
-from typing import Tuple, List
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg, ra_to_hms
+from typing import Tuple
+from PiFinder.calc_utils import ra_to_deg, dec_to_deg
 from PiFinder.catalogs import CompositeObject
+from PiFinder.integrator import sf_utils
+from skyfield.positionlib import position_of_radec
+from skyfield.api import load
 
 sr_result = None
 sequence = 0
 ui_queue: Queue = None
-from skyfield.positionlib import position_of_radec
-from skyfield.api import load
 
 skyfield_ts = load.timescale()
 
@@ -44,7 +45,9 @@ def get_telescope_ra(shared_state, _):
     RA_h, Dec, _dist = _p.radec(epoch=skyfield_ts.now())
 
     hh, mm, ss = RA_h.hms()
-    return f"{hh:02.0f}:{mm:02.0f}:{ss:02.0f}"
+    ra_result = f"{hh:02.0f}:{mm:02.0f}:{ss:02.0f}"
+    logging.debug("get_telescope_ra: RA result: %s", ra_result)
+    return ra_result
 
 
 def get_telescope_dec(shared_state, _):
@@ -79,7 +82,9 @@ def get_telescope_dec(shared_state, _):
         sign = "-"
     else:
         sign = "+"
-    return f"{sign}{hh:02.0f}*{mm:02.0f}'{ss:02.0f}"
+    dec_result = f"{sign}{hh:02.0f}*{mm:02.0f}'{ss:02.0f}"
+    logging.debug("get_telescope_dec: Dec result: %s", dec_result)
+    return dec_result
 
 
 def respond_none(shared_state, input_str):
@@ -137,15 +142,21 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
     global sequence, ui_queue
     ra = ra_to_deg(*ra_parsed)
     dec = dec_to_deg(*dec_parsed)
-    logging.debug(f"Goto {ra_parsed},{dec_parsed} or {ra},{dec}")
+    logging.debug("handle_goto_command: ra,dec in deg, JNOW: %s, %s", ra, dec)
+    _p = position_of_radec(ra_hours=ra / 15, dec_degrees=dec, epoch=skyfield_ts.now())
+    ra_h, dec_d, _dist = _p.radec(epoch=skyfield_ts.J2000)
     sequence += 1
+    comp_ra = float(ra_h._degrees)
+    comp_dec = float(dec_d.degrees)
+    logging.debug("Goto ra,dec in deg, J2000: %s, %s", comp_ra, comp_dec)
+    constellation = sf_utils.radec_to_constellation(comp_ra, comp_dec)
     obj = CompositeObject.from_dict(
         {
             "id": -1,
             "obj_type": "",
-            "ra": ra,
-            "dec": dec,
-            "const": "",
+            "ra": comp_ra,
+            "dec": comp_dec,
+            "const": constellation,
             "size": "",
             "mag": "",
             "catalog_code": "PUSH",
@@ -153,6 +164,7 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
             "description": f"Skysafari object nr {sequence}",
         }
     )
+    logging.debug("handle_goto_command: Pushing object: %s", obj)
     shared_state.ui_state().push_object(obj)
     ui_queue.put("push_object")
     return "1"
@@ -187,7 +199,7 @@ def run_server(shared_state, p_ui_queue):
                 while True:
                     in_data = client_socket.recv(1024).decode()
                     if in_data:
-                        logging.debug(f"Received from skysafari: '{in_data}'")
+                        logging.debug("Received from skysafari: '%s'", in_data)
                         command = extract_command(in_data)
                         if command:
                             command_handler = lx_command_dict.get(command, None)

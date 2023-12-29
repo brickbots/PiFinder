@@ -453,14 +453,23 @@ class CatalogTracker:
         print(f"current object: {self.get_current_object()}")
         print(f"current designator: {self.get_designator()}")
         print(f"ui state: {str(ui_state)}")
-        self.catalogs.add(
-            Catalog(
-                "PUSH",
-                1,
-                "Skysafari push",
-                {1: ui_state.target()},
+        push_catalog = Catalog("PUSH", 1, "Skysafari push")
+        target = ui_state.target()
+        push_catalog.add_object(
+            CompositeObject(
+                id=-1,
+                sequence=1,
+                catalog_code="PUSH",
+                ra=target.ra,
+                dec=target.dec,
+                mag="0",
+                obj_type="",
+                description="Skysafari push target",
+                logged=False,
+                names=[],
             )
         )
+        self.catalogs.add(push_catalog)
         self.designator_tracker[catalog_name] = CatalogDesignator(catalog_name, 1)
         self.object_tracker[catalog_name] = None
 
