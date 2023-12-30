@@ -143,7 +143,7 @@ class UICatalog(UIModule):
         if (
             current_designator.has_number()
             and current_designator.object_number
-            not in self.catalog_tracker.current_catalog.filtered_objects
+            not in self.catalog_tracker.current_catalog.filtered_objects_seq
         ):
             designator_color = 128
         return self.simpleTextLayout(
