@@ -309,15 +309,15 @@ class PlanetCatalog(Catalog):
         obj = CompositeObject.from_dict(
             {
                 "id": -1,
-                "obj_type": "Pl",
+                "obj_type": "Bod",
                 "ra": ra,
                 "dec": dec,
                 "const": constellation,
                 "size": "",
-                "mag": "",
+                "mag": planet["mag"],
                 "catalog_code": "PL",
                 "sequence": sequence + 1,
-                "description": f"Solar system object: {name}",
+                "description": f"{name.capitalize()}, alt={planet['altaz'][0]:.1f}°",
             }
         )
         self.add_object(obj)
