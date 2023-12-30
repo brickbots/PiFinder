@@ -207,6 +207,7 @@ class Catalog(CatalogBase):
 
     catalog_filter: CatalogFilter
     filtered_objects: List[CompositeObject] = []
+    filtered_objects_seq: List[int]
     last_filtered: float = 0
 
     def __init__(self, catalog_code: str, max_sequence: int, desc: str):
@@ -218,6 +219,7 @@ class Catalog(CatalogBase):
         self.filtered_objects = self.catalog_filter.apply(
             shared_state, self.get_objects()
         )
+        self.filtered_objects_seq = [obj.sequence for obj in self.filtered_objects]
         self.last_filtered = time.time()
         return self.filtered_objects
 
