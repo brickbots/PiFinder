@@ -164,6 +164,22 @@ The last active component is the GPS module.  It goes component side up so you c
 
 .. image:: images/build_guide/ui_module_15.jpeg
 
+Connect the antenna to the GPS module. It's a bit fiddly, so check the alignment carefully before
+applying too much force.  It will snap in and then rotate pretty easily. 
+
+.. list-table::
+
+   * - .. image:: images/build_guide/common_3.jpeg
+
+     - .. image:: images/build_guide/common_4.jpeg
+
+
+The routing of the antenna cable is important for the best possible reception.  Reference the photo below and tape it to the back of
+the board to keep it secure and out of the way during the build.
+
+
+.. image:: images/build_guide/ui_module_15b.jpeg
+
 Connector
 ------------------
 
@@ -252,7 +268,7 @@ Printing
 
 These pieces will print without supports in the orientation shown in the photos.  I use 3 perimeter layers and 15% infill, but the pieces are not large and don't need to handle heavy forces so almost any print settings should work.
 
-You will want to consider using a material other than PLA, as your PiFinder is likely to experience some sunlight in it's lifetime and PLA degrades under moderate heat and UV.  PETG or some co-polymer like NGen would be a good choice.  Prusamint Galaxy PETG is the official PiFinder filament and is pictured in most of the build guide, except where grey provided needed contrast.
+You will want to consider using a material other than PLA, as your PiFinder is likely to experience some sunlight in it's lifetime and PLA degrades under moderate heat and UV.  PETG or some co-polymer like NGen would be a good choice.  Prusament Galaxy PETG is the official PiFinder filament and is pictured in most of the build guide, except where grey provided needed contrast.
 
 Inserts
 -------
@@ -590,17 +606,7 @@ For the left hand version you will need a twist in the cable before it enters th
    right handed builds, but where there are important differences, you'll see both indicated for clarity.
 
 
-Next up is to connect the UI Board and affix the shroud.  Start by pluggin in the GPS antenna to the UI board.  See
-the photos below and be patient.  It's a small connector and won't require much force as long as the alignment is 
-good.  
-
-.. list-table::
-
-   * - .. image:: images/build_guide/common_3.jpeg
-
-     - .. image:: images/build_guide/common_4.jpeg
-
-Once this is done, layout the board as it will be connected and slide the antenna into the holder on the Pi Mount piece.  
+Next up is to connect the UI Board and affix the shroud. Lay out the board as it will be connected and slide the antenna into the holder on the Pi Mount piece.  
 The ceramic top with the silver dimple on it needs to face upwards.  Consult the photos below
 
 .. image:: images/build_guide/right_16.jpeg
@@ -609,6 +615,9 @@ The ceramic top with the silver dimple on it needs to face upwards.  Consult the
 
 .. image:: images/build_guide/right_18.jpeg
 
+.. note::
+   The images above have the GPS cable loose and not routed properly.  Please use the 
+   routing shown in the :ref:`GPS<build_guide:gps>` section
 
 Now carefully plug the UI Module into the Raspberry Pi.  Make sure both rows of pins are aligned and take your time to 
 manage the camera and GPS cables.  The photos below show the left and right configurations for the cable routing.
