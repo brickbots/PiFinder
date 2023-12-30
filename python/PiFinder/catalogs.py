@@ -11,6 +11,7 @@ from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.composite_object import CompositeObject
+from PiFinder.calc_utils import sf_utils
 
 # collection of all catalog-related classes
 
@@ -292,6 +293,36 @@ class Catalogs:
         return self.__repr__()
 
 
+class PlanetCatalog(Catalog):
+    """Creates a catalog of planets"""
+
+    def __init__(self):
+        super().__init__("PL", 11, "The planets")
+        planet_dict = sf_utils.calc_planets()
+        for sequence, name in enumerate(sf_utils.planet_names):
+            self.add_planet(sequence, name, planet_dict[name])
+
+    def add_planet(self, sequence: int, name: str, planet: Dict[str, Dict[str, float]]):
+        ra, dec = planet["radec"]
+        constellation = sf_utils.radec_to_constellation(ra, dec)
+
+        obj = CompositeObject.from_dict(
+            {
+                "id": -1,
+                "obj_type": "Pl",
+                "ra": ra,
+                "dec": dec,
+                "const": constellation,
+                "size": "",
+                "mag": "",
+                "catalog_code": "PL",
+                "sequence": sequence + 1,
+                "description": f"Solar system object: {name}",
+            }
+        )
+        self.add_object(obj)
+
+
 class CatalogBuilder:
     """
     Builds catalogs from the database
@@ -314,7 +345,10 @@ class CatalogBuilder:
         # to speed up repeated searches
         self.catalog_dicts = {}
         logging.debug(f"Loaded {len(composite_objects)} objects from database")
-        return self._get_catalogs(composite_objects, catalogs_info)
+        all_catalogs: Catalogs = self._get_catalogs(composite_objects, catalogs_info)
+        planet_catalog: Catalog = PlanetCatalog()
+        all_catalogs.add(planet_catalog)
+        return all_catalogs
 
     def _build_composite(
         self,

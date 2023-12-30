@@ -54,6 +54,7 @@ from PiFinder.image_util import (
     RED_BGR,
     GREY,
 )
+from PiFinder.calc_utils import sf_utils
 
 
 hardware_platform = "Pi"
@@ -288,6 +289,11 @@ def main(script_name=None, show_fps=False):
         initial_location["gps_lock"] = False
         initial_location["last_gps_lock"] = None
         shared_state.set_location(initial_location)
+        sf_utils.set_location(
+            initial_location["lat"],
+            initial_location["lon"],
+            initial_location["altitude"],
+        )
 
         console.write("   Camera")
         console.update()

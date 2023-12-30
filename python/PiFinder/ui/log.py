@@ -62,7 +62,6 @@ class UILog(UIModule):
     def __init__(self, *args):
         super().__init__(*args)
         self.target = None
-        self.__catalog_names = self.config_object.get_option("catalogs")
         self._observing_session = None
         self.modal_timer = 0
         self.modal_duration = 0

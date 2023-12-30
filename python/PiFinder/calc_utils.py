@@ -9,6 +9,7 @@ from skyfield.api import (
     position_of_radec,
     load_constellation_map,
 )
+from skyfield.magnitudelib import planetary_magnitude
 import PiFinder.utils as utils
 import json
 import hashlib
@@ -90,6 +91,14 @@ def dec_to_deg(dec, dec_m, dec_s):
     return dec_deg
 
 
+def dec_to_dms(dec):
+    degree = int(dec)
+    fractional_degree = abs(dec - degree)
+    minute = int(fractional_degree * 60)
+    second = (fractional_degree * 60 - minute) * 60
+    return degree, minute, round(second, 2)
+
+
 def ra_to_hms(ra):
     if ra < 0.0:
         ra = ra + 360
@@ -120,6 +129,26 @@ class Skyfield_utils:
         self.constellation_map = load_constellation_map()
         self.ts = load.timescale()
 
+    def _set_planet_names(self):
+        full_planet_names = [
+            name[0]
+            for index, name in self.eph.names().items()
+            if name[0] != "EARTH" and "BARYCENTER" not in name[0]
+        ]
+        full_planet_names += [
+            "JUPITER_BARYCENTER",
+            "SATURN_BARYCENTER",
+            "URANUS_BARYCENTER",
+            "NEPTUNE_BARYCENTER",
+            "PLUTO_BARYCENTER",
+        ]
+        self.planets = [self.eph[name] for name in full_planet_names]
+        self.planet_names = []
+        for name in full_planet_names:
+            if "BARYCENTER" in name:
+                name = name.replace("_BARYCENTER", "")
+            self.planet_names.append(name)
+
     def set_location(self, lat, lon, altitude):
         """
         set observing location
@@ -129,6 +158,7 @@ class Skyfield_utils:
             lon,
             altitude,
         )
+        self._set_planet_names()
 
     def altaz_to_radec(self, alt, az, dt):
         """
@@ -169,6 +199,42 @@ class Skyfield_utils:
         """
         sky_pos = position_of_radec(Angle(degrees=ra)._hours, dec)
         return self.constellation_map(sky_pos)
+
+    def calc_planets(self):
+        """Returns dictionary with all planet positions:
+        {'SUN': {'radec': (279.05819685702846, -23.176809282384962),
+                 'radec_pretty': ((18.0, 36.0, 14), (-23, 10, 36.51)),
+                 'altaz': (1.667930045300066, 228.61434416619613)},
+        }
+        """
+        t = self.ts.now()
+        observer = self.observer_loc.at(t)
+        planet_dict = {}
+        for name, planet in zip(self.planet_names, self.planets):
+            astrometric = observer.observe(planet).apparent()
+            ra, dec, _ = astrometric.radec()
+            alt, az, _ = astrometric.altaz()
+            ra_dec = (ra._degrees, dec.degrees)
+            ra_dec_pretty = (ra_to_hms(ra._degrees), dec_to_dms(dec.degrees))
+            alt_az = (alt.degrees, az.degrees)
+            try:
+                mag = float(planetary_magnitude(astrometric))
+            except ValueError as ve:
+                mag = float("nan")
+            if math.isnan(mag):
+                mag = "?"
+            else:
+                mag = "%.2f" % mag
+
+            if "BARYCENTER" in name:
+                name = name.replace("_BARYCENTER", "")
+            planet_dict[name] = {
+                "radec": ra_dec,
+                "radec_pretty": ra_dec_pretty,
+                "altaz": alt_az,
+                "mag": mag,
+            }
+        return planet_dict
 
 
 # Create a single instance of the skyfield utils

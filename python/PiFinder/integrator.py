@@ -6,33 +6,35 @@ This module is the solver
 * Plate solves high-res image
 
 """
-import os
-import sys
 import queue
-import pprint
 import time
 import copy
-import uuid
-import json
 import logging
 
-from PIL import ImageOps, Image
-from skyfield.api import (
-    wgs84,
-    Loader,
-    Star,
-    Angle,
-    position_of_radec,
-    load_constellation_map,
-)
-
-from PiFinder.image_util import subtract_background
 from PiFinder import config
-import PiFinder.utils as utils
-import Pifinder.calc_utils as calc_utils
+import PiFinder.calc_utils as calc_utils
 
 IMU_ALT = 2
 IMU_AZ = 0
+
+
+def imu_moved(imu_a, imu_b):
+    """
+    Compares two IMU states to determine if they are the 'same'
+    if either is none, returns False
+    """
+    if imu_a == None:
+        return False
+    if imu_b == None:
+        return False
+
+    # figure out the abs difference
+    diff = (
+        abs(imu_a[0] - imu_b[0]) + abs(imu_a[1] - imu_b[1]) + abs(imu_a[2] - imu_b[2])
+    )
+    if diff > 0.001:
+        return True
+    return False
 
 
 def integrator(shared_state, solver_queue, console_queue):

@@ -5,13 +5,13 @@ This module contains the Locate module
 
 """
 import time
-from PIL import ImageFont
 import logging
 
-from PiFinder import integrator, obslist, config
+from PiFinder import obslist, config
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
+from PiFinder.calc_utils import sf_utils
 
 
 class UILocate(UIModule):
@@ -45,8 +45,7 @@ class UILocate(UIModule):
         super().__init__(*args)
         self.target_index = None
         self.object_text = ["No Object Found"]
-        self.__catalog_names = self.config_object.get_option("catalogs")
-        self.sf_utils = integrator.Skyfield_utils()
+        self.sf_utils = sf_utils
         self.font_huge = fonts.huge
         self.screen_direction = config.Config().get_option("screen_direction")
         self.mount_type = config.Config().get_option("mount_type")

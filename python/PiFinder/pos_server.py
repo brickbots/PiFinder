@@ -12,9 +12,8 @@ import logging
 import re
 from multiprocessing import Queue
 from typing import Tuple
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg
+from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils
 from PiFinder.catalogs import CompositeObject
-from PiFinder.integrator import sf_utils
 from skyfield.positionlib import position_of_radec
 from skyfield.api import load
 
@@ -22,7 +21,8 @@ sr_result = None
 sequence = 0
 ui_queue: Queue = None
 
-skyfield_ts = load.timescale()
+# shortcut for skyfield timescale
+ts = sf_utils.ts
 
 
 def get_telescope_ra(shared_state, _):
@@ -38,11 +38,9 @@ def get_telescope_ra(shared_state, _):
     # Convert from J2000 to now epoch
     RA_deg = solution["RA"]
     Dec_deg = solution["Dec"]
-    _p = position_of_radec(
-        ra_hours=RA_deg / 15.0, dec_degrees=Dec_deg, epoch=skyfield_ts.J2000
-    )
+    _p = position_of_radec(ra_hours=RA_deg / 15.0, dec_degrees=Dec_deg, epoch=ts.J2000)
 
-    RA_h, Dec, _dist = _p.radec(epoch=skyfield_ts.now())
+    RA_h, Dec, _dist = _p.radec(epoch=ts.now())
 
     hh, mm, ss = RA_h.hms()
     ra_result = f"{hh:02.0f}:{mm:02.0f}:{ss:02.0f}"
@@ -65,11 +63,9 @@ def get_telescope_dec(shared_state, _):
     # Convert from J2000 to now epoch
     RA_deg = solution["RA"]
     Dec_deg = solution["Dec"]
-    _p = position_of_radec(
-        ra_hours=RA_deg / 15.0, dec_degrees=Dec_deg, epoch=skyfield_ts.J2000
-    )
+    _p = position_of_radec(ra_hours=RA_deg / 15.0, dec_degrees=Dec_deg, epoch=ts.J2000)
 
-    RA_h, Dec, _dist = _p.radec(epoch=skyfield_ts.now())
+    RA_h, Dec, _dist = _p.radec(epoch=ts.now())
 
     dec = Dec.degrees
 
@@ -143,8 +139,8 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
     ra = ra_to_deg(*ra_parsed)
     dec = dec_to_deg(*dec_parsed)
     logging.debug("handle_goto_command: ra,dec in deg, JNOW: %s, %s", ra, dec)
-    _p = position_of_radec(ra_hours=ra / 15, dec_degrees=dec, epoch=skyfield_ts.now())
-    ra_h, dec_d, _dist = _p.radec(epoch=skyfield_ts.J2000)
+    _p = position_of_radec(ra_hours=ra / 15, dec_degrees=dec, epoch=ts.now())
+    ra_h, dec_d, _dist = _p.radec(epoch=ts.J2000)
     sequence += 1
     comp_ra = float(ra_h._degrees)
     comp_dec = float(dec_d.degrees)
