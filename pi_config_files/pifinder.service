@@ -1,0 +1,13 @@
+[Unit]
+Description=PiFinder
+After=basic.target
+
+[Service]
+Type=idle
+User=pifinder
+WorkingDirectory=/home/pifinder/PiFinder/python
+ExecStart=/usr/bin/python -m PiFinder.main
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=basic.target

@@ -49,6 +49,7 @@ class UILocate(UIModule):
         self.sf_utils = integrator.Skyfield_utils()
         self.font_huge = fonts.huge
         self.screen_direction = config.Config().get_option("screen_direction")
+        self.mount_type = config.Config().get_option("mount_type")
 
         available_lists = obslist.get_lists()
         self._config_options["Load"]["options"] = ["CANCEL"] + available_lists
@@ -179,35 +180,43 @@ class UILocate(UIModule):
 
     def aim_degrees(self):
         """
-        Returns degrees in
-        az/alt from current position
+        Returns degrees in either
+        az/alt or RA/DEC depending on mount type
+        from current position
         to target
         """
         solution = self.shared_state.solution()
         location = self.shared_state.location()
         dt = self.shared_state.datetime()
         if location and dt and solution:
-            if solution["Alt"]:
-                # We have position and time/date!
-                self.sf_utils.set_location(
-                    location["lat"],
-                    location["lon"],
-                    location["altitude"],
-                )
-                target_alt, target_az = self.sf_utils.radec_to_altaz(
-                    self.ui_state["target"].ra,
-                    self.ui_state["target"].dec,
-                    dt,
-                )
-                az_diff = target_az - solution["Az"]
-                az_diff = (az_diff + 180) % 360 - 180
-                if self.screen_direction == "flat":
-                    az_diff *= -1
+            if self.mount_type == "Alt/Az":
+                if solution["Alt"]:
+                    # We have position and time/date!
+                    self.sf_utils.set_location(
+                        location["lat"],
+                        location["lon"],
+                        location["altitude"],
+                    )
+                    target_alt, target_az = self.sf_utils.radec_to_altaz(
+                        self.ui_state["target"].ra,
+                        self.ui_state["target"].dec,
+                        dt,
+                    )
+                    az_diff = target_az - solution["Az"]
+                    az_diff = (az_diff + 180) % 360 - 180
+                    if self.screen_direction == "flat":
+                        az_diff *= -1
 
-                alt_diff = target_alt - solution["Alt"]
-                alt_diff = (alt_diff + 180) % 360 - 180
+                    alt_diff = target_alt - solution["Alt"]
+                    alt_diff = (alt_diff + 180) % 360 - 180
 
-                return az_diff, alt_diff
+                    return az_diff, alt_diff
+            else:
+                # EQ Mount type
+                ra_diff = self.ui_state["target"].ra - solution["RA"]
+                dec_diff = self.ui_state["target"].dec - solution["Dec"]
+                dec_diff = (dec_diff + 180) % 360 - 180
+                return ra_diff, dec_diff
         return None, None
 
     def active(self):

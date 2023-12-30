@@ -5,5 +5,4 @@ cp /etc/dhcpcd.conf.sta /etc/dhcpcd.conf
 systemctl disable dnsmasq
 systemctl disable hostapd
 #systemctl restart dhcpcd
-echo -n "Cli" > /home/pifinder/PiFinder/wifi_status.txt
-shutdown -r now
+echo -n "Client" > /home/pifinder/PiFinder/wifi_status.txt

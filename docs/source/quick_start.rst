@@ -11,6 +11,11 @@ PiFinder uses its camera to take continuous pictures of the stars it sees, compa
 
 PiFinder was created by software engineer and amateur astronomer Richard Wolff-Jacobson, who realized he could use his engineering and coding experience to create a brand new way to get more out of his time at the telescope. He saw that plate solving technology could be handled by the famous Raspberry Pi single-board computer and a simple camera. The software and rig he developed will turn your telescope into an accurate guide through the night sky.
 
+.. image:: images/quick_start/hardware_revision2.jpeg
+
+.. note::
+   We've recently updated the hardware and design of the PiFinder and are working to take new photographs and update this documentation.  The photo above shows the latest version of the PiFinder which has the GPS module fully integrated and does not have the physical camera adjustment system with the thumbscrews, but some of the photos below will show previous versions of the PiFinder.  Please `reach out <mailto: info@pifinder.io>`_ with any questions.
+
 
 Unboxing
 --------
@@ -24,19 +29,39 @@ There are two parts of your PiFinder that you’ll interact with: the keypad/scr
 .. image:: images/quick_start/pf_rear.jpeg
    :width: 45%
 
+Your PiFinder was shipped with the lens disconnected for more secure packaging.  Installing it is easy, simply remove the cover from the silver threaded end of the lens, then remove the plastic cover from the camera module (leave the metal knurled portion!) and screw the lens into the camera module.  Refer to the photo above if in doubt.
+
 
 Powering the PiFinder
 ----------------------
-If you purchased or built your PiFinder with the optional internal battery, you’ll need to charge the battery before first use. Plug a USB-C charging cable into the port on the top of the PiFinder, closest to the camera, as indicated below. For battery powered units, the power switch is the small white switch located on top of the PiFinder above the screen as shown below with the right hand arrow. While facing the screen slide it right to turn it on, left to turn it off. 
+
+If you purchased or built your PiFinder with the optional internal battery, you’ll need to charge the battery before first use. Plug a USB-C charging cable into the port on the top of the PiFinder, closest to the camera, as indicated below.  The charging indicator will glow blue when charging and switch to green when complete.
+
+For battery powered units, the power switch is the small white switch located on top of the PiFinder above the screen as shown below with the right hand arrow. While facing the screen slide it right to turn it on, left to turn it off. 
 
 .. image:: images/quick_start/power.jpeg
 
-If you use an external power source, hook up your battery pack (5v/2A) to the USB-C port on the Raspberry Pi which is closest to the keypad, there may be only one if you don't have the internal battery. If you have a dobsonian telescope, we recommend mounting your power source on your primary mirror box, as this can also serve as a counterweight for the PiFinder.
+If you use an external power source, you can use either USB-C port to power the unit.  The USB-C port on the Raspberry Pi which is closest to the keypad (there will be only one if you don't have the internal battery) will power the unit, but not charge the internal battery. You can use the regular charging connector to both power the unit and charge the battery from external power if you turn the white power switch to the 'On' position.
 
 Note that when you turn on your PiFinder for the first time, it will take a minute to start up. During startup, no image will appear on screen. This is normal and start up will be faster on subsequent power-ons.
 
 Once the PiFinder is powered on, an welcome image will appear on the screen.  You’ll then see some information about the loading process and finally the CAMERA screen!
 
+
+Configuration Setup
+--------------------
+
+The PiFinder is available in left hand, right hand, and flat configurations.  You'll need to set the correct configuration in the software so the PiFinder can provide appropriate pointing directions for your specific set up.
+
+Press and hold the **ENT** key and press the **A** function button to cycle through the two utility screens until you have the STATUS screen displayed
+
+.. image:: images/quick_start/STATUS_001_docs.png
+
+From here, hold the **A** key until the options page appears.  This is the global configuration screen where you can set your prefernces for how the PiFinder works, perform some general utility actions, and set the type of PiFinder you have.  
+
+.. image:: images/quick_start/STATUS_OPTIONS_001_docs.png
+
+To set the configuration style, press the **5** key to select the 'mnt side' option and then press the number to the right of your configuration.  This will save the option and restart the PiFinder software.  Now you're ready to do the first time setup of the camera!
 
 Camera Setup
 ------------
@@ -157,7 +182,7 @@ Choose the number that represents the star currently in your telescope’s eyepi
 .. image:: images/quick_start/align_CAMERA_004_docs.png
 
 .. note::
-   **Can’t find your star on the ALIGN screen?** You can use the hardware thumbscrews on the back of the PiFinder to adjust where the camera is pointing relative to your telescope.  Loosen some screws as you tighten others and wait between each adjusment for a new image to be taken.
+   **Can’t find your star on the ALIGN screen?** The PiFinder camera field of view is 10 degrees, which is about 20 full moons wide.  If the star you are looking at with your telescope is not in this field, check the physical alignment of your finder shoe to make sure it's roughly parallel to your telescopes optical tube. 
 
 
 Find Your First Object
@@ -197,7 +222,7 @@ Shutting down the PiFinder
 
 Although shutting down is not strictly needed before power-off, the PiFinder is a computer and there is a chance of file corruption if you do not.  Some MicroSD cards are more sensitive to this than others.
 
-An option to shutdown is available in the :ref:`user_guide:global options` screen. Hold down *Ent* and press *A* to cycle through the system screens until you see the status screen, the press and hold *A* to access the Global Options
+An option to shutdown is available in the :ref:`user_guide:global options` screen. Hold down *Ent* and press *A* to cycle through the system screens until you see the status screen, the press and hold *A* to access the Global Options.  When you select this option the screen and keypad will turn off after a few seconds and it's then safe to turn off the unit using the white power switch or unplugging the battery.
 
 
 You've now got the basics of using the PiFinder sorted, to learn more you can continue on to the full :ref:`user_guide:pifinder user manual`

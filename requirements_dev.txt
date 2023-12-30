@@ -1,6 +1,5 @@
 # dev requirements
 luma.emulator==1.4.0
 PyHotKey
-bottle
 black[colorama]==23.7.0
 pre-commit
