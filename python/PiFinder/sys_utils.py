@@ -1,6 +1,6 @@
 import glob
 import sh
-from sh import iwgetid, wpa_cli, unzip, su, passwd
+from sh import wpa_cli, unzip, su, passwd
 import socket
 from PiFinder import utils
 
@@ -130,6 +130,7 @@ class Network:
         if self.wifi_mode() == "AP":
             return None
         # get output from iwgetid
+        iwgetid = Command("iwgetid")
         _t = iwgetid(_ok_code=(0, 255)).strip()
         return _t.split(":")[-1].strip('"')
 
