@@ -569,21 +569,6 @@ class CatalogTracker:
     def previous_object(self):
         return self.next_object(-1)
 
-    # def get_objects(self, catalogs=None, filtered=False) -> List[Dict]:
-    #     # called in push_cat ONLY
-    #     logging.warning(
-    #         f"WHERE IS THIS CALLED??? get_objects: {catalogs=}, {filtered=}"
-    #     )
-    #     catalog_list = self._select_catalogs(catalogs)
-    #     object_values = []
-    #     for catalog in catalog_list:
-    #         if filtered:
-    #             object_values.extend(catalog.filtered_objects.values())
-    #         else:
-    #             object_values.extend(catalog.cobjects.values())
-    #     flattened_objects = [obj for entry in catalog_list for obj in object_values]
-    #     return flattened_objects
-
     def does_filtered_have_current_object(self):
         return (
             self.object_tracker[self.current_catalog_name]
