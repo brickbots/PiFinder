@@ -294,6 +294,9 @@ class Catalogs:
     def __str__(self):
         return self.__repr__()
 
+    def __iter__(self):
+        return iter(self.catalogs)
+
 
 class PlanetCatalog(Catalog):
     """Creates a catalog of planets"""
@@ -566,19 +569,20 @@ class CatalogTracker:
     def previous_object(self):
         return self.next_object(-1)
 
-    def get_objects(self, catalogs=None, filtered=False) -> List[Dict]:
-        logging.warning(
-            f"WHERE IS THIS CALLED??? get_objects: {catalogs=}, {filtered=}"
-        )
-        catalog_list = self._select_catalogs(catalogs)
-        object_values = []
-        for catalog in catalog_list:
-            if filtered:
-                object_values.extend(catalog.filtered_objects.values())
-            else:
-                object_values.extend(catalog.cobjects.values())
-        flattened_objects = [obj for entry in catalog_list for obj in object_values]
-        return flattened_objects
+    # def get_objects(self, catalogs=None, filtered=False) -> List[Dict]:
+    #     # called in push_cat ONLY
+    #     logging.warning(
+    #         f"WHERE IS THIS CALLED??? get_objects: {catalogs=}, {filtered=}"
+    #     )
+    #     catalog_list = self._select_catalogs(catalogs)
+    #     object_values = []
+    #     for catalog in catalog_list:
+    #         if filtered:
+    #             object_values.extend(catalog.filtered_objects.values())
+    #         else:
+    #             object_values.extend(catalog.cobjects.values())
+    #     flattened_objects = [obj for entry in catalog_list for obj in object_values]
+    #     return flattened_objects
 
     def does_filtered_have_current_object(self):
         return (
@@ -613,20 +617,11 @@ class CatalogTracker:
         catalog_name: str = catalog_name or self.current_catalog_name
         return self.designator_tracker[catalog_name]
 
-    def _select_catalog(self, catalog: Optional[str]) -> Catalog:
-        catalog = self._get_catalog_name(catalog)
-        return self.catalogs.get(catalog)
-
-    def _select_catalogs(self, catalogs: Optional[List[str]]) -> List[Catalog]:
-        catalog_list: List[Catalog] = []
-        if catalogs is None:
+    def filter(self, current=True):
+        if current:
             catalog_list = [self.current_catalog]
         else:
-            catalog_list = [self.catalogs.get(key) for key in catalogs]
-        return catalog_list
-
-    def filter(self, catalogs=None):
-        catalog_list: List[Catalog] = self._select_catalogs(catalogs=catalogs)
+            catalog_list = self.catalogs.catalogs
         magnitude_filter = self.config_options["Magnitude"]["value"]
         type_filter = self.config_options["Obj Types"]["value"]
         altitude_filter = self.config_options["Alt Limit"]["value"]
@@ -641,14 +636,14 @@ class CatalogTracker:
             )
             catalog.filter_objects(self.shared_state)
 
-    def get_closest_objects(self, ra, dec, n, catalogs: Optional[List[str]] = None):
+    def get_closest_objects(self, ra, dec, n, catalogs: Catalogs):
         """
         Takes the current catalog or a list of catalogs, gets the filtered
         objects and returns the n closest objects to ra/dec
         """
-        catalog_list: List[Catalog] = self._select_catalogs(catalogs=catalogs)
+        catalog_list: List[Catalog] = catalogs.catalogs
         catalog_list_flat = [
-            obj for catalog in catalog_list for obj in catalog.filtered_objects.values()
+            obj for catalog in catalog_list for obj in catalog.filtered_objects
         ]
         if len(catalog_list_flat) < n:
             n = len(catalog_list_flat)

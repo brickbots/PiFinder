@@ -193,10 +193,10 @@ class UICatalog(UIModule):
             # Filter the catalog one last time
             self.catalog_tracker.filter()
             self.ui_state.set_observing_list(
-                self.catalog_tracker.get_objects(filtered=True)
+                self.catalog_tracker.current_catalog.filtered_objects
             )
             self.ui_state.set_active_list_to_observing_list()
-            self.ui_state.set_target_to_active_list(0)
+            self.ui_state.set_target_to_active_list_index(0)
             return "UILocate"
         else:
             return False
@@ -210,18 +210,18 @@ class UICatalog(UIModule):
                 return False
             self.message(f"Near {obj_amount} Pushed", 2)
 
-            # Filter the catalogs one last time
-            self.catalog_tracker.filter(catalogs=self.catalog_tracker.catalogs)
+            # Filter ALL the catalogs one last time
+            self.catalog_tracker.filter(current=False)
             near_catalog = self.catalog_tracker.get_closest_objects(
                 solution["RA"],
                 solution["Dec"],
                 obj_amount,
-                catalogs=self.catalog_tracker.catalog_names,
+                catalogs=self.catalog_tracker.catalogs,
             )
             # self.shared_state["observing_list"] = self.catalog_tracker.get_objects(catalogs=self.catalog_tracker.catalog_names, filtered=True)
             self.ui_state.set_observing_list(near_catalog)
             self.ui_state.set_active_list_to_observing_list()
-            self.ui_state.set_target_to_active_list(0)
+            self.ui_state.set_target_to_active_list_index(0)
             return "UILocate"
         else:
             return False
