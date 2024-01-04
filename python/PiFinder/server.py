@@ -1,10 +1,9 @@
 import time
 import logging
 import io
-import datetime
 import uuid
 import json
-
+from datetime import datetime, timezone
 from bottle import (
     Bottle,
     run,
@@ -174,6 +173,33 @@ class Server:
                 net=self.network,
                 show_new_form=show_new_form,
             )
+
+        @app.route("/gps")
+        @auth_required
+        def gps_page():
+            show_new_form = request.query.add_new or 0
+
+            return template(
+                "gps",
+                show_new_form=show_new_form,
+            )
+
+        @app.route("/gps/update", method="post")
+        @auth_required
+        def gps_update():
+            lat = request.forms.get("latitudeDecimal")
+            lon = request.forms.get("longitudeDecimal")
+            altitude = request.forms.get("altitude")
+            gps_lock(float(lat), float(lon), float(altitude))
+            time = request.forms.get("time")
+            current_date = datetime.now().date()
+            datetime_obj = datetime.combine(
+                current_date, datetime.strptime(time, "%H:%M:%S").time()
+            )
+            datetime_utc = datetime_obj.replace(tzinfo=timezone.utc)
+            logging.debug(f"GPS update: {lat}, {lon}, {altitude}, {time}")
+            time_lock(datetime_utc)
+            return home()
 
         @app.route("/network/add", method="post")
         @auth_required
@@ -356,24 +382,24 @@ class Server:
 
         @app.route("/gps-lock")
         @auth_required
-        def gps_lock():
+        def gps_lock(lat=50, lon=3, altitude=10):
             msg = (
                 "fix",
                 {
-                    "lat": 50,
-                    "lon": 3,
-                    "altitude": 10,
+                    "lat": lat,
+                    "lon": lon,
+                    "altitude": altitude,
                 },
             )
             self.gps_queue.put(msg)
-            logging.debug("Putting location msg on gps_queue")
+            logging.debug("Putting location msg on gps_queue: {msg}")
 
         @app.route("/time-lock")
         @auth_required
-        def time_lock():
-            msg = ("time", datetime.datetime.now())
+        def time_lock(time=datetime.now()):
+            msg = ("time", time)
             self.gps_queue.put(msg)
-            logging.debug("Putting time msg on gps_queue")
+            logging.debug("Putting time msg on gps_queue: {msg}")
 
         # If the PiFinder software is running as a service
         # it can grab port 80.  If not, it needs to use 8080

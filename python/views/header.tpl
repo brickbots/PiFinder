@@ -17,6 +17,7 @@
         <li><a href="/">Home</a></li>
         <li><a href="/remote">Remote</a></li>
         <li><a href="/network">Network Setup</a></li>
+        <li><a href="/gps">GPS Setup</a></li>
         <li><a href="/observations">Observations</a></li>
         <li><a href="/tools">Tools</a></li>
       </ul>
@@ -25,6 +26,7 @@
         <li><a href="/">Home</a></li>
         <li><a href="/remote">Remote</a></li>
         <li><a href="/network">Network Setup</a></li>
+        <li><a href="/gps">GPS Setup</a></li>
         <li><a href="/observations">Observations</a></li>
         <li><a href="/tools">Tools</a></li>
       </ul>
