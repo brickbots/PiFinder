@@ -133,7 +133,7 @@ class UIStatus(UIModule):
 
         self.last_temp_time = 0
         self.last_IP_time = 0
-        self.net = sys_utils.Network()
+        self.system = sys_utils.System()
         self.text_layout = TextLayouter(
             "",
             draw=self.draw,
@@ -293,11 +293,11 @@ class UIStatus(UIModule):
         if time.time() - self.last_IP_time > 20:
             self.last_IP_time = time.time()
             # IP address
-            self.status_dict["IP ADDR"] = self.net.local_ip()
-            if self.net.wifi_mode() == "AP":
-                self.status_dict["SSID"] = self.net.get_ap_name()
+            self.status_dict["IP ADDR"] = self.system.get_local_ip()
+            if self.system.get_wifi_mode() == "AP":
+                self.status_dict["SSID"] = self.system.get_ap_name()
             else:
-                self.status_dict["SSID"] = self.net.get_connected_ssid()
+                self.status_dict["SSID"] = self.system.get_connected_ssid()
 
     def update(self, force=False):
         self.update_status_dict()

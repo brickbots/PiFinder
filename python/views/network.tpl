@@ -26,13 +26,13 @@
         </div>
         <div class="row">
             <div class="input-field col s12">
-                <input value="{{net.get_ap_name()}}" id="ap_name" type="text" name="ap_name">
+                <input value="{{system.get_ap_name()}}" id="ap_name" type="text" name="ap_name">
                 <label for="ap_name">AP Network Name</label>
             </div>
         </div>
         <div class="row">
             <div class="input-field col s12">
-                <input value="{{net.get_host_name()}}" id="host_name" type="text" name="host_name">
+                <input value="{{system.get_host_name()}}" id="host_name" type="text" name="host_name">
                 <label for="host_name">Host Name</label>
             </div>
         </div>

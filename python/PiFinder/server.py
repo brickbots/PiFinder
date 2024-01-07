@@ -71,7 +71,7 @@ class Server:
             "LNG_ENT": self.ki.LNG_ENT,
         }
 
-        self.network = sys_utils.Network()
+        self.system = sys_utils.System()
 
         app = Bottle()
         debug(True)
@@ -119,9 +119,9 @@ class Server:
             return template(
                 "index",
                 software_version=software_version,
-                wifi_mode=self.network.wifi_mode(),
-                ip=self.network.local_ip(),
-                network_name=self.network.get_connected_ssid(),
+                wifi_mode=self.system.get_wifi_mode(),
+                ip=self.system.get_local_ip(),
+                network_name=self.system.get_connected_ssid(),
                 gps_icon=gps_icon,
                 gps_text=gps_text,
                 lat_text=lat_text,
@@ -159,7 +159,7 @@ class Server:
 
             return template(
                 "network",
-                net=self.network,
+                system=self.system,
                 show_new_form=show_new_form,
             )
 
@@ -173,13 +173,13 @@ class Server:
             else:
                 key_mgmt = "WPA-PSK"
 
-            self.network.add_wifi_network(ssid, key_mgmt, psk)
+            self.system.add_wifi_network(ssid, key_mgmt, psk)
             return network_page()
 
         @app.route("/network/delete/<network_id:int>")
         @auth_required
         def network_delete(network_id):
-            self.network.delete_wifi_network(network_id)
+            self.system.delete_wifi_network(network_id)
             return network_page()
 
         @app.route("/network/update", method="post")
@@ -189,9 +189,9 @@ class Server:
             ap_name = request.forms.get("ap_name")
             host_name = request.forms.get("host_name")
 
-            self.network.set_wifi_mode(wifi_mode)
-            self.network.set_ap_name(ap_name)
-            self.network.set_host_name(host_name)
+            self.system.set_wifi_mode(wifi_mode)
+            self.system.set_ap_name(ap_name)
+            self.system.set_host_name(host_name)
             return template("restart")
 
         @app.route("/tools/pwchange", method="post")

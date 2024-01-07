@@ -1,10 +1,6 @@
 import glob
-import sh
-from sh import iwgetid, nmcli, unzip, su, passwd
 import socket
 from PiFinder import utils
-
-BACKUP_PATH = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
 
 
 class BaseSystem:
@@ -14,7 +10,7 @@ class BaseSystem:
 
     _backup_file_path = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
 
-    def get_wifi_networks(self):
+    def get_wifi_networks(self) -> list[dict[str, str]]:
         """
         Returns a list of dictionaires
         representing all defined networks
@@ -22,7 +18,7 @@ class BaseSystem:
         """
         return []
 
-    def delete_wifi_network(self, network_id):
+    def delete_wifi_network(self, network_id: str) -> bool:
         """
         Removes a wifi network config identified
         by network_id
@@ -31,56 +27,56 @@ class BaseSystem:
         """
         return True
 
-    def add_wifi_network(self, ssid, key_mgmt, psk=None):
+    def add_wifi_network(self, ssid: str, key_mgmt: str, psk: str | None = None) -> str:
         """
         Add a wifi network to the list of networks
         for potential connection
 
         returns the new network_id
         """
-        return None
+        return ""
 
-    def get_ap_name(self):
+    def get_ap_name(self) -> str:
         """
         Returns the SSID of the PiFinder's
         access point
         """
         return "UNKN"
 
-    def set_ap_name(self, ap_name):
+    def set_ap_name(self, ap_name: str) -> bool:
         """
         Sets the SSID of the PiFinder's
         access point
         """
         return True
 
-    def get_host_name(self):
+    def get_host_name(self) -> str:
         """
         Returns the PiFinder's host name
         """
         return "UNKN"
 
-    def set_host_name(self, hostname):
+    def set_host_name(self, hostname: str) -> bool:
         """
         Change the PiFinder host name
         """
         return True
 
-    def get_connected_ssid(self):
+    def get_connected_ssid(self) -> str | None:
         """
         Returns the SSID of the connected wifi network or
         None if not connected or in AP mode
         """
         return None
 
-    def wifi_mode(self):
+    def get_wifi_mode(self) -> str:
         """
         Returns 'Client' or 'AP' to indicate
         which wifi mode the PiFinder is in
         """
         return "Client"
 
-    def set_wifi_mode(self, mode):
+    def set_wifi_mode(self, mode: str) -> bool:
         """
         Sets the wifi mode. Mode can be:
             'Client'
@@ -88,26 +84,26 @@ class BaseSystem:
         """
         return True
 
-    def get_local_ip(self):
+    def get_local_ip(self) -> str:
         """
         Return the best IP address for external network access
         """
         return "NONE"
 
-    def get_backup_path(self):
+    def get_backup_path(self) -> str:
         """
         Returns the expected location
         of the backup file
         """
         return self._backup_file_path
 
-    def remove_backup_file(self):
+    def remove_backup_file(self) -> bool:
         """
         Removes backup file
         """
         return True
 
-    def backup_userdata():
+    def backup_userdata(self) -> str:
         """
         Back up userdata to a single zip file for later
         restore.  Returns the path to the zip file.
@@ -119,99 +115,81 @@ class BaseSystem:
         """
         return self.get_backup_path()
 
-    def restore_userdata(zip_path):
+    def restore_userdata(self, zip_path: str) -> bool:
         """
         Compliment to backup_userdata
         restores userdata
         OVERWRITES existing data!
         """
-        unzip("-d", "/", "-o", zip_path)
+        return True
 
-    def shutdown():
+    def shutdown(self) -> None:
         """
         shuts down the Pi
         """
-        print("SYS: Initiating Shutdown")
-        sh.sudo("shutdown", "now")
-        return True
+        return None
 
-    def update_software():
+    def update_software(self) -> bool:
         """
         Uses systemctl to git pull and then restart
         service
         """
-        print("SYS: Running update")
-        sh.bash("/home/pifinder/PiFinder/pifinder_update.sh")
         return True
 
-    def restart_pifinder():
+    def restart_pifinder(self) -> None:
         """
         Uses systemctl to restart the PiFinder
         service
         """
-        print("SYS: Restarting PiFinder")
-        sh.sudo("systemctl", "restart", "pifinder")
-        return True
+        return None
 
-    def restart_system():
+    def restart_system(self) -> None:
         """
         Restarts the system
         """
-        print("SYS: Initiating System Restart")
-        sh.sudo("shutdown", "-r", "now")
+        return None
 
-    def go_wifi_ap():
-        print("SYS: Switching to AP")
-        sh.sudo("/home/pifinder/PiFinder/switch-ap.sh")
+    def go_wifi_ap(self) -> bool:
+        """
+        Switches the network to access point mode
+        """
         return True
 
-    def go_wifi_cli():
-        print("SYS: Switching to Client")
-        sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
+    def go_wifi_cli(self) -> bool:
+        """
+        Switches the network to Client mode
+        """
+        return True
+
+    def verify_password(self, username: str, password: str) -> bool:
+        """
+        Checks the provided password against the provided user
+        password
+        """
+        return True
+
+    def change_password(
+        self, username: str, current_password: str, new_password: str
+    ) -> bool:
+        """
+        Changes the PiFinder User password
+        """
         return True
 
 
-def verify_password(username, password):
-    """
-    Checks the provided password against the provided user
-    password
-    """
-    result = su(username, "-c", "echo", _in=f"{password}\n", _ok_code=(0, 1))
-    if result.exit_code == 0:
-        return True
-    else:
-        return False
-
-
-def change_password(username, current_password, new_password):
-    """
-    Changes the PiFinder User password
-    """
-    result = passwd(
-        username,
-        _in=f"{current_password}\n{new_password}\n{new_password}\n",
-        _ok_code=(0, 10),
-    )
-
-    if result.exit_code == 0:
-        return True
-    else:
-        return False
-
-
-class Network:
+class PiSystem(BaseSystem):
     """
     Provides wifi network info
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
         with open(self.wifi_txt, "r") as wifi_f:
             self._wifi_mode = wifi_f.read()
 
         self.populate_wifi_networks()
 
-    def populate_wifi_networks(self):
+    def populate_wifi_networks(self) -> None:
         """
         Fetches all wifi networks configured
         using nmcli
@@ -239,10 +217,10 @@ class Network:
                 }
                 self._wifi_networks.append(network_dict)
 
-    def get_wifi_networks(self):
+    def get_wifi_networks(self) -> list[dict[str, str]]:
         return self._wifi_networks
 
-    def delete_wifi_network(self, network_id):
+    def delete_wifi_network(self, network_id: str) -> bool:
         """
         Immediately deletes a wifi network
         """
@@ -274,11 +252,13 @@ class Network:
                 wpa_conf.write("}\n")
 
         self.populate_wifi_networks()
+        return True
 
-    def add_wifi_network(self, ssid, key_mgmt, psk=None):
+    def add_wifi_network(self, ssid: str, key_mgmt: str, psk: str | None = None) -> str:
         """
         Add a wifi network
         """
+        new_network_id = ""
         with open("/etc/wpa_supplicant/wpa_supplicant.conf", "a") as wpa_conf:
             wpa_conf.write("\nnetwork={\n")
             wpa_conf.write(f'\tssid="{ssid}"\n')
@@ -293,16 +273,18 @@ class Network:
             # Restart the supplicant
             wpa_cli("reconfigure")
 
-    def get_ap_name(self):
+        return new_network_id
+
+    def get_ap_name(self) -> str:
         with open(f"/etc/hostapd/hostapd.conf", "r") as conf:
             for l in conf:
                 if l.startswith("ssid="):
                     return l[5:-1]
         return "UNKN"
 
-    def set_ap_name(self, ap_name):
+    def set_ap_name(self, ap_name: str) -> bool:
         if ap_name == self.get_ap_name():
-            return
+            return True
         with open(f"/tmp/hostapd.conf", "w") as new_conf:
             with open(f"/etc/hostapd/hostapd.conf", "r") as conf:
                 for l in conf:
@@ -310,40 +292,44 @@ class Network:
                         l = f"ssid={ap_name}\n"
                     new_conf.write(l)
         sh.sudo("cp", "/tmp/hostapd.conf", "/etc/hostapd/hostapd.conf")
+        return True
 
-    def get_host_name(self):
+    def get_host_name(self) -> str:
         return socket.gethostname()
 
-    def get_connected_ssid(self):
+    def get_connected_ssid(self) -> str | None:
         """
         Returns the SSID of the connected wifi network or
         None if not connected or in AP mode
         """
-        if self.wifi_mode() == "AP":
+        if self.get_wifi_mode() == "AP":
             return None
         # get output from iwgetid
         _t = iwgetid(_ok_code=(0, 255)).strip()
-        return _t.split(":")[-1].strip('"')
+        return str(_t.split(":")[-1].strip('"'))
 
-    def set_host_name(self, hostname):
+    def set_host_name(self, hostname: str) -> bool:
         if hostname == self.get_host_name():
-            return
+            return True
         result = sh.sudo("hostnamectl", "set-hostname", hostname)
+        return True
 
-    def wifi_mode(self):
+    def get_wifi_mode(self) -> str:
         return self._wifi_mode
 
-    def set_wifi_mode(self, mode):
+    def set_wifi_mode(self, mode: str) -> bool:
         if mode == self._wifi_mode:
-            return
+            return True
         if mode == "AP":
-            go_wifi_ap()
+            self.go_wifi_ap()
 
         if mode == "Client":
-            go_wifi_cli()
+            self.go_wifi_cli()
 
-    def local_ip(self):
-        if self._wifi_mode == "AP":
+        return True
+
+    def get_local_ip(self) -> str:
+        if self.get_wifi_mode() == "AP":
             return "10.10.10.1"
 
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -354,121 +340,122 @@ class Network:
             ip = "NONE"
         finally:
             s.close()
-        return ip
+        return str(ip)
 
-
-def remove_backup():
-    """
-    Removes backup file
-    """
-    sh.sudo("rm", BACKUP_PATH, _ok_code=(0, 1))
-
-
-def backup_userdata():
-    """
-    Back up userdata to a single zip file for later
-    restore.  Returns the path to the zip file.
-
-    Backs up:
-        config.json
-        observations.db
-        obslist/*
-    """
-
-    remove_backup()
-
-    _zip = sh.Command("zip")
-    _zip(
-        BACKUP_PATH,
-        "/home/pifinder/PiFinder_data/config.json",
-        "/home/pifinder/PiFinder_data/observations.db",
-        glob.glob("/home/pifinder/PiFinder_data/obslists/*"),
-    )
-
-    return BACKUP_PATH
-
-
-def restore_userdata(zip_path):
-    """
-    Compliment to backup_userdata
-    restores userdata
-    OVERWRITES existing data!
-    """
-    unzip("-d", "/", "-o", zip_path)
-
-
-def shutdown():
-    """
-    shuts down the Pi
-    """
-    print("SYS: Initiating Shutdown")
-    sh.sudo("shutdown", "now")
-    return True
-
-
-def update_software():
-    """
-    Uses systemctl to git pull and then restart
-    service
-    """
-    print("SYS: Running update")
-    sh.bash("/home/pifinder/PiFinder/pifinder_update.sh")
-    return True
-
-
-def restart_pifinder():
-    """
-    Uses systemctl to restart the PiFinder
-    service
-    """
-    print("SYS: Restarting PiFinder")
-    sh.sudo("systemctl", "restart", "pifinder")
-    return True
-
-
-def restart_system():
-    """
-    Restarts the system
-    """
-    print("SYS: Initiating System Restart")
-    sh.sudo("shutdown", "-r", "now")
-
-
-def go_wifi_ap():
-    print("SYS: Switching to AP")
-    sh.sudo("/home/pifinder/PiFinder/switch-ap.sh")
-    return True
-
-
-def go_wifi_cli():
-    print("SYS: Switching to Client")
-    sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
-    return True
-
-
-def verify_password(username, password):
-    """
-    Checks the provided password against the provided user
-    password
-    """
-    result = su(username, "-c", "echo", _in=f"{password}\n", _ok_code=(0, 1))
-    if result.exit_code == 0:
+    def remove_backup_file(self) -> bool:
+        """
+        Removes backup file
+        """
+        sh.sudo("rm", self._backup_file_path, _ok_code=(0, 1))
         return True
-    else:
-        return False
 
+    def backup_userdata(self) -> str:
+        """
+        Back up userdata to a single zip file for later
+        restore.  Returns the path to the zip file.
 
-def change_password(username, current_password, new_password):
-    """
-    Changes the PiFinder User password
-    """
-    result = passwd(
-        username,
-        _in=f"{current_password}\n{new_password}\n{new_password}\n",
-        _ok_code=(0, 10),
-    )
+        Backs up:
+            config.json
+            observations.db
+            obslist/*
+        """
 
-    if result.exit_code == 0:
+        self.remove_backup_file()
+
+        _zip = sh.Command("zip")
+        _zip(
+            self._backup_file_path,
+            "/home/pifinder/PiFinder_data/config.json",
+            "/home/pifinder/PiFinder_data/observations.db",
+            glob.glob("/home/pifinder/PiFinder_data/obslists/*"),
+        )
+
+        return self._backup_file_path
+
+    def restore_userdata(self, zip_path: str) -> bool:
+        """
+        Compliment to backup_userdata
+        restores userdata
+        OVERWRITES existing data!
+        """
+        unzip("-d", "/", "-o", zip_path)
         return True
-    else:
-        return False
+
+    def shutdown(self) -> None:
+        """
+        shuts down the Pi
+        """
+        print("SYS: Initiating Shutdown")
+        sh.sudo("shutdown", "now")
+
+    def update_software(self) -> bool:
+        """
+        Uses systemctl to git pull and then restart
+        service
+        """
+        print("SYS: Running update")
+        sh.bash("/home/pifinder/PiFinder/pifinder_update.sh")
+        return True
+
+    def restart_pifinder(self) -> None:
+        """
+        Uses systemctl to restart the PiFinder
+        service
+        """
+        print("SYS: Restarting PiFinder")
+        sh.sudo("systemctl", "restart", "pifinder")
+
+    def restart_system(self) -> None:
+        """
+        Restarts the system
+        """
+        print("SYS: Initiating System Restart")
+        sh.sudo("shutdown", "-r", "now")
+
+    def go_wifi_ap(self) -> bool:
+        print("SYS: Switching to AP")
+        sh.sudo("/home/pifinder/PiFinder/switch-ap.sh")
+        return True
+
+    def go_wifi_cli(self) -> bool:
+        print("SYS: Switching to Client")
+        sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
+        return True
+
+    def verify_password(self, username: str, password: str) -> bool:
+        """
+        Checks the provided password against the provided user
+        password
+        """
+        result = su(username, "-c", "echo", _in=f"{password}\n", _ok_code=(0, 1))
+        if result.exit_code == 0:
+            return True
+        else:
+            return False
+
+    def change_password(
+        self, username: str, current_password: str, new_password: str
+    ) -> bool:
+        """
+        Changes the PiFinder User password
+        """
+        result = passwd(
+            username,
+            _in=f"{current_password}\n{new_password}\n{new_password}\n",
+            _ok_code=(0, 10),
+        )
+
+        if result.exit_code == 0:
+            return True
+        else:
+            return False
+
+
+def System() -> BaseSystem:
+    try:
+        import sh
+        from sh import iwgetid, nmcli, unzip, su, passwd
+
+        return PiSystem()
+    except:
+        return BaseSystem()
