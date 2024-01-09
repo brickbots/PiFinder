@@ -1,6 +1,15 @@
 import glob
+import sh
 import socket
 from PiFinder import utils
+
+SYSTEM_TYPE = "UNKN"
+try:
+    from sh import iwgetid, nmcli, unzip, su, passwd
+
+    SYSTEM_TYPE = "Bookworm"
+except:
+    pass
 
 
 class BaseSystem:
@@ -452,10 +461,7 @@ class PiSystem(BaseSystem):
 
 
 def System() -> BaseSystem:
-    try:
-        import sh
-        from sh import iwgetid, nmcli, unzip, su, passwd
-
+    if SYSTEM_TYPE == "Bookworm":
         return PiSystem()
-    except:
+    else:
         return BaseSystem()
