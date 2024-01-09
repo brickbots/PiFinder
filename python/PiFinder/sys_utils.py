@@ -94,10 +94,18 @@ class BaseSystem:
         return True
 
     def get_local_ip(self) -> str:
-        """
-        Return the best IP address for external network access
-        """
-        return "NONE"
+        if self.get_wifi_mode() == "AP":
+            return "10.10.10.1"
+
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(("192.255.255.255", 1))
+            ip = s.getsockname()[0]
+        except:
+            ip = "NONE"
+        finally:
+            s.close()
+        return str(ip)
 
     def get_backup_path(self) -> str:
         """
@@ -336,20 +344,6 @@ class PiSystem(BaseSystem):
             self.go_wifi_cli()
 
         return True
-
-    def get_local_ip(self) -> str:
-        if self.get_wifi_mode() == "AP":
-            return "10.10.10.1"
-
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            s.connect(("192.255.255.255", 1))
-            ip = s.getsockname()[0]
-        except:
-            ip = "NONE"
-        finally:
-            s.close()
-        return str(ip)
 
     def remove_backup_file(self) -> bool:
         """
