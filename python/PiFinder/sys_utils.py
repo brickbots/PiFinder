@@ -1,6 +1,7 @@
 import glob
 import sh
 import socket
+import re
 from PiFinder import utils
 
 SYSTEM_TYPE = "UNKN"
@@ -27,21 +28,23 @@ class BaseSystem:
         """
         return []
 
-    def delete_wifi_network(self, network_id: str) -> bool:
+    def delete_wifi_network(self, network_UUID: str) -> bool:
         """
         Removes a wifi network config identified
-        by network_id
+        by network_UUID
         This is immediate and may cause network
         disconnect
         """
         return True
 
-    def add_wifi_network(self, ssid: str, key_mgmt: str, psk: str | None = None) -> str:
+    def add_wifi_network(
+        self, ssid: str, key_mgmt: str, psk: str | None = None
+    ) -> str | None:
         """
         Add a wifi network to the list of networks
         for potential connection
 
-        returns the new network_id
+        returns the new network_UUID
         """
         return ""
 
@@ -196,7 +199,7 @@ class BaseSystem:
 
 class PiSystem(BaseSystem):
     """
-    Provides wifi network info
+    System class for Bookwork/RPI systems
     """
 
     def __init__(self) -> None:
@@ -217,80 +220,77 @@ class PiSystem(BaseSystem):
         for connection in connection_list.split("\n")[:-1]:
             connection_info = connection.split(":")
             if connection_info[2] == "802-11-wireless":
-                connection_id = connection_info[0]
+                connection_name = connection_info[0]
+                connection_UUID = connection_info[1]
                 # get all the info
                 connection_details = {}
                 connection_details_items = nmcli(
-                    "-c=no", "-t", "c", "show", connection_id
+                    "-c=no", "-t", "c", "show", "uuid", connection_UUID
                 ).split("\n")[:-1]
                 for detail in connection_details_items:
                     key, value = detail.split(":")[0:2]
                     connection_details[key] = value
                 network_dict = {
-                    "id": connection_id,
+                    "UUID": connection_UUID,
+                    "name": connection_name,
                     "ssid": connection_details["802-11-wireless.ssid"],
                     "psk": None,
-                    "key_mgmt": connection_details["802-11-wireless-security.key-mgmt"],
+                    "key_mgmt": connection_details.get(
+                        "802-11-wireless-security.key-mgmt", "NONE"
+                    ),
                 }
                 self._wifi_networks.append(network_dict)
 
     def get_wifi_networks(self) -> list[dict[str, str]]:
         return self._wifi_networks
 
-    def delete_wifi_network(self, network_id: str) -> bool:
+    def delete_wifi_network(self, network_UUID: str) -> bool:
         """
         Immediately deletes a wifi network
         """
-        self._wifi_networks.pop(network_id)
-
-        with open("/etc/wpa_supplicant/wpa_supplicant.conf", "r") as wpa_conf:
-            wpa_contents = list(wpa_conf)
-
-        with open("/etc/wpa_supplicant/wpa_supplicant.conf", "w") as wpa_conf:
-            in_networks = False
-            for l in wpa_contents:
-                if not in_networks:
-                    if l.startswith("network={"):
-                        in_networks = True
-                    else:
-                        wpa_conf.write(l)
-
-            for network in self._wifi_networks:
-                ssid = network["ssid"]
-                key_mgmt = network["key_mgmt"]
-                psk = network["psk"]
-
-                wpa_conf.write("\nnetwork={\n")
-                wpa_conf.write(f'\tssid="{ssid}"\n')
-                if key_mgmt == "WPA-PSK":
-                    wpa_conf.write(f'\tpsk="{psk}"\n')
-                wpa_conf.write(f"\tkey_mgmt={key_mgmt}\n")
-
-                wpa_conf.write("}\n")
+        try:
+            sh.sudo("nmcli", "connection", "delete", "uuid", network_UUID)
+        except:
+            return False
 
         self.populate_wifi_networks()
         return True
 
-    def add_wifi_network(self, ssid: str, key_mgmt: str, psk: str | None = None) -> str:
+    def add_wifi_network(
+        self, ssid: str, key_mgmt: str, psk: str | None = None
+    ) -> str | None:
         """
         Add a wifi network
         """
-        new_network_id = ""
-        with open("/etc/wpa_supplicant/wpa_supplicant.conf", "a") as wpa_conf:
-            wpa_conf.write("\nnetwork={\n")
-            wpa_conf.write(f'\tssid="{ssid}"\n')
-            if key_mgmt == "WPA-PSK":
-                wpa_conf.write(f'\tpsk="{psk}"\n')
-            wpa_conf.write(f"\tkey_mgmt={key_mgmt}\n")
-
-            wpa_conf.write("}\n")
-
-        self.populate_wifi_networks()
-        if self._wifi_mode == "Client":
-            # Restart the supplicant
-            wpa_cli("reconfigure")
-
-        return new_network_id
+        new_network_UUID = None
+        try:
+            result = sh.sudo(
+                "nmcli",
+                "connection",
+                "add",
+                "type",
+                "wifi",
+                "ifname",
+                "wlan0",
+                "con-name",
+                ssid,
+                "ssid",
+                ssid,
+                "autoconnect",
+                "true",
+                "save",
+                "yes",
+                "--",
+                "802-11-wireless-security.key-mgmt",
+                key_mgmt,
+                "802-11-wireless-security.psk",
+                psk,
+            )
+            new_network_UUID = re.findall(r"\(.*?\)", str(result))[0][1:-1]
+            self.populate_wifi_networks()
+        except:
+            pass
+        return new_network_UUID
 
     def get_ap_name(self) -> str:
         with open(f"/etc/hostapd/hostapd.conf", "r") as conf:
