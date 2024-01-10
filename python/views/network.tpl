@@ -11,12 +11,12 @@
             <div class="input-field col s12">
                 <select name="wifi_mode">
                     <option value="AP"
-                    % if net.wifi_mode() == "AP":
+                    % if system.get_wifi_mode() == "AP":
                       selected
                     %end
                     >Access Point</option>
                     <option value="Client"
-                    % if net.wifi_mode() == "Client":
+                    % if system.get_wifi_mode() == "Client":
                       selected
                     %end
                     >Client</option>
@@ -34,6 +34,7 @@
             <div class="input-field col s12">
                 <input value="{{system.get_host_name()}}" id="host_name" type="text" name="host_name">
                 <label for="host_name">Host Name</label>
+                <span class="helper-text" data-error="" data-success="">Only A-Z, a-z, 0-9, and hypen (-) allowed</span>
             </div>
         </div>
     </form>
@@ -92,7 +93,7 @@
         </td>
       </tr>
 % end
-% for network in net.get_wifi_networks():
+% for network in system.get_wifi_networks():
 % include("network_item", network=network)
 % end
    </table>

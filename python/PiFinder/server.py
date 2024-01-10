@@ -135,7 +135,7 @@ class Server:
         def login():
             password = request.forms.get("password")
             origin_url = request.forms.get("origin_url", "/")
-            if sys_utils.verify_password("pifinder", password):
+            if self.system.verify_password("pifinder", password):
                 # set auth cookie, doesnt matter whats in it, just as long
                 # as it's there and cryptographically valid
                 response.set_cookie("pf_auth", str(uuid.uuid4()), secret=SESSION_SECRET)
@@ -176,10 +176,10 @@ class Server:
             self.system.add_wifi_network(ssid, key_mgmt, psk)
             return network_page()
 
-        @app.route("/network/delete/<network_id:int>")
+        @app.route("/network/delete/<network_UUID>")
         @auth_required
-        def network_delete(network_id):
-            self.system.delete_wifi_network(network_id)
+        def network_delete(network_UUID):
+            self.system.delete_wifi_network(network_UUID)
             return network_page()
 
         @app.route("/network/update", method="post")
@@ -207,7 +207,7 @@ class Server:
                 )
 
             if new_passworda == new_passwordb:
-                if sys_utils.change_password(
+                if self.system.change_password(
                     "pifinder", current_password, new_passworda
                 ):
                     return template("tools", status_message="Password Changed")
@@ -223,7 +223,7 @@ class Server:
             Restarts the RPI system
             """
 
-            sys_utils.restart_system()
+            self.system.restart_system()
             return "restarting"
 
         @app.route("/system/restart_pifinder")
@@ -232,7 +232,7 @@ class Server:
             """
             Restarts just the PiFinder software
             """
-            sys_utils.restart_pifinder()
+            self.system.restart_pifinder()
             return "restarting"
 
         @app.route("/observations")
@@ -293,7 +293,7 @@ class Server:
         @app.route("/tools/backup")
         @auth_required
         def tools_backup():
-            backup_file = sys_utils.backup_userdata()
+            backup_file = self.system.backup_userdata()
 
             # Assumes the standard backup location
             return static_file("PiFinder_backup.zip", "/home/pifinder/PiFinder_data")
@@ -301,12 +301,12 @@ class Server:
         @app.route("/tools/restore", method="post")
         @auth_required
         def tools_backup():
-            sys_utils.remove_backup()
+            self.system.remove_backup()
             backup_file = request.files.get("backup_file")
             backup_file.filename = "PiFinder_backup.zip"
             backup_file.save("/home/pifinder/PiFinder_data")
 
-            sys_utils.restore_userdata(
+            self.system.restore_userdata(
                 "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
             )
 
