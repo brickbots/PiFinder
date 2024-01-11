@@ -1,5 +1,5 @@
 #! /usr/bin/bash
-sudo apt-get install -y git python3-pip samba samba-common-bin dnsmasq hostapd dhcpd gpsd python3-picamera2
+sudo apt-get install -y git python3-pip samba samba-common-bin gpsd python3-picamera2
 
 git clone --recursive --branch bookworm https://github.com/brickbots/PiFinder.git
 cd PiFinder
@@ -21,15 +21,7 @@ mkdir ~/PiFinder_data/logs
 chmod -R 777 ~/PiFinder_data
 
 # Wifi config
-sudo cp ~/PiFinder/pi_config_files/dhcpcd.* /etc
-sudo cp ~/PiFinder/pi_config_files/dhcpcd.conf.sta /etc/dhcpcd.conf
-sudo cp ~/PiFinder/pi_config_files/dnsmasq.conf /etc/dnsmasq.conf
-sudo cp ~/PiFinder/pi_config_files/hostapd.conf /etc/hostapd/hostapd.conf
 echo -n "Client" > ~/PiFinder/wifi_status.txt
-sudo systemctl unmask hostapd
-
-# open permissisons on wpa_supplicant file so we can adjust network config
-sudo chmod 666 /etc/wpa_supplicant/wpa_supplicant.conf
 
 # Samba config
 sudo cp ~/PiFinder/pi_config_files/smb.conf /etc/samba/smb.conf
