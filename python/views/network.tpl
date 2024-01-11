@@ -93,7 +93,7 @@
         </td>
       </tr>
 % end
-% for network in system.get_wifi_networks():
+% for network in system.get_wifi_networks(mode="infrastructure"):
 % include("network_item", network=network)
 % end
    </table>
