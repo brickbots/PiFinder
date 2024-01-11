@@ -20,11 +20,14 @@ class BaseSystem:
 
     _backup_file_path = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
 
-    def get_wifi_networks(self) -> list[dict[str, str]]:
+    def get_wifi_networks(self, mode="any") -> list[dict[str, str]]:
         """
         Returns a list of dictionaires
         representing all defined networks
-        that are eligible for auto-connection
+        mode can be:
+            "any": return all wireless connections
+            "ap": Return only access point connections
+            "infrastructure": Return only infrastructure connections
         """
         return []
 
@@ -209,6 +212,51 @@ class PiSystem(BaseSystem):
 
         self.populate_wifi_networks()
 
+    def setup_wifi_ap(self, ssid="PiFinderAP") -> bool:
+        """
+        Delete any existing AP connections
+        and then create a new one with the provided SSID
+        """
+        for network in self.get_wifi_networks(mode="ap"):
+            self.delete_wifi_network(network["UUID"])
+
+        # add new network
+        new_network_UUID = None
+        try:
+            result = sh.sudo(
+                "nmcli",
+                "connection",
+                "add",
+                "type",
+                "wifi",
+                "mode",
+                "ap",
+                "ifname",
+                "wlan0",
+                "con-name",
+                "PFAP",
+                "ssid",
+                ssid,
+                "autoconnect",
+                "false",
+                "save",
+                "yes",
+                "--",
+                "ipv4.method",
+                "shared",
+                "ipv4.address",
+                "10.10.10.1/24",
+                "ipv4.gateway",
+                "10.10.10.1",
+                "ipv6.method",
+                "disable",
+            )
+            new_network_UUID = re.findall(r"\(.*?\)", str(result))[0][1:-1]
+            self.populate_wifi_networks()
+        except:
+            pass
+        return new_network_UUID
+
     def populate_wifi_networks(self) -> None:
         """
         Fetches all wifi networks configured
@@ -238,11 +286,27 @@ class PiSystem(BaseSystem):
                     "key_mgmt": connection_details.get(
                         "802-11-wireless-security.key-mgmt", "NONE"
                     ),
+                    "mode": connection_details.get("802-11-wireless.mode", "UNKN"),
                 }
                 self._wifi_networks.append(network_dict)
 
-    def get_wifi_networks(self) -> list[dict[str, str]]:
-        return self._wifi_networks
+    def get_wifi_networks(self, mode="any") -> list[dict[str, str]]:
+        """
+        Returns a list of dictionaires
+        representing all defined networks
+        mode can be:
+            "any": return all wireless connections
+            "ap": Return only access point connections
+            "infrastructure": Return only infrastructure connections
+        """
+        if mode == "any":
+            return self._wifi_networks
+        else:
+            return_list = []
+            for network in self._wifi_networks:
+                if network["mode"] == mode:
+                    return_list.append(network)
+            return return_list
 
     def delete_wifi_network(self, network_UUID: str) -> bool:
         """
@@ -293,22 +357,34 @@ class PiSystem(BaseSystem):
         return new_network_UUID
 
     def get_ap_name(self) -> str:
-        with open(f"/etc/hostapd/hostapd.conf", "r") as conf:
-            for l in conf:
-                if l.startswith("ssid="):
-                    return l[5:-1]
-        return "UNKN"
+        """
+        Return AP name
+        """
+        ap_networks = self.get_wifi_networks(mode="ap")
+        if len(ap_networks) == 1:
+            return ap_networks[0]["ssid"]
+        else:
+            # too many or too few...
+            return "UNKN"
 
     def set_ap_name(self, ap_name: str) -> bool:
         if ap_name == self.get_ap_name():
             return True
-        with open(f"/tmp/hostapd.conf", "w") as new_conf:
-            with open(f"/etc/hostapd/hostapd.conf", "r") as conf:
-                for l in conf:
-                    if l.startswith("ssid="):
-                        l = f"ssid={ap_name}\n"
-                    new_conf.write(l)
-        sh.sudo("cp", "/tmp/hostapd.conf", "/etc/hostapd/hostapd.conf")
+
+        ap_networks = self.get_wifi_networks(mode="ap")
+        if len(ap_networks) != 1:
+            return False
+        ap_network = ap_networks[0]
+
+        sh.sudo(
+            "nmcli",
+            "connection",
+            "modify",
+            "uuid",
+            ap_network["UUID"],
+            "ssid",
+            ap_name,
+        )
         return True
 
     def get_host_name(self) -> str:
@@ -417,12 +493,50 @@ class PiSystem(BaseSystem):
 
     def go_wifi_ap(self) -> bool:
         print("SYS: Switching to AP")
-        sh.sudo("/home/pifinder/PiFinder/switch-ap.sh")
+
+        # first, set all infrastructure connections to NOT autoconnect
+        for network in self.get_wifi_networks("infrastructure"):
+            sh.sudo(
+                "nmcli",
+                "connection",
+                "modify",
+                "uuid",
+                network["UUID"],
+                "autoconnect",
+                "false",
+            )
+        # Then set our AP connection TO autoconnect
+        sh.sudo("nmcli", "connection", "modify", "PFAP", "autoconnect", "true")
+        # bring up the AP
+        sh.sudo("nmcli", "connection", "up", "PFAP")
+        # finally, change the indicator file
+        with open(self.wifi_txt, "w") as wifi_f:
+            wifi_f.write("AP")
+        self._wifi_mode = "AP"
+
         return True
 
     def go_wifi_cli(self) -> bool:
         print("SYS: Switching to Client")
-        sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
+        # first, set all infrastructure connections to autoconnect
+        for network in self.get_wifi_networks("infrastructure"):
+            sh.sudo(
+                "nmcli",
+                "connection",
+                "modify",
+                "uuid",
+                network["UUID"],
+                "autoconnect",
+                "true",
+            )
+        # Then set our AP connection TO not autoconnect
+        sh.sudo("nmcli", "connection", "modify", "PFAP", "autoconnect", "false")
+        # bring down the AP
+        sh.sudo("nmcli", "connection", "down", "PFAP")
+        # finally, change the indicator file
+        with open(self.wifi_txt, "w") as wifi_f:
+            wifi_f.write("Client")
+        self._wifi_mode = "Client"
         return True
 
     def verify_password(self, username: str, password: str) -> bool:
