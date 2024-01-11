@@ -20,7 +20,7 @@ class BaseSystem:
 
     _backup_file_path = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
 
-    def get_wifi_networks(self, mode="any") -> list[dict[str, str]]:
+    def get_wifi_networks(self, mode: str = "any") -> list[dict[str, str]]:
         """
         Returns a list of dictionaires
         representing all defined networks
@@ -212,7 +212,7 @@ class PiSystem(BaseSystem):
 
         self.populate_wifi_networks()
 
-    def setup_wifi_ap(self, ssid="PiFinderAP") -> bool:
+    def setup_wifi_ap(self, ssid: str = "PiFinderAP") -> bool:
         """
         Delete any existing AP connections
         and then create a new one with the provided SSID
@@ -221,9 +221,8 @@ class PiSystem(BaseSystem):
             self.delete_wifi_network(network["UUID"])
 
         # add new network
-        new_network_UUID = None
         try:
-            result = sh.sudo(
+            sh.sudo(
                 "nmcli",
                 "connection",
                 "add",
@@ -251,11 +250,10 @@ class PiSystem(BaseSystem):
                 "ipv6.method",
                 "disable",
             )
-            new_network_UUID = re.findall(r"\(.*?\)", str(result))[0][1:-1]
             self.populate_wifi_networks()
         except:
             pass
-        return new_network_UUID
+        return True
 
     def populate_wifi_networks(self) -> None:
         """
@@ -290,7 +288,7 @@ class PiSystem(BaseSystem):
                 }
                 self._wifi_networks.append(network_dict)
 
-    def get_wifi_networks(self, mode="any") -> list[dict[str, str]]:
+    def get_wifi_networks(self, mode: str = "any") -> list[dict[str, str]]:
         """
         Returns a list of dictionaires
         representing all defined networks
