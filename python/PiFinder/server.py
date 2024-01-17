@@ -1,9 +1,9 @@
-import time
 import logging
 import io
 import uuid
 import json
 from datetime import datetime, timezone
+import time
 from bottle import (
     Bottle,
     run,
@@ -46,12 +46,21 @@ def auth_required(func):
 
 
 class Server:
-    def __init__(self, q, gps_queue, shared_state):
+    def __init__(self, q, gps_queue, shared_state, debug=False):
         self.version_txt = f"{utils.pifinder_dir}/version.txt"
         self.q = q
         self.gps_queue = gps_queue
         self.shared_state = shared_state
         self.ki = KeyboardInterface()
+        # gps info
+        self.lat = None
+        self.lon = None
+        self.altitude = None
+        self.gps_locked = False
+
+        logger = logging.getLogger()
+        if debug:
+            logger.setLevel(logging.DEBUG)
 
         button_dict = {
             "UP": self.ki.UP,
@@ -80,7 +89,7 @@ class Server:
         app = Bottle()
         debug(True)
 
-        @app.route("/images/<filename:re:.*\.png>")
+        @app.route(r"/images/<filename:re:.*\.png>")
         def send_image(filename):
             return static_file(filename, root="views/images", mimetype="image/png")
 
@@ -94,26 +103,26 @@ class Server:
 
         @app.route("/")
         def home():
+            logging.debug("/ called")
             # need to collect alittle status info here
             with open(self.version_txt, "r") as ver_f:
                 software_version = ver_f.read()
 
-            location = self.shared_state.location()
-
+            self.update_gps()
             lat_text = ""
             lon_text = ""
             gps_icon = "gps_off"
             gps_text = "Not Locked"
-            if location["gps_lock"] == True:
+            if self.gps_locked is True:
                 gps_icon = "gps_fixed"
                 gps_text = "Locked"
-                lat_text = str(location["lat"])
-                lon_text = str(location["lon"])
+                lat_text = str(self.lat)
+                lon_text = str(self.lon)
 
             ra_text = "0"
             dec_text = "0"
             camera_icon = "broken_image"
-            if self.shared_state.solve_state() == True:
+            if self.shared_state.solve_state() is True:
                 camera_icon = "camera_alt"
                 solution = self.shared_state.solution()
                 hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
@@ -177,11 +186,16 @@ class Server:
         @app.route("/gps")
         @auth_required
         def gps_page():
+            self.update_gps()
             show_new_form = request.query.add_new or 0
+            logging.debug(f"/gps: {self.lat}, {self.lon}, {self.altitude}")
 
             return template(
                 "gps",
                 show_new_form=show_new_form,
+                lat=self.lat,
+                lon=self.lon,
+                altitude=self.altitude,
             )
 
         @app.route("/gps/update", method="post")
@@ -190,15 +204,17 @@ class Server:
             lat = request.forms.get("latitudeDecimal")
             lon = request.forms.get("longitudeDecimal")
             altitude = request.forms.get("altitude")
+            time_req = request.forms.get("time")
             gps_lock(float(lat), float(lon), float(altitude))
-            time = request.forms.get("time")
-            current_date = datetime.now().date()
-            datetime_obj = datetime.combine(
-                current_date, datetime.strptime(time, "%H:%M:%S").time()
-            )
-            datetime_utc = datetime_obj.replace(tzinfo=timezone.utc)
-            logging.debug(f"GPS update: {lat}, {lon}, {altitude}, {time}")
-            time_lock(datetime_utc)
+            if time_req:
+                current_date = datetime.now().date()
+                datetime_obj = datetime.combine(
+                    current_date, datetime.strptime(time_req, "%H:%M:%S").time()
+                )
+                datetime_utc = datetime_obj.replace(tzinfo=timezone.utc)
+                time_lock(datetime_utc)
+            logging.debug(f"GPS update: {lat}, {lon}, {altitude}, {time_req}")
+            time.sleep(1)  # give the gps thread a chance to update
             return home()
 
         @app.route("/network/add", method="post")
@@ -382,7 +398,7 @@ class Server:
 
         @app.route("/gps-lock")
         @auth_required
-        def gps_lock(lat=50, lon=3, altitude=10):
+        def gps_lock(lat: float = 50, lon: float = 3, altitude: float = 10):
             msg = (
                 "fix",
                 {
@@ -425,6 +441,19 @@ class Server:
 
     def key_callback(self, key):
         self.q.put(key)
+
+    def update_gps(self):
+        location = self.shared_state.location()
+        if location["gps_lock"] is True:
+            self.gps_locked = True
+            self.lat = location["lat"]
+            self.lon = location["lon"]
+            self.altitude = location["altitude"]
+        else:
+            self.gps_locked = False
+            self.lat = None
+            self.lon = None
+            self.altitude = None
 
 
 def run_server(q, gps_q, shared_state):
