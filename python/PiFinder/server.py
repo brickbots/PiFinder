@@ -46,7 +46,7 @@ def auth_required(func):
 
 
 class Server:
-    def __init__(self, q, gps_queue, shared_state, debug=False):
+    def __init__(self, q, gps_queue, shared_state, is_debug=False):
         self.version_txt = f"{utils.pifinder_dir}/version.txt"
         self.q = q
         self.gps_queue = gps_queue
@@ -59,7 +59,7 @@ class Server:
         self.gps_locked = False
 
         logger = logging.getLogger()
-        if debug:
+        if is_debug:
             logger.setLevel(logging.DEBUG)
 
         button_dict = {
@@ -396,7 +396,6 @@ class Server:
 
             return img_byte_arr
 
-        @app.route("/gps-lock")
         @auth_required
         def gps_lock(lat: float = 50, lon: float = 3, altitude: float = 10):
             msg = (
@@ -410,7 +409,6 @@ class Server:
             self.gps_queue.put(msg)
             logging.debug("Putting location msg on gps_queue: {msg}")
 
-        @app.route("/time-lock")
         @auth_required
         def time_lock(time=datetime.now()):
             msg = ("time", time)
