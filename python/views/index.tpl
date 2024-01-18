@@ -18,6 +18,7 @@
       <i class="material-icons medium">{{gps_icon}}</i>
     </td>
     <td class="grey-text text-lighten-1">{{gps_text}}<br>lat: {{lat_text}} / lon: {{lon_text}}</td>
+    <td><a href="/gps" class="grey-text"><i class="material-icons">edit</i></a></td>
     <td></td>
 </tr>
 <tr>
