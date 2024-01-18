@@ -230,6 +230,9 @@ def main(script_name=None, show_fps=False):
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness, cfg)
+	
+    import PiFinder.manager_patch as patch
+    patch.apply()
 
     with StateManager() as manager:
         shared_state = manager.SharedState()
@@ -450,10 +453,9 @@ def main(script_name=None, show_fps=False):
                     ui_command = ui_queue.get(block=False)
                 except queue.Empty:
                     ui_command = None
-                match ui_command:
-                    case "set_brightness":
+                if ui_command == "set_brightness":
                         set_brightness(screen_brightness, cfg)
-                    case "push_object":
+                elif ui_command == "push_object":
                         ui_mode_index = 3
                         current_module = ui_modes[ui_mode_index]
                         current_module.active()
