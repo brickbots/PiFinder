@@ -539,6 +539,12 @@ def main(script_name=None, show_fps=False):
                             if keycode == keyboard_base.ALT_D:
                                 # Debug snapshot
                                 uid = str(uuid.uuid1()).split("-")[0]
+
+                                # wait two seconds for any vibration from
+                                # pressing the button to pass.
+                                current_module.message("Debug: 2", 1)
+                                current_module.message("Debug: 1", 1)
+                                current_module.message("Debug: Saving", 1)
                                 debug_image = camera_image.copy()
                                 debug_solution = shared_state.solution()
                                 debug_location = shared_state.location()
