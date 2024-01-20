@@ -24,7 +24,7 @@ def check_catalog_objects(objects):
     """
     return_list = []
     for _obj in tqdm(objects):
-        catalog_object = CompositeObject(dict(_obj))
+        catalog_object = CompositeObject.from_dict(dict(_obj))
         object_image_path = cat_images.resolve_image_name(catalog_object, "POSS")
         if not os.path.exists(object_image_path):
             return_list.append(catalog_object)

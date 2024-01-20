@@ -1,6 +1,6 @@
 import PiFinder.utils as utils
 from sqlite3 import Connection, Cursor, Error
-from typing import Tuple, DefaultDict, List
+from typing import Tuple, DefaultDict, List, Dict
 from PiFinder.db.db import Database
 from collections import defaultdict
 import logging
@@ -109,6 +109,7 @@ class ObjectsDatabase(Database):
         return self.cursor.lastrowid
 
     def get_objects(self):
+        """Combines objects and object_images tables"""
         self.cursor.execute(
             """
                 SELECT objects.*,image_name FROM objects
@@ -176,6 +177,7 @@ class ObjectsDatabase(Database):
         self.conn.commit()
 
     def get_catalog_by_code(self, catalog_code):
+        print("get_catalog_by_code", catalog_code)
         self.cursor.execute(
             "SELECT * FROM catalogs WHERE catalog_code = ?;", (catalog_code,)
         )
@@ -184,6 +186,18 @@ class ObjectsDatabase(Database):
     def get_catalogs(self):
         self.cursor.execute("SELECT * FROM catalogs;")
         return self.cursor.fetchall()
+
+    def get_catalogs_dict(self) -> Dict[str, Dict]:
+        rows = self.get_catalogs()
+        result = {}
+
+        for row in rows:
+            catalog_code = row[
+                "catalog_code"
+            ]  # Assuming 'catalog_code' is a column in your rows
+            row_dict = dict(row)
+            result[catalog_code] = row_dict
+        return result
 
     # ---- CATALOG_OBJECTS methods ----
 

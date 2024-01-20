@@ -11,6 +11,7 @@ OBJ_TYPES = {
     "D*": "Double star",
     "* ": "Star",
     "? ": "Unkn",
+    "Bod": "Body",
 }
 
 OBJ_TYPE_MARKERS = {

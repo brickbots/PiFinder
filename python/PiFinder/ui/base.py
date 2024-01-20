@@ -15,6 +15,7 @@ from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder import utils
 from PiFinder import calc_utils
 from PiFinder.image_util import DeviceWrapper
+from PiFinder.config import Config
 
 
 class UIModule:
@@ -34,9 +35,9 @@ class UIModule:
         camera_image,
         shared_state,
         command_queues,
-        ui_state={},
-        config_object=None,
+        config_object,
     ):
+        assert shared_state is not None
         self.title = self.__title__
         self.button_hints = self.__button_hints__
         self.button_hints_timer = time.time()
@@ -44,6 +45,7 @@ class UIModule:
         self.display = device_wrapper.device
         self.colors = device_wrapper.colors
         self.shared_state = shared_state
+        self.ui_state = shared_state.ui_state()
         self.camera_image = camera_image
         self.command_queues = command_queues
         self.screen = Image.new("RGB", (128, 128))
@@ -58,8 +60,7 @@ class UIModule:
         prefix = f"{self.__uuid__}_{self.__title__}"
         self.ss_path = os.path.join(root_dir, "screenshots", prefix)
         self.ss_count = 0
-        self.ui_state = ui_state
-        self.config_object = config_object
+        self.config_object: Config = config_object
 
         # FPS
         self.fps = 0
@@ -143,7 +144,7 @@ class UIModule:
         message = " " * int((16 - len(message)) / 2) + message
         self.draw.text((9, 54), message, font=self.font_bold, fill=self.colors.get(255))
         self.display.display(self.screen.convert(self.display.mode))
-        self.ui_state["message_timeout"] = timeout + time.time()
+        self.ui_state.set_message_timeout(timeout + time.time())
 
     def screen_update(self, title_bar=True, button_hints=True):
         """
@@ -151,14 +152,14 @@ class UIModule:
         takes self.screen adds title bar and
         writes to display
         """
-        if time.time() < self.ui_state["message_timeout"]:
+        if time.time() < self.ui_state.message_timeout():
             return None
 
         hint_timeout_decode = {"Off": 0, "2s": 2, "4s": 4, "On": 1000}
         if (
             button_hints
             and time.time() - self.button_hints_timer
-            < hint_timeout_decode.get(self.ui_state["hint_timeout"], 2)
+            < hint_timeout_decode.get(self.ui_state.hint_timeout(), 2)
         ):
             # Bottom button help
 
@@ -203,7 +204,7 @@ class UIModule:
             fg = self.colors.get(0)
             bg = self.colors.get(64)
             self.draw.rectangle([0, 0, 128, self._title_bar_y], fill=bg)
-            if self.ui_state.get("show_fps"):
+            if self.ui_state.show_fps():
                 self.draw.text((6, 1), str(self.fps), font=self.font_bold, fill=fg)
             else:
                 self.draw.text((6, 1), self.title, font=self.font_bold, fill=fg)

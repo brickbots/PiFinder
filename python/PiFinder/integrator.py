@@ -6,103 +6,16 @@ This module is the solver
 * Plate solves high-res image
 
 """
-import os
-import sys
 import queue
-import pprint
 import time
 import copy
-import uuid
-import json
 import logging
 
-from PIL import ImageOps, Image
-from skyfield.api import (
-    wgs84,
-    Loader,
-    Star,
-    Angle,
-    position_of_radec,
-    load_constellation_map,
-)
-
-from PiFinder.image_util import subtract_background
 from PiFinder import config
-import PiFinder.utils as utils
+import PiFinder.calc_utils as calc_utils
 
 IMU_ALT = 2
 IMU_AZ = 0
-
-
-class Skyfield_utils:
-    """
-    Class to persist various
-    expensive items that
-    skyfield requires (ephemeris, constellations, etc)
-    and provide useful util functions using them.
-    """
-
-    def __init__(self):
-        load = Loader(utils.astro_data_dir)
-        self.eph = load("de421.bsp")
-        self.earth = self.eph["earth"]
-        self.observer_loc = None
-        self.constellation_map = load_constellation_map()
-        self.ts = load.timescale()
-
-    def set_location(self, lat, lon, altitude):
-        """
-        set observing location
-        """
-        self.observer_loc = self.earth + wgs84.latlon(
-            lat,
-            lon,
-            altitude,
-        )
-
-    def altaz_to_radec(self, alt, az, dt):
-        """
-        returns the ra/dec of a specfic
-        apparent alt/az at the given time
-        """
-        t = self.ts.from_datetime(dt)
-
-        observer = self.observer_loc.at(t)
-        a = observer.from_altaz(alt_degrees=alt, az_degrees=az)
-        ra, dec, distance = a.radec(epoch=t)
-        return ra._degrees, dec._degrees
-
-    def radec_to_altaz(self, ra, dec, dt, atmos=True):
-        """
-        returns the apparent ALT/AZ of a specfic
-        RA/DEC at the given time
-        """
-        t = self.ts.from_datetime(dt)
-
-        observer = self.observer_loc.at(t)
-        # logging.debug(f"radec_to_altaz: '{ra}' '{dec}' '{dt}'")
-        sky_pos = Star(
-            ra=Angle(degrees=ra),
-            dec_degrees=dec,
-        )
-
-        apparent = observer.observe(sky_pos).apparent()
-        if atmos:
-            alt, az, distance = apparent.altaz("standard")
-        else:
-            alt, az, distance = apparent.altaz()
-        return alt.degrees, az.degrees
-
-    def radec_to_constellation(self, ra, dec):
-        """
-        Take a ra/dec and return the constellation
-        """
-        sky_pos = position_of_radec(Angle(degrees=ra)._hours, dec)
-        return self.constellation_map(sky_pos)
-
-
-# Create a single instance of the skyfield utils
-sf_utils = Skyfield_utils()
 
 
 def imu_moved(imu_a, imu_b):
@@ -177,12 +90,12 @@ def integrator(shared_state, solver_queue, console_queue):
                 solved["Az"] = None
                 if location and dt:
                     # We have position and time/date!
-                    sf_utils.set_location(
+                    calc_utils.sf_utils.set_location(
                         location["lat"],
                         location["lon"],
                         location["altitude"],
                     )
-                    alt, az = sf_utils.radec_to_altaz(
+                    alt, az = calc_utils.sf_utils.radec_to_altaz(
                         solved["RA"],
                         solved["Dec"],
                         dt,
@@ -223,7 +136,10 @@ def integrator(shared_state, solver_queue, console_queue):
                             solved["Az"] = az_upd
 
                             # Turn this into RA/DEC
-                            solved["RA"], solved["Dec"] = sf_utils.altaz_to_radec(
+                            (
+                                solved["RA"],
+                                solved["Dec"],
+                            ) = calc_utils.sf_utils.altaz_to_radec(
                                 solved["Alt"], solved["Az"], dt
                             )
 
@@ -234,7 +150,7 @@ def integrator(shared_state, solver_queue, console_queue):
             if solved["RA"] and solved["solve_time"] > last_solve_time:
                 last_solve_time = time.time()
                 # Update remaining solved keys
-                solved["constellation"] = sf_utils.radec_to_constellation(
+                solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(
                     solved["RA"], solved["Dec"]
                 )
 

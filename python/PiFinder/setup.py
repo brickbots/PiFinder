@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict
 from PiFinder.obj_types import OBJ_DESCRIPTORS
 import PiFinder.utils as utils
+from PiFinder.calc_utils import ra_to_deg, dec_to_deg
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from collections import namedtuple
@@ -44,30 +45,6 @@ class ObjectFinder:
 
     def get_object_id_by_parts(self, catalog_code: str, sequence: int):
         return self.mappings.get(f"{catalog_code} {sequence}")
-
-
-def ra_to_deg(ra_h, ra_m, ra_s):
-    ra_deg = ra_h
-    if ra_m > 0:
-        ra_deg += ra_m / 60
-    if ra_s > 0:
-        ra_deg += ra_s / 60 / 60
-    ra_deg *= 15
-
-    return ra_deg
-
-
-def dec_to_deg(dec, dec_m, dec_s):
-    dec_deg = abs(dec)
-
-    if dec_m > 0:
-        dec_deg += dec_m / 60
-    if dec_s > 0:
-        dec_deg += dec_s / 60 / 60
-    if dec < 0:
-        dec_deg *= -1
-
-    return dec_deg
 
 
 def add_space_after_prefix(s):
@@ -135,16 +112,6 @@ def print_database():
     count_common_names_per_catalog()
     count_empty_entries_in_tables()
     logging.info("<-------------------------------------------------------")
-
-
-def insert_names(db_c, catalog, sequence, name):
-    if name == "":
-        return
-    nameq = f"""
-            insert into names(common_name, catalog, sequence)
-            values ("{name}", "{catalog}", {sequence})
-        """
-    db_c.execute(nameq)
 
 
 def insert_catalog(catalog_name, description_path):

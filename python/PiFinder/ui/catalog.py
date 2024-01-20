@@ -22,11 +22,10 @@ from PiFinder.catalogs import (
 )
 from PiFinder import calc_utils
 import functools
-import sqlite3
 import logging
 
 from PiFinder.db.observations_db import ObservationsDatabase
-from PiFinder.catalogs import CompositeObject
+from PiFinder.catalogs import CompositeObject, CatalogBuilder, Catalogs
 
 
 # Constants for display modes
@@ -89,9 +88,7 @@ class UICatalog(UIModule):
 
     def __init__(self, *args):
         super().__init__(*args)
-
         self.catalog_names = self.config_object.get_option("active_catalogs")
-
         self._config_options["Catalogs"]["value"] = self.catalog_names.copy()
         self._config_options["Catalogs"]["options"] = self.config_object.get_option(
             "catalogs"
@@ -117,8 +114,10 @@ class UICatalog(UIModule):
                 "No Object Found", font=self.font_bold, color=self.colors.get(255)
             ),
         }
+        self.catalogs: Catalogs = CatalogBuilder().build()
+        # print("in UI module, catalogs is", self.catalogs, self.catalogs.catalogs[0].get_objects())
         self.catalog_tracker = CatalogTracker(
-            self.catalog_names, self.shared_state, self._config_options
+            self.catalogs, self.shared_state, self._config_options
         )
         self.observations_db = ObservationsDatabase()
         self.font_large = fonts.large
@@ -144,7 +143,7 @@ class UICatalog(UIModule):
         if (
             current_designator.has_number()
             and current_designator.object_number
-            not in self.catalog_tracker.current_catalog.filtered_objects
+            not in self.catalog_tracker.current_catalog.filtered_objects_seq
         ):
             designator_color = 128
         return self.simpleTextLayout(
@@ -176,7 +175,7 @@ class UICatalog(UIModule):
             self.catalog_names = self._config_options["Catalogs"]["value"].copy()
             self.config_object.set_option("active_catalogs", self.catalog_names)
             self.catalog_tracker = CatalogTracker(
-                self.catalog_names, self.shared_state, self._config_options
+                self.catalogs, self.shared_state, self._config_options
             )
 
         # re-filter if needed
@@ -189,16 +188,15 @@ class UICatalog(UIModule):
     def push_cat(self, obj_amount):
         self._config_options["Push Cat."]["value"] = ""
         if obj_amount == "Go":
-            solution = self.shared_state.solution()
             self.message("Catalog Pushed", 2)
 
             # Filter the catalog one last time
             self.catalog_tracker.filter()
-            self.ui_state["observing_list"] = self.catalog_tracker.get_objects(
-                filtered=True
+            self.ui_state.set_observing_list(
+                self.catalog_tracker.current_catalog.filtered_objects
             )
-            self.ui_state["active_list"] = self.ui_state["observing_list"]
-            self.ui_state["target"] = self.ui_state["active_list"][0]
+            self.ui_state.set_active_list_to_observing_list()
+            self.ui_state.set_target_to_active_list_index(0)
             return "UILocate"
         else:
             return False
@@ -212,17 +210,18 @@ class UICatalog(UIModule):
                 return False
             self.message(f"Near {obj_amount} Pushed", 2)
 
-            # Filter the catalogs one last time
-            self.catalog_tracker.filter(catalogs=self.catalog_tracker.catalog_names)
+            # Filter ALL the catalogs one last time
+            self.catalog_tracker.filter(current=False)
             near_catalog = self.catalog_tracker.get_closest_objects(
                 solution["RA"],
                 solution["Dec"],
                 obj_amount,
-                catalogs=self.catalog_tracker.catalog_names,
+                catalogs=self.catalog_tracker.catalogs,
             )
-            self.ui_state["observing_list"] = near_catalog
-            self.ui_state["active_list"] = self.ui_state["observing_list"]
-            self.ui_state["target"] = self.ui_state["active_list"][0]
+            # self.shared_state["observing_list"] = self.catalog_tracker.get_objects(catalogs=self.catalog_tracker.catalog_names, filtered=True)
+            self.ui_state.set_observing_list(near_catalog)
+            self.ui_state.set_active_list_to_observing_list()
+            self.ui_state.set_target_to_active_list_index(0)
             return "UILocate"
         else:
             return False
@@ -286,18 +285,12 @@ class UICatalog(UIModule):
                 magsize, font=fonts.bold, color=self.colors.get(255)
             )
 
-            aka_recs = self.catalog_tracker.current_catalog.common_names.get(
-                cat_object.object_id
+            aka_recs = self.catalog_tracker.current_catalog.get_object_by_sequence(
+                cat_object.sequence
             )
             if aka_recs:
-                # aka_list = []
-                # for rec in aka_recs:
-                #     if rec["common_name"].startswith("M"):
-                #         aka_list.insert(0, rec["common_name"])
-                #     else:
-                #         aka_list.append(rec["common_name"])
                 self.texts["aka"] = self.ScrollTextLayout(
-                    ", ".join(aka_recs),
+                    ", ".join(aka_recs.names),
                     font=fonts.base,
                     scrollspeed=self._get_scrollspeed_config(),
                 )
@@ -337,7 +330,7 @@ class UICatalog(UIModule):
         # trigger refilter
         super().active()
         self.catalog_tracker.filter()
-        target = self.ui_state["target"]
+        target = self.ui_state.target()
         if target:
             self.catalog_tracker.set_current_object(
                 target.sequence, target.catalog_code
@@ -354,6 +347,7 @@ class UICatalog(UIModule):
             self.refresh_designator()
             desig = self.texts["designator"]
             desig.draw((0, 21))
+            # print("Drawing designator", self.catalog_tracker.current_catalog, self.catalog_tracker.current_catalog.get_objects())
 
             # catalog counts....
             self.draw.text(
@@ -474,7 +468,7 @@ class UICatalog(UIModule):
 
         # Use all objects here, not filtered, so we can
         # surface any valid object in the catalog
-        if searching_for in self.catalog_tracker.current_catalog.cobjects:
+        if self.catalog_tracker.current_catalog.get_object_by_sequence(searching_for):
             self.catalog_tracker.set_current_object(searching_for)
             return True
         else:
@@ -498,13 +492,8 @@ class UICatalog(UIModule):
         """
         cat_object: CompositeObject = self.catalog_tracker.get_current_object()
         if cat_object:
-            self.ui_state["target"] = cat_object
-            if len(self.ui_state["history_list"]) == 0:
-                self.ui_state["history_list"].append(self.ui_state["target"])
-            elif self.ui_state["history_list"][-1] != self.ui_state["target"]:
-                self.ui_state["history_list"].append(self.ui_state["target"])
-
-            self.ui_state["active_list"] = self.ui_state["history_list"]
+            self.ui_state.set_target_and_add_to_history(cat_object)
+            self.ui_state.set_active_list_to_history_list()
             self.switch_to = "UILocate"
 
     def scroll_obj(self, direction):

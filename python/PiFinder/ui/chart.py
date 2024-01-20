@@ -64,14 +64,14 @@ class UIChart(UIModule):
         marker_list = []
 
         # is there a target?
-        target = self.ui_state["target"]
+        target = self.ui_state.target()
         if target:
             marker_list.append(
                 (plot.Angle(degrees=target.ra)._hours, target.dec, "target")
             )
 
         if self._config_options["Obs List"]["value"] != "Off":
-            for obs_target in self.ui_state["observing_list"]:
+            for obs_target in self.ui_state.observing_list():
                 marker = OBJ_TYPE_MARKERS.get(obs_target.obj_type)
                 if marker:
                     marker_list.append(
