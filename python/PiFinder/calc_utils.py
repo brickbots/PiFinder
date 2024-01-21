@@ -10,6 +10,7 @@ from skyfield.api import (
     load_constellation_map,
 )
 from skyfield.magnitudelib import planetary_magnitude
+from skyfield import almanac
 import PiFinder.utils as utils
 import json
 import hashlib
@@ -200,14 +201,14 @@ class Skyfield_utils:
         sky_pos = position_of_radec(Angle(degrees=ra)._hours, dec)
         return self.constellation_map(sky_pos)
 
-    def calc_planets(self):
+    def calc_planets(self, dt):
         """Returns dictionary with all planet positions:
         {'SUN': {'radec': (279.05819685702846, -23.176809282384962),
                  'radec_pretty': ((18.0, 36.0, 14), (-23, 10, 36.51)),
                  'altaz': (1.667930045300066, 228.61434416619613)},
         }
         """
-        t = self.ts.now()
+        t = self.ts.from_datetime(dt)
         observer = self.observer_loc.at(t)
         planet_dict = {}
         for name, planet in zip(self.planet_names, self.planets):

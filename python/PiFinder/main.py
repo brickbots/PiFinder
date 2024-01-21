@@ -443,6 +443,7 @@ def main(script_name=None, show_fps=False):
                                     f'GPS: Location {location["lat"]} {location["lon"]} {location["altitude"]}'
                                 )
                                 location["gps_lock"] = True
+
                             shared_state.set_location(location)
                     if gps_msg == "time":
                         logging.debug(f"GPS time msg: {gps_content}")

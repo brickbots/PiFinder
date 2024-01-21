@@ -25,7 +25,7 @@ import functools
 import logging
 
 from PiFinder.db.observations_db import ObservationsDatabase
-from PiFinder.catalogs import CompositeObject, CatalogBuilder, Catalogs
+from PiFinder.catalogs import CompositeObject, CatalogBuilder, Catalogs, PlanetCatalog
 
 
 # Constants for display modes
@@ -130,6 +130,18 @@ class UICatalog(UIModule):
 
         self.catalog_tracker.filter()
         self.update_object_info()
+        self._planets_loaded = False
+
+    def add_planets(self, dt):
+        """
+        Since we can't calc planet positions until we know the date/time
+        this is called once we have a GPS lock to add on the planets catalog
+        """
+        self.catalogs.add(PlanetCatalog(dt))
+        self.catalog_tracker = CatalogTracker(
+            self.catalogs, self.shared_state, self._config_options
+        )
+        self._planets_loaded = True
 
     def _layout_designator(self):
         """
@@ -329,6 +341,13 @@ class UICatalog(UIModule):
     def active(self):
         # trigger refilter
         super().active()
+
+        # check for planet add
+        if not self._planets_loaded:
+            dt = self.shared_state.datetime()
+            if dt:
+                self.add_planets(dt)
+
         self.catalog_tracker.filter()
         target = self.ui_state.target()
         if target:

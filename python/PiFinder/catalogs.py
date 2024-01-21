@@ -1,5 +1,6 @@
 import logging
 import time
+import datetime
 from typing import List, Dict, DefaultDict, Optional
 import numpy as np
 import pandas as pd
@@ -301,11 +302,14 @@ class Catalogs:
 class PlanetCatalog(Catalog):
     """Creates a catalog of planets"""
 
-    def __init__(self):
-        super().__init__("PL", 11, "The planets")
-        planet_dict = sf_utils.calc_planets()
-        for sequence, name in enumerate(sf_utils.planet_names):
-            self.add_planet(sequence, name, planet_dict[name])
+    def __init__(self, dt: datetime.datetime):
+        super().__init__("PL", 10, "The planets")
+        planet_dict = sf_utils.calc_planets(dt)
+        sequence = 0
+        for name in sf_utils.planet_names:
+            if name.lower() != "sun":
+                self.add_planet(sequence, name, planet_dict[name])
+                sequence += 1
 
     def add_planet(self, sequence: int, name: str, planet: Dict[str, Dict[str, float]]):
         ra, dec = planet["radec"]
@@ -320,9 +324,10 @@ class PlanetCatalog(Catalog):
                 "const": constellation,
                 "size": "",
                 "mag": planet["mag"],
+                "names": [name.capitalize()],
                 "catalog_code": "PL",
                 "sequence": sequence + 1,
-                "description": f"{name.capitalize()}, alt={planet['altaz'][0]:.1f}°",
+                "description": f"",
             }
         )
         self.add_object(obj)
@@ -351,8 +356,6 @@ class CatalogBuilder:
         self.catalog_dicts = {}
         logging.debug(f"Loaded {len(composite_objects)} objects from database")
         all_catalogs: Catalogs = self._get_catalogs(composite_objects, catalogs_info)
-        planet_catalog: Catalog = PlanetCatalog()
-        all_catalogs.add(planet_catalog)
         return all_catalogs
 
     def _build_composite(
