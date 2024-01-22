@@ -171,7 +171,7 @@ class UIStatus(UIModule):
 
     def set_hint_timeout(self, option):
         self.config_object.set_option("hint_timeout", option)
-        self.ui_state["hint_timeout"] = option
+        self.ui_state.set_hint_timeout(option)
         return False
 
     def set_screen_off_timeout(self, option):

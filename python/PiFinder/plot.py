@@ -18,7 +18,7 @@ from skyfield.api import Star, load, utc, Angle
 from skyfield.constants import GM_SUN_Pitjeva_2005_km3_s2 as GM_SUN
 from skyfield.data import hipparcos, mpc, stellarium
 from skyfield.projections import build_stereographic_projection
-from PiFinder.integrator import sf_utils
+from PiFinder.calc_utils import sf_utils
 
 
 class Starfield:

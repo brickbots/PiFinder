@@ -45,7 +45,7 @@ from PiFinder.ui.locate import UILocate
 from PiFinder.ui.config import UIConfig
 from PiFinder.ui.log import UILog
 
-from PiFinder.state import SharedStateObj
+from PiFinder.state import SharedStateObj, UIState
 
 from PiFinder.image_util import (
     subtract_background,
@@ -54,6 +54,7 @@ from PiFinder.image_util import (
     RED_BGR,
     GREY,
 )
+from PiFinder.calc_utils import sf_utils
 
 
 hardware_platform = "Pi"
@@ -151,6 +152,7 @@ class StateManager(BaseManager):
 
 
 StateManager.register("SharedState", SharedStateObj)
+StateManager.register("UIState", UIState)
 StateManager.register("NewImage", Image.new)
 
 
@@ -225,39 +227,38 @@ def main(script_name=None, show_fps=False):
     }
     cfg = config.Config()
 
-    # Unit UI shared state
-    ui_state = {
-        "history_list": [],
-        "observing_list": [],
-        "target": None,
-        "message_timeout": 0,
-        "show_fps": show_fps,
-        "hint_timeout": cfg.get_option("hint_timeout"),
-    }
-    ui_state["active_list"] = ui_state["history_list"]
-
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness, cfg)
-    console = UIConsole(display_device, None, None, command_queues, ui_state, cfg)
-    console.write("Starting....")
-    console.update()
-    time.sleep(2)
 
-    # spawn gps service....
-    console.write("   GPS")
-    console.update()
-    gps_process = Process(
-        target=gps_monitor.gps_monitor,
-        args=(
-            gps_queue,
-            console_queue,
-        ),
-    )
-    gps_process.start()
+    import PiFinder.manager_patch as patch
+
+    patch.apply()
 
     with StateManager() as manager:
         shared_state = manager.SharedState()
+        ui_state = manager.UIState()
+        ui_state.set_show_fps(show_fps)
+        ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
+        ui_state.set_active_list_to_history_list()
+        shared_state.set_ui_state(ui_state)
+        logging.debug("Ui state in main is" + str(shared_state.ui_state()))
+        console = UIConsole(display_device, None, shared_state, command_queues, cfg)
+        console.write("Starting....")
+        console.update()
+        time.sleep(2)
+
+        # spawn gps service....
+        console.write("   GPS")
+        console.update()
+        gps_process = Process(
+            target=gps_monitor.gps_monitor,
+            args=(
+                gps_queue,
+                console_queue,
+            ),
+        )
+        gps_process.start()
         console.set_shared_state(shared_state)
 
         # multiprocessing.set_start_method('spawn')
@@ -292,6 +293,11 @@ def main(script_name=None, show_fps=False):
         initial_location["gps_lock"] = False
         initial_location["last_gps_lock"] = None
         shared_state.set_location(initial_location)
+        sf_utils.set_location(
+            initial_location["lat"],
+            initial_location["lon"],
+            initial_location["altitude"],
+        )
 
         console.write("   Camera")
         console.update()
@@ -333,7 +339,7 @@ def main(script_name=None, show_fps=False):
         console.write("   Server")
         console.update()
         server_process = Process(
-            target=pos_server.run_server, args=(shared_state, None)
+            target=pos_server.run_server, args=(shared_state, ui_queue)
         )
         server_process.start()
 
@@ -347,7 +353,6 @@ def main(script_name=None, show_fps=False):
                 camera_image,
                 shared_state,
                 command_queues,
-                ui_state,
                 cfg,
             ),
             UIChart(
@@ -355,7 +360,6 @@ def main(script_name=None, show_fps=False):
                 camera_image,
                 shared_state,
                 command_queues,
-                ui_state,
                 cfg,
             ),
             UICatalog(
@@ -363,7 +367,6 @@ def main(script_name=None, show_fps=False):
                 camera_image,
                 shared_state,
                 command_queues,
-                ui_state,
                 cfg,
             ),
             UILocate(
@@ -371,7 +374,6 @@ def main(script_name=None, show_fps=False):
                 camera_image,
                 shared_state,
                 command_queues,
-                ui_state,
                 cfg,
             ),
             UIPreview(
@@ -379,7 +381,6 @@ def main(script_name=None, show_fps=False):
                 camera_image,
                 shared_state,
                 command_queues,
-                ui_state,
                 cfg,
             ),
             UIStatus(
@@ -387,7 +388,6 @@ def main(script_name=None, show_fps=False):
                 camera_image,
                 shared_state,
                 command_queues,
-                ui_state,
                 cfg,
             ),
             console,
@@ -396,7 +396,6 @@ def main(script_name=None, show_fps=False):
                 camera_image,
                 shared_state,
                 command_queues,
-                ui_state,
                 cfg,
             ),
         ]
@@ -444,6 +443,7 @@ def main(script_name=None, show_fps=False):
                                     f'GPS: Location {location["lat"]} {location["lon"]} {location["altitude"]}'
                                 )
                                 location["gps_lock"] = True
+
                             shared_state.set_location(location)
                     if gps_msg == "time":
                         logging.debug(f"GPS time msg: {gps_content}")
@@ -457,9 +457,12 @@ def main(script_name=None, show_fps=False):
                     ui_command = ui_queue.get(block=False)
                 except queue.Empty:
                     ui_command = None
-                if ui_command:
-                    if ui_command == "set_brightness":
-                        set_brightness(screen_brightness, cfg)
+                if ui_command == "set_brightness":
+                    set_brightness(screen_brightness, cfg)
+                elif ui_command == "push_object":
+                    ui_mode_index = 3
+                    current_module = ui_modes[ui_mode_index]
+                    current_module.active()
 
                 # Keyboard
                 try:
@@ -537,6 +540,15 @@ def main(script_name=None, show_fps=False):
                             if keycode == keyboard_base.ALT_D:
                                 # Debug snapshot
                                 uid = str(uuid.uuid1()).split("-")[0]
+
+                                # wait two seconds for any vibration from
+                                # pressing the button to pass.
+                                current_module.message("Debug: 2", 1)
+                                time.sleep(1)
+                                current_module.message("Debug: 1", 1)
+                                time.sleep(1)
+                                current_module.message("Debug: Saving", 1)
+                                time.sleep(1)
                                 debug_image = camera_image.copy()
                                 debug_solution = shared_state.solution()
                                 debug_location = shared_state.location()
@@ -728,7 +740,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-c",
         "--camera",
-        help="Specify which camera to use: pi, asi or debug",
+        help="Specify which camera to use: pi, asi, debug or none",
         default="pi",
         required=False,
     )

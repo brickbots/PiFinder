@@ -34,3 +34,9 @@ class Config:
 
     def get_option(self, option):
         return self._config_dict.get(option, self._default_config_dict[option])
+
+    def __str__(self):
+        return str(self._config_dict)
+
+    def __repr__(self):
+        return str(self._config_dict)
