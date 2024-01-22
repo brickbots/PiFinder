@@ -624,7 +624,9 @@ class CatalogTracker:
             )
             catalog.filter_objects(self.shared_state)
 
-    def get_closest_objects(self, ra, dec, n, catalogs: Catalogs):
+    def get_closest_objects(
+        self, ra, dec, n, catalogs: Catalogs
+    ) -> List[CompositeObject]:
         """
         Takes the current catalog or a list of catalogs, gets the filtered
         objects and returns the n closest objects to ra/dec

@@ -109,6 +109,48 @@ def ra_to_hms(ra):
     return hh, mm, ss
 
 
+def aim_degrees(shared_state, mount_type, screen_direction, target):
+    """
+    Returns degrees in either
+    az/alt or RA/DEC depending on mount type
+    from current position
+    to target
+    """
+    solution = shared_state.solution()
+    location = shared_state.location()
+    dt = shared_state.datetime()
+    if location and dt and solution:
+        if mount_type == "Alt/Az":
+            if solution["Alt"]:
+                # We have position and time/date!
+                sf_utils.set_location(
+                    location["lat"],
+                    location["lon"],
+                    location["altitude"],
+                )
+                target_alt, target_az = sf_utils.radec_to_altaz(
+                    target.ra,
+                    target.dec,
+                    dt,
+                )
+                az_diff = target_az - solution["Az"]
+                az_diff = (az_diff + 180) % 360 - 180
+                if screen_direction == "flat":
+                    az_diff *= -1
+
+                alt_diff = target_alt - solution["Alt"]
+                alt_diff = (alt_diff + 180) % 360 - 180
+
+                return az_diff, alt_diff
+        else:
+            # EQ Mount type
+            ra_diff = target.ra - solution["RA"]
+            dec_diff = target.dec - solution["Dec"]
+            dec_diff = (dec_diff + 180) % 360 - 180
+            return ra_diff, dec_diff
+    return None, None
+
+
 def hash_dict(d):
     serialized_data = json.dumps(d, sort_keys=True).encode()
     return hashlib.sha256(serialized_data).hexdigest()

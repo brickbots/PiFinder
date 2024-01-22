@@ -37,6 +37,7 @@ from PiFinder import server
 from PiFinder import keyboard_interface
 
 from PiFinder.ui.chart import UIChart
+from PiFinder.ui.browsing import UIBrowsing
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.status import UIStatus
@@ -346,7 +347,13 @@ def main(script_name=None, show_fps=False):
         # Start main event loop
         console.write("   Event Loop")
         console.update()
-
+        ui_catalog = UICatalog(
+            display_device,
+            camera_image,
+            shared_state,
+            command_queues,
+            cfg,
+        )
         ui_modes = [
             UIConfig(
                 display_device,
@@ -362,13 +369,15 @@ def main(script_name=None, show_fps=False):
                 command_queues,
                 cfg,
             ),
-            UICatalog(
+            UIBrowsing(
+                ui_catalog.catalog_tracker,
                 display_device,
                 camera_image,
                 shared_state,
                 command_queues,
                 cfg,
             ),
+            ui_catalog,
             UILocate(
                 display_device,
                 camera_image,

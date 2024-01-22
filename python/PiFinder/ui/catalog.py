@@ -17,15 +17,18 @@ from PiFinder.ui.ui_utils import (
     TextLayouterSimple,
     SpaceCalculatorFixed,
 )
-from PiFinder.catalogs import (
-    CatalogTracker,
-)
 from PiFinder import calc_utils
 import functools
 import logging
 
 from PiFinder.db.observations_db import ObservationsDatabase
-from PiFinder.catalogs import CompositeObject, CatalogBuilder, Catalogs, PlanetCatalog
+from PiFinder.catalogs import (
+    CompositeObject,
+    CatalogTracker,
+    CatalogBuilder,
+    Catalogs,
+    PlanetCatalog,
+)
 
 
 # Constants for display modes
@@ -230,7 +233,6 @@ class UICatalog(UIModule):
                 obj_amount,
                 catalogs=self.catalog_tracker.catalogs,
             )
-            # self.shared_state["observing_list"] = self.catalog_tracker.get_objects(catalogs=self.catalog_tracker.catalog_names, filtered=True)
             self.ui_state.set_observing_list(near_catalog)
             self.ui_state.set_active_list_to_observing_list()
             self.ui_state.set_target_to_active_list_index(0)

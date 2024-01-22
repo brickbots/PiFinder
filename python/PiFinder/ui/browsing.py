@@ -5,10 +5,10 @@ This module contains all the UI Module classes
 
 """
 import time
+from typing import List
 
-from PiFinder import solver, obslog, cat_images
-from PiFinder.obj_types import OBJ_TYPES
-import PiFinder.utils as utils
+from PiFinder import config
+from PiFinder.obj_types import OBJ_TYPES, OBJ_TYPE_MARKERS
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder.ui.ui_utils import (
@@ -20,13 +20,13 @@ from PiFinder.ui.ui_utils import (
 from PiFinder.catalogs import (
     CatalogTracker,
 )
-from PiFinder import calc_utils
+from PiFinder.calc_utils import aim_degrees, FastAltAz
 import functools
-import sqlite3
 import logging
 
 from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.catalogs import CompositeObject
+from PiFinder.ui.fonts import Fonts as fonts
 
 
 # Constants for display modes
@@ -40,7 +40,7 @@ class UIBrowsing(UIModule):
     Search catalogs for object to find
     """
 
-    __title__ = "CATALOG"
+    __title__ = "TOURIST"
     __button_hints__ = {
         "B": "Image",
         "C": "Catalog",
@@ -86,18 +86,17 @@ class UIBrowsing(UIModule):
             "callback": "push_near",
         },
     }
+    left_arrow = ""
+    right_arrow = ""
+    up_arrow = ""
+    down_arrow = ""
 
-    def __init__(self, *args):
+    def __init__(self, catalog_tracker: CatalogTracker, *args):
         super().__init__(*args)
-
-        self.catalog_names = self.config_object.get_option("active_catalogs")
-
-        self._config_options["Catalogs"]["value"] = self.catalog_names.copy()
-        self._config_options["Catalogs"]["options"] = self.config_object.get_option(
-            "catalogs"
-        )[:10]
-
-        self.object_text = ["No Object Found"]
+        self.catalog_tracker = catalog_tracker
+        logging.debug(f"browsing has tracker: {catalog_tracker=}")
+        self.screen_direction = config.Config().get_option("screen_direction")
+        self.mount_type = config.Config().get_option("mount_type")
         self.simpleTextLayout = functools.partial(
             TextLayouterSimple, draw=self.draw, color=self.colors.get(255)
         )
@@ -111,60 +110,16 @@ class UIBrowsing(UIModule):
         self.ScrollTextLayout = functools.partial(
             TextLayouterScroll, draw=self.draw, color=self.colors.get(255)
         )
-        self.space_calculator = SpaceCalculatorFixed(18)
+        self.space_calculator = SpaceCalculatorFixed(fonts.base_width)
         self.texts = {
             "type-const": self.simpleTextLayout(
                 "No Object Found", font=self.font_bold, color=self.colors.get(255)
             ),
         }
-        self.catalog_tracker = CatalogTracker(
-            self.catalog_names, self.shared_state, self._config_options
-        )
-        self.observations_db = ObservationsDatabase()
+        self.closest_objects_text = []
         self.font_large = fonts.large
-
-        self.object_display_mode = DM_DESC
-        self.object_image = None
-
-        self.fov_list = [1, 0.5, 0.25, 0.125]
-        self.fov_index = 0
-
         self.catalog_tracker.filter()
         self.update_object_info()
-
-    def _layout_designator(self):
-        """
-        Generates designator layout object
-        If there is a selected object which
-        is in the catalog, but not in the filtered
-        catalog, dim the designator out
-        """
-        designator_color = 255
-        current_designator = self.catalog_tracker.get_designator()
-        if (
-            current_designator.has_number()
-            and current_designator.object_number
-            not in self.catalog_tracker.current_catalog.filtered_objects
-        ):
-            designator_color = 128
-        return self.simpleTextLayout(
-            str(current_designator),
-            font=fonts.large,
-            color=self.colors.get(designator_color),
-        )
-
-    def refresh_designator(self):
-        self.texts["designator"] = self._layout_designator()
-
-    def _get_scrollspeed_config(self):
-        scroll_dict = {
-            "Off": 0,
-            "Fast": TextLayouterScroll.FAST,
-            "Med": TextLayouterScroll.MEDIUM,
-            "Slow": TextLayouterScroll.SLOW,
-        }
-        scrollspeed = self._config_options["Scrolling"]["value"]
-        return scroll_dict[scrollspeed]
 
     def update_config(self):
         if self.texts.get("aka"):
@@ -186,23 +141,6 @@ class UIBrowsing(UIModule):
         if not self.catalog_tracker.does_filtered_have_current_object():
             self.delete()
 
-    def push_cat(self, obj_amount):
-        self._config_options["Push Cat."]["value"] = ""
-        if obj_amount == "Go":
-            solution = self.shared_state.solution()
-            self.message("Catalog Pushed", 2)
-
-            # Filter the catalog one last time
-            self.catalog_tracker.filter()
-            self.ui_state["observing_list"] = self.catalog_tracker.get_objects(
-                filtered=True
-            )
-            self.ui_state["active_list"] = self.ui_state["observing_list"]
-            self.ui_state["target"] = self.ui_state["active_list"][0]
-            return "UILocate"
-        else:
-            return False
-
     def push_near(self, obj_amount):
         self._config_options["Near Obj."]["value"] = ""
         if obj_amount != "CANCEL":
@@ -210,198 +148,100 @@ class UIBrowsing(UIModule):
             if not solution:
                 self.message("No Solve!", 1)
                 return False
-            self.message(f"Near {obj_amount} Pushed", 2)
 
             # Filter the catalogs one last time
-            self.catalog_tracker.filter(catalogs=self.catalog_tracker.catalog_names)
+            self.catalog_tracker.filter(False)
             near_catalog = self.catalog_tracker.get_closest_objects(
                 solution["RA"],
                 solution["Dec"],
                 obj_amount,
-                catalogs=self.catalog_tracker.catalog_names,
+                catalogs=self.catalog_tracker.catalogs,
             )
-            self.ui_state["observing_list"] = near_catalog
-            self.ui_state["active_list"] = self.ui_state["observing_list"]
-            self.ui_state["target"] = self.ui_state["active_list"][0]
-            return "UILocate"
-        else:
-            return False
 
     def update_object_info(self):
-        """
-        Generates object text and loads object images
-        """
-        cat_object: CompositeObject = self.catalog_tracker.get_current_object()
-        if not cat_object:
-            has_number = self.catalog_tracker.get_designator().has_number()
-            self.texts = {}
-            self.texts["type-const"] = TextLayouter(
-                self.catalog_tracker.current_catalog.desc
-                if not has_number
-                else "Object not found",
-                draw=self.draw,
-                colors=self.colors,
-                font=fonts.base,
-                color=self.colors.get(255),
-                available_lines=6,
-            )
-            return
+        self.update()
 
-        if self.object_display_mode == DM_DESC:
-            # text stuff....
-
-            self.texts = {}
-            # Type / Constellation
-            object_type = OBJ_TYPES.get(cat_object.obj_type, cat_object.obj_type)
-
-            # layout the type - constellation line
-            _, typeconst = self.space_calculator.calculate_spaces(
-                object_type, cat_object.const
-            )
-            self.texts["type-const"] = self.simpleTextLayout(
-                typeconst,
-                font=fonts.bold,
-                color=self.colors.get(255),
-            )
-            # Magnitude / Size
-            # try to get object mag to float
-            try:
-                obj_mag = float(cat_object.mag)
-            except (ValueError, TypeError):
-                obj_mag = "-" if cat_object.mag == "" else cat_object.mag
-
-            size = str(cat_object.size).strip()
-            size = "-" if size == "" else size
-            spaces, magsize = self.space_calculator.calculate_spaces(
-                f"Mag:{obj_mag}", f"Sz:{size}"
-            )
-            if spaces == -1:
-                spaces, magsize = self.space_calculator.calculate_spaces(
-                    f"Mag:{obj_mag}", size
-                )
-            if spaces == -1:
-                spaces, magsize = self.space_calculator.calculate_spaces(obj_mag, size)
-
-            self.texts["magsize"] = self.simpleTextLayout(
-                magsize, font=fonts.bold, color=self.colors.get(255)
-            )
-
-            aka_recs = self.catalog_tracker.current_catalog.common_names.get(
-                cat_object.object_id
-            )
-            if aka_recs:
-                # aka_list = []
-                # for rec in aka_recs:
-                #     if rec["common_name"].startswith("M"):
-                #         aka_list.insert(0, rec["common_name"])
-                #     else:
-                #         aka_list.append(rec["common_name"])
-                self.texts["aka"] = self.ScrollTextLayout(
-                    ", ".join(aka_recs),
-                    font=fonts.base,
-                    scrollspeed=self._get_scrollspeed_config(),
-                )
-
-            # NGC description....
-            logs = self.observations_db.get_logs_for_object(cat_object)
-            desc = cat_object.description.replace("\t", " ") + "\n"
-            if len(logs) == 0:
-                desc = desc + "** Not Logged"
-            else:
-                desc = desc + f"** {len(logs)} Logs"
-
-            self.descTextLayout.set_text(desc)
-            self.texts["desc"] = self.descTextLayout
-
+    def format_az_alt(self, point_az, point_alt):
+        if point_az >= 0:
+            az_arrow_symbol = self.right_arrow
         else:
-            # Image stuff...
-            if self.object_display_mode == DM_SDSS:
-                source = "SDSS"
-            else:
-                source = "POSS"
+            point_az *= -1
+            az_arrow_symbol = self.left_arrow
 
-            solution = self.shared_state.solution()
-            roll = 0
-            if solution:
-                roll = solution["Roll"]
+        if point_az < 1:
+            az_string = f"{az_arrow_symbol}{point_az:04.2f}"  # Zero-padded to 6 characters, including decimal point
+        else:
+            az_string = f"{az_arrow_symbol}{point_az:04.1f}"
 
-            self.object_image = cat_images.get_display_image(
-                cat_object,
-                source,
-                self.fov_list[self.fov_index],
-                roll,
-                self.colors,
+        if point_alt >= 0:
+            alt_arrow_symbol = self.up_arrow
+        else:
+            point_alt *= -1
+            alt_arrow_symbol = self.down_arrow
+
+        if point_alt < 1:
+            alt_string = f"{alt_arrow_symbol}{point_alt:04.2f}"
+        else:
+            alt_string = f"{alt_arrow_symbol}{point_alt:04.1f}"
+
+        return az_string, alt_string
+
+    def update_closest(self):
+        if self.shared_state.solution():
+            closest_objects: List[
+                CompositeObject
+            ] = self.catalog_tracker.get_closest_objects(
+                self.shared_state.solution()["RA"],
+                self.shared_state.solution()["Dec"],
+                11,
+                catalogs=self.catalog_tracker.catalogs,
             )
+            logging.debug(f"Closest objects: {closest_objects}")
+            closest_objects_text = []
+            for obj in closest_objects:
+                az, alt = aim_degrees(
+                    self.shared_state, self.mount_type, self.screen_direction, obj
+                )
+                if az:
+                    az_txt, alt_txt = self.format_az_alt(az, alt)
+                    distance = f"{az_txt} {alt_txt}"
+                else:
+                    distance = "---,- --,-"
+                logging.debug(f"Closest object dist = {az}, {alt}")
+                obj_name = (
+                    obj.names[0] if obj.names else f"{obj.catalog_code} {obj.sequence}"
+                )
+                # layout the type - constellation line
+                _, obj_dist = self.space_calculator.calculate_spaces(
+                    obj_name, distance, empty_if_exceeds=False
+                )
+                entry = self.simpleTextLayout(
+                    obj_dist,
+                    font=fonts.base,
+                    color=self.colors.get(255),
+                )
+                closest_objects_text.append(entry)
+            logging.debug(f"Closest objects text: {closest_objects_text}")
+            self.closest_objects_text = closest_objects_text
 
     def active(self):
         # trigger refilter
         super().active()
         self.catalog_tracker.filter()
-        target = self.ui_state["target"]
-        if target:
-            self.catalog_tracker.set_current_object(
-                target.sequence, target.catalog_code
-            )
-            self.update_object_info()
+        self.update_object_info()
 
     def update(self, force=True):
+        time.sleep(1 / 30)
+        self.update_closest()
         # Clear Screen
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
-        cat_object = self.catalog_tracker.get_current_object()
-
-        if self.object_display_mode == DM_DESC or cat_object is None:
-            # catalog and entry field i.e. NGC-311
-            self.refresh_designator()
-            desig = self.texts["designator"]
-            desig.draw((0, 21))
-
-            # catalog counts....
-            self.draw.text(
-                (100, 21),
-                f"{self.catalog_tracker.current_catalog.get_filtered_count()}",
-                font=self.font_base,
-                fill=self.colors.get(128),
-            )
-            self.draw.text(
-                (100, 31),
-                f"{self.catalog_tracker.current_catalog.get_count()}",
-                font=self.font_base,
-                fill=self.colors.get(96),
-            )
-
-            # Object TYPE and Constellation i.e. 'Galaxy    PER'
-            typeconst = self.texts.get("type-const")
-            if typeconst:
-                typeconst.draw((0, 48))
-
-            # Object Magnitude and size i.e. 'Mag:4.0   Sz:7"'
-            magsize = self.texts.get("magsize")
-            if magsize:
-                if cat_object:
-                    # check for visibility and adjust mag/size text color
-                    obj_altitude = self.calc_object_altitude(cat_object)
-
-                    if obj_altitude:
-                        if obj_altitude < 10:
-                            # Not really visible
-                            magsize.set_color = self.colors.get(128)
-
-                magsize.draw((0, 62))
-
-            # Common names for this object, i.e. M13 -> Hercules cluster
-            posy = 79
-            aka = self.texts.get("aka")
-            if aka:
-                aka.draw((0, posy))
-                posy += 11
-
-            # Remaining lines with object description
-            desc = self.texts.get("desc")
-            if desc:
-                desc.draw((0, posy))
-
-        else:
-            self.screen.paste(self.object_image)
+        line = 22
+        for txt in self.closest_objects_text:
+            # logging.debug(f"Drawing closest object text: {txt=} on line {line=} on line {line=}")
+            txt.draw((0, line))
+            line += 10
+        # logging.debug(f"Browsing update, nr text = {len(self.closest_objects_text)}, line={line}")
+        # time.sleep(1)
         return self.screen_update()
 
     def key_d(self):
@@ -449,7 +289,7 @@ class UIBrowsing(UIModule):
         location = self.shared_state.location()
         dt = self.shared_state.datetime()
         if location and dt and solution:
-            aa = calc_utils.FastAltAz(
+            aa = FastAltAz(
                 location["lat"],
                 location["lon"],
                 dt,
@@ -484,12 +324,7 @@ class UIBrowsing(UIModule):
         return False
 
     def key_number(self, number):
-        if self.object_display_mode == DM_DESC:
-            designator = self.catalog_tracker.get_designator()
-            designator.append_number(number)
-            # Check for match
-            self.find_by_designator(designator)
-            self.update_object_info()
+        self.update_object_info()
 
     def key_enter(self):
         """
@@ -518,22 +353,10 @@ class UIBrowsing(UIModule):
         self.update_object_info()
 
     def change_fov(self, direction):
-        self.fov_index += direction
-        if self.fov_index < 0:
-            self.fov_index = 0
-        if self.fov_index >= len(self.fov_list):
-            self.fov_index = len(self.fov_list) - 1
-        self.update_object_info()
-        self.update()
+        pass
 
     def key_up(self):
-        if self.object_display_mode == DM_DESC:
-            self.scroll_obj(-1)
-        else:
-            self.change_fov(-1)
+        pass
 
     def key_down(self):
-        if self.object_display_mode == DM_DESC:
-            self.scroll_obj(1)
-        else:
-            self.change_fov(1)
+        pass

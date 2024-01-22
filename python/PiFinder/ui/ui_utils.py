@@ -46,22 +46,36 @@ class SpaceCalculatorFixed:
     def _calc_string(self, left, right, spaces) -> str:
         return f"{left}{'': <{spaces}}{right}"
 
+    def _truncate(self, left, right, trunc_left) -> str:
+        if trunc_left:
+            left_left = self.width - len(right) - 2
+            return f"{left[:-left_left]} {right}"
+        else:
+            right_left = self.width - len(left) - 2
+            return f"{left} {right[:-right_left]}"
+
     def calculate_spaces(
-        self, left: str, right: str, empty_if_exceeds=True
+        self, left: str, right: str, empty_if_exceeds=True, trunc_left=False
     ) -> Tuple[int, str]:
         """
         returns number of spaces
         """
         lenleft = len(str(left))
         lenright = len(str(right))
-        spaces = max(1, self.width - (lenleft + lenright))
-        result = self._calc_string(left, right, spaces)
-        if len(result) > self.width:
+        spaces = max(0, self.width - (lenleft + lenright))
+        if spaces <= 0:
             if empty_if_exceeds:
                 return -1, ""
             else:
-                result = result[: self.width]
-                result = result[-3] + "..."
+                return 1, self._truncate(left, right, trunc_left)
+
+        result = self._calc_string(left, right, spaces)
+        # if len(result) > self.width:
+        #     if empty_if_exceeds:
+        #         return -1, ""
+        #     else:
+        #         result = result[: self.width]
+        #         result = result[-3] + "..."
         return spaces, result
 
 
