@@ -123,15 +123,10 @@ class UIBrowsing(UIModule):
         self.closest_objects_text = []
         self.font_large = fonts.large
         self.catalog_tracker.filter()
-        self.update_object_info()
 
         marker_path = Path(utils.pifinder_dir, "markers")
         self.markers = {}
         render_size = (10, 10)
-        render_center = (
-            int(render_size[0] / 2),
-            int(render_size[1] / 2),
-        )
         for filename in os.listdir(marker_path):
             if filename.startswith("mrk_"):
                 marker_code = filename[4:-4]
