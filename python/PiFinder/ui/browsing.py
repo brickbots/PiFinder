@@ -27,6 +27,10 @@ import logging
 from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.catalogs import CompositeObject
 from PiFinder.ui.fonts import Fonts as fonts
+from PIL import Image, ImageChops
+from pathlib import Path
+import os
+from PiFinder import utils
 
 
 # Constants for display modes
@@ -40,7 +44,7 @@ class UIBrowsing(UIModule):
     Search catalogs for object to find
     """
 
-    __title__ = "TOURIST"
+    __title__ = "EXPLORE"
     __button_hints__ = {
         "B": "Image",
         "C": "Catalog",
@@ -110,7 +114,7 @@ class UIBrowsing(UIModule):
         self.ScrollTextLayout = functools.partial(
             TextLayouterScroll, draw=self.draw, color=self.colors.get(255)
         )
-        self.space_calculator = SpaceCalculatorFixed(fonts.base_width)
+        self.space_calculator = SpaceCalculatorFixed(fonts.base_width - 2)
         self.texts = {
             "type-const": self.simpleTextLayout(
                 "No Object Found", font=self.font_bold, color=self.colors.get(255)
@@ -120,6 +124,25 @@ class UIBrowsing(UIModule):
         self.font_large = fonts.large
         self.catalog_tracker.filter()
         self.update_object_info()
+
+        marker_path = Path(utils.pifinder_dir, "markers")
+        self.markers = {}
+        render_size = (10, 10)
+        render_center = (
+            int(render_size[0] / 2),
+            int(render_size[1] / 2),
+        )
+        for filename in os.listdir(marker_path):
+            if filename.startswith("mrk_"):
+                marker_code = filename[4:-4]
+                _image = Image.new("RGB", render_size)
+                _image.paste(
+                    Image.open(f"{marker_path}/mrk_{marker_code}.png"),
+                    (0, 0),
+                )
+                self.markers[marker_code] = ImageChops.multiply(
+                    _image, Image.new("RGB", render_size, self.colors.get(256))
+                )
 
     def update_config(self):
         if self.texts.get("aka"):
@@ -169,7 +192,7 @@ class UIBrowsing(UIModule):
             az_arrow_symbol = self.left_arrow
 
         if point_az < 1:
-            az_string = f"{az_arrow_symbol}{point_az:04.2f}"  # Zero-padded to 6 characters, including decimal point
+            az_string = f"{az_arrow_symbol}{point_az:04.2f}"
         else:
             az_string = f"{az_arrow_symbol}{point_az:04.1f}"
 
@@ -220,7 +243,7 @@ class UIBrowsing(UIModule):
                     font=fonts.base,
                     color=self.colors.get(255),
                 )
-                closest_objects_text.append(entry)
+                closest_objects_text.append((obj.obj_type, entry))
             logging.debug(f"Closest objects text: {closest_objects_text}")
             self.closest_objects_text = closest_objects_text
 
@@ -236,9 +259,15 @@ class UIBrowsing(UIModule):
         # Clear Screen
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
         line = 22
-        for txt in self.closest_objects_text:
+        for obj_type, txt in self.closest_objects_text:
             # logging.debug(f"Drawing closest object text: {txt=} on line {line=} on line {line=}")
-            txt.draw((0, line))
+
+            logging.debug(f"{obj_type=}")
+            marker = OBJ_TYPE_MARKERS.get(obj_type)
+            logging.debug(f"marker is {marker}")
+            if marker:
+                self.screen.paste(self.markers[marker], (0, line - 10))
+            txt.draw((12, line))
             line += 10
         # logging.debug(f"Browsing update, nr text = {len(self.closest_objects_text)}, line={line}")
         # time.sleep(1)
