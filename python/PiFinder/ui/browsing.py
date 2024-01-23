@@ -27,6 +27,7 @@ import logging
 
 from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.catalogs import CompositeObject
+from PiFinder.ui.catalog import UICatalog
 from PiFinder.ui.fonts import Fonts as fonts
 from PIL import Image, ImageChops
 from pathlib import Path
@@ -45,54 +46,17 @@ class UIBrowsing(UIModule):
         "C": "Catalog",
         "D": "More",
     }
-    _config_options = {
-        "Catalogs": {
-            "type": "multi_enum",
-            "value": [],
-            "options": [],
-        },
-        "Alt Limit": {
-            "type": "enum",
-            "value": 10,
-            "options": ["None", 10, 20, 30],
-        },
-        "Scrolling": {
-            "type": "enum",
-            "value": "Med",
-            "options": ["Off", "Fast", "Med", "Slow"],
-        },
-        "Magnitude": {
-            "type": "enum",
-            "value": "None",
-            "options": ["None", 6, 7, 8, 9, 10, 11, 12, 13, 14],
-        },
-        "Obj Types": {
-            "type": "multi_enum",
-            "value": ["None"],
-            "options": ["None"] + list(OBJ_TYPES.keys()),
-        },
-        "Observed": {"type": "enum", "value": "Any", "options": ["Any", "Yes", "No"]},
-        "Push Cat.": {
-            "type": "enum",
-            "value": "",
-            "options": ["Go", "CANCEL"],
-            "callback": "push_cat",
-        },
-        "Near Obj.": {
-            "type": "enum",
-            "value": "",
-            "options": ["CANCEL", 5, 10, 15, 20],
-            "callback": "push_near",
-        },
-    }
+    _config_options = {}
     left_arrow = ""
     right_arrow = ""
     up_arrow = ""
     down_arrow = ""
 
-    def __init__(self, catalog_tracker: CatalogTracker, *args):
+    def __init__(self, ui_catalog: UICatalog, *args):
         super().__init__(*args)
-        self.catalog_tracker = catalog_tracker
+        self.ui_catalog = ui_catalog
+        self._config_options = ui_catalog._config_options
+        self.catalog_tracker = ui_catalog.catalog_tracker
         self.screen_direction = config.Config().get_option("screen_direction")
         self.mount_type = config.Config().get_option("mount_type")
         self.simpleTextLayout = functools.partial(
@@ -135,24 +99,7 @@ class UIBrowsing(UIModule):
                 )
 
     def update_config(self):
-        if self.texts.get("aka"):
-            self.texts["aka"].set_scrollspeed(self._get_scrollspeed_config())
-
-        # Update catalog names if needed
-        if self.catalog_names != self._config_options["Catalogs"]["value"]:
-            self.message("Updating Cats.", 0)
-            self.catalog_names = self._config_options["Catalogs"]["value"].copy()
-            self.config_object.set_option("active_catalogs", self.catalog_names)
-            self.catalog_tracker = CatalogTracker(
-                self.catalog_names, self.shared_state, self._config_options
-            )
-
-        # re-filter if needed
-        self.catalog_tracker.filter()
-
-        # Reset any sequence....
-        if not self.catalog_tracker.does_filtered_have_current_object():
-            self.delete()
+        self.ui_catalog.update_config()
 
     def push_near(self, obj_amount):
         self._config_options["Near Obj."]["value"] = ""
@@ -287,10 +234,11 @@ class UIBrowsing(UIModule):
         return self.screen_update()
 
     def key_d(self):
-        self.descTextLayout.next()
-        typeconst = self.texts.get("type-const")
-        if typeconst and isinstance(typeconst, TextLayouter):
-            typeconst.next()
+        pass
+        # self.descTextLayout.next()
+        # typeconst = self.texts.get("type-const")
+        # if typeconst and isinstance(typeconst, TextLayouter):
+        #     typeconst.next()
 
     def delete(self):
         # long d called from main
@@ -298,28 +246,31 @@ class UIBrowsing(UIModule):
         self.update_object_info()
 
     def key_c(self):
+        pass
         # C is for catalog
-        self.catalog_tracker.next_catalog()
-        self.catalog_tracker.filter()
-        self.update_object_info()
-        self.object_display_mode = DM_DESC
+        # self.catalog_tracker.next_catalog()
+        # self.catalog_tracker.filter()
+        # self.update_object_info()
+        # self.object_display_mode = DM_DESC
 
     def key_long_c(self):
-        self.delete()
-        self.catalog_tracker.previous_catalog()
-        self.catalog_tracker.filter()
-        self.update_object_info()
+        pass
+        # self.delete()
+        # self.catalog_tracker.previous_catalog()
+        # self.catalog_tracker.filter()
+        # self.update_object_info()
 
     def key_b(self):
-        if self.catalog_tracker.get_current_object() is None:
-            self.object_display_mode = DM_DESC
-        else:
-            # switch object display text
-            self.object_display_mode = (
-                self.object_display_mode + 1 if self.object_display_mode < 2 else 0
-            )
-            self.update_object_info()
-            self.update()
+        pass
+        # if self.catalog_tracker.get_current_object() is None:
+        #     self.object_display_mode = DM_DESC
+        # else:
+        #     # switch object display text
+        #     self.object_display_mode = (
+        #         self.object_display_mode + 1 if self.object_display_mode < 2 else 0
+        #     )
+        #     self.update_object_info()
+        #     self.update()
 
     def background_update(self):
         if time.time() - self.catalog_tracker.current_catalog.last_filtered > 60:
@@ -345,57 +296,22 @@ class UIBrowsing(UIModule):
 
         return None
 
-    def find_by_designator(self, designator):
-        """
-        Searches the loaded catalog for the designator
-        """
-        searching_for = designator.object_number
-        if searching_for == 0:
-            logging.debug("find by designator, objectnumber is 0")
-            return False
-
-        # Use all objects here, not filtered, so we can
-        # surface any valid object in the catalog
-        if searching_for in self.catalog_tracker.current_catalog.cobjects:
-            self.catalog_tracker.set_current_object(searching_for)
-            return True
-        else:
-            logging.debug("find by designator, no match found")
-            self.catalog_tracker.set_current_object(None)
-            self.catalog_tracker.get_designator().set_number(searching_for)
-        return False
-
-    def key_number(self, number):
-        self.update_object_info()
-
     def key_enter(self):
         """
         When enter is pressed, set the
         target
         """
-        cat_object: CompositeObject = self.catalog_tracker.get_current_object()
-        if cat_object:
-            self.ui_state["target"] = cat_object
-            if len(self.ui_state["history_list"]) == 0:
-                self.ui_state["history_list"].append(self.ui_state["target"])
-            elif self.ui_state["history_list"][-1] != self.ui_state["target"]:
-                self.ui_state["history_list"].append(self.ui_state["target"])
-
-            self.ui_state["active_list"] = self.ui_state["history_list"]
-            self.switch_to = "UILocate"
-
-    def scroll_obj(self, direction):
-        """
-        Looks for the next object up/down
-        sets the sequence and object
-        """
-        if self.catalog_tracker.current_catalog.get_filtered_count() == 0:
-            return
-        self.catalog_tracker.next_object(direction)
-        self.update_object_info()
-
-    def change_fov(self, direction):
         pass
+        # cat_object: CompositeObject = self.catalog_tracker.get_current_object()
+        # if cat_object:
+        #     self.ui_state["target"] = cat_object
+        #     if len(self.ui_state["history_list"]) == 0:
+        #         self.ui_state["history_list"].append(self.ui_state["target"])
+        #     elif self.ui_state["history_list"][-1] != self.ui_state["target"]:
+        #         self.ui_state["history_list"].append(self.ui_state["target"])
+        #
+        #     self.ui_state["active_list"] = self.ui_state["history_list"]
+        #     self.switch_to = "UILocate"
 
     def key_up(self):
         pass

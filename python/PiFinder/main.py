@@ -370,7 +370,7 @@ def main(script_name=None, show_fps=False):
                 cfg,
             ),
             UIBrowsing(
-                ui_catalog.catalog_tracker,
+                ui_catalog,
                 display_device,
                 camera_image,
                 shared_state,
