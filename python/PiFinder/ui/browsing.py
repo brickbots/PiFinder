@@ -245,7 +245,7 @@ class UIBrowsing(UIModule):
                     az_txt, alt_txt = self.format_az_alt(az, alt)
                     distance = f"{az_txt} {alt_txt}"
                 else:
-                    distance = "---,- --,-"
+                    distance = "--.- --.-"
                 # logging.debug(f"Closest object dist = {az}, {alt}")
                 obj_name = f"{obj.catalog_code}{obj.sequence}"
                 _, obj_dist = self.space_calculator.calculate_spaces(
@@ -274,14 +274,14 @@ class UIBrowsing(UIModule):
         self.update_closest()
         # Clear Screen
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
-        line = 22
+        line = 17
         for obj_type, txt in self.closest_objects_text:
             # logging.debug(f"Drawing closest object text: {txt=} on line {line=} on line {line=}")
             marker = OBJ_TYPE_MARKERS.get(obj_type)
             if marker:
                 self.screen.paste(self.markers[marker], (0, line))
             txt.draw((12, line))
-            line += 10
+            line += 11
         # logging.debug(f"Browsing update, nr text = {len(self.closest_objects_text)}, line={line}")
         # time.sleep(1)
         return self.screen_update()
