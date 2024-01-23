@@ -20,6 +20,9 @@ OBJ_TYPE_MARKERS = {
     "Gb": "gc",
     "Nb": "neb",
     "Pl": "pneb",
+    "D*": "dstar",
+    "***": "dstar",
+    "Ast": "ast",
 }
 
 OBJ_DESCRIPTORS = {

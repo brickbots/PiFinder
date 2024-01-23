@@ -98,7 +98,6 @@ class UIBrowsing(UIModule):
     def __init__(self, catalog_tracker: CatalogTracker, *args):
         super().__init__(*args)
         self.catalog_tracker = catalog_tracker
-        logging.debug(f"browsing has tracker: {catalog_tracker=}")
         self.screen_direction = config.Config().get_option("screen_direction")
         self.mount_type = config.Config().get_option("mount_type")
         self.simpleTextLayout = functools.partial(
@@ -204,7 +203,22 @@ class UIBrowsing(UIModule):
 
         return az_string, alt_string
 
+    def _interpolate_color(self, mag):
+        """
+        choose a color corresponding to the Magnitude
+        """
+        if mag <= 9:
+            return 255
+        elif mag >= 16:
+            return 125
+        else:
+            return int(255 + ((125 - 255) / (16 - 9)) * (mag - 9))
+
     def update_closest(self):
+        """
+        get the current pointing solution and search the X closest objects
+        to that location
+        """
         if self.shared_state.solution():
             closest_objects: List[
                 CompositeObject
@@ -214,7 +228,7 @@ class UIBrowsing(UIModule):
                 11,
                 catalogs=self.catalog_tracker.catalogs,
             )
-            logging.debug(f"Closest objects: {closest_objects}")
+            # logging.debug(f"Closest objects: {closest_objects}")
             closest_objects_text = []
             for obj in closest_objects:
                 az, alt = aim_degrees(
@@ -225,21 +239,21 @@ class UIBrowsing(UIModule):
                     distance = f"{az_txt} {alt_txt}"
                 else:
                     distance = "---,- --,-"
-                logging.debug(f"Closest object dist = {az}, {alt}")
-                obj_name = (
-                    obj.names[0] if obj.names else f"{obj.catalog_code} {obj.sequence}"
-                )
-                # layout the type - constellation line
+                # logging.debug(f"Closest object dist = {az}, {alt}")
+                obj_name = f"{obj.catalog_code}{obj.sequence}"
                 _, obj_dist = self.space_calculator.calculate_spaces(
-                    obj_name, distance, empty_if_exceeds=False
+                    obj_name, distance, empty_if_exceeds=False, trunc_left=True
                 )
+                try:
+                    obj_mag = float(obj.mag)
+                except (ValueError, TypeError):
+                    obj_mag = 99
                 entry = self.simpleTextLayout(
                     obj_dist,
                     font=fonts.base,
-                    color=self.colors.get(255),
+                    color=self.colors.get(self._interpolate_color(obj_mag)),
                 )
                 closest_objects_text.append((obj.obj_type, entry))
-            logging.debug(f"Closest objects text: {closest_objects_text}")
             self.closest_objects_text = closest_objects_text
 
     def active(self):
@@ -256,12 +270,9 @@ class UIBrowsing(UIModule):
         line = 22
         for obj_type, txt in self.closest_objects_text:
             # logging.debug(f"Drawing closest object text: {txt=} on line {line=} on line {line=}")
-
-            logging.debug(f"{obj_type=}")
             marker = OBJ_TYPE_MARKERS.get(obj_type)
-            logging.debug(f"marker is {marker}")
             if marker:
-                self.screen.paste(self.markers[marker], (0, line - 10))
+                self.screen.paste(self.markers[marker], (0, line))
             txt.draw((12, line))
             line += 10
         # logging.debug(f"Browsing update, nr text = {len(self.closest_objects_text)}, line={line}")
