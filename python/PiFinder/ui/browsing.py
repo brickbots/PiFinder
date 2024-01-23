@@ -5,6 +5,7 @@ This module contains all the UI Module classes
 
 """
 import time
+import timeit
 from typing import List
 
 from PiFinder import config
@@ -31,12 +32,6 @@ from PIL import Image, ImageChops
 from pathlib import Path
 import os
 from PiFinder import utils
-
-
-# Constants for display modes
-DM_DESC = 0  # Display mode for description
-DM_POSS = 1  # Display mode for POSS
-DM_SDSS = 2  # Display mode for SDSS
 
 
 class UIBrowsing(UIModule):
@@ -121,11 +116,12 @@ class UIBrowsing(UIModule):
         }
         self.closest_objects_text = []
         self.font_large = fonts.large
+        self.objects_balltree = None
         self.catalog_tracker.filter()
 
         marker_path = Path(utils.pifinder_dir, "markers")
         self.markers = {}
-        render_size = (10, 10)
+        render_size = (11, 11)
         for filename in os.listdir(marker_path):
             if filename.startswith("mrk_"):
                 marker_code = filename[4:-4]
@@ -168,7 +164,7 @@ class UIBrowsing(UIModule):
 
             # Filter the catalogs one last time
             self.catalog_tracker.filter(False)
-            near_catalog = self.catalog_tracker.get_closest_objects(
+            near_catalog, _ = self.catalog_tracker.get_closest_objects(
                 solution["RA"],
                 solution["Dec"],
                 obj_amount,
@@ -220,14 +216,25 @@ class UIBrowsing(UIModule):
         to that location
         """
         if self.shared_state.solution():
-            closest_objects: List[
-                CompositeObject
-            ] = self.catalog_tracker.get_closest_objects(
-                self.shared_state.solution()["RA"],
-                self.shared_state.solution()["Dec"],
-                11,
-                catalogs=self.catalog_tracker.catalogs,
-            )
+            closest_objects: List[CompositeObject] = None
+            if not self.objects_balltree:
+                (
+                    closest_objects,
+                    self.objects_balltree,
+                ) = self.catalog_tracker.get_closest_objects(
+                    self.shared_state.solution()["RA"],
+                    self.shared_state.solution()["Dec"],
+                    11,
+                    catalogs=self.catalog_tracker.catalogs,
+                )
+            else:
+                closest_objects = self.catalog_tracker.get_closest_objects_cached(
+                    self.shared_state.solution()["RA"],
+                    self.shared_state.solution()["Dec"],
+                    11,
+                    self.objects_balltree,
+                )
+
             # logging.debug(f"Closest objects: {closest_objects}")
             closest_objects_text = []
             for obj in closest_objects:

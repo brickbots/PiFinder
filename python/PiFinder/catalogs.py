@@ -1,7 +1,7 @@
 import logging
 import time
 import datetime
-from typing import List, Dict, DefaultDict, Optional
+from typing import List, Dict, DefaultDict, Optional, Tuple
 import numpy as np
 import pandas as pd
 from collections import defaultdict
@@ -640,10 +640,19 @@ class CatalogTracker:
         object_radecs = [
             [np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in catalog_list_flat
         ]
-        objects_bt = BallTree(object_radecs, leaf_size=4, metric="haversine")
+        objects_bt = BallTree(object_radecs, leaf_size=20, metric="haversine")
         query = [[np.deg2rad(ra), np.deg2rad(dec)]]
         _dist, obj_ind = objects_bt.query(query, k=n)
         results = [catalog_list_flat[x] for x in obj_ind[0]]
+        deduplicated = self._deduplicate(results)
+        return deduplicated, (catalog_list_flat, objects_bt)
+
+    def get_closest_objects_cached(
+        self, ra, dec, n, cache: Tuple[List[CompositeObject], BallTree]
+    ) -> List[CompositeObject]:
+        query = [[np.deg2rad(ra), np.deg2rad(dec)]]
+        _dist, obj_ind = cache[1].query(query, k=n)
+        results = [cache[0][x] for x in obj_ind[0]]
         deduplicated = self._deduplicate(results)
         return deduplicated
 

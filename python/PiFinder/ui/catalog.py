@@ -227,7 +227,7 @@ class UICatalog(UIModule):
 
             # Filter ALL the catalogs one last time
             self.catalog_tracker.filter(current=False)
-            near_catalog = self.catalog_tracker.get_closest_objects(
+            near_catalog, _ = self.catalog_tracker.get_closest_objects(
                 solution["RA"],
                 solution["Dec"],
                 obj_amount,
