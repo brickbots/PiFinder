@@ -151,6 +151,26 @@ def aim_degrees(shared_state, mount_type, screen_direction, target):
     return None, None
 
 
+def calc_object_altitude(shared_state, obj):
+    solution = shared_state.solution()
+    location = shared_state.location()
+    dt = shared_state.datetime()
+    if location and dt and solution:
+        aa = FastAltAz(
+            location["lat"],
+            location["lon"],
+            dt,
+        )
+        obj_alt = aa.radec_to_altaz(
+            obj.ra,
+            obj.dec,
+            alt_only=True,
+        )
+        return obj_alt
+
+    return None
+
+
 def hash_dict(d):
     serialized_data = json.dumps(d, sort_keys=True).encode()
     return hashlib.sha256(serialized_data).hexdigest()

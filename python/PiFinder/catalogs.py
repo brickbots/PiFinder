@@ -318,7 +318,7 @@ class PlanetCatalog(Catalog):
         obj = CompositeObject.from_dict(
             {
                 "id": -1,
-                "obj_type": "Bod",
+                "obj_type": "Pla",
                 "ra": ra,
                 "dec": dec,
                 "const": constellation,
@@ -327,7 +327,7 @@ class PlanetCatalog(Catalog):
                 "names": [name.capitalize()],
                 "catalog_code": "PL",
                 "sequence": sequence + 1,
-                "description": f"",
+                "description": "",
             }
         )
         self.add_object(obj)

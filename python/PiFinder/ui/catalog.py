@@ -118,7 +118,6 @@ class UICatalog(UIModule):
             ),
         }
         self.catalogs: Catalogs = CatalogBuilder().build()
-        # print("in UI module, catalogs is", self.catalogs, self.catalogs.catalogs[0].get_objects())
         self.catalog_tracker = CatalogTracker(
             self.catalogs, self.shared_state, self._config_options
         )
@@ -394,7 +393,9 @@ class UICatalog(UIModule):
             if magsize:
                 if cat_object:
                     # check for visibility and adjust mag/size text color
-                    obj_altitude = self.calc_object_altitude(cat_object)
+                    obj_altitude = calc_utils.calc_object_altitude(
+                        self.shared_state, cat_object
+                    )
 
                     if obj_altitude:
                         if obj_altitude < 10:
@@ -458,26 +459,6 @@ class UICatalog(UIModule):
         if time.time() - self.catalog_tracker.current_catalog.last_filtered > 60:
             self.catalog_tracker.filter()
 
-    # duplicate code in Catalog, but this is a bit different
-    def calc_object_altitude(self, obj):
-        solution = self.shared_state.solution()
-        location = self.shared_state.location()
-        dt = self.shared_state.datetime()
-        if location and dt and solution:
-            aa = calc_utils.FastAltAz(
-                location["lat"],
-                location["lon"],
-                dt,
-            )
-            obj_alt = aa.radec_to_altaz(
-                obj.ra,
-                obj.dec,
-                alt_only=True,
-            )
-            return obj_alt
-
-        return None
-
     def find_by_designator(self, designator):
         """
         Searches the loaded catalog for the designator
@@ -512,8 +493,8 @@ class UICatalog(UIModule):
         target
         """
         cat_object: CompositeObject = self.catalog_tracker.get_current_object()
+        self.ui_state.set_target_and_add_to_history(cat_object)
         if cat_object:
-            self.ui_state.set_target_and_add_to_history(cat_object)
             self.ui_state.set_active_list_to_history_list()
             self.switch_to = "UILocate"
 

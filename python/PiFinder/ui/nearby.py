@@ -6,6 +6,7 @@ This module contains all the UI Module classes
 """
 import time
 import timeit
+import numpy as np
 from typing import List
 
 from PiFinder import config
@@ -29,22 +30,20 @@ from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.catalogs import CompositeObject
 from PiFinder.ui.catalog import UICatalog
 from PiFinder.ui.fonts import Fonts as fonts
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageOps
 from pathlib import Path
 import os
 from PiFinder import utils
 
 
-class UIBrowsing(UIModule):
+class UINearby(UIModule):
     """
     Search catalogs for object to find
     """
 
-    __title__ = "EXPLORE"
+    __title__ = "NEARBY"
     __button_hints__ = {
-        "B": "Image",
-        "C": "Catalog",
-        "D": "More",
+        "B": "Display",
     }
     _config_options = {}
     left_arrow = ""
@@ -78,10 +77,12 @@ class UIBrowsing(UIModule):
                 "No Object Found", font=self.font_bold, color=self.colors.get(255)
             ),
         }
+        self.closest_objects = []
         self.closest_objects_text = []
         self.font_large = fonts.large
         self.objects_balltree = None
         self.catalog_tracker.filter()
+        self.current_line = -1
 
         marker_path = Path(utils.pifinder_dir, "markers")
         self.markers = {}
@@ -95,28 +96,12 @@ class UIBrowsing(UIModule):
                     (0, 0),
                 )
                 self.markers[marker_code] = ImageChops.multiply(
-                    _image, Image.new("RGB", render_size, self.colors.get(256))
+                    _image, Image.new("RGB", render_size, self.colors.get(255))
                 )
 
     def update_config(self):
         self.ui_catalog.update_config()
-
-    def push_near(self, obj_amount):
-        self._config_options["Near Obj."]["value"] = ""
-        if obj_amount != "CANCEL":
-            solution = self.shared_state.solution()
-            if not solution:
-                self.message("No Solve!", 1)
-                return False
-
-            # Filter the catalogs one last time
-            self.catalog_tracker.filter(False)
-            near_catalog, _ = self.catalog_tracker.get_closest_objects(
-                solution["RA"],
-                solution["Dec"],
-                obj_amount,
-                catalogs=self.catalog_tracker.catalogs,
-            )
+        self.objects_balltree = None
 
     def update_object_info(self):
         self.update()
@@ -146,20 +131,20 @@ class UIBrowsing(UIModule):
 
         return az_string, alt_string
 
-    def _interpolate_color(self, mag):
+    def _interpolate_color(self, mag, min_mag=9, max_mag=16):
         """
         choose a color corresponding to the Magnitude
         """
-        if mag <= 9:
+        if mag <= min_mag:
             return 255
-        elif mag >= 16:
+        elif mag >= max_mag:
             return 125
         else:
             return int(255 + ((125 - 255) / (16 - 9)) * (mag - 9))
 
     def update_closest(self):
         """
-        get the current pointing solution and search the X closest objects
+        get the current pointing solution and search the 10 closest objects
         to that location
         """
         if self.shared_state.solution():
@@ -208,12 +193,27 @@ class UIBrowsing(UIModule):
                     color=self.colors.get(self._interpolate_color(obj_mag)),
                 )
                 closest_objects_text.append((obj.obj_type, entry))
+            self.closest_objects = closest_objects
             self.closest_objects_text = closest_objects_text
+
+    def invert_red_channel_fast(self, image, top_left, bottom_right):
+        # Convert PIL image to NumPy array
+        img_array = np.array(image)
+
+        # Invert the red channel in the specified region
+        img_array[top_left[1] : bottom_right[1], top_left[0] : bottom_right[0], 0] = (
+            255
+            - img_array[top_left[1] : bottom_right[1], top_left[0] : bottom_right[0], 0]
+        )
+
+        # Convert the NumPy array back to PIL image
+        image.paste(Image.fromarray(img_array), (0, 0))
 
     def active(self):
         # trigger refilter
         super().active()
         self.catalog_tracker.filter()
+        self.objects_balltree = None
         self.update_object_info()
 
     def update(self, force=True):
@@ -231,6 +231,10 @@ class UIBrowsing(UIModule):
             line += 11
         # logging.debug(f"Browsing update, nr text = {len(self.closest_objects_text)}, line={line}")
         # time.sleep(1)
+        if self.current_line > -1:
+            topleft = (0, 17 + 11 * self.current_line)
+            bottomright = (128, 17 + 11 * (self.current_line + 1) + 1)
+            self.invert_red_channel_fast(self.screen, topleft, bottomright)
         return self.screen_update()
 
     def key_d(self):
@@ -276,45 +280,21 @@ class UIBrowsing(UIModule):
         if time.time() - self.catalog_tracker.current_catalog.last_filtered > 60:
             self.catalog_tracker.filter()
 
-    # duplicate code in Catalog, but this is a bit different
-    def calc_object_altitude(self, obj):
-        solution = self.shared_state.solution()
-        location = self.shared_state.location()
-        dt = self.shared_state.datetime()
-        if location and dt and solution:
-            aa = FastAltAz(
-                location["lat"],
-                location["lon"],
-                dt,
-            )
-            obj_alt = aa.radec_to_altaz(
-                obj.ra,
-                obj.dec,
-                alt_only=True,
-            )
-            return obj_alt
-
-        return None
-
     def key_enter(self):
         """
         When enter is pressed, set the
         target
         """
-        pass
-        # cat_object: CompositeObject = self.catalog_tracker.get_current_object()
-        # if cat_object:
-        #     self.ui_state["target"] = cat_object
-        #     if len(self.ui_state["history_list"]) == 0:
-        #         self.ui_state["history_list"].append(self.ui_state["target"])
-        #     elif self.ui_state["history_list"][-1] != self.ui_state["target"]:
-        #         self.ui_state["history_list"].append(self.ui_state["target"])
-        #
-        #     self.ui_state["active_list"] = self.ui_state["history_list"]
-        #     self.switch_to = "UILocate"
+        if self.current_line == -1:
+            return
+        cat_object: CompositeObject = self.closest_objects[self.current_line]
+        self.ui_state.set_target_and_add_to_history(cat_object)
+        if cat_object:
+            self.ui_state.set_active_list_to_history_list()
+            self.switch_to = "UILocate"
 
     def key_up(self):
-        pass
+        self.current_line = max(-1, self.current_line - 1)
 
     def key_down(self):
-        pass
+        self.current_line = (self.current_line + 1) % 10
