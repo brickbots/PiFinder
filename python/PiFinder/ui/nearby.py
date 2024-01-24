@@ -196,7 +196,7 @@ class UINearby(UIModule):
             self.closest_objects = closest_objects
             self.closest_objects_text = closest_objects_text
 
-    def invert_red_channel_fast(self, image, top_left, bottom_right):
+    def invert_red_channel(self, image, top_left, bottom_right):
         # Convert PIL image to NumPy array
         img_array = np.array(image)
 
@@ -207,7 +207,14 @@ class UINearby(UIModule):
         )
 
         # Convert the NumPy array back to PIL image
-        image.paste(Image.fromarray(img_array), (0, 0))
+        image.paste(
+            Image.fromarray(
+                img_array[
+                    top_left[1] : bottom_right[1], top_left[0] : bottom_right[0], :
+                ]
+            ),
+            top_left,
+        )
 
     def active(self):
         # trigger refilter
@@ -222,19 +229,18 @@ class UINearby(UIModule):
         # Clear Screen
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
         line = 17
+        # Draw the closest objects
         for obj_type, txt in self.closest_objects_text:
-            # logging.debug(f"Drawing closest object text: {txt=} on line {line=} on line {line=}")
             marker = OBJ_TYPE_MARKERS.get(obj_type)
             if marker:
                 self.screen.paste(self.markers[marker], (0, line))
             txt.draw((12, line))
             line += 11
-        # logging.debug(f"Browsing update, nr text = {len(self.closest_objects_text)}, line={line}")
-        # time.sleep(1)
+        # Show inverted selection on object
         if self.current_line > -1:
             topleft = (0, 17 + 11 * self.current_line)
             bottomright = (128, 17 + 11 * (self.current_line + 1) + 1)
-            self.invert_red_channel_fast(self.screen, topleft, bottomright)
+            self.invert_red_channel(self.screen, topleft, bottomright)
         return self.screen_update()
 
     def key_d(self):
