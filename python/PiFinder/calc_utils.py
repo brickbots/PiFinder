@@ -191,6 +191,7 @@ class Skyfield_utils:
         self.observer_loc = None
         self.constellation_map = load_constellation_map()
         self.ts = load.timescale()
+        self._set_planet_names()
 
     def _set_planet_names(self):
         full_planet_names = [
@@ -221,7 +222,6 @@ class Skyfield_utils:
             lon,
             altitude,
         )
-        self._set_planet_names()
 
     def altaz_to_radec(self, alt, az, dt):
         """

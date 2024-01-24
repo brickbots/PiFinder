@@ -9,12 +9,16 @@ This module is the main entry point for PiFinder it:
 * then runs the UI loop
 
 """
+import os
+
+# skyfield performance fix, see: https://rhodesmill.org/skyfield/accuracy-efficiency.html
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
 import time
 import queue
 import datetime
 import json
 import uuid
-import os
 import sys
 import logging
 import argparse
@@ -24,7 +28,6 @@ from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 from timezonefinder import TimezoneFinder
-
 
 from luma.core.interface.serial import spi
 

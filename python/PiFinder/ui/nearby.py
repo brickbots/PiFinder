@@ -55,6 +55,8 @@ class UINearby(UIModule):
     __title__ = "NEARBY"
     __button_hints__ = {
         "B": "Mode",
+        "D": "Clear",
+        "ENT": "Locate",
     }
     _config_options = {}
     left_arrow = ""
