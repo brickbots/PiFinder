@@ -64,7 +64,11 @@ class UINearby(UIModule):
     checkmark = "󰄵"
     checkmark_no = ""
     sun = "󰖨"
+    bulb = "󰛨"
+    star = ""
     ruler = ""
+
+    max_objects = 10
 
     def __init__(self, ui_catalog: UICatalog, *args):
         super().__init__(*args)
@@ -192,14 +196,14 @@ class UINearby(UIModule):
                 ) = self.catalog_tracker.get_closest_objects(
                     self.shared_state.solution()["RA"],
                     self.shared_state.solution()["Dec"],
-                    11,
+                    self.max_objects + 1,
                     catalogs=self.catalog_tracker.catalogs,
                 )
             else:
                 closest_objects = self.catalog_tracker.get_closest_objects_cached(
                     self.shared_state.solution()["RA"],
                     self.shared_state.solution()["Dec"],
-                    11,
+                    self.max_objects + 1,
                     self.objects_balltree,
                 )
             self.closest_objects = closest_objects
@@ -251,11 +255,13 @@ class UINearby(UIModule):
         result = []
         for obj in self.closest_objects:
             obj_mag, obj_color = self._obj_to_mag_color(obj)
-            mag = f"{self.sun}{obj_mag}" if obj_mag != 99 else ""
+            mag = f"{self.star}{obj_mag}" if obj_mag != 99 else ""
             size = f"{self.ruler}{obj.size.strip()}" if obj.size.strip() else ""
             full_name = (
                 f"{mag} {size} {self.checkmark if obj.logged else self.checkmark_no}"
             )
+            if len(full_name) > 12:
+                full_name = mag
             obj_name = f"{obj.catalog_code}{obj.sequence}"
             _, obj_dist = self.space_calculator.calculate_spaces(
                 obj_name, full_name, empty_if_exceeds=False, trunc_left=False
@@ -323,12 +329,12 @@ class UINearby(UIModule):
         for obj_type, txt in text_lines:
             marker = OBJ_TYPE_MARKERS.get(obj_type)
             if marker:
-                self.screen.paste(self.markers[marker], (0, line))
-            txt.draw((12, line))
+                self.screen.paste(self.markers[marker], (0, line + 1))
+            txt.draw((12, line - 1))
             line += 11
         # Show inverted selection on object
         if self.current_line > -1:
-            topleft = (0, 17 + 11 * self.current_line)
+            topleft = (0, 18 + 11 * self.current_line)
             bottomright = (128, 17 + 11 * (self.current_line + 1) + 1)
             self.invert_red_channel(self.screen, topleft, bottomright)
         return self.screen_update()
@@ -390,7 +396,10 @@ class UINearby(UIModule):
             self.switch_to = "UILocate"
 
     def key_up(self):
-        self.current_line = max(-1, self.current_line - 1)
+        if self.current_line == -1:
+            self.current_line = self.max_objects - 1
+        else:
+            self.current_line = max(-1, self.current_line - 1)
 
     def key_down(self):
-        self.current_line = (self.current_line + 1) % 10
+        self.current_line = (self.current_line + 1) % self.max_objects
