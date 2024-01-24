@@ -4,6 +4,7 @@
 This module contains all the UI Module classes
 
 """
+from enum import Enum
 import time
 import timeit
 import numpy as np
@@ -22,18 +23,28 @@ from PiFinder.ui.ui_utils import (
 from PiFinder.catalogs import (
     CatalogTracker,
 )
-from PiFinder.calc_utils import aim_degrees, FastAltAz
+from PiFinder.calc_utils import aim_degrees
 import functools
 import logging
 
-from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.catalogs import CompositeObject
 from PiFinder.ui.catalog import UICatalog
 from PiFinder.ui.fonts import Fonts as fonts
-from PIL import Image, ImageChops, ImageOps
+from PIL import Image, ImageChops
 from pathlib import Path
 import os
+from itertools import cycle
 from PiFinder import utils
+
+
+class Modes(Enum):
+    """
+    Enum for the different modes
+    """
+
+    LOCATE = 0
+    NAME = 1
+    INFO = 2
 
 
 class UINearby(UIModule):
@@ -43,23 +54,30 @@ class UINearby(UIModule):
 
     __title__ = "NEARBY"
     __button_hints__ = {
-        "B": "Display",
+        "B": "Mode",
     }
     _config_options = {}
     left_arrow = ""
     right_arrow = ""
     up_arrow = ""
     down_arrow = ""
+    checkmark = "󰄵"
+    checkmark_no = ""
+    sun = "󰖨"
+    ruler = ""
 
     def __init__(self, ui_catalog: UICatalog, *args):
         super().__init__(*args)
         self.ui_catalog = ui_catalog
         self._config_options = ui_catalog._config_options
-        self.catalog_tracker = ui_catalog.catalog_tracker
+        self.catalog_tracker: CatalogTracker = ui_catalog.catalog_tracker
         self.screen_direction = config.Config().get_option("screen_direction")
         self.mount_type = config.Config().get_option("mount_type")
         self.simpleTextLayout = functools.partial(
-            TextLayouterSimple, draw=self.draw, color=self.colors.get(255)
+            TextLayouterSimple,
+            draw=self.draw,
+            color=self.colors.get(255),
+            embedded_color=True,
         )
         self.descTextLayout = TextLayouter(
             "",
@@ -72,17 +90,16 @@ class UINearby(UIModule):
             TextLayouterScroll, draw=self.draw, color=self.colors.get(255)
         )
         self.space_calculator = SpaceCalculatorFixed(fonts.base_width - 2)
-        self.texts = {
-            "type-const": self.simpleTextLayout(
-                "No Object Found", font=self.font_bold, color=self.colors.get(255)
-            ),
-        }
         self.closest_objects = []
         self.closest_objects_text = []
         self.font_large = fonts.large
         self.objects_balltree = None
         self.catalog_tracker.filter()
         self.current_line = -1
+        self.mode_cycle = cycle(Modes)
+        self.current_mode = next(self.mode_cycle)
+        self.fullred = self.rgb_to_embedded_color((255, 0, 0))
+        self.halfred = self.rgb_to_embedded_color((125, 0, 0))
 
         marker_path = Path(utils.pifinder_dir, "markers")
         self.markers = {}
@@ -142,6 +159,25 @@ class UINearby(UIModule):
         else:
             return int(255 + ((125 - 255) / (16 - 9)) * (mag - 9))
 
+    def rgb_to_embedded_color(self, rgb_tuple):
+        """
+        Convert an RGB color tuple to embedded color values with ANSI escape codes.
+
+        Args:
+            rgb_tuple (tuple): A tuple containing RGB values in the range [0, 255].
+
+        Returns:
+            str: A string with embedded color ANSI escape codes.
+        """
+        # Ensure that RGB values are within the valid range [0, 255]
+        r, g, b = [max(0, min(255, value)) for value in rgb_tuple]
+
+        # Convert RGB to ANSI escape codes for foreground color
+        escape_code = f"\x1b[38;2;{r};{g};{b}m"
+
+        # Return the escape code
+        return escape_code
+
     def update_closest(self):
         """
         get the current pointing solution and search the 10 closest objects
@@ -166,35 +202,82 @@ class UINearby(UIModule):
                     11,
                     self.objects_balltree,
                 )
-
-            # logging.debug(f"Closest objects: {closest_objects}")
-            closest_objects_text = []
-            for obj in closest_objects:
-                az, alt = aim_degrees(
-                    self.shared_state, self.mount_type, self.screen_direction, obj
-                )
-                if az:
-                    az_txt, alt_txt = self.format_az_alt(az, alt)
-                    distance = f"{az_txt} {alt_txt}"
-                else:
-                    distance = "--.- --.-"
-                # logging.debug(f"Closest object dist = {az}, {alt}")
-                obj_name = f"{obj.catalog_code}{obj.sequence}"
-                _, obj_dist = self.space_calculator.calculate_spaces(
-                    obj_name, distance, empty_if_exceeds=False, trunc_left=True
-                )
-                try:
-                    obj_mag = float(obj.mag)
-                except (ValueError, TypeError):
-                    obj_mag = 99
-                entry = self.simpleTextLayout(
-                    obj_dist,
-                    font=fonts.base,
-                    color=self.colors.get(self._interpolate_color(obj_mag)),
-                )
-                closest_objects_text.append((obj.obj_type, entry))
             self.closest_objects = closest_objects
-            self.closest_objects_text = closest_objects_text
+
+    def create_locate_text(self) -> List[TextLayouterSimple]:
+        result = []
+        for obj in self.closest_objects:
+            az, alt = aim_degrees(
+                self.shared_state, self.mount_type, self.screen_direction, obj
+            )
+            if az:
+                az_txt, alt_txt = self.format_az_alt(az, alt)
+                distance = f"{az_txt} {alt_txt}"
+            else:
+                distance = "--.- --.-"
+            # logging.debug(f"Closest object dist = {az}, {alt}")
+            obj_name = f"{obj.catalog_code}{obj.sequence}"
+            _, obj_dist = self.space_calculator.calculate_spaces(
+                obj_name, distance, empty_if_exceeds=False, trunc_left=True
+            )
+            obj_mag, obj_color = self._obj_to_mag_color(obj)
+            entry = self.simpleTextLayout(
+                obj_dist,
+                font=fonts.base,
+                color=obj_color,
+            )
+            result.append((obj.obj_type, entry))
+        return result
+
+    def create_name_text(self) -> List[TextLayouterSimple]:
+        result = []
+        for obj in self.closest_objects:
+            full_name = f"{','.join(obj.names)}" if obj.names else ""
+            obj_name = f"{obj.catalog_code}{obj.sequence}"
+            _, obj_dist = self.space_calculator.calculate_spaces(
+                obj_name, full_name, empty_if_exceeds=False, trunc_left=False
+            )
+
+            obj_mag, obj_color = self._obj_to_mag_color(obj)
+            entry = self.simpleTextLayout(
+                obj_dist,
+                font=fonts.base,
+                color=obj_color,
+            )
+            result.append((obj.obj_type, entry))
+        return result
+
+    def create_info_text(self) -> List[TextLayouterSimple]:
+        result = []
+        for obj in self.closest_objects:
+            obj_mag, obj_color = self._obj_to_mag_color(obj)
+            mag = f"{self.sun}{obj_mag}" if obj_mag != 99 else ""
+            size = f"{self.ruler}{obj.size.strip()}" if obj.size.strip() else ""
+            full_name = (
+                f"{mag} {size} {self.checkmark if obj.logged else self.checkmark_no}"
+            )
+            obj_name = f"{obj.catalog_code}{obj.sequence}"
+            _, obj_dist = self.space_calculator.calculate_spaces(
+                obj_name, full_name, empty_if_exceeds=False, trunc_left=False
+            )
+
+            entry = self.simpleTextLayout(
+                obj_dist,
+                font=fonts.base,
+                color=obj_color,
+            )
+            result.append((obj.obj_type, entry))
+        return result
+
+    def _obj_to_mag_color(self, obj: CompositeObject):
+        """
+        Extract the magnitude safely from the object and convert it into a color
+        """
+        try:
+            obj_mag = float(obj.mag)
+        except (ValueError, TypeError):
+            obj_mag = 99
+        return obj_mag, self.colors.get(self._interpolate_color(obj_mag))
 
     def invert_red_channel(self, image, top_left, bottom_right):
         # Convert PIL image to NumPy array
@@ -226,11 +309,18 @@ class UINearby(UIModule):
     def update(self, force=True):
         time.sleep(1 / 30)
         self.update_closest()
+        if self.current_mode == Modes.LOCATE:
+            text_lines = self.create_locate_text()
+        elif self.current_mode == Modes.NAME:
+            text_lines = self.create_name_text()
+        elif self.current_mode == Modes.INFO:
+            text_lines = self.create_info_text()
+
         # Clear Screen
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
         line = 17
         # Draw the closest objects
-        for obj_type, txt in self.closest_objects_text:
+        for obj_type, txt in text_lines:
             marker = OBJ_TYPE_MARKERS.get(obj_type)
             if marker:
                 self.screen.paste(self.markers[marker], (0, line))
@@ -255,8 +345,8 @@ class UINearby(UIModule):
         self.catalog_tracker.set_current_object(None)
         self.update_object_info()
 
-    def key_c(self):
-        pass
+    def key_d(self):
+        self.current_line = -1
         # C is for catalog
         # self.catalog_tracker.next_catalog()
         # self.catalog_tracker.filter()
@@ -271,7 +361,7 @@ class UINearby(UIModule):
         # self.update_object_info()
 
     def key_b(self):
-        pass
+        self.current_mode = next(self.mode_cycle)
         # if self.catalog_tracker.get_current_object() is None:
         #     self.object_display_mode = DM_DESC
         # else:

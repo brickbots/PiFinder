@@ -83,11 +83,13 @@ class TextLayouterSimple:
         color,
         font=fonts.base,
         width=fonts.base_width,
+        embedded_color=False,
     ):
         self.text = text
         self.font = font
         self.color = color
         self.width = width
+        self.embedded_color = embedded_color
         self.drawobj = draw
         self.object_text: List[str] = []
         self.updated = True
@@ -112,7 +114,12 @@ class TextLayouterSimple:
     def draw(self, pos: Tuple[int, int] = (0, 0)):
         self.layout(pos)
         self.drawobj.multiline_text(
-            pos, "\n".join(self.object_text), font=self.font, fill=self.color, spacing=0
+            pos,
+            "\n".join(self.object_text),
+            font=self.font,
+            fill=self.color,
+            embedded_color=self.embedded_color,
+            spacing=0,
         )
         self.after_draw(pos)
 
