@@ -137,6 +137,7 @@ class UICatalog(UIModule):
         Since we can't calc planet positions until we know the date/time
         this is called once we have a GPS lock to add on the planets catalog
         """
+        self.catalogs.remove("PL")
         self.catalogs.add(PlanetCatalog(dt))
         self.catalog_tracker = CatalogTracker(
             self.catalogs, self.shared_state, self._config_options

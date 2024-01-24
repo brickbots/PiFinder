@@ -1,6 +1,7 @@
 import logging
 import time
 import datetime
+import pytz
 from typing import List, Dict, DefaultDict, Optional
 import numpy as np
 import pandas as pd
@@ -256,6 +257,14 @@ class Catalogs:
         else:
             logging.warning(f"Catalog {catalog.catalog_code} already exists")
 
+    def remove(self, catalog_code: str):
+        self.__refresh_code_to_pos()
+        if catalog_code in self._code_to_pos:
+            self.catalogs.pop(self._code_to_pos[catalog_code])
+            self._code_to_pos = {}
+        else:
+            logging.warning(f"Catalog {catalog.catalog_code} does not exist")
+
     def get_codes(self) -> List[str]:
         self.__refresh_code_to_pos()
         return list(self._code_to_pos.keys())
@@ -356,6 +365,13 @@ class CatalogBuilder:
         self.catalog_dicts = {}
         logging.debug(f"Loaded {len(composite_objects)} objects from database")
         all_catalogs: Catalogs = self._get_catalogs(composite_objects, catalogs_info)
+        # Initialize planet catalog with whatever date we have for now
+        # This will be re-initialized on activation of Catalog ui module
+        # if we have GPS lock
+        planet_catalog: Catalog = PlanetCatalog(
+            datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC"))
+        )
+        all_catalogs.add(planet_catalog)
         return all_catalogs
 
     def _build_composite(
