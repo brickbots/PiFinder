@@ -313,8 +313,9 @@ class UINearby(UIModule):
         self.update_object_info()
 
     def update(self, force=True):
-        time.sleep(1 / 30)
+        utils.sleep_for_framerate(self.shared_state)
         self.update_closest()
+        text_lines = []
         if self.current_mode == Modes.LOCATE:
             text_lines = self.create_locate_text()
         elif self.current_mode == Modes.NAME:
