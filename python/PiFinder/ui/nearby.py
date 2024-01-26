@@ -418,3 +418,9 @@ class UINearby(UIModule):
             self.current_line = -1
         else:
             self.current_line = (self.current_line + 1) % self.current_nr_objects
+
+    def push_cat(self, obj_amount):
+        self.ui_catalog.push_cat(obj_amount)
+
+    def push_near(self, obj_amount):
+        self.ui_catalog.push_near(obj_amount)

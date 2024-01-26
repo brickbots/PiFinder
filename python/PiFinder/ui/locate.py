@@ -109,7 +109,7 @@ class UILocate(UIModule):
             else:
                 self.message("No History", 1)
 
-        if self.target_index != None:
+        if self.target_index is not None:
             self.ui_state.set_target_to_active_list_index(self.target_index)
             self.update_object_text()
 
