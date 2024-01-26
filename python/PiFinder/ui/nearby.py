@@ -266,7 +266,7 @@ class UINearby(UIModule):
         result = []
         for obj in self.closest_objects:
             obj_mag, obj_color = self._obj_to_mag_color(obj)
-            mag = f"{self.star}{obj_mag}" if obj_mag != 99 else ""
+            mag = f"m{obj_mag}" if obj_mag != 99 else ""
             size = f"{self.ruler}{obj.size.strip()}" if obj.size.strip() else ""
             full_name = (
                 f"{mag} {size} {self.checkmark if obj.logged else self.checkmark_no}"
