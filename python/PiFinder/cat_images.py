@@ -92,6 +92,8 @@ def resolve_image_name(catalog_object, source):
     """
     returns the image path for this objects
     """
+    if catalog_object.image_name == "":
+        return ""
     return f"{BASE_IMAGE_PATH}/{str(catalog_object.image_name)[-1]}/{catalog_object.image_name}_{source}.jpg"
 
 

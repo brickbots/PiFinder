@@ -24,6 +24,7 @@ from PiFinder.catalogs import (
     CatalogTracker,
 )
 from PiFinder.calc_utils import aim_degrees
+from PiFinder.catalog_utils import ClosestObjectsFinder
 import functools
 import logging
 
@@ -100,12 +101,14 @@ class UINearby(UIModule):
         self.closest_objects_text = []
         self.font_large = fonts.large
         self.objects_balltree = None
-        self.catalog_tracker.filter()
+        self.closest_objects_finder = ClosestObjectsFinder()
         self.current_line = -1
         self.mode_cycle = cycle(Modes)
         self.current_mode = next(self.mode_cycle)
         self.fullred = self.rgb_to_embedded_color((255, 0, 0))
         self.halfred = self.rgb_to_embedded_color((125, 0, 0))
+        self.current_nr_objects = 0
+        self.filter()
 
         marker_path = Path(utils.pifinder_dir, "markers")
         self.markers = {}
@@ -128,6 +131,9 @@ class UINearby(UIModule):
 
     def update_object_info(self):
         self.update()
+
+    def filter(self):
+        self.catalog_tracker.filter()
 
     def format_az_alt(self, point_az, point_alt):
         if point_az >= 0:
@@ -195,19 +201,22 @@ class UINearby(UIModule):
                 (
                     closest_objects,
                     self.objects_balltree,
-                ) = self.catalog_tracker.get_closest_objects(
+                ) = self.closest_objects_finder.get_closest_objects(
                     self.shared_state.solution()["RA"],
                     self.shared_state.solution()["Dec"],
                     self.max_objects + 1,
                     catalogs=self.catalog_tracker.catalogs,
                 )
             else:
-                closest_objects = self.catalog_tracker.get_closest_objects_cached(
-                    self.shared_state.solution()["RA"],
-                    self.shared_state.solution()["Dec"],
-                    self.max_objects + 1,
-                    self.objects_balltree,
+                closest_objects = (
+                    self.closest_objects_finder.get_closest_objects_cached(
+                        self.shared_state.solution()["RA"],
+                        self.shared_state.solution()["Dec"],
+                        self.max_objects + 1,
+                        self.objects_balltree,
+                    )
                 )
+            self.current_nr_objects = len(closest_objects)
             self.closest_objects = closest_objects
 
     def create_locate_text(self) -> List[TextLayouterSimple]:
@@ -310,7 +319,7 @@ class UINearby(UIModule):
     def active(self):
         # trigger refilter
         super().active()
-        self.catalog_tracker.filter()
+        self.filter()
         self.objects_balltree = None
         self.update_object_info()
 
@@ -382,8 +391,8 @@ class UINearby(UIModule):
         #     self.update()
 
     def background_update(self):
-        if time.time() - self.catalog_tracker.current_catalog.last_filtered > 60:
-            self.catalog_tracker.filter()
+        if time.time() - self.catalog_tracker.get_current_catalog().last_filtered > 60:
+            self.filter()
 
     def key_enter(self):
         """
@@ -400,9 +409,12 @@ class UINearby(UIModule):
 
     def key_up(self):
         if self.current_line == -1:
-            self.current_line = self.max_objects - 1
+            self.current_line = self.current_nr_objects - 1
         else:
             self.current_line = max(-1, self.current_line - 1)
 
     def key_down(self):
-        self.current_line = (self.current_line + 1) % self.max_objects
+        if self.current_line + 1 == self.current_nr_objects:
+            self.current_line = -1
+        else:
+            self.current_line = (self.current_line + 1) % self.current_nr_objects
