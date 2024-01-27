@@ -26,6 +26,7 @@ from multiprocessing.managers import BaseManager
 from timezonefinder import TimezoneFinder
 
 # Keep numpy from using multiple threads
+# https://rhodesmill.org/skyfield/accuracy-efficiency.html
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
