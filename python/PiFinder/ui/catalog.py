@@ -247,9 +247,11 @@ class UICatalog(UIModule):
             has_number = self.catalog_tracker.get_designator().has_number()
             self.texts = {}
             self.texts["type-const"] = TextLayouter(
-                self.catalog_tracker.current_catalog.desc
-                if not has_number
-                else "Object not found",
+                (
+                    self.catalog_tracker.current_catalog.desc
+                    if not has_number
+                    else "Object not found"
+                ),
                 draw=self.draw,
                 colors=self.colors,
                 font=fonts.base,
