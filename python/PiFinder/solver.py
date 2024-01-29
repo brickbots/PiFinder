@@ -10,13 +10,19 @@ This module is the solver
 import time
 import logging
 
-from PiFinder.tetra3 import Tetra3
+import sys
+
+sys.path.append("./PiFinder/tetra3/tetra3")
+
+import PiFinder.tetra3
 from PiFinder import utils
 
 
 def solver(shared_state, solver_queue, camera_image, console_queue):
     logging.getLogger("tetra3.Tetra3").addHandler(logging.NullHandler())
-    t3 = Tetra3(utils.astro_data_dir / "pifinder_fov10-5_m7_hip.npz")
+    t3 = PiFinder.tetra3.tetra3.Tetra3(
+        str(utils.cwd_dir / "PiFinder/tetra3/tetra3/data/default_database.npz")
+    )
     last_solve_time = 0
     solved = {
         "RA": None,
