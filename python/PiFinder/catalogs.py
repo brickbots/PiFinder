@@ -286,7 +286,7 @@ class Catalogs:
             logging.warning(f"Catalog {catalog.catalog_code} already exists")
 
     def remove(self, catalog_code: str):
-        self.__refresh_code_to_pos()
+        self._refresh_code_to_pos()
         if catalog_code in self._code_to_pos:
             self.catalogs.pop(self._code_to_pos[catalog_code])
             self._code_to_pos = {}
