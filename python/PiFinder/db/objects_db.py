@@ -177,7 +177,6 @@ class ObjectsDatabase(Database):
         self.conn.commit()
 
     def get_catalog_by_code(self, catalog_code):
-        print("get_catalog_by_code", catalog_code)
         self.cursor.execute(
             "SELECT * FROM catalogs WHERE catalog_code = ?;", (catalog_code,)
         )

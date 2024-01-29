@@ -190,9 +190,13 @@ class UICatalog(UIModule):
             self.texts["aka"].set_scrollspeed(self._get_scrollspeed_config())
 
         # Update catalog names if needed
-        if self.catalog_names != self._config_options["Catalogs"]["value"]:
+        catalog_values = self._config_options["Catalogs"]["value"]
+        if self.catalog_names != catalog_values:
             self.message("Updating Cats.", 0)
-            self.catalog_names = self._config_options["Catalogs"]["value"].copy()
+            self.catalog_names = catalog_values.copy()
+            if len(self.catalog_names) == 0:
+                self.catalog_names.append("M")
+                catalog_values.append("M")
             self.config_object.set_option("active_catalogs", self.catalog_names)
             self.catalog_tracker.select_catalogs(self.catalog_names)
 

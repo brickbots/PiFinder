@@ -210,6 +210,9 @@ class Catalog(CatalogBase):
         self.filtered_objects_seq: List[int] = self._filtered_objects_to_seq()
         self.last_filtered = 0
 
+    def has(self, sequence: int, filtered=True):
+        return sequence in self.filtered_objects_seq
+
     def _filtered_objects_to_seq(self):
         return [obj.sequence for obj in self.filtered_objects]
 
@@ -693,10 +696,10 @@ class CatalogTracker:
                 observed_filter,
             )
             catalog.filter_objects(self.shared_state)
+        # delete currently selected object if it's now filtered out
         current_object = self.object_tracker[self.current_catalog_code]
-        if (
-            current_object is not None
-            and not current_object in self.get_current_catalog().filtered_objects
+        if current_object is not None and not self.get_current_catalog().has(
+            current_object
         ):
             self.set_current_object(None, catalog_list[0].catalog_code)
 
