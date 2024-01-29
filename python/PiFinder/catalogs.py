@@ -291,7 +291,7 @@ class Catalogs:
             self.catalogs.pop(self._code_to_pos[catalog_code])
             self._code_to_pos = {}
         else:
-            logging.warning(f"Catalog {catalog.catalog_code} does not exist")
+            logging.warning(f"Catalog {catalog_code} does not exist")
 
     def get_codes(self) -> List[str]:
         return list(self._code_to_pos.keys())
