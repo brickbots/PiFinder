@@ -2,7 +2,7 @@ import logging
 import time
 import datetime
 import pytz
-from typing import List, Dict, DefaultDict, Optional, Tuple
+from typing import List, Dict, DefaultDict, Optional
 
 import PiFinder.calc_utils as calc_utils
 from PiFinder.db.db import Database
@@ -283,7 +283,7 @@ class Catalogs:
             self.__catalogs.append(catalog)
             self._refresh_code_to_pos()
         else:
-            logging.warning(f"Catalog {catalog.catalog_code} already exists")
+            logging.warning(f"Catalog {catalog_code} already exists")
 
     def remove(self, catalog_code: str):
         self._refresh_code_to_pos()
