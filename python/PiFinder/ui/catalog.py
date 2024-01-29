@@ -145,6 +145,7 @@ class UICatalog(UIModule):
         Since we can't calc planet positions until we know the date/time
         this is called once we have a GPS lock to add on the planets catalog
         """
+        self.catalogs.remove("PL")
         self.catalogs.add(PlanetCatalog(dt))
         self.catalog_tracker = CatalogTracker(
             self.catalogs, self.shared_state, self._config_options
@@ -254,10 +255,13 @@ class UICatalog(UIModule):
         """
         cat_object: CompositeObject = self.catalog_tracker.get_current_object()
         if not cat_object:
-            curr_catalog = self.catalog_tracker.get_current_catalog()
             self.texts = {}
             self.texts["type-const"] = TextLayouter(
-                "Object not found",
+                (
+                    self.catalog_tracker.current_catalog.desc
+                    if not self.catalog_tracker.get_designator().has_number()
+                    else "Object not found"
+                ),
                 draw=self.draw,
                 colors=self.colors,
                 font=fonts.base,

@@ -19,7 +19,6 @@ import queue
 import datetime
 import json
 import uuid
-import sys
 import logging
 import argparse
 import pickle
@@ -28,6 +27,11 @@ from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 from timezonefinder import TimezoneFinder
+
+# Keep numpy from using multiple threads
+# https://rhodesmill.org/skyfield/accuracy-efficiency.html
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
 
 from luma.core.interface.serial import spi
 
@@ -265,7 +269,6 @@ def main(script_name=None, show_fps=False):
         gps_process.start()
         console.set_shared_state(shared_state)
 
-        # multiprocessing.set_start_method('spawn')
         # spawn keyboard service....
         console.write("   Keyboard")
         console.update()
