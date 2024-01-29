@@ -37,7 +37,7 @@ def auth_required(func):
     def auth_wrapper(*args, **kwargs):
         # check for and validate cookie
         auth_cookie = request.get_cookie("pf_auth", secret=SESSION_SECRET)
-        if auth_cookie or True:
+        if auth_cookie:
             return func(*args, **kwargs)
 
         return template("login", origin_url=request.url)
