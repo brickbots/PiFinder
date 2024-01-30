@@ -564,7 +564,7 @@ class CatalogTracker:
 
     def refresh_catalogs(self):
         logging.debug(
-            f"refresh_catalogs: {self.catalogs=}, {self.current_catalog_code=}, {self.object_tracker=}, {self.designator_tracker=}"
+            f"refresh_catalogs: {self.catalogs=}, {self.object_tracker=}, {self.designator_tracker=}"
         )
         self.designator_tracker = {
             c.catalog_code: CatalogDesignator(c.catalog_code, c.max_sequence)
@@ -574,7 +574,7 @@ class CatalogTracker:
         self.set_default_current_catalog()
         self.object_tracker = {c: None for c in catalog_codes}
         logging.debug(
-            f"refresh_catalogs: {self.catalogs=}, {self.current_catalog_code=}, {self.object_tracker=}, {self.designator_tracker=}"
+            f"refresh_catalogs: {self.catalogs=}, {self.object_tracker=}, {self.designator_tracker=}"
         )
 
     def select_catalogs(self, catalog_names: List[str]):
