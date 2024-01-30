@@ -7,15 +7,24 @@ This module is the solver
 * If solved, emits solution into queue
 
 """
-import time
-import logging
+from PiFinder import utils
 
 import sys
+import logging
 
-sys.path.append("./PiFinder/tetra3/tetra3")
-
+sys.path.append(str(utils.tetra3_dir))
 import PiFinder.tetra3
-from PiFinder import utils
+import cedar_detect_client
+
+
+# Select method used for star detection and centroiding. True for cedar-detect,
+# False for Tetra3.
+USE_CEDAR_DETECT = True
+
+if USE_CEDAR_DETECT:
+    cedar_detect = cedar_detect_client.CedarDetectClient(
+        binary_path=str(utils.tetra3_dir / "bin/cedar-detect-server")
+    )
 
 
 def solver(shared_state, solver_queue, camera_image, console_queue):
