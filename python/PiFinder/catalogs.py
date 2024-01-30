@@ -563,6 +563,9 @@ class CatalogTracker:
         return self.catalogs.get_catalog_by_code(self.current_catalog_code)
 
     def refresh_catalogs(self):
+        logging.debug(
+            f"refresh_catalogs: {self.catalogs=}, {self.current_catalog_code=}, {self.object_tracker=}, {self.designator_tracker=}"
+        )
         self.designator_tracker = {
             c.catalog_code: CatalogDesignator(c.catalog_code, c.max_sequence)
             for c in self.catalogs.get_catalogs()
@@ -570,6 +573,9 @@ class CatalogTracker:
         catalog_codes = self.catalogs.get_codes()
         self.set_default_current_catalog()
         self.object_tracker = {c: None for c in catalog_codes}
+        logging.debug(
+            f"refresh_catalogs: {self.catalogs=}, {self.current_catalog_code=}, {self.object_tracker=}, {self.designator_tracker=}"
+        )
 
     def select_catalogs(self, catalog_names: List[str]):
         self.catalogs.select_catalogs(catalog_names)
@@ -622,9 +628,9 @@ class CatalogTracker:
             self.catalogs.get_catalog_pos_by_code(self.current_catalog_code) or 0
         )
         next_index = (current_index + direction) % self.catalogs.count()
-        self.set_current_catalog(
-            self.catalogs.get_catalog_by_pos(next_index).catalog_code
-        )
+        next_catalog = self.catalogs.get_catalog_by_pos(next_index)
+        assert next_catalog is not None
+        self.set_current_catalog(next_catalog.catalog_code)
 
     def previous_catalog(self):
         self.next_catalog(-1)
@@ -665,20 +671,14 @@ class CatalogTracker:
     def previous_object(self):
         return self.next_object(-1)
 
-    # def does_filtered_have_current_object(self):
-    #     return (
-    #         self.object_tracker[self.current_catalog_name]
-    #         in self.current_catalog.filtered_objects
-    #     )
-
     def get_current_object(self) -> CompositeObject:
         object_key = self.object_tracker[self.current_catalog_code]
         if object_key is None:
             return None
         return self.get_current_catalog().get_object_by_sequence(object_key)
 
-    def set_current_object(self, object_number: int, catalog_code: str = None):
-        if catalog_code is not None:
+    def set_current_object(self, object_number: int, catalog_code: str = ""):
+        if not catalog_code:
             try:
                 self.set_current_catalog(catalog_code)
             except AssertionError:
@@ -689,11 +689,14 @@ class CatalogTracker:
         else:
             catalog_code = self.current_catalog_code
         self.object_tracker[catalog_code] = object_number
+        logging.debug(
+            f"set_current_object: {self.object_tracker=}, {self.designator_tracker=}, {catalog_code=}, {object_number=}, {self.get_current_object()=}"
+        )
         self.designator_tracker[catalog_code].set_number(
             object_number if object_number else 0
         )
 
-    def get_designator(self, catalog_code: str = None) -> CatalogDesignator:
+    def get_designator(self, catalog_code: str = "") -> CatalogDesignator:
         catalog_code: str = catalog_code or self.current_catalog_code
         return self.designator_tracker[catalog_code]
 
