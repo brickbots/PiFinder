@@ -564,7 +564,7 @@ class CatalogTracker:
 
     def refresh_catalogs(self):
         logging.debug(
-            f"refresh_catalogs: {self.catalogs=}, {self.object_tracker=}, {self.designator_tracker=}"
+            f"refresh_catalogs: {self.catalogs=}, {self.object_tracker if self.object_tracker else 'no object tracker'}, {self.designator_tracker if self.designator_tracker else 'no designator tracker'}"
         )
         self.designator_tracker = {
             c.catalog_code: CatalogDesignator(c.catalog_code, c.max_sequence)
