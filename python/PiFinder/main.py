@@ -200,7 +200,7 @@ def wake_screen(screen_brightness, shared_state, cfg) -> int:
     return orig_power_state
 
 
-def main(script_name=None, show_fps=False):
+def main(script_name=None, show_fps=False, verbose=False):
     """
     Get this show on the road!
     """
@@ -284,7 +284,7 @@ def main(script_name=None, show_fps=False):
 
         server_process = Process(
             target=server.run_server,
-            args=(keyboard_queue, gps_queue, shared_state),
+            args=(keyboard_queue, gps_queue, shared_state, verbose),
         )
         server_process.start()
 
@@ -326,7 +326,7 @@ def main(script_name=None, show_fps=False):
         console.update()
         solver_process = Process(
             target=solver.solver,
-            args=(shared_state, solver_queue, camera_image, console_queue),
+            args=(shared_state, solver_queue, camera_image, console_queue, verbose),
         )
         solver_process.start()
 
@@ -335,7 +335,7 @@ def main(script_name=None, show_fps=False):
         console.update()
         integrator_process = Process(
             target=integrator.integrator,
-            args=(shared_state, solver_queue, console_queue),
+            args=(shared_state, solver_queue, console_queue, verbose),
         )
         integrator_process.start()
 
@@ -824,4 +824,4 @@ if __name__ == "__main__":
         fh.setLevel(logger.level)
         logger.addHandler(fh)
 
-    main(args.script, args.fps)
+    main(args.script, args.fps, args.verbose)

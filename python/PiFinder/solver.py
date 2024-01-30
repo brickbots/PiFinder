@@ -25,8 +25,12 @@ import cedar_detect_client
 USE_CEDAR_DETECT = True
 
 
-def solver(shared_state, solver_queue, camera_image, console_queue):
+def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=False):
+    # logger = logging.getLogger()
+    # if is_debug:
+    #    logger.setLevel(logging.DEBUG)
     logging.getLogger("tetra3.Tetra3").addHandler(logging.NullHandler())
+    logging.debug("Starting Solver")
     t3 = PiFinder.tetra3.tetra3.Tetra3(
         str(utils.cwd_dir / "PiFinder/tetra3/tetra3/data/default_database.npz")
     )
@@ -68,13 +72,13 @@ def solver(shared_state, solver_queue, camera_image, console_queue):
                     logging.info("Falling back to Tetra3 for centroiding")
                     centroids = tetra3.get_centroids_from_image(np_image)
                 t_extract = (precision_timestamp() - t0) * 1000
-                print(
+                logging.debug(
                     "File %s, extracted %d centroids in %.2fms"
                     % ("camera", len(centroids), t_extract)
                 )
 
                 if len(centroids) == 0:
-                    print("No stars found, skipping")
+                    logging.debug("No stars found, skipping")
                     return
                 else:
                     solution = t3.solve_from_centroids(
@@ -97,15 +101,13 @@ def solver(shared_state, solver_queue, camera_image, console_queue):
                         del solution["epoch_proper_motion"]
                         del solution["cache_hit_fraction"]
 
-                    # print('Solution %s' % solution)
-
                 solved |= solution
 
                 total_tetra_time = t_extract + solved["T_solve"]
                 if total_tetra_time > 1000:
                     console_queue.put(f"SLV: Long: {total_tetra_time}")
 
-                if solved["RA"] != None:
+                if solved["RA"] is not None:
                     # map the RA/DEC to the target pixel RA/DEC
                     solved["RA"] = solved["RA_target"]
                     solved["Dec"] = solved["Dec_target"]
@@ -114,9 +116,8 @@ def solver(shared_state, solver_queue, camera_image, console_queue):
                     else:
                         solved["imu_pos"] = None
                     solved["solve_time"] = time.time()
-                    solved["cam_solve_time"] = solved["T_solve"]
+                    solved["cam_solve_time"] = solved["solve_time"]
                     solver_queue.put(solved)
-                    print("Solved!", solved)
 
                 last_solve_time = last_image_metadata["exposure_end"]
     except EOFError:
