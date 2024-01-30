@@ -11,6 +11,9 @@ from PiFinder import utils
 
 import sys
 import logging
+import time
+from time import perf_counter as precision_timestamp
+import numpy as np
 
 sys.path.append(str(utils.tetra3_dir))
 import PiFinder.tetra3
@@ -20,11 +23,6 @@ import cedar_detect_client
 # Select method used for star detection and centroiding. True for cedar-detect,
 # False for Tetra3.
 USE_CEDAR_DETECT = True
-
-if USE_CEDAR_DETECT:
-    cedar_detect = cedar_detect_client.CedarDetectClient(
-        binary_path=str(utils.tetra3_dir / "bin/cedar-detect-server")
-    )
 
 
 def solver(shared_state, solver_queue, camera_image, console_queue):
@@ -40,31 +38,70 @@ def solver(shared_state, solver_queue, camera_image, console_queue):
         "solve_time": None,
         "cam_solve_time": 0,
     }
+
+    if USE_CEDAR_DETECT:
+        cedar_detect = cedar_detect_client.CedarDetectClient(
+            binary_path=str(utils.cwd_dir / "../bin/cedar-detect-server-mac")
+        )
     try:
         while True:
             if shared_state.power_state() <= 0:
                 time.sleep(0.5)
             # use the time the exposure started here to
-            # reject images startede before the last solve
+            # reject images started before the last solve
             # which might be from the IMU
             last_image_metadata = shared_state.last_image_metadata()
             if (
                 last_image_metadata["exposure_end"] > (last_solve_time)
                 and last_image_metadata["imu_delta"] < 0.1
             ):
-                solve_image = camera_image.copy()
+                img = camera_image.copy()
+                img = img.convert(mode="L")
+                np_image = np.asarray(img, dtype=np.uint8)
 
-                new_solve = t3.solve_from_image(
-                    solve_image,
-                    fov_estimate=10.2,
-                    fov_max_error=0.5,
-                    solve_timeout=500,
-                    target_pixel=shared_state.solve_pixel(),
+                t0 = precision_timestamp()
+                if USE_CEDAR_DETECT:
+                    centroids = cedar_detect.extract_centroids(
+                        np_image, sigma=8, max_size=8, use_binned=True
+                    )
+                else:
+                    logging.info("Falling back to Tetra3 for centroiding")
+                    centroids = tetra3.get_centroids_from_image(np_image)
+                t_extract = (precision_timestamp() - t0) * 1000
+                print(
+                    "File %s, extracted %d centroids in %.2fms"
+                    % ("camera", len(centroids), t_extract)
                 )
 
-                solved |= new_solve
+                if len(centroids) == 0:
+                    print("No stars found, skipping")
+                    return
+                else:
+                    solution = t3.solve_from_centroids(
+                        centroids,
+                        (512, 512),
+                        fov_estimate=10.2,
+                        match_max_error=0.005,
+                        return_matches=True,
+                        target_pixel=shared_state.solve_pixel(),
+                        solve_timeout=1000,
+                    )
 
-                total_tetra_time = solved["T_extract"] + solved["T_solve"]
+                    if "matched_centroids" in solution:
+                        # Don't clutter printed solution with these fields.
+                        del solution["matched_centroids"]
+                        del solution["matched_stars"]
+                        del solution["matched_catID"]
+                        del solution["pattern_centroids"]
+                        del solution["epoch_equinox"]
+                        del solution["epoch_proper_motion"]
+                        del solution["cache_hit_fraction"]
+
+                    # print('Solution %s' % solution)
+
+                solved |= solution
+
+                total_tetra_time = t_extract + solved["T_solve"]
                 if total_tetra_time > 1000:
                     console_queue.put(f"SLV: Long: {total_tetra_time}")
 
@@ -77,8 +114,9 @@ def solver(shared_state, solver_queue, camera_image, console_queue):
                     else:
                         solved["imu_pos"] = None
                     solved["solve_time"] = time.time()
-                    solved["cam_solve_time"] = solved["solve_time"]
+                    solved["cam_solve_time"] = solved["T_solve"]
                     solver_queue.put(solved)
+                    print("Solved!", solved)
 
                 last_solve_time = last_image_metadata["exposure_end"]
     except EOFError:
