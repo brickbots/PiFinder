@@ -31,18 +31,18 @@ def get_os_info():
 
     # For more details, including the specific distribution on Linux
     if platform_system == "Linux":
+        lib = "N/A"
+        version = "N/A"
+        libc_ver = (lib, version)
         try:
-            # Only available on some Unix systems
-            distribution = platform.linux_distribution()
+            libc_ver = platform.libc_ver(lib=lib, version=version)
         except AttributeError:
-            # For Python 3.8 and above
-            distribution = platform.dist()
-        os_detail = f"{platform_system} ({distribution[0]} {distribution[1]})"
+            pass
+        os_detail = f"{platform_system} ({libc_ver[0]} {libc_ver[1]})"
     elif platform_system == "Darwin":
         os_detail = f"macOS ({platform.mac_ver()[0]})"
     elif platform_system == "Windows":
-        os_detail = f"Windows ({platform.version()})"
+        os_detail = f"Windows ({platform.win32_ver()})"
     else:
-        os_detail = platform_system
-
+        os_detail = "N/A"
     return os_detail, platform_system, architecture
