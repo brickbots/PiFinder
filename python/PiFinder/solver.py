@@ -7,18 +7,14 @@ This module is the solver
 * If solved, emits solution into queue
 
 """
+import numpy as np
+from time import perf_counter as precision_timestamp
+import time
+import logging
+import sys
 from PiFinder import utils
 
-import sys
-import logging
-import time
-from time import perf_counter as precision_timestamp
-import numpy as np
-
 sys.path.append(str(utils.tetra3_dir))
-import PiFinder.tetra3
-import cedar_detect_client
-
 
 # Select method used for star detection and centroiding. True for cedar-detect,
 # False for Tetra3.
@@ -26,6 +22,9 @@ USE_CEDAR_DETECT = True
 
 
 def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=False):
+    import cedar_detect_client
+    import PiFinder.tetra3
+
     # logger = logging.getLogger()
     # if is_debug:
     #    logger.setLevel(logging.DEBUG)
@@ -45,7 +44,9 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
 
     if USE_CEDAR_DETECT:
         cedar_detect = cedar_detect_client.CedarDetectClient(
-            binary_path=str(utils.cwd_dir / "../bin/cedar-detect-server-mac")
+            binary_path=str(utils.cwd_dir / "../bin/cedar-detect-server-")
+            + shared_state.arch(),
+            use_shmem=False,
         )
     try:
         while True:
@@ -93,8 +94,8 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
 
                     if "matched_centroids" in solution:
                         # Don't clutter printed solution with these fields.
-                        del solution["matched_centroids"]
-                        del solution["matched_stars"]
+                        # del solution['matched_centroids']
+                        # del solution['matched_stars']
                         del solution["matched_catID"]
                         del solution["pattern_centroids"]
                         del solution["epoch_equinox"]

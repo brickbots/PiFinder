@@ -213,8 +213,8 @@ def main(script_name=None, show_fps=False, verbose=False):
     # Instantiate base keyboard class for keycode
     keyboard_base = keyboard_interface.KeyboardInterface()
 
-    # Set path for test images
-    root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    os_detail, platform, arch = utils.get_os_info()
+    logging.info(f"PiFinder running on {os_detail}, {platform}, {arch}")
 
     # init queues
     console_queue = Queue()
@@ -247,6 +247,7 @@ def main(script_name=None, show_fps=False, verbose=False):
         ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
         ui_state.set_active_list_to_history_list()
         shared_state.set_ui_state(ui_state)
+        shared_state.set_arch(arch)  # Normal
         logging.debug("Ui state in main is" + str(shared_state.ui_state()))
         console = UIConsole(display_device, None, shared_state, command_queues, cfg)
         console.write("Starting....")
