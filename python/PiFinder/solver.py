@@ -46,7 +46,13 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
         cedar_detect = cedar_detect_client.CedarDetectClient(
             binary_path=str(utils.cwd_dir / "../bin/cedar-detect-server-")
             + shared_state.arch(),
-            use_shmem=False,
+            use_shmem=(
+                True
+                if shared_state
+                and shared_state.arch()
+                and shared_state.arch() == "aarch64"
+                else False
+            ),
         )
     try:
         while True:
