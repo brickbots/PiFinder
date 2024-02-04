@@ -8,10 +8,14 @@ This module is the solver
 
 """
 import numpy as np
-from time import perf_counter as precision_timestamp
 import time
 import logging
 import sys
+from time import perf_counter as precision_timestamp
+
+import cedar_detect_client
+
+import PiFinder.tetra3
 from PiFinder import utils
 
 sys.path.append(str(utils.tetra3_dir))
@@ -22,12 +26,6 @@ USE_CEDAR_DETECT = True
 
 
 def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=False):
-    import cedar_detect_client
-    import PiFinder.tetra3
-
-    # logger = logging.getLogger()
-    # if is_debug:
-    #    logger.setLevel(logging.DEBUG)
     logging.getLogger("tetra3.Tetra3").addHandler(logging.NullHandler())
     logging.debug("Starting Solver")
     t3 = PiFinder.tetra3.tetra3.Tetra3(
