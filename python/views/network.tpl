@@ -84,11 +84,14 @@
 
             </div>
           </div>
+          <div class="row">
+            <div class="input-field col s12">
+              <a href="#" class="btn modal-trigger" onClick="document.getElementById('new_network_form').submit();">Save</a>
+              &nbsp;
+              <a href="/network" class="btn modal-trigger">Cancel</a>
+            </div>
+          </div>
         </form>
-        </td>
-        <td>
-          <a href="/network" class="grey-text"><i class="material-icons">cancel</i></a>
-          <a href="#" class="grey-text" onClick="document.getElementById('new_network_form').submit();"><i class="material-icons">save</i></a>
         </td>
       </tr>
 % end
