@@ -4,26 +4,24 @@
 This module contains all the UI Module classes
 
 """
-from PiFinder.ui.base import UIModule
+import uuid
+import os
+import time
+from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+from PiFinder.ui.fonts import Fonts as fonts
+from PiFinder import tetra3
+from numpy import ndarray
+
 from PiFinder.image_util import (
     gamma_correct_high,
     gamma_correct_med,
     gamma_correct_low,
     subtract_background,
 )
-import numpy as np
-import time
-from PIL import Image, ImageChops, ImageOps
-from PiFinder.ui.fonts import Fonts as fonts
-from PiFinder import utils
-import sys
-
-sys.path.append(str(utils.tetra3_dir))
+from PiFinder.ui.base import UIModule
 
 
 class UIPreview(UIModule):
-    from PiFinder import tetra3
-
     __title__ = "CAMERA"
     __button_hints__ = {
         "B": "Align",
@@ -81,7 +79,7 @@ class UIPreview(UIModule):
 
         # the centroiding returns an ndarray
         # so we're initialiazing one here
-        self.star_list = np.empty((0, 2))
+        self.star_list = ndarray((0, 2))
         self.highlight_count = 0
 
     def set_exp(self, option):
@@ -141,8 +139,8 @@ class UIPreview(UIModule):
 
             for _i in range(self.highlight_count):
                 raw_y, raw_x = self.star_list[_i]
-                star_x = int(raw_x / 4)
-                star_y = int(raw_y / 4)
+                star_x = int(raw_x / 2)
+                star_y = int(raw_y / 2)
 
                 x_direction = 1
                 x_text_offset = 6
@@ -190,9 +188,13 @@ class UIPreview(UIModule):
             # Fetch Centroids before image is altered
             # Do this at least once to get a numpy array in
             # star_list
-            if self.align_mode and self.shared_state and self.shared_state.solution():
-                self.star_list = np.array(
-                    self.shared_state.solution()["matched_centroids"]
+            if self.align_mode:
+                cent_image_obj = image_obj.resize((256, 256))
+                _t = time.time()
+                self.star_list = tetra3.get_centroids_from_image(
+                    cent_image_obj,
+                    sigma_mode="local_median_abs",
+                    filtsize=11,
                 )
 
             # Resize

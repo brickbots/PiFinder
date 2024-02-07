@@ -17,5 +17,4 @@ sh==1.14.3
 skyfield==1.45
 timezonefinder==6.1.9
 tqdm==4.65.0
-grpcio==1.60.0
-protobuf==4.25.2
+alpyca

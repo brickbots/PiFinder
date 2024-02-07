@@ -23,9 +23,9 @@ def imu_moved(imu_a, imu_b):
     Compares two IMU states to determine if they are the 'same'
     if either is none, returns False
     """
-    if imu_a is None:
+    if imu_a == None:
         return False
-    if imu_b is None:
+    if imu_b == None:
         return False
 
     # figure out the abs difference
@@ -37,13 +37,8 @@ def imu_moved(imu_a, imu_b):
     return False
 
 
-def integrator(shared_state, solver_queue, console_queue, is_debug=False):
+def integrator(shared_state, solver_queue, console_queue):
     try:
-        logger = logging.getLogger()
-        if is_debug:
-            logger.setLevel(logging.DEBUG)
-        logging.debug("Starting Integrator")
-
         solved = {
             "RA": None,
             "Dec": None,
@@ -79,6 +74,7 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
             next_image_solve = None
             try:
                 next_image_solve = solver_queue.get(block=False)
+                logging.debug("Next image solve is %s", next_image_solve)
             except queue.Empty:
                 pass
 

@@ -145,7 +145,6 @@ class SharedStateObj:
         self.__datetime_time = None
         self.__screen = None
         self.__solve_pixel = config.Config().get_option("solve_pixel")
-        self.__arch = None
 
     def serialize(self, output_file):
         with open(output_file, "wb") as f:
@@ -169,12 +168,6 @@ class SharedStateObj:
 
     def set_power_state(self, v):
         self.__power_state = v
-
-    def arch(self):
-        return self.__arch
-
-    def set_arch(self, v):
-        self.__arch = v
 
     def solve_state(self):
         return self.__solve_state

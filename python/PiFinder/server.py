@@ -454,5 +454,5 @@ class Server:
             self.altitude = None
 
 
-def run_server(q, gps_q, shared_state, verbose=False):
-    Server(q, gps_q, shared_state, verbose)
+def run_server(q, gps_q, shared_state):
+    Server(q, gps_q, shared_state)

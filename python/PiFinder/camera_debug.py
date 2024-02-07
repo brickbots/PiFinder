@@ -30,7 +30,7 @@ class CameraDebug(CameraInterface):
         self.path = utils.pifinder_dir / "test_images"
         self.exposure_time = exposure_time
         self.gain = 10
-        self.image = Image.open(self.path / "debug.png")
+        self.image = Image.open(self.path / "pifinder_debug.png")
         self.initialize()
 
     def initialize(self) -> None:
