@@ -13,12 +13,13 @@ import logging
 import sys
 from time import perf_counter as precision_timestamp
 
-import cedar_detect_client
 
-import PiFinder.tetra3
 from PiFinder import utils
 
 sys.path.append(str(utils.tetra3_dir))
+import PiFinder.tetra3
+import cedar_detect_client
+
 
 # Select method used for star detection and centroiding. True for cedar-detect,
 # False for Tetra3.
