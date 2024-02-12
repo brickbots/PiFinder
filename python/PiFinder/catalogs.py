@@ -583,7 +583,7 @@ class CatalogTracker:
         self.catalogs.select_catalogs(catalog_names)
         self.refresh_catalogs()
 
-    def add_foreign_catalog(self, catalog_name) -> Catalog:
+    def add_foreign_catalog(self, catalog_name):
         """foreign objects not in our database, e.g. skysafari coords"""
         ui_state = self.shared_state.ui_state()
         logging.debug(f"adding foreign catalog {catalog_name}")
@@ -591,9 +591,13 @@ class CatalogTracker:
         logging.debug(f"current catalog: {self.current_catalog_code}")
         logging.debug(f"current object: {self.get_current_object()}")
         logging.debug(f"current designator: {self.get_designator()}")
+        logging.debug(f"current target: {ui_state.target()}")
         logging.debug(f"ui state: {str(ui_state)}")
         push_catalog = Catalog("PUSH", 1, "Skysafari push")
         target = ui_state.target()
+        if target is None:
+            logging.warning("No target to push")
+            return push_catalog
         push_catalog.add_object(
             CompositeObject(
                 id=-1,
@@ -611,14 +615,15 @@ class CatalogTracker:
         self.catalogs.add(push_catalog)
         self.designator_tracker[catalog_name] = CatalogDesignator(catalog_name, 1)
         self.object_tracker[catalog_name] = None
-        return push_catalog
 
     def set_current_catalog(self, catalog_code: str):
+        logging.debug(f"set_current_catalog: {catalog_code=}")
         if self.catalogs.has_code_selected(catalog_code):
             self.current_catalog_code = catalog_code
         elif self.catalogs.has_code(catalog_code):
             self.set_default_current_catalog()
         else:
+            breakpoint()
             self.add_foreign_catalog(catalog_code)
             self.current_catalog_code = catalog_code
 
@@ -673,14 +678,16 @@ class CatalogTracker:
     def previous_object(self):
         return self.next_object(-1)
 
-    def get_current_object(self) -> CompositeObject:
+    def get_current_object(self) -> Optional[CompositeObject]:
         object_key = self.object_tracker[self.current_catalog_code]
-        if object_key is None:
+        current_catalog = self.get_current_catalog()
+        if object_key is None or current_catalog is None:
             return None
-        return self.get_current_catalog().get_object_by_sequence(object_key)
+        return current_catalog.get_object_by_sequence(object_key)
 
     def set_current_object(self, object_number: int, catalog_code: str = ""):
-        if not catalog_code:
+        logging.debug(f"set_current_object: {object_number=}, {catalog_code=}")
+        if catalog_code:
             try:
                 self.set_current_catalog(catalog_code)
             except AssertionError:
