@@ -48,8 +48,8 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
         )
     try:
         while True:
-            if shared_state.power_state() <= 0:
-                time.sleep(0.5)
+            utils.sleep_for_framerate(shared_state)
+
             # use the time the exposure started here to
             # reject images started before the last solve
             # which might be from the IMU

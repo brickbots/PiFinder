@@ -12,7 +12,6 @@ import os
 import queue
 import time
 from PIL import Image
-from PiFinder import config
 from PiFinder import utils
 from typing import Tuple
 import logging
@@ -57,9 +56,10 @@ class CameraInterface:
             # 60 half-second cycles
             sleep_delay = 60
             while True:
-                if shared_state.power_state() <= 0:
-                    time.sleep(0.5)
-
+                sleeping = utils.sleep_for_framerate(
+                    shared_state, limit_framerate=False
+                )
+                if sleeping:
                     # Even in sleep mode, we want to take photos every
                     # so often to update positions
                     sleep_delay -= 1

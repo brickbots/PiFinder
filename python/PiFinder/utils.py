@@ -1,5 +1,7 @@
 import os
+import time
 from pathlib import Path
+from PiFinder.state import SharedStateObj
 
 
 def create_dir(adir: str):
@@ -19,6 +21,15 @@ data_dir = Path(Path.home(), "PiFinder_data")
 pifinder_db = astro_data_dir / "pifinder_objects.db"
 observations_db = data_dir / "observations.db"
 debug_dump_dir = data_dir / "solver_debug_dumps"
+
+
+def sleep_for_framerate(shared_state: SharedStateObj, limit_framerate=True) -> bool:
+    if shared_state.power_state() <= 0:
+        time.sleep(0.5)
+        return True
+    elif limit_framerate:
+        time.sleep(1 / 30)
+    return False
 
 
 def get_os_info():
