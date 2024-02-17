@@ -15,7 +15,7 @@ from PiFinder.calc_utils import sf_utils
 
 # CatalogBase : just the CompositeObjects
 # Catalog: extends the CatalogBase with filtering
-# CatalogIterator: iterates over the composite_objects
+# CatalogIterator: TODO iterates over the composite_objects
 # CatalogFilter: can be set on catalog to filter
 # CatalogBuilder: builds catalogs from the database
 # CatalogTracker: keeps track of the current catalog and object
@@ -245,13 +245,16 @@ class Catalogs:
 
     def __init__(self, catalogs: List[Catalog]):
         self.__catalogs: List[Catalog] = catalogs
-        self.__catalog_names: List[str] = [catalog.catalog_code for catalog in catalogs]
-        self._select_all_catalogs()
+        self.__catalog_codes: List[str] = [catalog.catalog_code for catalog in catalogs]
         self._code_to_pos: Dict[str, int] = {}
+        self._select_all_catalogs()
         self._refresh_code_to_pos()
 
-    def get_catalogs(self) -> List[Catalog]:
-        return [self.__catalogs[x] for x in self.__selected_catalogs_idx]
+    def get_catalogs(self, only_selected: bool = True) -> List[Catalog]:
+        if only_selected:
+            return [self.__catalogs[x] for x in self.__selected_catalogs_idx]
+        else:
+            return self.__catalogs
 
     def select_catalogs(self, catalog_names: List[str]):
         self.__selected_catalogs_idx = [
@@ -259,19 +262,17 @@ class Catalogs:
             for x in range(len(self.__catalogs))
             if self.__catalogs[x].catalog_code in catalog_names
         ]
-        self._refresh_code_to_pos()
 
-    def has(self, catalog: Catalog) -> bool:
-        return has_code(catalog.catalog_code)
+    def has_code(self, catalog_code: str, only_selected: bool = True) -> bool:
+        return catalog_code in self.get_codes(only_selected)
 
-    def has_selected(self, catalog: Catalog) -> bool:
-        return has_code_selected(catalog.catalog_code)
+    def has(self, catalog: Catalog, only_selected: bool = True) -> bool:
+        return self.has_code(catalog.catalog_code, only_selected)
 
-    def has_code(self, catalog_code: str) -> bool:
-        return catalog_code in self.__catalog_names
-
-    def has_code_selected(self, catalog_code: str) -> bool:
-        return catalog_code in self._code_to_pos
+    def get_object(self, catalog_code: str, sequence: int) -> Optional[CompositeObject]:
+        catalog = self.get_catalog_by_code(catalog_code)
+        if catalog:
+            return catalog.get_object_by_sequence(sequence)
 
     def set(self, catalogs: List[Catalog]):
         self.__catalogs = catalogs
@@ -281,20 +282,27 @@ class Catalogs:
     def add(self, catalog: Catalog):
         if catalog.catalog_code not in self._code_to_pos:
             self.__catalogs.append(catalog)
+            self._select_all_catalogs()
             self._refresh_code_to_pos()
         else:
-            logging.warning(f"Catalog {catalog_code} already exists")
+            logging.warning(f"Catalog {catalog.catalog_code} already exists")
 
     def remove(self, catalog_code: str):
-        self._refresh_code_to_pos()
         if catalog_code in self._code_to_pos:
-            self.catalogs.pop(self._code_to_pos[catalog_code])
-            self._code_to_pos = {}
+            idx = self._code_to_pos[catalog_code]
+            self.__selected_catalogs_idx.remove(idx)
         else:
             logging.warning(f"Catalog {catalog_code} does not exist")
 
-    def get_codes(self) -> List[str]:
-        return list(self._code_to_pos.keys())
+    def get_codes(self, only_selected: bool = True) -> List[str]:
+        if only_selected:
+            return [
+                cat.catalog_code
+                for idx, cat in enumerate(self.get_catalogs())
+                if idx in self.__selected_catalogs_idx
+            ]
+        else:
+            return list(self._code_to_pos.keys())
 
     def get_catalog_by_code(self, catalog_code: str) -> Optional[Catalog]:
         pos = self._code_to_pos.get(catalog_code, None)
@@ -318,13 +326,13 @@ class Catalogs:
     def count(self) -> int:
         return len(self.get_catalogs())
 
-    def _select_all_catalogs(self):
-        self.__selected_catalogs_idx = [x for x in range(len(self.__catalogs))]
-
     def _refresh_code_to_pos(self):
         self._code_to_pos = {
             catalog.catalog_code: idx for idx, catalog in enumerate(self.get_catalogs())
         }
+
+    def _select_all_catalogs(self):
+        self.__selected_catalogs_idx = [x for x in range(len(self.__catalogs))]
 
     def __repr__(self):
         return f"Catalogs({self.get_catalogs()=}, selected {len(self.__selected_catalogs_idx)}/{len(self.__catalogs)})"
@@ -618,9 +626,9 @@ class CatalogTracker:
 
     def set_current_catalog(self, catalog_code: str):
         logging.debug(f"set_current_catalog: {catalog_code=}")
-        if self.catalogs.has_code_selected(catalog_code):
+        if self.catalogs.has_code(catalog_code):
             self.current_catalog_code = catalog_code
-        elif self.catalogs.has_code(catalog_code):
+        elif self.catalogs.has_code(catalog_code, only_selected=False):
             self.set_default_current_catalog()
         else:
             breakpoint()

@@ -547,7 +547,7 @@ def main(script_name=None, show_fps=False, verbose=False):
                                 console.write("Screenshot saved")
 
                             if keycode == keyboard_base.LNG_D:
-                                current_module.delete()
+                                current_module.key_long_d()
                                 console.write("Deleted")
 
                             if keycode == keyboard_base.LNG_C:

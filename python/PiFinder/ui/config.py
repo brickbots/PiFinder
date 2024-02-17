@@ -41,7 +41,7 @@ class UIConfig(UIModule):
     def update(self, force=False):
         # clear screen
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
-        if self.__config == None:
+        if self.__config is None:
             self.draw.text(
                 (20, 18), "No Config", font=self.font_base, fill=self.colors.get(255)
             )

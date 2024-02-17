@@ -143,7 +143,7 @@ class UILocate(UIModule):
     def key_down(self):
         self.scroll_target_history(1)
 
-    def delete(self):
+    def key_long_d(self):
         active_list = self.ui_state.active_list()
         if self.target_index is not None and len(active_list) > 1:
             del active_list[self.target_index]

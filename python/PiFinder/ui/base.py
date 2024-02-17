@@ -302,7 +302,7 @@ class UIModule:
     def key_long_c(self):
         pass
 
-    def delete(self):
+    def key_long_d(self):
         pass
 
     def key_b(self):

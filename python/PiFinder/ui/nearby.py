@@ -306,6 +306,7 @@ class UINearby(UIModule):
             - img_array[top_left[1] : bottom_right[1], top_left[0] : bottom_right[0], 0]
         )
 
+        logging.debug(f"top_left = {top_left}, bottom_right = {bottom_right}")
         # Convert the NumPy array back to PIL image
         image.paste(
             Image.fromarray(
@@ -352,31 +353,15 @@ class UINearby(UIModule):
         return self.screen_update()
 
     def key_d(self):
-        pass
-        # self.descTextLayout.next()
-        # typeconst = self.texts.get("type-const")
-        # if typeconst and isinstance(typeconst, TextLayouter):
-        #     typeconst.next()
+        self.current_line = -1
 
-    def delete(self):
+    def key_long_c(self):
+        self.key_long_d()
+
+    def key_long_d(self):
         # long d called from main
         self.catalog_tracker.set_current_object(None)
         self.update_object_info()
-
-    def key_d(self):
-        self.current_line = -1
-        # C is for catalog
-        # self.catalog_tracker.next_catalog()
-        # self.catalog_tracker.filter()
-        # self.update_object_info()
-        # self.object_display_mode = DM_DESC
-
-    def key_long_c(self):
-        pass
-        # self.delete()
-        # self.catalog_tracker.previous_catalog()
-        # self.catalog_tracker.filter()
-        # self.update_object_info()
 
     def key_b(self):
         self.current_mode = next(self.mode_cycle)
