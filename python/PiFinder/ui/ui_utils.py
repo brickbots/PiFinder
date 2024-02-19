@@ -289,3 +289,21 @@ def shadow(ri_draw, xy, text, align, font, fill, shadowcolor):
     ri_draw.text((x, y - 1), text, align=align, font=font, fill=shadowcolor)
     ri_draw.text((x, y + 1), text, align=align, font=font, fill=shadowcolor)
     ri_draw.text((x, y), text, align=align, font=font, fill=fill)
+
+
+def name_deduplicate(names: List[str], exclude: List[str]):
+    # Helper function to normalize names
+    def normalize(name):
+        return name.lower().replace(" ", "").replace("the ", "", 1).replace("-", "")
+
+    # Use a set for quick membership testing to remember names we've seen
+    seen = set()
+    result = []
+    norm_excludes = [normalize(x) for x in exclude]
+    for name in names:
+        # Normalize name for comparison
+        norm_name = normalize(name)
+        if norm_name not in seen and norm_name not in norm_excludes:
+            seen.add(norm_name)
+            result.append(name)  # Add the original name to the result
+    return result

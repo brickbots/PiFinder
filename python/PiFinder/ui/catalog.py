@@ -6,9 +6,8 @@ This module contains all the UI Module classes
 """
 import time
 
-from PiFinder import solver, obslog, cat_images
+from PiFinder import cat_images
 from PiFinder.obj_types import OBJ_TYPES
-import PiFinder.utils as utils
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder.ui.ui_utils import (
@@ -16,6 +15,7 @@ from PiFinder.ui.ui_utils import (
     TextLayouter,
     TextLayouterSimple,
     SpaceCalculatorFixed,
+    name_deduplicate,
 )
 from PiFinder.catalogs import (
     CatalogTracker,
@@ -263,6 +263,7 @@ class UICatalog(UIModule):
 
         if self.object_display_mode == DM_DESC:
             # text stuff....
+            current_desig = str(self.catalog_tracker.get_designator())
 
             self.texts = {}
             # Type / Constellation
@@ -304,8 +305,10 @@ class UICatalog(UIModule):
                 cat_object.sequence
             )
             if aka_recs:
+                # first deduplicate the aka's
+                dedups = name_deduplicate(aka_recs.names, [current_desig])
                 self.texts["aka"] = self.ScrollTextLayout(
-                    ", ".join(aka_recs.names),
+                    ", ".join(dedups),
                     font=fonts.base,
                     scrollspeed=self._get_scrollspeed_config(),
                 )
