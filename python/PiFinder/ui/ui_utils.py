@@ -1,3 +1,4 @@
+from os import truncate
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 import PiFinder.utils as utils
 from PiFinder.ui.fonts import Fonts as fonts
@@ -40,28 +41,37 @@ class SpaceCalculator:
 class SpaceCalculatorFixed:
     """Calculates spaces for fixed-width fonts"""
 
-    def __init__(self, nr_chars):
+    def __init__(self, nr_chars, truncate_string=""):
         self.width = nr_chars
+        self.truncate_string = truncate_string
 
     def _calc_string(self, left, right, spaces) -> str:
         return f"{left}{'': <{spaces}}{right}"
 
+    def _truncate(self, left, right, trunc_left) -> str:
+        if trunc_left:
+            left_left = self.width - len(right) - 2
+            return f"{left[:left_left]}{self.truncate_string}{right}"
+        else:
+            right_left = self.width - len(left) - 2
+            return f"{left} {right[:right_left]}{self.truncate_string}"
+
     def calculate_spaces(
-        self, left: str, right: str, empty_if_exceeds=True
+        self, left: str, right: str, empty_if_exceeds=True, trunc_left=False
     ) -> Tuple[int, str]:
         """
         returns number of spaces
         """
         lenleft = len(str(left))
         lenright = len(str(right))
-        spaces = max(1, self.width - (lenleft + lenright))
-        result = self._calc_string(left, right, spaces)
-        if len(result) > self.width:
+        spaces = max(0, self.width - (lenleft + lenright))
+        if spaces <= 0:
             if empty_if_exceeds:
                 return -1, ""
             else:
-                result = result[: self.width]
-                result = result[-3] + "..."
+                return 1, self._truncate(left, right, trunc_left)
+
+        result = self._calc_string(left, right, spaces)
         return spaces, result
 
 
@@ -73,11 +83,13 @@ class TextLayouterSimple:
         color,
         font=fonts.base,
         width=fonts.base_width,
+        embedded_color=False,
     ):
         self.text = text
         self.font = font
         self.color = color
         self.width = width
+        self.embedded_color = embedded_color
         self.drawobj = draw
         self.object_text: List[str] = []
         self.updated = True
@@ -102,7 +114,12 @@ class TextLayouterSimple:
     def draw(self, pos: Tuple[int, int] = (0, 0)):
         self.layout(pos)
         self.drawobj.multiline_text(
-            pos, "\n".join(self.object_text), font=self.font, fill=self.color, spacing=0
+            pos,
+            "\n".join(self.object_text),
+            font=self.font,
+            fill=self.color,
+            embedded_color=self.embedded_color,
+            spacing=0,
         )
         self.after_draw(pos)
 

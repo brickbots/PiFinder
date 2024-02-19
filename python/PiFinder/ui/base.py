@@ -7,13 +7,10 @@ This module contains the base UIModule class
 import os
 import time
 import uuid
-from pathlib import Path
-import logging
 
-from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+from PIL import Image, ImageDraw
 from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder import utils
-from PiFinder import calc_utils
 from PiFinder.image_util import DeviceWrapper
 from PiFinder.config import Config
 

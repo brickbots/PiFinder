@@ -9,13 +9,16 @@ This module is the main entry point for PiFinder it:
 * then runs the UI loop
 
 """
+import os
+
+# skyfield performance fix, see: https://rhodesmill.org/skyfield/accuracy-efficiency.html
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
 import time
 import queue
 import datetime
 import json
 import uuid
-import os
-import sys
 import logging
 import argparse
 import pickle
@@ -30,7 +33,6 @@ from timezonefinder import TimezoneFinder
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
-
 from luma.core.interface.serial import spi
 
 from PiFinder import solver
@@ -42,6 +44,7 @@ from PiFinder import server
 from PiFinder import keyboard_interface
 
 from PiFinder.ui.chart import UIChart
+from PiFinder.ui.nearby import UINearby
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.status import UIStatus
@@ -200,7 +203,7 @@ def wake_screen(screen_brightness, shared_state, cfg) -> int:
     return orig_power_state
 
 
-def main(script_name=None, show_fps=False):
+def main(script_name=None, show_fps=False, verbose=False):
     """
     Get this show on the road!
     """
@@ -213,8 +216,8 @@ def main(script_name=None, show_fps=False):
     # Instantiate base keyboard class for keycode
     keyboard_base = keyboard_interface.KeyboardInterface()
 
-    # Set path for test images
-    root_dir = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    os_detail, platform, arch = utils.get_os_info()
+    logging.info(f"PiFinder running on {os_detail}, {platform}, {arch}")
 
     # init queues
     console_queue = Queue()
@@ -247,6 +250,7 @@ def main(script_name=None, show_fps=False):
         ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
         ui_state.set_active_list_to_history_list()
         shared_state.set_ui_state(ui_state)
+        shared_state.set_arch(arch)  # Normal
         logging.debug("Ui state in main is" + str(shared_state.ui_state()))
         console = UIConsole(display_device, None, shared_state, command_queues, cfg)
         console.write("Starting....")
@@ -284,7 +288,7 @@ def main(script_name=None, show_fps=False):
 
         server_process = Process(
             target=server.run_server,
-            args=(keyboard_queue, gps_queue, shared_state),
+            args=(keyboard_queue, gps_queue, shared_state, verbose),
         )
         server_process.start()
 
@@ -326,7 +330,7 @@ def main(script_name=None, show_fps=False):
         console.update()
         solver_process = Process(
             target=solver.solver,
-            args=(shared_state, solver_queue, camera_image, console_queue),
+            args=(shared_state, solver_queue, camera_image, console_queue, verbose),
         )
         solver_process.start()
 
@@ -335,7 +339,7 @@ def main(script_name=None, show_fps=False):
         console.update()
         integrator_process = Process(
             target=integrator.integrator,
-            args=(shared_state, solver_queue, console_queue),
+            args=(shared_state, solver_queue, console_queue, verbose),
         )
         integrator_process.start()
 
@@ -350,7 +354,13 @@ def main(script_name=None, show_fps=False):
         # Start main event loop
         console.write("   Event Loop")
         console.update()
-
+        ui_catalog = UICatalog(
+            display_device,
+            camera_image,
+            shared_state,
+            command_queues,
+            cfg,
+        )
         ui_modes = [
             UIConfig(
                 display_device,
@@ -366,13 +376,15 @@ def main(script_name=None, show_fps=False):
                 command_queues,
                 cfg,
             ),
-            UICatalog(
+            UINearby(
+                ui_catalog,
                 display_device,
                 camera_image,
                 shared_state,
                 command_queues,
                 cfg,
             ),
+            ui_catalog,
             UILocate(
                 display_device,
                 camera_image,
@@ -824,4 +836,4 @@ if __name__ == "__main__":
         fh.setLevel(logger.level)
         logger.addHandler(fh)
 
-    main(args.script, args.fps)
+    main(args.script, args.fps, args.verbose)
