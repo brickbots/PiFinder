@@ -19,6 +19,10 @@
             <div class="input-field col s12">
                 <input value="" id="password" type="password" name="password">
                 <label for="password">Password</label>
+                    <span class="helper-text">
+                        Note: The default password is <i><b>solveit</b></i>  You can change
+                        this using the Tool menu option
+                    </span>
             </div>
         </div>
     </div>
