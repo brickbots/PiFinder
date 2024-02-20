@@ -56,7 +56,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
             last_image_metadata = shared_state.last_image_metadata()
             if (
                 last_image_metadata["exposure_end"] > (last_solve_time)
-                and last_image_metadata["imu_delta"] < 0.1
+                and last_image_metadata["imu_delta"] < 1
             ):
                 img = camera_image.copy()
                 img = img.convert(mode="L")
