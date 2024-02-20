@@ -16,6 +16,7 @@ from PiFinder.ui.ui_utils import (
     TextLayouter,
     TextLayouterSimple,
     SpaceCalculatorFixed,
+    name_deduplicate,
 )
 from PiFinder import calc_utils
 import functools
@@ -271,6 +272,7 @@ class UICatalog(UIModule):
 
         if self.object_display_mode == DM_DESC:
             # text stuff....
+            current_desig = str(self.catalog_tracker.get_designator())
 
             self.texts = {}
             # Type / Constellation
@@ -314,8 +316,10 @@ class UICatalog(UIModule):
                 )
             )
             if aka_recs:
+                # first deduplicate the aka's
+                dedups = name_deduplicate(aka_recs.names, [current_desig])
                 self.texts["aka"] = self.ScrollTextLayout(
-                    ", ".join(aka_recs.names),
+                    ", ".join(dedups),
                     font=fonts.base,
                     scrollspeed=self._get_scrollspeed_config(),
                 )
