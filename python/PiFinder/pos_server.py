@@ -32,15 +32,16 @@ def get_telescope_ra(shared_state, _):
     RA = HH:MM:SS
     """
     solution = shared_state.solution()
-    if not solution:
-        return "00:00:01"
+    dt = shared_state.datetime()
+    if not solution or not dt:
+        return "+00*00'01"
 
     # Convert from J2000 to now epoch
     RA_deg = solution["RA"]
     Dec_deg = solution["Dec"]
     _p = position_of_radec(ra_hours=RA_deg / 15.0, dec_degrees=Dec_deg, epoch=ts.J2000)
 
-    RA_h, Dec, _dist = _p.radec(epoch=ts.now())
+    RA_h, Dec, _dist = _p.radec(epoch=ts.from_datetime(dt))
 
     hh, mm, ss = RA_h.hms()
     ra_result = f"{hh:02.0f}:{mm:02.0f}:{ss:02.0f}"
@@ -55,17 +56,16 @@ def get_telescope_dec(shared_state, _):
     DEC = +/- DD*MM'SS
     """
     solution = shared_state.solution()
-    if not solution:
+    dt = shared_state.datetime()
+    if not solution or not dt:
         return "+00*00'01"
-
-    dec = solution["Dec"]
 
     # Convert from J2000 to now epoch
     RA_deg = solution["RA"]
     Dec_deg = solution["Dec"]
     _p = position_of_radec(ra_hours=RA_deg / 15.0, dec_degrees=Dec_deg, epoch=ts.J2000)
 
-    RA_h, Dec, _dist = _p.radec(epoch=ts.now())
+    RA_h, Dec, _dist = _p.radec(epoch=ts.from_datetime(dt))
 
     dec = Dec.degrees
 
