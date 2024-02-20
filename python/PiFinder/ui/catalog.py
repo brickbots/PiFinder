@@ -6,10 +6,9 @@ This module contains all the UI Module classes
 """
 import time
 
-from PiFinder import solver, obslog, cat_images
+from PiFinder import cat_images
 from PiFinder.catalog_utils import ClosestObjectsFinder
 from PiFinder.obj_types import OBJ_TYPES
-import PiFinder.utils as utils
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder.ui.ui_utils import (
@@ -206,7 +205,7 @@ class UICatalog(UIModule):
 
         # Reset any sequence....
         # if not self.catalog_tracker.does_filtered_have_current_object():
-        #     self.delete()
+        #     self.key_long_d()
 
     def push_cat(self, obj_amount):
         self._config_options["Push Cat."]["value"] = ""
@@ -439,11 +438,6 @@ class UICatalog(UIModule):
         if typeconst and isinstance(typeconst, TextLayouter):
             typeconst.next()
 
-    def delete(self):
-        # long d called from main
-        self.catalog_tracker.set_current_object(None)
-        self.update_object_info()
-
     def key_c(self):
         # C is for catalog
         self.catalog_tracker.next_catalog()
@@ -452,9 +446,14 @@ class UICatalog(UIModule):
         self.object_display_mode = DM_DESC
 
     def key_long_c(self):
-        self.delete()
+        self.key_long_d()
         self.catalog_tracker.previous_catalog()
         self.catalog_tracker.filter()
+        self.update_object_info()
+
+    def key_long_d(self):
+        # long d is also called from main
+        self.catalog_tracker.set_current_object(None)
         self.update_object_info()
 
     def key_b(self):

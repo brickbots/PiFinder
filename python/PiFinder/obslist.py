@@ -9,7 +9,6 @@ but supported by other
 tools
 """
 import os
-import sqlite3
 from textwrap import dedent
 from PiFinder import utils, catalogs
 
@@ -64,7 +63,7 @@ def resolve_object(catalog_numbers, objects):
         except (ValueError, IndexError):
             sequence = None
 
-        if sequence != None:
+        if sequence is not None:
             _object = objects.get_object_by_catalog_sequence(catalog, sequence)
             if _object:
                 return _object
