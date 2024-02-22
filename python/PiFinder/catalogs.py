@@ -223,9 +223,6 @@ class Catalog(CatalogBase):
         )
         self.filtered_objects_seq = self._filtered_objects_to_seq()
         self.last_filtered = time.time()
-        # logging.debug(
-        #     f"Catalog.filter_objects: {self.catalog_code} len={len(self.filtered_objects)}/{len(self.objects)}"
-        # )
         return self.filtered_objects
 
     # move this code to the filter class?
@@ -247,6 +244,7 @@ class Catalogs:
         self.__catalogs: List[Catalog] = catalogs
         self.__catalog_codes: List[str] = [catalog.catalog_code for catalog in catalogs]
         self._code_to_pos: Dict[str, int] = {}
+        self._code_to_pos_sel: Dict[str, int] = {}
         self._select_all_catalogs()
         self._refresh_code_to_pos()
 
@@ -262,6 +260,7 @@ class Catalogs:
             for x in range(len(self.__catalogs))
             if self.__catalogs[x].catalog_code in catalog_names
         ]
+        self._refresh_code_to_pos()
 
     def has_code(self, catalog_code: str, only_selected: bool = True) -> bool:
         return catalog_code in self.get_codes(only_selected)
@@ -288,9 +287,10 @@ class Catalogs:
             logging.warning(f"Catalog {catalog.catalog_code} already exists")
 
     def remove(self, catalog_code: str):
-        if catalog_code in self._code_to_pos:
-            idx = self._code_to_pos[catalog_code]
+        if catalog_code in self._code_to_pos_sel:
+            idx = self._code_to_pos_sel[catalog_code]
             self.__selected_catalogs_idx.remove(idx)
+            self._refresh_code_to_pos()
         else:
             logging.warning(f"Catalog {catalog_code} does not exist")
 
@@ -298,7 +298,7 @@ class Catalogs:
         if only_selected:
             return [
                 cat.catalog_code
-                for idx, cat in enumerate(self.get_catalogs())
+                for idx, cat in enumerate(self.get_catalogs(only_selected=False))
                 if idx in self.__selected_catalogs_idx
             ]
         else:
@@ -308,27 +308,39 @@ class Catalogs:
         pos = self._code_to_pos.get(catalog_code, None)
         result = None
         if pos is not None:
-            result = self.get_catalogs()[pos]
+            result = self.get_catalogs(only_selected=False)[pos]
         return result
 
-    def get_catalog_by_pos(self, pos: int) -> Optional[Catalog]:
-        if pos < self.count():
-            return self.__catalogs[self.__selected_catalogs_idx[pos]]
+    def next_catalog(
+        self, current_catalog_code: str, direction: int = 1, only_selected: bool = True
+    ) -> Catalog:
+        current_index = self._get_code_to_pos(current_catalog_code, only_selected)
+        if current_index:
+            catalogs = self.get_catalogs(only_selected)
+            length = len(catalogs)
+            next_index = (current_index + direction) % length
+            next_catalog = catalogs[next_index]
+            return next_catalog
         else:
-            return None
-
-    def get_catalog_pos(self, catalog: Catalog) -> Optional[int]:
-        return self._code_to_pos.get(catalog.catalog_code, None)
-
-    def get_catalog_pos_by_code(self, catalog_code: str) -> Optional[int]:
-        return self._code_to_pos.get(catalog_code, None)
+            return self.get_catalog_by_code(current_catalog_code)
 
     def count(self) -> int:
         return len(self.get_catalogs())
 
+    def _get_code_to_pos(self, catalog_code: str, only_selected: bool = True):
+        if only_selected:
+            return self._code_to_pos_sel.get(catalog_code, None)
+        else:
+            return self._code_to_pos.get(catalog_code, None)
+
     def _refresh_code_to_pos(self):
         self._code_to_pos = {
-            catalog.catalog_code: idx for idx, catalog in enumerate(self.get_catalogs())
+            catalog.catalog_code: idx
+            for idx, catalog in enumerate(self.get_catalogs(only_selected=False))
+        }
+        self._code_to_pos_sel = {
+            catalog.catalog_code: idx
+            for idx, catalog in enumerate(self.get_catalogs(only_selected=True))
         }
 
     def _select_all_catalogs(self):
@@ -631,7 +643,6 @@ class CatalogTracker:
         elif self.catalogs.has_code(catalog_code, only_selected=False):
             self.set_default_current_catalog()
         else:
-            breakpoint()
             self.add_foreign_catalog(catalog_code)
             self.current_catalog_code = catalog_code
 
@@ -639,13 +650,8 @@ class CatalogTracker:
         self.current_catalog_code = self.catalogs.get_codes()[0]
 
     def next_catalog(self, direction=1):
-        current_index = (
-            self.catalogs.get_catalog_pos_by_code(self.current_catalog_code) or 0
-        )
-        next_index = (current_index + direction) % self.catalogs.count()
-        next_catalog = self.catalogs.get_catalog_by_pos(next_index)
-        assert next_catalog is not None
-        self.set_current_catalog(next_catalog.catalog_code)
+        next = self.catalogs.next_catalog(self.current_catalog_code, direction)
+        self.set_current_catalog(next.catalog_code)
 
     def previous_catalog(self):
         self.next_catalog(-1)
@@ -732,7 +738,7 @@ class CatalogTracker:
                 observed_filter,
             )
             catalog.filter_objects(self.shared_state)
-        # delete currently selected object if it's now filtered out
+
         current_object = self.object_tracker[self.current_catalog_code]
         if current_object is not None and not self.get_current_catalog().has(
             current_object
