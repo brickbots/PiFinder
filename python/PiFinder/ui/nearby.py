@@ -5,13 +5,11 @@ This module contains all the UI Module classes
 
 """
 from enum import Enum
-import time
-import timeit
 import numpy as np
 from typing import List
 
 from PiFinder import config
-from PiFinder.obj_types import OBJ_TYPES, OBJ_TYPE_MARKERS
+from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder.ui.ui_utils import (
@@ -30,7 +28,6 @@ import logging
 
 from PiFinder.catalogs import CompositeObject
 from PiFinder.ui.catalog import UICatalog
-from PiFinder.ui.fonts import Fonts as fonts
 from PIL import Image, ImageChops
 from pathlib import Path
 import os
@@ -71,7 +68,7 @@ class UINearby(UIModule):
     star = ""
     ruler = ""
 
-    max_objects = 10
+    max_objects = 9
 
     def __init__(self, ui_catalog: UICatalog, *args):
         super().__init__(*args)
@@ -230,7 +227,6 @@ class UINearby(UIModule):
                 distance = f"{az_txt} {alt_txt}"
             else:
                 distance = "--.- --.-"
-            # logging.debug(f"Closest object dist = {az}, {alt}")
             obj_name = f"{obj.catalog_code}{obj.sequence}"
             _, obj_dist = self.space_calculator.calculate_spaces(
                 obj_name, distance, empty_if_exceeds=False, trunc_left=True
@@ -306,7 +302,6 @@ class UINearby(UIModule):
             - img_array[top_left[1] : bottom_right[1], top_left[0] : bottom_right[0], 0]
         )
 
-        logging.debug(f"top_left = {top_left}, bottom_right = {bottom_right}")
         # Convert the NumPy array back to PIL image
         image.paste(
             Image.fromarray(
