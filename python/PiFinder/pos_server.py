@@ -68,16 +68,16 @@ def get_telescope_dec(shared_state, _):
     RA_h, Dec, _dist = _p.radec(epoch=ts.from_datetime(dt))
 
     dec = Dec.degrees
-
-    mm, hh = modf(dec)
-    fractional_mm, mm = modf(mm * 60.0)
-    ss = round(fractional_mm * 60.0)
-
     if dec < 0:
         dec = abs(dec)
         sign = "-"
     else:
         sign = "+"
+
+    mm, hh = modf(dec)
+    fractional_mm, mm = modf(mm * 60.0)
+    ss = round(fractional_mm * 60.0)
+
     dec_result = f"{sign}{hh:02.0f}*{mm:02.0f}'{ss:02.0f}"
     logging.debug("get_telescope_dec: Dec result: %s", dec_result)
     return dec_result
