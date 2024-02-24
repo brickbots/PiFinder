@@ -3,7 +3,10 @@
 Developer Guide
 ===============
 
-Nothing here yet... if you have questions about the software or would like to contribute feel free to open an issue or a pull request!
+If you have questions about the software or would like to contribute feel free to open an issue or a pull request. Here you find additional informations:
+- [GitHub Docs - About pull requests](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests)
+- [GitHub Docs - Creating a pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request)
+- [Youtube - How To Pull Request in 3 Minutes](https://www.youtube.com/watch?v=jRLGobWwA3Y)
 
 Getting the source
 ------------------
