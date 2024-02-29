@@ -7,6 +7,7 @@ This module contains all the UI Module classes
 import time
 
 from PiFinder.ui.base import UIModule
+import logging
 
 
 class UIConfig(UIModule):
@@ -108,7 +109,13 @@ class UIConfig(UIModule):
 
                 if "enum" in selected_item["type"]:
                     # Fan out the options around the selected item index
-                    option_count = len(selected_item["options"])
+                    options = selected_item["options"]
+                    if "LND" not in options:
+                        options.append("LND")
+                    option_count = len(options)
+                    logging.debug(
+                        f"Selected item: {selected_item}, count: {option_count}"
+                    )
                     start_index = selected_index - int(option_count / 2)
                     end_index = selected_index + int(option_count / 2)
                     if end_index > 10:
@@ -117,7 +124,7 @@ class UIConfig(UIModule):
                         start_index = 0
 
                     # Show the options
-                    for i, enum in enumerate(selected_item["options"]):
+                    for i, enum in enumerate(options):
                         text_intensity = 128
                         value = selected_item["value"]
 
