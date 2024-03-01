@@ -7,11 +7,12 @@ This module contains the base UIModule class
 import os
 import time
 import uuid
+from typing import Type
 
 from PIL import Image, ImageDraw
 from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder import utils
-from PiFinder.image_util import DeviceWrapper
+from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
 
 
@@ -28,7 +29,7 @@ class UIModule:
 
     def __init__(
         self,
-        device_wrapper: DeviceWrapper,
+        display: Type[DisplayBase],
         camera_image,
         shared_state,
         command_queues,
@@ -39,13 +40,13 @@ class UIModule:
         self.button_hints = self.__button_hints__
         self.button_hints_timer = time.time()
         self.switch_to = None
-        self.display = device_wrapper.device
-        self.colors = device_wrapper.colors
+        self.display = display.device
+        self.colors = display.colors
         self.shared_state = shared_state
         self.ui_state = shared_state.ui_state()
         self.camera_image = camera_image
         self.command_queues = command_queues
-        self.screen = Image.new("RGB", (128, 128))
+        self.screen = Image.new("RGB", display.resolution)
         self.draw = ImageDraw.Draw(self.screen)
         self.font_base = fonts.base
         self.font_bold = fonts.bold
