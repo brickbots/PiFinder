@@ -21,7 +21,6 @@ class UIModule:
     __button_hints__ = {}
     __uuid__ = str(uuid.uuid1()).split("-")[0]
     _config_options = None
-    _title_bar_y = 16
     _CAM_ICON = ""
     _IMU_ICON = ""
     _GPS_ICON = "󰤉"
@@ -29,7 +28,7 @@ class UIModule:
 
     def __init__(
         self,
-        display: Type[DisplayBase],
+        display_class: Type[DisplayBase],
         camera_image,
         shared_state,
         command_queues,
@@ -40,18 +39,21 @@ class UIModule:
         self.button_hints = self.__button_hints__
         self.button_hints_timer = time.time()
         self.switch_to = None
-        self.display = display.device
-        self.colors = display.colors
+        self.display_class = display_class
+        self.display = display_class.device
+        self.colors = display_class.colors
         self.shared_state = shared_state
         self.ui_state = shared_state.ui_state()
         self.camera_image = camera_image
         self.command_queues = command_queues
-        self.screen = Image.new("RGB", display.resolution)
+        self.screen = Image.new("RGB", display_class.resolution)
         self.draw = ImageDraw.Draw(self.screen)
         self.font_base = fonts.base
         self.font_bold = fonts.bold
         self.font_large = fonts.large
         self.font_small = fonts.small
+
+        # Display resolution stuff
 
         # screenshot stuff
         root_dir = str(utils.data_dir)
@@ -201,7 +203,10 @@ class UIModule:
         if title_bar:
             fg = self.colors.get(0)
             bg = self.colors.get(64)
-            self.draw.rectangle([0, 0, 128, self._title_bar_y], fill=bg)
+            self.draw.rectangle(
+                [0, 0, self.display_class.resX, self.display_class.titlebar_height],
+                fill=bg,
+            )
             if self.ui_state.show_fps():
                 self.draw.text((6, 1), str(self.fps), font=self.font_bold, fill=fg)
             else:

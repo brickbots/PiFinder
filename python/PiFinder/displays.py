@@ -32,12 +32,26 @@ class Colors:
 class DisplayBase:
     resolution = (128, 128)
     color_mask = RED_RGB
+    titlebar_height = 16
 
     def __init__(self):
         self.colors = Colors(self.color_mask, self.resolution)
 
+        # calculated display params
+        self.centerX = int(self.resolution[0] / 2)
+        self.centerY = int(self.resolution[1] / 2)
+        self.fov_res = min(self.resolution[0], self.resolution[1])
+
     def set_brightness(self, brightness: int) -> None:
         return None
+
+    @property
+    def resX(self) -> int:
+        return self.resolution[0]
+
+    @property
+    def resY(self) -> int:
+        return self.resolution[1]
 
 
 class DisplayPygame(DisplayBase):
@@ -83,10 +97,11 @@ class DisplaySSD1351(DisplayBase):
 
 class DisplayST7789(DisplayBase):
     resolution = (320, 240)
+    titlebar_height = 20
 
     def __init__(self):
         # init display  (SPI hardware)
-        serial = spi(device=0, port=0)
+        serial = spi(device=0, port=0, bus_speed_hz=52000000)
         device_serial = st7789(serial, bgr=True)
 
         device_serial.capabilities(

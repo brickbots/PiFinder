@@ -43,7 +43,7 @@ class UIChart(UIModule):
     def __init__(self, *args):
         super().__init__(*args)
         self.last_update = time.time()
-        self.starfield = plot.Starfield(self.colors)
+        self.starfield = plot.Starfield(self.colors, self.display_class.resolution)
         self.solution = None
         self.fov_list = [5, 10.2, 20, 30, 60]
         self.fov_index = 1
@@ -94,7 +94,11 @@ class UIChart(UIModule):
 
             marker_image = ImageChops.multiply(
                 marker_image,
-                Image.new("RGB", (128, 128), self.colors.get(marker_brightness)),
+                Image.new(
+                    "RGB",
+                    self.display_class.resolution,
+                    self.colors.get(marker_brightness),
+                ),
             )
             self.screen.paste(ImageChops.add(self.screen, marker_image))
 
@@ -115,12 +119,12 @@ class UIChart(UIModule):
 
         fov = self.fov
         for circ_deg in [4, 2, 0.5]:
-            circ_rad = ((circ_deg / fov) * 128) / 2
+            circ_rad = ((circ_deg / fov) * self.display_class.fov_res) / 2
             bbox = [
-                64 - circ_rad,
-                64 - circ_rad,
-                64 + circ_rad,
-                64 + circ_rad,
+                self.display_class.centerX - circ_rad,
+                self.display_class.centerY - circ_rad,
+                self.display_class.centerX + circ_rad,
+                self.display_class.centerY + circ_rad,
             ]
             self.draw.arc(bbox, 20, 70, fill=self.colors.get(brightness))
             self.draw.arc(bbox, 110, 160, fill=self.colors.get(brightness))
@@ -184,7 +188,10 @@ class UIChart(UIModule):
                 self.last_update = last_solve_time
 
         else:
-            self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+            self.draw.rectangle(
+                [0, 0, self.display_class.resX, self.display_class.resY],
+                fill=self.colors.get(0),
+            )
             self.draw.text(
                 (18, 20), "Can't plot", font=self.font_large, fill=self.colors.get(255)
             )
