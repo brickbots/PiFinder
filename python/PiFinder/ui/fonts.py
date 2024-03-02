@@ -6,15 +6,28 @@ from PIL import ImageFont
 
 
 class Fonts:
-    font_path = str(Path(Path.cwd(), "../fonts"))
-    boldttf = str(Path(font_path, "RobotoMonoNerdFontMono-Bold.ttf"))
-    regularttf = str(Path(font_path, "RobotoMonoNerdFontMono-Regular.ttf"))
-    base = ImageFont.truetype(boldttf, 10)
-    base_width = 21
-    bold = ImageFont.truetype(boldttf, 12)
-    bold_width = 18
-    # for indicator icon usage only
-    icon_bold_large = ImageFont.truetype(boldttf, 15)
-    large = ImageFont.truetype(regularttf, 15)
-    small = ImageFont.truetype(boldttf, 8)
-    huge = ImageFont.truetype(boldttf, 35)
+    def __init__(self, base_font_size=10):
+        font_path = str(Path(Path.cwd(), "../fonts"))
+        boldttf = str(Path(font_path, "RobotoMonoNerdFontMono-Bold.ttf"))
+        regularttf = str(Path(font_path, "RobotoMonoNerdFontMono-Regular.ttf"))
+
+        self.base_height = base_font_size  # 10
+        self.base = ImageFont.truetype(boldttf, self.base_height)
+        self.base_width = int(self.base_height * 2.1)  # 21
+
+        self.bold_height = int(base_font_size * 1.2)  # 12
+        self.bold = ImageFont.truetype(boldttf, self.bold_height)
+        self.bold_width = int(self.bold_height * 1.5)  # 18
+
+        # for indicator icon usage only
+        self.icon_height = int(base_font_size * 1.5)  # 15
+        self.icon_bold_large = ImageFont.truetype(boldttf, self.icon_height)
+
+        self.large_height = int(base_font_size * 1.5)  # 15
+        self.large = ImageFont.truetype(regularttf, self.large_height)
+
+        self.small_height = int(base_font_size * 0.8)  # 8
+        self.small = ImageFont.truetype(boldttf, self.small_height)
+
+        self.huge_height = int(base_font_size * 3.5)  # 35
+        self.huge = ImageFont.truetype(boldttf, self.huge_height)

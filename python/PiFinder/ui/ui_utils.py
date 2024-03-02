@@ -1,41 +1,11 @@
 from os import truncate
 from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 import PiFinder.utils as utils
-from PiFinder.ui.fonts import Fonts as fonts
 from typing import Tuple, List, Dict, Optional
 import textwrap
 import logging
 import re
 import math
-
-
-class SpaceCalculator:
-    """Calculates spaces for proportional fonts, obsolete"""
-
-    def __init__(self, draw, width):
-        self.draw = draw
-        self.width = width
-        pass
-
-    def _calc_string(self, left, right, spaces) -> str:
-        return f"{left}{'':.<{spaces}}{right}"
-
-    def calculate_spaces(self, left, right) -> Tuple[int, str]:
-        """
-        returns number of spaces
-        """
-        spaces = 1
-        if self.draw.textlength(self._calc_string(left, right, spaces)) > self.width:
-            return -1, ""
-
-        while self.draw.textlength(self._calc_string(left, right, spaces)) < self.width:
-            spaces += 1
-
-        spaces = spaces - 1
-
-        result = self._calc_string(left, right, spaces)
-        # logging.debug(f"returning {spaces=}, {result=}")
-        return spaces, result
 
 
 class SpaceCalculatorFixed:
@@ -81,14 +51,14 @@ class TextLayouterSimple:
         text: str,
         draw,
         color,
-        font=fonts.base,
-        width=fonts.base_width,
+        font,
+        font_width,
         embedded_color=False,
     ):
         self.text = text
         self.font = font
         self.color = color
-        self.width = width
+        self.width = font_width
         self.embedded_color = embedded_color
         self.drawobj = draw
         self.object_text: List[str] = []
@@ -139,8 +109,8 @@ class TextLayouterScroll(TextLayouterSimple):
         text: str,
         draw,
         color,
-        font=fonts.base,
-        width=fonts.base_width,
+        font,
+        font_width,
         scrollspeed=MEDIUM,
     ):
         self.pointer = 0
@@ -153,7 +123,7 @@ class TextLayouterScroll(TextLayouterSimple):
             self.counter = 0
             self.counter_max = 3000
             self.set_scrollspeed(scrollspeed)
-        super().__init__(text, draw, color, font, width)
+        super().__init__(text, draw, color, font, font_width)
 
     def set_scrollspeed(self, scrollspeed: float):
         self.scrollspeed = float(scrollspeed)
@@ -193,11 +163,11 @@ class TextLayouter(TextLayouterSimple):
         draw,
         color,
         colors,
-        font=fonts.base,
-        width=fonts.base_width,
+        font,
+        font_width,
         available_lines=3,
     ):
-        super().__init__(text, draw, color, font, width)
+        super().__init__(text, draw, color, font, font_width)
         self.nr_lines = 0
         self.colors = colors
         self.start_line = 0

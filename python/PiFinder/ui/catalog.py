@@ -100,22 +100,34 @@ class UICatalog(UIModule):
 
         self.object_text = ["No Object Found"]
         self.simpleTextLayout = functools.partial(
-            TextLayouterSimple, draw=self.draw, color=self.colors.get(255)
+            TextLayouterSimple,
+            draw=self.draw,
+            color=self.colors.get(255),
+            font=self.fonts.base,
+            font_width=self.fonts.base_width,
         )
         self.descTextLayout = TextLayouter(
             "",
             draw=self.draw,
             color=self.colors.get(255),
             colors=self.colors,
-            font=fonts.base,
+            font=self.fonts.base,
+            font_width=self.fonts.base_width,
         )
         self.ScrollTextLayout = functools.partial(
-            TextLayouterScroll, draw=self.draw, color=self.colors.get(255)
+            TextLayouterScroll,
+            draw=self.draw,
+            color=self.colors.get(255),
+            font=self.fonts.base,
+            font_width=self.fonts.base_width,
         )
         self.space_calculator = SpaceCalculatorFixed(18)
         self.texts = {
             "type-const": self.simpleTextLayout(
-                "No Object Found", font=self.font_bold, color=self.colors.get(255)
+                "No Object Found",
+                font=self.fonts.bold,
+                font_width=self.fonts.base_width,
+                color=self.colors.get(255),
             ),
         }
         self.catalogs: Catalogs = CatalogBuilder().build()
@@ -128,7 +140,6 @@ class UICatalog(UIModule):
         )
         self.catalog_tracker.select_catalogs(self._config_options["Catalogs"]["value"])
         self.observations_db = ObservationsDatabase()
-        self.font_large = fonts.large
 
         self.object_display_mode = DM_DESC
         self.object_image = None
@@ -264,7 +275,8 @@ class UICatalog(UIModule):
                 ),
                 draw=self.draw,
                 colors=self.colors,
-                font=fonts.base,
+                font=self.fonts.base,
+                font_width=self.fonts.base_width,
                 color=self.colors.get(255),
                 available_lines=6,
             )
@@ -284,7 +296,8 @@ class UICatalog(UIModule):
             )
             self.texts["type-const"] = self.simpleTextLayout(
                 typeconst,
-                font=fonts.bold,
+                font=self.fonts.bold,
+                font_width=self.fonts.bold_width,
                 color=self.colors.get(255),
             )
             # Magnitude / Size
@@ -307,7 +320,7 @@ class UICatalog(UIModule):
                 spaces, magsize = self.space_calculator.calculate_spaces(obj_mag, size)
 
             self.texts["magsize"] = self.simpleTextLayout(
-                magsize, font=fonts.bold, color=self.colors.get(255)
+                magsize, font=self.fonts.bold, color=self.colors.get(255)
             )
 
             aka_recs = (
@@ -320,7 +333,7 @@ class UICatalog(UIModule):
                 dedups = name_deduplicate(aka_recs.names, [current_desig])
                 self.texts["aka"] = self.ScrollTextLayout(
                     ", ".join(dedups),
-                    font=fonts.base,
+                    font=self.fonts.base,
                     scrollspeed=self._get_scrollspeed_config(),
                 )
 
@@ -389,13 +402,13 @@ class UICatalog(UIModule):
             self.draw.text(
                 (100, 21),
                 f"{self.catalog_tracker.get_current_catalog().get_filtered_count()}",
-                font=self.font_base,
+                font=self.fonts.base,
                 fill=self.colors.get(128),
             )
             self.draw.text(
                 (100, 31),
                 f"{self.catalog_tracker.get_current_catalog().get_count()}",
-                font=self.font_base,
+                font=self.fonts.base,
                 fill=self.colors.get(96),
             )
 

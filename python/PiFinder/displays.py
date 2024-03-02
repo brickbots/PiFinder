@@ -9,6 +9,8 @@ from luma.core.interface.serial import spi
 from luma.oled.device import ssd1351
 from luma.lcd.device import st7789
 
+from PiFinder.ui.fonts import Fonts
+
 
 ColorMask = namedtuple("ColorMask", ["mask", "mode"])
 RED_RGB: ColorMask = ColorMask(np.array([1, 0, 0]), "RGB")
@@ -32,10 +34,12 @@ class Colors:
 class DisplayBase:
     resolution = (128, 128)
     color_mask = RED_RGB
-    titlebar_height = 16
+    titlebar_height = 18
+    base_font_size = 10
 
     def __init__(self):
         self.colors = Colors(self.color_mask, self.resolution)
+        self.fonts = Fonts(self.base_font_size)
 
         # calculated display params
         self.centerX = int(self.resolution[0] / 2)
@@ -98,6 +102,7 @@ class DisplaySSD1351(DisplayBase):
 class DisplayST7789(DisplayBase):
     resolution = (320, 240)
     titlebar_height = 20
+    base_font_size = 16
 
     def __init__(self):
         # init display  (SPI hardware)
