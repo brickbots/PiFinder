@@ -42,7 +42,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue):
                 new_solve = t3.solve_from_image(
                     solve_image,
                     fov_estimate=10.2,
-                    fov_max_error=0.5,
+                    fov_max_error=0.7,
                     solve_timeout=500,
                     target_pixel=shared_state.solve_pixel(),
                 )
