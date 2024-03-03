@@ -65,59 +65,8 @@ class MenuScroller:
         # Return the slice of menu options to display, along with start and end indices
         return self.menu_items[self.start_index : self.end_index]
 
-    def get_options_window2(self):
-        menu_options = self.menu_items
-        visible_count = self.visible_count
-        highlighted_index = self.current_pos
-        # Calculate the start and end indices of the menu slice to display
-        if highlighted_index < visible_count // 2:
-            # Highlighted option is in the first half of the visible menu
-            start_index = 0
-        elif highlighted_index > len(menu_options) - visible_count // 2 - 1:
-            # Highlighted option is in the last half of the visible menu
-            start_index = max(0, len(menu_options) - visible_count)
-        else:
-            # Highlighted option is in the middle of the visible menu
-            start_index = highlighted_index - visible_count // 2
-
-        end_index = min(start_index + visible_count, len(menu_options))
-        self.start_index = start_index
-        self.end_index = end_index
-        print(f"start_index: {start_index}, end_index: {end_index}")
-
-        # Return the slice of menu options to display
-        return menu_options[start_index:end_index]
-
-    def get_options_window_old(self):
-        """
-        Return the range of options to display
-        """
-        start_index = self.current_pos
-        if self.current_pos > int(self.visible_count / 2):
-            start_index = self.current_pos - int(self.visible_count / 2)
-        end_index = self.start_index + self.visible_count
-        if end_index > len(self.menu_items):
-            start_index = start_index - (end_index - len(self.menu_items))
-        if start_index < 0:
-            start_index = 0
-        self.start_index = start_index
-        self.end_index = end_index
-        return self.menu_items[start_index:end_index]
-
     def __str__(self):
         result = f"{self.menu_items=}, {self.current_pos=}, {self.visible_count=}, {self.start_index=}, {self.end_index=}"
-        # result += '\n' + ", ".join(self.get_options_window())
-        # result = ", ".join(self.menu_items)
-        # result = "["
-        #
-        # for i, option in enumerate(self.menu_items):
-        #     if i == self.current_pos:
-        #         result += f" <{option}>"
-        #     elif i < self.start_index or i >= self.end_index:
-        #         result += f" /{option}/"
-        #     else:
-        #         result += f" {option}"
-        # result += " ]"
         return result
 
     def __repr__(self):
