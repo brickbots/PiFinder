@@ -52,6 +52,11 @@ class UILocate(UIModule):
         self.obs_list_write_index = 0
         self.last_update_time = time.time()
 
+        # cache some display stuff
+
+        self.az_anchor = (25, 50)
+        self.alt_anchor = (25, 84)
+
     def save_list(self, option):
         self._config_options["Load"]["value"] = ""
         if option == "CANCEL":
@@ -204,7 +209,10 @@ class UILocate(UIModule):
         line = target.catalog_code
         line += str(target.sequence)
         self.draw.text(
-            (0, 20), line, font=self.fonts.large.font, fill=self.colors.get(255)
+            (0, self.display_class.titlebar_height + 2),
+            line,
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
         )
 
         # Target history index
@@ -216,10 +224,19 @@ class UILocate(UIModule):
             line = f"{self.target_index + 1}/{len(self.ui_state.active_list())}"
             line = f"{line : >9}"
             self.draw.text(
-                (72, 18), line, font=self.fonts.base.font, fill=self.colors.get(255)
+                (
+                    self.display_class.rx - (self.fonts.base.width * 9),
+                    self.display_class.titlebar_height + 2,
+                ),
+                line,
+                font=self.fonts.base.font,
+                fill=self.colors.get(255),
             )
             self.draw.text(
-                (72, 28),
+                (
+                    self.display_class.rx - (self.fonts.base.width * 9),
+                    self.display_class.titlebar_height + 2 + self.fonts.base.height,
+                ),
                 f"{list_name: >9}",
                 font=self.fonts.base.font,
                 fill=self.colors.get(255),
@@ -227,7 +244,7 @@ class UILocate(UIModule):
 
         # ID Line in BOld
         self.draw.text(
-            (0, 40),
+            (0, self.display_class.titlebar_height + self.fonts.large.height),
             self.object_text[0],
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
@@ -249,24 +266,10 @@ class UILocate(UIModule):
                 (0, 84), "  --.-", font=self.fonts.huge.font, fill=self.colors.get(255)
             )
         else:
-            if point_az >= 0:
-                self.draw.regular_polygon(
-                    (10, 75, 10), 3, 90, fill=self.colors.get(indicator_color)
-                )
-                # self.draw.pieslice([-20,65,20,85],330, 30, fill=self.colors.get(255))
-                # self.draw.text((0, 50), "+", font=self.fonts.huge.font, fill=self.colors.get(255))
-            else:
-                point_az *= -1
-                self.draw.regular_polygon(
-                    (10, 75, 10), 3, 270, fill=self.colors.get(indicator_color)
-                )
-                # self.draw.pieslice([0,65,40,85],150,210, fill=self.colors.get(255))
-                # self.draw.text((0, 50), "-", font=self.fonts.huge.font, fill=self.colors.get(255))
-
             if point_az < 1:
                 self.draw.text(
                     (25, 50),
-                    f"{point_az : >5.2f}",
+                    f"{self._LEFT_ARROW} {point_az : >5.2f}",
                     font=self.fonts.huge.font,
                     fill=self.colors.get(indicator_color),
                 )

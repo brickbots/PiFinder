@@ -23,6 +23,11 @@ class UIModule:
     _CAM_ICON = ""
     _IMU_ICON = ""
     _GPS_ICON = "󰤉"
+    _LEFT_ARROW = ""
+    _RIGHT_ARROW = ""
+    _UP_ARROW = ""
+    _DOWN_ARROW = ""
+
     _unmoved = False  # has the telescope moved since the last cam solve?
 
     def __init__(

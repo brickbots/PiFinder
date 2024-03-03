@@ -387,7 +387,7 @@ def main(script_name=None, show_fps=False, verbose=False):
         # vs status/debug modes accessed by alt-A
         ui_observing_modes = 5
         ui_mode_index = 5
-        logging_mode_index = 7
+        logging_mode_index = 8
 
         current_module = ui_modes[ui_mode_index]
 
