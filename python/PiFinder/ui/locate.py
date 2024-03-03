@@ -54,8 +54,8 @@ class UILocate(UIModule):
 
         # cache some display stuff
 
-        self.az_anchor = (25, 50)
-        self.alt_anchor = (25, 84)
+        self.az_anchor = (25, self.display_class.resY - (self.fonts.huge.height * 2.2))
+        self.alt_anchor = (25, self.display_class.resY - (self.fonts.huge.height * 1.1))
 
     def save_list(self, option):
         self._config_options["Load"]["value"] = ""
@@ -225,7 +225,7 @@ class UILocate(UIModule):
             line = f"{line : >9}"
             self.draw.text(
                 (
-                    self.display_class.rx - (self.fonts.base.width * 9),
+                    self.display_class.resX - (self.fonts.base.width * 9),
                     self.display_class.titlebar_height + 2,
                 ),
                 line,
@@ -234,7 +234,7 @@ class UILocate(UIModule):
             )
             self.draw.text(
                 (
-                    self.display_class.rx - (self.fonts.base.width * 9),
+                    self.display_class.resX - (self.fonts.base.width * 9),
                     self.display_class.titlebar_height + 2 + self.fonts.base.height,
                 ),
                 f"{list_name: >9}",
@@ -260,51 +260,58 @@ class UILocate(UIModule):
         )
         if not point_az:
             self.draw.text(
-                (0, 50), " ---.-", font=self.fonts.huge.font, fill=self.colors.get(255)
+                self.az_anchor,
+                " ---.-",
+                font=self.fonts.huge.font,
+                fill=self.colors.get(255),
             )
             self.draw.text(
-                (0, 84), "  --.-", font=self.fonts.huge.font, fill=self.colors.get(255)
+                self.alt_anchor,
+                "  --.-",
+                font=self.fonts.huge.font,
+                fill=self.colors.get(255),
             )
         else:
+            if point_az < 0:
+                point_az *= -1
+                az_arrow = self._RIGHT_ARROW
+            else:
+                az_arrow = self._LEFT_ARROW
+
+            # Change decimal points when within 1 degree
             if point_az < 1:
                 self.draw.text(
-                    (25, 50),
-                    f"{self._LEFT_ARROW} {point_az : >5.2f}",
+                    self.az_anchor,
+                    f"{az_arrow} {point_az : >5.2f}",
                     font=self.fonts.huge.font,
                     fill=self.colors.get(indicator_color),
                 )
             else:
                 self.draw.text(
-                    (25, 50),
-                    f"{point_az : >5.1f}",
+                    self.az_anchor,
+                    f"{az_arrow} {point_az : >5.1f}",
                     font=self.fonts.huge.font,
                     fill=self.colors.get(indicator_color),
                 )
 
-            if point_alt >= 0:
-                self.draw.regular_polygon(
-                    (10, 110, 10), 3, 0, fill=self.colors.get(indicator_color)
-                )
-                # self.draw.pieslice([0,84,20,124],60, 120, fill=self.colors.get(255))
-                # self.draw.text((0, 84), "+", font=self.fonts.huge.font, fill=self.colors.get(255))
-            else:
+            if point_alt < 0:
                 point_alt *= -1
-                self.draw.regular_polygon(
-                    (10, 105, 10), 3, 180, fill=self.colors.get(indicator_color)
-                )
-                # self.draw.pieslice([0,104,20,144],270, 330, fill=self.colors.get(255))
-                # self.draw.text((0, 84), "-", font=self.fonts.huge.font, fill=self.colors.get(255))
+                alt_arrow = self._UP_ARROW
+            else:
+                alt_arrow = self._DOWN_ARROW
+
+            # Change decimal points when within 1 degree
             if point_alt < 1:
                 self.draw.text(
-                    (25, 84),
-                    f"{point_alt : >5.2f}",
+                    self.alt_anchor,
+                    f"{alt_arrow} {point_alt : >5.2f}",
                     font=self.fonts.huge.font,
                     fill=self.colors.get(indicator_color),
                 )
             else:
                 self.draw.text(
-                    (25, 84),
-                    f"{point_alt : >5.1f}",
+                    self.alt_anchor,
+                    f"{alt_arrow} {point_alt : >5.1f}",
                     font=self.fonts.huge.font,
                     fill=self.colors.get(indicator_color),
                 )

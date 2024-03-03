@@ -56,10 +56,6 @@ class UINearby(UIModule):
         "ENT": "Locate",
     }
     _config_options = {}
-    left_arrow = ""
-    right_arrow = ""
-    up_arrow = ""
-    down_arrow = ""
     checkmark = "󰄵"
     checkmark_no = ""
     sun = "󰖨"
@@ -146,10 +142,10 @@ class UINearby(UIModule):
             az_string = f"{az_arrow_symbol}{point_az:04.1f}"
 
         if point_alt >= 0:
-            alt_arrow_symbol = self._UP_ARROW
+            alt_arrow_symbol = self._DOWN_ARROW
         else:
             point_alt *= -1
-            alt_arrow_symbol = self._DOWN_ARROW
+            alt_arrow_symbol = self._UP_ARROW
 
         if point_alt < 1:
             alt_string = f"{alt_arrow_symbol}{point_alt:04.2f}"

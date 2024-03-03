@@ -132,7 +132,7 @@ class DisplayST7789(DisplayBase):
     bold_font_size = 19
     small_font_size = 13
     large_font_size = 24
-    huge_font_size = 56
+    huge_font_size = 70
 
     def __init__(self):
         # init display  (SPI hardware)
