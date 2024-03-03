@@ -14,7 +14,6 @@ from PiFinder.image_util import (
 import numpy as np
 import time
 from PIL import Image, ImageChops, ImageOps
-from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder import utils
 import sys
 
@@ -72,7 +71,6 @@ class UIPreview(UIModule):
         self.reticle_mode = 2
         self.last_update = time.time()
         self.solution = None
-        self.font_small = fonts.small
 
         self.capture_prefix = f"{self.__uuid__}_diag"
         self.capture_count = 0
@@ -120,7 +118,7 @@ class UIPreview(UIModule):
         fov = 10.2
         solve_pixel = self.shared_state.solve_pixel(screen_space=True)
         for circ_deg in [4, 2, 0.5]:
-            circ_rad = ((circ_deg / fov) * 128) / 2
+            circ_rad = ((circ_deg / fov) * self.display_class.resX) / 2
             bbox = [
                 solve_pixel[0] - circ_rad,
                 solve_pixel[1] - circ_rad,
@@ -175,7 +173,7 @@ class UIPreview(UIModule):
                 self.draw.text(
                     (star_x + x_text_offset, star_y + y_text_offset),
                     str(_i + 1),
-                    font=fonts.small,
+                    font=self.fonts.small,
                     fill=self.colors.get(128),
                 )
 

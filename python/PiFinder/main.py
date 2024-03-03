@@ -385,8 +385,8 @@ def main(script_name=None, show_fps=False, verbose=False):
 
         # What is the highest index for observing modes
         # vs status/debug modes accessed by alt-A
-        ui_observing_modes = 4
-        ui_mode_index = 4
+        ui_observing_modes = 5
+        ui_mode_index = 5
         logging_mode_index = 7
 
         current_module = ui_modes[ui_mode_index]

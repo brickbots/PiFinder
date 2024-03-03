@@ -5,29 +5,52 @@ from pathlib import Path
 from PIL import ImageFont
 
 
+class Font:
+    """
+    Stores a image font object + some typographic details
+
+    if height/width is not provided, it's calculated
+    """
+
+    def __init__(
+        self,
+        ttf_file: str,
+        size: int,
+        screen_width: int = 128,
+        height: int = 0,
+        width: int = 0,
+    ):
+        self.font = ImageFont.truetype(
+            ttf_file, size, layout_engine=ImageFont.Layout.BASIC
+        )
+
+        # calculate height/width
+        # Use several chars to get space between
+        bbox = self.font.getbbox("MMMMMMMMMM")
+        self.height = bbox[3] if height == 0 else height
+        self.width = int(bbox[2] / 10) if width == 0 else width
+
+        self.line_length = int(screen_width / self.width)
+
+
 class Fonts:
-    def __init__(self, base_font_size=10):
+    def __init__(
+        self,
+        base_size=10,
+        bold_size=12,
+        small_size=8,
+        large_size=15,
+        huge_size=35,
+        screen_width=128,
+    ):
         font_path = str(Path(Path.cwd(), "../fonts"))
         boldttf = str(Path(font_path, "RobotoMonoNerdFontMono-Bold.ttf"))
         regularttf = str(Path(font_path, "RobotoMonoNerdFontMono-Regular.ttf"))
 
-        self.base_height = base_font_size  # 10
-        self.base = ImageFont.truetype(boldttf, self.base_height)
-        self.base_width = int(self.base_height * 2.1)  # 21
+        self.base = Font(boldttf, base_size, screen_width)  # 10
+        self.bold = Font(boldttf, bold_size, screen_width)  # 12
+        self.large = Font(regularttf, large_size, screen_width)  # 15
+        self.small = Font(boldttf, small_size, screen_width)  # 8
+        self.huge = Font(boldttf, huge_size, screen_width)  # 35
 
-        self.bold_height = int(base_font_size * 1.2)  # 12
-        self.bold = ImageFont.truetype(boldttf, self.bold_height)
-        self.bold_width = int(self.bold_height * 1.5)  # 18
-
-        # for indicator icon usage only
-        self.icon_height = int(base_font_size * 1.5)  # 15
-        self.icon_bold_large = ImageFont.truetype(boldttf, self.icon_height)
-
-        self.large_height = int(base_font_size * 1.5)  # 15
-        self.large = ImageFont.truetype(regularttf, self.large_height)
-
-        self.small_height = int(base_font_size * 0.8)  # 8
-        self.small = ImageFont.truetype(boldttf, self.small_height)
-
-        self.huge_height = int(base_font_size * 3.5)  # 35
-        self.huge = ImageFont.truetype(boldttf, self.huge_height)
+        self.icon_bold_large = Font(boldttf, int(base_size * 1.5), screen_width)  # 15

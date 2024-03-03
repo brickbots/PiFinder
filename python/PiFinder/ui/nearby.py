@@ -11,7 +11,6 @@ from typing import List
 from PiFinder import config
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder.ui.base import UIModule
-from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     TextLayouter,
@@ -68,10 +67,13 @@ class UINearby(UIModule):
     star = ""
     ruler = ""
 
-    max_objects = 9
-
     def __init__(self, ui_catalog: UICatalog, *args):
         super().__init__(*args)
+        self.max_objects = int(
+            (self.display_class.resY - self.display_class.titlebar_height)
+            / self.fonts.base.height
+        )
+        print(f"max_objects: {self.max_objects}")
         self.ui_catalog = ui_catalog
         self._config_options = ui_catalog._config_options
         self.catalog_tracker: CatalogTracker = ui_catalog.catalog_tracker
@@ -88,15 +90,14 @@ class UINearby(UIModule):
             draw=self.draw,
             color=self.colors.get(255),
             colors=self.colors,
-            font=fonts.base,
+            font=self.fonts.base,
         )
         self.ScrollTextLayout = functools.partial(
             TextLayouterScroll, draw=self.draw, color=self.colors.get(255)
         )
-        self.space_calculator = SpaceCalculatorFixed(fonts.base_width - 2)
+        self.space_calculator = SpaceCalculatorFixed(self.fonts.base.line_length - 2)
         self.closest_objects = []
         self.closest_objects_text = []
-        self.font_large = fonts.large
         self.objects_balltree = None
         self.closest_objects_finder = ClosestObjectsFinder()
         self.current_line = -1
@@ -201,7 +202,7 @@ class UINearby(UIModule):
                 ) = self.closest_objects_finder.get_closest_objects(
                     self.shared_state.solution()["RA"],
                     self.shared_state.solution()["Dec"],
-                    self.max_objects + 1,
+                    self.max_objects,
                     catalogs=self.catalog_tracker.catalogs,
                 )
             else:
@@ -209,7 +210,7 @@ class UINearby(UIModule):
                     self.closest_objects_finder.get_closest_objects_cached(
                         self.shared_state.solution()["RA"],
                         self.shared_state.solution()["Dec"],
-                        self.max_objects + 1,
+                        self.max_objects,
                         self.objects_balltree,
                     )
                 )
@@ -234,7 +235,7 @@ class UINearby(UIModule):
             obj_mag, obj_color = self._obj_to_mag_color(obj)
             entry = self.simpleTextLayout(
                 obj_dist,
-                font=fonts.base,
+                font=self.fonts.base,
                 color=obj_color,
             )
             result.append((obj.obj_type, entry))
@@ -252,7 +253,7 @@ class UINearby(UIModule):
             obj_mag, obj_color = self._obj_to_mag_color(obj)
             entry = self.simpleTextLayout(
                 obj_dist,
-                font=fonts.base,
+                font=self.fonts.base,
                 color=obj_color,
             )
             result.append((obj.obj_type, entry))
@@ -276,7 +277,7 @@ class UINearby(UIModule):
 
             entry = self.simpleTextLayout(
                 obj_dist,
-                font=fonts.base,
+                font=self.fonts.base,
                 color=obj_color,
             )
             result.append((obj.obj_type, entry))
@@ -330,20 +331,28 @@ class UINearby(UIModule):
         elif self.current_mode == Modes.INFO:
             text_lines = self.create_info_text()
 
-        # Clear Screen
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
-        line = 17
+        self.clear_screen()
+        line = self.display_class.titlebar_height
         # Draw the closest objects
         for obj_type, txt in text_lines:
             marker = OBJ_TYPE_MARKERS.get(obj_type)
             if marker:
                 self.screen.paste(self.markers[marker], (0, line + 1))
             txt.draw((12, line - 1))
-            line += 11
+            line += self.fonts.base.height
         # Show inverted selection on object
         if self.current_line > -1:
-            topleft = (0, 18 + 11 * self.current_line)
-            bottomright = (128, 17 + 11 * (self.current_line + 1) + 1)
+            topleft = (
+                0,
+                self.display_class.titlebar_height
+                + self.fonts.base.height * self.current_line,
+            )
+            bottomright = (
+                self.display_class.resX,
+                self.display_class.titlebar_height
+                + self.fonts.base.height * (self.current_line + 1)
+                + 1,
+            )
             self.invert_red_channel(self.screen, topleft, bottomright)
         return self.screen_update()
 

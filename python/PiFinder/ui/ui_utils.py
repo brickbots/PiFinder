@@ -52,13 +52,11 @@ class TextLayouterSimple:
         draw,
         color,
         font,
-        font_width,
         embedded_color=False,
     ):
         self.text = text
         self.font = font
         self.color = color
-        self.width = font_width
         self.embedded_color = embedded_color
         self.drawobj = draw
         self.object_text: List[str] = []
@@ -86,7 +84,7 @@ class TextLayouterSimple:
         self.drawobj.multiline_text(
             pos,
             "\n".join(self.object_text),
-            font=self.font,
+            font=self.font.font,
             fill=self.color,
             embedded_color=self.embedded_color,
             spacing=0,
@@ -94,7 +92,7 @@ class TextLayouterSimple:
         self.after_draw(pos)
 
     def __repr__(self):
-        return f"TextLayouterSimple({self.text=}, {self.color=}, {self.font=}, {self.width=})"
+        return f"TextLayouterSimple({self.text=}, {self.color=}, {self.font=}, {self.font.line_length=})"
 
 
 class TextLayouterScroll(TextLayouterSimple):
@@ -110,30 +108,29 @@ class TextLayouterScroll(TextLayouterSimple):
         draw,
         color,
         font,
-        font_width,
         scrollspeed=MEDIUM,
     ):
         self.pointer = 0
         self.textlen = len(text)
         self.updated = True
 
-        if self.textlen >= width:
+        if self.textlen >= font.line_length:
             self.dtext = text + " " * 6 + text
             self.dtextlen = len(self.dtext)
             self.counter = 0
             self.counter_max = 3000
             self.set_scrollspeed(scrollspeed)
-        super().__init__(text, draw, color, font, font_width)
+        super().__init__(text, draw, color, font)
 
     def set_scrollspeed(self, scrollspeed: float):
         self.scrollspeed = float(scrollspeed)
         self.counter = 0
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
-        if self.textlen > self.width and self.scrollspeed > 0:
+        if self.textlen > self.font.line_length and self.scrollspeed > 0:
             if self.counter == 0:
                 self.object_text: List[str] = [
-                    self.dtext[self.pointer : self.pointer + self.width]
+                    self.dtext[self.pointer : self.pointer + self.font.line_length]
                 ]
                 self.pointer = (self.pointer + 1) % (self.textlen + 6)
             # start goes slower
@@ -164,10 +161,9 @@ class TextLayouter(TextLayouterSimple):
         color,
         colors,
         font,
-        font_width,
         available_lines=3,
     ):
-        super().__init__(text, draw, color, font, font_width)
+        super().__init__(text, draw, color, font)
         self.nr_lines = 0
         self.colors = colors
         self.start_line = 0
@@ -214,7 +210,9 @@ class TextLayouter(TextLayouterSimple):
             split_lines = re.split(r"\n|\n\n", self.text)
             self.object_text = []
             for line in split_lines:
-                self.object_text.extend(textwrap.wrap(line, width=self.width))
+                self.object_text.extend(
+                    textwrap.wrap(line, width=self.font.line_length)
+                )
             self.nr_lines = len(self.object_text)
             self.object_text = self.object_text[
                 self.pointer : self.pointer + self.available_lines
@@ -236,7 +234,7 @@ def shadow_outline_text(
             (x + shadow[0], y + shadow[1]),
             text,
             align=align,
-            font=font,
+            font=font.font,
             fill=shadow_color,
         )
 
@@ -260,7 +258,7 @@ def outline_text(ri_draw, xy, text, align, font, fill, shadow_color, stroke=4):
         xy,
         text,
         align=align,
-        font=font,
+        font=font.font,
         fill=fill,
         stroke_width=stroke,
         stroke_fill=shadow_color,
@@ -271,11 +269,11 @@ def shadow(ri_draw, xy, text, align, font, fill, shadowcolor):
     """draw shadowed text"""
     x, y = xy
     # thin border
-    ri_draw.text((x - 1, y), text, align=align, font=font, fill=shadowcolor)
-    ri_draw.text((x + 1, y), text, align=align, font=font, fill=shadowcolor)
-    ri_draw.text((x, y - 1), text, align=align, font=font, fill=shadowcolor)
-    ri_draw.text((x, y + 1), text, align=align, font=font, fill=shadowcolor)
-    ri_draw.text((x, y), text, align=align, font=font, fill=fill)
+    ri_draw.text((x - 1, y), text, align=align, font=font.font, fill=shadowcolor)
+    ri_draw.text((x + 1, y), text, align=align, font=font.font, fill=shadowcolor)
+    ri_draw.text((x, y - 1), text, align=align, font=font.font, fill=shadowcolor)
+    ri_draw.text((x, y + 1), text, align=align, font=font.font, fill=shadowcolor)
+    ri_draw.text((x, y), text, align=align, font=font.font, fill=fill)
 
 
 def name_deduplicate(names: List[str], exclude: List[str]):

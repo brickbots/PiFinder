@@ -10,7 +10,6 @@ from PiFinder import cat_images
 from PiFinder.catalog_utils import ClosestObjectsFinder
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
-from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     TextLayouter,
@@ -104,7 +103,6 @@ class UICatalog(UIModule):
             draw=self.draw,
             color=self.colors.get(255),
             font=self.fonts.base,
-            font_width=self.fonts.base_width,
         )
         self.descTextLayout = TextLayouter(
             "",
@@ -112,21 +110,18 @@ class UICatalog(UIModule):
             color=self.colors.get(255),
             colors=self.colors,
             font=self.fonts.base,
-            font_width=self.fonts.base_width,
         )
         self.ScrollTextLayout = functools.partial(
             TextLayouterScroll,
             draw=self.draw,
             color=self.colors.get(255),
             font=self.fonts.base,
-            font_width=self.fonts.base_width,
         )
         self.space_calculator = SpaceCalculatorFixed(18)
         self.texts = {
             "type-const": self.simpleTextLayout(
                 "No Object Found",
                 font=self.fonts.bold,
-                font_width=self.fonts.base_width,
                 color=self.colors.get(255),
             ),
         }
@@ -180,7 +175,7 @@ class UICatalog(UIModule):
             designator_color = 128
         return self.simpleTextLayout(
             str(current_designator),
-            font=fonts.large,
+            font=self.fonts.large,
             color=self.colors.get(designator_color),
         )
 
@@ -276,7 +271,6 @@ class UICatalog(UIModule):
                 draw=self.draw,
                 colors=self.colors,
                 font=self.fonts.base,
-                font_width=self.fonts.base_width,
                 color=self.colors.get(255),
                 available_lines=6,
             )
@@ -297,7 +291,6 @@ class UICatalog(UIModule):
             self.texts["type-const"] = self.simpleTextLayout(
                 typeconst,
                 font=self.fonts.bold,
-                font_width=self.fonts.bold_width,
                 color=self.colors.get(255),
             )
             # Magnitude / Size
@@ -365,7 +358,7 @@ class UICatalog(UIModule):
                 source,
                 self.fov_list[self.fov_index],
                 roll,
-                self.colors,
+                self.display_class,
             )
 
     def active(self):
@@ -388,7 +381,7 @@ class UICatalog(UIModule):
 
     def update(self, force=True):
         # Clear Screen
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+        self.clear_screen()
         cat_object = self.catalog_tracker.get_current_object()
 
         if self.object_display_mode == DM_DESC or cat_object is None:
@@ -402,13 +395,13 @@ class UICatalog(UIModule):
             self.draw.text(
                 (100, 21),
                 f"{self.catalog_tracker.get_current_catalog().get_filtered_count()}",
-                font=self.fonts.base,
+                font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
             self.draw.text(
                 (100, 31),
                 f"{self.catalog_tracker.get_current_catalog().get_count()}",
-                font=self.fonts.base,
+                font=self.fonts.base.font,
                 fill=self.colors.get(96),
             )
 

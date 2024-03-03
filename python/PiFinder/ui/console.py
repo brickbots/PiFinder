@@ -88,21 +88,17 @@ class UIConsole(UIModule):
                 self.draw.text(
                     (0, 1),
                     self.lines[-1],
-                    font=self.fonts.base,
+                    font=self.fonts.base.font,
                     fill=self.colors.get(255),
                 )
                 return self.screen_update(title_bar=False)
             else:
-                # clear screen
-                self.draw.rectangle(
-                    [0, 0, self.display_class.resX, self.display_class.resY],
-                    fill=self.colors.get(0),
-                )
+                self.clear_screen()
                 for i, line in enumerate(self.lines[-10 - self.scroll_offset :][:10]):
                     self.draw.text(
                         (0, i * 10 + 20),
                         line,
-                        font=self.fonts.base,
+                        font=self.fonts.base.font,
                         fill=self.colors.get(255),
                     )
                 self.dirty = False

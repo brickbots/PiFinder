@@ -36,10 +36,21 @@ class DisplayBase:
     color_mask = RED_RGB
     titlebar_height = 18
     base_font_size = 10
+    bold_font_size = 12
+    small_font_size = 8
+    large_font_size = 15
+    huge_font_size = 35
 
     def __init__(self):
         self.colors = Colors(self.color_mask, self.resolution)
-        self.fonts = Fonts(self.base_font_size)
+        self.fonts = Fonts(
+            self.base_font_size,
+            self.bold_font_size,
+            self.small_font_size,
+            self.large_font_size,
+            self.huge_font_size,
+            self.resolution[0],
+        )
 
         # calculated display params
         self.centerX = int(self.resolution[0] / 2)
@@ -82,7 +93,7 @@ class DisplaySSD1351(DisplayBase):
 
     def __init__(self):
         # init display  (SPI hardware)
-        serial = spi(device=0, port=0)
+        serial = spi(device=0, port=0, bus_speed_hz=48000000)
         device_serial = ssd1351(serial, rotate=0, bgr=True)
 
         device_serial.capabilities(
@@ -99,10 +110,29 @@ class DisplaySSD1351(DisplayBase):
         self.device.contrast(level)
 
 
+class DisplayST7789_128(DisplayBase):
+    resolution = (128, 128)
+
+    def __init__(self):
+        # init display  (SPI hardware)
+        serial = spi(device=0, port=0, bus_speed_hz=52000000)
+        device_serial = st7789(serial, bgr=True)
+
+        device_serial.capabilities(
+            width=self.resolution[0], height=self.resolution[1], rotate=0, mode="RGB"
+        )
+        self.device = device_serial
+        super().__init__()
+
+
 class DisplayST7789(DisplayBase):
     resolution = (320, 240)
-    titlebar_height = 20
+    titlebar_height = 22
     base_font_size = 16
+    bold_font_size = 19
+    small_font_size = 13
+    large_font_size = 24
+    huge_font_size = 56
 
     def __init__(self):
         # init display  (SPI hardware)
@@ -125,6 +155,7 @@ def get_display(hardware_platform: str) -> Type[DisplayBase]:
         return DisplaySSD1351()
 
     if hardware_platform == "PFPro":
+        # return DisplayST7789_128()
         return DisplayST7789()
 
     else:

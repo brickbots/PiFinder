@@ -39,11 +39,13 @@ class UIConfig(UIModule):
             self.__item_names = list(self.__config.keys())
 
     def update(self, force=False):
-        # clear screen
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+        self.clear_screen()
         if self.__config is None:
             self.draw.text(
-                (20, 18), "No Config", font=self.font_base, fill=self.colors.get(255)
+                (20, 18),
+                "No Config",
+                font=self.fonts.base.font,
+                fill=self.colors.get(255),
             )
         else:
             # Draw left side item labels
@@ -53,7 +55,7 @@ class UIConfig(UIModule):
                     self.draw.text(
                         (0, i * 11 + 18),
                         str(i),
-                        font=self.font_base,
+                        font=self.fonts.base.font,
                         fill=self.colors.get(255),
                     )
 
@@ -71,7 +73,7 @@ class UIConfig(UIModule):
                 self.draw.text(
                     (10, i * 11 + 18),
                     f"{item_name[:9]: >9}",
-                    font=self.font_base,
+                    font=self.fonts.base.font,
                     fill=self.colors.get(text_intensity),
                 )
 
@@ -89,7 +91,7 @@ class UIConfig(UIModule):
                     self.draw.text(
                         (70, i * 11 + 18),
                         f"{str(value)[:8]: >8}",
-                        font=self.font_base,
+                        font=self.fonts.base.font,
                         fill=self.colors.get(128),
                     )
                     i += 1
@@ -102,7 +104,7 @@ class UIConfig(UIModule):
                     self.draw.text(
                         (70, selected_index * 11 + 18),
                         f"{str(selected_item['value'])[:8]: >8}",
-                        font=self.font_base,
+                        font=self.fonts.base.font,
                         fill=self.colors.get(255),
                     )
 
@@ -134,7 +136,7 @@ class UIConfig(UIModule):
                         self.draw.text(
                             (70, (i + start_index) * 11 + 18),
                             f"{str(enum)[:8]: >8}",
-                            font=self.font_base,
+                            font=self.fonts.base.font,
                             fill=self.colors.get(text_intensity),
                         )
 
@@ -142,7 +144,7 @@ class UIConfig(UIModule):
                         self.draw.text(
                             (122, (i + start_index) * 11 + 18),
                             f"{i}",
-                            font=self.font_base,
+                            font=self.fonts.base.font,
                             fill=self.colors.get(text_intensity),
                         )
         return self.screen_update()

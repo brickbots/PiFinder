@@ -193,10 +193,16 @@ class UIChart(UIModule):
                 fill=self.colors.get(0),
             )
             self.draw.text(
-                (18, 20), "Can't plot", font=self.font_large, fill=self.colors.get(255)
+                (18, 20),
+                "Can't plot",
+                font=self.font_large.font,
+                fill=self.colors.get(255),
             )
             self.draw.text(
-                (25, 50), "No Solve Yet", font=self.font_base, fill=self.colors.get(255)
+                (25, 50),
+                "No Solve Yet",
+                font=self.font_base.font,
+                fill=self.colors.get(255),
             )
 
         self.draw_reticle()
