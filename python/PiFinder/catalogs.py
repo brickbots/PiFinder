@@ -315,7 +315,7 @@ class Catalogs:
         self, current_catalog_code: str, direction: int = 1, only_selected: bool = True
     ) -> Catalog:
         current_index = self._get_code_to_pos(current_catalog_code, only_selected)
-        if current_index:
+        if current_index is not None:
             catalogs = self.get_catalogs(only_selected)
             length = len(catalogs)
             next_index = (current_index + direction) % length
