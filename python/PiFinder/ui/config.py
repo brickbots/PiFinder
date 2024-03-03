@@ -7,6 +7,7 @@ This module contains all the UI Module classes
 import time
 
 from PiFinder.ui.base import UIModule
+from PiFinder.menu import MenuScroller
 import logging
 
 
@@ -25,6 +26,7 @@ class UIConfig(UIModule):
         self.__module = None
         self.__selected_item = None
         self.__selected_item_key = None
+        self.__menu = MenuScroller([])
         super().__init__(*args)
 
     def get_module(self):
@@ -98,6 +100,7 @@ class UIConfig(UIModule):
                 # something is selected, so show the appropriate input
                 # mechanism
                 selected_item = self.__config[self.__selected_item]
+                self.__menu.set_items(selected_item["options"])
                 # Bool
                 if selected_item["type"] == "bool":
                     self.draw.text(
@@ -108,20 +111,9 @@ class UIConfig(UIModule):
                     )
 
                 if "enum" in selected_item["type"]:
-                    # Fan out the options around the selected item index
-                    options = selected_item["options"]
-                    if "LND" not in options:
-                        options.append("LND")
-                    option_count = len(options)
-                    logging.debug(
-                        f"Selected item: {selected_item}, count: {option_count}"
-                    )
-                    start_index = selected_index - int(option_count / 2)
-                    end_index = selected_index + int(option_count / 2)
-                    if end_index > 10:
-                        start_index = start_index - (end_index - 10)
-                    if start_index < 0:
-                        start_index = 0
+                    self.__menu.set_items(selected_item["options"])
+                    options = self.__menu.get_options_window()
+                    # print(self.__menu, selected_item)
 
                     # Show the options
                     for i, enum in enumerate(options):
@@ -139,7 +131,7 @@ class UIConfig(UIModule):
 
                         # enum
                         self.draw.text(
-                            (70, (i + start_index) * 11 + 18),
+                            (70, (i + 0) * 11 + 18),
                             f"{str(enum)[:8]: >8}",
                             font=self.font_base,
                             fill=self.colors.get(text_intensity),
@@ -147,7 +139,7 @@ class UIConfig(UIModule):
 
                         # number
                         self.draw.text(
-                            (122, (i + start_index) * 11 + 18),
+                            (122, (i + 0) * 11 + 18),
                             f"{i}",
                             font=self.font_base,
                             fill=self.colors.get(text_intensity),
@@ -159,10 +151,18 @@ class UIConfig(UIModule):
         # any selected item
         self.__selected_item = None
 
+    def key_up(self):
+        self.__menu.up()
+
+    def key_down(self):
+        self.__menu.down()
+
     def key_number(self, number):
         if self.__selected_item:
             # select the option
+            # selected_item = self.__menu.get_options_window()[self.__selected_item]
             selected_item = self.__config[self.__selected_item]
+            print(selected_item)
             if number >= len(selected_item["options"]):
                 # if a number is pressed that is not an option
                 # just return
@@ -172,7 +172,7 @@ class UIConfig(UIModule):
                 self.__selected_item = None
 
             if selected_item["type"] == "multi_enum":
-                selected_option = selected_item["options"][number]
+                selected_option = self.__menu.get_options_window()[number]
                 if selected_option == "None":
                     selected_item["value"] = ["None"]
                 elif selected_option in selected_item["value"]:
