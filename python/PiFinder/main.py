@@ -92,7 +92,8 @@ def init_display():
         from luma.oled.device import ssd1351
 
         # init display  (SPI hardware)
-        serial = spi(device=0, port=0)
+        # 48,000,000 hz seems to be the fastest this display can support
+        serial = spi(device=0, port=0, bus_speed_hz=48000000)
         device_serial = ssd1351(serial, rotate=0, bgr=True)
         device_serial.capabilities(width=128, height=128, rotate=0, mode="RGB")
         display_device = DeviceWrapper(device_serial, RED_RGB)
@@ -418,9 +419,9 @@ def main(script_name=None, show_fps=False, verbose=False):
 
         # What is the highest index for observing modes
         # vs status/debug modes accessed by alt-A
-        ui_observing_modes = 4
-        ui_mode_index = 4
-        logging_mode_index = 7
+        ui_observing_modes = 5
+        ui_mode_index = 5
+        logging_mode_index = 8
 
         current_module = ui_modes[ui_mode_index]
 
