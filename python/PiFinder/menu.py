@@ -64,7 +64,7 @@ class MenuScroller:
 
         # Return the slice of menu options to display, along with start and end indices
 
-        return self.menu_items[self.start_index:self.end_index]
+        return self.menu_items[self.start_index : self.end_index]
 
     def __str__(self):
         result = f"{self.menu_items=}, {self.current_pos=}, {self.visible_count=}, {self.start_index=}, {self.end_index=}"
