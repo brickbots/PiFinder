@@ -56,14 +56,15 @@ class MenuScroller:
         # Ensure self.current_pos is within the bounds of the self.menu_items
         # If all menu options fit within the visible window, no need to scroll
         if len(self.menu_items) <= self.visible_count:
-            return self.menu_items, 0, len(self.menu_items)
+            return self.menu_items
 
         # Highlighted item causes the window to move to include the item
         self.start_index = self.current_pos
         self.end_index = self.start_index + self.visible_count
 
         # Return the slice of menu options to display, along with start and end indices
-        return self.menu_items[self.start_index : self.end_index]
+
+        return self.menu_items[self.start_index:self.end_index]
 
     def __str__(self):
         result = f"{self.menu_items=}, {self.current_pos=}, {self.visible_count=}, {self.start_index=}, {self.end_index=}"
