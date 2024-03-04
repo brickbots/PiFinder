@@ -26,9 +26,10 @@
         "H",
         "Ta2",
         "Str",
+        "RDS",
         "SaA",
-        "SaM",
         "SaR",
+        "SaM",
         "EGC"
     ],
     "active_catalogs": [

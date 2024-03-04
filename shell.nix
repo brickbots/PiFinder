@@ -3,6 +3,6 @@
 pkgs.mkShell {
   packages = with pkgs; [
     (python39.withPackages (ps: [ ps.pip ]))
-    pre-commit
+        pre-commit
   ];
 }
