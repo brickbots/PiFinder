@@ -113,7 +113,6 @@ class UIConfig(UIModule):
                 if "enum" in selected_item["type"]:
                     self.__menu.set_items(selected_item["options"])
                     options = self.__menu.get_options_window()
-                    # print(self.__menu, selected_item)
 
                     # Show the options
                     for i, enum in enumerate(options):
