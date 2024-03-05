@@ -93,7 +93,8 @@ def init_display():
 
         # init display  (SPI hardware)
         # 48,000,000 hz seems to be the fastest this display can support
-        serial = spi(device=0, port=0, bus_speed_hz=48000000)
+        # serial = spi(device=0, port=0, bus_speed_hz=48000000)
+        serial = spi(device=0, port=0)
         device_serial = ssd1351(serial, rotate=0, bgr=True)
         device_serial.capabilities(width=128, height=128, rotate=0, mode="RGB")
         display_device = DeviceWrapper(device_serial, RED_RGB)

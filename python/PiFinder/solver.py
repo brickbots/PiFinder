@@ -17,19 +17,19 @@ from time import perf_counter as precision_timestamp
 from PiFinder import utils
 
 sys.path.append(str(utils.tetra3_dir))
-import PiFinder.tetra3
-import cedar_detect_client
+import PiFinder.tetra3.tetra3 as tetra3
+from PiFinder.tetra3.tetra3 import cedar_detect_client
 
 
 # Select method used for star detection and centroiding. True for cedar-detect,
 # False for Tetra3.
-USE_CEDAR_DETECT = True
+USE_CEDAR_DETECT = False
 
 
 def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=False):
     logging.getLogger("tetra3.Tetra3").addHandler(logging.NullHandler())
     logging.debug("Starting Solver")
-    t3 = PiFinder.tetra3.tetra3.Tetra3(
+    t3 = tetra3.Tetra3(
         str(utils.cwd_dir / "PiFinder/tetra3/tetra3/data/default_database.npz")
     )
     last_solve_time = 0
@@ -68,7 +68,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                         np_image, sigma=8, max_size=10, use_binned=True
                     )
                 else:
-                    logging.info("Falling back to Tetra3 for centroiding")
+                    # logging.info("Falling back to Tetra3 for centroiding")
                     centroids = tetra3.get_centroids_from_image(np_image)
                 t_extract = (precision_timestamp() - t0) * 1000
                 logging.debug(
