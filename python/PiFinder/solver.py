@@ -65,7 +65,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                 t0 = precision_timestamp()
                 if USE_CEDAR_DETECT:
                     centroids = cedar_detect.extract_centroids(
-                        np_image, sigma=8, max_size=8, use_binned=True
+                        np_image, sigma=8, max_size=10, use_binned=True
                     )
                 else:
                     # logging.info("Falling back to Tetra3 for centroiding")
@@ -78,7 +78,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
 
                 if len(centroids) == 0:
                     logging.debug("No stars found, skipping")
-                    return
+                    continue
                 else:
                     solution = t3.solve_from_centroids(
                         centroids,
@@ -122,3 +122,5 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                 last_solve_time = last_image_metadata["exposure_end"]
     except EOFError:
         logging.error("Main no longer running for solver")
+    except Exception as e:
+        logging.error("Solver exception %s", e)
