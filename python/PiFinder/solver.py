@@ -23,7 +23,7 @@ from PiFinder.tetra3.tetra3 import cedar_detect_client
 
 # Select method used for star detection and centroiding. True for cedar-detect,
 # False for Tetra3.
-USE_CEDAR_DETECT = False
+USE_CEDAR_DETECT = True
 
 
 def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=False):
