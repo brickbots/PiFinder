@@ -261,11 +261,10 @@ class UINearby(UIModule):
             obj_mag, obj_color = self._obj_to_mag_color(obj)
             mag = f"m{obj_mag}" if obj_mag != 99 else ""
             size = f"{self.ruler}{obj.size.strip()}" if obj.size.strip() else ""
-            full_name = (
-                f"{mag} {size} {self.checkmark if obj.logged else self.checkmark_no}"
-            )
+            check = f" {self.checkmark}" if obj.logged else ""
+            full_name = f"{mag} {size}{check}"
             if len(full_name) > 12:
-                full_name = mag
+                full_name = f"{mag}{check}"
             obj_name = f"{obj.catalog_code}{obj.sequence}"
             _, obj_dist = self.space_calculator.calculate_spaces(
                 obj_name, full_name, empty_if_exceeds=False, trunc_left=False
