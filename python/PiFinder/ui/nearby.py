@@ -6,7 +6,7 @@ This module contains all the UI Module classes
 """
 from enum import Enum
 import numpy as np
-from typing import List
+from typing import List, Tuple, Optional
 
 from PiFinder import config
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
@@ -23,16 +23,16 @@ from PiFinder.catalogs import (
 )
 from PiFinder.calc_utils import aim_degrees
 from PiFinder.catalog_utils import ClosestObjectsFinder
-import functools
-import logging
-
+from PiFinder import utils
 from PiFinder.catalogs import CompositeObject
 from PiFinder.ui.catalog import UICatalog
 from PIL import Image, ImageChops
+import functools
+import logging
 from pathlib import Path
 import os
 from itertools import cycle
-from PiFinder import utils
+from sklearn.neighbors import BallTree
 
 
 class Modes(Enum):
@@ -40,9 +40,9 @@ class Modes(Enum):
     Enum for the different modes
     """
 
-    LOCATE = 0
-    NAME = 1
-    INFO = 2
+    LOCATE = 0  # shows distance to the target
+    NAME = 1  # shows common names of the target
+    INFO = 2  # shows magnitude, size, seen, ...
 
 
 class UINearby(UIModule):
@@ -97,7 +97,7 @@ class UINearby(UIModule):
         self.closest_objects = []
         self.closest_objects_text = []
         self.font_large = fonts.large
-        self.objects_balltree = None
+        self.objects_balltree: Optional[Tuple[List[CompositeObject], BallTree]]
         self.closest_objects_finder = ClosestObjectsFinder()
         self.current_line = -1
         self.mode_cycle = cycle(Modes)
@@ -125,6 +125,7 @@ class UINearby(UIModule):
     def update_config(self):
         self.ui_catalog.update_config()
         self.objects_balltree = None
+        return True
 
     def update_object_info(self):
         self.update()
@@ -193,30 +194,26 @@ class UINearby(UIModule):
         to that location
         """
         if self.shared_state.solution():
-            closest_objects: List[CompositeObject] = None
+            ra, dec = (
+                self.shared_state.solution()["RA"],
+                self.shared_state.solution()["Dec"],
+            )
             if not self.objects_balltree:
-                (
-                    closest_objects,
-                    self.objects_balltree,
-                ) = self.closest_objects_finder.get_closest_objects(
-                    self.shared_state.solution()["RA"],
-                    self.shared_state.solution()["Dec"],
-                    self.max_objects + 1,
-                    catalogs=self.catalog_tracker.catalogs,
-                )
-            else:
-                closest_objects = (
-                    self.closest_objects_finder.get_closest_objects_cached(
-                        self.shared_state.solution()["RA"],
-                        self.shared_state.solution()["Dec"],
-                        self.max_objects + 1,
-                        self.objects_balltree,
+                self.objects_balltree = (
+                    self.closest_objects_finder.calculate_objects_balltree(
+                        ra, dec, catalogs=self.catalog_tracker.catalogs
                     )
                 )
+            closest_objects = self.closest_objects_finder.get_closest_objects(
+                ra,
+                dec,
+                self.max_objects + 1,
+                self.objects_balltree,
+            )
             self.current_nr_objects = len(closest_objects)
             self.closest_objects = closest_objects
 
-    def create_locate_text(self) -> List[TextLayouterSimple]:
+    def create_locate_text(self) -> List[Tuple[str, TextLayouterSimple]]:
         result = []
         for obj in self.closest_objects:
             az, alt = aim_degrees(
@@ -240,7 +237,7 @@ class UINearby(UIModule):
             result.append((obj.obj_type, entry))
         return result
 
-    def create_name_text(self) -> List[TextLayouterSimple]:
+    def create_name_text(self) -> List[Tuple[str, TextLayouterSimple]]:
         result = []
         for obj in self.closest_objects:
             full_name = f"{','.join(obj.names)}" if obj.names else ""
@@ -258,17 +255,16 @@ class UINearby(UIModule):
             result.append((obj.obj_type, entry))
         return result
 
-    def create_info_text(self) -> List[TextLayouterSimple]:
+    def create_info_text(self) -> List[Tuple[str, TextLayouterSimple]]:
         result = []
         for obj in self.closest_objects:
             obj_mag, obj_color = self._obj_to_mag_color(obj)
             mag = f"m{obj_mag}" if obj_mag != 99 else ""
             size = f"{self.ruler}{obj.size.strip()}" if obj.size.strip() else ""
-            full_name = (
-                f"{mag} {size} {self.checkmark if obj.logged else self.checkmark_no}"
-            )
+            check = f" {self.checkmark}" if obj.logged else ""
+            full_name = f"{mag} {size}{check}"
             if len(full_name) > 12:
-                full_name = mag
+                full_name = f"{mag}{check}"
             obj_name = f"{obj.catalog_code}{obj.sequence}"
             _, obj_dist = self.space_calculator.calculate_spaces(
                 obj_name, full_name, empty_if_exceeds=False, trunc_left=False
@@ -284,7 +280,7 @@ class UINearby(UIModule):
 
     def _obj_to_mag_color(self, obj: CompositeObject):
         """
-        Extract the magnitude safely from the object and convert it into a color
+        Extract the magnitude safely from the object and convert it to a color
         """
         try:
             obj_mag = float(obj.mag)
@@ -331,7 +327,7 @@ class UINearby(UIModule):
             text_lines = self.create_info_text()
 
         # Clear Screen
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+        self.draw.rectangle((0, 0, 128, 128), fill=self.colors.get(0))
         line = 17
         # Draw the closest objects
         for obj_type, txt in text_lines:
@@ -360,15 +356,6 @@ class UINearby(UIModule):
 
     def key_b(self):
         self.current_mode = next(self.mode_cycle)
-        # if self.catalog_tracker.get_current_object() is None:
-        #     self.object_display_mode = DM_DESC
-        # else:
-        #     # switch object display text
-        #     self.object_display_mode = (
-        #         self.object_display_mode + 1 if self.object_display_mode < 2 else 0
-        #     )
-        #     self.update_object_info()
-        #     self.update()
 
     def background_update(self):
         # catalog will be filtered by the UICatalog view
