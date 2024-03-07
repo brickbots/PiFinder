@@ -1,0 +1,93 @@
+VII/220A  Barnard's Catalogue of 349 Dark Objects in the Sky (Barnard, 1927)
+================================================================================
+Barnard's Catalogue of 349 Dark Objects in the Sky
+    Barnard E.E.
+   <A Photographic Atlas of Selected Regions of the Milky Way,
+     by Barnard E. E., ed. Frost E.B. and Calvert M.R.,
+     Carnegie Institution of Washington (1927)>
+   =1927cdos.book.....B
+   =1927Barn..C......0B
+================================================================================
+ADC_Keywords: Nebulae, dark ; Nonstellar objects
+Keywords: Dark objects ; Barnard objects
+
+Description:
+    This catalogue was created based on the original published catalogue
+    by Barnard E.E., 1927, Carnegie Institution of Washington,
+    "A photographic Atlas of selected regions of the Milky Way".
+    The catalogue contains positions of 349 Barnard Objects.
+
+    The objects with numbers from 1 to 175 are classified in the first
+    Barnard catalogue (1919ApJ....49....1B); three of the objects in that
+    list have been omitted here (Nos 52, 131a, and 172) because these
+    objects had been listed twice.
+
+    The objects from Barnard's second list are numbered from 201 to 370 --
+    there are therefore no objects having the numbers from 176 to 200.
+    Their positions were determined by Miss Calvert.
+
+    The epoch for all positions in the original published catalogue was
+    1875.0. Positions for both 1875.0 and 2000.0, the diameters and the
+    notes are included in this machine-readable catalogue.
+
+File Summary:
+--------------------------------------------------------------------------------
+ FileName    Lrecl   Records    Explanations
+--------------------------------------------------------------------------------
+ReadMe          80         .    This file
+barnard.dat     44       349    Positions and Diameters
+notes.dat       80       603    Notes
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: barnard.dat
+--------------------------------------------------------------------------------
+   Bytes Format  Units  Label     Explanations
+--------------------------------------------------------------------------------
+   2-  5  A4     ---    Barn     *[ 0-9a]! Barnard number
+   6-  7  I2     h      RAh       Right Ascension 1875 (hours)
+   9- 10  I2     min    RAm       Right Ascension 1875 (minutes)
+  12- 13  I2     s      RAs      *? Right Ascension 1875 (seconds)
+      15  A1     ---    DE-       Declination 1875 (sign)
+  16- 17  I2     deg    DEd       Declination 1875 (degrees)
+  19- 20  I2     arcmin DEm       Declination 1875 (minutes)
+  23- 24  I2     h      RA2000h   Right Ascension 2000 (hours)
+  26- 27  I2     min    RA2000m   Right Ascension 2000 (minutes)
+  29- 30  I2     s      RA2000s   ? Right Ascension 2000 (seconds)
+      33  A1     ---    DE2000-   Declination 2000 (sign)
+  34- 35  I2     deg    DE2000d   Declination 2000 (degrees)
+  37- 38  I2     arcmin DE2000m   Declination 2000 (minutes)
+  40- 44  F5.1   arcmin Diam      ? Diameter of the nebula
+--------------------------------------------------------------------------------
+Note on Barn:
+    Catalog acronym in IAU standard is "Barnard NNNa".
+Note on RAs:
+    There are several data with space in this column in the
+    original published catalogue.
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: notes.dat
+--------------------------------------------------------------------------------
+   Bytes Format Units   Label    Explanations
+--------------------------------------------------------------------------------
+   2-  5  A4    ---     Barn     Barnard number (repeated for multi-line note)
+   7- 80  A74   ---     Text     Text of note
+--------------------------------------------------------------------------------
+
+Historical Notes:
+  * 25-Jun-1999: This catalogue was created by Junko Takahashi and Masatoshi
+    Ohishi at the Astronomical Data Analysis Center, National Astronomical
+    Observatory of Japan, based on the original published catalogue by
+    Barnard E.E., 1927, Carnegie Institution of Washington,
+    "A photographic Atlas of selected regions of the Milky Way."
+  * 24-Jan-2001: The diameters and notes were kindly supplied by Bill Gray
+    from the Pluto project (pluto@projectpluto.com)
+  * 30-Jun-2008: Thanks to Mati Morel, 6 position errors in J2000 positions
+    were corrected for the pairs B67/67a, B83/83a, and B117/B117a
+
+Acknowledgments:
+    Takahashi and Ohishi are grateful to Dr. Mitsuru Soma and
+    Prof. Shiro Nishimura for their codes for the coordinate conversion.
+    They also wish to thank all members at the Astronomical Data Center,
+    National Astronomical Observatory of Japan for their cooperation.
+================================================================================
+(End) Junko Takahashi, Masatoshi Ohishi [NAOJ]; Bill Gray [Pluto P.] 30-Jun-2008
