@@ -859,7 +859,7 @@ def load_barnard():
     path = Path(utils.astro_data_dir, "barnard")
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, path / "barnard.desc")
-    object_finder = ObjectFinder()
+    # object_finder = ObjectFinder()
     data = path / "barnard.dat"
     data_notes = path / "notes.dat"
     barn_dict = defaultdict(str)
@@ -867,10 +867,9 @@ def load_barnard():
     with open(data_notes, "r") as notes:
         for line in notes:
             # Extract the Barnard number and text note from the line
-            # Adjust indices: Python is 0-based and the end index is exclusive
             barn = line[1:5].strip()  # Bytes 2-5
             text = line[6:80].strip()  # Bytes 7-80
-            barn_dict[barn] += text
+            barn_dict[barn] += f" {text}"
 
     # build catalog
     with open(data, "r") as df:
@@ -885,25 +884,24 @@ def load_barnard():
             DE2000_sign = row[32]
             DE2000d = int(row[33:35])
             DE2000m = int(row[36:38])
-            Diam = float(row[39:44]) if row[39:44].strip() else 0
+            Diam = float(row[39:44]) if row[39:44].strip() else ""
             sequence = Barn
-            logging.debug(f"<----------------- Barnard {sequence=} ----------------->")
-            obj_type = "?"
+            logging.debug(f"<------------- Barnard {sequence=} ------------->")
+            obj_type = "Nb"
             ra_h = RA2000h
             ra_m = RA2000m
             ra_s = RA2000s
-            print("ra_h", ra_h, "ra_m", ra_m, "ra_s", ra_s)
             ra_deg = ra_to_deg(ra_h, ra_m, ra_s)
 
             dec_deg = DE2000d * -1 if DE2000_sign == "-" else DE2000d
             dec_m = DE2000m
             dec_deg = dec_to_deg(dec_deg, dec_m, 0)
-            desc = barn_dict[Barn]
+            desc = barn_dict[Barn].strip()
             const = sf_utils.radec_to_constellation(ra_deg, dec_deg)
             # object_id = object_finder.get_object_id(wds)
             # if not object_id:
             object_id = objects_db.insert_object(
-                obj_type, ra_deg, dec_deg, const, Diam, 99
+                obj_type, ra_deg, dec_deg, const, Diam, ""
             )
             logging.debug(f"inserting unknown object {object_id=}")
             objects_db.insert_catalog_object(object_id, catalog, sequence, desc)

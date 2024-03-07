@@ -1,6 +1,7 @@
 import datetime
 import pytz
 import math
+from typing import Tuple, Optional
 from skyfield.api import (
     wgs84,
     Loader,
@@ -39,7 +40,7 @@ class FastAltAz:
 
         self.local_siderial_time = lst % 360
 
-    def radec_to_altaz(self, ra, dec, alt_only=False):
+    def radec_to_altaz(self, ra, dec, alt_only=False) -> Tuple[float, Optional[float]]:
         hour_angle = (self.local_siderial_time - ra) % 360
 
         _alt = math.sin(dec * math.pi / 180) * math.sin(
@@ -52,7 +53,7 @@ class FastAltAz:
 
         alt = math.asin(_alt) * 180 / math.pi
         if alt_only:
-            return alt
+            return alt, None
 
         _az = (
             math.sin(dec * math.pi / 180)
@@ -151,7 +152,7 @@ def aim_degrees(shared_state, mount_type, screen_direction, target):
     return None, None
 
 
-def calc_object_altitude(shared_state, obj):
+def calc_object_altitude(shared_state, obj) -> Optional[float]:
     solution = shared_state.solution()
     location = shared_state.location()
     dt = shared_state.datetime()
@@ -161,12 +162,12 @@ def calc_object_altitude(shared_state, obj):
             location["lon"],
             dt,
         )
-        obj_alt = aa.radec_to_altaz(
+        alt, _ = aa.radec_to_altaz(
             obj.ra,
             obj.dec,
             alt_only=True,
         )
-        return obj_alt
+        return alt
 
     return None
 
