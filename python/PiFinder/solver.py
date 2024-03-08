@@ -17,8 +17,8 @@ from time import perf_counter as precision_timestamp
 from PiFinder import utils
 
 sys.path.append(str(utils.tetra3_dir))
-import PiFinder.tetra3
-import cedar_detect_client
+import PiFinder.tetra3.tetra3 as tetra3
+from PiFinder.tetra3.tetra3 import cedar_detect_client
 
 
 # Select method used for star detection and centroiding. True for cedar-detect,
@@ -29,7 +29,7 @@ USE_CEDAR_DETECT = True
 def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=False):
     logging.getLogger("tetra3.Tetra3").addHandler(logging.NullHandler())
     logging.debug("Starting Solver")
-    t3 = PiFinder.tetra3.tetra3.Tetra3(
+    t3 = tetra3.Tetra3(
         str(utils.cwd_dir / "PiFinder/tetra3/tetra3/data/default_database.npz")
     )
     last_solve_time = 0
@@ -65,10 +65,10 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                 t0 = precision_timestamp()
                 if USE_CEDAR_DETECT:
                     centroids = cedar_detect.extract_centroids(
-                        np_image, sigma=8, max_size=8, use_binned=True
+                        np_image, sigma=8, max_size=10, use_binned=True
                     )
                 else:
-                    logging.info("Falling back to Tetra3 for centroiding")
+                    # logging.info("Falling back to Tetra3 for centroiding")
                     centroids = tetra3.get_centroids_from_image(np_image)
                 t_extract = (precision_timestamp() - t0) * 1000
                 logging.debug(
@@ -78,7 +78,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
 
                 if len(centroids) == 0:
                     logging.debug("No stars found, skipping")
-                    return
+                    continue
                 else:
                     solution = t3.solve_from_centroids(
                         centroids,
@@ -122,3 +122,5 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                 last_solve_time = last_image_metadata["exposure_end"]
     except EOFError:
         logging.error("Main no longer running for solver")
+    except Exception as e:
+        logging.error("Solver exception %s", e)

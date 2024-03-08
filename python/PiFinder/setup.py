@@ -5,7 +5,7 @@ and importers used during setup
 """
 
 import csv
-import sys
+import json
 import argparse
 import logging
 import datetime
@@ -15,10 +15,10 @@ from pathlib import Path
 from typing import Dict
 from PiFinder.obj_types import OBJ_DESCRIPTORS
 import PiFinder.utils as utils
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg
+from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 
 objects_db: ObjectsDatabase
 observations_db: ObservationsDatabase
@@ -801,6 +801,114 @@ def load_caldwell():
     conn.commit()
 
 
+def load_rasc_double_Stars():
+    logging.info("Loading RASC Double Stars")
+    catalog = "RDS"
+    conn, _ = objects_db.get_conn_cursor()
+    path = Path(utils.astro_data_dir, "RASC_DoubleStars")
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, path / "rasc_ds.desc")
+    object_finder = ObjectFinder()
+    data = path / "rasc_double_stars.csv"
+    # Sequence Target	AlternateID	WDS	Con	RA2000	Dec2000	Mag MaxSep Notes
+    with open(data, "r") as df:
+        # skip title line
+        df.readline()
+        for row in tqdm(list(df)):
+            dfs = row.split("\t")
+            sequence = dfs[0].strip()
+            logging.debug(f"<----------------- Rasc DS {sequence=} ----------------->")
+            target = dfs[1]
+            alternate_ids = dfs[2].split(",")
+            wds = dfs[3]
+            obj_type = "D*"
+            const = dfs[4]
+            mags = json.loads(dfs[7])
+            mag = mags[0]
+            size = dfs[8]
+            # 03 31.1	+27 44
+            ra = dfs[5].split()
+            ra_h = int(ra[0])
+            ra_m = float(ra[1])
+            ra_deg = ra_to_deg(ra_h, ra_m, 0)
+
+            dec = dfs[6].split()
+            dec_deg = int(dec[0])
+            dec_m = float(dec[1])
+            dec_deg = dec_to_deg(dec_deg, dec_m, 0)
+            desc = dfs[9].strip().replace("<NEWLINE>", "\n").replace("<SECS>", '"')
+            object_id = object_finder.get_object_id(wds)
+            if not object_id:
+                object_id = objects_db.insert_object(
+                    obj_type, ra_deg, dec_deg, const, size, mag
+                )
+                logging.debug(f"inserting unknown object {object_id=}")
+            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
+            for name in alternate_ids:
+                objects_db.insert_name(object_id, name, catalog)
+            objects_db.insert_name(object_id, wds, catalog)
+            objects_db.insert_name(object_id, target, catalog)
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
+
+
+def load_barnard():
+    logging.info("Loading Barnard Dark Objects")
+    catalog = "B"
+    conn, _ = objects_db.get_conn_cursor()
+    path = Path(utils.astro_data_dir, "barnard")
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, path / "barnard.desc")
+    # object_finder = ObjectFinder()
+    data = path / "barnard.dat"
+    data_notes = path / "notes.dat"
+    barn_dict = defaultdict(str)
+    # build dictionary with notes
+    with open(data_notes, "r") as notes:
+        for line in notes:
+            # Extract the Barnard number and text note from the line
+            barn = line[1:5].strip()  # Bytes 2-5
+            text = line[6:80].strip()  # Bytes 7-80
+            barn_dict[barn] += f" {text}"
+
+    # build catalog
+    with open(data, "r") as df:
+        for row in tqdm(list(df)):
+            Barn = row[1:5].strip()
+            if Barn[-1] == "a":
+                print(f"Skipping {Barn=}")
+                continue
+            RA2000h = int(row[22:24])
+            RA2000m = int(row[25:27])
+            RA2000s = int(row[28:30]) if row[28:30].strip() else 0
+            DE2000_sign = row[32]
+            DE2000d = int(row[33:35])
+            DE2000m = int(row[36:38])
+            Diam = float(row[39:44]) if row[39:44].strip() else ""
+            sequence = Barn
+            logging.debug(f"<------------- Barnard {sequence=} ------------->")
+            obj_type = "Nb"
+            ra_h = RA2000h
+            ra_m = RA2000m
+            ra_s = RA2000s
+            ra_deg = ra_to_deg(ra_h, ra_m, ra_s)
+
+            dec_deg = DE2000d * -1 if DE2000_sign == "-" else DE2000d
+            dec_m = DE2000m
+            dec_deg = dec_to_deg(dec_deg, dec_m, 0)
+            desc = barn_dict[Barn].strip()
+            const = sf_utils.radec_to_constellation(ra_deg, dec_deg)
+            # object_id = object_finder.get_object_id(wds)
+            # if not object_id:
+            object_id = objects_db.insert_object(
+                obj_type, ra_deg, dec_deg, const, Diam, ""
+            )
+            logging.debug(f"inserting unknown object {object_id=}")
+            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
+
+
 def load_ngc_catalog():
     logging.info("Loading NGC catalog")
     conn, db_c = objects_db.get_conn_cursor()
@@ -954,6 +1062,8 @@ if __name__ == "__main__":
     load_sac_redstars()
     load_bright_stars()
     load_egc()
+    load_rasc_double_Stars()
+    load_barnard()
 
     # Populate the images table
     logging.info("Resolving object images...")

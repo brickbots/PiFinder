@@ -42,6 +42,7 @@ class UIModule:
         self.title = self.__title__
         self.button_hints = self.__button_hints__
         self.button_hints_timer = time.time()
+        self.button_hints_visible: bool = False
         self.switch_to = None
         self.display_class = display_class
         self.display = display_class.device
@@ -171,11 +172,12 @@ class UIModule:
             return None
 
         hint_timeout_decode = {"Off": 0, "2s": 2, "4s": 4, "On": 1000}
-        if (
+        self.button_hints_visible = (
             button_hints
             and time.time() - self.button_hints_timer
             < hint_timeout_decode.get(self.ui_state.hint_timeout(), 2)
-        ):
+        )
+        if self.button_hints_visible:
             # Bottom button help
 
             # B

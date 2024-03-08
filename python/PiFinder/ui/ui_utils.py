@@ -188,6 +188,10 @@ class TextLayouter(TextLayouterSimple):
         if reset_pointer:
             self.pointer = 0
 
+    def set_available_lines(self, available_lines: int):
+        self.available_lines = available_lines
+        self.updated = True
+
     def _draw_pos(self, pos):
         xpos = 127
         starty = pos[1] + 1

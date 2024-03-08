@@ -10,40 +10,43 @@ class ClosestObjectsFinder:
     def __init__(self):
         pass
 
-    # remove from CatalogTracker into utility clas
-    def get_closest_objects(
-        self, ra, dec, n, catalogs: Catalogs
+    def calculate_objects_balltree(
+        self, ra, dec, catalogs: Catalogs
     ) -> Tuple[List[CompositeObject], Tuple[List[CompositeObject], BallTree]]:
         """
-        Takes the current catalog or a list of catalogs, gets the filtered
-        objects and returns the n closest objects to ra/dec
+        Calculates a flat list of objects and the balltree for those objects
         """
         catalog_list: List[Catalog] = catalogs.get_catalogs()
         catalog_list_flat = [
             obj for catalog in catalog_list for obj in catalog.filtered_objects
         ]
-        if len(catalog_list_flat) < n:
-            n = len(catalog_list_flat)
         object_radecs = [
             [np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in catalog_list_flat
         ]
         objects_bt = BallTree(object_radecs, leaf_size=20, metric="haversine")
-        query = [[np.deg2rad(ra), np.deg2rad(dec)]]
-        _dist, obj_ind = objects_bt.query(query, k=n)
-        results = [catalog_list_flat[x] for x in obj_ind[0]]
-        deduplicated = self._deduplicate(results)
-        return deduplicated, (catalog_list_flat, objects_bt)
+        return (catalog_list_flat, objects_bt)
 
-    def get_closest_objects_cached(
+    def get_closest_objects(
         self, ra, dec, n, cache: Tuple[List[CompositeObject], BallTree]
     ) -> List[CompositeObject]:
+        """
+        Takes the current catalog or a list of catalogs, gets the filtered
+        objects and returns the n closest objects to ra/dec
+        """
+        catalog_list_flat, balltree = cache
         query = [[np.deg2rad(ra), np.deg2rad(dec)]]
-        _dist, obj_ind = cache[1].query(query, k=min(n, len(cache[0])))
-        results = [cache[0][x] for x in obj_ind[0]]
+        _, obj_ind = balltree.query(query, k=min(n, len(catalog_list_flat)))
+        results = [catalog_list_flat[x] for x in obj_ind[0]]
         deduplicated = self._deduplicate(results)
         return deduplicated
 
     def _deduplicate(self, unfiltered_results):
+        """
+        Make sure no duplicates are in the balltree results.
+        objects with the same object_id are considered duplicates.
+        If there are duplicates, the one with the higher precedence catalog_code
+        is kept.
+        """
         deduplicated_results = []
         seen_ids = set()
 

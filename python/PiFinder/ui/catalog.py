@@ -95,7 +95,7 @@ class UICatalog(UIModule):
         self._config_options["Catalogs"]["value"] = self.catalog_names.copy()
         self._config_options["Catalogs"]["options"] = self.config_object.get_option(
             "catalogs"
-        )[:10]
+        )
 
         self.object_text = ["No Object Found"]
         self.simpleTextLayout = functools.partial(
@@ -104,7 +104,7 @@ class UICatalog(UIModule):
             color=self.colors.get(255),
             font=self.fonts.base,
         )
-        self.descTextLayout = TextLayouter(
+        self.descTextLayout: TextLayouter = TextLayouter(
             "",
             draw=self.draw,
             color=self.colors.get(255),
@@ -302,15 +302,20 @@ class UICatalog(UIModule):
 
             size = str(cat_object.size).strip()
             size = "-" if size == "" else size
-            spaces, magsize = self.space_calculator.calculate_spaces(
-                f"Mag:{obj_mag}", f"Sz:{size}"
-            )
-            if spaces == -1:
+            # Only construct mag/size if at least one is present
+            magsize = ""
+            if size != "-" or obj_mag != "-":
                 spaces, magsize = self.space_calculator.calculate_spaces(
-                    f"Mag:{obj_mag}", size
+                    f"Mag:{obj_mag}", f"Sz:{size}"
                 )
-            if spaces == -1:
-                spaces, magsize = self.space_calculator.calculate_spaces(obj_mag, size)
+                if spaces == -1:
+                    spaces, magsize = self.space_calculator.calculate_spaces(
+                        f"Mag:{obj_mag}", size
+                    )
+                if spaces == -1:
+                    spaces, magsize = self.space_calculator.calculate_spaces(
+                        obj_mag, size
+                    )
 
             self.texts["magsize"] = self.simpleTextLayout(
                 magsize, font=self.fonts.bold, color=self.colors.get(255)
@@ -387,6 +392,9 @@ class UICatalog(UIModule):
         if self.object_display_mode == DM_DESC or cat_object is None:
             # catalog and entry field i.e. NGC-311
             self.refresh_designator()
+            desc_available_lines = (
+                2 if self.button_hints_visible else 3
+            )  # extra lines for description
             desig = self.texts["designator"]
             desig.draw((0, 21))
             # print("Drawing designator", self.catalog_tracker.current_catalog, self.catalog_tracker.current_catalog.get_objects())
@@ -412,7 +420,8 @@ class UICatalog(UIModule):
 
             # Object Magnitude and size i.e. 'Mag:4.0   Sz:7"'
             magsize = self.texts.get("magsize")
-            if magsize:
+            posy = 62
+            if magsize and magsize.text.strip():
                 if cat_object:
                     # check for visibility and adjust mag/size text color
                     obj_altitude = calc_utils.calc_object_altitude(
@@ -423,19 +432,24 @@ class UICatalog(UIModule):
                         if obj_altitude < 10:
                             # Not really visible
                             magsize.set_color = self.colors.get(128)
-
-                magsize.draw((0, 62))
+                magsize.draw((0, posy))
+                posy += 17
+            else:
+                posy += 3
+                desc_available_lines += 1  # extra lines for description
 
             # Common names for this object, i.e. M13 -> Hercules cluster
-            posy = 79
             aka = self.texts.get("aka")
-            if aka:
+            if aka and aka.text.strip():
                 aka.draw((0, posy))
                 posy += 11
+            else:
+                desc_available_lines += 1  # extra lines for description
 
             # Remaining lines with object description
             desc = self.texts.get("desc")
             if desc:
+                desc.set_available_lines(desc_available_lines)
                 desc.draw((0, posy))
 
         else:

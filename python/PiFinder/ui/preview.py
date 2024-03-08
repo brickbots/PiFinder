@@ -4,6 +4,13 @@
 This module contains all the UI Module classes
 
 """
+import sys
+import numpy as np
+import time
+
+from PIL import Image, ImageChops, ImageOps
+
+from PiFinder import utils
 from PiFinder.ui.base import UIModule
 from PiFinder.image_util import (
     gamma_correct_high,
@@ -11,11 +18,6 @@ from PiFinder.image_util import (
     gamma_correct_low,
     subtract_background,
 )
-import numpy as np
-import time
-from PIL import Image, ImageChops, ImageOps
-from PiFinder import utils
-import sys
 
 sys.path.append(str(utils.tetra3_dir))
 
@@ -189,9 +191,8 @@ class UIPreview(UIModule):
             # Do this at least once to get a numpy array in
             # star_list
             if self.align_mode and self.shared_state and self.shared_state.solution():
-                self.star_list = np.array(
-                    self.shared_state.solution()["matched_centroids"]
-                )
+                matched_centroids = self.shared_state.solution()["matched_centroids"]
+                self.star_list = np.array(matched_centroids)
 
             # Resize
             image_obj = image_obj.resize((128, 128))
@@ -244,8 +245,8 @@ class UIPreview(UIModule):
                 # They picked a star to align....
                 star_index = number - 1
                 if self.star_list.shape[0] > star_index:
-                    star_cam_x = self.star_list[star_index][0] * 2
-                    star_cam_y = self.star_list[star_index][1] * 2
+                    star_cam_x = self.star_list[star_index][0]
+                    star_cam_y = self.star_list[star_index][1]
                     self.shared_state.set_solve_pixel((star_cam_x, star_cam_y))
                     self.config_object.set_option(
                         "solve_pixel",

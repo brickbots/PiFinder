@@ -31,6 +31,8 @@ class CameraDebug(CameraInterface):
         self.exposure_time = exposure_time
         self.gain = 10
         self.image = Image.open(self.path / "debug.png")
+        self.image2 = Image.open(self.path / "debug2.png")
+        self.image_bool = True
         self.initialize()
 
     def initialize(self) -> None:
@@ -40,7 +42,8 @@ class CameraDebug(CameraInterface):
         sleep_time = self.exposure_time / 1000000
         time.sleep(sleep_time)
         logging.debug("CameraDebug exposed for %s seconds", sleep_time)
-        return self.image
+        self.image_bool = not self.image_bool
+        return self.image if self.image_bool else self.image2
 
     def capture_file(self, filename) -> None:
         print("capture_file not implemented")
