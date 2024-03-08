@@ -36,7 +36,8 @@ def gps_monitor(gps_queue, console_queue):
                 readings_list = list(islice(readings_filter, 10))
                 if readings_list:
                     result = min(
-                        readings_list, key=lambda x: x.get("ecefpAcc", float("inf"))
+                        readings_list,
+                        key=lambda x: x.get("ecefpAcc", x.get("sep", float("inf"))),
                     )
                     logging.debug("last reading is %s", result)
                     if result.get("lat") and result.get("lon") and result.get("altHAE"):
@@ -53,10 +54,14 @@ def gps_monitor(gps_queue, console_queue):
                         )
                         logging.debug("GPS fix: %s", msg)
                         gps_queue.put(msg)
-                    if result.get("time"):
-                        msg = ("time", result.get("time"))
-                        logging.debug("Setting time to %s", result.get("time"))
-                        gps_queue.put(msg)
+
+                    # Look for any time bearing packet
+                    for result in readings_list:
+                        if result.get("time"):
+                            msg = ("time", result.get("time"))
+                            logging.debug("Setting time to %s", result.get("time"))
+                            gps_queue.put(msg)
+                            break
                 else:
                     logging.debug("GPS client queue is empty")
                 logging.debug("GPS sleeping now")
