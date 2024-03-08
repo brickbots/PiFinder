@@ -34,7 +34,7 @@ class Colors:
 class DisplayBase:
     resolution = (128, 128)
     color_mask = RED_RGB
-    titlebar_height = 18
+    titlebar_height = 17
     base_font_size = 10
     bold_font_size = 12
     small_font_size = 8
@@ -93,7 +93,7 @@ class DisplaySSD1351(DisplayBase):
 
     def __init__(self):
         # init display  (SPI hardware)
-        serial = spi(device=0, port=0, bus_speed_hz=48000000)
+        serial = spi(device=0, port=0, bus_speed_hz=40000000)
         device_serial = ssd1351(serial, rotate=0, bgr=True)
 
         device_serial.capabilities(

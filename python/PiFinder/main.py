@@ -176,7 +176,7 @@ def main(script_name=None, show_fps=False, verbose=False):
     global display_device
 
     # display_device = get_display(hardware_platform)
-    display_device = get_display("PFPro")
+    display_device = get_display("Pi")
     init_keypad_pwm()
     setup_dirs()
 

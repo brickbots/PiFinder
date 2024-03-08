@@ -157,7 +157,7 @@ class UIModule:
         )
         message = " " * int((16 - len(message)) / 2) + message
         self.draw.text(
-            (9, 54), message, font=self.fonts.bold.font.font, fill=self.colors.get(255)
+            (9, 54), message, font=self.fonts.bold.font, fill=self.colors.get(255)
         )
         self.display.display(self.screen.convert(self.display.mode))
         self.ui_state.set_message_timeout(timeout + time.time())

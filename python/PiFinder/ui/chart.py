@@ -193,15 +193,15 @@ class UIChart(UIModule):
                 fill=self.colors.get(0),
             )
             self.draw.text(
-                (18, 20),
+                (self.display_class.titlebar_height + 2, 20),
                 "Can't plot",
-                font=self.font_large.font,
+                font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (25, 50),
+                (self.display_class.titlebar_height + 2 + self.fonts.large.height, 50),
                 "No Solve Yet",
-                font=self.font_base.font,
+                font=self.fonts.base.font,
                 fill=self.colors.get(255),
             )
 
