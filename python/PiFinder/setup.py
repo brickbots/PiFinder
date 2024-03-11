@@ -909,6 +909,51 @@ def load_barnard():
     conn.commit()
 
 
+def load_sharpless():
+    logging.info("Loading Sharpless")
+    catalog = "Sh2"
+    conn, _ = objects_db.get_conn_cursor()
+    path = Path(utils.astro_data_dir, "sharpless")
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, path / "sharpless.desc")
+    # object_finder = ObjectFinder()
+    data = path / "catalog.dat"
+
+    # Define a list to hold all the extracted records
+    records = []
+
+    # Open the file for reading
+    with open(data, "r") as file:
+        # Iterate over each line in the file
+        for line in file:
+            # Extract the relevant parts of each line based on byte positions
+            record = {
+                "Sh2": int(line[0:4].strip()),
+                "RA1950": {
+                    "h": int(line[34:36].strip()),
+                    "m": int(line[36:38].strip()),
+                    "ds": int(line[38:41].strip()),
+                },
+                "DE1950": {
+                    "sign": line[41],
+                    "d": int(line[42:44].strip()),
+                    "m": int(line[44:46].strip()),
+                    "s": int(line[46:48].strip()),
+                },
+                "Diam": int(line[48:52].strip()),
+                "Form": int(line[52:53].strip()),
+                "Struct": int(line[53:54].strip()),
+                "Bright": int(line[54:55].strip()),
+                "Stars": int(line[55:57].strip()),
+            }
+            # Append the extracted record to the list of records
+            records.append(record)
+    print(records)
+
+    # Return the list of records
+    return records
+
+
 def load_ngc_catalog():
     logging.info("Loading NGC catalog")
     conn, db_c = objects_db.get_conn_cursor()
@@ -1064,6 +1109,7 @@ if __name__ == "__main__":
     load_egc()
     load_rasc_double_Stars()
     load_barnard()
+    # load_sharpless()
 
     # Populate the images table
     logging.info("Resolving object images...")
