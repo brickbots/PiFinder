@@ -948,7 +948,14 @@ def load_sharpless():
             }
             # Append the extracted record to the list of records
             records.append(record)
-    print(records)
+    for record in records:
+        # markers["epoch_year"] = 1991.25
+        # marker_positions = self.earth.observe(Star.from_dataframe(markers))
+        #
+        # markers["x"], markers["y"] = self.projection(marker_positions)
+        # record["RA2000"] = sf_utils.ra1950_to_ra2000(
+        # record["DEC2000"] = sf_utils.ra1950_to_ra2000(
+        pass
 
     # Return the list of records
     return records
@@ -1097,19 +1104,19 @@ if __name__ == "__main__":
     # These load functions must be kept in this order
     # to keep some of the object referencing working
     # particularly starting with the NGC as the base
-    load_ngc_catalog()
-    load_caldwell()
-    load_collinder()
-    load_taas200()
-    load_herschel400()
-    load_sac_asterisms()
-    load_sac_multistars()
-    load_sac_redstars()
-    load_bright_stars()
-    load_egc()
-    load_rasc_double_Stars()
-    load_barnard()
-    # load_sharpless()
+    # load_ngc_catalog()
+    # load_caldwell()
+    # load_collinder()
+    # load_taas200()
+    # load_herschel400()
+    # load_sac_asterisms()
+    # load_sac_multistars()
+    # load_sac_redstars()
+    # load_bright_stars()
+    # load_egc()
+    # load_rasc_double_Stars()
+    # load_barnard()
+    load_sharpless()
 
     # Populate the images table
     logging.info("Resolving object images...")
