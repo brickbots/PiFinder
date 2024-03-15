@@ -146,7 +146,7 @@ The PiFinder is designed to allow you to adjust the brightness of the screen and
 Setting Focus & First Solve
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Once you see stars populating the sky, turn on your PiFinder and aim your scope at one of the brightest best stars you can see. Make sure your lens cap is off, and immediately PiFinder will get to work solving what it sees.... but what it sees might be fuzzy so you'll need to adjust the focus on the lense.  Start by turning it all the way in the 'Far' direction and turning it 1/4 turn back.  You should see one or more bloated, unfocused stars as seen below.  Turn the focus ring until the star tightens up and looks like the image to the right.  Focus is not critical, it just needs to be close.  If the sky is dark enough and you've got focus correct, you should see the camera icon appear in the top right and the current constellation will be shown in the title bar.  Congratulations Plate Solving is complete, and the PiFinder knows where it is pointin! 
+Once you see stars populating the sky, turn on your PiFinder and aim your scope at one of the brightest best stars you can see. Make sure your lens cap is off, and immediately PiFinder will get to work solving what it sees.... but what it sees might be fuzzy so you'll need to adjust the focus on the lense.  Start by turning it all the way in the 'Far' direction and turning it 1/2 to one full turn back.  You should see one or more bloated, unfocused stars as seen below.  Turn the focus ring until the star tightens up and looks like the image to the right.  Focus is not critical, it just needs to be close.  If the sky is dark enough and you've got focus correct, you should see the camera icon appear in the top right and the current constellation will be shown in the title bar.  Congratulations Plate Solving is complete, and the PiFinder knows where it is pointing!
 
 .. list-table::
 
@@ -160,7 +160,8 @@ Once you see stars populating the sky, turn on your PiFinder and aim your scope 
 
 
 .. note::
-   **Can’t get a plate solve?** Check to make sure your lens cap is off, your aperture is all the way open, and your focus is at infinity. **Still not working?** Make sure nothing is impeding PiFinder’s view of the sky, and its screen has not dewed or fogged over.
+   **Can’t get a plate solve?** Check to make sure your lens cap is off, your aperture is all the way open, and the knurled spacer between the camera and lens is in place. This can sometimes remain attached to the thin plastic cover that comes on the camera.  Without this spacer the lens will not be able to focus.
+   **Still not working?** Make sure nothing is impeding PiFinder’s view of the sky, and its screen has not dewed or fogged over.
 
 
 Alignment
