@@ -66,7 +66,7 @@ To set the configuration style, press the **5** key to select the 'mnt side' opt
 Camera Setup
 ------------
 
-In this step we’ll get the camera ready for use. Once you’ve set it, you likely won’t need to adjust it very often. The camera has an aperture and focus ring indicated in orange and green below. 
+In this step we’ll get the camera ready for use. Once you’ve set it, you likely won’t need to adjust it very often. The camera has an aperture and focus ring indicated in orange and green below. When affixing the lens to the PiFinder make sure you leave the knurled spacer on the camera or the lens will not be able to focus.  You can see the spacer in the image below.
 
 .. image:: images/quick_start/cam_adjustments.jpeg
 
@@ -84,7 +84,7 @@ Next, use your fingers to gently turn the aperture ring until it is fully open (
           Camera Aperture Open
 
 
-Lastly, turn the focuser all the way in the Far direction indicated on the lens and back it off about ¼ turn.  This should get you close to focus, and you can refine focus using the CAMERA screen explained later in this manual, when you are using the PiFinder for the first time under the stars.
+Lastly, turn the focuser all the way in the Far direction indicated on the lens and back it off about 3/4 turn.  This should get you close to focus, and you can refine focus using the CAMERA screen explained later in this manual, when you are using the PiFinder for the first time under the stars.
 
 Your camera is now all set for use! If you ever have troubles with alignment or plate solving, you can troubleshoot these steps to make sure your camera is set up correctly.
 
@@ -146,7 +146,11 @@ The PiFinder is designed to allow you to adjust the brightness of the screen and
 Setting Focus & First Solve
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Once you see stars populating the sky, turn on your PiFinder and aim your scope at one of the brightest best stars you can see. Make sure your lens cap is off, and immediately PiFinder will get to work solving what it sees.... but what it sees might be fuzzy so you'll need to adjust the focus on the lense.  Start by turning it all the way in the 'Far' direction and turning it 1/2 to one full turn back.  You should see one or more bloated, unfocused stars as seen below.  Turn the focus ring until the star tightens up and looks like the image to the right.  Focus is not critical, it just needs to be close.  If the sky is dark enough and you've got focus correct, you should see the camera icon appear in the top right and the current constellation will be shown in the title bar.  Congratulations Plate Solving is complete, and the PiFinder knows where it is pointing!
+Once you see stars populating the sky, turn on your PiFinder and aim your scope at one of the brightest best stars you can see. Make sure your lens cap is off, and immediately PiFinder will get to work solving what it sees.... but what it sees might be fuzzy so you'll need to adjust the focus on the lense.  Start by turning it all the way in the 'Far' direction and turning it 1/2 to one full turn back.  You should see one or more bloated, unfocused stars as seen below.  Turn the focus ring until the star tightens up and looks like the image to the right.  
+
+Even though the screen may seem too bright or dark or have a noisy appearance, this is normal until the camera is near focus.  Do not adjust the exposure time on the PiFinder until you've tried the whole focus range back and forth.  Once something star-like is in the FOV and near focus, the image processing in the preview screen will work properly and start dimming the background and highlighting the stars.
+
+Focus is not critical, it just needs to be close.  If the sky is dark enough and you've got focus correct, you should see the camera icon appear in the top right and the current constellation will be shown in the title bar.  Congratulations Plate Solving is complete, and the PiFinder knows where it is pointing!
 
 .. list-table::
 
