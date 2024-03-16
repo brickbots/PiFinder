@@ -107,7 +107,9 @@ The demo mode - it is cloudy, but I like to test my PiFinder
 The way to enter the 'test' or 'debug' mode on the PiFinder is to use "ENT-A" to cycle through the screens to get to the Console screen and then pressing the "0" key . This will supply a fake GPS lock, time and cause the PiFinder to just solve an image from disk.  But it will respond to IMU movement and allow use of things like Push-To and all the other functions that require a solve/lock.
 
 
-Pics here
+.. image:: images/user_guide/DEMO_MODE_001_docs.png
+
+.. image:: images/user_guide/DEMO_MODE_002_docs.png
 
 
 
