@@ -10,7 +10,8 @@ tools
 """
 import os
 from textwrap import dedent
-from PiFinder import utils, catalogs
+from PiFinder import utils
+from PiFinder.catalogs import Names
 
 OBSLIST_DIR = f"{utils.data_dir}/obslists/"
 
@@ -71,16 +72,15 @@ def resolve_object(catalog_numbers, objects):
     return None
 
 
-def read_list(name):
+def read_list(names: Names, name):
     """
     Reads a skylist style observing
     list.  Matches against catalogs
     and returns a catalog list
     """
 
-    objects = catalogs.Objects()
-
     list_catalog = []
+    catalog_numbers = []
     objects_parsed = 0
     in_object = False
     with open(OBSLIST_DIR + name + ".skylist", "r") as skylist:
@@ -112,7 +112,7 @@ def read_list(name):
                     }
 
                 # see if we can resolve an object
-                _object = resolve_object(catalog_numbers, objects)
+                _object = resolve_object(catalog_numbers, names)
 
                 if _object:
                     list_catalog.append(_object)

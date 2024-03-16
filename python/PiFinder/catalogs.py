@@ -3,7 +3,7 @@ import time
 import datetime
 import pytz
 from typing import List, Dict, DefaultDict, Optional
-
+from collections import defaultdict
 import PiFinder.calc_utils as calc_utils
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
@@ -28,11 +28,12 @@ class Names:
     """
 
     db: Database
-    names: DefaultDict[int, List[str]] = {}
+    names: DefaultDict[int, List[str]] = defaultdict(list)
 
     def __init__(self):
         self.db = ObjectsDatabase()
-        self.names = self.db.get_names()
+        self.id_to_names = self.db.get_object_id_to_names()
+        self.name_to_id = self.db.get_name_to_object_id()
         self._sort_names()
         logging.debug(f"Loaded {len(self.names)} names from database")
 
@@ -42,8 +43,11 @@ class Names:
         """
         pass
 
-    def get(self, object_id) -> List[str]:
+    def get_name(self, object_id: int) -> List[str]:
         return self.names[object_id]
+
+    def get_id(self, name: str) -> Optional[int]:
+        return self.name_to_id.get(name)
 
 
 class CatalogFilter:
@@ -247,12 +251,20 @@ class Catalogs:
         self._code_to_pos_sel: Dict[str, int] = {}
         self._select_all_catalogs()
         self._refresh_code_to_pos()
+        self.names = Names()
 
     def get_catalogs(self, only_selected: bool = True) -> List[Catalog]:
         if only_selected:
             return [self.__catalogs[x] for x in self.__selected_catalogs_idx]
         else:
             return self.__catalogs
+
+    def get_objects(self, only_selected: bool = True) -> List[CompositeObject]:
+        return [
+            obj
+            for catalog in self.get_catalogs(only_selected)
+            for obj in catalog.get_objects()
+        ]
 
     def select_catalogs(self, catalog_names: List[str]):
         self.__selected_catalogs_idx = [
@@ -478,7 +490,7 @@ class CatalogBuilder:
             # Create an instance from the merged dictionaries
             composite_instance = CompositeObject.from_dict(composite_data)
             composite_instance.logged = obs_db.check_logged(composite_instance)
-            composite_instance.names = common_names.get(object_id)
+            composite_instance.names = common_names.get_name(object_id)
 
             # Append to the result dictionary
             composite_objects.append(composite_instance)
