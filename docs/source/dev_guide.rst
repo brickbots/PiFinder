@@ -32,27 +32,27 @@ Install python dependencies
 
 For running PiFinder, you need to install some python libraries in certain versions. These lists can be installed via `pip tool chain <https://pypi.org/project/pip/>`_  and are separeted in two files:
 
-```
+``
 pip install -r requirements.txt
 pip install -r requirements_dev.txt
-```
+``
 
 Install Hipparcos catalog
 ...........................
 
-The hipparcos catalog will be downloaded to another location: ```/home/pifinder/PiFinder/astro_data/```
+The hipparcos catalog will be downloaded to another location: ``/home/pifinder/PiFinder/astro_data/``
 
-```wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat```
+``wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat``
 
 Tetra3 solver
 ...........................
 
 The `Tetra3 Solver <https://github.com/esa/tetra3>` is a "fast lost-in-space plate solver for star trackers written in Python". It is the next gen solver, that PiFinder uses.
 
-```
+``
 cd python/PiFinder
 git clone https://github.com/esa/tetra3.git
-```
+``
 
 Running in debug mode 
 ---------------------
