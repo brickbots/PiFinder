@@ -388,6 +388,7 @@ def main(script_name=None, show_fps=False, verbose=False):
             ),
             ui_catalog,
             UILocate(
+                ui_catalog,
                 display_device,
                 camera_image,
                 shared_state,
