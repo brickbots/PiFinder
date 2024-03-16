@@ -59,11 +59,11 @@ Running in debug mode
 
 If you installed everything, you like to develop and test your code. Or you like to see error messages. 
 
-Run the following command from the ```./python``` folder to start PiFinder in the debugging mode. You can enable debug information by passing the '-x' flag:
-```
+Run the following command from the ``./python`` folder to start PiFinder in the debugging mode. You can enable debug information by passing the '-x' flag:
+``
 cd /home/pifinder/PiFinder/python
 python3 -m PiFinder.main -fh -k server --camera debug -x
-```
+``
 
 Troubleshooting
 ---------------
