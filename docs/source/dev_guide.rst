@@ -76,7 +76,17 @@ When crashing, there are many unrelated stack traces running. Search for the rel
 My IMU seems not to be working
 ------------------------------
 
-First power up the unit and look at the Status page while moving it around.
+First power up the unit and look at the Status page while moving it around. The status screen is part of the ´Utility Screens <https://github.com/apos/PiFinder/blob/release_doc_updates/docs/source/user_guide.rst#utility-screens>´
 
-- .. image:: images/user_guide/STATUS_001_docs.png
+.. image:: images/user_guide/STATUS_001_docs.png
+
+If the IMU section is empty or does not move, it is likely, that either the IMU is defect or you have a defect on your board.
+
+1. Please check, if the board is soldered correctly and you have all pins fully soldered or did not shorten anything. 
+2. If the IMU is defect, this only can be tested by removing it an replacing it with another
+
+Outside it is cloudy, but I like to test my PiFinder (demo mode)
+----------------------------------------------------------------
+
+TBD
 
