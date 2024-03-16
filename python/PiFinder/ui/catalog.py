@@ -137,6 +137,7 @@ class UICatalog(UIModule):
         self.fov_index = 0
 
         self.catalog_tracker.filter()
+        self.closest_objects_finder = ClosestObjectsFinder()
         self.update_object_info()
         self._planets_loaded = False
 
@@ -235,14 +236,22 @@ class UICatalog(UIModule):
 
             # Filter ALL the catalogs one last time
             self.catalog_tracker.filter()
-            cof = ClosestObjectsFinder()
-            near_catalog, _ = cof.get_closest_objects(
-                solution["RA"],
-                solution["Dec"],
-                obj_amount,
-                catalogs=self.catalog_tracker.catalogs,
+            ra, dec = (
+                self.shared_state.solution()["RA"],
+                self.shared_state.solution()["Dec"],
             )
-            self.ui_state.set_observing_list(near_catalog)
+            self.objects_balltree = (
+                self.closest_objects_finder.calculate_objects_balltree(
+                    ra, dec, catalogs=self.catalog_tracker.catalogs
+                )
+            )
+            near_objects = self.closest_objects_finder.get_closest_objects(
+                ra,
+                dec,
+                obj_amount,
+                self.objects_balltree,
+            )
+            self.ui_state.set_observing_list(near_objects)
             self.ui_state.set_active_list_to_observing_list()
             self.ui_state.set_target_to_active_list_index(0)
             return "UILocate"
