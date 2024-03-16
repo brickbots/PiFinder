@@ -32,6 +32,8 @@ From there you can do a **pull request** to the original code. If you are a prog
 Setup a development environment
 -------------------------------
 
+PiFinder runs on:
+
 Python: Version 3.9 or 3.10 python with a working `pip tool chain <https://pypi.org/project/pip/>`_
 OS:     Debian Buster (Bookworm to come)
 
