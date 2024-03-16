@@ -74,7 +74,7 @@ My app crashes
 When crashing, there are many unrelated stack traces running. Search for the relevant one. The rest is not important, these are the other threads stopping.
 
 My IMU seems not to be working
-------------------------------
+..............................
 
 First power up the unit and look at the Status page while moving it around. The status screen is part of the ´Utility Screens <https://github.com/apos/PiFinder/blob/release_doc_updates/docs/source/user_guide.rst#utility-screens>´
 
