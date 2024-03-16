@@ -5,12 +5,18 @@ Developer Guide
 
 If you are a developer, like to tinke with the code, troubleshoot deeper or contribute to the project: this guide helps you to do all these cool things. 
 
-Getting or contributing to the sources
---------------------------------------
+Submitting issues, bugs and ideas
+---------------------------------
 
-If you have questions, you the quickest way is to ask in the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ in the section "support-software". 
+Generally the rule applies: the more desciptive and precise you are, the better. T Please always describe exacactly what you found, what you expected and how you found the issue. Work with error logs or show us pictures of the problem or maker screenshots. his helps a lot to speed up things.
 
-If you are serious about an error or you have seen a bug, then please feel free to open an issue here on GitHub. Please describe exacactly what you found, what you expected and how you found the issue. The more desciptive and precise you are, the better. This helps a lot to speed up things. 
+Depending on the complexity, it is probably wise, to discuss your issue on the discord server in advance. There are a lot of users and developers online. 
+
+- If you have a **question**, that is likely to be answered, the quickest way is to ask in the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ in the section "support-software". 
+
+- If you are serious about an **error** or you have seen a **bug**, then please feel free to open an issue here on GitHub.  
+
+- Also, if you like to **submit your ideas**, you can use the issue page. 
 
 Getting or contributing to the sources
 --------------------------------------
