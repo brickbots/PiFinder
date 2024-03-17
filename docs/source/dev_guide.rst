@@ -3,12 +3,12 @@
 Developer Guide
 ===============
 
-If you are a developer, like to tinke with the code, troubleshoot deeper or contribute to the project: this guide helps you to do all these cool things. 
+If you are a developer, like to tinker with the code, troubleshoot you PiFinder in depth or contribute to the project: this guide helps you to do all these cool things. 
 
 Submitting issues, bugs and ideas
 ---------------------------------
 
-Generally the rule applies: the more desciptive and precise you are, the better. T Please always describe exacactly what you found, what you expected and how you found the issue. Work with error logs or show us pictures of the problem or maker screenshots. his helps a lot to speed up things.
+Generally the rule applies: the more desciptive and precise you are, if you ask a question, either here in GitHub, via Mail or the discord hhannel, the better. Please always describe exacactly what you **found**, what you **expected** and how the way is to **reproduce** the issue. Therefor you can submit  error logs, show us pictures of the problem or make screenshots. This helps a lot to speed up things.
 
 Depending on the complexity, it is probably wise, to discuss your issue on the discord server in advance. There are a lot of users and developers online. 
 
