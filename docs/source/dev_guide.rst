@@ -8,7 +8,7 @@ If you are a developer, like to tinker with the code, troubleshoot you PiFinder 
 Submitting issues, bugs and ideas
 ---------------------------------
 
-Generally the rule applies: if you ask a question or contribute, either here in GitHub, via Mail or in the discord channel, the more desciptive and precise you are, the better. Please always describe exacactly what you **found**, what you **expected** and how the way is to **reproduce** the issue for others. Therefor you can additionally submit error logs, show us pictures of the problem or make screenshots. This helps a lot to speed up things.
+Generally the rule applies: if you ask a question or contribute, either here in GitHub, via Mail or in the discord channel, the more descriptive and precise you are, the better. Please always describe exactly what you **found**, what you **expected** and how the way is to **reproduce** the issue for others. Therefor you can additionally submit error logs, show us pictures of the problem or make screenshots. This helps a lot to speed up things.
 
 Depending on the complexity of the problem, it is probably wise, to discuss the issue on the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ in advance.  
 
@@ -22,9 +22,9 @@ Depending on the complexity of the problem, it is probably wise, to discuss the 
 Fork me - getting or contributing to the sources with pull request
 ------------------------------------------------------------------
 
-If you like to alter or contribute new functionalities, fix errors in the code, or even just help with the documentation, best is to **fork** the code into your own GitHub account. Also, you can comunicate your effort in the above mentioned `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ .
+If you like to alter or contribute new functionalities, fix errors in the code, or even just help with the documentation, best is to **fork** the code into your own GitHub account. Also, you can communicate your effort in the above mentioned `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ .
 
-Within your fork, you can do all the fancy changes, you like to see in the PiFinder, test them locally. Then you can do a **pull request** to the original code of the PiFinder projekt. If you are a programmer you should already know the procedure. If not, here is how you do this: 
+Within your fork, you can do all the fancy changes, you like to see in the PiFinder, test them locally. Then you can do a **pull request** to the original code of the PiFinder project. If you are a programmer you should already know the procedure. If not, here is how you do this: 
 
 * `GitHub Docs - About pull requests <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests>`_
 * `GitHub Docs - Creating a pull request <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request>`_
@@ -33,7 +33,7 @@ Within your fork, you can do all the fancy changes, you like to see in the PiFin
 Documentation
 .............
 
-The `PiFinder documentation <https://pifinder.readthedocs.io/en/release/index.html>` is written in `reStructuredText<https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#external-links>`. The files are located in PiFinders GitHub repository under ``docs`` and have the ending ``.rst``. Many open source projects use `redthedocs.io <eadthedocs.io>` for creating documentation since it is emediatally generated, when you are commiting the GitHub code (CI/CD pipline). It is very easy to link your fork of the documentation code to GitHub. 
+The `PiFinder documentation <https://pifinder.readthedocs.io/en/release/index.html>` is written in `reStructuredText<https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#external-links>`. The files are located in PiFinders GitHub repository under ``docs`` and have the ending ``.rst``. Many open source projects use `redthedocs.io <eadthedocs.io>` for creating documentation since it is immediately generated, when you are committing the GitHub code (CI/CD pipeline). It is very easy to link your fork of the documentation code to GitHub. 
 
 
 Setup the development environment
@@ -47,7 +47,7 @@ PiFinder needs
 Install python dependencies
 ...........................
 
-For running PiFinder, you need to install some python libraries in certain versions. These lists can be installed via `pip tool chain <https://pypi.org/project/pip/>`_  and are separeted in two files: one for getting PiFinder to run, one for development purposes:
+For running PiFinder, you need to install some python libraries in certain versions. These lists can be installed via `pip tool chain <https://pypi.org/project/pip/>`_  and are separated in two files: one for getting PiFinder to run, one for development purposes:
 
 .. code-block::
 
@@ -77,7 +77,7 @@ The `Tetra3 Solver <https://github.com/esa/tetra3>` is a "fast lost-in-space pla
 Debugging from the command line
 -------------------------------
 
-If you installed all dependencies, you like to develop and test your code with debugging informations and all error messages. Or just to be able to stop an run the program. Therefore, switch to the ``~/PiFinder/python`` folder and start the PiFinder python program with certain command line parameters. 
+If you installed all dependencies, you like to develop and test your code with debugging information and all error messages. Or just to be able to stop an run the program. Therefore, switch to the ``~/PiFinder/python`` folder and start the PiFinder python program with certain command line parameters. 
 
 .. code-block::
 
@@ -86,7 +86,7 @@ If you installed all dependencies, you like to develop and test your code with d
 
 You simply stop the program with "Ctrl + C".
 
-**Remember**: PiFinder is designed to automatically start after boot. So a PiFinder process is likly running. Before you can start a PiFinder process for testing purposes from the commandline, you have to stop all currently running PiFinder instances. Simply, because you can not run multiple PiFinder instances in parallel. They would try to access the same hardware, which is not possible. You can do this e.g. with awk (this will list all PiFinder.main processes an kill them):
+**Remember**: PiFinder is designed to automatically start after boot. So a PiFinder process is likely running. Before you can start a PiFinder process for testing purposes from the command line, you have to stop all currently running PiFinder instances. Simply, because you can not run multiple PiFinder instances in parallel. They would try to access the same hardware, which is not possible. You can do this e.g. with awk (this will list all PiFinder.main processes an kill them):
 
 .. code-block::
 
@@ -120,7 +120,7 @@ Look at the options with the "Help" flag
 
 .. note::
 
-   The avaiable commandline flags may change with forthcomming releases. Always refer to the real output of the commandline parameter "-h".
+   The available command line flags may change with forthcoming releases. Always refer to the real output of the command line parameter "-h".
 
 -x, --verbose | debug information
 .................................
@@ -144,7 +144,7 @@ You can "enable debug information" simply by passing the '-x' flag:
 -c CAMERA, --camera CAMERA
 ..........................
 
-Use the "fake" camera module, so the PiFinder cam ist physically not necesary for testing purposes. Else specify which camera to use: pi, asi, debug or none.
+Use the "fake" camera module, so the PiFinder cam ist physically not necessary for testing purposes. Else specify which camera to use: pi, asi, debug or none.
 
 .. code-block::
 
@@ -212,13 +212,13 @@ Using the **demo mode** you will be able to run the PiFinder and almost all it's
 
 The way to get this functionality, is to enter PiFinder in the 'test' or 'debug' mode.
 
-First method: Press (short press) **"ENT-A"** again and again to cycle through the screens until you get to the **Console screen**. There press the **"0"** key (the disply shows the message "Debug: true"). This will supply a fake GPS lock, time and cause the PiFinder to just solve an image from disk.  But it will respond to IMU movement and allow use of things like Push-To and all the other functions that require a solve/lock. You can leave the "demo-mode" by just again cycle to the Console screen and press "0" again (the display shows the message "Debug: false").
+First method: Press (short press) **"ENT-A"** again and again to cycle through the screens until you get to the **Console screen**. There press the **"0"** key (the display shows the message "Debug: true"). This will supply a fake GPS lock, time and cause the PiFinder to just solve an image from disk.  But it will respond to IMU movement and allow use of things like Push-To and all the other functions that require a solve/lock. You can leave the "demo-mode" by just again cycle to the Console screen and press "0" again (the display shows the message "Debug: false").
 
 Second method: run PiFinder with the :ref:`dev_guide:Debugging from the command line` functionality.
 
 .. note::
 
-  If you stop the movement in demo-mode, the picture alway switches back to the "standard demo picture". Do not expect to move through the sky, like you normally would do an get a solve to the new loaction. You will always be caught back to the same position in the sky.
+  If you stop the movement in demo-mode, the picture alway switches back to the "standard demo picture". Do not expect to move through the sky, like you normally would do an get a solve to the new location. You will always be caught back to the same position in the sky.
 
 
 .. image:: images/user_guide/DEMO_MODE_001_docs.png
