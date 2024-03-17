@@ -204,7 +204,7 @@ Using the **demo mode** you will be able to run the PiFinder and almost all it's
 
 The way to get this functionality, is to enter PiFinder in the 'test' or 'debug' mode.
 
-First method: Press **"ENT-A"** to cycle through the screens to get to the Console screen and then press the **"0"** key. This will supply a fake GPS lock, time and cause the PiFinder to just solve an image from disk.  But it will respond to IMU movement and allow use of things like Push-To and all the other functions that require a solve/lock.
+First method: Press **"ENT-A"** to cycle through the screens to get to the **Console screen** and then press the **"0"** key. This will supply a fake GPS lock, time and cause the PiFinder to just solve an image from disk.  But it will respond to IMU movement and allow use of things like Push-To and all the other functions that require a solve/lock.
 Second method: run PiFinder in tehe 
 
 .. image:: images/user_guide/DEMO_MODE_001_docs.png
