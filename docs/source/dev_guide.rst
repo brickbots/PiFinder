@@ -33,7 +33,7 @@ Within your fork, you can do all the fancy changes, you like to see in the PiFin
 Documentation
 .............
 
-The `PiFinder documentation <https://pifinder.readthedocs.io/en/release/index.html>` is written in `reStructuredText<https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#external-links>`. The files are located in PiFinders GitHub repository under ``docs`` and have the ending ``.rst``. Many open source projects use `redthedocs.io <eadthedocs.io>` for creating documentation since it is immediately generated, when you are committing the GitHub code (CI/CD pipeline). It is very easy to link your fork of the documentation code to GitHub. 
+The `PiFinder documentation <https://pifinder.readthedocs.io/en/release/index.html>`_ is written in `reStructuredText<https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#external-links>`_. The files are located in PiFinders GitHub repository under ``docs`` and have the ending ``.rst``. Many open source projects use `redthedocs.io <eadthedocs.io>` for creating documentation since it is immediately generated, when you are committing the GitHub code (CI/CD pipeline). It is very easy to link your fork of the documentation code to GitHub. 
 
 
 Setup the development environment
