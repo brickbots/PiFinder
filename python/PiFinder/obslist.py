@@ -11,7 +11,7 @@ tools
 import os
 from textwrap import dedent
 from PiFinder import utils
-from PiFinder.catalogs import Names
+from PiFinder.catalogs import Names, Catalogs
 
 OBSLIST_DIR = f"{utils.data_dir}/obslists/"
 
@@ -49,7 +49,7 @@ def write_list(catalog_objects, name):
             index_num += 1
 
 
-def resolve_object(catalog_numbers, objects):
+def resolve_object(catalog_numbers, catalogs: Catalogs):
     """
     Takes a list of SkySafari catalog
     numbers and tries to find an object
@@ -65,14 +65,13 @@ def resolve_object(catalog_numbers, objects):
             sequence = None
 
         if sequence is not None:
-            _object = objects.get_object_by_catalog_sequence(catalog, sequence)
+            _object = catalogs.get_object(catalog, sequence)
             if _object:
                 return _object
-    print("Failed")
     return None
 
 
-def read_list(names: Names, name):
+def read_list(catalogs: Catalogs, name):
     """
     Reads a skylist style observing
     list.  Matches against catalogs
@@ -112,7 +111,7 @@ def read_list(names: Names, name):
                     }
 
                 # see if we can resolve an object
-                _object = resolve_object(catalog_numbers, names)
+                _object = resolve_object(catalog_numbers, catalogs)
 
                 if _object:
                     list_catalog.append(_object)
