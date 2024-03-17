@@ -114,7 +114,7 @@ Look at the options with the "Help" flag
                             Specify which keyboard to use: pi, local or server
       --script SCRIPT       Specify a testing script to run
       -f, --fps             Display FPS in title bar
-      -n, --notmp           Don't use the /dev/shm temporary directory. (usefull if not on pi)
+      -n, --notmp           Don't use the /dev/shm temporary directory. (useful if not on pi)
       -x, --verbose         Set logging to debug mode
       -l, --log             Log to file
 
@@ -212,7 +212,7 @@ Using the **demo mode** you will be able to run the PiFinder and almost all it's
 
 The way to get this functionality, is to enter PiFinder in the 'test' or 'debug' mode.
 
-First method: Press (short press) **"ENT-A"** again and again to cycle through the screens until you get to the **Console screen**. There press the **"0"** key (the display shows the message "Debug: true"). This will supply a fake GPS lock, time and cause the PiFinder to just solve an image from disk.  But it will respond to IMU movement and allow use of things like Push-To and all the other functions that require a solve/lock. You can leave the "demo-mode" by just again cycle to the Console screen and press "0" again (the display shows the message "Debug: false").
+First method: Press (short press) **"ENT-A"** again and again to cycle through the screens until you get to the **Console screen**. There press the **"0"** key (the display shows the message "Debug: true"). This will supply a fake GPS lock, time and cause the PiFinder to just solve an image from disk.  But it will respond to IMU movement and allow use of things like Push-To and all the other functions that require a solve/lock. You can leave the "demo mode" by just again cycle to the Console screen and press "0" again (the display shows the message "Debug: false").
 
 Second method: run PiFinder with the :ref:`dev_guide:Debugging from the command line` functionality.
 
