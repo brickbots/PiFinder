@@ -67,7 +67,7 @@ The `hipparcos catalog <https://www.cosmos.esa.int/web/hipparcos>`_ will be down
 Tetra3 solver
 ...........................
 
-The `Tetra3 Solver <https://github.com/esa/tetra3>` is a "fast lost-in-space plate solver for star trackers written in Python". It is the next gen solver, that PiFinder uses.
+The `Tetra3 Solver <https://github.com/esa/tetra3>`_ is a "fast lost-in-space plate solver for star trackers written in Python". It is the next gen solver, that PiFinder uses.
 
 .. code-block::
 
