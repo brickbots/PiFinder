@@ -89,7 +89,7 @@ class UILocate(UIModule):
             self.message("No matches")
             return False
 
-        self.ui_state.set_observing_list(_load_results["catalog"])
+        self.ui_state.set_observing_list(_load_results["catalog_objects"])
         self.ui_state.set_active_list_to_observing_list()
         self.target_index = 0
         self.ui_state.set_target(self.ui_state.active_list()[self.target_index])

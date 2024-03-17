@@ -727,6 +727,15 @@ class CatalogTracker:
         logging.debug(
             f"set_current_object: {self.object_tracker=}, {self.designator_tracker=}, {catalog_code=}, {object_number=}, {self.get_current_object()=}"
         )
+
+        # Make sure this catalog is in the designator tracker
+        # if not, add it so it can be set
+        if self.designator_tracker.get(catalog_code) is None:
+            _c = self.catalogs.get_catalog_by_code(catalog_code)
+            self.designator_tracker[catalog_code] = CatalogDesignator(
+                catalog_code, _c.max_sequence
+            )
+
         self.designator_tracker[catalog_code].set_number(
             object_number if object_number else 0
         )
