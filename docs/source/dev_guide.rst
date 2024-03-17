@@ -24,15 +24,17 @@ Fork me - getting or contributing to the sources with pull request
 
 If you like to alter or contribute new functionalities, fix errors in the code, or even just help with the documentation, best is to **fork** the code into your own GitHub account. Also, you can tell this the developers in the above mentioned `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ .
 
-.. note::Documentation
-
-  The **documentation** is written in `reStructuredText<https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#external-links>`. The files are located in PiFinders GitHub repository under ``docs\*.rst``. Many open source projects use `redthedocs.io <eadthedocs.io>` for creating documentation since it is emediatally generated, when you are commiting the GitHub code (CI/CD pipline). It is very easy to link your fork of the documentation code to GitHub. 
-
 From there you can do a **pull request** to the original code. If you are a programmer you should already know the procedure. If not, here is how you do this: 
 
 * `GitHub Docs - About pull requests <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests>`_
 * `GitHub Docs - Creating a pull request <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request>`_
 * `Youtube - How To Pull Request in 3 Minutes <https://www.youtube.com/watch?v=jRLGobWwA3Y>`_
+
+Documentation
+-------------
+
+The documentation is written in `reStructuredText<https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#external-links>`. The files are located in PiFinders GitHub repository under ``docs\*.rst``. Many open source projects use `redthedocs.io <eadthedocs.io>` for creating documentation since it is emediatally generated, when you are commiting the GitHub code (CI/CD pipline). It is very easy to link your fork of the documentation code to GitHub. 
+
 
 Setup the development environment
 ---------------------------------
