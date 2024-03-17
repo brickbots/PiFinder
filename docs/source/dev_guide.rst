@@ -8,15 +8,15 @@ If you are a developer, like to tinker with the code, troubleshoot you PiFinder 
 Submitting issues, bugs and ideas
 ---------------------------------
 
-Generally the rule applies: the more desciptive and precise you are, if you ask a question, either here in GitHub, via Mail or the discord hhannel, the better. Please always describe exacactly what you **found**, what you **expected** and how the way is to **reproduce** the issue. Therefor you can submit  error logs, show us pictures of the problem or make screenshots. This helps a lot to speed up things.
+Generally the rule applies: if you ask a question or contribute, either here in GitHub, via Mail or in the discord channel, the more desciptive and precise you are, the better. Please always describe exacactly what you **found**, what you **expected** and how the way is to **reproduce** the issue for others. Therefor you can additionally submit error logs, show us pictures of the problem or make screenshots. This helps a lot to speed up things.
 
-Depending on the complexity, it is probably wise, to discuss your issue on the discord server in advance. There are a lot of users and developers online. 
+Depending on the complexity of the problem, it is probably wise, to discuss the issue on the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ in advance.  
 
-- If you have a **question**, that is likely to be answered, the quickest way is to ask in the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ in the section "support-software". 
+- If you have a **question**, that is likely to be answered in short, the quickest way is to ask in the `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ in the section "support-software". There are a lot of users and developers online who can help.
 
-- If you are serious about an **error** or you have seen a **bug**, then please feel free to open an issue here on GitHub.  
+- If you are serious about an **error** or you have seen a **bug**, then please feel free to open a descriptive **issue** here on GitHub.  
 
-- Also, if you like to **submit your ideas**, you can use the issue page. 
+- Also, if you like to **submit your ideas** or have a wish for the PiFinder, you can use the **issue** page. This helps teh  developers to sort things out and prioritize. 
 
 
 Fork me - getting or contributing to the sources with pull request
