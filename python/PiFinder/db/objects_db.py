@@ -150,7 +150,7 @@ class ObjectsDatabase(Database):
         self.cursor.execute("SELECT * FROM names WHERE object_id = ?;", (object_id,))
         return self.cursor.fetchone()
 
-    def get_names(self) -> DefaultDict[int, List[str]]:
+    def get_object_id_to_names(self) -> DefaultDict[int, List[str]]:
         """
         Returns a dictionary of object_id: [common_name, common_name, ...]
         duplicates are removed.
@@ -163,6 +163,17 @@ class ObjectsDatabase(Database):
         for object_id in name_dict:
             name_dict[object_id] = list(set(name_dict[object_id]))
         return name_dict
+
+    def get_name_to_object_id(self) -> Dict[str, int]:
+        """
+        Returns a dictionary of common_name: object_id
+        """
+        other_dict = self.get_object_id_to_names()
+        result_dict = defaultdict(int)
+        for k, v in other_dict.items():
+            for name in v:
+                result_dict[name] = k
+        return result_dict
 
     # ---- CATALOGS methods ----
 
@@ -177,7 +188,6 @@ class ObjectsDatabase(Database):
         self.conn.commit()
 
     def get_catalog_by_code(self, catalog_code):
-        print("get_catalog_by_code", catalog_code)
         self.cursor.execute(
             "SELECT * FROM catalogs WHERE catalog_code = ?;", (catalog_code,)
         )

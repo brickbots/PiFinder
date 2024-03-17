@@ -12,6 +12,7 @@ import copy
 import logging
 
 from PiFinder import config
+from PiFinder import utils
 import PiFinder.calc_utils as calc_utils
 
 IMU_ALT = 2
@@ -23,9 +24,9 @@ def imu_moved(imu_a, imu_b):
     Compares two IMU states to determine if they are the 'same'
     if either is none, returns False
     """
-    if imu_a == None:
+    if imu_a is None:
         return False
-    if imu_b == None:
+    if imu_b is None:
         return False
 
     # figure out the abs difference
@@ -37,8 +38,13 @@ def imu_moved(imu_a, imu_b):
     return False
 
 
-def integrator(shared_state, solver_queue, console_queue):
+def integrator(shared_state, solver_queue, console_queue, is_debug=False):
     try:
+        logger = logging.getLogger()
+        if is_debug:
+            logger.setLevel(logging.DEBUG)
+        logging.debug("Starting Integrator")
+
         solved = {
             "RA": None,
             "Dec": None,
@@ -65,16 +71,12 @@ def integrator(shared_state, solver_queue, console_queue):
         last_solved = None
         last_solve_time = time.time()
         while True:
-            if shared_state.power_state() <= 0:
-                time.sleep(0.5)
-            else:
-                time.sleep(1 / 30)
+            utils.sleep_for_framerate(shared_state)
 
             # Check for new camera solve in queue
             next_image_solve = None
             try:
                 next_image_solve = solver_queue.get(block=False)
-                logging.debug("Next image solve is %s", next_image_solve)
             except queue.Empty:
                 pass
 

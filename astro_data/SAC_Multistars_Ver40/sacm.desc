@@ -1,5 +1,7 @@
 Saguaro Astronomy Club Double Star Database Version 4.0
 
+2162 double stars.
+
 PA = Position Angle of the pair in arc degrees clockwise from North.
 Components  = If this is a multiple system, which components of the triple (or more) are in
 this record. For instance, if this field has ABXD then this field of data

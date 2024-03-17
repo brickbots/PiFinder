@@ -26,10 +26,12 @@
         "H",
         "Ta2",
         "Str",
+        "RDS",
         "SaA",
-        "SaM",
         "SaR",
-        "EGC"
+        "SaM",
+        "EGC",
+        "B"
     ],
     "active_catalogs": [
         "NGC",

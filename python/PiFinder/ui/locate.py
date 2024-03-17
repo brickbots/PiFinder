@@ -11,7 +11,8 @@ from PiFinder import obslist, config
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.fonts import Fonts as fonts
-from PiFinder.calc_utils import sf_utils
+from PiFinder.ui.catalog import UICatalog
+from PiFinder.calc_utils import aim_degrees
 
 
 class UILocate(UIModule):
@@ -41,11 +42,10 @@ class UILocate(UIModule):
         },
     }
 
-    def __init__(self, *args):
+    def __init__(self, ui_catalog: UICatalog, *args):
         super().__init__(*args)
         self.target_index = None
         self.object_text = ["No Object Found"]
-        self.sf_utils = sf_utils
         self.font_huge = fonts.huge
         self.screen_direction = config.Config().get_option("screen_direction")
         self.mount_type = config.Config().get_option("mount_type")
@@ -54,6 +54,7 @@ class UILocate(UIModule):
         self._config_options["Load"]["options"] = ["CANCEL"] + available_lists
         self.obs_list_write_index = 0
         self.last_update_time = time.time()
+        self.ui_catalog = ui_catalog
 
     def save_list(self, option):
         self._config_options["Load"]["value"] = ""
@@ -78,7 +79,7 @@ class UILocate(UIModule):
         if option == "CANCEL":
             return False
 
-        _load_results = obslist.read_list(option)
+        _load_results = obslist.read_list(self.ui_catalog.catalogs, option)
         if _load_results["result"] == "error":
             self.message(f"Err! {_load_results['message']}")
             return False
@@ -88,7 +89,7 @@ class UILocate(UIModule):
             self.message("No matches")
             return False
 
-        self.ui_state.set_observing_list(_load_results["catalog"])
+        self.ui_state.set_observing_list(_load_results["catalog_objects"])
         self.ui_state.set_active_list_to_observing_list()
         self.target_index = 0
         self.ui_state.set_target(self.ui_state.active_list()[self.target_index])
@@ -110,7 +111,7 @@ class UILocate(UIModule):
             else:
                 self.message("No History", 1)
 
-        if self.target_index != None:
+        if self.target_index is not None:
             self.ui_state.set_target_to_active_list_index(self.target_index)
             self.update_object_text()
 
@@ -144,7 +145,7 @@ class UILocate(UIModule):
     def key_down(self):
         self.scroll_target_history(1)
 
-    def delete(self):
+    def key_long_d(self):
         active_list = self.ui_state.active_list()
         if self.target_index is not None and len(active_list) > 1:
             del active_list[self.target_index]
@@ -175,47 +176,6 @@ class UILocate(UIModule):
             self.object_text.append(f"{object_type: <14} {target.const}")
         except Exception as e:
             logging.error(f"Error generating object text: {e}, {target}")
-
-    def aim_degrees(self):
-        """
-        Returns degrees in either
-        az/alt or RA/DEC depending on mount type
-        from current position
-        to target
-        """
-        solution = self.shared_state.solution()
-        location = self.shared_state.location()
-        dt = self.shared_state.datetime()
-        if location and dt and solution:
-            if self.mount_type == "Alt/Az":
-                if solution["Alt"]:
-                    # We have position and time/date!
-                    self.sf_utils.set_location(
-                        location["lat"],
-                        location["lon"],
-                        location["altitude"],
-                    )
-                    target_alt, target_az = self.sf_utils.radec_to_altaz(
-                        self.ui_state.target().ra,
-                        self.ui_state.target().dec,
-                        dt,
-                    )
-                    az_diff = target_az - solution["Az"]
-                    az_diff = (az_diff + 180) % 360 - 180
-                    if self.screen_direction == "flat":
-                        az_diff *= -1
-
-                    alt_diff = target_alt - solution["Alt"]
-                    alt_diff = (alt_diff + 180) % 360 - 180
-
-                    return az_diff, alt_diff
-            else:
-                # EQ Mount type
-                ra_diff = self.ui_state.target().ra - solution["RA"]
-                dec_diff = self.ui_state.target().dec - solution["Dec"]
-                dec_diff = (dec_diff + 180) % 360 - 180
-                return ra_diff, dec_diff
-        return None, None
 
     def active(self):
         super().active()
@@ -275,7 +235,12 @@ class UILocate(UIModule):
 
         # Pointing Instructions
         indicator_color = 255 if self._unmoved else 128
-        point_az, point_alt = self.aim_degrees()
+        point_az, point_alt = aim_degrees(
+            self.shared_state,
+            self.mount_type,
+            self.screen_direction,
+            self.ui_state.target(),
+        )
         if not point_az:
             self.draw.text(
                 (0, 50), " ---.-", font=self.font_huge, fill=self.colors.get(255)
