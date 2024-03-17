@@ -33,7 +33,7 @@ From there you can do a **pull request** to the original code. If you are a prog
 Documentation
 .............
 
-The documentation is written in `reStructuredText<https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#external-links>`. The files are located in PiFinders GitHub repository under ``docs\*.rst``. Many open source projects use `redthedocs.io <eadthedocs.io>` for creating documentation since it is emediatally generated, when you are commiting the GitHub code (CI/CD pipline). It is very easy to link your fork of the documentation code to GitHub. 
+The `PiFinder documentation <https://pifinder.readthedocs.io/en/release/index.html>` is written in `reStructuredText<https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#external-links>`. The files are located in PiFinders GitHub repository under ``docs`` and have the ending ``.rst``. Many open source projects use `redthedocs.io <eadthedocs.io>` for creating documentation since it is emediatally generated, when you are commiting the GitHub code (CI/CD pipline). It is very easy to link your fork of the documentation code to GitHub. 
 
 
 Setup the development environment
@@ -186,7 +186,7 @@ When crashing, there are many unrelated stack traces running. Search for the rel
 My IMU seems not to be working
 ..............................
 
-First power up the unit and look at the Status page while moving it around. The status screen is part of the `Utility Screens <https://github.com/apos/PiFinder/blob/release_doc_updates/docs/source/user_guide.rst#utility-screens>`
+First power up the unit and look at the Status page while moving it around. The status screen is part of the :ref:`user_guide:Utility-Screens`
 
 .. image:: images/user_guide/STATUS_001_docs.png
 
