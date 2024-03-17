@@ -196,7 +196,7 @@ Test the IMU
 
 First power up the unit and look at the Status page while moving it around. The status screen is part of the :ref:`user_guide:Utility Screens`
 
-.. image:: images/user_guide/STATUS_001_docs.png
+.. image:: images/user_guide/STATUS_002_docs.png
 
 If the IMU section is empty ("- -") or does not move, it is likely, that either the IMU is defect or you have a defect on your board.
 
