@@ -82,17 +82,13 @@ If you installed all dependencies, you like to develop and test your code with d
 .. code-block::
 
     cd /home/pifinder/PiFinder/python
-    python3 -m **PiFinder.main** **[command line parameters]**
+    python3 -m PiFinder.main [command line parameters]
 
 You simply stop the program with "Ctrl + C".
 
 .. note::
 
-Before you can start PiFinder, you have to stop all running PiFinder instances. PiFinder is designed to automatically start after boot. You can do this e.g. with awk:
-
-.. code-block::
-
-    ps aux | grep PiFinder.main | awk '{system("kill -9  " $2)}'
+  Before you can start PiFinder, you have to stop all running PiFinder instances. PiFinder is designed to automatically start after boot. You can do this e.g. with awk: ``ps aux | grep PiFinder.main | awk '{system("kill -9  " $2)}'``.
 
 -h, --help - available command line arguments
 .............................................
