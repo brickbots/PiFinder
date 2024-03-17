@@ -39,9 +39,9 @@ The `PiFinder documentation <https://pifinder.readthedocs.io/en/release/index.ht
 Setup the development environment
 ---------------------------------
 
-PiFinder runs on an using:
+PiFinder needs
 
-* Version 3.9 or 3.10 python with a working `pip tool chain <https://pypi.org/project/pip/>`_
+* Version 3.9 or 3.10 of python with a working `pip tool chain <https://pypi.org/project/pip/>`_
 * Debian Buster (Bookworm to come)
 
 Install python dependencies
