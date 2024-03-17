@@ -95,10 +95,6 @@ You simply stop the program with "Ctrl + C".
 
 Look at the options with the "Help" flag 
 
-.. note::
-
-   The avaiable flags may change with forthcomming releases. Always refer to the real output.
-
 .. code-block::
 
     pifinder@pifinder:~/PiFinder/python $ python3 -m PiFinder.main -h
@@ -119,6 +115,10 @@ Look at the options with the "Help" flag
       -n, --notmp           Don't use the /dev/shm temporary directory. (usefull if not on pi)
       -x, --verbose         Set logging to debug mode
       -l, --log             Log to file
+
+.. note::
+
+   The avaiable flags may change with forthcomming releases. Always refer to the real output.
 
 -x, --verbose - debug information
 .................................
