@@ -190,17 +190,23 @@ First power up the unit and look at the Status page while moving it around. The 
 
 .. image:: images/user_guide/STATUS_001_docs.png
 
-If the IMU section is empty ("--") or does not move, it is likely, that either the IMU is defect or you have a defect on your board.
+If the IMU section is empty ("- -") or does not move, it is likely, that either the IMU is defect or you have a defect on your board.
 
 1. Please check, if the board is soldered correctly and you have all pins fully soldered and did not shorten anything. 
 2. If you sourced the parts by you own, it might be, that you bought the wrong IMU hardware version. You need the 4646 versio. On the non-stemma QT versions, the data pins are switched (`see here <https://discord.com/channels/1087556380724052059/1112859631702781992/1183859911982055525>`). 
 
 If the IMU is defect, this only can be tested by removing it an replacing it with another
 
-The demo mode - it is cloudy, but I like to test my PiFinder
-------------------------------------------------------------
+The demo mode - it is cloudy, but I like to test my PiFinder anyways
+....................................................................
 
-The way to enter the 'test' or 'debug' mode on the PiFinder is to use "ENT-A" to cycle through the screens to get to the Console screen and then pressing the "0" key . This will supply a fake GPS lock, time and cause the PiFinder to just solve an image from disk.  But it will respond to IMU movement and allow use of things like Push-To and all the other functions that require a solve/lock.
+Getting a demo mode is to be able to run the PiFinder and almost all it's functionality not under the stars. Therefore the PiFinder get's an image from the disc and uses it for the screen. You can use all PiFinder commands, like searching for an object, you see the IMU run and you get a "fake" GPS signal. You also can check the PiFinder keyboard and the complete menu cycle. 
+
+The way to get this funktionality, is to enter PiFinder in the 'test' or 'debug' mode.
+
+First method: Press "ENT-A" to cycle through the screens to get to the Console screen and then press the "0" key. This will supply a fake GPS lock, time and cause the PiFinder to just solve an image from disk.  But it will respond to IMU movement and allow use of things like Push-To and all the other functions that require a solve/lock.
+Second method: run PiFinder in tehe 
+
 
 
 .. image:: images/user_guide/DEMO_MODE_001_docs.png
