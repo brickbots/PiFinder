@@ -95,7 +95,7 @@ You simply stop the program with "Ctrl + C".
 -h, --help | available command line arguments
 .............................................
 
-Look at the options with the "Help" flag 
+See all ``PiFinder.main`` options with the "--help" flag.
 
 .. code-block::
 
@@ -125,7 +125,7 @@ Look at the options with the "Help" flag
 -x, --verbose | debug information
 .................................
 
-You can "enable debug information" simply by passing the '-x' flag:
+You can "enable debug information" simply by passing the '-x' flag.
 
 .. code-block::
 
@@ -153,7 +153,7 @@ Use the "fake" camera module, so the PiFinder cam ist physically not necessary f
 -fh, --fakehardware | imu, gps only
 ...................................
 
-This uses fake hardware for the imu and gps:
+This uses fake hardware for the imu and gps.
 
 .. code-block::
 
@@ -167,7 +167,7 @@ This uses fake hardware for the imu and gps:
 
   Usage unclear. Needs refinement. 
 
-You can use either your the keyboard of the pi, the local or servers keyboard (which server=).. 
+You can use either your the keyboard of the pi, the local or servers keyboard (which server=) ... 
 
 
 .. code-block::
