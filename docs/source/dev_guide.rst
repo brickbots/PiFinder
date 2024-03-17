@@ -23,6 +23,10 @@ Getting or contributing to the sources with pull requests
 
 If you like to alter or contribute new functionalities, fix errors in the code, or even just help with the documentation, best is to **fork** the code into your own GitHub account. Also, you can tell this the developers in the above mentioned `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ .
 
+.. note::
+
+  The documentation is written in `reStructuredText<https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#external-links>`. The files are located in PiFinders GitHub repository under ``docs\*.rst``. Many open source projects use `redthedocs.io <eadthedocs.io>` for creating documentation since it is emediatally generated, when you are commiting the GitHub code (CI/CD pipline). It is very easy to link your fork of the documentation code to GitHub. 
+
 From there you can do a **pull request** to the original code. If you are a programmer you should already know the procedure. If not, here is how you do this: 
 
 * `GitHub Docs - About pull requests <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests>`_
@@ -53,36 +57,39 @@ Install the Hipparcos catalog
 
 The `hipparcos catalog <https://www.cosmos.esa.int/web/hipparcos>` will be downloaded to the following location: ``/home/pifinder/PiFinder/astro_data/``
 
-``wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat``
+.. code-block::
+
+    wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
 
 Tetra3 solver
 ...........................
 
 The `Tetra3 Solver <https://github.com/esa/tetra3>` is a "fast lost-in-space plate solver for star trackers written in Python". It is the next gen solver, that PiFinder uses.
 
-``
-cd python/PiFinder
-git clone https://github.com/esa/tetra3.git
-``
+.. code-block::
+
+    cd python/PiFinder
+    git clone https://github.com/esa/tetra3.git
 
 Debugging from the command line
 -------------------------------
 
 If you installed all dependencies, you like to develop and test your code with debugging informations and all error messages. Or just to be able to stop an run the program. Therefore, switch to the ``~/PiFinder/python`` folder and start the PiFinder python program with certain command line parameters. 
-``
-cd /home/pifinder/PiFinder/python
-python3 -m **PiFinder.main** **[command line parameters]**
-``
+
+.. code-block::
+
+    cd /home/pifinder/PiFinder/python
+    python3 -m **PiFinder.main** **[command line parameters]**
 
 You simply stop the program with "Ctrl + C".
 
 .. note::
 
 Before you can start PiFinder, you have to stop all running PiFinder instances. PiFinder is designed to automatically start after boot. You can do this e.g. with awk:
-``
-ps aux | grep PiFinder.main | awk '{system("kill -9  " $2)}'
-``
 
+.. code-block::
+
+    ps aux | grep PiFinder.main | awk '{system("kill -9  " $2)}'
 
 -h, --help - available command line arguments
 .............................................
@@ -93,61 +100,80 @@ Look at the options with the "Help" flag
 
    The avaiable flags may change with forthcomming releases. Always refer to the real output.
 
-``
-pifinder@pifinder:~/PiFinder/python $ python3 -m PiFinder.main -h
-Starting PiFinder ...
-usage: main.py [-h] [-fh] [-c CAMERA] [-k KEYBOARD] [--script SCRIPT] [-f] [-n] [-x] [-l]
+.. code-block::
 
-eFinder
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -fh, --fakehardware   Use a fake hardware for imu, gps
-  -c CAMERA, --camera CAMERA
-                        Specify which camera to use: pi, asi, debug or none
-  -k KEYBOARD, --keyboard KEYBOARD
-                        Specify which keyboard to use: pi, local or server
-  --script SCRIPT       Specify a testing script to run
-  -f, --fps             Display FPS in title bar
-  -n, --notmp           Don't use the /dev/shm temporary directory. (usefull if not on pi)
-  -x, --verbose         Set logging to debug mode
-  -l, --log             Log to file
-``
+    pifinder@pifinder:~/PiFinder/python $ python3 -m PiFinder.main -h
+    Starting PiFinder ...
+    usage: main.py [-h] [-fh] [-c CAMERA] [-k KEYBOARD] [--script SCRIPT] [-f] [-n] [-x] [-l]
+    
+    eFinder
+    
+    optional arguments:
+      -h, --help            show this help message and exit
+      -fh, --fakehardware   Use a fake hardware for imu, gps
+      -c CAMERA, --camera CAMERA
+                            Specify which camera to use: pi, asi, debug or none
+      -k KEYBOARD, --keyboard KEYBOARD
+                            Specify which keyboard to use: pi, local or server
+      --script SCRIPT       Specify a testing script to run
+      -f, --fps             Display FPS in title bar
+      -n, --notmp           Don't use the /dev/shm temporary directory. (usefull if not on pi)
+      -x, --verbose         Set logging to debug mode
+      -l, --log             Log to file
 
 -x, --verbose - debug information
 .................................
 
 You can "enable debug information" simply by passing the '-x' flag:
 
-``
-pifinder@pifinder:~/PiFinder/python $ python3 -m PiFinder.main  -x
-Starting PiFinder ...
-2024-03-17 11:31:26,285 root: DEBUG using pi camera
-2024-03-17 11:31:26,383 PiFinder.manager_patch: DEBUG Patching multiprocessing.managers.AutoProxy to add manager_owned
-2024-03-17 11:31:26,431 root: DEBUG Ui state in main is{'observing_list': [], 'history_list': [], 'active_list': [], 'target': None, 'message_timeout': 0}
-Write: Starting....
-Write:    GPS
-Write:    Keyboard
-2024-03-17 11:31:28,544 root: DEBUG GPS waking
-[...]
-``
+.. code-block::
+
+    pifinder@pifinder:~/PiFinder/python $ python3 -m PiFinder.main  -x
+    Starting PiFinder ...
+    2024-03-17 11:31:26,285 root: DEBUG using pi camera
+    2024-03-17 11:31:26,383 PiFinder.manager_patch: DEBUG Patching multiprocessing.managers.AutoProxy to add manager_owned
+    2024-03-17 11:31:26,431 root: DEBUG Ui state in main is{'observing_list': [], 'history_list': [], 'active_list': [], 'target': None, 'message_timeout': 0}
+    Write: Starting....
+    Write:    GPS
+    Write:    Keyboard
+    2024-03-17 11:31:28,544 root: DEBUG GPS waking
+    [...]
+
 
 -c CAMERA, --camera CAMERA
 ..........................
 
 Use the "fake" camera module, so the PiFinder cam ist physically not necesary for testing purposes. Else specify which camera to use: pi, asi, debug or none.
 
-``
-python3 -m PiFinder.main -k local --camera debug -x
-``
+.. code-block::
+
+    python3 -m PiFinder.main -k local --camera debug -x
+
+-fh, --fakehardware (imu, gps only)
+...................................
+
+This uses fake hardware for the imu and gps:
+
+.. code-block::
+
+    python3 -m PiFinder.main -fh -k local --camera debug -x
+
+
+-k KEYBOARD, --keyboard KEYBOARD
+................................
+
+.. ATTENTION::
+
+  Usage unclear
+
+You can use either your the keyboard of the pi, the local keyboard. 
 
 
 
-With the "
+.. code-block::
 
-``
-python3 -m PiFinder.main -fh -k server --camera debug -x
-``
+    python3 -m PiFinder.main -fh -k server --camera debug -x
+
 
 Troubleshooting
 ---------------
