@@ -88,7 +88,7 @@ Therefore, switch to the ``~/PiFinder/python`` folder and start the PiFinder pyt
 
 You simply stop the program with "Ctrl + C".
 
-**Remember**: PiFinder is designed to automatically start after boot. So a PiFinder process is likely running. Before you can start a PiFinder process for testing purposes from the command line, you have to stop all currently running PiFinder instances. Simply, because you can not run multiple PiFinder instances in parallel. They would try to access the same hardware, which is not possible. You can do this e.g. with awk (this will list all PiFinder.main processes an kill them):
+**Remember**: PiFinder is designed to automatically start after boot. So a PiFinder process is likely running. Before you can start a PiFinder process for testing purposes from the command line, you have to stop all currently running PiFinder instances. Simply, because you can not run multiple PiFinder instances in parallel. They would try to access the same hardware, which is not possible. You can do this e.g. with the following code, which uses awk to kill all runnding processes of PiFinder:
 
 .. code-block::
 
