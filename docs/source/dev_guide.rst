@@ -42,10 +42,10 @@ Install python dependencies
 
 For running PiFinder, you need to install some python libraries in certain versions. These lists can be installed via `pip tool chain <https://pypi.org/project/pip/>`_  and are separeted in two files: one for getting PiFinder to run, one for development purposes:
 
-``
+```
 pip install -r requirements.txt
 pip install -r requirements_dev.txt
-``
+```
 
 Install the Hipparcos catalog
 .............................
