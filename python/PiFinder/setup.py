@@ -19,6 +19,7 @@ from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from collections import namedtuple, defaultdict
+from skyfield.api import Star
 
 objects_db: ObjectsDatabase
 observations_db: ObservationsDatabase
@@ -79,7 +80,10 @@ def count_empty_entries(conn, db_c, table, columns):
     db_c = conn.cursor()
     for column in columns:
         db_c.execute(
-            f"SELECT COUNT(*) FROM {table} WHERE {column} IS NULL OR {column} = ''"
+            f"""
+                SELECT COUNT(*) FROM {table}
+                WHERE {column} IS NULL OR {column} = ''
+            """
         )
         result = db_c.fetchone()
         logging.info(f"{column}: {result[0]} empty entries")
@@ -123,11 +127,17 @@ def insert_catalog(catalog_name, description_path):
 
 def insert_catalog_max_sequence(catalog_name):
     conn, db_c = objects_db.get_conn_cursor()
-    query = f"SELECT MAX(sequence) FROM catalog_objects where catalog_code = '{catalog_name}' GROUP BY catalog_code"
+    query = f"""
+            SELECT MAX(sequence) FROM catalog_objects
+            where catalog_code = '{catalog_name}' GROUP BY catalog_code
+        """
     db_c.execute(query)
     result = db_c.fetchone()
     # print(dict(result))
-    query = f"update catalogs set max_sequence = {dict(result)['MAX(sequence)']} where catalog_code = '{catalog_name}'"
+    query = f"""
+        update catalogs set max_sequence = {
+        dict(result)['MAX(sequence)']} where catalog_code = '{catalog_name}'
+        """
     # print(query)
     db_c.execute(query)
     conn.commit()
@@ -138,7 +148,7 @@ def resolve_object_images():
     # objects to match against image names
     conn, db_c = objects_db.get_conn_cursor()
     resolution_priority = db_c.execute(
-        f"""
+        """
             SELECT catalog_code
             FROM catalogs
             ORDER BY rowid
@@ -404,9 +414,7 @@ def load_bright_stars():
             other_names = dfs[1:3]
             sequence = int(dfs[0]) + 1
 
-            logging.debug(
-                f"-----------------> Bright Stars {sequence=} <-----------------"
-            )
+            logging.debug(f"---------------> Bright Stars {sequence=} <---------------")
             size = ""
             const = dfs[2].strip()
             desc = ""
@@ -459,9 +467,7 @@ def load_herschel400():
             h_desc = dfs[8]
             sequence += 1
 
-            logging.debug(
-                f"-----------------> Herschel 400 {sequence=} <-----------------"
-            )
+            logging.debug(f"---------------> Herschel 400 {sequence=} <---------------")
 
             object_id = objects_db.get_catalog_object_by_sequence("NGC", NGC_sequence)[
                 "id"
@@ -494,7 +500,7 @@ def load_sac_asterisms():
                 sequence += 1
 
             logging.debug(
-                f"-----------------> SAC Asterisms {sequence=} <-----------------"
+                f"---------------> SAC Asterisms {sequence=} <---------------"
             )
             const = dfs[2].strip()
             ra = dfs[3].strip()
@@ -557,7 +563,7 @@ def load_sac_multistars():
                 sequence += 1
 
             logging.debug(
-                f"-----------------> SAC Multistars {sequence=} <-----------------"
+                f"---------------> SAC Multistars {sequence=} <---------------"
             )
             const = dfs[1].strip()
             ra = dfs[3].strip()
@@ -625,7 +631,7 @@ def load_sac_redstars():
                 sequence += 1
 
             logging.debug(
-                f"-----------------> SAC Red Stars {sequence=} <-----------------"
+                f"---------------> SAC Red Stars {sequence=} <---------------"
             )
             const = dfs[3].strip()
             ra = dfs[4].strip()
@@ -949,13 +955,30 @@ def load_sharpless():
             # Append the extracted record to the list of records
             records.append(record)
     for record in records:
-        # markers["epoch_year"] = 1991.25
-        # marker_positions = self.earth.observe(Star.from_dataframe(markers))
-        #
-        # markers["x"], markers["y"] = self.projection(marker_positions)
-        # record["RA2000"] = sf_utils.ra1950_to_ra2000(
-        # record["DEC2000"] = sf_utils.ra1950_to_ra2000(
-        pass
+        print(record)
+        ra_deg = (
+            record["RA1950"]["h"]
+            + record["RA1950"]["m"] / 60
+            + record["RA1950"]["ds"] / 36000
+        ) * 15
+        dec_sign = -1 if record["DE1950"]["sign"] == "-" else 1
+        dec_deg = dec_sign * (
+            record["DE1950"]["d"]
+            + record["DE1950"]["m"] / 60
+            + record["DE1950"]["s"] / 3600
+        )
+        # Load the ephemeris
+        ts = sf_utils.ts
+        eph = sf_utils.eph
+
+        # Define the star's position at the 1950 epoch
+        star_1950 = Star(ra_hours=(ra_deg / 15), dec_degrees=dec_deg, epoch=ts.J(1950))
+
+        # Calculate the position at the J2000 epoch
+        astrometric = eph["earth"].at(ts.J(2000)).observe(star_1950)
+        ra, dec, distance = astrometric.radec()
+
+        print(star_1950, ra, dec)
 
     # Return the list of records
     return records
