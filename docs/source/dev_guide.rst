@@ -18,8 +18,8 @@ Depending on the complexity, it is probably wise, to discuss your issue on the d
 
 - Also, if you like to **submit your ideas**, you can use the issue page. 
 
-Getting or contributing to the sources
---------------------------------------
+Getting or contributing to the sources with pull requests
+---------------------------------------------------------
 
 If you like to alter or contribute new functionalities, fix errors in the code, or even just help with the documentation, best is to **fork** the code into your own GitHub account. Also, you can tell this the developers in the above mentioned `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ .
 
