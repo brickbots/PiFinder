@@ -200,11 +200,11 @@ If the IMU is defect, this only can be tested by removing it an replacing it wit
 The demo mode - it is cloudy, but I like to test my PiFinder anyways
 ....................................................................
 
-Getting a demo mode is to be able to run the PiFinder and almost all it's functionality not under the stars. Therefore the PiFinder get's an image from the disc and uses it for the screen. You can use all PiFinder commands, like searching for an object, you see the IMU run and you get a "fake" GPS signal. You also can check the PiFinder keyboard and the complete menu cycle. 
+Using the **demo mode** you will be able to run the PiFinder and almost all it's functionality, but not under the stars. Therefore the PiFinder get's an image of the sky from the disc instead from the camera and uses it. You can use all PiFinder commands, like searching for an object, you see the IMU run and you get a "fake" GPS signal. You also can check the PiFinder keyboard and the complete menu cycle. 
 
 The way to get this functionality, is to enter PiFinder in the 'test' or 'debug' mode.
 
-First method: Press "ENT-A" to cycle through the screens to get to the Console screen and then press the "0" key. This will supply a fake GPS lock, time and cause the PiFinder to just solve an image from disk.  But it will respond to IMU movement and allow use of things like Push-To and all the other functions that require a solve/lock.
+First method: Press **"ENT-A"** to cycle through the screens to get to the Console screen and then press the **"0"** key. This will supply a fake GPS lock, time and cause the PiFinder to just solve an image from disk.  But it will respond to IMU movement and allow use of things like Push-To and all the other functions that require a solve/lock.
 Second method: run PiFinder in tehe 
 
 .. image:: images/user_guide/DEMO_MODE_001_docs.png
