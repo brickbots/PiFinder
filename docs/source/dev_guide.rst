@@ -86,9 +86,11 @@ If you installed all dependencies, you like to develop and test your code with d
 
 You simply stop the program with "Ctrl + C".
 
-.. note::
+**Remember**: PiFinder is designed to automatically start after boot. So a PiFinder process is likly running. Before you can start a PiFinder process for testing purposes from the commandline, you have to stop all currently running PiFinder instances. Simply, because you can not run multiple PiFinder instances in parallel. They would try to access the same hardware, which is not possible. You can do this e.g. with awk:
 
-   Remember: PiFinder is designed to automatically start after boot. So a PiFinder process is likly running. Before you can start a PiFinder process for testing purposes from the commandline, you have to stop all currently running PiFinder instances. Simply, because you can not run multiple PiFinder instances in parallel. They would try to access the same hardware, which is not possible. You can do this e.g. with awk: ``ps aux | grep PiFinder.main | awk '{system("kill -9  " $2)}'``.
+.. code-block::
+
+    ps aux | grep PiFinder.main | awk '{system("kill -9  " $2)}'``.
 
 -h, --help - available command line arguments
 .............................................
