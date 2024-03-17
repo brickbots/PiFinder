@@ -64,19 +64,86 @@ cd python/PiFinder
 git clone https://github.com/esa/tetra3.git
 ``
 
-Running in debug mode 
----------------------
+Running in debug mode from command line
+---------------------------------------
 
 If you installed everything, you like to develop and test your code. Or you like to see error messages. 
 
-Run the following command from the ``./python`` folder to start PiFinder in the debugging mode. You can enable debug information by passing the '-x' flag:
+Switch to the ``~/PiFinder/python`` folder to start the PiFinder python program with certain command line parameters. 
 ``
 cd /home/pifinder/PiFinder/python
+python3 -m PiFinder.main [command line parameters]
+``
+
+.. note::
+
+Before you can start PiFinder In advance you have to stop all running PiFinder instances. You can do this e.g. with awk:
+``
+ps aux | grep PiFinder.main | awk '{system("kill -9  " $2)}'
+``
+
+
+-h, --help - available command line arguments
+.............................................
+
+Look at the options with the "Help" flag 
+
+.. note::
+
+   The avaiable flags may change with forthcomming releases. Always refer to the real output.
+
+``
+pifinder@pifinder:~/PiFinder/python $ python3 -m PiFinder.main -h
+Starting PiFinder ...
+usage: main.py [-h] [-fh] [-c CAMERA] [-k KEYBOARD] [--script SCRIPT] [-f] [-n] [-x] [-l]
+
+eFinder
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -fh, --fakehardware   Use a fake hardware for imu, gps
+  -c CAMERA, --camera CAMERA
+                        Specify which camera to use: pi, asi, debug or none
+  -k KEYBOARD, --keyboard KEYBOARD
+                        Specify which keyboard to use: pi, local or server
+  --script SCRIPT       Specify a testing script to run
+  -f, --fps             Display FPS in title bar
+  -n, --notmp           Don't use the /dev/shm temporary directory. (usefull if not on pi)
+  -x, --verbose         Set logging to debug mode
+  -l, --log             Log to file
+``
+
+-x, --verbose - debug information
+.................................
+
+You can "enable debug information" simply by passing the '-x' flag:
+
+``
+pifinder@pifinder:~/PiFinder/python $ python3 -m PiFinder.main  -x
+Starting PiFinder ...
+2024-03-17 11:31:26,285 root: DEBUG using pi camera
+2024-03-17 11:31:26,383 PiFinder.manager_patch: DEBUG Patching multiprocessing.managers.AutoProxy to add manager_owned
+2024-03-17 11:31:26,431 root: DEBUG Ui state in main is{'observing_list': [], 'history_list': [], 'active_list': [], 'target': None, 'message_timeout': 0}
+Write: Starting....
+Write:    GPS
+Write:    Keyboard
+2024-03-17 11:31:28,544 root: DEBUG GPS waking
+[...]
+``
+
+-c CAMERA, --camera CAMERA
+..........................
+
+Use the "fake" camera module, so the PiFinder cam ist physically not necesary for testing purposes. Else specify which camera to use: pi, asi, debug or none.
+
+``
 python3 -m PiFinder.main -k local --camera debug -x
 ``
 
 
-TBD: WHAT DOES "Server" do?
+
+With the "
+
 ``
 python3 -m PiFinder.main -fh -k server --camera debug -x
 ``
@@ -92,7 +159,7 @@ When crashing, there are many unrelated stack traces running. Search for the rel
 My IMU seems not to be working
 ..............................
 
-First power up the unit and look at the Status page while moving it around. The status screen is part of the ´Utility Screens <https://github.com/apos/PiFinder/blob/release_doc_updates/docs/source/user_guide.rst#utility-screens>´
+First power up the unit and look at the Status page while moving it around. The status screen is part of the `Utility Screens <https://github.com/apos/PiFinder/blob/release_doc_updates/docs/source/user_guide.rst#utility-screens>`
 
 .. image:: images/user_guide/STATUS_001_docs.png
 
