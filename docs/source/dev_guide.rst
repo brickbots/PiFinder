@@ -31,7 +31,7 @@ From there you can do a **pull request** to the original code. If you are a prog
 * `Youtube - How To Pull Request in 3 Minutes <https://www.youtube.com/watch?v=jRLGobWwA3Y>`_
 
 Documentation
--------------
+.............
 
 The documentation is written in `reStructuredText<https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#external-links>`. The files are located in PiFinders GitHub repository under ``docs\*.rst``. Many open source projects use `redthedocs.io <eadthedocs.io>` for creating documentation since it is emediatally generated, when you are commiting the GitHub code (CI/CD pipline). It is very easy to link your fork of the documentation code to GitHub. 
 
