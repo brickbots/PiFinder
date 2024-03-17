@@ -97,7 +97,7 @@ You simply stop the program with "Ctrl + C".
 -h, --help | available command line arguments
 .............................................
 
-See all ``PiFinder.main`` options with the "--help" flag.
+Get all ``PiFinder.main`` options with the "--help" flag.
 
 .. code-block::
 
@@ -127,7 +127,7 @@ See all ``PiFinder.main`` options with the "--help" flag.
 -x, --verbose | debug information
 .................................
 
-You enable tjhe debug information output simply by passing the '-x' flag.
+You enable the debug information output simply by passing the '-x' flag.
 
 .. code-block::
 
