@@ -64,8 +64,8 @@ The `hipparcos catalog <https://www.cosmos.esa.int/web/hipparcos>`_ will be down
 
     wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
 
-Tetra3 solver
-...........................
+Install the Tetra3 solver
+.........................
 
 The `Tetra3 Solver <https://github.com/esa/tetra3>`_ is a "fast lost-in-space plate solver for star trackers written in Python". It is the next gen solver, that PiFinder uses.
 
@@ -77,7 +77,9 @@ The `Tetra3 Solver <https://github.com/esa/tetra3>`_ is a "fast lost-in-space pl
 Debugging from the command line
 -------------------------------
 
-If you installed all dependencies, you like to develop and test your code with debugging information and all error messages. Therefore, switch to the ``~/PiFinder/python`` folder and start the PiFinder python program with certain command line parameters. 
+When you installed all the dependencies, you like to develop and test your code. You like to see debugging information and all verbose messages. You probably like to save these informations into a file. 
+
+Therefore, switch to the ``~/PiFinder/python`` folder and start the PiFinder python program with the command line parameters you need for the certain use case. 
 
 .. code-block::
 
