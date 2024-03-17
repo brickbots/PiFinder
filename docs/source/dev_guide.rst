@@ -183,8 +183,16 @@ My app crashes
 
 When crashing, there are many unrelated stack traces running. Search for the relevant one. The rest is not important, these are the other threads stopping.
 
-My IMU seems not to be working
-..............................
+.. ::attention
+
+   Needs an example
+
+Test the IMU
+............
+
+.. ::attention
+
+   Other possibilities? E.g. cover some pins?
 
 First power up the unit and look at the Status page while moving it around. The status screen is part of the :ref:`user_guide:Utility Screens`
 
