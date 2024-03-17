@@ -50,7 +50,7 @@ For running PiFinder, you need to install some python libraries in certain versi
 Install the Hipparcos catalog
 .............................
 
-The ``hipparcos catalog <https://www.cosmos.esa.int/web/hipparcos>`` will be downloaded to the following location: ``/home/pifinder/PiFinder/astro_data/``
+The `hipparcos catalog <https://www.cosmos.esa.int/web/hipparcos>` will be downloaded to the following location: ``/home/pifinder/PiFinder/astro_data/``
 
 ``wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat``
 
