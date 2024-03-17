@@ -165,12 +165,7 @@ This uses fake hardware for the imu and gps.
 -k KEYBOARD, --keyboard KEYBOARD
 ................................
 
-.. ATTENTION::
-
-  Usage unclear. Needs refinement. 
-
-You can use either your the keyboard of the pi, the local or servers keyboard (which server=) ... 
-
+A switch between the pi keyboard (on a real device), the local keyboard (eg Mac with emulated screen) or via a webserver. That last one will probably be retired because the remote server is always started.
 
 .. code-block::
 
