@@ -22,7 +22,7 @@ Depending on the complexity of the problem, it is probably wise, to discuss the 
 Fork me - getting or contributing to the sources with pull request
 ------------------------------------------------------------------
 
-If you like to alter or contribute new functionalities, fix errors in the code, or even just help with the documentation, best is to **fork** the code into your own GitHub account. Also, you can tell this the developers in the above mentioned `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ .
+If you like to alter or contribute new functionalities, fix errors in the code, or even just help with the documentation, best is to **fork** the code into your own GitHub account. Also, you can comunicate your effort in the above mentioned `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ .
 
 From there you can do a **pull request** to the original code. If you are a programmer you should already know the procedure. If not, here is how you do this: 
 
