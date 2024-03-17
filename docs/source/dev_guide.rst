@@ -42,15 +42,15 @@ Install python dependencies
 
 For running PiFinder, you need to install some python libraries in certain versions. These lists can be installed via `pip tool chain <https://pypi.org/project/pip/>`_  and are separeted in two files: one for getting PiFinder to run, one for development purposes:
 
-```
-pip install -r requirements.txt
-pip install -r requirements_dev.txt
-```
+ ``
+ pip install -r requirements.txt
+ pip install -r requirements_dev.txt
+ ``
 
 Install the Hipparcos catalog
 .............................
 
-The ``hipparcos catalog <https://www.cosmos.esa.int/web/hipparcos>`` will be downloaded to another location: ``/home/pifinder/PiFinder/astro_data/``
+The ``hipparcos catalog <https://www.cosmos.esa.int/web/hipparcos>`` will be downloaded to the following location: ``/home/pifinder/PiFinder/astro_data/``
 
 ``wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat``
 
