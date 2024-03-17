@@ -29,18 +29,18 @@ From there you can do a **pull request** to the original code. If you are a prog
 * `GitHub Docs - Creating a pull request <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request>`_
 * `Youtube - How To Pull Request in 3 Minutes <https://www.youtube.com/watch?v=jRLGobWwA3Y>`_
 
-Setup a development environment
--------------------------------
+Setup the development environment
+---------------------------------
 
-PiFinder runs on:
+PiFinder runs on an using:
 
-Python: Version 3.9 or 3.10 python with a working `pip tool chain <https://pypi.org/project/pip/>`_
-OS:     Debian Buster (Bookworm to come)
+* Version 3.9 or 3.10 python with a working `pip tool chain <https://pypi.org/project/pip/>`_
+* Debian Buster (Bookworm to come)
 
 Install python dependencies
 ...........................
 
-For running PiFinder, you need to install some python libraries in certain versions. These lists can be installed via `pip tool chain <https://pypi.org/project/pip/>`_  and are separeted in two files:
+For running PiFinder, you need to install some python libraries in certain versions. These lists can be installed via `pip tool chain <https://pypi.org/project/pip/>`_  and are separeted in two files: one for getting PiFinder to run, one for development purposes:
 
 ``
 pip install -r requirements.txt
@@ -64,20 +64,20 @@ cd python/PiFinder
 git clone https://github.com/esa/tetra3.git
 ``
 
-Running in debug mode from command line
----------------------------------------
+Debugging from the command line
+-------------------------------
 
-If you installed everything, you like to develop and test your code. Or you like to see error messages. 
-
-Switch to the ``~/PiFinder/python`` folder to start the PiFinder python program with certain command line parameters. 
+If you installed all dependencies, you like to develop and test your code with debugging informations and all error messages. Or just to be able to stop an run the program. Therefore, switch to the ``~/PiFinder/python`` folder and start the PiFinder python program with certain command line parameters. 
 ``
 cd /home/pifinder/PiFinder/python
-python3 -m PiFinder.main [command line parameters]
+python3 -m **PiFinder.main** **[command line parameters]**
 ``
+
+You simply stop the program with "Ctrl + C".
 
 .. note::
 
-Before you can start PiFinder In advance you have to stop all running PiFinder instances. You can do this e.g. with awk:
+Before you can start PiFinder, you have to stop all running PiFinder instances. PiFinder is designed to automatically start after boot. You can do this e.g. with awk:
 ``
 ps aux | grep PiFinder.main | awk '{system("kill -9  " $2)}'
 ``
