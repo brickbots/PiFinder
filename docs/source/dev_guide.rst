@@ -24,7 +24,7 @@ Fork me - getting or contributing to the sources with pull request
 
 If you like to alter or contribute new functionalities, fix errors in the code, or even just help with the documentation, best is to **fork** the code into your own GitHub account. Also, you can comunicate your effort in the above mentioned `PiFinder Discord server <https://discord.gg/Nk5fHcAtWD>`_ .
 
-From there you can do a **pull request** to the original code. If you are a programmer you should already know the procedure. If not, here is how you do this: 
+Within your fork, you can do all the fancy changes, you like to see in the PiFinder, test them locally. Then you can do a **pull request** to the original code of the PiFinder projekt. If you are a programmer you should already know the procedure. If not, here is how you do this: 
 
 * `GitHub Docs - About pull requests <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests>`_
 * `GitHub Docs - Creating a pull request <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request>`_
