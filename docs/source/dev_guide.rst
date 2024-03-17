@@ -198,12 +198,13 @@ First power up the unit and look at the Status page while moving it around. The 
 
 .. image:: images/user_guide/STATUS_002_docs.png
 
-If the IMU section is empty ("- -") or does not move, it is likely, that either the IMU is defect or you have a defect on your board.
+If the IMU section is empty ("- -") or does not move, it is likely, that either the IMU is defect or you have a problem on your board.
 
-1. Please check, if the board is soldered correctly and you have all pins fully soldered and did not shorten anything. 
+1. Please check, if the board is soldered all pins correctly and did not shorten anything (spurious lead). 
 2. If you sourced the parts by you own, it might be, that you bought the wrong IMU hardware version. You need the 4646 versio. On the non-stemma QT versions, the data pins are switched. `See here on Discord <https://discord.com/channels/1087556380724052059/1112859631702781992/1183859911982055525>`_. 
+3. The IMU is defect. 
 
-If the IMU is defect, this only can be tested by removing it an replacing it with another
+If the IMU is defect, this only can be tested by removing the faulty hardware and replacing it with another one. 
 
 The demo mode - it is cloudy, but I like to test my PiFinder anyways
 ....................................................................
