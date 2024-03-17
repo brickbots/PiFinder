@@ -92,7 +92,7 @@ You simply stop the program with "Ctrl + C".
 
     ps aux | grep PiFinder.main | awk '{system("kill -9  " $2)}'``.
 
--h, --help - available command line arguments
+-h, --help | available command line arguments
 .............................................
 
 Look at the options with the "Help" flag 
@@ -122,7 +122,7 @@ Look at the options with the "Help" flag
 
    The avaiable flags may change with forthcomming releases. Always refer to the real output of the commandline parameter "-h".
 
--x, --verbose - debug information
+-x, --verbose | debug information
 .................................
 
 You can "enable debug information" simply by passing the '-x' flag:
@@ -150,7 +150,7 @@ Use the "fake" camera module, so the PiFinder cam ist physically not necesary fo
 
     python3 -m PiFinder.main -k local --camera debug -x
 
--fh, --fakehardware (imu, gps only)
+-fh, --fakehardware | imu, gps only
 ...................................
 
 This uses fake hardware for the imu and gps:
@@ -165,10 +165,9 @@ This uses fake hardware for the imu and gps:
 
 .. ATTENTION::
 
-  Usage unclear
+  Usage unclear. Needs refinement. 
 
-You can use either your the keyboard of the pi, the local keyboard. 
-
+You can use either your the keyboard of the pi, the local or servers keyboard (which server=).. 
 
 
 .. code-block::
