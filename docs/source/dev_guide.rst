@@ -77,7 +77,7 @@ The `Tetra3 Solver <https://github.com/esa/tetra3>` is a "fast lost-in-space pla
 Debugging from the command line
 -------------------------------
 
-If you installed all dependencies, you like to develop and test your code with debugging information and all error messages. Or just to be able to stop an run the program. Therefore, switch to the ``~/PiFinder/python`` folder and start the PiFinder python program with certain command line parameters. 
+If you installed all dependencies, you like to develop and test your code with debugging information and all error messages. Therefore, switch to the ``~/PiFinder/python`` folder and start the PiFinder python program with certain command line parameters. 
 
 .. code-block::
 
