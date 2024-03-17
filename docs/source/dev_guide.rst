@@ -86,9 +86,7 @@ If you installed all dependencies, you like to develop and test your code with d
 
 You simply stop the program with "Ctrl + C".
 
-.. note::
-
-  Before you can start PiFinder, you have to stop all running PiFinder instances. PiFinder is designed to automatically start after boot. You can do this e.g. with awk: ``ps aux | grep PiFinder.main | awk '{system("kill -9  " $2)}'``.
+PiFinder is designed to automatically start after boot. So a PiFinder process is likly running. Before you can start a PiFinder process for testing purposes from the commandline, you have to stop all currently running PiFinder instances. Simply, because you can not run multiple PiFinder instances in parallel. They would try to access the same hardware, which is not possible. You can do this e.g. with awk: ``ps aux | grep PiFinder.main | awk '{system("kill -9  " $2)}'``.
 
 -h, --help - available command line arguments
 .............................................
@@ -201,12 +199,10 @@ The demo mode - it is cloudy, but I like to test my PiFinder anyways
 
 Getting a demo mode is to be able to run the PiFinder and almost all it's functionality not under the stars. Therefore the PiFinder get's an image from the disc and uses it for the screen. You can use all PiFinder commands, like searching for an object, you see the IMU run and you get a "fake" GPS signal. You also can check the PiFinder keyboard and the complete menu cycle. 
 
-The way to get this funktionality, is to enter PiFinder in the 'test' or 'debug' mode.
+The way to get this functionality, is to enter PiFinder in the 'test' or 'debug' mode.
 
 First method: Press "ENT-A" to cycle through the screens to get to the Console screen and then press the "0" key. This will supply a fake GPS lock, time and cause the PiFinder to just solve an image from disk.  But it will respond to IMU movement and allow use of things like Push-To and all the other functions that require a solve/lock.
 Second method: run PiFinder in tehe 
-
-
 
 .. image:: images/user_guide/DEMO_MODE_001_docs.png
 
