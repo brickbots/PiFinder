@@ -16,10 +16,9 @@ class ClosestObjectsFinder:
         """
         Calculates a flat list of objects and the balltree for those objects
         """
-        catalog_list: List[Catalog] = catalogs.get_catalogs()
-        catalog_list_flat = [
-            obj for catalog in catalog_list for obj in catalog.filtered_objects
-        ]
+        catalog_list_flat: List[CompositeObject] = catalogs.get_objects(
+            only_selected=True
+        )
         object_radecs = [
             [np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in catalog_list_flat
         ]
