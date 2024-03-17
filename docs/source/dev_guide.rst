@@ -125,7 +125,7 @@ See all ``PiFinder.main`` options with the "--help" flag.
 -x, --verbose | debug information
 .................................
 
-You can "enable debug information" simply by passing the '-x' flag.
+You enable tjhe debug information output simply by passing the '-x' flag.
 
 .. code-block::
 
