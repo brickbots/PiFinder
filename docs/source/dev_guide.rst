@@ -190,7 +190,7 @@ When crashing, there are many unrelated stack traces running. Search for the rel
 Test the IMU
 ............
 
-.. ::attention
+.. ATTENTION::
 
    Other possibilities? E.g. cover some pins?
 
