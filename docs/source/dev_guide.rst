@@ -216,6 +216,11 @@ First method: Press (short press) **"ENT-A"** again and again to cycle through t
 
 Second method: run PiFinder with the :ref:`dev_guide:Debugging from the command line` functionality.
 
+.. note::
+
+  If you stop the movement in demo-mode, the picture alway switches back to the "standard demo picture". Do not expect to move through the sky, like you normally would do an get a solve to the new loaction. You will always be caught back to the same position in the sky.
+
+
 .. image:: images/user_guide/DEMO_MODE_001_docs.png
 
 .. image:: images/user_guide/DEMO_MODE_002_docs.png
