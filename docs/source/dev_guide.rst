@@ -120,7 +120,7 @@ Look at the options with the "Help" flag
 
 .. note::
 
-   The avaiable flags may change with forthcomming releases. Always refer to the real output of the commandline parameter "-h".
+   The avaiable commandline flags may change with forthcomming releases. Always refer to the real output of the commandline parameter "-h".
 
 -x, --verbose | debug information
 .................................
