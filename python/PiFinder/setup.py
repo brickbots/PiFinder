@@ -965,7 +965,8 @@ def load_ngc_catalog():
         Path(utils.astro_data_dir, "ngc2000", "names.dat"),
         Path(utils.astro_data_dir, "extra_names.dat"),
     ]
-    for name_dat in name_dat_files:
+    seen = set()
+    for name_dat in tqdm(name_dat_files):
         with open(name_dat, "r") as names:
             for l in names:
                 m_sequence = ""
@@ -991,11 +992,12 @@ def load_ngc_catalog():
                     if obj:
                         object_id = obj["object_id"]
                         objects_db.insert_name(object_id, common_name, catalog)
-                        if m_sequence != "":
+                        if m_sequence != "" and m_sequence not in seen:
                             desc = object_id_desc_dict[object_id]
                             objects_db.insert_catalog_object(
                                 object_id, "M", m_sequence, desc
                             )
+                            seen.add(m_sequence)
                     else:
                         logging.debug(f"Can't find object id {catalog=}, {sequence=}")
 
