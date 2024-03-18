@@ -508,7 +508,7 @@ class CatalogBuilder:
 
     def check_catalogs_sequences(self, catalogs: Catalogs):
         for catalog in catalogs.get_catalogs():
-            result = catalog.check_catalog_sequences()
+            result = catalog.check_sequences()
             if not result:
                 logging.error(f"Duplicate sequence catalog {catalog.catalog_code}!")
                 return False
