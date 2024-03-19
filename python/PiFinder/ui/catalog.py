@@ -545,6 +545,7 @@ class UICatalog(UIModule):
         sets the sequence and object
         """
         if self.catalog_tracker.get_current_catalog().get_filtered_count() == 0:
+            logging.debug("No objects in filtered catalog")
             return
         self.catalog_tracker.next_object(direction)
         self.update_object_info()
