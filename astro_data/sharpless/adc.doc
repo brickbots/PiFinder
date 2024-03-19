@@ -1,0 +1,392 @@
+                                                                  R-SAW-7/79-27
+
+
+
+
+
+
+
+
+
+
+             DOCUMENTATION F0R THE MACHINE-READABLE VERSION OF THE
+                           CATALOGUE OF H II REGIONS
+
+
+
+
+
+
+
+
+                                   July 1979
+
+
+
+                             Contract  NAS 5-25369
+
+
+
+
+                                Theresa A. Nagy
+
+
+                                 (Revised 1991)
+
+
+
+
+
+
+
+
+
+                                 Prepared for:
+
+                 National Aeronautics and Space Administration
+                          Goddard Space Flight Center
+                          Greenbelt, Maryland  20771
+
+
+
+                                 Prepared by:
+
+                   Systems and Applied Sciences Corporation
+                            6811 Kenilworth Avenue
+                          Riverdale, Maryland  20840
+                              TABLE OF CONTENTS
+
+
+Section 1  - Introduction...............................................1-1
+
+Section 2  - File Contents..............................................2-1
+
+Section 3  - File Characteristics.......................................3-1
+
+Section 4  - Remarks and Modifications..................................4-1
+
+
+
+                                LIST OF TABLES
+
+
+Table
+
+2-1     File Contents...................................................2-1
+3-1     File Characteristics............................................3-1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      ii
+                          SECTION 1 - INTRODUCTION
+
+
+
+In recent years there has been a trend away from publishing catalogues in book
+form to preparing catalogues by computer and distributing them on magnetic
+tape, with appearance in book form a secondary occurrence.  This memo is the
+result of the development of the documentation for the machine-readable
+version of the catalogue and includes the basic information given in the
+original preface of the published catalogue.  This memo should be distributed
+along with any copy of the machine-readable version of the catalogue.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      1-1
+                          SECTION 2 - FILE CONTENTS
+
+A byte-by-byte description of the contents of the catalogue is given in Table
+2-1.  The information in the "Description" column is derived mainly from the
+published version of the catalogue whenever possible.  The "Suggested Format"
+column is for FORTRAN-formatted reads.
+
+Table 2-1.  File Contents (1 of 3): CATALOGUE OF H II REGIONS
+
+                                                               Suggested
+Bytes              Description                                   Format
+
+ 1       "S"                                                       A1
+
+ 2-4     Sharpless H II catalogue number                           I3
+
+ 5-8     Galactic longitude (degrees) - based on Lund              F4.1
+         pole
+
+ 9-12    Galactic latitude (degrees) - based on Lund               F4.1
+         pole
+
+13-16    Galactic longitude (degrees) IAU galactic coor-           F4.1
+         dinate system.  Apparently this value was com-
+         puted from the computed (precessed) equatorial
+         coordinates (1950.0).  This quantity is not in
+         the original publication.  The difference be-
+         tween these "new" galactic coordinates and those
+         in the published catalogue is not a constant value
+         for all entries.
+
+17-20    Galactic latitude (degrees)                               F4.1
+         Same remarks as for bytes 13-16.
+
+21-27    Right ascension (1900.0) Equatorial coordinate
+          as given in the published catalogue
+
+         21-22     hours                                           I2
+         23-24     minutes                                         I2
+         25-27     seconds                                         F3.1
+
+28-34    Declination (1900.0) Same remarks as for
+         bytes 21-27.
+
+         28-30     degrees (sign always given in byte 28)          I3
+         31-32     arc minutes                                     I2
+         33-34     arc seconds                                     I2
+
+35-41    Right ascension (1950.0) Apparently this quantity
+         computed from the given equatorial coordinates
+         (1900.0) in the published catalogue.  This quantity
+         is not in the published catalogue.
+
+         35-36     hours                                           I2
+         37-38     minutes                                         I2
+         39-41     seconds                                         F3.1
+
+                                      2-1
+Table 2-1.  File Contents (2 of 3): CATALOGUE OF H II REGIONS
+
+
+                                                                 Suggested
+Bytes                   Description                               Format
+
+
+
+42-48   Declination (1950.0) Same remarks as for bytes 35-41.
+
+        42-44    degrees (sign always given in byte 42 )           I3
+        45-46    arc minutes                                       I2
+        47-48    arc seconds                                       I2
+
+49-52   Maximum angular diameter of H II region (arc min-          I4
+        utes) Owing to the diffuse nature of many of the ob-
+        jects, the diameters may have an uncertainty of the
+        order of 20 percent.
+
+53      Classification as to form:                                 I1
+        1 = circular
+        2 = elliptical
+        3 = irregular
+
+54      Classification as to structure from 1 = amorphous          I1
+        to 3 = filamentary
+
+55      Classification as to brightness from 1 = faintest          I1
+        to 3 = brightest
+        (based on the appearance on the Palomar Sky Atlas)
+
+56-57   The number of associated stars with the H II region.       I2
+        The individual stars are given in a subsequent table in
+        the published catalogue but are not in this version of
+        the catalogue.
+
+58-60   Blank                                                      3X
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                     2-2
+                      SECTION 3 - FILE CHARACTERISTICS
+
+
+
+The information contained in this section is sufficient for the user to read
+the machine-readable version of the catalogue.  The statistics of the contents
+of the entire file are given in Table 3-1.
+
+
+
+
+          Table 3-1. File Characteristics: CATALOGUE OF H II REGIONS
+
+
+
+               CATALOGUE                                    SHII
+
+               NUMBER OF FILES                                 1
+
+               LOGICAL RECORD LENGTH (BYTES)                  60
+
+               RECORD FORMAT (IBM OS/JCL)                  Fixed
+
+               TOTAL NUMBER OF LOGICAL RECORDS               313
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      3-1
+                    SECTION 4 - REMARKS AND MODIFICATIONS
+
+
+
+The machine-readable version of the Sharpless Catalogue of H II Regions was
+received from the University of Maryland.  This catalogue was published in 1959
+in the Astrophysical Journal Supplement Series (number 41, pages 257- 280).
+The original card deck was in the 026 punch and this was converted to a 029
+deck.  Many of the quantities in this version of the catalogue were not in the
+published catalogue.  The epochs of the precessed equatorial coordinates were
+determined empirically from the data as given on the computer cards.  All of
+the quantities which do not appear in the published version of the catalogue
+have been identified in Table 2-1.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                      4-1
