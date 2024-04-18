@@ -8,6 +8,7 @@ This module is the solver
 
 """
 import numpy as np
+import json
 import time
 import logging
 import sys
@@ -47,6 +48,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
             + shared_state.arch()
         )
     try:
+        save_cnt = 0
         while True:
             utils.sleep_for_framerate(shared_state)
 
@@ -59,6 +61,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                 and last_image_metadata["imu_delta"] < 1
             ):
                 img = camera_image.copy()
+                img_raw = img.copy()
                 img = img.convert(mode="L")
                 np_image = np.asarray(img, dtype=np.uint8)
 
@@ -108,6 +111,10 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                     console_queue.put(f"SLV: Long: {total_tetra_time}")
 
                 if solved["RA"] is not None:
+                    save_cnt += 1
+                    img_raw.save(f"/home/pifinder/PiFinder_data/stack/{save_cnt:04}.png")
+                    with open(f"/home/pifinder/PiFinder_data/stack/{save_cnt:04}.json", "w") as fo:
+                        json.dump(solved, fo)
                     # map the RA/DEC to the target pixel RA/DEC
                     solved["RA"] = solved["RA_target"]
                     solved["Dec"] = solved["Dec_target"]

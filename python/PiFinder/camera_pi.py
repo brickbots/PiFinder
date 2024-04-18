@@ -36,7 +36,9 @@ class CameraPI(CameraInterface):
         """Initializes the camera and set the needed control parameters"""
         self.camera.stop()
         # using this smaller scale auto-selects binning on the sensor...
-        cam_config = self.camera.create_still_configuration({"size": (512, 512)})
+        cam_config = self.camera.create_still_configuration({"size": (512, 512)}, raw={"size": (2028, 1520), "format": "SRGGB10"})
+        #cam_config = self.camera.create_still_configuration({"size": (2028, 1520)})
+
         self.camera.configure(cam_config)
         self.camera.set_controls({"AeEnable": False})
         self.camera.set_controls({"AnalogueGain": self.gain})
@@ -44,6 +46,9 @@ class CameraPI(CameraInterface):
         self.camera.start()
 
     def capture(self) -> Image.Image:
+        _request = self.camera.capture_request
+        _image = _request.make_image("main")
+        _raw = _request.make_array("raw")
         return self.camera.capture_image()
 
     def capture_file(self, filename) -> None:
