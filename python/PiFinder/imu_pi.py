@@ -55,7 +55,7 @@ class Imu:
         # First value is delta to exceed between samples
         # to start moving, second is threshold to fall below
         # to stop moving.
-        self.__moving_threshold = (0.001, 0.0005)
+        self.__moving_threshold = (0.0005, 0.0003)
 
     def quat_to_euler(self, quat):
         if quat[0] + quat[1] + quat[2] + quat[3] == 0:
