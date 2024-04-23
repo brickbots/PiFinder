@@ -13,9 +13,10 @@ import re
 from tqdm import tqdm
 from pathlib import Path
 from typing import Dict
-from PiFinder.obj_types import OBJ_DESCRIPTORS
+
+# from PiFinder.obj_types import OBJ_DESCRIPTORS
 import PiFinder.utils as utils
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils
+from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils, b1950_to_j2000
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from collections import namedtuple, defaultdict
@@ -918,12 +919,16 @@ def load_barnard():
 def load_sharpless():
     logging.info("Loading Sharpless")
     catalog = "Sh2"
+    obj_type = "Nb"
     conn, _ = objects_db.get_conn_cursor()
     path = Path(utils.astro_data_dir, "sharpless")
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, path / "sharpless.desc")
     # object_finder = ObjectFinder()
     data = path / "catalog.dat"
+    form = {1: "circular", 2: "elliptical", 3: "irregular"}
+    struct = {1: "Amorphous", 2: "Semi-structured", 3: "Filamentary"}
+    bright = {1: "Dim", 2: "Medium", 3: "Bright"}
 
     # Define a list to hold all the extracted records
     records = []
@@ -955,33 +960,33 @@ def load_sharpless():
             # Append the extracted record to the list of records
             records.append(record)
     for record in records:
-        print(record)
-        ra_deg = (
+        ra_hours = (
             record["RA1950"]["h"]
             + record["RA1950"]["m"] / 60
             + record["RA1950"]["ds"] / 36000
-        ) * 15
+        )
+        print(f'{record["RA1950"]} {record["DE1950"]}')
         dec_sign = -1 if record["DE1950"]["sign"] == "-" else 1
         dec_deg = dec_sign * (
             record["DE1950"]["d"]
             + record["DE1950"]["m"] / 60
             + record["DE1950"]["s"] / 3600
         )
-        # Load the ephemeris
-        ts = sf_utils.ts
-        eph = sf_utils.eph
-
-        # Define the star's position at the 1950 epoch
-        star_1950 = Star(ra_hours=(ra_deg / 15), dec_degrees=dec_deg, epoch=ts.J(1950))
-
-        # Calculate the position at the J2000 epoch
-        astrometric = eph["earth"].at(ts.J(2000)).observe(star_1950)
-        ra, dec, distance = astrometric.radec()
-
-        print(star_1950, ra, dec)
+        # print(f"RA: {ra_hours}, Dec: {dec_deg}")
+        j_ra_h, j_dec_deg = b1950_to_j2000(ra_hours, dec_deg)
+        j_ra_deg = j_ra_h._degrees
+        j_dec_deg = j_dec_deg._degrees
+        const = sf_utils.radec_to_constellation(j_ra_deg, j_dec_deg)
+        desc = f"Form: {form[record['Form']]}, Struct: {struct[record['Struct']]}, Bright: {bright[record['Bright']]}, Stars: {record['Stars']}"
+        object_id = objects_db.insert_object(
+            obj_type, j_ra_deg, dec_deg, const, str(record["Diam"]), desc
+        )
+        objects_db.insert_catalog_object(object_id, catalog, record["Sh2"], desc)
 
     # Return the list of records
-    return records
+    # return records
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
 
 
 def load_ngc_catalog():
@@ -1129,18 +1134,18 @@ if __name__ == "__main__":
     # These load functions must be kept in this order
     # to keep some of the object referencing working
     # particularly starting with the NGC as the base
-    # load_ngc_catalog()
-    # load_caldwell()
-    # load_collinder()
-    # load_taas200()
-    # load_herschel400()
-    # load_sac_asterisms()
-    # load_sac_multistars()
-    # load_sac_redstars()
-    # load_bright_stars()
-    # load_egc()
-    # load_rasc_double_Stars()
-    # load_barnard()
+    load_ngc_catalog()
+    load_caldwell()
+    load_collinder()
+    load_taas200()
+    load_herschel400()
+    load_sac_asterisms()
+    load_sac_multistars()
+    load_sac_redstars()
+    load_bright_stars()
+    load_egc()
+    load_rasc_double_Stars()
+    load_barnard()
     load_sharpless()
 
     # Populate the images table

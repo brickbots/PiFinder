@@ -110,6 +110,15 @@ def ra_to_hms(ra):
     return hh, mm, ss
 
 
+def b1950_to_j2000(ra_hours, dec_deg):
+    # Load the ephemeris
+    ts = sf_utils.ts
+    _p = position_of_radec(ra_hours=ra_hours, dec_degrees=dec_deg, epoch=ts.B1950)
+    print(_p)
+    RA_h, Dec, _dist = _p.radec(epoch=ts.J2000)
+    return RA_h, Dec
+
+
 def aim_degrees(shared_state, mount_type, screen_direction, target):
     """
     Returns degrees in either
