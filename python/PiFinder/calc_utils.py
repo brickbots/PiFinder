@@ -11,7 +11,6 @@ from skyfield.api import (
     load_constellation_map,
 )
 from skyfield.magnitudelib import planetary_magnitude
-from skyfield import almanac
 import PiFinder.utils as utils
 import json
 import hashlib
@@ -111,11 +110,13 @@ def ra_to_hms(ra):
 
 
 def b1950_to_j2000(ra_hours, dec_deg):
+    """
+    Convert B1950 to j2000
+    """
     # Load the ephemeris
     ts = sf_utils.ts
     _p = position_of_radec(ra_hours=ra_hours, dec_degrees=dec_deg, epoch=ts.B1950)
-    print(_p)
-    RA_h, Dec, _dist = _p.radec(epoch=ts.J2000)
+    RA_h, Dec, _ = _p.radec(epoch=ts.J2000)
     return RA_h, Dec
 
 

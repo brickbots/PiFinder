@@ -927,7 +927,7 @@ def load_sharpless():
     # object_finder = ObjectFinder()
     data = path / "catalog.dat"
     form = {1: "circular", 2: "elliptical", 3: "irregular"}
-    struct = {1: "Amorphous", 2: "Semi-structured", 3: "Filamentary"}
+    struct = {1: "Amorphous", 2: "Semi-amorphous", 3: "Filamentary"}
     bright = {1: "Dim", 2: "Medium", 3: "Bright"}
 
     # Define a list to hold all the extracted records
@@ -983,8 +983,6 @@ def load_sharpless():
         )
         objects_db.insert_catalog_object(object_id, catalog, record["Sh2"], desc)
 
-    # Return the list of records
-    # return records
     insert_catalog_max_sequence(catalog)
     conn.commit()
 
