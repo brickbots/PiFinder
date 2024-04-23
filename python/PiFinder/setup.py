@@ -965,7 +965,7 @@ def load_sharpless():
             + record["RA1950"]["m"] / 60
             + record["RA1950"]["ds"] / 36000
         )
-        print(f'{record["RA1950"]} {record["DE1950"]}')
+        # print(f'{record["RA1950"]} {record["DE1950"]}')
         dec_sign = -1 if record["DE1950"]["sign"] == "-" else 1
         dec_deg = dec_sign * (
             record["DE1950"]["d"]
