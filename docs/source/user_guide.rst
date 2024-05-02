@@ -463,9 +463,11 @@ WiFi
 Access Point and Client Mode
 ----------------------------------
 
-The PiFinder can either connect to an existing network, or serve as an wireless access point for other devices to connect to.  Use the :ref:`user_guide:Web Interface` or the :ref:`user_guide:Global Options` page of the Status screen to switch between these two modes and see which mode is currently active.
+The PiFinder can either connect to an existing network via the Client mode, or serve as an wireless access point for other devices to connect to via the Access Point (AP) mode.  Use the :ref:`user_guide:Web Interface` or the :ref:`user_guide:Global Options` page of the Status screen to switch between these two modes and to see which mode is currently active.
 
 Using the PiFinder in Access Point mode creates a network called PiFinderAP with no password to allow easy connection of phones, tablets and other devices in the field.
+
+To use the Client mode, you'll need to add information about the WiFi network you'd like the PiFinder to connect to using the Web Interface as described :ref:`below<user_guide:Connecting to a new WiFi network>`
 
 PiFinder address
 -----------------
@@ -499,21 +501,21 @@ To access the web interface for the first time, make sure the PiFinder is in Acc
 
      - .. image:: images/user_guide/pf_web_home_hamburger.jpg
 
-The home screen shows the general PiFinder status info and a live view of the screen.  Depending on your screen size you'll either see a navigation bar along the top of the page, or a 'hamburger' menu in the upper-left.  
+The home screen shows the general PiFinder status info and a live view of the screen.  Depending on your screen size you'll either see a navigation bar along the top of the page, or a 'hamburger' menu in the upper-left which contains these same options for smaller screens.
 
 While the home screen not require a password, most other functions will.  The password for the web interface is the same as what is used for the ``pifinder`` user and changing one will change the other.  The default password for new images and PiFinders is ``solveit``.  This can be changed using the Tools option in the web interface.
 
 Connecting to a new WiFi network
 ---------------------------------
 
-To connect to a new WiFi network, navigate to the Network Setup page and click the + button near the list of WiFi networks.  Enter your network information and click the Save icon.  If your network does not have a password, leave that field as None.
+To connect to a new WiFi network, navigate to the Network Setup page and click the + button near the list of WiFi networks.
 
 .. list-table::
    :width: 100%
 
    * - .. image:: images/user_guide/pf_web_net1.jpg
 
-     - .. image:: images/user_guide/pf_web_net2.jpg
+Enter your network name (SSID) in the Name input and your password below in the Password input.  If your network does not have a password, leave that input as None.  Make sure to click the 'SAVE' button to save your changes
 
 Once you have added a new WiFi network to connect to, you can change the WiFi mode to Client in the Network Settings section and click Update and Restart.  After confirming your choice, the PiFinder will restart and attempt to connect to any configured WiFi networks.  If your computer or phone are on the same network, you can reload the web interface to confirm the PiFinder found and connected to the new WiFi network.
 
@@ -547,7 +549,7 @@ Once connected, you'll see:
 Update Software
 ==================
 
-A Software action is available from the :ref:`user_guide:global options` screen.  This will both show which version the PiFinder currently has installed and allow you to Upd the software if the PiFinder is connected to the internet.  You man need to switch :ref:`user_guide:WiFi` modes to Client if the device is in AP mode.
+A Software action is available from the :ref:`user_guide:global options` screen.  This will both show which version the PiFinder currently has installed and allow you to Upd the software if the PiFinder is connected to the internet.  You will need to switch :ref:`user_guide:WiFi` modes to Client if the device is in AP mode.
 
 Select the option for 'Software' and then 'Upd'.  You should see a message that says 'Updating...' followed by 'Ok! Restarting'.  The PiFinder should restart and the new software version should be displayed when checking the :ref:`user_guide:option pages` for the Status screen
 
