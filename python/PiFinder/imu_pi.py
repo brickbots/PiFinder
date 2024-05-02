@@ -43,6 +43,7 @@ class Imu:
                 adafruit_bno055.AXIS_REMAP_POSITIVE,
             )
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
+        self._flip_count = 0
         self.calibration = 0
         self.avg_quat = (0, 0, 0, 0)
         self.__moving = False
@@ -85,6 +86,7 @@ class Imu:
         # Throw out non-calibrated data
         self.calibration = self.sensor.calibration_status[1]
         if self.calibration == 0:
+            print("NOIMU CAL")
             return True
         quat = self.sensor.quaternion
         if quat[0] == None:
@@ -109,8 +111,20 @@ class Imu:
         # from one reading to another.  This is clearly noise or an
         # artifact, so filter them out
         if self.__reading_diff > 1.5:
-            self.__reading_diff = 0
-            return
+            self._flip_count += 1
+            if self._flip_count > 10:
+                # with the history initialized to 0,0,0,0 the unit
+                # can get stuck seeing flips if the IMU starts
+                # returning data. This count will reset history
+                # to the current state if it exceeds 10
+                self.quat_history = [quat] * QUEUE_LEN
+                self.__reading_diff = 0
+            else:
+                self.__reading_diff = 0
+                return
+        else:
+            # no flip
+            self._flip_count = 0
 
         self.avg_quat = quat
         if len(self.quat_history) == QUEUE_LEN:
