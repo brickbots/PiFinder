@@ -40,6 +40,7 @@ class UIModule:
         self.button_hints_timer = time.time()
         self.button_hints_visible: bool = False
         self.switch_to = None
+        self.device_wrapper = device_wrapper
         self.display = device_wrapper.device
         self.colors = device_wrapper.colors
         self.shared_state = shared_state

@@ -13,106 +13,108 @@ import logging
 
 class UIMenu(UIModule):
     """
-    General module for displaying/altering a config
-    structure.
+    General module for displaying a menu
 
-    Takes a reference to a UIModule class and
-    configures it via user interaction
     """
 
     __title__ = "OPTIONS"
 
-    def __init__(self, *args):
+    def __init__(
+        self,
+        menu_type,
+        menu_items,
+        selected_items,
+        back_callback,
+        select_callback,
+        **kwargs
+    ):
         self._module = None
-        self._selected_item_index = None
-        super().__init__(*args)
-
-    def get_module(self):
-        return self._module
-
-    def set_module(self, module):
-        """
-        Sets the module to configure
-        """
-        self._module = module
-        self._config = module._config_options
-        if self._config:
-            self._item_names = list(self._config.keys())
-            self._selected_item_index = 0
+        self._menu_type = menu_type
+        self._menu_items = menu_items
+        self._back_callback = back_callback
+        self._select_callback = select_callback
+        self._selected_items = selected_items
+        self._current_item_index = 0
+        super().__init__(**kwargs)
 
     def update(self, force=False):
         # clear screen
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
-        if self._config is None:
+        line_number = 0
+        for i in range(self._current_item_index - 3, self._current_item_index + 4):
+            # figure out line position / color / font
+            line_font = self.font_base
+            if line_number == 0:
+                line_color = 96
+                line_pos = 0
+            if line_number == 1:
+                line_color = 128
+                line_pos = 13
+            if line_number == 2:
+                line_color = 192
+                line_font = self.font_bold
+                line_pos = 25
+            if line_number == 3:
+                line_color = 256
+                line_font = self.font_large
+                line_pos = 40
+            if line_number == 4:
+                line_color = 192
+                line_font = self.font_bold
+                line_pos = 60
+            if line_number == 5:
+                line_color = 128
+                line_pos = 76
+            if line_number == 6:
+                line_color = 96
+                line_pos = 89
+
+            # Offset for title
+            line_pos += 20
+
+            # figure out line text
+            if i < 0:
+                item_text = ""
+            elif i >= len(self._menu_items):
+                item_text = ""
+            else:
+                item_text = self._menu_items[i]
+
             self.draw.text(
-                (20, 18), "No Config", font=self.font_base, fill=self.colors.get(255)
+                (15, line_pos),
+                item_text,
+                font=line_font,
+                fill=self.colors.get(line_color),
             )
-        else:
-            line_number = 0
-            for i in range(
-                self._selected_item_index - 3, self._selected_item_index + 4
-            ):
-                # figure out line position / color / font
-                line_font = self.font_base
-                if line_number == 0:
-                    line_color = 96
-                    line_pos = 0
-                if line_number == 1:
-                    line_color = 128
-                    line_pos = 13
-                if line_number == 2:
-                    line_color = 192
-                    line_font = self.font_bold
-                    line_pos = 25
-                if line_number == 3:
-                    line_color = 256
-                    line_font = self.font_large
-                    line_pos = 40
-                if line_number == 4:
-                    line_color = 192
-                    line_font = self.font_bold
-                    line_pos = 60
-                if line_number == 5:
-                    line_color = 128
-                    line_pos = 76
-                if line_number == 6:
-                    line_color = 96
-                    line_pos = 89
-
-                # Offset for title
-                line_pos += 20
-
-                # figure out line text
-                if i < 0:
-                    item_text = ""
-                elif i >= len(self._item_names):
-                    item_text = ""
-                else:
-                    item_text = self._item_names[i]
-
+            if item_text in self._selected_items:
                 self.draw.text(
                     (5, line_pos),
-                    item_text,
+                    "*",
                     font=line_font,
                     fill=self.colors.get(line_color),
                 )
 
-                line_number += 1
+            line_number += 1
 
         return self.screen_update()
 
     def menu_scroll(self, direction: int):
-        self._selected_item_index += direction
-        if self._selected_item_index < 0:
-            self._selected_item_index = 0
+        self._current_item_index += direction
+        if self._current_item_index < 0:
+            self._current_item_index = 0
 
-        if self._selected_item_index >= len(self._item_names):
-            self._selected_item_index = len(self._item_names) - 1
+        if self._current_item_index >= len(self._menu_items):
+            self._current_item_index = len(self._menu_items) - 1
 
     def key_enter(self):
-        # No matter where we are, enter should clear
-        # any selected item
-        self._selected_item = None
+        selected_item = self._menu_items[self._current_item_index]
+        if self._menu_type == "single":
+            self._select_callback(selected_item)
+        else:
+            if selected_item in self._selected_items:
+                self._selected_items.remove(selected_item)
+            else:
+                self._selected_items.append(selected_item)
 
     def key_up(self):
         self.menu_scroll(-1)
@@ -120,6 +122,8 @@ class UIMenu(UIModule):
     def key_down(self):
         self.menu_scroll(1)
 
-    def active(self):
-        self._selected_item = None
-        self._selected_item_key = None
+    def key_d(self):
+        if self._menu_type == "single":
+            self._back_callback(self._menu_items[self._current_item_index])
+        else:
+            self._back_callback(selected_items)

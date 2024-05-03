@@ -50,7 +50,7 @@ from PiFinder.ui.console import UIConsole
 from PiFinder.ui.status import UIStatus
 from PiFinder.ui.catalog import UICatalog
 from PiFinder.ui.locate import UILocate
-from PiFinder.ui.menu import UIMenu
+from PiFinder.ui.config import UIConfig
 from PiFinder.ui.log import UILog
 
 from PiFinder.state import SharedStateObj, UIState
@@ -364,7 +364,7 @@ def main(script_name=None, show_fps=False, verbose=False):
             cfg,
         )
         ui_modes = [
-            UIMenu(
+            UIConfig(
                 display_device,
                 camera_image,
                 shared_state,
