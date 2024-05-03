@@ -312,11 +312,13 @@ def shadow(ri_draw, xy, text, align, font, fill, shadowcolor):
     ri_draw.text((x, y), text, align=align, font=font, fill=fill)
 
 
-def name_deduplicate(names: List[str], exclude: List[str]):
-    # Helper function to normalize names
-    def normalize(name):
-        return name.lower().replace(" ", "").replace("the ", "", 1).replace("-", "")
+def normalize(name):
+    """Helper function to normalize names"""
+    return name.lower().replace(" ", "").replace("the ", "", 1).replace("-", "")
 
+
+def name_deduplicate(names: List[str], exclude: List[str]):
+    """From a list of object names (NGC 5000, NGC5000), remove duplicates"""
     # Use a set for quick membership testing to remember names we've seen
     seen = set()
     result = []
