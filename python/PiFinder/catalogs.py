@@ -262,6 +262,9 @@ class Catalog(CatalogBase):
         self.last_filtered = time.time()
         return self.filtered_objects
 
+    def get_filtered_objects(self):
+        return self.filtered_objects
+
     # move this code to the filter class?
     def get_filtered_count(self):
         return len(self.filtered_objects)
@@ -292,12 +295,21 @@ class Catalogs:
         else:
             return self.__catalogs
 
-    def get_objects(self, only_selected: bool = True) -> List[CompositeObject]:
-        return [
-            obj
-            for catalog in self.get_catalogs(only_selected)
-            for obj in catalog.get_objects()
-        ]
+    def get_objects(
+        self, only_selected: bool = True, filtered: bool = True
+    ) -> List[CompositeObject]:
+        if filtered:
+            return [
+                obj
+                for catalog in self.get_catalogs(only_selected)
+                for obj in catalog.get_filtered_objects()
+            ]
+        else:
+            return [
+                obj
+                for catalog in self.get_catalogs(only_selected)
+                for obj in catalog.get_objects()
+            ]
 
     def select_catalogs(self, catalog_names: List[str]):
         self.__selected_catalogs_idx = [
