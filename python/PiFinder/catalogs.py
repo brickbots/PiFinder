@@ -23,6 +23,8 @@ from PiFinder.calc_utils import sf_utils
 
 
 class ROArrayWrapper:
+    """Read-only array wrapper, to protect the underlying array"""
+
     def __init__(self, composite_object_array):
         self._array = composite_object_array
 
@@ -67,7 +69,7 @@ class Names:
         pass
 
     def get_name(self, object_id: int) -> List[str]:
-        return self.names[object_id]
+        return self.id_to_names[object_id]
 
     def get_id(self, name: str) -> Optional[int]:
         return self.name_to_id.get(name)
@@ -284,7 +286,6 @@ class Catalogs:
         self._code_to_pos_sel: Dict[str, int] = {}
         self._select_all_catalogs()
         self._refresh_code_to_pos()
-        self.names = Names()
 
     def get_catalogs(self, only_selected: bool = True) -> List[Catalog]:
         if only_selected:
