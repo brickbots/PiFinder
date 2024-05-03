@@ -50,7 +50,7 @@ from PiFinder.ui.console import UIConsole
 from PiFinder.ui.status import UIStatus
 from PiFinder.ui.catalog import UICatalog
 from PiFinder.ui.locate import UILocate
-from PiFinder.ui.config import UIConfig
+from PiFinder.ui.menu import UIMenu
 from PiFinder.ui.log import UILog
 
 from PiFinder.state import SharedStateObj, UIState
@@ -364,7 +364,7 @@ def main(script_name=None, show_fps=False, verbose=False):
             cfg,
         )
         ui_modes = [
-            UIConfig(
+            UIMenu(
                 display_device,
                 camera_image,
                 shared_state,
@@ -422,7 +422,9 @@ def main(script_name=None, show_fps=False, verbose=False):
         # What is the highest index for observing modes
         # vs status/debug modes accessed by alt-A
         ui_observing_modes = 5
-        ui_mode_index = 5
+        # ui_mode_index = 5
+        ui_modes[0].set_module(ui_modes[3])
+        ui_mode_index = 0
         logging_mode_index = 8
 
         current_module = ui_modes[ui_mode_index]
