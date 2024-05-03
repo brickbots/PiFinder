@@ -16,6 +16,7 @@ from typing import Dict
 
 # from PiFinder.obj_types import OBJ_DESCRIPTORS
 import PiFinder.utils as utils
+from PiFinder.ui.ui_utils import normalize
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils, b1950_to_j2000
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
@@ -38,13 +39,16 @@ class ObjectFinder:
         self.objects_db = ObjectsDatabase()
         self.catalog_objects = self.objects_db.get_catalog_objects()
         self.mappings = {
-            f"{row['catalog_code']} {row['sequence']}": row["object_id"]
+            f"{row['catalog_code']}{row['sequence']}": row["object_id"]
             for row in self.catalog_objects
         }
 
     def get_object_id(self, object: str):
         logging.debug(f"Looking up object id for {object}")
-        return self.mappings.get(object)
+        result = self.mappings.get(object)
+        if not result:
+            result = self.mappings.get(normalize(object))
+        return result
 
     def get_object_id_by_parts(self, catalog_code: str, sequence: int):
         return self.mappings.get(f"{catalog_code} {sequence}")
@@ -918,6 +922,7 @@ def load_barnard():
 
 def load_sharpless():
     logging.info("Loading Sharpless")
+    object_finder = ObjectFinder()
     catalog = "Sh2"
     obj_type = "Nb"
     conn, _ = objects_db.get_conn_cursor()
@@ -926,12 +931,35 @@ def load_sharpless():
     insert_catalog(catalog, path / "sharpless.desc")
     # object_finder = ObjectFinder()
     data = path / "catalog.dat"
+    akas = path / "akas.csv"
+    descriptions = path / "galaxymap_descriptions.csv"
     form = {1: "circular", 2: "elliptical", 3: "irregular"}
-    struct = {1: "Amorphous", 2: "Semi-amorphous", 3: "Filamentary"}
-    bright = {1: "Dim", 2: "Medium", 3: "Bright"}
+    struct = {1: "amorphous", 2: "semi-amorphous", 3: "filamentary"}
+    bright = {1: "dim", 2: "medium", 3: "bright"}
 
     # Define a list to hold all the extracted records
     records = []
+
+    # read description dictionary
+    descriptions_dict = {}
+    with open(akas, mode="r", newline="", encoding="utf-8") as file:
+        reader = csv.reader(open(descriptions, "r"))
+        for row in reader:
+            if len(row) == 2:
+                k, v = row
+                descriptions_dict[k] = v
+
+    # read akas dictionary
+    akas_dict = {}
+    with open(akas, mode="r", newline="", encoding="utf-8") as file:
+        reader = csv.reader(file, delimiter=";")
+        for row in reader:
+            if row:  # Ensure the row is not empty
+                key = int(row[0])  # Convert the first column to an integer
+                values = [
+                    value.strip() for value in row[1].split(",")
+                ]  # Split second column on ',' and strip spaces
+                akas_dict[key] = values
 
     # Open the file for reading
     with open(data, "r") as file:
@@ -960,6 +988,7 @@ def load_sharpless():
             # Append the extracted record to the list of records
             records.append(record)
     for record in records:
+        sh2 = int(record["Sh2"])
         ra_hours = (
             record["RA1950"]["h"]
             + record["RA1950"]["m"] / 60
@@ -977,10 +1006,21 @@ def load_sharpless():
         j_ra_deg = j_ra_h._degrees
         j_dec_deg = j_dec_deg._degrees
         const = sf_utils.radec_to_constellation(j_ra_deg, j_dec_deg)
-        desc = f"Form: {form[record['Form']]}, Struct: {struct[record['Struct']]}, Bright: {bright[record['Bright']]}, Stars: {record['Stars']}"
+        desc = f"{form[record['Form']]}, {struct[record['Struct']]}, {bright[record['Bright']]}, {record['Stars']}\n"
+
+        desc += descriptions_dict[str(sh2)]
+        current_akas = akas_dict[sh2] if sh2 in akas_dict else []
+        found = []
+        for aka in current_akas:
+            found_object_id = object_finder.get_object_id(aka)
+            found.append(found_object_id)
         object_id = objects_db.insert_object(
             obj_type, j_ra_deg, dec_deg, const, str(record["Diam"]), desc
         )
+        for aka in current_akas:
+            objects_db.insert_name(object_id, aka, catalog)
+        for found_id in found:
+            objects_db.insert_name(found_id, f"Sh2-{sh2}", catalog)
         objects_db.insert_catalog_object(object_id, catalog, record["Sh2"], desc)
 
     insert_catalog_max_sequence(catalog)
