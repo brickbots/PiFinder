@@ -113,7 +113,7 @@ class CatalogFilter:
     def apply_filter(self, obj: CompositeObject):
         # check altitude
         if self.altitude_filter != "None" and self.fast_aa:
-            obj_altitude = self.fast_aa.radec_to_altaz(
+            obj_altitude, _ = self.fast_aa.radec_to_altaz(
                 obj.ra,
                 obj.dec,
                 alt_only=True,
@@ -144,7 +144,7 @@ class CatalogFilter:
         return True
 
     def apply(self, shared_state, objects: List[CompositeObject]):
-        self.fast_aa = self.calc_fast_aa(shared_state)
+        self.calc_fast_aa(shared_state)
         return [obj for obj in objects if self.apply_filter(obj)]
 
 
