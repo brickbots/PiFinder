@@ -78,7 +78,7 @@ class UIMenu(UIModule):
             elif i >= len(self._menu_items):
                 item_text = ""
             else:
-                item_text = self._menu_items[i]
+                item_text = str(self._menu_items[i])
 
             self.draw.text(
                 (15, line_pos),
@@ -126,4 +126,4 @@ class UIMenu(UIModule):
         if self._menu_type == "single":
             self._back_callback(self._menu_items[self._current_item_index])
         else:
-            self._back_callback(selected_items)
+            self._back_callback(self._selected_items)

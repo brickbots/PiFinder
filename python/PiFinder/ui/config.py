@@ -28,6 +28,7 @@ class UIConfig(UIModule):
         self._selected_item = None
         self._selected_item_key = None
         self._menu = None
+        self._mode = "option"
         super().__init__(*args)
 
     def get_module(self):
@@ -39,11 +40,12 @@ class UIConfig(UIModule):
         """
         self._module = module
         self._config = module._config_options
+        self._mode="option"
         if self._config:
             self._item_names = list(self._config.keys())
 
-        self._menu = UIMenu(
-            menu_type="multi",
+        self._options_menu = UIMenu(
+            menu_type="single",
             menu_items=self._item_names,
             selected_items=[],
             back_callback=self.menu_back,
@@ -54,15 +56,52 @@ class UIConfig(UIModule):
             command_queues=None,
             config_object=None,
         )
+        self._menu = self._options_menu
 
     def menu_back(self, selection):
-        pass
+        if self._mode == "option":
+            self._module.update_config()
+            self.switch_to = self._module.__class__.__name__
+        else:
+            if self._current_config_item["type"] == "multi_enum":
+                self._current_config_item["value"] == selection
+            self._mode = "option"
+            self._menu = self._options_menu
+
 
     def menu_select(self, selection):
-        pass
+        if self._mode =="option":
+            self._mode = "value"
+            self._current_config_item = self._config[selection]
+
+            _menu_type = "single"
+            _selected_items=[]
+            if self._current_config_item["type"] == "multi_enum":
+                _menu_type = "multi"
+                _selected_items=self._current_config_item["value"]
+
+            self._menu = UIMenu(
+                menu_type=_menu_type,
+                menu_items=self._current_config_item["options"],
+                selected_items=_selected_items,
+                back_callback=self.menu_back,
+                select_callback=self.menu_select,
+                device_wrapper=self.device_wrapper,
+                camera_image=None,
+                shared_state=self.shared_state,
+                command_queues=None,
+                config_object=None,
+            )
+        else:
+            self._current_config_item["value"] = selection
+
 
     def update(self, force=False):
+        time.sleep(1/30)
         self._menu.update()
+        _switch_to = self.switch_to
+        self.switch_to = None
+        return _switch_to
 
     def key_enter(self):
         # No matter where we are, enter should clear
