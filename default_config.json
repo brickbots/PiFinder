@@ -32,7 +32,8 @@
         "SaM",
         "EGC",
         "B",
-        "Sh2"
+        "Sh2",
+        "Arp"
     ],
     "active_catalogs": [
         "NGC",
@@ -41,6 +42,6 @@
         "Ta2",
         "Str",
         "SaA",
-        "Sh2"
+        "SaM"
     ]
 }

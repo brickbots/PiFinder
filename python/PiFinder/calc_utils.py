@@ -10,6 +10,7 @@ from skyfield.api import (
     position_of_radec,
     load_constellation_map,
 )
+from skyfield.constants import T0 as J2000, B1950
 from skyfield.magnitudelib import planetary_magnitude
 import PiFinder.utils as utils
 import json
@@ -109,15 +110,24 @@ def ra_to_hms(ra):
     return hh, mm, ss
 
 
+def epoch_to_epoch(ep_from, ep_to, ra_hours, dec_deg):
+    """
+    Convert a (ra_h, dec_d) position from one epoch (e.g. 1991.25) to another (e.g. 2000.0)
+    """
+    # Load the ephemeris
+    ts = sf_utils.ts
+    from_epoch = ts.tt(ep_from)
+    to_epoch = ts.tt(ep_to)
+    _p = position_of_radec(ra_hours=ra_hours, dec_degrees=dec_deg, epoch=from_epoch)
+    RA_h, Dec, _ = _p.radec(epoch=to_epoch)
+    return RA_h, Dec
+
+
 def b1950_to_j2000(ra_hours, dec_deg):
     """
     Convert B1950 to j2000
     """
-    # Load the ephemeris
-    ts = sf_utils.ts
-    _p = position_of_radec(ra_hours=ra_hours, dec_degrees=dec_deg, epoch=ts.B1950)
-    RA_h, Dec, _ = _p.radec(epoch=ts.J2000)
-    return RA_h, Dec
+    return epoch_to_epoch(B1950, J2000, ra_hours, dec_deg)
 
 
 def aim_degrees(shared_state, mount_type, screen_direction, target):
