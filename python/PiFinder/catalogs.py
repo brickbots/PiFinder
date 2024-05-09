@@ -23,6 +23,8 @@ from PiFinder.calc_utils import sf_utils
 
 
 class ROArrayWrapper:
+    """Read-only array wrapper, to protect the underlying array"""
+
     def __init__(self, composite_object_array):
         self._array = composite_object_array
 
@@ -67,7 +69,7 @@ class Names:
         pass
 
     def get_name(self, object_id: int) -> List[str]:
-        return self.names[object_id]
+        return self.id_to_names[object_id]
 
     def get_id(self, name: str) -> Optional[int]:
         return self.name_to_id.get(name)
@@ -113,7 +115,7 @@ class CatalogFilter:
     def apply_filter(self, obj: CompositeObject):
         # check altitude
         if self.altitude_filter != "None" and self.fast_aa:
-            obj_altitude = self.fast_aa.radec_to_altaz(
+            obj_altitude, _ = self.fast_aa.radec_to_altaz(
                 obj.ra,
                 obj.dec,
                 alt_only=True,
@@ -144,7 +146,7 @@ class CatalogFilter:
         return True
 
     def apply(self, shared_state, objects: List[CompositeObject]):
-        self.fast_aa = self.calc_fast_aa(shared_state)
+        self.calc_fast_aa(shared_state)
         return [obj for obj in objects if self.apply_filter(obj)]
 
 
@@ -262,6 +264,9 @@ class Catalog(CatalogBase):
         self.last_filtered = time.time()
         return self.filtered_objects
 
+    def get_filtered_objects(self):
+        return self.filtered_objects
+
     # move this code to the filter class?
     def get_filtered_count(self):
         return len(self.filtered_objects)
@@ -284,7 +289,6 @@ class Catalogs:
         self._code_to_pos_sel: Dict[str, int] = {}
         self._select_all_catalogs()
         self._refresh_code_to_pos()
-        self.names = Names()
 
     def get_catalogs(self, only_selected: bool = True) -> List[Catalog]:
         if only_selected:
@@ -292,12 +296,21 @@ class Catalogs:
         else:
             return self.__catalogs
 
-    def get_objects(self, only_selected: bool = True) -> List[CompositeObject]:
-        return [
-            obj
-            for catalog in self.get_catalogs(only_selected)
-            for obj in catalog.get_objects()
-        ]
+    def get_objects(
+        self, only_selected: bool = True, filtered: bool = True
+    ) -> List[CompositeObject]:
+        if filtered:
+            return [
+                obj
+                for catalog in self.get_catalogs(only_selected)
+                for obj in catalog.get_filtered_objects()
+            ]
+        else:
+            return [
+                obj
+                for catalog in self.get_catalogs(only_selected)
+                for obj in catalog.get_objects()
+            ]
 
     def select_catalogs(self, catalog_names: List[str]):
         self.__selected_catalogs_idx = [
