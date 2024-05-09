@@ -13,12 +13,15 @@ import re
 from tqdm import tqdm
 from pathlib import Path
 from typing import Dict
-from PiFinder.obj_types import OBJ_DESCRIPTORS
+
+# from PiFinder.obj_types import OBJ_DESCRIPTORS
 import PiFinder.utils as utils
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils
+from PiFinder.ui.ui_utils import normalize
+from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils, b1950_to_j2000
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from collections import namedtuple, defaultdict
+from skyfield.api import Star
 
 objects_db: ObjectsDatabase
 observations_db: ObservationsDatabase
@@ -36,16 +39,16 @@ class ObjectFinder:
         self.objects_db = ObjectsDatabase()
         self.catalog_objects = self.objects_db.get_catalog_objects()
         self.mappings = {
-            f"{row['catalog_code']} {row['sequence']}": row["object_id"]
+            f"{row['catalog_code'].lower()}{row['sequence']}": row["object_id"]
             for row in self.catalog_objects
         }
 
-    def get_object_id(self, object: str):
+    def get_object_id(self, object_name: str):
         logging.debug(f"Looking up object id for {object}")
-        return self.mappings.get(object)
-
-    def get_object_id_by_parts(self, catalog_code: str, sequence: int):
-        return self.mappings.get(f"{catalog_code} {sequence}")
+        result = self.mappings.get(object_name.lower())
+        if not result:
+            result = self.mappings.get(normalize(object_name))
+        return result
 
 
 def add_space_after_prefix(s):
@@ -79,7 +82,10 @@ def count_empty_entries(conn, db_c, table, columns):
     db_c = conn.cursor()
     for column in columns:
         db_c.execute(
-            f"SELECT COUNT(*) FROM {table} WHERE {column} IS NULL OR {column} = ''"
+            f"""
+                SELECT COUNT(*) FROM {table}
+                WHERE {column} IS NULL OR {column} = ''
+            """
         )
         result = db_c.fetchone()
         logging.info(f"{column}: {result[0]} empty entries")
@@ -123,11 +129,17 @@ def insert_catalog(catalog_name, description_path):
 
 def insert_catalog_max_sequence(catalog_name):
     conn, db_c = objects_db.get_conn_cursor()
-    query = f"SELECT MAX(sequence) FROM catalog_objects where catalog_code = '{catalog_name}' GROUP BY catalog_code"
+    query = f"""
+            SELECT MAX(sequence) FROM catalog_objects
+            where catalog_code = '{catalog_name}' GROUP BY catalog_code
+        """
     db_c.execute(query)
     result = db_c.fetchone()
     # print(dict(result))
-    query = f"update catalogs set max_sequence = {dict(result)['MAX(sequence)']} where catalog_code = '{catalog_name}'"
+    query = f"""
+        update catalogs set max_sequence = {
+        dict(result)['MAX(sequence)']} where catalog_code = '{catalog_name}'
+        """
     # print(query)
     db_c.execute(query)
     conn.commit()
@@ -138,7 +150,7 @@ def resolve_object_images():
     # objects to match against image names
     conn, db_c = objects_db.get_conn_cursor()
     resolution_priority = db_c.execute(
-        f"""
+        """
             SELECT catalog_code
             FROM catalogs
             ORDER BY rowid
@@ -404,9 +416,7 @@ def load_bright_stars():
             other_names = dfs[1:3]
             sequence = int(dfs[0]) + 1
 
-            logging.debug(
-                f"-----------------> Bright Stars {sequence=} <-----------------"
-            )
+            logging.debug(f"---------------> Bright Stars {sequence=} <---------------")
             size = ""
             const = dfs[2].strip()
             desc = ""
@@ -459,9 +469,7 @@ def load_herschel400():
             h_desc = dfs[8]
             sequence += 1
 
-            logging.debug(
-                f"-----------------> Herschel 400 {sequence=} <-----------------"
-            )
+            logging.debug(f"---------------> Herschel 400 {sequence=} <---------------")
 
             object_id = objects_db.get_catalog_object_by_sequence("NGC", NGC_sequence)[
                 "id"
@@ -494,7 +502,7 @@ def load_sac_asterisms():
                 sequence += 1
 
             logging.debug(
-                f"-----------------> SAC Asterisms {sequence=} <-----------------"
+                f"---------------> SAC Asterisms {sequence=} <---------------"
             )
             const = dfs[2].strip()
             ra = dfs[3].strip()
@@ -557,7 +565,7 @@ def load_sac_multistars():
                 sequence += 1
 
             logging.debug(
-                f"-----------------> SAC Multistars {sequence=} <-----------------"
+                f"---------------> SAC Multistars {sequence=} <---------------"
             )
             const = dfs[1].strip()
             ra = dfs[3].strip()
@@ -625,7 +633,7 @@ def load_sac_redstars():
                 sequence += 1
 
             logging.debug(
-                f"-----------------> SAC Red Stars {sequence=} <-----------------"
+                f"---------------> SAC Red Stars {sequence=} <---------------"
             )
             const = dfs[3].strip()
             ra = dfs[4].strip()
@@ -909,6 +917,167 @@ def load_barnard():
     conn.commit()
 
 
+def load_sharpless():
+    logging.info("Loading Sharpless")
+    object_finder = ObjectFinder()
+    catalog = "Sh2"
+    obj_type = "Nb"
+    conn, _ = objects_db.get_conn_cursor()
+    path = Path(utils.astro_data_dir, "sharpless")
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, path / "sharpless.desc")
+    # object_finder = ObjectFinder()
+    data = path / "catalog.dat"
+    akas = path / "akas.csv"
+    descriptions = path / "galaxymap_descriptions.csv"
+    form = {1: "circular", 2: "elliptical", 3: "irregular"}
+    struct = {1: "amorphous", 2: "semi-amorphous", 3: "filamentary"}
+    bright = {1: "dim", 2: "medium", 3: "bright"}
+
+    # Define a list to hold all the extracted records
+    records = []
+
+    # read description dictionary
+    descriptions_dict = {}
+    with open(akas, mode="r", newline="", encoding="utf-8") as file:
+        reader = csv.reader(open(descriptions, "r"))
+        for row in reader:
+            if len(row) == 2:
+                k, v = row
+                descriptions_dict[k] = v
+
+    # read akas dictionary
+    akas_dict = {}
+    with open(akas, mode="r", newline="", encoding="utf-8") as file:
+        reader = csv.reader(file, delimiter=";")
+        for row in reader:
+            if row:  # Ensure the row is not empty
+                key = int(row[0])  # Convert the first column to an integer
+                values = [
+                    value.strip() for value in row[1].split(",")
+                ]  # Split second column on ',' and strip spaces
+                akas_dict[key] = values
+
+    # Open the file for reading
+    with open(data, "r") as file:
+        # Iterate over each line in the file
+        for line in file:
+            # Extract the relevant parts of each line based on byte positions
+            record = {
+                "Sh2": int(line[0:4].strip()),
+                "RA1950": {
+                    "h": int(line[34:36].strip()),
+                    "m": int(line[36:38].strip()),
+                    "ds": int(line[38:41].strip()),
+                },
+                "DE1950": {
+                    "sign": line[41],
+                    "d": int(line[42:44].strip()),
+                    "m": int(line[44:46].strip()),
+                    "s": int(line[46:48].strip()),
+                },
+                "Diam": int(line[48:52].strip()),
+                "Form": int(line[52:53].strip()),
+                "Struct": int(line[53:54].strip()),
+                "Bright": int(line[54:55].strip()),
+                "Stars": int(line[55:57].strip()),
+            }
+            # Append the extracted record to the list of records
+            records.append(record)
+    for record in records:
+        sh2 = int(record["Sh2"])
+        ra_hours = (
+            record["RA1950"]["h"]
+            + record["RA1950"]["m"] / 60
+            + record["RA1950"]["ds"] / 36000
+        )
+        # print(f'{record["RA1950"]} {record["DE1950"]}')
+        dec_sign = -1 if record["DE1950"]["sign"] == "-" else 1
+        dec_deg = dec_sign * (
+            record["DE1950"]["d"]
+            + record["DE1950"]["m"] / 60
+            + record["DE1950"]["s"] / 3600
+        )
+        # print(f"RA: {ra_hours}, Dec: {dec_deg}")
+        j_ra_h, j_dec_deg = b1950_to_j2000(ra_hours, dec_deg)
+        j_ra_deg = j_ra_h._degrees
+        j_dec_deg = j_dec_deg._degrees
+        const = sf_utils.radec_to_constellation(j_ra_deg, j_dec_deg)
+        desc = f"{form[record['Form']]}, {struct[record['Struct']]}, {bright[record['Bright']]}, {record['Stars']}\n"
+
+        desc += descriptions_dict[str(sh2)]
+        current_akas = akas_dict[sh2] if sh2 in akas_dict else []
+        found = []
+        for aka in current_akas:
+            found_object_id = object_finder.get_object_id(aka)
+            found.append(found_object_id)
+        object_id = objects_db.insert_object(
+            obj_type, j_ra_deg, dec_deg, const, str(record["Diam"]), desc
+        )
+        for aka in current_akas:
+            objects_db.insert_name(object_id, aka, catalog)
+        for found_id in found:
+            objects_db.insert_name(found_id, f"Sh2-{sh2}", catalog)
+        objects_db.insert_catalog_object(object_id, catalog, record["Sh2"], desc)
+
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
+
+
+def load_abell():
+    logging.info("Loading Abell")
+    object_finder = ObjectFinder()
+    catalog = "Abl"
+    obj_type = "PN"
+    conn, _ = objects_db.get_conn_cursor()
+    data = Path(utils.astro_data_dir, "abell.tsv")
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, Path(utils.astro_data_dir) / "abell.desc")
+
+    # Define a list to hold all the extracted records
+    records = []
+
+    # Open the file for reading
+    with open(data, "r") as file:
+        # Iterate over each line in the file
+        for line in list(file)[1:]:
+            split_line = line.split("\t")
+            # Extract the relevant parts of each line based on byte positions
+            record = {
+                "id": int(split_line[0].strip()),
+                "AKA": split_line[2].strip(),
+                "RA": float(split_line[3].strip()),
+                "Dec": float(split_line[4].strip()),
+                "Mag": float(split_line[5].strip()),
+                "Size": float(split_line[6].strip()),
+                "const": split_line[7].strip(),
+                "desc": "",
+            }
+            # Append the extracted record to the list of records
+            records.append(record)
+    for record in tqdm(records):
+        object_id = object_finder.get_object_id(record["AKA"])
+        if not object_id:
+            # obj_type, ra, dec, const, size, mag
+            object_id = objects_db.insert_object(
+                obj_type,
+                record["RA"],
+                record["Dec"],
+                record["const"],
+                record["Size"],
+                record["Mag"],
+            )
+        else:
+            objects_db.insert_name(object_id, f"Abell {record['id']}", catalog)
+
+        objects_db.insert_catalog_object(
+            object_id, catalog, record["id"], record["desc"]
+        )
+
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
+
+
 def load_ngc_catalog():
     logging.info("Loading NGC catalog")
     conn, db_c = objects_db.get_conn_cursor()
@@ -1066,6 +1235,8 @@ if __name__ == "__main__":
     load_egc()
     load_rasc_double_Stars()
     load_barnard()
+    load_sharpless()
+    load_abell()
 
     # Populate the images table
     logging.info("Resolving object images...")
