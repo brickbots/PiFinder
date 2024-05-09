@@ -3,7 +3,7 @@ import time
 import datetime
 import pytz
 from typing import List, Dict, DefaultDict, Optional
-
+from collections import defaultdict
 import PiFinder.calc_utils as calc_utils
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
@@ -22,17 +22,43 @@ from PiFinder.calc_utils import sf_utils
 # Catalogs: holds all catalogs
 
 
+class ROArrayWrapper:
+    """Read-only array wrapper, to protect the underlying array"""
+
+    def __init__(self, composite_object_array):
+        self._array = composite_object_array
+
+    def __getitem__(self, key):
+        return self._array[key]
+
+    def __len__(self):
+        return len(self._array)
+
+    def __setitem__(self, key, value):
+        raise TypeError("This array is read-only")
+
+    def __delitem__(self, key):
+        raise TypeError("This array is read-only")
+
+    def __iter__(self):
+        return iter(self._array)
+
+    def __repr__(self):
+        return str(self._array)
+
+
 class Names:
     """
     Holds all name related info
     """
 
     db: Database
-    names: DefaultDict[int, List[str]] = {}
+    names: DefaultDict[int, List[str]] = defaultdict(list)
 
     def __init__(self):
         self.db = ObjectsDatabase()
-        self.names = self.db.get_names()
+        self.id_to_names = self.db.get_object_id_to_names()
+        self.name_to_id = self.db.get_name_to_object_id()
         self._sort_names()
         logging.debug(f"Loaded {len(self.names)} names from database")
 
@@ -42,8 +68,11 @@ class Names:
         """
         pass
 
-    def get(self, object_id) -> List[str]:
-        return self.names[object_id]
+    def get_name(self, object_id: int) -> List[str]:
+        return self.id_to_names[object_id]
+
+    def get_id(self, name: str) -> Optional[int]:
+        return self.name_to_id.get(name)
 
 
 class CatalogFilter:
@@ -86,7 +115,7 @@ class CatalogFilter:
     def apply_filter(self, obj: CompositeObject):
         # check altitude
         if self.altitude_filter != "None" and self.fast_aa:
-            obj_altitude = self.fast_aa.radec_to_altaz(
+            obj_altitude, _ = self.fast_aa.radec_to_altaz(
                 obj.ra,
                 obj.dec,
                 alt_only=True,
@@ -117,7 +146,7 @@ class CatalogFilter:
         return True
 
     def apply(self, shared_state, objects: List[CompositeObject]):
-        self.fast_aa = self.calc_fast_aa(shared_state)
+        self.calc_fast_aa(shared_state)
         return [obj for obj in objects if self.apply_filter(obj)]
 
 
@@ -143,7 +172,7 @@ class CatalogBase:
         self.max_sequence = max_sequence
         self.desc = desc
         self.sort = sort
-        self.objects: List[CompositeObject] = []
+        self.__objects: List[CompositeObject] = []
         self.id_to_pos: Dict[int, int]
         self.sequence_to_pos: Dict[int, int]
         self.catalog_code: str
@@ -151,48 +180,58 @@ class CatalogBase:
         self.desc: str
         self.sort = sort
 
+    def get_objects(self) -> ROArrayWrapper:
+        return ROArrayWrapper(self.__objects)
+
     def add_object(self, obj: CompositeObject):
         self._add_object(obj)
         self._sort_objects()
         self._update_id_to_pos()
         self._update_sequence_to_pos()
+        assert self.check_sequences()
 
     def _add_object(self, obj: CompositeObject):
-        self.objects.append(obj)
+        self.__objects.append(obj)
 
     def add_objects(self, objects: List[CompositeObject]):
-        for obj in objects:
+        objects_copy = objects.copy()
+        for obj in objects_copy:
             self._add_object(obj)
         self._sort_objects()
         self._update_id_to_pos()
         self._update_sequence_to_pos()
+        assert self.check_sequences()
 
     def _sort_objects(self):
-        self.objects.sort(key=self.sort)
+        self.__objects.sort(key=self.sort)
 
     def get_object_by_id(self, id: int) -> CompositeObject:
         if id in self.id_to_pos:
-            return self.objects[self.id_to_pos[id]]
+            return self.__objects[self.id_to_pos[id]]
         else:
             return None
 
     def get_object_by_sequence(self, sequence: int) -> CompositeObject:
         if sequence in self.sequence_to_pos:
-            return self.objects[self.sequence_to_pos[sequence]]
+            return self.__objects[self.sequence_to_pos[sequence]]
         else:
             return None
 
-    def get_objects(self) -> List[CompositeObject]:
-        return self.objects
-
     def get_count(self) -> int:
-        return len(self.objects)
+        return len(self.__objects)
+
+    def check_sequences(self):
+        sequences = [x.sequence for x in self.get_objects()]
+        if not len(sequences) == len(set(sequences)):
+            logging.error(f"Duplicate sequence catalog {self.catalog_code}!")
+            return False
+        return True
 
     def _update_id_to_pos(self):
-        self.id_to_pos = {obj.id: i for i, obj in enumerate(self.objects)}
+        self.id_to_pos = {obj.id: i for i, obj in enumerate(self.__objects)}
 
     def _update_sequence_to_pos(self):
-        self.sequence_to_pos = {obj.sequence: i for i, obj in enumerate(self.objects)}
+        self.sequence_to_pos = {obj.sequence: i for i, obj in enumerate(self.__objects)}
 
     def __repr__(self):
         return f"Catalog({self.catalog_code=}, {self.max_sequence=}, count={self.get_count()})"
@@ -225,6 +264,9 @@ class Catalog(CatalogBase):
         self.last_filtered = time.time()
         return self.filtered_objects
 
+    def get_filtered_objects(self):
+        return self.filtered_objects
+
     # move this code to the filter class?
     def get_filtered_count(self):
         return len(self.filtered_objects)
@@ -253,6 +295,22 @@ class Catalogs:
             return [self.__catalogs[x] for x in self.__selected_catalogs_idx]
         else:
             return self.__catalogs
+
+    def get_objects(
+        self, only_selected: bool = True, filtered: bool = True
+    ) -> List[CompositeObject]:
+        if filtered:
+            return [
+                obj
+                for catalog in self.get_catalogs(only_selected)
+                for obj in catalog.get_filtered_objects()
+            ]
+        else:
+            return [
+                obj
+                for catalog in self.get_catalogs(only_selected)
+                for obj in catalog.get_objects()
+            ]
 
     def select_catalogs(self, catalog_names: List[str]):
         self.__selected_catalogs_idx = [
@@ -458,7 +516,16 @@ class CatalogBuilder:
             datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC"))
         )
         all_catalogs.add(planet_catalog)
+        assert self.check_catalogs_sequences(all_catalogs) is True
         return all_catalogs
+
+    def check_catalogs_sequences(self, catalogs: Catalogs):
+        for catalog in catalogs.get_catalogs():
+            result = catalog.check_sequences()
+            if not result:
+                logging.error(f"Duplicate sequence catalog {catalog.catalog_code}!")
+                return False
+            return True
 
     def _build_composite(
         self,
@@ -478,7 +545,7 @@ class CatalogBuilder:
             # Create an instance from the merged dictionaries
             composite_instance = CompositeObject.from_dict(composite_data)
             composite_instance.logged = obs_db.check_logged(composite_instance)
-            composite_instance.names = common_names.get(object_id)
+            composite_instance.names = common_names.get_name(object_id)
 
             # Append to the result dictionary
             composite_objects.append(composite_instance)
@@ -637,7 +704,6 @@ class CatalogTracker:
         self.object_tracker[catalog_name] = None
 
     def set_current_catalog(self, catalog_code: str):
-        logging.debug(f"set_current_catalog: {catalog_code=}")
         if self.catalogs.has_code(catalog_code):
             self.current_catalog_code = catalog_code
         elif self.catalogs.has_code(catalog_code, only_selected=False):
@@ -700,7 +766,6 @@ class CatalogTracker:
         return current_catalog.get_object_by_sequence(object_key)
 
     def set_current_object(self, object_number: int, catalog_code: str = ""):
-        logging.debug(f"set_current_object: {object_number=}, {catalog_code=}")
         if catalog_code:
             try:
                 self.set_current_catalog(catalog_code)
@@ -712,9 +777,15 @@ class CatalogTracker:
         else:
             catalog_code = self.current_catalog_code
         self.object_tracker[catalog_code] = object_number
-        logging.debug(
-            f"set_current_object: {self.object_tracker=}, {self.designator_tracker=}, {catalog_code=}, {object_number=}, {self.get_current_object()=}"
-        )
+
+        # Make sure this catalog is in the designator tracker
+        # if not, add it so it can be set
+        if self.designator_tracker.get(catalog_code) is None:
+            _c = self.catalogs.get_catalog_by_code(catalog_code)
+            self.designator_tracker[catalog_code] = CatalogDesignator(
+                catalog_code, _c.max_sequence
+            )
+
         self.designator_tracker[catalog_code].set_number(
             object_number if object_number else 0
         )

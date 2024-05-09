@@ -5,6 +5,7 @@ class MenuScroller:
     """
     A class to handle the scrolling of the menu items.
     Input is a list of options, output is the current range of options to display.
+    See unit test for expected behaviour.
     """
 
     endstop = "---"

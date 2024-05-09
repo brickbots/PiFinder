@@ -22,17 +22,16 @@ class TestStringMethods(unittest.TestCase):
         self.menu = MenuScroller(self.catalogs)
 
     def test_initial_state(self):
-        window = ["NGC", "IC", "M", "C", "Col", "H", "Ta2", "Str", "SaA", "SaM"]
-        self.assertEqual(self.menu.get_options_window(), window)
+        self.assertEqual(self.menu.get_options_window(), self.catalogs[:10])
 
     def test_down(self):
-        window = ["NGC", "IC", "M", "C", "Col", "H", "Ta2", "Str", "SaA", "SaM"]
+        window = self.catalogs[:10]
         print(self.menu)
         self.assertEqual(self.menu.get_options_window(), window)
         self.menu.down()  # IC
         print(self.menu)
         self.assertEqual(self.menu.get_options_window()[0], "IC")
-        self.assertEqual(self.menu.get_selected(), window[1])
+        self.assertEqual(self.menu.get_selected(), self.catalogs[1])
         self.menu.down()  # M
         print(self.menu)
         self.menu.down()  # C
@@ -49,11 +48,11 @@ class TestStringMethods(unittest.TestCase):
         print(self.menu)
         self.menu.down()  # SaM
         print(self.menu)
-        self.menu.down()  # Str
+        self.menu.down()  # SaR
         print(self.menu)
-        self.menu.down()  # Str
+        self.menu.down()  # EGC
         print(self.menu)
-        self.assertEqual(self.menu.get_selected(), window[3])
+        self.assertEqual(self.menu.get_selected(), self.catalogs[3])
         window = ["NGC", "IC", "M", "C", "Col", "H", "Ta2", "Str", "SaA", "SaM"]
         # self.assertEqual(self.menu.get_options_window(), window)
         # window = [ "NGC", "IC", "M", "C", "Col", "H", "Ta2", "Str", "SaA", "SaM"]

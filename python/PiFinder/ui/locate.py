@@ -10,6 +10,8 @@ import logging
 from PiFinder import obslist, config
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.fonts import Fonts as fonts
+from PiFinder.ui.catalog import UICatalog
 from PiFinder.calc_utils import aim_degrees
 
 
@@ -40,7 +42,7 @@ class UILocate(UIModule):
         },
     }
 
-    def __init__(self, *args):
+    def __init__(self, ui_catalog: UICatalog, *args):
         super().__init__(*args)
         self.target_index = None
         self.object_text = ["No Object Found"]
@@ -51,6 +53,7 @@ class UILocate(UIModule):
         self._config_options["Load"]["options"] = ["CANCEL"] + available_lists
         self.obs_list_write_index = 0
         self.last_update_time = time.time()
+        self.ui_catalog = ui_catalog
 
         # cache some display stuff
 
@@ -80,7 +83,7 @@ class UILocate(UIModule):
         if option == "CANCEL":
             return False
 
-        _load_results = obslist.read_list(option)
+        _load_results = obslist.read_list(self.ui_catalog.catalogs, option)
         if _load_results["result"] == "error":
             self.message(f"Err! {_load_results['message']}")
             return False
@@ -90,7 +93,7 @@ class UILocate(UIModule):
             self.message("No matches")
             return False
 
-        self.ui_state.set_observing_list(_load_results["catalog"])
+        self.ui_state.set_observing_list(_load_results["catalog_objects"])
         self.ui_state.set_active_list_to_observing_list()
         self.target_index = 0
         self.ui_state.set_target(self.ui_state.active_list()[self.target_index])

@@ -176,8 +176,8 @@ def main(script_name=None, show_fps=False, verbose=False):
     global display_device
 
     # display_device = get_display(hardware_platform)
-    #display_device = get_display("Pi")
-    display_device = get_display("PFPro")
+    display_device = get_display("Pi")
+    #display_device = get_display("PFPro")
     init_keypad_pwm()
     setup_dirs()
 
@@ -354,6 +354,7 @@ def main(script_name=None, show_fps=False, verbose=False):
             ),
             ui_catalog,
             UILocate(
+                ui_catalog,
                 display_device,
                 camera_image,
                 shared_state,
