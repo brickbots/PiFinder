@@ -31,7 +31,7 @@ def gps_monitor(gps_queue, console_queue):
                 logging.debug("GPS waking")
                 readings_filter = filter(
                     lambda x: is_tpv_accurate(x),
-                    client.dict_stream(convert_datetime=True, filter=["TPV"]),
+                    client.dict_stream(convert_datetime=True, filter=["TPV", "SKY"]),
                 )
                 readings_list = list(islice(readings_filter, 10))
                 if readings_list:
@@ -55,13 +55,28 @@ def gps_monitor(gps_queue, console_queue):
                         logging.debug("GPS fix: %s", msg)
                         gps_queue.put(msg)
 
-                    # Look for any time bearing packet
-                    for result in readings_list:
-                        if result.get("time"):
+                    # Look for any time-bearing packet and SKY packet to get satellite information
+                    time_found = False
+                    num_satellites = None
+
+                    # search from the newest first, quit if something is found
+                    for result in reversed(readings_list):
+                        if not time_found and result.get("time"):
                             msg = ("time", result.get("time"))
                             logging.debug("Setting time to %s", result.get("time"))
                             gps_queue.put(msg)
-                            break
+                            time_found = True  # Stop looking for time once found
+
+                        if (
+                            not num_satellites
+                            and result["class"] == "SKY"
+                            and "satellites" in result
+                        ):
+                            num_satellites = len(result["satellites"])
+                        msg = ("satellites", num_satellites)
+                        logging.debug("Number of satellites seen: %d", num_satellites)
+                        gps_queue.put(msg)
+
                 else:
                     logging.debug("GPS client queue is empty")
                 logging.debug("GPS sleeping now")

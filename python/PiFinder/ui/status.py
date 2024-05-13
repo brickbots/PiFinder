@@ -272,7 +272,10 @@ class UIStatus(UIModule):
                     f"{imu['pos'][0] : >6.1f}/{imu['pos'][2] : >6.1f}"
                 )
         location = self.shared_state.location()
-        self.status_dict["GPS"] = f"{location['lat']:.2f}/{location['lon']:.2f}"
+        self.status_dict["GPS"] = [
+            f"GPS ({self.shared_state.sats()})",
+            f"{location['lat']:.2f}/{location['lon']:.2f}",
+        ]
         self.status_dict["GPS ALT"] = f"{location['altitude']:.1f}m"
         last_lock = location["last_gps_lock"]
         self.status_dict["GPS LST"] = last_lock if last_lock else "--"
@@ -310,6 +313,9 @@ class UIStatus(UIModule):
         # Insert IP address here...
         for k, v in self.status_dict.items():
             key = f"{k:<7}"
+            if isinstance(v, list):
+                key = v[0]
+                v = v[1]
             _, result = self.spacecalc.calculate_spaces(key, v, empty_if_exceeds=False)
             lines.append(result)
         outline = "\n".join(lines)
