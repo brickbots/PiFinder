@@ -51,7 +51,9 @@ class ObjectFinder:
     def get_object_id(self, object: str):
         logging.debug(f"Looking up object id for {object}")
         result = self.mappings.get(object)
+        print("found", result)
         if not result:
+            logging.debug(f"Again Looking up object id for {normalize(object)}")
             result = self.mappings.get(normalize(object))
         return result
 
@@ -60,7 +62,7 @@ class ObjectFinder:
 
 
 def insert_akas(
-    current_object: str, catalog: str, akas: List[str], new_object_id
+    objects_db, current_object: str, catalog: str, akas: List[str], new_object_id
 ) -> List[int]:
     """
     Eg. SH2-005 is NGC6357
@@ -71,11 +73,16 @@ def insert_akas(
     found = []
     for aka in akas:
         found_object_id = object_finder.get_object_id(aka)
-        found.append(found_object_id)
+        if found_object_id:
+            found.append(found_object_id)
+
+    print(f"Found {found}")
     for aka in akas:
         objects_db.insert_name(new_object_id, aka, catalog)
+        print(f"Inserted {aka} for {new_object_id} in catalog {catalog}")
     for found_id in found:
         objects_db.insert_name(found_id, current_object, catalog)
+        print(f"Inserted {current_object} for {found_id} in catalog {catalog}")
     return found
 
 
@@ -1036,7 +1043,7 @@ def load_sharpless():
         object_id = objects_db.insert_object(
             obj_type, j_ra_deg, dec_deg, const, str(record["Diam"]), desc
         )
-        insert_akas(current_object, catalog, current_akas, object_id)
+        insert_akas(objects_db, current_object, catalog, current_akas, object_id)
         objects_db.insert_catalog_object(object_id, catalog, record["Sh2"], desc)
 
     insert_catalog_max_sequence(catalog)
@@ -1117,7 +1124,7 @@ def load_arp():
         current_akas = record["Name"]
         current_object = f"Arp-{arp}"
         object_id = objects_db.insert_object(obj_type, j_ra_deg, dec_deg, const, "", "")
-        insert_akas(current_object, catalog, current_akas, object_id)
+        insert_akas(objects_db, current_object, catalog, current_akas, object_id)
         objects_db.insert_catalog_object(object_id, catalog, arp, desc)
 
     insert_catalog_max_sequence(catalog)
