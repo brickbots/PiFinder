@@ -139,6 +139,7 @@ class SharedStateObj:
             "imu_delta": 0,
         }
         self.__solution = None
+        self.__sats = 0
         self.__imu = None
         self.__location = None
         self.__datetime = None
@@ -181,6 +182,12 @@ class SharedStateObj:
 
     def set_solve_state(self, v):
         self.__solve_state = v
+
+    def sats(self):
+        return self.__sats
+
+    def set_sats(self, v):
+        self.__sats = v
 
     def imu(self):
         return self.__imu
