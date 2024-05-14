@@ -17,7 +17,6 @@ except ImportError:
 from PiFinder import calc_utils
 from PiFinder import utils
 from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed
-from PiFinder.ui.fonts import Fonts as fonts
 
 
 class UIStatus(UIModule):
@@ -88,12 +87,12 @@ class UIStatus(UIModule):
         super().__init__(*args)
         self.version_txt = f"{utils.pifinder_dir}/version.txt"
         self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
-        self._draw_pos = (0, self._title_bar_y)
+        self._draw_pos = (0, self.display_class.titlebar_height)
         with open(self.wifi_txt, "r") as wfs:
             self._config_options["WiFi Mode"]["value"] = wfs.read()
         with open(self.version_txt, "r") as ver:
             self._config_options["Software"]["value"] = ver.read()
-        self.spacecalc = SpaceCalculatorFixed(fonts.base_width)
+        self.spacecalc = SpaceCalculatorFixed(self.fonts.base.line_length)
         self.status_dict = {
             "LST SLV": "--",
             "RA/DEC": "--",
@@ -143,7 +142,7 @@ class UIStatus(UIModule):
             draw=self.draw,
             color=self.colors.get(255),
             colors=self.colors,
-            font=self.font_base,
+            font=self.fonts.base,
             available_lines=9,
         )
 

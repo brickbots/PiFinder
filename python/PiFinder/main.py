@@ -22,6 +22,7 @@ import uuid
 import logging
 import argparse
 import pickle
+from typing import Type
 from pathlib import Path
 from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
@@ -33,7 +34,6 @@ from timezonefinder import TimezoneFinder
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
-from luma.core.interface.serial import spi
 
 from PiFinder import solver
 from PiFinder import integrator
@@ -55,51 +55,15 @@ from PiFinder.ui.log import UILog
 
 from PiFinder.state import SharedStateObj, UIState
 
-from PiFinder.image_util import (
-    subtract_background,
-    DeviceWrapper,
-    RED_RGB,
-    RED_BGR,
-    GREY,
-)
+from PiFinder.image_util import subtract_background
+
 from PiFinder.calc_utils import sf_utils
+from PiFinder.displays import DisplayBase, get_display
 
 
 hardware_platform = "Pi"
-display_device: DeviceWrapper = DeviceWrapper(None, RED_RGB)
+display_device: Type[DisplayBase] = DisplayBase()
 keypad_pwm = None
-
-
-def init_display():
-    global display_device
-    global hardware_platform
-
-    if hardware_platform == "Fake":
-        from luma.emulator.device import pygame
-
-        # init display  (SPI hardware)
-        pygame = pygame(
-            width=128,
-            height=128,
-            rotate=0,
-            mode="RGB",
-            transform="scale2x",
-            scale=2,
-            frame_rate=60,
-        )
-        display_device = DeviceWrapper(pygame, RED_RGB)
-    elif hardware_platform == "Pi":
-        from luma.oled.device import ssd1351
-
-        # init display  (SPI hardware)
-        # 48,000,000 hz seems to be the fastest this display can support
-        # serial = spi(device=0, port=0, bus_speed_hz=48000000)
-        serial = spi(device=0, port=0)
-        device_serial = ssd1351(serial, rotate=0, bgr=True)
-        device_serial.capabilities(width=128, height=128, rotate=0, mode="RGB")
-        display_device = DeviceWrapper(device_serial, RED_RGB)
-    else:
-        print("Hardware platform not recognized")
 
 
 def init_keypad_pwm():
@@ -211,7 +175,9 @@ def main(script_name=None, show_fps=False, verbose=False):
     """
     global display_device
 
-    init_display()
+    # display_device = get_display(hardware_platform)
+    display_device = get_display("Pi")
+    # display_device = get_display("PFPro")
     init_keypad_pwm()
     setup_dirs()
 

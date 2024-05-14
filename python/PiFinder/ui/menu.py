@@ -29,21 +29,35 @@ class UIMenu(UIModule):
         **kwargs
     ):
         self._module = None
-        self._menu_type = menu_type
+        self._current_item_index = 0
         self._menu_items = menu_items
+        self._menu_type = menu_type
+        if selected_items is None:
+            if self._menu_type == "multi":
+                self._selected_items = []
+            else:
+                self._selected_items = self._menu_items[0]
+        else:
+            self._selected_items = selected_items
+        if self._menu_type == "multi":
+            self._menu_items = ["Select None"] + self._menu_items
+        else:
+            self._current_item_index = self._menu_items.index(self._selected_items)
         self._back_callback = back_callback
         self._select_callback = select_callback
-        self._selected_items = selected_items
-        self._current_item_index = 0
         super().__init__(**kwargs)
 
     def update(self, force=False):
         # clear screen
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+
+        # Draw current selection hint
+        # self.draw.line([0,80,128,80], width=1, fill=self.colors.get(32))
+        self.draw.rectangle([0, 60, 128, 80], fill=self.colors.get(32))
         line_number = 0
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
             # figure out line position / color / font
-            line_font = self.font_base
+            line_font = self.fonts.base
             if line_number == 0:
                 line_color = 96
                 line_pos = 0
@@ -52,15 +66,15 @@ class UIMenu(UIModule):
                 line_pos = 13
             if line_number == 2:
                 line_color = 192
-                line_font = self.font_bold
+                line_font = self.fonts.bold
                 line_pos = 25
             if line_number == 3:
                 line_color = 256
-                line_font = self.font_large
+                line_font = self.fonts.large
                 line_pos = 40
             if line_number == 4:
                 line_color = 192
-                line_font = self.font_bold
+                line_font = self.fonts.bold
                 line_pos = 60
             if line_number == 5:
                 line_color = 128
@@ -83,14 +97,14 @@ class UIMenu(UIModule):
             self.draw.text(
                 (15, line_pos),
                 item_text,
-                font=line_font,
+                font=line_font.font,
                 fill=self.colors.get(line_color),
             )
             if item_text in self._selected_items:
                 self.draw.text(
                     (5, line_pos),
                     "*",
-                    font=line_font,
+                    font=line_font.font,
                     fill=self.colors.get(line_color),
                 )
 
@@ -111,6 +125,16 @@ class UIMenu(UIModule):
         if self._menu_type == "single":
             self._select_callback(selected_item)
         else:
+            if selected_item == "Select All":
+                self._selected_items = self._menu_items[1:]
+                self._menu_items[0] = "Select None"
+                return
+
+            if selected_item == "Select None":
+                self._selected_items = []
+                self._menu_items[0] = "Select All"
+                return
+
             if selected_item in self._selected_items:
                 self._selected_items.remove(selected_item)
             else:
@@ -126,4 +150,5 @@ class UIMenu(UIModule):
         if self._menu_type == "single":
             self._back_callback(self._menu_items[self._current_item_index])
         else:
+            print(self._selected_items)
             self._back_callback(self._selected_items)

@@ -40,17 +40,17 @@ class UIConfig(UIModule):
         """
         self._module = module
         self._config = module._config_options
-        self._mode="option"
+        self._mode = "option"
         if self._config:
             self._item_names = list(self._config.keys())
 
         self._options_menu = UIMenu(
             menu_type="single",
             menu_items=self._item_names,
-            selected_items=[],
+            selected_items=None,
             back_callback=self.menu_back,
             select_callback=self.menu_select,
-            device_wrapper=self.device_wrapper,
+            display_class=self.display_class,
             camera_image=None,
             shared_state=self.shared_state,
             command_queues=None,
@@ -64,21 +64,20 @@ class UIConfig(UIModule):
             self.switch_to = self._module.__class__.__name__
         else:
             if self._current_config_item["type"] == "multi_enum":
-                self._current_config_item["value"] == selection
+                self._current_config_item["value"] = selection
             self._mode = "option"
             self._menu = self._options_menu
 
-
     def menu_select(self, selection):
-        if self._mode =="option":
+        if self._mode == "option":
             self._mode = "value"
             self._current_config_item = self._config[selection]
 
             _menu_type = "single"
-            _selected_items=[]
+            _selected_items = self._current_config_item["value"]
             if self._current_config_item["type"] == "multi_enum":
                 _menu_type = "multi"
-                _selected_items=self._current_config_item["value"]
+                _selected_items = self._current_config_item["value"]
 
             self._menu = UIMenu(
                 menu_type=_menu_type,
@@ -86,7 +85,7 @@ class UIConfig(UIModule):
                 selected_items=_selected_items,
                 back_callback=self.menu_back,
                 select_callback=self.menu_select,
-                device_wrapper=self.device_wrapper,
+                display_class=self.display_class,
                 camera_image=None,
                 shared_state=self.shared_state,
                 command_queues=None,
@@ -94,10 +93,10 @@ class UIConfig(UIModule):
             )
         else:
             self._current_config_item["value"] = selection
-
+            self.menu_back(selection)
 
     def update(self, force=False):
-        time.sleep(1/30)
+        time.sleep(1 / 30)
         self._menu.update()
         _switch_to = self.switch_to
         self.switch_to = None

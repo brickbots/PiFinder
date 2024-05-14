@@ -46,7 +46,6 @@ class UILocate(UIModule):
         super().__init__(*args)
         self.target_index = None
         self.object_text = ["No Object Found"]
-        self.font_huge = fonts.huge
         self.screen_direction = config.Config().get_option("screen_direction")
         self.mount_type = config.Config().get_option("mount_type")
 
@@ -55,6 +54,11 @@ class UILocate(UIModule):
         self.obs_list_write_index = 0
         self.last_update_time = time.time()
         self.ui_catalog = ui_catalog
+
+        # cache some display stuff
+
+        self.az_anchor = (25, self.display_class.resY - (self.fonts.huge.height * 2.2))
+        self.alt_anchor = (25, self.display_class.resY - (self.fonts.huge.height * 1.1))
 
     def save_list(self, option):
         self._config_options["Load"]["value"] = ""
@@ -192,15 +196,14 @@ class UILocate(UIModule):
 
     def update(self, force=False):
         time.sleep(1 / 30)
-        # Clear Screen
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+        self.clear_screen()
 
         target = self.ui_state.target()
         if not target:
             self.draw.text(
-                (0, 20),
+                (0, self.display_class.titlebar_height + 2),
                 "No Target Set",
-                font=self.font_large,
+                font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             return self.screen_update()
@@ -208,7 +211,12 @@ class UILocate(UIModule):
         # Target Name
         line = target.catalog_code
         line += str(target.sequence)
-        self.draw.text((0, 20), line, font=self.font_large, fill=self.colors.get(255))
+        self.draw.text(
+            (0, self.display_class.titlebar_height + 2),
+            line,
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
+        )
 
         # Target history index
         if self.target_index != None:
@@ -219,18 +227,30 @@ class UILocate(UIModule):
             line = f"{self.target_index + 1}/{len(self.ui_state.active_list())}"
             line = f"{line : >9}"
             self.draw.text(
-                (72, 18), line, font=self.font_base, fill=self.colors.get(255)
+                (
+                    self.display_class.resX - (self.fonts.base.width * 9),
+                    self.display_class.titlebar_height + 2,
+                ),
+                line,
+                font=self.fonts.base.font,
+                fill=self.colors.get(255),
             )
             self.draw.text(
-                (72, 28),
+                (
+                    self.display_class.resX - (self.fonts.base.width * 9),
+                    self.display_class.titlebar_height + 2 + self.fonts.base.height,
+                ),
                 f"{list_name: >9}",
-                font=self.font_base,
+                font=self.fonts.base.font,
                 fill=self.colors.get(255),
             )
 
         # ID Line in BOld
         self.draw.text(
-            (0, 40), self.object_text[0], font=self.font_bold, fill=self.colors.get(255)
+            (0, self.display_class.titlebar_height + self.fonts.large.height),
+            self.object_text[0],
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
         )
 
         # Pointing Instructions
@@ -243,66 +263,59 @@ class UILocate(UIModule):
         )
         if not point_az:
             self.draw.text(
-                (0, 50), " ---.-", font=self.font_huge, fill=self.colors.get(255)
+                self.az_anchor,
+                " ---.-",
+                font=self.fonts.huge.font,
+                fill=self.colors.get(255),
             )
             self.draw.text(
-                (0, 84), "  --.-", font=self.font_huge, fill=self.colors.get(255)
+                self.alt_anchor,
+                "  --.-",
+                font=self.fonts.huge.font,
+                fill=self.colors.get(255),
             )
         else:
-            if point_az >= 0:
-                self.draw.regular_polygon(
-                    (10, 75, 10), 3, 90, fill=self.colors.get(indicator_color)
-                )
-                # self.draw.pieslice([-20,65,20,85],330, 30, fill=self.colors.get(255))
-                # self.draw.text((0, 50), "+", font=self.font_huge, fill=self.colors.get(255))
-            else:
+            if point_az < 0:
                 point_az *= -1
-                self.draw.regular_polygon(
-                    (10, 75, 10), 3, 270, fill=self.colors.get(indicator_color)
-                )
-                # self.draw.pieslice([0,65,40,85],150,210, fill=self.colors.get(255))
-                # self.draw.text((0, 50), "-", font=self.font_huge, fill=self.colors.get(255))
+                az_arrow = self._RIGHT_ARROW
+            else:
+                az_arrow = self._LEFT_ARROW
 
+            # Change decimal points when within 1 degree
             if point_az < 1:
                 self.draw.text(
-                    (25, 50),
-                    f"{point_az : >5.2f}",
-                    font=self.font_huge,
+                    self.az_anchor,
+                    f"{az_arrow} {point_az : >5.2f}",
+                    font=self.fonts.huge.font,
                     fill=self.colors.get(indicator_color),
                 )
             else:
                 self.draw.text(
-                    (25, 50),
-                    f"{point_az : >5.1f}",
-                    font=self.font_huge,
+                    self.az_anchor,
+                    f"{az_arrow} {point_az : >5.1f}",
+                    font=self.fonts.huge.font,
                     fill=self.colors.get(indicator_color),
                 )
 
-            if point_alt >= 0:
-                self.draw.regular_polygon(
-                    (10, 110, 10), 3, 0, fill=self.colors.get(indicator_color)
-                )
-                # self.draw.pieslice([0,84,20,124],60, 120, fill=self.colors.get(255))
-                # self.draw.text((0, 84), "+", font=self.font_huge, fill=self.colors.get(255))
-            else:
+            if point_alt < 0:
                 point_alt *= -1
-                self.draw.regular_polygon(
-                    (10, 105, 10), 3, 180, fill=self.colors.get(indicator_color)
-                )
-                # self.draw.pieslice([0,104,20,144],270, 330, fill=self.colors.get(255))
-                # self.draw.text((0, 84), "-", font=self.font_huge, fill=self.colors.get(255))
+                alt_arrow = self._UP_ARROW
+            else:
+                alt_arrow = self._DOWN_ARROW
+
+            # Change decimal points when within 1 degree
             if point_alt < 1:
                 self.draw.text(
-                    (25, 84),
-                    f"{point_alt : >5.2f}",
-                    font=self.font_huge,
+                    self.alt_anchor,
+                    f"{alt_arrow} {point_alt : >5.2f}",
+                    font=self.fonts.huge.font,
                     fill=self.colors.get(indicator_color),
                 )
             else:
                 self.draw.text(
-                    (25, 84),
-                    f"{point_alt : >5.1f}",
-                    font=self.font_huge,
+                    self.alt_anchor,
+                    f"{alt_arrow} {point_alt : >5.1f}",
+                    font=self.fonts.huge.font,
                     fill=self.colors.get(indicator_color),
                 )
 

@@ -27,8 +27,9 @@ class Starfield:
     specified RA/DEC + roll
     """
 
-    def __init__(self, colors, mag_limit=7, fov=10.2):
+    def __init__(self, colors, resolution, mag_limit=7, fov=10.2):
         self.colors = colors
+        self.resolution = resolution
         utctime = datetime.datetime(2023, 1, 1, 2, 0, 0).replace(tzinfo=utc)
         ts = sf_utils.ts
         self.t = ts.from_datetime(utctime)
@@ -42,7 +43,7 @@ class Starfield:
             self.raw_stars = hipparcos.load_dataframe(f)
 
         # Image size stuff
-        self.target_size = 128
+        self.target_size = max(self.resolution)
         self.diag_mult = 1.422
         self.render_size = (
             int(self.target_size * self.diag_mult),
