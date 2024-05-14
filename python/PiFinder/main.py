@@ -469,9 +469,8 @@ def main(script_name=None, show_fps=False, verbose=False):
                         gps_dt = gps_content
                         shared_state.set_datetime(gps_dt)
                     if gps_msg == "satellites":
-                        logging.debug(f"GPS nr sats seen: {gps_content}")
-                        gps_sats = gps_content
-                        shared_state.set_sats(gps_sats)
+                        logging.debug(f"Main: GPS nr sats seen: {gps_content}")
+                        shared_state.set_sats(gps_content)
                 except queue.Empty:
                     pass
 

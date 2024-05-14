@@ -139,7 +139,7 @@ class SharedStateObj:
             "imu_delta": 0,
         }
         self.__solution = None
-        self.__sats = 0
+        self.__sats = None
         self.__imu = None
         self.__location = None
         self.__datetime = None
