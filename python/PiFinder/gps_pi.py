@@ -72,6 +72,7 @@ def gps_monitor(gps_queue, console_queue):
                             and result["class"] == "SKY"
                             and "satellites" in result
                         ):
+                            logging.debug("SKY packet found: {result['satellites']}")
                             num_satellites = len(result["satellites"])
                         msg = ("satellites", num_satellites)
                         logging.debug("Number of satellites seen: %d", num_satellites)
