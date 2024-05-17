@@ -92,11 +92,13 @@ class UICatalog(UIModule):
 
     def __init__(self, *args):
         super().__init__(*args)
+
+        # Initialze Catalogs
+        self.catalogs: Catalogs = CatalogBuilder().build()
+
         self.catalog_names = self.config_object.get_option("active_catalogs")
         self._config_options["Catalogs"]["value"] = self.catalog_names.copy()
-        self._config_options["Catalogs"]["options"] = self.config_object.get_option(
-            "catalogs"
-        )
+        self._config_options["Catalogs"]["options"] = self.catalogs.get_codes()
 
         self.object_text = ["No Object Found"]
         self.simpleTextLayout = functools.partial(
@@ -118,7 +120,6 @@ class UICatalog(UIModule):
                 "No Object Found", font=self.font_bold, color=self.colors.get(255)
             ),
         }
-        self.catalogs: Catalogs = CatalogBuilder().build()
         logging.debug(f"Catalogs created: {self.catalogs}")
         logging.debug(
             f"Value:{self._config_options['Catalogs']['value']}, Options{self._config_options['Catalogs']['options']}"

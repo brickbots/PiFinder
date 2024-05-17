@@ -2,6 +2,8 @@ import logging
 import time
 import datetime
 import pytz
+from pprint import pformat
+
 from typing import List, Dict, DefaultDict, Optional
 from collections import defaultdict
 import PiFinder.calc_utils as calc_utils
@@ -339,15 +341,20 @@ class Catalogs:
     def add(self, catalog: Catalog):
         if catalog.catalog_code not in self._code_to_pos:
             self.__catalogs.append(catalog)
-            self._select_all_catalogs()
+
+            # Add the newly added index to the selection list to make sure it's
+            # selected
+            self.__selected_catalogs_idx.append(len(self.__catalogs) - 1)
             self._refresh_code_to_pos()
         else:
             logging.warning(f"Catalog {catalog.catalog_code} already exists")
 
     def remove(self, catalog_code: str):
-        if catalog_code in self._code_to_pos_sel:
-            idx = self._code_to_pos_sel[catalog_code]
-            self.__selected_catalogs_idx.remove(idx)
+        if catalog_code in self._code_to_pos:
+            idx = self._code_to_pos[catalog_code]
+            self.__catalogs.pop(idx)
+            if idx in self.__selected_catalogs_idx:
+                self.__selected_catalogs_idx.remove(idx)
             self._refresh_code_to_pos()
         else:
             logging.warning(f"Catalog {catalog_code} does not exist")
@@ -402,10 +409,10 @@ class Catalogs:
         }
 
     def _select_all_catalogs(self):
-        self.__selected_catalogs_idx = [x for x in range(len(self.__catalogs))]
+        self.__selected_catalogs_idx = list(range(len(self.__catalogs)))
 
     def __repr__(self):
-        return f"Catalogs({self.get_catalogs()=}, selected {len(self.__selected_catalogs_idx)}/{len(self.__catalogs)})"
+        return f"Catalogs(\n{pformat(self.get_catalogs(only_selected=False))},\n selected {len(self.__selected_catalogs_idx)}/{len(self.__catalogs)},\n{self.__selected_catalogs_idx})"
 
     def __str__(self):
         return self.__repr__()
