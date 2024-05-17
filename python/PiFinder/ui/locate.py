@@ -56,6 +56,8 @@ class UILocate(UIModule):
         self.last_update_time = time.time()
         self.ui_catalog = ui_catalog
 
+        self._elipsis_count = 0
+
     def save_list(self, option):
         self._config_options["Load"]["value"] = ""
         if option == "CANCEL":
@@ -242,12 +244,35 @@ class UILocate(UIModule):
             self.ui_state.target(),
         )
         if not point_az:
-            self.draw.text(
-                (0, 50), " ---.-", font=self.font_huge, fill=self.colors.get(255)
-            )
-            self.draw.text(
-                (0, 84), "  --.-", font=self.font_huge, fill=self.colors.get(255)
-            )
+            if self.shared_state.solution() is None:
+                self.draw.text(
+                    (10, 70),
+                    "No solve",
+                    font=self.font_large,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (10, 90),
+                    f"yet{'.' * int(self._elipsis_count / 10)}",
+                    font=self.font_large,
+                    fill=self.colors.get(255),
+                )
+            else:
+                self.draw.text(
+                    (10, 70),
+                    "Searching",
+                    font=self.font_large,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (10, 90),
+                    f"for GPS{'.' * int(self._elipsis_count / 10)}",
+                    font=self.font_large,
+                    fill=self.colors.get(255),
+                )
+            self._elipsis_count += 1
+            if self._elipsis_count > 39:
+                self._elipsis_count = 0
         else:
             if point_az >= 0:
                 self.draw.regular_polygon(
