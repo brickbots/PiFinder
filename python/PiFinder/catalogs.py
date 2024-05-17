@@ -338,13 +338,14 @@ class Catalogs:
         self._select_all_catalogs()
         self._refresh_code_to_pos()
 
-    def add(self, catalog: Catalog):
+    def add(self, catalog: Catalog, select: bool = False):
         if catalog.catalog_code not in self._code_to_pos:
             self.__catalogs.append(catalog)
 
             # Add the newly added index to the selection list to make sure it's
             # selected
-            self.__selected_catalogs_idx.append(len(self.__catalogs) - 1)
+            if select:
+                self.__selected_catalogs_idx.append(len(self.__catalogs) - 1)
             self._refresh_code_to_pos()
         else:
             logging.warning(f"Catalog {catalog.catalog_code} already exists")
