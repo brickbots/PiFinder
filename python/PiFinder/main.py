@@ -257,7 +257,6 @@ def main(script_name=None, show_fps=False, verbose=False):
         console = UIConsole(display_device, None, shared_state, command_queues, cfg)
         console.write("Starting....")
         console.update()
-        time.sleep(2)
 
         # spawn gps service....
         console.write("   GPS")
