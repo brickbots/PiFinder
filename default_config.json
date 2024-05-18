@@ -18,29 +18,12 @@
     "hint_timeout": "2s",
     "chart_display_radec": "Off",
     "solve_pixel": [256, 256],
-    "catalogs": [
-        "NGC",
-        "IC",
-        "M",
-        "C",
-        "Col",
-        "H",
-        "Ta2",
-        "Str",
-        "RDS",
-        "SaA",
-        "SaR",
-        "SaM",
-        "Abl",
-        "EGC",
-        "B",
-        "Sh2"
-    ],
     "active_catalogs": [
         "NGC",
         "M",
         "H",
         "Str",
+        "PL",
         "RDS"
     ]
 }

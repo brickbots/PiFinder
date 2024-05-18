@@ -92,11 +92,13 @@ class UICatalog(UIModule):
 
     def __init__(self, *args):
         super().__init__(*args)
+
+        # Initialze Catalogs
+        self.catalogs: Catalogs = CatalogBuilder().build()
+
         self.catalog_names = self.config_object.get_option("active_catalogs")
         self._config_options["Catalogs"]["value"] = self.catalog_names.copy()
-        self._config_options["Catalogs"]["options"] = self.config_object.get_option(
-            "catalogs"
-        )
+        self._config_options["Catalogs"]["options"] = self.catalogs.get_codes()
 
         self.object_text = ["No Object Found"]
         self.simpleTextLayout = functools.partial(
@@ -118,7 +120,6 @@ class UICatalog(UIModule):
                 "No Object Found", font=self.font_bold, color=self.colors.get(255)
             ),
         }
-        self.catalogs: Catalogs = CatalogBuilder().build()
         logging.debug(f"Catalogs created: {self.catalogs}")
         logging.debug(
             f"Value:{self._config_options['Catalogs']['value']}, Options{self._config_options['Catalogs']['options']}"
@@ -139,7 +140,6 @@ class UICatalog(UIModule):
         self.catalog_tracker.filter()
         self.closest_objects_finder = ClosestObjectsFinder()
         self.update_object_info()
-        self._planets_loaded = False
 
     def add_planets(self, dt):
         """
@@ -147,11 +147,14 @@ class UICatalog(UIModule):
         this is called once we have a GPS lock to add on the planets catalog
         """
         self.catalogs.remove("PL")
-        self.catalogs.add(PlanetCatalog(dt))
+
+        # We need to feed through the planet catalog selection status
+        # here so when it gets re-added we can re-select it if needed
+        _select = "PL" in self._config_options["Catalogs"]["value"]
+        self.catalogs.add(PlanetCatalog(dt), select=_select)
         self.catalog_tracker = CatalogTracker(
             self.catalogs, self.shared_state, self._config_options
         )
-        self._planets_loaded = True
 
     def _layout_designator(self):
         """
@@ -374,10 +377,9 @@ class UICatalog(UIModule):
         super().active()
 
         # check for planet add
-        if not self._planets_loaded:
-            dt = self.shared_state.datetime()
-            if dt:
-                self.add_planets(dt)
+        dt = self.shared_state.datetime()
+        if dt:
+            self.add_planets(dt)
 
         self.catalog_tracker.filter()
         target = self.ui_state.target()
