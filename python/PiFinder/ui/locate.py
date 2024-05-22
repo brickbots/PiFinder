@@ -283,15 +283,15 @@ class UILocate(UIModule):
             # Change decimal points when within 1 degree
             if point_az < 1:
                 self.draw.text(
-                    (0,50),
-                    f"{az_arrow} {point_az : >5.2f}",
+                    (0, 50),
+                    f"{az_arrow}{point_az : >5.2f}",
                     font=self.font_huge,
                     fill=self.colors.get(indicator_color),
                 )
             else:
                 self.draw.text(
-                    (0,50),
-                    f"{az_arrow} {point_az : >5.1f}",
+                    (0, 50),
+                    f"{az_arrow}{point_az : >5.1f}",
                     font=self.font_huge,
                     fill=self.colors.get(indicator_color),
                 )
@@ -305,15 +305,15 @@ class UILocate(UIModule):
             # Change decimal points when within 1 degree
             if point_alt < 1:
                 self.draw.text(
-                    (25,84),
-                    f"{alt_arrow} {point_alt : >5.2f}",
+                    (0, 84),
+                    f"{alt_arrow}{point_alt : >5.2f}",
                     font=self.font_huge,
                     fill=self.colors.get(indicator_color),
                 )
             else:
                 self.draw.text(
-                    (25,84),
-                    f"{alt_arrow} {point_alt : >5.1f}",
+                    (0, 84),
+                    f"{alt_arrow}{point_alt : >5.1f}",
                     font=self.font_huge,
                     fill=self.colors.get(indicator_color),
                 )
