@@ -70,6 +70,10 @@ class UINearby(UIModule):
 
     max_objects = 9
 
+    # These are the RA/DEC of the last 'nearest' calc
+    _last_update_ra = 0
+    _last_update_dec = 0
+
     def __init__(self, ui_catalog: UICatalog, *args):
         super().__init__(*args)
         self.ui_catalog = ui_catalog
@@ -191,27 +195,31 @@ class UINearby(UIModule):
     def update_closest(self):
         """
         get the current pointing solution and search the 10 closest objects
-        to that location
+        to that location if the new location is sufficiently different
+        than the previous one.
         """
         if self.shared_state.solution():
             ra, dec = (
                 self.shared_state.solution()["RA"],
                 self.shared_state.solution()["Dec"],
             )
-            if not self.objects_balltree:
-                self.objects_balltree = (
-                    self.closest_objects_finder.calculate_objects_balltree(
-                        ra, dec, catalogs=self.catalog_tracker.catalogs
+            if abs(ra - self._last_update_ra) + abs(dec - self._last_update_dec) > 2:
+                self._last_update_ra = ra
+                self._last_update_dec = dec
+                if not self.objects_balltree:
+                    self.objects_balltree = (
+                        self.closest_objects_finder.calculate_objects_balltree(
+                            ra, dec, catalogs=self.catalog_tracker.catalogs
+                        )
                     )
+                closest_objects = self.closest_objects_finder.get_closest_objects(
+                    ra,
+                    dec,
+                    self.max_objects + 1,
+                    self.objects_balltree,
                 )
-            closest_objects = self.closest_objects_finder.get_closest_objects(
-                ra,
-                dec,
-                self.max_objects + 1,
-                self.objects_balltree,
-            )
-            self.current_nr_objects = len(closest_objects)
-            self.closest_objects = closest_objects
+                self.current_nr_objects = len(closest_objects)
+                self.closest_objects = closest_objects
 
     def create_locate_text(self) -> List[Tuple[str, TextLayouterSimple]]:
         result = []
