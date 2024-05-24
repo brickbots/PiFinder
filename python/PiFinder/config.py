@@ -33,7 +33,9 @@ class Config:
             json.dump(self._config_dict, config_file, indent=4)
 
     def get_option(self, option):
-        return self._config_dict.get(option, self._default_config_dict[option])
+        return self._config_dict.get(
+            option, self._default_config_dict.get(option, None)
+        )
 
     def __str__(self):
         return str(self._config_dict)
