@@ -161,7 +161,6 @@ class UIConfig(UIModule):
             # select the option
             # selected_item = self.__menu.get_options_window()[self.__selected_item]
             selected_item = self.__config[self.__selected_item]
-            print(selected_item)
             if number >= len(selected_item["options"]):
                 # if a number is pressed that is not an option
                 # just return

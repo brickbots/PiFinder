@@ -257,7 +257,6 @@ def main(script_name=None, show_fps=False, verbose=False):
         console = UIConsole(display_device, None, shared_state, command_queues, cfg)
         console.write("Starting....")
         console.update()
-        time.sleep(2)
 
         # spawn gps service....
         console.write("   GPS")
@@ -468,6 +467,9 @@ def main(script_name=None, show_fps=False, verbose=False):
                         logging.debug(f"GPS time msg: {gps_content}")
                         gps_dt = gps_content
                         shared_state.set_datetime(gps_dt)
+                    if gps_msg == "satellites":
+                        logging.debug(f"Main: GPS nr sats seen: {gps_content}")
+                        shared_state.set_sats(gps_content)
                 except queue.Empty:
                     pass
 

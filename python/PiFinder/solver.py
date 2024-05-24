@@ -77,7 +77,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                 )
 
                 if len(centroids) == 0:
-                    logging.debug("No stars found, skipping")
+                    # logging.debug("No stars found, skipping")
                     continue
                 else:
                     solution = t3.solve_from_centroids(
