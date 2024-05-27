@@ -69,7 +69,7 @@ class DisplayBase:
         return self.resolution[1]
 
 
-class DisplayPygame(DisplayBase):
+class DisplayPygame_(DisplayBase):
     resolution = (128, 128)
 
     def __init__(self):
@@ -86,6 +86,25 @@ class DisplayPygame(DisplayBase):
             frame_rate=60,
         )
         self.device = pygame
+        super().__init__()
+
+
+class DisplayPygame_320(DisplayBase):
+    resolution = (320, 240)
+
+    def __init__(self):
+        from luma.emulator.device import pygame
+
+        # init display  (SPI hardware)
+        pygame = pygame(
+            width=320,
+            height=240,
+            rotate=0,
+            mode="RGB",
+            frame_rate=60,
+        )
+        self.device = pygame
+        super().__init__()
 
 
 class DisplaySSD1351(DisplayBase):
@@ -146,16 +165,17 @@ class DisplayST7789(DisplayBase):
         super().__init__()
 
 
-def get_display(hardware_platform: str) -> Type[DisplayBase]:
+def get_display(display_hardware: str) -> Type[DisplayBase]:
+    if display_hardware == "pg_128":
+        return DisplayPygame_128()
 
-    if hardware_platform == "Fake":
-        return DisplayPygame()
+    if display_hardware == "pg_320":
+        return DisplayPygame_320()
 
-    if hardware_platform == "Pi":
+    if display_hardware == "ssd1351":
         return DisplaySSD1351()
 
-    if hardware_platform == "PFPro":
-        # return DisplayST7789_128()
+    if display_hardware == "st7789":
         return DisplayST7789()
 
     else:

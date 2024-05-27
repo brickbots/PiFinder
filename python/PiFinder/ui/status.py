@@ -250,14 +250,14 @@ class UIStatus(UIModule):
                 + f" {stars_matched: >2}"
             )
             hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
-            self.status_dict["RA/DEC"] = (
-                f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec'] :.2f}"
-            )
+            self.status_dict[
+                "RA/DEC"
+            ] = f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec'] :.2f}"
 
             if solution["Az"]:
-                self.status_dict["AZ/ALT"] = (
-                    f"{solution['Az'] : >6.2f}/{solution['Alt'] : >6.2f}"
-                )
+                self.status_dict[
+                    "AZ/ALT"
+                ] = f"{solution['Az'] : >6.2f}/{solution['Alt'] : >6.2f}"
 
         imu = self.shared_state.imu()
         if imu:
@@ -267,9 +267,9 @@ class UIStatus(UIModule):
                 else:
                     mtext = "Static"
                 self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu["status"])
-                self.status_dict["IMU PS"] = (
-                    f"{imu['pos'][0] : >6.1f}/{imu['pos'][2] : >6.1f}"
-                )
+                self.status_dict[
+                    "IMU PS"
+                ] = f"{imu['pos'][0] : >6.1f}/{imu['pos'][2] : >6.1f}"
         location = self.shared_state.location()
         self.status_dict["GPS"] = f"{location['lat']:.2f}/{location['lon']:.2f}"
         self.status_dict["GPS ALT"] = f"{location['altitude']:.1f}m"

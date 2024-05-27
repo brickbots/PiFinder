@@ -62,6 +62,7 @@ from PiFinder.displays import DisplayBase, get_display
 
 
 hardware_platform = "Pi"
+display_hardware = "SSD1351"
 display_device: Type[DisplayBase] = DisplayBase()
 keypad_pwm = None
 
@@ -173,11 +174,9 @@ def main(script_name=None, show_fps=False, verbose=False):
     """
     Get this show on the road!
     """
-    global display_device
+    global display_device, display_hardware
 
-    # display_device = get_display(hardware_platform)
-    display_device = get_display("Pi")
-    # display_device = get_display("PFPro")
+    display_device = get_display(display_hardware)
     init_keypad_pwm()
     setup_dirs()
 
@@ -755,6 +754,13 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--display",
+        help="Display Hardware to use",
+        default=None,
+        required=False,
+    )
+
+    parser.add_argument(
         "-n",
         "--notmp",
         help="Don't use the /dev/shm temporary directory.\
@@ -774,13 +780,18 @@ if __name__ == "__main__":
 
     if args.fakehardware:
         hardware_platform = "Fake"
+        display_hardware = "pg_128"
         from PiFinder import imu_fake as imu
         from PiFinder import gps_fake as gps_monitor
     else:
         hardware_platform = "Pi"
+        display_hardware = "ssd1351"
         from rpi_hardware_pwm import HardwarePWM
         from PiFinder import imu_pi as imu
         from PiFinder import gps_pi as gps_monitor
+
+    if args.display.lower() is not None:
+        display_hardware = args.display.lower()
 
     if args.camera.lower() == "pi":
         logging.debug("using pi camera")
