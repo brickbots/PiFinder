@@ -69,7 +69,7 @@ class DisplayBase:
         return self.resolution[1]
 
 
-class DisplayPygame_(DisplayBase):
+class DisplayPygame_128(DisplayBase):
     resolution = (128, 128)
 
     def __init__(self):

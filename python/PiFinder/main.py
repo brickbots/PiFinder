@@ -790,7 +790,7 @@ if __name__ == "__main__":
         from PiFinder import imu_pi as imu
         from PiFinder import gps_pi as gps_monitor
 
-    if args.display.lower() is not None:
+    if args.display is not None:
         display_hardware = args.display.lower()
 
     if args.camera.lower() == "pi":
