@@ -467,7 +467,7 @@ The PiFinder can either connect to an existing network via the Client mode, or s
 
 Using the PiFinder in Access Point mode creates a network called PiFinderAP with no password to allow easy connection of phones, tablets and other devices in the field.
 
-To use the Client mode, you'll need to add information about the WiFi network you'd like the PiFinder to connect to using the Web Interface as described :ref:`below<user_guide:Connecting to a new WiFi network>`
+To use the Client mode, you'll need to add information about the WiFi network you'd like the PiFinder to connect to using the Web Interface as described in :ref:`user_guide:connecting to a new wifi network`
 
 PiFinder address
 -----------------
@@ -475,8 +475,8 @@ PiFinder address
 In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computers or those that don't support zeroconf networking, you can use the IP address provides on the :ref:`Global Options<user_guide:global options>` screen to connect.  You can connect to the PiFinder via:
 
 
-* A web browser to use the :ref:`user_guide:Web Interface` for remote control or configuration changes
-* SSH to get shell access for software updates and other admin tasks
+* A web browser to use the :ref:`user_guide:Web Interface` for remote control, setting up access to other WiFi networks and for configuration changes
+* SSH to get shell access for advanced users
 * SMB (Samba) to access saved images, logs an observing lists
 * LX200 protocol to allow updating of a planetarium app, such as :doc:`skysafari` , with the position of the telescope
 
@@ -508,7 +508,8 @@ While the home screen not require a password, most other functions will.  The pa
 Connecting to a new WiFi network
 ---------------------------------
 
-To connect to a new WiFi network, navigate to the Network Setup page and click the + button near the list of WiFi networks.
+To connect to a new WiFi network, navigate to the Network Setup page of the :ref:`user_guide:web interface` and click the + button near the list of WiFi networks.
+
 
 .. list-table::
    :width: 100%
@@ -549,9 +550,27 @@ Once connected, you'll see:
 Update Software
 ==================
 
-A Software action is available from the :ref:`user_guide:global options` screen.  This will both show which version the PiFinder currently has installed and allow you to Upd the software if the PiFinder is connected to the internet.  You will need to switch :ref:`user_guide:WiFi` modes to Client if the device is in AP mode.
+A Software action is available from the :ref:`user_guide:global options` screen.  This will both show which version the PiFinder currently has 
+installed and allow you to update the software if the PiFinder is connected to the internet.  Step by step instructions for updating are below,
+and if you need to get your PiFinder connected to the Internet via your home wifi, please see the :ref:`user_guide:connecting to a new wifi network`
+section of the :ref:`user_guide:web interface` documentation.
 
-Select the option for 'Software' and then 'Upd'.  You should see a message that says 'Updating...' followed by 'Ok! Restarting'.  The PiFinder should restart and the new software version should be displayed when checking the :ref:`user_guide:option pages` for the Status screen
+
+1. **Press ENT-A to switch through the system screens until you are on the 'STATUS' screen.**
+2. Make sure the PiFinder is in client mode, that the name (SSID) of your WiFi network is displayed and that there is an IP Address shown as indicated in the screenshot below. If the status screen says 'AP' in place of 'Client' you'll need to switch the PiFinder into client mode so that it will try to connect to your home network. If you don't see the name of your network and an IP address, please check your network settings using the instructions in :ref:`user_guide:connecting to a new wifi network`
+    .. image:: images/user_guide/software_update_STATUS_001_docs.png
+3. Hold down the A button to access the configuration page for the STATUS screen
+    .. image:: images/user_guide/software_update_OPTIONS_001_docs.png
+4. Press the 8 key to select the 'Software' option.
+    .. image:: images/user_guide/software_update_OPTIONS_002_docs.png
+5. **Press the 0 key to begin the update**
+
+The PiFinder will indicate that the software update is in progress and will restart when finished.  The update may take a couple of minutes and when it's complete you can verify the version by navigating back to the Status page as described above.
+
+.. note::
+   If the software version has not changed after the update, verify that the PiFinder is connected to a network with internet access, move 
+   closer to the WiFi access point and try again.  To save power the WiFi transmitter on the PiFinder is not as powerful as a laptop or 
+   other device so you may need to be fairly close to your WiFi access point to successfully complete the update.
 
 
 FAQ
