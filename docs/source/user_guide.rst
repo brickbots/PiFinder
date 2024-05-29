@@ -508,17 +508,25 @@ While the home screen not require a password, most other functions will.  The pa
 Connecting to a new WiFi network
 ---------------------------------
 
-To connect to a new WiFi network, navigate to the Network Setup page of the :ref:`user_guide:web interface` and click the + button near the list of WiFi networks.
+The default behavior of the PiFinder is to generate it's own WiFi network call ``PiFinderAP`` that you can connect to 
+and configure additional networks. To get the PiFinder to connect to an existing WiFi network with Internet access you
+can follow the steps below:
 
+1) Make sure the PiFinder is in Access Point mode
+2) Connect your phone, tablet, or computer to the PiFinder's wifi network called PiFinderAP
+3) Visit http://pifinder.local using your web browser
+4) Click the 'Network' link in the top bar, or if you have a smaller screen, click the three stacked horizontal lines in the upper-right corner to access the menu and choose 'Network' from there.
+    .. image:: images/user_guide/pf_web_net0.png
+5) When prompted enter the password for your PiFinder.  The default is `solveit`.
+6) Scroll down until you see the 'Wifi Networks' section and click the + button to add a new network
+    .. image:: images/user_guide/pf_web_net1.jpg
+7) Enter the name (SSID) of your network and the password in the form.  If your network does not have a password, leave the Password field blank.
+8) Click the 'SAVE' button to save the new network
+9)  You should now see the network you added in the 'Wifi Networks' section of the page
+10) Scroll up and change the Wifi mode from 'Access Point' to 'Client' so that the PiFinder will attempt to connect to your network next time it restarts
+11) Click the 'UPDATE AND RESTART' button
 
-.. list-table::
-   :width: 100%
-
-   * - .. image:: images/user_guide/pf_web_net1.jpg
-
-Enter your network name (SSID) in the Name input and your password below in the Password input.  If your network does not have a password, leave that input as None.  Make sure to click the 'SAVE' button to save your changes
-
-Once you have added a new WiFi network to connect to, you can change the WiFi mode to Client in the Network Settings section and click Update and Restart.  After confirming your choice, the PiFinder will restart and attempt to connect to any configured WiFi networks.  If your computer or phone are on the same network, you can reload the web interface to confirm the PiFinder found and connected to the new WiFi network.
+To add more WiFi networks for the PiFinder to look for, navigate to the Network Setup page of the :ref:`user_guide:web interface` and click the + button near the list of WiFi networks and repeat the steps above.
 
 
 SkySafari
