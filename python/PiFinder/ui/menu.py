@@ -100,13 +100,14 @@ class UIMenu(UIModule):
                 font=line_font.font,
                 fill=self.colors.get(line_color),
             )
-            if item_text in self._selected_items:
-                self.draw.text(
-                    (5, line_pos),
-                    "*",
-                    font=line_font.font,
-                    fill=self.colors.get(line_color),
-                )
+            if self._menu_type == "multi":
+                if item_text in self._selected_items:
+                    self.draw.text(
+                        (5, line_pos),
+                        "*",
+                        font=line_font.font,
+                        fill=self.colors.get(line_color),
+                    )
 
             line_number += 1
 
