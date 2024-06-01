@@ -313,8 +313,6 @@ def main(script_name=None, show_fps=False, verbose=False):
         console.write("   Event Loop")
         console.update()
 
-
-
         # Start of main except handler / loop
         screen_dim, screen_off = _calculate_timeouts(cfg)
         bg_task_warmup = 5
@@ -407,7 +405,6 @@ def main(script_name=None, show_fps=False, verbose=False):
                                 cfg.set_option("display_brightness", screen_brightness)
                                 console.write("Brightness: " + str(screen_brightness))
 
-
                             if keycode == keyboard_base.ALT_0:
                                 # screenshot
                                 menu_driver.screengrab()
@@ -432,7 +429,6 @@ def main(script_name=None, show_fps=False, verbose=False):
                                 debug_solution = shared_state.solution()
                                 debug_location = shared_state.location()
                                 debug_dt = shared_state.datetime()
-
 
                                 # write images
                                 debug_image.save(

@@ -30,16 +30,34 @@ class KeyboardLocal(KeyboardInterface):
             manager.set_wetkey_on_release("8", self.callback, 8)
             manager.set_wetkey_on_release("9", self.callback, 9)
             manager.register_hotkey([Key.ctrl, "+"], None, self.callback, self.ALT_PLUS)
-            manager.register_hotkey([Key.ctrl, "-"], None, self.callback, self.ALT_MINUS)
-            manager.register_hotkey([Key.ctrl, Key.left], None, self.callback, self.ALT_LEFT)
-            manager.register_hotkey([Key.ctrl, Key.up], None, self.callback, self.ALT_UP)
-            manager.register_hotkey([Key.ctrl, Key.down], None, self.callback, self.ALT_DOWN)
-            manager.register_hotkey([Key.ctrl, Key.right], None, self.callback, self.ALT_RIGHT)
+            manager.register_hotkey(
+                [Key.ctrl, "-"], None, self.callback, self.ALT_MINUS
+            )
+            manager.register_hotkey(
+                [Key.ctrl, Key.left], None, self.callback, self.ALT_LEFT
+            )
+            manager.register_hotkey(
+                [Key.ctrl, Key.up], None, self.callback, self.ALT_UP
+            )
+            manager.register_hotkey(
+                [Key.ctrl, Key.down], None, self.callback, self.ALT_DOWN
+            )
+            manager.register_hotkey(
+                [Key.ctrl, Key.right], None, self.callback, self.ALT_RIGHT
+            )
             manager.register_hotkey([Key.ctrl, "0"], None, self.callback, self.ALT_0)
-            manager.register_hotkey([Key.shift, Key.left], None, self.callback, self.LNG_LEFT)
-            manager.register_hotkey([Key.shift, Key.up], None, self.callback, self.LNG_RIGHT)
-            manager.register_hotkey([Key.shift, Key.down], None, self.callback, self.LNG_DOWN)
-            manager.register_hotkey([Key.shift, Key.right], None, self.callback, self.LNG_RIGHT)
+            manager.register_hotkey(
+                [Key.shift, Key.left], None, self.callback, self.LNG_LEFT
+            )
+            manager.register_hotkey(
+                [Key.shift, Key.up], None, self.callback, self.LNG_RIGHT
+            )
+            manager.register_hotkey(
+                [Key.shift, Key.down], None, self.callback, self.LNG_DOWN
+            )
+            manager.register_hotkey(
+                [Key.shift, Key.right], None, self.callback, self.LNG_RIGHT
+            )
             manager.register_hotkey(
                 [Key.shift, "*"], None, self.callback, self.LNG_STAR
             )

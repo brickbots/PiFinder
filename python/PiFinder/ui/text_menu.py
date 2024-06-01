@@ -11,9 +11,10 @@ from PiFinder.menu import MenuScroller
 import logging
 
 
-class UIMenu(UIModule):
+class UITextMenu(UIModule):
     """
-    General module for displaying a menu
+    General module for displaying a scrolling
+    text list
 
     """
 

@@ -67,7 +67,6 @@ class UIModule:
         self.frame_count = 0
         self.last_fps_sample_time = time.time()
 
-
     def screengrab(self):
         self.ss_count += 1
         ss_imagepath = self.ss_path + f"_{self.ss_count :0>3}.png"

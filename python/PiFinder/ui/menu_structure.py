@@ -1,30 +1,30 @@
 from PiFinder.ui.chart import UIChart
+from PiFinder.ui.text_meuu import UITextMenu
 from PiFinder.ui.nearby import UINearby
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.status import UIStatus
 from PiFinder.ui.catalog import UICatalog
 from PiFinder.ui.locate import UILocate
-from PiFinder.ui.config import UIConfig
 from PiFinder.ui.log import UILog
 
 pifinder_menu = {
     "name": "PiFinder",
-    "type": "text",
+    "class": UITextMenu,
     "select": "single",
     "items": [
         {
             "name": "Filter",
-            "type": "text",
+            "class": UITextMenu,
             "select": "single",
             "items": [
                 {
                     "name": "Catalogs",
-                    "type": "screen",
+                    "class": "screen",
                     "class": "",
                 },
                 {
                     "name": "Altitude",
-                    "type": "config",
+                    "class": "config",
                     "select": "single",
                     "config_option": "filter.altitude",
                     "items": [
@@ -54,49 +54,49 @@ pifinder_menu = {
         },
         {
             "name": "Objects",
-            "type": "text",
+            "class": UITextMenu,
             "select": "single",
             "items": [
                 {
                     "name": "List",
-                    "type": "screen",
+                    "class": "screen",
                     "class": "",
                 },
                 {
                     "name": "Catalogs",
-                    "type": "screen",
+                    "class": "screen",
                     "class": "",
                 },
                 {
                     "name": "Nearby",
-                    "type": "screen",
+                    "class": "screen",
                     "class": "",
                 },
                 {
                     "name": "Name Search",
-                    "type": "screen",
+                    "class": "screen",
                     "class": "",
                 },
             ],
         },
         {
             "name": "Chart",
-            "type": "screen",
+            "class": "screen",
             "class": "",
         },
         {
             "name": "Camera",
-            "type": "screen",
+            "class": "screen",
             "class": "",
         },
         {
             "name": "Settings",
-            "type": "text",
+            "class": UITextMenu,
             "select": "single",
             "items": [
                 {
                     "name": "Keypad Brightness",
-                    "type": "config",
+                    "class": "config",
                     "select": "single",
                     "config_option": "keypad_brightness",
                     "items": [
