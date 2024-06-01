@@ -43,7 +43,15 @@ from PiFinder import utils
 from PiFinder import server
 from PiFinder import keyboard_interface
 
+from PiFinder.ui.chart import UIChart
+from PiFinder.ui.nearby import UINearby
+from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.console import UIConsole
+from PiFinder.ui.status import UIStatus
+from PiFinder.ui.catalog import UICatalog
+from PiFinder.ui.locate import UILocate
+from PiFinder.ui.config import UIConfig
+from PiFinder.ui.log import UILog
 
 from PiFinder.state import SharedStateObj, UIState
 
@@ -313,8 +321,76 @@ def main(script_name=None, show_fps=False, verbose=False):
         # Start main event loop
         console.write("   Event Loop")
         console.update()
+        ui_catalog = UICatalog(
+            display_device,
+            camera_image,
+            shared_state,
+            command_queues,
+            cfg,
+        )
+        ui_modes = [
+            UIConfig(
+                display_device,
+                camera_image,
+                shared_state,
+                command_queues,
+                cfg,
+            ),
+            UIChart(
+                display_device,
+                camera_image,
+                shared_state,
+                command_queues,
+                cfg,
+            ),
+            UINearby(
+                ui_catalog,
+                display_device,
+                camera_image,
+                shared_state,
+                command_queues,
+                cfg,
+            ),
+            ui_catalog,
+            UILocate(
+                ui_catalog,
+                display_device,
+                camera_image,
+                shared_state,
+                command_queues,
+                cfg,
+            ),
+            UIPreview(
+                display_device,
+                camera_image,
+                shared_state,
+                command_queues,
+                cfg,
+            ),
+            UIStatus(
+                display_device,
+                camera_image,
+                shared_state,
+                command_queues,
+                cfg,
+            ),
+            console,
+            UILog(
+                display_device,
+                camera_image,
+                shared_state,
+                command_queues,
+                cfg,
+            ),
+        ]
 
+        # What is the highest index for observing modes
+        # vs status/debug modes accessed by alt-A
+        ui_observing_modes = 5
+        ui_mode_index = 5
+        logging_mode_index = 8
 
+        current_module = ui_modes[ui_mode_index]
 
         # Start of main except handler / loop
         screen_dim, screen_off = _calculate_timeouts(cfg)
@@ -368,8 +444,9 @@ def main(script_name=None, show_fps=False, verbose=False):
                 if ui_command == "set_brightness":
                     set_brightness(screen_brightness, cfg)
                 elif ui_command == "push_object":
-                    # TODO: Re-implement
-                    pass
+                    ui_mode_index = 3
+                    current_module = ui_modes[ui_mode_index]
+                    current_module.active()
 
                 # Keyboard
                 try:
@@ -389,10 +466,10 @@ def main(script_name=None, show_fps=False, verbose=False):
                         if keycode > 99:
                             # Special codes....
                             if (
-                                keycode == keyboard_base.ALT_PLUS
-                                or keycode == keyboard_base.ALT_DOWN
+                                keycode == keyboard_base.ALT_UP
+                                or keycode == keyboard_base.ALT_DN
                             ):
-                                if keycode == keyboard_base.ALT_PLUS:
+                                if keycode == keyboard_base.ALT_UP:
                                     screen_brightness = screen_brightness + 10
                                     if screen_brightness > 255:
                                         screen_brightness = 255
@@ -405,32 +482,64 @@ def main(script_name=None, show_fps=False, verbose=False):
                                 cfg.set_option("display_brightness", screen_brightness)
                                 console.write("Brightness: " + str(screen_brightness))
 
+                            if keycode == keyboard_base.ALT_A:
+                                # Switch between non-observing modes
+                                ui_mode_index += 1
+                                if ui_mode_index >= len(ui_modes):
+                                    ui_mode_index = ui_observing_modes + 1
+                                if ui_mode_index <= ui_observing_modes:
+                                    ui_mode_index = ui_observing_modes + 1
+                                current_module = ui_modes[ui_mode_index]
+                                current_module.active()
+
+                            if keycode == keyboard_base.LNG_A and ui_mode_index > 0:
+                                # long A for config of current module
+                                target_module = current_module
+                                if target_module._config_options:
+                                    # only activate this if current module
+                                    # has config options
+                                    ui_mode_index = 0
+                                    current_module = ui_modes[0]
+                                    current_module.set_module(target_module)
+                                    current_module.active()
+
+                            if keycode == keyboard_base.LNG_ENT and ui_mode_index > 0:
+                                # long ENT for log observation
+                                ui_mode_index = logging_mode_index
+                                current_module = ui_modes[logging_mode_index]
+                                current_module.active()
 
                             if keycode == keyboard_base.ALT_0:
                                 # screenshot
-                                menu_driver.screengrab()
+                                current_module.screengrab()
                                 console.write("Screenshot saved")
 
-                            if keycode == keyboard_base.ALT_RIGHT:
+                            if keycode == keyboard_base.LNG_D:
+                                current_module.key_long_d()
+                                console.write("Deleted")
+
+                            if keycode == keyboard_base.LNG_C:
+                                current_module.key_long_c()
+
+                            if keycode == keyboard_base.ALT_D:
                                 # Debug snapshot
                                 uid = str(uuid.uuid1()).split("-")[0]
 
-                                # current screen
-                                ss = menu_driver.screen.copy()
-
                                 # wait two seconds for any vibration from
                                 # pressing the button to pass.
-                                menu_driver.message("Debug: 2", 1)
+                                current_module.message("Debug: 2", 1)
                                 time.sleep(1)
-                                menu_driver.message("Debug: 1", 1)
+                                current_module.message("Debug: 1", 1)
                                 time.sleep(1)
-                                menu_driver.message("Debug: Saving", 1)
+                                current_module.message("Debug: Saving", 1)
                                 time.sleep(1)
                                 debug_image = camera_image.copy()
                                 debug_solution = shared_state.solution()
                                 debug_location = shared_state.location()
                                 debug_dt = shared_state.datetime()
 
+                                # current screen
+                                ss = current_module.screen.copy()
 
                                 # write images
                                 debug_image.save(
@@ -474,31 +583,61 @@ def main(script_name=None, show_fps=False, verbose=False):
                                     pickle.dump(ui_state, f)
 
                                 console.write(f"Debug dump: {uid}")
-                                menu_driver.message("Debug Info Saved")
+                                current_module.message("Debug Info Saved")
+
+                        elif keycode == keyboard_base.A:
+                            # A key, mode switch
+                            if ui_mode_index == 0:
+                                # return control to original module
+                                for i, ui_class in enumerate(ui_modes):
+                                    if ui_class == ui_modes[0].get_module():
+                                        ui_mode_index = i
+                                        current_module = ui_class
+                                        current_module.update_config()
+                                        current_module.active()
+                            else:
+                                ui_mode_index += 1
+                                if ui_mode_index > ui_observing_modes:
+                                    ui_mode_index = 1
+                                current_module = ui_modes[ui_mode_index]
+                                current_module.active()
 
                         else:
                             if keycode < 10:
-                                menu_driver.key_number(keycode)
-
-                            elif keycode == keyboard_base.KEY_PLUS:
-                                menu_driver.key_plus()
-
-                            elif keycode == keyboard_base.KEY_MINUS:
-                                menu_driver.key_minus()
-
-                            elif keycode == keyboard_base.STAR:
-                                menu_driver.key_star()
+                                current_module.key_number(keycode)
 
                             elif keycode == keyboard_base.UP:
-                                menu_driver.key_up()
+                                current_module.key_up()
 
-                            elif keycode == keyboard_base.DOWN:
-                                menu_driver.key_down()
+                            elif keycode == keyboard_base.DN:
+                                current_module.key_down()
 
-                            elif keycode == keyboard_base.RIGHT:
-                                menu_driver.key_right()
+                            elif keycode == keyboard_base.ENT:
+                                current_module.key_enter()
 
-                update_msg = menu_driver.update()
+                            elif keycode == keyboard_base.B:
+                                current_module.key_b()
+
+                            elif keycode == keyboard_base.C:
+                                current_module.key_c()
+
+                            elif keycode == keyboard_base.D:
+                                current_module.key_d()
+
+                update_msg = current_module.update()
+                if update_msg:
+                    for i, ui_class in enumerate(ui_modes):
+                        if ui_class.__class__.__name__ == update_msg:
+                            ui_mode_index = i
+                            current_module = ui_class
+                            current_module.active()
+
+                # check for BG task time...
+                bg_task_warmup -= 1
+                if bg_task_warmup == 0:
+                    bg_task_warmup = 5
+                    for module in ui_modes:
+                        module.background_update()
 
                 # check for coming out of power save...
                 if get_sleep_timeout(cfg) or get_screen_off_timeout(cfg):

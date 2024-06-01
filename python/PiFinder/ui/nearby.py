@@ -362,10 +362,6 @@ class UINearby(UIModule):
     def key_b(self):
         self.current_mode = next(self.mode_cycle)
 
-    def background_update(self):
-        # catalog will be filtered by the UICatalog view
-        pass
-
     def key_enter(self):
         """
         When enter is pressed, set the

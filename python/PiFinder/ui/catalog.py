@@ -501,6 +501,7 @@ class UICatalog(UIModule):
             self.update()
 
     def background_update(self):
+        # TODO: Background update is not called any more
         if time.time() - self.catalog_tracker.get_current_catalog().last_filtered > 60:
             self.catalog_tracker.filter()
 

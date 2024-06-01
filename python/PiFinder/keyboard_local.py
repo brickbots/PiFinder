@@ -12,13 +12,13 @@ class KeyboardLocal(KeyboardInterface):
             return
         try:
             self.q = q
-            manager.set_wetkey_on_release(Key.enter, self.callback, self.ENT)
+            manager.set_wetkey_on_release(Key.left, self.callback, self.LEFT)
             manager.set_wetkey_on_release(Key.up, self.callback, self.UP)
-            manager.set_wetkey_on_release(Key.down, self.callback, self.DN)
-            manager.set_wetkey_on_release("a", self.callback, self.A)
-            manager.set_wetkey_on_release("b", self.callback, self.B)
-            manager.set_wetkey_on_release("c", self.callback, self.C)
-            manager.set_wetkey_on_release("d", self.callback, self.D)
+            manager.set_wetkey_on_release(Key.down, self.callback, self.DOWN)
+            manager.set_wetkey_on_release(Key.right, self.callback, self.RIGHT)
+            manager.set_wetkey_on_release("+", self.callback, self.PLUS)
+            manager.set_wetkey_on_release("-", self.callback, self.MINUS)
+            manager.set_wetkey_on_release("*", self.callback, self.STAR)
             manager.set_wetkey_on_release("0", self.callback, 0)
             manager.set_wetkey_on_release("1", self.callback, 1)
             manager.set_wetkey_on_release("2", self.callback, 2)
@@ -29,23 +29,19 @@ class KeyboardLocal(KeyboardInterface):
             manager.set_wetkey_on_release("7", self.callback, 7)
             manager.set_wetkey_on_release("8", self.callback, 8)
             manager.set_wetkey_on_release("9", self.callback, 9)
-            manager.register_hotkey(
-                [Key.enter, Key.up], None, self.callback, self.ALT_UP
-            )
-            manager.register_hotkey(
-                [Key.enter, Key.down], None, self.callback, self.ALT_DN
-            )
-            manager.register_hotkey([Key.ctrl, "a"], None, self.callback, self.ALT_A)
-            manager.register_hotkey([Key.ctrl, "b"], None, self.callback, self.ALT_B)
-            manager.register_hotkey([Key.ctrl, "c"], None, self.callback, self.ALT_C)
-            manager.register_hotkey([Key.ctrl, "d"], None, self.callback, self.ALT_D)
+            manager.register_hotkey([Key.ctrl, "+"], None, self.callback, self.ALT_PLUS)
+            manager.register_hotkey([Key.ctrl, "-"], None, self.callback, self.ALT_MINUS)
+            manager.register_hotkey([Key.ctrl, Key.left], None, self.callback, self.ALT_LEFT)
+            manager.register_hotkey([Key.ctrl, Key.up], None, self.callback, self.ALT_UP)
+            manager.register_hotkey([Key.ctrl, Key.down], None, self.callback, self.ALT_DOWN)
+            manager.register_hotkey([Key.ctrl, Key.right], None, self.callback, self.ALT_RIGHT)
             manager.register_hotkey([Key.ctrl, "0"], None, self.callback, self.ALT_0)
-            manager.register_hotkey([Key.shift, "a"], None, self.callback, self.LNG_A)
-            manager.register_hotkey([Key.shift, "b"], None, self.callback, self.LNG_B)
-            manager.register_hotkey([Key.shift, "c"], None, self.callback, self.LNG_C)
-            manager.register_hotkey([Key.shift, "d"], None, self.callback, self.LNG_D)
+            manager.register_hotkey([Key.shift, Key.left], None, self.callback, self.LNG_LEFT)
+            manager.register_hotkey([Key.shift, Key.up], None, self.callback, self.LNG_RIGHT)
+            manager.register_hotkey([Key.shift, Key.down], None, self.callback, self.LNG_DOWN)
+            manager.register_hotkey([Key.shift, Key.right], None, self.callback, self.LNG_RIGHT)
             manager.register_hotkey(
-                [Key.shift, Key.enter], None, self.callback, self.LNG_ENT
+                [Key.shift, "*"], None, self.callback, self.LNG_STAR
             )
         except Exception as e:
             logging.error("KeyboardLocal.__init__: {}".format(e))

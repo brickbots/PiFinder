@@ -67,34 +67,6 @@ class UIModule:
         self.frame_count = 0
         self.last_fps_sample_time = time.time()
 
-    def exit_config(self, option):
-        """
-        Handy callback for exiting
-        config on option select
-        """
-        return True
-
-    def update_config(self):
-        """
-        callback when config is updated
-        """
-        return True
-
-    def cycle_config(self, config_item, direction=1):
-        """
-        Cycles through a config option
-        wrapping if needed
-        """
-        current_index = self._config_options[config_item]["options"].index(
-            self._config_options[config_item]["value"]
-        )
-        current_index += direction
-        if current_index >= len(self._config_options[config_item]["options"]):
-            current_index = 0
-
-        self._config_options[config_item]["value"] = self._config_options[config_item][
-            "options"
-        ][current_index]
 
     def screengrab(self):
         self.ss_count += 1
@@ -108,14 +80,6 @@ class UIModule:
         i.e. foreground controlling display
         """
         self.button_hints_timer = time.time()
-        pass
-
-    def background_update(self):
-        """
-        Called every 5th ui cycle on all modules
-        allows background tasks, like updating
-        altitude in the Catalog
-        """
         pass
 
     def update(self, force=False):
@@ -171,107 +135,6 @@ class UIModule:
         if time.time() < self.ui_state.message_timeout():
             return None
 
-        hint_timeout_decode = {"Off": 0, "2s": 2, "4s": 4, "On": 1000}
-        self.button_hints_visible = (
-            button_hints
-            and time.time() - self.button_hints_timer
-            < hint_timeout_decode.get(self.ui_state.hint_timeout(), 2)
-        )
-        if self.button_hints_visible:
-            # Bottom button help
-
-            # B
-            if self.button_hints.get("B"):
-                self.draw.rectangle(
-                    [
-                        0,
-                        self.display_class.resY - self.fonts.small.height - 4,
-                        int(self.display_class.resX * 0.32),
-                        self.display_class.resY,
-                    ],
-                    fill=self.colors.get(32),
-                )
-                self.draw.text(
-                    (
-                        int(self.display_class.resX * 0.016),
-                        self.display_class.resY - self.fonts.small.height - 2,
-                    ),
-                    "B",
-                    font=self.fonts.small.font,
-                    fill=self.colors.get(255),
-                )
-                self.draw.text(
-                    (
-                        int(self.display_class.resX * 0.015)
-                        + (self.fonts.small.width * 2),
-                        self.display_class.resY - self.fonts.small.height - 2,
-                    ),
-                    self.button_hints.get("B"),
-                    font=self.fonts.small.font,
-                    fill=self.colors.get(128),
-                )
-            # C
-            if self.button_hints.get("C"):
-                self.draw.rectangle(
-                    [
-                        int(self.display_class.resX * 0.35),
-                        self.display_class.resY - self.fonts.small.height - 4,
-                        int(self.display_class.resX * 0.67),
-                        self.display_class.resY,
-                    ],
-                    fill=self.colors.get(32),
-                )
-                self.draw.text(
-                    (
-                        int(self.display_class.resX * 0.36),
-                        self.display_class.resY - self.fonts.small.height - 2,
-                    ),
-                    "C",
-                    font=self.fonts.small.font,
-                    fill=self.colors.get(255),
-                )
-                self.draw.text(
-                    (
-                        int(self.display_class.resX * 0.36)
-                        + (self.fonts.small.width * 2),
-                        self.display_class.resY - self.fonts.small.height - 2,
-                    ),
-                    self.button_hints.get("C"),
-                    font=self.fonts.small.font,
-                    fill=self.colors.get(128),
-                )
-
-            # D
-            if self.button_hints.get("D"):
-                self.draw.rectangle(
-                    [
-                        int(self.display_class.resX * 0.70),
-                        self.display_class.resY - self.fonts.small.height - 4,
-                        int(self.display_class.resX),
-                        self.display_class.resY,
-                    ],
-                    fill=self.colors.get(32),
-                )
-                self.draw.text(
-                    (
-                        int(self.display_class.resX * 0.71),
-                        self.display_class.resY - self.fonts.small.height - 2,
-                    ),
-                    "D",
-                    font=self.fonts.small.font,
-                    fill=self.colors.get(255),
-                )
-                self.draw.text(
-                    (
-                        int(self.display_class.resX * 0.71)
-                        + (self.fonts.small.width * 2),
-                        self.display_class.resY - self.fonts.small.height - 2,
-                    ),
-                    self.button_hints.get("D"),
-                    font=self.fonts.small.font,
-                    fill=self.colors.get(128),
-                )
-
         if title_bar:
             fg = self.colors.get(0)
             bg = self.colors.get(64)
@@ -290,7 +153,6 @@ class UIModule:
 
             # GPS status
             if self.shared_state.location()["gps_lock"]:
-                # self.draw.rectangle([100, 2, 110, 14], fill=bg)
                 self.draw.text(
                     (self.display_class.resX * 20, -2),
                     self._GPS_ICON,
@@ -300,7 +162,6 @@ class UIModule:
 
             if moving:
                 self._unmoved = False
-                # self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
 
             if self.shared_state:
                 if self.shared_state.solve_state():
