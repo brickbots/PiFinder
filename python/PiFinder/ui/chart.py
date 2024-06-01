@@ -10,6 +10,7 @@ from PIL import ImageChops, Image
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder import plot
 from PiFinder.ui.base import UIModule
+from PiFinder import calc_utils
 
 
 class UIChart(UIModule):
@@ -38,6 +39,11 @@ class UIChart(UIModule):
             "options": ["Off", "Low", "Med", "High"],
             "hotkey": "D",
         },
+        "RA/Dec": {
+            "type": "enum",
+            "value": "Off",
+            "options": ["Off", "HH:MM", "Degr"],
+        },
     }
 
     def __init__(self, *args):
@@ -52,6 +58,11 @@ class UIChart(UIModule):
         self.desired_fov = self.fov_list[self.fov_index]
         self.fov = self.desired_fov
         self.set_fov(self.desired_fov)
+
+        # set config options
+        self._config_options["RA/Dec"]["value"] = self.config_object.get_option(
+            "chart_display_radec"
+        )
 
     def plot_markers(self):
         """
@@ -152,6 +163,11 @@ class UIChart(UIModule):
         self.fov = current_fov
         self.starfield.set_fov(current_fov)
 
+    def update_config(self):
+        self.config_object.set_option(
+            "chart_display_radec", self._config_options["RA/Dec"]["value"]
+        )
+
     def update(self, force=False):
         if force:
             self.last_update = 0
@@ -185,6 +201,31 @@ class UIChart(UIModule):
                 self.screen.paste(image_obj)
 
                 self.plot_markers()
+
+                # Display RA/DEC in selected format if enabled
+                if self._config_options["RA/Dec"]["value"] == "HH:MM":
+                    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(self.solution["RA"])
+                    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(self.solution["Dec"])
+                    ra_dec_disp = f"{ra_h:02d}:{ra_m:02d}:{ra_s:02d} / {dec_d:02d}°{dec_m:02d}:{dec_s}"
+                    self.draw.text(
+                        (0, 114),
+                        ra_dec_disp,
+                        font=self.font_base,
+                        fill=self.colors.get(255),
+                    )
+                if self._config_options["RA/Dec"]["value"] == "Degr":
+                    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(self.solution["RA"])
+                    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(self.solution["Dec"])
+                    ra_dec_disp = (
+                        f"{self.solution['RA']:0>6.2f} / {self.solution['Dec']:0>5.2f}"
+                    )
+                    self.draw.text(
+                        (0, 114),
+                        ra_dec_disp,
+                        font=self.font_base,
+                        fill=self.colors.get(255),
+                    )
+
                 self.last_update = last_solve_time
 
         else:

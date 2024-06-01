@@ -27,7 +27,7 @@ class UIModule:
     _RIGHT_ARROW = ""
     _UP_ARROW = ""
     _DOWN_ARROW = ""
-
+    _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
 
     def __init__(
@@ -153,12 +153,21 @@ class UIModule:
 
             # GPS status
             if self.shared_state.location()["gps_lock"]:
-                self.draw.text(
-                    (self.display_class.resX * 20, -2),
-                    self._GPS_ICON,
-                    font=self.fonts.icon_bold_large.font,
-                    fill=fg,
-                )
+                self._gps_brightness = 0
+            else:
+                self._gps_brightness += 1
+                if self._gps_brightness > 64:
+                    self._gps_brightness = -128
+
+            _gps_color = self.colors.get(
+                self._gps_brightness if self._gps_brightness > 0 else 0
+            )
+            self.draw.text(
+                (self.display_class.resX * 20, -2),
+                self._GPS_ICON,
+                font=self.fonts.icon_bold_large.font,
+                fill=_gps_color,
+            )
 
             if moving:
                 self._unmoved = False
@@ -239,29 +248,29 @@ class UIModule:
     def key_number(self, number):
         pass
 
+    def key_plus(self):
+        pass
+
+    def key_minus(self):
+        pass
+
+    def key_star(self):
+        pass
+
+    def key_long_up(self):
+        pass
+
+    def key_long_down(self):
+        pass
+
+    def key_long_right(self):
+        pass
+
     def key_up(self):
         pass
 
     def key_down(self):
         pass
 
-    def key_enter(self):
+    def key_right(self):
         pass
-
-    def key_long_c(self):
-        pass
-
-    def key_long_d(self):
-        pass
-
-    def key_b(self):
-        if self.check_hotkey("B"):
-            self.update(force=True)
-
-    def key_c(self):
-        if self.check_hotkey("C"):
-            self.update(force=True)
-
-    def key_d(self):
-        if self.check_hotkey("D"):
-            self.update(force=True)

@@ -16,32 +16,14 @@
     "sleep_timeout": "30s",
     "screen_off_timeout": "Off",
     "hint_timeout": "2s",
+    "chart_display_radec": "Off",
     "solve_pixel": [256, 256],
-    "catalogs": [
-        "NGC",
-        "IC",
-        "M",
-        "C",
-        "Col",
-        "H",
-        "Ta2",
-        "Str",
-        "RDS",
-        "SaA",
-        "SaR",
-        "SaM",
-        "Abl",
-        "EGC",
-        "B",
-        "Sh2"
-    ],
     "active_catalogs": [
         "NGC",
         "M",
         "H",
-        "Ta2",
         "Str",
-        "SaA",
-        "Sh2"
+        "PL",
+        "RDS"
     ]
 }
