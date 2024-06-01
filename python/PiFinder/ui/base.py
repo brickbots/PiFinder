@@ -37,13 +37,11 @@ class UIModule:
         shared_state,
         command_queues,
         config_object,
+        item_definition={},
+        add_to_stack=None,
     ):
         assert shared_state is not None
         self.title = self.__title__
-        self.button_hints = self.__button_hints__
-        self.button_hints_timer = time.time()
-        self.button_hints_visible: bool = False
-        self.switch_to = None
         self.display_class = display_class
         self.display = display_class.device
         self.colors = display_class.colors
@@ -51,13 +49,19 @@ class UIModule:
         self.ui_state = shared_state.ui_state()
         self.camera_image = camera_image
         self.command_queues = command_queues
+        self.add_to_stack = add_to_stack
+
         self.screen = Image.new("RGB", display_class.resolution)
         self.draw = ImageDraw.Draw(self.screen)
         self.fonts = self.display_class.fonts
 
+        # UI Module definition
+        self.item_definition = item_definition
+        self.title = item_definition.get("name", self.title)
+
         # screenshot stuff
         root_dir = str(utils.data_dir)
-        prefix = f"{self.__uuid__}_{self.__title__}"
+        prefix = f"{self.__uuid__}_{self.title}"
         self.ss_path = os.path.join(root_dir, "screenshots", prefix)
         self.ss_count = 0
         self.config_object: Config = config_object
@@ -220,10 +224,7 @@ class UIModule:
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
 
-        # We can return a UIModule class name to force a switch here
-        tmp_return = self.switch_to
-        self.switch_to = None
-        return tmp_return
+        return
 
     def check_hotkey(self, key):
         """

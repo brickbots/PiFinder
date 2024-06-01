@@ -18,22 +18,18 @@ class UITextMenu(UIModule):
 
     """
 
-    __title__ = "OPTIONS"
-
     def __init__(
         self,
-        menu_type,
-        menu_items,
-        selected_items,
-        back_callback,
-        select_callback,
-        **kwargs
+        *args,
+        **kwargs,
     ):
-        self._module = None
+        super().__init__(*args, **kwargs)
         self._current_item_index = 0
-        self._menu_items = menu_items
-        self._menu_type = menu_type
-        if selected_items is None:
+        self._menu_items = [x["name"] for x in self.item_definition["items"]]
+        self._menu_type = self.item_definition["select"]
+        self.selected_items = None
+
+        if self.selected_items is None:
             if self._menu_type == "multi":
                 self._selected_items = []
             else:
@@ -44,9 +40,6 @@ class UITextMenu(UIModule):
             self._menu_items = ["Select None"] + self._menu_items
         else:
             self._current_item_index = self._menu_items.index(self._selected_items)
-        self._back_callback = back_callback
-        self._select_callback = select_callback
-        super().__init__(**kwargs)
 
     def update(self, force=False):
         # clear screen
@@ -122,10 +115,20 @@ class UITextMenu(UIModule):
         if self._current_item_index >= len(self._menu_items):
             self._current_item_index = len(self._menu_items) - 1
 
-    def key_enter(self):
+    def get_item(self, item_name: str) -> dict | None:
+        """
+        Takes an item name and returns the actual item dict
+        """
+        for item in self.item_definition["items"]:
+            if item["name"] == item_name:
+                return item
+
+        return None
+
+    def key_right(self):
         selected_item = self._menu_items[self._current_item_index]
         if self._menu_type == "single":
-            self._select_callback(selected_item)
+            self.add_to_stack(self.get_item(selected_item))
         else:
             if selected_item == "Select All":
                 self._selected_items = self._menu_items[1:]
@@ -147,10 +150,3 @@ class UITextMenu(UIModule):
 
     def key_down(self):
         self.menu_scroll(1)
-
-    def key_d(self):
-        if self._menu_type == "single":
-            self._back_callback(self._menu_items[self._current_item_index])
-        else:
-            print(self._selected_items)
-            self._back_callback(self._selected_items)

@@ -22,7 +22,7 @@ class KeyboardInterface:
     LNG_UP = 201
     LNG_DOWN = 202
     LNG_RIGHT = 203
-    LNG_ENT = 204
+    LNG_STAR = 204
 
     def __init__(self, q=None):
         self.q = q

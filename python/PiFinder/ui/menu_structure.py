@@ -1,5 +1,5 @@
 from PiFinder.ui.chart import UIChart
-from PiFinder.ui.text_meuu import UITextMenu
+from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.nearby import UINearby
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.status import UIStatus
@@ -19,12 +19,11 @@ pifinder_menu = {
             "items": [
                 {
                     "name": "Catalogs",
-                    "class": "screen",
                     "class": "",
                 },
                 {
                     "name": "Altitude",
-                    "class": "config",
+                    "class": UITextMenu,
                     "select": "single",
                     "config_option": "filter.altitude",
                     "items": [
@@ -95,8 +94,140 @@ pifinder_menu = {
             "select": "single",
             "items": [
                 {
+                    "name": "Camera Exposure",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "camera_exp",
+                    "items": [
+                        {
+                            "name": "0.1s",
+                            "value": 0.1,
+                        },
+                        {
+                            "name": "0.2s",
+                            "value": 0.2,
+                        },
+                        {
+                            "name": "0.4s",
+                            "value": 0.4,
+                        },
+                        {
+                            "name": "0.8s",
+                            "value": 0.8,
+                        },
+                        {
+                            "name": "1s",
+                            "value": 1,
+                        },
+                    ],
+                },
+                {
+                    "name": "Keypad Brt",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "keypad_brightness",
+                    "items": [
+                        {
+                            "name": "-3",
+                            "value": -3,
+                        },
+                        {
+                            "name": "-2",
+                            "value": -2,
+                        },
+                        {
+                            "name": "-1",
+                            "value": -1,
+                        },
+                        {
+                            "name": "0",
+                            "value": 0,
+                        },
+                        {
+                            "name": "1",
+                            "value": 1,
+                        },
+                        {
+                            "name": "2",
+                            "value": 2,
+                        },
+                        {
+                            "name": "3",
+                            "value": 3,
+                        },
+                    ],
+                },
+                {
+                    "name": "PiFinder Dir",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "screen_direction",
+                    "items": [
+                        {
+                            "name": "Left",
+                            "value": "Left",
+                        },
+                        {
+                            "name": "Right",
+                            "value": "Right",
+                        },
+                        {
+                            "name": "Flat",
+                            "value": "Flat",
+                        },
+                    ],
+                },
+                {
+                    "name": "Mount Type",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "mount_type",
+                    "items": [
+                        {
+                            "name": "Alt/Az",
+                            "value": "Alt/Az",
+                        },
+                        {
+                            "name": "Equitorial",
+                            "value": "EQ",
+                        },
+                    ],
+                },
+                {
+                    "name": "Sleep Timeout",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "sleep_timeout",
+                    "items": [
+                        {
+                            "name": "Off",
+                            "value": "Off",
+                        },
+                        {
+                            "name": "10s",
+                            "value": "10s",
+                        },
+                        {
+                            "name": "20s",
+                            "value": "20s",
+                        },
+                        {
+                            "name": "30s",
+                            "value": "30s",
+                        },
+                        {
+                            "name": "1m",
+                            "value": "1m",
+                        },
+                        {
+                            "name": "2m",
+                            "value": "2m",
+                        },
+                    ],
+                },
+                {
                     "name": "Keypad Brightness",
-                    "class": "config",
+                    "class": UITextMenu,
                     "select": "single",
                     "config_option": "keypad_brightness",
                     "items": [

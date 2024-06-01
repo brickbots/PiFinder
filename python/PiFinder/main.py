@@ -44,6 +44,7 @@ from PiFinder import server
 from PiFinder import keyboard_interface
 
 from PiFinder.ui.console import UIConsole
+from PiFinder.ui.menu_manager import MenuManager
 
 from PiFinder.state import SharedStateObj, UIState
 
@@ -313,9 +314,13 @@ def main(script_name=None, show_fps=False, verbose=False):
         console.write("   Event Loop")
         console.update()
 
+        # Initialize menu manager
+        menu_manager = MenuManager(
+            display_device, camera_image, shared_state, command_queues, cfg
+        )
+
         # Start of main except handler / loop
         screen_dim, screen_off = _calculate_timeouts(cfg)
-        bg_task_warmup = 5
         try:
             while True:
                 # Console
@@ -390,7 +395,7 @@ def main(script_name=None, show_fps=False, verbose=False):
                             # Special codes....
                             if (
                                 keycode == keyboard_base.ALT_PLUS
-                                or keycode == keyboard_base.ALT_DOWN
+                                or keycode == keyboard_base.ALT_MINUS
                             ):
                                 if keycode == keyboard_base.ALT_PLUS:
                                     screen_brightness = screen_brightness + 10
@@ -407,7 +412,7 @@ def main(script_name=None, show_fps=False, verbose=False):
 
                             if keycode == keyboard_base.ALT_0:
                                 # screenshot
-                                menu_driver.screengrab()
+                                menu_manager.screengrab()
                                 console.write("Screenshot saved")
 
                             if keycode == keyboard_base.ALT_RIGHT:
@@ -415,15 +420,15 @@ def main(script_name=None, show_fps=False, verbose=False):
                                 uid = str(uuid.uuid1()).split("-")[0]
 
                                 # current screen
-                                ss = menu_driver.screen.copy()
+                                ss = menu_manager.stack[-1].screen.copy()
 
                                 # wait two seconds for any vibration from
                                 # pressing the button to pass.
-                                menu_driver.message("Debug: 2", 1)
+                                menu_manager.message("Debug: 2", 1)
                                 time.sleep(1)
-                                menu_driver.message("Debug: 1", 1)
+                                menu_manager.message("Debug: 1", 1)
                                 time.sleep(1)
-                                menu_driver.message("Debug: Saving", 1)
+                                menu_manager.message("Debug: Saving", 1)
                                 time.sleep(1)
                                 debug_image = camera_image.copy()
                                 debug_solution = shared_state.solution()
@@ -472,31 +477,34 @@ def main(script_name=None, show_fps=False, verbose=False):
                                     pickle.dump(ui_state, f)
 
                                 console.write(f"Debug dump: {uid}")
-                                menu_driver.message("Debug Info Saved")
+                                menu_manager.message("Debug Info Saved")
 
                         else:
                             if keycode < 10:
-                                menu_driver.key_number(keycode)
+                                menu_manager.key_number(keycode)
 
-                            elif keycode == keyboard_base.KEY_PLUS:
-                                menu_driver.key_plus()
+                            elif keycode == keyboard_base.PLUS:
+                                menu_manager.key_plus()
 
-                            elif keycode == keyboard_base.KEY_MINUS:
-                                menu_driver.key_minus()
+                            elif keycode == keyboard_base.MINUS:
+                                menu_manager.key_minus()
 
                             elif keycode == keyboard_base.STAR:
-                                menu_driver.key_star()
+                                menu_manager.key_star()
+
+                            elif keycode == keyboard_base.LEFT:
+                                menu_manager.key_left()
 
                             elif keycode == keyboard_base.UP:
-                                menu_driver.key_up()
+                                menu_manager.key_up()
 
                             elif keycode == keyboard_base.DOWN:
-                                menu_driver.key_down()
+                                menu_manager.key_down()
 
                             elif keycode == keyboard_base.RIGHT:
-                                menu_driver.key_right()
+                                menu_manager.key_right()
 
-                update_msg = menu_driver.update()
+                update_msg = menu_manager.update()
 
                 # check for coming out of power save...
                 if get_sleep_timeout(cfg) or get_screen_off_timeout(cfg):
