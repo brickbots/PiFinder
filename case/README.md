@@ -6,7 +6,7 @@ In this directory you'll find STL's for all the parts of the PiFinder.  You won'
 The current case version is Version 2, this is designed for either the internal GPS module or external USB dongle.  The Version 1 files are still available for reference and replacment on previous version builds.  Please see the appropriate subdirectory for each.
 
 ## PiSugar
-The internal battery option has proven so popular that all case configurations now accomodate the PiSugar batter and control board. 
+The internal battery option has proven so popular that all case configurations now accomodate the PiSugar battery and control board. 
 
 
 
