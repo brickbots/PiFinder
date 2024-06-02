@@ -345,7 +345,8 @@ Mounting
 --------
 
 Most people will want to print the dovetail mount which fits into the finder shoe included on most telescopes.  
-The dovetail mount is angle adjustable.  This is to allow the PiFinder to sit upright so the screen is easily visible.   See the image below for a better explanation:
+The dovetail mount is angle adjustable.  This allows to orient the screen surface (roughly) vertical and perpendicular to the ground. 
+This puts the inertial motion sensor into the expected position. See the image below for a better explanation:
 
 
 .. image:: ../../images/finder_shoe_angle.png
@@ -373,6 +374,88 @@ See the photos below for how the pieces fit together.  Once assembled you can lo
 If you need more flexibility, there is also a go-pro compatible plate that will bolt into the bottom plate.  You'll need to add inserts into the bottom plate mounting footprint to use this option.
 
 Once you've got all the parts printed and inserts inserted, you're ready to :ref:`assemble<build_guide:assembly>`!
+
+Rigel Quickfinder Assembly
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This is the list of things, that you'll need for a Rigel Quickfinder adapter: 
+
+.. list-table::
+   :header-rows: 1
+
+   * - Qty
+     - Item
+     - URL
+     - Notes
+   * - 1
+     - PiToQuickfinder v2 - Part 1.stl
+     - `git repo quikfinder <https://github.com/brickbots/PiFinder/tree/release/case/adapter/quikfinder>`_
+     - You'll need both this and the next item
+   * - 1
+     - PiToQuickfinder v2 - Part 2.stl
+     - `git repo quikfinder <https://github.com/brickbots/PiFinder/tree/release/case/adapter/quikfinder>`_
+     - You'll need both this and the previous item
+   * - 2
+     - heat-set insert M2.5 x 4 mm 
+     - 
+     - Same as for the case
+
+Please make sure to print "Part 2" in way, such as to maximize the strength of the "hook"! Please print it with supports like this: 
+
+.. image:: images/build_guide/quickfinder_base_4.jpeg
+
+If you print your own parts, you'll need to add heat-set inserts as pictured in the photos below. As the space is limited, you'll need to
+fix it first to the PiFinder and then insert the second part. Just tighten the screws a little bit, to hold the second part, so it can't fall off.
+
+After putting it on a Rigel Quickfinder base, tighten the screws fully. Note that the foam double-sided adhesive that's distributed with the
+Rigel Quikfinder might be compressed by the weight of the PiFinder (the PiFinder is ~6 times the weight of a Quikfinder), so you might need to reconsider
+how the base plate is fixed to your scope.  
+
+
+.. image:: images/build_guide/quickfinder_base_1.jpeg
+
+.. image:: images/build_guide/quickfinder_base_2.jpeg
+
+.. image:: images/build_guide/quickfinder_base_3.jpeg
+
+
+Optionally, if you need to adjust the orientation of your PiFinder to make it vertical on your scope, you need these in addition:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Qty
+     - Item
+     - URL
+     - Notes
+   * - 1
+     - Pi2Q2Dovetail.stl
+     - `git repo quikfinder <https://github.com/brickbots/PiFinder/tree/release/case/adapter/quikfinder>`_
+     - You'll at least need this and the next item
+   * - 1
+     - dovetail_top.stl
+     - `git repo dovetail <https://github.com/brickbots/PiFinder/tree/release/case/v2>`_
+     - You'll at least need this and the previous item
+   * - 6
+     - heat-set insert M2.5 x 4 mm 
+     - 
+     - Same as for the case
+   
+You need to add 4 heat-set inserts as indicated in the following pictures:
+
+.. image:: images/build_guide/quickfinder_base_5.jpeg
+
+.. image:: images/build_guide/quickfinder_base_6.jpeg
+
+The assembly is then like the dovetail assembly in the previous section. Depending on your needs, you can fix the optional adapter 
+in two orientations. Make sure the "long lip" is pointing in the same directions like the PiFinder. The completely assembled adapter looks like this:
+
+.. image:: images/build_guide/quickfinder_base_7.jpeg
+
+.. image:: images/build_guide/quickfinder_base_8.jpeg
+
+Once you've got all the parts printed and inserts inserted, you're ready to :ref:`assemble<build_guide:assembly>`!
+
 
 Assembly
 ======================
