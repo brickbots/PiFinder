@@ -27,19 +27,23 @@ class UITextMenu(UIModule):
         self._current_item_index = 0
         self._menu_items = [x["name"] for x in self.item_definition["items"]]
         self._menu_type = self.item_definition["select"]
-        self.selected_items = None
 
-        if self.selected_items is None:
+        self._selected_items = []
+        if config_option := self.item_definition.get("config_option"):
             if self._menu_type == "multi":
-                self._selected_items = []
+                self._selected_items = self.config_object.get_option(config_option)
             else:
-                self._selected_items = self._menu_items[0]
-        else:
-            self._selected_items = selected_items
+                self._selected_items = [self.config_object.get_option(config_option)]
+
         if self._menu_type == "multi":
             self._menu_items = ["Select None"] + self._menu_items
         else:
-            self._current_item_index = self._menu_items.index(self._selected_items)
+            # if we are a single select list of config options, start with the
+            # current value selected
+            if config_option:
+                self._current_item_index = self._menu_items.index(
+                    self._selected_items[0]
+                )
 
     def update(self, force=False):
         # clear screen
@@ -94,14 +98,13 @@ class UITextMenu(UIModule):
                 font=line_font.font,
                 fill=self.colors.get(line_color),
             )
-            if self._menu_type == "multi":
-                if item_text in self._selected_items:
-                    self.draw.text(
-                        (5, line_pos),
-                        "*",
-                        font=line_font.font,
-                        fill=self.colors.get(line_color),
-                    )
+            if item_text in self._selected_items:
+                self.draw.text(
+                    (5, line_pos),
+                    self._CHECKMARK,
+                    font=line_font.font,
+                    fill=self.colors.get(line_color),
+                )
 
             line_number += 1
 
@@ -128,6 +131,11 @@ class UITextMenu(UIModule):
     def key_right(self):
         selected_item = self._menu_items[self._current_item_index]
         if self._menu_type == "single":
+            if config_option := self.item_definition.get("config_option"):
+                config_value = self.get_item(selected_item)["value"]
+                self.config_object.set_option(config_option, config_value)
+                self._selected_items = [selected_item]
+                return
             self.add_to_stack(self.get_item(selected_item))
         else:
             if selected_item == "Select All":

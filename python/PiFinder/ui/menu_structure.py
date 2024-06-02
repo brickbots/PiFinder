@@ -3,6 +3,7 @@ from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.nearby import UINearby
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.status import UIStatus
+from PiFinder.ui.software import UISoftware
 from PiFinder.ui.catalog import UICatalog
 from PiFinder.ui.locate import UILocate
 from PiFinder.ui.log import UILog
@@ -94,7 +95,7 @@ pifinder_menu = {
             "select": "single",
             "items": [
                 {
-                    "name": "Camera Exposure",
+                    "name": "Camera Exp",
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "camera_exp",
@@ -122,7 +123,7 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": "Keypad Brt",
+                    "name": "Key Bright",
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "keypad_brightness",
@@ -194,7 +195,7 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": "Sleep Timeout",
+                    "name": "Sleep Time",
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "sleep_timeout",
@@ -225,41 +226,17 @@ pifinder_menu = {
                         },
                     ],
                 },
+            ],
+        },
+        {
+            "name": "Tools",
+            "class": UITextMenu,
+            "select": "single",
+            "items": [
+                {"name": "Status", "class": UIStatus},
                 {
-                    "name": "Keypad Brightness",
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "keypad_brightness",
-                    "items": [
-                        {
-                            "name": "-3",
-                            "value": -3,
-                        },
-                        {
-                            "name": "-2",
-                            "value": -2,
-                        },
-                        {
-                            "name": "-1",
-                            "value": -1,
-                        },
-                        {
-                            "name": "0",
-                            "value": 0,
-                        },
-                        {
-                            "name": "1",
-                            "value": 1,
-                        },
-                        {
-                            "name": "2",
-                            "value": 2,
-                        },
-                        {
-                            "name": "3",
-                            "value": 3,
-                        },
-                    ],
+                    "name": "Software Upd",
+                    "class": UISoftware,
                 },
             ],
         },

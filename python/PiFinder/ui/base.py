@@ -27,6 +27,7 @@ class UIModule:
     _RIGHT_ARROW = ""
     _UP_ARROW = ""
     _DOWN_ARROW = ""
+    _CHECKMARK = ""
     _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
 
