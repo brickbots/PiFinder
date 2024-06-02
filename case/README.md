@@ -12,7 +12,7 @@ The internal battery option has proven so popular that all case configurations n
 
 In the adapters subdirectory you'll find different options and adapters for fixing your PiFinder to your telescope. 
 
-At the moment there's an adapter solution for [Rigel Quickfinder's base plates](adapters/quikfinder/README.md).
+At the moment there's an adapter solution for [Rigel Quickfinder's base plates](adapters/quikfinder).
 
 
 
