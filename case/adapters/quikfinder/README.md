@@ -15,7 +15,7 @@ Option 1 looks like this:
 
 Option 2 looks like this: 
 
-![Additional adapter connected to dovetail_top, so that PiFinder can be oriented vertical](../../../docs/source/images/build_guide/quickfinder_base_4.jpeg)
+![Additional adapter connected to dovetail_top, so that PiFinder can be oriented vertical](../../../docs/source/images/build_guide/quickfinder_base_8.jpeg)
 
 See the manual for build instructions, too!
 
