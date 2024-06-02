@@ -388,21 +388,26 @@ This is the list of things, that you'll need for a Rigel Quickfinder adapter:
      - URL
      - Notes
    * - 1
-     - PCB Set
-     - https://github.com/brickbots/PiFinder/tree/main/gerbers
-     - You'll need a PiFinder board and the PiFinder top plate
+     - PiToQuickfinder v2 - Part 1.stl
+     - `git repo quikfinder <https://github.com/brickbots/PiFinder/tree/release/case/adapter/quikfinder>`_
+     - You'll need both this and the next item
    * - 1
-     - 6 x 6mm x 7mm PCB Momentary Switch 4 Pin DIP
-     - https://www.mouser.com/ProductDetail/113-DTS63KV or https://www.digikey.com/en/products/detail/apem-inc/ADTS63KV/1798560
-     - Diptronics DTS63K or Apem ADTS63KV recommended
-   * - 17
-     - Red 1.8 mm (miniplast) leds
-     - https://www.mouser.com/ProductDetail/78-TLUR2401
-     - These need to be 2.5W x 3.3L x 3H to fit properly
+     - PiToQuickfinder v2 - Part 2.stl
+     - `git repo quikfinder <https://github.com/brickbots/PiFinder/tree/release/case/adapter/quikfinder>`_
+     - You'll need both this and the previous item
+   * - 2
+     - heat-set insert M2.5 x 4 mm 
+     - 
+     - Same as for the case
 
-If you print your own parts, you'll need to add heat-set inserts as pictured in the photo below. As the space is limited, you'll need to
-fix it first and then insert the second part. Just tighten the screws a little bit, to hold the second part, so it can't fall off.
-After putting it on a Rigel Quickfinder base, tighten the screws fully. Note that he foam double-sided adhesive that's distributed with the
+Please make sure to print "Part 2" in way, such as to maximize the strength of the "hook"! Please print it with supports like this: 
+
+.. image:: images/build_guide/quickfinder_base_4.jpeg
+
+If you print your own parts, you'll need to add heat-set inserts as pictured in the photos below. As the space is limited, you'll need to
+fix it first to the PiFinder and then insert the second part. Just tighten the screws a little bit, to hold the second part, so it can't fall off.
+
+After putting it on a Rigel Quickfinder base, tighten the screws fully. Note that the foam double-sided adhesive that's distributed with the
 Rigel Quikfinder might be compressed by the weight of the PiFinder (the PiFinder is ~6 times the weight of a Quikfinder), so you might need to reconsider
 how the base plate is fixed to your scope.  
 
@@ -414,14 +419,40 @@ how the base plate is fixed to your scope.
 .. image:: images/build_guide/quickfinder_base_3.jpeg
 
 
-If you need to adjust the position of the PiFinder to make it vertical, you can use the :ref:`Adjustable Dovetail Assemblyapp` top and combine it with the respective adapter.
-You need to add 4 heat-set inserts as indicated in the following picture. 
+Optionally, if you need to adjust the orientation of your PiFinder to make it vertical on your scope, you need these in addition:
 
-.. image:: images/build_guide/quickfinder_base_4.jpeg
+.. list-table::
+   :header-rows: 1
 
-The assembly is then like the dovetail assembly in the previous section. The completely assembled adapter looks like this:
+   * - Qty
+     - Item
+     - URL
+     - Notes
+   * - 1
+     - Pi2Q2Dovetail.stl
+     - `git repo quikfinder <https://github.com/brickbots/PiFinder/tree/release/case/adapter/quikfinder>`_
+     - You'll at least need this and the next item
+   * - 1
+     - dovetail_top.stl
+     - `git repo dovetail <https://github.com/brickbots/PiFinder/tree/release/case/v2>`_
+     - You'll at least need this and the previous item
+   * - 6
+     - heat-set insert M2.5 x 4 mm 
+     - 
+     - Same as for the case
+   
+You need to add 4 heat-set inserts as indicated in the following pictures:
 
 .. image:: images/build_guide/quickfinder_base_5.jpeg
+
+.. image:: images/build_guide/quickfinder_base_6.jpeg
+
+The assembly is then like the dovetail assembly in the previous section. Depending on your needs, you can fix the optional adapter 
+in two orientations. Make sure the "long lip" is pointing in the same directions like the PiFinder. The completely assembled adapter looks like this:
+
+.. image:: images/build_guide/quickfinder_base_7.jpeg
+
+.. image:: images/build_guide/quickfinder_base_8.jpeg
 
 Once you've got all the parts printed and inserts inserted, you're ready to :ref:`assemble<build_guide:assembly>`!
 

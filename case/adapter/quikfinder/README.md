@@ -17,51 +17,50 @@ Option 2 looks like this:
 
 ![Additional adapter connected to dovetail_top, so that PiFinder can be oriented vertical](../../../docs/source/images/build_guide/quickfinder_base_4.jpeg)
 
-See the Manual 
+See the manual for build instructions, too!
+
+## Caveat Printor! Attention Users!
+
+Using this adaptor, your PiFinder's life will depend on the strength of the protrusions of the construction, that fix the PiFinder 
+to the base plate. And keep in mind your PiFinder is roughly 6 times the weight of the Rigel Quikfinder!
+
+So in order to make the adapter as strong as possible, we recommend to print the two parts in the following way: 
+
+![Picture that shows how to print Part 2, with supports](../../../docs/source/images/build_guide/quickfinder_base_4.jpeg)
+
+This way the filament will be perpendicular to the load and the part will be much stronger! 
 
 ## Bill of material
 
 ### Rigel Quikfinder adapter
 This is what you'll need: 
 
-|-----|---------------------------------|----------------------|
 | Qty | Item                            | Source               |
 |-----|---------------------------------|----------------------|
 | 1   | PiToQuikFinder v2 - Part 1.stl  | this directory       |
 | 1   | PiToQuikFinder v2 - Part 2.stl  | this directory       |
 | 2   | M2.4 x 4 mm heat set inserts    | same as for PiFinder |
 | 2   | M2.5 x 12                       | same as for PiFinder |
-|-----|---------------------------------|----------------------|
 
 ### Optional Orientation adapter
 In addition to the Rigel Quikfinder adapter above, you'll need:
 
-|-----|---------------------------------|----------------------|
 | Qty | Item                            | Source               |
 |-----|---------------------------------|----------------------|
 | 1   | Orientation - Part 1.stl        | this directory       |
 | 4   | M2.4 x 4 mm heat set inserts    | same as for PiFinder |
 | 4   | M2.5 x 12                       | same as for PiFinder |
-|-----|---------------------------------|----------------------|
-
-## Caveat Printor! Attention Users!
-
-Using this adaptor, your PiFinder's life will depend on the strength of the protrusions of the construction, that fix the PiFinder 
-to the base plate. And keep in mindyour PiFinder is roughly 6 times the weight of the Rigel Quikfinder!
-
-So in order to make the adapter as strong as possible, we recommend to print the two parts in the following way: 
 
 
-
-At the moment our experience with this adapter is limited, so no guarantees!
+At the moment our experience with this adapter is limited, so   N O    G U A R A N T E E S   !
 
 ## Construction
 
 ### PiFinder to QuikFinder Base only
 1. Print all the parts you need (Part 1 and Part 2)
-2. Put to heat set inserts into "Parit 2"
-3. Fix "Part 1" to the PiFinder, it fits in the same position as 
-
+2. Put heat-set inserts into "Part 2"
+3. Fix "Part 1" to the PiFinder, it fits in the same position as the dovetail adapter.
+4. Put 2 screws into "Part 2" to fixate it loosely.
 
 ## Fixating the PiFinder on the baseplate
 ## Adapting the construction
