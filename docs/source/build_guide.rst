@@ -345,7 +345,8 @@ Mounting
 --------
 
 Most people will want to print the dovetail mount which fits into the finder shoe included on most telescopes.  
-The dovetail mount is angle adjustable.  This is to allow the PiFinder to sit upright so the screen is easily visible.   See the image below for a better explanation:
+The dovetail mount is angle adjustable.  This allows to orient the screen surface (roughly) vertical and perpendicular to the ground. 
+This puts the inertial motion sensor into the expected position. See the image below for a better explanation:
 
 
 .. image:: ../../images/finder_shoe_angle.png
@@ -373,6 +374,57 @@ See the photos below for how the pieces fit together.  Once assembled you can lo
 If you need more flexibility, there is also a go-pro compatible plate that will bolt into the bottom plate.  You'll need to add inserts into the bottom plate mounting footprint to use this option.
 
 Once you've got all the parts printed and inserts inserted, you're ready to :ref:`assemble<build_guide:assembly>`!
+
+Rigel Quickfinder Assembly
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This is the list of things, that you'll need for a Rigel Quickfinder adapter: 
+
+.. list-table::
+   :header-rows: 1
+
+   * - Qty
+     - Item
+     - URL
+     - Notes
+   * - 1
+     - PCB Set
+     - https://github.com/brickbots/PiFinder/tree/main/gerbers
+     - You'll need a PiFinder board and the PiFinder top plate
+   * - 1
+     - 6 x 6mm x 7mm PCB Momentary Switch 4 Pin DIP
+     - https://www.mouser.com/ProductDetail/113-DTS63KV or https://www.digikey.com/en/products/detail/apem-inc/ADTS63KV/1798560
+     - Diptronics DTS63K or Apem ADTS63KV recommended
+   * - 17
+     - Red 1.8 mm (miniplast) leds
+     - https://www.mouser.com/ProductDetail/78-TLUR2401
+     - These need to be 2.5W x 3.3L x 3H to fit properly
+
+If you print your own parts, you'll need to add heat-set inserts as pictured in the photo below. As the space is limited, you'll need to
+fix it first and then insert the second part. Just tighten the screws a little bit, to hold the second part, so it can't fall off.
+After putting it on a Rigel Quickfinder base, tighten the screws fully. Note that he foam double-sided adhesive that's distributed with the
+Rigel Quikfinder might be compressed by the weight of the PiFinder (the PiFinder is ~6 times the weight of a Quikfinder), so you might need to reconsider
+how the base plate is fixed to your scope.  
+
+
+.. image:: images/build_guide/quickfinder_base_1.jpeg
+
+.. image:: images/build_guide/quickfinder_base_2.jpeg
+
+.. image:: images/build_guide/quickfinder_base_3.jpeg
+
+
+If you need to adjust the position of the PiFinder to make it vertical, you can use the :ref:`Adjustable Dovetail Assemblyapp` top and combine it with the respective adapter.
+You need to add 4 heat-set inserts as indicated in the following picture. 
+
+.. image:: images/build_guide/quickfinder_base_4.jpeg
+
+The assembly is then like the dovetail assembly in the previous section. The completely assembled adapter looks like this:
+
+.. image:: images/build_guide/quickfinder_base_5.jpeg
+
+Once you've got all the parts printed and inserts inserted, you're ready to :ref:`assemble<build_guide:assembly>`!
+
 
 Assembly
 ======================
