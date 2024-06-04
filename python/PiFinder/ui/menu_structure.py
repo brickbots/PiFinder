@@ -20,10 +20,134 @@ pifinder_menu = {
             "items": [
                 {
                     "name": "Catalogs",
-                    "class": "",
+                    "class": UITextMenu,
+                    "select": "multi",
+                    "config_option": "active_catalogs",
+                    "items": [
+                        {
+                            "name": "Planets",
+                            "value": "P",
+                        },
+                        {
+                            "name": "NGC",
+                            "value": "NGC",
+                        },
+                        {
+                            "name": "Messier",
+                            "value": "M",
+                        },
+                        {
+                            "name": "DSO...",
+                            "class": UITextMenu,
+                            "select": "multi",
+                            "config_option": "active_catalogs",
+                            "items": [
+                                {
+                                    "name": "NGC",
+                                    "value": "NGC",
+                                },
+                                {
+                                    "name": "IC",
+                                    "value": "IC",
+                                },
+                                {
+                                    "name": "Messier",
+                                    "value": "M",
+                                },
+                                {
+                                    "name": "Caldwell",
+                                    "value": "C",
+                                },
+                                {
+                                    "name": "Collinder",
+                                    "value": "Col",
+                                },
+                                {
+                                    "name": "TAAS 200",
+                                    "value": "Ta2",
+                                },
+                                {
+                                    "name": "Herschel 400",
+                                    "value": "H",
+                                },
+                                {
+                                    "name": "Extra-Gal Glob",
+                                    "value": "EGC",
+                                },
+                                {
+                                    "name": "Barnard D.Neb",
+                                    "value": "B",
+                                },
+                                {
+                                    "name": "Sharpless",
+                                    "value": "Sh2",
+                                },
+                                {
+                                    "name": "Abell Pn",
+                                    "value": "Abl",
+                                },
+                            ],
+                        },
+                        {
+                            "name": "Stars...",
+                            "class": UITextMenu,
+                            "select": "multi",
+                            "config_option": "active_catalogs",
+                            "items": [
+                                {
+                                    "name": "Bright Named",
+                                    "value": "STR",
+                                },
+                                {
+                                    "name": "SAC Doubles",
+                                    "value": "SaM",
+                                },
+                                {
+                                    "name": "SAC Asterisms",
+                                    "value": "SaA",
+                                },
+                                {
+                                    "name": "SAC Red Stars",
+                                    "value": "SaR",
+                                },
+                                {
+                                    "name": "RASC Doubles",
+                                    "value": "RDS",
+                                },
+                            ],
+                        },
+                    ],
                 },
                 {
                     "name": "Altitude",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "filter.altitude",
+                    "items": [
+                        {
+                            "name": "None",
+                            "value": "0",
+                        },
+                        {
+                            "name": "10",
+                            "value": 10,
+                        },
+                        {
+                            "name": "20",
+                            "value": 20,
+                        },
+                        {
+                            "name": "30",
+                            "value": 30,
+                        },
+                        {
+                            "name": "40",
+                            "value": 40,
+                        },
+                    ],
+                },
+                {
+                    "name": "Magnitude",
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "filter.altitude",

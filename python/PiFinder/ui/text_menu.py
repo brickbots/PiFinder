@@ -28,19 +28,13 @@ class UITextMenu(UIModule):
         self._menu_items = [x["name"] for x in self.item_definition["items"]]
         self._menu_type = self.item_definition["select"]
 
-        self._selected_items = []
+        self._selected_values = []
         if config_option := self.item_definition.get("config_option"):
             if self._menu_type == "multi":
-                self._selected_items = self.config_object.get_option(config_option)
+                self._selected_values = self.config_object.get_option(config_option)
+                self._menu_items = ["Select None"] + self._menu_items
             else:
-                self._selected_items = [self.config_object.get_option(config_option)]
-
-        if self._menu_type == "multi":
-            self._menu_items = ["Select None"] + self._menu_items
-        else:
-            # if we are a single select list of config options, start with the
-            # current value selected
-            if config_option:
+                self._selected_values = [self.config_object.get_option(config_option)]
                 self._current_item_index = self._menu_items.index(
                     self._selected_items[0]
                 )
@@ -98,7 +92,10 @@ class UITextMenu(UIModule):
                 font=line_font.font,
                 fill=self.colors.get(line_color),
             )
-            if item_text in self._selected_items:
+            if (
+                self.get_item(item_text) is not None
+                and self.get_item(item_text).get("value", "--") in self._selected_values
+            ):
                 self.draw.text(
                     (5, line_pos),
                     self._CHECKMARK,
@@ -129,29 +126,63 @@ class UITextMenu(UIModule):
         return None
 
     def key_right(self):
+        """
+        This is the main selection function responsible
+        for either adjusting configurations, or
+        passing in a new UI module definition to add to
+        the stack
+        """
         selected_item = self._menu_items[self._current_item_index]
-        if self._menu_type == "single":
-            if config_option := self.item_definition.get("config_option"):
-                config_value = self.get_item(selected_item)["value"]
+        selected_item_definition = self.get_item(selected_item)
+
+        # If the item has a class, always invoke that class
+        if selected_item_definition is not None and selected_item_definition.get(
+            "class"
+        ):
+            self.add_to_stack(selected_item_definition)
+            return
+
+        # Is this a configuration item menu?
+        if config_option := self.item_definition.get("config_option"):
+            if self._menu_type == "single":
+                config_value = selected_item_definition["value"]
+                self._selected_values = [config_value]
                 self.config_object.set_option(config_option, config_value)
-                self._selected_items = [selected_item]
                 return
-            self.add_to_stack(self.get_item(selected_item))
-        else:
-            if selected_item == "Select All":
-                self._selected_items = self._menu_items[1:]
-                self._menu_items[0] = "Select None"
-                return
-
-            if selected_item == "Select None":
-                self._selected_items = []
-                self._menu_items[0] = "Select All"
-                return
-
-            if selected_item in self._selected_items:
-                self._selected_items.remove(selected_item)
             else:
-                self._selected_items.append(selected_item)
+                if selected_item == "Select All":
+                    # Only select items with a value key which represent
+                    # configuration values
+                    for item in self._menu_items[1:]:
+                        if self.get_item(item).get("value") is not None:
+                            self._selected_values.append(item)
+
+                    # Uniqify selected values
+                    self._selected_values = list(set(self._selected_values))
+                    self._menu_items[0] = "Select None"
+
+                elif selected_item == "Select None":
+                    # We need to be selective here and ONLY remove
+                    # items that are in THIS list/menu as this maybe
+                    # a mulit-level selector like Catalogs
+                    for item in self._menu_items[1:]:
+                        item_value = self.get_item(item).get("value")
+                        if (
+                            item_value is not None
+                            and item_value in self._selected_values
+                        ):
+                            self._selected_values.remove(item_value)
+                    self._menu_items[0] = "Select All"
+
+                elif (
+                    self.get_item(selected_item).get("value", "--")
+                    in self._selected_values
+                ):
+                    self._selected_values.remove(self.get_item(selected_item)["value"])
+                else:
+                    self._selected_values.append(self.get_item(selected_item)["value"])
+
+                self.config_object.set_option(config_option, self._selected_values)
 
     def key_up(self):
         self.menu_scroll(-1)

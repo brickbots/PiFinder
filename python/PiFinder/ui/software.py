@@ -4,84 +4,17 @@
 This module contains all the UI Module classes
 
 """
-import datetime
-import time
-import socket
 
 from PiFinder.ui.base import UIModule
-
-try:
-    from PiFinder import sys_utils
-except ImportError:
-    from PiFinder import sys_utils_fake as sys_utils
-from PiFinder import calc_utils
-from PiFinder import utils
 from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed
 
 
 class UISoftware(UIModule):
     """
-    Displays various status information
+    UI for updating software versions
     """
 
-    __title__ = "STATUS"
-
-    _config_options = {
-        "Key Brit": {
-            "type": "enum",
-            "value": "",
-            "options": ["+3", "+2", "+1", "0", "-1", "-2", "-3", "Off"],
-            "callback": "set_key_brightness",
-        },
-        "Sleep Tim": {
-            "type": "enum",
-            "value": "",
-            "options": ["Off", "10s", "30s", "1m"],
-            "callback": "set_sleep_timeout",
-        },
-        "Screen Off": {
-            "type": "enum",
-            "value": "",
-            "options": ["Off", "30s", "1m", "10m", "30m"],
-            "callback": "set_screen_off_timeout",
-        },
-        "Hint Time": {
-            "type": "enum",
-            "value": "2s",
-            "options": ["Off", "2s", "4s", "On"],
-            "callback": "set_hint_timeout",
-        },
-        "WiFi Mode": {
-            "type": "enum",
-            "value": "UNK",
-            "options": ["AP", "Client", "CANCEL"],
-            "callback": "wifi_switch",
-        },
-        "Mnt Side": {
-            "type": "enum",
-            "value": "",
-            "options": ["right", "left", "flat", "CANCEL"],
-            "callback": "side_switch",
-        },
-        "Mnt Type": {
-            "type": "enum",
-            "value": "",
-            "options": ["Alt/Az", "EQ", "CANCEL"],
-            "callback": "mount_switch",
-        },
-        "Shutdown": {
-            "type": "enum",
-            "value": "",
-            "options": ["System", "CANCEL"],
-            "callback": "shutdown",
-        },
-        "Software": {
-            "type": "enum",
-            "value": "",
-            "options": ["Update", "CANCEL"],
-            "callback": "update_software",
-        },
-    }
+    __title__ = "SOFTWARE"
 
     def __init__(self, *args):
         super().__init__(*args)

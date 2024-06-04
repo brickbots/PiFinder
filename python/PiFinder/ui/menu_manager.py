@@ -21,12 +21,12 @@ class MenuManager:
         self.command_queues = command_queues
         self.config_object = config_object
 
-        self._stack: List[Type[UIModule]] = []
+        self.stack: List[Type[UIModule]] = []
         self.add_to_stack(menu_structure.pifinder_menu)
 
     def remove_from_stack(self) -> None:
-        if len(self._stack) > 1:
-            self._stack.pop()
+        if len(self.stack) > 1:
+            self.stack.pop()
 
     def add_to_stack(self, item: dict) -> None:
         """
@@ -35,7 +35,7 @@ class MenuManager:
         in all the required UI Module arguments + the
         item dict
         """
-        self._stack.append(
+        self.stack.append(
             item["class"](
                 display_class=self.display_class,
                 camera_image=self.camera_image,
@@ -48,19 +48,19 @@ class MenuManager:
         )
 
     def update(self) -> None:
-        self._stack[-1].update()
+        self.stack[-1].update()
 
     def key_number(self, number):
-        self._stack[-1].key_number(number)
+        self.stack[-1].key_number(number)
 
     def key_plus(self):
-        self._stack[-1].key_plus()
+        self.stack[-1].key_plus()
 
     def key_minus(self):
-        self._stack[-1].key_minus()
+        self.stack[-1].key_minus()
 
     def key_star(self):
-        self._stack[-1].key_star()
+        self.stack[-1].key_star()
 
     def key_long_up(self):
         pass
@@ -75,10 +75,10 @@ class MenuManager:
         self.remove_from_stack()
 
     def key_up(self):
-        self._stack[-1].key_up()
+        self.stack[-1].key_up()
 
     def key_down(self):
-        self._stack[-1].key_down()
+        self.stack[-1].key_down()
 
     def key_right(self):
-        self._stack[-1].key_right()
+        self.stack[-1].key_right()
