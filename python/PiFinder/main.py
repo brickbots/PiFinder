@@ -43,6 +43,8 @@ from PiFinder import utils
 from PiFinder import server
 from PiFinder import keyboard_interface
 
+from PiFinder.catalogs import CatalogBuilder
+
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.menu_manager import MenuManager
 
@@ -314,9 +316,17 @@ def main(script_name=None, show_fps=False, verbose=False):
         console.write("   Event Loop")
         console.update()
 
+        # Initialze Catalogs
+        catalogs: Catalogs = CatalogBuilder().build()
+
         # Initialize menu manager
         menu_manager = MenuManager(
-            display_device, camera_image, shared_state, command_queues, cfg
+            display_device,
+            camera_image,
+            shared_state,
+            command_queues,
+            cfg,
+            catalogs,
         )
 
         # Start of main except handler / loop

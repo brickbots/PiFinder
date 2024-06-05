@@ -154,8 +154,9 @@ class UITextMenu(UIModule):
                     # Only select items with a value key which represent
                     # configuration values
                     for item in self._menu_items[1:]:
-                        if self.get_item(item).get("value") is not None:
-                            self._selected_values.append(item)
+                        item_value = self.get_item(item).get("value")
+                        if item_value is not None:
+                            self._selected_values.append(item_value)
 
                     # Uniqify selected values
                     self._selected_values = list(set(self._selected_values))

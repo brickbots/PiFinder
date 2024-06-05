@@ -38,6 +38,7 @@ class UIModule:
         shared_state,
         command_queues,
         config_object,
+        catalogs=None,
         item_definition={},
         add_to_stack=None,
     ):
@@ -47,6 +48,7 @@ class UIModule:
         self.display = display_class.device
         self.colors = display_class.colors
         self.shared_state = shared_state
+        self.catalogs = catalogs
         self.ui_state = shared_state.ui_state()
         self.camera_image = camera_image
         self.command_queues = command_queues

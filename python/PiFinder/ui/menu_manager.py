@@ -13,6 +13,7 @@ class MenuManager:
         shared_state,
         command_queues,
         config_object,
+        catalogs,
     ):
         self.display_class = display_class
         self.shared_state = shared_state
@@ -20,6 +21,7 @@ class MenuManager:
         self.camera_image = camera_image
         self.command_queues = command_queues
         self.config_object = config_object
+        self.catalogs = catalogs
 
         self.stack: List[Type[UIModule]] = []
         self.add_to_stack(menu_structure.pifinder_menu)
@@ -42,6 +44,7 @@ class MenuManager:
                 shared_state=self.shared_state,
                 command_queues=self.command_queues,
                 config_object=self.config_object,
+                catalogs=self.catalogs,
                 item_definition=item,
                 add_to_stack=self.add_to_stack,
             )

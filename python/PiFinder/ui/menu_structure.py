@@ -1,6 +1,6 @@
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.text_menu import UITextMenu
-from PiFinder.ui.nearby import UINearby
+from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.status import UIStatus
 from PiFinder.ui.software import UISoftware
@@ -71,11 +71,11 @@ pifinder_menu = {
                                     "value": "H",
                                 },
                                 {
-                                    "name": "Extra-Gal Glob",
+                                    "name": "E.G. Globs",
                                     "value": "EGC",
                                 },
                                 {
-                                    "name": "Barnard D.Neb",
+                                    "name": "Barnard",
                                     "value": "B",
                                 },
                                 {
@@ -181,25 +181,18 @@ pifinder_menu = {
             "class": UITextMenu,
             "select": "single",
             "items": [
-                {
-                    "name": "List",
-                    "class": "screen",
-                    "class": "",
-                },
+                {"name": "List", "class": UIObjectList},
                 {
                     "name": "Catalogs",
                     "class": "screen",
-                    "class": "",
                 },
                 {
                     "name": "Nearby",
                     "class": "screen",
-                    "class": "",
                 },
                 {
                     "name": "Name Search",
                     "class": "screen",
-                    "class": "",
                 },
             ],
         },
