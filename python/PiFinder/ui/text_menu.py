@@ -35,9 +35,9 @@ class UITextMenu(UIModule):
                 self._menu_items = ["Select None"] + self._menu_items
             else:
                 self._selected_values = [self.config_object.get_option(config_option)]
-                self._current_item_index = self._menu_items.index(
-                    self._selected_items[0]
-                )
+                # self._current_item_index = self._menu_items.index(
+                #    self._selected_values[0]
+                # )
 
     def update(self, force=False):
         # clear screen
