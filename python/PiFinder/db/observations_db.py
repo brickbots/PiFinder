@@ -151,7 +151,7 @@ class ObservationsDatabase(Database):
         Returns true/false if this object has been observed
         """
         # safety check
-        if self.observed_objects_cache == None:
+        if self.observed_objects_cache is None:
             self.load_observed_objects_cache()
 
         if (
@@ -198,7 +198,7 @@ class ObservationsDatabase(Database):
                     avg(lon) as lon
                 from obs_sessions
             """
-        if session_uid != None:
+        if session_uid is not None:
             # add in a where clause
             q += """
                 where uid= :sess_uid
@@ -236,7 +236,7 @@ class ObservationsDatabase(Database):
         returns a record for a specific session
         applies the same enrichment
         """
-        return get_sessions(session_uid=session_uid)[0]
+        return self.get_sessions(session_uid=session_uid)[0]
 
     def get_logs_by_session(self, session_uid):
         """

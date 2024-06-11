@@ -17,7 +17,6 @@ def get_catalog_objects():
         "/Users/rich/Projects/Astronomy/PiFinder/astro_data/pifinder_objects.db"
     )
     conn.row_factory = sqlite3.Row
-    db_c = conn.cursor()
     cat_objects = conn.execute(
         """
         SELECT * from objects
@@ -40,7 +39,6 @@ def check_object_image(catalog_object):
             "/Users/rich/Projects/Astronomy/PiFinder/astro_data/pifinder_objects.db"
         )
         conn.row_factory = sqlite3.Row
-        db_c = conn.cursor()
 
         aka_rec = conn.execute(
             f"""
