@@ -5,7 +5,7 @@ This module is runs the keyboard matrix
 and adds keys to the provided queue
 
 """
-import sh
+
 from time import sleep
 from PiFinder.keyboard_interface import KeyboardInterface
 import RPi.GPIO as GPIO

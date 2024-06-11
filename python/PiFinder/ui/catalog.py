@@ -4,6 +4,7 @@
 This module contains all the UI Module classes
 
 """
+
 import time
 
 from PiFinder import cat_images

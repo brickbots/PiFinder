@@ -1,9 +1,5 @@
-from os import truncate
-from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
-import PiFinder.utils as utils
-from typing import Tuple, List, Dict, Optional
+from typing import Tuple, List
 import textwrap
-import logging
 import re
 import math
 

@@ -21,7 +21,6 @@ from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils, b1950_to_j2000
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from collections import namedtuple, defaultdict
-from skyfield.api import Star
 
 objects_db: ObjectsDatabase
 observations_db: ObservationsDatabase
@@ -378,7 +377,7 @@ def load_collinder():
             first_other_names = c_tuple.other_names.strip()
             if (
                 first_other_names
-                and not first_other_names in duplicate_names
+                and first_other_names not in duplicate_names
                 and not first_other_names.startswith(("[note", "Tr.", "Harv.", "Mel."))
             ):
                 logging.debug(f"{first_other_names=}")
@@ -387,7 +386,7 @@ def load_collinder():
             if (
                 other_names
                 and not other_names == first_other_names
-                and not other_names in duplicate_names
+                and other_names not in duplicate_names
                 and not other_names.startswith(("[note"))
             ):
                 logging.debug(f"{other_names=}")
@@ -734,7 +733,7 @@ def load_taas200():
             extra.append(f"{f'Min apert: {min_ap}' if min_ap != '' else ''}")
             extra.append(f"{f'Nr *:{nr_stars}' if nr_stars != '' else ''}")
             extra.append(f"{f'GC:{gc}' if gc != '' else ''}")
-            extra.append(f"{f'in Herschel 400' if h400 == 'Y' else ''}")
+            extra.append(f"{'in Herschel 400' if h400 == 'Y' else ''}")
             extra = [x for x in extra if x]
             if len(extra) > 0:
                 extra_desc = "\n" + "; ".join(extra)

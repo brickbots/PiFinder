@@ -9,6 +9,7 @@ This module is the main entry point for PiFinder it:
 * then runs the UI loop
 
 """
+
 import os
 
 # skyfield performance fix, see: https://rhodesmill.org/skyfield/accuracy-efficiency.html
@@ -679,7 +680,6 @@ if __name__ == "__main__":
         from PiFinder import camera_debug as camera
     elif args.camera.lower() == "asi":
         logging.debug("using asi camera")
-        from PiFinder import camera_asi as camera_debug
     else:
         logging.debug("not using camera")
         from PiFinder import camera_none as camera

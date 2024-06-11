@@ -5,7 +5,6 @@ from PiFinder.displays import DisplayBase
 
 
 class MenuManager:
-
     def __init__(
         self,
         display_class: Type[DisplayBase],

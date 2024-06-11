@@ -3,7 +3,9 @@
 """
 This module handles non-volatile config options
 """
-import json, os
+
+import json
+import os
 from pathlib import Path
 from PiFinder import utils
 

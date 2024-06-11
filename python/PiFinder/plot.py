@@ -4,19 +4,17 @@
 This module handles plotting starfields
 and constelleations
 """
+
 import os
-import io
 import datetime
 import numpy as np
 import pandas
-import time
 from pathlib import Path
 from PiFinder import utils
-from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+from PIL import Image, ImageDraw, ImageChops
 
 from skyfield.api import Star, load, utc, Angle
-from skyfield.constants import GM_SUN_Pitjeva_2005_km3_s2 as GM_SUN
-from skyfield.data import hipparcos, mpc, stellarium
+from skyfield.data import hipparcos, stellarium
 from skyfield.projections import build_stereographic_projection
 from PiFinder.calc_utils import sf_utils
 

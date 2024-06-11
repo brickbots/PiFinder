@@ -8,10 +8,11 @@ format used by SkySafari
 but supported by other
 tools
 """
+
 import os
 from textwrap import dedent
 from PiFinder import utils
-from PiFinder.catalogs import Names, Catalogs
+from PiFinder.catalogs import Catalogs
 
 OBSLIST_DIR = f"{utils.data_dir}/obslists/"
 

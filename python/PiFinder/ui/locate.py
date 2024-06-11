@@ -4,13 +4,13 @@
 This module contains the Locate module
 
 """
+
 import time
 import logging
 
 from PiFinder import obslist, config
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
-from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder.ui.catalog import UICatalog
 from PiFinder.calc_utils import aim_degrees
 

@@ -271,9 +271,7 @@ class Catalog(CatalogBase):
         return [obj.sequence for obj in self.filtered_objects]
 
     def filter_objects(self) -> List[CompositeObject]:
-        self.filtered_objects = self.catalog_filter.apply(
-            self.get_objects()
-        )
+        self.filtered_objects = self.catalog_filter.apply(self.get_objects())
         self.filtered_objects_seq = self._filtered_objects_to_seq()
         self.last_filtered = time.time()
         return self.filtered_objects
@@ -328,7 +326,6 @@ class Catalogs:
     def get_objects(
         self, only_selected: bool = True, filtered: bool = True
     ) -> List[CompositeObject]:
-
         return_list = []
         for catalog in self.__catalogs:
             if (only_selected and catalog.is_selected) or not only_selected:

@@ -4,6 +4,7 @@
 This module contains all the UI Module classes
 
 """
+
 from enum import Enum
 import numpy as np
 from typing import List, Tuple, Optional
@@ -27,7 +28,6 @@ from PiFinder.catalogs import CompositeObject
 from PiFinder.ui.catalog import UICatalog
 from PIL import Image, ImageChops
 import functools
-import logging
 from pathlib import Path
 import os
 from itertools import cycle

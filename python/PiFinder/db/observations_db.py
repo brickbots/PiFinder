@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from typing import Tuple
-from sqlite3 import Connection, Cursor, Error
+from sqlite3 import Connection, Cursor
 from PiFinder.db.db import Database
 import PiFinder.utils as utils
 from PiFinder.composite_object import CompositeObject
@@ -131,7 +131,7 @@ class ObservationsDatabase(Database):
         Returns a list of all observed objects
         """
         logs = self.cursor.execute(
-            f"""
+            """
                 select distinct catalog, sequence from obs_objects
             """
         ).fetchall()
@@ -167,7 +167,7 @@ class ObservationsDatabase(Database):
         Returns a list of observations for a particular object
         """
         logs = self.cursor.execute(
-            f"""
+            """
                 select * from obs_objects
                 where catalog = :catalog
                 and sequence = :sequence

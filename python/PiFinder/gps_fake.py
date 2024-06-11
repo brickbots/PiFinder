@@ -4,6 +4,7 @@
 This module is for GPS related functions
 
 """
+
 import time
 
 

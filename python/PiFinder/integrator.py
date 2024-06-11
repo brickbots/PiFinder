@@ -6,6 +6,7 @@ This module is the solver
 * Plate solves high-res image
 
 """
+
 import queue
 import time
 import copy

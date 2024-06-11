@@ -102,7 +102,7 @@ class Network:
             wpa_cli("reconfigure")
 
     def get_ap_name(self):
-        with open(f"/etc/hostapd/hostapd.conf", "r") as conf:
+        with open("/etc/hostapd/hostapd.conf", "r") as conf:
             for l in conf:
                 if l.startswith("ssid="):
                     return l[5:-1]
@@ -111,8 +111,8 @@ class Network:
     def set_ap_name(self, ap_name):
         if ap_name == self.get_ap_name():
             return
-        with open(f"/tmp/hostapd.conf", "w") as new_conf:
-            with open(f"/etc/hostapd/hostapd.conf", "r") as conf:
+        with open("/tmp/hostapd.conf", "w") as new_conf:
+            with open("/etc/hostapd/hostapd.conf", "r") as conf:
                 for l in conf:
                     if l.startswith("ssid="):
                         l = f"ssid={ap_name}\n"

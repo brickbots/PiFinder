@@ -4,7 +4,7 @@
 This module is used at runtime
 to handle catalog image loading
 """
-import sqlite3
+
 import os
 from PIL import Image, ImageChops, ImageDraw
 from PiFinder import image_util

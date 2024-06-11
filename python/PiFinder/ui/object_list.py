@@ -4,11 +4,11 @@
 This module contains all the UI Module classes
 
 """
+
 from enum import Enum
 import numpy as np
 from typing import List, Tuple, Optional
 import functools
-import logging
 from pathlib import Path
 import os
 
@@ -29,7 +29,6 @@ from PiFinder.calc_utils import aim_degrees
 from PiFinder.catalog_utils import ClosestObjectsFinder
 from PiFinder import utils
 from PiFinder.catalogs import CompositeObject
-from PiFinder.ui.catalog import UICatalog
 
 
 class DisplayModes(Enum):

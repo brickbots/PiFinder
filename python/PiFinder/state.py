@@ -1,9 +1,10 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-    This module contains the shared state
-    object.
+This module contains the shared state
+object.
 """
+
 import time
 import datetime
 import pickle

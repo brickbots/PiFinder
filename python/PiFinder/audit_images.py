@@ -4,7 +4,8 @@
 This script runs to fetch
 images from AWS
 """
-import requests, os
+
+import requests
 import sqlite3
 from tqdm import tqdm
 
@@ -18,7 +19,7 @@ def get_catalog_objects():
     conn.row_factory = sqlite3.Row
     db_c = conn.cursor()
     cat_objects = conn.execute(
-        f"""
+        """
         SELECT * from objects
         order by catalog desc ,sequence
     """

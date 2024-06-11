@@ -1,12 +1,7 @@
-from PiFinder.ui.chart import UIChart
 from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_list import UIObjectList
-from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.status import UIStatus
 from PiFinder.ui.software import UISoftware
-from PiFinder.ui.catalog import UICatalog
-from PiFinder.ui.locate import UILocate
-from PiFinder.ui.log import UILog
 
 pifinder_menu = {
     "name": "PiFinder",

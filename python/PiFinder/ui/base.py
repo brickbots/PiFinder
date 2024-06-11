@@ -4,6 +4,7 @@
 This module contains the base UIModule class
 
 """
+
 import os
 import time
 import uuid

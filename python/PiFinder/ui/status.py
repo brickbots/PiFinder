@@ -4,9 +4,8 @@
 This module contains all the UI Module classes
 
 """
-import datetime
+
 import time
-import socket
 
 from PiFinder.ui.base import UIModule
 
@@ -273,7 +272,7 @@ class UIStatus(UIModule):
         location = self.shared_state.location()
         sats = self.shared_state.sats()
         self.status_dict["GPS"] = [
-            f"GPS {sats[0]}/{sats[1]}" if sats else f"GPS 0/0",
+            f"GPS {sats[0]}/{sats[1]}" if sats else "GPS 0/0",
             f"{location['lat']:.2f}/{location['lon']:.2f}",
         ]
 

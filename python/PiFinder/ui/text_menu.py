@@ -4,11 +4,8 @@
 This module contains all the UI Module classes
 
 """
-import time
 
 from PiFinder.ui.base import UIModule
-from PiFinder.menu import MenuScroller
-import logging
 
 
 class UITextMenu(UIModule):

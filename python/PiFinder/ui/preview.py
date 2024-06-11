@@ -4,6 +4,7 @@
 This module contains all the UI Module classes
 
 """
+
 import sys
 import numpy as np
 import time

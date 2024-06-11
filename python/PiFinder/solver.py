@@ -7,6 +7,7 @@ This module is the solver
 * If solved, emits solution into queue
 
 """
+
 import numpy as np
 import time
 import logging

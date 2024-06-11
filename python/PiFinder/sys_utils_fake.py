@@ -1,7 +1,4 @@
-import glob
-import sh
 import socket
-from PiFinder import utils
 
 BACKUP_PATH = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
 

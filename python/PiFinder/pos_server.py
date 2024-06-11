@@ -6,6 +6,7 @@ server to accept socket connections
 and report telescope position
 Protocol based on Meade LX200
 """
+
 import socket
 from math import modf
 import logging
@@ -15,7 +16,6 @@ from typing import Tuple
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils
 from PiFinder.catalogs import CompositeObject
 from skyfield.positionlib import position_of_radec
-from skyfield.api import load
 
 sr_result = None
 sequence = 0

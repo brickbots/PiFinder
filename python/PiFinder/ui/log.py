@@ -4,11 +4,9 @@
 This module contains all the UI Module classes
 
 """
-import datetime
-import time
-from PIL import ImageFont
 
-from PiFinder import solver
+import time
+
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CompositeObject
@@ -225,7 +223,7 @@ class UILog(UIModule):
         )
         self.draw.text(
             (5, 75),
-            f"from target",
+            "from target",
             font=self.fonts.bold.font,
             fill=self.colors.get(128),
         )

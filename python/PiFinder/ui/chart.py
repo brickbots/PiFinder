@@ -4,6 +4,7 @@
 This module contains all the UI Module classes
 
 """
+
 import time
 from PIL import ImageChops, Image
 

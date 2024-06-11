@@ -8,6 +8,7 @@ This module is the camera
 * Takes full res images on demand
 
 """
+
 import os
 import queue
 import time

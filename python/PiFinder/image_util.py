@@ -7,11 +7,10 @@ mainly related to the preview
 function
 
 """
+
 from PIL import Image, ImageChops
 import numpy as np
 import scipy.ndimage
-from enum import Enum
-import logging
 
 
 def make_red(in_image, colors):

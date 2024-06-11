@@ -1,5 +1,5 @@
 # Code that works on catalogs
-from PiFinder.catalogs import Catalogs, Catalog
+from PiFinder.catalogs import Catalogs
 from PiFinder.composite_object import CompositeObject
 from typing import List, Tuple
 import numpy as np

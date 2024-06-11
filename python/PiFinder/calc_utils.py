@@ -46,9 +46,7 @@ class FastAltAz:
             self.lat * math.pi / 180
         ) + math.cos(dec * math.pi / 180) * math.cos(
             self.lat * math.pi / 180
-        ) * math.cos(
-            hour_angle * math.pi / 180
-        )
+        ) * math.cos(hour_angle * math.pi / 180)
 
         alt = math.asin(_alt) * 180 / math.pi
         if alt_only:
@@ -293,7 +291,7 @@ class Skyfield_utils:
             alt_az = (alt.degrees, az.degrees)
             try:
                 mag = float(planetary_magnitude(astrometric))
-            except ValueError as ve:
+            except ValueError:
                 mag = float("nan")
             if math.isnan(mag):
                 mag = "?"

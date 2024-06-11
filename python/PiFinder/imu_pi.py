@@ -4,7 +4,7 @@
 This module is for IMU related functions
 
 """
-from pprint import pprint
+
 import time
 import board
 import adafruit_bno055
