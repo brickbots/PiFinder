@@ -27,6 +27,8 @@ class CompositeObject:
     names: list = field(default_factory=list)
     image_name: str = field(default="")
     logged: bool = field(default=False)
+    last_filtered_time: float = 0
+    last_filtered_result: bool = True
 
     @classmethod
     def from_dict(cls, d):

@@ -93,8 +93,10 @@ class UIObjectList(UIModule):
             TextLayouterScroll, draw=self.draw, color=self.colors.get(255)
         )
         self.space_calculator = SpaceCalculatorFixed(self.fonts.base.line_length - 2)
-        self.closest_objects = []
-        self.closest_objects_text = []
+
+        self.sorted_objects = self.catalogs.get_objects(
+            only_selected=True, filtered=True
+        )
         self.objects_balltree: Optional[Tuple[List[CompositeObject], BallTree]]
         self.closest_objects_finder = ClosestObjectsFinder()
         self.current_line = -1
@@ -124,7 +126,7 @@ class UIObjectList(UIModule):
         self.update()
 
     def filter(self):
-        self.catalogs.filter()
+        self.catalogs.filter_catalogs()
 
     def format_az_alt(self, point_az, point_alt):
         if point_az >= 0:
@@ -212,7 +214,7 @@ class UIObjectList(UIModule):
 
     def create_locate_text(self) -> List[Tuple[str, TextLayouterSimple]]:
         result = []
-        for obj in self.closest_objects:
+        for obj in self.sorted_objects:
             az, alt = aim_degrees(
                 self.shared_state, self.mount_type, self.screen_direction, obj
             )
@@ -236,7 +238,7 @@ class UIObjectList(UIModule):
 
     def create_name_text(self) -> List[Tuple[str, TextLayouterSimple]]:
         result = []
-        for obj in self.closest_objects:
+        for obj in self.sorted_objects:
             full_name = f"{','.join(obj.names)}" if obj.names else ""
             obj_name = f"{obj.catalog_code}{obj.sequence}"
             _, obj_dist = self.space_calculator.calculate_spaces(
@@ -254,7 +256,7 @@ class UIObjectList(UIModule):
 
     def create_info_text(self) -> List[Tuple[str, TextLayouterSimple]]:
         result = []
-        for obj in self.closest_objects:
+        for obj in self.sorted_objects:
             obj_mag, obj_color = self._obj_to_mag_color(obj)
             mag = f"m{obj_mag}" if obj_mag != 99 else ""
             size = f"{self.ruler}{obj.size.strip()}" if obj.size.strip() else ""
@@ -316,11 +318,11 @@ class UIObjectList(UIModule):
         utils.sleep_for_framerate(self.shared_state)
         self.update_closest()
         text_lines = []
-        if self.current_mode == Modes.LOCATE:
+        if self.current_mode == DisplayModes.LOCATE:
             text_lines = self.create_locate_text()
-        elif self.current_mode == Modes.NAME:
+        elif self.current_mode == DisplayModes.NAME:
             text_lines = self.create_name_text()
-        elif self.current_mode == Modes.INFO:
+        elif self.current_mode == DisplayModes.INFO:
             text_lines = self.create_info_text()
 
         self.clear_screen()
@@ -369,7 +371,7 @@ class UIObjectList(UIModule):
         """
         if self.current_line == -1:
             return
-        cat_object: CompositeObject = self.closest_objects[self.current_line]
+        cat_object: CompositeObject = self.sorted_objects[self.current_line]
         self.ui_state.set_target_and_add_to_history(cat_object)
         if cat_object:
             self.ui_state.set_active_list_to_history_list()

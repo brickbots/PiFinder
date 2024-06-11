@@ -43,7 +43,7 @@ from PiFinder import utils
 from PiFinder import server
 from PiFinder import keyboard_interface
 
-from PiFinder.catalogs import CatalogBuilder
+from PiFinder.catalogs import CatalogBuilder, CatalogFilter
 
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.menu_manager import MenuManager
@@ -318,6 +318,9 @@ def main(script_name=None, show_fps=False, verbose=False):
 
         # Initialze Catalogs
         catalogs: Catalogs = CatalogBuilder().build()
+
+        # Establish the common catalog filter object
+        catalogs.set_catalog_filter(CatalogFilter(shared_state=shared_state))
 
         # Initialize menu manager
         menu_manager = MenuManager(

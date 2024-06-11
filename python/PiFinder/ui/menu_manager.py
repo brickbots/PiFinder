@@ -49,6 +49,7 @@ class MenuManager:
                 add_to_stack=self.add_to_stack,
             )
         )
+        self.stack[-1].active()
 
     def update(self) -> None:
         self.stack[-1].update()
