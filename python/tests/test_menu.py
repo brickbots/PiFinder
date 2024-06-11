@@ -52,7 +52,7 @@ class TestStringMethods(unittest.TestCase):
         print(self.menu)
         self.menu.down()  # EGC
         print(self.menu)
-        self.assertEqual(self.menu.get_selected(), self.catalogs[3])
+        self.assertEqual(self.menu.get_selected(), self.catalogs[2])
         window = ["NGC", "IC", "M", "C", "Col", "H", "Ta2", "Str", "SaA", "SaM"]
         # self.assertEqual(self.menu.get_options_window(), window)
         # window = [ "NGC", "IC", "M", "C", "Col", "H", "Ta2", "Str", "SaA", "SaM"]
