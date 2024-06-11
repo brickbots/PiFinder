@@ -5,6 +5,7 @@ This module contains all the UI Module classes
 
 """
 
+from typing import Union
 from PiFinder.ui.base import UIModule
 
 
@@ -112,7 +113,7 @@ class UITextMenu(UIModule):
         if self._current_item_index >= len(self._menu_items):
             self._current_item_index = len(self._menu_items) - 1
 
-    def get_item(self, item_name: str) -> dict | None:
+    def get_item(self, item_name: str) -> Union[dict, None]:
         """
         Takes an item name and returns the actual item dict
         """
