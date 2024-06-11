@@ -51,7 +51,6 @@ class Network:
     def set_host_name(self, hostname):
         if hostname == self.get_host_name():
             return
-        result = "UNKN"
 
     def wifi_mode(self):
         return "UNKN"

@@ -226,7 +226,7 @@ class UIObjectList(UIModule):
             _, obj_dist = self.space_calculator.calculate_spaces(
                 obj_name, distance, empty_if_exceeds=False, trunc_left=True
             )
-            obj_mag, obj_color = self._obj_to_mag_color(obj)
+            _obj_mag, obj_color = self._obj_to_mag_color(obj)
             entry = self.simpleTextLayout(
                 obj_dist,
                 font=self.fonts.base,
@@ -244,7 +244,7 @@ class UIObjectList(UIModule):
                 obj_name, full_name, empty_if_exceeds=False, trunc_left=False
             )
 
-            obj_mag, obj_color = self._obj_to_mag_color(obj)
+            _obj_mag, obj_color = self._obj_to_mag_color(obj)
             entry = self.simpleTextLayout(
                 obj_dist,
                 font=self.fonts.base,

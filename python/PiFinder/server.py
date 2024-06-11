@@ -94,11 +94,11 @@ class Server:
             return static_file(filename, root="views/images", mimetype="image/png")
 
         @app.route("/js/<filename>")
-        def send_static(filename):
+        def send_js(filename):
             return static_file(filename, root="views/js")
 
         @app.route("/css/<filename>")
-        def send_static(filename):
+        def send_css(filename):
             return static_file(filename, root="views/css")
 
         @app.route("/")
@@ -219,7 +219,7 @@ class Server:
 
         @app.route("/network/add", method="post")
         @auth_required
-        def network_update():
+        def network_add():
             ssid = request.forms.get("ssid")
             psk = request.forms.get("psk")
             if len(psk) < 8:
@@ -282,7 +282,7 @@ class Server:
 
         @app.route("/system/restart_pifinder")
         @auth_required
-        def system_restart():
+        def pifinder_restart():
             """
             Restarts just the PiFinder software
             """
@@ -347,14 +347,14 @@ class Server:
         @app.route("/tools/backup")
         @auth_required
         def tools_backup():
-            backup_file = sys_utils.backup_userdata()
+            _backup_file = sys_utils.backup_userdata()
 
             # Assumes the standard backup location
             return static_file("PiFinder_backup.zip", "/home/pifinder/PiFinder_data")
 
         @app.route("/tools/restore", method="post")
         @auth_required
-        def tools_backup():
+        def tools_restore():
             sys_utils.remove_backup()
             backup_file = request.files.get("backup_file")
             backup_file.filename = "PiFinder_backup.zip"
