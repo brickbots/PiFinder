@@ -86,7 +86,7 @@ class UILog(UIModule):
         for k, v in self._config_options.items():
             notes[k] = v["value"]
 
-        if self._observing_session == None:
+        if self._observing_session is None:
             self._observing_session = obslog.Observation_session(
                 self.shared_state, self.__uuid__
             )

@@ -294,7 +294,7 @@ class UIStatus(UIModule):
                 with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
                     raw_temp = int(f.read().strip())
                 self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
-            except:
+            except FileNotFoundError:
                 self.status_dict["CPU TMP"] = "Error"
 
         if time.time() - self.last_IP_time > 20:

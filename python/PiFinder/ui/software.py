@@ -5,6 +5,13 @@ This module contains all the UI Module classes
 
 """
 
+import time
+
+try:
+    from PiFinder import sys_utils
+except ImportError:
+    from PiFinder import sys_utils_fake as sys_utils
+from PiFinder import utils
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed
 
@@ -164,34 +171,6 @@ class UISoftware(UIModule):
             self._config_options["Restart"]["value"] = ""
             return False
 
-    def update_status_dict(self):
-        """
-        Updates all the
-        status dict values
-        """
-        if self.shared_state.solve_state():
-            solution = self.shared_state.solution()
-            # last solve time
-            if solution["solve_source"] == "CAM":
-                stars_matched = solution["Matches"]
-            else:
-                stars_matched = "--"
-            self.status_dict["LST SLV"] = (
-                f"{time.time() - solution['cam_solve_time']:.1f}"
-                + " - "
-                + str(solution["solve_source"][0])
-                + f" {stars_matched: >2}"
-            )
-            hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
-            self.status_dict["RA/DEC"] = (
-                f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec'] :.2f}"
-            )
-
-            if solution["Az"]:
-                self.status_dict["AZ/ALT"] = (
-                    f"{solution['Az'] : >6.2f}/{solution['Alt'] : >6.2f}"
-                )
-
         imu = self.shared_state.imu()
         if imu:
             if imu["pos"] is not None:
@@ -219,17 +198,6 @@ class UISoftware(UIModule):
         if dt:
             self.status_dict["LCL TM"] = local_dt.time().isoformat()[:8]
             self.status_dict["UTC TM"] = dt.time().isoformat()[:8]
-
-        # only update some things periodically....
-        if time.time() - self.last_temp_time > 5:
-            # temp
-            self.last_temp_time = time.time()
-            try:
-                with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
-                    raw_temp = int(f.read().strip())
-                self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
-            except:
-                self.status_dict["CPU TMP"] = "Error"
 
         if time.time() - self.last_IP_time > 20:
             self.last_IP_time = time.time()

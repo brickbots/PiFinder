@@ -11,7 +11,6 @@ This module is the main entry point for PiFinder it:
 """
 
 import os
-
 # skyfield performance fix, see: https://rhodesmill.org/skyfield/accuracy-efficiency.html
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
@@ -30,11 +29,6 @@ from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 from timezonefinder import TimezoneFinder
 
-# Keep numpy from using multiple threads
-# https://rhodesmill.org/skyfield/accuracy-efficiency.html
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-
 
 from PiFinder import solver
 from PiFinder import integrator
@@ -44,7 +38,7 @@ from PiFinder import utils
 from PiFinder import server
 from PiFinder import keyboard_interface
 
-from PiFinder.catalogs import CatalogBuilder, CatalogFilter
+from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
 
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.menu_manager import MenuManager
@@ -472,7 +466,7 @@ def main(script_name=None, show_fps=False, verbose=False):
                                 ) as f:
                                     json.dump(debug_location, f, indent=4)
 
-                                if debug_dt != None:
+                                if debug_dt is not None:
                                     with open(
                                         f"{utils.debug_dump_dir}/{uid}_datetime.json",
                                         "w",
@@ -518,7 +512,7 @@ def main(script_name=None, show_fps=False, verbose=False):
                             elif keycode == keyboard_base.RIGHT:
                                 menu_manager.key_right()
 
-                update_msg = menu_manager.update()
+                menu_manager.update()
 
                 # check for coming out of power save...
                 if get_sleep_timeout(cfg) or get_screen_off_timeout(cfg):

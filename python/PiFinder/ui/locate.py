@@ -220,7 +220,7 @@ class UILocate(UIModule):
         )
 
         # Target history index
-        if self.target_index != None:
+        if self.target_index is not None:
             if self.ui_state.active_list_is_history_list():
                 list_name = "Hist"
             else:
@@ -340,7 +340,7 @@ class UILocate(UIModule):
         return self.screen_update()
 
     def scroll_target_history(self, direction):
-        if self.target_index != None:
+        if self.target_index is not None:
             self.target_index += direction
             active_list_len = len(self.ui_state.active_list())
             if self.target_index >= active_list_len:

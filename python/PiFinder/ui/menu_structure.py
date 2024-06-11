@@ -194,12 +194,10 @@ pifinder_menu = {
         {
             "name": "Chart",
             "class": "screen",
-            "class": "",
         },
         {
             "name": "Camera",
             "class": "screen",
-            "class": "",
         },
         {
             "name": "Settings",
