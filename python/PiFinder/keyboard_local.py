@@ -7,7 +7,7 @@ class KeyboardLocal(KeyboardInterface):
     def __init__(self, q):
         try:
             from PyHotKey import Key, keyboard_manager as manager
-        except:
+        except ModuleNotFoundError:
             print("pyhotkey not supported on pi hardware")
             return
         try:

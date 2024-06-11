@@ -11,6 +11,7 @@ This module is the main entry point for PiFinder it:
 """
 
 import os
+
 # skyfield performance fix, see: https://rhodesmill.org/skyfield/accuracy-efficiency.html
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"

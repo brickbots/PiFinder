@@ -59,7 +59,7 @@ class KeyboardInterface:
                     else:
                         try:
                             q.put(eval("KeyboardInterface." + script_tokens[0]))
-                        except:
+                        except NameError:
                             q.put(KeyboardInterface.NA)
                 sleep(0.1)
         logging.info("Script Complete")

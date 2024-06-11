@@ -42,15 +42,6 @@ class Imu:
 
 def imu_monitor(shared_state, console_queue):
     imu = Imu()
-    imu_calibrated = False
-    imu_data = {
-        "moving": False,
-        "move_start": None,
-        "move_end": None,
-        "pos": None,
-        "start_pos": None,
-        "status": 0,
-    }
     while True:
         imu.update()
         time.sleep(0.1)

@@ -41,7 +41,7 @@ def get_telescope_ra(shared_state, _):
     Dec_deg = solution["Dec"]
     _p = position_of_radec(ra_hours=RA_deg / 15.0, dec_degrees=Dec_deg, epoch=ts.J2000)
 
-    RA_h, Dec, _dist = _p.radec(epoch=ts.from_datetime(dt))
+    RA_h, _Dec, _dist = _p.radec(epoch=ts.from_datetime(dt))
 
     hh, mm, ss = RA_h.hms()
     ra_result = f"{hh:02.0f}:{mm:02.0f}:{ss:02.0f}"
@@ -65,7 +65,7 @@ def get_telescope_dec(shared_state, _):
     Dec_deg = solution["Dec"]
     _p = position_of_radec(ra_hours=RA_deg / 15.0, dec_degrees=Dec_deg, epoch=ts.J2000)
 
-    RA_h, Dec, _dist = _p.radec(epoch=ts.from_datetime(dt))
+    _RA_h, Dec, _dist = _p.radec(epoch=ts.from_datetime(dt))
 
     dec = Dec.degrees
     if dec < 0:
@@ -191,7 +191,7 @@ def run_server(shared_state, p_ui_queue):
             server_socket.listen(1)
             out_data = None
             while True:
-                client_socket, address = server_socket.accept()
+                client_socket, _address = server_socket.accept()
                 while True:
                     in_data = client_socket.recv(1024).decode()
                     if in_data:

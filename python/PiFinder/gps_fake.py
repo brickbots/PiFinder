@@ -9,7 +9,6 @@ import time
 
 
 def gps_monitor(gps_queue, console_queue):
-    gps_locked = False
     while True:
         """
         Just sleep for now
