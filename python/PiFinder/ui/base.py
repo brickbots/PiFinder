@@ -170,7 +170,7 @@ class UIModule:
                 self._gps_brightness if self._gps_brightness > 0 else 0
             )
             self.draw.text(
-                (self.display_class.resX * 20, -2),
+                (self.display_class.resX * 0.8, -2),
                 self._GPS_ICON,
                 font=self.fonts.icon_bold_large.font,
                 fill=_gps_color,

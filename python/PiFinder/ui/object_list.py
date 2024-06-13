@@ -5,10 +5,9 @@ This module contains all the UI Module classes
 
 """
 
+import copy
 from enum import Enum
-import numpy as np
 from typing import List, Tuple, Optional
-import functools
 from pathlib import Path
 import os
 
@@ -17,12 +16,9 @@ from itertools import cycle
 from sklearn.neighbors import BallTree
 
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
-from PiFinder.ui.base import UIModule
+from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.ui_utils import (
-    TextLayouterScroll,
-    TextLayouter,
     TextLayouterSimple,
-    SpaceCalculatorFixed,
 )
 
 from PiFinder.calc_utils import aim_degrees
@@ -50,7 +46,7 @@ class SortOrder(Enum):
     CATALOG_SEQUENCE = 1  # By catalog/sequence
 
 
-class UIObjectList(UIModule):
+class UIObjectList(UITextMenu):
     """
     Displayes a list of objects
     """
@@ -63,11 +59,17 @@ class UIObjectList(UIModule):
     star = ""
     ruler = ""
 
-    # These are the RA/DEC of the last 'nearest' calc
+    # These are the RA/DEC of the last 'nearest' sort
     _last_update_ra = 0
     _last_update_dec = 0
 
     def __init__(self, *args, **kwargs):
+        # hack at our item definition here to allow re-use of UITextMenu
+        item_definition = copy.copy(kwargs["item_definition"])
+        item_definition["select"] = "single"
+        item_definition["items"] = []
+        kwargs["item_definition"] = item_definition
+
         super().__init__(*args, **kwargs)
         self.max_objects = int(
             (self.display_class.resY - self.display_class.titlebar_height)
@@ -75,36 +77,14 @@ class UIObjectList(UIModule):
         )
         self.screen_direction = self.config_object.get_option("screen_direction")
         self.mount_type = self.config_object.get_option("mount_type")
-        self.simpleTextLayout = functools.partial(
-            TextLayouterSimple,
-            draw=self.draw,
-            color=self.colors.get(255),
-            embedded_color=True,
-        )
-        self.descTextLayout = TextLayouter(
-            "",
-            draw=self.draw,
-            color=self.colors.get(255),
-            colors=self.colors,
-            font=self.fonts.base,
-        )
-        self.ScrollTextLayout = functools.partial(
-            TextLayouterScroll, draw=self.draw, color=self.colors.get(255)
-        )
-        self.space_calculator = SpaceCalculatorFixed(self.fonts.base.line_length - 2)
 
-        self.sorted_objects = self.catalogs.get_objects(
-            only_selected=True, filtered=True
-        )
+        self.filter()
+        self._menu_items = self.catalogs.get_objects(only_selected=True, filtered=True)
         self.objects_balltree: Optional[Tuple[List[CompositeObject], BallTree]]
         self.closest_objects_finder = ClosestObjectsFinder()
-        self.current_line = -1
+
         self.mode_cycle = cycle(DisplayModes)
         self.current_mode = next(self.mode_cycle)
-        self.fullred = self.rgb_to_embedded_color((255, 0, 0))
-        self.halfred = self.rgb_to_embedded_color((125, 0, 0))
-        self.current_nr_objects = 0
-        self.filter()
 
         marker_path = Path(utils.pifinder_dir, "markers")
         self.markers = {}
@@ -121,9 +101,6 @@ class UIObjectList(UIModule):
                     _image, Image.new("RGB", render_size, self.colors.get(255))
                 )
 
-    def update_object_info(self):
-        self.update()
-
     def filter(self):
         self.catalogs.filter_catalogs()
 
@@ -135,9 +112,9 @@ class UIObjectList(UIModule):
             az_arrow_symbol = self._RIGHT_ARROW
 
         if point_az < 1:
-            az_string = f"{az_arrow_symbol}{point_az:04.2f}"
-        else:
             az_string = f"{az_arrow_symbol}{point_az:04.1f}"
+        else:
+            az_string = f"{az_arrow_symbol}{point_az:04.0f}"
 
         if point_alt >= 0:
             alt_arrow_symbol = self._DOWN_ARROW
@@ -146,9 +123,9 @@ class UIObjectList(UIModule):
             alt_arrow_symbol = self._UP_ARROW
 
         if point_alt < 1:
-            alt_string = f"{alt_arrow_symbol}{point_alt:04.2f}"
-        else:
             alt_string = f"{alt_arrow_symbol}{point_alt:04.1f}"
+        else:
+            alt_string = f"{alt_arrow_symbol}{point_alt:04.0f}"
 
         return az_string, alt_string
 
@@ -163,26 +140,7 @@ class UIObjectList(UIModule):
         else:
             return int(255 + ((125 - 255) / (16 - 9)) * (mag - 9))
 
-    def rgb_to_embedded_color(self, rgb_tuple):
-        """
-        Convert an RGB color tuple to embedded color values with ANSI escape codes.
-
-        Args:
-            rgb_tuple (tuple): A tuple containing RGB values in the range [0, 255].
-
-        Returns:
-            str: A string with embedded color ANSI escape codes.
-        """
-        # Ensure that RGB values are within the valid range [0, 255]
-        r, g, b = [max(0, min(255, value)) for value in rgb_tuple]
-
-        # Convert RGB to ANSI escape codes for foreground color
-        escape_code = f"\x1b[38;2;{r};{g};{b}m"
-
-        # Return the escape code
-        return escape_code
-
-    def update_closest(self):
+    def sortby_closest(self):
         """
         get the current pointing solution and search the 10 closest objects
         to that location if the new location is sufficiently different
@@ -211,109 +169,136 @@ class UIObjectList(UIModule):
                 self.current_nr_objects = len(closest_objects)
                 self.sorted_objects = closest_objects
 
-    def create_locate_text(self) -> List[Tuple[str, TextLayouterSimple]]:
-        result = []
-        for obj in self.sorted_objects:
-            az, alt = aim_degrees(
-                self.shared_state, self.mount_type, self.screen_direction, obj
-            )
-            if az:
-                az_txt, alt_txt = self.format_az_alt(az, alt)
-                distance = f"{az_txt} {alt_txt}"
-            else:
-                distance = "--.- --.-"
-            obj_name = f"{obj.catalog_code}{obj.sequence}"
-            _, obj_dist = self.space_calculator.calculate_spaces(
-                obj_name, distance, empty_if_exceeds=False, trunc_left=True
-            )
-            _obj_mag, obj_color = self._obj_to_mag_color(obj)
-            entry = self.simpleTextLayout(
-                obj_dist,
-                font=self.fonts.base,
-                color=obj_color,
-            )
-            result.append((obj.obj_type, entry))
-        return result
-
-    def create_name_text(self) -> List[Tuple[str, TextLayouterSimple]]:
-        result = []
-        for obj in self.sorted_objects:
-            full_name = f"{','.join(obj.names)}" if obj.names else ""
-            obj_name = f"{obj.catalog_code}{obj.sequence}"
-            _, obj_dist = self.space_calculator.calculate_spaces(
-                obj_name, full_name, empty_if_exceeds=False, trunc_left=False
-            )
-
-            _obj_mag, obj_color = self._obj_to_mag_color(obj)
-            entry = self.simpleTextLayout(
-                obj_dist,
-                font=self.fonts.base,
-                color=obj_color,
-            )
-            result.append((obj.obj_type, entry))
-        return result
-
-    def create_info_text(self) -> List[Tuple[str, TextLayouterSimple]]:
-        result = []
-        for obj in self.sorted_objects:
-            obj_mag, obj_color = self._obj_to_mag_color(obj)
-            mag = f"m{obj_mag}" if obj_mag != 99 else ""
-            size = f"{self.ruler}{obj.size.strip()}" if obj.size.strip() else ""
-            check = f" {self.checkmark}" if obj.logged else ""
-            full_name = f"{mag} {size}{check}"
-            if len(full_name) > 12:
-                full_name = f"{mag}{check}"
-            obj_name = f"{obj.catalog_code}{obj.sequence}"
-            _, obj_dist = self.space_calculator.calculate_spaces(
-                obj_name, full_name, empty_if_exceeds=False, trunc_left=False
-            )
-
-            entry = self.simpleTextLayout(
-                obj_dist,
-                font=self.fonts.base,
-                color=obj_color,
-            )
-            result.append((obj.obj_type, entry))
-        return result
-
-    def _obj_to_mag_color(self, obj: CompositeObject):
+    def create_name_text(self, obj: CompositeObject) -> str:
         """
-        Extract the magnitude safely from the object and convert it to a color
+        Returns the catalog code + sequence
+        padded out to be 7 chars
+        NGC0000
+        """
+        name = f"{obj.catalog_code}{obj.sequence}"
+        return f"{name: <7}"
+
+    def create_locate_text(self, obj: CompositeObject) -> str:
+        az, alt = aim_degrees(
+            self.shared_state, self.mount_type, self.screen_direction, obj
+        )
+        if az:
+            az_txt, alt_txt = self.format_az_alt(az, alt)
+            distance = f"{az_txt} {alt_txt}"
+        else:
+            distance = "--- ---"
+
+        return distance
+
+    def create_aka_text(self, obj: CompositeObject) -> Tuple[str, TextLayouterSimple]:
+        full_name = f"{','.join(obj.names)}" if obj.names else ""
+        return full_name
+
+    def create_info_text(self, obj: CompositeObject) -> TextLayouterSimple:
+        obj_mag = self._safe_obj_mag(obj)
+        mag = f"m{obj_mag}" if obj_mag != 99 else ""
+        size = f"{self.ruler}{obj.size.strip()}" if obj.size.strip() else ""
+        check = f" {self.checkmark}" if obj.logged else ""
+        size_logged = f"{mag} {size}{check}"
+        if len(size_logged) > 12:
+            size_logged = f"{mag}{check}"
+        return size_logged
+
+    def _safe_obj_mag(self, obj: CompositeObject) -> float:
+        """
+        Extract the magnitude safely from the object
         """
         try:
             obj_mag = float(obj.mag)
         except (ValueError, TypeError):
             obj_mag = 99
-        return obj_mag, self.colors.get(self._interpolate_color(obj_mag))
 
-    def invert_red_channel(self, image, top_left, bottom_right):
-        # Convert PIL image to NumPy array
-        img_array = np.array(image)
+        return obj_mag
 
-        # Invert the red channel in the specified region
-        img_array[top_left[1] : bottom_right[1], top_left[0] : bottom_right[0], 0] = (
-            255
-            - img_array[top_left[1] : bottom_right[1], top_left[0] : bottom_right[0], 0]
-        )
-
-        # Convert the NumPy array back to PIL image
-        image.paste(
-            Image.fromarray(
-                img_array[
-                    top_left[1] : bottom_right[1], top_left[0] : bottom_right[0], :
-                ]
-            ),
-            top_left,
-        )
+    def _obj_to_mag_color(self, obj: CompositeObject) -> int:
+        """
+        Extract the magnitude safely from the object and convert it to a color
+        """
+        return self._interpolate_color(self._safe_obj_mag(obj))
 
     def active(self):
         # trigger refilter
         super().active()
         self.filter()
         self.objects_balltree = None
-        self.update_object_info()
 
-    def update(self, force=True):
+    def update(self, force=False):
+        # clear screen
+        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+
+        # Draw current selection hint
+        # self.draw.line([0,80,128,80], width=1, fill=self.colors.get(32))
+        self.draw.rectangle([0, 60, 128, 80], fill=self.colors.get(32))
+        line_number = 0
+        for i in range(self._current_item_index - 3, self._current_item_index + 4):
+            if i >= 0 and i < len(self._menu_items):
+                # figure out line position / color / font
+
+                _menu_item = self._menu_items[i]
+                obj_mag_color = self._obj_to_mag_color(_menu_item)
+
+                line_font = self.fonts.base
+                if line_number == 0:
+                    line_color = int(0.38 * obj_mag_color)
+                    line_pos = 0
+                if line_number == 1:
+                    line_color = int(0.5 * obj_mag_color)
+                    line_pos = 13
+                if line_number == 2:
+                    line_color = int(0.75 * obj_mag_color)
+                    line_font = self.fonts.bold
+                    line_pos = 25
+                if line_number == 3:
+                    line_color = obj_mag_color
+                    line_font = self.fonts.bold
+                    line_pos = 42
+                if line_number == 4:
+                    line_color = int(0.75 * obj_mag_color)
+                    line_font = self.fonts.bold
+                    line_pos = 60
+                if line_number == 5:
+                    line_color = int(0.5 * obj_mag_color)
+                    line_color = 192
+                    line_pos = 76
+                if line_number == 6:
+                    line_color = int(0.38 * obj_mag_color)
+                    line_pos = 89
+
+                # Offset for title
+                line_pos += 20
+
+                item_name = self.create_name_text(_menu_item)
+                if self.current_mode == DisplayModes.LOCATE:
+                    item_text = self.create_locate_text(_menu_item)
+                elif self.current_mode == DisplayModes.NAME:
+                    item_text = self.create_name_text(_menu_item)
+                elif self.current_mode == DisplayModes.INFO:
+                    item_text = self.create_info_text(_menu_item)
+
+                item_line = f"{item_name} {item_text}"
+
+                # Type Marker
+                marker = OBJ_TYPE_MARKERS.get(_menu_item.obj_type)
+                if marker:
+                    self.screen.paste(self.markers[marker], (0, line_pos + 2))
+
+                self.draw.text(
+                    (15, line_pos),
+                    item_line,
+                    font=line_font.font,
+                    fill=self.colors.get(line_color),
+                )
+
+            line_number += 1
+
+        return self.screen_update()
+
+    def _update(self, force=True):
         utils.sleep_for_framerate(self.shared_state)
         self.update_closest()
         text_lines = []
@@ -349,18 +334,10 @@ class UIObjectList(UIModule):
             self.invert_red_channel(self.screen, topleft, bottomright)
         return self.screen_update()
 
-    def key_d(self):
-        self.current_line = -1
-
-    def key_long_c(self):
-        self.key_long_d()
-
-    def key_long_d(self):
-        # long d called from main
-        self.catalog_tracker.set_current_object(None)
-        self.update_object_info()
-
-    def key_b(self):
+    def key_star(self):
+        """
+        Switch display modes
+        """
         self.current_mode = next(self.mode_cycle)
 
     def key_enter(self):
@@ -375,21 +352,3 @@ class UIObjectList(UIModule):
         if cat_object:
             self.ui_state.set_active_list_to_history_list()
             self.switch_to = "UILocate"
-
-    def key_up(self):
-        if self.current_line == -1:
-            self.current_line = self.current_nr_objects - 1
-        else:
-            self.current_line = max(-1, self.current_line - 1)
-
-    def key_down(self):
-        if self.current_line + 1 == self.current_nr_objects:
-            self.current_line = -1
-        else:
-            self.current_line = (self.current_line + 1) % self.current_nr_objects
-
-    def push_cat(self, obj_amount):
-        self.ui_catalog.push_cat(obj_amount)
-
-    def push_near(self, obj_amount):
-        self.ui_catalog.push_near(obj_amount)

@@ -46,60 +46,57 @@ class UITextMenu(UIModule):
         self.draw.rectangle([0, 60, 128, 80], fill=self.colors.get(32))
         line_number = 0
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
-            # figure out line position / color / font
-            line_font = self.fonts.base
-            if line_number == 0:
-                line_color = 96
-                line_pos = 0
-            if line_number == 1:
-                line_color = 128
-                line_pos = 13
-            if line_number == 2:
-                line_color = 192
-                line_font = self.fonts.bold
-                line_pos = 25
-            if line_number == 3:
-                line_color = 256
-                line_font = self.fonts.large
-                line_pos = 40
-            if line_number == 4:
-                line_color = 192
-                line_font = self.fonts.bold
-                line_pos = 60
-            if line_number == 5:
-                line_color = 128
-                line_pos = 76
-            if line_number == 6:
-                line_color = 96
-                line_pos = 89
+            if i >= 0 and i < len(self._menu_items):
+                # figure out line position / color / font
+                line_font = self.fonts.base
+                if line_number == 0:
+                    line_color = 96
+                    line_pos = 0
+                if line_number == 1:
+                    line_color = 128
+                    line_pos = 13
+                if line_number == 2:
+                    line_color = 192
+                    line_font = self.fonts.bold
+                    line_pos = 25
+                if line_number == 3:
+                    line_color = 256
+                    line_font = self.fonts.large
+                    line_pos = 40
+                if line_number == 4:
+                    line_color = 192
+                    line_font = self.fonts.bold
+                    line_pos = 60
+                if line_number == 5:
+                    line_color = 128
+                    line_pos = 76
+                if line_number == 6:
+                    line_color = 96
+                    line_pos = 89
 
-            # Offset for title
-            line_pos += 20
+                # Offset for title
+                line_pos += 20
 
-            # figure out line text
-            if i < 0:
-                item_text = ""
-            elif i >= len(self._menu_items):
-                item_text = ""
-            else:
+                # figure out line text
                 item_text = str(self._menu_items[i])
 
-            self.draw.text(
-                (15, line_pos),
-                item_text,
-                font=line_font.font,
-                fill=self.colors.get(line_color),
-            )
-            if (
-                self.get_item(item_text) is not None
-                and self.get_item(item_text).get("value", "--") in self._selected_values
-            ):
                 self.draw.text(
-                    (5, line_pos),
-                    self._CHECKMARK,
+                    (15, line_pos),
+                    item_text,
                     font=line_font.font,
                     fill=self.colors.get(line_color),
                 )
+                if (
+                    self.get_item(item_text) is not None
+                    and self.get_item(item_text).get("value", "--")
+                    in self._selected_values
+                ):
+                    self.draw.text(
+                        (5, line_pos),
+                        self._CHECKMARK,
+                        font=line_font.font,
+                        fill=self.colors.get(line_color),
+                    )
 
             line_number += 1
 
