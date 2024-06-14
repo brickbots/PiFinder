@@ -4,7 +4,7 @@ from collections import namedtuple
 import numpy as np
 from PIL import Image
 
-import luma.core.device.device
+import luma.core.device
 from luma.core.interface.serial import spi
 from luma.oled.device import ssd1351
 from luma.lcd.device import st7789

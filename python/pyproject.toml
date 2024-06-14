@@ -131,3 +131,14 @@ module = [
 ]
 ignore_missing_imports = true
 ignore_errors = true
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = [
+    "tests",
+]
+markers = [
+    "smoke",
+    "unit",
+    "integration",
+]

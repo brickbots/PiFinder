@@ -7,7 +7,10 @@ This module contains all the UI Module classes
 
 import time
 
-from PiFinder import sys_utils
+try:
+    from PiFinder import sys_utils
+except ImportError:
+    from PiFinder import sys_utils_fake as sys_utils  # type: ignore[no-redef]
 from PiFinder import utils
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed
@@ -73,7 +76,6 @@ class UISoftware(UIModule):
 
         self.last_temp_time = 0
         self.last_IP_time = 0
-        self.net = sys_utils.Network()
         self.text_layout = TextLayouter(
             "",
             draw=self.draw,

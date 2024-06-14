@@ -1,7 +1,0 @@
-# dev requirements
-luma.emulator==1.4.0
-PyHotKey
-ruff==0.4.8
-nox==2024.4.15
-pytest==8.2.2
-pre-commit

@@ -1,5 +1,7 @@
 import nox
 
+nox.options.sessions = ["lint", "format", "type_hints", "smoke_tests"]
+
 
 @nox.session(reuse_venv=True, python="3.9")
 def lint(session: nox.Session) -> None:
@@ -59,6 +61,7 @@ def unit_tests(session: nox.Session) -> None:
         session (nox.Session): The Nox session being run, providing context and methods for session actions.
     """
     session.install("-r", "requirements.txt")
+    session.install("-r", "requirements_dev.txt")
     session.run("pytest", "-m", "unit", *session.posargs)
 
 
@@ -74,4 +77,5 @@ def smoke_tests(session: nox.Session) -> None:
         session (nox.Session): The Nox session being run, providing context and methods for session actions.
     """
     session.install("-r", "requirements.txt")
+    session.install("-r", "requirements_dev.txt")
     session.run("pytest", "-m", "smoke", *session.posargs)
