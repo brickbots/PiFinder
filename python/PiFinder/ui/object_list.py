@@ -7,13 +7,12 @@ This module contains all the UI Module classes
 
 import copy
 from enum import Enum
-from typing import List, Tuple, Optional, Union
+from typing import Union
 from pathlib import Path
 import os
 
 from PIL import Image, ImageChops
 from itertools import cycle
-from sklearn.neighbors import BallTree
 
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder.ui.text_menu import UITextMenu
@@ -68,16 +67,11 @@ class UIObjectList(UITextMenu):
         kwargs["item_definition"] = item_definition
 
         super().__init__(*args, **kwargs)
-        self.max_objects = int(
-            (self.display_class.resY - self.display_class.titlebar_height)
-            / self.fonts.base.height
-        )
         self.screen_direction = self.config_object.get_option("screen_direction")
         self.mount_type = self.config_object.get_option("mount_type")
 
         self.filter()
         self._menu_items = self.catalogs.get_objects(only_selected=True, filtered=True)
-        self.objects_balltree: Optional[Tuple[List[CompositeObject], BallTree]]
         self.closest_objects_finder = ClosestObjectsFinder()
 
         self.mode_cycle = cycle(DisplayModes)
@@ -103,6 +97,44 @@ class UIObjectList(UITextMenu):
 
     def filter(self):
         self.catalogs.filter_catalogs()
+
+    def sort(self) -> None:
+        self.filter()
+        if self.current_sort == SortOrder.CATALOG_SEQUENCE:
+            self._menu_items = self.catalogs.get_objects(
+                only_selected=True, filtered=True
+            )
+            self._current_item_index = 0
+
+        if self.current_sort == SortOrder.NEAREST:
+            if not self.shared_state.solution():
+                self.message("No Solution Yet", 2)
+            else:
+                ra, dec = (
+                    self.shared_state.solution()["RA"],
+                    self.shared_state.solution()["Dec"],
+                )
+
+                # If we have moved enough, update our anchor sort position
+                if (
+                    abs(ra - self._last_update_ra) + abs(dec - self._last_update_dec)
+                    > 2
+                ):
+                    self._last_update_ra = ra
+                    self._last_update_dec = dec
+
+                    self.closest_objects_finder.calculate_objects_balltree(
+                        self._last_update_ra,
+                        self._last_update_ra,
+                        objects=self.catalogs.get_objects(
+                            only_selected=True, filtered=True
+                        ),
+                    )
+                self._menu_items = self.closest_objects_finder.get_closest_objects(
+                    ra,
+                    dec,
+                )
+                self._current_item_index = 0
 
     def format_az_alt(self, point_az, point_alt):
         if point_az >= 0:
@@ -142,35 +174,6 @@ class UIObjectList(UITextMenu):
             return 125
         else:
             return int(255 + ((125 - 255) / (16 - 9)) * (mag - 9))
-
-    def sortby_closest(self):
-        """
-        get the current pointing solution and search the 10 closest objects
-        to that location if the new location is sufficiently different
-        than the previous one.
-        """
-        if self.shared_state.solution():
-            ra, dec = (
-                self.shared_state.solution()["RA"],
-                self.shared_state.solution()["Dec"],
-            )
-            if abs(ra - self._last_update_ra) + abs(dec - self._last_update_dec) > 2:
-                self._last_update_ra = ra
-                self._last_update_dec = dec
-                if not self.objects_balltree:
-                    self.objects_balltree = (
-                        self.closest_objects_finder.calculate_objects_balltree(
-                            ra, dec, catalogs=self.catalogs
-                        )
-                    )
-                closest_objects = self.closest_objects_finder.get_closest_objects(
-                    ra,
-                    dec,
-                    self.max_objects + 1,
-                    self.objects_balltree,
-                )
-                self.current_nr_objects = len(closest_objects)
-                self.sorted_objects = closest_objects
 
     def create_name_text(self, obj: CompositeObject) -> str:
         """
@@ -340,7 +343,8 @@ class UIObjectList(UITextMenu):
         """
         Switch sort modes
         """
-        self.current_mode = next(self.mode_cycle)
+        self.current_sort = next(self.sort_cycle)
+        self.sort()
 
     def key_right(self):
         """
