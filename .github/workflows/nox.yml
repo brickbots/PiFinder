@@ -3,8 +3,12 @@ on: [push, pull_request]
 jobs:
   nox:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./python
     steps:
       - uses: actions/checkout@v4
       - uses: wntrblm/nox@2024.04.15
         with:
           python-versions: "3.9"
+      - run: nox -s lint format type_hints smoke_test unit_test
