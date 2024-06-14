@@ -33,7 +33,6 @@ class CameraDebug(CameraInterface):
         self.gain = 10
         self.image = Image.open(self.path / "debug.png")
         self.image2 = Image.open(self.path / "debug2.png")
-
         self.image_bool = True
         self.initialize()
 

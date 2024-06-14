@@ -9,4 +9,7 @@ repos:
         args:
           - -f
           - python/noxfile.py
+          - -s
+          - type_hints
+          - smoke_tests
           - --
