@@ -1,0 +1,10 @@
+name: nox
+on: [push, pull_request]
+jobs:
+  nox:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: wntrblm/nox@2024.04.15
+        with:
+          python-versions: "3.9"
