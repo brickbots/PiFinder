@@ -15,7 +15,7 @@ def lint(session: nox.Session) -> None:
         session (nox.Session): The Nox session being run, providing context and methods for session actions.
     """
     session.install("ruff==0.4.8")
-    session.run("ruff", "check", "--fix", *session.posargs)
+    session.run("ruff", "check", "--fix")
 
 
 @nox.session(reuse_venv=True, python="3.9")
@@ -30,7 +30,7 @@ def format(session: nox.Session) -> None:
         session (nox.Session): The Nox session being run, providing context and methods for session actions.
     """
     session.install("ruff==0.4.8")
-    session.run("ruff", "format", *session.posargs)
+    session.run("ruff", "format")
 
 
 @nox.session(reuse_venv=True, python="3.9")
@@ -62,7 +62,7 @@ def unit_tests(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
-    session.run("pytest", "-m", "unit", *session.posargs)
+    session.run("pytest", "-m", "unit")
 
 
 @nox.session(reuse_venv=True)
@@ -78,4 +78,4 @@ def smoke_tests(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
-    session.run("pytest", "-m", "smoke", *session.posargs)
+    session.run("pytest", "-m", "smoke")
