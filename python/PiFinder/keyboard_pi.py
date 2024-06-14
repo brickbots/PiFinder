@@ -22,7 +22,7 @@ class KeyboardPi(KeyboardInterface):
             7 , 8 , 9 , self.NA,
             4 , 5 , 6 , self.PLUS,
             1 , 2 , 3 , self.MINUS,
-            self.NA, 0 , self.NA, self.STAR,
+            self.NA, 0 , self.NA, self.SQUARE,
             self.LEFT , self.UP , self.DOWN , self.RIGHT,
         ]
         self.alt_keymap = [
@@ -36,7 +36,7 @@ class KeyboardPi(KeyboardInterface):
             self.NA, self.NA, self.NA, self.NA,
             self.NA, self.NA, self.NA, self.NA,
             self.NA, self.NA, self.NA, self.NA,
-            self.NA, self.NA, self.NA, self.LNG_STAR,
+            self.NA, self.NA, self.NA, self.LNG_SQUARE,
             self.LNG_LEFT, self.LNG_UP, self.LNG_DOWN, self.LNG_RIGHT,
         ]
         # fmt: on

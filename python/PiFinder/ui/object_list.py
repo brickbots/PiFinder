@@ -7,7 +7,7 @@ This module contains all the UI Module classes
 
 import copy
 from enum import Enum
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
 from pathlib import Path
 import os
 
@@ -17,9 +17,6 @@ from sklearn.neighbors import BallTree
 
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder.ui.text_menu import UITextMenu
-from PiFinder.ui.ui_utils import (
-    TextLayouterSimple,
-)
 
 from PiFinder.calc_utils import aim_degrees
 from PiFinder.catalog_utils import ClosestObjectsFinder
@@ -42,8 +39,8 @@ class SortOrder(Enum):
     Enum for the different sort orders
     """
 
-    NEAREST = 0  # By Distance to target
-    CATALOG_SEQUENCE = 1  # By catalog/sequence
+    CATALOG_SEQUENCE = 0  # By catalog/sequence
+    NEAREST = 1  # By Distance to target
 
 
 class UIObjectList(UITextMenu):
@@ -63,7 +60,7 @@ class UIObjectList(UITextMenu):
     _last_update_ra = 0
     _last_update_dec = 0
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         # hack at our item definition here to allow re-use of UITextMenu
         item_definition = copy.copy(kwargs["item_definition"])
         item_definition["select"] = "single"
@@ -85,6 +82,9 @@ class UIObjectList(UITextMenu):
 
         self.mode_cycle = cycle(DisplayModes)
         self.current_mode = next(self.mode_cycle)
+
+        self.sort_cycle = cycle(SortOrder)
+        self.current_sort = next(self.sort_cycle)
 
         marker_path = Path(utils.pifinder_dir, "markers")
         self.markers = {}
@@ -111,10 +111,13 @@ class UIObjectList(UITextMenu):
             point_az *= -1
             az_arrow_symbol = self._RIGHT_ARROW
 
-        if point_az < 1:
-            az_string = f"{az_arrow_symbol}{point_az:04.1f}"
+        if point_az > 100:
+            point_az = 99
+
+        if point_az < 10:
+            az_string = f"{az_arrow_symbol}{point_az:03.1f}"
         else:
-            az_string = f"{az_arrow_symbol}{point_az:04.0f}"
+            az_string = f"{az_arrow_symbol}{point_az:03.0f}"
 
         if point_alt >= 0:
             alt_arrow_symbol = self._DOWN_ARROW
@@ -122,10 +125,10 @@ class UIObjectList(UITextMenu):
             point_alt *= -1
             alt_arrow_symbol = self._UP_ARROW
 
-        if point_alt < 1:
-            alt_string = f"{alt_arrow_symbol}{point_alt:04.1f}"
+        if point_alt < 10:
+            alt_string = f"{alt_arrow_symbol}{point_alt:03.1f}"
         else:
-            alt_string = f"{alt_arrow_symbol}{point_alt:04.0f}"
+            alt_string = f"{alt_arrow_symbol}{point_alt:03.0f}"
 
         return az_string, alt_string
 
@@ -190,13 +193,13 @@ class UIObjectList(UITextMenu):
 
         return distance
 
-    def create_aka_text(self, obj: CompositeObject) -> Tuple[str, TextLayouterSimple]:
+    def create_aka_text(self, obj: CompositeObject) -> str:
         full_name = f"{','.join(obj.names)}" if obj.names else ""
         return full_name
 
-    def create_info_text(self, obj: CompositeObject) -> TextLayouterSimple:
+    def create_info_text(self, obj: CompositeObject) -> str:
         obj_mag = self._safe_obj_mag(obj)
-        mag = f"m{obj_mag}" if obj_mag != 99 else ""
+        mag = f"m{obj_mag:2.0f}" if obj_mag != 99 else "m--"
         size = f"{self.ruler}{obj.size.strip()}" if obj.size.strip() else ""
         check = f" {self.checkmark}" if obj.logged else ""
         size_logged = f"{mag} {size}{check}"
@@ -251,7 +254,6 @@ class UIObjectList(UITextMenu):
                     line_pos = 13
                 if line_number == 2:
                     line_color = int(0.75 * obj_mag_color)
-                    line_font = self.fonts.bold
                     line_pos = 25
                 if line_number == 3:
                     line_color = obj_mag_color
@@ -259,7 +261,6 @@ class UIObjectList(UITextMenu):
                     line_pos = 42
                 if line_number == 4:
                     line_color = int(0.75 * obj_mag_color)
-                    line_font = self.fonts.bold
                     line_pos = 60
                 if line_number == 5:
                     line_color = int(0.5 * obj_mag_color)
@@ -280,15 +281,21 @@ class UIObjectList(UITextMenu):
                 elif self.current_mode == DisplayModes.INFO:
                     item_text = self.create_info_text(_menu_item)
 
-                item_line = f"{item_name} {item_text}"
+                if line_number == 3:
+                    item_line = f"{item_name}{item_text}"
+                else:
+                    item_line = f"{item_name} {item_text}"
 
                 # Type Marker
-                marker = OBJ_TYPE_MARKERS.get(_menu_item.obj_type)
-                if marker:
-                    self.screen.paste(self.markers[marker], (0, line_pos + 2))
+                line_bg = 0
+                if line_number == 3:
+                    line_bg = 32
+                marker = self.get_marker(_menu_item.obj_type, line_color, line_bg)
+                if marker is not None:
+                    self.screen.paste(marker, (0, line_pos + 2))
 
                 self.draw.text(
-                    (15, line_pos),
+                    (12, line_pos),
                     item_line,
                     font=line_font.font,
                     fill=self.colors.get(line_color),
@@ -298,57 +305,46 @@ class UIObjectList(UITextMenu):
 
         return self.screen_update()
 
-    def _update(self, force=True):
-        utils.sleep_for_framerate(self.shared_state)
-        self.update_closest()
-        text_lines = []
-        if self.current_mode == DisplayModes.LOCATE:
-            text_lines = self.create_locate_text()
-        elif self.current_mode == DisplayModes.NAME:
-            text_lines = self.create_name_text()
-        elif self.current_mode == DisplayModes.INFO:
-            text_lines = self.create_info_text()
+    def get_marker(
+        self, obj_type: str, color: int, bgcolor: int
+    ) -> Union[Image.Image, None]:
+        """
+        Returns the right marker for this object
+        multiplied by the color
 
-        self.clear_screen()
-        line = self.display_class.titlebar_height
-        # Draw the closest objects
-        for obj_type, txt in text_lines:
-            marker = OBJ_TYPE_MARKERS.get(obj_type)
-            if marker:
-                self.screen.paste(self.markers[marker], (0, line + 1))
-            txt.draw((12, line - 1))
-            line += self.fonts.base.height
-        # Show inverted selection on object
-        if self.current_line > -1:
-            topleft = (
-                0,
-                self.display_class.titlebar_height
-                + self.fonts.base.height * self.current_line,
-            )
-            bottomright = (
-                self.display_class.resX,
-                self.display_class.titlebar_height
-                + self.fonts.base.height * (self.current_line + 1)
-                + 1,
-            )
-            self.invert_red_channel(self.screen, topleft, bottomright)
-        return self.screen_update()
+        returns None if no marker is found for this obj type
+        """
+        marker = OBJ_TYPE_MARKERS.get(obj_type)
+        if marker is None:
+            return None
 
-    def key_star(self):
+        marker_img = self.markers[marker]
+
+        # dim
+        _img = Image.new("RGB", marker_img.size, self.colors.get(color))
+        marker_img = ImageChops.multiply(marker_img, _img)
+
+        # raise by bg
+        _img = Image.new("RGB", marker_img.size, self.colors.get(bgcolor))
+        marker_img = ImageChops.add(marker_img, _img)
+
+        return marker_img
+
+    def key_square(self):
         """
         Switch display modes
         """
         self.current_mode = next(self.mode_cycle)
 
-    def key_enter(self):
+    def key_plus(self):
         """
-        When enter is pressed, set the
-        target
+        Switch sort modes
         """
-        if self.current_line == -1:
-            return
-        cat_object: CompositeObject = self.sorted_objects[self.current_line]
-        self.ui_state.set_target_and_add_to_history(cat_object)
-        if cat_object:
-            self.ui_state.set_active_list_to_history_list()
-            self.switch_to = "UILocate"
+        self.current_mode = next(self.mode_cycle)
+
+    def key_right(self):
+        """
+        When right is pressed, move to
+        object info screen
+        """
+        pass

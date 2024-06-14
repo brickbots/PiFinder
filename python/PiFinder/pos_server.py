@@ -12,14 +12,14 @@ from math import modf
 import logging
 import re
 from multiprocessing import Queue
-from typing import Tuple
+from typing import Tuple, Union
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils
 from PiFinder.catalogs import CompositeObject
 from skyfield.positionlib import position_of_radec
 
 sr_result = None
 sequence = 0
-ui_queue: Queue = None
+ui_queue: Queue
 
 # shortcut for skyfield timescale
 ts = sf_utils.ts
@@ -100,7 +100,7 @@ def not_implemented(shared_state, input_str):
     return respond_none(shared_state, input_str)
 
 
-def _match_to_hms(pattern: str, input_str: str) -> Tuple[int, int, int]:
+def _match_to_hms(pattern: str, input_str: str) -> Union[Tuple[int, int, int], None]:
     match = re.match(pattern, input_str)
     if match:
         hours = int(match.group(1))

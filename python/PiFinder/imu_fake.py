@@ -14,9 +14,6 @@ MOVE_CHECK_LEN = 10
 
 
 class Imu:
-    moving = False
-    flip = False
-
     def __init__(self):
         pass
 

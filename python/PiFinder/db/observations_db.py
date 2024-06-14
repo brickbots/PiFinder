@@ -17,7 +17,7 @@ class ObservationsDatabase(Database):
         if new_db:
             self.create_tables()
 
-        self.observed_objects_cache = None
+        self.load_observed_objects_cache()
 
     def create_tables(self, force_delete: bool = False):
         """
@@ -138,11 +138,11 @@ class ObservationsDatabase(Database):
 
         return logs
 
-    def load_observed_objects_cache(self):
+    def load_observed_objects_cache(self) -> None:
         """
         (re)Loads the logged object cache
         """
-        self.observed_objects_cache = [
+        self.observed_objects_cache: list[tuple[str, int]] = [
             (x["catalog"], x["sequence"]) for x in self.get_observed_objects()
         ]
 

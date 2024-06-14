@@ -23,7 +23,6 @@ import uuid
 import logging
 import argparse
 import pickle
-from typing import Type
 from pathlib import Path
 from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
@@ -54,7 +53,7 @@ from PiFinder.displays import DisplayBase, get_display
 
 hardware_platform = "Pi"
 display_hardware = "SSD1351"
-display_device: Type[DisplayBase] = DisplayBase()
+display_device: DisplayBase = DisplayBase()
 keypad_pwm = None
 
 
@@ -161,7 +160,7 @@ def wake_screen(screen_brightness, shared_state, cfg) -> int:
     return orig_power_state
 
 
-def main(script_name=None, show_fps=False, verbose=False):
+def main(script_name=None, show_fps=False, verbose=False) -> None:
     """
     Get this show on the road!
     """
@@ -178,12 +177,12 @@ def main(script_name=None, show_fps=False, verbose=False):
     logging.info(f"PiFinder running on {os_detail}, {platform}, {arch}")
 
     # init queues
-    console_queue = Queue()
-    keyboard_queue = Queue()
-    gps_queue = Queue()
-    camera_command_queue = Queue()
-    solver_queue = Queue()
-    ui_queue = Queue()
+    console_queue: Queue = Queue()
+    keyboard_queue: Queue = Queue()
+    gps_queue: Queue = Queue()
+    camera_command_queue: Queue = Queue()
+    solver_queue: Queue = Queue()
+    ui_queue: Queue = Queue()
 
     # init UI Modes
     command_queues = {
@@ -202,8 +201,8 @@ def main(script_name=None, show_fps=False, verbose=False):
     patch.apply()
 
     with StateManager() as manager:
-        shared_state = manager.SharedState()
-        ui_state = manager.UIState()
+        shared_state = manager.SharedState()  # type: ignore[attr-defined]
+        ui_state = manager.UIState()  # type: ignore[attr-defined]
         ui_state.set_show_fps(show_fps)
         ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
         ui_state.set_active_list_to_history_list()
@@ -266,7 +265,7 @@ def main(script_name=None, show_fps=False, verbose=False):
 
         console.write("   Camera")
         console.update()
-        camera_image = manager.NewImage("RGB", (512, 512))
+        camera_image = manager.NewImage("RGB", (512, 512))  # type: ignore[attr-defined]
         image_process = Process(
             target=camera.get_images,
             args=(shared_state, camera_image, camera_command_queue, console_queue),
@@ -486,7 +485,7 @@ def main(script_name=None, show_fps=False, verbose=False):
                                     pickle.dump(ui_state, f)
 
                                 console.write(f"Debug dump: {uid}")
-                                menu_manager.message("Debug Info Saved")
+                                menu_manager.message("Debug Info Saved", timeout=1)
 
                         else:
                             if keycode < 10:
@@ -498,8 +497,8 @@ def main(script_name=None, show_fps=False, verbose=False):
                             elif keycode == keyboard_base.MINUS:
                                 menu_manager.key_minus()
 
-                            elif keycode == keyboard_base.STAR:
-                                menu_manager.key_star()
+                            elif keycode == keyboard_base.SQUARE:
+                                menu_manager.key_square()
 
                             elif keycode == keyboard_base.LEFT:
                                 menu_manager.key_left()
@@ -661,8 +660,8 @@ if __name__ == "__main__":
         hardware_platform = "Pi"
         display_hardware = "ssd1351"
         from rpi_hardware_pwm import HardwarePWM
-        from PiFinder import imu_pi as imu
-        from PiFinder import gps_pi as gps_monitor
+        from PiFinder import imu_pi as imu  # type: ignore[no-redef]
+        from PiFinder import gps_pi as gps_monitor  # type: ignore[no-redef]
 
     if args.display is not None:
         display_hardware = args.display.lower()
@@ -672,17 +671,17 @@ if __name__ == "__main__":
         from PiFinder import camera_pi as camera
     elif args.camera.lower() == "debug":
         logging.debug("using debug camera")
-        from PiFinder import camera_debug as camera
+        from PiFinder import camera_debug as camera  # type: ignore[no-redef]
     elif args.camera.lower() == "asi":
         logging.debug("using asi camera")
     else:
         logging.debug("not using camera")
-        from PiFinder import camera_none as camera
+        from PiFinder import camera_none as camera  # type: ignore[no-redef]
 
     if args.keyboard.lower() == "pi":
         from PiFinder import keyboard_pi as keyboard
     elif args.keyboard.lower() == "local":
-        from PiFinder import keyboard_local as keyboard
+        from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
 
     if args.log:
         datenow = datetime.datetime.now()

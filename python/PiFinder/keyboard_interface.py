@@ -6,7 +6,7 @@ class KeyboardInterface:
     NA = 10
     PLUS = 11
     MINUS = 12
-    STAR = 13
+    SQUARE = 13
     LEFT = 20
     UP = 21
     DOWN = 22
@@ -22,7 +22,7 @@ class KeyboardInterface:
     LNG_UP = 201
     LNG_DOWN = 202
     LNG_RIGHT = 203
-    LNG_STAR = 204
+    LNG_SQUARE = 204
 
     def __init__(self, q=None):
         self.q = q

@@ -1201,7 +1201,7 @@ if __name__ == "__main__":
         logger.setLevel(logging.DEBUG)
 
     if args.log:
-        datenow = datetime.now()
+        datenow = datetime.datetime.now()
         filehandler = f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"
         fh = logging.FileHandler(filehandler)
         fh.setLevel(logger.level)

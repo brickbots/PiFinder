@@ -68,7 +68,7 @@ class TextLayouterSimple:
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.updated:
-            self.object_text: List[str] = [self.text]
+            self.object_text = [self.text]
             self.updated = False
 
     def after_draw(self, pos):
@@ -134,9 +134,9 @@ class TextLayouterScroll(TextLayouterSimple):
                 self.counter = (self.counter + 100) % self.counter_max
             # regular scrolling
             else:
-                self.counter = (self.counter + self.scrollspeed) % self.counter_max
+                self.counter = int((self.counter + self.scrollspeed) % self.counter_max)
         elif self.updated:
-            self.object_text: List[str] = [self.text]
+            self.object_text = [self.text]
             self.updated = False
 
 

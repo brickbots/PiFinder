@@ -7,10 +7,7 @@ This module contains all the UI Module classes
 
 import time
 
-try:
-    from PiFinder import sys_utils
-except ImportError:
-    from PiFinder import sys_utils_fake as sys_utils
+from PiFinder import sys_utils
 from PiFinder import utils
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed

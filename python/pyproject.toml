@@ -82,6 +82,7 @@ docstring-code-format = false
 docstring-code-line-length = "dynamic"
 
 [tool.mypy]
+exclude = "venv|tetra3"
 # Start off with these
 warn_unused_configs = true
 warn_redundant_casts = true
@@ -120,7 +121,13 @@ module = [
     'skyfield.*',
     'sh.*',
     'sklearn.*',
-    'bottle.*',
     'PyHotKey.*',
+    'PiFinder.tetra3.*',
+    'grpc',
+    'ceder_detect_pb2',
+    'RPi.*',
+    'picamera2',
+    'bottle',
 ]
 ignore_missing_imports = true
+ignore_errors = true

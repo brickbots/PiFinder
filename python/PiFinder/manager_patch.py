@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 # Backport of https://github.com/python/cpython/pull/4819
 # Improvements to the Manager / proxied shared values code
 # broke handling of proxied objects without a custom proxy type,

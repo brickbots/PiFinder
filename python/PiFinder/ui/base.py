@@ -18,9 +18,8 @@ from PiFinder.config import Config
 
 class UIModule:
     __title__ = "BASE"
-    __button_hints__ = {}
     __uuid__ = str(uuid.uuid1()).split("-")[0]
-    _config_options = None
+    _config_options: dict
     _CAM_ICON = ""
     _IMU_ICON = ""
     _GPS_ICON = "󰤉"
@@ -258,7 +257,7 @@ class UIModule:
     def key_minus(self):
         pass
 
-    def key_star(self):
+    def key_square(self):
         pass
 
     def key_long_up(self):

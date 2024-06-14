@@ -7,7 +7,7 @@ from PiFinder.displays import DisplayBase
 class MenuManager:
     def __init__(
         self,
-        display_class: Type[DisplayBase],
+        display_class: DisplayBase,
         camera_image,
         shared_state,
         command_queues,
@@ -48,10 +48,16 @@ class MenuManager:
                 add_to_stack=self.add_to_stack,
             )
         )
-        self.stack[-1].active()
+        self.stack[-1].active()  # type: ignore[call-arg]
+
+    def message(self, message: str, timeout: float) -> None:
+        self.stack[-1].message(message, timeout)  # type: ignore[arg-type]
+
+    def screengrab(self) -> None:
+        self.stack[-1].screengrab()  # type: ignore[call-arg]
 
     def update(self) -> None:
-        self.stack[-1].update()
+        self.stack[-1].update()  # type: ignore[call-arg]
 
     def key_number(self, number):
         self.stack[-1].key_number(number)
@@ -62,8 +68,8 @@ class MenuManager:
     def key_minus(self):
         self.stack[-1].key_minus()
 
-    def key_star(self):
-        self.stack[-1].key_star()
+    def key_square(self):
+        self.stack[-1].key_square()
 
     def key_long_up(self):
         pass

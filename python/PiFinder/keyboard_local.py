@@ -16,9 +16,9 @@ class KeyboardLocal(KeyboardInterface):
             manager.set_wetkey_on_release(Key.up, self.callback, self.UP)
             manager.set_wetkey_on_release(Key.down, self.callback, self.DOWN)
             manager.set_wetkey_on_release(Key.right, self.callback, self.RIGHT)
-            manager.set_wetkey_on_release("+", self.callback, self.PLUS)
-            manager.set_wetkey_on_release("-", self.callback, self.MINUS)
-            manager.set_wetkey_on_release("*", self.callback, self.STAR)
+            manager.set_wetkey_on_release("q", self.callback, self.PLUS)
+            manager.set_wetkey_on_release("a", self.callback, self.MINUS)
+            manager.set_wetkey_on_release("z", self.callback, self.SQUARE)
             manager.set_wetkey_on_release("0", self.callback, 0)
             manager.set_wetkey_on_release("1", self.callback, 1)
             manager.set_wetkey_on_release("2", self.callback, 2)
@@ -29,9 +29,9 @@ class KeyboardLocal(KeyboardInterface):
             manager.set_wetkey_on_release("7", self.callback, 7)
             manager.set_wetkey_on_release("8", self.callback, 8)
             manager.set_wetkey_on_release("9", self.callback, 9)
-            manager.register_hotkey([Key.ctrl, "+"], None, self.callback, self.ALT_PLUS)
+            manager.register_hotkey([Key.ctrl, "q"], None, self.callback, self.ALT_PLUS)
             manager.register_hotkey(
-                [Key.ctrl, "-"], None, self.callback, self.ALT_MINUS
+                [Key.ctrl, "a"], None, self.callback, self.ALT_MINUS
             )
             manager.register_hotkey(
                 [Key.ctrl, Key.left], None, self.callback, self.ALT_LEFT
@@ -59,7 +59,7 @@ class KeyboardLocal(KeyboardInterface):
                 [Key.shift, Key.right], None, self.callback, self.LNG_RIGHT
             )
             manager.register_hotkey(
-                [Key.shift, "*"], None, self.callback, self.LNG_STAR
+                [Key.shift, "z"], None, self.callback, self.LNG_SQUARE
             )
         except Exception as e:
             logging.error("KeyboardLocal.__init__: {}".format(e))
@@ -67,6 +67,7 @@ class KeyboardLocal(KeyboardInterface):
         logging.debug("KeyboardLocal.__init__")
 
     def callback(self, key):
+        print(key)
         self.q.put(key)
 
 

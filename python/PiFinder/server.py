@@ -23,7 +23,7 @@ from PiFinder.keyboard_interface import KeyboardInterface
 try:
     from PiFinder import sys_utils
 except ImportError:
-    from PiFinder import sys_utils_fake as sys_utils
+    from PiFinder import sys_utils_fake as sys_utils  # type: ignore[no-redef]
 from PiFinder import utils, calc_utils
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
@@ -65,7 +65,7 @@ class Server:
         button_dict = {
             "UP": self.ki.PLUS,
             "DN": self.ki.MINUS,
-            "ENT": self.ki.STAR,
+            "ENT": self.ki.SQUARE,
             "A": self.ki.LEFT,
             "B": self.ki.UP,
             "C": self.ki.DOWN,
@@ -81,7 +81,7 @@ class Server:
             "LNG_UP": self.ki.LNG_UP,
             "LNG_DOWN": self.ki.LNG_DOWN,
             "LNG_RIGHT": self.ki.LNG_RIGHT,
-            "LNG_STAR": self.ki.LNG_STAR,
+            "LNG_SQUARE": self.ki.LNG_SQUARE,
         }
 
         self.network = sys_utils.Network()

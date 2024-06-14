@@ -79,8 +79,8 @@ def read_list(catalogs: Catalogs, name):
     and returns a catalog list
     """
 
-    list_catalog = []
-    catalog_numbers = []
+    list_catalog: list = []
+    catalog_numbers: list = []
     objects_parsed = 0
     in_object = False
     with open(OBSLIST_DIR + name + ".skylist", "r") as skylist:
