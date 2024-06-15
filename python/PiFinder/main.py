@@ -52,6 +52,7 @@ from PiFinder.ui.catalog import UICatalog
 from PiFinder.ui.locate import UILocate
 from PiFinder.ui.config import UIConfig
 from PiFinder.ui.log import UILog
+from PiFinder.ui.textentry import UITextEntry
 
 from PiFinder.state import SharedStateObj, UIState
 
@@ -364,6 +365,13 @@ def main(script_name=None, show_fps=False, verbose=False):
         )
         ui_modes = [
             UIConfig(
+                display_device,
+                camera_image,
+                shared_state,
+                command_queues,
+                cfg,
+            ),
+            UITextEntry(
                 display_device,
                 camera_image,
                 shared_state,

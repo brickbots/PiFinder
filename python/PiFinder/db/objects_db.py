@@ -164,6 +164,12 @@ class ObjectsDatabase(Database):
             name_dict[object_id] = list(set(name_dict[object_id]))
         return name_dict
 
+    def search_common_names(self, search_term):
+        self.cursor.execute(
+            "SELECT * FROM names WHERE common_name LIKE ?;", (f"%{search_term}%",)
+        )
+        return self.cursor.fetchall()
+
     def get_name_to_object_id(self) -> Dict[str, int]:
         """
         Returns a dictionary of common_name: object_id
