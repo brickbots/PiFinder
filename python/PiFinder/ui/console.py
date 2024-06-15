@@ -1,9 +1,11 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
+# mypy: ignore-errors
 """
 This module contains all the UI Module classes
 
 """
+
 import os
 import datetime
 

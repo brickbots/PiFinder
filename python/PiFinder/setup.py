@@ -21,7 +21,6 @@ from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils, b1950_to_j2000
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from collections import namedtuple, defaultdict
-from skyfield.api import Star
 
 objects_db: ObjectsDatabase
 observations_db: ObservationsDatabase
@@ -148,7 +147,7 @@ def insert_catalog_max_sequence(catalog_name):
 def resolve_object_images():
     # This is the list of catalogs to search for
     # objects to match against image names
-    conn, db_c = objects_db.get_conn_cursor()
+    _conn, db_c = objects_db.get_conn_cursor()
     resolution_priority = db_c.execute(
         """
             SELECT catalog_code
@@ -210,11 +209,10 @@ def _load_deepmap_600():
     ]
     obj_list = []
     with open(data_path, "r") as deepmap:
-        field_index = 0
-        for l in deepmap:
+        for line in deepmap:
             obj_rec = {}
-            l = l.strip()
-            ll = l.split("\t")
+            line = line.strip()
+            ll = line.split("\t")
             for i, v in enumerate(ll):
                 obj_rec[field_list[i]] = v
             obj_list.append(obj_rec)
@@ -229,7 +227,7 @@ def load_egc():
     """
     logging.info("Loading EGC")
     catalog = "EGC"
-    conn, db_c = objects_db.get_conn_cursor()
+    conn, _db_c = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
 
     insert_catalog(catalog, Path(utils.astro_data_dir, "EGC.desc"))
@@ -238,8 +236,8 @@ def load_egc():
     with open(egc, "r") as df:
         # skip title line
         df.readline()
-        for l in tqdm(list(df)):
-            dfs = l.split("\t")
+        for line in tqdm(list(df)):
+            dfs = line.split("\t")
             sequence = dfs[0]
             other_names = dfs[1].split(",")
 
@@ -266,7 +264,7 @@ def load_egc():
                     object_id = object_finder.get_object_id(name)
 
             # Assuming all the parsing logic is done and all variables are available...
-            if object_id == None:
+            if object_id is None:
                 obj_type = "Gb"
                 object_id = objects_db.insert_object(
                     obj_type, ra_deg, dec_deg, const, size, mag
@@ -284,7 +282,7 @@ def load_egc():
 def load_collinder():
     logging.info("Loading Collinder")
     catalog = "Col"
-    conn, db_c = objects_db.get_conn_cursor()
+    conn, _db_c = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, Path(utils.astro_data_dir, "collinder.desc"))
     object_finder = ObjectFinder()
@@ -305,8 +303,8 @@ def load_collinder():
     c_dict = {}
     with open(coll, "r") as df:
         df.readline()
-        for l in tqdm(list(df)):
-            dfs = l.split("\t")
+        for line in tqdm(list(df)):
+            dfs = line.split("\t")
             sequence = dfs[0].split(" ")[0]
             other_names = dfs[1]
             if other_names.isnumeric():
@@ -355,8 +353,8 @@ def load_collinder():
     with open(coll2, "r") as df:
         duplicate_names = set()
         df.readline()
-        for l in tqdm(list(df)):
-            dfs = l.split("\t")
+        for line in tqdm(list(df)):
+            dfs = line.split("\t")
             sequence = dfs[0].split(" ")[1]
             obj_type = type_trans.get(dfs[4], "OC")
             mag = dfs[6].strip().split(" ")[0]
@@ -378,7 +376,7 @@ def load_collinder():
             first_other_names = c_tuple.other_names.strip()
             if (
                 first_other_names
-                and not first_other_names in duplicate_names
+                and first_other_names not in duplicate_names
                 and not first_other_names.startswith(("[note", "Tr.", "Harv.", "Mel."))
             ):
                 logging.debug(f"{first_other_names=}")
@@ -387,7 +385,7 @@ def load_collinder():
             if (
                 other_names
                 and not other_names == first_other_names
-                and not other_names in duplicate_names
+                and other_names not in duplicate_names
                 and not other_names.startswith(("[note"))
             ):
                 logging.debug(f"{other_names=}")
@@ -410,8 +408,8 @@ def load_bright_stars():
         # skip header
         df.readline()
         obj_type = "* "
-        for l in tqdm(list(df)):
-            dfs = l.split(",")
+        for line in tqdm(list(df)):
+            dfs = line.split(",")
             dfs = [d.strip() for d in dfs]
             other_names = dfs[1:3]
             sequence = int(dfs[0]) + 1
@@ -461,8 +459,8 @@ def load_herschel400():
     with open(hcat, "r") as df:
         # skip column headers
         df.readline()
-        for l in tqdm(list(df)):
-            dfs = l.split("\t")
+        for line in tqdm(list(df)):
+            dfs = line.split("\t")
             dfs = [d.strip() for d in dfs]
             NGC_sequence = dfs[0]
             h_name = dfs[7]
@@ -492,8 +490,8 @@ def load_sac_asterisms():
     with open(saca, "r") as df:
         df.readline()
         obj_type = "Ast"
-        for l in tqdm(list(df)):
-            dfs = l.split("|")
+        for line in tqdm(list(df)):
+            dfs = line.split("|")
             dfs = [d.strip() for d in dfs]
             other_names = dfs[1].strip()
             if other_names == "":
@@ -551,8 +549,8 @@ def load_sac_multistars():
     with open(saca, "r") as df:
         df.readline()
         obj_type = "D*"
-        for l in tqdm(list(df)):
-            dfs = l.split("|")
+        for line in tqdm(list(df)):
+            dfs = line.split("|")
             dfs = [d.strip() for d in dfs]
             name = [dfs[2].strip()]
             other_names = dfs[6].strip().split(";")
@@ -619,8 +617,8 @@ def load_sac_redstars():
     with open(sac, "r") as df:
         df.readline()
         obj_type = "D*"
-        for l in tqdm(list(df)):
-            dfs = l.split("|")
+        for line in tqdm(list(df)):
+            dfs = line.split("|")
             dfs = [d.strip() for d in dfs]
             name = [dfs[1].strip()]
             other_names = dfs[2].strip().split(";")
@@ -734,7 +732,7 @@ def load_taas200():
             extra.append(f"{f'Min apert: {min_ap}' if min_ap != '' else ''}")
             extra.append(f"{f'Nr *:{nr_stars}' if nr_stars != '' else ''}")
             extra.append(f"{f'GC:{gc}' if gc != '' else ''}")
-            extra.append(f"{f'in Herschel 400' if h400 == 'Y' else ''}")
+            extra.append(f"{'in Herschel 400' if h400 == 'Y' else ''}")
             extra = [x for x in extra if x]
             if len(extra) > 0:
                 extra_desc = "\n" + "; ".join(extra)
@@ -774,8 +772,8 @@ def load_caldwell():
     object_finder = ObjectFinder()
     data = Path(utils.astro_data_dir, "caldwell.dat")
     with open(data, "r") as df:
-        for l in tqdm(list(df)):
-            dfs = l.split("\t")
+        for line in tqdm(list(df)):
+            dfs = line.split("\t")
             sequence = dfs[0].strip()
             logging.debug(f"<----------------- Caldwell {sequence=} ----------------->")
             other_names = add_space_after_prefix(dfs[1])
@@ -1080,7 +1078,7 @@ def load_abell():
 
 def load_ngc_catalog():
     logging.info("Loading NGC catalog")
-    conn, db_c = objects_db.get_conn_cursor()
+    conn, _db_c = objects_db.get_conn_cursor()
     object_id_desc_dict = {}
 
     ngc_dat_files = [
@@ -1097,25 +1095,25 @@ def load_ngc_catalog():
 
     for ngc_dat in ngc_dat_files:
         with open(ngc_dat, "r") as ngc:
-            for l in tqdm(list(ngc)):
-                sequence = int(l[1:5])
+            for line in tqdm(list(ngc)):
+                sequence = int(line[1:5])
                 # add = True
-                catalog = l[0:1]
+                catalog = line[0:1]
                 if catalog == " " or catalog == "N":
                     catalog = "NGC"
                 if catalog == "I":
                     catalog = "IC"
-                obj_type = l[6:9].strip()
-                rah = int(l[10:12])
-                ram = float(l[13:17])
-                des = l[19:20]
-                ded = int(l[20:22])
-                dem = int(l[23:25])
-                const = l[29:32]
-                l_size = l[32:33]
-                size = l_size + l[33:38]
-                mag = l[40:44]
-                desc = l[46:].strip()
+                obj_type = line[6:9].strip()
+                rah = int(line[10:12])
+                ram = float(line[13:17])
+                des = line[19:20]
+                ded = int(line[20:22])
+                dem = int(line[23:25])
+                const = line[29:32]
+                line_size = line[32:33]
+                size = line_size + line[33:38]
+                mag = line[40:44]
+                desc = line[46:].strip()
 
                 dec = ded + (dem / 60)
                 if des == "-":
@@ -1137,13 +1135,13 @@ def load_ngc_catalog():
     seen = set()
     for name_dat in tqdm(name_dat_files):
         with open(name_dat, "r") as names:
-            for l in names:
+            for line in names:
                 m_sequence = ""
-                common_name = l[0:35]
+                common_name = line[0:35]
                 if common_name.startswith("M "):
                     m_sequence = common_name[2:].strip()
                     common_name = "M" + m_sequence
-                catalog = l[36:37]
+                catalog = line[36:37]
                 if catalog == " ":
                     catalog = "N"
                 if catalog == "N":
@@ -1151,8 +1149,7 @@ def load_ngc_catalog():
                 if catalog == "I":
                     catalog = "IC"
 
-                ngc_ic_sequence = l[37:41].strip()
-                comment = l[42:]
+                ngc_ic_sequence = line[37:41].strip()
 
                 if ngc_ic_sequence != "":
                     obj = objects_db.get_catalog_object_by_sequence(
@@ -1204,7 +1201,7 @@ if __name__ == "__main__":
         logger.setLevel(logging.DEBUG)
 
     if args.log:
-        datenow = datetime.now()
+        datenow = datetime.datetime.now()
         filehandler = f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"
         fh = logging.FileHandler(filehandler)
         fh.setLevel(logger.level)

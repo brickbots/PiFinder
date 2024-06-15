@@ -1,15 +1,15 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
+# mypy: ignore-errors
 """
 This module contains all the UI Module classes
 
 """
+
 import time
 
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.menu import UIMenu
-from PiFinder.menu import MenuScroller
-import logging
 
 
 class UIConfig(UIModule):

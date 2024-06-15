@@ -8,6 +8,7 @@ This module is the camera
 * Takes full res images on demand
 
 """
+
 import os
 import queue
 import time
@@ -24,7 +25,7 @@ class CameraInterface:
         pass
 
     def capture(self) -> Image.Image:
-        return None
+        return Image.Image()
 
     def capture_file(self, filename) -> None:
         pass
@@ -32,10 +33,10 @@ class CameraInterface:
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
-        pass
+        return (0, 0)
 
     def get_cam_type(self) -> str:
-        pass
+        return "foo"
 
     def get_image_loop(
         self, shared_state, camera_image, command_queue, console_queue, cfg
@@ -44,6 +45,7 @@ class CameraInterface:
             debug = False
 
             screen_direction = cfg.get_option("screen_direction")
+            camera_rotation = cfg.get_option("camera_rotation")
 
             # Set path for test images
             root_dir = os.path.realpath(
@@ -73,10 +75,13 @@ class CameraInterface:
                 if not debug:
                     base_image = self.capture()
                     base_image = base_image.convert("L")
-                    if screen_direction == "right":
-                        base_image = base_image.rotate(90)
+                    if camera_rotation is None:
+                        if screen_direction == "right":
+                            base_image = base_image.rotate(90)
+                        else:
+                            base_image = base_image.rotate(270)
                     else:
-                        base_image = base_image.rotate(270)
+                        base_image = base_image.rotate(int(camera_rotation) * -1)
                 else:
                     # load image and wait
                     base_image = Image.open(test_image_path)

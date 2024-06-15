@@ -46,9 +46,7 @@ class FastAltAz:
             self.lat * math.pi / 180
         ) + math.cos(dec * math.pi / 180) * math.cos(
             self.lat * math.pi / 180
-        ) * math.cos(
-            hour_angle * math.pi / 180
-        )
+        ) * math.cos(hour_angle * math.pi / 180)
 
         alt = math.asin(_alt) * 180 / math.pi
         if alt_only:
@@ -243,7 +241,7 @@ class Skyfield_utils:
 
         observer = self.observer_loc.at(t)
         a = observer.from_altaz(alt_degrees=alt, az_degrees=az)
-        ra, dec, distance = a.radec(epoch=t)
+        ra, dec, _distance = a.radec(epoch=t)
         return ra._degrees, dec._degrees
 
     def radec_to_altaz(self, ra, dec, dt, atmos=True):
@@ -262,9 +260,9 @@ class Skyfield_utils:
 
         apparent = observer.observe(sky_pos).apparent()
         if atmos:
-            alt, az, distance = apparent.altaz("standard")
+            alt, az, _distance = apparent.altaz("standard")
         else:
-            alt, az, distance = apparent.altaz()
+            alt, az, _distance = apparent.altaz()
         return alt.degrees, az.degrees
 
     def radec_to_constellation(self, ra, dec):
@@ -293,7 +291,7 @@ class Skyfield_utils:
             alt_az = (alt.degrees, az.degrees)
             try:
                 mag = float(planetary_magnitude(astrometric))
-            except ValueError as ve:
+            except ValueError:
                 mag = float("nan")
             if math.isnan(mag):
                 mag = "?"

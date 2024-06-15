@@ -4,6 +4,7 @@
 This module contains all the UI Module classes
 
 """
+
 import sys
 import numpy as np
 import time
@@ -68,7 +69,6 @@ class UIPreview(UIModule):
         super().__init__(*args)
 
         exposure_time = self.config_object.get_option("camera_exp")
-        analog_gain = self.config_object.get_option("camera_gain")
         self._config_options["Exposure"]["value"] = exposure_time / 1000000
         self.reticle_mode = 2
         self.last_update = time.time()

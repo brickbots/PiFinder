@@ -1,9 +1,5 @@
-from os import truncate
-from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
-import PiFinder.utils as utils
-from typing import Tuple, List, Dict, Optional
+from typing import Tuple, List
 import textwrap
-import logging
 import re
 import math
 
@@ -72,7 +68,7 @@ class TextLayouterSimple:
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.updated:
-            self.object_text: List[str] = [self.text]
+            self.object_text = [self.text]
             self.updated = False
 
     def after_draw(self, pos):
@@ -138,9 +134,9 @@ class TextLayouterScroll(TextLayouterSimple):
                 self.counter = (self.counter + 100) % self.counter_max
             # regular scrolling
             else:
-                self.counter = (self.counter + self.scrollspeed) % self.counter_max
+                self.counter = int((self.counter + self.scrollspeed) % self.counter_max)
         elif self.updated:
-            self.object_text: List[str] = [self.text]
+            self.object_text = [self.text]
             self.updated = False
 
 
@@ -257,7 +253,6 @@ def shadow_outline_text(
 
 def outline_text(ri_draw, xy, text, align, font, fill, shadow_color, stroke=4):
     """draw outline text"""
-    x, y = xy
     ri_draw.text(
         xy,
         text,

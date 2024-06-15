@@ -1,5 +1,5 @@
 import PiFinder.utils as utils
-from sqlite3 import Connection, Cursor, Error
+from sqlite3 import Connection, Cursor
 from typing import Tuple, DefaultDict, List, Dict
 from PiFinder.db.db import Database
 from collections import defaultdict

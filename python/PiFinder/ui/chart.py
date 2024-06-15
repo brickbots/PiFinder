@@ -1,9 +1,11 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
+# mypy: ignore-errors
 """
 This module contains all the UI Module classes
 
 """
+
 import time
 from PIL import ImageChops, Image
 
@@ -184,9 +186,9 @@ class UIChart(UIModule):
             last_solve_time = self.solution["solve_time"]
             if (
                 last_solve_time > self.last_update
-                and self.solution["Roll"] != None
-                and self.solution["RA"] != None
-                and self.solution["Dec"] != None
+                and self.solution["Roll"] is not None
+                and self.solution["RA"] is not None
+                and self.solution["Dec"] is not None
             ):
                 # This needs to be called first to set RA/DEC/ROLL
                 image_obj = self.starfield.plot_starfield(

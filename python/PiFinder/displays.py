@@ -1,10 +1,10 @@
-from typing import Type
 import functools
 from collections import namedtuple
 
 import numpy as np
 from PIL import Image
 
+import luma.core.device
 from luma.core.interface.serial import spi
 from luma.oled.device import ssd1351
 from luma.lcd.device import st7789
@@ -40,6 +40,7 @@ class DisplayBase:
     small_font_size = 8
     large_font_size = 15
     huge_font_size = 35
+    device = luma.core.device.device
 
     def __init__(self):
         self.colors = Colors(self.color_mask, self.resolution)
@@ -57,19 +58,14 @@ class DisplayBase:
         self.centerY = int(self.resolution[1] / 2)
         self.fov_res = min(self.resolution[0], self.resolution[1])
 
+        self.resX = self.resolution[0]
+        self.resY = self.resolution[1]
+
     def set_brightness(self, brightness: int) -> None:
         return None
 
-    @property
-    def resX(self) -> int:
-        return self.resolution[0]
 
-    @property
-    def resY(self) -> int:
-        return self.resolution[1]
-
-
-class DisplayPygame(DisplayBase):
+class DisplayPygame_128(DisplayBase):
     resolution = (128, 128)
 
     def __init__(self):
@@ -86,6 +82,25 @@ class DisplayPygame(DisplayBase):
             frame_rate=60,
         )
         self.device = pygame
+        super().__init__()
+
+
+class DisplayPygame_320(DisplayBase):
+    resolution = (320, 240)
+
+    def __init__(self):
+        from luma.emulator.device import pygame
+
+        # init display  (SPI hardware)
+        pygame = pygame(
+            width=320,
+            height=240,
+            rotate=0,
+            mode="RGB",
+            frame_rate=60,
+        )
+        self.device = pygame
+        super().__init__()
 
 
 class DisplaySSD1351(DisplayBase):
@@ -146,17 +161,19 @@ class DisplayST7789(DisplayBase):
         super().__init__()
 
 
-def get_display(hardware_platform: str) -> Type[DisplayBase]:
+def get_display(display_hardware: str) -> DisplayBase:
+    if display_hardware == "pg_128":
+        return DisplayPygame_128()
 
-    if hardware_platform == "Fake":
-        return DisplayPygame()
+    if display_hardware == "pg_320":
+        return DisplayPygame_320()
 
-    if hardware_platform == "Pi":
+    if display_hardware == "ssd1351":
         return DisplaySSD1351()
 
-    if hardware_platform == "PFPro":
-        # return DisplayST7789_128()
+    if display_hardware == "st7789":
         return DisplayST7789()
 
     else:
         print("Hardware platform not recognized")
+        return DisplaySSD1351()

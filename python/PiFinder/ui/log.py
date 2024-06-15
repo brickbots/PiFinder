@@ -1,14 +1,13 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
+# mypy: ignore-errors
 """
 This module contains all the UI Module classes
 
 """
-import datetime
-import time
-from PIL import ImageFont
 
-from PiFinder import solver
+import time
+
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CompositeObject
@@ -88,7 +87,7 @@ class UILog(UIModule):
         for k, v in self._config_options.items():
             notes[k] = v["value"]
 
-        if self._observing_session == None:
+        if self._observing_session is None:
             self._observing_session = obslog.Observation_session(
                 self.shared_state, self.__uuid__
             )
@@ -225,7 +224,7 @@ class UILog(UIModule):
         )
         self.draw.text(
             (5, 75),
-            f"from target",
+            "from target",
             font=self.fonts.bold.font,
             fill=self.colors.get(128),
         )

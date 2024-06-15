@@ -1,16 +1,17 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
+# mypy: ignore-errors
 """
 This module contains the Locate module
 
 """
+
 import time
 import logging
 
 from PiFinder import obslist, config
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
-from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder.ui.catalog import UICatalog
 from PiFinder.calc_utils import aim_degrees
 
@@ -59,6 +60,7 @@ class UILocate(UIModule):
 
         self.az_anchor = (25, self.display_class.resY - (self.fonts.huge.height * 2.2))
         self.alt_anchor = (25, self.display_class.resY - (self.fonts.huge.height * 1.1))
+        self._elipsis_count = 0
 
     def save_list(self, option):
         self._config_options["Load"]["value"] = ""
@@ -219,7 +221,7 @@ class UILocate(UIModule):
         )
 
         # Target history index
-        if self.target_index != None:
+        if self.target_index is not None:
             if self.ui_state.active_list_is_history_list():
                 list_name = "Hist"
             else:
@@ -262,18 +264,35 @@ class UILocate(UIModule):
             self.ui_state.target(),
         )
         if not point_az:
-            self.draw.text(
-                self.az_anchor,
-                " ---.-",
-                font=self.fonts.huge.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                self.alt_anchor,
-                "  --.-",
-                font=self.fonts.huge.font,
-                fill=self.colors.get(255),
-            )
+            if self.shared_state.solution() is None:
+                self.draw.text(
+                    (10, 70),
+                    "No solve",
+                    font=self.font_large,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (10, 90),
+                    f"yet{'.' * int(self._elipsis_count / 10)}",
+                    font=self.font_large,
+                    fill=self.colors.get(255),
+                )
+            else:
+                self.draw.text(
+                    (10, 70),
+                    "Searching",
+                    font=self.font_large,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (10, 90),
+                    f"for GPS{'.' * int(self._elipsis_count / 10)}",
+                    font=self.font_large,
+                    fill=self.colors.get(255),
+                )
+            self._elipsis_count += 1
+            if self._elipsis_count > 39:
+                self._elipsis_count = 0
         else:
             if point_az < 0:
                 point_az *= -1
@@ -299,9 +318,9 @@ class UILocate(UIModule):
 
             if point_alt < 0:
                 point_alt *= -1
-                alt_arrow = self._UP_ARROW
-            else:
                 alt_arrow = self._DOWN_ARROW
+            else:
+                alt_arrow = self._UP_ARROW
 
             # Change decimal points when within 1 degree
             if point_alt < 1:
@@ -322,7 +341,7 @@ class UILocate(UIModule):
         return self.screen_update()
 
     def scroll_target_history(self, direction):
-        if self.target_index != None:
+        if self.target_index is not None:
             self.target_index += direction
             active_list_len = len(self.ui_state.active_list())
             if self.target_index >= active_list_len:

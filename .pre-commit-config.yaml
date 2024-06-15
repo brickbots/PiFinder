@@ -1,8 +1,15 @@
-  # See https://pre-commit.com for more information
-    # See https://pre-commit.com/hooks.html for more hooks
-    repos:
-      - repo: https://github.com/ambv/black
-        rev: 24.1.0
-        hooks:
-          - id: black
-            language_version: python3.9
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: https://github.com/saltstack/mirrors-nox
+    rev: 'v2022.11.21'  # Use the sha / tag you want to point at
+    hooks:
+      - id: nox
+        files: ^.*\.py$
+        args:
+          - -f
+          - python/noxfile.py
+          - -s
+          - type_hints
+          - smoke_tests
+          - --

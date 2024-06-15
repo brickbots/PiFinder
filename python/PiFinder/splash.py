@@ -9,8 +9,8 @@ This module is the main entry point for PiFinder it:
 * then runs the UI loop
 
 """
+
 import os
-from time import sleep
 from PIL import Image, ImageDraw
 from luma.core.interface.serial import spi
 import numpy as np
@@ -22,7 +22,6 @@ def do_nothing():
 
 
 def init_display():
-    from luma.oled.device import ssd1351
     from luma.lcd.device import st7789
 
     # init display  (SPI hardware)

@@ -8,6 +8,7 @@ This module is the camera
 * Takes full res images on demand
 
 """
+
 from PIL import Image
 from PiFinder import config
 from PiFinder import utils

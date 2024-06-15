@@ -1,9 +1,11 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
+# mypy: ignore-errors
 """
 This module contains all the UI Module classes
 
 """
+
 import time
 
 from PiFinder import cat_images
@@ -97,7 +99,9 @@ class UICatalog(UIModule):
 
         self.catalog_names = self.config_object.get_option("active_catalogs")
         self._config_options["Catalogs"]["value"] = self.catalog_names.copy()
-        self._config_options["Catalogs"]["options"] = self.catalogs.get_codes()
+        self._config_options["Catalogs"]["options"] = self.catalogs.get_codes(
+            only_selected=False
+        )
 
         self.object_text = ["No Object Found"]
         self.simpleTextLayout = functools.partial(
@@ -503,6 +507,7 @@ class UICatalog(UIModule):
             self.update()
 
     def background_update(self):
+        # TODO: Background update is not called any more
         if time.time() - self.catalog_tracker.get_current_catalog().last_filtered > 60:
             self.catalog_tracker.filter()
 
