@@ -10,7 +10,6 @@ from PiFinder import cat_images
 from PiFinder.catalog_utils import ClosestObjectsFinder
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
-from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     TextLayouter,
@@ -72,8 +71,8 @@ class UICatalog(UIModule):
         },
         "Obj Types": {
             "type": "multi_enum",
-            "value": ["None"],
-            "options": ["None"] + list(OBJ_TYPES.keys()),
+            "value": list(OBJ_TYPES.keys()),
+            "options": list(OBJ_TYPES.keys()),
         },
         "Observed": {"type": "enum", "value": "Any", "options": ["Any", "Yes", "No"]},
         "Push Cat.": {
@@ -102,22 +101,30 @@ class UICatalog(UIModule):
 
         self.object_text = ["No Object Found"]
         self.simpleTextLayout = functools.partial(
-            TextLayouterSimple, draw=self.draw, color=self.colors.get(255)
+            TextLayouterSimple,
+            draw=self.draw,
+            color=self.colors.get(255),
+            font=self.fonts.base,
         )
         self.descTextLayout: TextLayouter = TextLayouter(
             "",
             draw=self.draw,
             color=self.colors.get(255),
             colors=self.colors,
-            font=fonts.base,
+            font=self.fonts.base,
         )
         self.ScrollTextLayout = functools.partial(
-            TextLayouterScroll, draw=self.draw, color=self.colors.get(255)
+            TextLayouterScroll,
+            draw=self.draw,
+            color=self.colors.get(255),
+            font=self.fonts.base,
         )
         self.space_calculator = SpaceCalculatorFixed(18)
         self.texts = {
             "type-const": self.simpleTextLayout(
-                "No Object Found", font=self.font_bold, color=self.colors.get(255)
+                "No Object Found",
+                font=self.fonts.bold,
+                color=self.colors.get(255),
             ),
         }
         logging.debug(f"Catalogs created: {self.catalogs}")
@@ -129,7 +136,6 @@ class UICatalog(UIModule):
         )
         self.catalog_tracker.select_catalogs(self._config_options["Catalogs"]["value"])
         self.observations_db = ObservationsDatabase()
-        self.font_large = fonts.large
 
         self.object_display_mode = DM_DESC
         self.object_image = None
@@ -173,7 +179,7 @@ class UICatalog(UIModule):
             designator_color = 128
         return self.simpleTextLayout(
             str(current_designator),
-            font=fonts.large,
+            font=self.fonts.large,
             color=self.colors.get(designator_color),
         )
 
@@ -276,7 +282,7 @@ class UICatalog(UIModule):
                 ),
                 draw=self.draw,
                 colors=self.colors,
-                font=fonts.base,
+                font=self.fonts.base,
                 color=self.colors.get(255),
                 available_lines=6,
             )
@@ -296,7 +302,7 @@ class UICatalog(UIModule):
             )
             self.texts["type-const"] = self.simpleTextLayout(
                 typeconst,
-                font=fonts.bold,
+                font=self.fonts.bold,
                 color=self.colors.get(255),
             )
             # Magnitude / Size
@@ -324,7 +330,7 @@ class UICatalog(UIModule):
                     )
 
             self.texts["magsize"] = self.simpleTextLayout(
-                magsize, font=fonts.bold, color=self.colors.get(255)
+                magsize, font=self.fonts.bold, color=self.colors.get(255)
             )
 
             aka_recs = (
@@ -337,7 +343,7 @@ class UICatalog(UIModule):
                 dedups = name_deduplicate(aka_recs.names, [current_desig])
                 self.texts["aka"] = self.ScrollTextLayout(
                     ", ".join(dedups),
-                    font=fonts.base,
+                    font=self.fonts.base,
                     scrollspeed=self._get_scrollspeed_config(),
                 )
 
@@ -369,7 +375,7 @@ class UICatalog(UIModule):
                 source,
                 self.fov_list[self.fov_index],
                 roll,
-                self.colors,
+                self.display_class,
             )
 
     def active(self):
@@ -391,7 +397,7 @@ class UICatalog(UIModule):
 
     def update(self, force=True):
         # Clear Screen
-        self.draw.rectangle((0, 0, 128, 128), fill=self.colors.get(0))
+        self.clear_screen()
         cat_object = self.catalog_tracker.get_current_object()
 
         if self.object_display_mode == DM_DESC or cat_object is None:
@@ -408,13 +414,13 @@ class UICatalog(UIModule):
             self.draw.text(
                 (100, 21),
                 f"{self.catalog_tracker.get_current_catalog().get_filtered_count()}",
-                font=self.font_base,
+                font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
             self.draw.text(
                 (100, 31),
                 f"{self.catalog_tracker.get_current_catalog().get_count()}",
-                font=self.font_base,
+                font=self.fonts.base.font,
                 fill=self.colors.get(96),
             )
 

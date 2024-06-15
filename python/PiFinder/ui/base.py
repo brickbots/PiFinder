@@ -7,11 +7,11 @@ This module contains the base UIModule class
 import os
 import time
 import uuid
+from typing import Type
 
 from PIL import Image, ImageDraw
-from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder import utils
-from PiFinder.image_util import DeviceWrapper
+from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
 
 
@@ -20,7 +20,6 @@ class UIModule:
     __button_hints__ = {}
     __uuid__ = str(uuid.uuid1()).split("-")[0]
     _config_options = None
-    _title_bar_y = 16
     _CAM_ICON = ""
     _IMU_ICON = ""
     _GPS_ICON = "󰤉"
@@ -28,12 +27,12 @@ class UIModule:
     _RIGHT_ARROW = ""
     _UP_ARROW = ""
     _DOWN_ARROW = ""
-    _gps_brightness = 0
+
     _unmoved = False  # has the telescope moved since the last cam solve?
 
     def __init__(
         self,
-        device_wrapper: DeviceWrapper,
+        display_class: Type[DisplayBase],
         camera_image,
         shared_state,
         command_queues,
@@ -45,18 +44,16 @@ class UIModule:
         self.button_hints_timer = time.time()
         self.button_hints_visible: bool = False
         self.switch_to = None
-        self.display = device_wrapper.device
-        self.colors = device_wrapper.colors
+        self.display_class = display_class
+        self.display = display_class.device
+        self.colors = display_class.colors
         self.shared_state = shared_state
         self.ui_state = shared_state.ui_state()
         self.camera_image = camera_image
         self.command_queues = command_queues
-        self.screen = Image.new("RGB", (128, 128))
+        self.screen = Image.new("RGB", display_class.resolution)
         self.draw = ImageDraw.Draw(self.screen)
-        self.font_base = fonts.base
-        self.font_bold = fonts.bold
-        self.font_large = fonts.large
-        self.font_small = fonts.small
+        self.fonts = self.display_class.fonts
 
         # screenshot stuff
         root_dir = str(utils.data_dir)
@@ -132,6 +129,20 @@ class UIModule:
         """
         return self.screen_update()
 
+    def clear_screen(self):
+        """
+        Clears the screen (draws rectangle in black)
+        """
+        self.draw.rectangle(
+            [
+                0,
+                0,
+                self.display_class.resX,
+                self.display_class.resY,
+            ],
+            fill=self.colors.get(0),
+        )
+
     def message(self, message, timeout=2):
         """
         Creates a box with text in the center of the screen.
@@ -145,7 +156,9 @@ class UIModule:
             [5, 44, 123, 84], fill=self.colors.get(0), outline=self.colors.get(128)
         )
         message = " " * int((16 - len(message)) / 2) + message
-        self.draw.text((9, 54), message, font=self.font_bold, fill=self.colors.get(255))
+        self.draw.text(
+            (9, 54), message, font=self.fonts.bold.font, fill=self.colors.get(255)
+        )
         self.display.display(self.screen.convert(self.display.mode))
         self.ui_state.set_message_timeout(timeout + time.time())
 
@@ -169,70 +182,126 @@ class UIModule:
 
             # B
             if self.button_hints.get("B"):
-                self.draw.rectangle([0, 118, 40, 128], fill=self.colors.get(32))
-                self.draw.text(
-                    (2, 117), "B", font=self.font_small, fill=self.colors.get(255)
+                self.draw.rectangle(
+                    [
+                        0,
+                        self.display_class.resY - self.fonts.small.height - 4,
+                        int(self.display_class.resX * 0.32),
+                        self.display_class.resY,
+                    ],
+                    fill=self.colors.get(32),
                 )
                 self.draw.text(
-                    (10, 117),
+                    (
+                        int(self.display_class.resX * 0.016),
+                        self.display_class.resY - self.fonts.small.height - 2,
+                    ),
+                    "B",
+                    font=self.fonts.small.font,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (
+                        int(self.display_class.resX * 0.015)
+                        + (self.fonts.small.width * 2),
+                        self.display_class.resY - self.fonts.small.height - 2,
+                    ),
                     self.button_hints.get("B"),
-                    font=self.font_small,
+                    font=self.fonts.small.font,
                     fill=self.colors.get(128),
                 )
             # C
             if self.button_hints.get("C"):
-                self.draw.rectangle([44, 118, 84, 128], fill=self.colors.get(32))
-                self.draw.text(
-                    (46, 117), "C", font=self.font_small, fill=self.colors.get(255)
+                self.draw.rectangle(
+                    [
+                        int(self.display_class.resX * 0.35),
+                        self.display_class.resY - self.fonts.small.height - 4,
+                        int(self.display_class.resX * 0.67),
+                        self.display_class.resY,
+                    ],
+                    fill=self.colors.get(32),
                 )
                 self.draw.text(
-                    (54, 117),
+                    (
+                        int(self.display_class.resX * 0.36),
+                        self.display_class.resY - self.fonts.small.height - 2,
+                    ),
+                    "C",
+                    font=self.fonts.small.font,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (
+                        int(self.display_class.resX * 0.36)
+                        + (self.fonts.small.width * 2),
+                        self.display_class.resY - self.fonts.small.height - 2,
+                    ),
                     self.button_hints.get("C"),
-                    font=self.font_small,
+                    font=self.fonts.small.font,
                     fill=self.colors.get(128),
                 )
+
             # D
             if self.button_hints.get("D"):
-                self.draw.rectangle([88, 118, 128, 128], fill=self.colors.get(32))
-                self.draw.text(
-                    (90, 117), "D", font=self.font_small, fill=self.colors.get(255)
+                self.draw.rectangle(
+                    [
+                        int(self.display_class.resX * 0.70),
+                        self.display_class.resY - self.fonts.small.height - 4,
+                        int(self.display_class.resX),
+                        self.display_class.resY,
+                    ],
+                    fill=self.colors.get(32),
                 )
                 self.draw.text(
-                    (98, 117),
+                    (
+                        int(self.display_class.resX * 0.71),
+                        self.display_class.resY - self.fonts.small.height - 2,
+                    ),
+                    "D",
+                    font=self.fonts.small.font,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (
+                        int(self.display_class.resX * 0.71)
+                        + (self.fonts.small.width * 2),
+                        self.display_class.resY - self.fonts.small.height - 2,
+                    ),
                     self.button_hints.get("D"),
-                    font=self.font_small,
+                    font=self.fonts.small.font,
                     fill=self.colors.get(128),
                 )
 
         if title_bar:
             fg = self.colors.get(0)
             bg = self.colors.get(64)
-            self.draw.rectangle([0, 0, 128, self._title_bar_y], fill=bg)
+            self.draw.rectangle(
+                [0, 0, self.display_class.resX, self.display_class.titlebar_height],
+                fill=bg,
+            )
             if self.ui_state.show_fps():
-                self.draw.text((6, 1), str(self.fps), font=self.font_bold, fill=fg)
+                self.draw.text(
+                    (6, 1), str(self.fps), font=self.fonts.bold.font, fill=fg
+                )
             else:
-                self.draw.text((6, 1), self.title, font=self.font_bold, fill=fg)
+                self.draw.text((6, 1), self.title, font=self.fonts.bold.font, fill=fg)
             imu = self.shared_state.imu()
             moving = True if imu and imu["pos"] and imu["moving"] else False
 
             # GPS status
             if self.shared_state.location()["gps_lock"]:
-                self._gps_brightness = 0
-            else:
-                self._gps_brightness += 1
-                if self._gps_brightness > 64:
-                    self._gps_brightness = -128
-
-            _gps_color = self.colors.get(
-                self._gps_brightness if self._gps_brightness > 0 else 0
-            )
-            self.draw.text(
-                (102, -2), self._GPS_ICON, font=fonts.icon_bold_large, fill=_gps_color
-            )
+                # self.draw.rectangle([100, 2, 110, 14], fill=bg)
+                self.draw.text(
+                    (self.display_class.resX * 20, -2),
+                    self._GPS_ICON,
+                    font=self.fonts.icon_bold_large.font,
+                    fill=fg,
+                )
 
             if moving:
                 self._unmoved = False
-                self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
+                # self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
+
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
@@ -242,27 +311,31 @@ class UIModule:
                     if self._unmoved:
                         time_since_cam_solve = time.time() - solution["cam_solve_time"]
                         var_fg = min(64, int(time_since_cam_solve / 6 * 64))
-                    self.draw.rectangle([115, 2, 125, 14], fill=bg)
+                    # self.draw.rectangle([115, 2, 125, 14], fill=bg)
 
                     if self._unmoved:
                         self.draw.text(
-                            (117, -2),
+                            (self.display_class.resX * 0.91, -2),
                             self._CAM_ICON,
-                            font=fonts.icon_bold_large,
+                            font=self.fonts.icon_bold_large.font,
                             fill=var_fg,
                         )
                     # draw the constellation
                     constellation = solution["constellation"]
                     self.draw.text(
-                        (70, 1),
+                        (self.display_class.resX * 0.54, 1),
                         constellation,
-                        font=self.font_bold,
+                        font=self.fonts.bold.font,
                         fill=fg if self._unmoved else self.colors.get(32),
                     )
                 else:
                     # no solve yet....
-                    self.draw.rectangle([115, 2, 125, 14], fill=bg)
-                    self.draw.text((117, 0), "X", font=self.font_bold, fill=fg)
+                    self.draw.text(
+                        (self.display_class.resX * 0.91, 0),
+                        "X",
+                        font=self.fonts.bold.font,
+                        fill=fg,
+                    )
 
         screen_to_display = self.screen.convert(self.display.mode)
         self.display.display(screen_to_display)
