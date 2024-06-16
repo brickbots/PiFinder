@@ -7,9 +7,9 @@ import time
 
 class UITextEntry(UIModule):
 
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.db: Database = ObjectsDatabase()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.db: ObjectsDatabase = ObjectsDatabase()
         self.width = 128
         self.height = 128
         self.red = self.colors.get(255)
@@ -61,9 +61,7 @@ class UITextEntry(UIModule):
         for i, (num, letters) in enumerate(keys):
             x = start_x + (i % 3) * (key_size[0] + padding)
             y = start_y + (i // 3) * (key_size[1] + padding)
-            self.draw.rectangle(
-                [x, y, x + key_size[0], y + key_size[1]], outline=self.half_red, width=1
-            )
+            self.draw.rectangle([x, y, x + key_size[0], y + key_size[1]], outline=self.half_red, width=1)
             self.draw.text((x + 2, y + 2), num, font=self.font, fill=self.half_red)
             self.draw.text((x + 2, y + 12), letters, font=self.font, fill=self.half_red)
 
@@ -79,16 +77,14 @@ class UITextEntry(UIModule):
             (102, 19), str(len(self.search_results)), font=self.font, fill=self.red
         )
 
-    def key_d(self):
-        self.current_text = self.current_text[:-1]
-
-    def key_b(self):
+    def key_up(self):
         self.show_keypad = not self.show_keypad
 
-    def key_enter(self):
-        # searching for the current current_text
-        self.search_results = self.db.search_common_names(self.current_text)
-        print("objects", self.search_results)
+    def key_down(self):
+        self.key_up()
+
+    def key_square(self):
+        self.current_text = self.current_text[:-1]
 
     def key_number(self, number):
         current_time = time.time()
@@ -111,7 +107,7 @@ class UITextEntry(UIModule):
             len_results = len(results)
             print("len_results", len_results)
             self.draw.text((100, 19), str(len_results), font=self.font, fill=self.red)
-
+            self.search_results = self.db.search_common_names(self.current_text)
         else:
             print("didn't find key", number)
             # self.current_text += str(number)

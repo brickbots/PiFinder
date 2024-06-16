@@ -1,5 +1,6 @@
 from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_list import UIObjectList
+from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.status import UIStatus
 from PiFinder.ui.software import UISoftware
 
@@ -187,7 +188,7 @@ pifinder_menu = {
                 },
                 {
                     "name": "Name Search",
-                    "class": "screen",
+                    "class": UITextEntry,
                 },
             ],
         },
