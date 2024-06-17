@@ -70,14 +70,12 @@ def gps_monitor(gps_queue, console_queue):
                 if sky_list:
                     # search from the newest first, quit if something is found
                     for result in reversed(sky_list):
-                        if result["class"] == "SKY" and "satellites" in result:
-                            # logging.debug(f"SKY packet found: {result['satellites']}")
-                            sats = result["satellites"]
-                            sats_seen = len(sats)
-                            sats_used = len(list(filter(lambda x: x["used"], sats)))
+                        if result["class"] == "SKY" and "nSat" in result:
+                            sats_seen = result["nSat"]
+                            sats_used = result["uSat"]
                             num_sats = (sats_seen, sats_used)
                             msg = ("satellites", num_sats)
-                            logging.debug(f"Number of satellites seen: {num_sats}")
+                            logging.debug(f"Number of sats seen: {num_sats}")
                             gps_queue.put(msg)
                             break
                 logging.debug("GPS sleeping now")
