@@ -326,7 +326,7 @@ class Catalogs:
 
     def get_objects(
         self, only_selected: bool = True, filtered: bool = True
-    ) -> List[CompositeObject]:
+    ) -> list[CompositeObject]:
         return_list = []
         for catalog in self.__catalogs:
             if (only_selected and catalog.is_selected) or not only_selected:

@@ -55,10 +55,6 @@ class UIObjectList(UITextMenu):
     star = ""
     ruler = ""
 
-    # These are the RA/DEC of the last 'nearest' sort
-    _last_update_ra = 0
-    _last_update_dec = 0
-
     def __init__(self, *args, **kwargs) -> None:
         # hack at our item definition here to allow re-use of UITextMenu
         item_definition = copy.copy(kwargs["item_definition"])
@@ -70,9 +66,31 @@ class UIObjectList(UITextMenu):
         self.screen_direction = self.config_object.get_option("screen_direction")
         self.mount_type = self.config_object.get_option("mount_type")
 
-        self.filter()
-        self._menu_items = self.catalogs.get_objects(only_selected=True, filtered=True)
+        self._menu_items: list[CompositeObject] = []
+
+        # The object list can display objects from various sources
+        # This key of the item definition controls where to get the
+        # particular object list
+        if item_definition["objects"] == "catalogs.filtered":
+            self.filter()
+            self._menu_items = self.catalogs.get_objects(
+                only_selected=True, filtered=True
+            )
+
+        if item_definition["objects"] == "catalog":
+            for catalog in self.catalogs.get_catalogs(only_selected=False):
+                if catalog.catalog_code == item_definition["value"]:
+                    self._menu_items = catalog.get_filtered_objects()
+
+        if item_definition["objects"] == "custom":
+            # item_definition must contian a list of CompositeObjects
+            self._menu_items = item_definition["object_list"]
+
+        self._menu_items_sorted = self._menu_items
         self.closest_objects_finder = ClosestObjectsFinder()
+        self.closest_objects_finder.calculate_objects_balltree(
+            objects=self._menu_items,
+        )
 
         self.mode_cycle = cycle(DisplayModes)
         self.current_mode = next(self.mode_cycle)
@@ -99,11 +117,10 @@ class UIObjectList(UITextMenu):
         self.catalogs.filter_catalogs()
 
     def sort(self) -> None:
-        self.filter()
+        self.message("Sorting...", 0.1)
+        self.update()
         if self.current_sort == SortOrder.CATALOG_SEQUENCE:
-            self._menu_items = self.catalogs.get_objects(
-                only_selected=True, filtered=True
-            )
+            self._menu_items_sorted = self._menu_items
             self._current_item_index = 0
 
         if self.current_sort == SortOrder.NEAREST:
@@ -115,24 +132,11 @@ class UIObjectList(UITextMenu):
                     self.shared_state.solution()["Dec"],
                 )
 
-                # If we have moved enough, update our anchor sort position
-                if (
-                    abs(ra - self._last_update_ra) + abs(dec - self._last_update_dec)
-                    > 2
-                ):
-                    self._last_update_ra = ra
-                    self._last_update_dec = dec
-
-                    self.closest_objects_finder.calculate_objects_balltree(
-                        self._last_update_ra,
-                        self._last_update_ra,
-                        objects=self.catalogs.get_objects(
-                            only_selected=True, filtered=True
-                        ),
+                self._menu_items_sorted = (
+                    self.closest_objects_finder.get_closest_objects(
+                        ra,
+                        dec,
                     )
-                self._menu_items = self.closest_objects_finder.get_closest_objects(
-                    ra,
-                    dec,
                 )
                 self._current_item_index = 0
 
@@ -242,10 +246,10 @@ class UIObjectList(UITextMenu):
         self.draw.rectangle([0, 60, 128, 80], fill=self.colors.get(32))
         line_number = 0
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
-            if i >= 0 and i < len(self._menu_items):
+            if i >= 0 and i < len(self._menu_items_sorted):
                 # figure out line position / color / font
 
-                _menu_item = self._menu_items[i]
+                _menu_item = self._menu_items_sorted[i]
                 obj_mag_color = self._obj_to_mag_color(_menu_item)
 
                 line_font = self.fonts.base

@@ -91,7 +91,7 @@ pifinder_menu = {
                             "items": [
                                 {
                                     "name": "Bright Named",
-                                    "value": "STR",
+                                    "value": "Str",
                                 },
                                 {
                                     "name": "SAC Doubles",
@@ -176,14 +176,145 @@ pifinder_menu = {
             "class": UITextMenu,
             "select": "single",
             "items": [
-                {"name": "List", "class": UIObjectList},
                 {
-                    "name": "Catalogs",
-                    "class": "screen",
+                    "name": "All Filtered",
+                    "class": UIObjectList,
+                    "objects": "catalogs.filtered",
                 },
                 {
-                    "name": "Nearby",
-                    "class": "screen",
+                    "name": "By Catalog",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": "Planets",
+                            "class": UIObjectList,
+                            "objects": "catalog",
+                            "value": "P",
+                        },
+                        {
+                            "name": "NGC",
+                            "class": UIObjectList,
+                            "objects": "catalog",
+                            "value": "NGC",
+                        },
+                        {
+                            "name": "Messier",
+                            "class": UIObjectList,
+                            "objects": "catalog",
+                            "value": "M",
+                        },
+                        {
+                            "name": "DSO...",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "items": [
+                                {
+                                    "name": "NGC",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "NGC",
+                                },
+                                {
+                                    "name": "IC",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "IC",
+                                },
+                                {
+                                    "name": "Messier",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "M",
+                                },
+                                {
+                                    "name": "Caldwell",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "C",
+                                },
+                                {
+                                    "name": "Collinder",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "Col",
+                                },
+                                {
+                                    "name": "TAAS 200",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "Ta2",
+                                },
+                                {
+                                    "name": "Herschel 400",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "H",
+                                },
+                                {
+                                    "name": "E.G. Globs",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "EGC",
+                                },
+                                {
+                                    "name": "Barnard",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "B",
+                                },
+                                {
+                                    "name": "Sharpless",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "Sh2",
+                                },
+                                {
+                                    "name": "Abell Pn",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "Abl",
+                                },
+                            ],
+                        },
+                        {
+                            "name": "Stars...",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "items": [
+                                {
+                                    "name": "Bright Named",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "Str",
+                                },
+                                {
+                                    "name": "SAC Doubles",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "SaM",
+                                },
+                                {
+                                    "name": "SAC Asterisms",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "SaA",
+                                },
+                                {
+                                    "name": "SAC Red Stars",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "SaR",
+                                },
+                                {
+                                    "name": "RASC Doubles",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "RDS",
+                                },
+                            ],
+                        },
+                    ],
                 },
                 {
                     "name": "Name Search",
