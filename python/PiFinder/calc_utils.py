@@ -98,7 +98,7 @@ def dec_to_dms(dec):
     fractional_degree = abs(dec - degree)
     minute = int(fractional_degree * 60)
     second = (fractional_degree * 60 - minute) * 60
-    return degree, minute, round(second, 2)
+    return int(degree), int(minute), int(second)
 
 
 def ra_to_hms(ra):
@@ -107,7 +107,7 @@ def ra_to_hms(ra):
     mm, hh = math.modf(ra / 15.0)
     _, mm = math.modf(mm * 60.0)
     ss = round(_ * 60.0)
-    return hh, mm, ss
+    return int(hh), int(mm), int(ss)
 
 
 def epoch_to_epoch(ep_from, ep_to, ra_hours, dec_deg):

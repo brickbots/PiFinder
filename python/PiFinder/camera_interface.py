@@ -44,6 +44,7 @@ class CameraInterface:
             debug = False
 
             screen_direction = cfg.get_option("screen_direction")
+            camera_rotation = cfg.get_option("camera_rotation")
 
             # Set path for test images
             root_dir = os.path.realpath(
@@ -73,10 +74,13 @@ class CameraInterface:
                 if not debug:
                     base_image = self.capture()
                     base_image = base_image.convert("L")
-                    if screen_direction == "right":
-                        base_image = base_image.rotate(90)
+                    if camera_rotation is None:
+                        if screen_direction == "right":
+                            base_image = base_image.rotate(90)
+                        else:
+                            base_image = base_image.rotate(270)
                     else:
-                        base_image = base_image.rotate(270)
+                        base_image = base_image.rotate(int(camera_rotation) * -1)
                 else:
                     # load image and wait
                     base_image = Image.open(test_image_path)

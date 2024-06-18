@@ -56,6 +56,8 @@ class UILocate(UIModule):
         self.last_update_time = time.time()
         self.ui_catalog = ui_catalog
 
+        self._elipsis_count = 0
+
     def save_list(self, option):
         self._config_options["Load"]["value"] = ""
         if option == "CANCEL":
@@ -242,66 +244,76 @@ class UILocate(UIModule):
             self.ui_state.target(),
         )
         if not point_az:
-            self.draw.text(
-                (0, 50), " ---.-", font=self.font_huge, fill=self.colors.get(255)
-            )
-            self.draw.text(
-                (0, 84), "  --.-", font=self.font_huge, fill=self.colors.get(255)
-            )
-        else:
-            if point_az >= 0:
-                self.draw.regular_polygon(
-                    (10, 75, 10), 3, 90, fill=self.colors.get(indicator_color)
+            if self.shared_state.solution() is None:
+                self.draw.text(
+                    (10, 70),
+                    "No solve",
+                    font=self.font_large,
+                    fill=self.colors.get(255),
                 )
-                # self.draw.pieslice([-20,65,20,85],330, 30, fill=self.colors.get(255))
-                # self.draw.text((0, 50), "+", font=self.font_huge, fill=self.colors.get(255))
+                self.draw.text(
+                    (10, 90),
+                    f"yet{'.' * int(self._elipsis_count / 10)}",
+                    font=self.font_large,
+                    fill=self.colors.get(255),
+                )
             else:
-                point_az *= -1
-                self.draw.regular_polygon(
-                    (10, 75, 10), 3, 270, fill=self.colors.get(indicator_color)
+                self.draw.text(
+                    (10, 70),
+                    "Searching",
+                    font=self.font_large,
+                    fill=self.colors.get(255),
                 )
-                # self.draw.pieslice([0,65,40,85],150,210, fill=self.colors.get(255))
-                # self.draw.text((0, 50), "-", font=self.font_huge, fill=self.colors.get(255))
+                self.draw.text(
+                    (10, 90),
+                    f"for GPS{'.' * int(self._elipsis_count / 10)}",
+                    font=self.font_large,
+                    fill=self.colors.get(255),
+                )
+            self._elipsis_count += 1
+            if self._elipsis_count > 39:
+                self._elipsis_count = 0
+        else:
+            if point_az < 0:
+                point_az *= -1
+                az_arrow = self._RIGHT_ARROW
+            else:
+                az_arrow = self._LEFT_ARROW
 
+            # Change decimal points when within 1 degree
             if point_az < 1:
                 self.draw.text(
-                    (25, 50),
-                    f"{point_az : >5.2f}",
+                    (0, 50),
+                    f"{az_arrow}{point_az : >5.2f}",
                     font=self.font_huge,
                     fill=self.colors.get(indicator_color),
                 )
             else:
                 self.draw.text(
-                    (25, 50),
-                    f"{point_az : >5.1f}",
+                    (0, 50),
+                    f"{az_arrow}{point_az : >5.1f}",
                     font=self.font_huge,
                     fill=self.colors.get(indicator_color),
                 )
 
-            if point_alt >= 0:
-                self.draw.regular_polygon(
-                    (10, 110, 10), 3, 0, fill=self.colors.get(indicator_color)
-                )
-                # self.draw.pieslice([0,84,20,124],60, 120, fill=self.colors.get(255))
-                # self.draw.text((0, 84), "+", font=self.font_huge, fill=self.colors.get(255))
-            else:
+            if point_alt < 0:
                 point_alt *= -1
-                self.draw.regular_polygon(
-                    (10, 105, 10), 3, 180, fill=self.colors.get(indicator_color)
-                )
-                # self.draw.pieslice([0,104,20,144],270, 330, fill=self.colors.get(255))
-                # self.draw.text((0, 84), "-", font=self.font_huge, fill=self.colors.get(255))
+                alt_arrow = self._DOWN_ARROW
+            else:
+                alt_arrow = self._UP_ARROW
+
+            # Change decimal points when within 1 degree
             if point_alt < 1:
                 self.draw.text(
-                    (25, 84),
-                    f"{point_alt : >5.2f}",
+                    (0, 84),
+                    f"{alt_arrow}{point_alt : >5.2f}",
                     font=self.font_huge,
                     fill=self.colors.get(indicator_color),
                 )
             else:
                 self.draw.text(
-                    (25, 84),
-                    f"{point_alt : >5.1f}",
+                    (0, 84),
+                    f"{alt_arrow}{point_alt : >5.1f}",
                     font=self.font_huge,
                     fill=self.colors.get(indicator_color),
                 )

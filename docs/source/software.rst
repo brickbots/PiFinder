@@ -7,7 +7,11 @@ Once you've built or otherwise obtained a PiFinder, here's how to setup a fresh 
 Prebuilt Release Image
 ----------------------
 
-The image files on our release pages contain the proper version of the Raspberry Pi OS, the installed and configured PiFinder software, and all the catalog images for deep sky objects.
+The image files on our release pages contain the proper version of the Raspberry Pi OS,
+the installed and configured PiFinder software, and all the catalog images for deep sky 
+objects.  This is the recommended method for getting the PiFinder software on to an SD card
+for using the PiFinder, no matter how you have built/purchased one.
+
 
 * Download the latest release image from our `releases page <https://github.com/brickbots/PiFinder/releases>`_
 
@@ -48,6 +52,13 @@ Now that you have the software installed, you're ready to hit the :doc:`Quick St
 
 Build From Scratch
 ------------------
+
+.. warning::
+
+   You probably do not want to do this.  These instructions are primarily for developer
+   who are making a new image file from scratch.  To just use your PiFinder you will
+   want to use the instructions above to download and use a pre-built image for your
+   sd card.
 
 
 You can do this completely headless (no monitor / keyboard) if desired.

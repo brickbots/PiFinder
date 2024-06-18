@@ -33,7 +33,9 @@ def gps_monitor(gps_queue, console_queue):
                     lambda x: is_tpv_accurate(x),
                     client.dict_stream(convert_datetime=True, filter=["TPV"]),
                 )
+                sky_filter = client.dict_stream(convert_datetime=True, filter=["SKY"])
                 readings_list = list(islice(readings_filter, 10))
+                sky_list = list(islice(sky_filter, 10))
                 if readings_list:
                     result = min(
                         readings_list,
@@ -42,8 +44,8 @@ def gps_monitor(gps_queue, console_queue):
                     logging.debug("last reading is %s", result)
                     if result.get("lat") and result.get("lon") and result.get("altHAE"):
                         if gps_locked is False:
-                            console_queue.put("GPS: Locked")
                             gps_locked = True
+                            console_queue.put("GPS: Locked")
                         msg = (
                             "fix",
                             {
@@ -55,14 +57,28 @@ def gps_monitor(gps_queue, console_queue):
                         logging.debug("GPS fix: %s", msg)
                         gps_queue.put(msg)
 
-                    # Look for any time bearing packet
-                    for result in readings_list:
+                    # search from the newest first, quit if something is found
+                    for result in reversed(readings_list):
                         if result.get("time"):
                             msg = ("time", result.get("time"))
                             logging.debug("Setting time to %s", result.get("time"))
                             gps_queue.put(msg)
                             break
                 else:
-                    logging.debug("GPS client queue is empty")
+                    logging.debug("GPS TPV client queue is empty")
+
+                if sky_list:
+                    # search from the newest first, quit if something is found
+                    for result in reversed(sky_list):
+                        if result["class"] == "SKY" and "satellites" in result:
+                            # logging.debug(f"SKY packet found: {result['satellites']}")
+                            sats = result["satellites"]
+                            sats_seen = len(sats)
+                            sats_used = len(list(filter(lambda x: x["used"], sats)))
+                            num_sats = (sats_seen, sats_used)
+                            msg = ("satellites", num_sats)
+                            logging.debug(f"Number of satellites seen: {num_sats}")
+                            gps_queue.put(msg)
+                            break
                 logging.debug("GPS sleeping now")
                 time.sleep(7)

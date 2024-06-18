@@ -24,6 +24,11 @@ class UIModule:
     _CAM_ICON = ""
     _IMU_ICON = ""
     _GPS_ICON = "󰤉"
+    _LEFT_ARROW = ""
+    _RIGHT_ARROW = ""
+    _UP_ARROW = ""
+    _DOWN_ARROW = ""
+    _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
 
     def __init__(
@@ -212,10 +217,18 @@ class UIModule:
 
             # GPS status
             if self.shared_state.location()["gps_lock"]:
-                self.draw.rectangle([100, 2, 110, 14], fill=bg)
-                self.draw.text(
-                    (102, -2), self._GPS_ICON, font=fonts.icon_bold_large, fill=fg
-                )
+                self._gps_brightness = 0
+            else:
+                self._gps_brightness += 1
+                if self._gps_brightness > 64:
+                    self._gps_brightness = -128
+
+            _gps_color = self.colors.get(
+                self._gps_brightness if self._gps_brightness > 0 else 0
+            )
+            self.draw.text(
+                (102, -2), self._GPS_ICON, font=fonts.icon_bold_large, fill=_gps_color
+            )
 
             if moving:
                 self._unmoved = False

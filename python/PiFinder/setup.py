@@ -44,21 +44,16 @@ class ObjectFinder:
         self.objects_db = ObjectsDatabase()
         self.catalog_objects = self.objects_db.get_catalog_objects()
         self.mappings = {
-            f"{row['catalog_code']}{row['sequence']}": row["object_id"]
+            f"{row['catalog_code'].lower()}{row['sequence']}": row["object_id"]
             for row in self.catalog_objects
         }
 
-    def get_object_id(self, object: str):
+    def get_object_id(self, object_name: str):
         logging.debug(f"Looking up object id for {object}")
-        result = self.mappings.get(object)
-        print("found", result)
+        result = self.mappings.get(object_name.lower())
         if not result:
-            logging.debug(f"Again Looking up object id for {normalize(object)}")
-            result = self.mappings.get(normalize(object))
+            result = self.mappings.get(normalize(object_name))
         return result
-
-    def get_object_id_by_parts(self, catalog_code: str, sequence: int):
-        return self.mappings.get(f"{catalog_code} {sequence}")
 
 
 def insert_akas(
@@ -1131,6 +1126,60 @@ def load_arp():
     conn.commit()
 
 
+def load_abell():
+    logging.info("Loading Abell")
+    object_finder = ObjectFinder()
+    catalog = "Abl"
+    obj_type = "PN"
+    conn, _ = objects_db.get_conn_cursor()
+    data = Path(utils.astro_data_dir, "abell.tsv")
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, Path(utils.astro_data_dir) / "abell.desc")
+
+    # Define a list to hold all the extracted records
+    records = []
+
+    # Open the file for reading
+    with open(data, "r") as file:
+        # Iterate over each line in the file
+        for line in list(file)[1:]:
+            split_line = line.split("\t")
+            # Extract the relevant parts of each line based on byte positions
+            record = {
+                "id": int(split_line[0].strip()),
+                "AKA": split_line[2].strip(),
+                "RA": float(split_line[3].strip()),
+                "Dec": float(split_line[4].strip()),
+                "Mag": float(split_line[5].strip()),
+                "Size": float(split_line[6].strip()),
+                "const": split_line[7].strip(),
+                "desc": "",
+            }
+            # Append the extracted record to the list of records
+            records.append(record)
+    for record in tqdm(records):
+        object_id = object_finder.get_object_id(record["AKA"])
+        if not object_id:
+            # obj_type, ra, dec, const, size, mag
+            object_id = objects_db.insert_object(
+                obj_type,
+                record["RA"],
+                record["Dec"],
+                record["const"],
+                record["Size"],
+                record["Mag"],
+            )
+        else:
+            objects_db.insert_name(object_id, f"Abell {record['id']}", catalog)
+
+        objects_db.insert_catalog_object(
+            object_id, catalog, record["id"], record["desc"]
+        )
+
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
+
+
 def load_ngc_catalog():
     logging.info("Loading NGC catalog")
     conn, db_c = objects_db.get_conn_cursor()
@@ -1290,6 +1339,7 @@ if __name__ == "__main__":
     load_barnard()
     load_sharpless()
     load_arp()
+    load_abell()
 
     # Populate the images table
     logging.info("Resolving object images...")
