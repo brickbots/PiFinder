@@ -114,6 +114,46 @@ pifinder_menu = {
                     ],
                 },
                 {
+                    "name": "Type",
+                    "class": UITextMenu,
+                    "select": "multi",
+                    "config_option": "filter.object_type",
+                    "items": [
+                        {
+                            "name": "Galaxy",
+                            "value": "Gx",
+                        },
+                        {
+                            "name": "Open Cluster",
+                            "value": "OC",
+                        },
+                        {
+                            "name": "Globular",
+                            "value": "Gb",
+                        },
+                        {
+                            "name": "Nebula",
+                            "value": "Nb",
+                        },
+                        {
+                            "name": "P. Nebula",
+                            "value": "Pl",
+                        },
+                        {
+                            "name": "Double Str",
+                            "value": "D*",
+                        },
+                        {
+                            "name": "Asterism",
+                            "value": "Ast",
+                        },
+                        {
+                            "name": "Planet",
+                            "value": "Pla",
+                        },
+                    ],
+                },
+                {
                     "name": "Altitude",
                     "class": UITextMenu,
                     "select": "single",
