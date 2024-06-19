@@ -311,22 +311,22 @@ pifinder_menu = {
                             "select": "single",
                             "items": [
                                 {
-                                    "name": "NGC",
+                                    "name": "Abell Pn",
                                     "class": UIObjectList,
                                     "objects": "catalog",
-                                    "value": "NGC",
+                                    "value": "Abl",
                                 },
                                 {
-                                    "name": "IC",
+                                    "name": "Arp Galaxies",
                                     "class": UIObjectList,
                                     "objects": "catalog",
-                                    "value": "IC",
+                                    "value": "Arp",
                                 },
                                 {
-                                    "name": "Messier",
+                                    "name": "Barnard",
                                     "class": UIObjectList,
                                     "objects": "catalog",
-                                    "value": "M",
+                                    "value": "B",
                                 },
                                 {
                                     "name": "Caldwell",
@@ -341,10 +341,10 @@ pifinder_menu = {
                                     "value": "Col",
                                 },
                                 {
-                                    "name": "TAAS 200",
+                                    "name": "E.G. Globs",
                                     "class": UIObjectList,
                                     "objects": "catalog",
-                                    "value": "Ta2",
+                                    "value": "EGC",
                                 },
                                 {
                                     "name": "Herschel 400",
@@ -353,16 +353,22 @@ pifinder_menu = {
                                     "value": "H",
                                 },
                                 {
-                                    "name": "E.G. Globs",
+                                    "name": "IC",
                                     "class": UIObjectList,
                                     "objects": "catalog",
-                                    "value": "EGC",
+                                    "value": "IC",
                                 },
                                 {
-                                    "name": "Barnard",
+                                    "name": "Messier",
                                     "class": UIObjectList,
                                     "objects": "catalog",
-                                    "value": "B",
+                                    "value": "M",
+                                },
+                                {
+                                    "name": "NGC",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "NGC",
                                 },
                                 {
                                     "name": "Sharpless",
@@ -371,10 +377,10 @@ pifinder_menu = {
                                     "value": "Sh2",
                                 },
                                 {
-                                    "name": "Abell Pn",
+                                    "name": "TAAS 200",
                                     "class": UIObjectList,
                                     "objects": "catalog",
-                                    "value": "Abl",
+                                    "value": "Ta2",
                                 },
                             ],
                         },
