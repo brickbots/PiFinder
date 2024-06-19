@@ -41,6 +41,7 @@ class UIModule:
         catalogs=None,
         item_definition={},
         add_to_stack=None,
+        remove_from_stack=None,
     ):
         assert shared_state is not None
         self.title = self.__title__
@@ -53,6 +54,7 @@ class UIModule:
         self.camera_image = camera_image
         self.command_queues = command_queues
         self.add_to_stack = add_to_stack
+        self.remove_from_stack = remove_from_stack
 
         self.screen = Image.new("RGB", display_class.resolution)
         self.draw = ImageDraw.Draw(self.screen)

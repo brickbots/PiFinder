@@ -14,6 +14,15 @@ pifinder_menu = {
             "select": "single",
             "items": [
                 {
+                    "name": "Reset All",
+                    "class": UITextMenu,
+                    "select": "Single",
+                    "items": [
+                        {"name": "Confirm", "callback": "reset_filters"},
+                        {"name": "Cancel", "callback": "go_back"},
+                    ],
+                },
+                {
                     "name": "Catalogs",
                     "class": UITextMenu,
                     "select": "multi",
@@ -21,7 +30,7 @@ pifinder_menu = {
                     "items": [
                         {
                             "name": "Planets",
-                            "value": "P",
+                            "value": "PL",
                         },
                         {
                             "name": "NGC",
@@ -117,7 +126,7 @@ pifinder_menu = {
                     "name": "Type",
                     "class": UITextMenu,
                     "select": "multi",
-                    "config_option": "filter.object_type",
+                    "config_option": "filter.object_types",
                     "items": [
                         {
                             "name": "Galaxy",
@@ -161,7 +170,11 @@ pifinder_menu = {
                     "items": [
                         {
                             "name": "None",
-                            "value": "0",
+                            "value": -1,
+                        },
+                        {
+                            "name": "0",
+                            "value": 0,
                         },
                         {
                             "name": "10",
@@ -189,23 +202,67 @@ pifinder_menu = {
                     "items": [
                         {
                             "name": "None",
-                            "value": "0",
+                            "value": -1,
+                        },
+                        {
+                            "name": "6",
+                            "value": 6,
+                        },
+                        {
+                            "name": "7",
+                            "value": 7,
+                        },
+                        {
+                            "name": "8",
+                            "value": 8,
+                        },
+                        {
+                            "name": "9",
+                            "value": 9,
                         },
                         {
                             "name": "10",
                             "value": 10,
                         },
                         {
-                            "name": "20",
-                            "value": 20,
+                            "name": "11",
+                            "value": 11,
                         },
                         {
-                            "name": "30",
-                            "value": 30,
+                            "name": "12",
+                            "value": 12,
                         },
                         {
-                            "name": "40",
-                            "value": 40,
+                            "name": "13",
+                            "value": 13,
+                        },
+                        {
+                            "name": "14",
+                            "value": 14,
+                        },
+                        {
+                            "name": "15",
+                            "value": 15,
+                        },
+                    ],
+                },
+                {
+                    "name": "Observed",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "filter.observed",
+                    "items": [
+                        {
+                            "name": "Any",
+                            "value": "Any",
+                        },
+                        {
+                            "name": "Observed",
+                            "value": "Yes",
+                        },
+                        {
+                            "name": "Not Observed",
+                            "value": "No",
                         },
                     ],
                 },
@@ -230,7 +287,7 @@ pifinder_menu = {
                             "name": "Planets",
                             "class": UIObjectList,
                             "objects": "catalog",
-                            "value": "P",
+                            "value": "PL",
                         },
                         {
                             "name": "NGC",

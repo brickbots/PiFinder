@@ -7,6 +7,7 @@ This module contains all the UI Module classes
 
 from typing import Union
 from PiFinder.ui.base import UIModule
+from PiFinder.catalogs import CatalogFilter
 
 
 class UITextMenu(UIModule):
@@ -30,12 +31,23 @@ class UITextMenu(UIModule):
         if config_option := self.item_definition.get("config_option"):
             if self._menu_type == "multi":
                 self._selected_values = self.config_object.get_option(config_option)
+                if self._selected_values is None:
+                    # None means 'all selected' in many filter cases
+                    # so select them all
+                    self._selected_values = [
+                        x["value"] for x in self.item_definition["items"]
+                    ]
                 self._menu_items = ["Select None"] + self._menu_items
             else:
                 self._selected_values = [self.config_object.get_option(config_option)]
-                self._current_item_index = self._menu_items.index(
-                    self._selected_values[0]
-                )
+                if self._selected_values == [None]:
+                    # default to the first option... just in case
+                    self._selected_values = [self.item_definition["items"][0]["value"]]
+
+                # Set current item index based on selection
+                for i, _item in enumerate(self.item_definition["items"]):
+                    if _item["value"] == self._selected_values[0]:
+                        self._current_item_index = i
 
     def update(self, force=False):
         # clear screen
@@ -130,6 +142,24 @@ class UITextMenu(UIModule):
         selected_item = self._menu_items[self._current_item_index]
         selected_item_definition = self.get_item(selected_item)
 
+        # Is there a callback?
+        if selected_item_definition is not None and selected_item_definition.get(
+            "callback"
+        ):
+            if selected_item_definition["callback"] == "go_back":
+                self.remove_from_stack()
+                return
+
+            if selected_item_definition["callback"] == "reset_filters":
+                self.catalogs.set_catalog_filter(
+                    CatalogFilter(shared_state=self.shared_state)
+                )
+                self.config_object.reset_filters()
+                self.catalogs.filter_catalogs()
+                self.message("Filters Reset")
+                self.remove_from_stack()
+                return
+
         # If the item has a class, always invoke that class
         if selected_item_definition is not None and selected_item_definition.get(
             "class"
@@ -143,7 +173,13 @@ class UITextMenu(UIModule):
                 config_value = selected_item_definition["value"]
                 self._selected_values = [config_value]
                 self.config_object.set_option(config_option, config_value)
-                return
+
+                # is this a filter option?
+                if config_option.startswith("filter."):
+                    filter_attr = config_option.split(".")[-1]
+                    setattr(self.catalogs.catalog_filter, filter_attr, config_value)
+                    self.catalogs.filter_catalogs()
+
             else:
                 if selected_item == "Select All":
                     # Only select items with a value key which represent
@@ -179,6 +215,18 @@ class UITextMenu(UIModule):
                     self._selected_values.append(self.get_item(selected_item)["value"])
 
                 self.config_object.set_option(config_option, self._selected_values)
+                # are we setting active catalogs
+                if config_option == "active_catalogs":
+                    self.catalogs.select_no_catalogs()
+                    self.catalogs.select_catalogs(self._selected_values)
+
+                # is this a filter option?
+                if config_option.startswith("filter."):
+                    filter_attr = config_option.split(".")[-1]
+                    setattr(
+                        self.catalogs.catalog_filter, filter_attr, self._selected_values
+                    )
+                    self.catalogs.filter_catalogs()
 
     def key_up(self):
         self.menu_scroll(-1)
