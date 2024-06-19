@@ -33,3 +33,10 @@ class CompositeObject:
     @classmethod
     def from_dict(cls, d):
         return cls(**d)
+
+    @property
+    def display_name(self):
+        """
+        Returns the display name for this object
+        """
+        return f"{self.catalog_code} {self.sequence}"

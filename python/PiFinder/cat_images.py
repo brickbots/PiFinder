@@ -27,6 +27,7 @@ def get_display_image(catalog_object, source, fov, roll, display_class):
     """
 
     object_image_path = resolve_image_name(catalog_object, source)
+    print(object_image_path)
     if not os.path.exists(object_image_path):
         return_image = Image.new("RGB", display_class.resolution)
         ri_draw = ImageDraw.Draw(return_image)
