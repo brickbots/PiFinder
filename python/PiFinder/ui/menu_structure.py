@@ -47,16 +47,16 @@ pifinder_menu = {
                             "config_option": "active_catalogs",
                             "items": [
                                 {
-                                    "name": "NGC",
-                                    "value": "NGC",
+                                    "name": "Abell Pn",
+                                    "value": "Abl",
                                 },
                                 {
-                                    "name": "IC",
-                                    "value": "IC",
+                                    "name": "Arp Galaxies",
+                                    "value": "Arp",
                                 },
                                 {
-                                    "name": "Messier",
-                                    "value": "M",
+                                    "name": "Barnard",
+                                    "value": "B",
                                 },
                                 {
                                     "name": "Caldwell",
@@ -67,28 +67,32 @@ pifinder_menu = {
                                     "value": "Col",
                                 },
                                 {
-                                    "name": "TAAS 200",
-                                    "value": "Ta2",
+                                    "name": "E.G. Globs",
+                                    "value": "EGC",
                                 },
                                 {
                                     "name": "Herschel 400",
                                     "value": "H",
                                 },
                                 {
-                                    "name": "E.G. Globs",
-                                    "value": "EGC",
+                                    "name": "IC",
+                                    "value": "IC",
                                 },
                                 {
-                                    "name": "Barnard",
-                                    "value": "B",
+                                    "name": "Messier",
+                                    "value": "M",
+                                },
+                                {
+                                    "name": "NGC",
+                                    "value": "NGC",
                                 },
                                 {
                                     "name": "Sharpless",
                                     "value": "Sh2",
                                 },
                                 {
-                                    "name": "Abell Pn",
-                                    "value": "Abl",
+                                    "name": "TAAS 200",
+                                    "value": "Ta2",
                                 },
                             ],
                         },
