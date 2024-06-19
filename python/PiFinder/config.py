@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 from PiFinder import utils
+from typing import Any
 
 
 class Config:
@@ -40,9 +41,9 @@ class Config:
         self._config_dict[option] = value
         self.dump_config()
 
-    def get_option(self, option):
+    def get_option(self, option, default: Any = None):
         return self._config_dict.get(
-            option, self._default_config_dict.get(option, None)
+            option, self._default_config_dict.get(option, default)
         )
 
     def reset_filters(self):

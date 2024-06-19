@@ -87,10 +87,11 @@ class UIObjectList(UITextMenu):
             self._menu_items = item_definition["object_list"]
 
         self._menu_items_sorted = self._menu_items
-        self.closest_objects_finder = ClosestObjectsFinder()
-        self.closest_objects_finder.calculate_objects_balltree(
-            objects=self._menu_items,
-        )
+        if len(self._menu_items) > 0:
+            self.closest_objects_finder = ClosestObjectsFinder()
+            self.closest_objects_finder.calculate_objects_balltree(
+                objects=self._menu_items,
+            )
 
         self.mode_cycle = cycle(DisplayModes)
         self.current_mode = next(self.mode_cycle)
@@ -240,6 +241,21 @@ class UIObjectList(UITextMenu):
     def update(self, force=False):
         # clear screen
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+
+        if len(self._menu_items) == 0:
+            self.draw.text(
+                (12, 42),
+                "No objects",
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+            self.draw.text(
+                (12, 60),
+                "match filter",
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+            return self.screen_update()
 
         # Draw current selection hint
         # self.draw.line([0,80,128,80], width=1, fill=self.colors.get(32))

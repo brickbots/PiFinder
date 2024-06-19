@@ -315,7 +315,15 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
         catalogs: Catalogs = CatalogBuilder().build()
 
         # Establish the common catalog filter object
-        catalogs.set_catalog_filter(CatalogFilter(shared_state=shared_state))
+        catalogs.set_catalog_filter(
+            CatalogFilter(
+                shared_state=shared_state,
+                magnitude=cfg.get_option("filter.magnitude"),
+                object_types=cfg.get_option("filter.object_types"),
+                altitude=cfg.get_option("filter.altitude", -1),
+                observed=cfg.get_option("filter.observed", "Any"),
+            )
+        )
 
         # Initialize menu manager
         menu_manager = MenuManager(
