@@ -46,9 +46,7 @@ class ClosestObjectsFinder:
         self._objects = None
         pass
 
-    def calculate_objects_balltree(
-        self, ra, dec, objects: list[CompositeObject]
-    ) -> None:
+    def calculate_objects_balltree(self, objects: list[CompositeObject]) -> None:
         """
         Calculates a flat list of objects and the balltree for those objects
         """

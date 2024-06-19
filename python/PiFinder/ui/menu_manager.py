@@ -46,6 +46,7 @@ class MenuManager:
                 catalogs=self.catalogs,
                 item_definition=item,
                 add_to_stack=self.add_to_stack,
+                remove_from_stack=self.remove_from_stack,
             )
         )
         self.stack[-1].active()  # type: ignore[call-arg]

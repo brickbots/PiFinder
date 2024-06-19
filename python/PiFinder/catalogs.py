@@ -5,9 +5,10 @@ import datetime
 import pytz
 from pprint import pformat
 
-from typing import List, Dict, DefaultDict, Optional
+from typing import List, Dict, DefaultDict, Optional, Union
 from collections import defaultdict
 import PiFinder.calc_utils as calc_utils
+from PiFinder.state import SharedStateObj
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
@@ -84,24 +85,56 @@ class CatalogFilter:
 
     def __init__(
         self,
-        magnitude_filter=None,
-        type_filter=None,
-        altitude_filter=None,
-        observed_filter=None,
-        shared_state=None,
+        shared_state: SharedStateObj,
+        magnitude: Union[float, None] = None,
+        object_types: Union[list[str], None] = None,
+        altitude: int = -1,
+        observed: str = "Any",
     ):
         self.shared_state = shared_state
         # When was the last time filter params were changed?
         self.dirty_time = time.time()
-        self.set_values(magnitude_filter, type_filter, altitude_filter, observed_filter)
 
-    def set_values(
-        self, magnitude_filter, type_filter, altitude_filter, observed_filter
-    ):
-        self.magnitude_filter = magnitude_filter
-        self.type_filter = type_filter
-        self.altitude_filter = altitude_filter
-        self.observed_filter = observed_filter
+        self.magnitude = magnitude
+        self.object_types = object_types
+        self.altitude = altitude
+        self.observed = observed
+
+    @property
+    def magnitude(self):
+        return self._magnitude
+
+    @magnitude.setter
+    def magnitude(self, magnitude: Union[float, None]):
+        self._magnitude = magnitude
+        self.dirty_time = time.time()
+
+    @property
+    def object_types(self):
+        return self._object_types
+
+    @object_types.setter
+    def object_types(self, object_types: Union[list[str], None]):
+        self._object_types = object_types
+        print(object_types)
+        self.dirty_time = time.time()
+
+    @property
+    def altitude(self):
+        return self._altitude
+
+    @altitude.setter
+    def altitude(self, altitude: int):
+        self._altitude = altitude
+        self.dirty_time = time.time()
+
+    @property
+    def observed(self):
+        return self._observed
+
+    @observed.setter
+    def observed(self, observed: str):
+        self._observed = observed
         self.dirty_time = time.time()
 
     def calc_fast_aa(self, shared_state):
@@ -123,14 +156,15 @@ class CatalogFilter:
         if obj.last_filtered_time > self.dirty_time:
             return obj.last_filtered_result
 
+        obj.last_filtered_time = time.time()
         # check altitude
-        if self.altitude_filter is not None and self.fast_aa:
+        if self._altitude != -1 and self.fast_aa:
             obj_altitude, _ = self.fast_aa.radec_to_altaz(
                 obj.ra,
                 obj.dec,
                 alt_only=True,
             )
-            if obj_altitude < self.altitude_filter:
+            if obj_altitude < self._altitude:
                 obj.last_filtered_result = False
                 return False
 
@@ -141,19 +175,25 @@ class CatalogFilter:
         except (ValueError, TypeError):
             obj_mag = 99
 
-        if self.magnitude_filter is not None and obj_mag >= self.magnitude_filter:
+        if self._magnitude is not None and obj_mag <= self._magnitude:
             obj.last_filtered_result = False
             return False
 
         # check type
-        if self.type_filter is not None and obj.obj_type not in self.type_filter:
+        if self._object_types is not None and obj.obj_type not in self._object_types:
             obj.last_filtered_result = False
             return False
 
         # check observed
-        if self.observed_filter != "Any" and self.observed_filter is not None:
-            obj.last_filtered_result = (self.observed_filter == "Yes") == obj.logged
-            return obj.last_filtered_result
+        if self._observed is not None and self._observed != "Any":
+            if self._observed == "Yes":
+                if not obj.logged:
+                    obj.last_filtered_result = False
+                    return False
+            else:
+                if obj.logged:
+                    obj.last_filtered_result = False
+                    return False
 
         # object passed all the tests
         obj.last_filtered_result = True
@@ -259,7 +299,7 @@ class Catalog(CatalogBase):
 
     def __init__(self, catalog_code: str, max_sequence: int, desc: str):
         super().__init__(catalog_code, max_sequence, desc)
-        self.catalog_filter: CatalogFilter = CatalogFilter()
+        self.catalog_filter: Union[CatalogFilter, None] = None
         self.filtered_objects: List[CompositeObject] = self.get_objects()
         self.filtered_objects_seq: List[int] = self._filtered_objects_to_seq()
         self.last_filtered = 0
@@ -272,7 +312,13 @@ class Catalog(CatalogBase):
         return [obj.sequence for obj in self.filtered_objects]
 
     def filter_objects(self) -> List[CompositeObject]:
+        if self.catalog_filter is None:
+            return self.get_objects()
+
         self.filtered_objects = self.catalog_filter.apply(self.get_objects())
+        logging.info(
+            f"FILTERED {self.catalog_code} {len(self.filtered_objects)}/{len(self.get_objects())}"
+        )
         self.filtered_objects_seq = self._filtered_objects_to_seq()
         self.last_filtered = time.time()
         return self.filtered_objects
@@ -296,8 +342,8 @@ class Catalogs:
 
     def __init__(self, catalogs: List[Catalog]):
         self.__catalogs: List[Catalog] = catalogs
-        self._select_all_catalogs()
-        self.catalog_filter: CatalogFilter = CatalogFilter()
+        self.select_all_catalogs()
+        self.catalog_filter: Union[CatalogFilter, None] = None
 
     def filter_catalogs(self):
         """
@@ -312,7 +358,7 @@ class Catalogs:
         to a single shared filter object so they can all
         be changed at once
         """
-        self._filter = catalog_filter
+        self.catalog_filter = catalog_filter
         for catalog in self.__catalogs:
             catalog.catalog_filter = catalog_filter
 
@@ -326,7 +372,7 @@ class Catalogs:
 
     def get_objects(
         self, only_selected: bool = True, filtered: bool = True
-    ) -> List[CompositeObject]:
+    ) -> list[CompositeObject]:
         return_list = []
         for catalog in self.__catalogs:
             if (only_selected and catalog.is_selected) or not only_selected:
@@ -354,7 +400,7 @@ class Catalogs:
 
     def set(self, catalogs: List[Catalog]):
         self.__catalogs = catalogs
-        self._select_all_catalogs()
+        self.select_all_catalogs()
 
     def add(self, catalog: Catalog, select: bool = False):
         if catalog.catalog_code not in [x.catalog_code for x in self.__catalogs]:
@@ -390,7 +436,11 @@ class Catalogs:
     def count(self) -> int:
         return len(self.get_catalogs())
 
-    def _select_all_catalogs(self):
+    def select_no_catalogs(self):
+        for catalog in self.__catalogs:
+            catalog.is_selected = False
+
+    def select_all_catalogs(self):
         for catalog in self.__catalogs:
             catalog.is_selected = True
 
