@@ -12,16 +12,21 @@ import datetime
 import re
 from tqdm import tqdm
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 
 # from PiFinder.obj_types import OBJ_DESCRIPTORS
 import PiFinder.utils as utils
 from PiFinder.ui.ui_utils import normalize
-from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils, b1950_to_j2000
+from PiFinder.calc_utils import (
+    ra_to_deg,
+    dec_to_deg,
+    sf_utils,
+    b1950_to_j2000,
+    epoch_to_epoch,
+)
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from collections import namedtuple, defaultdict
-from skyfield.api import Star
 
 objects_db: ObjectsDatabase
 observations_db: ObservationsDatabase
@@ -48,7 +53,42 @@ class ObjectFinder:
         result = self.mappings.get(object_name.lower())
         if not result:
             result = self.mappings.get(normalize(object_name))
+        if result:
+            logging.debug(f"Found object id {result} for {object_name}")
+        else:
+            logging.debug(f"DID NOT Find object id {result} for {object_name}")
         return result
+
+
+object_finder = ObjectFinder()
+
+
+def insert_akas(
+    objects_db, current_object: str, catalog: str, akas: List[str], new_object_id
+) -> List[int]:
+    """
+    Eg. SH2-005 is NGC6357
+    First we insert NGC6357 as an aka for SH2-005
+    Then we insert SH2-005 as an aka for NGC6357
+    """
+    logging.debug(f"Inserting {akas=} for {current_object=} in {catalog=}")
+    found = []
+    if akas:
+        for aka in akas:
+            found_object_id = object_finder.get_object_id(aka)
+            if found_object_id:
+                found.append(found_object_id)
+
+        logging.debug(f"for {akas} we found {found}")
+        for aka in akas:
+            objects_db.insert_name(new_object_id, aka, catalog)
+            logging.debug(f"\tInserted {aka=} for {new_object_id} in catalog {catalog}")
+        for found_id in found:
+            objects_db.insert_name(found_id, current_object, catalog)
+            logging.debug(
+                f"\tInserted {current_object=} for {found_id=} in catalog {catalog}"
+            )
+    return found
 
 
 def add_space_after_prefix(s):
@@ -178,7 +218,7 @@ def resolve_object_images():
                 break
 
         if not resolved_name:
-            logging.warning(f"No catalog entries for object: {obj_record['id']}")
+            logging.warning(f"No catalog entries for object: { obj_record['id']}")
         else:
             objects_db.insert_image_object(obj_record["id"], resolved_name)
 
@@ -919,14 +959,12 @@ def load_barnard():
 
 def load_sharpless():
     logging.info("Loading Sharpless")
-    object_finder = ObjectFinder()
     catalog = "Sh2"
     obj_type = "Nb"
     conn, _ = objects_db.get_conn_cursor()
     path = Path(utils.astro_data_dir, "sharpless")
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, path / "sharpless.desc")
-    # object_finder = ObjectFinder()
     data = path / "catalog.dat"
     akas = path / "akas.csv"
     descriptions = path / "galaxymap_descriptions.csv"
@@ -953,9 +991,8 @@ def load_sharpless():
         for row in reader:
             if row:  # Ensure the row is not empty
                 key = int(row[0])  # Convert the first column to an integer
-                values = [
-                    value.strip() for value in row[1].split(",")
-                ]  # Split second column on ',' and strip spaces
+                # Split second column on ',' and strip spaces
+                values = [value.strip() for value in row[1].split(",")]
                 akas_dict[key] = values
 
     # Open the file for reading
@@ -1006,19 +1043,117 @@ def load_sharpless():
         desc = f"{form[record['Form']]}, {struct[record['Struct']]}, {bright[record['Bright']]}, {record['Stars']}\n"
 
         desc += descriptions_dict[str(sh2)]
+        current_object = f"Sh2-{sh2}"
         current_akas = akas_dict[sh2] if sh2 in akas_dict else []
-        found = []
-        for aka in current_akas:
-            found_object_id = object_finder.get_object_id(aka)
-            found.append(found_object_id)
         object_id = objects_db.insert_object(
             obj_type, j_ra_deg, dec_deg, const, str(record["Diam"]), desc
         )
-        for aka in current_akas:
-            objects_db.insert_name(object_id, aka, catalog)
-        for found_id in found:
-            objects_db.insert_name(found_id, f"Sh2-{sh2}", catalog)
+        insert_akas(objects_db, current_object, catalog, current_akas, object_id)
         objects_db.insert_catalog_object(object_id, catalog, record["Sh2"], desc)
+
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
+
+
+def load_arp():
+    logging.info("Loading Arp")
+    catalog = "Arp"
+    obj_type = "Gx"
+    conn, _ = objects_db.get_conn_cursor()
+    path = Path(utils.astro_data_dir, "arp")
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, path / "arp.desc")
+    data = path / "table2.txt"
+    comments = path / "arp_comments.csv"
+    records = []
+
+    def expand(name):
+        expanded_list = []
+        if "+" in name:
+            parts = name.split("+")
+            # Extract the base part and the rest
+            base_part = parts[0]
+            # Add the base part first
+            expanded_list.append(base_part)
+            # Process all subsequent parts
+            for additional in parts[1:]:
+                if additional.isdigit():
+                    # If the additional part is a number, add it directly
+                    expanded_list.append(f"{base_part[:-len(additional)]}{additional}")
+                else:
+                    expanded_list.append(additional)
+        else:
+            # Append the name directly if there is no '+'
+            expanded_list.append(name)
+        return expanded_list
+
+    # read all comments for each Arp object
+    with open(comments, "r") as f:
+        arp_comments = {}
+        reader = csv.DictReader(f)
+        # Iterate over each row in the file
+        for row in tqdm(list(reader)):
+            arp = int(row["arp_number"])
+            names = row["names"].split(",")
+            names = [name.strip() for name in names]
+            comment = row["comment"]
+            arp_comments[arp] = (names, comment)
+    print(arp_comments)
+
+    with open(data, "r") as file:
+        for line in file:
+            if line.strip():  # Ensure the line is not empty
+                # Extract fields based on fixed widths
+                RAh = int(line[0:2].strip())
+                RAm = float(line[3:7].strip())
+                pPos = line[7].strip()
+                DE_sign = line[11].strip()
+                DEd = int(line[12:14].strip())
+                DEm = int(line[15:17].strip())
+                APG = int(line[20:23].strip())
+                Name = line[27:43].strip()
+                Redshifts = line[45:90].strip()
+
+                # Use the Arp's number (APG) as the key
+                record = {
+                    "APG": APG,
+                    "RAh": RAh,
+                    "RAm": RAm,
+                    "pPos": pPos,
+                    "DE_sign": DE_sign,
+                    "DEd": DEd,
+                    "DEm": DEm,
+                    "Name": expand(Name),
+                    "Redshifts": Redshifts,
+                }
+                records.append(record)
+
+    for record in records:
+        arp = int(record["APG"])
+        comments = arp_comments[arp]
+        ra_hours = record["RAh"] + record["RAm"] / 60
+        dec_sign = -1 if record["pPos"] == "-" else 1
+        dec_deg = dec_sign * (record["DEd"] + record["DEd"] / 60)
+        # print(f"RA: {ra_hours}, Dec: {dec_deg}")
+        j_ra_h, j_dec_deg = epoch_to_epoch(1970, 2000, ra_hours, dec_deg)
+        j_ra_deg = j_ra_h._degrees
+        j_dec_deg = j_dec_deg._degrees
+        const = sf_utils.radec_to_constellation(j_ra_deg, j_dec_deg)
+        desc = f
+        desc = f"{comments[1]}\n" if comments[1] else ""
+        desc += f"Redshifts: {record['Redshifts']}\n" if record["Redshifts"] else ""
+
+        akas = []
+        if record["Name"] and record["Name"] != "":
+            akas = record["Name"]
+        if comments[0] and comments[0] != "":
+            akas.extend(comments[0])
+        akas_unique = list(set(akas))
+        current_object = f"Arp {arp}"
+        object_id = objects_db.insert_object(obj_type, j_ra_deg, dec_deg, const, "", "")
+        logging.debug(f"Arp: inserting akas {akas_unique=}")
+        insert_akas(objects_db, current_object, catalog, akas_unique, object_id)
+        objects_db.insert_catalog_object(object_id, catalog, arp, desc)
 
     insert_catalog_max_sequence(catalog)
     conn.commit()
@@ -1237,6 +1372,7 @@ if __name__ == "__main__":
     load_barnard()
     load_sharpless()
     load_abell()
+    load_arp()
 
     # Populate the images table
     logging.info("Resolving object images...")
