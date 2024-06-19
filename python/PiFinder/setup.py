@@ -53,7 +53,14 @@ class ObjectFinder:
         result = self.mappings.get(object_name.lower())
         if not result:
             result = self.mappings.get(normalize(object_name))
+        if result:
+            logging.debug(f"Found object id {result} for {object_name}")
+        else:
+            logging.debug(f"DID NOT Find object id {result} for {object_name}")
         return result
+
+
+object_finder = ObjectFinder()
 
 
 def insert_akas(
@@ -64,20 +71,23 @@ def insert_akas(
     First we insert NGC6357 as an aka for SH2-005
     Then we insert SH2-005 as an aka for NGC6357
     """
-    object_finder = ObjectFinder()
+    logging.debug(f"Inserting {akas=} for {current_object=} in {catalog=}")
     found = []
-    for aka in akas:
-        found_object_id = object_finder.get_object_id(aka)
-        if found_object_id:
-            found.append(found_object_id)
+    if akas:
+        for aka in akas:
+            found_object_id = object_finder.get_object_id(aka)
+            if found_object_id:
+                found.append(found_object_id)
 
-    print(f"Found {found}")
-    for aka in akas:
-        objects_db.insert_name(new_object_id, aka, catalog)
-        print(f"Inserted {aka} for {new_object_id} in catalog {catalog}")
-    for found_id in found:
-        objects_db.insert_name(found_id, current_object, catalog)
-        print(f"Inserted {current_object} for {found_id} in catalog {catalog}")
+        logging.debug(f"for {akas} we found {found}")
+        for aka in akas:
+            objects_db.insert_name(new_object_id, aka, catalog)
+            logging.debug(f"\tInserted {aka=} for {new_object_id} in catalog {catalog}")
+        for found_id in found:
+            objects_db.insert_name(found_id, current_object, catalog)
+            logging.debug(
+                f"\tInserted {current_object=} for {found_id=} in catalog {catalog}"
+            )
     return found
 
 
@@ -1054,6 +1064,7 @@ def load_arp():
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, path / "arp.desc")
     data = path / "table2.txt"
+    comments = path / "arp_comments.csv"
     records = []
 
     def expand(name):
@@ -1075,6 +1086,19 @@ def load_arp():
             # Append the name directly if there is no '+'
             expanded_list.append(name)
         return expanded_list
+
+    # read all comments for each Arp object
+    with open(comments, "r") as f:
+        arp_comments = {}
+        reader = csv.DictReader(f)
+        # Iterate over each row in the file
+        for row in tqdm(list(reader)):
+            arp = int(row["arp_number"])
+            names = row["names"].split(",")
+            names = [name.strip() for name in names]
+            comment = row["comment"]
+            arp_comments[arp] = (names, comment)
+    print(arp_comments)
 
     with open(data, "r") as file:
         for line in file:
@@ -1102,10 +1126,11 @@ def load_arp():
                     "Name": expand(Name),
                     "Redshifts": Redshifts,
                 }
-            records.append(record)
+                records.append(record)
 
     for record in records:
         arp = int(record["APG"])
+        comments = arp_comments[arp]
         ra_hours = record["RAh"] + record["RAm"] / 60
         dec_sign = -1 if record["pPos"] == "-" else 1
         dec_deg = dec_sign * (record["DEd"] + record["DEd"] / 60)
@@ -1114,12 +1139,20 @@ def load_arp():
         j_ra_deg = j_ra_h._degrees
         j_dec_deg = j_dec_deg._degrees
         const = sf_utils.radec_to_constellation(j_ra_deg, j_dec_deg)
-        desc = f"Redshifts: {record['Redshifts']}\n" if record["Redshifts"] else ""
+        desc = f
+        desc = f"{comments[1]}\n" if comments[1] else ""
+        desc += f"Redshifts: {record['Redshifts']}\n" if record["Redshifts"] else ""
 
-        current_akas = record["Name"]
-        current_object = f"Arp-{arp}"
+        akas = []
+        if record["Name"] and record["Name"] != "":
+            akas = record["Name"]
+        if comments[0] and comments[0] != "":
+            akas.extend(comments[0])
+        akas_unique = list(set(akas))
+        current_object = f"Arp {arp}"
         object_id = objects_db.insert_object(obj_type, j_ra_deg, dec_deg, const, "", "")
-        insert_akas(objects_db, current_object, catalog, current_akas, object_id)
+        logging.debug(f"Arp: inserting akas {akas_unique=}")
+        insert_akas(objects_db, current_object, catalog, akas_unique, object_id)
         objects_db.insert_catalog_object(object_id, catalog, arp, desc)
 
     insert_catalog_max_sequence(catalog)
@@ -1338,8 +1371,8 @@ if __name__ == "__main__":
     load_rasc_double_Stars()
     load_barnard()
     load_sharpless()
-    load_arp()
     load_abell()
+    load_arp()
 
     # Populate the images table
     logging.info("Resolving object images...")
