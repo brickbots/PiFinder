@@ -17,8 +17,8 @@ from PiFinder.image_util import convert_image_to_mode
 class UIConsole(UIModule):
     __title__ = "CONSOLE"
 
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.dirty = True
         self.welcome = True
 

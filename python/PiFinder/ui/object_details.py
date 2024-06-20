@@ -308,7 +308,7 @@ class UIObjectDetails(UIModule):
                     self.display_class.resX,
                     self.display_class.resY,
                 ],
-                fill=(0, 0, 0, 150),
+                fill=(0, 0, 0, 100),
             )
 
             # catalog and entry field i.e. NGC-311

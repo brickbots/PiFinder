@@ -212,7 +212,7 @@ class UIChart(UIModule):
                     self.draw.text(
                         (0, 114),
                         ra_dec_disp,
-                        font=self.font_base,
+                        font=self.fonts.base.font,
                         fill=self.colors.get(255),
                     )
                 if self._config_options["RA/Dec"]["value"] == "Degr":
@@ -224,7 +224,7 @@ class UIChart(UIModule):
                     self.draw.text(
                         (0, 114),
                         ra_dec_disp,
-                        font=self.font_base,
+                        font=self.fonts.base.font,
                         fill=self.colors.get(255),
                     )
 

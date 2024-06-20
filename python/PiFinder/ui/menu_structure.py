@@ -1,6 +1,7 @@
 from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.status import UIStatus
+from PiFinder.ui.console import UIConsole
 from PiFinder.ui.software import UISoftware
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.preview import UIPreview
@@ -585,9 +586,14 @@ pifinder_menu = {
             "select": "single",
             "items": [
                 {"name": "Status", "class": UIStatus},
+                {"name": "Console", "class": UIConsole},
                 {
                     "name": "Software Upd",
                     "class": UISoftware,
+                },
+                {
+                    "name": "Test Mode",
+                    "callback": "debug_mode",
                 },
             ],
         },
