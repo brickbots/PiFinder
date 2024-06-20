@@ -23,8 +23,8 @@ from PiFinder.db.observations_db import ObservationsDatabase
 
 
 # Constants for display modes
-DM_LOCATE = 0  # Display mode for LOCATE
-DM_DESC = 1  # Display mode for description
+DM_DESC = 0  # Display mode for description
+DM_LOCATE = 1  # Display mode for LOCATE
 DM_POSS = 2  # Display mode for POSS
 DM_SDSS = 3  # Display mode for SDSS
 
@@ -43,7 +43,7 @@ class UIObjectDetails(UIModule):
         self.mount_type = self.config_object.get_option("mount_type")
         self.object = self.item_definition["object"]
 
-        self.object_display_mode = DM_DESC
+        self.object_display_mode = DM_LOCATE
         self.object_image = None
 
         self.fov_list = [1, 0.5, 0.25, 0.125]
@@ -82,8 +82,8 @@ class UIObjectDetails(UIModule):
         }
 
         # cache some display stuff for locate
-        self.az_anchor = (25, self.display_class.resY - (self.fonts.huge.height * 2.2))
-        self.alt_anchor = (25, self.display_class.resY - (self.fonts.huge.height * 1.1))
+        self.az_anchor = (0, self.display_class.resY - (self.fonts.huge.height * 2.2))
+        self.alt_anchor = (0, self.display_class.resY - (self.fonts.huge.height * 1.2))
         self._elipsis_count = 0
 
         self.update_object_info()
@@ -160,9 +160,7 @@ class UIObjectDetails(UIModule):
                     f"Mag:{obj_mag}", size
                 )
             if spaces == -1:
-                spaces, magsize = self.space_calculator.calculate_spaces(
-                    obj_mag, size
-                )
+                spaces, magsize = self.space_calculator.calculate_spaces(obj_mag, size)
 
         self.texts["magsize"] = self.simpleTextLayout(
             magsize, font=self.fonts.bold, color=self.colors.get(255)
@@ -204,11 +202,95 @@ class UIObjectDetails(UIModule):
             self.fov_list[self.fov_index],
             roll,
             self.display_class,
-            burn_in = self.object_display_mode in [DM_POSS, DM_SDSS]
+            burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
         )
 
     def active(self):
         pass
+
+    def _render_pointing_instructions(self):
+        # Pointing Instructions
+        indicator_color = 255 if self._unmoved else 128
+        point_az, point_alt = calc_utils.aim_degrees(
+            self.shared_state,
+            self.mount_type,
+            self.screen_direction,
+            self.object,
+        )
+        if not point_az:
+            if self.shared_state.solution() is None:
+                self.draw.text(
+                    (10, 70),
+                    "No solve",
+                    font=self.fonts.large.font,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (10, 90),
+                    f"yet{'.' * int(self._elipsis_count / 10)}",
+                    font=self.fonts.large.font,
+                    fill=self.colors.get(255),
+                )
+            else:
+                self.draw.text(
+                    (10, 70),
+                    "Searching",
+                    font=self.fonts.large.font,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (10, 90),
+                    f"for GPS{'.' * int(self._elipsis_count / 10)}",
+                    font=self.fonts.large.font,
+                    fill=self.colors.get(255),
+                )
+            self._elipsis_count += 1
+            if self._elipsis_count > 39:
+                self._elipsis_count = 0
+        else:
+            if point_az < 0:
+                point_az *= -1
+                az_arrow = self._LEFT_ARROW
+            else:
+                az_arrow = self._RIGHT_ARROW
+
+            # Change decimal points when within 1 degree
+            if point_az < 1:
+                self.draw.text(
+                    self.az_anchor,
+                    f"{az_arrow}{point_az : >5.2f}",
+                    font=self.fonts.huge.font,
+                    fill=self.colors.get(indicator_color),
+                )
+            else:
+                self.draw.text(
+                    self.az_anchor,
+                    f"{az_arrow}{point_az : >5.1f}",
+                    font=self.fonts.huge.font,
+                    fill=self.colors.get(indicator_color),
+                )
+
+            if point_alt < 0:
+                point_alt *= -1
+                alt_arrow = self._DOWN_ARROW
+            else:
+                alt_arrow = self._UP_ARROW
+
+            # Change decimal points when within 1 degree
+            if point_alt < 1:
+                self.draw.text(
+                    self.alt_anchor,
+                    f"{alt_arrow}{point_alt : >5.2f}",
+                    font=self.fonts.huge.font,
+                    fill=self.colors.get(indicator_color),
+                )
+            else:
+                self.draw.text(
+                    self.alt_anchor,
+                    f"{alt_arrow}{point_alt : >5.1f}",
+                    font=self.fonts.huge.font,
+                    fill=self.colors.get(indicator_color),
+                )
 
     def update(self, force=True):
         # Clear Screen
@@ -226,108 +308,27 @@ class UIObjectDetails(UIModule):
                     self.display_class.resX,
                     self.display_class.resY,
                 ],
-                fill=(0,0,0,150),
+                fill=(0, 0, 0, 150),
             )
 
             # catalog and entry field i.e. NGC-311
             self.refresh_designator()
-            desc_available_lines = 3
+            desc_available_lines = 4
             desig = self.texts["designator"]
-            desig.draw((10, 21))
+            desig.draw((0, 20))
 
-        if self.object_display_mode == DM_LOCATE:
-            # Pointing Instructions
-            indicator_color = 255 if self._unmoved else 128
-            point_az, point_alt = calc_utils.aim_degrees(
-                self.shared_state,
-                self.mount_type,
-                self.screen_direction,
-                self.object,
-            )
-            if not point_az:
-                if self.shared_state.solution() is None:
-                    self.draw.text(
-                        (10, 70),
-                        "No solve",
-                        font=self.font_large,
-                        fill=self.colors.get(255),
-                    )
-                    self.draw.text(
-                        (10, 90),
-                        f"yet{'.' * int(self._elipsis_count / 10)}",
-                        font=self.font_large,
-                        fill=self.colors.get(255),
-                    )
-                else:
-                    self.draw.text(
-                        (10, 70),
-                        "Searching",
-                        font=self.font_large,
-                        fill=self.colors.get(255),
-                    )
-                    self.draw.text(
-                        (10, 90),
-                        f"for GPS{'.' * int(self._elipsis_count / 10)}",
-                        font=self.font_large,
-                        fill=self.colors.get(255),
-                    )
-                self._elipsis_count += 1
-                if self._elipsis_count > 39:
-                    self._elipsis_count = 0
-            else:
-                if point_az < 0:
-                    point_az *= -1
-                    az_arrow = self._LEFT_ARROW
-                else:
-                    az_arrow = self._RIGHT_ARROW
-
-                # Change decimal points when within 1 degree
-                if point_az < 1:
-                    self.draw.text(
-                        self.az_anchor,
-                        f"{az_arrow} {point_az : >5.2f}",
-                        font=self.fonts.huge.font,
-                        fill=self.colors.get(indicator_color),
-                    )
-                else:
-                    self.draw.text(
-                        self.az_anchor,
-                        f"{az_arrow} {point_az : >5.1f}",
-                        font=self.fonts.huge.font,
-                        fill=self.colors.get(indicator_color),
-                    )
-
-                if point_alt < 0:
-                    point_alt *= -1
-                    alt_arrow = self._DOWN_ARROW
-                else:
-                    alt_arrow = self._UP_ARROW
-
-                # Change decimal points when within 1 degree
-                if point_alt < 1:
-                    self.draw.text(
-                        self.alt_anchor,
-                        f"{alt_arrow} {point_alt : >5.2f}",
-                        font=self.fonts.huge.font,
-                        fill=self.colors.get(indicator_color),
-                    )
-                else:
-                    self.draw.text(
-                        self.alt_anchor,
-                        f"{alt_arrow} {point_alt : >5.1f}",
-                        font=self.fonts.huge.font,
-                        fill=self.colors.get(indicator_color),
-                    )
-
-        if self.object_display_mode == DM_DESC:
             # Object TYPE and Constellation i.e. 'Galaxy    PER'
             typeconst = self.texts.get("type-const")
             if typeconst:
-                typeconst.draw((0, 48))
+                typeconst.draw((0, 36))
 
+        if self.object_display_mode == DM_LOCATE:
+            self._render_pointing_instructions()
+
+        if self.object_display_mode == DM_DESC:
             # Object Magnitude and size i.e. 'Mag:4.0   Sz:7"'
             magsize = self.texts.get("magsize")
-            posy = 62
+            posy = 52
             if magsize and magsize.text.strip():
                 if self.object:
                     # check for visibility and adjust mag/size text color
