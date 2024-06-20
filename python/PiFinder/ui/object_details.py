@@ -23,9 +23,10 @@ from PiFinder.db.observations_db import ObservationsDatabase
 
 
 # Constants for display modes
-DM_DESC = 0  # Display mode for description
-DM_POSS = 1  # Display mode for POSS
-DM_SDSS = 2  # Display mode for SDSS
+DM_LOCATE = 0  # Display mode for LOCATE
+DM_DESC = 1  # Display mode for description
+DM_POSS = 2  # Display mode for POSS
+DM_SDSS = 3  # Display mode for SDSS
 
 
 class UIObjectDetails(UIModule):
@@ -80,6 +81,11 @@ class UIObjectDetails(UIModule):
             ),
         }
 
+        # cache some display stuff for locate
+        self.az_anchor = (25, self.display_class.resY - (self.fonts.huge.height * 2.2))
+        self.alt_anchor = (25, self.display_class.resY - (self.fonts.huge.height * 1.1))
+        self._elipsis_count = 0
+
         self.update_object_info()
 
     def _layout_designator(self):
@@ -108,7 +114,7 @@ class UIObjectDetails(UIModule):
             "Med": TextLayouterScroll.MEDIUM,
             "Slow": TextLayouterScroll.SLOW,
         }
-        scrollspeed = self._config_options["Scrolling"]["value"]
+        scrollspeed = self.config_object.get_option("text_scroll_speed", "Med")
         return scroll_dict[scrollspeed]
 
     def update_config(self):
@@ -119,89 +125,87 @@ class UIObjectDetails(UIModule):
         """
         Generates object text and loads object images
         """
-        if self.object_display_mode == DM_DESC:
-            # text stuff....
+        # text stuff....
 
-            self.texts = {}
-            # Type / Constellation
-            object_type = OBJ_TYPES.get(self.object.obj_type, self.object.obj_type)
+        self.texts = {}
+        # Type / Constellation
+        object_type = OBJ_TYPES.get(self.object.obj_type, self.object.obj_type)
 
-            # layout the type - constellation line
-            _, typeconst = self.space_calculator.calculate_spaces(
-                object_type, self.object.const
+        # layout the type - constellation line
+        _, typeconst = self.space_calculator.calculate_spaces(
+            object_type, self.object.const
+        )
+        self.texts["type-const"] = self.simpleTextLayout(
+            typeconst,
+            font=self.fonts.bold,
+            color=self.colors.get(255),
+        )
+        # Magnitude / Size
+        # try to get object mag to float
+        try:
+            obj_mag = float(self.object.mag)
+        except (ValueError, TypeError):
+            obj_mag = "-" if self.object.mag == "" else self.object.mag
+
+        size = str(self.object.size).strip()
+        size = "-" if size == "" else size
+        # Only construct mag/size if at least one is present
+        magsize = ""
+        if size != "-" or obj_mag != "-":
+            spaces, magsize = self.space_calculator.calculate_spaces(
+                f"Mag:{obj_mag}", f"Sz:{size}"
             )
-            self.texts["type-const"] = self.simpleTextLayout(
-                typeconst,
-                font=self.fonts.bold,
-                color=self.colors.get(255),
-            )
-            # Magnitude / Size
-            # try to get object mag to float
-            try:
-                obj_mag = float(self.object.mag)
-            except (ValueError, TypeError):
-                obj_mag = "-" if self.object.mag == "" else self.object.mag
-
-            size = str(self.object.size).strip()
-            size = "-" if size == "" else size
-            # Only construct mag/size if at least one is present
-            magsize = ""
-            if size != "-" or obj_mag != "-":
+            if spaces == -1:
                 spaces, magsize = self.space_calculator.calculate_spaces(
-                    f"Mag:{obj_mag}", f"Sz:{size}"
+                    f"Mag:{obj_mag}", size
                 )
-                if spaces == -1:
-                    spaces, magsize = self.space_calculator.calculate_spaces(
-                        f"Mag:{obj_mag}", size
-                    )
-                if spaces == -1:
-                    spaces, magsize = self.space_calculator.calculate_spaces(
-                        obj_mag, size
-                    )
+            if spaces == -1:
+                spaces, magsize = self.space_calculator.calculate_spaces(
+                    obj_mag, size
+                )
 
-            self.texts["magsize"] = self.simpleTextLayout(
-                magsize, font=self.fonts.bold, color=self.colors.get(255)
+        self.texts["magsize"] = self.simpleTextLayout(
+            magsize, font=self.fonts.bold, color=self.colors.get(255)
+        )
+
+        if self.object.names:
+            # first deduplicate the aka's
+            dedups = name_deduplicate(self.object.names, [self.object.display_name])
+            self.texts["aka"] = self.ScrollTextLayout(
+                ", ".join(dedups),
+                font=self.fonts.base,
+                scrollspeed=self._get_scrollspeed_config(),
             )
 
-            if self.object.names:
-                # first deduplicate the aka's
-                dedups = name_deduplicate(self.object.names, [self.object.display_name])
-                self.texts["aka"] = self.ScrollTextLayout(
-                    ", ".join(dedups),
-                    font=self.fonts.base,
-                    scrollspeed=self._get_scrollspeed_config(),
-                )
-
-            # NGC description....
-            logs = self.observations_db.get_logs_for_object(self.object)
-            desc = self.object.description.replace("\t", " ") + "\n"
-            if len(logs) == 0:
-                desc = desc + "  Not Logged"
-            else:
-                desc = desc + f"  {len(logs)} Logs"
-
-            self.descTextLayout.set_text(desc)
-            self.texts["desc"] = self.descTextLayout
-
+        # NGC description....
+        logs = self.observations_db.get_logs_for_object(self.object)
+        desc = self.object.description.replace("\t", " ") + "\n"
+        if len(logs) == 0:
+            desc = desc + "  Not Logged"
         else:
-            # Image stuff...
-            if self.object_display_mode == DM_SDSS:
-                source = "SDSS"
-            else:
-                source = "POSS"
+            desc = desc + f"  {len(logs)} Logs"
 
-            solution = self.shared_state.solution()
-            roll = 0
-            if solution:
-                roll = solution["Roll"]
+        self.descTextLayout.set_text(desc)
+        self.texts["desc"] = self.descTextLayout
 
-            self.object_image = cat_images.get_display_image(
-                self.object,
-                source,
-                self.fov_list[self.fov_index],
-                roll,
-                self.display_class,
-            )
+        if self.object_display_mode == DM_SDSS:
+            source = "SDSS"
+        else:
+            source = "POSS"
+
+        solution = self.shared_state.solution()
+        roll = 0
+        if solution:
+            roll = solution["Roll"]
+
+        self.object_image = cat_images.get_display_image(
+            self.object,
+            source,
+            self.fov_list[self.fov_index],
+            roll,
+            self.display_class,
+            burn_in = self.object_display_mode in [DM_POSS, DM_SDSS]
+        )
 
     def active(self):
         pass
@@ -210,13 +214,112 @@ class UIObjectDetails(UIModule):
         # Clear Screen
         self.clear_screen()
 
-        if self.object_display_mode == DM_DESC or self.object is None:
+        # paste image
+        self.screen.paste(self.object_image)
+
+        if self.object_display_mode == DM_DESC or self.object_display_mode == DM_LOCATE:
+            # dim image
+            self.draw.rectangle(
+                [
+                    0,
+                    0,
+                    self.display_class.resX,
+                    self.display_class.resY,
+                ],
+                fill=(0,0,0,150),
+            )
+
             # catalog and entry field i.e. NGC-311
             self.refresh_designator()
             desc_available_lines = 3
             desig = self.texts["designator"]
-            desig.draw((0, 21))
+            desig.draw((10, 21))
 
+        if self.object_display_mode == DM_LOCATE:
+            # Pointing Instructions
+            indicator_color = 255 if self._unmoved else 128
+            point_az, point_alt = calc_utils.aim_degrees(
+                self.shared_state,
+                self.mount_type,
+                self.screen_direction,
+                self.object,
+            )
+            if not point_az:
+                if self.shared_state.solution() is None:
+                    self.draw.text(
+                        (10, 70),
+                        "No solve",
+                        font=self.font_large,
+                        fill=self.colors.get(255),
+                    )
+                    self.draw.text(
+                        (10, 90),
+                        f"yet{'.' * int(self._elipsis_count / 10)}",
+                        font=self.font_large,
+                        fill=self.colors.get(255),
+                    )
+                else:
+                    self.draw.text(
+                        (10, 70),
+                        "Searching",
+                        font=self.font_large,
+                        fill=self.colors.get(255),
+                    )
+                    self.draw.text(
+                        (10, 90),
+                        f"for GPS{'.' * int(self._elipsis_count / 10)}",
+                        font=self.font_large,
+                        fill=self.colors.get(255),
+                    )
+                self._elipsis_count += 1
+                if self._elipsis_count > 39:
+                    self._elipsis_count = 0
+            else:
+                if point_az < 0:
+                    point_az *= -1
+                    az_arrow = self._LEFT_ARROW
+                else:
+                    az_arrow = self._RIGHT_ARROW
+
+                # Change decimal points when within 1 degree
+                if point_az < 1:
+                    self.draw.text(
+                        self.az_anchor,
+                        f"{az_arrow} {point_az : >5.2f}",
+                        font=self.fonts.huge.font,
+                        fill=self.colors.get(indicator_color),
+                    )
+                else:
+                    self.draw.text(
+                        self.az_anchor,
+                        f"{az_arrow} {point_az : >5.1f}",
+                        font=self.fonts.huge.font,
+                        fill=self.colors.get(indicator_color),
+                    )
+
+                if point_alt < 0:
+                    point_alt *= -1
+                    alt_arrow = self._DOWN_ARROW
+                else:
+                    alt_arrow = self._UP_ARROW
+
+                # Change decimal points when within 1 degree
+                if point_alt < 1:
+                    self.draw.text(
+                        self.alt_anchor,
+                        f"{alt_arrow} {point_alt : >5.2f}",
+                        font=self.fonts.huge.font,
+                        fill=self.colors.get(indicator_color),
+                    )
+                else:
+                    self.draw.text(
+                        self.alt_anchor,
+                        f"{alt_arrow} {point_alt : >5.1f}",
+                        font=self.fonts.huge.font,
+                        fill=self.colors.get(indicator_color),
+                    )
+
+        if self.object_display_mode == DM_DESC:
             # Object TYPE and Constellation i.e. 'Galaxy    PER'
             typeconst = self.texts.get("type-const")
             if typeconst:
@@ -256,14 +359,12 @@ class UIObjectDetails(UIModule):
                 desc.set_available_lines(desc_available_lines)
                 desc.draw((0, posy))
 
-        else:
-            self.screen.paste(self.object_image)
         return self.screen_update()
 
     def key_down(self):
         # switch object display text
         self.object_display_mode = (
-            self.object_display_mode + 1 if self.object_display_mode < 2 else 0
+            self.object_display_mode + 1 if self.object_display_mode < 2 else 2
         )
         self.update_object_info()
         self.update()
@@ -287,12 +388,18 @@ class UIObjectDetails(UIModule):
 
     def key_plus(self):
         if self.object_display_mode == DM_DESC:
-            self.scroll_obj(-1)
+            self.descTextLayout.next()
+            typeconst = self.texts.get("type-const")
+            if typeconst and isinstance(typeconst, TextLayouter):
+                typeconst.next()
         else:
             self.change_fov(-1)
 
     def key_minus(self):
         if self.object_display_mode == DM_DESC:
-            self.scroll_obj(1)
+            self.descTextLayout.next()
+            typeconst = self.texts.get("type-const")
+            if typeconst and isinstance(typeconst, TextLayouter):
+                typeconst.next()
         else:
             self.change_fov(1)

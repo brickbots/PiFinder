@@ -57,7 +57,7 @@ class UIModule:
         self.remove_from_stack = remove_from_stack
 
         self.screen = Image.new("RGB", display_class.resolution)
-        self.draw = ImageDraw.Draw(self.screen)
+        self.draw = ImageDraw.Draw(self.screen, mode="RGBA")
         self.fonts = self.display_class.fonts
 
         # UI Module definition
