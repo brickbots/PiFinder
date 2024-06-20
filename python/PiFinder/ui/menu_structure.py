@@ -2,6 +2,8 @@ from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.status import UIStatus
 from PiFinder.ui.software import UISoftware
+from PiFinder.ui.chart import UIChart
+from PiFinder.ui.preview import UIPreview
 
 pifinder_menu = {
     "name": "PiFinder",
@@ -431,11 +433,12 @@ pifinder_menu = {
         },
         {
             "name": "Chart",
-            "class": "screen",
+            "class": UIChart,
+            "stateful": True,
         },
         {
             "name": "Camera",
-            "class": "screen",
+            "class": UIPreview,
         },
         {
             "name": "Settings",

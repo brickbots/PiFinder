@@ -65,8 +65,8 @@ class UIPreview(UIModule):
         },
     }
 
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         exposure_time = self.config_object.get_option("camera_exp")
         self._config_options["Exposure"]["value"] = exposure_time / 1000000
