@@ -6,6 +6,7 @@ This module contains all the UI Module classes
 """
 
 from typing import Union
+import datetime
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
 
@@ -159,6 +160,13 @@ class UITextMenu(UIModule):
                 self.message("Filters Reset")
                 self.remove_from_stack()
                 return
+
+            if selected_item_definition["callback"] == "debug_mode":
+                self.command_queues["camera"].put("debug")
+                self.command_queues["console"].put("Debug: Activated")
+                dt = datetime.datetime(2022, 11, 15, 2, 0, 0)
+                self.shared_state.set_datetime(dt)
+                self.message("Test Mode")
 
         # If the item has a class, always invoke that class
         if selected_item_definition is not None and selected_item_definition.get(

@@ -57,7 +57,7 @@ class UIModule:
         self.remove_from_stack = remove_from_stack
 
         self.screen = Image.new("RGB", display_class.resolution)
-        self.draw = ImageDraw.Draw(self.screen)
+        self.draw = ImageDraw.Draw(self.screen, mode="RGBA")
         self.fonts = self.display_class.fonts
 
         # UI Module definition
@@ -198,14 +198,16 @@ class UIModule:
                             font=self.fonts.icon_bold_large.font,
                             fill=var_fg,
                         )
-                    # draw the constellation
-                    constellation = solution["constellation"]
-                    self.draw.text(
-                        (self.display_class.resX * 0.54, 1),
-                        constellation,
-                        font=self.fonts.bold.font,
-                        fill=fg if self._unmoved else self.colors.get(32),
-                    )
+
+                    if len(self.title) < 9:
+                        # draw the constellation
+                        constellation = solution["constellation"]
+                        self.draw.text(
+                            (self.display_class.resX * 0.54, 1),
+                            constellation,
+                            font=self.fonts.bold.font,
+                            fill=fg if self._unmoved else self.colors.get(32),
+                        )
                 else:
                     # no solve yet....
                     self.draw.text(

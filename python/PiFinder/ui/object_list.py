@@ -16,6 +16,7 @@ from itertools import cycle
 
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder.ui.text_menu import UITextMenu
+from PiFinder.ui.object_details import UIObjectDetails
 
 from PiFinder.calc_utils import aim_degrees
 from PiFinder.catalog_utils import ClosestObjectsFinder
@@ -87,10 +88,11 @@ class UIObjectList(UITextMenu):
             self._menu_items = item_definition["object_list"]
 
         self._menu_items_sorted = self._menu_items
-        self.closest_objects_finder = ClosestObjectsFinder()
-        self.closest_objects_finder.calculate_objects_balltree(
-            objects=self._menu_items,
-        )
+        if len(self._menu_items) > 0:
+            self.closest_objects_finder = ClosestObjectsFinder()
+            self.closest_objects_finder.calculate_objects_balltree(
+                objects=self._menu_items,
+            )
 
         self.mode_cycle = cycle(DisplayModes)
         self.current_mode = next(self.mode_cycle)
@@ -241,6 +243,21 @@ class UIObjectList(UITextMenu):
         # clear screen
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
 
+        if len(self._menu_items) == 0:
+            self.draw.text(
+                (12, 42),
+                "No objects",
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+            self.draw.text(
+                (12, 60),
+                "match filter",
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+            return self.screen_update()
+
         # Draw current selection hint
         # self.draw.line([0,80,128,80], width=1, fill=self.colors.get(32))
         self.draw.rectangle([0, 60, 128, 80], fill=self.colors.get(32))
@@ -355,4 +372,11 @@ class UIObjectList(UITextMenu):
         When right is pressed, move to
         object info screen
         """
-        pass
+        _menu_item = self._menu_items_sorted[self._current_item_index]
+
+        object_item_definition = {
+            "name": _menu_item.display_name,
+            "class": UIObjectDetails,
+            "object": _menu_item,
+        }
+        self.add_to_stack(object_item_definition)

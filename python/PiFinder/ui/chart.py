@@ -48,8 +48,8 @@ class UIChart(UIModule):
         },
     }
 
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.last_update = time.time()
         self.starfield = plot.Starfield(self.colors, self.display_class.resolution)
         self.solution = None
@@ -212,7 +212,7 @@ class UIChart(UIModule):
                     self.draw.text(
                         (0, 114),
                         ra_dec_disp,
-                        font=self.font_base,
+                        font=self.fonts.base.font,
                         fill=self.colors.get(255),
                     )
                 if self._config_options["RA/Dec"]["value"] == "Degr":
@@ -224,7 +224,7 @@ class UIChart(UIModule):
                     self.draw.text(
                         (0, 114),
                         ra_dec_disp,
-                        font=self.font_base,
+                        font=self.fonts.base.font,
                         fill=self.colors.get(255),
                     )
 
@@ -260,13 +260,13 @@ class UIChart(UIModule):
         self.set_fov(self.fov_list[self.fov_index])
         self.update(force=True)
 
-    def key_up(self):
+    def key_plus(self):
         self.change_fov(-1)
 
-    def key_down(self):
+    def key_minus(self):
         self.change_fov(1)
 
-    def key_enter(self):
+    def key_square(self):
         # Set back to 10.2 to match the camera view
         self.fov_index = 1
         self.set_fov(self.fov_list[self.fov_index])

@@ -82,8 +82,8 @@ class UIStatus(UIModule):
         },
     }
 
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.version_txt = f"{utils.pifinder_dir}/version.txt"
         self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
         self._draw_pos = (0, self.display_class.titlebar_height)

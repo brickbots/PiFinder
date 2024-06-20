@@ -296,9 +296,9 @@ class UILocate(UIModule):
         else:
             if point_az < 0:
                 point_az *= -1
-                az_arrow = self._RIGHT_ARROW
-            else:
                 az_arrow = self._LEFT_ARROW
+            else:
+                az_arrow = self._RIGHT_ARROW
 
             # Change decimal points when within 1 degree
             if point_az < 1:

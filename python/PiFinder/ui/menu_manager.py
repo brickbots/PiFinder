@@ -36,19 +36,25 @@ class MenuManager:
         in all the required UI Module arguments + the
         item dict
         """
-        self.stack.append(
-            item["class"](
-                display_class=self.display_class,
-                camera_image=self.camera_image,
-                shared_state=self.shared_state,
-                command_queues=self.command_queues,
-                config_object=self.config_object,
-                catalogs=self.catalogs,
-                item_definition=item,
-                add_to_stack=self.add_to_stack,
-                remove_from_stack=self.remove_from_stack,
+        if item.get("state") is not None:
+            self.stack.append(item["state"])
+        else:
+            self.stack.append(
+                item["class"](
+                    display_class=self.display_class,
+                    camera_image=self.camera_image,
+                    shared_state=self.shared_state,
+                    command_queues=self.command_queues,
+                    config_object=self.config_object,
+                    catalogs=self.catalogs,
+                    item_definition=item,
+                    add_to_stack=self.add_to_stack,
+                    remove_from_stack=self.remove_from_stack,
+                )
             )
-        )
+            if item.get("stateful", False):
+                item["state"] = self.stack[-1]
+
         self.stack[-1].active()  # type: ignore[call-arg]
 
     def message(self, message: str, timeout: float) -> None:

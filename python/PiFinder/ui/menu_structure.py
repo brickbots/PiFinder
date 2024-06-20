@@ -2,7 +2,10 @@ from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.status import UIStatus
+from PiFinder.ui.console import UIConsole
 from PiFinder.ui.software import UISoftware
+from PiFinder.ui.chart import UIChart
+from PiFinder.ui.preview import UIPreview
 
 pifinder_menu = {
     "name": "PiFinder",
@@ -48,16 +51,16 @@ pifinder_menu = {
                             "config_option": "active_catalogs",
                             "items": [
                                 {
-                                    "name": "NGC",
-                                    "value": "NGC",
+                                    "name": "Abell Pn",
+                                    "value": "Abl",
                                 },
                                 {
-                                    "name": "IC",
-                                    "value": "IC",
+                                    "name": "Arp Galaxies",
+                                    "value": "Arp",
                                 },
                                 {
-                                    "name": "Messier",
-                                    "value": "M",
+                                    "name": "Barnard",
+                                    "value": "B",
                                 },
                                 {
                                     "name": "Caldwell",
@@ -68,28 +71,32 @@ pifinder_menu = {
                                     "value": "Col",
                                 },
                                 {
-                                    "name": "TAAS 200",
-                                    "value": "Ta2",
+                                    "name": "E.G. Globs",
+                                    "value": "EGC",
                                 },
                                 {
                                     "name": "Herschel 400",
                                     "value": "H",
                                 },
                                 {
-                                    "name": "E.G. Globs",
-                                    "value": "EGC",
+                                    "name": "IC",
+                                    "value": "IC",
                                 },
                                 {
-                                    "name": "Barnard",
-                                    "value": "B",
+                                    "name": "Messier",
+                                    "value": "M",
+                                },
+                                {
+                                    "name": "NGC",
+                                    "value": "NGC",
                                 },
                                 {
                                     "name": "Sharpless",
                                     "value": "Sh2",
                                 },
                                 {
-                                    "name": "Abell Pn",
-                                    "value": "Abl",
+                                    "name": "TAAS 200",
+                                    "value": "Ta2",
                                 },
                             ],
                         },
@@ -308,22 +315,22 @@ pifinder_menu = {
                             "select": "single",
                             "items": [
                                 {
-                                    "name": "NGC",
+                                    "name": "Abell Pn",
                                     "class": UIObjectList,
                                     "objects": "catalog",
-                                    "value": "NGC",
+                                    "value": "Abl",
                                 },
                                 {
-                                    "name": "IC",
+                                    "name": "Arp Galaxies",
                                     "class": UIObjectList,
                                     "objects": "catalog",
-                                    "value": "IC",
+                                    "value": "Arp",
                                 },
                                 {
-                                    "name": "Messier",
+                                    "name": "Barnard",
                                     "class": UIObjectList,
                                     "objects": "catalog",
-                                    "value": "M",
+                                    "value": "B",
                                 },
                                 {
                                     "name": "Caldwell",
@@ -338,10 +345,10 @@ pifinder_menu = {
                                     "value": "Col",
                                 },
                                 {
-                                    "name": "TAAS 200",
+                                    "name": "E.G. Globs",
                                     "class": UIObjectList,
                                     "objects": "catalog",
-                                    "value": "Ta2",
+                                    "value": "EGC",
                                 },
                                 {
                                     "name": "Herschel 400",
@@ -350,16 +357,22 @@ pifinder_menu = {
                                     "value": "H",
                                 },
                                 {
-                                    "name": "E.G. Globs",
+                                    "name": "IC",
                                     "class": UIObjectList,
                                     "objects": "catalog",
-                                    "value": "EGC",
+                                    "value": "IC",
                                 },
                                 {
-                                    "name": "Barnard",
+                                    "name": "Messier",
                                     "class": UIObjectList,
                                     "objects": "catalog",
-                                    "value": "B",
+                                    "value": "M",
+                                },
+                                {
+                                    "name": "NGC",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "NGC",
                                 },
                                 {
                                     "name": "Sharpless",
@@ -368,10 +381,10 @@ pifinder_menu = {
                                     "value": "Sh2",
                                 },
                                 {
-                                    "name": "Abell Pn",
+                                    "name": "TAAS 200",
                                     "class": UIObjectList,
                                     "objects": "catalog",
-                                    "value": "Abl",
+                                    "value": "Ta2",
                                 },
                             ],
                         },
@@ -422,11 +435,12 @@ pifinder_menu = {
         },
         {
             "name": "Chart",
-            "class": "screen",
+            "class": UIChart,
+            "stateful": True,
         },
         {
             "name": "Camera",
-            "class": "screen",
+            "class": UIPreview,
         },
         {
             "name": "Settings",
@@ -573,9 +587,14 @@ pifinder_menu = {
             "select": "single",
             "items": [
                 {"name": "Status", "class": UIStatus},
+                {"name": "Console", "class": UIConsole},
                 {
                     "name": "Software Upd",
                     "class": UISoftware,
+                },
+                {
+                    "name": "Test Mode",
+                    "callback": "debug_mode",
                 },
             ],
         },
