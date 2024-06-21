@@ -6,9 +6,7 @@ This module contains all the UI Module classes
 """
 
 from typing import Union
-import datetime
 from PiFinder.ui.base import UIModule
-from PiFinder.catalogs import CatalogFilter
 
 
 class UITextMenu(UIModule):
@@ -24,7 +22,7 @@ class UITextMenu(UIModule):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
-        self._current_item_index = 0
+        self._current_item_index = self.item_definition.get("start_index", 0)
         self._menu_items = [x["name"] for x in self.item_definition["items"]]
         self._menu_type = self.item_definition["select"]
 
@@ -147,26 +145,9 @@ class UITextMenu(UIModule):
         if selected_item_definition is not None and selected_item_definition.get(
             "callback"
         ):
-            if selected_item_definition["callback"] == "go_back":
-                self.remove_from_stack()
-                return
-
-            if selected_item_definition["callback"] == "reset_filters":
-                self.catalogs.set_catalog_filter(
-                    CatalogFilter(shared_state=self.shared_state)
-                )
-                self.config_object.reset_filters()
-                self.catalogs.filter_catalogs()
-                self.message("Filters Reset")
-                self.remove_from_stack()
-                return
-
-            if selected_item_definition["callback"] == "debug_mode":
-                self.command_queues["camera"].put("debug")
-                self.command_queues["console"].put("Debug: Activated")
-                dt = datetime.datetime(2022, 11, 15, 2, 0, 0)
-                self.shared_state.set_datetime(dt)
-                self.message("Test Mode")
+            # All ui callback functions take the current UI module
+            # as an argument, so call it with self here
+            return selected_item_definition["callback"](self)
 
         # If the item has a class, always invoke that class
         if selected_item_definition is not None and selected_item_definition.get(

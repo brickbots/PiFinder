@@ -5,12 +5,180 @@ from PiFinder.ui.console import UIConsole
 from PiFinder.ui.software import UISoftware
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.preview import UIPreview
+import PiFinder.ui.callbacks as callbacks
 
 pifinder_menu = {
     "name": "PiFinder",
     "class": UITextMenu,
     "select": "single",
+    "start_index": 2,
     "items": [
+        {
+            "name": "Camera",
+            "class": UIPreview,
+        },
+        {
+            "name": "Chart",
+            "class": UIChart,
+            "stateful": True,
+        },
+        {
+            "name": "Objects",
+            "class": UITextMenu,
+            "select": "single",
+            "items": [
+                {
+                    "name": "All Filtered",
+                    "class": UIObjectList,
+                    "objects": "catalogs.filtered",
+                },
+                {
+                    "name": "By Catalog",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": "Planets",
+                            "class": UIObjectList,
+                            "objects": "catalog",
+                            "value": "PL",
+                        },
+                        {
+                            "name": "NGC",
+                            "class": UIObjectList,
+                            "objects": "catalog",
+                            "value": "NGC",
+                        },
+                        {
+                            "name": "Messier",
+                            "class": UIObjectList,
+                            "objects": "catalog",
+                            "value": "M",
+                        },
+                        {
+                            "name": "DSO...",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "items": [
+                                {
+                                    "name": "Abell Pn",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "Abl",
+                                },
+                                {
+                                    "name": "Arp Galaxies",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "Arp",
+                                },
+                                {
+                                    "name": "Barnard",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "B",
+                                },
+                                {
+                                    "name": "Caldwell",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "C",
+                                },
+                                {
+                                    "name": "Collinder",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "Col",
+                                },
+                                {
+                                    "name": "E.G. Globs",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "EGC",
+                                },
+                                {
+                                    "name": "Herschel 400",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "H",
+                                },
+                                {
+                                    "name": "IC",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "IC",
+                                },
+                                {
+                                    "name": "Messier",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "M",
+                                },
+                                {
+                                    "name": "NGC",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "NGC",
+                                },
+                                {
+                                    "name": "Sharpless",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "Sh2",
+                                },
+                                {
+                                    "name": "TAAS 200",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "Ta2",
+                                },
+                            ],
+                        },
+                        {
+                            "name": "Stars...",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "items": [
+                                {
+                                    "name": "Bright Named",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "Str",
+                                },
+                                {
+                                    "name": "SAC Doubles",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "SaM",
+                                },
+                                {
+                                    "name": "SAC Asterisms",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "SaA",
+                                },
+                                {
+                                    "name": "SAC Red Stars",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "SaR",
+                                },
+                                {
+                                    "name": "RASC Doubles",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "RDS",
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "name": "Name Search",
+                    "class": "screen",
+                },
+            ],
+        },
         {
             "name": "Filter",
             "class": UITextMenu,
@@ -21,8 +189,8 @@ pifinder_menu = {
                     "class": UITextMenu,
                     "select": "Single",
                     "items": [
-                        {"name": "Confirm", "callback": "reset_filters"},
-                        {"name": "Cancel", "callback": "go_back"},
+                        {"name": "Confirm", "callback": callbacks.reset_filters},
+                        {"name": "Cancel", "callback": callbacks.go_back},
                     ],
                 },
                 {
@@ -276,172 +444,6 @@ pifinder_menu = {
             ],
         },
         {
-            "name": "Objects",
-            "class": UITextMenu,
-            "select": "single",
-            "items": [
-                {
-                    "name": "All Filtered",
-                    "class": UIObjectList,
-                    "objects": "catalogs.filtered",
-                },
-                {
-                    "name": "By Catalog",
-                    "class": UITextMenu,
-                    "select": "single",
-                    "items": [
-                        {
-                            "name": "Planets",
-                            "class": UIObjectList,
-                            "objects": "catalog",
-                            "value": "PL",
-                        },
-                        {
-                            "name": "NGC",
-                            "class": UIObjectList,
-                            "objects": "catalog",
-                            "value": "NGC",
-                        },
-                        {
-                            "name": "Messier",
-                            "class": UIObjectList,
-                            "objects": "catalog",
-                            "value": "M",
-                        },
-                        {
-                            "name": "DSO...",
-                            "class": UITextMenu,
-                            "select": "single",
-                            "items": [
-                                {
-                                    "name": "Abell Pn",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "Abl",
-                                },
-                                {
-                                    "name": "Arp Galaxies",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "Arp",
-                                },
-                                {
-                                    "name": "Barnard",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "B",
-                                },
-                                {
-                                    "name": "Caldwell",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "C",
-                                },
-                                {
-                                    "name": "Collinder",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "Col",
-                                },
-                                {
-                                    "name": "E.G. Globs",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "EGC",
-                                },
-                                {
-                                    "name": "Herschel 400",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "H",
-                                },
-                                {
-                                    "name": "IC",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "IC",
-                                },
-                                {
-                                    "name": "Messier",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "M",
-                                },
-                                {
-                                    "name": "NGC",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "NGC",
-                                },
-                                {
-                                    "name": "Sharpless",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "Sh2",
-                                },
-                                {
-                                    "name": "TAAS 200",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "Ta2",
-                                },
-                            ],
-                        },
-                        {
-                            "name": "Stars...",
-                            "class": UITextMenu,
-                            "select": "single",
-                            "items": [
-                                {
-                                    "name": "Bright Named",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "Str",
-                                },
-                                {
-                                    "name": "SAC Doubles",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "SaM",
-                                },
-                                {
-                                    "name": "SAC Asterisms",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "SaA",
-                                },
-                                {
-                                    "name": "SAC Red Stars",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "SaR",
-                                },
-                                {
-                                    "name": "RASC Doubles",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "RDS",
-                                },
-                            ],
-                        },
-                    ],
-                },
-                {
-                    "name": "Name Search",
-                    "class": "screen",
-                },
-            ],
-        },
-        {
-            "name": "Chart",
-            "class": UIChart,
-            "stateful": True,
-        },
-        {
-            "name": "Camera",
-            "class": UIPreview,
-        },
-        {
             "name": "Settings",
             "class": UITextMenu,
             "select": "single",
@@ -587,14 +589,8 @@ pifinder_menu = {
             "items": [
                 {"name": "Status", "class": UIStatus},
                 {"name": "Console", "class": UIConsole},
-                {
-                    "name": "Software Upd",
-                    "class": UISoftware,
-                },
-                {
-                    "name": "Test Mode",
-                    "callback": "debug_mode",
-                },
+                {"name": "Software Upd", "class": UISoftware},
+                {"name": "Test Mode", "callback": callbacks.activate_debug},
             ],
         },
     ],
