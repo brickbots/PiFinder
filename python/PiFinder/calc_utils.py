@@ -192,6 +192,56 @@ def calc_object_altitude(shared_state, obj) -> Optional[float]:
     return None
 
 
+def hadec_to_pa(ha, dec, lat):
+    """ 
+    Returns the parallactic angle of an object at (ha, dec) for an observer
+    at latitude lat. 
+    
+    Note that all angles are in radians.
+
+    The parallactic angle is the angle between the great circles between the 
+    zenith (Z) to the source (S) and the North Pole (P) to the source. By 
+    convention, the parallactic angle is measured from PS to ZS, positive 
+    towards East. The parallactic angle is negative when H < 0 and positive 
+    when H > 0. When At the meridian (i.e. H=0), the parallactic angle is 0 
+    when dec < latitude and +/-180 degrees when dec > latitude.
+    """
+    pa = math.atan2(math.sin(ha), 
+              math.cos(dec) * math.tan(lat) - math.sin(dec) * math.cos(ha))
+
+    return pa  # Parallactic angle [rad]
+
+
+def hadec_to_roll(ha, dec, lat):
+    """
+    Returns the roll of a target at a given (HA, Dec) for and observer at 
+    latitude lat.
+
+    Note that all angles are in radians.
+
+    The roll or the field rotation angle describes how much the source (S) is
+    rotated on the sky as seen by and observer. The roll measures the same 
+    angle as the parallactic but measured with a different orientation. See
+    ha_dec2pa() for explanation on the parallactic angle. The roll is positive 
+    for anti-clockwise rotation of ZS to PS when looking out towards the sky.
+    """
+    pa = ha_dec2pa(ha, dec, lat)  # Calculate the parallactic angle
+    
+    if dec <= lat:
+        roll = -pa
+    else:
+        # Tedious but need to do this because math doesn't have a sign() func.
+        # Otherwise the eqn is: roll = -pa + np.sign(ha) * np.pi
+        if ha > 0:
+            roll = -pa + math.pi
+        elif ha < 0:
+            roll = -pa - math.pi
+        else:
+            roll = -pa
+
+    return roll
+
+
 def hash_dict(d):
     serialized_data = json.dumps(d, sort_keys=True).encode()
     return hashlib.sha256(serialized_data).hexdigest()
