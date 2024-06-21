@@ -145,6 +145,12 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
                                 solved["Alt"], solved["Az"], dt
                             )
 
+                            # Find the roll from the RA/Dec
+                            solved["Roll"] = calc_utils.radec_to_roll(
+                                solved["RA"], solved["Dec"], degrees=True)
+                            #shared_state.location["lat"]
+
+
                             solved["solve_time"] = time.time()
                             solved["solve_source"] = "IMU"
 
