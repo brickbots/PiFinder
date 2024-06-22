@@ -225,7 +225,7 @@ def hadec_to_roll(ha, dec, lat):
     ha_dec2pa() for explanation on the parallactic angle. The roll is positive 
     for anti-clockwise rotation of ZS to PS when looking out towards the sky.
     """
-    pa = ha_dec2pa(ha, dec, lat)  # Calculate the parallactic angle
+    pa = hadec_to_pa(ha, dec, lat)  # Calculate the parallactic angle
     
     if dec <= lat:
         roll = -pa
@@ -326,6 +326,49 @@ class Skyfield_utils:
         else:
             alt, az, distance = apparent.altaz()
         return alt.degrees, az.degrees
+
+
+    def get_lst(self, dt):
+        """ 
+        Returns the local sidereal time.
+        
+        INPUTS:
+        dt: UTC date & time [SharedStateObj.datetime() object]
+
+        RETURNS:
+        lst: Local sidereal time
+        """
+        return lst
+
+
+    def ra_to_ha(self, ra, dt):
+        """
+        Converts RA (right ascension) to HA (hour angle)
+
+        INPUTS:
+        ra: Right asension
+        dt: UTC date & time [SharedStateObj.datetime() object]
+
+        RETURNS:
+        ha: Hour angle
+        """
+        lst = self.get_lst(dt)
+        ha = lst - ra
+        return ha
+
+
+    def radec_to_roll(self, ra, dec, dt):
+        """ 
+        Returns the roll (field rotation) of an object at (ra, dec) as 
+        seen from an observer at latitiude, lat and time, dt. See hadec_to_roll()
+        for details about roll.
+
+
+        """
+        ha = self.ra_to_ha(ra, dt)
+        roll = hadec_to_roll(ha, dec, lat)
+        return roll
+
 
     def radec_to_constellation(self, ra, dec):
         """
