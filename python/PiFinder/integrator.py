@@ -135,6 +135,7 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
                             solved["Alt"] = alt_upd
                             solved["Az"] = az_upd
 
+                            # N.B. Assumes that location hasn't changed since last solve
                             # Turn this into RA/DEC
                             (
                                 solved["RA"],
@@ -144,9 +145,8 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
                             )
 
                             # Find the roll from the RA/Dec
-                            solved["Roll"] = calc_utils.radec_to_roll(
-                                solved["RA"], solved["Dec"], degrees=True)
-                            #shared_state.location["lat"]
+                            solved["Roll"] = calc_utils.sf_utils.radec_to_roll(
+                                solved["RA"], solved["Dec"], dt)
 
 
                             solved["solve_time"] = time.time()
