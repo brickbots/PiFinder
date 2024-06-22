@@ -219,11 +219,12 @@ def hadec_to_roll(ha, dec, lat):
 
     Note that all angles are in radians.
 
-    The roll or the field rotation angle describes how much the source (S) is
-    rotated on the sky as seen by and observer. The roll measures the same 
-    angle as the parallactic but measured with a different orientation. See
-    ha_dec2pa() for explanation on the parallactic angle. The roll is positive 
-    for anti-clockwise rotation of ZS to PS when looking out towards the sky.
+    The roll or the field rotation angle, as used by the Tetra3 solver 
+    describes how much the source (S) is rotated on the sky as seen by and 
+    the observer. The roll measures the same angle as the parallactic but 
+    measured with a different orientation. See ha_dec2pa() for explanation of 
+    the parallactic angle. The roll is positive for anti-clockwise rotation of 
+    ZS to PS when looking out towards the sky.
     """
     pa = hadec_to_pa(ha, dec, lat)  # Calculate the parallactic angle
     
