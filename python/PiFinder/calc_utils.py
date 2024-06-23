@@ -329,46 +329,60 @@ class Skyfield_utils:
         return alt.degrees, az.degrees
 
 
-    def get_lst(self, dt):
+    def get_lst_hrs(self, dt):
         """ 
-        Returns the local sidereal time.
+        Returns the local sidereal time in hrs.
         
         INPUTS:
-        dt: UTC date & time [SharedStateObj.datetime() object]
+        dt: Python datetime object (must be timezone-aware)
 
         RETURNS:
-        lst: Local sidereal time
+        lst_hrs: Local sidereal time [hrs]
         """
-        return lst
+        t = self.ts.from_datetime(dt)
+        lst_hrs = self.observer_loc.lst_hours_at(t)  # LST in hrs
+
+        return lst_hrs  # LST [hrs]
 
 
-    def ra_to_ha(self, ra, dt):
+    def ra_to_ha(self, ra_deg, dt):
         """
-        Converts RA (right ascension) to HA (hour angle)
+        Converts RA (right ascension in deg) to HA (hour angle in deg) at time
+        dt. Note that HA is in deg.
 
         INPUTS:
-        ra: Right asension
-        dt: UTC date & time [SharedStateObj.datetime() object]
+        ra_deg: Right asension [deg]
+        dt: Python datetime object (must be timezone-aware)
 
         RETURNS:
-        ha: Hour angle
+        ha_hrs: Hour angle [deg]
         """
-        lst = self.get_lst(dt)
-        ha = lst - ra
-        return ha
+        lst_hrs = self.get_lst_hrs(dt)
+        ha_hrs = lst_hrs - (ra_deg * 12 / 180)  # ra converted to hrs
+        ha_hrs = (ha_hrs + 12) % 24 - 12  # Unwrap to -12 to +12hrs
+
+        return (ha_hrs * 180 / 12)  # Hour angle [deg]
 
 
-    def radec_to_roll(self, ra, dec, dt):
+    def radec_to_roll(self, ra_deg, dec_deg, dt):
         """ 
         Returns the roll (field rotation) of an object at (ra, dec) as 
         seen from an observer at latitiude, lat and time, dt. See hadec_to_roll()
         for details about roll.
 
+        INPUTS:
+        ra_deg:
+        dec: 
+        dt:
 
+        RETURNS:
+        roll_deg: Roll angle [deg]
         """
-        ha = self.ra_to_ha(ra, dt)
-        roll = hadec_to_roll(ha, dec, lat)
-        return roll
+        ha_deg = self.ra_to_ha(ra_deg, dt)  # Note that HA is in deg
+        lat = self.observer_loc.latitude
+        roll_deg = hadec_to_roll(ha_deg, dec_deg, lat._degrees)
+
+        return roll_deg  # roll angle [deg]
 
 
     def radec_to_constellation(self, ra, dec):
