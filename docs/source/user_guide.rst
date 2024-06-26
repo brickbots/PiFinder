@@ -580,6 +580,12 @@ The PiFinder will indicate that the software update is in progress and will rest
    closer to the WiFi access point and try again.  To save power the WiFi transmitter on the PiFinder is not as powerful as a laptop or 
    other device so you may need to be fairly close to your WiFi access point to successfully complete the update.
 
+You can also download a pre-built image of any software release and write it to the PiFinder's SD card.  
+See our `release page <https://github.com/brickbots/PiFinder/releases>`_ to find information about any
+of our releases and a link to download the images.
+
+
+Instructions for writing software release images to an SD card can be found on the doc:`software setup<software>` page.
 
 FAQ
 ====
