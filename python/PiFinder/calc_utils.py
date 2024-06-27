@@ -192,32 +192,39 @@ def calc_object_altitude(shared_state, obj) -> Optional[float]:
     return None
 
 
-def hadec_to_pa(ha, dec, lat):
+def hadec_to_pa(ha_deg, dec_deg, lat_deg):
     """ 
     Returns the parallactic angle of an object at (ha, dec) for an observer
     at latitude lat. 
     
-    Note that all angles are in radians.
-
     The parallactic angle is the angle between the great circles between the 
     zenith (Z) to the source (S) and the North Pole (P) to the source. By 
     convention, the parallactic angle is measured from PS to ZS, positive 
     towards East. The parallactic angle is negative when H < 0 and positive 
     when H > 0. When At the meridian (i.e. H=0), the parallactic angle is 0 
     when dec < latitude and +/-180 degrees when dec > latitude.
+
+    INPUTS:
+    ha_deg, dec_deg: Hour Angle (HA) and declination of the target [deg]
+    lat_deg: Latitude of the observer [deg]
+
+    RETURNS:
+    pa_deg: Parallactic angle [deg]
     """
+    ha = math.radians(ha_deg)
+    dec = math.radians(dec_deg)
+    lat = math.radians(lat_deg)
+
     pa = math.atan2(math.sin(ha), 
               math.cos(dec) * math.tan(lat) - math.sin(dec) * math.cos(ha))
 
-    return pa  # Parallactic angle [rad]
+    return math.degrees(pa)  # Parallactic angle [deg]
 
 
-def hadec_to_roll(ha, dec, lat):
+def hadec_to_roll(ha_deg, dec_deg, lat_deg):
     """
     Returns the roll of a target at a given (HA, Dec) for and observer at 
     latitude lat.
-
-    Note that all angles are in radians.
 
     The roll or the field rotation angle, as used by the Tetra3 solver 
     describes how much the source (S) is rotated on the sky as seen by and 
@@ -225,22 +232,29 @@ def hadec_to_roll(ha, dec, lat):
     measured with a different orientation. See ha_dec2pa() for explanation of 
     the parallactic angle. The roll is positive for anti-clockwise rotation of 
     ZS to PS when looking out towards the sky.
+
+    INPUTS:
+    ha_deg, dec_deg: Hour Angle (HA) and declination of the target [deg]
+    lat_deg: Latitude of the observer [deg]
+
+    RETURNS:
+    roll: Roll [deg]
     """
-    pa = hadec_to_pa(ha, dec, lat)  # Calculate the parallactic angle
+    pa_deg = hadec_to_pa(ha_deg, dec_deg, lat_deg)  # Calculate the parallactic angle
     
-    if dec <= lat:
-        roll = -pa
+    if dec_deg <= lat_deg:
+        roll_deg = -pa_deg
     else:
         # Tedious but need to do this because math doesn't have a sign() func.
-        # Otherwise the eqn is: roll = -pa + np.sign(ha) * np.pi
-        if ha > 0:
-            roll = -pa + math.pi
-        elif ha < 0:
-            roll = -pa - math.pi
+        # Otherwise the eqn is: roll_deg = -pa_deg + np.sign(ha_deg) * 180
+        if ha_deg > 0:
+            roll_deg = -pa_deg + 180
+        elif ha_deg < 0:
+            roll_deg = -pa_deg - 180
         else:
-            roll = -pa
+            roll_deg = -pa_deg
 
-    return roll
+    return roll_deg
 
 
 def hash_dict(d):
@@ -355,7 +369,7 @@ class Skyfield_utils:
         dt: Python datetime object (must be timezone-aware)
 
         RETURNS:
-        ha_hrs: Hour angle [deg]
+        ha_deg: Hour angle [deg]
         """
         lst_hrs = self.get_lst_hrs(dt)
         ha_hrs = lst_hrs - (ra_deg * 12 / 180)  # ra converted to hrs
