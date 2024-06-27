@@ -148,7 +148,6 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
                             solved["Roll"] = calc_utils.sf_utils.radec_to_roll(
                                 solved["RA"], solved["Dec"], dt)
 
-
                             solved["solve_time"] = time.time()
                             solved["solve_source"] = "IMU"
 
