@@ -80,8 +80,8 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                     solution = t3.solve_from_centroids(
                         centroids,
                         (512, 512),
-                        fov_estimate=10.2,
-                        fov_max_error=1.0,
+                        fov_estimate=12.0,
+                        fov_max_error=4.0,
                         match_max_error=0.005,
                         return_matches=True,
                         target_pixel=shared_state.solve_pixel(),
