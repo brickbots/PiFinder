@@ -217,9 +217,11 @@ class UIPreview(UIModule):
             self.screen.paste(image_obj)
             self.last_update = last_image_time
 
-            self.draw_reticle()
             if self.align_mode:
                 self.draw_star_selectors()
+            else:
+                self.draw_reticle()
+
         return self.screen_update(
             title_bar=not self.align_mode, button_hints=not self.align_mode
         )
@@ -232,6 +234,8 @@ class UIPreview(UIModule):
             self.align_mode = False
         else:
             self.align_mode = True
+
+        self.shared_state.set_camera_align(self.align_mode)
 
         self.update(force=True)
 

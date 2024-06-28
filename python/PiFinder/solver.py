@@ -21,11 +21,6 @@ import PiFinder.tetra3.tetra3 as tetra3
 from PiFinder.tetra3.tetra3 import cedar_detect_client
 
 
-# Select method used for star detection and centroiding. True for cedar-detect,
-# False for Tetra3.
-USE_CEDAR_DETECT = True
-
-
 def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=False):
     logging.getLogger("tetra3.Tetra3").addHandler(logging.NullHandler())
     logging.debug("Starting Solver")
@@ -41,11 +36,12 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
         "cam_solve_time": 0,
     }
 
-    if USE_CEDAR_DETECT:
-        cedar_detect = cedar_detect_client.CedarDetectClient(
-            binary_path=str(utils.cwd_dir / "../bin/cedar-detect-server-")
-            + shared_state.arch()
-        )
+    # Start cedar detext server
+    cedar_detect = cedar_detect_client.CedarDetectClient(
+        binary_path=str(utils.cwd_dir / "../bin/cedar-detect-server-")
+        + shared_state.arch()
+    )
+
     try:
         while True:
             utils.sleep_for_framerate(shared_state)
@@ -63,12 +59,13 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                 np_image = np.asarray(img, dtype=np.uint8)
 
                 t0 = precision_timestamp()
-                if USE_CEDAR_DETECT:
+                if shared_state.camera_align():
                     centroids = cedar_detect.extract_centroids(
                         np_image, sigma=8, max_size=10, use_binned=True
                     )
                 else:
-                    # logging.info("Falling back to Tetra3 for centroiding")
+                    # Use old tetr3 centroider to handle bloated/overexposed
+                    # stars in alignment
                     centroids = tetra3.get_centroids_from_image(np_image)
                 t_extract = (precision_timestamp() - t0) * 1000
                 logging.debug(
