@@ -147,6 +147,7 @@ class SharedStateObj:
         self.__screen = None
         self.__solve_pixel = config.Config().get_option("solve_pixel")
         self.__arch = None
+        self.__camera_align = False
 
     def serialize(self, output_file):
         with open(output_file, "wb") as f:
@@ -182,6 +183,12 @@ class SharedStateObj:
 
     def set_solve_state(self, v):
         self.__solve_state = v
+
+    def camera_align(self):
+        return self.__camera_align
+
+    def set_camera_align(self, v: bool):
+        self.__camera_align = v
 
     def sats(self):
         return self.__sats
