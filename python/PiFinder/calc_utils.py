@@ -226,7 +226,7 @@ def hadec_to_roll(ha_deg, dec_deg, lat_deg):
     Returns the roll of a target at a given (HA, Dec) for and observer at 
     latitude lat.
 
-    The roll or the field rotation angle, as used by the Tetra3 solver 
+    The roll or the field rotation angle, as returned by the Tetra3 solver, 
     describes how much the source (S) is rotated on the sky as seen by and 
     the observer. The roll measures the same angle as the parallactic but 
     measured with a different orientation. See ha_dec2pa() for explanation of 
@@ -382,7 +382,7 @@ class Skyfield_utils:
         """ 
         Returns the roll (field rotation) of an object at (ra, dec) as 
         seen from an observer at latitiude, lat and time, dt. See hadec_to_roll()
-        for details about roll.
+        for how 'roll' is defined.
 
         INPUTS:
         ra_deg:
