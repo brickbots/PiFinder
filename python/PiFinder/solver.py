@@ -60,14 +60,14 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                 np_image = np.asarray(img, dtype=np.uint8)
 
                 t0 = precision_timestamp()
-                if not shared_state.camera_align():
-                    centroids = cedar_detect.extract_centroids(
-                        np_image, sigma=8, max_size=10, use_binned=True
-                    )
-                else:
+                if shared_state.camera_align():
                     # Use old tetr3 centroider to handle bloated/overexposed
                     # stars in alignment
                     centroids = tetra3.get_centroids_from_image(np_image)
+                else:
+                    centroids = cedar_detect.extract_centroids(
+                        np_image, sigma=8, max_size=10, use_binned=True
+                    )
                 t_extract = (precision_timestamp() - t0) * 1000
                 logging.debug(
                     "File %s, extracted %d centroids in %.2fms"
