@@ -54,7 +54,7 @@ class UIPreview(UIModule):
         "Exposure": {
             "type": "enum",
             "value": "",
-            "options": [0.05, 0.2, 0.4, 0.75, 1, 1.25, 1.5, 2],
+            "options": [0.025, 0.05, 0.1, 0.2, 0.4, 0.75, 1],
             "callback": "set_exp",
         },
         "Save Exp": {
@@ -90,6 +90,7 @@ class UIPreview(UIModule):
         new_exposure = int(option * 1000000)
         self.command_queues["camera"].put(f"set_exp:{new_exposure}")
         self.message("Exposure Set")
+        self.config_object.set_option("camera_exp", new_exposure)
         return False
 
     def set_gain(self, option):
