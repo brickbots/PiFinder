@@ -8,7 +8,7 @@
         "gps_lock": false,
         "timezone": "America/Los_Angeles"
     },
-    "camera_exp": 750000,
+    "camera_exp": 400000,
     "camera_gain": 20,
     "screen_direction": "right",
     "mount_type": "Alt/Az",

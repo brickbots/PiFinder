@@ -76,6 +76,9 @@ class UIModule:
         self.frame_count = 0
         self.last_fps_sample_time = time.time()
 
+        # anim timer stuff
+        self.last_update_time = time.time()
+
     def screengrab(self):
         self.ss_count += 1
         ss_imagepath = self.ss_path + f"_{self.ss_count :0>3}.png"
@@ -163,7 +166,8 @@ class UIModule:
             if self.shared_state.location()["gps_lock"]:
                 self._gps_brightness = 0
             else:
-                self._gps_brightness += 1
+                gps_anim = int(128 * (time.time() - self.last_update_time)) + 1
+                self._gps_brightness += gps_anim
                 if self._gps_brightness > 64:
                     self._gps_brightness = -128
 
@@ -231,6 +235,7 @@ class UIModule:
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
 
+        self.last_update_time = time.time()
         return
 
     def check_hotkey(self, key):

@@ -58,11 +58,11 @@
             </div>
             </div>
         <div class="row">
-            <div class="input-field col s8">
+            <div class="input-field col s4">
                 <input id="time" type="text" name="time"/>
                 <label for="time">UTC Time (h:m:s)</label>
             </div>
-            <div class="input-field col s4">
+            <div class="input-field col s8">
                 <button type="button" class="waves-effect waves-light btn" onclick="setBrowserTime()">Set to Browser Time</button>
             </div>
         </div>
@@ -119,7 +119,7 @@ function setBrowserTime() {
     timeField.value = timeString;
 
     // Set focus to the 'time' field
-    timeField.focus();
+    //timeField.focus();
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -154,6 +154,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Initial check on page load
     checkFields();
+
+    setBrowserTime();
 
     // Convert decimal to DMS on page load if fields are pre-filled
     convertDecimalToDMS();
