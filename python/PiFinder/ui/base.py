@@ -219,7 +219,7 @@ class UIModule:
             if self.shared_state.location()["gps_lock"]:
                 self._gps_brightness = 0
             else:
-                self._gps_brightness += 1
+                self._gps_brightness += 3
                 if self._gps_brightness > 64:
                     self._gps_brightness = -128
 
