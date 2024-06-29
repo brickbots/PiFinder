@@ -562,6 +562,9 @@ def main(script_name=None, show_fps=False, verbose=False):
                                 # Debug snapshot
                                 uid = str(uuid.uuid1()).split("-")[0]
 
+                                # current screen
+                                ss = current_module.screen.copy()
+
                                 # wait two seconds for any vibration from
                                 # pressing the button to pass.
                                 current_module.message("Debug: 2", 1)
@@ -575,8 +578,6 @@ def main(script_name=None, show_fps=False, verbose=False):
                                 debug_location = shared_state.location()
                                 debug_dt = shared_state.datetime()
 
-                                # current screen
-                                ss = current_module.screen.copy()
 
                                 # write images
                                 debug_image.save(
