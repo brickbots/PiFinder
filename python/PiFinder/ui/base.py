@@ -70,6 +70,9 @@ class UIModule:
         self.frame_count = 0
         self.last_fps_sample_time = time.time()
 
+        # anim timer stuff
+        self.last_update_time = time.time()
+
     def exit_config(self, option):
         """
         Handy callback for exiting
@@ -219,7 +222,8 @@ class UIModule:
             if self.shared_state.location()["gps_lock"]:
                 self._gps_brightness = 0
             else:
-                self._gps_brightness += 3
+                gps_anim = int(128 * (time.time() - self.last_update_time)) + 1
+                self._gps_brightness += gps_anim
                 if self._gps_brightness > 64:
                     self._gps_brightness = -128
 
@@ -277,6 +281,8 @@ class UIModule:
 
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
+
+        self.last_update_time = time.time()
 
         # We can return a UIModule class name to force a switch here
         tmp_return = self.switch_to
