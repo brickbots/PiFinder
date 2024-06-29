@@ -578,7 +578,6 @@ def main(script_name=None, show_fps=False, verbose=False):
                                 debug_location = shared_state.location()
                                 debug_dt = shared_state.datetime()
 
-
                                 # write images
                                 debug_image.save(
                                     f"{utils.debug_dump_dir}/{uid}_raw.png"
