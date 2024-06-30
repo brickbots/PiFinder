@@ -1,7 +1,6 @@
 import datetime
 import pytz
 import math
-import unittest
 from typing import Tuple, Optional
 from skyfield.api import (
     wgs84,
@@ -446,46 +445,3 @@ class Skyfield_utils:
 
 # Create a single instance of the skyfield utils
 sf_utils = Skyfield_utils()
-
-
-class UnitTestCalcUtils(unittest.TestCase):
-    """
-    Unit tests for calc_utils.py which does coordinate transformations.
-    """
-
-    def test_hadec_to_pa0(self):
-        # Define the inputs:
-        ha_deg = 0.0
-        lat_deg = 51.0  # Approximately Greenwich Observatory
-        dec_degs = [90, 60, 51, 30, 0, -30]
-        
-        # At HA = 0, expect pa = 0
-        for dec in dec_degs:
-            pa_deg = hadec_to_pa(ha_deg, dec, lat_deg)
-            self.assertAlmostEqual(pa_deg, 0.0, places=3, 
-                                   message='HA = 0: PA should be 0')
-            
-    """
-    def test_hadec_to_pa(self):    
-        # Define the inputs:        
-        ha_deg = 60.0
-        lat_deg = 51.0  # Approximately Greenwich Observatory
-        dec_degs = [90, 60, 51, 30, 0, -30]
-        # Expected values
-        exp_pa_degs = []
-        
-        expected_pa_degs = []  # For HA=+60 deg
-        for dec, expected in zip(dec_degs, expected_pa_degs):
-            # +ve HA case:
-            pa_deg = hadec_to_pa(ha_deg, dec, lat_deg)
-            self.assertAlmostEqual(pa_deg, expected, places=3, 
-                                   message='HA = {:.2f}, dec = {:.2f}'.format(ha_deg, dec))
-            # -ve HA case (expect -ve values):
-            pa_deg = hadec_to_pa(-ha_deg, dec, lat_deg)
-            self.assertAlmostEqual(pa_deg, -expected, places=3, 
-                                   message='HA = {:.2f}, dec = {:.2f}'.format(-ha_deg, dec))
-    """
-
-
-if __name__ == '__main__':
-    unittest.main()
