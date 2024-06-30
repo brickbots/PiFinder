@@ -87,6 +87,13 @@ class MenuManager:
     def key_long_right(self):
         pass
 
+    def key_long_left(self):
+        """
+        Return to top of menu
+        """
+        self.stack = self.stack[:1]
+        self.stack[0].active()
+
     def key_left(self):
         self.remove_from_stack()
 

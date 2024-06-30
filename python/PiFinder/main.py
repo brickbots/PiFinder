@@ -393,10 +393,12 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
                     pass
 
                 # Keyboard
+                keycode = None
                 try:
-                    keycode = keyboard_queue.get(block=False)
+                    while True:
+                        keycode = keyboard_queue.get(block=False)
                 except queue.Empty:
-                    keycode = None
+                    pass
 
                 if keycode is not None:
                     # logging.debug(f"Keycode: {keycode}")
@@ -408,6 +410,10 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
                     # ignore keystroke if we have been asleep
                     if original_power_state > 0:
                         if keycode > 99:
+                            # Long left is return to top
+                            if keycode == keyboard_base.LNG_LEFT:
+                                menu_manager.key_long_left()
+
                             # Special codes....
                             if (
                                 keycode == keyboard_base.ALT_PLUS
