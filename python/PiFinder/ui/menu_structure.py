@@ -453,26 +453,35 @@ pifinder_menu = {
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "camera_exp",
+                    "post_callback": callbacks.set_exposure,
                     "items": [
                         {
+                            "name": "0.025s",
+                            "value": 25000,
+                        },
+                        {
+                            "name": "0.05s",
+                            "value": 50000,
+                        },
+                        {
                             "name": "0.1s",
-                            "value": 0.1,
+                            "value": 100000,
                         },
                         {
                             "name": "0.2s",
-                            "value": 0.2,
+                            "value": 200000,
                         },
                         {
                             "name": "0.4s",
-                            "value": 0.4,
+                            "value": 400000,
                         },
                         {
                             "name": "0.8s",
-                            "value": 0.8,
+                            "value": 800000,
                         },
                         {
                             "name": "1s",
-                            "value": 1,
+                            "value": 1000000,
                         },
                     ],
                 },
@@ -483,32 +492,36 @@ pifinder_menu = {
                     "config_option": "keypad_brightness",
                     "items": [
                         {
+                            "name": "-4",
+                            "value": "-4",
+                        },
+                        {
                             "name": "-3",
-                            "value": -3,
+                            "value": "-3",
                         },
                         {
                             "name": "-2",
-                            "value": -2,
+                            "value": "-2",
                         },
                         {
                             "name": "-1",
-                            "value": -1,
+                            "value": "-1",
                         },
                         {
                             "name": "0",
-                            "value": 0,
+                            "value": "0",
                         },
                         {
                             "name": "1",
-                            "value": 1,
+                            "value": "1",
                         },
                         {
                             "name": "2",
-                            "value": 2,
+                            "value": "2",
                         },
                         {
                             "name": "3",
-                            "value": 3,
+                            "value": "3",
                         },
                     ],
                 },
@@ -520,15 +533,15 @@ pifinder_menu = {
                     "items": [
                         {
                             "name": "Left",
-                            "value": "Left",
+                            "value": "left",
                         },
                         {
                             "name": "Right",
-                            "value": "Right",
+                            "value": "right",
                         },
                         {
                             "name": "Flat",
-                            "value": "Flat",
+                            "value": "flat",
                         },
                     ],
                 },
@@ -545,6 +558,21 @@ pifinder_menu = {
                         {
                             "name": "Equitorial",
                             "value": "EQ",
+                        },
+                    ],
+                },
+                {
+                    "name": "WiFi Mode",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": "Client Mode",
+                            "callback": callbacks.go_wifi_cli
+                        },
+                        {
+                            "name": "AP Mode",
+                            "callback": callbacks.go_wifi_ap
                         },
                     ],
                 },
@@ -591,6 +619,15 @@ pifinder_menu = {
                 {"name": "Console", "class": UIConsole},
                 {"name": "Software Upd", "class": UISoftware},
                 {"name": "Test Mode", "callback": callbacks.activate_debug},
+                {
+                    "name": "Shutdown",
+                    "class": UITextMenu,
+                    "select": "Single",
+                    "items": [
+                        {"name": "Confirm", "callback": callbacks.shutdown},
+                        {"name": "Cancel", "callback": callbacks.go_back},
+                    ],
+                },
             ],
         },
     ],

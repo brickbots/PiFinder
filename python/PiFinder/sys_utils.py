@@ -206,14 +206,6 @@ def restore_userdata(zip_path):
     unzip("-d", "/", "-o", zip_path)
 
 
-def shutdown():
-    """
-    shuts down the Pi
-    """
-    print("SYS: Initiating Shutdown")
-    sh.sudo("shutdown", "now")
-    return True
-
 
 def update_software():
     """
@@ -222,36 +214,6 @@ def update_software():
     """
     print("SYS: Running update")
     sh.bash("/home/pifinder/PiFinder/pifinder_update.sh")
-    return True
-
-
-def restart_pifinder():
-    """
-    Uses systemctl to restart the PiFinder
-    service
-    """
-    print("SYS: Restarting PiFinder")
-    sh.sudo("systemctl", "restart", "pifinder")
-    return True
-
-
-def restart_system():
-    """
-    Restarts the system
-    """
-    print("SYS: Initiating System Restart")
-    sh.sudo("shutdown", "-r", "now")
-
-
-def go_wifi_ap():
-    print("SYS: Switching to AP")
-    sh.sudo("/home/pifinder/PiFinder/switch-ap.sh")
-    return True
-
-
-def go_wifi_cli():
-    print("SYS: Switching to Client")
-    sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
     return True
 
 

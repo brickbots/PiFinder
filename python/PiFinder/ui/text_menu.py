@@ -217,6 +217,12 @@ class UITextMenu(UIModule):
                     )
                     self.catalogs.filter_catalogs()
 
+        # Is there a post_callback for this current MENU
+        if self.item_definition.get("post_callback"):
+            # All ui callback functions take the current UI module
+            # as an argument, so call it with self here
+            return self.item_definition["post_callback"](self)
+
     def key_up(self):
         self.menu_scroll(-1)
 

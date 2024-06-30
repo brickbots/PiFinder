@@ -96,6 +96,7 @@ def set_brightness(level, cfg):
             "-1": 0.75,
             "-2": 0.5,
             "-3": 0.25,
+            "-4": 0.13,
             "Off": 0,
         }
         keypad_brightness = cfg.get_option("keypad_brightness")
