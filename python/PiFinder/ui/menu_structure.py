@@ -566,14 +566,8 @@ pifinder_menu = {
                     "class": UITextMenu,
                     "select": "single",
                     "items": [
-                        {
-                            "name": "Client Mode",
-                            "callback": callbacks.go_wifi_cli
-                        },
-                        {
-                            "name": "AP Mode",
-                            "callback": callbacks.go_wifi_ap
-                        },
+                        {"name": "Client Mode", "callback": callbacks.go_wifi_cli},
+                        {"name": "AP Mode", "callback": callbacks.go_wifi_ap},
                     ],
                 },
                 {

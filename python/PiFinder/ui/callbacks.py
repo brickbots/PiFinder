@@ -10,7 +10,6 @@ Each one takes the current ui module as an argument
 
 import datetime
 import sh
-from sh import wpa_cli, unzip, su, passwd
 
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
@@ -59,11 +58,12 @@ def set_exposure(ui_module: UIModule) -> None:
     print(f"Set exposure {new_exposure}")
     ui_module.command_queues["camera"].put(f"set_exp:{new_exposure}")
 
+
 def shutdown(ui_module: UIModule) -> None:
     """
     shuts down the Pi
     """
-    ui_module.message("Shutting Down",10)
+    ui_module.message("Shutting Down", 10)
     print("SYS: Initiating Shutdown")
     sh.sudo("shutdown", "now")
 
@@ -81,20 +81,20 @@ def restart_system(ui_module: UIModule) -> None:
     """
     Restarts the system
     """
-    ui_module.message("Restarting...",2)
+    ui_module.message("Restarting...", 2)
     print("SYS: Initiating System Restart")
     sh.sudo("shutdown", "-r", "now")
 
 
 def go_wifi_ap(ui_module: UIModule) -> None:
-    ui_module.message("WiFi to AP",2)
+    ui_module.message("WiFi to AP", 2)
     print("SYS: Switching to AP")
     sh.sudo("/home/pifinder/PiFinder/switch-ap.sh")
     restart_system(ui_module)
 
 
 def go_wifi_cli(ui_module: UIModule) -> None:
-    ui_module.message("WiFi to Client",2)
+    ui_module.message("WiFi to Client", 2)
     print("SYS: Switching to Client")
     sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
     restart_system(ui_module)

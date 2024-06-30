@@ -166,6 +166,18 @@ class Network:
         return ip
 
 
+def go_wifi_ap():
+    print("SYS: Switching to AP")
+    sh.sudo("/home/pifinder/PiFinder/switch-ap.sh")
+    return True
+
+
+def go_wifi_cli():
+    print("SYS: Switching to Client")
+    sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
+    return True
+
+
 def remove_backup():
     """
     Removes backup file
@@ -204,7 +216,6 @@ def restore_userdata(zip_path):
     OVERWRITES existing data!
     """
     unzip("-d", "/", "-o", zip_path)
-
 
 
 def update_software():
