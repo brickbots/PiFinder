@@ -86,6 +86,12 @@ def restart_system(ui_module: UIModule) -> None:
     sh.sudo("shutdown", "-r", "now")
 
 
+def branch_main(ui_module: UIModule) -> None:
+    ui_module.message("GoMain", 2)
+    sh.sudo("/home/pifinder/PiFinder/switch_branch_main.sh")
+    restart_pifinder(ui_module)
+
+
 def go_wifi_ap(ui_module: UIModule) -> None:
     ui_module.message("WiFi to AP", 2)
     print("SYS: Switching to AP")

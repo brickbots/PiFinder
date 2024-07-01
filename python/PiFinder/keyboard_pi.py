@@ -63,7 +63,7 @@ class KeyboardPi(KeyboardInterface):
                     if list(pressed)[-1] in [17, 18]:
                         # Up/Down arrows repeat
                         self.q.put(self.keymap[list(pressed)[-1]])
-                        hold_counter = int(scan_freq / 1.10)
+                        hold_counter = int(scan_freq / 1.05)
                     else:
                         if not alt_sent and not hold_sent:
                             keycode = pressed.pop()

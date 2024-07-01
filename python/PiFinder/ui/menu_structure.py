@@ -622,6 +622,7 @@ pifinder_menu = {
                         {"name": "Cancel", "callback": callbacks.go_back},
                     ],
                 },
+                {"name": "GoMain", "callback": callbacks.branch_main},
             ],
         },
     ],
