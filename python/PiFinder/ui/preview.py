@@ -247,7 +247,6 @@ class UIPreview(UIModule):
                 self.shared_state.set_solve_pixel((256, 256))
                 self.config_object.set_option("solve_pixel", (256, 256))
                 self.align_mode = False
-                self.update(force=True)
             if number in list(range(1, self.highlight_count + 1)):
                 # They picked a star to align....
                 star_index = number - 1
@@ -260,4 +259,6 @@ class UIPreview(UIModule):
                         (star_cam_x, star_cam_y),
                     )
                 self.align_mode = False
-                self.update(force=True)
+
+            self.shared_state.set_camera_align(self.align_mode)
+            self.update(force=True)
