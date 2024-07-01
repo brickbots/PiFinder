@@ -6,7 +6,7 @@ Run from PiFinder/python:
 """
 
 import unittest
-from PiFinder.calc_utils import hadec_to_pa
+from PiFinder.calc_utils import hadec_to_pa, hadec_to_roll
 
 class UnitTestCalcUtils(unittest.TestCase):
     """
@@ -14,7 +14,7 @@ class UnitTestCalcUtils(unittest.TestCase):
     """
 
     def test_hadec_to_pa0(self):
-        """ Unit test hadec_to_pa() for the special case when HA = 0 """
+        """ Unit Test: hadec_to_pa(): For the special case when HA = 0 """
         # Define the inputs:
         ha_deg = 0.0
         lat_deg = 51.0  # Approximately Greenwich Observatory
@@ -32,7 +32,7 @@ class UnitTestCalcUtils(unittest.TestCase):
     
 
     def test_hadec_to_pa(self):
-        """ Unit test haddec_to_pa() for when HA != 0 """
+        """ Unit Test: haddec_to_pa(): For when HA != 0 """
         # Define the inputs:        
         ha_deg = 60.0
         lat_deg = 51.0  # Approximately Greenwich Observatory
@@ -49,6 +49,24 @@ class UnitTestCalcUtils(unittest.TestCase):
             pa_deg = hadec_to_pa(-ha_deg, dec, lat_deg)
             self.assertAlmostEqual(pa_deg, -expected, places=3, 
                                    msg='HA = {:.2f}, dec = {:.2f}'.format(-ha_deg, dec))
+
+
+    def test_hadec_to_roll(self):
+            """ Unit Test: haddec_to_roll() """
+            # Define the inputs:        
+            lat_deg = 51.0  # Approximately Greenwich Observatory
+            ha_degs = [60.0, 60.0, 60.0, 60.0, 60.0, 60.0,
+                    -60.0, -60.0, -60.0, -60.0, -60.0, -60.0] 
+            dec_degs = [90, 60, 51, 30, 0, -30,
+                        90, 60, 51, 30, 0, -30]
+            # Expected values
+            expected_roll_degs = [124.0807, 74.1037, -79.9949, -98.92265, -60.2643, -131.5124, 
+                                -124.0807, -74.1037, 79.9949, 98.92265, 60.2643, 131.5124]
+
+            for ha, dec, expected in zip(ha_degs, dec_degs, expected_roll_degs):
+                roll = hadec_to_roll(ha, dec, lat_deg)
+                self.assertAlmostEqual(roll, expected, places=3, 
+                                    msg='HA = {:.2f}, dec = {:.2f}'.format(ha, dec))
 
 
 if __name__ == '__main__':
