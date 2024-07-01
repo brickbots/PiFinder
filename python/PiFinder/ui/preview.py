@@ -176,7 +176,7 @@ class UIPreview(UIModule):
                 self.draw.text(
                     (star_x + x_text_offset, star_y + y_text_offset),
                     str(_i + 1),
-                    font=self.fonts.small,
+                    font=self.fonts.small.font,
                     fill=self.colors.get(128),
                 )
 
@@ -225,17 +225,26 @@ class UIPreview(UIModule):
             title_bar=not self.align_mode, button_hints=not self.align_mode
         )
 
-    def key_b(self):
+    def key_up(self):
+        """
+        leave bright star alignment mode
+        """
+        if not self.align_mode:
+            return
+
+        self.align_mode = False
+        self.shared_state.set_camera_align(self.align_mode)
+        self.update(force=True)
+
+    def key_down(self):
         """
         Enter bright star alignment mode
         """
         if self.align_mode:
-            self.align_mode = False
-        else:
-            self.align_mode = True
+            return
 
+        self.align_mode = True
         self.shared_state.set_camera_align(self.align_mode)
-
         self.update(force=True)
 
     def key_number(self, number):
@@ -245,7 +254,6 @@ class UIPreview(UIModule):
                 self.shared_state.set_solve_pixel((256, 256))
                 self.config_object.set_option("solve_pixel", (256, 256))
                 self.align_mode = False
-                self.update(force=True)
             if number in list(range(1, self.highlight_count + 1)):
                 # They picked a star to align....
                 star_index = number - 1
@@ -258,4 +266,6 @@ class UIPreview(UIModule):
                         (star_cam_x, star_cam_y),
                     )
                 self.align_mode = False
-                self.update(force=True)
+
+            self.shared_state.set_camera_align(self.align_mode)
+            self.update(force=True)
