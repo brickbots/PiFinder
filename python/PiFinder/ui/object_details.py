@@ -394,7 +394,7 @@ class UIObjectDetails(UIModule):
             if typeconst and isinstance(typeconst, TextLayouter):
                 typeconst.next()
         else:
-            self.change_fov(-1)
+            self.change_fov(1)
 
     def key_minus(self):
         if self.object_display_mode == DM_DESC:
@@ -403,4 +403,4 @@ class UIObjectDetails(UIModule):
             if typeconst and isinstance(typeconst, TextLayouter):
                 typeconst.next()
         else:
-            self.change_fov(1)
+            self.change_fov(-1)

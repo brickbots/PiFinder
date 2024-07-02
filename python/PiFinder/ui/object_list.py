@@ -147,10 +147,10 @@ class UIObjectList(UITextMenu):
 
     def format_az_alt(self, point_az, point_alt):
         if point_az >= 0:
-            az_arrow_symbol = self._LEFT_ARROW
+            az_arrow_symbol = self._RIGHT_ARROW
         else:
             point_az *= -1
-            az_arrow_symbol = self._RIGHT_ARROW
+            az_arrow_symbol = self._LEFT_ARROW
 
         if point_az > 100:
             point_az = 99
@@ -161,10 +161,10 @@ class UIObjectList(UITextMenu):
             az_string = f"{az_arrow_symbol}{point_az:03.0f}"
 
         if point_alt >= 0:
-            alt_arrow_symbol = self._DOWN_ARROW
+            alt_arrow_symbol = self._UP_ARROW
         else:
             point_alt *= -1
-            alt_arrow_symbol = self._UP_ARROW
+            alt_arrow_symbol = self._DOWN_ARROW
 
         if point_alt < 10:
             alt_string = f"{alt_arrow_symbol}{point_alt:03.1f}"
