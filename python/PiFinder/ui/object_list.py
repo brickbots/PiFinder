@@ -262,8 +262,7 @@ class UIObjectList(UITextMenu):
             return self.screen_update()
 
         # Draw current selection hint
-        # self.draw.line([0,80,128,80], width=1, fill=self.colors.get(32))
-        self.draw.rectangle([0, 60, 128, 80], fill=self.colors.get(32))
+        self.draw.rectangle([-1, 60, 129, 80], outline=self.colors.get(128), width=1)
         line_number = 0
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
             if i >= 0 and i < len(self._menu_items_sorted):
@@ -332,19 +331,32 @@ class UIObjectList(UITextMenu):
 
         if self.jump_input_display:
             self.message(
-                str(self.jump_to_number), 0.1, [30, 10, 93, 40], center_text=False
+                str(self.jump_to_number),
+                0.1,
+                [30, 10, 93, 40],
             )
 
         return self.screen_update()
 
-    def scroll_to_sequence(self, sequence: int, start_at_top=True) -> None:
+    def scroll_to_sequence(
+        self, sequence: int, start_at_top=True, direction="down"
+    ) -> None:
         """
         Scrolls the list to the first item matching
         this number
         """
         if start_at_top:
             self._current_item_index = 0
-        for i in range(self._current_item_index + 1, len(self._menu_items_sorted)):
+
+        if direction == "down":
+            search_list = list(
+                range(self._current_item_index + 1, len(self._menu_items_sorted))
+            )
+        else:
+            search_list = list(range(0, self._current_item_index - 1))
+            search_list.reverse()
+
+        for i in search_list:
             if self._menu_items_sorted[i].sequence == sequence:
                 self._current_item_index = i
                 break
@@ -376,15 +388,17 @@ class UIObjectList(UITextMenu):
 
     def key_up(self):
         if self.jump_input_display:
-            self.jump_input_display = False
-            self.jump_to_number.reset_number()
+            self.scroll_to_sequence(
+                self.jump_to_number.object_number, start_at_top=False, direction="up"
+            )
         else:
             super().key_up()
 
     def key_down(self):
         if self.jump_input_display:
-            self.jump_input_display = False
-            self.jump_to_number.reset_number()
+            self.scroll_to_sequence(
+                self.jump_to_number.object_number, start_at_top=False, direction="down"
+            )
         else:
             super().key_down()
 
@@ -393,9 +407,8 @@ class UIObjectList(UITextMenu):
         Switch display modes
         """
         if self.jump_input_display:
-            self.scroll_to_sequence(
-                self.jump_to_number.object_number, start_at_top=False
-            )
+            self.jump_input_display = False
+            self.jump_to_number.reset_number()
         else:
             self.current_mode = next(self.mode_cycle)
 
