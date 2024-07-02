@@ -331,7 +331,9 @@ class UIObjectList(UITextMenu):
             line_number += 1
 
         if self.jump_input_display:
-            self.message(str(self.jump_to_number), 0.1)
+            self.message(
+                str(self.jump_to_number), 0.1, [30, 10, 93, 40], center_text=False
+            )
 
         return self.screen_update()
 
@@ -343,7 +345,7 @@ class UIObjectList(UITextMenu):
         if start_at_top:
             self._current_item_index = 0
         for i in range(self._current_item_index + 1, len(self._menu_items_sorted)):
-            if str(self._menu_items_sorted[i].sequence).startswith(str(sequence)):
+            if self._menu_items_sorted[i].sequence == sequence:
                 self._current_item_index = i
                 break
 
