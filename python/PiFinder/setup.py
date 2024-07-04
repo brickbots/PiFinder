@@ -1105,7 +1105,6 @@ def load_arp():
                 # Extract fields based on fixed widths
                 RAh = int(line[0:2].strip())
                 RAm = float(line[3:7].strip())
-                pPos = line[7].strip()
                 DE_sign = line[11].strip()
                 DEd = int(line[12:14].strip())
                 DEm = int(line[15:17].strip())
@@ -1118,7 +1117,6 @@ def load_arp():
                     "APG": APG,
                     "RAh": RAh,
                     "RAm": RAm,
-                    "pPos": pPos,
                     "DE_sign": DE_sign,
                     "DEd": DEd,
                     "DEm": DEm,
@@ -1131,7 +1129,7 @@ def load_arp():
         arp = int(record["APG"])
         comments = arp_comments[arp]
         ra_hours = record["RAh"] + record["RAm"] / 60
-        dec_sign = -1 if record["pPos"] == "-" else 1
+        dec_sign = -1 if record["DE_sign"] == "-" else 1
         dec_deg = dec_sign * (record["DEd"] + record["DEd"] / 60)
         # print(f"RA: {ra_hours}, Dec: {dec_deg}")
         j_ra_h, j_dec_deg = epoch_to_epoch(1970, 2000, ra_hours, dec_deg)
