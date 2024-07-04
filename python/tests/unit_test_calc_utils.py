@@ -7,6 +7,8 @@ Run from PiFinder/python:
 
 import unittest
 from PiFinder.calc_utils import hadec_to_pa, hadec_to_roll
+import numpy as np
+
 
 class UnitTestCalcUtils(unittest.TestCase):
     """
@@ -68,6 +70,23 @@ class UnitTestCalcUtils(unittest.TestCase):
                 self.assertAlmostEqual(roll, expected, places=3, 
                                     msg='HA = {:.2f}, dec = {:.2f}'.format(ha, dec))
 
+
+    def test_hadec_to_roll2(self):
+            """ Unit Test against observed roll data: haddec_to_roll() """
+            # Define the inputs:        
+            lat_deg = 35.819676052
+            ha_hrs = [4.1309, -3.6298, 0.3378] 
+            dec_degs = [74.0515, 22.2856, 30.3246]
+            # Observed values
+            observed_roll_degs = [72.0398, 62.6766, 328.6188]
+
+            for ha_hr, dec, observed in zip(ha_hrs, dec_degs, observed_roll_degs):
+                ha = ha_hr / 12 * 180  # Convert from hr to deg
+                roll = hadec_to_roll(ha, dec, lat_deg)
+                # Roll must be within 2 degrees
+                self.assertLess(np.abs(roll - observed), 2, 
+                                    msg='HA = {:.2f} hr, dec = {:.2f}, roll = {:.1f}, observed = {:.1f}'.format(ha_hr, dec, roll, observed))
+                
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
