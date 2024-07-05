@@ -1,6 +1,7 @@
 import datetime
 import pytz
 import math
+import numpy as np
 from typing import Tuple, Optional
 from skyfield.api import (
     wgs84,
@@ -211,14 +212,14 @@ def hadec_to_pa(ha_deg, dec_deg, lat_deg):
     RETURNS:
     pa_deg: Parallactic angle [deg]
     """
-    ha = math.radians(ha_deg)
-    dec = math.radians(dec_deg)
-    lat = math.radians(lat_deg)
+    ha = np.deg2rad(ha_deg)
+    dec = np.deg2rad(dec_deg)
+    lat = np.deg2rad(lat_deg)
 
-    pa = math.atan2(math.sin(ha), 
-              math.cos(dec) * math.tan(lat) - math.sin(dec) * math.cos(ha))
+    pa = np.arctan2(np.sin(ha), 
+              np.cos(dec) * np.tan(lat) - np.sin(dec) * np.cos(ha))  
 
-    return math.degrees(pa)  # Parallactic angle [deg]
+    return np.rad2deg(pa)  # Parallactic angle [deg]
 
 
 def hadec_to_roll(ha_deg, dec_deg, lat_deg):
@@ -234,7 +235,8 @@ def hadec_to_roll(ha_deg, dec_deg, lat_deg):
     ZS to PS when looking out towards the sky.
 
     INPUTS:
-    ha_deg, dec_deg: Hour Angle (HA) and declination of the target [deg]
+    ha_deg: Hour Angle (HA) of the target [deg]
+    dec_deg: Declination of the target [deg]
     lat_deg: Latitude of the observer [deg]
 
     RETURNS:
@@ -245,14 +247,7 @@ def hadec_to_roll(ha_deg, dec_deg, lat_deg):
     if dec_deg <= lat_deg:
         roll_deg = -pa_deg
     else:
-        # Tedious but need to do this because math doesn't have a sign() func.
-        # Otherwise the eqn is: roll_deg = -pa_deg + np.sign(ha_deg) * 180
-        if ha_deg > 0:
-            roll_deg = -pa_deg + 180
-        elif ha_deg < 0:
-            roll_deg = -pa_deg - 180
-        else:
-            roll_deg = -pa_deg
+        roll_deg = -pa_deg + np.sign(ha_deg) * 180
 
     return roll_deg
 
