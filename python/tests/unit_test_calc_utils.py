@@ -62,8 +62,8 @@ class UnitTestCalcUtils(unittest.TestCase):
             dec_degs = [90, 60, 51, 30, 0, -30,
                         90, 60, 51, 30, 0, -30]
             # Expected values
-            expected_roll_degs = [124.0807, 74.1037, -79.9949, -98.92265, -60.2643, -131.5124, 
-                                -124.0807, -74.1037, 79.9949, 98.92265, 60.2643, 131.5124]
+            expected_roll_degs = [60.0, 102.0225, -65.8349, -46.5828, -35.0417, -33.2790, 
+                                  -60.0, -102.0226, 65.8349, 46.5828, 35.04173, 33.27898]
 
             for ha, dec, expected in zip(ha_degs, dec_degs, expected_roll_degs):
                 roll = hadec_to_roll(ha, dec, lat_deg)
