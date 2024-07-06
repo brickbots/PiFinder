@@ -118,7 +118,7 @@ class UIModule:
             fill=self.colors.get(0),
         )
 
-    def message(self, message, timeout=2, size=[5, 44, 123, 84], center_text=False):
+    def message(self, message, timeout=2, size=[5, 44, 123, 84]):
         """
         Creates a box with text in the center of the screen.
         Waits timeout in seconds
@@ -132,10 +132,11 @@ class UIModule:
         )
         self.draw.rectangle(size, fill=self.colors.get(0), outline=self.colors.get(128))
 
-        if center_text:
-            message = " " * int((16 - len(message)) / 2) + message
+        line_length = int((size[2] - size[0]) / self.fonts.bold.width)
+        message = " " * int((line_length - len(message)) / 2) + message
+
         self.draw.text(
-            (size[0] + 4, size[1] + 10),
+            (size[0] + 4, size[1] + 5),
             message,
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
