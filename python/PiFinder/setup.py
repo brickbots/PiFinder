@@ -12,7 +12,7 @@ import datetime
 import re
 from tqdm import tqdm
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 from dataclasses import dataclass, field
 
 # from PiFinder.obj_types import OBJ_DESCRIPTORS
@@ -23,13 +23,11 @@ from PiFinder.calc_utils import (
     dec_to_deg,
     sf_utils,
     b1950_to_j2000,
-    epoch_to_epoch,
 )
 from PiFinder import calc_utils
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from collections import namedtuple, defaultdict
-from sqlite3 import Connection, Cursor, Error
 import sqlite3
 
 objects_db: ObjectsDatabase
@@ -55,7 +53,7 @@ class NewCatalogObject:
         Inserts object into DB
         """
         # sanity checks
-        if type(self.aka_names) != list:
+        if type(self.aka_names) is list:
             raise TypeError("Aka names not list")
 
         # Check to see if this object matches one in the DB already
@@ -165,9 +163,9 @@ def count_rows_per_distinct_column(conn, db_c, table, column):
 
 
 def get_catalog_counts():
-    conn, db_c = objects_db.get_conn_cursor()
+    _conn, db_c = objects_db.get_conn_cursor()
     db_c.execute(
-        f"SELECT catalog_code, count(*) from catalog_objects group by catalog_code"
+        "SELECT catalog_code, count(*) from catalog_objects group by catalog_code"
     )
     result = list(db_c.fetchall())
     for row in result:
@@ -329,7 +327,6 @@ def load_egc():
     delete_catalog_from_database(catalog)
 
     insert_catalog(catalog, Path(utils.astro_data_dir, "EGC.desc"))
-    object_finder = ObjectFinder()
     egc = Path(utils.astro_data_dir, "egc.tsv")
     with open(egc, "r") as df:
         # skip title line
@@ -339,7 +336,6 @@ def load_egc():
             sequence = dfs[0]
             other_names = dfs[1].split(",")
 
-            const = dfs[6]
             ra = dfs[2].split()
             ra_h = int(ra[0])
             ra_m = int(ra[1])
@@ -379,7 +375,6 @@ def load_collinder():
     conn, _db_c = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, Path(utils.astro_data_dir, "collinder.desc"))
-    object_finder = ObjectFinder()
     coll = Path(utils.astro_data_dir, "collinder.txt")
     Collinder = namedtuple(
         "Collinder",
@@ -758,7 +753,6 @@ def load_taas200():
     conn, _ = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, Path(utils.astro_data_dir, "taas200.desc"))
-    object_finder = ObjectFinder()
     data = Path(utils.astro_data_dir, "TAAS_200.csv")
     sequence = 0
 
@@ -796,7 +790,6 @@ def load_taas200():
 
             other_names = row["Name"]
             logging.debug(f"TAAS catalog {other_catalog=} {other_names=}")
-            const = row["Const"]
             obj_type = typedict[row["Type"]]
             ra = ra_to_deg(float(row["RA Hr"]), float(row["RA Min"]), 0)
             dec_deg = row["Dec Deg"]
@@ -849,7 +842,6 @@ def load_caldwell():
     conn, _ = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, Path(utils.astro_data_dir, "caldwell.desc"))
-    object_finder = ObjectFinder()
     data = Path(utils.astro_data_dir, "caldwell.dat")
     with open(data, "r") as df:
         for line in tqdm(list(df)):
@@ -858,7 +850,6 @@ def load_caldwell():
             logging.debug(f"<----------------- Caldwell {sequence=} ----------------->")
             other_names = add_space_after_prefix(dfs[1])
             obj_type = dfs[2]
-            const = dfs[3]
             mag = dfs[4]
             if mag == "--":
                 mag = "null"
@@ -1079,11 +1070,9 @@ def load_sharpless():
         j_ra_h, j_dec_deg = b1950_to_j2000(ra_hours, dec_deg)
         j_ra_deg = j_ra_h._degrees
         j_dec_deg = j_dec_deg._degrees
-        const = sf_utils.radec_to_constellation(j_ra_deg, j_dec_deg)
         desc = f"{form[record['Form']]}, {struct[record['Struct']]}, {bright[record['Bright']]}, {record['Stars']}\n"
 
         desc += descriptions_dict[str(sh2)]
-        current_object = f"Sh2-{sh2}"
         current_akas = akas_dict[sh2] if sh2 in akas_dict else []
 
         new_object = NewCatalogObject(
@@ -1106,13 +1095,10 @@ def load_sharpless():
 def load_arp():
     logging.info("Loading Arp")
     catalog = "Arp"
-    obj_type = "Gx"
     path = Path(utils.astro_data_dir, "arp")
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, path / "arp.desc")
-    data = path / "table2.txt"
     comments = path / "arp_comments.csv"
-    records = []
 
     def expand(name):
         expanded_list = []
@@ -1186,16 +1172,12 @@ def load_arp():
 
 def load_abell():
     logging.info("Loading Abell")
-    object_finder = ObjectFinder()
     catalog = "Abl"
     obj_type = "PN"
     conn, _ = objects_db.get_conn_cursor()
     data = Path(utils.astro_data_dir, "abell.tsv")
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, Path(utils.astro_data_dir) / "abell.desc")
-
-    # Define a list to hold all the extracted records
-    records = []
 
     # Open the file for reading
     with open(data, "r") as file:
@@ -1258,7 +1240,6 @@ def load_ngc_catalog():
                 des = line[19:20]
                 ded = int(line[20:22])
                 dem = int(line[23:25])
-                const = line[29:32]
                 line_size = line[32:33]
                 size = line_size + line[33:38]
                 mag = line[40:44]
