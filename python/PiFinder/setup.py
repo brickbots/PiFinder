@@ -54,6 +54,9 @@ class NewCatalogObject:
         """
         Inserts object into DB
         """
+        # sanity checks
+        if type(self.aka_names) != list:
+            raise TypeError("Aka names not list")
 
         # Check to see if this object matches one in the DB already
         self.find_object_id()
@@ -880,7 +883,7 @@ def load_caldwell():
                 mag=mag,
                 size=size,
                 description="",
-                aka_names=other_names,
+                aka_names=[other_names],
             )
             new_object.insert()
 
