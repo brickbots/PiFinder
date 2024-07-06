@@ -163,6 +163,8 @@ def imu_monitor(shared_state, console_queue):
                 imu_data["start_pos"] = imu_data["pos"]
                 imu_data["move_start"] = time.time()
             imu_data["pos"] = imu.get_euler()
+            imu_data["quat"] = imu.avg_quat
+
         else:
             if imu_data["moving"] == True:
                 # If wer were moving and we now stopped
