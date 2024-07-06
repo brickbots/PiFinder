@@ -392,6 +392,9 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
                 elif ui_command == "push_object":
                     # TODO: Re-implement
                     pass
+                    #ui_mode_index = 4
+                    #current_module = ui_modes[ui_mode_index]
+                    #current_module.active()
 
                 # Keyboard
                 keycode = None
