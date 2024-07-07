@@ -144,7 +144,7 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
                                 solved["Alt"], solved["Az"], dt
                             )
 
-                            # Find the roll from the RA/Dec
+                            # Find the roll from the RA/Dec and time
                             solved["Roll"] = calc_utils.sf_utils.radec_to_roll(
                                 solved["RA"], solved["Dec"], dt)
 
