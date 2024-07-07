@@ -54,7 +54,7 @@ class UIPreview(UIModule):
         "Exposure": {
             "type": "enum",
             "value": "",
-            "options": [0.05, 0.2, 0.4, 0.75, 1, 1.25, 1.5, 2],
+            "options": [0.025, 0.05, 0.1, 0.2, 0.4, 0.75, 1],
             "callback": "set_exp",
         },
         "Save Exp": {
@@ -88,6 +88,7 @@ class UIPreview(UIModule):
         new_exposure = int(option * 1000000)
         self.command_queues["camera"].put(f"set_exp:{new_exposure}")
         self.message("Exposure Set")
+        self.config_object.set_option("camera_exp", new_exposure)
         return False
 
     def set_gain(self, option):
@@ -175,7 +176,7 @@ class UIPreview(UIModule):
                 self.draw.text(
                     (star_x + x_text_offset, star_y + y_text_offset),
                     str(_i + 1),
-                    font=self.fonts.small,
+                    font=self.fonts.small.font,
                     fill=self.colors.get(128),
                 )
 
@@ -215,22 +216,35 @@ class UIPreview(UIModule):
             self.screen.paste(image_obj)
             self.last_update = last_image_time
 
-            self.draw_reticle()
             if self.align_mode:
                 self.draw_star_selectors()
+            else:
+                self.draw_reticle()
+
         return self.screen_update(
             title_bar=not self.align_mode, button_hints=not self.align_mode
         )
 
-    def key_b(self):
+    def key_up(self):
+        """
+        leave bright star alignment mode
+        """
+        if not self.align_mode:
+            return
+
+        self.align_mode = False
+        self.shared_state.set_camera_align(self.align_mode)
+        self.update(force=True)
+
+    def key_down(self):
         """
         Enter bright star alignment mode
         """
         if self.align_mode:
-            self.align_mode = False
-        else:
-            self.align_mode = True
+            return
 
+        self.align_mode = True
+        self.shared_state.set_camera_align(self.align_mode)
         self.update(force=True)
 
     def key_number(self, number):
@@ -240,7 +254,6 @@ class UIPreview(UIModule):
                 self.shared_state.set_solve_pixel((256, 256))
                 self.config_object.set_option("solve_pixel", (256, 256))
                 self.align_mode = False
-                self.update(force=True)
             if number in list(range(1, self.highlight_count + 1)):
                 # They picked a star to align....
                 star_index = number - 1
@@ -253,4 +266,6 @@ class UIPreview(UIModule):
                         (star_cam_x, star_cam_y),
                     )
                 self.align_mode = False
-                self.update(force=True)
+
+            self.shared_state.set_camera_align(self.align_mode)
+            self.update(force=True)

@@ -56,14 +56,21 @@ class KeyboardPi(KeyboardInterface):
         scan_freq = 60
         while True:
             sleep(1 / scan_freq)
-            if len(pressed) > 0 and hold_sent is False:
+            if len(pressed) > 0:
                 hold_counter += 1
-                if hold_counter > scan_freq and not alt_sent:
-                    keycode = pressed.pop()
-                    pressed = set()
-                    self.q.put(self.long_keymap[keycode])
-                    hold_counter = 0
-                    hold_sent = True
+                if hold_counter > scan_freq:
+                    # Held for more than 1 second
+                    if list(pressed)[-1] in [17, 18]:
+                        # Up/Down arrows repeat
+                        self.q.put(self.keymap[list(pressed)[-1]])
+                        hold_counter = int(scan_freq / 1.05)
+                    else:
+                        if not alt_sent and not hold_sent:
+                            keycode = pressed.pop()
+                            pressed = set()
+                            self.q.put(self.long_keymap[keycode])
+                            hold_counter = 0
+                            hold_sent = True
             else:
                 hold_counter = 0
             for i in range(len(self.rows)):

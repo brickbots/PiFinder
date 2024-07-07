@@ -76,6 +76,9 @@ class UIModule:
         self.frame_count = 0
         self.last_fps_sample_time = time.time()
 
+        # anim timer stuff
+        self.last_update_time = time.time()
+
     def screengrab(self):
         self.ss_count += 1
         ss_imagepath = self.ss_path + f"_{self.ss_count :0>3}.png"
@@ -115,21 +118,28 @@ class UIModule:
             fill=self.colors.get(0),
         )
 
-    def message(self, message, timeout=2):
+    def message(self, message, timeout=2, size=[5, 44, 123, 84]):
         """
         Creates a box with text in the center of the screen.
         Waits timeout in seconds
         """
 
+        # shadow
         self.draw.rectangle(
-            [10, 49, 128, 89], fill=self.colors.get(0), outline=self.colors.get(0)
+            [size[0] + 5, size[1] + 5, size[2] + 5, size[3] + 5],
+            fill=self.colors.get(0),
+            outline=self.colors.get(0),
         )
-        self.draw.rectangle(
-            [5, 44, 123, 84], fill=self.colors.get(0), outline=self.colors.get(128)
-        )
-        message = " " * int((16 - len(message)) / 2) + message
+        self.draw.rectangle(size, fill=self.colors.get(0), outline=self.colors.get(128))
+
+        line_length = int((size[2] - size[0]) / self.fonts.bold.width)
+        message = " " * int((line_length - len(message)) / 2) + message
+
         self.draw.text(
-            (9, 54), message, font=self.fonts.bold.font, fill=self.colors.get(255)
+            (size[0] + 4, size[1] + 5),
+            message,
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
         )
         self.display.display(self.screen.convert(self.display.mode))
         self.ui_state.set_message_timeout(timeout + time.time())
@@ -163,7 +173,8 @@ class UIModule:
             if self.shared_state.location()["gps_lock"]:
                 self._gps_brightness = 0
             else:
-                self._gps_brightness += 1
+                gps_anim = int(128 * (time.time() - self.last_update_time)) + 1
+                self._gps_brightness += gps_anim
                 if self._gps_brightness > 64:
                     self._gps_brightness = -128
 
@@ -231,6 +242,7 @@ class UIModule:
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
 
+        self.last_update_time = time.time()
         return
 
     def check_hotkey(self, key):

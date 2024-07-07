@@ -115,6 +115,9 @@ class UIObjectList(UITextMenu):
                     _image, Image.new("RGB", render_size, self.colors.get(255))
                 )
 
+        self.jump_to_number = CatalogSequence()
+        self.jump_input_display = False
+
     def filter(self):
         self.catalogs.filter_catalogs()
 
@@ -144,10 +147,10 @@ class UIObjectList(UITextMenu):
 
     def format_az_alt(self, point_az, point_alt):
         if point_az >= 0:
-            az_arrow_symbol = self._LEFT_ARROW
+            az_arrow_symbol = self._RIGHT_ARROW
         else:
             point_az *= -1
-            az_arrow_symbol = self._RIGHT_ARROW
+            az_arrow_symbol = self._LEFT_ARROW
 
         if point_az > 100:
             point_az = 99
@@ -158,10 +161,10 @@ class UIObjectList(UITextMenu):
             az_string = f"{az_arrow_symbol}{point_az:03.0f}"
 
         if point_alt >= 0:
-            alt_arrow_symbol = self._DOWN_ARROW
+            alt_arrow_symbol = self._UP_ARROW
         else:
             point_alt *= -1
-            alt_arrow_symbol = self._UP_ARROW
+            alt_arrow_symbol = self._DOWN_ARROW
 
         if point_alt < 10:
             alt_string = f"{alt_arrow_symbol}{point_alt:03.1f}"
@@ -259,8 +262,7 @@ class UIObjectList(UITextMenu):
             return self.screen_update()
 
         # Draw current selection hint
-        # self.draw.line([0,80,128,80], width=1, fill=self.colors.get(32))
-        self.draw.rectangle([0, 60, 128, 80], fill=self.colors.get(32))
+        self.draw.rectangle([-1, 60, 129, 80], outline=self.colors.get(128), width=1)
         line_number = 0
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
             if i >= 0 and i < len(self._menu_items_sorted):
@@ -327,7 +329,37 @@ class UIObjectList(UITextMenu):
 
             line_number += 1
 
+        if self.jump_input_display:
+            self.message(
+                str(self.jump_to_number),
+                0.1,
+                [30, 10, 93, 40],
+            )
+
         return self.screen_update()
+
+    def scroll_to_sequence(
+        self, sequence: int, start_at_top=True, direction="down"
+    ) -> None:
+        """
+        Scrolls the list to the first item matching
+        this number
+        """
+        if start_at_top:
+            self._current_item_index = 0
+
+        if direction == "down":
+            search_list = list(
+                range(self._current_item_index + 1, len(self._menu_items_sorted))
+            )
+        else:
+            search_list = list(range(0, self._current_item_index - 1))
+            search_list.reverse()
+
+        for i in search_list:
+            if self._menu_items_sorted[i].sequence == sequence:
+                self._current_item_index = i
+                break
 
     def get_marker(
         self, obj_type: str, color: int, bgcolor: int
@@ -354,11 +386,31 @@ class UIObjectList(UITextMenu):
 
         return marker_img
 
+    def key_up(self):
+        if self.jump_input_display:
+            self.scroll_to_sequence(
+                self.jump_to_number.object_number, start_at_top=False, direction="up"
+            )
+        else:
+            super().key_up()
+
+    def key_down(self):
+        if self.jump_input_display:
+            self.scroll_to_sequence(
+                self.jump_to_number.object_number, start_at_top=False, direction="down"
+            )
+        else:
+            super().key_down()
+
     def key_square(self):
         """
         Switch display modes
         """
-        self.current_mode = next(self.mode_cycle)
+        if self.jump_input_display:
+            self.jump_input_display = False
+            self.jump_to_number.reset_number()
+        else:
+            self.current_mode = next(self.mode_cycle)
 
     def key_plus(self):
         """
@@ -380,3 +432,70 @@ class UIObjectList(UITextMenu):
             "object": _menu_item,
         }
         self.add_to_stack(object_item_definition)
+
+    def key_number(self, number):
+        self.jump_to_number.append_number(number)
+        if str(self.jump_to_number) == "----":
+            self.jump_input_display = False
+            return
+
+        self.jump_input_display = True
+
+        # Check for match
+        self.scroll_to_sequence(self.jump_to_number.object_number)
+
+        self.update()
+
+
+class CatalogSequence:
+    """
+    Holds the string that represents the numeric portion
+    of a catalog entry
+    """
+
+    def __init__(self):
+        self.object_number = 0
+        self.width = 4
+        self.field = self.get_designator()
+
+    def append_number(self, number):
+        number_str = str(self.object_number) + str(number)
+        if len(number_str) > self.get_catalog_width():
+            number_str = number_str[1:]
+        self.object_number = int(number_str)
+        self.field = self.get_designator()
+
+    def set_number(self, number):
+        self.object_number = number
+        self.field = self.get_designator()
+
+    def has_number(self):
+        return self.object_number > 0
+
+    def reset_number(self):
+        self.object_number = 0
+        self.field = self.get_designator()
+
+    def increment_number(self):
+        self.object_number += 1
+        self.field = self.get_designator()
+
+    def decrement_number(self):
+        self.object_number -= 1
+        self.field = self.get_designator()
+
+    def get_catalog_name(self):
+        return self.catalog_name
+
+    def get_catalog_width(self):
+        return self.width
+
+    def get_designator(self):
+        number_str = str(self.object_number) if self.has_number() else ""
+        return f"{number_str:->{self.get_catalog_width()}}"
+
+    def __str__(self):
+        return self.field
+
+    def __repr__(self):
+        return self.field

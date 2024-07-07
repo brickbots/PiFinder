@@ -51,10 +51,9 @@ class UITextMenu(UIModule):
     def update(self, force=False):
         # clear screen
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
-
         # Draw current selection hint
-        # self.draw.line([0,80,128,80], width=1, fill=self.colors.get(32))
-        self.draw.rectangle([0, 60, 128, 80], fill=self.colors.get(32))
+        self.draw.rectangle([-1, 60, 129, 80], outline=self.colors.get(128), width=1)
+
         line_number = 0
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
             if i >= 0 and i < len(self._menu_items):
@@ -216,6 +215,12 @@ class UITextMenu(UIModule):
                         self.catalogs.catalog_filter, filter_attr, self._selected_values
                     )
                     self.catalogs.filter_catalogs()
+
+        # Is there a post_callback for this current MENU
+        if self.item_definition.get("post_callback"):
+            # All ui callback functions take the current UI module
+            # as an argument, so call it with self here
+            return self.item_definition["post_callback"](self)
 
     def key_up(self):
         self.menu_scroll(-1)
