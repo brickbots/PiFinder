@@ -269,7 +269,8 @@ class Skyfield_utils:
         load = Loader(utils.astro_data_dir)
         self.eph = load("de421.bsp")
         self.earth = self.eph["earth"]
-        self.observer_loc = None
+        self.observer_loc = None  # Barycenter used to calculate the target pos
+        self._observer_geoid = None  # To get geographic position (lat, long)
         self.constellation_map = load_constellation_map()
         self.ts = load.timescale()
         self._set_planet_names()
@@ -296,13 +297,21 @@ class Skyfield_utils:
 
     def set_location(self, lat, lon, altitude):
         """
-        set observing location
+        set observing location.
+        lat, long are in degrees. altitude is in meters.
         """
-        self.observer_loc = self.earth + wgs84.latlon(
-            lat,
-            lon,
-            altitude,
-        )
+        # Barycenter used to calculate the target position:
+        self.observer_loc = self.earth + wgs84.latlon(lat, lon, altitude)
+        # To get geographic position (e.g. latitude, longitude)
+        # Note: We can't get this info from self.observer_loc
+        self._observer_geoid = wgs84.latlon(lat, lon, altitude) 
+
+
+    def get_latlon(self):
+        """ Returns the observer latitude & longitude in degrees """
+        return self._observer_geoid.latitude.degrees, \
+            self._observer_geoid.longitude.degrees
+
 
     def altaz_to_radec(self, alt, az, dt):
         """
@@ -349,10 +358,8 @@ class Skyfield_utils:
         lst_hrs: Local sidereal time [hrs]
         """
         t = self.ts.from_datetime(dt)
-        lst_hrs = self.observer_loc.lst_hours_at(t)  # LST in hrs
-
-        return lst_hrs  # LST [hrs]
-
+        return self._observer_geoid.lst_hours_at(t)  # LST in hrs
+        
 
     def ra_to_ha(self, ra_deg, dt):
         """
@@ -388,8 +395,8 @@ class Skyfield_utils:
         roll_deg: Roll angle [deg]
         """
         ha_deg = self.ra_to_ha(ra_deg, dt)  # Note that HA is in deg
-        lat = self.observer_loc.latitude
-        roll_deg = hadec_to_roll(ha_deg, dec_deg, lat._degrees)
+        lat_deg = self._observer_geoid.latitude.degrees
+        roll_deg = hadec_to_roll(ha_deg, dec_deg, lat_deg)
 
         return roll_deg  # roll angle [deg]
 
