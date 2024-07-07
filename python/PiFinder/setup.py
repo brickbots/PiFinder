@@ -13,6 +13,7 @@ import re
 from tqdm import tqdm
 from pathlib import Path
 from typing import Dict, List
+from dataclasses import dataclass, field
 
 # from PiFinder.obj_types import OBJ_DESCRIPTORS
 import PiFinder.utils as utils
@@ -24,12 +25,88 @@ from PiFinder.calc_utils import (
     b1950_to_j2000,
     epoch_to_epoch,
 )
+from PiFinder import calc_utils
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from collections import namedtuple, defaultdict
+from sqlite3 import Connection, Cursor, Error
+import sqlite3
 
 objects_db: ObjectsDatabase
 observations_db: ObservationsDatabase
+
+
+@dataclass
+class NewCatalogObject:
+    object_type: str
+    catalog_code: str
+    sequence: int
+    ra: float
+    dec: float
+    object_id: int = 0
+    mag: float = 99
+    size: str = ""
+    constellation: str = ""
+    description: str = ""
+    aka_names: list[str] = field(default_factory=list)
+
+    def insert(self):
+        """
+        Inserts object into DB
+        """
+        # sanity checks
+        if type(self.aka_names) != list:
+            raise TypeError("Aka names not list")
+
+        # Check to see if this object matches one in the DB already
+        self.find_object_id()
+
+        if self.object_id == 0:
+            # Did not find a match, first insert object info
+            self.find_constellation()
+
+            self.object_id = objects_db.insert_object(
+                self.object_type,
+                self.ra,
+                self.dec,
+                self.constellation,
+                self.size,
+                self.mag,
+            )
+
+        # By the time we get here, we have an object_id
+        objects_db.insert_catalog_object(
+            self.object_id, self.catalog_code, self.sequence, self.description
+        )
+
+        # now the names
+        # First, catalog name
+        objects_db.insert_name(
+            self.object_id, f"{self.catalog_code} {self.sequence}", self.catalog_code
+        )
+        for aka in self.aka_names:
+            objects_db.insert_name(self.object_id, aka, self.catalog_code)
+
+    def find_constellation(self):
+        """
+        Uses RA/DEC to figure out what constellation this object is in
+        """
+        self.constellation = calc_utils.sf_utils.radec_to_constellation(
+            self.ra, self.dec
+        )
+        if self.constellation is None:
+            raise ValueError("Constellation not set")
+
+    def find_object_id(self):
+        """
+        Finds an object id if one exists using AKAs
+        """
+        finder = ObjectFinder()
+        for aka in self.aka_names:
+            _id = finder.get_object_id(aka)
+            if _id is not None:
+                self.object_id = _id
+                break
 
 
 class ObjectFinder:
@@ -60,37 +137,6 @@ class ObjectFinder:
         return result
 
 
-object_finder = ObjectFinder()
-
-
-def insert_akas(
-    objects_db, current_object: str, catalog: str, akas: List[str], new_object_id
-) -> List[int]:
-    """
-    Eg. SH2-005 is NGC6357
-    First we insert NGC6357 as an aka for SH2-005
-    Then we insert SH2-005 as an aka for NGC6357
-    """
-    logging.debug(f"Inserting {akas=} for {current_object=} in {catalog=}")
-    found = []
-    if akas:
-        for aka in akas:
-            found_object_id = object_finder.get_object_id(aka)
-            if found_object_id:
-                found.append(found_object_id)
-
-        logging.debug(f"for {akas} we found {found}")
-        for aka in akas:
-            objects_db.insert_name(new_object_id, aka, catalog)
-            logging.debug(f"\tInserted {aka=} for {new_object_id} in catalog {catalog}")
-        for found_id in found:
-            objects_db.insert_name(found_id, current_object, catalog)
-            logging.debug(
-                f"\tInserted {current_object=} for {found_id=} in catalog {catalog}"
-            )
-    return found
-
-
 def add_space_after_prefix(s):
     """
     Convert a string like 'NGC1234' to 'NGC 1234'
@@ -116,6 +162,17 @@ def count_rows_per_distinct_column(conn, db_c, table, column):
     result = db_c.fetchall()
     for row in result:
         logging.info(f"{row[0]}: {row[1]} entries")
+
+
+def get_catalog_counts():
+    conn, db_c = objects_db.get_conn_cursor()
+    db_c.execute(
+        f"SELECT catalog_code, count(*) from catalog_objects group by catalog_code"
+    )
+    result = list(db_c.fetchall())
+    for row in result:
+        logging.info(f"{row[0]}: {row[1]} entries")
+    return result
 
 
 def count_empty_entries(conn, db_c, table, columns):
@@ -299,22 +356,18 @@ def load_egc():
             mag = dfs[4]
             desc = dfs[7]
 
-            object_id = None
-            for name in other_names:
-                if name.startswith("NGC"):
-                    object_id = object_finder.get_object_id(name)
-
-            # Assuming all the parsing logic is done and all variables are available...
-            if object_id is None:
-                obj_type = "Gb"
-                object_id = objects_db.insert_object(
-                    obj_type, ra_deg, dec_deg, const, size, mag
-                )
-
-            for other_name in other_names:
-                objects_db.insert_name(object_id, other_name, catalog)
-
-            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
+            new_object = NewCatalogObject(
+                object_type="Gb",
+                catalog_code=catalog,
+                sequence=sequence,
+                ra=ra_deg,
+                dec=dec_deg,
+                mag=mag,
+                size=size,
+                description=desc,
+                aka_names=other_names,
+            )
+            new_object.insert()
 
     insert_catalog_max_sequence(catalog)
     conn.commit()
@@ -338,13 +391,12 @@ def load_collinder():
             "dec_deg",
             "size",
             "desc",
-            "object_id",
         ],
     )
     c_dict = {}
     with open(coll, "r") as df:
         df.readline()
-        for line in tqdm(list(df)):
+        for line in df:
             dfs = line.split("\t")
             sequence = dfs[0].split(" ")[0]
             other_names = dfs[1]
@@ -370,18 +422,16 @@ def load_collinder():
             size = dfs[7]
             desc = f"{dfs[6]} stars, like {dfs[8]}"
 
-            object_id = object_finder.get_object_id(other_names)
             # Assuming all the parsing logic is done and all variables are available...
 
             collinder = Collinder(
                 sequence=sequence,
-                other_names=other_names,
+                other_names=other_names.strip(),
                 const=const,
                 ra_deg=ra_deg,
                 dec_deg=dec_deg,
                 size=size,
                 desc=desc,
-                object_id=object_id,
             )
             c_dict[sequence] = collinder
 
@@ -392,9 +442,9 @@ def load_collinder():
     }
     coll2 = Path(utils.astro_data_dir, "collinder2.txt")
     with open(coll2, "r") as df:
-        duplicate_names = set()
         df.readline()
         for line in tqdm(list(df)):
+            duplicate_names = set()
             dfs = line.split("\t")
             sequence = dfs[0].split(" ")[1]
             obj_type = type_trans.get(dfs[4], "OC")
@@ -403,35 +453,28 @@ def load_collinder():
                 mag = ""
             other_names = dfs[2].strip()
             c_tuple = c_dict[sequence]
-            object_id = c_tuple.object_id
-            if object_id is None:
-                object_id = objects_db.insert_object(
-                    obj_type,
-                    c_tuple.ra_deg,
-                    c_tuple.dec_deg,
-                    c_tuple.const,
-                    c_tuple.size,
-                    mag,
-                )
-            objects_db.insert_catalog_object(object_id, catalog, sequence, c_tuple.desc)
-            first_other_names = c_tuple.other_names.strip()
-            if (
-                first_other_names
-                and first_other_names not in duplicate_names
-                and not first_other_names.startswith(("[note", "Tr.", "Harv.", "Mel."))
+
+            # Figurre out other names
+            if c_tuple.other_names and not c_tuple.other_names.startswith(
+                ("[note", "Tr.", "Harv.", "Mel.")
             ):
-                logging.debug(f"{first_other_names=}")
-                objects_db.insert_name(object_id, first_other_names, catalog + "1")
-                duplicate_names.add(first_other_names)
-            if (
-                other_names
-                and not other_names == first_other_names
-                and other_names not in duplicate_names
-                and not other_names.startswith(("[note"))
-            ):
-                logging.debug(f"{other_names=}")
-                objects_db.insert_name(object_id, other_names, catalog + "2")
-                duplicate_names.add(first_other_names)
+                duplicate_names.add(c_tuple.other_names)
+
+            if other_names and not other_names.startswith(("[note")):
+                duplicate_names.add(other_names)
+
+            new_object = NewCatalogObject(
+                object_type=obj_type,
+                catalog_code=catalog,
+                sequence=sequence,
+                ra=c_tuple.ra_deg,
+                dec=c_tuple.dec_deg,
+                mag=mag,
+                size=c_tuple.size,
+                description=c_tuple.desc,
+                aka_names=list(duplicate_names),
+            )
+            new_object.insert()
 
     insert_catalog_max_sequence(catalog)
     conn.commit()
@@ -739,7 +782,6 @@ def load_taas200():
 
         # Iterate over each row in the file
         for row in tqdm(list(reader)):
-            duplicate_names = set()
             sequence = int(row["Nr"])
             logging.debug(f"<----------------- TAAS {sequence=} ----------------->")
             ngc = row["NGC/IC"]
@@ -782,23 +824,20 @@ def load_taas200():
             if mag == "none":
                 mag = "null"
 
-            if len(other_catalog) > 0:
-                object_id = object_finder.get_object_id(other_catalog[0])
-                if not object_id:
-                    object_id = objects_db.insert_object(
-                        obj_type, ra, dec, const, size, mag
-                    )
-                    logging.debug(f"inserting unknown object {object_id=}")
-                logging.debug(f"TAAS inserting {object_id=}, {catalog=}, {sequence=}")
-                objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
-
-                if other_names not in duplicate_names:
-                    objects_db.insert_name(object_id, other_names, catalog)
-                    duplicate_names.add(other_names)
-                for catalog_name in other_catalog:
-                    if catalog_name not in duplicate_names:
-                        objects_db.insert_name(object_id, catalog_name, catalog)
-                        duplicate_names.add(catalog_name)
+            duplicate_names = set(other_catalog)
+            duplicate_names.add(other_names)
+            new_object = NewCatalogObject(
+                object_type=obj_type,
+                catalog_code=catalog,
+                sequence=sequence,
+                ra=ra,
+                dec=dec,
+                mag=mag,
+                size=size,
+                description=desc,
+                aka_names=list(duplicate_names),
+            )
+            new_object.insert()
 
         insert_catalog_max_sequence(catalog)
         conn.commit()
@@ -835,15 +874,19 @@ def load_caldwell():
                 dec_deg *= -1
 
             dec_deg = dec_to_deg(dec_deg, dec_m, 0)
-            desc = ""
-            object_id = object_finder.get_object_id(other_names)
-            if not object_id:
-                object_id = objects_db.insert_object(
-                    obj_type, ra_deg, dec_deg, const, size, mag
-                )
-                logging.debug(f"inserting unknown object {object_id=}")
-            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
-            objects_db.insert_name(object_id, other_names, catalog)
+            new_object = NewCatalogObject(
+                object_type=obj_type,
+                catalog_code=catalog,
+                sequence=sequence,
+                ra=ra_deg,
+                dec=dec_deg,
+                mag=mag,
+                size=size,
+                description="",
+                aka_names=[other_names],
+            )
+            new_object.insert()
+
     insert_catalog_max_sequence(catalog)
     conn.commit()
 
@@ -1020,21 +1063,19 @@ def load_sharpless():
             }
             # Append the extracted record to the list of records
             records.append(record)
-    for record in records:
+    for record in tqdm(records):
         sh2 = int(record["Sh2"])
         ra_hours = (
             record["RA1950"]["h"]
             + record["RA1950"]["m"] / 60
             + record["RA1950"]["ds"] / 36000
         )
-        # print(f'{record["RA1950"]} {record["DE1950"]}')
         dec_sign = -1 if record["DE1950"]["sign"] == "-" else 1
         dec_deg = dec_sign * (
             record["DE1950"]["d"]
             + record["DE1950"]["m"] / 60
             + record["DE1950"]["s"] / 3600
         )
-        # print(f"RA: {ra_hours}, Dec: {dec_deg}")
         j_ra_h, j_dec_deg = b1950_to_j2000(ra_hours, dec_deg)
         j_ra_deg = j_ra_h._degrees
         j_dec_deg = j_dec_deg._degrees
@@ -1044,11 +1085,19 @@ def load_sharpless():
         desc += descriptions_dict[str(sh2)]
         current_object = f"Sh2-{sh2}"
         current_akas = akas_dict[sh2] if sh2 in akas_dict else []
-        object_id = objects_db.insert_object(
-            obj_type, j_ra_deg, dec_deg, const, str(record["Diam"]), desc
+
+        new_object = NewCatalogObject(
+            object_type=obj_type,
+            catalog_code=catalog,
+            sequence=record["Sh2"],
+            ra=j_ra_deg,
+            dec=dec_deg,
+            size=str(record["Diam"]),
+            description=desc,
+            aka_names=current_akas,
         )
-        insert_akas(objects_db, current_object, catalog, current_akas, object_id)
-        objects_db.insert_catalog_object(object_id, catalog, record["Sh2"], desc)
+
+        new_object.insert()
 
     insert_catalog_max_sequence(catalog)
     conn.commit()
@@ -1058,7 +1107,6 @@ def load_arp():
     logging.info("Loading Arp")
     catalog = "Arp"
     obj_type = "Gx"
-    conn, _ = objects_db.get_conn_cursor()
     path = Path(utils.astro_data_dir, "arp")
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, path / "arp.desc")
@@ -1091,71 +1139,49 @@ def load_arp():
         arp_comments = {}
         reader = csv.DictReader(f)
         # Iterate over each row in the file
-        for row in tqdm(list(reader)):
+        for row in reader:
             arp = int(row["arp_number"])
-            names = row["names"].split(",")
-            names = [name.strip() for name in names]
             comment = row["comment"]
-            arp_comments[arp] = (names, comment)
-    print(arp_comments)
+            arp_comments[arp] = comment
 
-    with open(data, "r") as file:
-        for line in file:
-            if line.strip():  # Ensure the line is not empty
-                # Extract fields based on fixed widths
-                RAh = int(line[0:2].strip())
-                RAm = float(line[3:7].strip())
-                pPos = line[7].strip()
-                DE_sign = line[11].strip()
-                DEd = int(line[12:14].strip())
-                DEm = int(line[15:17].strip())
-                APG = int(line[20:23].strip())
-                Name = line[27:43].strip()
-                Redshifts = line[45:90].strip()
+    # open arp sqlite db
+    arp_conn = sqlite3.connect(path / "arp.sqlite")
+    arp_conn.row_factory = sqlite3.Row
+    arp_cur = arp_conn.cursor()
 
-                # Use the Arp's number (APG) as the key
-                record = {
-                    "APG": APG,
-                    "RAh": RAh,
-                    "RAm": RAm,
-                    "pPos": pPos,
-                    "DE_sign": DE_sign,
-                    "DEd": DEd,
-                    "DEm": DEm,
-                    "Name": expand(Name),
-                    "Redshifts": Redshifts,
-                }
-                records.append(record)
+    arp_cur.execute(
+        "select ra,dec,magnitude,name, catalog_identifier from cat order by catalog_identifier"
+    )
+    """
+    There are multiple rows per object if there are multiple names
+    so iterate through collecting names and object info and then 
+    write objects when the id changes
+    """
+    last_id = None
+    aka_names = []
+    new_object = None
+    for row in tqdm(arp_cur.fetchall()):
+        if last_id != row["catalog_identifier"]:
+            # Save the previous object and start a new one
+            if new_object is not None:
+                new_object.insert()
 
-    for record in records:
-        arp = int(record["APG"])
-        comments = arp_comments[arp]
-        ra_hours = record["RAh"] + record["RAm"] / 60
-        dec_sign = -1 if record["pPos"] == "-" else 1
-        dec_deg = dec_sign * (record["DEd"] + record["DEd"] / 60)
-        # print(f"RA: {ra_hours}, Dec: {dec_deg}")
-        j_ra_h, j_dec_deg = epoch_to_epoch(1970, 2000, ra_hours, dec_deg)
-        j_ra_deg = j_ra_h._degrees
-        j_dec_deg = j_dec_deg._degrees
-        const = sf_utils.radec_to_constellation(j_ra_deg, j_dec_deg)
-        desc = f
-        desc = f"{comments[1]}\n" if comments[1] else ""
-        desc += f"Redshifts: {record['Redshifts']}\n" if record["Redshifts"] else ""
-
-        akas = []
-        if record["Name"] and record["Name"] != "":
-            akas = record["Name"]
-        if comments[0] and comments[0] != "":
-            akas.extend(comments[0])
-        akas_unique = list(set(akas))
-        current_object = f"Arp {arp}"
-        object_id = objects_db.insert_object(obj_type, j_ra_deg, dec_deg, const, "", "")
-        logging.debug(f"Arp: inserting akas {akas_unique=}")
-        insert_akas(objects_db, current_object, catalog, akas_unique, object_id)
-        objects_db.insert_catalog_object(object_id, catalog, arp, desc)
+            last_id = row["catalog_identifier"]
+            new_object = NewCatalogObject(
+                object_type="Gx",
+                catalog_code="Arp",
+                sequence=row["catalog_identifier"],
+                ra=row["ra"],
+                dec=row["dec"],
+                mag=row["magnitude"],
+                description=arp_comments.get(row["catalog_identifier"], ""),
+                aka_names=[row["name"]],
+            )
+        else:
+            aka_names.append(row["name"])
 
     insert_catalog_max_sequence(catalog)
-    conn.commit()
+    arp_conn.commit()
 
 
 def load_abell():
@@ -1174,39 +1200,26 @@ def load_abell():
     # Open the file for reading
     with open(data, "r") as file:
         # Iterate over each line in the file
-        for line in list(file)[1:]:
+        for line in tqdm(list(file)[1:]):
             split_line = line.split("\t")
             # Extract the relevant parts of each line based on byte positions
-            record = {
-                "id": int(split_line[0].strip()),
-                "AKA": split_line[2].strip(),
-                "RA": float(split_line[3].strip()),
-                "Dec": float(split_line[4].strip()),
-                "Mag": float(split_line[5].strip()),
-                "Size": float(split_line[6].strip()),
-                "const": split_line[7].strip(),
-                "desc": "",
-            }
-            # Append the extracted record to the list of records
-            records.append(record)
-    for record in tqdm(records):
-        object_id = object_finder.get_object_id(record["AKA"])
-        if not object_id:
-            # obj_type, ra, dec, const, size, mag
-            object_id = objects_db.insert_object(
-                obj_type,
-                record["RA"],
-                record["Dec"],
-                record["const"],
-                record["Size"],
-                record["Mag"],
-            )
-        else:
-            objects_db.insert_name(object_id, f"Abell {record['id']}", catalog)
+            aka_names = [f"Abl {split_line[0].strip()}"]
+            other_name = split_line[2].strip()
+            if other_name != "":
+                aka_names.append(other_name)
 
-        objects_db.insert_catalog_object(
-            object_id, catalog, record["id"], record["desc"]
-        )
+            new_object = NewCatalogObject(
+                object_type=obj_type,
+                catalog_code=catalog,
+                sequence=int(split_line[0].strip()),
+                ra=float(split_line[3].strip()),
+                dec=float(split_line[4].strip()),
+                mag=float(split_line[5].strip()),
+                size=float(split_line[6].strip()),
+                aka_names=aka_names,
+            )
+
+            new_object.insert()
 
     insert_catalog_max_sequence(catalog)
     conn.commit()
@@ -1255,11 +1268,18 @@ def load_ngc_catalog():
                 if des == "-":
                     dec = dec * -1
                 ra = (rah + (ram / 60)) * 15
-                object_id = objects_db.insert_object(
-                    obj_type, ra, dec, const, size, mag
+                new_object = NewCatalogObject(
+                    object_type=obj_type,
+                    catalog_code=catalog,
+                    sequence=sequence,
+                    ra=ra,
+                    dec=dec,
+                    mag=mag,
+                    size=size,
+                    description=desc,
                 )
-                objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
-                object_id_desc_dict[object_id] = desc
+                new_object.insert()
+                object_id_desc_dict[new_object.object_id] = desc
 
     # Additional processing for names and messier objects... (similarly transformed as above)
     # Now add the names
@@ -1301,7 +1321,7 @@ def load_ngc_catalog():
                             )
                             seen.add(m_sequence)
                     else:
-                        logging.debug(f"Can't find object id {catalog=}, {sequence=}")
+                        logging.error(f"Can't find object id {catalog=}, {sequence=}")
 
     conn.commit()
     insert_catalog_max_sequence("NGC")

@@ -481,7 +481,7 @@ def main(script_name=None, show_fps=False, verbose=False):
                 if ui_command == "set_brightness":
                     set_brightness(screen_brightness, cfg)
                 elif ui_command == "push_object":
-                    ui_mode_index = 3
+                    ui_mode_index = 4
                     current_module = ui_modes[ui_mode_index]
                     current_module.active()
 
