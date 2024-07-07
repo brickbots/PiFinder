@@ -93,7 +93,7 @@ class UnitTestCalcUtils(unittest.TestCase):
 
     # Test Skyfield_utils:
 
-    def test_set_location(self):
+    def test_sf_set_location(self):
         """ 
         Unit test Skyfield_utils.set_location() and Skyfield_utils.get_latlon()
         setting and reading back latitude & logitude.
@@ -110,7 +110,7 @@ class UnitTestCalcUtils(unittest.TestCase):
         self.assertAlmostEqual(lon_deg, expected_lon_deg, places=3)
 
 
-    def test_get_lst_hrs(self):
+    def test_sf_get_lst_hrs(self):
         """ 
         Unit test Skyfield_utils.get_lst_hrs() against logged data 
         during observation.
@@ -130,7 +130,7 @@ class UnitTestCalcUtils(unittest.TestCase):
         self.assertAlmostEqual(lst_hrs, expected_lst_hrs, places=1)
 
 
-    def test_ra_to_ha(self):
+    def test_sf_ra_to_ha(self):
         """ 
         Unit test Skyfield_utils.ra_to_ha() against logged data during observation.
         """
@@ -151,7 +151,7 @@ class UnitTestCalcUtils(unittest.TestCase):
 
 
 
-    def test_radec_to_roll(self):
+    def test_sf_radec_to_roll(self):
         """ 
         Unit test Skyfield_utils.radec_to_roll() against logged data during 
         observation.
