@@ -6,9 +6,12 @@ Run from PiFinder/python:
 """
 
 import unittest
-from PiFinder.calc_utils import hadec_to_pa, hadec_to_roll
 import numpy as np
+import datetime
+import pytz
 
+from PiFinder.calc_utils import hadec_to_pa, hadec_to_roll
+from PiFinder.calc_utils import Skyfield_utils
 
 class UnitTestCalcUtils(unittest.TestCase):
     """
@@ -86,7 +89,89 @@ class UnitTestCalcUtils(unittest.TestCase):
                 # Roll must be within 5 degrees
                 self.assertLess(np.abs(roll - observed), 5, 
                                     msg='HA = {:.2f} hr, dec = {:.2f}, roll = {:.1f}, observed = {:.1f}'.format(ha_hr, dec, roll, observed))
-                
+
+
+    # Test Skyfield_utils:
+
+    def test_set_location(self):
+        """ 
+        Unit test Skyfield_utils.set_location() and Skyfield_utils.get_latlon()
+        setting and reading back latitude & logitude.
+        """
+        sf = Skyfield_utils()
+        # Set observation location
+        expected_lat_deg = 35.819676052
+        expected_lon_deg = -120.959589646
+        sf.set_location(expected_lat_deg, expected_lon_deg, 0)
+
+        # Check observer location
+        lat_deg, lon_deg = sf.get_latlon()
+        self.assertAlmostEqual(lat_deg, expected_lat_deg, places=3)
+        self.assertAlmostEqual(lon_deg, expected_lon_deg, places=3)
+
+
+    def test_get_lst_hrs(self):
+        """ 
+        Unit test Skyfield_utils.get_lst_hrs() against logged data 
+        during observation.
+        """
+        sf = Skyfield_utils()
+        lat_deg = 35.819676052
+        lon_deg = -120.959589646
+        sf.set_location(lat_deg, lon_deg, 0)
+        dt = datetime.datetime(2024, 5, 2, hour=3, minute=39, second=20, 
+                               tzinfo=pytz.timezone("UTC"))
+        lst_hrs = sf.get_lst_hrs(dt)
+
+        # There's 20 seconds difference between the LST logged during observatino
+        # (below) and the LST calculated from the logged time and location. This
+        # corresonds to a 5-arcmin discrepancy.
+        expected_lst_hrs = 154.33825506226094 * 12 / 180
+        self.assertAlmostEqual(lst_hrs, expected_lst_hrs, places=1)
+
+
+    def test_ra_to_ha(self):
+        """ 
+        Unit test Skyfield_utils.ra_to_ha() against logged data during observation.
+        """
+        sf = Skyfield_utils()
+        lat_deg = 35.819676052
+        lon_deg = -120.959589646
+        ra_deg = 92.37361818027753
+        sf.set_location(lat_deg, lon_deg, 0)
+        dt = datetime.datetime(2024, 5, 2, hour=3, minute=39, second=20, 
+                               tzinfo=pytz.timezone("UTC"))
+        ha_deg = sf.ra_to_ha(ra_deg, dt)
+
+        # There's 20 seconds difference between the LST logged during observatino
+        # (below) and the LST calculated from the logged time and location. This
+        # is causing the relatively large discrepancy.
+        expected_ha_deg = 4.130975792132227 / 12 * 180
+        self.assertAlmostEqual(ha_deg, expected_ha_deg, places=0)
+
+
+
+    def test_radec_to_roll(self):
+        """ 
+        Unit test Skyfield_utils.radec_to_roll() against logged data during 
+        observation.
+        """
+        sf = Skyfield_utils()
+        lat_deg = 35.819676052
+        lon_deg = -120.959589646
+        ra_deg = 92.37361818027753
+        dec_deg = 74.05157649264223
+        sf.set_location(lat_deg, lon_deg, 0)
+        dt = datetime.datetime(2024, 5, 2, hour=3, minute=39, second=20, 
+                               tzinfo=pytz.timezone("UTC"))
+
+        roll_deg = sf.radec_to_roll(ra_deg, dec_deg, dt)
+
+        # Compare against observed roll
+        expected_roll_deg = 72.03989158956631
+        self.assertLess(np.abs(roll_deg - expected_roll_deg), 2.1)
+
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
