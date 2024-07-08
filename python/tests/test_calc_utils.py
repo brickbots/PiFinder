@@ -32,7 +32,11 @@ class TestCalcUtils:
         # At HA = 0, expect pa = 0 or 180 deg
         for dec in dec_degs:
             pa_deg = hadec_to_pa(ha_deg, dec, lat_deg)
-            if dec >= lat_deg:
+            if dec == lat_deg:
+                assert pa_deg == pytest.approx(
+                    180.0, abs=0.001
+                ) or pa_deg == pytest.approx(180.0, abs=0.001), f"Testing: {dec}"
+            elif dec > lat_deg:
                 assert pa_deg == pytest.approx(180.0, abs=0.001), f"Testing: {dec}"
             else:
                 assert pa_deg == pytest.approx(0.0, abs=0.001), f"Testing: {dec}"
