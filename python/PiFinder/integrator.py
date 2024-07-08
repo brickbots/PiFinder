@@ -108,7 +108,7 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
                 last_image_solve = copy.copy(solved)
                 solved["solve_source"] = "CAM"
 
-            # Use IMU dead-reckoning from the last camera solve: 
+            # Use IMU dead-reckoning from the last camera solve:
             # Check we have an alt/az solve, otherwise we can't use the IMU
             elif solved["Alt"]:
                 imu = shared_state.imu()
@@ -146,7 +146,8 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
 
                             # Find the roll from the RA/Dec and time
                             solved["Roll"] = calc_utils.sf_utils.radec_to_roll(
-                                solved["RA"], solved["Dec"], dt)
+                                solved["RA"], solved["Dec"], dt
+                            )
 
                             solved["solve_time"] = time.time()
                             solved["solve_source"] = "IMU"
