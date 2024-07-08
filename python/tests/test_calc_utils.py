@@ -10,8 +10,8 @@ from PiFinder.calc_utils import Skyfield_utils
 
 @pytest.mark.unit
 def test_converters():
-    assert round(calc_utils.ra_to_deg(10, 10, 50), 5) == 152.70833
-    assert round(calc_utils.dec_to_deg(10, 10, 50), 5) == 10.18056
+    assert calc_utils.ra_to_deg(10, 10, 50) == pytest.approx(152.70833, abs=0.00001)
+    assert calc_utils.dec_to_deg(10, 10, 50) == pytest.approx(10.18056, abs=0.00001)
     assert calc_utils.dec_to_dms(80.55) == (80, 32, 59)
     assert calc_utils.ra_to_hms(81.55) == (5, 26, 12)
 
@@ -33,9 +33,9 @@ class TestCalcUtils:
         for dec in dec_degs:
             pa_deg = hadec_to_pa(ha_deg, dec, lat_deg)
             if dec >= lat_deg:
-                assert pa_deg == pytest.approx(180.0, abs=0.001)
+                assert pa_deg == pytest.approx(180.0, abs=0.001), f"Testing: {dec}"
             else:
-                assert pa_deg == pytest.approx(0.0, abs=0.001)
+                assert pa_deg == pytest.approx(0.0, abs=0.001), f"Testing: {dec}"
 
     def test_hadec_to_pa(self):
         """Unit Test: haddec_to_pa(): For when HA != 0"""
