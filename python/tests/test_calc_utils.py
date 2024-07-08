@@ -35,7 +35,7 @@ class TestCalcUtils:
             if dec == lat_deg:
                 assert pa_deg == pytest.approx(
                     180.0, abs=0.001
-                ) or pa_deg == pytest.approx(180.0, abs=0.001), f"Testing: {dec}"
+                ) or pa_deg == pytest.approx(0.0, abs=0.001), f"Testing: {dec}"
             elif dec > lat_deg:
                 assert pa_deg == pytest.approx(180.0, abs=0.001), f"Testing: {dec}"
             else:
