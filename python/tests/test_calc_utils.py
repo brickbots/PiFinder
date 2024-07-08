@@ -33,13 +33,9 @@ class TestCalcUtils:
         for dec in dec_degs:
             pa_deg = hadec_to_pa(ha_deg, dec, lat_deg)
             if dec >= lat_deg:
-                self.assertAlmostEqual(
-                    pa_deg, 180.0, places=3, msg="HA = 0: dec={:.1f}".format(dec)
-                )
+                assert pa_deg == pytest.approx(180.0, abs=0.001)
             else:
-                self.assertAlmostEqual(
-                    pa_deg, 0.0, places=3, msg="HA = 0: dec={:.1f}".format(dec)
-                )
+                assert pa_deg == pytest.approx(0.0, abs=0.001)
 
     def test_hadec_to_pa(self):
         """Unit Test: haddec_to_pa(): For when HA != 0"""
@@ -53,20 +49,10 @@ class TestCalcUtils:
         for dec, expected in zip(dec_degs, expected_pa_degs):
             # +ve HA case:
             pa_deg = hadec_to_pa(ha_deg, dec, lat_deg)
-            self.assertAlmostEqual(
-                pa_deg,
-                expected,
-                places=3,
-                msg="HA = {:.2f}, dec = {:.2f}".format(ha_deg, dec),
-            )
+            assert pa_deg == pytest.approx(expected, abs=0.001)
             # -ve HA case (expect -ve values):
             pa_deg = hadec_to_pa(-ha_deg, dec, lat_deg)
-            self.assertAlmostEqual(
-                pa_deg,
-                -expected,
-                places=3,
-                msg="HA = {:.2f}, dec = {:.2f}".format(-ha_deg, dec),
-            )
+            assert pa_deg == pytest.approx(-expected, abs=0.001)
 
     def test_hadec_to_roll(self):
         """Unit Test: haddec_to_roll()"""
@@ -105,12 +91,7 @@ class TestCalcUtils:
 
         for ha, dec, expected in zip(ha_degs, dec_degs, expected_roll_degs):
             roll = hadec_to_roll(ha, dec, lat_deg)
-            self.assertAlmostEqual(
-                roll,
-                expected,
-                places=3,
-                msg="HA = {:.2f}, dec = {:.2f}".format(ha, dec),
-            )
+            assert roll == pytest.approx(expected, abs=0.001)
 
     def test_hadec_to_roll2(self):
         """Unit Test against observed roll data: haddec_to_roll()"""
@@ -125,13 +106,7 @@ class TestCalcUtils:
             ha = ha_hr / 12 * 180  # Convert from hr to deg
             roll = hadec_to_roll(ha, dec, lat_deg)
             # Roll must be within 5 degrees
-            self.assertLess(
-                np.abs(roll - observed),
-                5,
-                msg="HA = {:.2f} hr, dec = {:.2f}, roll = {:.1f}, observed = {:.1f}".format(
-                    ha_hr, dec, roll, observed
-                ),
-            )
+            assert np.abs(roll - observed) < 5
 
     # Test Skyfield_utils:
 
@@ -148,8 +123,8 @@ class TestCalcUtils:
 
         # Check observer location
         lat_deg, lon_deg = sf.get_latlon()
-        self.assertAlmostEqual(lat_deg, expected_lat_deg, places=3)
-        self.assertAlmostEqual(lon_deg, expected_lon_deg, places=3)
+        assert lat_deg == pytest.approx(expected_lat_deg, abs=0.001)
+        assert lon_deg == pytest.approx(expected_lon_deg, abs=0.001)
 
     def test_sf_get_lst_hrs(self):
         """
@@ -169,7 +144,7 @@ class TestCalcUtils:
         # (below) and the LST calculated from the logged time and location. This
         # corresonds to a 5-arcmin discrepancy.
         expected_lst_hrs = 154.33825506226094 * 12 / 180
-        self.assertAlmostEqual(lst_hrs, expected_lst_hrs, places=1)
+        assert lst_hrs == pytest.approx(expected_lst_hrs, abs=0.1)
 
     def test_sf_ra_to_ha(self):
         """
@@ -189,7 +164,7 @@ class TestCalcUtils:
         # (below) and the LST calculated from the logged time and location. This
         # is causing the relatively large discrepancy.
         expected_ha_deg = 4.130975792132227 / 12 * 180
-        self.assertAlmostEqual(ha_deg, expected_ha_deg, places=0)
+        assert ha_deg == pytest.approx(expected_ha_deg, abs=0.1)
 
     def test_sf_radec_to_roll(self):
         """
@@ -210,4 +185,4 @@ class TestCalcUtils:
 
         # Compare against observed roll
         expected_roll_deg = 72.03989158956631
-        self.assertLess(np.abs(roll_deg - expected_roll_deg), 2.1)
+        assert np.abs(roll_deg - expected_roll_deg) < 2.1
