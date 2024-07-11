@@ -30,8 +30,14 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
     )
     last_solve_time = 0
     solved = {
+        # RA, Dec, Roll solved at the center of the camera FoV:
+        "RA_camera": None,
+        "Dec_camera": None,
+        "Roll_camera": None,
+        # RA, Dec, Roll at the target pixel
         "RA": None,
         "Dec": None,
+        "Roll": None,
         "imu_pos": None,
         "solve_time": None,
         "cam_solve_time": 0,
@@ -106,9 +112,14 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                     console_queue.put(f"SLV: Long: {total_tetra_time}")
 
                 if solved["RA"] is not None:
-                    # map the RA/DEC to the target pixel RA/DEC
-                    solved["RA"] = solved["RA_target"]
+                    # RA, Dec, Roll at the center of the camera's FoV:
+                    solved["RA_camera"] = solved["RA"]
+                    solved["Dec_camera"] = solved["Dec"]
+                    solved["Roll_camera"] = solved["Roll"]
+                    # RA, Dec, Roll at the target pixel:
+                    solved["RA"] = solved["RA_target"]  
                     solved["Dec"] = solved["Dec_target"]
+                    solved["Roll"] = None  # To be calculated in integrator.py
                     if last_image_metadata["imu"]:
                         solved["imu_pos"] = last_image_metadata["imu"]["pos"]
                         solved["imu_quat"] = last_image_metadata["imu"]["quat"]
