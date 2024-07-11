@@ -117,7 +117,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                     solved["Dec_camera"] = solved["Dec"]
                     solved["Roll_camera"] = solved["Roll"]
                     # RA, Dec, Roll at the target pixel:
-                    solved["RA"] = solved["RA_target"]  
+                    solved["RA"] = solved["RA_target"]
                     solved["Dec"] = solved["Dec_target"]
                     solved["Roll"] = None  # To be calculated in integrator.py
                     if last_image_metadata["imu"]:
