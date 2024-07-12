@@ -1,6 +1,7 @@
 import datetime
 import pytz
 import math
+import numpy as np
 from typing import Tuple, Optional
 from skyfield.api import (
     wgs84,
@@ -190,6 +191,64 @@ def calc_object_altitude(shared_state, obj) -> Optional[float]:
     return None
 
 
+def hadec_to_pa(ha_deg, dec_deg, lat_deg):
+    """
+    Returns the parallactic angle of an object at (ha, dec) for an observer
+    at latitude lat.
+
+    The parallactic angle is the angle between the great circles between the
+    zenith (Z) to the source (S) and the North Pole (P) to the source. By
+    convention, the parallactic angle is measured from PS to ZS, positive
+    towards East. The parallactic angle is negative when H < 0 and positive
+    when H > 0. When At the meridian (i.e. H=0), the parallactic angle is 0
+    when dec < latitude and +/-180 degrees when dec > latitude.
+
+    INPUTS:
+    ha_deg, dec_deg: Hour Angle (HA) and declination of the target [deg]
+    lat_deg: Latitude of the observer [deg]
+
+    RETURNS:
+    pa_deg: Parallactic angle [deg]
+    """
+    ha = np.deg2rad(ha_deg)
+    dec = np.deg2rad(dec_deg)
+    lat = np.deg2rad(lat_deg)
+
+    pa = np.arctan2(np.sin(ha), np.cos(dec) * np.tan(lat) - np.sin(dec) * np.cos(ha))
+
+    return np.rad2deg(pa)  # Parallactic angle [deg]
+
+
+def hadec_to_roll(ha_deg, dec_deg, lat_deg):
+    """
+    Returns the roll of a target at a given (HA, Dec) for and observer at
+    latitude lat.
+
+    The roll or the field rotation angle, as returned by the Tetra3 solver,
+    describes how much the source (S) is rotated on the sky as seen by and
+    the observer. The roll measures the same angle as the parallactic but
+    measured with a different orientation. See ha_dec2pa() for explanation of
+    the parallactic angle. The roll is positive for anti-clockwise rotation of
+    ZS to PS when looking out towards the sky.
+
+    INPUTS:
+    ha_deg: Hour Angle (HA) of the target [deg]
+    dec_deg: Declination of the target [deg]
+    lat_deg: Latitude of the observer [deg]
+
+    RETURNS:
+    roll: Roll [deg]
+    """
+    pa_deg = hadec_to_pa(ha_deg, dec_deg, lat_deg)  # Calculate the parallactic angle
+
+    if dec_deg <= lat_deg:
+        roll_deg = -pa_deg
+    else:
+        roll_deg = -pa_deg + np.sign(ha_deg) * 180
+
+    return roll_deg
+
+
 def hash_dict(d):
     serialized_data = json.dumps(d, sort_keys=True).encode()
     return hashlib.sha256(serialized_data).hexdigest()
@@ -207,7 +266,8 @@ class Skyfield_utils:
         load = Loader(utils.astro_data_dir)
         self.eph = load("de421.bsp")
         self.earth = self.eph["earth"]
-        self.observer_loc = None
+        self.observer_loc = None  # Barycenter used to calculate the target pos
+        self._observer_geoid = None  # To get geographic position (lat, long)
         self.constellation_map = load_constellation_map()
         self.ts = load.timescale()
         self._set_planet_names()
@@ -234,12 +294,20 @@ class Skyfield_utils:
 
     def set_location(self, lat, lon, altitude):
         """
-        set observing location
+        set observing location.
+        lat, long are in degrees. altitude is in meters.
         """
-        self.observer_loc = self.earth + wgs84.latlon(
-            lat,
-            lon,
-            altitude,
+        # Barycenter used to calculate the target position:
+        self.observer_loc = self.earth + wgs84.latlon(lat, lon, altitude)
+        # To get geographic position (e.g. latitude, longitude)
+        # Note: We can't get this info from self.observer_loc
+        self._observer_geoid = wgs84.latlon(lat, lon, altitude)
+
+    def get_latlon(self):
+        """Returns the observer latitude & longitude in degrees"""
+        return (
+            self._observer_geoid.latitude.degrees,
+            self._observer_geoid.longitude.degrees,
         )
 
     def altaz_to_radec(self, alt, az, dt):
@@ -274,6 +342,57 @@ class Skyfield_utils:
         else:
             alt, az, _distance = apparent.altaz()
         return alt.degrees, az.degrees
+
+    def get_lst_hrs(self, dt):
+        """
+        Returns the local sidereal time in hrs.
+
+        INPUTS:
+        dt: Python datetime object (must be timezone-aware)
+
+        RETURNS:
+        lst_hrs: Local sidereal time [hrs]
+        """
+        t = self.ts.from_datetime(dt)
+        return self._observer_geoid.lst_hours_at(t)  # LST in hrs
+
+    def ra_to_ha(self, ra_deg, dt):
+        """
+        Converts RA (right ascension in deg) to HA (hour angle in deg) at time
+        dt. Note that HA is in deg.
+
+        INPUTS:
+        ra_deg: Right asension [deg]
+        dt: Python datetime object (must be timezone-aware)
+
+        RETURNS:
+        ha_deg: Hour angle [deg]
+        """
+        lst_hrs = self.get_lst_hrs(dt)
+        ha_hrs = lst_hrs - (ra_deg * 12 / 180)  # ra converted to hrs
+        ha_hrs = (ha_hrs + 12) % 24 - 12  # Unwrap to -12 to +12hrs
+
+        return ha_hrs * 180 / 12  # Hour angle [deg]
+
+    def radec_to_roll(self, ra_deg, dec_deg, dt):
+        """
+        Returns the roll (field rotation) of an object at (ra, dec) as
+        seen from an observer at latitiude, lat and time, dt. See hadec_to_roll()
+        for how 'roll' is defined.
+
+        INPUTS:
+        ra_deg:
+        dec:
+        dt:
+
+        RETURNS:
+        roll_deg: Roll angle [deg]
+        """
+        ha_deg = self.ra_to_ha(ra_deg, dt)  # Note that HA is in deg
+        lat_deg = self._observer_geoid.latitude.degrees
+        roll_deg = hadec_to_roll(ha_deg, dec_deg, lat_deg)
+
+        return roll_deg  # roll angle [deg]
 
     def radec_to_constellation(self, ra, dec):
         """
