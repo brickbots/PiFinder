@@ -52,6 +52,11 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         solved = {
             "RA": None,
             "Dec": None,
+            "Roll": None,
+            "RA_camera": None,
+            "Dec_camera": None,
+            "Roll_camera": None,
+            "Roll_offset": 0,
             "imu_pos": None,
             "Alt": None,
             "Az": None,
@@ -60,7 +65,6 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             "cam_solve_time": 0,
             "constellation": None,
         }
-        roll_offset = 0
         cfg = config.Config()
         if (
             cfg.get_option("screen_direction") == "left"
@@ -111,7 +115,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     solved["Az"] = az
                     # Estimate the roll offset due misalignment of the
                     # camera sensor with the mount/scope axis
-                    roll_offset = estimate_roll_offset(solved, dt)
+                    solved["Roll_offset"] = estimate_roll_offset(solved, dt)
 
                 last_image_solve = copy.copy(solved)
                 solved["solve_source"] = "CAM"
@@ -157,7 +161,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                                 calc_utils.sf_utils.radec_to_roll(
                                     solved["RA"], solved["Dec"], dt
                                 )
-                                + roll_offset
+                                + solved["Roll_offset"]
                             )
 
                             solved["solve_time"] = time.time()
