@@ -30,13 +30,6 @@ class UITextEntry(UIModule):
         self.char_index = 0
         self.search_objects = []
         self.show_keypad = True
-        item_definition = {
-                "name": "Results",
-                "class": UIObjectList,
-                "objects": "custom",
-                "object_list": self.search_objects,
-                }
-        self.object_list = UIObjectList(item_definition=item_definition)
         self.keys = {
             1: "1abc",
             2: "2def",
@@ -100,11 +93,14 @@ class UITextEntry(UIModule):
             (102, 19), str(len(self.search_objects)), font=self.font, fill=self.half_red
         )
 
-    def key_up(self):
-        self.show_keypad = not self.show_keypad
+    # def key_up(self):
+    #     self.show_keypad = not self.show_keypad
 
-    def key_down(self):
-        self.key_up()
+    def key_right(self):
+        self.draw_results()
+
+    # def key_down(self):
+    #     self.key_up()
 
     def key_square(self):
         self.current_text = self.current_text[:-1]
