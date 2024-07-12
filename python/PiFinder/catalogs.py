@@ -402,10 +402,9 @@ class Catalogs:
         objs = self.get_objects(only_selected=False, filtered=False)
         result = []
         for obj in objs:
-            if search_text.lower() in obj.names:
-                result.append(obj)
-            elif search_text.lower() in f"{obj.catalog_code}{obj.sequence}":
-                result.append(obj)
+            for name in obj.names:
+                if search_text.lower() in name.lower():
+                    result.append(obj)
         return result
 
     def set(self, catalogs: List[Catalog]):

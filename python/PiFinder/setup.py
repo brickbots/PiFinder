@@ -53,7 +53,7 @@ class NewCatalogObject:
         Inserts object into DB
         """
         # sanity checks
-        if type(self.aka_names) is list:
+        if type(self.aka_names) is not list:
             raise TypeError("Aka names not list")
 
         # Check to see if this object matches one in the DB already
@@ -1140,7 +1140,7 @@ def load_arp():
     )
     """
     There are multiple rows per object if there are multiple names
-    so iterate through collecting names and object info and then 
+    so iterate through collecting names and object info and then
     write objects when the id changes
     """
     last_id = None
