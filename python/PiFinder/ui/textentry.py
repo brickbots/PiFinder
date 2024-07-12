@@ -2,7 +2,13 @@ from PIL import Image, ImageDraw, ImageFont
 from PiFinder.ui.base import UIModule
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
+from PiFinder.ui.object_list import UIObjectList
 import time
+
+# class CompositeObjectBuilder:
+#
+#     def build(self, object_ids: List[int]):
+#         return CompositeObject()
 
 
 class UITextEntry(UIModule):
@@ -22,8 +28,15 @@ class UITextEntry(UIModule):
         self.last_key = None
         self.key_press_time = 0
         self.char_index = 0
-        self.search_results = []
+        self.search_objects = []
         self.show_keypad = True
+        item_definition = {
+                "name": "Results",
+                "class": UIObjectList,
+                "objects": "custom",
+                "object_list": self.search_objects,
+                }
+        self.object_list = UIObjectList(item_definition=item_definition)
         self.keys = {
             1: "1abc",
             2: "2def",
@@ -66,15 +79,25 @@ class UITextEntry(UIModule):
             self.draw.text((x + 2, y + 12), letters, font=self.font, fill=self.half_red)
 
     def draw_results(self):
-        x, y = 10, 32
-        translated = [(x["id"], x["common_name"]) for x in self.search_results]
-        for entry in translated:
-            self.draw.text((x, y), entry[1], font=self.font, fill=self.red)
-            y += 10
+        item_definition = {
+                "name": "Results",
+                "class": UIObjectList,
+                "objects": "custom",
+                "object_list": self.search_objects,
+                }
+        self.add_to_stack(item_definition)
+        # x, y = 10, 32
+        # translated = [(x["id"], x["common_name"]) for x in self.search_results]
+        # if translated:
+        #     for entry in translated:
+        #         self.draw.text((x, y), entry[1], font=self.font, fill=self.red)
+        #         y += 10
+        # else:
+        #     self.draw.text((x, y), "No results", font=self.font, fill=self.red)
 
     def draw_search_result_len(self):
         self.draw.text(
-            (102, 19), str(len(self.search_results)), font=self.font, fill=self.red
+            (102, 19), str(len(self.search_objects)), font=self.font, fill=self.half_red
         )
 
     def key_up(self):
@@ -103,11 +126,11 @@ class UITextEntry(UIModule):
         if number in self.keys:
             char = self.keys[number][self.char_index]
             self.current_text += char
-            results = self.db.search_common_names(self.current_text)
+            results = self.catalogs.search_by_text(self.current_text)
+            self.search_objects = results
             len_results = len(results)
             print("len_results", len_results)
             self.draw.text((100, 19), str(len_results), font=self.font, fill=self.red)
-            self.search_results = self.db.search_common_names(self.current_text)
         else:
             print("didn't find key", number)
             # self.current_text += str(number)

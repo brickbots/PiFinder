@@ -176,7 +176,7 @@ pifinder_menu = {
                 },
                 {
                     "name": "Name Search",
-                    "class": "screen",
+                    "class": UITextEntry,
                 },
             ],
         },

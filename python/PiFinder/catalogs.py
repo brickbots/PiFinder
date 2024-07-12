@@ -398,6 +398,16 @@ class Catalogs:
         if catalog:
             return catalog.get_object_by_sequence(sequence)
 
+    def search_by_text(self, search_text: str) -> List[CompositeObject]:
+        objs = self.get_objects(only_selected=False, filtered=False)
+        result = []
+        for obj in objs:
+            if search_text.lower() in obj.names:
+                result.append(obj)
+            elif search_text.lower() in f"{obj.catalog_code}{obj.sequence}":
+                result.append(obj)
+        return result
+
     def set(self, catalogs: List[Catalog]):
         self.__catalogs = catalogs
         self.select_all_catalogs()
