@@ -8,12 +8,9 @@ This module is the camera
 * Takes full res images on demand
 
 """
-import os
-import queue
-import time
+
 from PIL import Image
 from PiFinder import config
-from PiFinder import utils
 from PiFinder.camera_interface import CameraInterface
 from typing import Tuple
 

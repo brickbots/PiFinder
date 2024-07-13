@@ -1,41 +1,7 @@
-from os import truncate
-from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
-import PiFinder.utils as utils
-from PiFinder.ui.fonts import Fonts as fonts
-from typing import Tuple, List, Dict, Optional
+from typing import Tuple, List
 import textwrap
-import logging
 import re
 import math
-
-
-class SpaceCalculator:
-    """Calculates spaces for proportional fonts, obsolete"""
-
-    def __init__(self, draw, width):
-        self.draw = draw
-        self.width = width
-        pass
-
-    def _calc_string(self, left, right, spaces) -> str:
-        return f"{left}{'':.<{spaces}}{right}"
-
-    def calculate_spaces(self, left, right) -> Tuple[int, str]:
-        """
-        returns number of spaces
-        """
-        spaces = 1
-        if self.draw.textlength(self._calc_string(left, right, spaces)) > self.width:
-            return -1, ""
-
-        while self.draw.textlength(self._calc_string(left, right, spaces)) < self.width:
-            spaces += 1
-
-        spaces = spaces - 1
-
-        result = self._calc_string(left, right, spaces)
-        # logging.debug(f"returning {spaces=}, {result=}")
-        return spaces, result
 
 
 class SpaceCalculatorFixed:
@@ -81,14 +47,12 @@ class TextLayouterSimple:
         text: str,
         draw,
         color,
-        font=fonts.base,
-        width=fonts.base_width,
+        font,
         embedded_color=False,
     ):
         self.text = text
         self.font = font
         self.color = color
-        self.width = width
         self.embedded_color = embedded_color
         self.drawobj = draw
         self.object_text: List[str] = []
@@ -104,7 +68,7 @@ class TextLayouterSimple:
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
         if self.updated:
-            self.object_text: List[str] = [self.text]
+            self.object_text = [self.text]
             self.updated = False
 
     def after_draw(self, pos):
@@ -116,7 +80,7 @@ class TextLayouterSimple:
         self.drawobj.multiline_text(
             pos,
             "\n".join(self.object_text),
-            font=self.font,
+            font=self.font.font,
             fill=self.color,
             embedded_color=self.embedded_color,
             spacing=0,
@@ -124,7 +88,7 @@ class TextLayouterSimple:
         self.after_draw(pos)
 
     def __repr__(self):
-        return f"TextLayouterSimple({self.text=}, {self.color=}, {self.font=}, {self.width=})"
+        return f"TextLayouterSimple({self.text=}, {self.color=}, {self.font=}, {self.font.line_length=})"
 
 
 class TextLayouterScroll(TextLayouterSimple):
@@ -139,31 +103,30 @@ class TextLayouterScroll(TextLayouterSimple):
         text: str,
         draw,
         color,
-        font=fonts.base,
-        width=fonts.base_width,
+        font,
         scrollspeed=MEDIUM,
     ):
         self.pointer = 0
         self.textlen = len(text)
         self.updated = True
 
-        if self.textlen >= width:
+        if self.textlen >= font.line_length:
             self.dtext = text + " " * 6 + text
             self.dtextlen = len(self.dtext)
             self.counter = 0
             self.counter_max = 3000
             self.set_scrollspeed(scrollspeed)
-        super().__init__(text, draw, color, font, width)
+        super().__init__(text, draw, color, font)
 
     def set_scrollspeed(self, scrollspeed: float):
         self.scrollspeed = float(scrollspeed)
         self.counter = 0
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
-        if self.textlen > self.width and self.scrollspeed > 0:
+        if self.textlen > self.font.line_length and self.scrollspeed > 0:
             if self.counter == 0:
                 self.object_text: List[str] = [
-                    self.dtext[self.pointer : self.pointer + self.width]
+                    self.dtext[self.pointer : self.pointer + self.font.line_length]
                 ]
                 self.pointer = (self.pointer + 1) % (self.textlen + 6)
             # start goes slower
@@ -171,9 +134,9 @@ class TextLayouterScroll(TextLayouterSimple):
                 self.counter = (self.counter + 100) % self.counter_max
             # regular scrolling
             else:
-                self.counter = (self.counter + self.scrollspeed) % self.counter_max
+                self.counter = int((self.counter + self.scrollspeed) % self.counter_max)
         elif self.updated:
-            self.object_text: List[str] = [self.text]
+            self.object_text = [self.text]
             self.updated = False
 
 
@@ -193,11 +156,10 @@ class TextLayouter(TextLayouterSimple):
         draw,
         color,
         colors,
-        font=fonts.base,
-        width=fonts.base_width,
+        font,
         available_lines=3,
     ):
-        super().__init__(text, draw, color, font, width)
+        super().__init__(text, draw, color, font)
         self.nr_lines = 0
         self.colors = colors
         self.start_line = 0
@@ -248,7 +210,9 @@ class TextLayouter(TextLayouterSimple):
             split_lines = re.split(r"\n|\n\n", self.text)
             self.object_text = []
             for line in split_lines:
-                self.object_text.extend(textwrap.wrap(line, width=self.width))
+                self.object_text.extend(
+                    textwrap.wrap(line, width=self.font.line_length)
+                )
             self.nr_lines = len(self.object_text)
             self.object_text = self.object_text[
                 self.pointer : self.pointer + self.available_lines
@@ -270,7 +234,7 @@ def shadow_outline_text(
             (x + shadow[0], y + shadow[1]),
             text,
             align=align,
-            font=font,
+            font=font.font,
             fill=shadow_color,
         )
 
@@ -289,12 +253,11 @@ def shadow_outline_text(
 
 def outline_text(ri_draw, xy, text, align, font, fill, shadow_color, stroke=4):
     """draw outline text"""
-    x, y = xy
     ri_draw.text(
         xy,
         text,
         align=align,
-        font=font,
+        font=font.font,
         fill=fill,
         stroke_width=stroke,
         stroke_fill=shadow_color,
@@ -305,11 +268,11 @@ def shadow(ri_draw, xy, text, align, font, fill, shadowcolor):
     """draw shadowed text"""
     x, y = xy
     # thin border
-    ri_draw.text((x - 1, y), text, align=align, font=font, fill=shadowcolor)
-    ri_draw.text((x + 1, y), text, align=align, font=font, fill=shadowcolor)
-    ri_draw.text((x, y - 1), text, align=align, font=font, fill=shadowcolor)
-    ri_draw.text((x, y + 1), text, align=align, font=font, fill=shadowcolor)
-    ri_draw.text((x, y), text, align=align, font=font, fill=fill)
+    ri_draw.text((x - 1, y), text, align=align, font=font.font, fill=shadowcolor)
+    ri_draw.text((x + 1, y), text, align=align, font=font.font, fill=shadowcolor)
+    ri_draw.text((x, y - 1), text, align=align, font=font.font, fill=shadowcolor)
+    ri_draw.text((x, y + 1), text, align=align, font=font.font, fill=shadowcolor)
+    ri_draw.text((x, y), text, align=align, font=font.font, fill=fill)
 
 
 def normalize(name):

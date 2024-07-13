@@ -1,9 +1,11 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
+# mypy: ignore-errors
 """
 This module contains all the UI Module classes
 
 """
+
 import os
 import datetime
 
@@ -15,8 +17,8 @@ from PiFinder.image_util import convert_image_to_mode
 class UIConsole(UIModule):
     __title__ = "CONSOLE"
 
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.dirty = True
         self.welcome = True
 
@@ -82,23 +84,23 @@ class UIConsole(UIModule):
             if self.welcome:
                 # Clear / write just top line
                 self.draw.rectangle(
-                    [0, 0, 128, self._title_bar_y], fill=self.colors.get(0)
+                    [0, 0, self.display_class.resX, self.display_class.titlebar_height],
+                    fill=self.colors.get(0),
                 )
                 self.draw.text(
                     (0, 1),
                     self.lines[-1],
-                    font=self.font_base,
+                    font=self.fonts.base.font,
                     fill=self.colors.get(255),
                 )
                 return self.screen_update(title_bar=False)
             else:
-                # clear screen
-                self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+                self.clear_screen()
                 for i, line in enumerate(self.lines[-10 - self.scroll_offset :][:10]):
                     self.draw.text(
                         (0, i * 10 + 20),
                         line,
-                        font=self.font_base,
+                        font=self.fonts.base.font,
                         fill=self.colors.get(255),
                     )
                 self.dirty = False

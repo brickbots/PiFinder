@@ -23,7 +23,7 @@ from PiFinder.keyboard_interface import KeyboardInterface
 try:
     from PiFinder import sys_utils
 except ImportError:
-    from PiFinder import sys_utils_fake as sys_utils
+    from PiFinder import sys_utils_fake as sys_utils  # type: ignore[no-redef]
 from PiFinder import utils, calc_utils
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
@@ -63,25 +63,25 @@ class Server:
             logger.setLevel(logging.DEBUG)
 
         button_dict = {
-            "UP": self.ki.UP,
-            "DN": self.ki.DN,
-            "ENT": self.ki.ENT,
-            "A": self.ki.A,
-            "B": self.ki.B,
-            "C": self.ki.C,
-            "D": self.ki.D,
+            "UP": self.ki.PLUS,
+            "DN": self.ki.MINUS,
+            "ENT": self.ki.SQUARE,
+            "A": self.ki.LEFT,
+            "B": self.ki.UP,
+            "C": self.ki.DOWN,
+            "D": self.ki.RIGHT,
+            "ALT_PLUS": self.ki.ALT_PLUS,
+            "ALT_MINUS": self.ki.ALT_MINUS,
+            "ALT_LEFT": self.ki.ALT_LEFT,
             "ALT_UP": self.ki.ALT_UP,
-            "ALT_DN": self.ki.ALT_DN,
-            "ALT_A": self.ki.ALT_A,
-            "ALT_B": self.ki.ALT_B,
-            "ALT_C": self.ki.ALT_C,
-            "ALT_D": self.ki.ALT_D,
+            "ALT_DOWN": self.ki.ALT_DOWN,
+            "ALT_RIGHT": self.ki.ALT_RIGHT,
             "ALT_0": self.ki.ALT_0,
-            "LNG_A": self.ki.LNG_A,
-            "LNG_B": self.ki.LNG_B,
-            "LNG_C": self.ki.LNG_C,
-            "LNG_D": self.ki.LNG_D,
-            "LNG_ENT": self.ki.LNG_ENT,
+            "LNG_LEFT": self.ki.LNG_LEFT,
+            "LNG_UP": self.ki.LNG_UP,
+            "LNG_DOWN": self.ki.LNG_DOWN,
+            "LNG_RIGHT": self.ki.LNG_RIGHT,
+            "LNG_SQUARE": self.ki.LNG_SQUARE,
         }
 
         self.network = sys_utils.Network()
@@ -94,11 +94,11 @@ class Server:
             return static_file(filename, root="views/images", mimetype="image/png")
 
         @app.route("/js/<filename>")
-        def send_static(filename):
+        def send_js(filename):
             return static_file(filename, root="views/js")
 
         @app.route("/css/<filename>")
-        def send_static(filename):
+        def send_css(filename):
             return static_file(filename, root="views/css")
 
         @app.route("/")
@@ -219,7 +219,7 @@ class Server:
 
         @app.route("/network/add", method="post")
         @auth_required
-        def network_update():
+        def network_add():
             ssid = request.forms.get("ssid")
             psk = request.forms.get("psk")
             if len(psk) < 8:
@@ -282,7 +282,7 @@ class Server:
 
         @app.route("/system/restart_pifinder")
         @auth_required
-        def system_restart():
+        def pifinder_restart():
             """
             Restarts just the PiFinder software
             """
@@ -347,14 +347,14 @@ class Server:
         @app.route("/tools/backup")
         @auth_required
         def tools_backup():
-            backup_file = sys_utils.backup_userdata()
+            _backup_file = sys_utils.backup_userdata()
 
             # Assumes the standard backup location
             return static_file("PiFinder_backup.zip", "/home/pifinder/PiFinder_data")
 
         @app.route("/tools/restore", method="post")
         @auth_required
-        def tools_backup():
+        def tools_restore():
             sys_utils.remove_backup()
             backup_file = request.files.get("backup_file")
             backup_file.filename = "PiFinder_backup.zip"

@@ -7,6 +7,7 @@ This module is the solver
 * If solved, emits solution into queue
 
 """
+
 import numpy as np
 import time
 import logging
@@ -67,7 +68,6 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                     centroids = cedar_detect.extract_centroids(
                         np_image, sigma=8, max_size=10, use_binned=True
                     )
-
                 t_extract = (precision_timestamp() - t0) * 1000
                 logging.debug(
                     "File %s, extracted %d centroids in %.2fms"

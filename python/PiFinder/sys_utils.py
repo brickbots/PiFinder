@@ -28,8 +28,8 @@ class Network:
         with open("/etc/wpa_supplicant/wpa_supplicant.conf", "r") as wpa_conf:
             network_id = 0
             in_network_block = False
-            for l in wpa_conf:
-                if l.startswith("network={"):
+            for line in wpa_conf:
+                if line.startswith("network={"):
                     in_network_block = True
                     network_dict = {
                         "id": network_id,
@@ -38,13 +38,13 @@ class Network:
                         "key_mgmt": None,
                     }
 
-                elif l.strip() == "}" and in_network_block:
+                elif line.strip() == "}" and in_network_block:
                     in_network_block = False
                     self._wifi_networks.append(network_dict)
                     network_id += 1
 
                 elif in_network_block:
-                    key, value = l.strip().split("=")
+                    key, value = line.strip().split("=")
                     network_dict[key] = value.strip('"')
 
     def get_wifi_networks(self):
@@ -61,12 +61,12 @@ class Network:
 
         with open("/etc/wpa_supplicant/wpa_supplicant.conf", "w") as wpa_conf:
             in_networks = False
-            for l in wpa_contents:
+            for line in wpa_contents:
                 if not in_networks:
-                    if l.startswith("network={"):
+                    if line.startswith("network={"):
                         in_networks = True
                     else:
-                        wpa_conf.write(l)
+                        wpa_conf.write(line)
 
             for network in self._wifi_networks:
                 ssid = network["ssid"]
@@ -102,21 +102,21 @@ class Network:
             wpa_cli("reconfigure")
 
     def get_ap_name(self):
-        with open(f"/etc/hostapd/hostapd.conf", "r") as conf:
-            for l in conf:
-                if l.startswith("ssid="):
-                    return l[5:-1]
+        with open("/etc/hostapd/hostapd.conf", "r") as conf:
+            for line in conf:
+                if line.startswith("ssid="):
+                    return line[5:-1]
         return "UNKN"
 
     def set_ap_name(self, ap_name):
         if ap_name == self.get_ap_name():
             return
-        with open(f"/tmp/hostapd.conf", "w") as new_conf:
-            with open(f"/etc/hostapd/hostapd.conf", "r") as conf:
-                for l in conf:
-                    if l.startswith("ssid="):
-                        l = f"ssid={ap_name}\n"
-                    new_conf.write(l)
+        with open("/tmp/hostapd.conf", "w") as new_conf:
+            with open("/etc/hostapd/hostapd.conf", "r") as conf:
+                for line in conf:
+                    if line.startswith("ssid="):
+                        line = f"ssid={ap_name}\n"
+                    new_conf.write(line)
         sh.sudo("cp", "/tmp/hostapd.conf", "/etc/hostapd/hostapd.conf")
 
     def get_host_name(self):
@@ -137,7 +137,7 @@ class Network:
     def set_host_name(self, hostname):
         if hostname == self.get_host_name():
             return
-        result = sh.sudo("hostnamectl", "set-hostname", hostname)
+        _result = sh.sudo("hostnamectl", "set-hostname", hostname)
 
     def wifi_mode(self):
         return self._wifi_mode
@@ -159,11 +159,23 @@ class Network:
         try:
             s.connect(("192.255.255.255", 1))
             ip = s.getsockname()[0]
-        except:
+        except Exception:
             ip = "NONE"
         finally:
             s.close()
         return ip
+
+
+def go_wifi_ap():
+    print("SYS: Switching to AP")
+    sh.sudo("/home/pifinder/PiFinder/switch-ap.sh")
+    return True
+
+
+def go_wifi_cli():
+    print("SYS: Switching to Client")
+    sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
+    return True
 
 
 def remove_backup():
@@ -206,15 +218,6 @@ def restore_userdata(zip_path):
     unzip("-d", "/", "-o", zip_path)
 
 
-def shutdown():
-    """
-    shuts down the Pi
-    """
-    print("SYS: Initiating Shutdown")
-    sh.sudo("shutdown", "now")
-    return True
-
-
 def update_software():
     """
     Uses systemctl to git pull and then restart
@@ -222,36 +225,6 @@ def update_software():
     """
     print("SYS: Running update")
     sh.bash("/home/pifinder/PiFinder/pifinder_update.sh")
-    return True
-
-
-def restart_pifinder():
-    """
-    Uses systemctl to restart the PiFinder
-    service
-    """
-    print("SYS: Restarting PiFinder")
-    sh.sudo("systemctl", "restart", "pifinder")
-    return True
-
-
-def restart_system():
-    """
-    Restarts the system
-    """
-    print("SYS: Initiating System Restart")
-    sh.sudo("shutdown", "-r", "now")
-
-
-def go_wifi_ap():
-    print("SYS: Switching to AP")
-    sh.sudo("/home/pifinder/PiFinder/switch-ap.sh")
-    return True
-
-
-def go_wifi_cli():
-    print("SYS: Switching to Client")
-    sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
     return True
 
 

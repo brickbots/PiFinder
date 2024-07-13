@@ -6,14 +6,7 @@ the main observation log
 class
 
 """
-import datetime
-import pytz
-import time
-import os
-import sqlite3
-import json
 
-from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )

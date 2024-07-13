@@ -4,20 +4,18 @@
 This module contains all the UI Module classes
 
 """
-import datetime
+
 import time
-import socket
 
 from PiFinder.ui.base import UIModule
 
 try:
     from PiFinder import sys_utils
 except ImportError:
-    from PiFinder import sys_utils_fake as sys_utils
+    from PiFinder import sys_utils_fake as sys_utils  # type: ignore[no-redef]
 from PiFinder import calc_utils
 from PiFinder import utils
 from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed
-from PiFinder.ui.fonts import Fonts as fonts
 
 
 class UIStatus(UIModule):
@@ -84,16 +82,16 @@ class UIStatus(UIModule):
         },
     }
 
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.version_txt = f"{utils.pifinder_dir}/version.txt"
         self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
-        self._draw_pos = (0, self._title_bar_y)
+        self._draw_pos = (0, self.display_class.titlebar_height)
         with open(self.wifi_txt, "r") as wfs:
             self._config_options["WiFi Mode"]["value"] = wfs.read()
         with open(self.version_txt, "r") as ver:
             self._config_options["Software"]["value"] = ver.read()
-        self.spacecalc = SpaceCalculatorFixed(fonts.base_width)
+        self.spacecalc = SpaceCalculatorFixed(self.fonts.base.line_length)
         self.status_dict = {
             "LST SLV": "--",
             "RA/DEC": "--",
@@ -143,7 +141,7 @@ class UIStatus(UIModule):
             draw=self.draw,
             color=self.colors.get(255),
             colors=self.colors,
-            font=self.font_base,
+            font=self.fonts.base,
             available_lines=9,
         )
 
@@ -274,7 +272,7 @@ class UIStatus(UIModule):
         location = self.shared_state.location()
         sats = self.shared_state.sats()
         self.status_dict["GPS"] = [
-            f"GPS {sats[0]}/{sats[1]}" if sats else f"GPS 0/0",
+            f"GPS {sats[0]}/{sats[1]}" if sats else "GPS 0/0",
             f"{location['lat']:.2f}/{location['lon']:.2f}",
         ]
 
@@ -296,7 +294,7 @@ class UIStatus(UIModule):
                 with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
                     raw_temp = int(f.read().strip())
                 self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
-            except:
+            except FileNotFoundError:
                 self.status_dict["CPU TMP"] = "Error"
 
         if time.time() - self.last_IP_time > 20:

@@ -4,13 +4,13 @@
 This module contains all the UI Module classes
 
 """
+
 import sys
 import numpy as np
 import time
 
 from PIL import Image, ImageChops, ImageOps
 
-from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder import utils
 from PiFinder.ui.base import UIModule
 from PiFinder.image_util import (
@@ -65,16 +65,14 @@ class UIPreview(UIModule):
         },
     }
 
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         exposure_time = self.config_object.get_option("camera_exp")
-        analog_gain = self.config_object.get_option("camera_gain")
         self._config_options["Exposure"]["value"] = exposure_time / 1000000
         self.reticle_mode = 2
         self.last_update = time.time()
         self.solution = None
-        self.font_small = fonts.small
 
         self.capture_prefix = f"{self.__uuid__}_diag"
         self.capture_count = 0
@@ -123,7 +121,7 @@ class UIPreview(UIModule):
         fov = 10.2
         solve_pixel = self.shared_state.solve_pixel(screen_space=True)
         for circ_deg in [4, 2, 0.5]:
-            circ_rad = ((circ_deg / fov) * 128) / 2
+            circ_rad = ((circ_deg / fov) * self.display_class.resX) / 2
             bbox = [
                 solve_pixel[0] - circ_rad,
                 solve_pixel[1] - circ_rad,
@@ -178,7 +176,7 @@ class UIPreview(UIModule):
                 self.draw.text(
                     (star_x + x_text_offset, star_y + y_text_offset),
                     str(_i + 1),
-                    font=fonts.small,
+                    font=self.fonts.small.font,
                     fill=self.colors.get(128),
                 )
 
@@ -227,17 +225,26 @@ class UIPreview(UIModule):
             title_bar=not self.align_mode, button_hints=not self.align_mode
         )
 
-    def key_b(self):
+    def key_up(self):
+        """
+        leave bright star alignment mode
+        """
+        if not self.align_mode:
+            return
+
+        self.align_mode = False
+        self.shared_state.set_camera_align(self.align_mode)
+        self.update(force=True)
+
+    def key_down(self):
         """
         Enter bright star alignment mode
         """
         if self.align_mode:
-            self.align_mode = False
-        else:
-            self.align_mode = True
+            return
 
+        self.align_mode = True
         self.shared_state.set_camera_align(self.align_mode)
-
         self.update(force=True)
 
     def key_number(self, number):

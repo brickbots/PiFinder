@@ -1,10 +1,12 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
+# mypy: ignore-errors
 """
 This script runs to fetch
 images from AWS
 """
-import requests, os
+
+import requests
 import sqlite3
 from tqdm import tqdm
 
@@ -16,9 +18,8 @@ def get_catalog_objects():
         "/Users/rich/Projects/Astronomy/PiFinder/astro_data/pifinder_objects.db"
     )
     conn.row_factory = sqlite3.Row
-    db_c = conn.cursor()
     cat_objects = conn.execute(
-        f"""
+        """
         SELECT * from objects
         order by catalog desc ,sequence
     """
@@ -39,7 +40,6 @@ def check_object_image(catalog_object):
             "/Users/rich/Projects/Astronomy/PiFinder/astro_data/pifinder_objects.db"
         )
         conn.row_factory = sqlite3.Row
-        db_c = conn.cursor()
 
         aka_rec = conn.execute(
             f"""

@@ -1,16 +1,17 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
+# mypy: ignore-errors
 """
 This module contains the Locate module
 
 """
+
 import time
 import logging
 
 from PiFinder import obslist, config
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
-from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder.ui.catalog import UICatalog
 from PiFinder.calc_utils import aim_degrees
 
@@ -46,7 +47,6 @@ class UILocate(UIModule):
         super().__init__(*args)
         self.target_index = None
         self.object_text = ["No Object Found"]
-        self.font_huge = fonts.huge
         self.screen_direction = config.Config().get_option("screen_direction")
         self.mount_type = config.Config().get_option("mount_type")
 
@@ -56,6 +56,10 @@ class UILocate(UIModule):
         self.last_update_time = time.time()
         self.ui_catalog = ui_catalog
 
+        # cache some display stuff
+
+        self.az_anchor = (25, self.display_class.resY - (self.fonts.huge.height * 2.2))
+        self.alt_anchor = (25, self.display_class.resY - (self.fonts.huge.height * 1.1))
         self._elipsis_count = 0
 
     def save_list(self, option):
@@ -194,15 +198,14 @@ class UILocate(UIModule):
 
     def update(self, force=False):
         time.sleep(1 / 30)
-        # Clear Screen
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+        self.clear_screen()
 
         target = self.ui_state.target()
         if not target:
             self.draw.text(
-                (0, 20),
+                (0, self.display_class.titlebar_height + 2),
                 "No Target Set",
-                font=self.font_large,
+                font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             return self.screen_update()
@@ -210,10 +213,15 @@ class UILocate(UIModule):
         # Target Name
         line = target.catalog_code
         line += str(target.sequence)
-        self.draw.text((0, 20), line, font=self.font_large, fill=self.colors.get(255))
+        self.draw.text(
+            (0, self.display_class.titlebar_height + 2),
+            line,
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
+        )
 
         # Target history index
-        if self.target_index != None:
+        if self.target_index is not None:
             if self.ui_state.active_list_is_history_list():
                 list_name = "Hist"
             else:
@@ -221,18 +229,30 @@ class UILocate(UIModule):
             line = f"{self.target_index + 1}/{len(self.ui_state.active_list())}"
             line = f"{line : >9}"
             self.draw.text(
-                (72, 18), line, font=self.font_base, fill=self.colors.get(255)
+                (
+                    self.display_class.resX - (self.fonts.base.width * 9),
+                    self.display_class.titlebar_height + 2,
+                ),
+                line,
+                font=self.fonts.base.font,
+                fill=self.colors.get(255),
             )
             self.draw.text(
-                (72, 28),
+                (
+                    self.display_class.resX - (self.fonts.base.width * 9),
+                    self.display_class.titlebar_height + 2 + self.fonts.base.height,
+                ),
                 f"{list_name: >9}",
-                font=self.font_base,
+                font=self.fonts.base.font,
                 fill=self.colors.get(255),
             )
 
         # ID Line in BOld
         self.draw.text(
-            (0, 40), self.object_text[0], font=self.font_bold, fill=self.colors.get(255)
+            (0, self.display_class.titlebar_height + self.fonts.large.height),
+            self.object_text[0],
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
         )
 
         # Pointing Instructions
@@ -283,16 +303,16 @@ class UILocate(UIModule):
             # Change decimal points when within 1 degree
             if point_az < 1:
                 self.draw.text(
-                    (0, 50),
-                    f"{az_arrow}{point_az : >5.2f}",
-                    font=self.font_huge,
+                    self.az_anchor,
+                    f"{az_arrow} {point_az : >5.2f}",
+                    font=self.fonts.huge.font,
                     fill=self.colors.get(indicator_color),
                 )
             else:
                 self.draw.text(
-                    (0, 50),
-                    f"{az_arrow}{point_az : >5.1f}",
-                    font=self.font_huge,
+                    self.az_anchor,
+                    f"{az_arrow} {point_az : >5.1f}",
+                    font=self.fonts.huge.font,
                     fill=self.colors.get(indicator_color),
                 )
 
@@ -305,23 +325,23 @@ class UILocate(UIModule):
             # Change decimal points when within 1 degree
             if point_alt < 1:
                 self.draw.text(
-                    (0, 84),
-                    f"{alt_arrow}{point_alt : >5.2f}",
-                    font=self.font_huge,
+                    self.alt_anchor,
+                    f"{alt_arrow} {point_alt : >5.2f}",
+                    font=self.fonts.huge.font,
                     fill=self.colors.get(indicator_color),
                 )
             else:
                 self.draw.text(
-                    (0, 84),
-                    f"{alt_arrow}{point_alt : >5.1f}",
-                    font=self.font_huge,
+                    self.alt_anchor,
+                    f"{alt_arrow} {point_alt : >5.1f}",
+                    font=self.fonts.huge.font,
                     fill=self.colors.get(indicator_color),
                 )
 
         return self.screen_update()
 
     def scroll_target_history(self, direction):
-        if self.target_index != None:
+        if self.target_index is not None:
             self.target_index += direction
             active_list_len = len(self.ui_state.active_list())
             if self.target_index >= active_list_len:

@@ -1,9 +1,10 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-    This module contains the shared state
-    object.
+This module contains the shared state
+object.
 """
+
 import time
 import datetime
 import pickle
@@ -221,14 +222,14 @@ class SharedStateObj:
         self.__last_image_metadata = v
 
     def datetime(self):
-        if self.__datetime == None:
+        if self.__datetime is None:
             return self.__datetime
         return self.__datetime + datetime.timedelta(
             seconds=time.time() - self.__datetime_time
         )
 
     def local_datetime(self):
-        if self.__datetime == None:
+        if self.__datetime is None:
             return self.__datetime
 
         if not self.__location:
@@ -238,11 +239,11 @@ class SharedStateObj:
         return dt.astimezone(pytz.timezone(self.__location["timezone"]))
 
     def set_datetime(self, dt):
-        if dt.tzname() == None:
+        if dt.tzname() is None:
             utc_tz = pytz.timezone("UTC")
             dt = utc_tz.localize(dt)
 
-        if self.__datetime == None:
+        if self.__datetime is None:
             self.__datetime_time = time.time()
             self.__datetime = dt
         else:

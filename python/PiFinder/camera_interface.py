@@ -8,6 +8,7 @@ This module is the camera
 * Takes full res images on demand
 
 """
+
 import os
 import queue
 import time
@@ -24,7 +25,7 @@ class CameraInterface:
         pass
 
     def capture(self) -> Image.Image:
-        return None
+        return Image.Image()
 
     def capture_file(self, filename) -> None:
         pass
@@ -32,10 +33,10 @@ class CameraInterface:
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
-        pass
+        return (0, 0)
 
     def get_cam_type(self) -> str:
-        pass
+        return "foo"
 
     def get_image_loop(
         self, shared_state, camera_image, command_queue, console_queue, cfg

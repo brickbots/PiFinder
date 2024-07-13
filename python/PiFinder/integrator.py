@@ -6,6 +6,7 @@ This module is the solver
 * Plate solves high-res image
 
 """
+
 import queue
 import time
 import copy
@@ -68,7 +69,6 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
         # This holds the last image solve position info
         # so we can delta for IMU updates
         last_image_solve = None
-        last_solved = None
         last_solve_time = time.time()
         while True:
             utils.sleep_for_framerate(shared_state)
@@ -163,6 +163,5 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
                 # add solution
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
-                last_solved = solved
     except EOFError:
         logging.error("Main no longer running for integrator")

@@ -1,12 +1,14 @@
+# mypy: ignore-errors
 import logging
 import time
 import datetime
 import pytz
 from pprint import pformat
 
-from typing import List, Dict, DefaultDict, Optional
+from typing import List, Dict, DefaultDict, Optional, Union
 from collections import defaultdict
 import PiFinder.calc_utils as calc_utils
+from PiFinder.state import SharedStateObj
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
@@ -20,7 +22,6 @@ from PiFinder.calc_utils import sf_utils
 # CatalogIterator: TODO iterates over the composite_objects
 # CatalogFilter: can be set on catalog to filter
 # CatalogBuilder: builds catalogs from the database
-# CatalogTracker: keeps track of the current catalog and object
 # Catalogs: holds all catalogs
 
 
@@ -84,20 +85,57 @@ class CatalogFilter:
 
     def __init__(
         self,
-        magnitude_filter=None,
-        type_filter=None,
-        altitude_filter=None,
-        observed_filter=None,
+        shared_state: SharedStateObj,
+        magnitude: Union[float, None] = None,
+        object_types: Union[list[str], None] = None,
+        altitude: int = -1,
+        observed: str = "Any",
     ):
-        self.set_values(magnitude_filter, type_filter, altitude_filter, observed_filter)
+        self.shared_state = shared_state
+        # When was the last time filter params were changed?
+        self.dirty_time = time.time()
 
-    def set_values(
-        self, magnitude_filter, type_filter, altitude_filter, observed_filter
-    ):
-        self.magnitude_filter = magnitude_filter
-        self.type_filter = type_filter
-        self.altitude_filter = altitude_filter
-        self.observed_filter = observed_filter
+        self.magnitude = magnitude
+        self.object_types = object_types
+        self.altitude = altitude
+        self.observed = observed
+
+    @property
+    def magnitude(self):
+        return self._magnitude
+
+    @magnitude.setter
+    def magnitude(self, magnitude: Union[float, None]):
+        self._magnitude = magnitude
+        self.dirty_time = time.time()
+
+    @property
+    def object_types(self):
+        return self._object_types
+
+    @object_types.setter
+    def object_types(self, object_types: Union[list[str], None]):
+        self._object_types = object_types
+        print(object_types)
+        self.dirty_time = time.time()
+
+    @property
+    def altitude(self):
+        return self._altitude
+
+    @altitude.setter
+    def altitude(self, altitude: int):
+        self._altitude = altitude
+        self.dirty_time = time.time()
+
+    @property
+    def observed(self):
+        return self._observed
+
+    @observed.setter
+    def observed(self, observed: str):
+        self._observed = observed
+        self.dirty_time = time.time()
 
     def calc_fast_aa(self, shared_state):
         solution = shared_state.solution()
@@ -115,40 +153,54 @@ class CatalogFilter:
             )
 
     def apply_filter(self, obj: CompositeObject):
+        if obj.last_filtered_time > self.dirty_time:
+            return obj.last_filtered_result
+
+        obj.last_filtered_time = time.time()
         # check altitude
-        if self.altitude_filter != "None" and self.fast_aa:
+        if self._altitude != -1 and self.fast_aa:
             obj_altitude, _ = self.fast_aa.radec_to_altaz(
                 obj.ra,
                 obj.dec,
                 alt_only=True,
             )
-            if obj_altitude < self.altitude_filter:
+            if obj_altitude < self._altitude:
+                obj.last_filtered_result = False
                 return False
 
         # check magnitude
-
         # first try to get object mag to float
         try:
             obj_mag = float(obj.mag)
         except (ValueError, TypeError):
             obj_mag = 99
 
-        if self.magnitude_filter != "None" and obj_mag >= self.magnitude_filter:
+        if self._magnitude is not None and obj_mag <= self._magnitude:
+            obj.last_filtered_result = False
             return False
 
         # check type
-        if self.type_filter != ["None"] and obj.obj_type not in self.type_filter:
+        if self._object_types is not None and obj.obj_type not in self._object_types:
+            obj.last_filtered_result = False
             return False
 
         # check observed
-        if self.observed_filter != "Any":
-            return (self.observed_filter == "Yes") == obj.logged
+        if self._observed is not None and self._observed != "Any":
+            if self._observed == "Yes":
+                if not obj.logged:
+                    obj.last_filtered_result = False
+                    return False
+            else:
+                if obj.logged:
+                    obj.last_filtered_result = False
+                    return False
 
         # object passed all the tests
+        obj.last_filtered_result = True
         return True
 
-    def apply(self, shared_state, objects: List[CompositeObject]):
-        self.calc_fast_aa(shared_state)
+    def apply(self, objects: List[CompositeObject]):
+        self.calc_fast_aa(self.shared_state)
         return [obj for obj in objects if self.apply_filter(obj)]
 
 
@@ -247,10 +299,11 @@ class Catalog(CatalogBase):
 
     def __init__(self, catalog_code: str, max_sequence: int, desc: str):
         super().__init__(catalog_code, max_sequence, desc)
-        self.catalog_filter: CatalogFilter = CatalogFilter()
+        self.catalog_filter: Union[CatalogFilter, None] = None
         self.filtered_objects: List[CompositeObject] = self.get_objects()
         self.filtered_objects_seq: List[int] = self._filtered_objects_to_seq()
         self.last_filtered = 0
+        self.is_selected = True
 
     def has(self, sequence: int, filtered=True):
         return sequence in self.filtered_objects_seq
@@ -258,9 +311,13 @@ class Catalog(CatalogBase):
     def _filtered_objects_to_seq(self):
         return [obj.sequence for obj in self.filtered_objects]
 
-    def filter_objects(self, shared_state) -> List[CompositeObject]:
-        self.filtered_objects = self.catalog_filter.apply(
-            shared_state, self.get_objects()
+    def filter_objects(self) -> List[CompositeObject]:
+        if self.catalog_filter is None:
+            return self.get_objects()
+
+        self.filtered_objects = self.catalog_filter.apply(self.get_objects())
+        logging.info(
+            f"FILTERED {self.catalog_code} {len(self.filtered_objects)}/{len(self.get_objects())}"
         )
         self.filtered_objects_seq = self._filtered_objects_to_seq()
         self.last_filtered = time.time()
@@ -269,7 +326,6 @@ class Catalog(CatalogBase):
     def get_filtered_objects(self):
         return self.filtered_objects
 
-    # move this code to the filter class?
     def get_filtered_count(self):
         return len(self.filtered_objects)
 
@@ -286,41 +342,50 @@ class Catalogs:
 
     def __init__(self, catalogs: List[Catalog]):
         self.__catalogs: List[Catalog] = catalogs
-        self.__catalog_codes: List[str] = [catalog.catalog_code for catalog in catalogs]
-        self._code_to_pos: Dict[str, int] = {}
-        self._code_to_pos_sel: Dict[str, int] = {}
-        self._select_all_catalogs()
-        self._refresh_code_to_pos()
+        self.select_all_catalogs()
+        self.catalog_filter: Union[CatalogFilter, None] = None
+
+    def filter_catalogs(self):
+        """
+        Applies filter to all catalogs
+        """
+        for catalog in self.__catalogs:
+            catalog.filter_objects()
+
+    def set_catalog_filter(self, catalog_filter: CatalogFilter) -> None:
+        """
+        Sets the catalog filter object for all the catalogs
+        to a single shared filter object so they can all
+        be changed at once
+        """
+        self.catalog_filter = catalog_filter
+        for catalog in self.__catalogs:
+            catalog.catalog_filter = catalog_filter
 
     def get_catalogs(self, only_selected: bool = True) -> List[Catalog]:
-        if only_selected:
-            return [self.__catalogs[x] for x in self.__selected_catalogs_idx]
-        else:
-            return self.__catalogs
+        return_list = []
+        for catalog in self.__catalogs:
+            if (only_selected and catalog.is_selected) or not only_selected:
+                return_list.append(catalog)
+
+        return return_list
 
     def get_objects(
         self, only_selected: bool = True, filtered: bool = True
-    ) -> List[CompositeObject]:
-        if filtered:
-            return [
-                obj
-                for catalog in self.get_catalogs(only_selected)
-                for obj in catalog.get_filtered_objects()
-            ]
-        else:
-            return [
-                obj
-                for catalog in self.get_catalogs(only_selected)
-                for obj in catalog.get_objects()
-            ]
+    ) -> list[CompositeObject]:
+        return_list = []
+        for catalog in self.__catalogs:
+            if (only_selected and catalog.is_selected) or not only_selected:
+                if filtered:
+                    return_list += catalog.get_filtered_objects()
+                else:
+                    return_list += catalog.get_objects()
+        return return_list
 
-    def select_catalogs(self, catalog_names: List[str]):
-        self.__selected_catalogs_idx = [
-            x
-            for x in range(len(self.__catalogs))
-            if self.__catalogs[x].catalog_code in catalog_names
-        ]
-        self._refresh_code_to_pos()
+    def select_catalogs(self, catalog_codes: List[str]):
+        for catalog in self.__catalogs:
+            if catalog.catalog_code in catalog_codes:
+                catalog.is_selected = True
 
     def has_code(self, catalog_code: str, only_selected: bool = True) -> bool:
         return catalog_code in self.get_codes(only_selected)
@@ -335,85 +400,52 @@ class Catalogs:
 
     def set(self, catalogs: List[Catalog]):
         self.__catalogs = catalogs
-        self._select_all_catalogs()
-        self._refresh_code_to_pos()
+        self.select_all_catalogs()
 
     def add(self, catalog: Catalog, select: bool = False):
-        if catalog.catalog_code not in self._code_to_pos:
-            self.__catalogs.append(catalog)
-
-            # Add the newly added index to the selection list to make sure it's
-            # selected
+        if catalog.catalog_code not in [x.catalog_code for x in self.__catalogs]:
             if select:
-                self.__selected_catalogs_idx.append(len(self.__catalogs) - 1)
-            self._refresh_code_to_pos()
+                catalog.is_selected = True
+            self.__catalogs.append(catalog)
         else:
             logging.warning(f"Catalog {catalog.catalog_code} already exists")
 
     def remove(self, catalog_code: str):
-        if catalog_code in self._code_to_pos:
-            idx = self._code_to_pos[catalog_code]
-            self.__catalogs.pop(idx)
-            if idx in self.__selected_catalogs_idx:
-                self.__selected_catalogs_idx.remove(idx)
-            self._refresh_code_to_pos()
-        else:
-            logging.warning(f"Catalog {catalog_code} does not exist")
+        for catalog in self.__catalogs:
+            if catalog.catalog_code == catalog_code:
+                self.__catalogs.remove(catalog)
+                return
+
+        logging.warning(f"Catalog {catalog_code} does not exist")
 
     def get_codes(self, only_selected: bool = True) -> List[str]:
-        if only_selected:
-            return [
-                cat.catalog_code
-                for idx, cat in enumerate(self.get_catalogs(only_selected=False))
-                if idx in self.__selected_catalogs_idx
-            ]
-        else:
-            return list(self._code_to_pos.keys())
+        return_list = []
+        for catalog in self.__catalogs:
+            if (only_selected and catalog.is_selected) or not only_selected:
+                return_list.append(catalog.catalog_code)
+
+        return return_list
 
     def get_catalog_by_code(self, catalog_code: str) -> Optional[Catalog]:
-        pos = self._code_to_pos.get(catalog_code, None)
-        result = None
-        if pos is not None:
-            result = self.get_catalogs(only_selected=False)[pos]
-        return result
+        for catalog in self.__catalogs:
+            if catalog.catalog_code == catalog_code:
+                return catalog
 
-    def next_catalog(
-        self, current_catalog_code: str, direction: int = 1, only_selected: bool = True
-    ) -> Catalog:
-        current_index = self._get_code_to_pos(current_catalog_code, only_selected)
-        if current_index is not None:
-            catalogs = self.get_catalogs(only_selected)
-            length = len(catalogs)
-            next_index = (current_index + direction) % length
-            next_catalog = catalogs[next_index]
-            return next_catalog
-        else:
-            return self.get_catalog_by_code(current_catalog_code)
+            return None
 
     def count(self) -> int:
         return len(self.get_catalogs())
 
-    def _get_code_to_pos(self, catalog_code: str, only_selected: bool = True):
-        if only_selected:
-            return self._code_to_pos_sel.get(catalog_code, None)
-        else:
-            return self._code_to_pos.get(catalog_code, None)
+    def select_no_catalogs(self):
+        for catalog in self.__catalogs:
+            catalog.is_selected = False
 
-    def _refresh_code_to_pos(self):
-        self._code_to_pos = {
-            catalog.catalog_code: idx
-            for idx, catalog in enumerate(self.get_catalogs(only_selected=False))
-        }
-        self._code_to_pos_sel = {
-            catalog.catalog_code: idx
-            for idx, catalog in enumerate(self.get_catalogs(only_selected=True))
-        }
-
-    def _select_all_catalogs(self):
-        self.__selected_catalogs_idx = list(range(len(self.__catalogs)))
+    def select_all_catalogs(self):
+        for catalog in self.__catalogs:
+            catalog.is_selected = True
 
     def __repr__(self):
-        return f"Catalogs(\n{pformat(self.get_catalogs(only_selected=False))},\n selected {len(self.__selected_catalogs_idx)}/{len(self.__catalogs)},\n{self.__selected_catalogs_idx})"
+        return f"Catalogs(\n{pformat(self.get_catalogs(only_selected=False))})"
 
     def __str__(self):
         return self.__repr__()
@@ -524,6 +556,7 @@ class CatalogBuilder:
             datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC"))
         )
         all_catalogs.add(planet_catalog)
+
         assert self.check_catalogs_sequences(all_catalogs) is True
         return all_catalogs
 

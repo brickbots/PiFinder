@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from typing import Tuple
-from sqlite3 import Connection, Cursor, Error
+from sqlite3 import Connection, Cursor
 from PiFinder.db.db import Database
 import PiFinder.utils as utils
 from PiFinder.composite_object import CompositeObject
@@ -17,7 +17,7 @@ class ObservationsDatabase(Database):
         if new_db:
             self.create_tables()
 
-        self.observed_objects_cache = None
+        self.load_observed_objects_cache()
 
     def create_tables(self, force_delete: bool = False):
         """
@@ -131,18 +131,18 @@ class ObservationsDatabase(Database):
         Returns a list of all observed objects
         """
         logs = self.cursor.execute(
-            f"""
+            """
                 select distinct catalog, sequence from obs_objects
             """
         ).fetchall()
 
         return logs
 
-    def load_observed_objects_cache(self):
+    def load_observed_objects_cache(self) -> None:
         """
         (re)Loads the logged object cache
         """
-        self.observed_objects_cache = [
+        self.observed_objects_cache: list[tuple[str, int]] = [
             (x["catalog"], x["sequence"]) for x in self.get_observed_objects()
         ]
 
@@ -151,7 +151,7 @@ class ObservationsDatabase(Database):
         Returns true/false if this object has been observed
         """
         # safety check
-        if self.observed_objects_cache == None:
+        if self.observed_objects_cache is None:
             self.load_observed_objects_cache()
 
         if (
@@ -167,7 +167,7 @@ class ObservationsDatabase(Database):
         Returns a list of observations for a particular object
         """
         logs = self.cursor.execute(
-            f"""
+            """
                 select * from obs_objects
                 where catalog = :catalog
                 and sequence = :sequence
@@ -198,7 +198,7 @@ class ObservationsDatabase(Database):
                     avg(lon) as lon
                 from obs_sessions
             """
-        if session_uid != None:
+        if session_uid is not None:
             # add in a where clause
             q += """
                 where uid= :sess_uid
@@ -236,7 +236,7 @@ class ObservationsDatabase(Database):
         returns a record for a specific session
         applies the same enrichment
         """
-        return get_sessions(session_uid=session_uid)[0]
+        return self.get_sessions(session_uid=session_uid)[0]
 
     def get_logs_by_session(self, session_uid):
         """

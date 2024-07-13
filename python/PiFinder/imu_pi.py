@@ -4,7 +4,7 @@
 This module is for IMU related functions
 
 """
-from pprint import pprint
+
 import time
 import board
 import adafruit_bno055
@@ -89,7 +89,7 @@ class Imu:
             print("NOIMU CAL")
             return True
         quat = self.sensor.quaternion
-        if quat[0] == None:
+        if quat[0] is None:
             print("IMU: Failed to get sensor values")
             return
 
@@ -157,7 +157,7 @@ def imu_monitor(shared_state, console_queue):
         imu.update()
         imu_data["status"] = imu.calibration
         if imu.moving():
-            if imu_data["moving"] == False:
+            if not imu_data["moving"]:
                 # print("IMU: move start")
                 imu_data["moving"] = True
                 imu_data["start_pos"] = imu_data["pos"]
@@ -166,17 +166,17 @@ def imu_monitor(shared_state, console_queue):
             imu_data["quat"] = imu.avg_quat
 
         else:
-            if imu_data["moving"] == True:
+            if imu_data["moving"]:
                 # If wer were moving and we now stopped
                 # print("IMU: move end")
                 imu_data["moving"] = False
                 imu_data["pos"] = imu.get_euler()
                 imu_data["move_end"] = time.time()
 
-        if imu_calibrated == False:
+        if not imu_calibrated:
             if imu_data["status"] == 3:
                 imu_calibrated = True
                 console_queue.put("IMU: NDOF Calibrated!")
 
-        if shared_state != None and imu_calibrated:
+        if shared_state is not None and imu_calibrated:
             shared_state.set_imu(imu_data)

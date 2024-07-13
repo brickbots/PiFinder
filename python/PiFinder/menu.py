@@ -1,6 +1,3 @@
-import logging
-
-
 class MenuScroller:
     """
     A class to handle the scrolling of the menu items.

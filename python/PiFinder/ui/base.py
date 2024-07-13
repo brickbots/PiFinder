@@ -4,23 +4,22 @@
 This module contains the base UIModule class
 
 """
+
 import os
 import time
 import uuid
+from typing import Type
 
 from PIL import Image, ImageDraw
-from PiFinder.ui.fonts import Fonts as fonts
 from PiFinder import utils
-from PiFinder.image_util import DeviceWrapper
+from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
 
 
 class UIModule:
     __title__ = "BASE"
-    __button_hints__ = {}
     __uuid__ = str(uuid.uuid1()).split("-")[0]
-    _config_options = None
-    _title_bar_y = 16
+    _config_options: dict
     _CAM_ICON = ""
     _IMU_ICON = ""
     _GPS_ICON = "󰤉"
@@ -28,39 +27,46 @@ class UIModule:
     _RIGHT_ARROW = ""
     _UP_ARROW = ""
     _DOWN_ARROW = ""
+    _CHECKMARK = ""
     _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
 
     def __init__(
         self,
-        device_wrapper: DeviceWrapper,
+        display_class: Type[DisplayBase],
         camera_image,
         shared_state,
         command_queues,
         config_object,
+        catalogs=None,
+        item_definition={},
+        add_to_stack=None,
+        remove_from_stack=None,
     ):
         assert shared_state is not None
         self.title = self.__title__
-        self.button_hints = self.__button_hints__
-        self.button_hints_timer = time.time()
-        self.button_hints_visible: bool = False
-        self.switch_to = None
-        self.display = device_wrapper.device
-        self.colors = device_wrapper.colors
+        self.display_class = display_class
+        self.display = display_class.device
+        self.colors = display_class.colors
         self.shared_state = shared_state
+        self.catalogs = catalogs
         self.ui_state = shared_state.ui_state()
         self.camera_image = camera_image
         self.command_queues = command_queues
-        self.screen = Image.new("RGB", (128, 128))
-        self.draw = ImageDraw.Draw(self.screen)
-        self.font_base = fonts.base
-        self.font_bold = fonts.bold
-        self.font_large = fonts.large
-        self.font_small = fonts.small
+        self.add_to_stack = add_to_stack
+        self.remove_from_stack = remove_from_stack
+
+        self.screen = Image.new("RGB", display_class.resolution)
+        self.draw = ImageDraw.Draw(self.screen, mode="RGBA")
+        self.fonts = self.display_class.fonts
+
+        # UI Module definition
+        self.item_definition = item_definition
+        self.title = item_definition.get("name", self.title)
 
         # screenshot stuff
         root_dir = str(utils.data_dir)
-        prefix = f"{self.__uuid__}_{self.__title__}"
+        prefix = f"{self.__uuid__}_{self.title}"
         self.ss_path = os.path.join(root_dir, "screenshots", prefix)
         self.ss_count = 0
         self.config_object: Config = config_object
@@ -72,35 +78,6 @@ class UIModule:
 
         # anim timer stuff
         self.last_update_time = time.time()
-
-    def exit_config(self, option):
-        """
-        Handy callback for exiting
-        config on option select
-        """
-        return True
-
-    def update_config(self):
-        """
-        callback when config is updated
-        """
-        return True
-
-    def cycle_config(self, config_item, direction=1):
-        """
-        Cycles through a config option
-        wrapping if needed
-        """
-        current_index = self._config_options[config_item]["options"].index(
-            self._config_options[config_item]["value"]
-        )
-        current_index += direction
-        if current_index >= len(self._config_options[config_item]["options"]):
-            current_index = 0
-
-        self._config_options[config_item]["value"] = self._config_options[config_item][
-            "options"
-        ][current_index]
 
     def screengrab(self):
         self.ss_count += 1
@@ -116,14 +93,6 @@ class UIModule:
         self.button_hints_timer = time.time()
         pass
 
-    def background_update(self):
-        """
-        Called every 5th ui cycle on all modules
-        allows background tasks, like updating
-        altitude in the Catalog
-        """
-        pass
-
     def update(self, force=False):
         """
         Called to trigger UI Updates
@@ -135,20 +104,43 @@ class UIModule:
         """
         return self.screen_update()
 
-    def message(self, message, timeout=2):
+    def clear_screen(self):
+        """
+        Clears the screen (draws rectangle in black)
+        """
+        self.draw.rectangle(
+            [
+                0,
+                0,
+                self.display_class.resX,
+                self.display_class.resY,
+            ],
+            fill=self.colors.get(0),
+        )
+
+    def message(self, message, timeout=2, size=[5, 44, 123, 84]):
         """
         Creates a box with text in the center of the screen.
         Waits timeout in seconds
         """
 
+        # shadow
         self.draw.rectangle(
-            [10, 49, 128, 89], fill=self.colors.get(0), outline=self.colors.get(0)
+            [size[0] + 5, size[1] + 5, size[2] + 5, size[3] + 5],
+            fill=self.colors.get(0),
+            outline=self.colors.get(0),
         )
-        self.draw.rectangle(
-            [5, 44, 123, 84], fill=self.colors.get(0), outline=self.colors.get(128)
+        self.draw.rectangle(size, fill=self.colors.get(0), outline=self.colors.get(128))
+
+        line_length = int((size[2] - size[0]) / self.fonts.bold.width)
+        message = " " * int((line_length - len(message)) / 2) + message
+
+        self.draw.text(
+            (size[0] + 4, size[1] + 5),
+            message,
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
         )
-        message = " " * int((16 - len(message)) / 2) + message
-        self.draw.text((9, 54), message, font=self.font_bold, fill=self.colors.get(255))
         self.display.display(self.screen.convert(self.display.mode))
         self.ui_state.set_message_timeout(timeout + time.time())
 
@@ -161,60 +153,19 @@ class UIModule:
         if time.time() < self.ui_state.message_timeout():
             return None
 
-        hint_timeout_decode = {"Off": 0, "2s": 2, "4s": 4, "On": 1000}
-        self.button_hints_visible = (
-            button_hints
-            and time.time() - self.button_hints_timer
-            < hint_timeout_decode.get(self.ui_state.hint_timeout(), 2)
-        )
-        if self.button_hints_visible:
-            # Bottom button help
-
-            # B
-            if self.button_hints.get("B"):
-                self.draw.rectangle([0, 118, 40, 128], fill=self.colors.get(32))
-                self.draw.text(
-                    (2, 117), "B", font=self.font_small, fill=self.colors.get(255)
-                )
-                self.draw.text(
-                    (10, 117),
-                    self.button_hints.get("B"),
-                    font=self.font_small,
-                    fill=self.colors.get(128),
-                )
-            # C
-            if self.button_hints.get("C"):
-                self.draw.rectangle([44, 118, 84, 128], fill=self.colors.get(32))
-                self.draw.text(
-                    (46, 117), "C", font=self.font_small, fill=self.colors.get(255)
-                )
-                self.draw.text(
-                    (54, 117),
-                    self.button_hints.get("C"),
-                    font=self.font_small,
-                    fill=self.colors.get(128),
-                )
-            # D
-            if self.button_hints.get("D"):
-                self.draw.rectangle([88, 118, 128, 128], fill=self.colors.get(32))
-                self.draw.text(
-                    (90, 117), "D", font=self.font_small, fill=self.colors.get(255)
-                )
-                self.draw.text(
-                    (98, 117),
-                    self.button_hints.get("D"),
-                    font=self.font_small,
-                    fill=self.colors.get(128),
-                )
-
         if title_bar:
             fg = self.colors.get(0)
             bg = self.colors.get(64)
-            self.draw.rectangle([0, 0, 128, self._title_bar_y], fill=bg)
+            self.draw.rectangle(
+                [0, 0, self.display_class.resX, self.display_class.titlebar_height],
+                fill=bg,
+            )
             if self.ui_state.show_fps():
-                self.draw.text((6, 1), str(self.fps), font=self.font_bold, fill=fg)
+                self.draw.text(
+                    (6, 1), str(self.fps), font=self.fonts.bold.font, fill=fg
+                )
             else:
-                self.draw.text((6, 1), self.title, font=self.font_bold, fill=fg)
+                self.draw.text((6, 1), self.title, font=self.fonts.bold.font, fill=fg)
             imu = self.shared_state.imu()
             moving = True if imu and imu["pos"] and imu["moving"] else False
 
@@ -231,12 +182,15 @@ class UIModule:
                 self._gps_brightness if self._gps_brightness > 0 else 0
             )
             self.draw.text(
-                (102, -2), self._GPS_ICON, font=fonts.icon_bold_large, fill=_gps_color
+                (self.display_class.resX * 0.8, -2),
+                self._GPS_ICON,
+                font=self.fonts.icon_bold_large.font,
+                fill=_gps_color,
             )
 
             if moving:
                 self._unmoved = False
-                self.draw.rectangle([115, 2, 125, 14], fill=self.colors.get(bg))
+
             if self.shared_state:
                 if self.shared_state.solve_state():
                     solution = self.shared_state.solution()
@@ -246,27 +200,33 @@ class UIModule:
                     if self._unmoved:
                         time_since_cam_solve = time.time() - solution["cam_solve_time"]
                         var_fg = min(64, int(time_since_cam_solve / 6 * 64))
-                    self.draw.rectangle([115, 2, 125, 14], fill=bg)
+                    # self.draw.rectangle([115, 2, 125, 14], fill=bg)
 
                     if self._unmoved:
                         self.draw.text(
-                            (117, -2),
+                            (self.display_class.resX * 0.91, -2),
                             self._CAM_ICON,
-                            font=fonts.icon_bold_large,
+                            font=self.fonts.icon_bold_large.font,
                             fill=var_fg,
                         )
-                    # draw the constellation
-                    constellation = solution["constellation"]
-                    self.draw.text(
-                        (70, 1),
-                        constellation,
-                        font=self.font_bold,
-                        fill=fg if self._unmoved else self.colors.get(32),
-                    )
+
+                    if len(self.title) < 9:
+                        # draw the constellation
+                        constellation = solution["constellation"]
+                        self.draw.text(
+                            (self.display_class.resX * 0.54, 1),
+                            constellation,
+                            font=self.fonts.bold.font,
+                            fill=fg if self._unmoved else self.colors.get(32),
+                        )
                 else:
                     # no solve yet....
-                    self.draw.rectangle([115, 2, 125, 14], fill=bg)
-                    self.draw.text((117, 0), "X", font=self.font_bold, fill=fg)
+                    self.draw.text(
+                        (self.display_class.resX * 0.91, 0),
+                        "X",
+                        font=self.fonts.bold.font,
+                        fill=fg,
+                    )
 
         screen_to_display = self.screen.convert(self.display.mode)
         self.display.display(screen_to_display)
@@ -283,11 +243,7 @@ class UIModule:
             self.shared_state.set_screen(screen_to_display)
 
         self.last_update_time = time.time()
-
-        # We can return a UIModule class name to force a switch here
-        tmp_return = self.switch_to
-        self.switch_to = None
-        return tmp_return
+        return
 
     def check_hotkey(self, key):
         """
@@ -311,29 +267,29 @@ class UIModule:
     def key_number(self, number):
         pass
 
+    def key_plus(self):
+        pass
+
+    def key_minus(self):
+        pass
+
+    def key_square(self):
+        pass
+
+    def key_long_up(self):
+        pass
+
+    def key_long_down(self):
+        pass
+
+    def key_long_right(self):
+        pass
+
     def key_up(self):
         pass
 
     def key_down(self):
         pass
 
-    def key_enter(self):
+    def key_right(self):
         pass
-
-    def key_long_c(self):
-        pass
-
-    def key_long_d(self):
-        pass
-
-    def key_b(self):
-        if self.check_hotkey("B"):
-            self.update(force=True)
-
-    def key_c(self):
-        if self.check_hotkey("C"):
-            self.update(force=True)
-
-    def key_d(self):
-        if self.check_hotkey("D"):
-            self.update(force=True)
