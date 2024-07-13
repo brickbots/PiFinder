@@ -1,6 +1,6 @@
 |Name                  |CON|RA     |Dec   |Mag |SIZE       |TIR|BSA|COMMENTS                                                                                                                                      |
 |                      |   |       |      |    |           |   |   |                                                                                                                                              |
-|7 Sisters of the Pole |CEP|00 00.0| 86 45| 6  |3d X 2.4d  | 1 | 1 |A False Pleiades of stars of 6th magnitude; 1.5 deg north of cluster NGC 188                                                                  |
+|7 Sisters of the Pole |CEP|00 00.1| 86 45| 6  |3d X 2.4d  | 1 | 1 |A False Pleiades of stars of 6th magnitude; 1.5 deg north of cluster NGC 188                                                                  |
 |Little Joe            |PSC|00 02.0|-04 27| 5  |2d X 1d    |18 | 3 |27;29;30 and 33 PSC; Colorful trapezoid between Circlet and Diphda--Stephen Saber; term from shooting dice 'Little Joe from Kokomo' two 2's   |
 |Queen's 'W'           |CAS|01 00.0| 60 00| 2  |13d X 5d   | 1 | 1 |Alpha; Beta; Gamma; Delta and Epsilon Cassiopieae form a 'W' or 'M' shape; most of the throne of the Queen                                    |
 |Eddie's Coaster       |CAS|01 02.0| 63 36| 7  |2d X 1.5d  | 1 | 1 |Discovered by Eddie Carpenter; curved chain of 7th to 9th magnitude stars; Shaped like a roller coaster; seen in 8X42 binoculars              |
@@ -54,7 +54,7 @@
 |Southern Cross        |CRU|12 30.0|-60 00| 2  |6 deg      |25 |10 |Crux is smallest constellation; starting at bottom with Alpha the star are in order of brightness going clockwise                             |
 |Stargate              |COR|12 35.7|-12 02| 6  |15'        |13 | 6 |1 degree SW from M 104 in Virgo; 4 stars of 7th magnitude including double star Struve 1659                                                   |
 |Jaws                  |VIR|12 38.5|-11 30| 7  |15'        |13 | 6 |25 arcminutes WNW of M 104; chain of 8 stars outline a shark                                                                                  |
-|Skip Loader           |VIR|12 40.0| 00 00| 3  |20 deg     |14 | 6 |Epsilon; Delta; Gamma; Eta and Beta Virginis from the bucket of a tractor following behind the Lion                                           |
+|Skip Loader           |VIR|12 40.0| 00 01| 3  |20 deg     |14 | 6 |Epsilon; Delta; Gamma; Eta and Beta Virginis from the bucket of a tractor following behind the Lion                                           |
 |Horse and Rider       |UMA|13 25.0| 55 00| 3  |12'        | 2 | 1 |Mizar and Alcor; Zeta Ursa Majoris and 80 Ursa Majoris; an ancient test of naked eye visual acuity                                            |
 |Night Owl (Noctus)    |HYA|14 00.0|-25 00| 5  |1.3d X 0.7d|14 | 6 |47 and 48 Hydrae from the eyes of a faint owl that sits on the tail of Hydra; ancient constellation                                           |
 |Dark Emu              |CEN|14 00.0|-60 00| 2  |38 deg     |25 |10 |Giant dark nebula with Coal Sack as head of long necked bird that extends to western Scorpius; Alpha and Beta Centauri invl; Aboriginal origin|
@@ -72,7 +72,7 @@
 |Little Dipper         |UMI|16 45.0| 82 00| 3  |20d X 4d   | 2 | 1 |Includes Polaris; the North Star; end of small dipper is Kochab (Beta UMI)                                                                    |
 |Keystone              |HER|16 50.0| 34 00| 3  |8 deg      | 8 | 7 |Eta; Pi; Epsilon and Zeta Herculis                                                                                                            |
 |Table of Scorpius     |SCO|16 55.0|-41 00| 3  |2.5 deg    |22 | 7 |Naked eye bright spot where Scorpius turns east; Incl CL NGC 6231; Australians call it 'The False Comet'                                      |
-|Coffin                |OPH|17 00.0| 00 00| 3  |30d X 24d  |15 | 7 |The outline of Delta; Zeta; Eta; Gamma; Alpha; Kappa and Lambda Ophiuchi create the shape of a box for burial; he is a Snake Handler ya'know  |
+|Coffin                |OPH|17 00.0| 00 01| 3  |30d X 24d  |15 | 7 |The outline of Delta; Zeta; Eta; Gamma; Alpha; Kappa and Lambda Ophiuchi create the shape of a box for burial; he is a Snake Handler ya'know  |
 |Hercules's Club       |HER|17 00.0| 46 00| 3  |17d X 3d   |15 | 7 |Bludgeon held by the Hero is formed by Iota; Tau; Nu and Phi Herculis; 11 degrees north of the Keystone; elongated East-West                  |
 |Bowtie                |HER|17 00.0| 30 00| 3  |18d X 10d  |15 | 7 |Adding Beta and Delta Herculis to the Keystone makes a bowtie shape                                                                           |
 |Fish Hook             |SCO|17 00.0|-32 00| 2  |23d X 8d   |22 | 7 |The curved body of Scorpius from Antares to the Stinger; Hawaiian legend states the God Maui used it to pull up the islands above the Pacific |

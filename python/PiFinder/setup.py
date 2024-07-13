@@ -53,7 +53,7 @@ class NewCatalogObject:
         Inserts object into DB
         """
         # sanity checks
-        if type(self.aka_names) is list:
+        if type(self.aka_names) is not list:
             raise TypeError("Aka names not list")
 
         # Check to see if this object matches one in the DB already
