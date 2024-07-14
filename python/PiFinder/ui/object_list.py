@@ -22,6 +22,7 @@ from PiFinder.calc_utils import aim_degrees
 from PiFinder.catalog_utils import ClosestObjectsFinder
 from PiFinder import utils
 from PiFinder.catalogs import CompositeObject
+from PiFinder.ui.ui_utils import name_deduplicate
 
 
 class DisplayModes(Enum):
@@ -55,6 +56,7 @@ class UIObjectList(UITextMenu):
     bulb = "󰛨"
     star = ""
     ruler = ""
+
 
     def __init__(self, *args, **kwargs) -> None:
         # hack at our item definition here to allow re-use of UITextMenu
@@ -185,13 +187,14 @@ class UIObjectList(UITextMenu):
             return int(255 + ((125 - 255) / (16 - 9)) * (mag - 9))
 
     def create_name_text(self, obj: CompositeObject) -> str:
-        """
-        Returns the catalog code + sequence
-        padded out to be 7 chars
-        NGC0000
-        """
+        dedups = name_deduplicate(obj.names, [f"{obj.catalog_code}{obj.sequence}"])
+        result = ", ".join(dedups)
+        return result
+
+    def create_shortname_text(self, obj: CompositeObject) -> str:
         name = f"{obj.catalog_code}{obj.sequence}"
-        return f"{name: <7}"
+        return name
+        # return f"{name: <7}"
 
     def create_locate_text(self, obj: CompositeObject) -> str:
         az, alt = aim_degrees(
@@ -264,6 +267,7 @@ class UIObjectList(UITextMenu):
         # Draw current selection hint
         self.draw.rectangle([-1, 60, 129, 80], outline=self.colors.get(128), width=1)
         line_number = 0
+        line_pos = 0
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
             if i >= 0 and i < len(self._menu_items_sorted):
                 # figure out line position / color / font
@@ -290,7 +294,6 @@ class UIObjectList(UITextMenu):
                     line_pos = 60
                 if line_number == 5:
                     line_color = int(0.5 * obj_mag_color)
-                    line_color = 192
                     line_pos = 76
                 if line_number == 6:
                     line_color = int(0.38 * obj_mag_color)
@@ -299,18 +302,18 @@ class UIObjectList(UITextMenu):
                 # Offset for title
                 line_pos += 20
 
-                item_name = self.create_name_text(_menu_item)
+                item_name = self.create_shortname_text(_menu_item)
+                item_text_scroll = None
                 if self.current_mode == DisplayModes.LOCATE:
                     item_text = self.create_locate_text(_menu_item)
                 elif self.current_mode == DisplayModes.NAME:
                     item_text = self.create_name_text(_menu_item)
+                    item_text_scroll = self.ScrollTextLayout(
+                        item_text, font=self.fonts.base,
+                        scrollspeed=self._get_scrollspeed_config(),
+                    )
                 elif self.current_mode == DisplayModes.INFO:
                     item_text = self.create_info_text(_menu_item)
-
-                if line_number == 3:
-                    item_line = f"{item_name}{item_text}"
-                else:
-                    item_line = f"{item_name} {item_text}"
 
                 # Type Marker
                 line_bg = 0
@@ -326,7 +329,8 @@ class UIObjectList(UITextMenu):
                     font=line_font.font,
                     fill=self.colors.get(line_color),
                 )
-
+                if item_text_scroll:
+                    item_text_scroll.draw(())
             line_number += 1
 
         if self.jump_input_display:
