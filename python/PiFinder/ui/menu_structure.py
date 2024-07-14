@@ -4,6 +4,7 @@ from PiFinder.ui.status import UIStatus
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.software import UISoftware
 from PiFinder.ui.chart import UIChart
+from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 import PiFinder.ui.callbacks as callbacks
 
@@ -175,7 +176,7 @@ pifinder_menu = {
                 },
                 {
                     "name": "Name Search",
-                    "class": "screen",
+                    "class": UITextEntry,
                 },
             ],
         },

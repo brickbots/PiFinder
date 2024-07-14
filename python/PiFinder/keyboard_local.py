@@ -67,7 +67,6 @@ class KeyboardLocal(KeyboardInterface):
         logging.debug("KeyboardLocal.__init__")
 
     def callback(self, key):
-        print(key)
         self.q.put(key)
 
 
