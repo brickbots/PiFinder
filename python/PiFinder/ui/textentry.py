@@ -3,12 +3,74 @@ from PiFinder.ui.base import UIModule
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.ui.object_list import UIObjectList
+from PiFinder.ui.ui_utils import format_number
 import time
+from typing import Tuple
 
 # class CompositeObjectBuilder:
 #
 #     def build(self, object_ids: List[int]):
 #         return CompositeObject()
+class KeyPad:
+    def __init__(self):
+        self.base = {
+            "7": ("7abc", "abc"),
+            "8": ("8def", "def"),
+            "9": ("9ghi", "ghi"),
+            "4": ("4jkl", "jkl"),
+            "5": ("5mno", "mno"),
+            "6": ("6pqrs", "pqrs"),
+            "1": ("1tuv", "tuv"),
+            "2": ("2wxyz", "wxyz"),
+            "3": ("3'-+/", "'-+/"),
+            "+": ("", "Space"),
+            "0": ("0", ""),
+            "-": ("", "Delete"),
+        }
+        self.symbols = {
+            "7": ("7&()", "&()"),
+            "8": ("8,.;", ",.;"),
+            "9": ("9:=?", ":=?"),
+            "4": ("4", ""),
+            "5": ("5", ""),
+            "6": ("6", ""),
+            "1": ("1", ""),
+            "2": ("2", ""),
+            "3": ("3", ""),
+            "+": ("", "Space"),
+            "0": ("0", ""),
+            "-": ("", "Delete"),
+        }
+        self.keys = self.base
+
+    def get_char(self, key, index):
+        if key in self.keys:
+            return self.keys[key][0][index % len(self.keys[key][0])]
+        return None
+
+    def get_display(self, key):
+        if key in self.keys:
+            return self.keys[key][1]
+        return None
+
+    def get_nr_entries(self, key):
+        if key in self.keys:
+            return len(self.keys[key][0])
+        return 0
+
+    def switch_keys(self):
+        if self.keys == self.base:
+            self.keys = self.symbols
+        else:
+            self.keys = self.base
+
+    def __contains__(self, key):
+        return key in self.keys
+
+    def __iter__(self):
+        for key, value in self.keys.items():
+            yield key, value
+
 
 
 class UITextEntry(UIModule):
@@ -26,110 +88,131 @@ class UITextEntry(UIModule):
         self.font = ImageFont.load_default()
         self.current_text = ""
         self.last_key = None
-        self.key_press_time = 0
+        self.KEYPRESS_TIMEOUT = 1
+        self.last_key_press_time = 0
         self.char_index = 0
-        self.search_objects = []
+        self.search_results = []
+        self.search_results_len_str = "0"
         self.show_keypad = True
-        self.keys = {
-            1: "1abc",
-            2: "2def",
-            3: "3ghi",
-            4: "4jkl",
-            5: "5mno",
-            6: "6pqrs",
-            7: "7tuv",
-            8: "8wxyz",
-            9: "9 '-",
-            0: "0",
-        }
+        self.keys = KeyPad()
+        self.cursor_width = self.font.getsize(' ')[0]
+        self.cursor_height = self.font.getsize(' ')[1] - 2
+        self.text_x = 7 # x value of the search text
+        self.text_x_end = 128-self.text_x
+        self.text_y = 19 # y value of the search text
 
     def draw_text_entry(self):
-        self.draw.line([(5, 30), (100, 30)], fill=self.half_red, width=1)
-        self.draw.text((10, 19), self.current_text, font=self.font, fill=self.red)
+        self.draw.line([(self.text_x, 30), (self.text_x_end, 30)], fill=self.half_red, width=1)
+        self.draw.text((self.text_x, self.text_y), self.current_text, font=self.font, fill=self.red)
+        # Calculate cursor position
+        cursor_x = self.text_x + self.font.getsize(self.current_text)[0]
+        cursor_y = self.text_y
+
+        # Draw inverted block cursor
+        if self.within_keypress_window(time.time()) and self.current_text:
+            char = self.current_text[-1]
+            self.draw.rectangle(
+                [cursor_x - self.cursor_width, cursor_y, cursor_x, cursor_y + self.cursor_height],
+                fill=self.red
+            )
+            self.draw.text(
+                (cursor_x - self.cursor_width, cursor_y),
+                char,
+                font=self.font,
+                fill=self.black
+            )
+        else:
+            self.draw.rectangle(
+                [cursor_x, cursor_y, cursor_x + self.cursor_width, cursor_y + self.cursor_height],
+                fill=self.red
+            )
 
     def draw_keypad(self):
-        keys = [
-            ("1", "abc"),
-            ("2", "def"),
-            ("3", "ghi"),
-            ("4", "jkl"),
-            ("5", "mno"),
-            ("6", "pqrs"),
-            ("7", "tuv"),
-            ("8", "wxyz"),
-            ("9", " '-"),
-            # ('*', ''), ('0', ''), ('#', '')
-        ]
-        key_size = (36, 24)
-        padding = 2
-        start_x, start_y = 10, 32
+        key_size = (38, 22)
+        padding = 0
+        start_x, start_y = self.text_x, 32
 
-        for i, (num, letters) in enumerate(keys):
+        for i, (num, letters) in enumerate(self.keys):
             x = start_x + (i % 3) * (key_size[0] + padding)
             y = start_y + (i // 3) * (key_size[1] + padding)
             self.draw.rectangle([x, y, x + key_size[0], y + key_size[1]], outline=self.half_red, width=1)
-            self.draw.text((x + 2, y + 2), num, font=self.font, fill=self.half_red)
-            self.draw.text((x + 2, y + 12), letters, font=self.font, fill=self.half_red)
+            self.draw.text((x + 2, y + 2), str(num), font=self.font, fill=self.half_red)
+            self.draw.text((x + 2, y + 12), letters[1], font=self.font, fill=self.half_red)
 
     def draw_results(self):
         item_definition = {
                 "name": "Results",
                 "class": UIObjectList,
                 "objects": "custom",
-                "object_list": self.search_objects,
+                "object_list": self.search_results,
                 }
         self.add_to_stack(item_definition)
-        # x, y = 10, 32
-        # translated = [(x["id"], x["common_name"]) for x in self.search_results]
-        # if translated:
-        #     for entry in translated:
-        #         self.draw.text((x, y), entry[1], font=self.font, fill=self.red)
-        #         y += 10
-        # else:
-        #     self.draw.text((x, y), "No results", font=self.font, fill=self.red)
 
     def draw_search_result_len(self):
+        formatted_len = format_number(len(self.search_results), 4).strip()
+        self.text_x_end = 128 - 2 - self.text_x - self.font.getsize(formatted_len)[0]
         self.draw.text(
-            (102, 19), str(len(self.search_objects)), font=self.font, fill=self.half_red
-        )
+                (self.text_x_end+2, self.text_y), formatted_len, font=self.font, fill=self.half_red)
+
+    def within_keypress_window(self, current_time) -> bool:
+        result = (current_time - self.last_key_press_time) < self.KEYPRESS_TIMEOUT
+        return result and self.keys.get_nr_entries(str(self.last_key)) > 1
+
+    def update_search_results(self):
+        results = self.catalogs.search_by_text(self.current_text)
+        self.search_results = results
+
+    def add_char(self, char):
+        self.current_text += char
+        self.update_search_results()
+
+    def delete_last_char(self):
+        self.current_text = self.current_text[:-1]
+        self.update_search_results()
 
     # def key_up(self):
     #     self.show_keypad = not self.show_keypad
+    #
+    # def key_down(self):
+    #     self.key_up()
 
     def key_right(self):
         self.draw_results()
 
-    # def key_down(self):
-    #     self.key_up()
-
     def key_square(self):
-        self.current_text = self.current_text[:-1]
+        self.keys.switch_keys()
+
+    def key_plus(self):
+        self.add_char(" ")
+
+    def key_minus(self):
+        self.delete_last_char()
+
+    def key_long_minus(self):
+        self.current_text = ""
+        self.update_search_results()
 
     def key_number(self, number):
         current_time = time.time()
-
+        number_key = str(number)
         # Check if the same key is pressed within a short time
-        if self.last_key == number and (current_time - self.key_press_time) < 1:
-            self.char_index = (self.char_index + 1) % len(self.keys[number])
-            self.current_text = self.current_text[:-1]
+        if self.last_key == number and self.within_keypress_window(current_time):
+            self.char_index = (self.char_index + 1) % self.keys.get_nr_entries(number_key)
+            self.delete_last_char()
         else:
             self.char_index = 0
-
-        self.key_press_time = current_time
+        self.last_key_press_time = current_time
         self.last_key = number
 
         # Get the current character to display
-        if number in self.keys:
-            char = self.keys[number][self.char_index]
-            self.current_text += char
-            results = self.catalogs.search_by_text(self.current_text)
-            self.search_objects = results
-            len_results = len(results)
-            print("len_results", len_results)
-            self.draw.text((100, 19), str(len_results), font=self.font, fill=self.red)
+        if number_key in self.keys:
+            char = self.keys.get_char(number_key, self.char_index)
+            if char == 'X':
+                self.delete_last_char()
+                return
+            self.add_char(char)
         else:
-            print("didn't find key", number)
-            # self.current_text += str(number)
+            print("didn't find key", number_key)
 
     def update(self, force=False):
         """
@@ -147,7 +230,6 @@ class UITextEntry(UIModule):
             self.draw_keypad()
         else:
             self.draw_results()
-        # self.display.display(self.screen)
         if self.shared_state:
             self.shared_state.set_screen(self.screen)
         return self.screen_update()

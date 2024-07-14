@@ -398,13 +398,19 @@ class Catalogs:
         if catalog:
             return catalog.get_object_by_sequence(sequence)
 
+    # this is memory efficient and doesn't hit the sdcard, but could be faster
+    # also, it could be cached
     def search_by_text(self, search_text: str) -> List[CompositeObject]:
         objs = self.get_objects(only_selected=False, filtered=False)
         result = []
+        if not search_text:
+            return result
         for obj in objs:
             for name in obj.names:
                 if search_text.lower() in name.lower():
                     result.append(obj)
+                    # print(f"Found {name} in {obj.catalog_code} {obj.sequence}")
+                    continue
         return result
 
     def set(self, catalogs: List[Catalog]):
