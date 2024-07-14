@@ -304,20 +304,3 @@ def format_number(num, width=5):
     else:
         decimal_places = max(0, width - 3)  # 'M' and at least one digit
         return f"{num/1000000:{width}.{decimal_places}f}M"
-
-# def format_number(n, width=4):
-#     """ Format a number to a string with a specified width, e.g. 1_000_000 -> '1.00M'"""
-#     if abs(n) >= 1_000_000:
-#         formatted = f"{n / 1_000_000:.{width-2}f}M"
-#     elif abs(n) >= 1_000:
-#         formatted = f"{n / 1_000:.{width-2}f}K"
-#     else:
-#         formatted = str(n)
-#
-#     # Ensure the string fits within the specified width
-#     if len(formatted) > width:
-#         formatted = formatted[:width]
-#     elif len(formatted) < width:
-#         formatted = formatted.rjust(width)
-#
-#     return formatted
