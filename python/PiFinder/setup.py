@@ -1162,7 +1162,7 @@ def load_arp():
     )
     """
     There are multiple rows per object if there are multiple names
-    so iterate through collecting names and object info and then 
+    so iterate through collecting names and object info and then
     write objects when the id changes
     """
     last_id = None

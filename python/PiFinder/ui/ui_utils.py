@@ -293,3 +293,14 @@ def name_deduplicate(names: List[str], exclude: List[str]):
             seen.add(norm_name)
             result.append(name)  # Add the original name to the result
     return result
+
+
+def format_number(num, width=5):
+    if num < 1000:
+        return f"{num:{width}d}"
+    elif num < 1000000:
+        decimal_places = max(0, width - 3)  # 'K' and at least one digit
+        return f"{num/1000:{width}.{decimal_places}f}K"
+    else:
+        decimal_places = max(0, width - 3)  # 'M' and at least one digit
+        return f"{num/1000000:{width}.{decimal_places}f}M"
