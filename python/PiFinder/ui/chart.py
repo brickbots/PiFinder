@@ -194,7 +194,7 @@ class UIChart(UIModule):
                 image_obj = self.starfield.plot_starfield(
                     self.solution["RA"],
                     self.solution["Dec"],
-                    self.solution["Roll"],
+                    self.solution["Roll"] + self.solution["Roll_offset"],
                     constellation_brightness,
                 )
                 image_obj = ImageChops.multiply(
