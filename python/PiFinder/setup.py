@@ -107,6 +107,28 @@ class NewCatalogObject:
                 break
 
 
+def dedup_names():
+    """
+    Goes through the names table and makes sure there is only one
+    of each name
+
+    CURRENTLY only prints duplicates for inspection
+    """
+
+    _conn, db_c = ObjectsDatabase().get_conn_cursor()
+    # get all names
+    names = db_c.execute("select object_id, common_name from names").fetchall()
+
+    name_dict = {}
+    for name_rec in names:
+        if name_rec["common_name"] not in name_dict.keys():
+            name_dict[name_rec["common_name"]] = name_rec["object_id"]
+        else:
+            if name_rec["object_id"] != name_dict[name_rec["common_name"]]:
+                print("FAIL")
+                print(name_rec["common_name"], name_rec["object_id"])
+
+
 class ObjectFinder:
     """
     Finds object id for a given catalog code and sequence number.
