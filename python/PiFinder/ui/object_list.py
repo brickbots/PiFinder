@@ -10,6 +10,8 @@ from enum import Enum
 from typing import Union
 from pathlib import Path
 import os
+import functools
+import math as math
 
 from PIL import Image, ImageChops
 from itertools import cycle
@@ -22,6 +24,10 @@ from PiFinder.calc_utils import aim_degrees
 from PiFinder.catalog_utils import ClosestObjectsFinder
 from PiFinder import utils
 from PiFinder.catalogs import CompositeObject
+from PiFinder.ui.ui_utils import (
+    TextLayouterScroll,
+    name_deduplicate,
+)
 
 
 class DisplayModes(Enum):
@@ -117,6 +123,12 @@ class UIObjectList(UITextMenu):
 
         self.jump_to_number = CatalogSequence()
         self.jump_input_display = False
+        self.ScrollTextLayout = functools.partial(
+            TextLayouterScroll, draw=self.draw,
+            color=self.colors.get(255)
+        )
+        self.last_item_index = -1
+        self.item_text_scroll = None
 
     def filter(self):
         self.catalogs.filter_catalogs()
@@ -185,13 +197,14 @@ class UIObjectList(UITextMenu):
             return int(255 + ((125 - 255) / (16 - 9)) * (mag - 9))
 
     def create_name_text(self, obj: CompositeObject) -> str:
-        """
-        Returns the catalog code + sequence
-        padded out to be 7 chars
-        NGC0000
-        """
+        dedups = name_deduplicate(obj.names, [f"{obj.catalog_code}{obj.sequence}"])
+        result = ", ".join(dedups)
+        return result
+
+    def create_shortname_text(self, obj: CompositeObject) -> str:
         name = f"{obj.catalog_code}{obj.sequence}"
-        return f"{name: <7}"
+        return name
+        # return f"{name: <7}"
 
     def create_locate_text(self, obj: CompositeObject) -> str:
         az, alt = aim_degrees(
@@ -236,6 +249,16 @@ class UIObjectList(UITextMenu):
         """
         return self._interpolate_color(self._safe_obj_mag(obj))
 
+    def _get_scrollspeed_config(self):
+        scroll_dict = {
+            "Off": 0,
+            "Fast": TextLayouterScroll.FAST,
+            "Med": TextLayouterScroll.MEDIUM,
+            "Slow": TextLayouterScroll.SLOW,
+        }
+        scrollspeed = self._config_options["Scrolling"]["value"]
+        return scroll_dict[scrollspeed]
+
     def active(self):
         # trigger refilter
         super().active()
@@ -244,7 +267,7 @@ class UIObjectList(UITextMenu):
 
     def update(self, force=False):
         # clear screen
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+        self.clear_screen()
 
         if len(self._menu_items) == 0:
             self.draw.text(
@@ -263,7 +286,8 @@ class UIObjectList(UITextMenu):
 
         # Draw current selection hint
         self.draw.rectangle([-1, 60, 129, 80], outline=self.colors.get(128), width=1)
-        line_number = 0
+        line_number, line_pos = 0, 0
+        line_color = None
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
             if i >= 0 and i < len(self._menu_items_sorted):
                 # figure out line position / color / font
@@ -271,6 +295,7 @@ class UIObjectList(UITextMenu):
                 _menu_item = self._menu_items_sorted[i]
                 obj_mag_color = self._obj_to_mag_color(_menu_item)
 
+                is_focus = line_number == 3
                 line_font = self.fonts.base
                 if line_number == 0:
                     line_color = int(0.38 * obj_mag_color)
@@ -281,7 +306,7 @@ class UIObjectList(UITextMenu):
                 if line_number == 2:
                     line_color = int(0.75 * obj_mag_color)
                     line_pos = 25
-                if line_number == 3:
+                if is_focus:
                     line_color = obj_mag_color
                     line_font = self.fonts.bold
                     line_pos = 42
@@ -290,7 +315,6 @@ class UIObjectList(UITextMenu):
                     line_pos = 60
                 if line_number == 5:
                     line_color = int(0.5 * obj_mag_color)
-                    line_color = 192
                     line_pos = 76
                 if line_number == 6:
                     line_color = int(0.38 * obj_mag_color)
@@ -299,7 +323,8 @@ class UIObjectList(UITextMenu):
                 # Offset for title
                 line_pos += 20
 
-                item_name = self.create_name_text(_menu_item)
+                item_name = self.create_shortname_text(_menu_item)
+                item_text = ""
                 if self.current_mode == DisplayModes.LOCATE:
                     item_text = self.create_locate_text(_menu_item)
                 elif self.current_mode == DisplayModes.NAME:
@@ -307,25 +332,45 @@ class UIObjectList(UITextMenu):
                 elif self.current_mode == DisplayModes.INFO:
                     item_text = self.create_info_text(_menu_item)
 
-                if line_number == 3:
-                    item_line = f"{item_name}{item_text}"
-                else:
-                    item_line = f"{item_name} {item_text}"
-
                 # Type Marker
-                line_bg = 0
-                if line_number == 3:
-                    line_bg = 32
+                line_bg = 32 if is_focus else 0
                 marker = self.get_marker(_menu_item.obj_type, line_color, line_bg)
                 if marker is not None:
                     self.screen.paste(marker, (0, line_pos + 2))
 
+                # calculate start of both pieces of text
+                begin_x = 12
+                space = 0 if is_focus and not self.current_mode == DisplayModes.NAME else 1
+                begin_x2 = begin_x + (len(item_name)+space)*line_font.width
+
+                # draw first text
                 self.draw.text(
-                    (12, line_pos),
-                    item_line,
+                    (begin_x, line_pos),
+                    item_name,
                     font=line_font.font,
                     fill=self.colors.get(line_color),
                 )
+                if is_focus:
+                    # should scrolling second text be refreshed?
+                    if not self.item_text_scroll or self.last_item_index != self._current_item_index or item_text != self.item_text_scroll.text:
+                        self.last_item_index = self._current_item_index
+                        self.item_text_scroll = self.ScrollTextLayout(
+                            item_text,
+                            font=self.fonts.bold,
+                            width=math.floor((self.display.width - begin_x2)/line_font.width),
+                            # scrollspeed=self._get_scrollspeed_config(),
+                            scrollspeed=TextLayouterScroll.FAST,
+                            )
+                    # draw scrolling second text
+                    self.item_text_scroll.draw((begin_x2, line_pos))
+                else:
+                    # draw non-scrolling second text
+                    self.draw.text(
+                        (begin_x2, line_pos),
+                        item_text,
+                        font=line_font.font,
+                        fill=self.colors.get(line_color),
+                    )
 
             line_number += 1
 
@@ -386,6 +431,9 @@ class UIObjectList(UITextMenu):
 
         return marker_img
 
+    def refresh(self):
+        self.last_item_index = -1
+
     def key_up(self):
         if self.jump_input_display:
             self.scroll_to_sequence(
@@ -411,6 +459,7 @@ class UIObjectList(UITextMenu):
             self.jump_to_number.reset_number()
         else:
             self.current_mode = next(self.mode_cycle)
+            self.refresh()
 
     def key_plus(self):
         """
