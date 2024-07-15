@@ -354,7 +354,7 @@ class UIObjectList(UITextMenu):
                 px_per_char = self.base_px_per_char if not is_focus else self.bold_px_per_char
                 chars_per_line = math.floor(self.display.width/px_per_char)
                 begin_x = 12
-                begin_x2 = begin_x + (len(item_name)+1)*px_per_char
+                begin_x2 = begin_x + (len(item_name))*px_per_char
 
                 # draw first text
                 self.draw.text(
@@ -364,7 +364,7 @@ class UIObjectList(UITextMenu):
                     fill=self.colors.get(line_color),
                 )
                 if is_focus:
-                    # should we refresh the scrolling second text or not
+                    # should scrolling second text be refreshed?
                     if not self.item_text_scroll or self.last_item_index != self._current_item_index or item_text != self.item_text_scroll.text:
                         self.last_item_index = self._current_item_index
                         self.item_text_scroll = self.ScrollTextLayout(
@@ -374,9 +374,10 @@ class UIObjectList(UITextMenu):
                             # scrollspeed=self._get_scrollspeed_config(),
                             scrollspeed=TextLayouterScroll.FAST,
                             )
+                    # draw scrolling second text
                     self.item_text_scroll.draw((begin_x2, line_pos))
                 else:
-                    # draw second text
+                    # draw non-scrolling second text
                     self.draw.text(
                         (begin_x2, line_pos),
                         item_text,
