@@ -4,20 +4,6 @@ import re
 import math
 
 
-def calculate_fixed_width(font, pixel_width):
-    """
-    Calculate the width of the font
-    """
-    return math.floor(pixel_width/font.getsize("M")[0])
-
-
-def pixels_per_char(font, pixel_width):
-    """
-    Calculate the pixels width per char
-    """
-    return font.getsize("M")[0]
-
-
 class SpaceCalculatorFixed:
     """Calculates spaces for fixed-width fonts"""
 

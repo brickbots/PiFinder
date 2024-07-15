@@ -26,12 +26,7 @@ from PiFinder import utils
 from PiFinder.catalogs import CompositeObject
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
-    # TextLayouter,
-    # TextLayouterSimple,
-    # SpaceCalculatorFixed,
     name_deduplicate,
-    calculate_fixed_width,
-    pixels_per_char
 )
 
 
@@ -66,7 +61,6 @@ class UIObjectList(UITextMenu):
     bulb = "󰛨"
     star = ""
     ruler = ""
-
 
     def __init__(self, *args, **kwargs) -> None:
         # hack at our item definition here to allow re-use of UITextMenu
@@ -129,11 +123,6 @@ class UIObjectList(UITextMenu):
 
         self.jump_to_number = CatalogSequence()
         self.jump_input_display = False
-        # normal font width
-        self.base_px_per_char = pixels_per_char(self.fonts.base.font,
-                                                self.display.width)
-        self.bold_px_per_char = pixels_per_char(self.fonts.bold.font,
-                                                self.display.width)
         self.ScrollTextLayout = functools.partial(
             TextLayouterScroll, draw=self.draw,
             color=self.colors.get(255)
@@ -278,8 +267,7 @@ class UIObjectList(UITextMenu):
 
     def update(self, force=False):
         # clear screen
-        self.draw.rectangle((0, 0, self.display.width, self.display.height),
-                            fill=self.colors.get(0))
+        self.clear_screen()
 
         if len(self._menu_items) == 0:
             self.draw.text(
@@ -298,8 +286,8 @@ class UIObjectList(UITextMenu):
 
         # Draw current selection hint
         self.draw.rectangle([-1, 60, 129, 80], outline=self.colors.get(128), width=1)
-        line_number = 0
-        line_pos = 0
+        line_number, line_pos = 0, 0
+        line_color = None
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
             if i >= 0 and i < len(self._menu_items_sorted):
                 # figure out line position / color / font
@@ -351,10 +339,9 @@ class UIObjectList(UITextMenu):
                     self.screen.paste(marker, (0, line_pos + 2))
 
                 # calculate start of both pieces of text
-                px_per_char = self.base_px_per_char if not is_focus else self.bold_px_per_char
-                chars_per_line = math.floor(self.display.width/px_per_char)
                 begin_x = 12
-                begin_x2 = begin_x + (len(item_name))*px_per_char
+                space = 0 if is_focus and not self.current_mode == DisplayModes.NAME else 1
+                begin_x2 = begin_x + (len(item_name)+space)*line_font.width
 
                 # draw first text
                 self.draw.text(
@@ -370,7 +357,7 @@ class UIObjectList(UITextMenu):
                         self.item_text_scroll = self.ScrollTextLayout(
                             item_text,
                             font=self.fonts.bold,
-                            width=chars_per_line - len(item_name)-1,
+                            width=math.floor((self.display.width - begin_x2)/line_font.width),
                             # scrollspeed=self._get_scrollspeed_config(),
                             scrollspeed=TextLayouterScroll.FAST,
                             )
