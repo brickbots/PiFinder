@@ -10,6 +10,7 @@ from enum import Enum
 from typing import Union
 from pathlib import Path
 import os
+import functools
 
 from PIL import Image, ImageChops
 from itertools import cycle
@@ -22,7 +23,15 @@ from PiFinder.calc_utils import aim_degrees
 from PiFinder.catalog_utils import ClosestObjectsFinder
 from PiFinder import utils
 from PiFinder.catalogs import CompositeObject
-from PiFinder.ui.ui_utils import name_deduplicate
+from PiFinder.ui.ui_utils import (
+    TextLayouterScroll,
+    # TextLayouter,
+    # TextLayouterSimple,
+    # SpaceCalculatorFixed,
+    name_deduplicate,
+    calculate_fixed_width,
+    pixels_per_char
+)
 
 
 class DisplayModes(Enum):
@@ -119,6 +128,15 @@ class UIObjectList(UITextMenu):
 
         self.jump_to_number = CatalogSequence()
         self.jump_input_display = False
+        # normal font width
+        self.base_px_per_char = pixels_per_char(self.fonts.base.font,
+                                                self.display.width)
+        self.bold_px_per_char = pixels_per_char(self.fonts.bold.font,
+                                                self.display.width)
+        self.ScrollTextLayout = functools.partial(
+            TextLayouterScroll, draw=self.draw,
+            color=self.colors.get(255)
+        )
 
     def filter(self):
         self.catalogs.filter_catalogs()
@@ -247,7 +265,8 @@ class UIObjectList(UITextMenu):
 
     def update(self, force=False):
         # clear screen
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+        self.draw.rectangle((0, 0, self.display.width, self.display.height),
+                            fill=self.colors.get(0))
 
         if len(self._menu_items) == 0:
             self.draw.text(
@@ -275,6 +294,7 @@ class UIObjectList(UITextMenu):
                 _menu_item = self._menu_items_sorted[i]
                 obj_mag_color = self._obj_to_mag_color(_menu_item)
 
+                is_focus = line_number == 3
                 line_font = self.fonts.base
                 if line_number == 0:
                     line_color = int(0.38 * obj_mag_color)
@@ -285,7 +305,7 @@ class UIObjectList(UITextMenu):
                 if line_number == 2:
                     line_color = int(0.75 * obj_mag_color)
                     line_pos = 25
-                if line_number == 3:
+                if is_focus:
                     line_color = obj_mag_color
                     line_font = self.fonts.bold
                     line_pos = 42
@@ -303,34 +323,47 @@ class UIObjectList(UITextMenu):
                 line_pos += 20
 
                 item_name = self.create_shortname_text(_menu_item)
+                item_text = ""
                 item_text_scroll = None
                 if self.current_mode == DisplayModes.LOCATE:
                     item_text = self.create_locate_text(_menu_item)
                 elif self.current_mode == DisplayModes.NAME:
                     item_text = self.create_name_text(_menu_item)
                     item_text_scroll = self.ScrollTextLayout(
-                        item_text, font=self.fonts.base,
-                        scrollspeed=self._get_scrollspeed_config(),
+                        item_text,
+                        font=self.fonts.bold if is_focus else self.fonts.base,
+                        width=self.display.width-len(item_name)-1,
+                        scrollspeed=TextLayouterScroll.MEDIUM,
                     )
                 elif self.current_mode == DisplayModes.INFO:
                     item_text = self.create_info_text(_menu_item)
 
                 # Type Marker
-                line_bg = 0
-                if line_number == 3:
-                    line_bg = 32
+                line_bg = 32 if is_focus else 0
                 marker = self.get_marker(_menu_item.obj_type, line_color, line_bg)
                 if marker is not None:
                     self.screen.paste(marker, (0, line_pos + 2))
 
+                px_per_char = self.base_px_per_char if not is_focus else self.bold_px_per_char
+                begin_x = 12
+                begin_x2 = begin_x + (len(item_name)+1)*px_per_char
+
                 self.draw.text(
-                    (12, line_pos),
-                    item_line,
+                    (begin_x, line_pos),
+                    item_name,
                     font=line_font.font,
                     fill=self.colors.get(line_color),
                 )
                 if item_text_scroll:
-                    item_text_scroll.draw(())
+                    item_text_scroll.draw((begin_x2, line_pos))
+                else:
+                    self.draw.text(
+                        (begin_x2, line_pos),
+                        item_text,
+                        font=line_font.font,
+                        fill=self.colors.get(line_color),
+                    )
+
             line_number += 1
 
         if self.jump_input_display:
