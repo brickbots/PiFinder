@@ -56,7 +56,7 @@ class UITextMenu(UIModule):
 
         line_number = 0
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
-            if i >= 0 and i < len(self._menu_items):
+            if i >= 0 and i < self.get_nr_of_menu_items():
                 # figure out line position / color / font
                 line_font = self.fonts.base
                 if line_number == 0:
@@ -117,8 +117,8 @@ class UITextMenu(UIModule):
         if self._current_item_index < 0:
             self._current_item_index = 0
 
-        if self._current_item_index >= len(self._menu_items):
-            self._current_item_index = len(self._menu_items) - 1
+        if self._current_item_index >= self.get_nr_of_menu_items():
+            self._current_item_index = self.get_nr_of_menu_items() - 1
 
     def get_item(self, item_name: str) -> Union[dict, None]:
         """
@@ -129,6 +129,9 @@ class UITextMenu(UIModule):
                 return item
 
         return None
+
+    def get_nr_of_menu_items(self):
+        return len(self._menu_items)
 
     def key_right(self):
         """
