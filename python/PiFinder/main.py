@@ -335,7 +335,6 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
             cfg,
             catalogs,
         )
-
         # Start of main except handler / loop
         screen_dim, screen_off = _calculate_timeouts(cfg)
         try:
@@ -351,7 +350,7 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
                 try:
                     gps_msg, gps_content = gps_queue.get(block=False)
                     if gps_msg == "fix":
-                        logging.debug(f"GPS fix msg: {gps_content}")
+                        # logging.debug(f"GPS fix msg: {gps_content}")
                         if gps_content["lat"] + gps_content["lon"] != 0:
                             location = shared_state.location()
                             location["lat"] = gps_content["lat"]
@@ -373,7 +372,7 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
 
                             shared_state.set_location(location)
                     if gps_msg == "time":
-                        logging.debug(f"GPS time msg: {gps_content}")
+                        # logging.debug(f"GPS time msg: {gps_content}")
                         gps_dt = gps_content
                         shared_state.set_datetime(gps_dt)
                     if gps_msg == "satellites":
