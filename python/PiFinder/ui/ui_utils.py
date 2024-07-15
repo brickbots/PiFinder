@@ -124,6 +124,7 @@ class TextLayouterScroll(TextLayouterSimple):
         self.pointer = 0
         self.textlen = len(text)
         self.updated = True
+        self.scrollspeed = scrollspeed
         if width == -1:
             self.width = font.line_length
         else:

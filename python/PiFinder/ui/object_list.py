@@ -11,6 +11,7 @@ from typing import Union
 from pathlib import Path
 import os
 import functools
+import math as math
 
 from PIL import Image, ImageChops
 from itertools import cycle
@@ -137,6 +138,8 @@ class UIObjectList(UITextMenu):
             TextLayouterScroll, draw=self.draw,
             color=self.colors.get(255)
         )
+        self.last_item_index = -1
+        self.item_text_scroll = None
 
     def filter(self):
         self.catalogs.filter_catalogs()
@@ -257,6 +260,16 @@ class UIObjectList(UITextMenu):
         """
         return self._interpolate_color(self._safe_obj_mag(obj))
 
+    def _get_scrollspeed_config(self):
+        scroll_dict = {
+            "Off": 0,
+            "Fast": TextLayouterScroll.FAST,
+            "Med": TextLayouterScroll.MEDIUM,
+            "Slow": TextLayouterScroll.SLOW,
+        }
+        scrollspeed = self._config_options["Scrolling"]["value"]
+        return scroll_dict[scrollspeed]
+
     def active(self):
         # trigger refilter
         super().active()
@@ -324,17 +337,10 @@ class UIObjectList(UITextMenu):
 
                 item_name = self.create_shortname_text(_menu_item)
                 item_text = ""
-                item_text_scroll = None
                 if self.current_mode == DisplayModes.LOCATE:
                     item_text = self.create_locate_text(_menu_item)
                 elif self.current_mode == DisplayModes.NAME:
                     item_text = self.create_name_text(_menu_item)
-                    item_text_scroll = self.ScrollTextLayout(
-                        item_text,
-                        font=self.fonts.bold if is_focus else self.fonts.base,
-                        width=self.display.width-len(item_name)-1,
-                        scrollspeed=TextLayouterScroll.MEDIUM,
-                    )
                 elif self.current_mode == DisplayModes.INFO:
                     item_text = self.create_info_text(_menu_item)
 
@@ -344,19 +350,33 @@ class UIObjectList(UITextMenu):
                 if marker is not None:
                     self.screen.paste(marker, (0, line_pos + 2))
 
+                # calculate start of both pieces of text
                 px_per_char = self.base_px_per_char if not is_focus else self.bold_px_per_char
+                chars_per_line = math.floor(self.display.width/px_per_char)
                 begin_x = 12
                 begin_x2 = begin_x + (len(item_name)+1)*px_per_char
 
+                # draw first text
                 self.draw.text(
                     (begin_x, line_pos),
                     item_name,
                     font=line_font.font,
                     fill=self.colors.get(line_color),
                 )
-                if item_text_scroll:
-                    item_text_scroll.draw((begin_x2, line_pos))
+                if is_focus:
+                    # should we refresh the scrolling second text or not
+                    if not self.item_text_scroll or self.last_item_index != self._current_item_index or item_text != self.item_text_scroll.text:
+                        self.last_item_index = self._current_item_index
+                        self.item_text_scroll = self.ScrollTextLayout(
+                            item_text,
+                            font=self.fonts.bold,
+                            width=chars_per_line - len(item_name)-1,
+                            # scrollspeed=self._get_scrollspeed_config(),
+                            scrollspeed=TextLayouterScroll.FAST,
+                            )
+                    self.item_text_scroll.draw((begin_x2, line_pos))
                 else:
+                    # draw second text
                     self.draw.text(
                         (begin_x2, line_pos),
                         item_text,
@@ -423,6 +443,9 @@ class UIObjectList(UITextMenu):
 
         return marker_img
 
+    def refresh(self):
+        self.last_item_index = -1
+
     def key_up(self):
         if self.jump_input_display:
             self.scroll_to_sequence(
@@ -448,6 +471,7 @@ class UIObjectList(UITextMenu):
             self.jump_to_number.reset_number()
         else:
             self.current_mode = next(self.mode_cycle)
+            self.refresh()
 
     def key_plus(self):
         """
