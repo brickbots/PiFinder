@@ -136,7 +136,7 @@ class UITextEntry(UIModule):
             x = start_x + (i % 3) * (key_size[0] + padding)
             y = start_y + (i // 3) * (key_size[1] + padding)
             self.draw.rectangle([x, y, x + key_size[0], y + key_size[1]], outline=self.half_red, width=1)
-            self.draw.text((x + 2, y + 1), str(num), font=self.fonts.small.font, fill=self.half_red)
+            self.draw.text((x + 2, y), str(num), font=self.fonts.base.font, fill=self.half_red)
             self.draw.text((x + 2, y + 8), letters[1], font=self.fonts.bold.font, fill=self.colors.get(192))
 
     def draw_results(self):
@@ -163,6 +163,8 @@ class UITextEntry(UIModule):
         self.search_results = results
 
     def add_char(self, char):
+        if len(self.current_text) >= 12:
+            return
         self.current_text += char
         self.update_search_results()
 
