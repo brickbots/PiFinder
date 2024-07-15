@@ -196,6 +196,6 @@ def estimate_roll_offset(solved, dt):
     roll_camera_calculated = calc_utils.sf_utils.radec_to_roll(
         solved["RA_camera"], solved["Dec_camera"], dt
     )
-    roll_offset = solved["Roll_camera"] - roll_camera_calculated
+    roll_offset = roll_camera_calculated - solved["Roll_camera"]
 
     return roll_offset
