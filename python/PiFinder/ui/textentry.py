@@ -1,11 +1,9 @@
 from PIL import Image, ImageDraw, ImageFont
 from PiFinder.ui.base import UIModule
-from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.ui_utils import format_number
 import time
-from typing import Tuple
 
 # class CompositeObjectBuilder:
 #
