@@ -372,7 +372,7 @@ class UICatalog(UIModule):
             solution = self.shared_state.solution()
             roll = 0
             if solution:
-                roll = solution["Roll"] + solution["Roll_offset"]
+                roll = solution["Roll"]
 
             self.object_image = cat_images.get_display_image(
                 cat_object,
