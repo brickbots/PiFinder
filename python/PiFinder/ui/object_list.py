@@ -421,9 +421,6 @@ class UIObjectList(UITextMenu):
                 self._current_item_index = i
                 break
 
-    def is_focus_line(self):
-        return line_number == 3
-
     def get_marker(
         self, obj_type: str, color: int, bgcolor: int
     ) -> Union[Image.Image, None]:
