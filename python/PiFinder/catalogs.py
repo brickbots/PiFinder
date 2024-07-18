@@ -410,7 +410,7 @@ class Catalogs:
                 if search_text.lower() in name.lower():
                     result.append(obj)
                     # print(f"Found {name} in {obj.catalog_code} {obj.sequence}")
-                    continue
+                    break
         return result
 
     def set(self, catalogs: List[Catalog]):

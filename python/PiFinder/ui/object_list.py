@@ -259,6 +259,7 @@ class UIObjectList(UITextMenu):
         scrollspeed = self._config_options["Scrolling"]["value"]
         return scroll_dict[scrollspeed]
 
+
     def _draw_scrollbar(self):
         # Draw scrollbar
         sbr_x = self.display.width
@@ -271,6 +272,7 @@ class UIObjectList(UITextMenu):
 
         self.draw.rectangle([sbr_x-1, sbr_y_start, sbr_x, sbr_y], fill=self.colors.get(128))
         self.draw.rectangle([sbr_x-1, sbr_y_start + box_pos - one_item_height // 2, sbr_x, sbr_y_start + box_pos + one_item_height // 2], fill=self.colors.get(255))
+
 
     def active(self):
         # trigger refilter
