@@ -104,13 +104,19 @@ class TextLayouterScroll(TextLayouterSimple):
         draw,
         color,
         font,
+        width=-1,
         scrollspeed=MEDIUM,
     ):
         self.pointer = 0
         self.textlen = len(text)
         self.updated = True
+        self.scrollspeed = scrollspeed
+        if width == -1:
+            self.width = font.line_length
+        else:
+            self.width = width
 
-        if self.textlen >= font.line_length:
+        if self.textlen >= width:
             self.dtext = text + " " * 6 + text
             self.dtextlen = len(self.dtext)
             self.counter = 0
@@ -123,10 +129,10 @@ class TextLayouterScroll(TextLayouterSimple):
         self.counter = 0
 
     def layout(self, pos: Tuple[int, int] = (0, 0)):
-        if self.textlen > self.font.line_length and self.scrollspeed > 0:
+        if self.textlen > self.width and self.scrollspeed > 0:
             if self.counter == 0:
                 self.object_text: List[str] = [
-                    self.dtext[self.pointer : self.pointer + self.font.line_length]
+                    self.dtext[self.pointer: self.pointer + self.width]
                 ]
                 self.pointer = (self.pointer + 1) % (self.textlen + 6)
             # start goes slower
