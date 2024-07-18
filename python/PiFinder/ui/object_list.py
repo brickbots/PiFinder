@@ -11,6 +11,7 @@ from typing import Union
 from pathlib import Path
 import os
 import functools
+from functools import cache
 import math as math
 
 from PIL import Image, ImageChops
@@ -155,7 +156,7 @@ class UIObjectList(UITextMenu):
                         dec,
                     )
                 )
-                self._current_item_index = 0
+                self._current_item_index = 3
 
     def format_az_alt(self, point_az, point_alt):
         if point_az >= 0:
@@ -259,7 +260,6 @@ class UIObjectList(UITextMenu):
         scrollspeed = self._config_options["Scrolling"]["value"]
         return scroll_dict[scrollspeed]
 
-
     def _draw_scrollbar(self):
         # Draw scrollbar
         sbr_x = self.display.width
@@ -273,6 +273,32 @@ class UIObjectList(UITextMenu):
         self.draw.rectangle([sbr_x-1, sbr_y_start, sbr_x, sbr_y], fill=self.colors.get(128))
         self.draw.rectangle([sbr_x-1, sbr_y_start + box_pos - one_item_height // 2, sbr_x, sbr_y_start + box_pos + one_item_height // 2], fill=self.colors.get(255))
 
+    def get_line_font_color_pos(self, line_number, menu_item, title_offset=20,
+                                is_focus=False,
+                                sort_order: SortOrder=SortOrder.CATALOG_SEQUENCE):
+        obj_mag_color = self._obj_to_mag_color(menu_item)
+
+        line_font = self.fonts.base
+        line_color = int(self.color_modifier(line_number, sort_order) * obj_mag_color)
+        line_pos = self.line_position(line_number)
+
+        if is_focus:
+            line_color = obj_mag_color
+            line_font = self.fonts.bold
+        return line_font, line_color, line_pos + title_offset
+
+    @cache
+    def color_modifier(self, line_number: int, sort_order: SortOrder):
+        if sort_order == SortOrder.NEAREST:
+            line_number_modifiers = [0.38, 0.5, 0.75, 0.8, 0.75, 0.5, 0.38]
+        else:
+            line_number_modifiers = [1, 0.75, 0.75, 0.5, 0.5, 0.38, 0.38]
+        return line_number_modifiers[line_number]
+
+    @cache
+    def line_position(self, line_number):
+        line_number_positions = [0, 13, 25, 42, 60, 76, 89]
+        return line_number_positions[line_number]
 
     def active(self):
         # trigger refilter
@@ -281,7 +307,6 @@ class UIObjectList(UITextMenu):
         self.objects_balltree = None
 
     def update(self, force=False):
-        # clear screen
         self.clear_screen()
 
         if len(self._menu_items) == 0:
@@ -300,7 +325,7 @@ class UIObjectList(UITextMenu):
             return self.screen_update()
 
         # Draw current selection hint
-        self.draw.rectangle([-1, 60, 129, 80], outline=self.colors.get(128), width=1)
+        self.draw.rectangle((-1, 60, 129, 80), outline=self.colors.get(128), width=1)
         line_number, line_pos = 0, 0
         line_color = None
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
@@ -308,35 +333,7 @@ class UIObjectList(UITextMenu):
                 # figure out line position / color / font
 
                 _menu_item = self._menu_items_sorted[i]
-                obj_mag_color = self._obj_to_mag_color(_menu_item)
-
                 is_focus = line_number == 3
-                line_font = self.fonts.base
-                if line_number == 0:
-                    line_color = int(0.38 * obj_mag_color)
-                    line_pos = 0
-                if line_number == 1:
-                    line_color = int(0.5 * obj_mag_color)
-                    line_pos = 13
-                if line_number == 2:
-                    line_color = int(0.75 * obj_mag_color)
-                    line_pos = 25
-                if is_focus:
-                    line_color = obj_mag_color
-                    line_font = self.fonts.bold
-                    line_pos = 42
-                if line_number == 4:
-                    line_color = int(0.75 * obj_mag_color)
-                    line_pos = 60
-                if line_number == 5:
-                    line_color = int(0.5 * obj_mag_color)
-                    line_pos = 76
-                if line_number == 6:
-                    line_color = int(0.38 * obj_mag_color)
-                    line_pos = 89
-
-                # Offset for title
-                line_pos += 20
 
                 item_name = self.create_shortname_text(_menu_item)
                 item_text = ""
@@ -346,6 +343,8 @@ class UIObjectList(UITextMenu):
                     item_text = self.create_name_text(_menu_item)
                 elif self.current_mode == DisplayModes.INFO:
                     item_text = self.create_info_text(_menu_item)
+
+                line_font, line_color, line_pos = self.get_line_font_color_pos(line_number, _menu_item, is_focus=is_focus)
 
                 # Type Marker
                 line_bg = 32 if is_focus else 0
@@ -421,6 +420,9 @@ class UIObjectList(UITextMenu):
             if self._menu_items_sorted[i].sequence == sequence:
                 self._current_item_index = i
                 break
+
+    def is_focus_line(self):
+        return line_number == 3
 
     def get_marker(
         self, obj_type: str, color: int, bgcolor: int
