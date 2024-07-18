@@ -50,9 +50,9 @@ class UITextMenu(UIModule):
 
     def update(self, force=False):
         # clear screen
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+        self.clear_screen()
         # Draw current selection hint
-        self.draw.rectangle([-1, 60, 129, 80], outline=self.colors.get(128), width=1)
+        self.draw.rectangle((-1, 60, 129, 80), outline=self.colors.get(128), width=1)
 
         line_number = 0
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
@@ -105,7 +105,7 @@ class UITextMenu(UIModule):
                         (5, line_pos),
                         self._CHECKMARK,
                         font=line_font.font,
-                        fill=self.colors.get(line_color),
+                        fill=self.colors.get(line_color)
                     )
 
             line_number += 1
