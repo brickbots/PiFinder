@@ -150,6 +150,7 @@ def imu_monitor(shared_state, console_queue):
         "move_start": None,
         "move_end": None,
         "pos": [0, 0, 0],
+        "quat": [0,0,0,0],
         "start_pos": [0, 0, 0],
         "status": 0,
     }
