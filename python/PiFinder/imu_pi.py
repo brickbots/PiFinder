@@ -171,6 +171,7 @@ def imu_monitor(shared_state, console_queue):
                 # print("IMU: move end")
                 imu_data["moving"] = False
                 imu_data["pos"] = imu.get_euler()
+                imu_data["quat"] = imu.avg_quat
                 imu_data["move_end"] = time.time()
 
         if not imu_calibrated:
