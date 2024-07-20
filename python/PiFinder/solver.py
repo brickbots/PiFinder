@@ -114,6 +114,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                         solved["imu_quat"] = last_image_metadata["imu"]["quat"]
                     else:
                         solved["imu_pos"] = None
+                        solved["imu_quat"] = None
                     solved["solve_time"] = time.time()
                     solved["cam_solve_time"] = solved["solve_time"]
                     solver_queue.put(solved)
