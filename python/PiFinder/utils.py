@@ -58,8 +58,9 @@ def get_os_info():
         os_detail = "N/A"
     return os_detail, platform_system, architecture
 
+
 def is_number(s):
-    """ Check if a string can be converted to a float """
+    """Check if a string can be converted to a float"""
     if s is None:
         return False
     try:
@@ -67,4 +68,3 @@ def is_number(s):
         return True
     except ValueError:
         return False
-

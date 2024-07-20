@@ -124,8 +124,7 @@ class UIObjectList(UITextMenu):
         self.jump_to_number = CatalogSequence()
         self.jump_input_display = False
         self.ScrollTextLayout = functools.partial(
-            TextLayouterScroll, draw=self.draw,
-            color=self.colors.get(255)
+            TextLayouterScroll, draw=self.draw, color=self.colors.get(255)
         )
         self.last_item_index = -1
         self.item_text_scroll = None
@@ -264,8 +263,18 @@ class UIObjectList(UITextMenu):
         box_pos = (sbr_y - sbr_y_start) * (self._current_item_index) / (total)
         # print(f"{sbr_x=} {sbr_y=} {total=} {box_pos=} {one_item_height=}, {sbr_y_start=}, {self._current_item_index=}, {self.get_nr_of_menu_items()=}")
 
-        self.draw.rectangle([sbr_x-1, sbr_y_start, sbr_x, sbr_y], fill=self.colors.get(128))
-        self.draw.rectangle([sbr_x-1, sbr_y_start + box_pos - one_item_height // 2, sbr_x, sbr_y_start + box_pos + one_item_height // 2], fill=self.colors.get(255))
+        self.draw.rectangle(
+            [sbr_x - 1, sbr_y_start, sbr_x, sbr_y], fill=self.colors.get(128)
+        )
+        self.draw.rectangle(
+            [
+                sbr_x - 1,
+                sbr_y_start + box_pos - one_item_height // 2,
+                sbr_x,
+                sbr_y_start + box_pos + one_item_height // 2,
+            ],
+            fill=self.colors.get(255),
+        )
 
     def active(self):
         # trigger refilter
@@ -348,8 +357,10 @@ class UIObjectList(UITextMenu):
 
                 # calculate start of both pieces of text
                 begin_x = 12
-                space = 0 if is_focus and not self.current_mode == DisplayModes.NAME else 1
-                begin_x2 = begin_x + (len(item_name)+space)*line_font.width
+                space = (
+                    0 if is_focus and not self.current_mode == DisplayModes.NAME else 1
+                )
+                begin_x2 = begin_x + (len(item_name) + space) * line_font.width
 
                 # draw first text
                 self.draw.text(
@@ -360,15 +371,21 @@ class UIObjectList(UITextMenu):
                 )
                 if is_focus:
                     # should scrolling second text be refreshed?
-                    if not self.item_text_scroll or self.last_item_index != self._current_item_index or item_text != self.item_text_scroll.text:
+                    if (
+                        not self.item_text_scroll
+                        or self.last_item_index != self._current_item_index
+                        or item_text != self.item_text_scroll.text
+                    ):
                         self.last_item_index = self._current_item_index
                         self.item_text_scroll = self.ScrollTextLayout(
                             item_text,
                             font=self.fonts.bold,
-                            width=math.floor((self.display.width - begin_x2)/line_font.width),
+                            width=math.floor(
+                                (self.display.width - begin_x2) / line_font.width
+                            ),
                             # scrollspeed=self._get_scrollspeed_config(),
                             scrollspeed=TextLayouterScroll.FAST,
-                            )
+                        )
                     # draw scrolling second text
                     self.item_text_scroll.draw((begin_x2, line_pos))
                 else:

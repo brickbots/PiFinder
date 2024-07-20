@@ -10,7 +10,6 @@ import time
 
 from PiFinder import cat_images
 from PiFinder.catalog_utils import ClosestObjectsFinder
-from PiFinder.composite_object import MagnitudeObject
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.ui_utils import (

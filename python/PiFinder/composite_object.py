@@ -30,7 +30,7 @@ class MagnitudeObject:
         return [float(x) for x in self.mags if is_number(x)]
 
     def calc_two_mag_representation(self):
-        """ reduce the mags to a string with max 2 values """
+        """reduce the mags to a string with max 2 values"""
         if len(self.mags) == 0 or self.filter_mag == self.UNKNOWN_MAG:
             return "-"
         elif len(self.mags) == 1:
@@ -40,10 +40,7 @@ class MagnitudeObject:
             return f"{np.min(filtered)}/{np.max(filtered)}"
 
     def to_json(self):
-        return json.dumps({
-            'mags': self.mags,
-            'filter_mag': self.filter_mag
-        })
+        return json.dumps({"mags": self.mags, "filter_mag": self.filter_mag})
 
     def __repr__(self):
         return f"MagnitudeObject({self.mags}, {self.filter_mag})"
@@ -51,7 +48,7 @@ class MagnitudeObject:
     @classmethod
     def from_json(cls, json_str):
         data = json.loads(json_str)
-        obj = cls(data['mags'])
+        obj = cls(data["mags"])
         return obj
 
 
@@ -94,5 +91,3 @@ class CompositeObject:
         Returns the display name for this object
         """
         return f"{self.catalog_code} {self.sequence}"
-
-

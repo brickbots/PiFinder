@@ -3,7 +3,6 @@ import logging
 import time
 import datetime
 import pytz
-import numpy as np
 from pprint import pformat
 
 from typing import List, Dict, DefaultDict, Optional, Union

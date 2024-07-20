@@ -30,12 +30,9 @@ from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from collections import namedtuple, defaultdict
 import sqlite3
-import numpy as np
 
 objects_db: ObjectsDatabase
 observations_db: ObservationsDatabase
-
-
 
 
 @dataclass
@@ -862,7 +859,7 @@ def load_taas200():
             )
             dec = dec_to_deg(dec_deg, float(row["Dec Min"]), 0)
             mag = row["Magnitude"]
-            if mag == "none" or mag == '':
+            if mag == "none" or mag == "":
                 mag = MagnitudeObject([])
             else:
                 mag = MagnitudeObject([float(mag)])
@@ -1266,7 +1263,7 @@ def load_tlk_90_vars():
 
     # Open the file for reading
     with open(data, "r") as file:
-        reader = csv.DictReader(file, delimiter=';')
+        reader = csv.DictReader(file, delimiter=";")
         for nr, row in enumerate(tqdm(list(reader))):
             # Extract the relevant parts of each line based on byte positions
 
@@ -1274,7 +1271,7 @@ def load_tlk_90_vars():
             print(row)
             ra_h = int(row["RA2K_H"])
             ra_m = int(row["RA2K_M"])
-            ra_s = float(row["RA2K_S"].replace(',', '.'))
+            ra_s = float(row["RA2K_S"].replace(",", "."))
             ra_deg = ra_to_deg(ra_h, ra_m, ra_s)
 
             dec_sign = -1 if row["DEC2K_SIGN"] == "-" else 1
@@ -1284,12 +1281,12 @@ def load_tlk_90_vars():
             dec_deg = dec_to_deg(dec_deg, dec_m, dec_s)
 
             desc = str(row["DESCRIPTION"])
-            mag_max = float(row["MagMax"].replace(',', '.'))
-            mag_min = float(row["MagMin"].replace(',', '.'))
+            mag_max = float(row["MagMax"].replace(",", "."))
+            mag_min = float(row["MagMin"].replace(",", "."))
             mag_object = MagnitudeObject([mag_max, mag_min])
 
             current_akas = row["STAR"].split(",") if row["STAR"] else []
-            if (row["SAO#"]):
+            if row["SAO#"]:
                 current_akas.append(f"SAO {row['SAO#']}")
 
             new_object = NewCatalogObject(
@@ -1299,7 +1296,7 @@ def load_tlk_90_vars():
                 ra=ra_deg,
                 dec=dec_deg,
                 mag=mag_object,
-                size='',
+                size="",
                 description=desc,
                 aka_names=current_akas,
             )
@@ -1383,7 +1380,7 @@ def load_ngc_catalog():
                 line_size = line[32:33]
                 size = line_size + line[33:38]
                 mag = line[40:44].strip()
-                if mag == '':
+                if mag == "":
                     mag = MagnitudeObject([])
                 else:
                     mag = MagnitudeObject([float(mag)])
