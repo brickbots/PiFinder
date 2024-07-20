@@ -16,6 +16,7 @@ import math as math
 from PIL import Image, ImageChops
 from itertools import cycle
 
+from PiFinder.ui.base import MarkingMenuOption
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_details import UIObjectDetails
@@ -55,6 +56,12 @@ class UIObjectList(UITextMenu):
     """
 
     __title__ = "OBJECTS"
+    _marking_menu_items = [
+        MarkingMenuOption(display=False),
+        MarkingMenuOption(label="Nearby"),
+        MarkingMenuOption(label="Settings"),
+        MarkingMenuOption(label="Catalog"),
+    ]
     checkmark = "󰄵"
     checkmark_no = ""
     sun = "󰖨"
@@ -106,6 +113,13 @@ class UIObjectList(UITextMenu):
         self.sort_cycle = cycle(SortOrder)
         self.current_sort = next(self.sort_cycle)
 
+        if self.current_sort == SortOrder.CATALOG_SEQUENCE:
+            self._marking_menu_items[3].selected = True
+            self._marking_menu_items[1].selected = False
+        else:
+            self._marking_menu_items[1].selected = True
+            self._marking_menu_items[3].selected = False
+
         marker_path = Path(utils.pifinder_dir, "markers")
         self.markers = {}
         render_size = (11, 11)
@@ -124,8 +138,7 @@ class UIObjectList(UITextMenu):
         self.jump_to_number = CatalogSequence()
         self.jump_input_display = False
         self.ScrollTextLayout = functools.partial(
-            TextLayouterScroll, draw=self.draw,
-            color=self.colors.get(255)
+            TextLayouterScroll, draw=self.draw, color=self.colors.get(255)
         )
         self.last_item_index = -1
         self.item_text_scroll = None
@@ -259,7 +272,6 @@ class UIObjectList(UITextMenu):
         scrollspeed = self._config_options["Scrolling"]["value"]
         return scroll_dict[scrollspeed]
 
-
     def _draw_scrollbar(self):
         # Draw scrollbar
         sbr_x = self.display.width
@@ -267,12 +279,21 @@ class UIObjectList(UITextMenu):
         sbr_y = self.display.height
         total = self.get_nr_of_menu_items()
         one_item_height = max(1, int((sbr_y - sbr_y_start) / total))
-        box_pos = (sbr_y - sbr_y_start) * self._current_item_index / (total-1)
+        box_pos = (sbr_y - sbr_y_start) * self._current_item_index / (total - 1)
         # print(f"{sbr_x=} {sbr_y=} {total=} {box_pos=} {one_item_height=}, {sbr_y_start=}, {self._current_item_index=}, {self.get_nr_of_menu_items()=}")
 
-        self.draw.rectangle([sbr_x-1, sbr_y_start, sbr_x, sbr_y], fill=self.colors.get(128))
-        self.draw.rectangle([sbr_x-1, sbr_y_start + box_pos - one_item_height // 2, sbr_x, sbr_y_start + box_pos + one_item_height // 2], fill=self.colors.get(255))
-
+        self.draw.rectangle(
+            [sbr_x - 1, sbr_y_start, sbr_x, sbr_y], fill=self.colors.get(128)
+        )
+        self.draw.rectangle(
+            [
+                sbr_x - 1,
+                sbr_y_start + box_pos - one_item_height // 2,
+                sbr_x,
+                sbr_y_start + box_pos + one_item_height // 2,
+            ],
+            fill=self.colors.get(255),
+        )
 
     def active(self):
         # trigger refilter
@@ -355,8 +376,10 @@ class UIObjectList(UITextMenu):
 
                 # calculate start of both pieces of text
                 begin_x = 12
-                space = 0 if is_focus and not self.current_mode == DisplayModes.NAME else 1
-                begin_x2 = begin_x + (len(item_name)+space)*line_font.width
+                space = (
+                    0 if is_focus and not self.current_mode == DisplayModes.NAME else 1
+                )
+                begin_x2 = begin_x + (len(item_name) + space) * line_font.width
 
                 # draw first text
                 self.draw.text(
@@ -367,15 +390,21 @@ class UIObjectList(UITextMenu):
                 )
                 if is_focus:
                     # should scrolling second text be refreshed?
-                    if not self.item_text_scroll or self.last_item_index != self._current_item_index or item_text != self.item_text_scroll.text:
+                    if (
+                        not self.item_text_scroll
+                        or self.last_item_index != self._current_item_index
+                        or item_text != self.item_text_scroll.text
+                    ):
                         self.last_item_index = self._current_item_index
                         self.item_text_scroll = self.ScrollTextLayout(
                             item_text,
                             font=self.fonts.bold,
-                            width=math.floor((self.display.width - begin_x2)/line_font.width),
+                            width=math.floor(
+                                (self.display.width - begin_x2) / line_font.width
+                            ),
                             # scrollspeed=self._get_scrollspeed_config(),
                             scrollspeed=TextLayouterScroll.FAST,
-                            )
+                        )
                     # draw scrolling second text
                     self.item_text_scroll.draw((begin_x2, line_pos))
                 else:
@@ -466,7 +495,7 @@ class UIObjectList(UITextMenu):
         else:
             super().key_down()
 
-    def key_square(self):
+    def cycle_display_mode(self):
         """
         Switch display modes
         """
@@ -477,11 +506,22 @@ class UIObjectList(UITextMenu):
             self.current_mode = next(self.mode_cycle)
             self.refresh()
 
-    def key_plus(self):
+    def marking_menu_left(self):
         """
         Switch sort modes
         """
-        self.current_sort = next(self.sort_cycle)
+        self.current_sort = SortOrder.CATALOG_SEQUENCE
+        self._marking_menu_items[3].selected = True
+        self._marking_menu_items[1].selected = False
+        self.sort()
+
+    def marking_menu_right(self):
+        """
+        Switch sort modes
+        """
+        self.current_sort = SortOrder.NEAREST
+        self._marking_menu_items[1].selected = True
+        self._marking_menu_items[3].selected = False
         self.sort()
 
     def key_right(self):

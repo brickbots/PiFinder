@@ -25,6 +25,8 @@ class MenuManager:
         self.stack: List[Type[UIModule]] = []
         self.add_to_stack(menu_structure.pifinder_menu)
 
+        self.marking_menu_active = False
+
     def remove_from_stack(self) -> None:
         if len(self.stack) > 1:
             self.stack.pop()
@@ -64,7 +66,8 @@ class MenuManager:
         self.stack[-1].screengrab()  # type: ignore[call-arg]
 
     def update(self) -> None:
-        self.stack[-1].update()  # type: ignore[call-arg]
+        if not self.marking_menu_active:
+            self.stack[-1].update()  # type: ignore[call-arg]
 
     def key_number(self, number):
         self.stack[-1].key_number(number)
@@ -75,8 +78,22 @@ class MenuManager:
     def key_minus(self):
         self.stack[-1].key_minus()
 
+    def key_long_square(self):
+        if not self.marking_menu_active:
+            if self.stack[-1]._marking_menu_items is not None:
+                self.marking_menu_active = True
+        else:
+            self.marking_menu_active = False
+
+        if self.marking_menu_active:
+            self.stack[-1].draw_marking_menu()
+
     def key_square(self):
-        self.stack[-1].key_square()
+        if self.marking_menu_active:
+            self.marking_menu_active = False
+            self.update()
+        else:
+            self.stack[-1].key_square()
 
     def key_long_up(self):
         pass
@@ -95,13 +112,33 @@ class MenuManager:
         self.stack[0].active()
 
     def key_left(self):
-        self.remove_from_stack()
+        if self.marking_menu_active:
+            self.marking_menu_active = False
+            self.stack[-1].marking_menu_left()
+            self.update()
+        else:
+            self.remove_from_stack()
 
     def key_up(self):
-        self.stack[-1].key_up()
+        if self.marking_menu_active:
+            self.marking_menu_active = False
+            self.stack[-1].marking_menu_up()
+            self.update()
+        else:
+            self.stack[-1].key_up()
 
     def key_down(self):
-        self.stack[-1].key_down()
+        if self.marking_menu_active:
+            self.marking_menu_active = False
+            self.stack[-1].marking_menu_down()
+            self.update()
+        else:
+            self.stack[-1].key_down()
 
     def key_right(self):
-        self.stack[-1].key_right()
+        if self.marking_menu_active:
+            self.marking_menu_active = False
+            self.stack[-1].marking_menu_right()
+            self.update()
+        else:
+            self.stack[-1].key_right()

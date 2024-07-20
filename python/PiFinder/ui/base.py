@@ -8,12 +8,28 @@ This module contains the base UIModule class
 import os
 import time
 import uuid
-from typing import Type
+from itertools import cycle
+from typing import Type, Union
+from dataclasses import dataclass
 
 from PIL import Image, ImageDraw
 from PiFinder import utils
 from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
+
+
+@dataclass
+class MarkingMenuOption:
+    display: bool = True  # Should this item be drawn?
+    enabled: bool = True  # Should this item be enabled/clickable
+    label: str = ""
+    selected: bool = False  # Draw highlighted?
+
+    def __str__(self):
+        return self.label
+
+    def __repr__(self):
+        return self.label
 
 
 class UIModule:
@@ -30,6 +46,8 @@ class UIModule:
     _CHECKMARK = ""
     _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
+    _display_mode_list = [None]  # List of display modes
+    _marking_menu_items: Union[None, list[MarkingMenuOption]] = None
 
     def __init__(
         self,
@@ -56,6 +74,10 @@ class UIModule:
         self.add_to_stack = add_to_stack
         self.remove_from_stack = remove_from_stack
 
+        # mode stuff
+        self._display_mode_cycle = cycle(self._display_mode_list)
+        self.display_mode = next(self._display_mode_cycle)
+
         self.screen = Image.new("RGB", display_class.resolution)
         self.draw = ImageDraw.Draw(self.screen, mode="RGBA")
         self.fonts = self.display_class.fonts
@@ -63,6 +85,61 @@ class UIModule:
         # UI Module definition
         self.item_definition = item_definition
         self.title = item_definition.get("name", self.title)
+
+        # Precalculate marking menu for resolution indepedance
+        mm_box_size = (56, 28)
+        mm_box_horizontal_spacing = int(
+            (
+                self.display_class.resY
+                - self.display_class.titlebar_height
+                - (mm_box_size[1] * 3)
+            )
+            / 4
+        )
+        mm_box_vertical_spacing = int(
+            (self.display_class.resX - (mm_box_size[0] * 2)) / 3
+        )
+        self._mm_menu_boxes = [
+            (
+                self.display_class.resX / 2 - mm_box_size[0] / 2,
+                self.display_class.titlebar_height + mm_box_horizontal_spacing,
+                self.display_class.resX / 2 + mm_box_size[0] / 2,
+                self.display_class.titlebar_height
+                + mm_box_horizontal_spacing
+                + mm_box_size[1],
+            ),
+            (
+                self.display_class.resX - mm_box_vertical_spacing - mm_box_size[0],
+                self.display_class.titlebar_height
+                + (mm_box_horizontal_spacing * 2)
+                + mm_box_size[1],
+                self.display_class.resX - mm_box_vertical_spacing,
+                self.display_class.titlebar_height
+                + (mm_box_horizontal_spacing * 2)
+                + (mm_box_size[1] * 2),
+            ),
+            (
+                self.display_class.resX / 2 - mm_box_size[0] / 2,
+                self.display_class.resY - mm_box_horizontal_spacing - mm_box_size[1],
+                self.display_class.resX / 2 + mm_box_size[0] / 2,
+                self.display_class.resY - mm_box_horizontal_spacing,
+            ),
+            (
+                mm_box_vertical_spacing,
+                self.display_class.titlebar_height
+                + (mm_box_horizontal_spacing * 2)
+                + mm_box_size[1],
+                mm_box_vertical_spacing + mm_box_size[0],
+                self.display_class.titlebar_height
+                + (mm_box_horizontal_spacing * 2)
+                + (mm_box_size[1] * 2),
+            ),
+        ]
+        self._mm_text_anchor_offset = (
+            1,
+            int((mm_box_size[1] - self.fonts.bold.height) / 2),
+        )
+        self._mm_menu_box_text_width = int(mm_box_size[0] / self.fonts.bold.width)
 
         # screenshot stuff
         root_dir = str(utils.data_dir)
@@ -117,6 +194,54 @@ class UIModule:
             ],
             fill=self.colors.get(0),
         )
+
+    def draw_marking_menu(self):
+        """
+        Draws the marking menu
+        """
+
+        # dim the background
+        self.draw.rectangle(
+            [
+                0,
+                self.display_class.titlebar_height,
+                self.display_class.resX,
+                self.display_class.resY,
+            ],
+            fill=(0, 0, 0, 128),
+        )
+
+        # cycle through starting at top and going clockwise
+        # draw four boxes with the contents of the marking
+        # menu labels
+        for i, mm_item in enumerate(self._marking_menu_items):
+            if mm_item.display:
+                if mm_item.selected:
+                    box_fill = 128
+                    text_color = 0
+                else:
+                    box_fill = 0
+                    text_color = 255
+
+                self.draw.rectangle(
+                    self._mm_menu_boxes[i],
+                    outline=self.colors.get(192),
+                    fill=self.colors.get(box_fill),
+                )
+                box_padding = " " * int(
+                    (self._mm_menu_box_text_width - len(mm_item.label)) / 2
+                )
+                box_text = box_padding + mm_item.label
+                self.draw.text(
+                    (
+                        self._mm_menu_boxes[i][0] + self._mm_text_anchor_offset[0],
+                        self._mm_menu_boxes[i][1] + self._mm_text_anchor_offset[1],
+                    ),
+                    box_text,
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(text_color),
+                )
+        self.display.display(self.screen.convert(self.display.mode))
 
     def message(self, message, timeout=2, size=[5, 44, 123, 84]):
         """
@@ -245,24 +370,26 @@ class UIModule:
         self.last_update_time = time.time()
         return
 
-    def check_hotkey(self, key):
+    # Marking menu items
+    def cycle_display_mode(self):
         """
-               Scans config for a matching
-        _       hotkey and if found, cycles
-               that config item.
-
-               Returns true if hotkey found
-               false if not or no config
+        Cycle through available display modes
+        for a module.  Invoked when the square
+        key is pressed
         """
-        if self._config_options is None:
-            return False
+        self.display_mode = next(self._display_mode_cycle)
 
-        for config_item_name, config_item in self._config_options.items():
-            if config_item.get("hotkey") == key:
-                self.cycle_config(config_item_name)
-                return True
+    def marking_menu_up(self):
+        pass
 
-        return False
+    def marking_menu_down(self):
+        pass
+
+    def marking_menu_left(self):
+        pass
+
+    def marking_menu_right(self):
+        pass
 
     def key_number(self, number):
         pass
@@ -274,7 +401,8 @@ class UIModule:
         pass
 
     def key_square(self):
-        pass
+        self.cycle_display_mode()
+        self.update()
 
     def key_long_up(self):
         pass
