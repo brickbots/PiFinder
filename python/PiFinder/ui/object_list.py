@@ -10,6 +10,7 @@ from enum import Enum
 from typing import Union
 from pathlib import Path
 import os
+import time
 import functools
 from functools import cache
 import math as math
@@ -48,6 +49,53 @@ class SortOrder(Enum):
 
     CATALOG_SEQUENCE = 0  # By catalog/sequence
     NEAREST = 1  # By Distance to target
+
+
+class Nearby():
+    """ Nearby class to calcluate and display the closest objects """
+
+    def __init__(self, shared_state, ui: UITextMenu, n_closest=100) -> None:
+        self.shared_state = shared_state
+        self.ui = ui
+        self.closest_objects_finder = ClosestObjectsFinder()
+        self.last_ra = 0
+        self.last_dec = 0
+
+    def set_items(self, items: list[CompositeObject]):
+        self.closest_objects_finder.calculate_objects_balltree(
+            objects=items,
+        )
+
+    def should_refresh(self):
+        if not self.shared_state.solution():
+            return False
+        ra, dec = (
+            self.shared_state.solution()["RA"],
+            self.shared_state.solution()["Dec"],
+        )
+        return abs(ra-self.last_ra) > 0.1 or abs(dec-self.last_dec) > 0.1 or time.time() - self.last_refresh > 2
+
+    def refresh(self):
+        if not self.shared_state.solution():
+            self.ui.message("No Solution Yet", 2)
+        else:
+            ra, dec = (
+                self.shared_state.solution()["RA"],
+                self.shared_state.solution()["Dec"],
+            )
+            self.last_ra = ra
+            self.last_dec = dec
+            self.last_refresh = time.time()
+
+            self.result = (
+                self.closest_objects_finder.get_closest_objects(
+                    ra,
+                    dec,
+                    100
+                )
+            )
+            # print(f"refresh: {ra=} {dec=} {self.result[:3]=}")
+            return self.result
 
 
 class UIObjectList(UITextMenu):
@@ -97,10 +145,8 @@ class UIObjectList(UITextMenu):
 
         self._menu_items_sorted = self._menu_items
         if len(self._menu_items) > 0:
-            self.closest_objects_finder = ClosestObjectsFinder()
-            self.closest_objects_finder.calculate_objects_balltree(
-                objects=self._menu_items,
-            )
+            self.nearby = Nearby(self.shared_state, self)
+            self.nearby.set_items(self._menu_items)
 
         self.mode_cycle = cycle(DisplayModes)
         self.current_mode = next(self.mode_cycle)
@@ -144,21 +190,8 @@ class UIObjectList(UITextMenu):
             self._current_item_index = 0
 
         if self.current_sort == SortOrder.NEAREST:
-            if not self.shared_state.solution():
-                self.message("No Solution Yet", 2)
-            else:
-                ra, dec = (
-                    self.shared_state.solution()["RA"],
-                    self.shared_state.solution()["Dec"],
-                )
-
-                self._menu_items_sorted = (
-                    self.closest_objects_finder.get_closest_objects(
-                        ra,
-                        dec,
-                    )
-                )
-                self._current_item_index = 3
+            self._menu_items_sorted = self.nearby.refresh()
+            self._current_item_index = 3
 
     def format_az_alt(self, point_az, point_alt):
         if point_az >= 0:
@@ -316,6 +349,7 @@ class UIObjectList(UITextMenu):
         self.clear_screen()
         begin_x = 12
 
+        # no objects to display
         if len(self._menu_items) == 0:
             self.draw.text(
                 (begin_x, self.line_position(2)),
@@ -331,6 +365,11 @@ class UIObjectList(UITextMenu):
             )
             return self.screen_update()
 
+        # should we refresh the nearby list?
+        if self.current_sort == SortOrder.NEAREST and self.nearby.should_refresh():
+            self._menu_items_sorted = self.nearby.refresh()
+
+        # Draw sorting mode in empty space
         if self._current_item_index < 3:
             intensity: int = int(64+((2.0 - self._current_item_index)*32.0))
             self.draw.text(
@@ -390,7 +429,7 @@ class UIObjectList(UITextMenu):
                             width=math.floor(
                                 (self.display.width - begin_x2)/line_font.width),
                             # scrollspeed=self._get_scrollspeed_config(),
-                            scrollspeed=TextLayouterScroll.FAST,
+                            scrollspeed=TextLayouterScroll.MEDIUM,
                         )
                     # draw scrolling second text
                     self.item_text_scroll.draw((begin_x2, line_pos))

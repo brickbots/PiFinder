@@ -301,7 +301,10 @@ def name_deduplicate(names: List[str], exclude: List[str]):
     return result
 
 
-def format_number(num, width=5):
+def format_number(num: float, width=5):
+    """
+    Format a number with K (thousands) or M (millions) suffix.
+    """
     if num < 1000:
         return f"{num:{width}d}"
     elif num < 1000000:
