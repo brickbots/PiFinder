@@ -3,6 +3,7 @@ import logging
 import time
 import datetime
 import pytz
+import numpy as np
 from pprint import pformat
 
 from typing import List, Dict, DefaultDict, Optional, Union
@@ -12,7 +13,7 @@ from PiFinder.state import SharedStateObj
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
-from PiFinder.composite_object import CompositeObject
+from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.calc_utils import sf_utils
 
 # collection of all catalog-related classes
@@ -116,7 +117,6 @@ class CatalogFilter:
     @object_types.setter
     def object_types(self, object_types: Union[list[str], None]):
         self._object_types = object_types
-        print(object_types)
         self.dirty_time = time.time()
 
     @property
@@ -602,7 +602,9 @@ class CatalogBuilder:
             composite_instance = CompositeObject.from_dict(composite_data)
             composite_instance.logged = obs_db.check_logged(composite_instance)
             composite_instance.names = common_names.get_name(object_id)
-
+            mag = MagnitudeObject.from_json(composite_instance.mag)
+            composite_instance.mag = mag
+            composite_instance.mag_str = mag.calc_two_mag_representation()
             # Append to the result dictionary
             composite_objects.append(composite_instance)
         return composite_objects

@@ -10,6 +10,7 @@ import time
 
 from PiFinder import cat_images
 from PiFinder.catalog_utils import ClosestObjectsFinder
+from PiFinder.composite_object import MagnitudeObject
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.ui_utils import (
@@ -293,6 +294,7 @@ class UICatalog(UIModule):
             return
 
         if self.object_display_mode == DM_DESC:
+            print("We're in DM_DESC")
             # text stuff....
             current_desig = str(self.catalog_tracker.get_designator())
 
@@ -311,10 +313,9 @@ class UICatalog(UIModule):
             )
             # Magnitude / Size
             # try to get object mag to float
-            try:
-                obj_mag = float(cat_object.mag)
-            except (ValueError, TypeError):
-                obj_mag = "-" if cat_object.mag == "" else cat_object.mag
+
+            obj_mag = cat_object.mag.calc_two_mag_representation()
+            print(f"in desc: obj_mag: {obj_mag}")
 
             size = str(cat_object.size).strip()
             size = "-" if size == "" else size
@@ -332,6 +333,7 @@ class UICatalog(UIModule):
                     spaces, magsize = self.space_calculator.calculate_spaces(
                         obj_mag, size
                     )
+            print(f"in desc: magsize: {magsize}")
 
             self.texts["magsize"] = self.simpleTextLayout(
                 magsize, font=self.fonts.bold, color=self.colors.get(255)
@@ -403,6 +405,7 @@ class UICatalog(UIModule):
         # Clear Screen
         self.clear_screen()
         cat_object = self.catalog_tracker.get_current_object()
+        print(f"in update catalog: {cat_object}")
 
         if self.object_display_mode == DM_DESC or cat_object is None:
             # catalog and entry field i.e. NGC-311

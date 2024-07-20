@@ -170,6 +170,12 @@ pifinder_menu = {
                                     "objects": "catalog",
                                     "value": "RDS",
                                 },
+                                {
+                                    "name": "TLK 90 Variables",
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "TLK",
+                                },
                             ],
                         },
                     ],
@@ -293,6 +299,10 @@ pifinder_menu = {
                                 {
                                     "name": "RASC Doubles",
                                     "value": "RDS",
+                                },
+                                {
+                                    "name": "TLK 90 Variables",
+                                    "value": "TLK",
                                 },
                             ],
                         },

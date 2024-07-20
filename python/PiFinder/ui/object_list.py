@@ -236,12 +236,7 @@ class UIObjectList(UITextMenu):
         """
         Extract the magnitude safely from the object
         """
-        try:
-            obj_mag = float(obj.mag)
-        except (ValueError, TypeError):
-            obj_mag = 99
-
-        return obj_mag
+        return obj.mag.filter_mag
 
     def _obj_to_mag_color(self, obj: CompositeObject) -> int:
         """
@@ -259,7 +254,6 @@ class UIObjectList(UITextMenu):
         scrollspeed = self._config_options["Scrolling"]["value"]
         return scroll_dict[scrollspeed]
 
-
     def _draw_scrollbar(self):
         # Draw scrollbar
         sbr_x = self.display.width
@@ -267,12 +261,11 @@ class UIObjectList(UITextMenu):
         sbr_y = self.display.height
         total = self.get_nr_of_menu_items()
         one_item_height = max(1, int((sbr_y - sbr_y_start) / total))
-        box_pos = (sbr_y - sbr_y_start) * self._current_item_index / (total-1)
+        box_pos = (sbr_y - sbr_y_start) * (self._current_item_index) / (total)
         # print(f"{sbr_x=} {sbr_y=} {total=} {box_pos=} {one_item_height=}, {sbr_y_start=}, {self._current_item_index=}, {self.get_nr_of_menu_items()=}")
 
         self.draw.rectangle([sbr_x-1, sbr_y_start, sbr_x, sbr_y], fill=self.colors.get(128))
         self.draw.rectangle([sbr_x-1, sbr_y_start + box_pos - one_item_height // 2, sbr_x, sbr_y_start + box_pos + one_item_height // 2], fill=self.colors.get(255))
-
 
     def active(self):
         # trigger refilter
