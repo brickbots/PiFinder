@@ -51,8 +51,8 @@ class SortOrder(Enum):
     NEAREST = 1  # By Distance to target
 
 
-class Nearby():
-    """ Nearby class to calcluate and display the closest objects """
+class Nearby:
+    """Nearby class to calcluate and display the closest objects"""
 
     def __init__(self, shared_state, ui: UITextMenu, n_closest=100) -> None:
         self.shared_state = shared_state
@@ -73,7 +73,11 @@ class Nearby():
             self.shared_state.solution()["RA"],
             self.shared_state.solution()["Dec"],
         )
-        return abs(ra-self.last_ra) > 0.1 or abs(dec-self.last_dec) > 0.1 or time.time() - self.last_refresh > 2
+        return (
+            abs(ra - self.last_ra) > 0.1
+            or abs(dec - self.last_dec) > 0.1
+            or time.time() - self.last_refresh > 2
+        )
 
     def refresh(self):
         if not self.shared_state.solution():
@@ -87,13 +91,7 @@ class Nearby():
             self.last_dec = dec
             self.last_refresh = time.time()
 
-            self.result = (
-                self.closest_objects_finder.get_closest_objects(
-                    ra,
-                    dec,
-                    100
-                )
-            )
+            self.result = self.closest_objects_finder.get_closest_objects(ra, dec, 100)
             # print(f"refresh: {ra=} {dec=} {self.result[:3]=}")
             return self.result
 
@@ -119,8 +117,7 @@ class UIObjectList(UITextMenu):
         kwargs["item_definition"] = item_definition
 
         super().__init__(*args, **kwargs)
-        self.screen_direction = self.config_object.get_option(
-            "screen_direction")
+        self.screen_direction = self.config_object.get_option("screen_direction")
         self.mount_type = self.config_object.get_option("mount_type")
 
         self._menu_items: list[CompositeObject] = []
@@ -172,8 +169,7 @@ class UIObjectList(UITextMenu):
         self.jump_to_number = CatalogSequence()
         self.jump_input_display = False
         self.ScrollTextLayout = functools.partial(
-            TextLayouterScroll, draw=self.draw,
-            color=self.colors.get(255)
+            TextLayouterScroll, draw=self.draw, color=self.colors.get(255)
         )
         self.last_item_index = -1
         self.item_text_scroll = None
@@ -233,8 +229,7 @@ class UIObjectList(UITextMenu):
             return int(255 + ((125 - 255) / (16 - 9)) * (mag - 9))
 
     def create_name_text(self, obj: CompositeObject) -> str:
-        dedups = name_deduplicate(
-            obj.names, [f"{obj.catalog_code}{obj.sequence}"])
+        dedups = name_deduplicate(obj.names, [f"{obj.catalog_code}{obj.sequence}"])
         result = ", ".join(dedups)
         return result
 
@@ -303,22 +298,33 @@ class UIObjectList(UITextMenu):
         sbr_y = self.display.height
         total = self.get_nr_of_menu_items()
         one_item_height = max(1, int((sbr_y - sbr_y_start) / total))
-        box_pos = (sbr_y - sbr_y_start) * self._current_item_index / (total-1)
+        box_pos = (sbr_y - sbr_y_start) * self._current_item_index / (total - 1)
         # print(f"{sbr_x=} {sbr_y=} {total=} {box_pos=} {one_item_height=}, {sbr_y_start=}, {self._current_item_index=}, {self.get_nr_of_menu_items()=}")
 
-        self.draw.rectangle([sbr_x-1, sbr_y_start, sbr_x,
-                            sbr_y], fill=self.colors.get(128))
-        self.draw.rectangle([sbr_x-1, sbr_y_start + box_pos - one_item_height // 2, sbr_x,
-                            sbr_y_start + box_pos + one_item_height // 2], fill=self.colors.get(255))
+        self.draw.rectangle(
+            [sbr_x - 1, sbr_y_start, sbr_x, sbr_y], fill=self.colors.get(128)
+        )
+        self.draw.rectangle(
+            [
+                sbr_x - 1,
+                sbr_y_start + box_pos - one_item_height // 2,
+                sbr_x,
+                sbr_y_start + box_pos + one_item_height // 2,
+            ],
+            fill=self.colors.get(255),
+        )
 
-    def get_line_font_color_pos(self, line_number, menu_item,
-                                is_focus=False,
-                                sort_order: SortOrder = SortOrder.CATALOG_SEQUENCE):
+    def get_line_font_color_pos(
+        self,
+        line_number,
+        menu_item,
+        is_focus=False,
+        sort_order: SortOrder = SortOrder.CATALOG_SEQUENCE,
+    ):
         obj_mag_color = self._obj_to_mag_color(menu_item)
 
         line_font = self.fonts.base
-        line_color = int(self.color_modifier(
-            line_number, sort_order) * obj_mag_color)
+        line_color = int(self.color_modifier(line_number, sort_order) * obj_mag_color)
         line_pos = self.line_position(line_number)
 
         if is_focus:
@@ -371,7 +377,7 @@ class UIObjectList(UITextMenu):
 
         # Draw sorting mode in empty space
         if self._current_item_index < 3:
-            intensity: int = int(64+((2.0 - self._current_item_index)*32.0))
+            intensity: int = int(64 + ((2.0 - self._current_item_index) * 32.0))
             self.draw.text(
                 (begin_x, self.line_position(0)),
                 f"Sort: {'Catalog' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'Nearby'}",
@@ -379,8 +385,7 @@ class UIObjectList(UITextMenu):
                 fill=self.colors.get(intensity),
             )
         # Draw current selection hint
-        self.draw.rectangle((-1, 60, 129, 80),
-                            outline=self.colors.get(128), width=1)
+        self.draw.rectangle((-1, 60, 129, 80), outline=self.colors.get(128), width=1)
         line_number, line_pos = 0, 0
         line_color = None
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
@@ -399,18 +404,20 @@ class UIObjectList(UITextMenu):
 
                 # figure out line position / color / font
                 line_font, line_color, line_pos = self.get_line_font_color_pos(
-                    line_number, _menu_item, is_focus=is_focus)
+                    line_number, _menu_item, is_focus=is_focus
+                )
 
                 # Type Marker
                 line_bg = 32 if is_focus else 0
-                marker = self.get_marker(
-                    _menu_item.obj_type, line_color, line_bg)
+                marker = self.get_marker(_menu_item.obj_type, line_color, line_bg)
                 if marker is not None:
                     self.screen.paste(marker, (0, line_pos + 2))
 
                 # calculate start of both pieces of text
-                space = 0 if is_focus and not self.current_mode == DisplayModes.NAME else 1
-                begin_x2 = begin_x + (len(item_name)+space)*line_font.width
+                space = (
+                    0 if is_focus and not self.current_mode == DisplayModes.NAME else 1
+                )
+                begin_x2 = begin_x + (len(item_name) + space) * line_font.width
 
                 # draw first text
                 self.draw.text(
@@ -421,13 +428,18 @@ class UIObjectList(UITextMenu):
                 )
                 if is_focus:
                     # should scrolling second text be refreshed?
-                    if not self.item_text_scroll or self.last_item_index != self._current_item_index or item_text != self.item_text_scroll.text:
+                    if (
+                        not self.item_text_scroll
+                        or self.last_item_index != self._current_item_index
+                        or item_text != self.item_text_scroll.text
+                    ):
                         self.last_item_index = self._current_item_index
                         self.item_text_scroll = self.ScrollTextLayout(
                             item_text,
                             font=self.fonts.bold,
                             width=math.floor(
-                                (self.display.width - begin_x2)/line_font.width),
+                                (self.display.width - begin_x2) / line_font.width
+                            ),
                             # scrollspeed=self._get_scrollspeed_config(),
                             scrollspeed=TextLayouterScroll.MEDIUM,
                         )
@@ -466,8 +478,7 @@ class UIObjectList(UITextMenu):
 
         if direction == "down":
             search_list = list(
-                range(self._current_item_index + 1,
-                      len(self._menu_items_sorted))
+                range(self._current_item_index + 1, len(self._menu_items_sorted))
             )
         else:
             search_list = list(range(0, self._current_item_index - 1))

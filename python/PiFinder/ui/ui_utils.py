@@ -132,7 +132,7 @@ class TextLayouterScroll(TextLayouterSimple):
         if self.textlen > self.width and self.scrollspeed > 0:
             if self.counter == 0:
                 self.object_text: List[str] = [
-                    self.dtext[self.pointer: self.pointer + self.width]
+                    self.dtext[self.pointer : self.pointer + self.width]
                 ]
                 self.pointer = (self.pointer + 1) % (self.textlen + 6)
             # start goes slower

@@ -105,7 +105,7 @@ class UITextMenu(UIModule):
                         (5, line_pos),
                         self._CHECKMARK,
                         font=line_font.font,
-                        fill=self.colors.get(line_color)
+                        fill=self.colors.get(line_color),
                     )
 
             line_number += 1
