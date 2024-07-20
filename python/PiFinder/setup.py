@@ -1267,8 +1267,7 @@ def load_tlk_90_vars():
         for nr, row in enumerate(tqdm(list(reader))):
             # Extract the relevant parts of each line based on byte positions
 
-            v90_id = nr
-            print(row)
+            v90_id = nr+1
             ra_h = int(row["RA2K_H"])
             ra_m = int(row["RA2K_M"])
             ra_s = float(row["RA2K_S"].replace(",", "."))

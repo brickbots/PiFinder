@@ -27,8 +27,8 @@ def test_object_counts():
         "B": 343,
         "Sh2": 313,
         "Abl": 79,
-        "Arp": 3368,
-        "TLK": 90,
+        "Arp": 336,
+        "TLK": 93,
     }
 
     # catalog count
