@@ -22,7 +22,6 @@ from PiFinder.ui.ui_utils import normalize
 from PiFinder.calc_utils import (
     ra_to_deg,
     dec_to_deg,
-    sf_utils,
     b1950_to_j2000,
 )
 from PiFinder import calc_utils
@@ -45,7 +44,6 @@ class NewCatalogObject:
     mag: MagnitudeObject
     object_id: int = 0
     size: str = ""
-    constellation: str = field(default="", init=False)
     description: str = ""
     aka_names: list[str] = field(default_factory=list)
 
@@ -413,7 +411,6 @@ def load_collinder():
         [
             "sequence",
             "other_names",
-            "const",
             "ra_deg",
             "dec_deg",
             "size",
@@ -430,7 +427,6 @@ def load_collinder():
             if other_names.isnumeric():
                 other_names = "NGC " + other_names
 
-            const = dfs[2]
             ra = dfs[3]
             ra_h = int(ra[0:2])
             ra_m = int(ra[4:6])
@@ -454,7 +450,6 @@ def load_collinder():
             collinder = Collinder(
                 sequence=sequence,
                 other_names=other_names.strip(),
-                const=const,
                 ra_deg=ra_deg,
                 dec_deg=dec_deg,
                 size=size,
@@ -529,7 +524,7 @@ def load_bright_stars():
 
             logging.debug(f"---------------> Bright Stars {sequence=} <---------------")
             size = ""
-            const = dfs[2].strip()
+            # const = dfs[2].strip()
             desc = ""
 
             ra_h = int(dfs[3])
@@ -620,7 +615,7 @@ def load_sac_asterisms():
             logging.debug(
                 f"---------------> SAC Asterisms {sequence=} <---------------"
             )
-            const = dfs[2].strip()
+            # const = dfs[2].strip()
             ra = dfs[3].strip()
             dec = dfs[4].strip()
             mag = dfs[5].strip()
@@ -765,7 +760,7 @@ def load_sac_redstars():
             logging.debug(
                 f"---------------> SAC Red Stars {sequence=} <---------------"
             )
-            const = dfs[3].strip()
+            # const = dfs[3].strip()
             ra = dfs[4].strip()
             dec = dfs[5].strip()
             size = ""
@@ -966,7 +961,7 @@ def load_rasc_double_Stars():
             alternate_ids = dfs[2].split(",")
             wds = dfs[3]
             obj_type = "D*"
-            const = dfs[4]
+            # const = dfs[4]
             mags = json.loads(dfs[7])
             mag = MagnitudeObject(mags)
             size = dfs[8]
@@ -1045,7 +1040,6 @@ def load_barnard():
             dec_m = DE2000m
             dec_deg = dec_to_deg(dec_deg, dec_m, 0)
             desc = barn_dict[Barn].strip()
-            const = sf_utils.radec_to_constellation(ra_deg, dec_deg)
 
             new_object = NewCatalogObject(
                 object_type=obj_type,
@@ -1267,7 +1261,7 @@ def load_tlk_90_vars():
         for nr, row in enumerate(tqdm(list(reader))):
             # Extract the relevant parts of each line based on byte positions
 
-            v90_id = nr+1
+            v90_id = nr + 1
             ra_h = int(row["RA2K_H"])
             ra_m = int(row["RA2K_M"])
             ra_s = float(row["RA2K_S"].replace(",", "."))
