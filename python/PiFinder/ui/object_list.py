@@ -82,6 +82,7 @@ class Nearby:
     def refresh(self):
         if not self.shared_state.solution():
             self.ui.message("No Solution Yet", 2)
+            return []
         else:
             ra, dec = (
                 self.shared_state.solution()["RA"],
@@ -389,7 +390,7 @@ class UIObjectList(UITextMenu):
         line_number, line_pos = 0, 0
         line_color = None
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
-            if i >= 0 and i < len(self._menu_items_sorted):
+            if self._menu_items_sorted and i >= 0 and i < len(self._menu_items_sorted):
                 _menu_item = self._menu_items_sorted[i]
                 is_focus = line_number == 3
 
