@@ -11,7 +11,9 @@ from typing import Union
 from pathlib import Path
 import os
 import functools
+from functools import cache
 import math as math
+import numpy as np
 
 from PIL import Image, ImageChops
 from itertools import cycle
@@ -21,9 +23,9 @@ from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_details import UIObjectDetails
 
 from PiFinder.calc_utils import aim_degrees
-from PiFinder.catalog_utils import ClosestObjectsFinder
 from PiFinder import utils
 from PiFinder.catalogs import CompositeObject
+from PiFinder.nearby import Nearby
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     name_deduplicate,
@@ -94,11 +96,7 @@ class UIObjectList(UITextMenu):
             self._menu_items = item_definition["object_list"]
 
         self._menu_items_sorted = self._menu_items
-        if len(self._menu_items) > 0:
-            self.closest_objects_finder = ClosestObjectsFinder()
-            self.closest_objects_finder.calculate_objects_balltree(
-                objects=self._menu_items,
-            )
+        self.nearby = Nearby(self.shared_state)
 
         self.mode_cycle = cycle(DisplayModes)
         self.current_mode = next(self.mode_cycle)
@@ -133,28 +131,23 @@ class UIObjectList(UITextMenu):
         self.catalogs.filter_catalogs()
 
     def sort(self) -> None:
-        self.message("Sorting...", 0.1)
+        message = f"Sorting by\n{'number' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'nearby'}"
+        self.message(message, 0.1)
         self.update()
         if self.current_sort == SortOrder.CATALOG_SEQUENCE:
             self._menu_items_sorted = self._menu_items
             self._current_item_index = 0
 
         if self.current_sort == SortOrder.NEAREST:
-            if not self.shared_state.solution():
-                self.message("No Solution Yet", 2)
-            else:
-                ra, dec = (
-                    self.shared_state.solution()["RA"],
-                    self.shared_state.solution()["Dec"],
-                )
+            self.nearby.set_items(self._menu_items)
+            self.nearby_refresh()
+            self._current_item_index = 3
 
-                self._menu_items_sorted = (
-                    self.closest_objects_finder.get_closest_objects(
-                        ra,
-                        dec,
-                    )
-                )
-                self._current_item_index = 0
+    def nearby_refresh(self):
+        self._menu_items_sorted = self.nearby.refresh()
+        if self._menu_items_sorted is None:
+            self._menu_items_sorted = self._menu_items
+            self.message("No Solution Yet", 2)
 
     def format_az_alt(self, point_az, point_alt):
         if point_az >= 0:
@@ -283,62 +276,46 @@ class UIObjectList(UITextMenu):
         self.objects_balltree = None
 
     def update(self, force=False):
-        # clear screen
         self.clear_screen()
+        begin_x = 12
 
+        # no objects to display
         if len(self._menu_items) == 0:
             self.draw.text(
-                (12, 42),
+                (begin_x, self.line_position(2)),
                 "No objects",
                 font=self.fonts.bold.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (12, 60),
+                (begin_x, self.line_position(3)),
                 "match filter",
                 font=self.fonts.bold.font,
                 fill=self.colors.get(255),
             )
             return self.screen_update()
 
+        # should we refresh the nearby list?
+        if self.current_sort == SortOrder.NEAREST and self.nearby.should_refresh():
+            self.nearby_refresh()
+
+        # Draw sorting mode in empty space
+        if self._current_item_index < 3:
+            intensity: int = int(64 + ((2.0 - self._current_item_index) * 32.0))
+            self.draw.text(
+                (begin_x, self.line_position(0)),
+                f"Sort: {'Catalog' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'Nearby'}",
+                font=self.fonts.bold.font,
+                fill=self.colors.get(intensity),
+            )
         # Draw current selection hint
-        self.draw.rectangle([-1, 60, 129, 80], outline=self.colors.get(128), width=1)
+        self.draw.rectangle((-1, 60, 129, 80), outline=self.colors.get(128), width=1)
         line_number, line_pos = 0, 0
         line_color = None
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
             if i >= 0 and i < len(self._menu_items_sorted):
-                # figure out line position / color / font
-
                 _menu_item = self._menu_items_sorted[i]
-                obj_mag_color = self._obj_to_mag_color(_menu_item)
-
                 is_focus = line_number == 3
-                line_font = self.fonts.base
-                if line_number == 0:
-                    line_color = int(0.38 * obj_mag_color)
-                    line_pos = 0
-                if line_number == 1:
-                    line_color = int(0.5 * obj_mag_color)
-                    line_pos = 13
-                if line_number == 2:
-                    line_color = int(0.75 * obj_mag_color)
-                    line_pos = 25
-                if is_focus:
-                    line_color = obj_mag_color
-                    line_font = self.fonts.bold
-                    line_pos = 42
-                if line_number == 4:
-                    line_color = int(0.75 * obj_mag_color)
-                    line_pos = 60
-                if line_number == 5:
-                    line_color = int(0.5 * obj_mag_color)
-                    line_pos = 76
-                if line_number == 6:
-                    line_color = int(0.38 * obj_mag_color)
-                    line_pos = 89
-
-                # Offset for title
-                line_pos += 20
 
                 item_name = self.create_shortname_text(_menu_item)
                 item_text = ""
@@ -349,6 +326,11 @@ class UIObjectList(UITextMenu):
                 elif self.current_mode == DisplayModes.INFO:
                     item_text = self.create_info_text(_menu_item)
 
+                # figure out line position / color / font
+                line_font, line_color, line_pos = self.get_line_font_color_pos(
+                    line_number, _menu_item, is_focus=is_focus
+                )
+
                 # Type Marker
                 line_bg = 32 if is_focus else 0
                 marker = self.get_marker(_menu_item.obj_type, line_color, line_bg)
@@ -356,7 +338,6 @@ class UIObjectList(UITextMenu):
                     self.screen.paste(marker, (0, line_pos + 2))
 
                 # calculate start of both pieces of text
-                begin_x = 12
                 space = (
                     0 if is_focus and not self.current_mode == DisplayModes.NAME else 1
                 )
@@ -384,7 +365,7 @@ class UIObjectList(UITextMenu):
                                 (self.display.width - begin_x2) / line_font.width
                             ),
                             # scrollspeed=self._get_scrollspeed_config(),
-                            scrollspeed=TextLayouterScroll.FAST,
+                            scrollspeed=TextLayouterScroll.MEDIUM,
                         )
                     # draw scrolling second text
                     self.item_text_scroll.draw((begin_x2, line_pos))
@@ -520,6 +501,12 @@ class UIObjectList(UITextMenu):
         self.scroll_to_sequence(self.jump_to_number.object_number)
 
         self.update()
+
+    def key_long_up(self):
+        self.menu_scroll(-1)
+
+    def key_long_down(self):
+        self.menu_scroll(999999999999999999999999999)
 
 
 class CatalogSequence:

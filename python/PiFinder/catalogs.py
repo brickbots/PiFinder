@@ -524,7 +524,7 @@ class PlanetCatalog(Catalog):
 
         obj = CompositeObject.from_dict(
             {
-                "id": -1,
+                "id": 0,
                 "obj_type": "Pla",
                 "ra": ra,
                 "dec": dec,
@@ -570,9 +570,25 @@ class CatalogBuilder:
             datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC"))
         )
         all_catalogs.add(planet_catalog)
+        self.assign_virtual_object_ids(planet_catalog, all_catalogs)
 
         assert self.check_catalogs_sequences(all_catalogs) is True
         return all_catalogs
+
+    def assign_virtual_object_ids(self, catalog: Catalog, catalogs: Catalogs):
+        """
+        Assigns virtual object ids to the catalog objects
+        """
+        low_id = self.check_lowest_object_id(catalogs)
+        for obj in catalog.get_objects():
+            low_id -= 1
+            obj.object_id = low_id
+
+    def check_lowest_object_id(self, catalogs: Catalogs) -> int:
+        """ check the lowest object_id in all catalogs """
+        objs = catalogs.get_objects(only_selected=False, filtered=False)
+        lowest_object_id = min([x.object_id for x in objs])
+        return lowest_object_id
 
     def check_catalogs_sequences(self, catalogs: Catalogs):
         for catalog in catalogs.get_catalogs():
