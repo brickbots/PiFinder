@@ -21,6 +21,10 @@ from skyfield.api import load
 from skyfield.data import mpc
 from skyfield.constants import GM_SUN_Pitjeva_2005_km3_s2 as GM_SUN
 from skyfield.elementslib import osculating_elements_of
+from PiFinder.utils import Timer
+import numpy as np
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from functools import partial
 
 
 class FastAltAz:
@@ -442,51 +446,20 @@ class Skyfield_utils:
             }
         return planet_dict
 
-    # def calc_comets(self, dt):
-    #     """Returns dictionary with all comet positions:
-    #     {'C/1995 O1 (Hale-Bopp)': {'radec': (279.05819685702846, -23.176809282384962),
-    #                                 'radec_pretty': ((18.0, 36.0, 14), (-23, 10, 36.51)),
-    #                                 'altaz': (1.667930045300066, 228.61434416619613)},
-    #     }
-    #     """
-    #     t = self.ts.from_datetime(dt)
-    #     observer = self.observer_loc.at(t)
-    #     sun = self.eph['sun']
-    #
-    #     # Load comets data
-    #     with load.open(mpc.COMET_URL) as f:
-    #         comets_df = mpc.load_comets_dataframe(f)
-    #
-    #     # Prepare comets dataframe
-    #     comets_df = (comets_df.sort_values('reference')
-    #                  .groupby('designation', as_index=False).last()
-    #                  .set_index('designation', drop=False))
-    #
-    #     comet_dict = {}
-    #     for name, row in comets_df.iterrows():
-    #         comet = sun + mpc.comet_orbit(row, self.ts, GM_SUN)
-    #
-    #         astrometric = observer.observe(comet).apparent()
-    #         ra, dec, _ = astrometric.radec()
-    #         alt, az, _ = astrometric.altaz()
-    #
-    #         ra_dec = (ra._degrees, dec.degrees)
-    #         ra_dec_pretty = (ra_to_hms(ra._degrees), dec_to_dms(dec.degrees))
-    #         alt_az = (alt.degrees, az.degrees)
-    #
-    #         comet_dict[name] = {
-    #             "radec": ra_dec,
-    #             "radec_pretty": ra_dec_pretty,
-    #             "altaz": alt_az,
-    #         }
-    #
-    #     return comet_dict
+    def is_pickleable(self, obj):
+        import pickle
+        try:
+            pickle.dumps(obj)
+            return True
+        except pickle.PicklingError:
+            return False
+        except TypeError:  # Some objects raise TypeError instead of PicklingError
+            return False
 
     def calc_comets(self, dt):
         t = self.ts.from_datetime(dt)
         observer = self.observer_loc.at(t)
         sun = self.eph['sun']
-        earth = self.eph['earth']
 
         with load.open(mpc.COMET_URL) as f:
             comets_df = mpc.load_comets_dataframe(f)
@@ -495,87 +468,53 @@ class Skyfield_utils:
                      .groupby('designation', as_index=False).last()
                      .set_index('designation', drop=False))
 
-        comet_dict = {}
-        for name, row in comets_df.iterrows():
-            comet = sun + mpc.comet_orbit(row, self.ts, GM_SUN)
+        # Convert DataFrame to list of tuples with row as dict
+        comet_data = [(name, row.to_dict()) for name, row in comets_df.iterrows()]
 
-            astrometric = observer.observe(comet).apparent()
-            ra, dec, earth_comet = astrometric.radec()
-            alt, az, _ = astrometric.altaz()
+        # Get GCRS vectors for sun and observer
+        sun_gcrs = sun.at(t)
+        observer_gcrs = observer
+        print(f"is pcikleable: {self.is_pickleable(observer_gcrs)}, {self.is_pickleable(sun_gcrs)}")
 
-            # Calculate sun-comet distance
-            sun_comet = sun.at(t).observe(comet).distance().au
-
-            # Calculate magnitude
-            g = row.get('magnitude_g', 10)  # Default to 10 if not available
-            k = row.get('magnitude_k', 10)  # Default to 10 if not available
-            mag = g + 5 * math.log10(earth_comet.au) + k * math.log10(sun_comet)
-            print(f"calculated comet mag as {mag}")
-
-            # Calculate orbital elements
-            elements = osculating_elements_of(comet.at(t))
-
-            ra_dec = (ra._degrees, dec.degrees)
-            ra_dec_pretty = (ra_to_hms(ra._degrees), dec_to_dms(dec.degrees))
-            alt_az = (alt.degrees, az.degrees)
-
-            comet_dict[name] = {
-                "radec": ra_dec,
-                "radec_pretty": ra_dec_pretty,
-                "altaz": alt_az,
-                "mag": mag,
-                "earth_distance": earth_comet.au,
-                "sun_distance": sun_comet,
-                "orbital_elements": elements,
-                "row": row  # Keep the original row data for additional information
-            }
+        with ProcessPoolExecutor() as executor:
+            process_comet_partial = partial(process_comet, sun_gcrs=sun_gcrs, observer_gcrs=observer_gcrs, t=t)
+            future_to_comet = {executor.submit(process_comet_partial, cd): cd for cd in comet_data}
+            comet_dict = {}
+            for future in as_completed(future_to_comet):
+                try:
+                    name, comet_data = future.result()
+                    comet_dict[name] = comet_data
+                except Exception as e:
+                    print(f"Error processing comet: {str(e)}")
 
         return comet_dict
 
-    # def calc_comets(self, dt):
-    #     t = self.ts.from_datetime(dt)
-    #     observer = self.observer_loc.at(t)
-    #     sun = self.eph['sun']
-    #     earth = self.eph['earth']
-    #
-    #     with load.open(mpc.COMET_URL) as f:
-    #         comets_df = mpc.load_comets_dataframe(f)
-    #
-    #     comets_df = (comets_df.sort_values('reference')
-    #                  .groupby('designation', as_index=False).last()
-    #                  .set_index('designation', drop=False))
-    #
-    #     comet_dict = {}
-    #     for name, row in comets_df.iterrows():
-    #         comet = sun + mpc.comet_orbit(row, self.ts, GM_SUN)
-    #
-    #         astrometric = observer.observe(comet).apparent()
-    #         ra, dec, distance = astrometric.radec()
-    #         alt, az, _ = astrometric.altaz()
-    #
-    #         # Calculate distances
-    #         sun_comet = sun.at(t).observe(comet).distance().au
-    #         earth_comet = earth.at(t).observe(comet).distance().au
-    #
-    #         # Calculate magnitude
-    #         g = row.get('magnitude_g', 10)  # Default to 10 if not available
-    #         k = row.get('magnitude_k', 10)  # Default to 10 if not available
-    #         mag = g + 5 * math.log10(earth_comet) + 2.5 * k * math.log10(sun_comet)
-    #
-    #         ra_dec = (ra._degrees, dec.degrees)
-    #         ra_dec_pretty = (ra_to_hms(ra._degrees), dec_to_dms(dec.degrees))
-    #         alt_az = (alt.degrees, az.degrees)
-    #
-    #         comet_dict[name] = {
-    #             "radec": ra_dec,
-    #             "radec_pretty": ra_dec_pretty,
-    #             "altaz": alt_az,
-    #             "mag": f"{mag:.2f}",
-    #             "earth_distance": earth_comet,
-    #             "sun_distance": sun_comet
-    #         }
-    #
-    #     return comet_dict
-
-
+def process_comet(comet_data, sun_gcrs, observer_gcrs, t):
+    name, row_dict = comet_data
+    row = pd.Series(row_dict)
+    ts = load.timescale()
+    eph = load('de421.bsp')
+    sun = eph['sun']
+    comet = sun + mpc.comet_orbit(row, ts, GM_SUN)
+    astrometric = observer_gcrs.observe(comet).apparent()
+    ra, dec, earth_comet = astrometric.radec()
+    alt, az, _ = astrometric.altaz()
+    sun_comet = sun_gcrs.observe(comet).distance().au
+    g = row.get('magnitude_g', 10)
+    k = row.get('magnitude_k', 10)
+    mag = g + 5 * np.log10(earth_comet.au) + k * np.log10(sun_comet)
+    elements = osculating_elements_of(comet.at(t))
+    ra_dec = (ra._degrees, dec.degrees)
+    ra_dec_pretty = (ra_to_hms(ra._degrees), dec_to_dms(dec.degrees))
+    alt_az = (alt.degrees, az.degrees)
+    return name, {
+        "radec": ra_dec,
+        "radec_pretty": ra_dec_pretty,
+        "altaz": alt_az,
+        "mag": mag,
+        "earth_distance": earth_comet.au,
+        "sun_distance": sun_comet,
+        "orbital_elements": elements,
+        "row": row_dict
+    }
 sf_utils = Skyfield_utils()

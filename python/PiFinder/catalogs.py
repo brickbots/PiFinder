@@ -14,6 +14,7 @@ from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.calc_utils import sf_utils
+from PiFinder.utils import Timer
 
 # collection of all catalog-related classes
 
@@ -245,7 +246,7 @@ class CatalogBase:
 
     def _add_object(self, obj: CompositeObject):
         self.__objects.append(obj)
-        print(f"Adding {obj} to {self.catalog_code}, with mag {obj.mag}")
+        # print(f"Adding {obj} to {self.catalog_code}, with mag {obj.mag}")
         if(obj.sequence > self.max_sequence):
             self.max_sequence = obj.sequence
 
