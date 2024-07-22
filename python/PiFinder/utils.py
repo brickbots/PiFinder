@@ -57,3 +57,27 @@ def get_os_info():
     else:
         os_detail = "N/A"
     return os_detail, platform_system, architecture
+
+
+class Timer:
+    """
+    Time multiple code blocks using a context manager.
+    Usage:
+
+        with Timer("deduplicate_objects 1"):
+            results1 = deduplicate_objects(results*10)
+        with Timer("deduplicate_objects 2"):
+            results2 = deduplicate_objects(results*10)
+    """
+
+    def __init__(self, name):
+        self.name = name
+        self.start_time = None
+
+    def __enter__(self):
+        self.start_time = time.time()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        end_time = time.time()
+        elapsed_time = end_time - self.start_time
+        print(f"{self.name}: {elapsed_time:.6f} seconds")

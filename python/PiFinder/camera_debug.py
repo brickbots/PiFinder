@@ -16,6 +16,7 @@ from PiFinder.camera_interface import CameraInterface
 from typing import Tuple
 import time
 import logging
+from itertools import cycle
 
 
 class CameraDebug(CameraInterface):
@@ -31,10 +32,18 @@ class CameraDebug(CameraInterface):
         self.path = utils.pifinder_dir / "test_images"
         self.exposure_time = exposure_time
         self.gain = 10
-        self.image = Image.open(self.path / "debug.png")
-        self.image2 = Image.open(self.path / "debug2.png")
         self.image_bool = True
+        self.setup_debug_images()
         self.initialize()
+
+    def setup_debug_images(self) -> None:
+        self.image1 = Image.open(self.path / "debug1.png")
+        self.image2 = Image.open(self.path / "debug2.png")
+        self.image3 = Image.open(self.path / "debug3.png")
+        self.images = [self.image1, self.image2, self.image3]
+        self.image_cycle = cycle(self.images)
+        self.last_image_time: float = 0
+        self.last_image = self.image1
 
     def initialize(self) -> None:
         pass
@@ -43,8 +52,10 @@ class CameraDebug(CameraInterface):
         sleep_time = self.exposure_time / 1000000
         time.sleep(sleep_time)
         logging.debug("CameraDebug exposed for %s seconds", sleep_time)
-        self.image_bool = not self.image_bool
-        return self.image if self.image_bool else self.image2
+        if time.time() - self.last_image_time > 5:
+            self.last_image = next(self.image_cycle)
+            self.last_image_time = time.time()
+        return self.last_image
 
     def capture_file(self, filename) -> None:
         print("capture_file not implemented")

@@ -1,4 +1,4 @@
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 from PiFinder.ui.base import UIModule
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.ui.object_list import UIObjectList
@@ -73,7 +73,6 @@ class KeyPad:
 
 
 class UITextEntry(UIModule):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.db: ObjectsDatabase = ObjectsDatabase()
@@ -97,13 +96,22 @@ class UITextEntry(UIModule):
         self.cursor_width = self.fonts.bold.width
         self.cursor_height = self.fonts.bold.height
         self.text_x = 7  # x value of the search text
-        self.text_x_end = 128-self.text_x
+        self.text_x_end = 128 - self.text_x
         self.text_y = 15  # y value of the search text
 
     def draw_text_entry(self):
         line_text_y = self.text_y + 15
-        self.draw.line([(self.text_x, line_text_y), (self.text_x_end, line_text_y)], fill=self.half_red, width=1)
-        self.draw.text((self.text_x, self.text_y), self.current_text, font=self.bold.font, fill=self.red)
+        self.draw.line(
+            [(self.text_x, line_text_y), (self.text_x_end, line_text_y)],
+            fill=self.half_red,
+            width=1,
+        )
+        self.draw.text(
+            (self.text_x, self.text_y),
+            self.current_text,
+            font=self.bold.font,
+            fill=self.red,
+        )
         # Calculate cursor position
         cursor_x = self.text_x + self.bold.font.getsize(self.current_text)[0]
         cursor_y = self.text_y
@@ -112,19 +120,29 @@ class UITextEntry(UIModule):
         if self.within_keypress_window(time.time()) and self.current_text:
             char = self.current_text[-1]
             self.draw.rectangle(
-                [cursor_x - self.cursor_width, cursor_y, cursor_x, cursor_y + self.cursor_height],
-                fill=self.red
+                [
+                    cursor_x - self.cursor_width,
+                    cursor_y,
+                    cursor_x,
+                    cursor_y + self.cursor_height,
+                ],
+                fill=self.red,
             )
             self.draw.text(
                 (cursor_x - self.cursor_width, cursor_y),
                 char,
                 font=self.bold.font,
-                fill=self.black
+                fill=self.black,
             )
         else:
             self.draw.rectangle(
-                [cursor_x, cursor_y, cursor_x + self.cursor_width, cursor_y + self.cursor_height],
-                fill=self.red
+                [
+                    cursor_x,
+                    cursor_y,
+                    cursor_x + self.cursor_width,
+                    cursor_y + self.cursor_height,
+                ],
+                fill=self.red,
             )
 
     def draw_keypad(self):
@@ -135,24 +153,39 @@ class UITextEntry(UIModule):
         for i, (num, letters) in enumerate(self.keys):
             x = start_x + (i % 3) * (key_size[0] + padding)
             y = start_y + (i // 3) * (key_size[1] + padding)
-            self.draw.rectangle([x, y, x + key_size[0], y + key_size[1]], outline=self.half_red, width=1)
-            self.draw.text((x + 2, y), str(num), font=self.fonts.base.font, fill=self.half_red)
-            self.draw.text((x + 2, y + 8), letters[1], font=self.fonts.bold.font, fill=self.colors.get(192))
+            self.draw.rectangle(
+                [x, y, x + key_size[0], y + key_size[1]], outline=self.half_red, width=1
+            )
+            self.draw.text(
+                (x + 2, y), str(num), font=self.fonts.base.font, fill=self.half_red
+            )
+            self.draw.text(
+                (x + 2, y + 8),
+                letters[1],
+                font=self.fonts.bold.font,
+                fill=self.colors.get(192),
+            )
 
     def draw_results(self):
         item_definition = {
-                "name": "Results",
-                "class": UIObjectList,
-                "objects": "custom",
-                "object_list": self.search_results,
-                }
+            "name": "Results",
+            "class": UIObjectList,
+            "objects": "custom",
+            "object_list": self.search_results,
+        }
         self.add_to_stack(item_definition)
 
     def draw_search_result_len(self):
         formatted_len = format_number(len(self.search_results), 4).strip()
-        self.text_x_end = 128 - 2 - self.text_x - self.bold.font.getsize(formatted_len)[0]
+        self.text_x_end = (
+            128 - 2 - self.text_x - self.bold.font.getsize(formatted_len)[0]
+        )
         self.draw.text(
-                (self.text_x_end+2, self.text_y), formatted_len, font=self.bold.font, fill=self.half_red)
+            (self.text_x_end + 2, self.text_y),
+            formatted_len,
+            font=self.bold.font,
+            fill=self.half_red,
+        )
 
     def within_keypress_window(self, current_time) -> bool:
         result = (current_time - self.last_key_press_time) < self.KEYPRESS_TIMEOUT
@@ -199,7 +232,9 @@ class UITextEntry(UIModule):
         number_key = str(number)
         # Check if the same key is pressed within a short time
         if self.last_key == number and self.within_keypress_window(current_time):
-            self.char_index = (self.char_index + 1) % self.keys.get_nr_entries(number_key)
+            self.char_index = (self.char_index + 1) % self.keys.get_nr_entries(
+                number_key
+            )
             self.delete_last_char()
         else:
             self.char_index = 0
@@ -209,7 +244,7 @@ class UITextEntry(UIModule):
         # Get the current character to display
         if number_key in self.keys:
             char = self.keys.get_char(number_key, self.char_index)
-            if char == 'X':
+            if char == "X":
                 self.delete_last_char()
                 return
             self.add_char(char)
