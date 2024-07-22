@@ -12,6 +12,7 @@ OBJ_TYPES = {
     "* ": "Star",
     "? ": "Unkn",
     "Pla": "Planet",
+    "CM": "Comet",
 }
 
 OBJ_TYPE_MARKERS = {

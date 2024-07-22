@@ -218,8 +218,8 @@ class CatalogBase:
     def __init__(
         self,
         catalog_code: str,
-        max_sequence: int,
         desc: str,
+        max_sequence: int = 0,
         sort=catalog_base_sequence_sort,
     ):
         self.catalog_code = catalog_code
@@ -246,6 +246,9 @@ class CatalogBase:
 
     def _add_object(self, obj: CompositeObject):
         self.__objects.append(obj)
+        print(f"Adding {obj} to {self.catalog_code}, with mag {obj.mag}")
+        if(obj.sequence > self.max_sequence):
+            self.max_sequence = obj.sequence
 
     def add_objects(self, objects: List[CompositeObject]):
         objects_copy = objects.copy()
@@ -257,6 +260,7 @@ class CatalogBase:
         assert self.check_sequences()
 
     def _sort_objects(self):
+        print(f"Sorting {self.catalog_code} with key {self.sort}")
         self.__objects.sort(key=self.sort)
 
     def get_object_by_id(self, id: int) -> CompositeObject:
@@ -297,8 +301,8 @@ class CatalogBase:
 class Catalog(CatalogBase):
     """Extends the CatalogBase with filtering"""
 
-    def __init__(self, catalog_code: str, max_sequence: int, desc: str):
-        super().__init__(catalog_code, max_sequence, desc)
+    def __init__(self, catalog_code: str, desc: str, max_sequence: int = 0):
+        super().__init__(catalog_code, desc, max_sequence)
         self.catalog_filter: Union[CatalogFilter, None] = None
         self.filtered_objects: List[CompositeObject] = self.get_objects()
         self.filtered_objects_seq: List[int] = self._filtered_objects_to_seq()
@@ -511,7 +515,7 @@ class PlanetCatalog(Catalog):
     """Creates a catalog of planets"""
 
     def __init__(self, dt: datetime.datetime):
-        super().__init__("PL", 10, "The planets")
+        super().__init__("PL", "The planets")
         planet_dict = sf_utils.calc_planets(dt)
         sequence = 0
         for name in sf_utils.planet_names:
@@ -534,6 +538,37 @@ class PlanetCatalog(Catalog):
                 "mag": planet["mag"],
                 "names": [name.capitalize()],
                 "catalog_code": "PL",
+                "sequence": sequence + 1,
+                "description": "",
+            }
+        )
+        self.add_object(obj)
+
+
+class CometCatalog(Catalog):
+    """Creates a catalog of comets"""
+
+    def __init__(self, dt: datetime.datetime):
+        super().__init__("CM", "Comets")
+        with Timer("Calculating comets"):
+            comet_dict = sf_utils.calc_comets(dt)
+        for sequence, (name, comet) in enumerate(comet_dict.items()):
+            self.add_comet(sequence, name, comet)
+
+    def add_comet(self, sequence: int, name: str, comet: Dict[str, Dict[str, float]]):
+        ra, dec = comet["radec"]
+        constellation = sf_utils.radec_to_constellation(ra, dec)
+        obj = CompositeObject.from_dict(
+            {
+                "id": -1,
+                "obj_type": "Com",
+                "ra": ra,
+                "dec": dec,
+                "const": constellation,
+                "size": "",
+                "mag": comet.get("mag", "?"),  # Use '?' if magnitude is not available
+                "names": [name],
+                "catalog_code": "CM",
                 "sequence": sequence + 1,
                 "description": "",
             }
@@ -571,6 +606,10 @@ class CatalogBuilder:
             datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC"))
         )
         all_catalogs.add(planet_catalog)
+        comet_catalog: Catalog = CometCatalog(
+            datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC"))
+        )
+        all_catalogs.add(comet_catalog)
 
         assert self.check_catalogs_sequences(all_catalogs) is True
         return all_catalogs
@@ -621,8 +660,8 @@ class CatalogBuilder:
             catalog_info = catalogs_info[catalog_code]
             catalog = Catalog(
                 catalog_code,
-                max_sequence=catalog_info["max_sequence"],
                 desc=catalog_info["desc"],
+                max_sequence=catalog_info["max_sequence"],
             )
             catalog.add_objects(composite_dict.get(catalog_code, []))
             catalog_list.append(catalog)
