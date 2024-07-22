@@ -257,17 +257,48 @@ class UIObjectList(UITextMenu):
         # print(f"{sbr_x=} {sbr_y=} {total=} {box_pos=} {one_item_height=}, {sbr_y_start=}, {self._current_item_index=}, {self.get_nr_of_menu_items()=}")
 
         self.draw.rectangle(
-            [sbr_x - 1, sbr_y_start, sbr_x, sbr_y], fill=self.colors.get(128)
+            (sbr_x - 1, sbr_y_start, sbr_x, sbr_y), fill=self.colors.get(128)
         )
         self.draw.rectangle(
-            [
+            (
                 sbr_x - 1,
                 sbr_y_start + box_pos - one_item_height // 2,
                 sbr_x,
                 sbr_y_start + box_pos + one_item_height // 2,
-            ],
+            ),
             fill=self.colors.get(255),
         )
+
+    def get_line_font_color_pos(
+        self,
+        line_number,
+        menu_item,
+        is_focus=False,
+        sort_order: SortOrder = SortOrder.CATALOG_SEQUENCE,
+    ):
+        obj_mag_color = self._obj_to_mag_color(menu_item)
+
+        line_font = self.fonts.base
+        line_color = int(self.color_modifier(line_number, sort_order) * obj_mag_color)
+        line_pos = self.line_position(line_number)
+
+        if is_focus:
+            line_color = obj_mag_color
+            line_font = self.fonts.bold
+        return line_font, line_color, line_pos
+
+    @cache
+    def color_modifier(self, line_number: int, sort_order: SortOrder):
+        if sort_order == SortOrder.NEAREST:
+            line_number_modifiers = [0.38, 0.5, 0.75, 0.8, 0.75, 0.5, 0.38]
+        else:
+            line_number_modifiers = [1, 0.75, 0.75, 0.5, 0.5, 0.38, 0.38]
+        return line_number_modifiers[line_number]
+
+    @cache
+    def line_position(self, line_number, title_offset=20):
+        line_number_positions = [0, 13, 25, 42, 60, 76, 89]
+        return line_number_positions[line_number] + title_offset
 
     def active(self):
         # trigger refilter
