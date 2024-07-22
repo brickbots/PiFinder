@@ -132,7 +132,7 @@ class TextLayouterScroll(TextLayouterSimple):
         if self.textlen > self.width and self.scrollspeed > 0:
             if self.counter == 0:
                 self.object_text: List[str] = [
-                    self.dtext[self.pointer: self.pointer + self.width]
+                    self.dtext[self.pointer : self.pointer + self.width]
                 ]
                 self.pointer = (self.pointer + 1) % (self.textlen + 6)
             # start goes slower
@@ -301,7 +301,10 @@ def name_deduplicate(names: List[str], exclude: List[str]):
     return result
 
 
-def format_number(num, width=5):
+def format_number(num: float, width=5):
+    """
+    Format a number with K (thousands) or M (millions) suffix.
+    """
     if num < 1000:
         return f"{num:{width}d}"
     elif num < 1000000:
