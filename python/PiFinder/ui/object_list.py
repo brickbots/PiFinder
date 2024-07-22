@@ -253,19 +253,8 @@ class UIObjectList(UITextMenu):
         sbr_y = self.display.height
         total = self.get_nr_of_menu_items()
         one_item_height = max(1, int((sbr_y - sbr_y_start) / total))
-        box_pos = (sbr_y - sbr_y_start) * (self._current_item_index) / (total)
-        self.draw.rectangle(
-            [sbr_x - 1, sbr_y_start, sbr_x, sbr_y], fill=self.colors.get(128)
-        )
-        self.draw.rectangle(
-            [
-                sbr_x - 1,
-                sbr_y_start + box_pos - one_item_height // 2,
-                sbr_x,
-                sbr_y_start + box_pos + one_item_height // 2,
-            ],
-            fill=self.colors.get(255),
-        )
+        box_pos = (sbr_y - sbr_y_start) * self._current_item_index / (total - 1)
+        # print(f"{sbr_x=} {sbr_y=} {total=} {box_pos=} {one_item_height=}, {sbr_y_start=}, {self._current_item_index=}, {self.get_nr_of_menu_items()=}")
 
     def get_line_font_color_pos(
         self,
