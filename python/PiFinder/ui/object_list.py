@@ -538,6 +538,12 @@ class UIObjectList(UITextMenu):
 
         self.update()
 
+    def key_long_up(self):
+        self.menu_scroll(-1)
+
+    def key_long_down(self):
+        self.menu_scroll(999999999999999999999999999)
+
 
 class CatalogSequence:
     """
