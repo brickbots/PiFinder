@@ -228,12 +228,7 @@ class UIObjectList(UITextMenu):
         """
         Extract the magnitude safely from the object
         """
-        try:
-            obj_mag = float(obj.mag)
-        except (ValueError, TypeError):
-            obj_mag = 99
-
-        return obj_mag
+        return obj.mag.filter_mag
 
     def _obj_to_mag_color(self, obj: CompositeObject) -> int:
         """
@@ -258,9 +253,7 @@ class UIObjectList(UITextMenu):
         sbr_y = self.display.height
         total = self.get_nr_of_menu_items()
         one_item_height = max(1, int((sbr_y - sbr_y_start) / total))
-        box_pos = (sbr_y - sbr_y_start) * self._current_item_index / (total - 1)
-        # print(f"{sbr_x=} {sbr_y=} {total=} {box_pos=} {one_item_height=}, {sbr_y_start=}, {self._current_item_index=}, {self.get_nr_of_menu_items()=}")
-
+        box_pos = (sbr_y - sbr_y_start) * (self._current_item_index) / (total)
         self.draw.rectangle(
             [sbr_x - 1, sbr_y_start, sbr_x, sbr_y], fill=self.colors.get(128)
         )
@@ -304,6 +297,18 @@ class UIObjectList(UITextMenu):
     def line_position(self, line_number, title_offset=20):
         line_number_positions = [0, 13, 25, 42, 60, 76, 89]
         return line_number_positions[line_number] + title_offset
+        self.draw.rectangle(
+            [sbr_x - 1, sbr_y_start, sbr_x, sbr_y], fill=self.colors.get(128)
+        )
+        self.draw.rectangle(
+            [
+                sbr_x - 1,
+                sbr_y_start + box_pos - one_item_height // 2,
+                sbr_x,
+                sbr_y_start + box_pos + one_item_height // 2,
+            ],
+            fill=self.colors.get(255),
+        )
 
     def active(self):
         # trigger refilter

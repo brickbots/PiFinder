@@ -12,7 +12,7 @@ from PiFinder.state import SharedStateObj
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
-from PiFinder.composite_object import CompositeObject
+from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.calc_utils import sf_utils
 
 # collection of all catalog-related classes
@@ -657,7 +657,9 @@ class CatalogBuilder:
             composite_instance = CompositeObject.from_dict(composite_data)
             composite_instance.logged = obs_db.check_logged(composite_instance)
             composite_instance.names = common_names.get_name(object_id)
-
+            mag = MagnitudeObject.from_json(composite_instance.mag)
+            composite_instance.mag = mag
+            composite_instance.mag_str = mag.calc_two_mag_representation()
             # Append to the result dictionary
             composite_objects.append(composite_instance)
         return composite_objects
