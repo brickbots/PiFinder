@@ -312,7 +312,7 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
         console.write("   Event Loop")
         console.update()
 
-        # Initialze Catalogs
+        # Initialize Catalogs
         catalogs: Catalogs = CatalogBuilder().build()
 
         # Establish the common catalog filter object

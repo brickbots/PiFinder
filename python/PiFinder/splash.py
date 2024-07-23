@@ -58,8 +58,8 @@ def show_splash():
         fill=(255, 0, 0),
     )
 
-    display.display(welcome_image.resize((320, 240)).convert(display.mode))
-    # display.display(welcome_image.convert(display.mode))
+    # display.display(welcome_image.resize((320, 240)).convert(display.mode))
+    display.display(welcome_image.convert(display.mode))
 
 
 if __name__ == "__main__":
