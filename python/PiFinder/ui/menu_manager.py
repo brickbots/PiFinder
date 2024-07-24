@@ -77,7 +77,9 @@ class MenuManager:
                 self.display_class,
                 39,
             )
-            self.display.display(marking_menu_image.convert(self.display.mode))
+            self.display_class.device.display(
+                marking_menu_image.convert(self.display_class.device.mode)
+            )
 
     def update(self) -> None:
         if self.marking_menu_stack == []:

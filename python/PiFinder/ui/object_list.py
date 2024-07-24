@@ -128,7 +128,7 @@ class UIObjectList(UITextMenu):
         self.last_item_index = -1
         self.item_text_scroll = None
 
-        self._marking_menu = MarkingMenu(
+        self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
                 label="Sort",
                 callback=MarkingMenu(
@@ -147,11 +147,11 @@ class UIObjectList(UITextMenu):
         )
 
         if self.current_sort == SortOrder.CATALOG_SEQUENCE:
-            self._marking_menu.left.callback.right.selected = True
+            self.marking_menu.left.callback.right.selected = True
         if self.current_sort == SortOrder.NEAREST:
-            self._marking_menu.left.callback.left.selected = True
+            self.marking_menu.left.callback.left.selected = True
         if self.current_sort == SortOrder.RA:
-            self._marking_menu.left.callback.down.selected = True
+            self.marking_menu.left.callback.down.selected = True
 
     def filter(self):
         self.catalogs.filter_catalogs()
