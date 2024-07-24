@@ -1,8 +1,32 @@
-from typing import Type, List
+from typing import Union
+from PIL import Image
 from PiFinder.ui.base import UIModule
 from PiFinder.ui import menu_structure
 from PiFinder.displays import DisplayBase
 from PiFinder.ui.marking_menus import MarkingMenu, render_marking_menu
+
+
+def find_menu_by_label(label: str):
+    """
+    Returns the FIRST instance of a menu dict
+    with the specified key.  labels in the menu
+    struct should be unique.
+
+    Returns None is not found
+    """
+    # stack = [iter(menu_structure.pifinder_menu.items())]
+    stack = [menu_structure.pifinder_menu]
+    while stack:
+        menu_item = stack.pop()
+        for k, v in menu_item.items():
+            if isinstance(v, dict):
+                stack.append(v)
+                break
+            elif isinstance(v, list):
+                stack.extend(v)
+            elif k == "label" and v == label:
+                return menu_item
+    return None
 
 
 class MenuManager:
@@ -23,10 +47,11 @@ class MenuManager:
         self.config_object = config_object
         self.catalogs = catalogs
 
-        self.stack: List[Type[UIModule]] = []
+        self.stack: list[type[UIModule]] = []
         self.add_to_stack(menu_structure.pifinder_menu)
 
         self.marking_menu_stack: list[MarkingMenu] = []
+        self.marking_menu_bg: Union[Image.Image, None] = None
 
     def remove_from_stack(self) -> None:
         if len(self.stack) > 1:
@@ -66,13 +91,25 @@ class MenuManager:
     def screengrab(self) -> None:
         self.stack[-1].screengrab()  # type: ignore[call-arg]
 
+    def exit_marking_menu(self):
+        """
+        Do any cleanup related to exiting the marking
+        menu system
+        """
+        self.marking_menu_bg = None
+        self.marking_menu_stack = []
+
     def display_marking_menu(self):
         """
         Called to display the marking menu
         """
+        if self.marking_menu_bg is None:
+            # Grab current screen to re-use as background of
+            # all marking menus
+            self.marking_menu_bg = self.stack[-1].screen
         if self.marking_menu_stack != []:
             marking_menu_image = render_marking_menu(
-                self.stack[-1].screen,
+                self.marking_menu_bg,
                 self.marking_menu_stack[-1],
                 self.display_class,
                 39,
@@ -99,7 +136,7 @@ class MenuManager:
             if self.stack[-1].marking_menu is not None:
                 self.marking_menu_stack.append(self.stack[-1].marking_menu)
         else:
-            self.marking_menu_stack = []
+            self.exit_marking_menu()
 
         if self.marking_menu_stack != []:
             self.display_marking_menu()
@@ -107,6 +144,9 @@ class MenuManager:
     def key_square(self):
         if self.marking_menu_stack != []:
             self.marking_menu_stack.pop()
+            if self.marking_menu_stack == []:
+                # Make sure we clean up
+                self.exit_marking_menu()
             self.update()
         else:
             self.stack[-1].key_square()
