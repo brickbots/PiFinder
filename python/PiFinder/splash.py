@@ -14,7 +14,6 @@ import os
 from PIL import Image, ImageDraw
 from luma.core.interface.serial import spi
 import numpy as np
-from PiFinder.ui.fonts import Fonts as fonts
 
 
 def do_nothing():
@@ -22,13 +21,12 @@ def do_nothing():
 
 
 def init_display():
-    from luma.lcd.device import st7789
+    from luma.oled.device import ssd1351
 
     # init display  (SPI hardware)
     serial = spi(device=0, port=0)
-    # device_serial = ssd1351(serial, rotate=0, bgr=True)
-    device_serial = st7789(serial)
-    device_serial.capabilities(width=320, height=240, rotate=0, mode="RGB")
+    device_serial = ssd1351(serial, rotate=0, bgr=True)
+    device_serial.capabilities(width=128, height=128, rotate=0, mode="RGB")
     device_serial.cleanup = do_nothing
     return device_serial
 
@@ -51,14 +49,13 @@ def show_splash():
     with open(os.path.join(root_dir, "wifi_status.txt"), "r") as wifi_f:
         wifi_mode = wifi_f.read()
     screen_draw.rectangle([0, 0, 128, 16], fill=(0, 0, 0))
-    screen_draw.text(
-        (0, 1),
-        f"Wifi:{wifi_mode: <6}  {version: >8}",
-        font=fonts.base,
-        fill=(255, 0, 0),
-    )
+    # screen_draw.text(
+    #    (0, 1),
+    #    f"Wifi:{wifi_mode: <6}  {version: >8}",
+    #    font=fonts.base,
+    #    fill=(255, 0, 0),
+    # )
 
-    # display.display(welcome_image.resize((320, 240)).convert(display.mode))
     display.display(welcome_image.convert(display.mode))
 
 

@@ -10,26 +10,12 @@ import time
 import uuid
 from itertools import cycle
 from typing import Type, Union
-from dataclasses import dataclass
 
 from PIL import Image, ImageDraw
 from PiFinder import utils
 from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
-
-
-@dataclass
-class MarkingMenuOption:
-    display: bool = True  # Should this item be drawn?
-    enabled: bool = True  # Should this item be enabled/clickable
-    label: str = ""
-    selected: bool = False  # Draw highlighted?
-
-    def __str__(self):
-        return self.label
-
-    def __repr__(self):
-        return self.label
+from PiFinder.ui.marking_menus import MarkingMenuOption
 
 
 class UIModule:
