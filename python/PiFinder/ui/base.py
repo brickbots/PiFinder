@@ -98,8 +98,27 @@ class UIModule:
         Called when a module becomes active
         i.e. foreground controlling display
         """
-        self.button_hints_timer = time.time()
         pass
+
+    def help(self) -> list[Image.Image]:
+        """
+        Called when help is selected from the
+        marking menu.  Should render the
+        help screens as a list of images to be displayed
+        up/down arrow will scroll through images
+        """
+        help_image_list = []
+        for i in range(3):
+            self.clear_screen()
+
+            self.draw.text(
+                (20, 20),
+                f"HELP {i}",
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+            help_image_list.append(self.screen.copy())
+        return help_image_list
 
     def update(self, force=False):
         """

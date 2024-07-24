@@ -53,6 +53,10 @@ class MenuManager:
         self.marking_menu_stack: list[MarkingMenu] = []
         self.marking_menu_bg: Union[Image.Image, None] = None
 
+        # This will be populated if we are in 'help' mode
+        self.help_images: Union[None, list[Image.Image]] = None
+        self.help_image_index = 0
+
     def remove_from_stack(self) -> None:
         if len(self.stack) > 1:
             self.stack.pop()
@@ -106,10 +110,10 @@ class MenuManager:
         if self.marking_menu_bg is None:
             # Grab current screen to re-use as background of
             # all marking menus
-            self.marking_menu_bg = self.stack[-1].screen
+            self.marking_menu_bg = self.stack[-1].screen.copy()
         if self.marking_menu_stack != []:
             marking_menu_image = render_marking_menu(
-                self.marking_menu_bg,
+                self.marking_menu_bg.copy(),
                 self.marking_menu_stack[-1],
                 self.display_class,
                 39,
@@ -119,10 +123,24 @@ class MenuManager:
             )
 
     def update(self) -> None:
-        if self.marking_menu_stack == []:
-            self.stack[-1].update()  # type: ignore[call-arg]
+        if self.help_images is not None:
+            # We are in help mode, just chill...
+            return
+
+        if self.marking_menu_stack != []:
+            # We are displaying a marking menu... chill
+            return
+
+        # Business as usual, update the module at the top of the stack
+        self.stack[-1].update()  # type: ignore[call-arg]
 
     def key_number(self, number):
+        if self.help_images is not None:
+            # Exit help
+            self.help_images = None
+            self.update()
+            return
+
         self.stack[-1].key_number(number)
 
     def key_plus(self):
@@ -132,6 +150,12 @@ class MenuManager:
         self.stack[-1].key_minus()
 
     def key_long_square(self):
+        if self.help_images is not None:
+            # Exit help
+            self.help_images = None
+            self.update()
+            return
+
         if self.marking_menu_stack == []:
             if self.stack[-1].marking_menu is not None:
                 self.marking_menu_stack.append(self.stack[-1].marking_menu)
@@ -142,14 +166,21 @@ class MenuManager:
             self.display_marking_menu()
 
     def key_square(self):
+        if self.help_images is not None:
+            # Exit help
+            self.help_images = None
+            self.update()
+            return
+
         if self.marking_menu_stack != []:
             self.marking_menu_stack.pop()
             if self.marking_menu_stack == []:
                 # Make sure we clean up
                 self.exit_marking_menu()
             self.update()
-        else:
-            self.stack[-1].key_square()
+            return
+
+        self.stack[-1].key_square()
 
     def key_long_up(self):
         pass
@@ -164,45 +195,98 @@ class MenuManager:
         """
         Return to top of menu
         """
+        if self.help_images is not None:
+            # Exit help
+            self.help_images = None
+            self.update()
+
         self.stack = self.stack[:1]
         self.stack[0].active()
 
     def key_left(self):
+        if self.help_images is not None:
+            # Exit help
+            self.help_images = None
+            self.update()
+            return
+
         if self.marking_menu_stack != []:
             self.mm_select(self.marking_menu_stack[-1].left)
         else:
             self.remove_from_stack()
 
     def key_up(self):
+        if self.help_images is not None:
+            self.help_image_index = (
+                self.help_image_index - 1 if self.help_image_index > 0 else 0
+            )
+            self.display_class.device.display(
+                self.help_images[self.help_image_index].convert(
+                    self.display_class.device.mode
+                )
+            )
+            return
+
         if self.marking_menu_stack != []:
             self.mm_select(self.marking_menu_stack[-1].up)
-        else:
-            self.stack[-1].key_up()
+            return
+
+        self.stack[-1].key_up()
 
     def key_down(self):
+        if self.help_images is not None:
+            self.help_image_index = (
+                self.help_image_index + 1
+                if self.help_image_index < len(self.help_images) - 1
+                else len(self.help_images) - 1
+            )
+            self.display_class.device.display(
+                self.help_images[self.help_image_index].convert(
+                    self.display_class.device.mode
+                )
+            )
+            return
         if self.marking_menu_stack != []:
             self.mm_select(self.marking_menu_stack[-1].down)
-            pass
         else:
             self.stack[-1].key_down()
 
     def key_right(self):
+        if self.help_images is not None:
+            # Exit help
+            self.help_images = None
+            self.update()
+            return
         if self.marking_menu_stack != []:
             self.mm_select(self.marking_menu_stack[-1].right)
         else:
             self.stack[-1].key_right()
 
     def mm_select(self, selected_item):
+        if selected_item.label == "" or not selected_item.enabled:
+            # Just bail out for non active menu items
+            return
+
         if type(selected_item.callback) is MarkingMenu:
             self.marking_menu_stack.append(selected_item.callback)
             self.display_marking_menu()
-        elif selected_item.label == "Help":
-            pass
+        elif selected_item.label == "HELP":
+            self.exit_marking_menu()
+            self.help_images = self.stack[-1].help()
+            self.help_image_index = 0
+            self.display_class.device.display(
+                self.help_images[0].convert(self.display_class.device.mode)
+            )
+        elif selected_item.menu_jump is not None:
+            self.exit_marking_menu()
+            menu_to_jump = find_menu_by_label(selected_item.menu_jump)
+            if menu_to_jump is not None:
+                self.add_to_stack(menu_to_jump)
         else:
             if (
                 selected_item.callback(self.marking_menu_stack[-1], selected_item)
                 is True
             ):
                 # Exit marking menu
-                self.marking_menu_stack = []
+                self.exit_marking_menu()
                 self.update()

@@ -132,7 +132,7 @@ class UIObjectList(UITextMenu):
             left=MarkingMenuOption(
                 label="Sort",
                 callback=MarkingMenu(
-                    up=MarkingMenuOption(display=False),
+                    up=MarkingMenuOption(),
                     left=MarkingMenuOption(
                         label="Nearest", callback=self.mm_change_sort
                     ),
@@ -142,8 +142,8 @@ class UIObjectList(UITextMenu):
                     ),
                 ),
             ),
-            down=MarkingMenuOption(display=False),
-            right=MarkingMenuOption(label="Filter", callback=self.mm_jump_to_filter),
+            down=MarkingMenuOption(),
+            right=MarkingMenuOption(label="Filter", menu_jump="filter_options"),
         )
 
         if self.current_sort == SortOrder.CATALOG_SEQUENCE:

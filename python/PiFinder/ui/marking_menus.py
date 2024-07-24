@@ -7,7 +7,7 @@ related to the marking menu system
 """
 
 from math import pi
-from typing import Any
+from typing import Any, Union
 
 from PIL import Image, ImageDraw, ImageChops
 from PiFinder.ui.fonts import Font
@@ -17,11 +17,11 @@ from PiFinder.displays import DisplayBase
 
 @dataclass
 class MarkingMenuOption:
-    display: bool = True  # Should this item be drawn?
     enabled: bool = True  # Should this item be enabled/clickable
     label: str = ""
     selected: bool = False  # Draw highlighted?
     callback: Any = None
+    menu_jump: Union[None, str] = None
 
     def __str__(self):
         return self.label
@@ -66,7 +66,7 @@ def render_marking_menu(
             display_class.resolution[0],
             display_class.resolution[1],
         ],
-        fill=(0, 0, 0, 192),
+        fill=(0, 0, 0, 128),
     )
 
     # we need some padding here
