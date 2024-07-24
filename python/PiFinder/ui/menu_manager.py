@@ -129,24 +129,40 @@ class MenuManager:
 
     def key_left(self):
         if self.marking_menu_stack != []:
-            pass
+            self.mm_select(self.marking_menu_stack[-1].left)
         else:
             self.remove_from_stack()
 
     def key_up(self):
         if self.marking_menu_stack != []:
-            pass
+            self.mm_select(self.marking_menu_stack[-1].up)
         else:
             self.stack[-1].key_up()
 
     def key_down(self):
         if self.marking_menu_stack != []:
+            self.mm_select(self.marking_menu_stack[-1].down)
             pass
         else:
             self.stack[-1].key_down()
 
     def key_right(self):
         if self.marking_menu_stack != []:
-            pass
+            self.mm_select(self.marking_menu_stack[-1].right)
         else:
             self.stack[-1].key_right()
+
+    def mm_select(self, selected_item):
+        if type(selected_item.callback) is MarkingMenu:
+            self.marking_menu_stack.append(selected_item.callback)
+            self.display_marking_menu()
+        elif selected_item.label == "Help":
+            pass
+        else:
+            if (
+                selected_item.callback(self.marking_menu_stack[-1], selected_item)
+                is True
+            ):
+                # Exit marking menu
+                self.marking_menu_stack = []
+                self.update()

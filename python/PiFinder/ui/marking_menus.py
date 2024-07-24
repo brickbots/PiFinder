@@ -55,7 +55,7 @@ def render_marking_menu(
     """
 
     _UP_ARROW = ""
-    menu_items = [menu.up, menu.left, menu.down, menu.right]
+    menu_items = [menu.up, menu.right, menu.down, menu.left]
 
     # Dim BG Image
     bg_draw = ImageDraw.Draw(bg_image, mode="RGBA")

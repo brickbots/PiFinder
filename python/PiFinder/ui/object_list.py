@@ -589,7 +589,7 @@ class UIObjectList(UITextMenu):
         marking_menu.select_none()
         menu_item.selected = True
 
-        if menu_item.label == "Nearby":
+        if menu_item.label == "Nearest":
             self.current_sort = SortOrder.NEAREST
             self.nearby_refresh()
             self.sort()
