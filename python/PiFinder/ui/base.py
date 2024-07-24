@@ -33,7 +33,7 @@ class UIModule:
     _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
     _display_mode_list = [None]  # List of display modes
-    _marking_menu: Union[None, MarkingMenu] = None
+    marking_menu: Union[None, MarkingMenu] = None
 
     def __init__(
         self,
