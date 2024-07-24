@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw
 from PiFinder import utils
 from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
-from PiFinder.ui.marking_menus import MarkingMenuOption
+from PiFinder.ui.marking_menus import MarkingMenu
 
 
 class UIModule:
@@ -33,7 +33,7 @@ class UIModule:
     _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
     _display_mode_list = [None]  # List of display modes
-    _marking_menu_items: Union[None, list[MarkingMenuOption]] = None
+    _marking_menu: Union[None, MarkingMenu] = None
 
     def __init__(
         self,
@@ -71,61 +71,6 @@ class UIModule:
         # UI Module definition
         self.item_definition = item_definition
         self.title = item_definition.get("name", self.title)
-
-        # Precalculate marking menu for resolution indepedance
-        mm_box_size = (56, 28)
-        mm_box_horizontal_spacing = int(
-            (
-                self.display_class.resY
-                - self.display_class.titlebar_height
-                - (mm_box_size[1] * 3)
-            )
-            / 4
-        )
-        mm_box_vertical_spacing = int(
-            (self.display_class.resX - (mm_box_size[0] * 2)) / 3
-        )
-        self._mm_menu_boxes = [
-            (
-                self.display_class.resX / 2 - mm_box_size[0] / 2,
-                self.display_class.titlebar_height + mm_box_horizontal_spacing,
-                self.display_class.resX / 2 + mm_box_size[0] / 2,
-                self.display_class.titlebar_height
-                + mm_box_horizontal_spacing
-                + mm_box_size[1],
-            ),
-            (
-                self.display_class.resX - mm_box_vertical_spacing - mm_box_size[0],
-                self.display_class.titlebar_height
-                + (mm_box_horizontal_spacing * 2)
-                + mm_box_size[1],
-                self.display_class.resX - mm_box_vertical_spacing,
-                self.display_class.titlebar_height
-                + (mm_box_horizontal_spacing * 2)
-                + (mm_box_size[1] * 2),
-            ),
-            (
-                self.display_class.resX / 2 - mm_box_size[0] / 2,
-                self.display_class.resY - mm_box_horizontal_spacing - mm_box_size[1],
-                self.display_class.resX / 2 + mm_box_size[0] / 2,
-                self.display_class.resY - mm_box_horizontal_spacing,
-            ),
-            (
-                mm_box_vertical_spacing,
-                self.display_class.titlebar_height
-                + (mm_box_horizontal_spacing * 2)
-                + mm_box_size[1],
-                mm_box_vertical_spacing + mm_box_size[0],
-                self.display_class.titlebar_height
-                + (mm_box_horizontal_spacing * 2)
-                + (mm_box_size[1] * 2),
-            ),
-        ]
-        self._mm_text_anchor_offset = (
-            1,
-            int((mm_box_size[1] - self.fonts.bold.height) / 2),
-        )
-        self._mm_menu_box_text_width = int(mm_box_size[0] / self.fonts.bold.width)
 
         # screenshot stuff
         root_dir = str(utils.data_dir)
@@ -180,54 +125,6 @@ class UIModule:
             ],
             fill=self.colors.get(0),
         )
-
-    def draw_marking_menu(self):
-        """
-        Draws the marking menu
-        """
-
-        # dim the background
-        self.draw.rectangle(
-            [
-                0,
-                self.display_class.titlebar_height,
-                self.display_class.resX,
-                self.display_class.resY,
-            ],
-            fill=(0, 0, 0, 128),
-        )
-
-        # cycle through starting at top and going clockwise
-        # draw four boxes with the contents of the marking
-        # menu labels
-        for i, mm_item in enumerate(self._marking_menu_items):
-            if mm_item.display:
-                if mm_item.selected:
-                    box_fill = 128
-                    text_color = 0
-                else:
-                    box_fill = 0
-                    text_color = 255
-
-                self.draw.rectangle(
-                    self._mm_menu_boxes[i],
-                    outline=self.colors.get(192),
-                    fill=self.colors.get(box_fill),
-                )
-                box_padding = " " * int(
-                    (self._mm_menu_box_text_width - len(mm_item.label)) / 2
-                )
-                box_text = box_padding + mm_item.label
-                self.draw.text(
-                    (
-                        self._mm_menu_boxes[i][0] + self._mm_text_anchor_offset[0],
-                        self._mm_menu_boxes[i][1] + self._mm_text_anchor_offset[1],
-                    ),
-                    box_text,
-                    font=self.fonts.bold.font,
-                    fill=self.colors.get(text_color),
-                )
-        self.display.display(self.screen.convert(self.display.mode))
 
     def message(self, message, timeout: float = 2, size=(5, 44, 123, 84)):
         """
@@ -364,18 +261,6 @@ class UIModule:
         key is pressed
         """
         self.display_mode = next(self._display_mode_cycle)
-
-    def marking_menu_up(self):
-        pass
-
-    def marking_menu_down(self):
-        pass
-
-    def marking_menu_left(self):
-        pass
-
-    def marking_menu_right(self):
-        pass
 
     def key_number(self, number):
         pass

@@ -7,6 +7,7 @@ related to the marking menu system
 """
 
 from math import pi
+from typing import Any
 
 from PIL import Image, ImageDraw, ImageChops
 from PiFinder.ui.fonts import Font
@@ -20,6 +21,7 @@ class MarkingMenuOption:
     enabled: bool = True  # Should this item be enabled/clickable
     label: str = ""
     selected: bool = False  # Draw highlighted?
+    callback: Any = None
 
     def __str__(self):
         return self.label
@@ -28,9 +30,23 @@ class MarkingMenuOption:
         return self.label
 
 
+@dataclass
+class MarkingMenu:
+    down: MarkingMenuOption
+    left: MarkingMenuOption
+    right: MarkingMenuOption
+    up: MarkingMenuOption = MarkingMenuOption(label="HELP")
+
+    def select_none(self):
+        self.up.selected = False
+        self.down.selected = False
+        self.left.selected = False
+        self.right.selected = False
+
+
 def render_marking_menu(
     bg_image: Image.Image,
-    menu_items: list[MarkingMenuOption],
+    menu: MarkingMenu,
     display_class: DisplayBase,
     radius: int,
 ) -> Image.Image:
@@ -39,6 +55,7 @@ def render_marking_menu(
     """
 
     _UP_ARROW = ""
+    menu_items = [menu.up, menu.left, menu.down, menu.right]
 
     # Dim BG Image
     bg_draw = ImageDraw.Draw(bg_image, mode="RGBA")
@@ -128,8 +145,11 @@ def render_marking_menu(
     arrow_draw = ImageDraw.Draw(arrow_image)
     arrow_draw.text(
         (
-            offset_center[0] - int(display_class.fonts.huge.width/2),
-            offset_center[1] - inner_radius - int(display_class.fonts.huge.height/2) + 2,
+            offset_center[0] - int(display_class.fonts.huge.width / 2),
+            offset_center[1]
+            - inner_radius
+            - int(display_class.fonts.huge.height / 2)
+            + 2,
         ),
         _UP_ARROW,
         font=display_class.fonts.huge.font,
@@ -137,11 +157,17 @@ def render_marking_menu(
     )
     offset_menu_image = ImageChops.add(offset_menu_image, arrow_image)
     base_arrow_image = arrow_image.copy()
-    offset_menu_image = ImageChops.add(offset_menu_image, arrow_image.rotate(90, center=offset_center))
+    offset_menu_image = ImageChops.add(
+        offset_menu_image, arrow_image.rotate(90, center=offset_center)
+    )
     arrow_image = base_arrow_image.copy()
-    offset_menu_image = ImageChops.add(offset_menu_image, arrow_image.rotate(180, center=offset_center))
+    offset_menu_image = ImageChops.add(
+        offset_menu_image, arrow_image.rotate(180, center=offset_center)
+    )
     arrow_image = base_arrow_image.copy()
-    offset_menu_image = ImageChops.add(offset_menu_image, arrow_image.rotate(270, center=offset_center))
+    offset_menu_image = ImageChops.add(
+        offset_menu_image, arrow_image.rotate(270, center=offset_center)
+    )
 
     return ImageChops.add(bg_image, offset_menu_image)
 
@@ -178,10 +204,9 @@ def render_menu_item(
         start_angle = base_angle + (total_angle / 2) + (char_angle / 2)
         char_y_pos = int((resolution[1] / 2) + radius - 4)
 
-
     return_image = Image.new("RGB", resolution)
 
-    for i, char_to_render in enumerate(menu_item.label):
+    for i, char_to_render in enumerate(menu_item.label.upper()):
         this_angle = (start_angle + (char_angle * (i))) * -1
         char_image = Image.new("RGB", resolution)
         char_draw = ImageDraw.Draw(char_image)

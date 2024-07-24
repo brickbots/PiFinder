@@ -2,6 +2,7 @@ from typing import Type, List
 from PiFinder.ui.base import UIModule
 from PiFinder.ui import menu_structure
 from PiFinder.displays import DisplayBase
+from PiFinder.ui.marking_menus import MarkingMenu, render_marking_menu
 
 
 class MenuManager:
@@ -25,7 +26,7 @@ class MenuManager:
         self.stack: List[Type[UIModule]] = []
         self.add_to_stack(menu_structure.pifinder_menu)
 
-        self.marking_menu_active = False
+        self.marking_menu_stack: list[MarkingMenu] = []
 
     def remove_from_stack(self) -> None:
         if len(self.stack) > 1:
@@ -65,8 +66,21 @@ class MenuManager:
     def screengrab(self) -> None:
         self.stack[-1].screengrab()  # type: ignore[call-arg]
 
+    def display_marking_menu(self):
+        """
+        Called to display the marking menu
+        """
+        if self.marking_menu_stack != []:
+            marking_menu_image = render_marking_menu(
+                self.stack[-1].screen,
+                self.marking_menu_stack[-1],
+                self.display_class,
+                39,
+            )
+            self.display.display(marking_menu_image.convert(self.display.mode))
+
     def update(self) -> None:
-        if not self.marking_menu_active:
+        if self.marking_menu_stack == []:
             self.stack[-1].update()  # type: ignore[call-arg]
 
     def key_number(self, number):
@@ -79,18 +93,18 @@ class MenuManager:
         self.stack[-1].key_minus()
 
     def key_long_square(self):
-        if not self.marking_menu_active:
-            if self.stack[-1]._marking_menu_items is not None:
-                self.marking_menu_active = True
+        if self.marking_menu_stack == []:
+            if self.stack[-1].marking_menu is not None:
+                self.marking_menu_stack.append(self.stack[-1].marking_menu)
         else:
-            self.marking_menu_active = False
+            self.marking_menu_stack = []
 
-        if self.marking_menu_active:
-            self.stack[-1].draw_marking_menu()
+        if self.marking_menu_stack != []:
+            self.display_marking_menu()
 
     def key_square(self):
-        if self.marking_menu_active:
-            self.marking_menu_active = False
+        if self.marking_menu_stack != []:
+            self.marking_menu_stack.pop()
             self.update()
         else:
             self.stack[-1].key_square()
@@ -112,33 +126,25 @@ class MenuManager:
         self.stack[0].active()
 
     def key_left(self):
-        if self.marking_menu_active:
-            self.marking_menu_active = False
-            self.stack[-1].marking_menu_left()
-            self.update()
+        if self.marking_menu_stack != []:
+            pass
         else:
             self.remove_from_stack()
 
     def key_up(self):
-        if self.marking_menu_active:
-            self.marking_menu_active = False
-            self.stack[-1].marking_menu_up()
-            self.update()
+        if self.marking_menu_stack != []:
+            pass
         else:
             self.stack[-1].key_up()
 
     def key_down(self):
-        if self.marking_menu_active:
-            self.marking_menu_active = False
-            self.stack[-1].marking_menu_down()
-            self.update()
+        if self.marking_menu_stack != []:
+            pass
         else:
             self.stack[-1].key_down()
 
     def key_right(self):
-        if self.marking_menu_active:
-            self.marking_menu_active = False
-            self.stack[-1].marking_menu_right()
-            self.update()
+        if self.marking_menu_stack != []:
+            pass
         else:
             self.stack[-1].key_right()

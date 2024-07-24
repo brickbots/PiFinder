@@ -17,7 +17,7 @@ import math as math
 from PIL import Image, ImageChops
 from itertools import cycle
 
-from PiFinder.ui.base import MarkingMenuOption
+from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_details import UIObjectDetails
@@ -49,6 +49,7 @@ class SortOrder(Enum):
 
     CATALOG_SEQUENCE = 0  # By catalog/sequence
     NEAREST = 1  # By Distance to target
+    RA = 3  # By RA
 
 
 class UIObjectList(UITextMenu):
@@ -57,12 +58,6 @@ class UIObjectList(UITextMenu):
     """
 
     __title__ = "OBJECTS"
-    _marking_menu_items = [
-        MarkingMenuOption(display=False),
-        MarkingMenuOption(label="Nearby"),
-        MarkingMenuOption(label="Settings"),
-        MarkingMenuOption(label="Catalog"),
-    ]
     checkmark = "󰄵"
     checkmark_no = ""
     sun = "󰖨"
@@ -110,13 +105,6 @@ class UIObjectList(UITextMenu):
         self.sort_cycle = cycle(SortOrder)
         self.current_sort = next(self.sort_cycle)
 
-        if self.current_sort == SortOrder.CATALOG_SEQUENCE:
-            self._marking_menu_items[3].selected = True
-            self._marking_menu_items[1].selected = False
-        else:
-            self._marking_menu_items[1].selected = True
-            self._marking_menu_items[3].selected = False
-
         marker_path = Path(utils.pifinder_dir, "markers")
         self.markers = {}
         render_size = (11, 11)
@@ -139,6 +127,31 @@ class UIObjectList(UITextMenu):
         )
         self.last_item_index = -1
         self.item_text_scroll = None
+
+        self._marking_menu = MarkingMenu(
+            left=MarkingMenuOption(
+                label="Sort",
+                callback=MarkingMenu(
+                    up=MarkingMenuOption(display=False),
+                    left=MarkingMenuOption(
+                        label="Nearest", callback=self.mm_change_sort
+                    ),
+                    down=MarkingMenuOption(label="RA", callback=self.mm_change_sort),
+                    right=MarkingMenuOption(
+                        label="Catalog", callback=self.mm_change_sort
+                    ),
+                ),
+            ),
+            down=MarkingMenuOption(display=False),
+            right=MarkingMenuOption(label="Filter", callback=self.mm_jump_to_filter),
+        )
+
+        if self.current_sort == SortOrder.CATALOG_SEQUENCE:
+            self._marking_menu.left.callback.right.selected = True
+        if self.current_sort == SortOrder.NEAREST:
+            self._marking_menu.left.callback.left.selected = True
+        if self.current_sort == SortOrder.RA:
+            self._marking_menu.left.callback.down.selected = True
 
     def filter(self):
         self.catalogs.filter_catalogs()
@@ -568,6 +581,32 @@ class UIObjectList(UITextMenu):
 
     def key_long_down(self):
         self.menu_scroll(999999999999999999999999999)
+
+    def mm_change_sort(self, marking_menu, menu_item):
+        """
+        Called to change sort order from MM
+        """
+        marking_menu.select_none()
+        menu_item.selected = True
+
+        if menu_item.label == "Nearby":
+            self.current_sort = SortOrder.NEAREST
+            self.nearby_refresh()
+            self.sort()
+            return True
+
+        if menu_item.label == "Catalog":
+            self.current_sort = SortOrder.CATALOG_SEQUENCE
+            self.sort()
+            return True
+
+        if menu_item.label == "RA":
+            self.current_sort = SortOrder.RA
+            self.sort()
+            return True
+
+    def mm_jump_to_filter(self, marking_menu, menu_item):
+        pass
 
 
 class CatalogSequence:

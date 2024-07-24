@@ -11,7 +11,8 @@ from PIL import ImageChops, Image
 
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder import plot
-from PiFinder.ui.base import UIModule, MarkingMenuOption
+from PiFinder.ui.base import UIModule
+from PiFinder.ui.marking_menus import MarkingMenuOption
 from PiFinder import calc_utils
 
 
