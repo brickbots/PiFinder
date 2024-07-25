@@ -585,7 +585,7 @@ class CatalogBuilder:
             obj.object_id = low_id
 
     def check_lowest_object_id(self, catalogs: Catalogs) -> int:
-        """ check the lowest object_id in all catalogs """
+        """check the lowest object_id in all catalogs"""
         objs = catalogs.get_objects(only_selected=False, filtered=False)
         lowest_object_id = min([x.object_id for x in objs])
         return lowest_object_id

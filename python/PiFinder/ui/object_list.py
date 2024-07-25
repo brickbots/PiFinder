@@ -13,7 +13,6 @@ import os
 import functools
 from functools import cache
 import math as math
-import numpy as np
 
 from PIL import Image, ImageChops
 from itertools import cycle
