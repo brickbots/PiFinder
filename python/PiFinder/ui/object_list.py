@@ -78,30 +78,11 @@ class UIObjectList(UITextMenu):
 
         self._menu_items: list[CompositeObject] = []
 
-        # The object list can display objects from various sources
-        # This key of the item definition controls where to get the
-        # particular object list
-        if item_definition["objects"] == "catalogs.filtered":
-            self.filter()
-            self._menu_items = self.catalogs.get_objects(
-                only_selected=True, filtered=True
-            )
-
-        if item_definition["objects"] == "catalog":
-            for catalog in self.catalogs.get_catalogs(only_selected=False):
-                if catalog.catalog_code == item_definition["value"]:
-                    self._menu_items = catalog.get_filtered_objects()
-
-        if item_definition["objects"] == "custom":
-            # item_definition must contian a list of CompositeObjects
-            self._menu_items = item_definition["object_list"]
-
-        self._menu_items_sorted = self._menu_items
-        self.nearby = Nearby(self.shared_state)
-
+        # Init display mode defaults
         self.mode_cycle = cycle(DisplayModes)
         self.current_mode = next(self.mode_cycle)
 
+        # Initialize sort default
         self.sort_cycle = cycle(SortOrder)
         self.current_sort = next(self.sort_cycle)
 
@@ -153,8 +134,43 @@ class UIObjectList(UITextMenu):
         if self.current_sort == SortOrder.RA:
             self.marking_menu.left.callback.down.selected = True
 
-    def filter(self):
+        # Update object list populates self._menu_items
+        # Force update because this is the first time and we
+        # need to get the object list always
+        self.refresh_object_list(force_update=True)
+        self.nearby = Nearby(self.shared_state)
+
+    def refresh_object_list(self, force_update=False):
+        """
+        Called whenever the object list might need to be updated.
+        Updated here means reloaded from filtered catalog sources
+        where possible
+
+        force_update ignores filter dirty flag
+        """
+        if not self.catalogs.catalog_filter.is_dirty() and not force_update:
+            return
+
         self.catalogs.filter_catalogs()
+        # The object list can display objects from various sources
+        # This key of the item definition controls where to get the
+        # particular object list
+        if self.item_definition["objects"] == "catalogs.filtered":
+            self._menu_items = self.catalogs.get_objects(
+                only_selected=True, filtered=True
+            )
+
+        if self.item_definition["objects"] == "catalog":
+            for catalog in self.catalogs.get_catalogs(only_selected=False):
+                if catalog.catalog_code == self.item_definition["value"]:
+                    self._menu_items = catalog.get_filtered_objects()
+
+        if self.item_definition["objects"] == "custom":
+            # item_definition must contian a list of CompositeObjects
+            self._menu_items = self.item_definition["object_list"]
+
+        self._menu_items_sorted = self._menu_items
+        self.sort()
 
     def sort(self) -> None:
         message = f"Sorting by\n{'number' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'nearby'}"
@@ -334,8 +350,7 @@ class UIObjectList(UITextMenu):
     def active(self):
         # trigger refilter
         super().active()
-        self.filter()
-        self.objects_balltree = None
+        self.refresh_object_list()
 
     def update(self, force=False):
         self.clear_screen()

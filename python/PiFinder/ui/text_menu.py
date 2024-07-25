@@ -169,7 +169,6 @@ class UITextMenu(UIModule):
                 if config_option.startswith("filter."):
                     filter_attr = config_option.split(".")[-1]
                     setattr(self.catalogs.catalog_filter, filter_attr, config_value)
-                    self.catalogs.filter_catalogs()
 
             else:
                 if selected_item == "Select All":
@@ -217,7 +216,6 @@ class UITextMenu(UIModule):
                     setattr(
                         self.catalogs.catalog_filter, filter_attr, self._selected_values
                     )
-                    self.catalogs.filter_catalogs()
 
         # Is there a post_callback for this current MENU
         if self.item_definition.get("post_callback"):

@@ -60,6 +60,7 @@ class MenuManager:
     def remove_from_stack(self) -> None:
         if len(self.stack) > 1:
             self.stack.pop()
+            self.stack[-1].active()  # type: ignore[call-arg]
 
     def add_to_stack(self, item: dict) -> None:
         """
