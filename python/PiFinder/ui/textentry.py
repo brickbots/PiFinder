@@ -113,7 +113,7 @@ class UITextEntry(UIModule):
             fill=self.red,
         )
         # Calculate cursor position
-        cursor_x = self.text_x + self.bold.font.getsize(self.current_text)[0]
+        cursor_x = self.text_x + self.bold.font.getbbox(self.current_text)[2]
         cursor_y = self.text_y
 
         # Draw inverted block cursor
@@ -178,7 +178,7 @@ class UITextEntry(UIModule):
     def draw_search_result_len(self):
         formatted_len = format_number(len(self.search_results), 4).strip()
         self.text_x_end = (
-            128 - 2 - self.text_x - self.bold.font.getsize(formatted_len)[0]
+            128 - 2 - self.text_x - self.bold.font.getbbox(formatted_len)[2]
         )
         self.draw.text(
             (self.text_x_end + 2, self.text_y),
