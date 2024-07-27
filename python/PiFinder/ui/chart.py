@@ -12,41 +12,18 @@ from PIL import ImageChops, Image
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder import plot
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.marking_menus import MarkingMenuOption
 from PiFinder import calc_utils
 
 
 class UIChart(UIModule):
     __title__ = "CHART"
-    __button_hints__ = {
-        "B": "Reticl",
-        "C": "Const",
-        "D": "DSOs",
-    }
-    _config_options = {
-        "Reticle": {
-            "type": "enum",
-            "value": "Med",
-            "options": ["Off", "Low", "Med", "High"],
-            "hotkey": "B",
-        },
-        "Constellations": {
-            "type": "enum",
-            "value": "Med",
-            "options": ["Off", "Low", "Med", "High"],
-            "hotkey": "C",
-        },
-        "Obs List": {
-            "type": "enum",
-            "value": "Med",
-            "options": ["Off", "Low", "Med", "High"],
-            "hotkey": "D",
-        },
-        "RA/Dec": {
-            "type": "enum",
-            "value": "Off",
-            "options": ["Off", "HH:MM", "Degr"],
-        },
-    }
+    _marking_menu_items = [
+        MarkingMenuOption(label="Const", selected=True),
+        MarkingMenuOption(label="Reticle", selected=True),
+        MarkingMenuOption(label="Options...", selected=True),
+        MarkingMenuOption(label="DSO", selected=True),
+    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -62,9 +39,9 @@ class UIChart(UIModule):
         self.set_fov(self.desired_fov)
 
         # set config options
-        self._config_options["RA/Dec"]["value"] = self.config_object.get_option(
-            "chart_display_radec"
-        )
+        self._reticle_on = True
+        self._constellations_on = True
+        self._dso_on = True
 
     def plot_markers(self):
         """
@@ -83,7 +60,7 @@ class UIChart(UIModule):
                 (plot.Angle(degrees=target.ra)._hours, target.dec, "target")
             )
 
-        if self._config_options["Obs List"]["value"] != "Off":
+        if self._dso_on:
             for obs_target in self.ui_state.observing_list():
                 marker = OBJ_TYPE_MARKERS.get(obs_target.obj_type)
                 if marker:
@@ -95,15 +72,13 @@ class UIChart(UIModule):
                         )
                     )
 
-        if marker_list != []:
+        if marker_list != [] and self._dso_on:
             marker_image = self.starfield.plot_markers(
                 marker_list,
             )
-            marker_brightness = 255
-            if self._config_options["Obs List"]["value"] == "Low":
-                marker_brightness = 64
-            if self._config_options["Obs List"]["value"] == "Med":
-                marker_brightness = 128
+            marker_brightness = self.config_object.get_option(
+                "chart_dso_brightness", 128
+            )
 
             marker_image = ImageChops.multiply(
                 marker_image,
@@ -119,16 +94,11 @@ class UIChart(UIModule):
         """
         draw the reticle if desired
         """
-        if self._config_options["Reticle"]["value"] == "Off":
+        if not self._reticle_on:
             # None....
             return
 
-        brightness = (
-            self._config_options["Reticle"]["options"].index(
-                self._config_options["Reticle"]["value"]
-            )
-            * 32
-        )
+        brightness = self.config_object.get_option("chart_reticle_brightness", 128)
 
         fov = self.fov
         for circ_deg in [4, 2, 0.5]:
@@ -176,12 +146,12 @@ class UIChart(UIModule):
 
         if self.shared_state.solve_state():
             self.animate_fov()
-            constellation_brightness = (
-                self._config_options["Constellations"]["options"].index(
-                    self._config_options["Constellations"]["value"]
+            if self._constellations_on:
+                constellation_brightness = self.config_object.get_option(
+                    "chart_constellations_brightness", 64
                 )
-                * 32
-            )
+            else:
+                constellation_brightness = 0
             self.solution = self.shared_state.solution()
             last_solve_time = self.solution["solve_time"]
             if (
@@ -205,7 +175,7 @@ class UIChart(UIModule):
                 self.plot_markers()
 
                 # Display RA/DEC in selected format if enabled
-                if self._config_options["RA/Dec"]["value"] == "HH:MM":
+                if self.config_object.get_option("chart_display_radec") == "HH:MM":
                     ra_h, ra_m, ra_s = calc_utils.ra_to_hms(self.solution["RA"])
                     dec_d, dec_m, dec_s = calc_utils.dec_to_dms(self.solution["Dec"])
                     ra_dec_disp = f"{ra_h:02d}:{ra_m:02d}:{ra_s:02d} / {dec_d:02d}°{dec_m:02d}:{dec_s}"
@@ -215,7 +185,7 @@ class UIChart(UIModule):
                         font=self.fonts.base.font,
                         fill=self.colors.get(255),
                     )
-                if self._config_options["RA/Dec"]["value"] == "Degr":
+                if self.config_object.get_option("chart_display_radec") == "Degr":
                     ra_h, ra_m, ra_s = calc_utils.ra_to_hms(self.solution["RA"])
                     dec_d, dec_m, dec_s = calc_utils.dec_to_dms(self.solution["Dec"])
                     ra_dec_disp = (

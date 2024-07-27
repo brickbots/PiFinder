@@ -99,6 +99,7 @@ class CatalogFilter:
         self.object_types = object_types
         self.altitude = altitude
         self.observed = observed
+        self.last_filtered_time = 0
 
     @property
     def magnitude(self):
@@ -151,11 +152,22 @@ class CatalogFilter:
                 f"Calc_fast_aa: {'solution' if not solution else 'location' if not location else 'datetime' if not dt else 'nothing'} not set"
             )
 
+    def is_dirty(self) -> bool:
+        """
+        Returns true if the filter parameters have changed since
+        the last filter.  False if not
+        """
+        if self.last_filtered_time > self.dirty_time:
+            return False
+        else:
+            return True
+
     def apply_filter(self, obj: CompositeObject):
         if obj.last_filtered_time > self.dirty_time:
             return obj.last_filtered_result
 
         obj.last_filtered_time = time.time()
+        self.last_filtered_time = time.time()
         # check altitude
         if self._altitude != -1 and self.fast_aa:
             obj_altitude, _ = self.fast_aa.radec_to_altaz(
