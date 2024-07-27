@@ -417,6 +417,10 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
                             if keycode == keyboard_base.LNG_LEFT:
                                 menu_manager.key_long_left()
 
+                            # Long square is marking menu
+                            if keycode == keyboard_base.LNG_SQUARE:
+                                menu_manager.key_long_square()
+
                             # Special codes....
                             if (
                                 keycode == keyboard_base.ALT_PLUS
