@@ -64,15 +64,16 @@ The `hipparcos catalog <https://www.cosmos.esa.int/web/hipparcos>`_ will be down
 
     wget -O /home/pifinder/PiFinder/astro_data/hip_main.dat https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat
 
-Install the Tetra3 solver
+Install the Plate Solver
 .........................
 
-The `Tetra3 Solver <https://github.com/esa/tetra3>`_ is a "fast lost-in-space plate solver for star trackers written in Python". It is the next gen solver, that PiFinder uses.
+The `Tetra3 Solver <https://github.com/esa/tetra3>`_ is a "fast lost-in-space plate solver for star trackers written in Python".
+We use a fork which is more robust and faster than the original, called `cedar-solve <https://github.com/smroid/cedar-solve>`_
 
 .. code-block::
 
     cd python/PiFinder
-    git clone https://github.com/esa/tetra3.git
+    git submodule update --init --recursive
 
 Debugging from the command line
 -------------------------------
