@@ -2,16 +2,16 @@ import time
 from PiFinder.keyboard_interface import KeyboardInterface
 import logging
 
+logger = logging.getLogger("KeyboardNone")
 
 class KeyboardNone(KeyboardInterface):
     def __init__(self, q):
-        self.log = logging.getLogger("KeyboardLocal")
         try:
             self.q = q
         except Exception as e:
-            logging.error("KeyboardLocal.__init__: {}".format(e))
+            logger.error("KeyboardLocal.__init__: {}".format(e))
         # manager.logger = True
-        logging.debug("KeyboardLocal.__init__")
+        logger.debug("KeyboardLocal.__init__")
 
     def callback(self, key):
         self.q.put(key)

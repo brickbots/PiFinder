@@ -700,7 +700,7 @@ if __name__ == "__main__":
     elif args.keyboard.lower() == "local":
         from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
     elif args.keyboard.lower() == "none":
-        from PiFinder import keyboard_none as keyboard # type: ignore[no-redef]
+        from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
     if args.log:
         datenow = datetime.datetime.now()
@@ -709,7 +709,7 @@ if __name__ == "__main__":
         fh.setLevel(logger.level)
         logger.addHandler(fh)
 
-    try: 
+    try:
         main(args.script, args.fps, args.verbose)
     except Exception as e:
         logger.error("Exception in main(). Aborting program.")
