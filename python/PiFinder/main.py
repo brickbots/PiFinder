@@ -565,49 +565,51 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
                         time.sleep(0.2)
 
         except KeyboardInterrupt:
-            print("SHUTDOWN")
-            print("\tClearing console queue...")
+            logger.info("KeyboardInterrupt received: shutting down.")
+            logger.info("SHUTDOWN")
             try:
+                logger.debug("\tClearing console queue...")
                 while True:
                     console_queue.get(block=False)
             except queue.Empty:
                 pass
 
-            print("\tKeyboard...")
+            logger.info("\tKeyboard...")
             try:
                 while True:
                     keyboard_queue.get(block=False)
             except queue.Empty:
                 keyboard_process.join()
 
-            print("\tServer...")
+            logger.info("\tServer...")
             server_process.join()
 
-            print("\tGPS...")
+            logger.info("\tGPS...")
             gps_process.terminate()
 
-            print("\tImaging...")
+            logger.info("\tImaging...")
             image_process.join()
 
-            print("\tIMU...")
+            logger.info("\tIMU...")
             imu_process.join()
 
-            print("\tIntegrator...")
+            logger.info("\tIntegrator...")
             integrator_process.join()
 
-            print("\tSolver...")
+            logger.info("\tSolver...")
             solver_process.join()
             exit()
 
 
 if __name__ == "__main__":
-    print("Starting PiFinder ...")
+    print("Boostrap logging configuration ...")
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
     logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
     logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
     logging.basicConfig(format="%(asctime)s %(name)s: %(levelname)s %(message)s")
+    logger.info("Starting PiFinder ...")
     parser = argparse.ArgumentParser(description="eFinder")
     parser.add_argument(
         "-fh",

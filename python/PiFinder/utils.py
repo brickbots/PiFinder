@@ -1,5 +1,6 @@
 import os
 import time
+import logging
 from pathlib import Path
 from PiFinder.state import SharedStateObj
 
@@ -73,6 +74,7 @@ class Timer:
     def __init__(self, name):
         self.name = name
         self.start_time = None
+        self.logger = logging.getLogger("Timer")
 
     def __enter__(self):
         self.start_time = time.time()
@@ -80,4 +82,4 @@ class Timer:
     def __exit__(self, exc_type, exc_value, traceback):
         end_time = time.time()
         elapsed_time = end_time - self.start_time
-        print(f"{self.name}: {elapsed_time:.6f} seconds")
+        self.logger.info(f"{self.name}: {elapsed_time:.6f} seconds")

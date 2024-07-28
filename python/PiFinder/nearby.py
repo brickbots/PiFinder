@@ -3,6 +3,9 @@ from typing import List
 import time
 import numpy as np
 from sklearn.neighbors import BallTree
+import logging
+
+logger = logging.getLogger("Nearby")
 
 
 class Nearby:
@@ -82,11 +85,11 @@ class ClosestObjectsFinder:
             n = nr_objects
 
         query = [[np.deg2rad(ra), np.deg2rad(dec)]]
-        # print(f"Query: {query}, objects: {self._objects}")
+        # logger.debug(f"Query: {query}, objects: {self._objects}")
         _, obj_ind = self._objects_balltree.query(query, k=min(n, nr_objects))
-        # print(f"Found {len(obj_ind)} objects, from {nr_objects} objects, k={min(n, nr_objects)}")
+        # logger.debug(f"Found {len(obj_ind)} objects, from {nr_objects} objects, k={min(n, nr_objects)}")
         results = self._objects[obj_ind[0]]
-        # print(f"Found {len(results)} objects, from {nr_objects} objects, n={n}")
+        # logger.debug(f"Found {len(results)} objects, from {nr_objects} objects, n={n}")
         return results
 
 

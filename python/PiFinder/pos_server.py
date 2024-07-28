@@ -17,6 +17,8 @@ from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils
 from PiFinder.catalogs import CompositeObject
 from skyfield.positionlib import position_of_radec
 
+logger = logging.getLogger("SkySafariServer")
+
 sr_result = None
 sequence = 0
 ui_queue: Queue
@@ -45,7 +47,7 @@ def get_telescope_ra(shared_state, _):
 
     hh, mm, ss = RA_h.hms()
     ra_result = f"{hh:02.0f}:{mm:02.0f}:{ss:02.0f}"
-    logging.debug("get_telescope_ra: RA result: %s", ra_result)
+    logger.debug("get_telescope_ra: RA result: %s", ra_result)
     return ra_result
 
 
@@ -79,7 +81,7 @@ def get_telescope_dec(shared_state, _):
     ss = round(fractional_mm * 60.0)
 
     dec_result = f"{sign}{hh:02.0f}*{mm:02.0f}'{ss:02.0f}"
-    logging.debug("get_telescope_dec: Dec result: %s", dec_result)
+    logger.debug("get_telescope_dec: Dec result: %s", dec_result)
     return dec_result
 
 
@@ -115,7 +117,7 @@ def parse_sr_command(_, input_str: str):
     global sr_result
     pattern = r":Sr([-+]?\d{2}):(\d{2}):(\d{2})#"
     match = _match_to_hms(pattern, input_str)
-    # logging.debug(f"Parsing sr command, match: {match}")
+    logger.debug(f"Parsing sr command, match: {match}")
     if match:
         sr_result = match
         return "1"
@@ -127,7 +129,7 @@ def parse_sd_command(shared_state, input_str: str):
     global sr_result
     pattern = r":Sd([-+]?\d{2})\*(\d{2}):(\d{2})#"
     match = _match_to_hms(pattern, input_str)
-    # logging.debug(f"Parsing sd command, match: {match}, sr_result: {sr_result}")
+    logger.debug(f"Parsing sd command, match: {match}, sr_result: {sr_result}")
     if match and sr_result:
         return handle_goto_command(shared_state, sr_result, match)
     else:
@@ -138,13 +140,13 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
     global sequence, ui_queue
     ra = ra_to_deg(*ra_parsed)
     dec = dec_to_deg(*dec_parsed)
-    logging.debug("handle_goto_command: ra,dec in deg, JNOW: %s, %s", ra, dec)
+    logger.debug("handle_goto_command: ra,dec in deg, JNOW: %s, %s", ra, dec)
     _p = position_of_radec(ra_hours=ra / 15, dec_degrees=dec, epoch=ts.now())
     ra_h, dec_d, _dist = _p.radec(epoch=ts.J2000)
     sequence += 1
     comp_ra = float(ra_h._degrees)
     comp_dec = float(dec_d.degrees)
-    logging.debug("Goto ra,dec in deg, J2000: %s, %s", comp_ra, comp_dec)
+    logger.debug("Goto ra,dec in deg, J2000: %s, %s", comp_ra, comp_dec)
     constellation = sf_utils.radec_to_constellation(comp_ra, comp_dec)
     obj = CompositeObject.from_dict(
         {
@@ -160,17 +162,17 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
             "description": f"Skysafari object nr {sequence}",
         }
     )
-    logging.debug("handle_goto_command: Pushing object: %s", obj)
+    logger.debug("handle_goto_command: Pushing object: %s", obj)
     shared_state.ui_state().push_object(obj)
     ui_queue.put("push_object")
     return "1"
 
 
-def init_logging():
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
+# def init_logging():
+#     logging.basicConfig(
+#         level=logging.DEBUG,
+#         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+#     )
 
 
 # Function to extract command
@@ -182,7 +184,7 @@ def extract_command(s):
 def run_server(shared_state, p_ui_queue):
     global ui_queue
     try:
-        init_logging()
+#        init_logging()
         ui_queue = p_ui_queue
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
             logging.info("Starting SkySafari server")

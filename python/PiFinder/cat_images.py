@@ -10,9 +10,12 @@ from PIL import Image, ImageChops, ImageDraw
 from PiFinder import image_util
 from PiFinder import utils
 import PiFinder.ui.ui_utils as ui_utils
+import logging
 
 BASE_IMAGE_PATH = f"{utils.data_dir}/catalog_images"
 CATALOG_PATH = f"{utils.astro_data_dir}/pifinder_objects.db"
+
+logger = logging.getLogger("cat_images")
 
 
 def get_display_image(catalog_object, source, fov, roll, display_class, burn_in=True):
@@ -27,7 +30,7 @@ def get_display_image(catalog_object, source, fov, roll, display_class, burn_in=
     """
 
     object_image_path = resolve_image_name(catalog_object, source)
-    print(object_image_path)
+    logger.debug("object_image_path = %s", object_image_path)
     if not os.path.exists(object_image_path):
         return_image = Image.new("RGB", display_class.resolution)
         ri_draw = ImageDraw.Draw(return_image)

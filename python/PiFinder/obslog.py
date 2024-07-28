@@ -7,6 +7,9 @@ class
 
 """
 
+import logging
+logger = logging.getLogger("ObservationLog")
+
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
@@ -38,6 +41,7 @@ class Observation_session:
 
         location = self.__shared_state.location()
         if not location:
+            logger.error("Session uid could not be created, as location is not set (yet).")
             return None
 
         local_time = self.__shared_state.local_datetime()
@@ -55,7 +59,7 @@ class Observation_session:
     def log_object(self, catalog, sequence, solution, notes):
         session_uuid = self.session_uuid()
         if not session_uuid:
-            print("Could not create session")
+            logger.error("Could not create session, so object could not be logged.")
             return False
 
         observation_id = self.db.log_object(
