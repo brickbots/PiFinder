@@ -2,13 +2,14 @@ import time
 from PiFinder.keyboard_interface import KeyboardInterface
 import logging
 
+logger = logging.getLogger("KeyboardLocal")
 
 class KeyboardLocal(KeyboardInterface):
     def __init__(self, q):
         try:
             from PyHotKey import Key, keyboard_manager as manager
         except ModuleNotFoundError:
-            print("pyhotkey not supported on pi hardware")
+            logger.error("pyhotkey not supported on pi hardware")
             return
         try:
             self.q = q
@@ -62,9 +63,9 @@ class KeyboardLocal(KeyboardInterface):
                 [Key.shift, "z"], None, self.callback, self.LNG_SQUARE
             )
         except Exception as e:
-            logging.error("KeyboardLocal.__init__: {}".format(e))
+            logger.error("KeyboardLocal.__init__: {}".format(e))
         # manager.logger = True
-        logging.debug("KeyboardLocal.__init__")
+        logger.debug("KeyboardLocal.__init__")
 
     def callback(self, key):
         self.q.put(key)
