@@ -190,6 +190,7 @@ pifinder_menu = {
             "name": "Filter",
             "class": UITextMenu,
             "select": "single",
+            "label": "filter_options",
             "items": [
                 {
                     "name": "Reset All",

@@ -13,11 +13,11 @@ import os
 import functools
 from functools import cache
 import math as math
-import numpy as np
 
 from PIL import Image, ImageChops
 from itertools import cycle
 
+from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_details import UIObjectDetails
@@ -49,6 +49,7 @@ class SortOrder(Enum):
 
     CATALOG_SEQUENCE = 0  # By catalog/sequence
     NEAREST = 1  # By Distance to target
+    RA = 3  # By RA
 
 
 class UIObjectList(UITextMenu):
@@ -77,30 +78,11 @@ class UIObjectList(UITextMenu):
 
         self._menu_items: list[CompositeObject] = []
 
-        # The object list can display objects from various sources
-        # This key of the item definition controls where to get the
-        # particular object list
-        if item_definition["objects"] == "catalogs.filtered":
-            self.filter()
-            self._menu_items = self.catalogs.get_objects(
-                only_selected=True, filtered=True
-            )
-
-        if item_definition["objects"] == "catalog":
-            for catalog in self.catalogs.get_catalogs(only_selected=False):
-                if catalog.catalog_code == item_definition["value"]:
-                    self._menu_items = catalog.get_filtered_objects()
-
-        if item_definition["objects"] == "custom":
-            # item_definition must contian a list of CompositeObjects
-            self._menu_items = item_definition["object_list"]
-
-        self._menu_items_sorted = self._menu_items
-        self.nearby = Nearby(self.shared_state)
-
+        # Init display mode defaults
         self.mode_cycle = cycle(DisplayModes)
         self.current_mode = next(self.mode_cycle)
 
+        # Initialize sort default
         self.sort_cycle = cycle(SortOrder)
         self.current_sort = next(self.sort_cycle)
 
@@ -127,8 +109,68 @@ class UIObjectList(UITextMenu):
         self.last_item_index = -1
         self.item_text_scroll = None
 
-    def filter(self):
+        self.marking_menu = MarkingMenu(
+            left=MarkingMenuOption(
+                label="Sort",
+                callback=MarkingMenu(
+                    up=MarkingMenuOption(),
+                    left=MarkingMenuOption(
+                        label="Nearest", callback=self.mm_change_sort
+                    ),
+                    down=MarkingMenuOption(label="RA", callback=self.mm_change_sort),
+                    right=MarkingMenuOption(
+                        label="Catalog", callback=self.mm_change_sort
+                    ),
+                ),
+            ),
+            down=MarkingMenuOption(),
+            right=MarkingMenuOption(label="Filter", menu_jump="filter_options"),
+        )
+
+        if self.current_sort == SortOrder.CATALOG_SEQUENCE:
+            self.marking_menu.left.callback.right.selected = True
+        if self.current_sort == SortOrder.NEAREST:
+            self.marking_menu.left.callback.left.selected = True
+        if self.current_sort == SortOrder.RA:
+            self.marking_menu.left.callback.down.selected = True
+
+        # Update object list populates self._menu_items
+        # Force update because this is the first time and we
+        # need to get the object list always
+        self.refresh_object_list(force_update=True)
+        self.nearby = Nearby(self.shared_state)
+
+    def refresh_object_list(self, force_update=False):
+        """
+        Called whenever the object list might need to be updated.
+        Updated here means reloaded from filtered catalog sources
+        where possible
+
+        force_update ignores filter dirty flag
+        """
+        if not self.catalogs.catalog_filter.is_dirty() and not force_update:
+            return
+
         self.catalogs.filter_catalogs()
+        # The object list can display objects from various sources
+        # This key of the item definition controls where to get the
+        # particular object list
+        if self.item_definition["objects"] == "catalogs.filtered":
+            self._menu_items = self.catalogs.get_objects(
+                only_selected=True, filtered=True
+            )
+
+        if self.item_definition["objects"] == "catalog":
+            for catalog in self.catalogs.get_catalogs(only_selected=False):
+                if catalog.catalog_code == self.item_definition["value"]:
+                    self._menu_items = catalog.get_filtered_objects()
+
+        if self.item_definition["objects"] == "custom":
+            # item_definition must contian a list of CompositeObjects
+            self._menu_items = self.item_definition["object_list"]
+
+        self._menu_items_sorted = self._menu_items
+        self.sort()
 
     def sort(self) -> None:
         message = f"Sorting by\n{'number' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'nearby'}"
@@ -303,8 +345,7 @@ class UIObjectList(UITextMenu):
     def active(self):
         # trigger refilter
         super().active()
-        self.filter()
-        self.objects_balltree = None
+        self.refresh_object_list()
 
     def update(self, force=False):
         self.clear_screen()
@@ -369,6 +410,7 @@ class UIObjectList(UITextMenu):
                     self.screen.paste(marker, (0, line_pos + 2))
 
                 # calculate start of both pieces of text
+                begin_x = 12
                 space = (
                     0 if is_focus and not self.current_mode == DisplayModes.NAME else 1
                 )
@@ -396,7 +438,7 @@ class UIObjectList(UITextMenu):
                                 (self.display.width - begin_x2) / line_font.width
                             ),
                             # scrollspeed=self._get_scrollspeed_config(),
-                            scrollspeed=TextLayouterScroll.MEDIUM,
+                            scrollspeed=TextLayouterScroll.FAST,
                         )
                     # draw scrolling second text
                     self.item_text_scroll.draw((begin_x2, line_pos))
@@ -488,7 +530,7 @@ class UIObjectList(UITextMenu):
         else:
             super().key_down()
 
-    def key_square(self):
+    def cycle_display_mode(self):
         """
         Switch display modes
         """
@@ -499,11 +541,22 @@ class UIObjectList(UITextMenu):
             self.current_mode = next(self.mode_cycle)
             self.refresh()
 
-    def key_plus(self):
+    def marking_menu_left(self):
         """
         Switch sort modes
         """
-        self.current_sort = next(self.sort_cycle)
+        self.current_sort = SortOrder.CATALOG_SEQUENCE
+        self._marking_menu_items[3].selected = True
+        self._marking_menu_items[1].selected = False
+        self.sort()
+
+    def marking_menu_right(self):
+        """
+        Switch sort modes
+        """
+        self.current_sort = SortOrder.NEAREST
+        self._marking_menu_items[1].selected = True
+        self._marking_menu_items[3].selected = False
         self.sort()
 
     def key_right(self):
@@ -538,6 +591,32 @@ class UIObjectList(UITextMenu):
 
     def key_long_down(self):
         self.menu_scroll(999999999999999999999999999)
+
+    def mm_change_sort(self, marking_menu, menu_item):
+        """
+        Called to change sort order from MM
+        """
+        marking_menu.select_none()
+        menu_item.selected = True
+
+        if menu_item.label == "Nearest":
+            self.current_sort = SortOrder.NEAREST
+            self.nearby_refresh()
+            self.sort()
+            return True
+
+        if menu_item.label == "Catalog":
+            self.current_sort = SortOrder.CATALOG_SEQUENCE
+            self.sort()
+            return True
+
+        if menu_item.label == "RA":
+            self.current_sort = SortOrder.RA
+            self.sort()
+            return True
+
+    def mm_jump_to_filter(self, marking_menu, menu_item):
+        pass
 
 
 class CatalogSequence:
