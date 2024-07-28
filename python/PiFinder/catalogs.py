@@ -542,7 +542,7 @@ class PlanetCatalog(Catalog):
                 "dec": dec,
                 "const": constellation,
                 "size": "",
-                "mag": planet["mag"],
+                "mag": MagnitudeObject([planet["mag"]]),
                 "names": [name.capitalize()],
                 "catalog_code": "PL",
                 "sequence": sequence + 1,
