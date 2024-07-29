@@ -14,14 +14,13 @@ import logging
 import sys
 from time import perf_counter as precision_timestamp
 
-logger = logging.getLogger("solver")
-
 from PiFinder import utils
 
 sys.path.append(str(utils.tetra3_dir))
 import PiFinder.tetra3.tetra3 as tetra3
 from PiFinder.tetra3.tetra3 import cedar_detect_client
 
+logger = logging.getLogger("solver")
 
 def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=False):
     logging.getLogger("tetra3.Tetra3").addHandler(logging.NullHandler())
