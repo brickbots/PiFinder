@@ -187,7 +187,7 @@ def run_server(shared_state, p_ui_queue):
 #        init_logging()
         ui_queue = p_ui_queue
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-            logging.info("Starting SkySafari server")
+            logger.info("Starting SkySafari server")
             server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             server_socket.bind(("", 4030))
             server_socket.listen(1)
@@ -197,14 +197,14 @@ def run_server(shared_state, p_ui_queue):
                 while True:
                     in_data = client_socket.recv(1024).decode()
                     if in_data:
-                        logging.debug("Received from skysafari: '%s'", in_data)
+                        logger.debug("Received from skysafari: '%s'", in_data)
                         command = extract_command(in_data)
                         if command:
                             command_handler = lx_command_dict.get(command, None)
                             if command_handler:
                                 out_data = command_handler(shared_state, in_data)
                             else:
-                                logging.warn("Unknown Command: %s", in_data)
+                                logger.warn("Unknown Command: %s", in_data)
                                 out_data = not_implemented(shared_state, in_data)
                     else:
                         break
@@ -217,9 +217,8 @@ def run_server(shared_state, p_ui_queue):
                         out_data = None
                 client_socket.close()
     except Exception as e:
-        print(e)
-        print("exited skysafari")
-        logging.exception("An error occurred in the skysafari server")
+        logger.exception(e)
+        logger.error("An error occurred in the skysafari server, exiting!")
 
 
 lx_command_dict = {
