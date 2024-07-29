@@ -12,10 +12,10 @@ import datetime
 import sh
 import logging
 
-logger = logging.getLogger("callbacks")
-
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
+
+logger = logging.getLogger("callbacks")
 
 
 def go_back(ui_module: UIModule) -> None:

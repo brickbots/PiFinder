@@ -9,11 +9,11 @@ class
 
 import logging
 
-logger = logging.getLogger("ObservationLog")
-
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
+
+logger = logging.getLogger("ObservationLog")
 
 
 class Observation_session:
