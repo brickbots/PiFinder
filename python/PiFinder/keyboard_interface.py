@@ -3,6 +3,7 @@ import logging
 
 logger = logging.getLogger("KeyboardInterface")
 
+
 class KeyboardInterface:
     NA = 10
     PLUS = 11

@@ -19,12 +19,13 @@ import logging
 from itertools import cycle
 
 logger = logging.getLogger("CameraDebug")
-logger.setLevel(logging.WARNING) # TODO LOG: Needs to be in a config file.
+logger.setLevel(logging.WARNING)  # TODO LOG: Needs to be in a config file.
+
 
 class CameraDebug(CameraInterface):
     """The debug camera class.  Implements the CameraInterface interface.
 
-    Cycles through three images stored in "test_images" every 5 secs. 
+    Cycles through three images stored in "test_images" every 5 secs.
 
     """
 

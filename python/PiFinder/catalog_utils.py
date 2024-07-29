@@ -7,10 +7,13 @@ import logging
 
 logger = logging.getLogger("catalog_utils")
 
+
 def deduplicate_objects(
     unfiltered_objects: list[CompositeObject],
 ) -> list[CompositeObject]:
-    logger.debug(f"Before deduplication: {len(unfiltered_objects)}, {unfiltered_objects}")
+    logger.debug(
+        f"Before deduplication: {len(unfiltered_objects)}, {unfiltered_objects}"
+    )
     deduplicated_dict = {}
 
     precedence = {"M": 2, "NGC": 1}
@@ -69,5 +72,7 @@ class ClosestObjectsFinder:
             f"get_closest_objects - Found {len(obj_ind)} objects, from {nr_objects} objects, k={min(n, nr_objects)}"
         )
         results = self._objects[obj_ind[0]]
-        logger.debug(f"get_closest_objects - Found {len(results)} objects, from {nr_objects} objects, n={n}")
+        logger.debug(
+            f"get_closest_objects - Found {len(results)} objects, from {nr_objects} objects, n={n}"
+        )
         return results

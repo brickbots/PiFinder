@@ -21,6 +21,7 @@ IMU_AZ = 0
 
 logger = logging.getLogger("Integrator")
 
+
 def imu_moved(imu_a, imu_b):
     """
     Compares two IMU states to determine if they are the 'same'

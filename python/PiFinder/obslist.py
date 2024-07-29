@@ -91,7 +91,9 @@ def read_list(catalogs: Catalogs, name):
             line = line.strip()
             if line == "SkyObject=BeginObject":
                 if in_object:
-                    logger.critical("Encountered object start while in object.  File is corrupt")
+                    logger.critical(
+                        "Encountered object start while in object.  File is corrupt"
+                    )
                     return {
                         "result": "error",
                         "objects_parsed": objects_parsed,

@@ -4,6 +4,7 @@ import logging
 
 logger = logging.getLogger("KeyboardNone")
 
+
 class KeyboardNone(KeyboardInterface):
     def __init__(self, q):
         try:

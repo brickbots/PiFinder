@@ -184,7 +184,7 @@ def extract_command(s):
 def run_server(shared_state, p_ui_queue):
     global ui_queue
     try:
-#        init_logging()
+        #        init_logging()
         ui_queue = p_ui_queue
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
             logger.info("Starting SkySafari server")

@@ -12,6 +12,7 @@ from itertools import islice
 
 logger = logging.getLogger("GPS")
 
+
 def is_tpv_accurate(tpv_dict):
     """
     Check the accuracy of the GPS fix

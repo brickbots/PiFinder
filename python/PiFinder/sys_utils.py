@@ -9,6 +9,7 @@ BACKUP_PATH = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
 
 logger = logging.getLogger("sys_utils")
 
+
 class Network:
     """
     Provides wifi network info

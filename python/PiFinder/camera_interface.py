@@ -19,6 +19,7 @@ import logging
 
 logger = logging.getLogger("CameraInterface")
 
+
 class CameraInterface:
     """The CameraInterface interface."""
 

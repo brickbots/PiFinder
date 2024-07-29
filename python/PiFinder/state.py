@@ -14,6 +14,7 @@ import logging
 
 logger = logging.getLogger("UIState")
 
+
 class UIState:
     def __init__(self):
         self.__observing_list = []

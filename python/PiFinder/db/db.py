@@ -6,6 +6,7 @@ from pathlib import Path
 
 logger = logging.getLogger("Database")
 
+
 class Database:
     conn: Connection
     cursor: Cursor

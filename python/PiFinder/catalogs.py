@@ -436,7 +436,9 @@ class Catalogs:
                 catalog.is_selected = True
             self.__catalogs.append(catalog)
         else:
-            logger.warning(f"Catalog {catalog.catalog_code} already exists, not replaced (in Catalogs.add)")
+            logger.warning(
+                f"Catalog {catalog.catalog_code} already exists, not replaced (in Catalogs.add)"
+            )
 
     def remove(self, catalog_code: str):
         for catalog in self.__catalogs:

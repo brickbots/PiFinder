@@ -718,6 +718,6 @@ if __name__ == "__main__":
 
     try:
         main(args.script, args.fps, args.verbose)
-    except Exception as e:
+    except Exception:
         rlogger.exception("Exception in main(). Aborting program.")
         os._exit(1)

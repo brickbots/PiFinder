@@ -18,6 +18,7 @@ import logging
 
 logger = logging.getLogger("CameraNone")
 
+
 class CameraNone(CameraInterface):
     """Simulate a camera not solving"""
 
