@@ -330,7 +330,7 @@ class Skyfield_utils:
         t = self.ts.from_datetime(dt)
 
         observer = self.observer_loc.at(t)
-        # logging.debug(f"radec_to_altaz: '{ra}' '{dec}' '{dt}'")
+        # logger.debug(f"radec_to_altaz: '{ra}' '{dec}' '{dt}'")
         sky_pos = Star(
             ra=Angle(degrees=ra),
             dec_degrees=dec,

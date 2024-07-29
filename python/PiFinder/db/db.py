@@ -4,6 +4,7 @@ import logging
 import sqlite3
 from pathlib import Path
 
+logger = logging.getLogger("Database")
 
 class Database:
     conn: Connection
@@ -21,12 +22,12 @@ class Database:
     def get_database(self, db_path) -> Tuple[Connection, Cursor]:
         try:
             # open the DB
-            logging.debug(f"Opening DB {db_path}")
+            logger.debug(f"Opening DB {db_path}")
             conn = sqlite3.connect(db_path)
             conn.row_factory = sqlite3.Row
             db_c = conn.cursor()
         except Error as e:
-            logging.error(e)
+            logger.exception("Error connecting to database")
             raise e
 
         return conn, db_c

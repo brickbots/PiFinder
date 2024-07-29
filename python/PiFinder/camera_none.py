@@ -35,7 +35,7 @@ class CameraNone(CameraInterface):
     def capture(self) -> Image.Image:
         sleep_time = self.exposure_time / 1000000
         time.sleep(sleep_time)
-        logging.debug("CameraNone exposed for %s seconds", sleep_time)
+        logger.debug("CameraNone exposed for %s seconds", sleep_time)
         return self.image
 
     def capture_file(self, filename) -> None:

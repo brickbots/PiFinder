@@ -1,6 +1,7 @@
 from time import sleep
 import logging
 
+logger = logging.getLogger("KeyboardInterface")
 
 class KeyboardInterface:
     NA = 10
@@ -35,14 +36,14 @@ class KeyboardInterface:
         """
         Runs a keyscript for automation/testing
         """
-        logging.info("Running Script: " + script_name)
+        logger.info("Running Script: " + script_name)
         with open(script_name) as script_file:
             script = script_file.readlines()
             length = len(script)
             for idx, script_line in enumerate(script):
                 sleep(0.5)
                 script_line = script_line.strip()
-                logging.debug(f"({idx}/{length})\t{script_line}")
+                logger.debug(f"({idx}/{length})\t{script_line}")
                 script_tokens = script_line.split(" ")
                 if script_tokens[0].startswith("#"):
                     # comment

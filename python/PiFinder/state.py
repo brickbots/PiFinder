@@ -12,6 +12,7 @@ import pytz
 from PiFinder import config
 import logging
 
+logger = logging.getLogger("UIState")
 
 class UIState:
     def __init__(self):
@@ -81,8 +82,8 @@ class UIState:
         self.__target = self.__active_list[index]
 
     def set_target_and_add_to_history(self, target):
-        logging.debug("set_target_and_add_to_history")
-        logging.debug(f"setting target to {target}")
+        logger.debug("set_target_and_add_to_history")
+        logger.debug(f"setting target to {target}")
         self.__target = target
         if len(self.__history_list) == 0:
             self.__history_list.append(self.__target)

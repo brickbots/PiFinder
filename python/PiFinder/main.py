@@ -50,6 +50,7 @@ from PiFinder.image_util import subtract_background
 from PiFinder.calc_utils import sf_utils
 from PiFinder.displays import DisplayBase, get_display
 
+logger = logging.getLogger("main")
 
 hardware_platform = "Pi"
 display_hardware = "SSD1351"
@@ -72,7 +73,7 @@ def set_keypad_brightness(percentage: float):
     """
     global keypad_pwm
     if percentage < 0 or percentage > 100:
-        logging.error("Invalid percentage for keypad brightness")
+        logger.error("Invalid percentage for keypad brightness")
         percentage = max(0, min(100, percentage))
     if keypad_pwm:
         keypad_pwm.change_duty_cycle(percentage)
@@ -175,7 +176,7 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
     keyboard_base = keyboard_interface.KeyboardInterface()
 
     os_detail, platform, arch = utils.get_os_info()
-    logging.info(f"PiFinder running on {os_detail}, {platform}, {arch}")
+    logger.info(f"PiFinder running on {os_detail}, {platform}, {arch}")
 
     # init queues
     console_queue: Queue = Queue()
@@ -209,7 +210,7 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
         ui_state.set_active_list_to_history_list()
         shared_state.set_ui_state(ui_state)
         shared_state.set_arch(arch)  # Normal
-        logging.debug("Ui state in main is" + str(shared_state.ui_state()))
+        logger.debug("Ui state in main is" + str(shared_state.ui_state()))
         console = UIConsole(display_device, None, shared_state, command_queues, cfg)
         console.write("Starting....")
         console.update()
@@ -350,7 +351,7 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
                 try:
                     gps_msg, gps_content = gps_queue.get(block=False)
                     if gps_msg == "fix":
-                        # logging.debug(f"GPS fix msg: {gps_content}")
+                        # logger.debug(f"GPS fix msg: {gps_content}")
                         if gps_content["lat"] + gps_content["lon"] != 0:
                             location = shared_state.location()
                             location["lat"] = gps_content["lat"]
@@ -372,11 +373,11 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
 
                             shared_state.set_location(location)
                     if gps_msg == "time":
-                        # logging.debug(f"GPS time msg: {gps_content}")
+                        # logger.debug(f"GPS time msg: {gps_content}")
                         gps_dt = gps_content
                         shared_state.set_datetime(gps_dt)
                     if gps_msg == "satellites":
-                        logging.debug(f"Main: GPS nr sats seen: {gps_content}")
+                        logger.debug(f"Main: GPS nr sats seen: {gps_content}")
                         shared_state.set_sats(gps_content)
                 except queue.Empty:
                     pass
@@ -404,7 +405,7 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
                     pass
 
                 if keycode is not None:
-                    # logging.debug(f"Keycode: {keycode}")
+                    # logger.debug(f"Keycode: {keycode}")
                     screen_dim, screen_off = _calculate_timeouts(cfg)
                     original_power_state = wake_screen(
                         screen_brightness, shared_state, cfg
@@ -603,13 +604,13 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
 
 if __name__ == "__main__":
     print("Boostrap logging configuration ...")
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    rlogger = logging.getLogger()
+    rlogger.setLevel(logging.INFO)
     logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
     logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
     logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
     logging.basicConfig(format="%(asctime)s %(name)s: %(levelname)s %(message)s")
-    logger.info("Starting PiFinder ...")
+    rlogger.info("Starting PiFinder ...")
     parser = argparse.ArgumentParser(description="eFinder")
     parser.add_argument(
         "-fh",
@@ -672,7 +673,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     # add the handlers to the logger
     if args.verbose:
-        logger.setLevel(logging.DEBUG)
+        rlogger.setLevel(logging.DEBUG)
 
     if args.fakehardware:
         hardware_platform = "Fake"
@@ -690,15 +691,15 @@ if __name__ == "__main__":
         display_hardware = args.display.lower()
 
     if args.camera.lower() == "pi":
-        logging.debug("using pi camera")
+        rlogger.debug("using pi camera")
         from PiFinder import camera_pi as camera
     elif args.camera.lower() == "debug":
-        logging.debug("using debug camera")
+        rlogger.debug("using debug camera")
         from PiFinder import camera_debug as camera  # type: ignore[no-redef]
     elif args.camera.lower() == "asi":
-        logging.debug("using asi camera")
+        rlogger.debug("using asi camera")
     else:
-        logging.debug("not using camera")
+        rlogger.debug("not using camera")
         from PiFinder import camera_none as camera  # type: ignore[no-redef]
 
     if args.keyboard.lower() == "pi":
@@ -713,11 +714,10 @@ if __name__ == "__main__":
         filehandler = f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"
         fh = logging.FileHandler(filehandler)
         fh.setLevel(logger.level)
-        logger.addHandler(fh)
+        rlogger.addHandler(fh)
 
     try:
         main(args.script, args.fps, args.verbose)
     except Exception as e:
-        logger.error("Exception in main(). Aborting program.")
-        logger.exception(e)
+        rlogger.exception("Exception in main(). Aborting program.")
         os._exit(1)

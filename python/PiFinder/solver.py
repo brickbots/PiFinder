@@ -25,7 +25,7 @@ from PiFinder.tetra3.tetra3 import cedar_detect_client
 
 def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=False):
     logging.getLogger("tetra3.Tetra3").addHandler(logging.NullHandler())
-    logging.debug("Starting Solver")
+    logger.debug("Starting Solver")
     t3 = tetra3.Tetra3(
         str(utils.cwd_dir / "PiFinder/tetra3/tetra3/data/default_database.npz")
     )
