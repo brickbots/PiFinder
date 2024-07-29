@@ -41,7 +41,7 @@ class Observation_session:
 
         location = self.__shared_state.location()
         if not location:
-            logger.error("Session uid could not be created, as location is not set (yet).")
+            logger.error("Session uuid could not be created, as location is not set (yet).")
             return None
 
         local_time = self.__shared_state.local_datetime()
