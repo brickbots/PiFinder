@@ -44,7 +44,7 @@ class KeyboardInterface:
             for idx, script_line in enumerate(script):
                 sleep(0.5)
                 script_line = script_line.strip()
-                logger.debug(f"({idx}/{length})\t{script_line}")
+                logger.debug("(%i/%i)\t%s", idx, length, script_line)
                 script_tokens = script_line.split(" ")
                 if script_tokens[0].startswith("#"):
                     # comment

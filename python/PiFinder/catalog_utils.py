@@ -29,7 +29,7 @@ def deduplicate_objects(
                 deduplicated_dict[obj.object_id] = obj
 
     results = list(deduplicated_dict.values())
-    logger.debug(f"After deduplication: {len(results)}, {results}")
+    logger.debug("After deduplication: %i, %s", len(results), results)
     return results
 
 
@@ -66,13 +66,21 @@ class ClosestObjectsFinder:
             n = nr_objects
 
         query = [[np.deg2rad(ra), np.deg2rad(dec)]]
-        logger.debug(f"get_closest_objects - Query: {query}, objects: {self._objects}")
+        logger.debug(
+            "get_closest_objects - Query: %s, objects: %s", query, self.objects
+        )
         _, obj_ind = self._objects_balltree.query(query, k=min(n, nr_objects))
         logger.debug(
-            f"get_closest_objects - Found {len(obj_ind)} objects, from {nr_objects} objects, k={min(n, nr_objects)}"
+            "get_closest_objects - Found %i objects, from %i objects, k=%i",
+            len(obj_ind),
+            nr_objects,
+            min(n, nr_objects),
         )
         results = self._objects[obj_ind[0]]
         logger.debug(
-            f"get_closest_objects - Found {len(results)} objects, from {nr_objects} objects, n={n}"
+            "get_closest_objects - Found %i objects, from %i objects, n=%i",
+            len(results),
+            nr_objects,
+            n,
         )
         return results

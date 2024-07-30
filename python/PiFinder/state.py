@@ -84,7 +84,7 @@ class UIState:
 
     def set_target_and_add_to_history(self, target):
         logger.debug("set_target_and_add_to_history")
-        logger.debug(f"setting target to {target}")
+        logger.debug("setting target to %s", target)
         self.__target = target
         if len(self.__history_list) == 0:
             self.__history_list.append(self.__target)

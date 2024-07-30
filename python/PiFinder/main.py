@@ -176,7 +176,7 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
     keyboard_base = keyboard_interface.KeyboardInterface()
 
     os_detail, platform, arch = utils.get_os_info()
-    logger.info(f"PiFinder running on {os_detail}, {platform}, {arch}")
+    logger.info("PiFinder running on %s, %s, %s", os_detail, platform, arch)
 
     # init queues
     console_queue: Queue = Queue()
@@ -351,7 +351,7 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
                 try:
                     gps_msg, gps_content = gps_queue.get(block=False)
                     if gps_msg == "fix":
-                        # logger.debug(f"GPS fix msg: {gps_content}")
+                        # logger.debug("GPS fix msg: %s", gps_content)
                         if gps_content["lat"] + gps_content["lon"] != 0:
                             location = shared_state.location()
                             location["lat"] = gps_content["lat"]
@@ -373,11 +373,11 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
 
                             shared_state.set_location(location)
                     if gps_msg == "time":
-                        # logger.debug(f"GPS time msg: {gps_content}")
+                        # logger.debug("GPS time msg: %s", gps_content)
                         gps_dt = gps_content
                         shared_state.set_datetime(gps_dt)
                     if gps_msg == "satellites":
-                        logger.debug(f"Main: GPS nr sats seen: {gps_content}")
+                        logger.debug("Main: GPS nr sats seen: %s", gps_content)
                         shared_state.set_sats(gps_content)
                 except queue.Empty:
                     pass
@@ -405,7 +405,7 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
                     pass
 
                 if keycode is not None:
-                    # logger.debug(f"Keycode: {keycode}")
+                    # logger.debug("Keycode: %s", keycode)
                     screen_dim, screen_off = _calculate_timeouts(cfg)
                     original_power_state = wake_screen(
                         screen_brightness, shared_state, cfg

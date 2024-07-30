@@ -189,7 +189,7 @@ class Server:
         def gps_page():
             self.update_gps()
             show_new_form = request.query.add_new or 0
-            logger.debug(f"/gps: {self.lat}, {self.lon}, {self.altitude}")
+            logger.debug("/gps: %f, %f, %f ", self.lat, self.lon, self.altitude)
 
             return template(
                 "gps",
@@ -214,7 +214,7 @@ class Server:
                 )
                 datetime_utc = datetime_obj.replace(tzinfo=timezone.utc)
                 time_lock(datetime_utc)
-            logger.debug(f"GPS update: {lat}, {lon}, {altitude}, {time_req}")
+            logger.debug("GPS update: %f, %f, %f, %f ", lat, lon, altitude, time_req)
             time.sleep(1)  # give the gps thread a chance to update
             return home()
 

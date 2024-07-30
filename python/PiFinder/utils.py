@@ -82,4 +82,4 @@ class Timer:
     def __exit__(self, exc_type, exc_value, traceback):
         end_time = time.time()
         elapsed_time = end_time - self.start_time
-        self.logger.info(f"{self.name}: {elapsed_time:.6f} seconds")
+        self.logger.info("%s: %.6f seconds", self.name, elapsed_time)

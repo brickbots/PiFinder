@@ -78,7 +78,7 @@ def gps_monitor(gps_queue, console_queue):
                             sats_used = result["uSat"]
                             num_sats = (sats_seen, sats_used)
                             msg = ("satellites", num_sats)
-                            logger.debug(f"Number of sats seen: {num_sats}")
+                            logger.debug("Number of sats seen: %i", num_sats)
                             gps_queue.put(msg)
                             break
                 logger.debug("GPS sleeping now")

@@ -58,7 +58,7 @@ def set_exposure(ui_module: UIModule) -> None:
     Sets exposure to current value in config option
     """
     new_exposure: int = ui_module.config_object.get_option("camera_exp")
-    logger.info(f"Set exposure {new_exposure}")
+    logger.info("Set exposure %f", new_exposure)
     ui_module.command_queues["camera"].put(f"set_exp:{new_exposure}")
 
 

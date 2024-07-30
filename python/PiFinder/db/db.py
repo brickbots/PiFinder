@@ -23,7 +23,7 @@ class Database:
     def get_database(self, db_path) -> Tuple[Connection, Cursor]:
         try:
             # open the DB
-            logger.debug(f"Opening DB {db_path}")
+            logger.debug("Opening DB %s", db_path)
             conn = sqlite3.connect(db_path)
             conn.row_factory = sqlite3.Row
             db_c = conn.cursor()

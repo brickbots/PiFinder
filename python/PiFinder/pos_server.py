@@ -117,7 +117,7 @@ def parse_sr_command(_, input_str: str):
     global sr_result
     pattern = r":Sr([-+]?\d{2}):(\d{2}):(\d{2})#"
     match = _match_to_hms(pattern, input_str)
-    logger.debug(f"Parsing sr command, match: {match}")
+    logger.debug("Parsing sr command, match: %s", match)
     if match:
         sr_result = match
         return "1"
@@ -129,7 +129,7 @@ def parse_sd_command(shared_state, input_str: str):
     global sr_result
     pattern = r":Sd([-+]?\d{2})\*(\d{2}):(\d{2})#"
     match = _match_to_hms(pattern, input_str)
-    logger.debug(f"Parsing sd command, match: {match}, sr_result: {sr_result}")
+    logger.debug("Parsing sd command, match: %s, sr_result: %s", match, sr_result)
     if match and sr_result:
         return handle_goto_command(shared_state, sr_result, match)
     else:
