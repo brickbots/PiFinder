@@ -67,7 +67,7 @@ class ClosestObjectsFinder:
 
         query = [[np.deg2rad(ra), np.deg2rad(dec)]]
         logger.debug(
-            "get_closest_objects - Query: %s, objects: %s", query, self.objects
+            "get_closest_objects - Query: %s, objects: %s", query, self._objects
         )
         _, obj_ind = self._objects_balltree.query(query, k=min(n, nr_objects))
         logger.debug(
