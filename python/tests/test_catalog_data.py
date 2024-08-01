@@ -28,11 +28,12 @@ def test_object_counts():
         "Sh2": 313,
         "Abl": 79,
         "Arp": 336,
+        "TLK": 93,
     }
 
     # catalog count
     num_catalogs = len(list(db.get_catalogs()))
-    assert num_catalogs == 17
+    assert num_catalogs == 18
 
     # Catalog Counts
     for catalog_code, count in catalog_counts.items():

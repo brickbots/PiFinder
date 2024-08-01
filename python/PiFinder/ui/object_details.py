@@ -142,10 +142,7 @@ class UIObjectDetails(UIModule):
         )
         # Magnitude / Size
         # try to get object mag to float
-        try:
-            obj_mag = float(self.object.mag)
-        except (ValueError, TypeError):
-            obj_mag = "-" if self.object.mag == "" else self.object.mag
+        obj_mag = self.object.mag_str
 
         size = str(self.object.size).strip()
         size = "-" if size == "" else size
