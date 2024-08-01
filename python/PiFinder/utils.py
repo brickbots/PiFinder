@@ -63,7 +63,6 @@ class Timer:
     """
     Time multiple code blocks using a context manager.
     Usage:
-
         with Timer("deduplicate_objects 1"):
             results1 = deduplicate_objects(results*10)
         with Timer("deduplicate_objects 2"):
@@ -81,3 +80,14 @@ class Timer:
         end_time = time.time()
         elapsed_time = end_time - self.start_time
         print(f"{self.name}: {elapsed_time:.6f} seconds")
+
+
+def is_number(s):
+    """Check if a string can be converted to a float"""
+    if s is None:
+        return False
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
