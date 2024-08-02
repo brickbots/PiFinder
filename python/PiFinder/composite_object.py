@@ -34,7 +34,7 @@ class MagnitudeObject:
         if len(self.mags) == 0 or self.filter_mag == self.UNKNOWN_MAG:
             return "-"
         elif len(self.mags) == 1:
-            return self.mags[0]
+            return f"{self.mags[0]:.1f}"
         else:
             filtered = self._filter_floats()
             return f"{np.min(filtered)}/{np.max(filtered)}"

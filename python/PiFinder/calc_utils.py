@@ -3,6 +3,7 @@ import pytz
 import math
 import numpy as np
 from typing import Tuple, Optional
+from PiFinder.state import SharedStateObj
 from skyfield.api import (
     wgs84,
     Loader,
@@ -21,10 +22,23 @@ from skyfield.api import load
 from skyfield.data import mpc
 from skyfield.constants import GM_SUN_Pitjeva_2005_km3_s2 as GM_SUN
 from skyfield.elementslib import osculating_elements_of
+from skyfield.api import Topos
 from PiFinder.utils import Timer
 import numpy as np
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from functools import partial
+from multiprocessing import Manager
+from multiprocessing import Pool
+import time
+
+
+def sleep_for_framerate(shared_state: SharedStateObj, limit_framerate=True) -> bool:
+    if shared_state.power_state() <= 0:
+        time.sleep(0.5)
+        return True
+    elif limit_framerate:
+        time.sleep(1 / 30)
+    return False
 
 
 class FastAltAz:
@@ -312,11 +326,12 @@ class Skyfield_utils:
         # Note: We can't get this info from self.observer_loc
         self._observer_geoid = wgs84.latlon(lat, lon, altitude)
 
-    def get_latlon(self):
+    def get_lat_lon_alt(self):
         """Returns the observer latitude & longitude in degrees"""
         return (
             self._observer_geoid.latitude.degrees,
             self._observer_geoid.longitude.degrees,
+            self._observer_geoid.elevation.m,
         )
 
     def altaz_to_radec(self, alt, az, dt):
@@ -446,75 +461,78 @@ class Skyfield_utils:
             }
         return planet_dict
 
-    def is_pickleable(self, obj):
-        import pickle
-        try:
-            pickle.dumps(obj)
-            return True
-        except pickle.PicklingError:
-            return False
-        except TypeError:  # Some objects raise TypeError instead of PicklingError
-            return False
 
-    def calc_comets(self, dt):
-        t = self.ts.from_datetime(dt)
-        observer = self.observer_loc.at(t)
-        sun = self.eph['sun']
+def process_comet(comet_data, dt, latlonalt: Tuple[float, float, float]):
+    t = sf_utils.ts.from_datetime(dt)
+    sun = sf_utils.eph['sun']
+    earth = sf_utils.eph['earth']
 
-        with load.open(mpc.COMET_URL) as f:
-            comets_df = mpc.load_comets_dataframe(f)
+    # Calculate RA/DEC position of the comet
+    name, row = comet_data
+    cometvec = sun + mpc.comet_orbit(row, sf_utils.ts, GM_SUN)
+    cometpos = earth.at(t).observe(cometvec)
+    ra, dec, earth_comet = cometpos.radec()
+    # print("RA", ra, "   DEC", dec, "   Distance", earth_comet.au)
 
-        comets_df = (comets_df.sort_values('reference')
-                     .groupby('designation', as_index=False).last()
-                     .set_index('designation', drop=False))
-
-        # Convert DataFrame to list of tuples with row as dict
-        comet_data = [(name, row.to_dict()) for name, row in comets_df.iterrows()]
-
-        # Get GCRS vectors for sun and observer
-        sun_gcrs = sun.at(t)
-        observer_gcrs = observer
-        print(f"is pcikleable: {self.is_pickleable(observer_gcrs)}, {self.is_pickleable(sun_gcrs)}")
-
-        with ProcessPoolExecutor() as executor:
-            process_comet_partial = partial(process_comet, sun_gcrs=sun_gcrs, observer_gcrs=observer_gcrs, t=t)
-            future_to_comet = {executor.submit(process_comet_partial, cd): cd for cd in comet_data}
-            comet_dict = {}
-            for future in as_completed(future_to_comet):
-                try:
-                    name, comet_data = future.result()
-                    comet_dict[name] = comet_data
-                except Exception as e:
-                    print(f"Error processing comet: {str(e)}")
-
-        return comet_dict
-
-def process_comet(comet_data, sun_gcrs, observer_gcrs, t):
-    name, row_dict = comet_data
-    row = pd.Series(row_dict)
-    ts = load.timescale()
-    eph = load('de421.bsp')
-    sun = eph['sun']
-    comet = sun + mpc.comet_orbit(row, ts, GM_SUN)
-    astrometric = observer_gcrs.observe(comet).apparent()
-    ra, dec, earth_comet = astrometric.radec()
-    alt, az, _ = astrometric.altaz()
-    sun_comet = sun_gcrs.observe(comet).distance().au
+    # Calculate ALT/AZ position of the comet
+    lat, lon, altitude = latlonalt
+    obstopos = Topos(latitude_degrees=lat,
+                     longitude_degrees=lon,
+                     elevation_m=altitude)
+    # print("\nObserver at",
+    #       obstopos.latitude, "N  ", obstopos.longitude, "E  ",
+    #       "Elevation", obstopos.elevation.m, "m")
+    obsvec = earth + obstopos
+    alt, az, _ = obsvec.at(t).observe(cometvec).apparent().altaz()
+    # print("Altitude", alt, "     Azumuth", az, distance)
+    sun_comet = sun.at(t).observe(cometvec).distance().au
     g = row.get('magnitude_g', 10)
     k = row.get('magnitude_k', 10)
-    mag = g + 5 * np.log10(earth_comet.au) + k * np.log10(sun_comet)
-    elements = osculating_elements_of(comet.at(t))
+    mag = g + 5 * np.log10(earth_comet.au) + k * 2.5 * np.log10(sun_comet)
+    elements = osculating_elements_of(cometvec.at(t))
     ra_dec = (ra._degrees, dec.degrees)
     ra_dec_pretty = (ra_to_hms(ra._degrees), dec_to_dms(dec.degrees))
     alt_az = (alt.degrees, az.degrees)
-    return name, {
+    sf_utils.set_location(lat, lon, altitude)
+    alt_az2 = sf_utils.radec_to_altaz(ra._degrees, dec.degrees, dt, atmos=False)
+    return {
+        "name": name,
         "radec": ra_dec,
         "radec_pretty": ra_dec_pretty,
         "altaz": alt_az,
+        "altaz2": alt_az2,
         "mag": mag,
         "earth_distance": earth_comet.au,
         "sun_distance": sun_comet,
         "orbital_elements": elements,
-        "row": row_dict
+        "row": row
     }
+
+
+def calc_comets(dt):
+    print("entering calc_comets")
+    comet_dict = {}
+    if sf_utils.observer_loc is None or dt is None:
+        print(f"sf_utils.observer_loc: {sf_utils.observer_loc}, dt: {dt}")
+        return comet_dict
+
+    with load.open(mpc.COMET_URL) as f:
+        comets_df = mpc.load_comets_dataframe(f)
+
+    comets_df = (comets_df.sort_values('reference')
+                 .groupby('designation', as_index=False).last()
+                 .set_index('designation', drop=False))
+
+    comet_data = list(comets_df.iterrows())
+
+    # Use a Manager to share the sun and observer objects
+    process_comet_partial = partial(process_comet, dt=dt, latlonalt=sf_utils.get_lat_lon_alt())
+
+    p = Pool(4)
+    for result in p.imap_unordered(process_comet_partial, comet_data):
+        if result is not None:
+            comet_dict[result["name"]] = result
+    return comet_dict
+
+
 sf_utils = Skyfield_utils()

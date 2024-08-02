@@ -313,7 +313,7 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
         console.update()
 
         # Initialize Catalogs
-        catalogs: Catalogs = CatalogBuilder().build()
+        catalogs: Catalogs = CatalogBuilder().build(shared_state)
 
         # Establish the common catalog filter object
         catalogs.set_catalog_filter(
@@ -371,6 +371,8 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
                                 location["gps_lock"] = True
 
                             shared_state.set_location(location)
+                            print(f"GPS: Location {location['lat']} {location['lon']} {location['altitude']}")
+                            print(f"In shared state: {shared_state.location()}")
                     if gps_msg == "time":
                         # logging.debug(f"GPS time msg: {gps_content}")
                         gps_dt = gps_content
@@ -608,7 +610,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "-fh",
         "--fakehardware",
-        help="Use a fake hardware for imu, gps",
+        help="Use fake hardware for imu, gps",
+        default=False,
+        action="store_true",
+        required=False,
+    )
+    parser.add_argument(
+        "-fi",
+        "--fakeimu",
+        help="Use fake hardware for imu",
         default=False,
         action="store_true",
         required=False,
@@ -673,6 +683,11 @@ if __name__ == "__main__":
         display_hardware = "pg_128"
         from PiFinder import imu_fake as imu
         from PiFinder import gps_fake as gps_monitor
+    elif args.fakeimu:
+        hardware_platform = "Fake"
+        display_hardware = "pg_128"
+        from PiFinder import imu_fake as imu
+        from PiFinder import gps_pi as gps_monitor  # type: ignore[no-redef]
     else:
         hardware_platform = "Pi"
         display_hardware = "ssd1351"

@@ -143,6 +143,7 @@ class UIObjectDetails(UIModule):
         # Magnitude / Size
         # try to get object mag to float
         obj_mag = self.object.mag_str
+        print("object_details obj_mag: ", obj_mag)
 
         size = str(self.object.size).strip()
         size = "-" if size == "" else size

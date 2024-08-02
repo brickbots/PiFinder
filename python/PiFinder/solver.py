@@ -15,6 +15,7 @@ import sys
 from time import perf_counter as precision_timestamp
 
 
+import PiFinder.calc_utils as calc_utils
 from PiFinder import utils
 
 sys.path.append(str(utils.tetra3_dir))
@@ -45,7 +46,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
 
     try:
         while True:
-            utils.sleep_for_framerate(shared_state)
+            calc_utils.sleep_for_framerate(shared_state)
 
             # use the time the exposure started here to
             # reject images started before the last solve
@@ -123,4 +124,4 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
     except EOFError:
         logging.error("Main no longer running for solver")
     except Exception as e:
-        logging.error("Solver exception %s", e)
+        logging.error("Solver exception %s", e, exc_info=True)
