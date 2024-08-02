@@ -29,7 +29,6 @@ from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 from timezonefinder import TimezoneFinder
 
-
 from PiFinder import solver
 from PiFinder import integrator
 from PiFinder import config
@@ -38,6 +37,7 @@ from PiFinder import utils
 from PiFinder import server
 from PiFinder import keyboard_interface
 
+from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
 
 from PiFinder.ui.console import UIConsole
@@ -162,7 +162,9 @@ def wake_screen(screen_brightness, shared_state, cfg) -> int:
     return orig_power_state
 
 
-def main(script_name=None, show_fps=False, verbose=False) -> None:
+def main(
+    log_helper: MultiprocLogging, script_name=None, show_fps=False, verbose=False
+) -> None:
     """
     Get this show on the road!
     """
@@ -185,6 +187,19 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
     camera_command_queue: Queue = Queue()
     solver_queue: Queue = Queue()
     ui_queue: Queue = Queue()
+
+    # init queues for logging
+    keyboard_logqueue: Queue = log_helper.get_queue()
+    gps_logqueue: Queue = log_helper.get_queue()
+    camera_logqueue: Queue = log_helper.get_queue()
+    solver_logqueue: Queue = log_helper.get_queue()
+    server_logqueue: Queue = log_helper.get_queue()
+    posserver_logqueue: Queue = log_helper.get_queue()
+    integrator_logqueque: Queue = log_helper.get_queue()
+    imu_logqueue: Queue = log_helper.get_queue()
+
+    # Start log consolidation process first.
+    log_helper.start()
 
     # init UI Modes
     command_queues = {
@@ -219,10 +234,12 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
         console.write("   GPS")
         console.update()
         gps_process = Process(
+            name="GPS",
             target=gps_monitor.gps_monitor,
             args=(
                 gps_queue,
                 console_queue,
+                gps_logqueue,
             ),
         )
         gps_process.start()
@@ -232,21 +249,24 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
         console.write("   Keyboard")
         console.update()
         keyboard_process = Process(
+            name="Keyboard",
             target=keyboard.run_keyboard,
-            args=(keyboard_queue, shared_state),
+            args=(keyboard_queue, shared_state, keyboard_logqueue),
         )
         keyboard_process.start()
         if script_name:
             script_path = f"../scripts/{script_name}.pfs"
             p = Process(
+                name="Script",
                 target=keyboard_interface.KeyboardInterface.run_script,
-                args=(script_path, keyboard_queue),
+                args=(script_path, keyboard_queue, keyboard_logqueue),
             )
             p.start()
 
         server_process = Process(
+            name="Webserver",
             target=server.run_server,
-            args=(keyboard_queue, gps_queue, shared_state, verbose),
+            args=(keyboard_queue, gps_queue, shared_state, verbose, server_logqueue),
         )
         server_process.start()
 
@@ -269,8 +289,15 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
         console.update()
         camera_image = manager.NewImage("RGB", (512, 512))  # type: ignore[attr-defined]
         image_process = Process(
+            name="Camera",
             target=camera.get_images,
-            args=(shared_state, camera_image, camera_command_queue, console_queue),
+            args=(
+                shared_state,
+                camera_image,
+                camera_command_queue,
+                console_queue,
+                camera_logqueue,
+            ),
         )
         image_process.start()
         time.sleep(1)
@@ -279,7 +306,7 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
         console.write("   IMU")
         console.update()
         imu_process = Process(
-            target=imu.imu_monitor, args=(shared_state, console_queue)
+            name="IMU", target=imu.imu_monitor, args=(shared_state, console_queue, imu_logqueue)
         )
         imu_process.start()
 
@@ -287,8 +314,16 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
         console.write("   Solver")
         console.update()
         solver_process = Process(
+            name="Solver",
             target=solver.solver,
-            args=(shared_state, solver_queue, camera_image, console_queue, verbose),
+            args=(
+                shared_state,
+                solver_queue,
+                camera_image,
+                console_queue,
+                verbose,
+                solver_logqueue,
+            ),
         )
         solver_process.start()
 
@@ -296,18 +331,27 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
         console.write("   Integrator")
         console.update()
         integrator_process = Process(
+            name="Integrator",
             target=integrator.integrator,
-            args=(shared_state, solver_queue, console_queue, verbose),
+            args=(
+                shared_state,
+                solver_queue,
+                console_queue,
+                verbose,
+                integrator_logqueque,
+            ),
         )
         integrator_process.start()
 
         # Server
         console.write("   Server")
         console.update()
-        server_process = Process(
-            target=pos_server.run_server, args=(shared_state, ui_queue)
+        posserver_process = Process(
+            name="SkySafariServer",
+            target=pos_server.run_server,
+            args=(shared_state, ui_queue, posserver_logqueue),
         )
-        server_process.start()
+        posserver_process.start()
 
         # Start main event loop
         console.write("   Event Loop")
@@ -585,6 +629,9 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
             logger.info("\tServer...")
             server_process.join()
 
+            logger.info("\tPos Server...")
+            posserver_process.join()
+
             logger.info("\tGPS...")
             gps_process.terminate()
 
@@ -599,17 +646,25 @@ def main(script_name=None, show_fps=False, verbose=False) -> None:
 
             logger.info("\tSolver...")
             solver_process.join()
+
+            log_helper.join()
             exit()
 
 
 if __name__ == "__main__":
     print("Boostrap logging configuration ...")
     rlogger = logging.getLogger()
-    rlogger.setLevel(logging.INFO)
-    logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
-    logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
-    logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
-    logging.basicConfig(format="%(asctime)s %(name)s: %(levelname)s %(message)s")
+    try:
+        log_helper = MultiprocLogging("pifinder_logconf.json", "PiFinder.log")
+    except FileNotFoundError:
+        rlogger.warning("Cannot find log configuration file, proceeding with basic configuration.")
+        rlogger.warning("Logs will not be stored on disk, unless you use --log")
+        rlogger.setLevel(logging.INFO)
+        logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
+        logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
+        logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
+        logging.basicConfig(format="%(asctime)s %(name)s: %(levelname)s %(message)s")
+
     rlogger.info("Starting PiFinder ...")
     parser = argparse.ArgumentParser(description="eFinder")
     parser.add_argument(
@@ -691,15 +746,15 @@ if __name__ == "__main__":
         display_hardware = args.display.lower()
 
     if args.camera.lower() == "pi":
-        rlogger.debug("using pi camera")
+        rlogger.info("using pi camera")
         from PiFinder import camera_pi as camera
     elif args.camera.lower() == "debug":
-        rlogger.debug("using debug camera")
+        rlogger.info("using debug camera")
         from PiFinder import camera_debug as camera  # type: ignore[no-redef]
     elif args.camera.lower() == "asi":
-        rlogger.debug("using asi camera")
+        rlogger.info("using asi camera")
     else:
-        rlogger.debug("not using camera")
+        rlogger.warn("not using camera")
         from PiFinder import camera_none as camera  # type: ignore[no-redef]
 
     if args.keyboard.lower() == "pi":
@@ -709,15 +764,15 @@ if __name__ == "__main__":
     elif args.keyboard.lower() == "none":
         from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
-    if args.log:
-        datenow = datetime.datetime.now()
-        filehandler = f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"
-        fh = logging.FileHandler(filehandler)
-        fh.setLevel(logger.level)
-        rlogger.addHandler(fh)
+    # if args.log:
+    #    datenow = datetime.datetime.now()
+    #    filehandler = f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"
+    #    fh = logging.FileHandler(filehandler)
+    #    fh.setLevel(logger.level)
+    #    rlogger.addHandler(fh)
 
     try:
-        main(args.script, args.fps, args.verbose)
+        main(log_helper, args.script, args.fps, args.verbose)
     except Exception:
         rlogger.exception("Exception in main(). Aborting program.")
         os._exit(1)

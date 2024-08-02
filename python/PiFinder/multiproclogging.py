@@ -12,7 +12,7 @@ from multiprocessing import Queue, Process
 from queue import Empty
 from time import sleep
 from typing import TextIO, List, Optional
-import json
+import json5
 import logging
 import logging.config
 import logging.handlers
@@ -29,10 +29,7 @@ class MultiprocLogging:
 
     Shortcomings
     ------------
-     * The implememntation assumes that the log configuration read in is propagated to new processes. **This is not true on Windows!**
-     * The timestamps are generated on the receiving end, i.e. at time of writing to the log file,
-       not on creation of the log record (when you call `debug()` and friends). If you need higher resolution in the time stamps, you need
-       to make them part of the log message.
+     * The implememtation assumes that the log configuration read in is propagated to new processes. **This is not true on Windows!**
 
     Prerequisite
     ------------
@@ -49,15 +46,18 @@ class MultiprocLogging:
      2) when starting up each process, pass in the queues retrieved in step 1) for each process a different queue.
      3) In the newly running process, call `MultiprocLogging.configurer(queue)`, which then applies the logging configuration to forward
         to the log process writing to the file.
+
+    Note that timestamps are generated on creation of the log record (when you call `debug()` and friends), they may not be in order in the log file though.
     """
 
     def __init__(
         self,
         log_conf: Optional[Path] = None,
         out_file: Optional[Path] = None,
-        formatter: str = "%(asctime)s %(processName)s-%(name)s:%(levelname)s: %(message)s",
+        formatter: str = "%(asctime)s %(processName)s-%(name)s:%(levelname)s:%(message)s",
     ):
         self._queues: List[Queue] = []
+        self._initial_queue: Optional[Queue] = None
         self._log_conf_file = log_conf
         self._log_output_file = out_file
         self._formatter = formatter
@@ -67,11 +67,13 @@ class MultiprocLogging:
             with open(log_conf, "r") as f:
                 self.read_config(f)
 
-    def start(self):
+    def start(self, initial_queue: Optional[Queue] = None):
         assert self._proc is None, "You should only start once!"
         assert (
-            len(self._queues) >= 1
+            len(self._queues) >= 1 or self._initial_queue is not None
         ), "No queues in use. You should have requested at least one queue."
+        if self._initial_queue is not None:
+            self._queues.append(self._initial_queue)
         self._proc = Process(
             target=self._run_sink,
             args=(
@@ -79,7 +81,11 @@ class MultiprocLogging:
                 self._queues,
             ),
         )
-        self._proc.start()
+        # Start separate process that consumes from the queues.
+        self._proc.start() 
+        # Now in this process we can divert logging to the newly created class
+        queue = self.get_queue()
+        MultiprocLogging.configurer(queue)
 
     def join(self):
         assert self._proc is not None, "You didn't start first!"
@@ -107,8 +113,8 @@ class MultiprocLogging:
             empties = 0
             for q in queues:
                 try:
-                    rec = q.get_nowait()
-                    if rec is None:
+                    rec = q.get(block=False)
+                    if rec is None: # Received End Marker
                         return
                     logger = logging.getLogger(rec.name)
                     logger.handle(rec)
@@ -128,6 +134,17 @@ class MultiprocLogging:
         self._queues.append(new_queue)
         return new_queue
 
+    def get_initial_queue(self):
+        """
+        Retrieve a new queue, that can be used to log to (using `configurer()`) BEFORE starting MultiprocLogging
+
+        This is to catch 
+
+        """
+        new_queue = Queue()
+        self._initial_queue = new_queue
+        return new_queue
+    
     @staticmethod
     def configurer(queue: Queue):
         """
@@ -161,5 +178,5 @@ class MultiprocLogging:
         """
         Read logging configuration from the specified file handle and apply it.
         """
-        config = json.load(file)
+        config = json5.load(file)
         logging.config.dictConfig(config)

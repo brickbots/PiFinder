@@ -4,6 +4,7 @@ import uuid
 import json
 from datetime import datetime, timezone
 import time
+from PiFinder.multiproclogging import MultiprocLogging
 from bottle import (
     Bottle,
     run,
@@ -455,5 +456,6 @@ class Server:
             self.altitude = None
 
 
-def run_server(q, gps_q, shared_state, verbose=False):
+def run_server(q, gps_q, shared_state, log_queue, verbose=False):
+    MultiprocLogging.configurer(log_queue)
     Server(q, gps_q, shared_state, verbose)

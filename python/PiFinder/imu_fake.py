@@ -7,6 +7,8 @@ This module is for IMU related functions
 
 import time
 
+from PiFinder.multiproclogging import MultiprocLogging
+
 
 QUEUE_LEN = 50
 AVG_LEN = 2
@@ -37,7 +39,8 @@ class Imu:
         pass
 
 
-def imu_monitor(shared_state, console_queue):
+def imu_monitor(shared_state, console_queue, log_queue):
+    MultiprocLogging.configurer(log_queue)
     imu = Imu()
     while True:
         imu.update()

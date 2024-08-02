@@ -6,6 +6,7 @@ This module is for GPS related functions
 """
 
 import time
+from PiFinder.multiproclogging import MultiprocLogging
 from gpsdclient import GPSDClient
 import logging
 from itertools import islice
@@ -25,7 +26,8 @@ def is_tpv_accurate(tpv_dict):
         return False
 
 
-def gps_monitor(gps_queue, console_queue):
+def gps_monitor(gps_queue, console_queue, log_queue):
+    MultiprocLogging.configurer(log_queue)
     gps_locked = False
     while True:
         with GPSDClient(host="127.0.0.1") as client:

@@ -1,0 +1,37 @@
+{
+    "version": 1,
+    "disable_existing_loggers": true,
+    "formatters": {
+        "default": {
+            "format": "%(asctime)s %(processName)s-%(name)s:%(levelname)s:%(message)s"
+        }
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "level": "DEBUG",
+            "formatter": "default",
+            "stream": "ext://sys.stdout"
+        }
+    },
+    "loggers": {
+        // root logger
+        "": {
+            "level": "INFO",
+            "handlers": ["console"]
+            // The file handler is added automatically by code
+        },
+        "PIL.PngImagePlugin": {
+            "level": "WARNING"
+        },
+        "tetra3.Tetra3": {
+            "level": "WARNING"
+        },
+        "picamera2.picamera2": {
+            "level": "WARNING"
+        },
+        "CameraDebug": {
+            "level": "WARNING"
+        }
+    }
+}

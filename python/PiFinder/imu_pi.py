@@ -6,6 +6,7 @@ This module is for IMU related functions
 """
 
 import time
+from PiFinder.multiproclogging import MultiprocLogging
 import board
 import adafruit_bno055
 import logging
@@ -145,7 +146,8 @@ class Imu:
         return list(self.quat_to_euler(self.avg_quat))
 
 
-def imu_monitor(shared_state, console_queue):
+def imu_monitor(shared_state, console_queue, log_queue):
+    MultiprocLogging.configurer(log_queue)
     imu = Imu()
     imu_calibrated = False
     imu_data = {

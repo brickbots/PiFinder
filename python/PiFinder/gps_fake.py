@@ -8,8 +8,11 @@ This module is for GPS related functions
 import time
 import datetime
 
+from PiFinder.multiproclogging import MultiprocLogging
 
-def gps_monitor(gps_queue, console_queue):
+
+def gps_monitor(gps_queue, console_queue, log_queue):
+    MultiprocLogging.configurer(log_queue)
     time.sleep(5)
     while True:
         time.sleep(0.5)

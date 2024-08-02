@@ -18,8 +18,9 @@ import time
 import logging
 from itertools import cycle
 
+from PiFinder.multiproclogging import MultiprocLogging
+
 logger = logging.getLogger("CameraDebug")
-logger.setLevel(logging.WARNING)  # TODO LOG: Needs to be in a config file.
 
 
 class CameraDebug(CameraInterface):
@@ -73,11 +74,12 @@ class CameraDebug(CameraInterface):
         return self.camType
 
 
-def get_images(shared_state, camera_image, command_queue, console_queue):
+def get_images(shared_state, camera_image, command_queue, console_queue, log_queue):
     """
     Instantiates the camera hardware
     then calls the universal image loop
     """
+    MultiprocLogging.configurer(log_queue)
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
     camera_hardware = CameraDebug(exposure_time)

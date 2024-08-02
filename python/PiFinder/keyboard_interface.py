@@ -1,6 +1,8 @@
 from time import sleep
 import logging
 
+from PiFinder.multiproclogging import MultiprocLogging
+
 logger = logging.getLogger("KeyboardInterface")
 
 
@@ -33,10 +35,11 @@ class KeyboardInterface:
         pass
 
     @staticmethod
-    def run_script(script_name, q):
+    def run_script(script_name, q, log_queue):
         """
         Runs a keyscript for automation/testing
         """
+        MultiprocLogging.configurer(log_queue)
         logger.info("Running Script: " + script_name)
         with open(script_name) as script_file:
             script = script_file.readlines()

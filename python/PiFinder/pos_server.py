@@ -5,6 +5,8 @@ This module is runs a lightweight
 server to accept socket connections
 and report telescope position
 Protocol based on Meade LX200
+
+This is used by SkySafari (iOS, iPadOS)
 """
 
 import socket
@@ -15,9 +17,10 @@ from multiprocessing import Queue
 from typing import Tuple, Union
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils
 from PiFinder.catalogs import CompositeObject
+from PiFinder.multiproclogging import MultiprocLogging
 from skyfield.positionlib import position_of_radec
 
-logger = logging.getLogger("SkySafariServer")
+logger = logging.getLogger("PosServer")
 
 sr_result = None
 sequence = 0
@@ -167,24 +170,16 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
     ui_queue.put("push_object")
     return "1"
 
-
-# def init_logging():
-#     logging.basicConfig(
-#         level=logging.DEBUG,
-#         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-#     )
-
-
 # Function to extract command
 def extract_command(s):
     match = re.search(r":([A-Za-z]+)", s)
     return match.group(1) if match else None
 
 
-def run_server(shared_state, p_ui_queue):
+def run_server(shared_state, p_ui_queue, log_queue):
+    MultiprocLogging.configurer(log_queue)
     global ui_queue
     try:
-        #        init_logging()
         ui_queue = p_ui_queue
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
             logger.info("Starting SkySafari server")

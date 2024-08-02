@@ -15,6 +15,7 @@ import logging
 from PiFinder import config
 from PiFinder import utils
 import PiFinder.calc_utils as calc_utils
+from PiFinder.multiproclogging import MultiprocLogging
 
 IMU_ALT = 2
 IMU_AZ = 0
@@ -41,7 +42,8 @@ def imu_moved(imu_a, imu_b):
     return False
 
 
-def integrator(shared_state, solver_queue, console_queue, is_debug=False):
+def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=False):
+    MultiprocLogging.configurer(log_queue)
     try:
         if is_debug:
             logger.setLevel(logging.DEBUG)

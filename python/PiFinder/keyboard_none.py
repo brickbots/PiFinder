@@ -2,6 +2,8 @@ import time
 from PiFinder.keyboard_interface import KeyboardInterface
 import logging
 
+from PiFinder.multiproclogging import MultiprocLogging
+
 logger = logging.getLogger("KeyboardNone")
 
 
@@ -18,10 +20,10 @@ class KeyboardNone(KeyboardInterface):
         self.q.put(key)
 
 
-def run_keyboard(q, shared_state):
+def run_keyboard(q, shared_state, log_queue):
+    MultiprocLogging.configurer(log_queue)
     KeyboardNone(q)
 
     while True:
-        # the KeyboardLocal class has callbacks to handle
-        # keypresss.  We just need to not terminate here
+        # We just need to not terminate here
         time.sleep(1)

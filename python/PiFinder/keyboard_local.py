@@ -2,6 +2,8 @@ import time
 from PiFinder.keyboard_interface import KeyboardInterface
 import logging
 
+from PiFinder.multiproclogging import MultiprocLogging
+
 logger = logging.getLogger("KeyboardLocal")
 
 
@@ -72,7 +74,8 @@ class KeyboardLocal(KeyboardInterface):
         self.q.put(key)
 
 
-def run_keyboard(q, shared_state):
+def run_keyboard(q, shared_state, log_queue):
+    MultiprocLogging.configurer(log_queue)
     KeyboardLocal(q)
 
     while True:
