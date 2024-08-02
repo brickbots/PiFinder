@@ -82,7 +82,7 @@ class MultiprocLogging:
             ),
         )
         # Start separate process that consumes from the queues.
-        self._proc.start() 
+        self._proc.start()
         # Now in this process we can divert logging to the newly created class
         queue = self.get_queue()
         MultiprocLogging.configurer(queue)
@@ -114,7 +114,7 @@ class MultiprocLogging:
             for q in queues:
                 try:
                     rec = q.get(block=False)
-                    if rec is None: # Received End Marker
+                    if rec is None:  # Received End Marker
                         return
                     logger = logging.getLogger(rec.name)
                     logger.handle(rec)
@@ -138,13 +138,13 @@ class MultiprocLogging:
         """
         Retrieve a new queue, that can be used to log to (using `configurer()`) BEFORE starting MultiprocLogging
 
-        This is to catch 
+        This is to catch
 
         """
         new_queue = Queue()
         self._initial_queue = new_queue
         return new_queue
-    
+
     @staticmethod
     def configurer(queue: Queue):
         """

@@ -306,7 +306,9 @@ def main(
         console.write("   IMU")
         console.update()
         imu_process = Process(
-            name="IMU", target=imu.imu_monitor, args=(shared_state, console_queue, imu_logqueue)
+            name="IMU",
+            target=imu.imu_monitor,
+            args=(shared_state, console_queue, imu_logqueue),
         )
         imu_process.start()
 
@@ -657,7 +659,9 @@ if __name__ == "__main__":
     try:
         log_helper = MultiprocLogging("pifinder_logconf.json", "PiFinder.log")
     except FileNotFoundError:
-        rlogger.warning("Cannot find log configuration file, proceeding with basic configuration.")
+        rlogger.warning(
+            "Cannot find log configuration file, proceeding with basic configuration."
+        )
         rlogger.warning("Logs will not be stored on disk, unless you use --log")
         rlogger.setLevel(logging.INFO)
         logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)

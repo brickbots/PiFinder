@@ -170,6 +170,7 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
     ui_queue.put("push_object")
     return "1"
 
+
 # Function to extract command
 def extract_command(s):
     match = re.search(r":([A-Za-z]+)", s)

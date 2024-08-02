@@ -24,7 +24,9 @@ from PiFinder.tetra3.tetra3 import cedar_detect_client
 logger = logging.getLogger("solver")
 
 
-def solver(shared_state, solver_queue, camera_image, console_queue, log_queue, is_debug=False):
+def solver(
+    shared_state, solver_queue, camera_image, console_queue, log_queue, is_debug=False
+):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting Solver")
     t3 = tetra3.Tetra3(

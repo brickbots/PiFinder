@@ -95,6 +95,7 @@ def test_mpl_2procs():
         # print(str)
         # assert False
 
+
 def log_2things(q: Queue):
     mpl.MultiprocLogging.configurer(q)
     logging.getLogger().setLevel(logging.DEBUG)
@@ -128,6 +129,7 @@ def test_2logs_2procs():
         assert "Proc2" in str
         # print(str)
         # assert False
+
 
 def test_logging_before_start():
     logging.getLogger().setLevel(logging.DEBUG)
