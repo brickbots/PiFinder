@@ -657,7 +657,9 @@ if __name__ == "__main__":
     print("Boostrap logging configuration ...")
     rlogger = logging.getLogger()
     try:
-        log_helper = MultiprocLogging("pifinder_logconf.json", "PiFinder.log")
+        log_helper = MultiprocLogging(
+            Path("pifinder_logconf.json"), Path("PiFinder.log")
+        )
     except FileNotFoundError:
         rlogger.warning(
             "Cannot find log configuration file, proceeding with basic configuration."

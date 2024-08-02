@@ -61,7 +61,7 @@ class MultiprocLogging:
         self._log_conf_file = log_conf
         self._log_output_file = out_file
         self._formatter = formatter
-        self._proc = None
+        self._proc: Optional[Process] = None
 
         if log_conf is not None:
             with open(log_conf, "r") as f:
