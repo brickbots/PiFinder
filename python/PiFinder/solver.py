@@ -22,6 +22,7 @@ from PiFinder.tetra3.tetra3 import cedar_detect_client
 
 logger = logging.getLogger("solver")
 
+
 def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=False):
     logging.getLogger("tetra3.Tetra3").addHandler(logging.NullHandler())
     logging.debug("Starting Solver")
@@ -38,13 +39,16 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
     }
 
     # Start cedar detect server
-    try: 
+    try:
         cedar_detect = cedar_detect_client.CedarDetectClient(
             binary_path=str(utils.cwd_dir / "../bin/cedar-detect-server-")
             + shared_state.arch()
         )
     except FileNotFoundError as e:
-        logger.warn("Not using cedar_detect, as corresponding file '%s' could not be found", e.filename)
+        logger.warn(
+            "Not using cedar_detect, as corresponding file '%s' could not be found",
+            e.filename,
+        )
         cedar_detect = None
 
     try:
@@ -128,4 +132,4 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
         logger.error("Main no longer running for solver")
     except Exception as e:
         logger.error("Exception in Solver")
-        logger.exception(e);                     
+        logger.exception(e)
