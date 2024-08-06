@@ -641,7 +641,7 @@ class CometCatalog(TimerCatalog):
     def add_comet(self, sequence: int, name: str, comet: Dict[str, Dict[str, float]]):
         ra, dec = comet["radec"]
         constellation = sf_utils.radec_to_constellation(ra, dec)
-        desc = f"AltAZ: {comet['altaz']}\n{comet['radec_pretty']}, Earth distance: {comet['earth_distance']} AU\n"
+        desc = f"{comet['radec_pretty']}, AltAZ: {comet['altaz']}\nAltAz2: {comet['altaz2']}\nAltAz3: {comet['altaz3']}\n{comet['radec_pretty']}, Earth distance: {comet['earth_distance']} AU\n"
         if "Olbers" in name:
             print(comet)
 

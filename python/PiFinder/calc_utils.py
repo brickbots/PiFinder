@@ -30,6 +30,7 @@ from functools import partial
 from multiprocessing import Manager
 from multiprocessing import Pool
 import time
+import requests
 
 
 def sleep_for_framerate(shared_state: SharedStateObj, limit_framerate=True) -> bool:
@@ -495,18 +496,51 @@ def process_comet(comet_data, dt, latlonalt: Tuple[float, float, float]):
     alt_az = (alt.degrees, az.degrees)
     sf_utils.set_location(lat, lon, altitude)
     alt_az2 = sf_utils.radec_to_altaz(ra._degrees, dec.degrees, dt, atmos=False)
+    aa = FastAltAz(
+        lat,
+        lon,
+        dt,
+    )
+    alt, az = aa.radec_to_altaz(
+        ra._degrees,
+        dec._degrees,
+        alt_only=False,
+    )
     return {
         "name": name,
         "radec": ra_dec,
         "radec_pretty": ra_dec_pretty,
         "altaz": alt_az,
         "altaz2": alt_az2,
+        "altaz3": (alt, az),
         "mag": mag,
         "earth_distance": earth_comet.au,
         "sun_distance": sun_comet,
         "orbital_elements": elements,
         "row": row
     }
+
+
+def comet_data_download():
+    try:
+        # Send a HEAD request to get headers without downloading the entire file
+        response = requests.head(url)
+        response.raise_for_status()  # Raise an exception for bad responses
+
+        # Try to get the Last-Modified header
+        last_modified = response.headers.get('Last-Modified')
+
+        if last_modified:
+            # Parse the date string to a datetime object
+            date = datetime.strptime(last_modified, '%a, %d %b %Y %H:%M:%S GMT')
+            return date
+        else:
+            print("Last-Modified header not available.")
+            return None
+
+    except requests.RequestException as e:
+        print(f"An error occurred: {e}")
+        return None
 
 
 def calc_comets(dt):
