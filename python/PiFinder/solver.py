@@ -15,6 +15,7 @@ import sys
 from time import perf_counter as precision_timestamp
 
 from PiFinder import utils
+from PiFinder import calc_utils
 
 sys.path.append(str(utils.tetra3_dir))
 import PiFinder.tetra3.tetra3 as tetra3
