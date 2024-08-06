@@ -8,12 +8,14 @@ This module contains the base UIModule class
 import os
 import time
 import uuid
-from typing import Type
+from itertools import cycle
+from typing import Type, Union
 
 from PIL import Image, ImageDraw
 from PiFinder import utils
 from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
+from PiFinder.ui.marking_menus import MarkingMenu
 
 
 class UIModule:
@@ -30,6 +32,8 @@ class UIModule:
     _CHECKMARK = ""
     _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
+    _display_mode_list = [None]  # List of display modes
+    marking_menu: Union[None, MarkingMenu] = None
 
     def __init__(
         self,
@@ -55,6 +59,10 @@ class UIModule:
         self.command_queues = command_queues
         self.add_to_stack = add_to_stack
         self.remove_from_stack = remove_from_stack
+
+        # mode stuff
+        self._display_mode_cycle = cycle(self._display_mode_list)
+        self.display_mode = next(self._display_mode_cycle)
 
         self.screen = Image.new("RGB", display_class.resolution)
         self.draw = ImageDraw.Draw(self.screen, mode="RGBA")
@@ -90,8 +98,27 @@ class UIModule:
         Called when a module becomes active
         i.e. foreground controlling display
         """
-        self.button_hints_timer = time.time()
         pass
+
+    def help(self) -> list[Image.Image]:
+        """
+        Called when help is selected from the
+        marking menu.  Should render the
+        help screens as a list of images to be displayed
+        up/down arrow will scroll through images
+        """
+        help_image_list = []
+        for i in range(3):
+            self.clear_screen()
+
+            self.draw.text(
+                (20, 20),
+                f"HELP {i}",
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+            help_image_list.append(self.screen.copy())
+        return help_image_list
 
     def update(self, force=False):
         """
@@ -118,7 +145,7 @@ class UIModule:
             fill=self.colors.get(0),
         )
 
-    def message(self, message, timeout: float = 2, size=[5, 44, 123, 84]):
+    def message(self, message, timeout: float = 2, size=(5, 44, 123, 84)):
         """
         Creates a box with text in the center of the screen.
         Waits timeout in seconds
@@ -245,24 +272,14 @@ class UIModule:
         self.last_update_time = time.time()
         return
 
-    def check_hotkey(self, key):
+    # Marking menu items
+    def cycle_display_mode(self):
         """
-               Scans config for a matching
-        _       hotkey and if found, cycles
-               that config item.
-
-               Returns true if hotkey found
-               false if not or no config
+        Cycle through available display modes
+        for a module.  Invoked when the square
+        key is pressed
         """
-        if self._config_options is None:
-            return False
-
-        for config_item_name, config_item in self._config_options.items():
-            if config_item.get("hotkey") == key:
-                self.cycle_config(config_item_name)
-                return True
-
-        return False
+        self.display_mode = next(self._display_mode_cycle)
 
     def key_number(self, number):
         pass
@@ -274,7 +291,8 @@ class UIModule:
         pass
 
     def key_square(self):
-        pass
+        self.cycle_display_mode()
+        self.update()
 
     def key_long_up(self):
         pass

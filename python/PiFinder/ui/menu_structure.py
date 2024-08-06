@@ -196,6 +196,7 @@ pifinder_menu = {
             "name": "Filter",
             "class": UITextMenu,
             "select": "single",
+            "label": "filter_options",
             "items": [
                 {
                     "name": "Reset All",
@@ -530,15 +531,15 @@ pifinder_menu = {
                         },
                         {
                             "name": "1",
-                            "value": "1",
+                            "value": "+1",
                         },
                         {
                             "name": "2",
-                            "value": "2",
+                            "value": "+2",
                         },
                         {
                             "name": "3",
-                            "value": "3",
+                            "value": "+3",
                         },
                     ],
                 },

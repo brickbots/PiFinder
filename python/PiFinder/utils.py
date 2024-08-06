@@ -53,7 +53,6 @@ class Timer:
     """
     Time multiple code blocks using a context manager.
     Usage:
-
         with Timer("deduplicate_objects 1"):
             results1 = deduplicate_objects(results*10)
         with Timer("deduplicate_objects 2"):

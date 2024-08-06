@@ -65,7 +65,7 @@ def unit_tests(session: nox.Session) -> None:
     session.run("pytest", "-m", "unit")
 
 
-@nox.session(reuse_venv=True)
+@nox.session(reuse_venv=True, python="3.9")
 def smoke_tests(session: nox.Session) -> None:
     """
     Run the project's smoke tests.

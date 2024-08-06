@@ -5,7 +5,9 @@ import numpy as np
 from sklearn.neighbors import BallTree
 
 
-def deduplicate_objects(unfiltered_objects: list[CompositeObject]) -> list[CompositeObject]:
+def deduplicate_objects(
+    unfiltered_objects: list[CompositeObject],
+) -> list[CompositeObject]:
     print(f"Before deduplication: {len(unfiltered_objects)}, {unfiltered_objects}")
     deduplicated_dict = {}
 
@@ -36,7 +38,9 @@ class ClosestObjectsFinder:
         Calculates a flat list of objects and the balltree for those objects
         """
         deduplicated_objects = deduplicate_objects(objects)
-        object_radecs = np.array([[np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in deduplicated_objects])
+        object_radecs = np.array(
+            [[np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in deduplicated_objects]
+        )
         self._objects = np.array(deduplicated_objects)
         self._objects_balltree = BallTree(
             object_radecs, leaf_size=20, metric="haversine"
@@ -59,7 +63,9 @@ class ClosestObjectsFinder:
         query = [[np.deg2rad(ra), np.deg2rad(dec)]]
         print(f"Query: {query}, objects: {self._objects}")
         _, obj_ind = self._objects_balltree.query(query, k=min(n, nr_objects))
-        print(f"Found {len(obj_ind)} objects, from {nr_objects} objects, k={min(n, nr_objects)}")
+        print(
+            f"Found {len(obj_ind)} objects, from {nr_objects} objects, k={min(n, nr_objects)}"
+        )
         results = self._objects[obj_ind[0]]
         print(f"Found {len(results)} objects, from {nr_objects} objects, n={n}")
         return results
