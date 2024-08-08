@@ -19,7 +19,7 @@ from PiFinder.displays import DisplayBase
 class MarkingMenuOption:
     enabled: bool = True  # Should this item be enabled/clickable
     label: str = ""
-    selected: bool = False  # Draw highlighted?
+    selected: bool = False  # shade bg?
     callback: Any = None
     menu_jump: Union[None, str] = None
 
@@ -49,6 +49,7 @@ def render_marking_menu(
     menu: MarkingMenu,
     display_class: DisplayBase,
     radius: int,
+    highlight: Union[None, MarkingMenuOption] = None,
 ) -> Image.Image:
     """
     Renders the full marking menu on top of the BG image
@@ -100,8 +101,12 @@ def render_marking_menu(
         start_angle = i * 90 - 135
         end_angle = i * 90 + 90 - 135
         fill_color = display_class.colors.get(0)
+        text_color = display_class.colors.get(255)
         if menu_item.selected:
             fill_color = display_class.colors.get(64)
+
+        if menu_item == highlight:
+            fill_color = display_class.colors.get(128)
 
         menu_draw.pieslice(
             [
@@ -121,7 +126,7 @@ def render_marking_menu(
             menu_item,
             i,
             display_class.fonts.large,
-            display_class.colors.get(255),
+            text_color,
             display_class.resolution,
             radius,
         )

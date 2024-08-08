@@ -14,12 +14,13 @@ import logging
 import sys
 from time import perf_counter as precision_timestamp
 
-
 from PiFinder import utils
 
 sys.path.append(str(utils.tetra3_dir))
 import PiFinder.tetra3.tetra3 as tetra3
 from PiFinder.tetra3.tetra3 import cedar_detect_client
+
+logger = logging.getLogger("solver")
 
 
 def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=False):
@@ -37,11 +38,18 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
         "cam_solve_time": 0,
     }
 
-    # Start cedar detext server
-    cedar_detect = cedar_detect_client.CedarDetectClient(
-        binary_path=str(utils.cwd_dir / "../bin/cedar-detect-server-")
-        + shared_state.arch()
-    )
+    # Start cedar detect server
+    try:
+        cedar_detect = cedar_detect_client.CedarDetectClient(
+            binary_path=str(utils.cwd_dir / "../bin/cedar-detect-server-")
+            + shared_state.arch()
+        )
+    except FileNotFoundError as e:
+        logger.warn(
+            "Not using cedar_detect, as corresponding file '%s' could not be found",
+            e.filename,
+        )
+        cedar_detect = None
 
     try:
         while True:
@@ -60,7 +68,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                 np_image = np.asarray(img, dtype=np.uint8)
 
                 t0 = precision_timestamp()
-                if shared_state.camera_align():
+                if cedar_detect is None or shared_state.camera_align():
                     # Use old tetr3 centroider to handle bloated/overexposed
                     # stars in alignment
                     centroids = tetra3.get_centroids_from_image(np_image)
@@ -69,13 +77,13 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                         np_image, sigma=8, max_size=10, use_binned=True
                     )
                 t_extract = (precision_timestamp() - t0) * 1000
-                logging.debug(
+                logger.debug(
                     "File %s, extracted %d centroids in %.2fms"
                     % ("camera", len(centroids), t_extract)
                 )
 
                 if len(centroids) == 0:
-                    # logging.debug("No stars found, skipping")
+                    logger.warn("No stars found, skipping")
                     continue
                 else:
                     solution = t3.solve_from_centroids(
@@ -121,6 +129,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
 
                 last_solve_time = last_image_metadata["exposure_end"]
     except EOFError:
-        logging.error("Main no longer running for solver")
+        logger.error("Main no longer running for solver")
     except Exception as e:
-        logging.error("Solver exception %s", e)
+        logger.error("Exception in Solver")
+        logger.exception(e)
