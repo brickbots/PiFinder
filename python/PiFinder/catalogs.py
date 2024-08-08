@@ -632,6 +632,7 @@ class PlanetCatalog(TimerCatalog):
                 obj.mag = MagnitudeObject([planet["mag"]])
                 obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
                 obj.mag_str = obj.mag.calc_two_mag_representation()
+            time.sleep(0)
         logging.debug("Updated planet catalog")
 
 
@@ -692,6 +693,7 @@ class CometCatalog(TimerCatalog):
                 obj.mag = MagnitudeObject([comet["mag"]])
                 obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
                 obj.mag_str = obj.mag.calc_two_mag_representation()
+            time.sleep(0)
         logging.debug("Updated comet catalog")
 
 class CatalogBuilder:
