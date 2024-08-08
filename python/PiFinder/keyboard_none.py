@@ -4,7 +4,7 @@ import logging
 
 from PiFinder.multiproclogging import MultiprocLogging
 
-logger = logging.getLogger("KeyboardNone")
+logger = logging.getLogger("Keyboard.None")
 
 
 class KeyboardNone(KeyboardInterface):

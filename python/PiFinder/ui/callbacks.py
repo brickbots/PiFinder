@@ -15,7 +15,7 @@ import logging
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
 
-logger = logging.getLogger("callbacks")
+logger = logging.getLogger("UI.Callbacks")
 
 
 def go_back(ui_module: UIModule) -> None:

@@ -21,7 +21,7 @@ sys.path.append(str(utils.tetra3_dir))
 import PiFinder.tetra3.tetra3 as tetra3
 from PiFinder.tetra3.tetra3 import cedar_detect_client
 
-logger = logging.getLogger("solver")
+logger = logging.getLogger("Solver")
 
 
 def solver(

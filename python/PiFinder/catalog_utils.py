@@ -5,7 +5,7 @@ import numpy as np
 from sklearn.neighbors import BallTree
 import logging
 
-logger = logging.getLogger("catalog_utils")
+logger = logging.getLogger("Catalog.utils")
 
 
 def deduplicate_objects(

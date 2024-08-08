@@ -15,7 +15,7 @@ from textwrap import dedent
 from PiFinder import utils
 from PiFinder.catalogs import Catalogs
 
-logger = logging.getLogger("obslist")
+logger = logging.getLogger("Observation.List")
 
 OBSLIST_DIR = f"{utils.data_dir}/obslists/"
 

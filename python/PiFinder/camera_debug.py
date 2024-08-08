@@ -20,7 +20,7 @@ from itertools import cycle
 
 from PiFinder.multiproclogging import MultiprocLogging
 
-logger = logging.getLogger("CameraDebug")
+logger = logging.getLogger("Camera.Debug")
 
 
 class CameraDebug(CameraInterface):

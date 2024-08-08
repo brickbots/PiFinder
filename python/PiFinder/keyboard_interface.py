@@ -3,7 +3,7 @@ import logging
 
 from PiFinder.multiproclogging import MultiprocLogging
 
-logger = logging.getLogger("KeyboardInterface")
+logger = logging.getLogger("Keyboard.Interface")
 
 
 class KeyboardInterface:

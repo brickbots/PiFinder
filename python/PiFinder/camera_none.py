@@ -16,7 +16,7 @@ from PiFinder.camera_interface import CameraInterface
 from typing import Tuple
 import logging
 
-logger = logging.getLogger("CameraNone")
+logger = logging.getLogger("Camera.None")
 
 
 class CameraNone(CameraInterface):

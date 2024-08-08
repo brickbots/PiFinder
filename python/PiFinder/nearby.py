@@ -5,7 +5,7 @@ import numpy as np
 from sklearn.neighbors import BallTree
 import logging
 
-logger = logging.getLogger("Nearby")
+logger = logging.getLogger("Catalog.Nearby")
 
 
 class Nearby:

@@ -12,7 +12,7 @@ import pytz
 from PiFinder import config
 import logging
 
-logger = logging.getLogger("UIState")
+logger = logging.getLogger("SharedState")
 
 
 class UIState:

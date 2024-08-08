@@ -73,7 +73,7 @@ class Timer:
     def __init__(self, name):
         self.name = name
         self.start_time = None
-        self.logger = logging.getLogger("Timer")
+        self.logger = logging.getLogger("Utils.Timer")
 
     def __enter__(self):
         self.start_time = time.time()

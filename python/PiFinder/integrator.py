@@ -20,7 +20,7 @@ from PiFinder.multiproclogging import MultiprocLogging
 IMU_ALT = 2
 IMU_AZ = 0
 
-logger = logging.getLogger("Integrator")
+logger = logging.getLogger("IMU.Integrator")
 
 
 def imu_moved(imu_a, imu_b):

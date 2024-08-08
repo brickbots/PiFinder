@@ -3,7 +3,7 @@ import logging
 
 BACKUP_PATH = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
 
-logger = logging.getLogger("sys_utils_fake")
+logger = logging.getLogger("SysUtils.Fake")
 
 
 class Network:

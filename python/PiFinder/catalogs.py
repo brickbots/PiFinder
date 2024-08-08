@@ -15,7 +15,7 @@ from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.calc_utils import sf_utils
 
-logger = logging.getLogger("catalogs")
+logger = logging.getLogger("Catalog")
 
 # collection of all catalog-related classes
 

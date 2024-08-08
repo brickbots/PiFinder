@@ -13,7 +13,7 @@ from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
 
-logger = logging.getLogger("ObservationLog")
+logger = logging.getLogger("Observation.Log")
 
 
 class Observation_session:

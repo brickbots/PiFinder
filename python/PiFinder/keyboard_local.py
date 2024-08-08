@@ -4,7 +4,7 @@ import logging
 
 from PiFinder.multiproclogging import MultiprocLogging
 
-logger = logging.getLogger("KeyboardLocal")
+logger = logging.getLogger("Keyboard.Local")
 
 
 class KeyboardLocal(KeyboardInterface):

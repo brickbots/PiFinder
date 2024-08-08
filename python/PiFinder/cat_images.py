@@ -15,7 +15,7 @@ import logging
 BASE_IMAGE_PATH = f"{utils.data_dir}/catalog_images"
 CATALOG_PATH = f"{utils.astro_data_dir}/pifinder_objects.db"
 
-logger = logging.getLogger("cat_images")
+logger = logging.getLogger("Catalog.Images")
 
 
 def get_display_image(catalog_object, source, fov, roll, display_class, burn_in=True):

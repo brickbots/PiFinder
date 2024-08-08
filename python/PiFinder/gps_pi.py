@@ -19,7 +19,7 @@ def is_tpv_accurate(tpv_dict):
     Check the accuracy of the GPS fix
     """
     error = tpv_dict.get("ecefpAcc", tpv_dict.get("sep", 499))
-    # logger.debug("GPS: TPV: mode=%s, error=%s",  tpv_dict.get('mode'), error)
+    logger.debug("GPS: TPV: mode=%s, error=%s, ecefpAcc=%s, sep=%s",  tpv_dict.get('mode'), error, tpv_dict.get("ecefpAcc", -1), tpv_dict.get("sep", -1))
     if tpv_dict.get("mode") >= 2 and error < 500:
         return True
     else:
@@ -51,6 +51,7 @@ def gps_monitor(gps_queue, console_queue, log_queue):
                         if gps_locked is False:
                             gps_locked = True
                             console_queue.put("GPS: Locked")
+                            logger.debug("GPS locked")
                         msg = (
                             "fix",
                             {
@@ -83,5 +84,5 @@ def gps_monitor(gps_queue, console_queue, log_queue):
                             logger.debug("Number of sats seen: %i", num_sats)
                             gps_queue.put(msg)
                             break
-                logger.debug("GPS sleeping now")
+                logger.debug("GPS sleeping now for 7s")
                 time.sleep(7)
