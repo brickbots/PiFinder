@@ -48,7 +48,9 @@ class FastAltAz:
             self.lat * math.pi / 180
         ) + math.cos(dec * math.pi / 180) * math.cos(
             self.lat * math.pi / 180
-        ) * math.cos(hour_angle * math.pi / 180)
+        ) * math.cos(
+            hour_angle * math.pi / 180
+        )
 
         alt = math.asin(_alt) * 180 / math.pi
         if alt_only:
@@ -227,7 +229,7 @@ def hadec_to_roll(ha_deg, dec_deg, lat_deg):
     The roll or the field rotation angle, as returned by the Tetra3 solver,
     describes how much the source (S) is rotated on the sky as seen by and
     the observer. The roll measures the same angle as the parallactic but
-    measured with a different orientation. See ha_dec2pa() for explanation of
+    measured with a different orientation. See hadec_to_pa() for explanation of
     the parallactic angle. The roll is positive for anti-clockwise rotation of
     ZS to PS when looking out towards the sky.
 
