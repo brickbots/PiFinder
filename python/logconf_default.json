@@ -1,4 +1,5 @@
 {
+    // Note that the JSON5 library that we use for configuration supports comments in JSON files. 
     "version": 1,
     "disable_existing_loggers": true,
     "formatters": {
