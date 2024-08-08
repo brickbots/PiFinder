@@ -407,13 +407,13 @@ class Server:
                 },
             )
             self.gps_queue.put(msg)
-            logging.debug("Putting location msg on gps_queue: {msg}")
+            logging.debug(f"Putting location msg on gps_queue: {msg}")
 
         @auth_required
         def time_lock(time=datetime.now()):
             msg = ("time", time)
             self.gps_queue.put(msg)
-            logging.debug("Putting time msg on gps_queue: {msg}")
+            logging.debug(f"Putting time msg on gps_queue: {msg}")
 
         # If the PiFinder software is running as a service
         # it can grab port 80.  If not, it needs to use 8080

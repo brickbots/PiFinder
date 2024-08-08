@@ -25,11 +25,15 @@ def is_tpv_accurate(tpv_dict):
 
 def gps_monitor(gps_queue, console_queue):
     gps_locked = False
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+
     while True:
         with GPSDClient(host="127.0.0.1") as client:
             # see https://www.mankier.com/5/gpsd_json for the list of fields
             while True:
                 logging.debug("GPS waking")
+                print("GPS waking")
                 readings_filter = filter(
                     lambda x: is_tpv_accurate(x),
                     client.dict_stream(convert_datetime=True, filter=["TPV"]),

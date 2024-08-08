@@ -13,7 +13,6 @@ import copy
 import logging
 
 from PiFinder import config
-from PiFinder import utils
 import PiFinder.calc_utils as calc_utils
 
 IMU_ALT = 2
@@ -71,7 +70,7 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
         last_image_solve = None
         last_solve_time = time.time()
         while True:
-            utils.sleep_for_framerate(shared_state)
+            calc_utils.sleep_for_framerate(shared_state)
 
             # Check for new camera solve in queue
             next_image_solve = None

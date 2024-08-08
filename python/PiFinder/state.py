@@ -13,6 +13,20 @@ from PiFinder import config
 import logging
 
 
+class History:
+    def __init__(self):
+        self.__history = []
+        self.__max_size = 10
+
+    def add(self, item):
+        if len(self.__history) >= self.__max_size:
+            self.__history.pop(0)
+        self.__history.append(item)
+
+    def get(self):
+        return self.__history
+
+
 class UIState:
     def __init__(self):
         self.__observing_list = []
