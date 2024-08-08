@@ -13,12 +13,13 @@ from PiFinder.multiproclogging import MultiprocLogging
 
 logger = logging.getLogger("GPS")
 
+
 def gps_monitor(gps_queue, console_queue, log_queue):
     MultiprocLogging.configurer(log_queue)
     time.sleep(5)
     i = -1
     while True:
-        i += 1       
+        i += 1
         time.sleep(0.5)
         fix = (
             "fix",
@@ -32,4 +33,3 @@ def gps_monitor(gps_queue, console_queue, log_queue):
             i = 0
             logger.debug("GPS fake: %s", fix)
             logger.debug("GPD fake: %s", tm)
-
