@@ -16,6 +16,8 @@ from PiFinder.camera_interface import CameraInterface
 from typing import Tuple
 import logging
 
+logger = logging.getLogger("Camera.None")
+
 
 class CameraNone(CameraInterface):
     """Simulate a camera not solving"""
@@ -34,11 +36,12 @@ class CameraNone(CameraInterface):
     def capture(self) -> Image.Image:
         sleep_time = self.exposure_time / 1000000
         time.sleep(sleep_time)
-        logging.debug("CameraNone exposed for %s seconds", sleep_time)
+        logger.debug("CameraNone exposed for %s seconds", sleep_time)
         return self.image
 
     def capture_file(self, filename) -> None:
-        print("capture_file not implemented")
+        logger.warning("capture_file not implemented")
+        pass
 
     def set_camera_config(
         self, exposure_time: float, gain: float

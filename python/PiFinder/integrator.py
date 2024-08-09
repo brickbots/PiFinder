@@ -15,9 +15,12 @@ import logging
 from PiFinder import config
 from PiFinder import utils
 import PiFinder.calc_utils as calc_utils
+from PiFinder.multiproclogging import MultiprocLogging
 
 IMU_ALT = 2
 IMU_AZ = 0
+
+logger = logging.getLogger("IMU.Integrator")
 
 
 def imu_moved(imu_a, imu_b):
@@ -39,12 +42,12 @@ def imu_moved(imu_a, imu_b):
     return False
 
 
-def integrator(shared_state, solver_queue, console_queue, is_debug=False):
+def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=False):
+    MultiprocLogging.configurer(log_queue)
     try:
-        logger = logging.getLogger()
         if is_debug:
             logger.setLevel(logging.DEBUG)
-        logging.debug("Starting Integrator")
+        logger.debug("Starting Integrator")
 
         solved = {
             "RA": None,
@@ -164,4 +167,4 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
     except EOFError:
-        logging.error("Main no longer running for integrator")
+        logger.error("Main no longer running for integrator")

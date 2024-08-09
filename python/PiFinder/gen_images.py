@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-This module fetchs images from sky survey sources on the internet
+This module fetches images from sky survey sources on the internet
 and prepares them for PiFinder use.
 """
 

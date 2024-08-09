@@ -129,6 +129,7 @@ class MenuManager:
             )
 
     def flash_marking_menu_option(self, option: MarkingMenuOption) -> None:
+        assert self.marking_menu_bg is not None, ""
         marking_menu_image = render_marking_menu(
             self.marking_menu_bg.copy(),
             self.marking_menu_stack[-1],

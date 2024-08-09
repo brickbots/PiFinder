@@ -18,16 +18,20 @@ import time
 import logging
 from itertools import cycle
 
+from PiFinder.multiproclogging import MultiprocLogging
+
+logger = logging.getLogger("Camera.Debug")
+
 
 class CameraDebug(CameraInterface):
     """The debug camera class.  Implements the CameraInterface interface.
 
-    Loads an image from disk and returns it for each exposure
+    Cycles through three images stored in "test_images" every 5 secs.
 
     """
 
     def __init__(self, exposure_time) -> None:
-        print("init camera debug")
+        logger.debug("init camera debug")
         self.camType = "Debug camera"
         self.path = utils.pifinder_dir / "test_images"
         self.exposure_time = exposure_time
@@ -51,14 +55,14 @@ class CameraDebug(CameraInterface):
     def capture(self) -> Image.Image:
         sleep_time = self.exposure_time / 1000000
         time.sleep(sleep_time)
-        logging.debug("CameraDebug exposed for %s seconds", sleep_time)
+        logger.debug("CameraDebug exposed for %s seconds", sleep_time)
         if time.time() - self.last_image_time > 5:
             self.last_image = next(self.image_cycle)
             self.last_image_time = time.time()
         return self.last_image
 
     def capture_file(self, filename) -> None:
-        print("capture_file not implemented")
+        logger.warn("capture_file not implemented in Camera Debug")
         pass
 
     def set_camera_config(
@@ -70,11 +74,12 @@ class CameraDebug(CameraInterface):
         return self.camType
 
 
-def get_images(shared_state, camera_image, command_queue, console_queue):
+def get_images(shared_state, camera_image, command_queue, console_queue, log_queue):
     """
     Instantiates the camera hardware
     then calls the universal image loop
     """
+    MultiprocLogging.configurer(log_queue)
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
     camera_hardware = CameraDebug(exposure_time)

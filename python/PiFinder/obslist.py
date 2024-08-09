@@ -10,9 +10,12 @@ tools
 """
 
 import os
+import logging
 from textwrap import dedent
 from PiFinder import utils
 from PiFinder.catalogs import Catalogs
+
+logger = logging.getLogger("Observation.List")
 
 OBSLIST_DIR = f"{utils.data_dir}/obslists/"
 
@@ -88,7 +91,9 @@ def read_list(catalogs: Catalogs, name):
             line = line.strip()
             if line == "SkyObject=BeginObject":
                 if in_object:
-                    print("Encountered object start while in object.  File is corrupt")
+                    logger.critical(
+                        "Encountered object start while in object.  File is corrupt"
+                    )
                     return {
                         "result": "error",
                         "objects_parsed": objects_parsed,
@@ -101,7 +106,7 @@ def read_list(catalogs: Catalogs, name):
 
             elif line == "EndObject=SkyObject":
                 if not in_object:
-                    print(
+                    logger.critical(
                         "Encountered object end while not in object.  File is corrupt"
                     )
                     return {
@@ -122,7 +127,7 @@ def read_list(catalogs: Catalogs, name):
 
             elif line.startswith("CatalogNumber"):
                 if not in_object:
-                    print(
+                    logger.critical(
                         "Encountered catalog number while not in object.  File is corrupt"
                     )
                     return {

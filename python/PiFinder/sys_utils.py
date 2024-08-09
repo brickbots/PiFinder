@@ -3,8 +3,11 @@ import sh
 from sh import wpa_cli, unzip, su, passwd
 import socket
 from PiFinder import utils
+import logging
 
 BACKUP_PATH = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
+
+logger = logging.getLogger("SysUtils")
 
 
 class Network:
@@ -167,13 +170,13 @@ class Network:
 
 
 def go_wifi_ap():
-    print("SYS: Switching to AP")
+    logger.info("SYS: Switching to AP")
     sh.sudo("/home/pifinder/PiFinder/switch-ap.sh")
     return True
 
 
 def go_wifi_cli():
-    print("SYS: Switching to Client")
+    logger.info("SYS: Switching to Client")
     sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
     return True
 
@@ -223,7 +226,7 @@ def update_software():
     Uses systemctl to git pull and then restart
     service
     """
-    print("SYS: Running update")
+    logger.info("SYS: Running update")
     sh.bash("/home/pifinder/PiFinder/pifinder_update.sh")
     return True
 
