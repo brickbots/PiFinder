@@ -3,12 +3,17 @@ from PiFinder.composite_object import CompositeObject
 from typing import List
 import numpy as np
 from sklearn.neighbors import BallTree
+import logging
+
+logger = logging.getLogger("Catalog.utils")
 
 
 def deduplicate_objects(
     unfiltered_objects: list[CompositeObject],
 ) -> list[CompositeObject]:
-    print(f"Before deduplication: {len(unfiltered_objects)}, {unfiltered_objects}")
+    logger.debug(
+        f"Before deduplication: {len(unfiltered_objects)}, {unfiltered_objects}"
+    )
     deduplicated_dict = {}
 
     precedence = {"M": 2, "NGC": 1}
@@ -24,7 +29,7 @@ def deduplicate_objects(
                 deduplicated_dict[obj.object_id] = obj
 
     results = list(deduplicated_dict.values())
-    print(f"After deduplication: {len(results)}, {results}")
+    logger.debug("After deduplication: %i, %s", len(results), results)
     return results
 
 
@@ -61,11 +66,21 @@ class ClosestObjectsFinder:
             n = nr_objects
 
         query = [[np.deg2rad(ra), np.deg2rad(dec)]]
-        print(f"Query: {query}, objects: {self._objects}")
+        logger.debug(
+            "get_closest_objects - Query: %s, objects: %s", query, self._objects
+        )
         _, obj_ind = self._objects_balltree.query(query, k=min(n, nr_objects))
-        print(
-            f"Found {len(obj_ind)} objects, from {nr_objects} objects, k={min(n, nr_objects)}"
+        logger.debug(
+            "get_closest_objects - Found %i objects, from %i objects, k=%i",
+            len(obj_ind),
+            nr_objects,
+            min(n, nr_objects),
         )
         results = self._objects[obj_ind[0]]
-        print(f"Found {len(results)} objects, from {nr_objects} objects, n={n}")
+        logger.debug(
+            "get_closest_objects - Found %i objects, from %i objects, n=%i",
+            len(results),
+            nr_objects,
+            n,
+        )
         return results

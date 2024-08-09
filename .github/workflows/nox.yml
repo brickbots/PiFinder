@@ -11,4 +11,4 @@ jobs:
       - uses: wntrblm/nox@2024.04.15
         with:
           python-versions: "3.9"
-      - run: nox -s lint format type_hints smoke_tests unit_tests
+      - run: nox --force-python 3.9 -s lint format type_hints smoke_tests unit_tests

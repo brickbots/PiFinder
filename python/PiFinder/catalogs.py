@@ -15,6 +15,8 @@ from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.calc_utils import sf_utils
 
+logger = logging.getLogger("Catalog")
+
 # collection of all catalog-related classes
 
 # CatalogBase : just the CompositeObjects
@@ -63,7 +65,7 @@ class Names:
         self.id_to_names = self.db.get_object_id_to_names()
         self.name_to_id = self.db.get_name_to_object_id()
         self._sort_names()
-        logging.debug(f"Loaded {len(self.names)} names from database")
+        logger.debug("Loaded %i names from database", len(self.names))
 
     def _sort_names(self):
         """
@@ -148,7 +150,7 @@ class CatalogFilter:
                 dt,
             )
         else:
-            logging.warning(
+            logger.warning(
                 f"Calc_fast_aa: {'solution' if not solution else 'location' if not location else 'datetime' if not dt else 'nothing'} not set"
             )
 
@@ -288,7 +290,7 @@ class CatalogBase:
     def check_sequences(self):
         sequences = [x.sequence for x in self.get_objects()]
         if not len(sequences) == len(set(sequences)):
-            logging.error(f"Duplicate sequence catalog {self.catalog_code}!")
+            logger.error("Duplicate sequence catalog %s!", self.catalog_code)
             return False
         return True
 
@@ -327,7 +329,7 @@ class Catalog(CatalogBase):
             return self.get_objects()
 
         self.filtered_objects = self.catalog_filter.apply(self.get_objects())
-        logging.info(
+        logger.info(
             f"FILTERED {self.catalog_code} {len(self.filtered_objects)}/{len(self.get_objects())}"
         )
         self.filtered_objects_seq = self._filtered_objects_to_seq()
@@ -420,7 +422,10 @@ class Catalogs:
             for name in obj.names:
                 if search_text.lower() in name.lower():
                     result.append(obj)
-                    # print(f"Found {name} in {obj.catalog_code} {obj.sequence}")
+                    # if not search_text == "":
+                    logger.debug(
+                        "Found %s in %s %i", name, obj.catalog_code, obj.sequence
+                    )
                     break
         return result
 
@@ -434,7 +439,9 @@ class Catalogs:
                 catalog.is_selected = True
             self.__catalogs.append(catalog)
         else:
-            logging.warning(f"Catalog {catalog.catalog_code} already exists")
+            logger.warning(
+                f"Catalog {catalog.catalog_code} already exists, not replaced (in Catalogs.add)"
+            )
 
     def remove(self, catalog_code: str):
         for catalog in self.__catalogs:
@@ -442,7 +449,7 @@ class Catalogs:
                 self.__catalogs.remove(catalog)
                 return
 
-        logging.warning(f"Catalog {catalog_code} does not exist")
+        logger.warning("Catalog %s does not exist, cannot remove", catalog_code)
 
     def get_codes(self, only_selected: bool = True) -> List[str]:
         return_list = []
@@ -573,7 +580,7 @@ class CatalogBuilder:
         # This is used for caching catalog dicts
         # to speed up repeated searches
         self.catalog_dicts = {}
-        logging.debug(f"Loaded {len(composite_objects)} objects from database")
+        logger.debug("Loaded %i objects from database", len(composite_objects))
         all_catalogs: Catalogs = self._get_catalogs(composite_objects, catalogs_info)
         # Initialize planet catalog with whatever date we have for now
         # This will be re-initialized on activation of Catalog ui module
@@ -606,7 +613,7 @@ class CatalogBuilder:
         for catalog in catalogs.get_catalogs():
             result = catalog.check_sequences()
             if not result:
-                logging.error(f"Duplicate sequence catalog {catalog.catalog_code}!")
+                logger.error("Duplicate sequence catalog %s!", catalog.catalog_code)
                 return False
             return True
 
@@ -737,7 +744,7 @@ class CatalogTracker:
     def refresh_catalogs(self):
         self.object_tracker = {}
         self.designator_tracker = {}
-        logging.debug(
+        logger.debug(
             f"refresh_catalogs: {self.catalogs=}, {self.object_tracker=}, {self.designator_tracker=}"
         )
         self.designator_tracker = {
@@ -747,7 +754,7 @@ class CatalogTracker:
         catalog_codes = self.catalogs.get_codes()
         self.set_default_current_catalog()
         self.object_tracker = {c: None for c in catalog_codes}
-        logging.debug(
+        logger.debug(
             f"refresh_catalogs: {self.catalogs=}, {self.object_tracker=}, {self.designator_tracker=}"
         )
 
@@ -758,17 +765,17 @@ class CatalogTracker:
     def add_foreign_catalog(self, catalog_name):
         """foreign objects not in our database, e.g. skysafari coords"""
         ui_state = self.shared_state.ui_state()
-        logging.debug(f"adding foreign catalog {catalog_name}")
-        logging.debug(f"current catalog codes: {self.catalogs.get_codes()}")
-        logging.debug(f"current catalog: {self.current_catalog_code}")
-        logging.debug(f"current object: {self.get_current_object()}")
-        logging.debug(f"current designator: {self.get_designator()}")
-        logging.debug(f"current target: {ui_state.target()}")
-        logging.debug(f"ui state: {str(ui_state)}")
+        logger.debug("adding foreign catalog %s", catalog_name)
+        logger.debug("current catalog codes: %s", self.catalogs.get_codes())
+        logger.debug("current catalog: %s", self.current_catalog_code)
+        logger.debug("current object: %s", self.get_current_object())
+        logger.debug("current designator: %s", self.get_designator())
+        logger.debug("current target: %s", ui_state.target())
+        logger.debug("ui state: %s", str(ui_state))
         push_catalog = Catalog("PUSH", 1, "Skysafari push")
         target = ui_state.target()
         if target is None:
-            logging.warning("No target to push")
+            logger.warning("No target to push")
             return push_catalog
         push_catalog.add_object(
             CompositeObject(

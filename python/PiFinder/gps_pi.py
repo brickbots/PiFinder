@@ -6,9 +6,12 @@ This module is for GPS related functions
 """
 
 import time
+from PiFinder.multiproclogging import MultiprocLogging
 from gpsdclient import GPSDClient
 import logging
 from itertools import islice
+
+logger = logging.getLogger("GPS")
 
 
 def is_tpv_accurate(tpv_dict):
@@ -16,20 +19,27 @@ def is_tpv_accurate(tpv_dict):
     Check the accuracy of the GPS fix
     """
     error = tpv_dict.get("ecefpAcc", tpv_dict.get("sep", 499))
-    # logging.debug("GPS: TPV: mode=%s, error=%s",  tpv_dict.get('mode'), error)
+    logger.debug(
+        "GPS: TPV: mode=%s, error=%s, ecefpAcc=%s, sep=%s",
+        tpv_dict.get("mode"),
+        error,
+        tpv_dict.get("ecefpAcc", -1),
+        tpv_dict.get("sep", -1),
+    )
     if tpv_dict.get("mode") >= 2 and error < 500:
         return True
     else:
         return False
 
 
-def gps_monitor(gps_queue, console_queue):
+def gps_monitor(gps_queue, console_queue, log_queue):
+    MultiprocLogging.configurer(log_queue)
     gps_locked = False
     while True:
         with GPSDClient(host="127.0.0.1") as client:
             # see https://www.mankier.com/5/gpsd_json for the list of fields
             while True:
-                logging.debug("GPS waking")
+                logger.debug("GPS waking")
                 readings_filter = filter(
                     lambda x: is_tpv_accurate(x),
                     client.dict_stream(convert_datetime=True, filter=["TPV"]),
@@ -42,11 +52,12 @@ def gps_monitor(gps_queue, console_queue):
                         readings_list,
                         key=lambda x: x.get("ecefpAcc", x.get("sep", float("inf"))),
                     )
-                    logging.debug("last reading is %s", result)
+                    logger.debug("last reading is %s", result)
                     if result.get("lat") and result.get("lon") and result.get("altHAE"):
                         if gps_locked is False:
                             gps_locked = True
                             console_queue.put("GPS: Locked")
+                            logger.debug("GPS locked")
                         msg = (
                             "fix",
                             {
@@ -55,18 +66,18 @@ def gps_monitor(gps_queue, console_queue):
                                 "altitude": result.get("altHAE"),
                             },
                         )
-                        logging.debug("GPS fix: %s", msg)
+                        logger.debug("GPS fix: %s", msg)
                         gps_queue.put(msg)
 
                     # search from the newest first, quit if something is found
                     for result in reversed(readings_list):
                         if result.get("time"):
                             msg = ("time", result.get("time"))
-                            logging.debug("Setting time to %s", result.get("time"))
+                            logger.debug("Setting time to %s", result.get("time"))
                             gps_queue.put(msg)
                             break
                 else:
-                    logging.debug("GPS TPV client queue is empty")
+                    logger.debug("GPS TPV client queue is empty")
 
                 if sky_list:
                     # search from the newest first, quit if something is found
@@ -76,8 +87,8 @@ def gps_monitor(gps_queue, console_queue):
                             sats_used = result["uSat"]
                             num_sats = (sats_seen, sats_used)
                             msg = ("satellites", num_sats)
-                            logging.debug(f"Number of sats seen: {num_sats}")
+                            logger.debug("Number of sats seen: %i", num_sats)
                             gps_queue.put(msg)
                             break
-                logging.debug("GPS sleeping now")
+                logger.debug("GPS sleeping now for 7s")
                 time.sleep(7)

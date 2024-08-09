@@ -17,6 +17,8 @@ from PiFinder import utils
 from typing import Tuple
 import logging
 
+logger = logging.getLogger("Camera.Interface")
+
 
 class CameraInterface:
     """The CameraInterface interface."""
@@ -154,4 +156,4 @@ class CameraInterface:
                         self.capture_file(filename)
                         console_queue.put("CAM: Saved Image")
         except (BrokenPipeError, EOFError, FileNotFoundError):
-            logging.exception("EOFError in Camera Loop")
+            logger.exception("Error in Camera Loop")

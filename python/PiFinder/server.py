@@ -4,6 +4,7 @@ import uuid
 import json
 from datetime import datetime, timezone
 import time
+from PiFinder.multiproclogging import MultiprocLogging
 from bottle import (
     Bottle,
     run,
@@ -28,6 +29,8 @@ from PiFinder import utils, calc_utils
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
+
+logger = logging.getLogger("Server")
 
 # Generate a secret to validate the auth cookie
 SESSION_SECRET = str(uuid.uuid4())
@@ -58,7 +61,6 @@ class Server:
         self.altitude = None
         self.gps_locked = False
 
-        logger = logging.getLogger()
         if is_debug:
             logger.setLevel(logging.DEBUG)
 
@@ -103,7 +105,7 @@ class Server:
 
         @app.route("/")
         def home():
-            logging.debug("/ called")
+            logger.debug("/ called")
             # need to collect alittle status info here
             with open(self.version_txt, "r") as ver_f:
                 software_version = ver_f.read()
@@ -188,7 +190,7 @@ class Server:
         def gps_page():
             self.update_gps()
             show_new_form = request.query.add_new or 0
-            logging.debug(f"/gps: {self.lat}, {self.lon}, {self.altitude}")
+            logger.debug("/gps: %f, %f, %f ", self.lat, self.lon, self.altitude)
 
             return template(
                 "gps",
@@ -213,7 +215,7 @@ class Server:
                 )
                 datetime_utc = datetime_obj.replace(tzinfo=timezone.utc)
                 time_lock(datetime_utc)
-            logging.debug(f"GPS update: {lat}, {lon}, {altitude}, {time_req}")
+            logger.debug("GPS update: %f, %f, %f, %f ", lat, lon, altitude, time_req)
             time.sleep(1)  # give the gps thread a chance to update
             return home()
 
@@ -407,13 +409,13 @@ class Server:
                 },
             )
             self.gps_queue.put(msg)
-            logging.debug("Putting location msg on gps_queue: {msg}")
+            logger.debug("Putting location msg on gps_queue: {msg}")
 
         @auth_required
         def time_lock(time=datetime.now()):
             msg = ("time", time)
             self.gps_queue.put(msg)
-            logging.debug("Putting time msg on gps_queue: {msg}")
+            logger.debug("Putting time msg on gps_queue: {msg}")
 
         # If the PiFinder software is running as a service
         # it can grab port 80.  If not, it needs to use 8080
@@ -427,7 +429,7 @@ class Server:
                 server=CherootServer,
             )
         except (PermissionError, OSError):
-            logging.info("Web Interface on port 8080")
+            logger.info("Web Interface on port 8080")
             run(
                 app,
                 host="0.0.0.0",
@@ -454,5 +456,6 @@ class Server:
             self.altitude = None
 
 
-def run_server(q, gps_q, shared_state, verbose=False):
+def run_server(q, gps_q, shared_state, log_queue, verbose=False):
+    MultiprocLogging.configurer(log_queue)
     Server(q, gps_q, shared_state, verbose)

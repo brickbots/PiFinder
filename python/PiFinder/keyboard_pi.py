@@ -10,6 +10,8 @@ from time import sleep
 from PiFinder.keyboard_interface import KeyboardInterface
 import RPi.GPIO as GPIO
 
+from PiFinder.multiproclogging import MultiprocLogging
+
 
 class KeyboardPi(KeyboardInterface):
     def __init__(self, q):
@@ -41,10 +43,11 @@ class KeyboardPi(KeyboardInterface):
         ]
         # fmt: on
 
-    def run_keyboard(self):
+    def run_keyboard(self, log_queue):
         """
         scans keyboard matrix, puts release events in queue
         """
+        MultiprocLogging.configurer(log_queue)
 
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.rows, GPIO.IN)

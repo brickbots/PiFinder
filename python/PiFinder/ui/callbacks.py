@@ -10,9 +10,12 @@ Each one takes the current ui module as an argument
 
 import datetime
 import sh
+import logging
 
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
+
+logger = logging.getLogger("UI.Callbacks")
 
 
 def go_back(ui_module: UIModule) -> None:
@@ -55,7 +58,7 @@ def set_exposure(ui_module: UIModule) -> None:
     Sets exposure to current value in config option
     """
     new_exposure: int = ui_module.config_object.get_option("camera_exp")
-    print(f"Set exposure {new_exposure}")
+    logger.info("Set exposure %f", new_exposure)
     ui_module.command_queues["camera"].put(f"set_exp:{new_exposure}")
 
 
@@ -64,7 +67,7 @@ def shutdown(ui_module: UIModule) -> None:
     shuts down the Pi
     """
     ui_module.message("Shutting Down", 10)
-    print("SYS: Initiating Shutdown")
+    logger.info("SYS: Initiating Shutdown")
     sh.sudo("shutdown", "now")
 
 
@@ -73,7 +76,7 @@ def restart_pifinder(ui_module: UIModule) -> None:
     Uses systemctl to restart the PiFinder
     service
     """
-    print("SYS: Restarting PiFinder")
+    logger.info("SYS: Restarting PiFinder")
     sh.sudo("systemctl", "restart", "pifinder")
 
 
@@ -82,19 +85,19 @@ def restart_system(ui_module: UIModule) -> None:
     Restarts the system
     """
     ui_module.message("Restarting...", 2)
-    print("SYS: Initiating System Restart")
+    logger.info("SYS: Initiating System Restart")
     sh.sudo("shutdown", "-r", "now")
 
 
 def go_wifi_ap(ui_module: UIModule) -> None:
     ui_module.message("WiFi to AP", 2)
-    print("SYS: Switching to AP")
+    logger.info("SYS: Switching to AP")
     sh.sudo("/home/pifinder/PiFinder/switch-ap.sh")
     restart_system(ui_module)
 
 
 def go_wifi_cli(ui_module: UIModule) -> None:
     ui_module.message("WiFi to Client", 2)
-    print("SYS: Switching to Client")
+    logger.info("SYS: Switching to Client")
     sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
     restart_system(ui_module)
