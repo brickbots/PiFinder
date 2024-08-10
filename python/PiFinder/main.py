@@ -195,9 +195,6 @@ def main(
     integrator_logqueque: Queue = log_helper.get_queue()
     imu_logqueue: Queue = log_helper.get_queue()
 
-    # from logging_tree import printout
-    # printout()
-
     # Start log consolidation process first.
     log_helper.start()
 
@@ -667,7 +664,7 @@ if __name__ == "__main__":
             Path("pifinder_logconf.json"),
             Path(f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"),
         )
-        # MultiprocLogging.configurer(log_helper.get_initial_queue()) # BUG This leads to an endless log loop. Means we loose some logs at the moment
+        MultiprocLogging.configurer(log_helper.get_queue())
     except FileNotFoundError:
         rlogger.warning(
             "Cannot find log configuration file, proceeding with basic configuration."
