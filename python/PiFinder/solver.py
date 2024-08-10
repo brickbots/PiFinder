@@ -116,6 +116,7 @@ def solver(
                 total_tetra_time = t_extract + solved["T_solve"]
                 if total_tetra_time > 1000:
                     console_queue.put(f"SLV: Long: {total_tetra_time}")
+                    logger.warn("Long solver time: %i", total_tetra_time)
 
                 if solved["RA"] is not None:
                     # map the RA/DEC to the target pixel RA/DEC

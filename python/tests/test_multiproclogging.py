@@ -155,3 +155,31 @@ def test_logging_before_start():
         assert "Another msg" in str
         # print(str)
         # assert False
+        
+        
+def test_basicconfig_interplay():
+    logging.getLogger().setLevel(logging.DEBUG)
+    logging.basicConfig(format="%(asctime)s BASIC %(name)s: %(levelname)s %(message)s")
+    with tempfile.TemporaryDirectory() as d:
+        log_file = os.path.join(d, "test.log")
+        Mpl = mpl.MultiprocLogging(out_file=log_file)
+
+        # Log to the initial queque before starting MultiprocLogging ...
+        q = Mpl.get_initial_queue()
+        mpl.MultiprocLogging.configurer(q)
+        logging.getLogger("before").info("A log message")
+
+        # ... then start the logging process and log something.
+        Mpl.start()
+        logging.getLogger("after").info("Another msg")
+
+        # Both messages should now be in the log file.
+        Mpl.join()
+        str = open(log_file, "r").read()
+        assert "before" in str
+        assert "after" in str
+        assert "A log message" in str
+        assert "Another msg" in str
+        # print(str)
+        # assert False
+

@@ -177,9 +177,6 @@ def main(
     # Instantiate base keyboard class for keycode
     keyboard_base = keyboard_interface.KeyboardInterface()
 
-    os_detail, platform, arch = utils.get_os_info()
-    logger.info("PiFinder running on %s, %s, %s", os_detail, platform, arch)
-
     # init queues
     console_queue: Queue = Queue()
     keyboard_queue: Queue = Queue()
@@ -198,8 +195,14 @@ def main(
     integrator_logqueque: Queue = log_helper.get_queue()
     imu_logqueue: Queue = log_helper.get_queue()
 
+    # from logging_tree import printout
+    # printout()
+
     # Start log consolidation process first.
     log_helper.start()
+
+    os_detail, platform, arch = utils.get_os_info()
+    logger.info("PiFinder running on %s, %s, %s", os_detail, platform, arch)
 
     # init UI Modes
     command_queues = {
@@ -266,7 +269,7 @@ def main(
         server_process = Process(
             name="Webserver",
             target=server.run_server,
-            args=(keyboard_queue, gps_queue, shared_state, verbose, server_logqueue),
+            args=(keyboard_queue, gps_queue, shared_state, server_logqueue, verbose),
         )
         server_process.start()
 
@@ -323,8 +326,8 @@ def main(
                 solver_queue,
                 camera_image,
                 console_queue,
-                verbose,
                 solver_logqueue,
+                verbose,
             ),
         )
         solver_process.start()
@@ -339,8 +342,8 @@ def main(
                 shared_state,
                 solver_queue,
                 console_queue,
-                verbose,
                 integrator_logqueque,
+                verbose,
             ),
         )
         integrator_process.start()
@@ -655,21 +658,24 @@ def main(
 
 if __name__ == "__main__":
     print("Boostrap logging configuration ...")
+    logging.basicConfig(format="%(asctime)s BASIC %(name)s: %(levelname)s %(message)s")
     rlogger = logging.getLogger()
+    rlogger.setLevel(logging.INFO)
     try:
+        datenow = datetime.datetime.now()
         log_helper = MultiprocLogging(
-            Path("pifinder_logconf.json"), Path("PiFinder.log")
+            Path("pifinder_logconf.json"),
+            Path(f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"),
         )
+        # MultiprocLogging.configurer(log_helper.get_initial_queue()) # BUG This leads to an endless log loop. Means we loose some logs at the moment
     except FileNotFoundError:
         rlogger.warning(
             "Cannot find log configuration file, proceeding with basic configuration."
         )
         rlogger.warning("Logs will not be stored on disk, unless you use --log")
-        rlogger.setLevel(logging.INFO)
         logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
         logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
         logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
-        logging.basicConfig(format="%(asctime)s %(name)s: %(levelname)s %(message)s")
 
     rlogger.info("Starting PiFinder ...")
     parser = argparse.ArgumentParser(description="eFinder")
@@ -765,10 +771,16 @@ if __name__ == "__main__":
 
     if args.keyboard.lower() == "pi":
         from PiFinder import keyboard_pi as keyboard
+
+        rlogger.info("using pi keyboard hat")
     elif args.keyboard.lower() == "local":
         from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
+
+        rlogger.info("using local keyboard")
     elif args.keyboard.lower() == "none":
         from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
+
+        rlogger.warn("using no keyboard")
 
     # if args.log:
     #    datenow = datetime.datetime.now()

@@ -7,8 +7,10 @@ Due to `logging` not being compatible out of the box with concurrency using proc
 the approach implemented here: A single process that is fed log records using `Queue`s.
 """
 
+import multiprocessing.queues
 from pathlib import Path
 from multiprocessing import Queue, Process
+import multiprocessing
 from queue import Empty
 from time import sleep
 from typing import TextIO, List, Optional
@@ -63,8 +65,11 @@ class MultiprocLogging:
         self._formatter = formatter
         self._proc: Optional[Process] = None
 
-        if log_conf is not None:
-            with open(log_conf, "r") as f:
+        self.apply_config()
+
+    def apply_config(self):
+        if self._log_conf_file is not None:
+            with open(self._log_conf_file, "r") as f:
                 self.read_config(f)
 
     def start(self, initial_queue: Optional[Queue] = None):
@@ -141,9 +146,10 @@ class MultiprocLogging:
         This is to catch
 
         """
-        new_queue = Queue()
-        self._initial_queue = new_queue
-        return new_queue
+        if self._initial_queue is None:
+            new_queue = Queue()
+            self._initial_queue = new_queue
+        return self._initial_queue
 
     @staticmethod
     def configurer(queue: Queue):
@@ -153,6 +159,11 @@ class MultiprocLogging:
         This method needs to be called once in each process, so that log records get forwarded to the single process writing
         log messages.
         """
+        assert queue is not None, "You passed a None to configurer! You cannot do that"
+        assert isinstance(
+            queue, multiprocessing.queues.Queue
+        ), "That's not a Queue! You have to pass a queue"
+
         h = logging.handlers.QueueHandler(queue)
         root = logging.getLogger()
         root.addHandler(h)

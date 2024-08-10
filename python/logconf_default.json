@@ -1,7 +1,7 @@
 {
     // Note that the JSON5 library that we use for configuration supports comments in JSON files. 
     "version": 1,
-    "disable_existing_loggers": true,
+    "disable_existing_loggers": false, // THIS MUST BE FALSE for logging to work
     "formatters": {
         "default": {
             "format": "%(asctime)s %(processName)s-%(name)s:%(levelname)s:%(message)s"
@@ -13,6 +13,10 @@
             "level": "DEBUG",
             "formatter": "default",
             "stream": "ext://sys.stdout"
+        },
+        "null": {
+            "class": "logging.NullHandler",
+            "level": "ERROR"
         }
     },
     "loggers": {
@@ -71,9 +75,9 @@
         // Supported logger hierarchy: 
         //   Solver
         //
-        // "Solver": {
-        //   "level": "DEBUG"
-        // }
+        "Solver": {
+            "level": "WARNING"
+        },
 
         /////////////////////////////////////////////////////////////////
         ////// GPS Subsystem
@@ -185,6 +189,11 @@
         },
         "picamera2.picamera2": {
             "level": "WARNING"
+        },
+        "grpc": {
+            "level": "ERROR",
+            "propagate": false,
+            "handlers": ["null"]
         },
    }
 }
