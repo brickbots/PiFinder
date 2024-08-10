@@ -45,11 +45,21 @@ class MultiprocLogging:
      1) Retrieve the needed queues from this instance, using `get_queue()`.
         The respective queues need to be passed on to the processes, see 3)
      2) Before spawning any other processes, `start()` the log storage in a separate process.
-     2) when starting up each process, pass in the queues retrieved in step 1) for each process a different queue.
+     2) when starting up each process, pass in the queues retrieved in step 1)
+        This should a different queue for each process.
      3) In the newly running process, call `MultiprocLogging.configurer(queue)`, which then applies the logging configuration to forward
         to the log process writing to the file.
 
+    If you want to also capture all logging before you start the logging process (step 2), you can call configurer() also in the main process
+    Note that calls to get_queue() _after_ starting do **not** propagate to the logging process. So you have to create all queues you need beforehand.
+
     Note that timestamps are generated on creation of the log record (when you call `debug()` and friends), they may not be in order in the log file though.
+
+    Implementation note
+    -------------------
+
+    The class calls the respective loggers `handle()`  method, so in order to avoid an endless logging loop (where calling `handle` results in a new entry in the queue), 
+    all handlers propagated from the main process are discarded in the logging process and only the filehandler is used. 
     """
 
     def __init__(
@@ -59,7 +69,6 @@ class MultiprocLogging:
         formatter: str = "%(asctime)s %(processName)s-%(name)s:%(levelname)s:%(message)s",
     ):
         self._queues: List[Queue] = []
-        self._initial_queue: Optional[Queue] = None
         self._log_conf_file = log_conf
         self._log_output_file = out_file
         self._formatter = formatter
@@ -75,10 +84,9 @@ class MultiprocLogging:
     def start(self, initial_queue: Optional[Queue] = None):
         assert self._proc is None, "You should only start once!"
         assert (
-            len(self._queues) >= 1 or self._initial_queue is not None
+            len(self._queues) >= 1
         ), "No queues in use. You should have requested at least one queue."
-        if self._initial_queue is not None:
-            self._queues.append(self._initial_queue)
+
         self._proc = Process(
             target=self._run_sink,
             args=(
@@ -106,11 +114,21 @@ class MultiprocLogging:
         This is started in __init__.
         """
 
+        # To avoid an endless loop, remove handlers from root logger.
+        # e.g. if a QueueHandler was inherited from the main process,
+        rLogger = logging.getLogger()
+        hdlrs = rLogger.handlers.copy()
+        for hdlr in hdlrs:
+            rLogger.removeHandler(hdlr)
+
         # configure logging to store everything in output
         h = logging.handlers.WatchedFileHandler(output)
         f = logging.Formatter(self._formatter)
         h.setFormatter(f)
-        logging.getLogger().addHandler(h)
+        rLogger.addHandler(h)
+
+        # import logging_tree
+        # logging_tree.printout()
 
         # Consume log messages and store them in output log file
         nqueues = len(queues)
@@ -138,18 +156,6 @@ class MultiprocLogging:
         new_queue = Queue()
         self._queues.append(new_queue)
         return new_queue
-
-    def get_initial_queue(self):
-        """
-        Retrieve a new queue, that can be used to log to (using `configurer()`) BEFORE starting MultiprocLogging
-
-        This is to catch
-
-        """
-        if self._initial_queue is None:
-            new_queue = Queue()
-            self._initial_queue = new_queue
-        return self._initial_queue
 
     @staticmethod
     def configurer(queue: Queue):
