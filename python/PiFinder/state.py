@@ -11,6 +11,33 @@ import pickle
 import pytz
 from PiFinder import config
 import logging
+from typing import List
+from PiFinder.composite_object import CompositeObject
+
+
+class RecentCompositeObjectList(list):
+    def __init__(self):
+        super().__init__()
+
+    def append(self, item: CompositeObject) -> None:
+        # Remove the item if it's already in the list
+        try:
+            super().remove(item)
+        except ValueError:
+            pass
+
+        # Add the item to the end of the list
+        super().append(item)
+
+    def __iter__(self):
+        return super().__iter__()
+
+    def __repr__(self) -> str:
+        return f"RecentList({super().__repr__()})"
+
+    def __str__(self) -> str:
+        return super().__str__()
+
 
 logger = logging.getLogger("SharedState")
 
@@ -18,7 +45,7 @@ logger = logging.getLogger("SharedState")
 class UIState:
     def __init__(self):
         self.__observing_list = []
-        self.__history_list = []
+        self.__recent = RecentCompositeObjectList()
         self.__active_list = []  # either observing or history
         self.__target = None
         self.__message_timeout = 0
@@ -31,11 +58,11 @@ class UIState:
     def set_observing_list(self, v):
         self.__observing_list = v
 
-    def history_list(self):
-        return self.__history_list
+    def recent_list(self) -> List[CompositeObject]:
+        return list(reversed(self.__recent))
 
-    def set_history_list(self, v):
-        self.__history_list = v
+    def add_recent(self, v: CompositeObject):
+        self.__recent.append(v)
 
     def active_list(self):
         return self.__active_list

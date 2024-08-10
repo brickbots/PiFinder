@@ -15,6 +15,7 @@ import logging
 import sys
 from time import perf_counter as precision_timestamp
 
+from PiFinder import state_utils
 from PiFinder import utils
 
 sys.path.append(str(utils.tetra3_dir))
@@ -56,7 +57,7 @@ def solver(
 
     try:
         while True:
-            utils.sleep_for_framerate(shared_state)
+            state_utils.sleep_for_framerate(shared_state)
 
             # use the time the exposure started here to
             # reject images started before the last solve

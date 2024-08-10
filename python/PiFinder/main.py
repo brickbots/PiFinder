@@ -225,7 +225,7 @@ def main(
         ui_state = manager.UIState()  # type: ignore[attr-defined]
         ui_state.set_show_fps(show_fps)
         ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
-        ui_state.set_active_list_to_history_list()
+        # ui_state.set_active_list_to_history_list()
         shared_state.set_ui_state(ui_state)
         shared_state.set_arch(arch)  # Normal
         logger.debug("Ui state in main is" + str(shared_state.ui_state()))

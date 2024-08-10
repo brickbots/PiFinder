@@ -2,8 +2,8 @@
 from dataclasses import dataclass, field
 import numpy as np
 import json
-from PiFinder.utils import is_number
 from typing import List
+from PiFinder.utils import is_number
 
 
 class MagnitudeObject:
