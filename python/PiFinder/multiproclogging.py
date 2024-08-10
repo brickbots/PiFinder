@@ -78,7 +78,7 @@ class MultiprocLogging:
             len(self._queues) >= 1 or self._initial_queue is not None
         ), "No queues in use. You should have requested at least one queue."
         if self._initial_queue is not None:
-             self._queues.append(self._initial_queue)
+            self._queues.append(self._initial_queue)
         self._proc = Process(
             target=self._run_sink,
             args=(
@@ -160,7 +160,9 @@ class MultiprocLogging:
         log messages.
         """
         assert queue is not None, "You passed a None to configurer! You cannot do that"
-        assert isinstance(queue, multiprocessing.queues.Queue), "That's not a Queue! You have to pass a queue" 
+        assert isinstance(
+            queue, multiprocessing.queues.Queue
+        ), "That's not a Queue! You have to pass a queue"
 
         h = logging.handlers.QueueHandler(queue)
         root = logging.getLogger()

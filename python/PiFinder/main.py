@@ -664,7 +664,8 @@ if __name__ == "__main__":
     try:
         datenow = datetime.datetime.now()
         log_helper = MultiprocLogging(
-            Path("pifinder_logconf.json"), Path(f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log")
+            Path("pifinder_logconf.json"),
+            Path(f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"),
         )
         # MultiprocLogging.configurer(log_helper.get_initial_queue()) # BUG This leads to an endless log loop. Means we loose some logs at the moment
     except FileNotFoundError:
@@ -770,12 +771,15 @@ if __name__ == "__main__":
 
     if args.keyboard.lower() == "pi":
         from PiFinder import keyboard_pi as keyboard
+
         rlogger.info("using pi keyboard hat")
     elif args.keyboard.lower() == "local":
         from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
+
         rlogger.info("using local keyboard")
     elif args.keyboard.lower() == "none":
         from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
+
         rlogger.warn("using no keyboard")
 
     # if args.log:
