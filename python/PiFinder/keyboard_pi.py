@@ -9,7 +9,10 @@ and adds keys to the provided queue
 from time import sleep
 from PiFinder.keyboard_interface import KeyboardInterface
 import RPi.GPIO as GPIO
+import logging
 from PiFinder.multiproclogging import MultiprocLogging
+
+logger = logging.getLogger("Keyboard.Pi")
 
 
 class KeyboardPi(KeyboardInterface):
