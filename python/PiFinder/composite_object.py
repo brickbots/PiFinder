@@ -3,17 +3,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import json
 from typing import List
-
-
-def is_number(s):
-    """Check if a string can be converted to a float"""
-    if s is None:
-        return False
-    try:
-        float(s)
-        return True
-    except ValueError:
-        return False
+from PiFinder.utils import is_number
 
 
 class MagnitudeObject:

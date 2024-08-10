@@ -15,22 +15,29 @@ from typing import List
 from PiFinder.composite_object import CompositeObject
 
 
-class Recent:
+class RecentCompositeObjectList(list):
     def __init__(self):
-        self.recent_dict = {}
-        self.recent_set = set()
+        super().__init__()
 
-    def add_recent(self, v: CompositeObject):
-        if v.id in self.recent_set:
-            self.recent_dict[v.id] = (time.time(), v)
-        else:
-            self.recent_dict[v.id] = (time.time(), v)
-            self.recent_set.add(v.id)
+    def append(self, item: CompositeObject) -> None:
+        # Remove the item if it's already in the list
+        try:
+            super().remove(item)
+        except ValueError:
+            pass
 
-    def recent_list(self) -> List[CompositeObject]:
-        sorted_items = sorted(self.recent_dict.values(), key=lambda x: x[0], reverse=True)
-        result = [item[1] for item in sorted_items]
-        return result
+        # Add the item to the end of the list
+        super().append(item)
+
+    def __iter__(self):
+        return super().__iter__()
+
+    def __repr__(self) -> str:
+        return f"RecentList({super().__repr__()})"
+
+    def __str__(self) -> str:
+        return super().__str__()
+
 
 logger = logging.getLogger("SharedState")
 
@@ -38,7 +45,7 @@ logger = logging.getLogger("SharedState")
 class UIState:
     def __init__(self):
         self.__observing_list = []
-        self.__recent = Recent()
+        self.__recent = RecentCompositeObjectList()
         self.__active_list = []  # either observing or history
         self.__target = None
         self.__message_timeout = 0
@@ -52,10 +59,10 @@ class UIState:
         self.__observing_list = v
 
     def recent_list(self) -> List[CompositeObject]:
-        return self.__recent.recent_list()
+        return list(reversed(self.__recent))
 
     def add_recent(self, v: CompositeObject):
-        self.__recent.add_recent(v)
+        self.__recent.append(v)
 
     def active_list(self):
         return self.__active_list

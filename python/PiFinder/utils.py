@@ -76,10 +76,8 @@ class Timer:
 
 def is_number(s):
     """Check if a string can be converted to a float"""
-    if s is None:
-        return False
     try:
         float(s)
         return True
-    except ValueError:
+    except (ValueError, TypeError):
         return False
