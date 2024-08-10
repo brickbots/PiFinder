@@ -42,8 +42,6 @@ class UIObjectDetails(UIModule):
         self.screen_direction = self.config_object.get_option("screen_direction")
         self.mount_type = self.config_object.get_option("mount_type")
         self.object = self.item_definition["object"]
-        if self.object is not None:
-            self.ui_state.add_recent(self.object)
 
         self.object_display_mode = DM_LOCATE
         self.object_image = None
@@ -54,6 +52,7 @@ class UIObjectDetails(UIModule):
         # Used for displaying obsevation counts
         self.observations_db = ObservationsDatabase()
 
+        self.object_text = ["No Object Found"]
         self.simpleTextLayout = functools.partial(
             TextLayouterSimple,
             draw=self.draw,

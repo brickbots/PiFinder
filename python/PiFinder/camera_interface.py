@@ -13,7 +13,7 @@ import os
 import queue
 import time
 from PIL import Image
-from PiFinder import utils
+from PiFinder import state_utils as utils
 from typing import Tuple
 import logging
 
