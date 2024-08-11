@@ -32,7 +32,9 @@ class KeyboardLocal(KeyboardInterface):
             keyboard.set_magickey_on_release("7", self.callback, 7)
             keyboard.set_magickey_on_release("8", self.callback, 8)
             keyboard.set_magickey_on_release("9", self.callback, 9)
-            keyboard.set_magickey_on_release([Key.ctrl, "q"], None, self.callback, self.ALT_PLUS)
+            keyboard.set_magickey_on_release(
+                [Key.ctrl, "q"], None, self.callback, self.ALT_PLUS
+            )
             keyboard.set_magickey_on_release(
                 [Key.ctrl, "a"], None, self.callback, self.ALT_MINUS
             )
@@ -48,7 +50,9 @@ class KeyboardLocal(KeyboardInterface):
             keyboard.set_magickey_on_release(
                 [Key.ctrl, Key.right], None, self.callback, self.ALT_RIGHT
             )
-            keyboard.set_magickey_on_release([Key.ctrl, "0"], None, self.callback, self.ALT_0)
+            keyboard.set_magickey_on_release(
+                [Key.ctrl, "0"], None, self.callback, self.ALT_0
+            )
             keyboard.set_magickey_on_release(
                 [Key.shift, Key.left], None, self.callback, self.LNG_LEFT
             )
