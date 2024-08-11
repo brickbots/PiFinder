@@ -6,7 +6,7 @@ from sklearn.neighbors import BallTree
 import logging
 
 logger = logging.getLogger("Catalog.Nearby")
-MAX_DEVIATION = 0.5
+MAX_DEVIATION = 1.0
 MAX_TIME = 2
 
 
