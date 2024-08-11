@@ -29,6 +29,7 @@ class Nearby:
             self.shared_state.solution()["RA"],
             self.shared_state.solution()["Dec"],
         )
+        logger.debug("Should refresh? %s, %s, %s, %s, %s", ra, self.last_ra, dec, self.last_dec, time.time() - self.last_refresh)
         return (
             abs(ra - self.last_ra) > 0.1
             or abs(dec - self.last_dec) > 0.1
