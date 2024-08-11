@@ -1,7 +1,6 @@
 import time
 from PiFinder.keyboard_interface import KeyboardInterface
 import logging
-
 from PiFinder.multiproclogging import MultiprocLogging
 
 logger = logging.getLogger("Keyboard.Local")
