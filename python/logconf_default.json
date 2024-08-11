@@ -28,7 +28,7 @@
         // This is the main logging configuration
         //
         "": {
-            "level": "WARNING",
+            "level": "INFO",
             "handlers": ["console"]
             // The file handler is added automatically by code
         },
