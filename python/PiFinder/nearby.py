@@ -6,6 +6,8 @@ from sklearn.neighbors import BallTree
 import logging
 
 logger = logging.getLogger("Catalog.Nearby")
+MAX_DEVIATION = 0.5
+MAX_TIME = 2
 
 
 class Nearby:
@@ -29,12 +31,10 @@ class Nearby:
             self.shared_state.solution()["RA"],
             self.shared_state.solution()["Dec"],
         )
-        logger.debug("Should refresh? %s, %s, %s, %s, %s", ra, self.last_ra, dec, self.last_dec, time.time() - self.last_refresh)
-        return (
-            abs(ra - self.last_ra) > 0.1
-            or abs(dec - self.last_dec) > 0.1
-            or time.time() - self.last_refresh > 2
-        )
+        should = abs(ra - self.last_ra) > MAX_DEVIATION or abs(dec - self.last_dec) > MAX_DEVIATION or time.time() - self.last_refresh > MAX_TIME
+        logger.debug("Should refresh? %s, %s, %s, %s, %s, %s", should, ra, self.last_ra,
+                     dec, self.last_dec, time.time() - self.last_refresh)
+        return should
 
     def refresh(self):
         if not self.shared_state.solution():
@@ -49,7 +49,8 @@ class Nearby:
             self.last_dec = dec
             self.last_refresh = time.time()
 
-            self.result = self.closest_objects_finder.get_closest_objects(ra, dec)
+            self.result = self.closest_objects_finder.get_closest_objects(
+                ra, dec)
             return self.result
 
 
@@ -64,7 +65,8 @@ class ClosestObjectsFinder:
         """
         deduplicated_objects = deduplicate_objects(objects)
         object_radecs = np.array(
-            [[np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in deduplicated_objects]
+            [[np.deg2rad(x.ra), np.deg2rad(x.dec)]
+             for x in deduplicated_objects]
         )
         self._objects = np.array(deduplicated_objects)
         self._objects_balltree = BallTree(
