@@ -31,9 +31,9 @@ class Nearby:
             self.shared_state.solution()["RA"],
             self.shared_state.solution()["Dec"],
         )
-        should = abs(ra - self.last_ra) > MAX_DEVIATION or abs(dec - self.last_dec) > MAX_DEVIATION or time.time() - self.last_refresh > MAX_TIME
-        logger.debug("Should refresh? %s, %s, %s, %s, %s, %s", should, ra, self.last_ra,
-                     dec, self.last_dec, time.time() - self.last_refresh)
+        should = abs(ra - self.last_ra) > MAX_DEVIATION or abs(dec - self.last_dec) > MAX_DEVIATION or (time.time() - self.last_refresh) > MAX_TIME
+        logger.debug("Should refresh? %s, %s, %s, %s", should, ra - self.last_ra,
+                     dec - self.last_dec, time.time() - self.last_refresh)
         return should
 
     def refresh(self):
