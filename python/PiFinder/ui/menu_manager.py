@@ -1,9 +1,14 @@
+from time import sleep
 from typing import Union
 from PIL import Image
 from PiFinder.ui.base import UIModule
 from PiFinder.ui import menu_structure
 from PiFinder.displays import DisplayBase
-from PiFinder.ui.marking_menus import MarkingMenu, render_marking_menu
+from PiFinder.ui.marking_menus import (
+    MarkingMenu,
+    MarkingMenuOption,
+    render_marking_menu,
+)
 
 
 def find_menu_by_label(label: str):
@@ -122,6 +127,43 @@ class MenuManager:
             self.display_class.device.display(
                 marking_menu_image.convert(self.display_class.device.mode)
             )
+
+    def flash_marking_menu_option(self, option: MarkingMenuOption) -> None:
+        assert self.marking_menu_bg is not None, ""
+        marking_menu_image = render_marking_menu(
+            self.marking_menu_bg.copy(),
+            self.marking_menu_stack[-1],
+            self.display_class,
+            39,
+            option,
+        )
+        self.display_class.device.display(
+            marking_menu_image.convert(self.display_class.device.mode)
+        )
+        sleep(0.05)
+
+        marking_menu_image = render_marking_menu(
+            self.marking_menu_bg.copy(),
+            self.marking_menu_stack[-1],
+            self.display_class,
+            39,
+        )
+        self.display_class.device.display(
+            marking_menu_image.convert(self.display_class.device.mode)
+        )
+        sleep(0.05)
+
+        marking_menu_image = render_marking_menu(
+            self.marking_menu_bg.copy(),
+            self.marking_menu_stack[-1],
+            self.display_class,
+            39,
+            option,
+        )
+        self.display_class.device.display(
+            marking_menu_image.convert(self.display_class.device.mode)
+        )
+        sleep(0.05)
 
     def update(self) -> None:
         if self.help_images is not None:
@@ -267,6 +309,8 @@ class MenuManager:
         if selected_item.label == "" or not selected_item.enabled:
             # Just bail out for non active menu items
             return
+
+        self.flash_marking_menu_option(selected_item)
 
         if type(selected_item.callback) is MarkingMenu:
             self.marking_menu_stack.append(selected_item.callback)

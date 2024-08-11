@@ -8,12 +8,14 @@ This module is the solver
 
 """
 
+from PiFinder.multiproclogging import MultiprocLogging
 import numpy as np
 import time
 import logging
 import sys
 from time import perf_counter as precision_timestamp
 
+from PiFinder import state_utils
 from PiFinder import utils
 from PiFinder import calc_utils
 
@@ -21,12 +23,14 @@ sys.path.append(str(utils.tetra3_dir))
 import PiFinder.tetra3.tetra3 as tetra3
 from PiFinder.tetra3.tetra3 import cedar_detect_client
 
-logger = logging.getLogger("solver")
+logger = logging.getLogger("Solver")
 
 
-def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=False):
-    logging.getLogger("tetra3.Tetra3").addHandler(logging.NullHandler())
-    logging.debug("Starting Solver")
+def solver(
+    shared_state, solver_queue, camera_image, console_queue, log_queue, is_debug=False
+):
+    MultiprocLogging.configurer(log_queue)
+    logger.debug("Starting Solver")
     t3 = tetra3.Tetra3(
         str(utils.cwd_dir / "PiFinder/tetra3/tetra3/data/default_database.npz")
     )
@@ -54,7 +58,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
 
     try:
         while True:
-            calc_utils.sleep_for_framerate(shared_state)
+            state_utils.sleep_for_framerate(shared_state)
 
             # use the time the exposure started here to
             # reject images started before the last solve
@@ -113,6 +117,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                 total_tetra_time = t_extract + solved["T_solve"]
                 if total_tetra_time > 1000:
                     console_queue.put(f"SLV: Long: {total_tetra_time}")
+                    logger.warn("Long solver time: %i", total_tetra_time)
 
                 if solved["RA"] is not None:
                     # map the RA/DEC to the target pixel RA/DEC

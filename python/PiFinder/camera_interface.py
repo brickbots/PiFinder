@@ -13,10 +13,12 @@ import os
 import queue
 import time
 from PIL import Image
+from PiFinder import state_utils
 from typing import Tuple
 import logging
 from PiFinder import utils
-import PiFinder.calc_utils  as calc_utils
+
+logger = logging.getLogger("Camera.Interface")
 
 
 class CameraInterface:
@@ -59,7 +61,7 @@ class CameraInterface:
             # 60 half-second cycles
             sleep_delay = 60
             while True:
-                sleeping = calc_utils.sleep_for_framerate(
+                sleeping = state_utils.sleep_for_framerate(
                     shared_state, limit_framerate=False
                 )
                 if sleeping:
@@ -155,4 +157,4 @@ class CameraInterface:
                         self.capture_file(filename)
                         console_queue.put("CAM: Saved Image")
         except (BrokenPipeError, EOFError, FileNotFoundError):
-            logging.exception("EOFError in Camera Loop")
+            logger.exception("Error in Camera Loop")

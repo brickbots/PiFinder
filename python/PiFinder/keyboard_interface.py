@@ -1,6 +1,10 @@
 from time import sleep
 import logging
 
+from PiFinder.multiproclogging import MultiprocLogging
+
+logger = logging.getLogger("Keyboard.Interface")
+
 
 class KeyboardInterface:
     NA = 10
@@ -31,18 +35,19 @@ class KeyboardInterface:
         pass
 
     @staticmethod
-    def run_script(script_name, q):
+    def run_script(script_name, q, log_queue):
         """
         Runs a keyscript for automation/testing
         """
-        logging.info("Running Script: " + script_name)
+        MultiprocLogging.configurer(log_queue)
+        logger.info("Running Script: " + script_name)
         with open(script_name) as script_file:
             script = script_file.readlines()
             length = len(script)
             for idx, script_line in enumerate(script):
                 sleep(0.5)
                 script_line = script_line.strip()
-                logging.debug(f"({idx}/{length})\t{script_line}")
+                logger.debug("(%i/%i)\t%s", idx, length, script_line)
                 script_tokens = script_line.split(" ")
                 if script_tokens[0].startswith("#"):
                     # comment

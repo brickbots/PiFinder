@@ -187,6 +187,11 @@ pifinder_menu = {
                     ],
                 },
                 {
+                    "name": "Recent",
+                    "class": UIObjectList,
+                    "objects": "recent",
+                },
+                {
                     "name": "Name Search",
                     "class": UITextEntry,
                 },

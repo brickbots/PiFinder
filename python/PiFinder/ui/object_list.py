@@ -165,6 +165,9 @@ class UIObjectList(UITextMenu):
                 if catalog.catalog_code == self.item_definition["value"]:
                     self._menu_items = catalog.get_filtered_objects()
 
+        if self.item_definition["objects"] == "recent":
+            self._menu_items = self.ui_state.recent_list()
+
         if self.item_definition["objects"] == "custom":
             # item_definition must contian a list of CompositeObjects
             self._menu_items = self.item_definition["object_list"]
