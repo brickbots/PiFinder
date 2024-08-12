@@ -21,7 +21,7 @@
         <button class="btn remote-button" onclick="buttonClicked(this, '7')">7</button>
         <button class="btn remote-button" onclick="buttonClicked(this, '8')">8</button>
         <button class="btn remote-button" onclick="buttonClicked(this, '9')">9</button>
-        <button class="btn remote-button" onclick="buttonClicked(this, 'ENT')">■</button>
+        <button class="btn remote-button" onclick="buttonClicked(this, 'SQUARE')">■</button>
         <button class="btn remote-button" id="altButton" onclick="buttonPressed(this)">Ent+</button>
         <button class="btn remote-button" onclick="buttonClicked(this, '0')">0</button>
         <button class="btn remote-button" id="longButton" onclick="buttonPressed(this)">Long</button>
