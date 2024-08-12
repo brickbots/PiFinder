@@ -16,7 +16,7 @@ import re
 from multiprocessing import Queue
 from typing import Tuple, Union
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils
-from PiFinder.catalogs import CompositeObject
+from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.multiproclogging import MultiprocLogging
 from skyfield.positionlib import position_of_radec
 
@@ -159,7 +159,7 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
             "dec": comp_dec,
             "const": constellation,
             "size": "",
-            "mag": "",
+            "mag": MagnitudeObject([]),
             "catalog_code": "PUSH",
             "sequence": sequence,
             "description": f"Skysafari object nr {sequence}",
