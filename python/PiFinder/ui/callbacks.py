@@ -76,6 +76,7 @@ def restart_pifinder(ui_module: UIModule) -> None:
     Uses systemctl to restart the PiFinder
     service
     """
+    ui_module.message("Restarting...", 2)
     logger.info("SYS: Restarting PiFinder")
     sh.sudo("systemctl", "restart", "pifinder")
 

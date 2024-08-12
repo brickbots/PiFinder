@@ -466,39 +466,101 @@ pifinder_menu = {
             "select": "single",
             "items": [
                 {
-                    "name": "Camera Exp",
+                    "name": "Chart...",
                     "class": UITextMenu,
                     "select": "single",
-                    "config_option": "camera_exp",
-                    "post_callback": callbacks.set_exposure,
                     "items": [
                         {
-                            "name": "0.025s",
-                            "value": 25000,
+                            "name": "Reticle",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "chart_reticle",
+                            "items": [
+                                {
+                                    "name": "Off",
+                                    "value": 0,
+                                },
+                                {
+                                    "name": "Low",
+                                    "value": 64,
+                                },
+                                {
+                                    "name": "Medium",
+                                    "value": 128,
+                                },
+                                {
+                                    "name": "High",
+                                    "value": 192,
+                                },
+                            ],
                         },
                         {
-                            "name": "0.05s",
-                            "value": 50000,
+                            "name": "Const. Disp.",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "chart_constellations",
+                            "items": [
+                                {
+                                    "name": "Off",
+                                    "value": 0,
+                                },
+                                {
+                                    "name": "Low",
+                                    "value": 64,
+                                },
+                                {
+                                    "name": "Medium",
+                                    "value": 128,
+                                },
+                                {
+                                    "name": "High",
+                                    "value": 192,
+                                },
+                            ],
                         },
                         {
-                            "name": "0.1s",
-                            "value": 100000,
+                            "name": "DSO Display",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "chart_dso",
+                            "items": [
+                                {
+                                    "name": "Off",
+                                    "value": 0,
+                                },
+                                {
+                                    "name": "Low",
+                                    "value": 64,
+                                },
+                                {
+                                    "name": "Medium",
+                                    "value": 128,
+                                },
+                                {
+                                    "name": "High",
+                                    "value": 192,
+                                },
+                            ],
                         },
                         {
-                            "name": "0.2s",
-                            "value": 200000,
-                        },
-                        {
-                            "name": "0.4s",
-                            "value": 400000,
-                        },
-                        {
-                            "name": "0.8s",
-                            "value": 800000,
-                        },
-                        {
-                            "name": "1s",
-                            "value": 1000000,
+                            "name": "RA/DEC Disp.",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "chart_radec",
+                            "items": [
+                                {
+                                    "name": "Off",
+                                    "value": "Off",
+                                },
+                                {
+                                    "name": "HH:MM",
+                                    "value": "HH:MM",
+                                },
+                                {
+                                    "name": "Degrees",
+                                    "value": "Degr",
+                                },
+                            ],
                         },
                     ],
                 },
@@ -543,42 +605,6 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": "PiFinder Dir",
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "screen_direction",
-                    "items": [
-                        {
-                            "name": "Left",
-                            "value": "left",
-                        },
-                        {
-                            "name": "Right",
-                            "value": "right",
-                        },
-                        {
-                            "name": "Flat",
-                            "value": "flat",
-                        },
-                    ],
-                },
-                {
-                    "name": "Mount Type",
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "mount_type",
-                    "items": [
-                        {
-                            "name": "Alt/Az",
-                            "value": "Alt/Az",
-                        },
-                        {
-                            "name": "Equitorial",
-                            "value": "EQ",
-                        },
-                    ],
-                },
-                {
                     "name": "WiFi Mode",
                     "class": UITextMenu,
                     "select": "single",
@@ -616,6 +642,48 @@ pifinder_menu = {
                         {
                             "name": "2m",
                             "value": "2m",
+                        },
+                    ],
+                },
+                {
+                    "name": "PiFinder Type",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "screen_direction",
+                    "post_callback": callbacks.restart_pifinder,
+                    "items": [
+                        {
+                            "name": "Left",
+                            "value": "left",
+                        },
+                        {
+                            "name": "Right",
+                            "value": "right",
+                        },
+                        {
+                            "name": "Flat",
+                            "value": "flat",
+                        },
+                        {
+                            "name": "Straight",
+                            "value": "straight",
+                        },
+                    ],
+                },
+                {
+                    "name": "Mount Type",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "mount_type",
+                    "post_callback": callbacks.restart_pifinder,
+                    "items": [
+                        {
+                            "name": "Alt/Az",
+                            "value": "Alt/Az",
+                        },
+                        {
+                            "name": "Equitorial",
+                            "value": "EQ",
                         },
                     ],
                 },

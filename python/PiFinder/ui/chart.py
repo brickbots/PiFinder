@@ -38,11 +38,6 @@ class UIChart(UIModule):
         self.fov = self.desired_fov
         self.set_fov(self.desired_fov)
 
-        # set config options
-        self._reticle_on = True
-        self._constellations_on = True
-        self._dso_on = True
-
     def plot_markers(self):
         """
         Plot the contents of the observing list
@@ -60,24 +55,24 @@ class UIChart(UIModule):
                 (plot.Angle(degrees=target.ra)._hours, target.dec, "target")
             )
 
-        if self._dso_on:
-            for obs_target in self.ui_state.observing_list():
-                marker = OBJ_TYPE_MARKERS.get(obs_target.obj_type)
-                if marker:
-                    marker_list.append(
-                        (
-                            plot.Angle(degrees=obs_target.ra)._hours,
-                            obs_target.dec,
-                            marker,
-                        )
-                    )
+        marker_brightness = self.config_object.get_option("chart_dso", 128)
+        if marker_brightness == 0:
+            return
 
-        if marker_list != [] and self._dso_on:
+        for obs_target in self.ui_state.observing_list():
+            marker = OBJ_TYPE_MARKERS.get(obs_target.obj_type)
+            if marker:
+                marker_list.append(
+                    (
+                        plot.Angle(degrees=obs_target.ra)._hours,
+                        obs_target.dec,
+                        marker,
+                    )
+                )
+
+        if marker_list != []:
             marker_image = self.starfield.plot_markers(
                 marker_list,
-            )
-            marker_brightness = self.config_object.get_option(
-                "chart_dso_brightness", 128
             )
 
             marker_image = ImageChops.multiply(
@@ -94,11 +89,10 @@ class UIChart(UIModule):
         """
         draw the reticle if desired
         """
-        if not self._reticle_on:
+        brightness = self.config_object.get_option("chart_reticle", 128)
+        if brightness == 0:
             # None....
             return
-
-        brightness = self.config_object.get_option("chart_reticle_brightness", 128)
 
         fov = self.fov
         for circ_deg in [4, 2, 0.5]:
@@ -135,23 +129,15 @@ class UIChart(UIModule):
         self.fov = current_fov
         self.starfield.set_fov(current_fov)
 
-    def update_config(self):
-        self.config_object.set_option(
-            "chart_display_radec", self._config_options["RA/Dec"]["value"]
-        )
-
     def update(self, force=False):
         if force:
             self.last_update = 0
 
         if self.shared_state.solve_state():
             self.animate_fov()
-            if self._constellations_on:
-                constellation_brightness = self.config_object.get_option(
-                    "chart_constellations_brightness", 64
-                )
-            else:
-                constellation_brightness = 0
+            constellation_brightness = self.config_object.get_option(
+                "chart_constellations", 64
+            )
             self.solution = self.shared_state.solution()
             last_solve_time = self.solution["solve_time"]
             if (
@@ -175,7 +161,7 @@ class UIChart(UIModule):
                 self.plot_markers()
 
                 # Display RA/DEC in selected format if enabled
-                if self.config_object.get_option("chart_display_radec") == "HH:MM":
+                if self.config_object.get_option("chart_radec") == "HH:MM":
                     ra_h, ra_m, ra_s = calc_utils.ra_to_hms(self.solution["RA"])
                     dec_d, dec_m, dec_s = calc_utils.dec_to_dms(self.solution["Dec"])
                     ra_dec_disp = f"{ra_h:02d}:{ra_m:02d}:{ra_s:02d} / {dec_d:02d}°{dec_m:02d}:{dec_s}"
@@ -185,7 +171,7 @@ class UIChart(UIModule):
                         font=self.fonts.base.font,
                         fill=self.colors.get(255),
                     )
-                if self.config_object.get_option("chart_display_radec") == "Degr":
+                if self.config_object.get_option("chart_radec") == "Degr":
                     ra_h, ra_m, ra_s = calc_utils.ra_to_hms(self.solution["RA"])
                     dec_d, dec_m, dec_s = calc_utils.dec_to_dms(self.solution["Dec"])
                     ra_dec_disp = (

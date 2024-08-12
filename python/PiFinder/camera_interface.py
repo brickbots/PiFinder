@@ -78,7 +78,10 @@ class CameraInterface:
                     base_image = self.capture()
                     base_image = base_image.convert("L")
                     if camera_rotation is None:
-                        if screen_direction == "right":
+                        if (
+                            screen_direction == "right"
+                            or screen_direction == "straight"
+                        ):
                             base_image = base_image.rotate(90)
                         else:
                             base_image = base_image.rotate(270)
