@@ -19,6 +19,7 @@ from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.multiproclogging import MultiprocLogging
 from skyfield.positionlib import position_of_radec
+import sys
 
 logger = logging.getLogger("PosServer")
 
@@ -154,6 +155,7 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
     obj = CompositeObject.from_dict(
         {
             "id": -1,
+            "object_id": sys.maxsize-sequence,
             "obj_type": "",
             "ra": comp_ra,
             "dec": comp_dec,
