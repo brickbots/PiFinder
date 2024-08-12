@@ -184,6 +184,7 @@ pifinder_menu = {
                     "name": "Recent",
                     "class": UIObjectList,
                     "objects": "recent",
+                    "label": "recent",
                 },
                 {
                     "name": "Name Search",
