@@ -16,9 +16,10 @@ import re
 from multiprocessing import Queue
 from typing import Tuple, Union
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils
-from PiFinder.catalogs import CompositeObject
+from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.multiproclogging import MultiprocLogging
 from skyfield.positionlib import position_of_radec
+import sys
 
 logger = logging.getLogger("PosServer")
 
@@ -145,7 +146,7 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
     dec = dec_to_deg(*dec_parsed)
     logger.debug("handle_goto_command: ra,dec in deg, JNOW: %s, %s", ra, dec)
     _p = position_of_radec(ra_hours=ra / 15, dec_degrees=dec, epoch=ts.now())
-    ra_h, dec_d, _dist = _p.radec(epoch=ts.J2000)
+    ra_h, dec_d, _ = _p.radec(epoch=ts.J2000)
     sequence += 1
     comp_ra = float(ra_h._degrees)
     comp_dec = float(dec_d.degrees)
@@ -154,19 +155,20 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
     obj = CompositeObject.from_dict(
         {
             "id": -1,
+            "object_id": sys.maxsize-sequence,
             "obj_type": "",
             "ra": comp_ra,
             "dec": comp_dec,
             "const": constellation,
             "size": "",
-            "mag": "",
+            "mag": MagnitudeObject([]),
             "catalog_code": "PUSH",
             "sequence": sequence,
             "description": f"Skysafari object nr {sequence}",
         }
     )
     logger.debug("handle_goto_command: Pushing object: %s", obj)
-    shared_state.ui_state().push_object(obj)
+    shared_state.ui_state().add_recent(obj)
     ui_queue.put("push_object")
     return "1"
 

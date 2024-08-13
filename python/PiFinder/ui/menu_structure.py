@@ -184,6 +184,7 @@ pifinder_menu = {
                     "name": "Recent",
                     "class": UIObjectList,
                     "objects": "recent",
+                    "label": "recent",
                 },
                 {
                     "name": "Name Search",
@@ -561,6 +562,43 @@ pifinder_menu = {
                                     "value": "Degr",
                                 },
                             ],
+                        },
+                    ],
+                },
+                {
+                    "name": "Camera Exp",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "camera_exp",
+                    "post_callback": callbacks.set_exposure,
+                    "items": [
+                        {
+                            "name": "0.025s",
+                            "value": 25000,
+                        },
+                        {
+                            "name": "0.05s",
+                            "value": 50000,
+                        },
+                        {
+                            "name": "0.1s",
+                            "value": 100000,
+                        },
+                        {
+                            "name": "0.2s",
+                            "value": 200000,
+                        },
+                        {
+                            "name": "0.4s",
+                            "value": 400000,
+                        },
+                        {
+                            "name": "0.8s",
+                            "value": 800000,
+                        },
+                        {
+                            "name": "1s",
+                            "value": 1000000,
                         },
                     ],
                 },
