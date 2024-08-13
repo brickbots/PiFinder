@@ -67,7 +67,7 @@ class Server:
         button_dict = {
             "UP": self.ki.PLUS,
             "DN": self.ki.MINUS,
-            "ENT": self.ki.SQUARE,
+            "SQUARE": self.ki.SQUARE,
             "A": self.ki.LEFT,
             "B": self.ki.UP,
             "C": self.ki.DOWN,
