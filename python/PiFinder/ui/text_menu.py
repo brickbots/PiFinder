@@ -57,10 +57,10 @@ class UITextMenu(UIModule):
         line_number = 0
         if self._menu_type == "multi":
             # Leave room for checkmarks
-            line_horiz_pos = 10
+            line_horiz_pos = 15
         else:
             # Squeeze out a little more room...
-            line_horiz_pos = 0
+            line_horiz_pos = 5
 
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
             if i >= 0 and i < self.get_nr_of_menu_items():
@@ -109,7 +109,7 @@ class UITextMenu(UIModule):
                     in self._selected_values
                 ):
                     self.draw.text(
-                        (0, line_pos),
+                        (5, line_pos),
                         self._CHECKMARK,
                         font=line_font.font,
                         fill=self.colors.get(line_color),

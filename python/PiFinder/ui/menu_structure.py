@@ -496,7 +496,7 @@ pifinder_menu = {
                             ],
                         },
                         {
-                            "name": "Constellations",
+                            "name": "Constellation",
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "chart_constellations",
