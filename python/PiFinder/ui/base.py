@@ -254,10 +254,6 @@ class UIModule:
                         font=self.fonts.bold.font,
                         fill=fg,
                     )
-
-        screen_to_display = self.screen.convert(self.display.mode)
-        self.display.display(screen_to_display)
-
         # FPS
         self.frame_count += 1
         if int(time.time()) - self.last_fps_sample_time > 0:
@@ -265,9 +261,6 @@ class UIModule:
             self.fps = self.frame_count
             self.frame_count = 0
             self.last_fps_sample_time = int(time.time())
-
-        if self.shared_state:
-            self.shared_state.set_screen(screen_to_display)
 
         self.last_update_time = time.time()
         return

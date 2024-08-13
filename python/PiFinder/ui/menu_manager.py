@@ -1,4 +1,4 @@
-from time import sleep
+import time
 from typing import Union
 from PIL import Image
 from PiFinder.ui.base import UIModule
@@ -129,9 +129,7 @@ class MenuManager:
                 self.display_class,
                 39,
             )
-            self.display_class.device.display(
-                marking_menu_image.convert(self.display_class.device.mode)
-            )
+            self.update_screen(marking_menu_image)
 
     def flash_marking_menu_option(self, option: MarkingMenuOption) -> None:
         assert self.marking_menu_bg is not None, ""
@@ -142,33 +140,8 @@ class MenuManager:
             39,
             option,
         )
-        self.display_class.device.display(
-            marking_menu_image.convert(self.display_class.device.mode)
-        )
-        sleep(0.05)
-
-        marking_menu_image = render_marking_menu(
-            self.marking_menu_bg.copy(),
-            self.marking_menu_stack[-1],
-            self.display_class,
-            39,
-        )
-        self.display_class.device.display(
-            marking_menu_image.convert(self.display_class.device.mode)
-        )
-        sleep(0.05)
-
-        marking_menu_image = render_marking_menu(
-            self.marking_menu_bg.copy(),
-            self.marking_menu_stack[-1],
-            self.display_class,
-            39,
-            option,
-        )
-        self.display_class.device.display(
-            marking_menu_image.convert(self.display_class.device.mode)
-        )
-        sleep(0.05)
+        self.update_screen(marking_menu_image)
+        time.sleep(0.15)
 
     def update(self) -> None:
         if self.help_images is not None:
@@ -181,6 +154,20 @@ class MenuManager:
 
         # Business as usual, update the module at the top of the stack
         self.stack[-1].update()  # type: ignore[call-arg]
+        self.update_screen(self.stack[-1].screen)
+
+    def update_screen(self, screen_image: Image.Image) -> None:
+        """
+        Put an image on the display
+        """
+        if time.time() < self.ui_state.message_timeout():
+            return None
+
+        screen_to_display = screen_image.convert(self.display_class.device.mode)
+        self.display_class.device.display(screen_to_display)
+
+        if self.shared_state:
+            self.shared_state.set_screen(screen_to_display)
 
     def key_number(self, number):
         if self.help_images is not None:
@@ -268,11 +255,7 @@ class MenuManager:
             self.help_image_index = (
                 self.help_image_index - 1 if self.help_image_index > 0 else 0
             )
-            self.display_class.device.display(
-                self.help_images[self.help_image_index].convert(
-                    self.display_class.device.mode
-                )
-            )
+            self.update_screen(self.help_images[self.help_image_index])
             return
 
         if self.marking_menu_stack != []:
@@ -288,11 +271,7 @@ class MenuManager:
                 if self.help_image_index < len(self.help_images) - 1
                 else len(self.help_images) - 1
             )
-            self.display_class.device.display(
-                self.help_images[self.help_image_index].convert(
-                    self.display_class.device.mode
-                )
-            )
+            self.update_screen(self.help_images[self.help_image_index])
             return
         if self.marking_menu_stack != []:
             self.mm_select(self.marking_menu_stack[-1].down)
@@ -324,9 +303,7 @@ class MenuManager:
             self.exit_marking_menu()
             self.help_images = self.stack[-1].help()
             self.help_image_index = 0
-            self.display_class.device.display(
-                self.help_images[0].convert(self.display_class.device.mode)
-            )
+            self.update_screen(self.help_images[0])
         elif selected_item.menu_jump is not None:
             self.exit_marking_menu()
             self.jump_to_label(selected_item.menu_jump)
