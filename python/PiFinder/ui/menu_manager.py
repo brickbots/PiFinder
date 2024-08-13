@@ -101,6 +101,11 @@ class MenuManager:
     def screengrab(self) -> None:
         self.stack[-1].screengrab()  # type: ignore[call-arg]
 
+    def jump_to_label(self, label: str) -> None:
+        menu_to_jump = find_menu_by_label(label)
+        if menu_to_jump is not None:
+            self.add_to_stack(menu_to_jump)
+
     def exit_marking_menu(self):
         """
         Do any cleanup related to exiting the marking
@@ -324,9 +329,7 @@ class MenuManager:
             )
         elif selected_item.menu_jump is not None:
             self.exit_marking_menu()
-            menu_to_jump = find_menu_by_label(selected_item.menu_jump)
-            if menu_to_jump is not None:
-                self.add_to_stack(menu_to_jump)
+            self.jump_to_label(selected_item.menu_jump)
         else:
             if (
                 selected_item.callback(self.marking_menu_stack[-1], selected_item)

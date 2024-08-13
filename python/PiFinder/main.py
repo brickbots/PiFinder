@@ -438,11 +438,7 @@ def main(
                 if ui_command == "set_brightness":
                     set_brightness(screen_brightness, cfg)
                 elif ui_command == "push_object":
-                    # TODO: Re-implement
-                    pass
-                    # ui_mode_index = 4
-                    # current_module = ui_modes[ui_mode_index]
-                    # current_module.active()
+                    menu_manager.jump_to_label("recent")
 
                 # Keyboard
                 keycode = None

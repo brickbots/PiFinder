@@ -6,6 +6,8 @@ from sklearn.neighbors import BallTree
 import logging
 
 logger = logging.getLogger("Catalog.Nearby")
+MAX_DEVIATION = 1.0
+MAX_TIME = 2
 
 
 class Nearby:
@@ -29,11 +31,19 @@ class Nearby:
             self.shared_state.solution()["RA"],
             self.shared_state.solution()["Dec"],
         )
-        return (
-            abs(ra - self.last_ra) > 0.1
-            or abs(dec - self.last_dec) > 0.1
-            or time.time() - self.last_refresh > 2
+        should = (
+            abs(ra - self.last_ra) > MAX_DEVIATION
+            or abs(dec - self.last_dec) > MAX_DEVIATION
+            or (time.time() - self.last_refresh) > MAX_TIME
         )
+        logger.debug(
+            "Should refresh? %s, %s, %s, %s",
+            should,
+            ra - self.last_ra,
+            dec - self.last_dec,
+            time.time() - self.last_refresh,
+        )
+        return should
 
     def refresh(self):
         if not self.shared_state.solution():

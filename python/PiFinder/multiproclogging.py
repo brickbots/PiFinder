@@ -58,8 +58,8 @@ class MultiprocLogging:
     Implementation note
     -------------------
 
-    The class calls the respective loggers `handle()`  method, so in order to avoid an endless logging loop (where calling `handle` results in a new entry in the queue), 
-    all handlers propagated from the main process are discarded in the logging process and only the filehandler is used. 
+    The class calls the respective loggers `handle()`  method, so in order to avoid an endless logging loop (where calling `handle` results in a new entry in the queue),
+    all handlers propagated from the main process are discarded in the logging process and only the filehandler is used.
     """
 
     def __init__(

@@ -190,6 +190,7 @@ pifinder_menu = {
                     "name": "Recent",
                     "class": UIObjectList,
                     "objects": "recent",
+                    "label": "recent",
                 },
                 {
                     "name": "Name Search",
@@ -472,6 +473,105 @@ pifinder_menu = {
             "select": "single",
             "items": [
                 {
+                    "name": "Chart...",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": "Reticle",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "chart_reticle",
+                            "items": [
+                                {
+                                    "name": "Off",
+                                    "value": 0,
+                                },
+                                {
+                                    "name": "Low",
+                                    "value": 64,
+                                },
+                                {
+                                    "name": "Medium",
+                                    "value": 128,
+                                },
+                                {
+                                    "name": "High",
+                                    "value": 192,
+                                },
+                            ],
+                        },
+                        {
+                            "name": "Constellation",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "chart_constellations",
+                            "items": [
+                                {
+                                    "name": "Off",
+                                    "value": 0,
+                                },
+                                {
+                                    "name": "Low",
+                                    "value": 64,
+                                },
+                                {
+                                    "name": "Medium",
+                                    "value": 128,
+                                },
+                                {
+                                    "name": "High",
+                                    "value": 192,
+                                },
+                            ],
+                        },
+                        {
+                            "name": "DSO Display",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "chart_dso",
+                            "items": [
+                                {
+                                    "name": "Off",
+                                    "value": 0,
+                                },
+                                {
+                                    "name": "Low",
+                                    "value": 64,
+                                },
+                                {
+                                    "name": "Medium",
+                                    "value": 128,
+                                },
+                                {
+                                    "name": "High",
+                                    "value": 192,
+                                },
+                            ],
+                        },
+                        {
+                            "name": "RA/DEC Disp.",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "chart_radec",
+                            "items": [
+                                {
+                                    "name": "Off",
+                                    "value": "Off",
+                                },
+                                {
+                                    "name": "HH:MM",
+                                    "value": "HH:MM",
+                                },
+                                {
+                                    "name": "Degrees",
+                                    "value": "Degr",
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
                     "name": "Camera Exp",
                     "class": UITextMenu,
                     "select": "single",
@@ -549,42 +649,6 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": "PiFinder Dir",
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "screen_direction",
-                    "items": [
-                        {
-                            "name": "Left",
-                            "value": "left",
-                        },
-                        {
-                            "name": "Right",
-                            "value": "right",
-                        },
-                        {
-                            "name": "Flat",
-                            "value": "flat",
-                        },
-                    ],
-                },
-                {
-                    "name": "Mount Type",
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "mount_type",
-                    "items": [
-                        {
-                            "name": "Alt/Az",
-                            "value": "Alt/Az",
-                        },
-                        {
-                            "name": "Equitorial",
-                            "value": "EQ",
-                        },
-                    ],
-                },
-                {
                     "name": "WiFi Mode",
                     "class": UITextMenu,
                     "select": "single",
@@ -622,6 +686,48 @@ pifinder_menu = {
                         {
                             "name": "2m",
                             "value": "2m",
+                        },
+                    ],
+                },
+                {
+                    "name": "PiFinder Type",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "screen_direction",
+                    "post_callback": callbacks.restart_pifinder,
+                    "items": [
+                        {
+                            "name": "Left",
+                            "value": "left",
+                        },
+                        {
+                            "name": "Right",
+                            "value": "right",
+                        },
+                        {
+                            "name": "Flat",
+                            "value": "flat",
+                        },
+                        {
+                            "name": "Straight",
+                            "value": "straight",
+                        },
+                    ],
+                },
+                {
+                    "name": "Mount Type",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "mount_type",
+                    "post_callback": callbacks.restart_pifinder,
+                    "items": [
+                        {
+                            "name": "Alt/Az",
+                            "value": "Alt/Az",
+                        },
+                        {
+                            "name": "Equitorial",
+                            "value": "EQ",
                         },
                     ],
                 },

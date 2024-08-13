@@ -55,6 +55,13 @@ class UITextMenu(UIModule):
         self.draw.rectangle((-1, 60, 129, 80), outline=self.colors.get(128), width=1)
 
         line_number = 0
+        if self._menu_type == "multi":
+            # Leave room for checkmarks
+            line_horiz_pos = 15
+        else:
+            # Squeeze out a little more room...
+            line_horiz_pos = 5
+
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
             if i >= 0 and i < self.get_nr_of_menu_items():
                 # figure out line position / color / font
@@ -91,7 +98,7 @@ class UITextMenu(UIModule):
                 item_text = str(self._menu_items[i])
 
                 self.draw.text(
-                    (15, line_pos),
+                    (line_horiz_pos, line_pos),
                     item_text,
                     font=line_font.font,
                     fill=self.colors.get(line_color),

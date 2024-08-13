@@ -22,11 +22,11 @@ class MagnitudeObject:
     def calc_filter_mag(self):
         filtered = self._filter_floats()
         if len(filtered) > 0:
-            self.filter_mag = np.mean(np.array(self._filter_floats()))
+            self.filter_mag = float(np.mean(np.array(self._filter_floats())))
         else:
             self.filter_mag = self.UNKNOWN_MAG
 
-    def _filter_floats(self):
+    def _filter_floats(self) -> List[float]:
         return [float(x) for x in self.mags if is_number(x)]
 
     def calc_two_mag_representation(self):
@@ -80,6 +80,14 @@ class CompositeObject:
     logged: bool = field(default=False)
     last_filtered_time: float = 0
     last_filtered_result: bool = True
+
+    def __eq__(self, other):
+        if not isinstance(other, CompositeObject):
+            return NotImplemented
+        return self.object_id == other.object_id
+
+    def __hash__(self):
+        return hash(self.object_id)
 
     @classmethod
     def from_dict(cls, d):

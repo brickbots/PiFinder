@@ -13,6 +13,10 @@ from PIL import Image
 from PiFinder import config
 from PiFinder.camera_interface import CameraInterface
 from typing import Tuple
+import logging
+from PiFinder.multiproclogging import MultiprocLogging
+
+logger = logging.getLogger("Camera.Pi")
 
 
 class CameraPI(CameraInterface):
@@ -74,11 +78,12 @@ class CameraPI(CameraInterface):
         return self.camType
 
 
-def get_images(shared_state, camera_image, command_queue, console_queue):
+def get_images(shared_state, camera_image, command_queue, console_queue, log_queue):
     """
     Instantiates the camera hardware
     then calls the universal image loop
     """
+    MultiprocLogging.configurer(log_queue)
 
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
