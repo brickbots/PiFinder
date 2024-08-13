@@ -31,9 +31,18 @@ class Nearby:
             self.shared_state.solution()["RA"],
             self.shared_state.solution()["Dec"],
         )
-        should = abs(ra - self.last_ra) > MAX_DEVIATION or abs(dec - self.last_dec) > MAX_DEVIATION or (time.time() - self.last_refresh) > MAX_TIME
-        logger.debug("Should refresh? %s, %s, %s, %s", should, ra - self.last_ra,
-                     dec - self.last_dec, time.time() - self.last_refresh)
+        should = (
+            abs(ra - self.last_ra) > MAX_DEVIATION
+            or abs(dec - self.last_dec) > MAX_DEVIATION
+            or (time.time() - self.last_refresh) > MAX_TIME
+        )
+        logger.debug(
+            "Should refresh? %s, %s, %s, %s",
+            should,
+            ra - self.last_ra,
+            dec - self.last_dec,
+            time.time() - self.last_refresh,
+        )
         return should
 
     def refresh(self):
@@ -49,8 +58,7 @@ class Nearby:
             self.last_dec = dec
             self.last_refresh = time.time()
 
-            self.result = self.closest_objects_finder.get_closest_objects(
-                ra, dec)
+            self.result = self.closest_objects_finder.get_closest_objects(ra, dec)
             return self.result
 
 
@@ -65,8 +73,7 @@ class ClosestObjectsFinder:
         """
         deduplicated_objects = deduplicate_objects(objects)
         object_radecs = np.array(
-            [[np.deg2rad(x.ra), np.deg2rad(x.dec)]
-             for x in deduplicated_objects]
+            [[np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in deduplicated_objects]
         )
         self._objects = np.array(deduplicated_objects)
         self._objects_balltree = BallTree(

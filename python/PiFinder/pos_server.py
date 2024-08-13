@@ -155,7 +155,7 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
     obj = CompositeObject.from_dict(
         {
             "id": -1,
-            "object_id": sys.maxsize-sequence,
+            "object_id": sys.maxsize - sequence,
             "obj_type": "",
             "ra": comp_ra,
             "dec": comp_dec,
