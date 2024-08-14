@@ -107,7 +107,7 @@ class UIObjectList(UITextMenu):
             TextLayouterScroll, draw=self.draw, color=self.colors.get(255)
         )
         self.last_item_index = -1
-        self.item_text_scroll = None
+        self.item_text_scroll: Union[None, TextLayouterScroll] = None
 
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
@@ -350,7 +350,7 @@ class UIObjectList(UITextMenu):
         super().active()
         self.refresh_object_list()
 
-    def update(self, force=False):
+    def update(self, force: bool = False) -> None:
         self.clear_screen()
         begin_x = 12
 
@@ -368,7 +368,7 @@ class UIObjectList(UITextMenu):
                 font=self.fonts.bold.font,
                 fill=self.colors.get(255),
             )
-            return self.screen_update()
+            self.screen_update()
 
         # should we refresh the nearby list?
         if self.current_sort == SortOrder.NEAREST and self.nearby.should_refresh():
@@ -464,7 +464,7 @@ class UIObjectList(UITextMenu):
             )
         self._draw_scrollbar()
 
-        return self.screen_update()
+        self.screen_update()
 
     def scroll_to_sequence(
         self, sequence: int, start_at_top=True, direction="down"

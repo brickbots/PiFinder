@@ -53,9 +53,9 @@ class MenuManager:
         self.catalogs = catalogs
 
         # stack switch anim stuff
-        self._stack_anim_duration = 0.1
-        self._stack_anim_counter = 0
-        self._stack_anim_direction = 0
+        self._stack_anim_duration: float = 0.1
+        self._stack_anim_counter: float = 0
+        self._stack_anim_direction: int = 0
 
         self.stack: list[type[UIModule]] = []
         self.add_to_stack(menu_structure.pifinder_menu)
@@ -69,8 +69,11 @@ class MenuManager:
 
     def remove_from_stack(self) -> None:
         if len(self.stack) > 1:
+            self._stack_top_image = self.stack[-1].screen.copy()
             self.stack.pop()
             self.stack[-1].active()  # type: ignore[call-arg]
+            self._stack_anim_counter = time.time() + self._stack_anim_duration
+            self._stack_anim_direction = 1
 
     def add_to_stack(self, item: dict) -> None:
         """
@@ -165,11 +168,24 @@ class MenuManager:
 
         # are we animating?
         if self._stack_anim_counter > time.time():
-            top_image = self.stack[-1].screen
-            bottom_image = self.stack[-2].screen
-            top_pos = int((self.display_class.resolution[0] / self._stack_anim_duration) * (
-                self._stack_anim_counter - time.time()
-            ))
+            if self._stack_anim_direction == 1:
+                # backing out....
+                top_image = self._stack_top_image
+                bottom_image = self.stack[-1].screen
+                top_pos = int(
+                    (self.display_class.resolution[0] / self._stack_anim_duration)
+                    * (
+                        self._stack_anim_duration
+                        - (self._stack_anim_counter - time.time())
+                    )
+                )
+            else:
+                top_image = self.stack[-1].screen
+                bottom_image = self.stack[-2].screen
+                top_pos = int(
+                    (self.display_class.resolution[0] / self._stack_anim_duration)
+                    * (self._stack_anim_counter - time.time())
+                )
             bottom_image.paste(top_image, (top_pos, 0))
 
             self.update_screen(bottom_image)

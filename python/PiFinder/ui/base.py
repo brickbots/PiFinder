@@ -120,7 +120,7 @@ class UIModule:
             help_image_list.append(self.screen.copy())
         return help_image_list
 
-    def update(self, force=False):
+    def update(self, force=False) -> None:
         """
         Called to trigger UI Updates
         to be overloaded by subclases and shoud
@@ -129,7 +129,7 @@ class UIModule:
         retun the results of the screen_update to
         pass any signals back to main
         """
-        return self.screen_update()
+        self.screen_update()
 
     def clear_screen(self):
         """
@@ -171,7 +171,7 @@ class UIModule:
         self.display.display(self.screen.convert(self.display.mode))
         self.ui_state.set_message_timeout(timeout + time.time())
 
-    def screen_update(self, title_bar=True, button_hints=True):
+    def screen_update(self, title_bar=True, button_hints=True) -> None:
         """
         called to trigger UI updates
         takes self.screen adds title bar and
@@ -262,7 +262,6 @@ class UIModule:
             self.last_fps_sample_time = int(time.time())
 
         self.last_update_time = time.time()
-        return
 
     # Marking menu items
     def cycle_display_mode(self):
