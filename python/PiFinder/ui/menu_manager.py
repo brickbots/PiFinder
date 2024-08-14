@@ -52,6 +52,11 @@ class MenuManager:
         self.config_object = config_object
         self.catalogs = catalogs
 
+        # stack switch anim stuff
+        self._stack_anim_duration = 0.1
+        self._stack_anim_counter = 0
+        self._stack_anim_direction = 0
+
         self.stack: list[type[UIModule]] = []
         self.add_to_stack(menu_structure.pifinder_menu)
 
@@ -94,6 +99,9 @@ class MenuManager:
                 item["state"] = self.stack[-1]
 
         self.stack[-1].active()  # type: ignore[call-arg]
+        if len(self.stack) > 1:
+            self._stack_anim_counter = time.time() + self._stack_anim_duration
+            self._stack_anim_direction = -1
 
     def message(self, message: str, timeout: float) -> None:
         self.stack[-1].message(message, timeout)  # type: ignore[arg-type]
@@ -154,7 +162,19 @@ class MenuManager:
 
         # Business as usual, update the module at the top of the stack
         self.stack[-1].update()  # type: ignore[call-arg]
-        self.update_screen(self.stack[-1].screen)
+
+        # are we animating?
+        if self._stack_anim_counter > time.time():
+            top_image = self.stack[-1].screen
+            bottom_image = self.stack[-2].screen
+            top_pos = int((self.display_class.resolution[0] / self._stack_anim_duration) * (
+                self._stack_anim_counter - time.time()
+            ))
+            bottom_image.paste(top_image, (top_pos, 0))
+
+            self.update_screen(bottom_image)
+        else:
+            self.update_screen(self.stack[-1].screen)
 
     def update_screen(self, screen_image: Image.Image) -> None:
         """

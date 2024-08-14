@@ -177,8 +177,6 @@ class UIModule:
         takes self.screen adds title bar and
         writes to display
         """
-        if time.time() < self.ui_state.message_timeout():
-            return None
 
         if title_bar:
             fg = self.colors.get(0)
@@ -254,6 +252,7 @@ class UIModule:
                         font=self.fonts.bold.font,
                         fill=fg,
                     )
+
         # FPS
         self.frame_count += 1
         if int(time.time()) - self.last_fps_sample_time > 0:
