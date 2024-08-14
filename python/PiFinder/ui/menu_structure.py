@@ -570,6 +570,7 @@ pifinder_menu = {
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "camera_exp",
+                    "label": "camera_exposure",
                     "post_callback": callbacks.set_exposure,
                     "items": [
                         {

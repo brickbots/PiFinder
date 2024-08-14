@@ -68,6 +68,7 @@ class KeyboardLocal(KeyboardInterface):
             keyboard.set_magickey_on_release(
                 [Key.shift, "z"], None, self.callback, self.LNG_SQUARE
             )
+            keyboard.set_magickey_on_release("w", self.callback, self.LNG_SQUARE)
         except Exception as e:
             logger.error("KeyboardLocal.__init__: {}".format(e))
         # keyboard.logger = True
