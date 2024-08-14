@@ -8,6 +8,7 @@ This module contains all the UI Module classes
 
 import os
 import datetime
+import time
 
 from PIL import Image
 from PiFinder.ui.base import UIModule
@@ -105,3 +106,88 @@ class UIConsole(UIModule):
                     )
                 self.dirty = False
                 return self.screen_update()
+
+    def screen_update(self, title_bar=True, button_hints=True):
+        """
+        called to trigger UI updates
+        takes self.screen adds title bar and
+        writes to display
+        """
+
+        if title_bar:
+            fg = self.colors.get(0)
+            bg = self.colors.get(64)
+            self.draw.rectangle(
+                [0, 0, self.display_class.resX, self.display_class.titlebar_height],
+                fill=bg,
+            )
+            self.draw.text((6, 1), self.title, font=self.fonts.bold.font, fill=fg)
+            imu = self.shared_state.imu()
+            moving = True if imu and imu["pos"] and imu["moving"] else False
+
+            # GPS status
+            if self.shared_state.location()["gps_lock"]:
+                self._gps_brightness = 0
+            else:
+                gps_anim = int(128 * (time.time() - self.last_update_time)) + 1
+                self._gps_brightness += gps_anim
+                if self._gps_brightness > 64:
+                    self._gps_brightness = -128
+
+            _gps_color = self.colors.get(
+                self._gps_brightness if self._gps_brightness > 0 else 0
+            )
+            self.draw.text(
+                (self.display_class.resX * 0.8, -2),
+                self._GPS_ICON,
+                font=self.fonts.icon_bold_large.font,
+                fill=_gps_color,
+            )
+
+            if moving:
+                self._unmoved = False
+
+            if self.shared_state:
+                if self.shared_state.solve_state():
+                    solution = self.shared_state.solution()
+                    cam_active = solution["solve_time"] == solution["cam_solve_time"]
+                    # a fresh cam solve sets unmoved to True
+                    self._unmoved = True if cam_active else self._unmoved
+                    if self._unmoved:
+                        time_since_cam_solve = time.time() - solution["cam_solve_time"]
+                        var_fg = min(64, int(time_since_cam_solve / 6 * 64))
+                    # self.draw.rectangle([115, 2, 125, 14], fill=bg)
+
+                    if self._unmoved:
+                        self.draw.text(
+                            (self.display_class.resX * 0.91, -2),
+                            self._CAM_ICON,
+                            font=self.fonts.icon_bold_large.font,
+                            fill=var_fg,
+                        )
+
+                    if len(self.title) < 9:
+                        # draw the constellation
+                        constellation = solution["constellation"]
+                        self.draw.text(
+                            (self.display_class.resX * 0.54, 1),
+                            constellation,
+                            font=self.fonts.bold.font,
+                            fill=fg if self._unmoved else self.colors.get(32),
+                        )
+                else:
+                    # no solve yet....
+                    self.draw.text(
+                        (self.display_class.resX * 0.91, 0),
+                        "X",
+                        font=self.fonts.bold.font,
+                        fill=fg,
+                    )
+
+        screen_to_display = self.screen.convert(self.display.mode)
+        self.display.display(screen_to_display)
+
+        if self.shared_state:
+            self.shared_state.set_screen(screen_to_display)
+
+        return

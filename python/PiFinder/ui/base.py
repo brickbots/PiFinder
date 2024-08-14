@@ -120,7 +120,7 @@ class UIModule:
             help_image_list.append(self.screen.copy())
         return help_image_list
 
-    def update(self, force=False):
+    def update(self, force=False) -> None:
         """
         Called to trigger UI Updates
         to be overloaded by subclases and shoud
@@ -129,7 +129,7 @@ class UIModule:
         retun the results of the screen_update to
         pass any signals back to main
         """
-        return self.screen_update()
+        self.screen_update()
 
     def clear_screen(self):
         """
@@ -171,14 +171,12 @@ class UIModule:
         self.display.display(self.screen.convert(self.display.mode))
         self.ui_state.set_message_timeout(timeout + time.time())
 
-    def screen_update(self, title_bar=True, button_hints=True):
+    def screen_update(self, title_bar=True, button_hints=True) -> None:
         """
         called to trigger UI updates
         takes self.screen adds title bar and
         writes to display
         """
-        if time.time() < self.ui_state.message_timeout():
-            return None
 
         if title_bar:
             fg = self.colors.get(0)
@@ -255,9 +253,6 @@ class UIModule:
                         fill=fg,
                     )
 
-        screen_to_display = self.screen.convert(self.display.mode)
-        self.display.display(screen_to_display)
-
         # FPS
         self.frame_count += 1
         if int(time.time()) - self.last_fps_sample_time > 0:
@@ -266,11 +261,7 @@ class UIModule:
             self.frame_count = 0
             self.last_fps_sample_time = int(time.time())
 
-        if self.shared_state:
-            self.shared_state.set_screen(screen_to_display)
-
         self.last_update_time = time.time()
-        return
 
     # Marking menu items
     def cycle_display_mode(self):
