@@ -117,9 +117,9 @@ class UIObjectList(UITextMenu):
                     left=MarkingMenuOption(
                         label="Nearest", callback=self.mm_change_sort
                     ),
-                    down=MarkingMenuOption(label="RA", callback=self.mm_change_sort),
+                    down=MarkingMenuOption(),
                     right=MarkingMenuOption(
-                        label="Catalog", callback=self.mm_change_sort
+                        label="Standard", callback=self.mm_change_sort
                     ),
                 ),
             ),
