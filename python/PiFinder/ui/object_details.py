@@ -42,6 +42,7 @@ class UIObjectDetails(UIModule):
         self.screen_direction = self.config_object.get_option("screen_direction")
         self.mount_type = self.config_object.get_option("mount_type")
         self.object = self.item_definition["object"]
+        self.object_list = self.item_definition["object_list"]
         if self.object is not None:
             self.ui_state.add_recent(self.object)
 
@@ -360,21 +361,35 @@ class UIObjectDetails(UIModule):
 
         return self.screen_update()
 
-    def key_down(self):
-        # switch object display text
+    def cycle_display_mode(self):
+        """
+        Cycle through available display modes
+        for a module.  Invoked when the square
+        key is pressed
+        """
         self.object_display_mode = (
-            self.object_display_mode + 1 if self.object_display_mode < 2 else 2
+            self.object_display_mode + 1 if self.object_display_mode < 2 else 0
         )
         self.update_object_info()
         self.update()
 
-    def key_up(self):
-        # switch object display text
-        self.object_display_mode = (
-            self.object_display_mode - 1 if self.object_display_mode > 0 else 0
-        )
+    def scroll_object(self, direction: int) -> None:
+        current_index = self.object_list.index(self.object)
+        current_index += direction
+        if current_index < 0:
+            current_index = 0
+        if current_index >= len(self.object_list):
+            current_index = len(self.object_list) - 1
+
+        self.object = self.object_list[current_index]
         self.update_object_info()
         self.update()
+
+    def key_down(self):
+        self.scroll_object(1)
+
+    def key_up(self):
+        self.scroll_object(-1)
 
     def change_fov(self, direction):
         self.fov_index += direction

@@ -573,6 +573,7 @@ class UIObjectList(UITextMenu):
             "name": _menu_item.display_name,
             "class": UIObjectDetails,
             "object": _menu_item,
+            "object_list": self._menu_items_sorted,
         }
         self.add_to_stack(object_item_definition)
 
