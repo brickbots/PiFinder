@@ -53,7 +53,6 @@ class MenuManager:
         self.catalogs = catalogs
 
         # stack switch anim stuff
-        self._stack_anim_duration: float = 0.1
         self._stack_anim_counter: float = 0
         self._stack_anim_direction: int = 0
 
@@ -72,7 +71,9 @@ class MenuManager:
             self._stack_top_image = self.stack[-1].screen.copy()
             self.stack.pop()
             self.stack[-1].active()  # type: ignore[call-arg]
-            self._stack_anim_counter = time.time() + self._stack_anim_duration
+            self._stack_anim_counter = time.time() + self.config_object.get_option(
+                "menu_anim_speed", 0
+            )
             self._stack_anim_direction = 1
 
     def add_to_stack(self, item: dict) -> None:
@@ -103,7 +104,9 @@ class MenuManager:
 
         self.stack[-1].active()  # type: ignore[call-arg]
         if len(self.stack) > 1:
-            self._stack_anim_counter = time.time() + self._stack_anim_duration
+            self._stack_anim_counter = time.time() + self.config_object.get_option(
+                "menu_anim_speed", 0
+            )
             self._stack_anim_direction = -1
 
     def message(self, message: str, timeout: float) -> None:
@@ -173,9 +176,12 @@ class MenuManager:
                 top_image = self._stack_top_image
                 bottom_image = self.stack[-1].screen
                 top_pos = int(
-                    (self.display_class.resolution[0] / self._stack_anim_duration)
+                    (
+                        self.display_class.resolution[0]
+                        / self.config_object.get_option("menu_anim_speed", 0)
+                    )
                     * (
-                        self._stack_anim_duration
+                        self.config_object.get_option("menu_anim_speed", 0)
                         - (self._stack_anim_counter - time.time())
                     )
                 )
@@ -183,7 +189,10 @@ class MenuManager:
                 top_image = self.stack[-1].screen
                 bottom_image = self.stack[-2].screen
                 top_pos = int(
-                    (self.display_class.resolution[0] / self._stack_anim_duration)
+                    (
+                        self.display_class.resolution[0]
+                        / self.config_object.get_option("menu_anim_speed", 0)
+                    )
                     * (self._stack_anim_counter - time.time())
                 )
             bottom_image.paste(top_image, (top_pos, 0))
