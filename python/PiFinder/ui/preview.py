@@ -28,6 +28,7 @@ class UIPreview(UIModule):
     from PiFinder import tetra3
 
     __title__ = "CAMERA"
+    __help_name__ = "camera"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -35,6 +36,8 @@ class UIPreview(UIModule):
         self.reticle_mode = 2
         self.last_update = time.time()
         self.solution = None
+
+        self.zoom_level = 0
 
         self.capture_prefix = f"{self.__uuid__}_diag"
         self.capture_count = 0
@@ -185,7 +188,15 @@ class UIPreview(UIModule):
                 self.star_list = np.array(matched_centroids)
 
             # Resize
-            image_obj = image_obj.resize((128, 128))
+            if self.zoom_level == 0 or self.align_mode:
+                image_obj = image_obj.resize((128, 128))
+            elif self.zoom_level == 1:
+                image_obj = image_obj.resize((256, 256))
+                image_obj = image_obj.crop((64, 64, 192, 192))
+            elif self.zoom_level == 2:
+                # no resize, just crop
+                image_obj = image_obj.crop((192, 192, 320, 320))
+
             bg_sub = self.config_object.get_option("session.camera_bg_sub", "Half")
             if bg_sub == "Half":
                 image_obj = subtract_background(image_obj, percent=0.5)
@@ -209,33 +220,40 @@ class UIPreview(UIModule):
             if self.align_mode:
                 self.draw_star_selectors()
             else:
-                self.draw_reticle()
+                if self.zoom_level > 0:
+                    zoom_number = self.zoom_level * 2
+                    self.draw.text(
+                        (75, 112),
+                        f"Zoom x{zoom_number}",
+                        font=self.fonts.bold.font,
+                        fill=self.colors.get(128),
+                    )
+                else:
+                    self.draw_reticle()
 
         return self.screen_update(
             title_bar=not self.align_mode, button_hints=not self.align_mode
         )
 
-    def key_up(self):
-        """
-        leave bright star alignment mode
-        """
-        if not self.align_mode:
-            return
+    def key_plus(self):
+        self.zoom_level += 1
+        if self.zoom_level > 2:
+            self.zoom_level = 2
 
-        self.align_mode = False
-        self.shared_state.set_camera_align(self.align_mode)
-        self.update(force=True)
+    def key_minus(self):
+        self.zoom_level -= 1
+        if self.zoom_level < 0:
+            self.zoom_level = 0
 
-    def key_down(self):
-        """
-        Enter bright star alignment mode
-        """
+    def key_square(self):
         if self.align_mode:
-            return
-
-        self.align_mode = True
-        self.shared_state.set_camera_align(self.align_mode)
-        self.update(force=True)
+            self.align_mode = False
+            self.shared_state.set_camera_align(self.align_mode)
+            self.update(force=True)
+        else:
+            self.align_mode = True
+            self.shared_state.set_camera_align(self.align_mode)
+            self.update(force=True)
 
     def key_number(self, number):
         if self.align_mode:

@@ -9,21 +9,15 @@ This module contains all the UI Module classes
 import time
 from PIL import ImageChops, Image
 
+from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder import plot
 from PiFinder.ui.base import UIModule
-from PiFinder.ui.marking_menus import MarkingMenuOption
 from PiFinder import calc_utils
 
 
 class UIChart(UIModule):
     __title__ = "CHART"
-    _marking_menu_items = [
-        MarkingMenuOption(label="Const", selected=True),
-        MarkingMenuOption(label="Reticle", selected=True),
-        MarkingMenuOption(label="Options...", selected=True),
-        MarkingMenuOption(label="DSO", selected=True),
-    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,6 +31,16 @@ class UIChart(UIModule):
         self.desired_fov = self.fov_list[self.fov_index]
         self.fov = self.desired_fov
         self.set_fov(self.desired_fov)
+
+        # Marking menu definition
+        self.marking_menu = MarkingMenu(
+            left=MarkingMenuOption(),
+            down=MarkingMenuOption(
+                label="Options",
+                menu_jump="chart_settings",
+            ),
+            right=MarkingMenuOption(),
+        )
 
     def plot_markers(self):
         """

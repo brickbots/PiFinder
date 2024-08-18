@@ -597,6 +597,7 @@ pifinder_menu = {
                     "name": "Chart...",
                     "class": UITextMenu,
                     "select": "single",
+                    "label": "chart_settings",
                     "items": [
                         {
                             "name": "Reticle",

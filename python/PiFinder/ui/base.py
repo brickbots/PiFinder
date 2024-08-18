@@ -13,6 +13,7 @@ from typing import Type, Union
 
 from PIL import Image, ImageDraw
 from PiFinder import utils
+from PiFinder.image_util import make_red
 from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
 from PiFinder.ui.marking_menus import MarkingMenu
@@ -20,6 +21,7 @@ from PiFinder.ui.marking_menus import MarkingMenu
 
 class UIModule:
     __title__ = "BASE"
+    __help_name__ = ""
     __uuid__ = str(uuid.uuid1()).split("-")[0]
     _config_options: dict
     _CAM_ICON = ""
@@ -107,17 +109,23 @@ class UIModule:
         help screens as a list of images to be displayed
         up/down arrow will scroll through images
         """
-        help_image_list = []
-        for i in range(3):
-            self.clear_screen()
+        if self.__help_name__ == "":
+            return []
 
-            self.draw.text(
-                (20, 20),
-                f"HELP {i}",
-                font=self.fonts.bold.font,
-                fill=self.colors.get(255),
-            )
-            help_image_list.append(self.screen.copy())
+        help_image_list = []
+        help_image_path = utils.pifinder_dir / "help" / self.__help_name__
+        for i in range(1, 10):
+            try:
+                help_image = Image.open(help_image_path / f"{i}.png")
+            except FileNotFoundError:
+                break
+
+            # help_image_list.append(
+            #    convert_image_to_mode(help_image, self.colors.mode)
+            # )
+
+            help_image_list.append(make_red(help_image, self.colors))
+
         return help_image_list
 
     def update(self, force=False) -> None:
