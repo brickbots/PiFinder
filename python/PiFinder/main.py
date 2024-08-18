@@ -653,7 +653,7 @@ def main(
             exit()
 
 
-def rotate_logs() -> str:
+def rotate_logs() -> Path:
     """
     Rotates log files, returns the log file to use
     """
