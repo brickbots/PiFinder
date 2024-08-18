@@ -90,6 +90,20 @@ def restart_system(ui_module: UIModule) -> None:
     sh.sudo("shutdown", "-r", "now")
 
 
+def switch_cam_imx477(ui_module: UIModule) -> None:
+    ui_module.message("Switching cam", 2)
+    logger.info("SYS: Switching cam to imx477")
+    sh.sudo("python", "-m", "PiFinder.switch_camera", "imx477")
+    restart_system(ui_module)
+
+
+def switch_cam_imx296(ui_module: UIModule) -> None:
+    ui_module.message("Switching cam", 2)
+    logger.info("SYS: Switching cam to imx296")
+    sh.sudo("python", "-m", "PiFinder.switch_camera", "imx296")
+    restart_system(ui_module)
+
+
 def go_wifi_ap(ui_module: UIModule) -> None:
     ui_module.message("WiFi to AP", 2)
     logger.info("SYS: Switching to AP")

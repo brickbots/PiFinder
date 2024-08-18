@@ -781,6 +781,21 @@ pifinder_menu = {
                         },
                     ],
                 },
+                {
+                    "name": "Camera Type",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": "v2 - imx477",
+                            "callback": callbacks.switch_cam_imx477,
+                        },
+                        {
+                            "name": "v3 - imx296",
+                            "callback": callbacks.switch_cam_imx296,
+                        },
+                    ],
+                },
             ],
         },
         {
