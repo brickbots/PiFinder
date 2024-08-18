@@ -221,6 +221,23 @@ def restore_userdata(zip_path):
     unzip("-d", "/", "-o", zip_path)
 
 
+def restart_pifinder() -> None:
+    """
+    Uses systemctl to restart the PiFinder
+    service
+    """
+    logger.info("SYS: Restarting PiFinder")
+    sh.sudo("systemctl", "restart", "pifinder")
+
+
+def restart_system() -> None:
+    """
+    Restarts the system
+    """
+    logger.info("SYS: Initiating System Restart")
+    sh.sudo("shutdown", "-r", "now")
+
+
 def update_software():
     """
     Uses systemctl to git pull and then restart
