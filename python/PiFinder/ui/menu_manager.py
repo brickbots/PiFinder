@@ -3,6 +3,7 @@ from typing import Union
 from PIL import Image
 from PiFinder.ui.base import UIModule
 from PiFinder.ui import menu_structure
+from PiFinder.ui.object_details import UIObjectDetails
 from PiFinder.displays import DisplayBase
 from PiFinder.ui.marking_menus import (
     MarkingMenu,
@@ -269,7 +270,18 @@ class MenuManager:
         pass
 
     def key_long_right(self):
-        pass
+        # jump to recent objects
+        if self.stack[-1].item_definition.get("label") != "object_details":
+            recent_list = self.ui_state.recent_list()
+            if len(recent_list) > 0:
+                object_item_definition = {
+                    "name": recent_list[-1].display_name,
+                    "class": UIObjectDetails,
+                    "object_list": recent_list,
+                    "object": recent_list[-1],
+                    "label": "object_details",
+                }
+                self.add_to_stack(object_item_definition)
 
     def key_long_left(self):
         """

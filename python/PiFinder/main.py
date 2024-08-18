@@ -464,6 +464,10 @@ def main(
                             if keycode == keyboard_base.LNG_LEFT:
                                 menu_manager.key_long_left()
 
+                            # Long right is return to last observed object
+                            if keycode == keyboard_base.LNG_RIGHT:
+                                menu_manager.key_long_right()
+
                             # Long square is marking menu
                             if keycode == keyboard_base.LNG_SQUARE:
                                 menu_manager.key_long_square()

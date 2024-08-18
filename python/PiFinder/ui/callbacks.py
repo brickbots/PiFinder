@@ -14,7 +14,6 @@ import logging
 
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
-from PiFinder import sys_utils
 
 logger = logging.getLogger("UI.Callbacks")
 
@@ -78,7 +77,8 @@ def restart_pifinder(ui_module: UIModule) -> None:
     service
     """
     ui_module.message("Restarting...", 2)
-    sys_utils.restart_pifinder()
+    logger.info("SYS: Restarting PiFinder")
+    sh.sudo("systemctl", "restart", "pifinder")
 
 
 def restart_system(ui_module: UIModule) -> None:
@@ -86,7 +86,8 @@ def restart_system(ui_module: UIModule) -> None:
     Restarts the system
     """
     ui_module.message("Restarting...", 2)
-    sys_utils.restart_system()
+    logger.info("SYS: Initiating System Restart")
+    sh.sudo("shutdown", "-r", "now")
 
 
 def switch_cam_imx477(ui_module: UIModule) -> None:

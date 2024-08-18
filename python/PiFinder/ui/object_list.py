@@ -369,6 +369,7 @@ class UIObjectList(UITextMenu):
                 fill=self.colors.get(255),
             )
             self.screen_update()
+            return
 
         # should we refresh the nearby list?
         if self.current_sort == SortOrder.NEAREST and self.nearby.should_refresh():
@@ -574,6 +575,7 @@ class UIObjectList(UITextMenu):
             "class": UIObjectDetails,
             "object": _menu_item,
             "object_list": self._menu_items_sorted,
+            "label": "object_details",
         }
         self.add_to_stack(object_item_definition)
 
