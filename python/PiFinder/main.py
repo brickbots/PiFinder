@@ -23,6 +23,7 @@ import uuid
 import logging
 import argparse
 import pickle
+import shutil
 from pathlib import Path
 from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
@@ -163,7 +164,10 @@ def wake_screen(screen_brightness, shared_state, cfg) -> int:
 
 
 def main(
-    log_helper: MultiprocLogging, script_name=None, show_fps=False, verbose=False
+    log_helper: MultiprocLogging,
+    script_name=None,
+    show_fps=False,
+    verbose=False,
 ) -> None:
     """
     Get this show on the road!
@@ -649,16 +653,42 @@ def main(
             exit()
 
 
+def rotate_logs() -> str:
+    """
+    Rotates log files, returns the log file to use
+    """
+    log_index = list(range(5))
+    log_index.reverse()
+    for i in log_index:
+        try:
+            shutil.copyfile(
+                utils.data_dir / f"pifinder.{i}.log",
+                utils.data_dir / f"pifinder.{i+1}.log",
+            )
+        except FileNotFoundError:
+            pass
+
+    try:
+        shutil.move(
+            utils.data_dir / "pifinder.log",
+            utils.data_dir / "pifinder.0.log",
+        )
+    except FileNotFoundError:
+        pass
+
+    return utils.data_dir / "pifinder.log"
+
+
 if __name__ == "__main__":
     print("Boostrap logging configuration ...")
     logging.basicConfig(format="%(asctime)s BASIC %(name)s: %(levelname)s %(message)s")
     rlogger = logging.getLogger()
     rlogger.setLevel(logging.INFO)
+    log_path = rotate_logs()
     try:
-        datenow = datetime.datetime.now()
         log_helper = MultiprocLogging(
             Path("pifinder_logconf.json"),
-            Path(f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"),
+            log_path,
         )
         MultiprocLogging.configurer(log_helper.get_queue())
     except FileNotFoundError:
