@@ -102,7 +102,7 @@ class UIModule:
         """
         pass
 
-    def help(self) -> list[Image.Image]:
+    def help(self) -> Union[None, list[Image.Image]]:
         """
         Called when help is selected from the
         marking menu.  Should render the
@@ -110,7 +110,7 @@ class UIModule:
         up/down arrow will scroll through images
         """
         if self.__help_name__ == "":
-            return []
+            return None
 
         help_image_list = []
         help_image_path = utils.pifinder_dir / "help" / self.__help_name__
@@ -126,6 +126,8 @@ class UIModule:
 
             help_image_list.append(make_red(help_image, self.colors))
 
+        if help_image_list == []:
+            return None
         return help_image_list
 
     def update(self, force=False) -> None:

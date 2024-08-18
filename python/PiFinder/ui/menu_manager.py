@@ -359,8 +359,9 @@ class MenuManager:
         elif selected_item.label == "HELP":
             self.exit_marking_menu()
             self.help_images = self.stack[-1].help()
-            self.help_image_index = 0
-            self.update_screen(self.help_images[0])
+            if self.help_images is not None:
+                self.help_image_index = 0
+                self.update_screen(self.help_images[0])
         elif selected_item.menu_jump is not None:
             self.exit_marking_menu()
             self.jump_to_label(selected_item.menu_jump)
