@@ -57,6 +57,7 @@ class UIObjectList(UITextMenu):
     Displayes a list of objects
     """
 
+    __help_name__ = "object_list"
     __title__ = "OBJECTS"
     checkmark = "󰄵"
     checkmark_no = ""

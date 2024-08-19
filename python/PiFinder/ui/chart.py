@@ -18,6 +18,7 @@ from PiFinder import calc_utils
 
 class UIChart(UIModule):
     __title__ = "CHART"
+    __help_name__ = "chart"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

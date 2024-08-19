@@ -812,6 +812,7 @@ pifinder_menu = {
                     "name": "Shutdown",
                     "class": UITextMenu,
                     "select": "Single",
+                    "label": "shutdown",
                     "items": [
                         {"name": "Confirm", "callback": callbacks.shutdown},
                         {"name": "Cancel", "callback": callbacks.go_back},

@@ -7,6 +7,7 @@ This module contains all the UI Module classes
 """
 
 from PiFinder import cat_images
+from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.ui_utils import (
@@ -34,6 +35,7 @@ class UIObjectDetails(UIModule):
     Shows details about an object
     """
 
+    __help_name__ = "object_details"
     __title__ = "OBJECT"
 
     def __init__(self, *args, **kwargs):
@@ -51,6 +53,13 @@ class UIObjectDetails(UIModule):
 
         self.fov_list = [1, 0.5, 0.25, 0.125]
         self.fov_index = 0
+
+        # Marking Menu - Just default help for now
+        self.marking_menu = MarkingMenu(
+            left=MarkingMenuOption(),
+            right=MarkingMenuOption(),
+            down=MarkingMenuOption(),
+        )
 
         # Used for displaying obsevation counts
         self.observations_db = ObservationsDatabase()

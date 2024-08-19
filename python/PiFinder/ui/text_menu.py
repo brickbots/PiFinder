@@ -7,6 +7,7 @@ This module contains all the UI Module classes
 
 from typing import Union
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 
 
 class UITextMenu(UIModule):
@@ -15,6 +16,8 @@ class UITextMenu(UIModule):
     text list
 
     """
+
+    __help_name__ = "menu"
 
     def __init__(
         self,
@@ -25,6 +28,16 @@ class UITextMenu(UIModule):
         self._current_item_index = self.item_definition.get("start_index", 0)
         self._menu_items = [x["name"] for x in self.item_definition["items"]]
         self._menu_type = self.item_definition["select"]
+
+        # Marking menu definition
+        self.marking_menu = MarkingMenu(
+            left=MarkingMenuOption(),
+            down=MarkingMenuOption(
+                label="Shutdown",
+                menu_jump="shutdown",
+            ),
+            right=MarkingMenuOption(),
+        )
 
         self._selected_values = []
         if config_option := self.item_definition.get("config_option"):
