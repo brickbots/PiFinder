@@ -48,9 +48,7 @@ class FastAltAz:
             self.lat * math.pi / 180
         ) + math.cos(dec * math.pi / 180) * math.cos(
             self.lat * math.pi / 180
-        ) * math.cos(
-            hour_angle * math.pi / 180
-        )
+        ) * math.cos(hour_angle * math.pi / 180)
 
         alt = math.asin(_alt) * 180 / math.pi
         if alt_only:

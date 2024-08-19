@@ -7,18 +7,12 @@ This module contains all the UI Module classes
 """
 
 from PiFinder import cat_images
+from PiFinder import obslog
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
-from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.text_menu import UITextMenu
 
 from PiFinder.db.observations_db import ObservationsDatabase
-
-
-# Constants for display modes
-DM_DESC = 0  # Display mode for description
-DM_LOCATE = 1  # Display mode for LOCATE
-DM_POSS = 2  # Display mode for POSS
-DM_SDSS = 3  # Display mode for SDSS
 
 
 class UILog(UIModule):
@@ -28,6 +22,7 @@ class UILog(UIModule):
 
     __help_name__ = "log"
     __title__ = "LOG"
+    _STAR = ""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -55,12 +50,126 @@ class UILog(UIModule):
             self.object, "POSS", 1, roll, self.display_class, burn_in=False
         )
 
+        self.menu_index = 0  # Observability
+
+        # conditions and eyepiece menus
+        self.conditions_menu = {
+            "name": "Conditions",
+            "class": UITextMenu,
+            "select": "single",
+            "items": [
+                {
+                    "name": "Transparency",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "session.log_transparency",
+                    "items": [
+                        {
+                            "name": "NA",
+                            "value": "NA",
+                        },
+                        {
+                            "name": "Excellent",
+                            "value": "Excellent",
+                        },
+                        {
+                            "name": "Very Good",
+                            "value": "Very Good",
+                        },
+                        {
+                            "name": "Good",
+                            "value": "Good",
+                        },
+                        {
+                            "name": "Fair",
+                            "value": "Fair",
+                        },
+                        {
+                            "name": "Poor",
+                            "value": "Poor",
+                        },
+                    ],
+                },
+                {
+                    "name": "Seeing",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "session.log_seeing",
+                    "items": [
+                        {
+                            "name": "NA",
+                            "value": "NA",
+                        },
+                        {
+                            "name": "Excellent",
+                            "value": "Excellent",
+                        },
+                        {
+                            "name": "Very Good",
+                            "value": "Very Good",
+                        },
+                        {
+                            "name": "Good",
+                            "value": "Good",
+                        },
+                        {
+                            "name": "Fair",
+                            "value": "Fair",
+                        },
+                        {
+                            "name": "Poor",
+                            "value": "Poor",
+                        },
+                    ],
+                },
+            ],
+        }
+
+        self.eyepiece_menu = {
+            "name": "Eyepiece",
+            "class": UITextMenu,
+            "select": "single",
+            "config_option": "session.log_eyepiece",
+            "items": [
+                {
+                    "name": "NA",
+                    "value": "NA",
+                },
+                {
+                    "name": "32mm",
+                    "value": "32mm",
+                },
+                {
+                    "name": "25mm",
+                    "value": "25mm",
+                },
+                {
+                    "name": "13mm",
+                    "value": "13mm",
+                },
+                {
+                    "name": "9mm",
+                    "value": "9mm",
+                },
+            ],
+        }
+
+        self.reset_config()
+
+    def reset_config(self):
+        """
+        Set log entries to default
+        """
+        # Log note entries
+        self.log_observability = 0
+        self.log_appeal = 0
+
     def update(self, force=True):
         # Clear Screen
         self.clear_screen()
 
         # paste image
-        self.screen.paste(self.object_image)
+        # self.screen.paste(self.object_image)
 
         # dim image
         self.draw.rectangle(
@@ -82,23 +191,170 @@ class UILog(UIModule):
             )
             return self.screen_update()
 
+        horiz_pos = self.display_class.titlebar_height
+
         # Target Name
         self.draw.text(
-            (0, 20),
-            self.object.display_name,
+            (10, horiz_pos),
+            f"Log {self.object.display_name}",
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )
+        if self.menu_index == 0:
+            self.draw_menu_pointer(horiz_pos)
+        horiz_pos += 18
 
         # ID Line in BOld
         # Type / Constellation
+        """
         object_type = OBJ_TYPES.get(self.object.obj_type, self.object.obj_type)
         object_text = f"{object_type: <14} {self.object.const}"
         self.draw.text(
             (0, 36), object_text, font=self.fonts.bold.font, fill=self.colors.get(255)
         )
+        """
+
+        # Observability
+        self.draw.text(
+            (10, horiz_pos),
+            "Observability",
+            font=self.fonts.large.font,
+            fill=self.colors.get(192),
+        )
+        if self.menu_index == 1:
+            self.draw_menu_pointer(horiz_pos)
+        horiz_pos += 14
+        for i in range(5):
+            star_color = 128
+            if self.log_observability > i:
+                star_color = 255
+            self.draw.text(
+                (i * 15 + 20, horiz_pos),
+                self._STAR,
+                font=self.fonts.large.font,
+                fill=self.colors.get(star_color),
+            )
+        horiz_pos += 11
+
+        # Appeal
+        self.draw.text(
+            (10, horiz_pos),
+            "Appeal",
+            font=self.fonts.large.font,
+            fill=self.colors.get(192),
+        )
+        if self.menu_index == 2:
+            self.draw_menu_pointer(horiz_pos)
+        horiz_pos += 14
+        for i in range(5):
+            star_color = 128
+            if self.log_appeal > i:
+                star_color = 255
+            self.draw.text(
+                (i * 15 + 20, horiz_pos),
+                self._STAR,
+                font=self.fonts.large.font,
+                fill=self.colors.get(star_color),
+            )
+        horiz_pos += 15
+
+        self.draw.text(
+            (10, horiz_pos),
+            "Conditions...",
+            font=self.fonts.large.font,
+            fill=self.colors.get(192),
+        )
+        if self.menu_index == 3:
+            self.draw_menu_pointer(horiz_pos)
+        horiz_pos += 17
+
+        self.draw.text(
+            (10, horiz_pos),
+            "Eyepiece...",
+            font=self.fonts.large.font,
+            fill=self.colors.get(192),
+        )
+        if self.menu_index == 4:
+            self.draw_menu_pointer(horiz_pos)
 
         return self.screen_update()
+
+    def draw_menu_pointer(self, horiz_position: int):
+        self.draw.text(
+            (2, horiz_position),
+            self._RIGHT_ARROW,
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
+        )
+
+    def record_object(self):
+        """
+        Creates a session if needed
+        then records the current target
+
+        _object should be a target like CompositeObject
+
+        These will be jsonified when logging
+        """
+        # build notes
+        notes = {
+            "schema_ver": 2,
+            "transparency": self.config_object.get_option(
+                "session.log_transparency", "NA"
+            ),
+            "seeing": self.config_object.get_option("session.log_seeing", "NA"),
+            "eyepiece": self.config_object.get_option("session.log_eyepiece", "NA"),
+            "observability": self.log_observability,
+            "appeal": self.log_appeal,
+        }
+        self._observing_session = obslog.Observation_session(
+            self.shared_state, self.__uuid__
+        )
+
+        self._observing_session.log_object(
+            catalog=self.object.catalog_code,
+            sequence=self.object.sequence,
+            solution=self.shared_state.solution(),
+            notes=notes,
+        )
+        self.reset_config()
+
+    def key_number(self, number: int):
+        """
+        Shortcut for stars
+        """
+        if number <= 5:
+            if self.menu_index == 1:
+                self.log_observability = number
+
+            if self.menu_index == 2:
+                self.log_appeal = number
+
+    def key_right(self):
+        """
+        Log the logging
+        """
+        if self.menu_index == 0:
+            self.record_object()
+            self.message("Logged!")
+            self.remove_from_stack()
+            return
+
+        if self.menu_index == 1:
+            self.log_observability += 1
+            if self.log_observability > 5:
+                self.log_observability = 0
+
+        if self.menu_index == 2:
+            self.log_appeal += 1
+            if self.log_appeal > 5:
+                self.log_appeal = 0
+
+        if self.menu_index == 3:
+            self.add_to_stack(self.conditions_menu)
+
+        if self.menu_index == 4:
+            self.add_to_stack(self.eyepiece_menu)
 
     def cycle_display_mode(self):
         """
@@ -109,7 +365,11 @@ class UILog(UIModule):
         pass
 
     def key_down(self):
-        pass
+        self.menu_index += 1
+        if self.menu_index > 4:
+            self.menu_index = 4
 
     def key_up(self):
-        pass
+        self.menu_index -= 1
+        if self.menu_index < 0:
+            self.menu_index = 0
