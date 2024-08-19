@@ -28,6 +28,7 @@ class UILog(UIModule):
         super().__init__(*args, **kwargs)
 
         self.object = self.item_definition["object"]
+        self.title = self.object.display_name
 
         self.fov_list = [1, 0.5, 0.25, 0.125]
         self.fov_index = 0
@@ -50,7 +51,7 @@ class UILog(UIModule):
             self.object, "POSS", 1, roll, self.display_class, burn_in=False
         )
 
-        self.menu_index = 0  # Observability
+        self.menu_index = 1  # Observability
 
         # conditions and eyepiece menus
         self.conditions_menu = {
@@ -196,7 +197,7 @@ class UILog(UIModule):
         # Target Name
         self.draw.text(
             (10, horiz_pos),
-            f"Log {self.object.display_name}",
+            "SAVE Log",
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )
