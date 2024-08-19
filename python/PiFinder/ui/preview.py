@@ -4,13 +4,14 @@
 This module contains all the UI Module classes
 
 """
+
 import sys
 import numpy as np
 import time
 
 from PIL import Image, ImageChops, ImageOps
 
-from PiFinder.ui.fonts import Fonts as fonts
+from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder import utils
 from PiFinder.ui.base import UIModule
 from PiFinder.image_util import (
@@ -27,54 +28,16 @@ class UIPreview(UIModule):
     from PiFinder import tetra3
 
     __title__ = "CAMERA"
-    __button_hints__ = {
-        "B": "Align",
-        "C": "BG Sub",
-        "D": "Reticle",
-    }
-    _config_options = {
-        "Reticle": {
-            "type": "enum",
-            "value": "High",
-            "options": ["Off", "Low", "Med", "High"],
-            "hotkey": "D",
-            "callback": "exit_config",
-        },
-        "BG Sub": {
-            "type": "enum",
-            "value": "Half",
-            "options": ["Off", "Half", "Full"],
-            "hotkey": "C",
-        },
-        "Gamma Adj": {
-            "type": "enum",
-            "value": "Low",
-            "options": ["Off", "Low", "Med", "High"],
-        },
-        "Exposure": {
-            "type": "enum",
-            "value": "",
-            "options": [0.025, 0.05, 0.1, 0.2, 0.4, 0.75, 1],
-            "callback": "set_exp",
-        },
-        "Save Exp": {
-            "type": "enum",
-            "value": "",
-            "options": ["Save", "Exit"],
-            "callback": "save_exp",
-        },
-    }
+    __help_name__ = "camera"
 
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-        exposure_time = self.config_object.get_option("camera_exp")
-        analog_gain = self.config_object.get_option("camera_gain")
-        self._config_options["Exposure"]["value"] = exposure_time / 1000000
         self.reticle_mode = 2
         self.last_update = time.time()
         self.solution = None
-        self.font_small = fonts.small
+
+        self.zoom_level = 0
 
         self.capture_prefix = f"{self.__uuid__}_diag"
         self.capture_count = 0
@@ -86,54 +49,81 @@ class UIPreview(UIModule):
         self.star_list = np.empty((0, 2))
         self.highlight_count = 0
 
-    def set_exp(self, option):
-        new_exposure = int(option * 1000000)
-        self.command_queues["camera"].put(f"set_exp:{new_exposure}")
-        self.message("Exposure Set")
-        self.config_object.set_option("camera_exp", new_exposure)
-        return False
+        # Marking menu definition
+        self.marking_menu = MarkingMenu(
+            left=MarkingMenuOption(
+                label="Exposure",
+                menu_jump="camera_exposure",
+            ),
+            down=MarkingMenuOption(
+                label="Gamma",
+                callback=MarkingMenu(
+                    up=MarkingMenuOption(label="Off", callback=self.mm_change_gamma),
+                    left=MarkingMenuOption(label="High", callback=self.mm_change_gamma),
+                    down=MarkingMenuOption(
+                        label="Medium",
+                        callback=self.mm_change_gamma,
+                        selected=True,
+                    ),
+                    right=MarkingMenuOption(label="Low", callback=self.mm_change_gamma),
+                ),
+            ),
+            right=MarkingMenuOption(
+                label="BG Sub",
+                callback=MarkingMenu(
+                    up=MarkingMenuOption(label="Off", callback=self.mm_change_bgsub),
+                    left=MarkingMenuOption(label="Full", callback=self.mm_change_bgsub),
+                    down=MarkingMenuOption(),
+                    right=MarkingMenuOption(
+                        label="Half", callback=self.mm_change_bgsub, selected=True
+                    ),
+                ),
+            ),
+        )
 
-    def set_gain(self, option):
-        self.command_queues["camera"].put(f"set_gain:{option}")
-        self.message("Gain Set")
-        return False
+    def mm_change_gamma(self, marking_menu, menu_item):
+        """
+        Called to change gamma adjust value
+        """
+        marking_menu.select_none()
+        menu_item.selected = True
 
-    def save_exp(self, option):
-        if option == "Save":
-            self.command_queues["camera"].put("exp_save")
-            self.message("Exposure Saved")
-            return True
-        return False
+        self.config_object.set_option("session.camera_gamma", menu_item.label)
+        return True
+
+    def mm_change_bgsub(self, marking_menu, menu_item):
+        """
+        Called to change bg sub amount
+        """
+        marking_menu.select_none()
+        menu_item.selected = True
+
+        self.config_object.set_option("session.camera_bg_sub", menu_item.label)
+        return True
 
     def draw_reticle(self):
         """
         draw the reticle if desired
         """
-        if self._config_options["Reticle"]["value"] == "Off":
+        reticle_brightness = self.config_object.get_option("camera_reticle", 128)
+        if reticle_brightness == 0:
             # None....
             return
-
-        brightness = (
-            self._config_options["Reticle"]["options"].index(
-                self._config_options["Reticle"]["value"]
-            )
-            * 32
-        )
 
         fov = 10.2
         solve_pixel = self.shared_state.solve_pixel(screen_space=True)
         for circ_deg in [4, 2, 0.5]:
-            circ_rad = ((circ_deg / fov) * 128) / 2
+            circ_rad = ((circ_deg / fov) * self.display_class.resX) / 2
             bbox = [
                 solve_pixel[0] - circ_rad,
                 solve_pixel[1] - circ_rad,
                 solve_pixel[0] + circ_rad,
                 solve_pixel[1] + circ_rad,
             ]
-            self.draw.arc(bbox, 20, 70, fill=self.colors.get(brightness))
-            self.draw.arc(bbox, 110, 160, fill=self.colors.get(brightness))
-            self.draw.arc(bbox, 200, 250, fill=self.colors.get(brightness))
-            self.draw.arc(bbox, 290, 340, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 20, 70, fill=self.colors.get(reticle_brightness))
+            self.draw.arc(bbox, 110, 160, fill=self.colors.get(reticle_brightness))
+            self.draw.arc(bbox, 200, 250, fill=self.colors.get(reticle_brightness))
+            self.draw.arc(bbox, 290, 340, fill=self.colors.get(reticle_brightness))
 
     def draw_star_selectors(self):
         # Draw star selectors
@@ -178,7 +168,7 @@ class UIPreview(UIModule):
                 self.draw.text(
                     (star_x + x_text_offset, star_y + y_text_offset),
                     str(_i + 1),
-                    font=fonts.small,
+                    font=self.fonts.small.font,
                     fill=self.colors.get(128),
                 )
 
@@ -198,21 +188,30 @@ class UIPreview(UIModule):
                 self.star_list = np.array(matched_centroids)
 
             # Resize
-            image_obj = image_obj.resize((128, 128))
-            if self._config_options["BG Sub"]["value"] != "Off":
-                if self._config_options["BG Sub"]["value"] == "Half":
-                    image_obj = subtract_background(image_obj, percent=0.5)
-                if self._config_options["BG Sub"]["value"] == "Full":
-                    image_obj = subtract_background(image_obj, percent=1)
+            if self.zoom_level == 0 or self.align_mode:
+                image_obj = image_obj.resize((128, 128))
+            elif self.zoom_level == 1:
+                image_obj = image_obj.resize((256, 256))
+                image_obj = image_obj.crop((64, 64, 192, 192))
+            elif self.zoom_level == 2:
+                # no resize, just crop
+                image_obj = image_obj.crop((192, 192, 320, 320))
+
+            bg_sub = self.config_object.get_option("session.camera_bg_sub", "Half")
+            if bg_sub == "Half":
+                image_obj = subtract_background(image_obj, percent=0.5)
+            elif bg_sub == "Full":
+                image_obj = subtract_background(image_obj, percent=1)
             image_obj = image_obj.convert("RGB")
             image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
             image_obj = ImageOps.autocontrast(image_obj)
 
-            if self._config_options["Gamma Adj"]["value"] == "Low":
+            gamma_adjust = self.config_object.get_option("session.camera_gamma", "Med")
+            if gamma_adjust == "Low":
                 image_obj = Image.eval(image_obj, gamma_correct_low)
-            if self._config_options["Gamma Adj"]["value"] == "Med":
+            elif gamma_adjust == "Medium":
                 image_obj = Image.eval(image_obj, gamma_correct_med)
-            if self._config_options["Gamma Adj"]["value"] == "High":
+            elif gamma_adjust == "High":
                 image_obj = Image.eval(image_obj, gamma_correct_high)
 
             self.screen.paste(image_obj)
@@ -221,24 +220,40 @@ class UIPreview(UIModule):
             if self.align_mode:
                 self.draw_star_selectors()
             else:
-                self.draw_reticle()
+                if self.zoom_level > 0:
+                    zoom_number = self.zoom_level * 2
+                    self.draw.text(
+                        (75, 112),
+                        f"Zoom x{zoom_number}",
+                        font=self.fonts.bold.font,
+                        fill=self.colors.get(128),
+                    )
+                else:
+                    self.draw_reticle()
 
         return self.screen_update(
             title_bar=not self.align_mode, button_hints=not self.align_mode
         )
 
-    def key_b(self):
-        """
-        Enter bright star alignment mode
-        """
+    def key_plus(self):
+        self.zoom_level += 1
+        if self.zoom_level > 2:
+            self.zoom_level = 2
+
+    def key_minus(self):
+        self.zoom_level -= 1
+        if self.zoom_level < 0:
+            self.zoom_level = 0
+
+    def key_square(self):
         if self.align_mode:
             self.align_mode = False
+            self.shared_state.set_camera_align(self.align_mode)
+            self.update(force=True)
         else:
             self.align_mode = True
-
-        self.shared_state.set_camera_align(self.align_mode)
-
-        self.update(force=True)
+            self.shared_state.set_camera_align(self.align_mode)
+            self.update(force=True)
 
     def key_number(self, number):
         if self.align_mode:

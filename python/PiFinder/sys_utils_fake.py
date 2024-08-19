@@ -1,9 +1,9 @@
-import glob
-import sh
 import socket
-from PiFinder import utils
+import logging
 
 BACKUP_PATH = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
+
+logger = logging.getLogger("SysUtils.Fake")
 
 
 class Network:
@@ -54,7 +54,6 @@ class Network:
     def set_host_name(self, hostname):
         if hostname == self.get_host_name():
             return
-        result = "UNKN"
 
     def wifi_mode(self):
         return "UNKN"
@@ -99,7 +98,7 @@ def shutdown():
     """
     shuts down the Pi
     """
-    print("SYS: Initiating Shutdown")
+    logger.info("SYS: Initiating Shutdown")
     return True
 
 
@@ -108,7 +107,7 @@ def update_software():
     Uses systemctl to git pull and then restart
     service
     """
-    print("SYS: Running update")
+    logger.info("SYS: Running update")
     return True
 
 
@@ -117,7 +116,7 @@ def restart_pifinder():
     Uses systemctl to restart the PiFinder
     service
     """
-    print("SYS: Restarting PiFinder")
+    logger.info("SYS: Restarting PiFinder")
     return True
 
 
@@ -125,16 +124,16 @@ def restart_system():
     """
     Restarts the system
     """
-    print("SYS: Initiating System Restart")
+    logger.info("SYS: Initiating System Restart")
 
 
 def go_wifi_ap():
-    print("SYS: Switching to AP")
+    logger.info("SYS: Switching to AP")
     return True
 
 
 def go_wifi_cli():
-    print("SYS: Switching to Client")
+    logger.info("SYS: Switching to Client")
     return True
 
 

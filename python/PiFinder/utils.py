@@ -1,7 +1,7 @@
 import os
 import time
+import logging
 from pathlib import Path
-from PiFinder.state import SharedStateObj
 
 
 def create_dir(adir: str):
@@ -21,15 +21,6 @@ data_dir = Path(Path.home(), "PiFinder_data")
 pifinder_db = astro_data_dir / "pifinder_objects.db"
 observations_db = data_dir / "observations.db"
 debug_dump_dir = data_dir / "solver_debug_dumps"
-
-
-def sleep_for_framerate(shared_state: SharedStateObj, limit_framerate=True) -> bool:
-    if shared_state.power_state() <= 0:
-        time.sleep(0.5)
-        return True
-    elif limit_framerate:
-        time.sleep(1 / 30)
-    return False
 
 
 def get_os_info():
@@ -57,3 +48,36 @@ def get_os_info():
     else:
         os_detail = "N/A"
     return os_detail, platform_system, architecture
+
+
+class Timer:
+    """
+    Time multiple code blocks using a context manager.
+    Usage:
+        with Timer("deduplicate_objects 1"):
+            results1 = deduplicate_objects(results*10)
+        with Timer("deduplicate_objects 2"):
+            results2 = deduplicate_objects(results*10)
+    """
+
+    def __init__(self, name):
+        self.name = name
+        self.start_time = None
+        self.logger = logging.getLogger("Utils.Timer")
+
+    def __enter__(self):
+        self.start_time = time.time()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        end_time = time.time()
+        elapsed_time = end_time - self.start_time
+        self.logger.info("%s: %.6f seconds", self.name, elapsed_time)
+
+
+def is_number(s):
+    """Check if a string can be converted to a float"""
+    try:
+        float(s)
+        return True
+    except (ValueError, TypeError):
+        return False

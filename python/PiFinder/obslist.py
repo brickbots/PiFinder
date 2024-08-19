@@ -8,10 +8,14 @@ format used by SkySafari
 but supported by other
 tools
 """
+
 import os
+import logging
 from textwrap import dedent
 from PiFinder import utils
-from PiFinder.catalogs import Names, Catalogs
+from PiFinder.catalogs import Catalogs
+
+logger = logging.getLogger("Observation.List")
 
 OBSLIST_DIR = f"{utils.data_dir}/obslists/"
 
@@ -78,16 +82,18 @@ def read_list(catalogs: Catalogs, name):
     and returns a catalog list
     """
 
-    list_catalog = []
-    catalog_numbers = []
+    list_catalog: list = []
+    catalog_numbers: list = []
     objects_parsed = 0
     in_object = False
     with open(OBSLIST_DIR + name + ".skylist", "r") as skylist:
-        for l in skylist:
-            l = l.strip()
-            if l == "SkyObject=BeginObject":
+        for line in skylist:
+            line = line.strip()
+            if line == "SkyObject=BeginObject":
                 if in_object:
-                    print("Encountered object start while in object.  File is corrupt")
+                    logger.critical(
+                        "Encountered object start while in object.  File is corrupt"
+                    )
                     return {
                         "result": "error",
                         "objects_parsed": objects_parsed,
@@ -98,9 +104,9 @@ def read_list(catalogs: Catalogs, name):
                 catalog_numbers = []
                 in_object = True
 
-            elif l == "EndObject=SkyObject":
+            elif line == "EndObject=SkyObject":
                 if not in_object:
-                    print(
+                    logger.critical(
                         "Encountered object end while not in object.  File is corrupt"
                     )
                     return {
@@ -119,9 +125,9 @@ def read_list(catalogs: Catalogs, name):
                 objects_parsed += 1
                 in_object = False
 
-            elif l.startswith("CatalogNumber"):
+            elif line.startswith("CatalogNumber"):
                 if not in_object:
-                    print(
+                    logger.critical(
                         "Encountered catalog number while not in object.  File is corrupt"
                     )
                     return {
@@ -130,7 +136,7 @@ def read_list(catalogs: Catalogs, name):
                         "message": "Bad catalog tag",
                         "catalog_objects": list_catalog,
                     }
-                catalog_numbers.append(l.split("=")[1])
+                catalog_numbers.append(line.split("=")[1])
 
             else:
                 pass

@@ -5,10 +5,14 @@ This module is runs the keyboard matrix
 and adds keys to the provided queue
 
 """
-import sh
+
 from time import sleep
 from PiFinder.keyboard_interface import KeyboardInterface
 import RPi.GPIO as GPIO
+import logging
+from PiFinder.multiproclogging import MultiprocLogging
+
+logger = logging.getLogger("Keyboard.Pi")
 
 
 class KeyboardPi(KeyboardInterface):
@@ -20,31 +24,32 @@ class KeyboardPi(KeyboardInterface):
         # fmt: off
         self.keymap = [
             7 , 8 , 9 , self.NA,
-            4 , 5 , 6 , self.UP,
-            1 , 2 , 3 , self.DN,
-            self.NA, 0 , self.NA, self.ENT,
-            self.A , self.B , self.C , self.D,
+            4 , 5 , 6 , self.PLUS,
+            1 , 2 , 3 , self.MINUS,
+            self.NA, 0 , self.NA, self.SQUARE,
+            self.LEFT , self.UP , self.DOWN , self.RIGHT,
         ]
         self.alt_keymap = [
             self.NA, self.NA, self.NA, self.NA,
-            self.NA, self.NA, self.NA, self.ALT_UP,
-            self.NA, self.NA, self.NA, self.ALT_DN,
+            self.NA, self.NA, self.NA, self.ALT_PLUS,
+            self.NA, self.NA, self.NA, self.ALT_MINUS,
             self.NA, self.ALT_0, self.NA, self.NA,
-            self.ALT_A, self.ALT_B, self.ALT_C, self.ALT_D,
+            self.ALT_LEFT, self.ALT_UP, self.ALT_DOWN, self.ALT_RIGHT,
         ]
         self.long_keymap = [
             self.NA, self.NA, self.NA, self.NA,
             self.NA, self.NA, self.NA, self.NA,
             self.NA, self.NA, self.NA, self.NA,
-            self.NA, self.NA, self.NA, self.LNG_ENT,
-            self.LNG_A, self.LNG_B, self.LNG_C, self.LNG_D,
+            self.NA, self.NA, self.NA, self.LNG_SQUARE,
+            self.LNG_LEFT, self.LNG_UP, self.LNG_DOWN, self.LNG_RIGHT,
         ]
         # fmt: on
 
-    def run_keyboard(self):
+    def run_keyboard(self, log_queue):
         """
         scans keyboard matrix, puts release events in queue
         """
+        MultiprocLogging.configurer(log_queue)
 
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.rows, GPIO.IN)
@@ -56,14 +61,21 @@ class KeyboardPi(KeyboardInterface):
         scan_freq = 60
         while True:
             sleep(1 / scan_freq)
-            if len(pressed) > 0 and hold_sent is False:
+            if len(pressed) > 0:
                 hold_counter += 1
-                if hold_counter > scan_freq and not alt_sent:
-                    keycode = pressed.pop()
-                    pressed = set()
-                    self.q.put(self.long_keymap[keycode])
-                    hold_counter = 0
-                    hold_sent = True
+                if hold_counter > scan_freq:
+                    # Held for more than 1 second
+                    if list(pressed)[-1] in [17, 18]:
+                        # Up/Down arrows repeat
+                        self.q.put(self.keymap[list(pressed)[-1]])
+                        hold_counter = int(scan_freq / 1.05)
+                    else:
+                        if not alt_sent and not hold_sent:
+                            keycode = pressed.pop()
+                            pressed = set()
+                            self.q.put(self.long_keymap[keycode])
+                            hold_counter = 0
+                            hold_sent = True
             else:
                 hold_counter = 0
             for i in range(len(self.rows)):
@@ -91,6 +103,7 @@ class KeyboardPi(KeyboardInterface):
                 GPIO.setup(self.rows[i], GPIO.IN)
 
 
-def run_keyboard(q, shared_state):
+def run_keyboard(q, shared_state, log_queue):
+    MultiprocLogging.configurer(log_queue)
     keyboard = KeyboardPi(q)
-    keyboard.run_keyboard()
+    keyboard.run_keyboard(log_queue)

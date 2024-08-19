@@ -4,14 +4,18 @@
 This module is for IMU related functions
 
 """
-from pprint import pprint
+
 import time
+from PiFinder.multiproclogging import MultiprocLogging
 import board
 import adafruit_bno055
+import logging
 
 from scipy.spatial.transform import Rotation
 
 from PiFinder import config
+
+logger = logging.getLogger("IMU.pi")
 
 QUEUE_LEN = 10
 MOVE_CHECK_LEN = 2
@@ -24,7 +28,10 @@ class Imu:
         self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
         # self.sensor.mode = adafruit_bno055.NDOF_MODE
         cfg = config.Config()
-        if cfg.get_option("screen_direction") == "flat":
+        if (
+            cfg.get_option("screen_direction") == "flat"
+            or cfg.get_option("screen_direction") == "straight"
+        ):
             self.sensor.axis_remap = (
                 adafruit_bno055.AXIS_REMAP_Y,
                 adafruit_bno055.AXIS_REMAP_X,
@@ -86,11 +93,11 @@ class Imu:
         # Throw out non-calibrated data
         self.calibration = self.sensor.calibration_status[1]
         if self.calibration == 0:
-            print("NOIMU CAL")
+            logger.warning("NOIMU CAL")
             return True
         quat = self.sensor.quaternion
-        if quat[0] == None:
-            print("IMU: Failed to get sensor values")
+        if quat[0] is None:
+            logger.warning("IMU: Failed to get sensor values")
             return
 
         _quat_diff = []
@@ -142,7 +149,8 @@ class Imu:
         return list(self.quat_to_euler(self.avg_quat))
 
 
-def imu_monitor(shared_state, console_queue):
+def imu_monitor(shared_state, console_queue, log_queue):
+    MultiprocLogging.configurer(log_queue)
     imu = Imu()
     imu_calibrated = False
     imu_data = {
@@ -150,6 +158,7 @@ def imu_monitor(shared_state, console_queue):
         "move_start": None,
         "move_end": None,
         "pos": [0, 0, 0],
+        "quat": [0, 0, 0, 0],
         "start_pos": [0, 0, 0],
         "status": 0,
     }
@@ -157,8 +166,8 @@ def imu_monitor(shared_state, console_queue):
         imu.update()
         imu_data["status"] = imu.calibration
         if imu.moving():
-            if imu_data["moving"] == False:
-                # print("IMU: move start")
+            if not imu_data["moving"]:
+                logger.debug("IMU: move start")
                 imu_data["moving"] = True
                 imu_data["start_pos"] = imu_data["pos"]
                 imu_data["move_start"] = time.time()
@@ -166,17 +175,18 @@ def imu_monitor(shared_state, console_queue):
             imu_data["quat"] = imu.avg_quat
 
         else:
-            if imu_data["moving"] == True:
-                # If wer were moving and we now stopped
-                # print("IMU: move end")
+            if imu_data["moving"]:
+                # If we were moving and we now stopped
+                logger.debug("IMU: move end")
                 imu_data["moving"] = False
                 imu_data["pos"] = imu.get_euler()
+                imu_data["quat"] = imu.avg_quat
                 imu_data["move_end"] = time.time()
 
-        if imu_calibrated == False:
+        if not imu_calibrated:
             if imu_data["status"] == 3:
                 imu_calibrated = True
                 console_queue.put("IMU: NDOF Calibrated!")
 
-        if shared_state != None and imu_calibrated:
+        if shared_state is not None and imu_calibrated:
             shared_state.set_imu(imu_data)

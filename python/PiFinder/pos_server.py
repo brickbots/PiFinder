@@ -5,21 +5,27 @@ This module is runs a lightweight
 server to accept socket connections
 and report telescope position
 Protocol based on Meade LX200
+
+This is used by SkySafari (iOS, iPadOS)
 """
+
 import socket
 from math import modf
 import logging
 import re
 from multiprocessing import Queue
-from typing import Tuple
+from typing import Tuple, Union
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg, sf_utils
-from PiFinder.catalogs import CompositeObject
+from PiFinder.composite_object import CompositeObject, MagnitudeObject
+from PiFinder.multiproclogging import MultiprocLogging
 from skyfield.positionlib import position_of_radec
-from skyfield.api import load
+import sys
+
+logger = logging.getLogger("PosServer")
 
 sr_result = None
 sequence = 0
-ui_queue: Queue = None
+ui_queue: Queue
 
 # shortcut for skyfield timescale
 ts = sf_utils.ts
@@ -41,11 +47,11 @@ def get_telescope_ra(shared_state, _):
     Dec_deg = solution["Dec"]
     _p = position_of_radec(ra_hours=RA_deg / 15.0, dec_degrees=Dec_deg, epoch=ts.J2000)
 
-    RA_h, Dec, _dist = _p.radec(epoch=ts.from_datetime(dt))
+    RA_h, _Dec, _dist = _p.radec(epoch=ts.from_datetime(dt))
 
     hh, mm, ss = RA_h.hms()
     ra_result = f"{hh:02.0f}:{mm:02.0f}:{ss:02.0f}"
-    logging.debug("get_telescope_ra: RA result: %s", ra_result)
+    logger.debug("get_telescope_ra: RA result: %s", ra_result)
     return ra_result
 
 
@@ -65,7 +71,7 @@ def get_telescope_dec(shared_state, _):
     Dec_deg = solution["Dec"]
     _p = position_of_radec(ra_hours=RA_deg / 15.0, dec_degrees=Dec_deg, epoch=ts.J2000)
 
-    RA_h, Dec, _dist = _p.radec(epoch=ts.from_datetime(dt))
+    _RA_h, Dec, _dist = _p.radec(epoch=ts.from_datetime(dt))
 
     dec = Dec.degrees
     if dec < 0:
@@ -79,7 +85,7 @@ def get_telescope_dec(shared_state, _):
     ss = round(fractional_mm * 60.0)
 
     dec_result = f"{sign}{hh:02.0f}*{mm:02.0f}'{ss:02.0f}"
-    logging.debug("get_telescope_dec: Dec result: %s", dec_result)
+    logger.debug("get_telescope_dec: Dec result: %s", dec_result)
     return dec_result
 
 
@@ -100,7 +106,7 @@ def not_implemented(shared_state, input_str):
     return respond_none(shared_state, input_str)
 
 
-def _match_to_hms(pattern: str, input_str: str) -> Tuple[int, int, int]:
+def _match_to_hms(pattern: str, input_str: str) -> Union[Tuple[int, int, int], None]:
     match = re.match(pattern, input_str)
     if match:
         hours = int(match.group(1))
@@ -115,7 +121,7 @@ def parse_sr_command(_, input_str: str):
     global sr_result
     pattern = r":Sr([-+]?\d{2}):(\d{2}):(\d{2})#"
     match = _match_to_hms(pattern, input_str)
-    # logging.debug(f"Parsing sr command, match: {match}")
+    logger.debug("Parsing sr command, match: %s", match)
     if match:
         sr_result = match
         return "1"
@@ -127,7 +133,7 @@ def parse_sd_command(shared_state, input_str: str):
     global sr_result
     pattern = r":Sd([-+]?\d{2})\*(\d{2}):(\d{2})#"
     match = _match_to_hms(pattern, input_str)
-    # logging.debug(f"Parsing sd command, match: {match}, sr_result: {sr_result}")
+    logger.debug("Parsing sd command, match: %s, sr_result: %s", match, sr_result)
     if match and sr_result:
         return handle_goto_command(shared_state, sr_result, match)
     else:
@@ -138,39 +144,33 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
     global sequence, ui_queue
     ra = ra_to_deg(*ra_parsed)
     dec = dec_to_deg(*dec_parsed)
-    logging.debug("handle_goto_command: ra,dec in deg, JNOW: %s, %s", ra, dec)
+    logger.debug("handle_goto_command: ra,dec in deg, JNOW: %s, %s", ra, dec)
     _p = position_of_radec(ra_hours=ra / 15, dec_degrees=dec, epoch=ts.now())
-    ra_h, dec_d, _dist = _p.radec(epoch=ts.J2000)
+    ra_h, dec_d, _ = _p.radec(epoch=ts.J2000)
     sequence += 1
     comp_ra = float(ra_h._degrees)
     comp_dec = float(dec_d.degrees)
-    logging.debug("Goto ra,dec in deg, J2000: %s, %s", comp_ra, comp_dec)
+    logger.debug("Goto ra,dec in deg, J2000: %s, %s", comp_ra, comp_dec)
     constellation = sf_utils.radec_to_constellation(comp_ra, comp_dec)
     obj = CompositeObject.from_dict(
         {
             "id": -1,
+            "object_id": sys.maxsize - sequence,
             "obj_type": "",
             "ra": comp_ra,
             "dec": comp_dec,
             "const": constellation,
             "size": "",
-            "mag": "",
+            "mag": MagnitudeObject([]),
             "catalog_code": "PUSH",
             "sequence": sequence,
             "description": f"Skysafari object nr {sequence}",
         }
     )
-    logging.debug("handle_goto_command: Pushing object: %s", obj)
-    shared_state.ui_state().push_object(obj)
+    logger.debug("handle_goto_command: Pushing object: %s", obj)
+    shared_state.ui_state().add_recent(obj)
     ui_queue.put("push_object")
     return "1"
-
-
-def init_logging():
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
 
 
 # Function to extract command
@@ -179,30 +179,30 @@ def extract_command(s):
     return match.group(1) if match else None
 
 
-def run_server(shared_state, p_ui_queue):
+def run_server(shared_state, p_ui_queue, log_queue):
+    MultiprocLogging.configurer(log_queue)
     global ui_queue
     try:
-        init_logging()
         ui_queue = p_ui_queue
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-            logging.info("Starting SkySafari server")
+            logger.info("Starting SkySafari server")
             server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             server_socket.bind(("", 4030))
             server_socket.listen(1)
             out_data = None
             while True:
-                client_socket, address = server_socket.accept()
+                client_socket, _address = server_socket.accept()
                 while True:
                     in_data = client_socket.recv(1024).decode()
                     if in_data:
-                        logging.debug("Received from skysafari: '%s'", in_data)
+                        logger.debug("Received from skysafari: '%s'", in_data)
                         command = extract_command(in_data)
                         if command:
                             command_handler = lx_command_dict.get(command, None)
                             if command_handler:
                                 out_data = command_handler(shared_state, in_data)
                             else:
-                                logging.warn("Unknown Command: %s", in_data)
+                                logger.warn("Unknown Command: %s", in_data)
                                 out_data = not_implemented(shared_state, in_data)
                     else:
                         break
@@ -215,9 +215,8 @@ def run_server(shared_state, p_ui_queue):
                         out_data = None
                 client_socket.close()
     except Exception as e:
-        print(e)
-        print("exited skysafari")
-        logging.exception("An error occurred in the skysafari server")
+        logger.exception(e)
+        logger.error("An error occurred in the skysafari server, exiting!")
 
 
 lx_command_dict = {

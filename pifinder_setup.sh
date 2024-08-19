@@ -3,7 +3,7 @@ sudo apt-get install -y git python3-pip samba samba-common-bin dnsmasq hostapd d
 
 git clone --recursive --branch release https://github.com/brickbots/PiFinder.git
 cd PiFinder
-sudo pip install -r requirements.txt
+sudo pip install -r python/requirements.txt
 
 # Setup GPSD
 sudo dpkg-reconfigure -plow gpsd

@@ -1,5 +1,55 @@
 # CompositeObject class
 from dataclasses import dataclass, field
+import numpy as np
+import json
+from typing import List
+from PiFinder.utils import is_number
+
+
+class MagnitudeObject:
+    UNKNOWN_MAG: float = 99
+    mags: List = []
+    filter_mag: float = UNKNOWN_MAG
+
+    def __init__(self, mags: list):
+        self.mags = mags
+        self.calc_filter_mag()
+
+    def add(self, mag):
+        self.mags.append(mag)
+        self.calc_filter_mag()
+
+    def calc_filter_mag(self):
+        filtered = self._filter_floats()
+        if len(filtered) > 0:
+            self.filter_mag = float(np.mean(np.array(self._filter_floats())))
+        else:
+            self.filter_mag = self.UNKNOWN_MAG
+
+    def _filter_floats(self) -> List[float]:
+        return [float(x) for x in self.mags if is_number(x)]
+
+    def calc_two_mag_representation(self):
+        """reduce the mags to a string with max 2 values"""
+        if len(self.mags) == 0 or self.filter_mag == self.UNKNOWN_MAG:
+            return "-"
+        elif len(self.mags) == 1:
+            return self.mags[0]
+        else:
+            filtered = self._filter_floats()
+            return f"{np.min(filtered)}/{np.max(filtered)}"
+
+    def to_json(self):
+        return json.dumps({"mags": self.mags, "filter_mag": self.filter_mag})
+
+    def __repr__(self):
+        return f"MagnitudeObject({self.mags}, {self.filter_mag})"
+
+    @classmethod
+    def from_json(cls, json_str):
+        data = json.loads(json_str)
+        obj = cls(data["mags"])
+        return obj
 
 
 @dataclass
@@ -17,7 +67,8 @@ class CompositeObject:
     dec: float = field(default=0.0)
     const: str = field(default="")
     size: str = field(default="")
-    mag: str = field(default="")
+    mag: MagnitudeObject = field(default=MagnitudeObject([]))
+    mag_str: str = field(default="")
     catalog_code: str = field(default="")
     # we want catalogs of M and NGC etc, so sequence should be a name like M 31
     # deduplicated from names. Catalog code stays, because this collection of
@@ -27,7 +78,24 @@ class CompositeObject:
     names: list = field(default_factory=list)
     image_name: str = field(default="")
     logged: bool = field(default=False)
+    last_filtered_time: float = 0
+    last_filtered_result: bool = True
+
+    def __eq__(self, other):
+        if not isinstance(other, CompositeObject):
+            return NotImplemented
+        return self.object_id == other.object_id
+
+    def __hash__(self):
+        return hash(self.object_id)
 
     @classmethod
     def from_dict(cls, d):
         return cls(**d)
+
+    @property
+    def display_name(self):
+        """
+        Returns the display name for this object
+        """
+        return f"{self.catalog_code} {self.sequence}"

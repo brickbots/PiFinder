@@ -4,7 +4,10 @@
 This module is for IMU related functions
 
 """
+
 import time
+
+from PiFinder.multiproclogging import MultiprocLogging
 
 
 QUEUE_LEN = 50
@@ -13,9 +16,6 @@ MOVE_CHECK_LEN = 10
 
 
 class Imu:
-    moving = False
-    flip = False
-
     def __init__(self):
         pass
 
@@ -39,17 +39,9 @@ class Imu:
         pass
 
 
-def imu_monitor(shared_state, console_queue):
+def imu_monitor(shared_state, console_queue, log_queue):
+    MultiprocLogging.configurer(log_queue)
     imu = Imu()
-    imu_calibrated = False
-    imu_data = {
-        "moving": False,
-        "move_start": None,
-        "move_end": None,
-        "pos": None,
-        "start_pos": None,
-        "status": 0,
-    }
     while True:
         imu.update()
         time.sleep(0.1)

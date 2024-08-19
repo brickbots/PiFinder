@@ -8,13 +8,16 @@ This module is the camera
 * Takes full res images on demand
 
 """
+
 import os
 import queue
 import time
 from PIL import Image
-from PiFinder import utils
+from PiFinder import state_utils as utils
 from typing import Tuple
 import logging
+
+logger = logging.getLogger("Camera.Interface")
 
 
 class CameraInterface:
@@ -24,7 +27,7 @@ class CameraInterface:
         pass
 
     def capture(self) -> Image.Image:
-        return None
+        return Image.Image()
 
     def capture_file(self, filename) -> None:
         pass
@@ -32,10 +35,10 @@ class CameraInterface:
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
-        pass
+        return (0, 0)
 
     def get_cam_type(self) -> str:
-        pass
+        return "foo"
 
     def get_image_loop(
         self, shared_state, camera_image, command_queue, console_queue, cfg
@@ -75,7 +78,10 @@ class CameraInterface:
                     base_image = self.capture()
                     base_image = base_image.convert("L")
                     if camera_rotation is None:
-                        if screen_direction == "right":
+                        if (
+                            screen_direction == "right"
+                            or screen_direction == "straight"
+                        ):
                             base_image = base_image.rotate(90)
                         else:
                             base_image = base_image.rotate(270)
@@ -153,4 +159,4 @@ class CameraInterface:
                         self.capture_file(filename)
                         console_queue.put("CAM: Saved Image")
         except (BrokenPipeError, EOFError, FileNotFoundError):
-            logging.exception("EOFError in Camera Loop")
+            logger.exception("Error in Camera Loop")

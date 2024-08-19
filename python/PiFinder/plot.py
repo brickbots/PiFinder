@@ -4,19 +4,17 @@
 This module handles plotting starfields
 and constelleations
 """
+
 import os
-import io
 import datetime
 import numpy as np
 import pandas
-import time
 from pathlib import Path
 from PiFinder import utils
-from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
+from PIL import Image, ImageDraw, ImageChops
 
 from skyfield.api import Star, load, utc, Angle
-from skyfield.constants import GM_SUN_Pitjeva_2005_km3_s2 as GM_SUN
-from skyfield.data import hipparcos, mpc, stellarium
+from skyfield.data import hipparcos, stellarium
 from skyfield.projections import build_stereographic_projection
 from PiFinder.calc_utils import sf_utils
 
@@ -27,8 +25,9 @@ class Starfield:
     specified RA/DEC + roll
     """
 
-    def __init__(self, colors, mag_limit=7, fov=10.2):
+    def __init__(self, colors, resolution, mag_limit=7, fov=10.2):
         self.colors = colors
+        self.resolution = resolution
         utctime = datetime.datetime(2023, 1, 1, 2, 0, 0).replace(tzinfo=utc)
         ts = sf_utils.ts
         self.t = ts.from_datetime(utctime)
@@ -42,7 +41,7 @@ class Starfield:
             self.raw_stars = hipparcos.load_dataframe(f)
 
         # Image size stuff
-        self.target_size = 128
+        self.target_size = max(self.resolution)
         self.diag_mult = 1.422
         self.render_size = (
             int(self.target_size * self.diag_mult),

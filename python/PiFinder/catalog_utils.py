@@ -1,72 +1,86 @@
 # Code that works on catalogs
-from PiFinder.catalogs import Catalogs, Catalog
 from PiFinder.composite_object import CompositeObject
-from typing import List, Tuple
+from typing import List
 import numpy as np
 from sklearn.neighbors import BallTree
+import logging
+
+logger = logging.getLogger("Catalog.utils")
+
+
+def deduplicate_objects(
+    unfiltered_objects: list[CompositeObject],
+) -> list[CompositeObject]:
+    logger.debug(
+        f"Before deduplication: {len(unfiltered_objects)}, {unfiltered_objects}"
+    )
+    deduplicated_dict = {}
+
+    precedence = {"M": 2, "NGC": 1}
+
+    for obj in unfiltered_objects:
+        if obj.object_id not in deduplicated_dict:
+            deduplicated_dict[obj.object_id] = obj
+        else:
+            existing_obj = deduplicated_dict[obj.object_id]
+            existing_precedence = precedence.get(existing_obj.catalog_code, 0)
+            new_precedence = precedence.get(obj.catalog_code, 0)
+            if new_precedence > existing_precedence:
+                deduplicated_dict[obj.object_id] = obj
+
+    results = list(deduplicated_dict.values())
+    logger.debug("After deduplication: %i, %s", len(results), results)
+    return results
 
 
 class ClosestObjectsFinder:
     def __init__(self):
-        pass
+        self._objects_balltree = None
+        self._objects = None
 
-    def calculate_objects_balltree(
-        self, ra, dec, catalogs: Catalogs
-    ) -> Tuple[List[CompositeObject], Tuple[List[CompositeObject], BallTree]]:
+    def calculate_objects_balltree(self, objects: list[CompositeObject]) -> None:
         """
         Calculates a flat list of objects and the balltree for those objects
         """
-        catalog_list_flat: List[CompositeObject] = catalogs.get_objects(
-            only_selected=True, filtered=True
+        deduplicated_objects = deduplicate_objects(objects)
+        object_radecs = np.array(
+            [[np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in deduplicated_objects]
         )
-        object_radecs = [
-            [np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in catalog_list_flat
-        ]
-        objects_bt = BallTree(object_radecs, leaf_size=20, metric="haversine")
-        return (catalog_list_flat, objects_bt)
+        self._objects = np.array(deduplicated_objects)
+        self._objects_balltree = BallTree(
+            object_radecs, leaf_size=20, metric="haversine"
+        )
 
-    def get_closest_objects(
-        self, ra, dec, n, cache: Tuple[List[CompositeObject], BallTree]
-    ) -> List[CompositeObject]:
+    def get_closest_objects(self, ra, dec, n: int = 0) -> List[CompositeObject]:
         """
         Takes the current catalog or a list of catalogs, gets the filtered
         objects and returns the n closest objects to ra/dec
         """
-        catalog_list_flat, balltree = cache
+
+        if self._objects_balltree is None:
+            return []
+
+        nr_objects = len(self._objects)
+
+        if n == 0:
+            n = nr_objects
+
         query = [[np.deg2rad(ra), np.deg2rad(dec)]]
-        _, obj_ind = balltree.query(query, k=min(n, len(catalog_list_flat)))
-        results = [catalog_list_flat[x] for x in obj_ind[0]]
-        deduplicated = self._deduplicate(results)
-        return deduplicated
-
-    def _deduplicate(self, unfiltered_results):
-        """
-        Make sure no duplicates are in the balltree results.
-        objects with the same object_id are considered duplicates.
-        If there are duplicates, the one with the higher precedence catalog_code
-        is kept.
-        """
-        deduplicated_results = []
-        seen_ids = set()
-
-        for obj in unfiltered_results:
-            if obj.object_id not in seen_ids:
-                seen_ids.add(obj.object_id)
-                deduplicated_results.append(obj)
-            else:
-                # If the object_id is already seen, we look at the catalog_code
-                # and replace the existing object if the new object has a higher precedence catalog_code
-                existing_obj_index = next(
-                    i
-                    for i, existing_obj in enumerate(deduplicated_results)
-                    if existing_obj.object_id == obj.object_id
-                )
-                existing_obj = deduplicated_results[existing_obj_index]
-
-                if (obj.catalog_code == "M" and existing_obj.catalog_code != "M") or (
-                    obj.catalog_code == "NGC"
-                    and existing_obj.catalog_code not in ["M", "NGC"]
-                ):
-                    deduplicated_results[existing_obj_index] = obj
-
-        return deduplicated_results
+        logger.debug(
+            "get_closest_objects - Query: %s, objects: %s", query, self._objects
+        )
+        _, obj_ind = self._objects_balltree.query(query, k=min(n, nr_objects))
+        logger.debug(
+            "get_closest_objects - Found %i objects, from %i objects, k=%i",
+            len(obj_ind),
+            nr_objects,
+            min(n, nr_objects),
+        )
+        results = self._objects[obj_ind[0]]
+        logger.debug(
+            "get_closest_objects - Found %i objects, from %i objects, n=%i",
+            len(results),
+            nr_objects,
+            n,
+        )
+        return results

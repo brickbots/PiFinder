@@ -12,8 +12,9 @@ import datetime
 import re
 from tqdm import tqdm
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 from dataclasses import dataclass, field
+from PiFinder.composite_object import MagnitudeObject
 
 # from PiFinder.obj_types import OBJ_DESCRIPTORS
 import PiFinder.utils as utils
@@ -21,15 +22,12 @@ from PiFinder.ui.ui_utils import normalize
 from PiFinder.calc_utils import (
     ra_to_deg,
     dec_to_deg,
-    sf_utils,
     b1950_to_j2000,
-    epoch_to_epoch,
 )
 from PiFinder import calc_utils
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from collections import namedtuple, defaultdict
-from sqlite3 import Connection, Cursor, Error
 import sqlite3
 
 objects_db: ObjectsDatabase
@@ -43,10 +41,9 @@ class NewCatalogObject:
     sequence: int
     ra: float
     dec: float
+    mag: MagnitudeObject
     object_id: int = 0
-    mag: float = 99
     size: str = ""
-    constellation: str = ""
     description: str = ""
     aka_names: list[str] = field(default_factory=list)
 
@@ -55,7 +52,7 @@ class NewCatalogObject:
         Inserts object into DB
         """
         # sanity checks
-        if type(self.aka_names) != list:
+        if type(self.aka_names) is not list:
             raise TypeError("Aka names not list")
 
         # Check to see if this object matches one in the DB already
@@ -64,6 +61,7 @@ class NewCatalogObject:
         if self.object_id == 0:
             # Did not find a match, first insert object info
             self.find_constellation()
+            assert isinstance(self.mag, MagnitudeObject)
 
             self.object_id = objects_db.insert_object(
                 self.object_type,
@@ -71,7 +69,7 @@ class NewCatalogObject:
                 self.dec,
                 self.constellation,
                 self.size,
-                self.mag,
+                self.mag.to_json(),
             )
 
         # By the time we get here, we have an object_id
@@ -107,6 +105,36 @@ class NewCatalogObject:
             if _id is not None:
                 self.object_id = _id
                 break
+
+
+def dedup_names():
+    """
+    Goes through the names table and makes sure there is only one
+    of each name
+
+    CURRENTLY only prints duplicates for inspection
+    """
+
+    _conn, db_c = ObjectsDatabase().get_conn_cursor()
+    # get all names
+    names = db_c.execute("select object_id, common_name from names").fetchall()
+
+    name_dict = {}
+    for name_rec in names:
+        if name_rec["common_name"] not in name_dict.keys():
+            name_dict[name_rec["common_name"]] = name_rec["object_id"]
+        else:
+            if name_rec["object_id"] != name_dict[name_rec["common_name"]]:
+                print("FAIL")
+                print(name_rec["common_name"], name_rec["object_id"])
+
+
+# Convert to float, filtering out non-numeric values
+def safe_convert_to_float(x):
+    try:
+        return float(x)
+    except ValueError:
+        return None
 
 
 class ObjectFinder:
@@ -165,9 +193,9 @@ def count_rows_per_distinct_column(conn, db_c, table, column):
 
 
 def get_catalog_counts():
-    conn, db_c = objects_db.get_conn_cursor()
+    _conn, db_c = objects_db.get_conn_cursor()
     db_c.execute(
-        f"SELECT catalog_code, count(*) from catalog_objects group by catalog_code"
+        "SELECT catalog_code, count(*) from catalog_objects group by catalog_code"
     )
     result = list(db_c.fetchall())
     for row in result:
@@ -329,7 +357,6 @@ def load_egc():
     delete_catalog_from_database(catalog)
 
     insert_catalog(catalog, Path(utils.astro_data_dir, "EGC.desc"))
-    object_finder = ObjectFinder()
     egc = Path(utils.astro_data_dir, "egc.tsv")
     with open(egc, "r") as df:
         # skip title line
@@ -339,7 +366,6 @@ def load_egc():
             sequence = dfs[0]
             other_names = dfs[1].split(",")
 
-            const = dfs[6]
             ra = dfs[2].split()
             ra_h = int(ra[0])
             ra_m = int(ra[1])
@@ -353,13 +379,13 @@ def load_egc():
             dec_deg = dec_to_deg(dec_deg, dec_m, dec_s)
 
             size = dfs[5]
-            mag = dfs[4]
+            mag = MagnitudeObject([float(dfs[4])])
             desc = dfs[7]
 
             new_object = NewCatalogObject(
                 object_type="Gb",
                 catalog_code=catalog,
-                sequence=sequence,
+                sequence=int(sequence),
                 ra=ra_deg,
                 dec=dec_deg,
                 mag=mag,
@@ -379,14 +405,12 @@ def load_collinder():
     conn, _db_c = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, Path(utils.astro_data_dir, "collinder.desc"))
-    object_finder = ObjectFinder()
     coll = Path(utils.astro_data_dir, "collinder.txt")
     Collinder = namedtuple(
         "Collinder",
         [
             "sequence",
             "other_names",
-            "const",
             "ra_deg",
             "dec_deg",
             "size",
@@ -403,7 +427,6 @@ def load_collinder():
             if other_names.isnumeric():
                 other_names = "NGC " + other_names
 
-            const = dfs[2]
             ra = dfs[3]
             ra_h = int(ra[0:2])
             ra_m = int(ra[4:6])
@@ -427,7 +450,6 @@ def load_collinder():
             collinder = Collinder(
                 sequence=sequence,
                 other_names=other_names.strip(),
-                const=const,
                 ra_deg=ra_deg,
                 dec_deg=dec_deg,
                 size=size,
@@ -450,7 +472,9 @@ def load_collinder():
             obj_type = type_trans.get(dfs[4], "OC")
             mag = dfs[6].strip().split(" ")[0]
             if mag == "-":
-                mag = ""
+                mag = MagnitudeObject([])
+            else:
+                mag = MagnitudeObject([float(mag)])
             other_names = dfs[2].strip()
             c_tuple = c_dict[sequence]
 
@@ -466,7 +490,7 @@ def load_collinder():
             new_object = NewCatalogObject(
                 object_type=obj_type,
                 catalog_code=catalog,
-                sequence=sequence,
+                sequence=int(sequence),
                 ra=c_tuple.ra_deg,
                 dec=c_tuple.dec_deg,
                 mag=mag,
@@ -500,7 +524,7 @@ def load_bright_stars():
 
             logging.debug(f"---------------> Bright Stars {sequence=} <---------------")
             size = ""
-            const = dfs[2].strip()
+            # const = dfs[2].strip()
             desc = ""
 
             ra_h = int(dfs[3])
@@ -511,17 +535,22 @@ def load_bright_stars():
             dec_m = float(dfs[6])
             dec_deg = dec_to_deg(dec_d, dec_m, 0)
 
-            mag = dfs[7].strip()
-            const = dfs[8].strip()
+            mag = MagnitudeObject([float(dfs[7].strip())])
+            # const = dfs[8]
 
-            object_id = objects_db.insert_object(
-                obj_type, ra_deg, dec_deg, const, size, mag
+            new_object = NewCatalogObject(
+                object_type=obj_type,
+                catalog_code=catalog,
+                sequence=int(sequence),
+                ra=ra_deg,
+                dec=dec_deg,
+                mag=mag,
+                size=size,
+                description=desc,
+                aka_names=other_names,
             )
+            new_object.insert()
 
-            for other_name in other_names:
-                objects_db.insert_name(object_id, other_name, catalog)
-
-            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
     insert_catalog_max_sequence(catalog)
     conn.commit()
 
@@ -586,10 +615,14 @@ def load_sac_asterisms():
             logging.debug(
                 f"---------------> SAC Asterisms {sequence=} <---------------"
             )
-            const = dfs[2].strip()
+            # const = dfs[2].strip()
             ra = dfs[3].strip()
             dec = dfs[4].strip()
             mag = dfs[5].strip()
+            if mag == "none":
+                mag = MagnitudeObject([])
+            else:
+                mag = MagnitudeObject([float(mag)])
             size = (
                 dfs[6]
                 .replace(" ", "")
@@ -609,14 +642,19 @@ def load_sac_asterisms():
             dec_m = float(dec[1])
             dec_deg = dec_to_deg(dec_d, dec_m, 0)
 
-            if mag == "none":
-                mag = ""
-
-            object_id = objects_db.insert_object(
-                obj_type, ra_deg, dec_deg, const, size, mag
+            new_object = NewCatalogObject(
+                object_type=obj_type,
+                catalog_code=catalog,
+                sequence=sequence,
+                ra=ra_deg,
+                dec=dec_deg,
+                mag=mag,
+                size=size,
+                description=desc,
+                aka_names=[other_names],
             )
-            objects_db.insert_name(object_id, other_names, catalog)
-            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
+            new_object.insert()
+
     insert_catalog_max_sequence(catalog)
     conn.commit()
 
@@ -640,8 +678,7 @@ def load_sac_multistars():
             other_names = dfs[6].strip().split(";")
             name.extend(other_names)
             name = [trim_string(x.strip()) for x in name if x != ""]
-            other_names = ", ".join(name)
-            if other_names == "":
+            if not name:
                 continue
             else:
                 sequence += 1
@@ -649,12 +686,15 @@ def load_sac_multistars():
             logging.debug(
                 f"---------------> SAC Multistars {sequence=} <---------------"
             )
-            const = dfs[1].strip()
+            # const = dfs[1].strip()
             ra = dfs[3].strip()
             dec = dfs[4].strip()
             components = dfs[5].strip()
-            mag = dfs[7].strip()
-            mag2 = dfs[8].strip()
+            mag = [dfs[7].strip(), dfs[8].strip()]
+            mag = [x for x in mag if x != "none" and x != ""]
+            mag = [float(x) if utils.is_number(x) else x for x in mag]
+            mag = MagnitudeObject(mag)
+
             sep = dfs[9].strip()
             pa = dfs[10].strip()
             desc = dfs[11].strip()
@@ -671,14 +711,18 @@ def load_sac_multistars():
             dec_m = float(dec[1])
             dec_deg = dec_to_deg(dec_d, dec_m, 0)
 
-            if mag == "none":
-                mag = ""
-
-            object_id = objects_db.insert_object(
-                obj_type, ra_deg, dec_deg, const, sep, f"{mag}/{mag2}"
+            new_object = NewCatalogObject(
+                object_type=obj_type,
+                catalog_code=catalog,
+                sequence=sequence,
+                ra=ra_deg,
+                dec=dec_deg,
+                mag=mag,
+                size=sep,
+                description=desc,
+                aka_names=name,
             )
-            objects_db.insert_name(object_id, other_names, catalog)
-            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
+            new_object.insert()
 
     insert_catalog_max_sequence(catalog)
     conn.commit()
@@ -708,8 +752,7 @@ def load_sac_redstars():
             other_names = dfs[2].strip().split(";")
             name.extend(other_names)
             name = [trim_string(x.strip()) for x in name if x != ""]
-            other_names = ", ".join(name)
-            if other_names == "":
+            if not name:
                 continue
             else:
                 sequence += 1
@@ -717,11 +760,15 @@ def load_sac_redstars():
             logging.debug(
                 f"---------------> SAC Red Stars {sequence=} <---------------"
             )
-            const = dfs[3].strip()
+            # const = dfs[3].strip()
             ra = dfs[4].strip()
             dec = dfs[5].strip()
             size = ""
             mag = dfs[6].strip()
+            if mag == "none":
+                mag = MagnitudeObject([])
+            else:
+                mag = MagnitudeObject([float(mag)])
             bv = dfs[7].strip()
             spec = dfs[8].strip()
             notes = dfs[9].strip()
@@ -739,14 +786,18 @@ def load_sac_redstars():
             dec_m = float(dec[1])
             dec_deg = dec_to_deg(dec_d, dec_m, 0)
 
-            if mag == "none":
-                mag = ""
-
-            object_id = objects_db.insert_object(
-                obj_type, ra_deg, dec_deg, const, size, mag
+            new_object = NewCatalogObject(
+                object_type=obj_type,
+                catalog_code=catalog,
+                sequence=sequence,
+                ra=ra_deg,
+                dec=dec_deg,
+                mag=mag,
+                size=size,
+                description=desc,
+                aka_names=name,
             )
-            objects_db.insert_name(object_id, other_names, catalog)
-            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
+            new_object.insert()
 
     insert_catalog_max_sequence(catalog)
     conn.commit()
@@ -758,7 +809,6 @@ def load_taas200():
     conn, _ = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, Path(utils.astro_data_dir, "taas200.desc"))
-    object_finder = ObjectFinder()
     data = Path(utils.astro_data_dir, "TAAS_200.csv")
     sequence = 0
 
@@ -796,7 +846,6 @@ def load_taas200():
 
             other_names = row["Name"]
             logging.debug(f"TAAS catalog {other_catalog=} {other_names=}")
-            const = row["Const"]
             obj_type = typedict[row["Type"]]
             ra = ra_to_deg(float(row["RA Hr"]), float(row["RA Min"]), 0)
             dec_deg = row["Dec Deg"]
@@ -805,6 +854,10 @@ def load_taas200():
             )
             dec = dec_to_deg(dec_deg, float(row["Dec Min"]), 0)
             mag = row["Magnitude"]
+            if mag == "none" or mag == "":
+                mag = MagnitudeObject([])
+            else:
+                mag = MagnitudeObject([float(mag)])
             size = row["Size"]
             desc = row["Description"]
             nr_stars = row["# Stars"]
@@ -820,9 +873,6 @@ def load_taas200():
             if len(extra) > 0:
                 extra_desc = "\n" + "; ".join(extra)
                 desc += extra_desc
-
-            if mag == "none":
-                mag = "null"
 
             duplicate_names = set(other_catalog)
             duplicate_names.add(other_names)
@@ -849,7 +899,6 @@ def load_caldwell():
     conn, _ = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, Path(utils.astro_data_dir, "caldwell.desc"))
-    object_finder = ObjectFinder()
     data = Path(utils.astro_data_dir, "caldwell.dat")
     with open(data, "r") as df:
         for line in tqdm(list(df)):
@@ -858,10 +907,11 @@ def load_caldwell():
             logging.debug(f"<----------------- Caldwell {sequence=} ----------------->")
             other_names = add_space_after_prefix(dfs[1])
             obj_type = dfs[2]
-            const = dfs[3]
             mag = dfs[4]
             if mag == "--":
-                mag = "null"
+                mag = MagnitudeObject([])
+            else:
+                mag = MagnitudeObject([float(mag)])
             size = dfs[5][5:].strip()
             ra_h = int(dfs[6])
             ra_m = float(dfs[7])
@@ -877,7 +927,7 @@ def load_caldwell():
             new_object = NewCatalogObject(
                 object_type=obj_type,
                 catalog_code=catalog,
-                sequence=sequence,
+                sequence=int(sequence),
                 ra=ra_deg,
                 dec=dec_deg,
                 mag=mag,
@@ -898,7 +948,6 @@ def load_rasc_double_Stars():
     path = Path(utils.astro_data_dir, "RASC_DoubleStars")
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, path / "rasc_ds.desc")
-    object_finder = ObjectFinder()
     data = path / "rasc_double_stars.csv"
     # Sequence Target	AlternateID	WDS	Con	RA2000	Dec2000	Mag MaxSep Notes
     with open(data, "r") as df:
@@ -912,9 +961,9 @@ def load_rasc_double_Stars():
             alternate_ids = dfs[2].split(",")
             wds = dfs[3]
             obj_type = "D*"
-            const = dfs[4]
+            # const = dfs[4]
             mags = json.loads(dfs[7])
-            mag = mags[0]
+            mag = MagnitudeObject(mags)
             size = dfs[8]
             # 03 31.1	+27 44
             ra = dfs[5].split()
@@ -927,17 +976,21 @@ def load_rasc_double_Stars():
             dec_m = float(dec[1])
             dec_deg = dec_to_deg(dec_deg, dec_m, 0)
             desc = dfs[9].strip().replace("<NEWLINE>", "\n").replace("<SECS>", '"')
-            object_id = object_finder.get_object_id(wds)
-            if not object_id:
-                object_id = objects_db.insert_object(
-                    obj_type, ra_deg, dec_deg, const, size, mag
-                )
-                logging.debug(f"inserting unknown object {object_id=}")
-            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
-            for name in alternate_ids:
-                objects_db.insert_name(object_id, name, catalog)
-            objects_db.insert_name(object_id, wds, catalog)
-            objects_db.insert_name(object_id, target, catalog)
+            aka_names = [target, wds] + alternate_ids
+
+            new_object = NewCatalogObject(
+                object_type=obj_type,
+                catalog_code=catalog,
+                sequence=int(sequence),
+                ra=ra_deg,
+                dec=dec_deg,
+                mag=mag,
+                size=size,
+                description=desc,
+                aka_names=aka_names,
+            )
+            new_object.insert()
+
     insert_catalog_max_sequence(catalog)
     conn.commit()
 
@@ -987,14 +1040,20 @@ def load_barnard():
             dec_m = DE2000m
             dec_deg = dec_to_deg(dec_deg, dec_m, 0)
             desc = barn_dict[Barn].strip()
-            const = sf_utils.radec_to_constellation(ra_deg, dec_deg)
-            # object_id = object_finder.get_object_id(wds)
-            # if not object_id:
-            object_id = objects_db.insert_object(
-                obj_type, ra_deg, dec_deg, const, Diam, ""
+
+            new_object = NewCatalogObject(
+                object_type=obj_type,
+                catalog_code=catalog,
+                sequence=int(Barn),
+                ra=ra_deg,
+                dec=dec_deg,
+                mag=MagnitudeObject([]),
+                size=str(Diam),
+                description=desc,
+                aka_names=[],
             )
-            logging.debug(f"inserting unknown object {object_id=}")
-            objects_db.insert_catalog_object(object_id, catalog, sequence, desc)
+            new_object.insert()
+
     insert_catalog_max_sequence(catalog)
     conn.commit()
 
@@ -1079,11 +1138,9 @@ def load_sharpless():
         j_ra_h, j_dec_deg = b1950_to_j2000(ra_hours, dec_deg)
         j_ra_deg = j_ra_h._degrees
         j_dec_deg = j_dec_deg._degrees
-        const = sf_utils.radec_to_constellation(j_ra_deg, j_dec_deg)
         desc = f"{form[record['Form']]}, {struct[record['Struct']]}, {bright[record['Bright']]}, {record['Stars']}\n"
 
         desc += descriptions_dict[str(sh2)]
-        current_object = f"Sh2-{sh2}"
         current_akas = akas_dict[sh2] if sh2 in akas_dict else []
 
         new_object = NewCatalogObject(
@@ -1093,6 +1150,7 @@ def load_sharpless():
             ra=j_ra_deg,
             dec=dec_deg,
             size=str(record["Diam"]),
+            mag=MagnitudeObject([]),
             description=desc,
             aka_names=current_akas,
         )
@@ -1106,13 +1164,10 @@ def load_sharpless():
 def load_arp():
     logging.info("Loading Arp")
     catalog = "Arp"
-    obj_type = "Gx"
     path = Path(utils.astro_data_dir, "arp")
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, path / "arp.desc")
-    data = path / "table2.txt"
     comments = path / "arp_comments.csv"
-    records = []
 
     def expand(name):
         expanded_list = []
@@ -1154,7 +1209,7 @@ def load_arp():
     )
     """
     There are multiple rows per object if there are multiple names
-    so iterate through collecting names and object info and then 
+    so iterate through collecting names and object info and then
     write objects when the id changes
     """
     last_id = None
@@ -1167,13 +1222,19 @@ def load_arp():
                 new_object.insert()
 
             last_id = row["catalog_identifier"]
+            mag = row["magnitude"]
+            if utils.is_number(mag):
+                mag = MagnitudeObject([float(mag)])
+            else:
+                print(f"Skipping {row['name']} {row['catalog_identifier']} {mag}")
+                mag = MagnitudeObject([])
             new_object = NewCatalogObject(
                 object_type="Gx",
                 catalog_code="Arp",
                 sequence=row["catalog_identifier"],
                 ra=row["ra"],
                 dec=row["dec"],
-                mag=row["magnitude"],
+                mag=mag,
                 description=arp_comments.get(row["catalog_identifier"], ""),
                 aka_names=[row["name"]],
             )
@@ -1184,18 +1245,69 @@ def load_arp():
     arp_conn.commit()
 
 
+def load_tlk_90_vars():
+    logging.info("Loading TLK 90 Vars")
+    catalog = "TLK"
+    obj_type = "* "
+    conn, _ = objects_db.get_conn_cursor()
+    path = Path(utils.astro_data_dir, "variables/TLK_90_vars")
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, path / "v90.desc")
+    data = path / "v90.csv"
+
+    # Open the file for reading
+    with open(data, "r") as file:
+        reader = csv.DictReader(file, delimiter=";")
+        for nr, row in enumerate(tqdm(list(reader))):
+            # Extract the relevant parts of each line based on byte positions
+
+            v90_id = nr + 1
+            ra_h = int(row["RA2K_H"])
+            ra_m = int(row["RA2K_M"])
+            ra_s = float(row["RA2K_S"].replace(",", "."))
+            ra_deg = ra_to_deg(ra_h, ra_m, ra_s)
+
+            dec_sign = -1 if row["DEC2K_SIGN"] == "-" else 1
+            dec_deg = dec_sign * int(row["DEC2K_D"])
+            dec_m = int(row["DEC2K_M"])
+            dec_s = float(row["DEC2K_S"])
+            dec_deg = dec_to_deg(dec_deg, dec_m, dec_s)
+
+            desc = str(row["DESCRIPTION"])
+            mag_max = float(row["MagMax"].replace(",", "."))
+            mag_min = float(row["MagMin"].replace(",", "."))
+            mag_object = MagnitudeObject([mag_max, mag_min])
+
+            current_akas = row["STAR"].split(",") if row["STAR"] else []
+            if row["SAO#"]:
+                current_akas.append(f"SAO {row['SAO#']}")
+
+            new_object = NewCatalogObject(
+                object_type=obj_type,
+                catalog_code=catalog,
+                sequence=v90_id,
+                ra=ra_deg,
+                dec=dec_deg,
+                mag=mag_object,
+                size="",
+                description=desc,
+                aka_names=current_akas,
+            )
+
+            new_object.insert()
+
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
+
+
 def load_abell():
     logging.info("Loading Abell")
-    object_finder = ObjectFinder()
     catalog = "Abl"
     obj_type = "PN"
     conn, _ = objects_db.get_conn_cursor()
     data = Path(utils.astro_data_dir, "abell.tsv")
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, Path(utils.astro_data_dir) / "abell.desc")
-
-    # Define a list to hold all the extracted records
-    records = []
 
     # Open the file for reading
     with open(data, "r") as file:
@@ -1214,8 +1326,8 @@ def load_abell():
                 sequence=int(split_line[0].strip()),
                 ra=float(split_line[3].strip()),
                 dec=float(split_line[4].strip()),
-                mag=float(split_line[5].strip()),
-                size=float(split_line[6].strip()),
+                mag=MagnitudeObject([float(split_line[5].strip())]),
+                size=split_line[6].strip(),
                 aka_names=aka_names,
             )
 
@@ -1258,10 +1370,13 @@ def load_ngc_catalog():
                 des = line[19:20]
                 ded = int(line[20:22])
                 dem = int(line[23:25])
-                const = line[29:32]
                 line_size = line[32:33]
                 size = line_size + line[33:38]
-                mag = line[40:44]
+                mag = line[40:44].strip()
+                if mag == "":
+                    mag = MagnitudeObject([])
+                else:
+                    mag = MagnitudeObject([float(mag)])
                 desc = line[46:].strip()
 
                 dec = ded + (dem / 60)
@@ -1372,7 +1487,6 @@ if __name__ == "__main__":
     objects_db.destroy_tables()
     objects_db.create_tables()
     logging.info("loading catalogs")
-
     # These load functions must be kept in this order
     # to keep some of the object referencing working
     # particularly starting with the NGC as the base
@@ -1391,6 +1505,7 @@ if __name__ == "__main__":
     load_sharpless()
     load_abell()
     load_arp()
+    load_tlk_90_vars()
 
     # Populate the images table
     logging.info("Resolving object images...")

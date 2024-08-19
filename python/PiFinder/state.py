@@ -1,21 +1,51 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-    This module contains the shared state
-    object.
+This module contains the shared state
+object.
 """
+
 import time
 import datetime
 import pickle
 import pytz
 from PiFinder import config
 import logging
+from typing import List
+from PiFinder.composite_object import CompositeObject
+
+
+class RecentCompositeObjectList(list):
+    def __init__(self):
+        super().__init__()
+
+    def append(self, item: CompositeObject) -> None:
+        # Remove the item if it's already in the list
+        try:
+            super().remove(item)
+        except ValueError:
+            pass
+
+        # Add the item to the end of the list
+        super().append(item)
+
+    def __iter__(self):
+        return super().__iter__()
+
+    def __repr__(self) -> str:
+        return f"RecentList({super().__repr__()})"
+
+    def __str__(self) -> str:
+        return super().__str__()
+
+
+logger = logging.getLogger("SharedState")
 
 
 class UIState:
     def __init__(self):
         self.__observing_list = []
-        self.__history_list = []
+        self.__recent = RecentCompositeObjectList()
         self.__active_list = []  # either observing or history
         self.__target = None
         self.__message_timeout = 0
@@ -28,11 +58,11 @@ class UIState:
     def set_observing_list(self, v):
         self.__observing_list = v
 
-    def history_list(self):
-        return self.__history_list
+    def recent_list(self) -> List[CompositeObject]:
+        return list(reversed(self.__recent))
 
-    def set_history_list(self, v):
-        self.__history_list = v
+    def add_recent(self, v: CompositeObject):
+        self.__recent.append(v)
 
     def active_list(self):
         return self.__active_list
@@ -80,8 +110,8 @@ class UIState:
         self.__target = self.__active_list[index]
 
     def set_target_and_add_to_history(self, target):
-        logging.debug("set_target_and_add_to_history")
-        logging.debug(f"setting target to {target}")
+        logger.debug("set_target_and_add_to_history")
+        logger.debug("setting target to %s", target)
         self.__target = target
         if len(self.__history_list) == 0:
             self.__history_list.append(self.__target)
@@ -221,14 +251,14 @@ class SharedStateObj:
         self.__last_image_metadata = v
 
     def datetime(self):
-        if self.__datetime == None:
+        if self.__datetime is None:
             return self.__datetime
         return self.__datetime + datetime.timedelta(
             seconds=time.time() - self.__datetime_time
         )
 
     def local_datetime(self):
-        if self.__datetime == None:
+        if self.__datetime is None:
             return self.__datetime
 
         if not self.__location:
@@ -238,11 +268,11 @@ class SharedStateObj:
         return dt.astimezone(pytz.timezone(self.__location["timezone"]))
 
     def set_datetime(self, dt):
-        if dt.tzname() == None:
+        if dt.tzname() is None:
             utc_tz = pytz.timezone("UTC")
             dt = utc_tz.localize(dt)
 
-        if self.__datetime == None:
+        if self.__datetime is None:
             self.__datetime_time = time.time()
             self.__datetime = dt
         else:

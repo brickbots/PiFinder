@@ -7,44 +7,63 @@ This module is the solver
 * If solved, emits solution into queue
 
 """
+
+from PiFinder.multiproclogging import MultiprocLogging
 import numpy as np
 import time
 import logging
 import sys
 from time import perf_counter as precision_timestamp
 
-
+from PiFinder import state_utils
 from PiFinder import utils
 
 sys.path.append(str(utils.tetra3_dir))
 import PiFinder.tetra3.tetra3 as tetra3
 from PiFinder.tetra3.tetra3 import cedar_detect_client
 
+logger = logging.getLogger("Solver")
 
-def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=False):
-    logging.getLogger("tetra3.Tetra3").addHandler(logging.NullHandler())
-    logging.debug("Starting Solver")
+
+def solver(
+    shared_state, solver_queue, camera_image, console_queue, log_queue, is_debug=False
+):
+    MultiprocLogging.configurer(log_queue)
+    logger.debug("Starting Solver")
     t3 = tetra3.Tetra3(
         str(utils.cwd_dir / "PiFinder/tetra3/tetra3/data/default_database.npz")
     )
     last_solve_time = 0
     solved = {
+        # RA, Dec, Roll solved at the center of the camera FoV:
+        "RA_camera": None,
+        "Dec_camera": None,
+        "Roll_camera": None,
+        # RA, Dec, Roll at the target pixel
         "RA": None,
         "Dec": None,
+        "Roll": None,
         "imu_pos": None,
         "solve_time": None,
         "cam_solve_time": 0,
     }
 
-    # Start cedar detext server
-    cedar_detect = cedar_detect_client.CedarDetectClient(
-        binary_path=str(utils.cwd_dir / "../bin/cedar-detect-server-")
-        + shared_state.arch()
-    )
+    # Start cedar detect server
+    try:
+        cedar_detect = cedar_detect_client.CedarDetectClient(
+            binary_path=str(utils.cwd_dir / "../bin/cedar-detect-server-")
+            + shared_state.arch()
+        )
+    except FileNotFoundError as e:
+        logger.warn(
+            "Not using cedar_detect, as corresponding file '%s' could not be found",
+            e.filename,
+        )
+        cedar_detect = None
 
     try:
         while True:
-            utils.sleep_for_framerate(shared_state)
+            state_utils.sleep_for_framerate(shared_state)
 
             # use the time the exposure started here to
             # reject images started before the last solve
@@ -59,7 +78,7 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                 np_image = np.asarray(img, dtype=np.uint8)
 
                 t0 = precision_timestamp()
-                if shared_state.camera_align():
+                if cedar_detect is None or shared_state.camera_align():
                     # Use old tetr3 centroider to handle bloated/overexposed
                     # stars in alignment
                     centroids = tetra3.get_centroids_from_image(np_image)
@@ -67,15 +86,14 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                     centroids = cedar_detect.extract_centroids(
                         np_image, sigma=8, max_size=10, use_binned=True
                     )
-
                 t_extract = (precision_timestamp() - t0) * 1000
-                logging.debug(
+                logger.debug(
                     "File %s, extracted %d centroids in %.2fms"
                     % ("camera", len(centroids), t_extract)
                 )
 
                 if len(centroids) == 0:
-                    # logging.debug("No stars found, skipping")
+                    logger.warn("No stars found, skipping")
                     continue
                 else:
                     solution = t3.solve_from_centroids(
@@ -104,22 +122,30 @@ def solver(shared_state, solver_queue, camera_image, console_queue, is_debug=Fal
                 total_tetra_time = t_extract + solved["T_solve"]
                 if total_tetra_time > 1000:
                     console_queue.put(f"SLV: Long: {total_tetra_time}")
+                    logger.warn("Long solver time: %i", total_tetra_time)
 
                 if solved["RA"] is not None:
-                    # map the RA/DEC to the target pixel RA/DEC
+                    # RA, Dec, Roll at the center of the camera's FoV:
+                    solved["RA_camera"] = solved["RA"]
+                    solved["Dec_camera"] = solved["Dec"]
+                    solved["Roll_camera"] = solved["Roll"]
+                    # RA, Dec, Roll at the target pixel:
                     solved["RA"] = solved["RA_target"]
                     solved["Dec"] = solved["Dec_target"]
+                    solved["Roll"] = None  # To be calculated in integrator.py
                     if last_image_metadata["imu"]:
                         solved["imu_pos"] = last_image_metadata["imu"]["pos"]
                         solved["imu_quat"] = last_image_metadata["imu"]["quat"]
                     else:
                         solved["imu_pos"] = None
+                        solved["imu_quat"] = None
                     solved["solve_time"] = time.time()
                     solved["cam_solve_time"] = solved["solve_time"]
                     solver_queue.put(solved)
 
                 last_solve_time = last_image_metadata["exposure_end"]
     except EOFError:
-        logging.error("Main no longer running for solver")
+        logger.error("Main no longer running for solver")
     except Exception as e:
-        logging.error("Solver exception %s", e)
+        logger.error("Exception in Solver")
+        logger.exception(e)

@@ -1,15 +1,14 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-This module fetchs images from sky survey sources on the internet
+This module fetches images from sky survey sources on the internet
 and prepares them for PiFinder use.
 """
+
 import requests
-import sqlite3
 import os
 from tqdm import tqdm
-from PIL import Image, ImageOps, ImageDraw, ImageFont
-from PiFinder import image_util, cat_images
+from PIL import Image, ImageOps
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.catalogs import CompositeObject
 

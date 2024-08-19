@@ -1,5 +1,5 @@
 import PiFinder.utils as utils
-from sqlite3 import Connection, Cursor, Error
+from sqlite3 import Connection, Cursor
 from typing import Tuple, DefaultDict, List, Dict
 from PiFinder.db.db import Database
 from collections import defaultdict
@@ -163,6 +163,12 @@ class ObjectsDatabase(Database):
         for object_id in name_dict:
             name_dict[object_id] = list(set(name_dict[object_id]))
         return name_dict
+
+    def search_common_names(self, search_term):
+        self.cursor.execute(
+            "SELECT * FROM names WHERE common_name LIKE ?;", (f"%{search_term}%",)
+        )
+        return self.cursor.fetchall()
 
     def get_name_to_object_id(self) -> Dict[str, int]:
         """

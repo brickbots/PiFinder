@@ -8,7 +8,11 @@
 # 3. In Pcbnew, click "Tools > External Plugins > Horizon Board Producer"
 # 4. If successful, 3 gerber zip files are created in the gerbers folder: main board, top plate, and bottom plate
 
-import pcbnew, wx, os, shutil, re
+import pcbnew
+import wx
+import os
+import shutil
+import re
 
 
 class PiFinderBoardProducer(pcbnew.ActionPlugin):
@@ -193,11 +197,7 @@ class PiFinderBoardProducer(pcbnew.ActionPlugin):
                     continue
                 else:
                     remove_footprint_items = []
-                    for (
-                        pad
-                    ) in (
-                        footprint.Pads()
-                    ):  # Convert SMD circle/oval pads on target layer to NPTH pads, and remove all other pads
+                    for pad in footprint.Pads():  # Convert SMD circle/oval pads on target layer to NPTH pads, and remove all other pads
                         if pad.IsOnLayer(
                             board.GetLayerID(layer_name)
                         ) and pad.GetShape() in [
@@ -216,11 +216,7 @@ class PiFinderBoardProducer(pcbnew.ActionPlugin):
                             pad.SetPosition(pad.GetPosition())
                         else:
                             remove_footprint_items.append(pad)
-                    for (
-                        graphic
-                    ) in (
-                        footprint.GraphicalItems()
-                    ):  # Convert graphics on target layer to edge cuts, and remove all other graphics
+                    for graphic in footprint.GraphicalItems():  # Convert graphics on target layer to edge cuts, and remove all other graphics
                         if graphic.IsOnLayer(board.GetLayerID(layer_name)):
                             graphic.SetLayer(
                                 board.GetLayerID("Edge.Cuts")

@@ -1,0 +1,9 @@
+# dev requirements
+luma.emulator==1.4.0
+PyHotKey==1.5.2
+ruff==0.4.8
+nox==2024.4.15
+mypy==1.10.0
+pytest==8.2.2
+pygame==2.6.0
+pre-commit==3.7.1

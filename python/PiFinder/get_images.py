@@ -4,8 +4,9 @@
 This script runs to fetch
 images from AWS
 """
-import requests, os
-import sqlite3
+
+import requests
+import os
 from tqdm import tqdm
 
 from PiFinder import cat_images

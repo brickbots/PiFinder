@@ -1,12 +1,15 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
+# mypy: ignore-errors
 """
 This module contains all the UI Module classes
 
 """
+
 import time
 from PIL import ImageChops, Image
 
+from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder import plot
 from PiFinder.ui.base import UIModule
@@ -15,41 +18,13 @@ from PiFinder import calc_utils
 
 class UIChart(UIModule):
     __title__ = "CHART"
-    __button_hints__ = {
-        "B": "Reticl",
-        "C": "Const",
-        "D": "DSOs",
-    }
-    _config_options = {
-        "Reticle": {
-            "type": "enum",
-            "value": "Med",
-            "options": ["Off", "Low", "Med", "High"],
-            "hotkey": "B",
-        },
-        "Constellations": {
-            "type": "enum",
-            "value": "Med",
-            "options": ["Off", "Low", "Med", "High"],
-            "hotkey": "C",
-        },
-        "Obs List": {
-            "type": "enum",
-            "value": "Med",
-            "options": ["Off", "Low", "Med", "High"],
-            "hotkey": "D",
-        },
-        "RA/Dec": {
-            "type": "enum",
-            "value": "Off",
-            "options": ["Off", "HH:MM", "Degr"],
-        },
-    }
+    __help_name__ = "chart"
 
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.message("Loading Chart", 0.1)
         self.last_update = time.time()
-        self.starfield = plot.Starfield(self.colors)
+        self.starfield = plot.Starfield(self.colors, self.display_class.resolution)
         self.solution = None
         self.fov_list = [5, 10.2, 20, 30, 60]
         self.fov_index = 1
@@ -59,9 +34,14 @@ class UIChart(UIModule):
         self.fov = self.desired_fov
         self.set_fov(self.desired_fov)
 
-        # set config options
-        self._config_options["RA/Dec"]["value"] = self.config_object.get_option(
-            "chart_display_radec"
+        # Marking menu definition
+        self.marking_menu = MarkingMenu(
+            left=MarkingMenuOption(),
+            down=MarkingMenuOption(
+                label="Options",
+                menu_jump="chart_settings",
+            ),
+            right=MarkingMenuOption(),
         )
 
     def plot_markers(self):
@@ -81,31 +61,33 @@ class UIChart(UIModule):
                 (plot.Angle(degrees=target.ra)._hours, target.dec, "target")
             )
 
-        if self._config_options["Obs List"]["value"] != "Off":
-            for obs_target in self.ui_state.observing_list():
-                marker = OBJ_TYPE_MARKERS.get(obs_target.obj_type)
-                if marker:
-                    marker_list.append(
-                        (
-                            plot.Angle(degrees=obs_target.ra)._hours,
-                            obs_target.dec,
-                            marker,
-                        )
+        marker_brightness = self.config_object.get_option("chart_dso", 128)
+        if marker_brightness == 0:
+            return
+
+        for obs_target in self.ui_state.observing_list():
+            marker = OBJ_TYPE_MARKERS.get(obs_target.obj_type)
+            if marker:
+                marker_list.append(
+                    (
+                        plot.Angle(degrees=obs_target.ra)._hours,
+                        obs_target.dec,
+                        marker,
                     )
+                )
 
         if marker_list != []:
             marker_image = self.starfield.plot_markers(
                 marker_list,
             )
-            marker_brightness = 255
-            if self._config_options["Obs List"]["value"] == "Low":
-                marker_brightness = 64
-            if self._config_options["Obs List"]["value"] == "Med":
-                marker_brightness = 128
 
             marker_image = ImageChops.multiply(
                 marker_image,
-                Image.new("RGB", (128, 128), self.colors.get(marker_brightness)),
+                Image.new(
+                    "RGB",
+                    self.display_class.resolution,
+                    self.colors.get(marker_brightness),
+                ),
             )
             self.screen.paste(ImageChops.add(self.screen, marker_image))
 
@@ -113,25 +95,19 @@ class UIChart(UIModule):
         """
         draw the reticle if desired
         """
-        if self._config_options["Reticle"]["value"] == "Off":
+        brightness = self.config_object.get_option("chart_reticle", 128)
+        if brightness == 0:
             # None....
             return
 
-        brightness = (
-            self._config_options["Reticle"]["options"].index(
-                self._config_options["Reticle"]["value"]
-            )
-            * 32
-        )
-
         fov = self.fov
         for circ_deg in [4, 2, 0.5]:
-            circ_rad = ((circ_deg / fov) * 128) / 2
+            circ_rad = ((circ_deg / fov) * self.display_class.fov_res) / 2
             bbox = [
-                64 - circ_rad,
-                64 - circ_rad,
-                64 + circ_rad,
-                64 + circ_rad,
+                self.display_class.centerX - circ_rad,
+                self.display_class.centerY - circ_rad,
+                self.display_class.centerX + circ_rad,
+                self.display_class.centerY + circ_rad,
             ]
             self.draw.arc(bbox, 20, 70, fill=self.colors.get(brightness))
             self.draw.arc(bbox, 110, 160, fill=self.colors.get(brightness))
@@ -159,30 +135,22 @@ class UIChart(UIModule):
         self.fov = current_fov
         self.starfield.set_fov(current_fov)
 
-    def update_config(self):
-        self.config_object.set_option(
-            "chart_display_radec", self._config_options["RA/Dec"]["value"]
-        )
-
     def update(self, force=False):
         if force:
             self.last_update = 0
 
         if self.shared_state.solve_state():
             self.animate_fov()
-            constellation_brightness = (
-                self._config_options["Constellations"]["options"].index(
-                    self._config_options["Constellations"]["value"]
-                )
-                * 32
+            constellation_brightness = self.config_object.get_option(
+                "chart_constellations", 64
             )
             self.solution = self.shared_state.solution()
             last_solve_time = self.solution["solve_time"]
             if (
                 last_solve_time > self.last_update
-                and self.solution["Roll"] != None
-                and self.solution["RA"] != None
-                and self.solution["Dec"] != None
+                and self.solution["Roll"] is not None
+                and self.solution["RA"] is not None
+                and self.solution["Dec"] is not None
             ):
                 # This needs to be called first to set RA/DEC/ROLL
                 image_obj = self.starfield.plot_starfield(
@@ -199,17 +167,17 @@ class UIChart(UIModule):
                 self.plot_markers()
 
                 # Display RA/DEC in selected format if enabled
-                if self._config_options["RA/Dec"]["value"] == "HH:MM":
+                if self.config_object.get_option("chart_radec") == "HH:MM":
                     ra_h, ra_m, ra_s = calc_utils.ra_to_hms(self.solution["RA"])
                     dec_d, dec_m, dec_s = calc_utils.dec_to_dms(self.solution["Dec"])
                     ra_dec_disp = f"{ra_h:02d}:{ra_m:02d}:{ra_s:02d} / {dec_d:02d}°{dec_m:02d}:{dec_s}"
                     self.draw.text(
                         (0, 114),
                         ra_dec_disp,
-                        font=self.font_base,
+                        font=self.fonts.base.font,
                         fill=self.colors.get(255),
                     )
-                if self._config_options["RA/Dec"]["value"] == "Degr":
+                if self.config_object.get_option("chart_radec") == "Degr":
                     ra_h, ra_m, ra_s = calc_utils.ra_to_hms(self.solution["RA"])
                     dec_d, dec_m, dec_s = calc_utils.dec_to_dms(self.solution["Dec"])
                     ra_dec_disp = (
@@ -218,19 +186,28 @@ class UIChart(UIModule):
                     self.draw.text(
                         (0, 114),
                         ra_dec_disp,
-                        font=self.font_base,
+                        font=self.fonts.base.font,
                         fill=self.colors.get(255),
                     )
 
                 self.last_update = last_solve_time
 
         else:
-            self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
-            self.draw.text(
-                (18, 20), "Can't plot", font=self.font_large, fill=self.colors.get(255)
+            self.draw.rectangle(
+                [0, 0, self.display_class.resX, self.display_class.resY],
+                fill=self.colors.get(0),
             )
             self.draw.text(
-                (25, 50), "No Solve Yet", font=self.font_base, fill=self.colors.get(255)
+                (self.display_class.titlebar_height + 2, 20),
+                "Can't plot",
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
+            self.draw.text(
+                (self.display_class.titlebar_height + 2 + self.fonts.large.height, 50),
+                "No Solve Yet",
+                font=self.fonts.base.font,
+                fill=self.colors.get(255),
             )
 
         self.draw_reticle()
@@ -245,13 +222,13 @@ class UIChart(UIModule):
         self.set_fov(self.fov_list[self.fov_index])
         self.update(force=True)
 
-    def key_up(self):
+    def key_plus(self):
         self.change_fov(-1)
 
-    def key_down(self):
+    def key_minus(self):
         self.change_fov(1)
 
-    def key_enter(self):
+    def key_square(self):
         # Set back to 10.2 to match the camera view
         self.fov_index = 1
         self.set_fov(self.fov_list[self.fov_index])

@@ -6,17 +6,21 @@ This module is the solver
 * Plate solves high-res image
 
 """
+
 import queue
 import time
 import copy
 import logging
 
 from PiFinder import config
-from PiFinder import utils
+from PiFinder import state_utils
 import PiFinder.calc_utils as calc_utils
+from PiFinder.multiproclogging import MultiprocLogging
 
 IMU_ALT = 2
 IMU_AZ = 0
+
+logger = logging.getLogger("IMU.Integrator")
 
 
 def imu_moved(imu_a, imu_b):
@@ -38,16 +42,21 @@ def imu_moved(imu_a, imu_b):
     return False
 
 
-def integrator(shared_state, solver_queue, console_queue, is_debug=False):
+def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=False):
+    MultiprocLogging.configurer(log_queue)
     try:
-        logger = logging.getLogger()
         if is_debug:
             logger.setLevel(logging.DEBUG)
-        logging.debug("Starting Integrator")
+        logger.debug("Starting Integrator")
 
         solved = {
             "RA": None,
             "Dec": None,
+            "Roll": None,
+            "RA_camera": None,
+            "Dec_camera": None,
+            "Roll_camera": None,
+            "Roll_offset": 0,  # May/may not be needed - for experimentation
             "imu_pos": None,
             "Alt": None,
             "Az": None,
@@ -60,6 +69,7 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
         if (
             cfg.get_option("screen_direction") == "left"
             or cfg.get_option("screen_direction") == "flat"
+            or cfg.get_option("screen_direction") == "straight"
         ):
             flip_alt_offset = True
         else:
@@ -68,10 +78,9 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
         # This holds the last image solve position info
         # so we can delta for IMU updates
         last_image_solve = None
-        last_solved = None
         last_solve_time = time.time()
         while True:
-            utils.sleep_for_framerate(shared_state)
+            state_utils.sleep_for_framerate(shared_state)
 
             # Check for new camera solve in queue
             next_image_solve = None
@@ -105,19 +114,31 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
                     solved["Alt"] = alt
                     solved["Az"] = az
 
+                    # Experimental: For monitoring roll offset
+                    # Estimate the roll offset due misalignment of the
+                    # camera sensor with the Pole-to-Source great circle.
+                    solved["Roll_offset"] = estimate_roll_offset(solved, dt)
+                    # Find the roll at the target RA/Dec. Note that this doesn't include the
+                    # roll offset so it's not the roll that the PiFinder camear sees but the
+                    # roll relative to the celestial pole
+                    roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
+                        solved["RA"], solved["Dec"], dt
+                    )
+                    # Compensate for the roll offset. This gives the roll at the target
+                    # as seen by the camera.
+                    solved["Roll"] = roll_target_calculated + solved["Roll_offset"]
+
                 last_image_solve = copy.copy(solved)
                 solved["solve_source"] = "CAM"
 
-            # generate new solution by offsetting last camera solve
-            # if we don't have an alt/az solve
-            # we can't use the IMU
+            # Use IMU dead-reckoning from the last camera solve:
+            # Check we have an alt/az solve, otherwise we can't use the IMU
             elif solved["Alt"]:
                 imu = shared_state.imu()
                 if imu:
                     dt = shared_state.datetime()
                     if last_image_solve and last_image_solve["Alt"]:
-                        # If we have alt, then we have
-                        # a position/time
+                        # If we have alt, then we have a position/time
 
                         # calc new alt/az
                         lis_imu = last_image_solve["imu_pos"]
@@ -137,12 +158,21 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
                             solved["Alt"] = alt_upd
                             solved["Az"] = az_upd
 
+                            # N.B. Assumes that location hasn't changed since last solve
                             # Turn this into RA/DEC
                             (
                                 solved["RA"],
                                 solved["Dec"],
                             ) = calc_utils.sf_utils.altaz_to_radec(
                                 solved["Alt"], solved["Az"], dt
+                            )
+
+                            # Calculate the roll at the target RA/Dec and compensate for the offset.
+                            solved["Roll"] = (
+                                calc_utils.sf_utils.radec_to_roll(
+                                    solved["RA"], solved["Dec"], dt
+                                )
+                                + solved["Roll_offset"]
                             )
 
                             solved["solve_time"] = time.time()
@@ -159,6 +189,23 @@ def integrator(shared_state, solver_queue, console_queue, is_debug=False):
                 # add solution
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
-                last_solved = solved
     except EOFError:
-        logging.error("Main no longer running for integrator")
+        logger.error("Main no longer running for integrator")
+
+
+def estimate_roll_offset(solved, dt):
+    """
+    Estimate the roll offset due to misalignment of the camera sensor with
+    the mount/scope's coordinate system. The offset is calculated at the
+    center of the camera's FoV.
+
+    To calculate the roll with offset: roll = calculated_roll + roll_offset
+    """
+    # Calculate the expected roll at the camera center given the RA/Dec of
+    # of the camera center.
+    roll_camera_calculated = calc_utils.sf_utils.radec_to_roll(
+        solved["RA_camera"], solved["Dec_camera"], dt
+    )
+    roll_offset = solved["Roll_camera"] - roll_camera_calculated
+
+    return roll_offset
