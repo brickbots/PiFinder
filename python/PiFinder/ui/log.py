@@ -6,160 +6,72 @@ This module contains all the UI Module classes
 
 """
 
-import time
-
+from PiFinder import cat_images
+from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
-from PiFinder.catalogs import CompositeObject
-from PiFinder import obslog
-from skyfield.api import Angle
-from skyfield.positionlib import ICRF
+
+from PiFinder.db.observations_db import ObservationsDatabase
+
+
+# Constants for display modes
+DM_DESC = 0  # Display mode for description
+DM_LOCATE = 1  # Display mode for LOCATE
+DM_POSS = 2  # Display mode for POSS
+DM_SDSS = 3  # Display mode for SDSS
 
 
 class UILog(UIModule):
     """
-    Log an observation of the
-    current target
-
+    Logging!
     """
 
+    __help_name__ = "log"
     __title__ = "LOG"
-    _config_options = {
-        "Transp.": {
-            "type": "enum",
-            "value": "NA",
-            "options": ["NA", "Excl", "VGood", "Good", "Fair", "Poor"],
-        },
-        "Seeing": {
-            "type": "enum",
-            "value": "NA",
-            "options": ["NA", "Excl", "VGood", "Good", "Fair", "Poor"],
-        },
-        "Eyepiece": {
-            "type": "enum",
-            "value": "NA",
-            "options": [
-                "NA",
-                "6mm",
-                "13mm",
-                "25mm",
-            ],
-        },
-        "Obsability": {
-            "type": "enum",
-            "value": "NA",
-            "options": ["NA", "Easy", "Med", "Hard", "X Hard"],
-        },
-        "Appeal": {
-            "type": "enum",
-            "value": "NA",
-            "options": ["NA", "Low", "Med", "High", "WOW"],
-        },
-    }
 
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.target = None
-        self._observing_session = None
-        self.modal_timer = 0
-        self.modal_duration = 0
-        self.modal_text = None
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-    def reset_config(self):
-        """
-        Resets object specific note items
-        """
-        # Reset config, but leave seeing/tranparency
-        self._config_options["Obsability"]["value"] = "NA"
-        self._config_options["Appeal"]["value"] = "NA"
+        self.object = self.item_definition["object"]
 
-    def record_object(self, _object: CompositeObject):
-        """
-        Creates a session if needed
-        then records the current target
+        self.fov_list = [1, 0.5, 0.25, 0.125]
+        self.fov_index = 0
 
-        _object should be a target like CompositeObject
-
-        These will be jsonified when logging
-        """
-        # build notes
-        notes = {}
-        for k, v in self._config_options.items():
-            notes[k] = v["value"]
-
-        if self._observing_session is None:
-            self._observing_session = obslog.Observation_session(
-                self.shared_state, self.__uuid__
-            )
-
-        self.reset_config()
-
-        return self._observing_session.log_object(
-            catalog=_object.catalog_code,
-            sequence=_object.sequence,
-            solution=self.shared_state.solution(),
-            notes=notes,
+        # Marking Menu - Just default help for now
+        self.marking_menu = MarkingMenu(
+            left=MarkingMenuOption(),
+            right=MarkingMenuOption(),
+            down=MarkingMenuOption(),
         )
 
-    def key_b(self):
-        """
-        when B is pressed,
-        Just log it with preview image
-        """
-        if self.target:
-            session_uuid, obs_id = self.record_object(self.target)
-            if session_uuid is None:
-                return
-            filename = f"log_{session_uuid}_{obs_id}_low"
-            self.command_queues["camera"].put("save:" + filename)
+        # Used for displaying obsevation counts
+        self.observations_db = ObservationsDatabase()
 
-            # Start the timer for the confirm.
-            self.modal_timer = time.time()
-            self.modal_duration = 2
-            self.modal_text = "Logged!"
-            self.update()
+        solution = self.shared_state.solution()
+        roll = 0
+        if solution:
+            roll = solution["Roll"]
+        self.object_image = cat_images.get_display_image(
+            self.object, "POSS", 1, roll, self.display_class, burn_in=False
+        )
 
-    def key_d(self):
-        """
-        when D (don't) is pressed
-        Exit back to chart
-        """
-        self.reset_config()
-        self.switch_to = "UIChart"
-
-    def key_up(self):
-        pass
-
-    def key_down(self):
-        pass
-
-    def active(self):
-        # Make sure we set the logged time to 0 to indicate we
-        # have not logged yet
-        state_target = self.ui_state.target()
-        if state_target != self.target:
-            self.target = state_target
-            self.reset_config()
-        self.update()
-
-    def update(self, force=False):
+    def update(self, force=True):
+        # Clear Screen
         self.clear_screen()
 
-        if self.modal_text:
-            if time.time() - self.modal_timer > self.modal_duration:
-                self.switch_to = "UIChart"
-                self.modal_text = None
-                return self.screen_update()
+        # paste image
+        self.screen.paste(self.object_image)
 
-            padded_text = (" " * int((14 - len(self.modal_text)) / 2)) + self.modal_text
-
-            self.draw.text(
-                (0, 50),
-                padded_text,
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            return self.screen_update()
+        # dim image
+        self.draw.rectangle(
+            [
+                0,
+                0,
+                self.display_class.resX,
+                self.display_class.resY,
+            ],
+            fill=(0, 0, 0, 100),
+        )
 
         if not self.shared_state.solve_state():
             self.draw.text(
@@ -170,87 +82,34 @@ class UILog(UIModule):
             )
             return self.screen_update()
 
-        if not self.target:
-            self.draw.text(
-                (0, 20),
-                "No Target Set",
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            return self.screen_update()
-
         # Target Name
-        line = ""
-        line += self.target.catalog_code
-        line += str(self.target.sequence)
         self.draw.text(
-            (0, 20), line, font=self.fonts.large.font, fill=self.colors.get(255)
+            (0, 20),
+            self.object.display_name,
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
         )
 
         # ID Line in BOld
         # Type / Constellation
-        object_type = OBJ_TYPES.get(self.target.obj_type, self.target.obj_type)
-        object_text = f"{object_type: <14} {self.target.const}"
+        object_type = OBJ_TYPES.get(self.object.obj_type, self.object.obj_type)
+        object_text = f"{object_type: <14} {self.object.const}"
         self.draw.text(
-            (0, 40), object_text, font=self.fonts.bold.font, fill=self.colors.get(128)
-        )
-
-        # Notes Prompt
-        self.draw.text(
-            (15, 100),
-            "Hold A for notes",
-            font=self.fonts.base.font,
-            fill=self.colors.get(128),
-        )
-
-        # Distance to target
-        solution = self.shared_state.solution()
-        pointing_pos = ICRF.from_radec(
-            ra_hours=Angle(degrees=solution["RA"])._hours,
-            dec_degrees=solution["Dec"],
-        )
-
-        target_pos = ICRF.from_radec(
-            ra_hours=Angle(degrees=self.target.ra)._hours,
-            dec_degrees=self.target.dec,
-        )
-
-        distance = pointing_pos.separation_from(target_pos)
-        self.draw.text(
-            (5, 60),
-            f"Pointing {distance.degrees:0.1f} deg",
-            font=self.fonts.bold.font,
-            fill=self.colors.get(128),
-        )
-        self.draw.text(
-            (5, 75),
-            "from target",
-            font=self.fonts.bold.font,
-            fill=self.colors.get(128),
-        )
-
-        # Notes Prompt
-        self.draw.text(
-            (15, 100),
-            "Hold A for notes",
-            font=self.fonts.base.font,
-            fill=self.colors.get(128),
-        )
-
-        # Bottom button help
-        self.draw.rectangle([0, 118, 40, 128], fill=self.colors.get(32))
-        self.draw.text(
-            (2, 117), "B", font=self.fonts.small.font, fill=self.colors.get(255)
-        )
-        self.draw.text(
-            (10, 117), "Log", font=self.fonts.small.font, fill=self.colors.get(128)
-        )
-        self.draw.rectangle([88, 118, 128, 128], fill=self.colors.get(32))
-        self.draw.text(
-            (90, 117), "D", font=self.fonts.small.font, fill=self.colors.get(255)
-        )
-        self.draw.text(
-            (98, 117), "Abort", font=self.fonts.small.font, fill=self.colors.get(128)
+            (0, 36), object_text, font=self.fonts.bold.font, fill=self.colors.get(255)
         )
 
         return self.screen_update()
+
+    def cycle_display_mode(self):
+        """
+        Cycle through available display modes
+        for a module.  Invoked when the square
+        key is pressed
+        """
+        pass
+
+    def key_down(self):
+        pass
+
+    def key_up(self):
+        pass

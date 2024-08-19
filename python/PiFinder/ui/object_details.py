@@ -10,6 +10,7 @@ from PiFinder import cat_images
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.log import UILog
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     TextLayouter,
@@ -136,6 +137,9 @@ class UIObjectDetails(UIModule):
         """
         Generates object text and loads object images
         """
+        # Title...
+        self.title = self.object.display_name
+
         # text stuff....
 
         self.texts = {}
@@ -399,6 +403,20 @@ class UIObjectDetails(UIModule):
 
     def key_up(self):
         self.scroll_object(-1)
+
+    def key_right(self):
+        """
+        When right is pressed, move to
+        logging screen
+        """
+        if self.shared_state.solution() is None:
+            return
+        object_item_definition = {
+            "name": "LOG",
+            "class": UILog,
+            "object": self.object,
+        }
+        self.add_to_stack(object_item_definition)
 
     def change_fov(self, direction):
         self.fov_index += direction
