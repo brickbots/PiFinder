@@ -22,6 +22,7 @@ class UIChart(UIModule):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.message("Loading Chart", 0.1)
         self.last_update = time.time()
         self.starfield = plot.Starfield(self.colors, self.display_class.resolution)
         self.solution = None
