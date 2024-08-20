@@ -124,6 +124,8 @@ class UIChart(UIModule):
         self.desired_fov = fov
 
     def animate_fov(self):
+        # TODO: Fix zoom animation
+        return
         if self.fov == self.desired_fov:
             return
 
