@@ -22,6 +22,7 @@ pifinder_menu = {
             "name": "Chart",
             "class": UIChart,
             "stateful": True,
+            "preload": True,
         },
         {
             "name": "Objects",
@@ -598,7 +599,6 @@ pifinder_menu = {
                     "class": UITextMenu,
                     "select": "single",
                     "label": "chart_settings",
-                    "preload": True,
                     "items": [
                         {
                             "name": "Reticle",

@@ -20,6 +20,7 @@ def collect_preloads() -> list[dict]:
     stack = [menu_structure.pifinder_menu]
     while stack:
         menu_item = stack.pop()
+        menu_item["foo"] = "Bar"
         for k, v in menu_item.items():
             if isinstance(v, dict):
                 stack.append(v)
@@ -102,9 +103,7 @@ class MenuManager:
         Loads any modules that need a bit of extra time
         like chart, so they are ready to go
         """
-        print("Starting preload....")
         for module_def in collect_preloads():
-            print("\tPreloading - " + module_def["name"])
             module_def["state"] = module_def["class"](
                 display_class=self.display_class,
                 camera_image=self.camera_image,
