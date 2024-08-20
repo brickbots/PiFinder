@@ -129,9 +129,14 @@ def get_sleep_timeout(cfg):
     returns the sleep timeout amount
     """
     sleep_timeout_option = cfg.get_option("sleep_timeout")
-    sleep_timeout = {"Off": 100000, "10s": 10, "20s": 20, "30s": 30, "1m": 60}[
-        sleep_timeout_option
-    ]
+    sleep_timeout = {
+        "Off": 100000,
+        "10s": 10,
+        "20s": 20,
+        "30s": 30,
+        "1m": 60,
+        "2m": 120,
+    }[sleep_timeout_option]
     return sleep_timeout
 
 
