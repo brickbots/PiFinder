@@ -129,7 +129,7 @@ def get_sleep_timeout(cfg):
     returns the sleep timeout amount
     """
     sleep_timeout_option = cfg.get_option("sleep_timeout")
-    sleep_timeout = {"Off": 100000, "10s": 10, "30s": 30, "1m": 60}[
+    sleep_timeout = {"Off": 100000, "10s": 10, "20s": 20, "30s": 30, "1m": 60}[
         sleep_timeout_option
     ]
     return sleep_timeout
@@ -360,7 +360,7 @@ def main(
         posserver_process.start()
 
         # Start main event loop
-        console.write("   Event Loop")
+        console.write("   Catalogs")
         console.update()
 
         # Initialize Catalogs
@@ -376,6 +376,8 @@ def main(
                 observed=cfg.get_option("filter.observed", "Any"),
             )
         )
+        console.write("   Menus")
+        console.update()
 
         # Initialize menu manager
         menu_manager = MenuManager(
@@ -386,6 +388,11 @@ def main(
             cfg,
             catalogs,
         )
+
+        # Start main event loop
+        console.write("   Event Loop")
+        console.update()
+
         # Start of main except handler / loop
         screen_dim, screen_off = _calculate_timeouts(cfg)
         try:

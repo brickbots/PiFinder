@@ -22,6 +22,7 @@ pifinder_menu = {
             "name": "Chart",
             "class": UIChart,
             "stateful": True,
+            "preload": True,
         },
         {
             "name": "Objects",

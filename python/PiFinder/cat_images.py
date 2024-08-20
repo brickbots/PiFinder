@@ -45,7 +45,11 @@ def get_display_image(catalog_object, source, fov, roll, display_class, burn_in=
         return_image = Image.open(object_image_path)
 
         # rotate for roll / newtonian orientation
-        return_image = return_image.rotate(roll + 180)
+        image_rotate = 180
+        if roll is not None:
+            image_rotate += roll
+
+        return_image = return_image.rotate(image_rotate)
 
         # FOV
         fov_size = int(1024 * fov / 2)
