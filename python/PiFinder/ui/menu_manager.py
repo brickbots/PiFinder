@@ -12,6 +12,25 @@ from PiFinder.ui.marking_menus import (
 )
 
 
+def collect_preloads() -> list[dict]:
+    """
+    Returns a list of modules to preload
+    """
+    preload_modules = []
+    stack = [menu_structure.pifinder_menu]
+    while stack:
+        menu_item = stack.pop()
+        for k, v in menu_item.items():
+            if isinstance(v, dict):
+                stack.append(v)
+                break
+            elif isinstance(v, list):
+                stack.extend(v)
+            elif k == "preload" and v is True:
+                preload_modules.append(menu_item)
+    return preload_modules
+
+
 def find_menu_by_label(label: str):
     """
     Returns the FIRST instance of a menu dict
@@ -20,7 +39,6 @@ def find_menu_by_label(label: str):
 
     Returns None is not found
     """
-    # stack = [iter(menu_structure.pifinder_menu.items())]
     stack = [menu_structure.pifinder_menu]
     while stack:
         menu_item = stack.pop()
@@ -67,6 +85,8 @@ class MenuManager:
         self.help_images: Union[None, list[Image.Image]] = None
         self.help_image_index = 0
 
+        self.preload_modules()
+
     def remove_from_stack(self) -> None:
         if len(self.stack) > 1:
             self._stack_top_image = self.stack[-1].screen.copy()
@@ -76,6 +96,26 @@ class MenuManager:
                 "menu_anim_speed", 0
             )
             self._stack_anim_direction = 1
+
+    def preload_modules(self) -> None:
+        """
+        Loads any modules that need a bit of extra time
+        like chart, so they are ready to go
+        """
+        print("Starting preload....")
+        for module_def in collect_preloads():
+            print("\tPreloading - " + module_def["name"])
+            module_def["state"] = module_def["class"](
+                display_class=self.display_class,
+                camera_image=self.camera_image,
+                shared_state=self.shared_state,
+                command_queues=self.command_queues,
+                config_object=self.config_object,
+                catalogs=self.catalogs,
+                item_definition=module_def,
+                add_to_stack=self.add_to_stack,
+                remove_from_stack=self.remove_from_stack,
+            )
 
     def add_to_stack(self, item: dict) -> None:
         """
