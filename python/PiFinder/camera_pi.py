@@ -60,7 +60,11 @@ class CameraPI(CameraInterface):
         self.camera.start()
 
     def capture(self) -> Image.Image:
-        return self.camera.capture_image()
+        tmp_capture = self.camera.capture_image()
+        if self.camera_type == "imx296":
+            # Sensor orientation is different
+            tmp_capture = tmp_capture.rotate(180)
+        return tmp_capture
 
     def capture_file(self, filename) -> None:
         return self.camera.capture_file(filename)
