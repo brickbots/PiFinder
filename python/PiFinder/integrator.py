@@ -69,6 +69,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         if (
             cfg.get_option("screen_direction") == "left"
             or cfg.get_option("screen_direction") == "flat"
+            or cfg.get_option("screen_direction") == "flat3"
             or cfg.get_option("screen_direction") == "straight"
         ):
             flip_alt_offset = True

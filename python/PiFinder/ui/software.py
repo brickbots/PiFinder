@@ -146,7 +146,7 @@ class UISoftware(UIModule):
                 self._elipsis_count = 0
             return self.screen_update()
 
-        if self._release_version == self._software_version:
+        if self._release_version.strip() == self._software_version.strip():
             self.draw.text(
                 (10, 90),
                 "No Update",
