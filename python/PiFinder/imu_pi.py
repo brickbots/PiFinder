@@ -31,6 +31,7 @@ class Imu:
         if (
             cfg.get_option("screen_direction") == "flat"
             or cfg.get_option("screen_direction") == "straight"
+            or cfg.get_option("screen_direction") == "flat3"
         ):
             self.sensor.axis_remap = (
                 adafruit_bno055.AXIS_REMAP_Y,
