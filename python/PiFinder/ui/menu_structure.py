@@ -756,12 +756,16 @@ pifinder_menu = {
                             "value": "right",
                         },
                         {
-                            "name": "Flat",
-                            "value": "flat",
-                        },
-                        {
                             "name": "Straight",
                             "value": "straight",
+                        },
+                        {
+                            "name": "Flat v3",
+                            "value": "flat3",
+                        },
+                        {
+                            "name": "Flat v2",
+                            "value": "flat",
                         },
                     ],
                 },
