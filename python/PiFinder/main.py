@@ -360,7 +360,7 @@ def main(
         posserver_process.start()
 
         # Start main event loop
-        console.write("   Event Loop")
+        console.write("   Catalogs")
         console.update()
 
         # Initialize Catalogs
@@ -376,6 +376,8 @@ def main(
                 observed=cfg.get_option("filter.observed", "Any"),
             )
         )
+        console.write("   Menus")
+        console.update()
 
         # Initialize menu manager
         menu_manager = MenuManager(
@@ -386,6 +388,11 @@ def main(
             cfg,
             catalogs,
         )
+
+        # Start main event loop
+        console.write("   Event Loop")
+        console.update()
+
         # Start of main except handler / loop
         screen_dim, screen_off = _calculate_timeouts(cfg)
         try:
