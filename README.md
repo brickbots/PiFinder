@@ -3,7 +3,7 @@ A plate solving telescope finder based around a Raspberry PI, RPI HQ Camera, and
 
 For an overview of what the PiFinder is and how it came to be visit the official project website at [PiFinder.io](https://www.pifinder.io/build-yours) 
 
-![Banner](./images/banner_overview.png)
+![Banner](./docs/source/images/PiFinder_v3_banner.png)
 The PiFinder is my attempt to improve my time at my telescope.  I don't get nearly enough of it and I want to enjoy it as much as possible.  So after years of observing with paper charts and, later, a Nexus DSC here is what I felt I was missing:
 * **Reliable telescope positioning:**  The Nexus DSC is great, but my scope just isn't built for solid encoder integration.  The slop in the way I have to couple the encoders means poor pointing accuracy.
 * **Easy setup:**  The Nexus DSC needs multi-star alignment to understand how the encoders map to the sky.  The process is not terrible, but I'd like to avoid it.
