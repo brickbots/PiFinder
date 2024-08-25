@@ -1,6 +1,8 @@
 import time
+import os
 from typing import Union
 from PIL import Image
+from PiFinder import utils
 from PiFinder.ui.base import UIModule
 from PiFinder.ui import menu_structure
 from PiFinder.ui.object_details import UIObjectDetails
@@ -86,7 +88,22 @@ class MenuManager:
         self.help_images: Union[None, list[Image.Image]] = None
         self.help_image_index = 0
 
+        # screenshot stuff
+        root_dir = str(utils.data_dir)
+        self.ss_path = os.path.join(root_dir, "screenshots")
+        self.ss_count = 0
+
         self.preload_modules()
+
+    def screengrab(self):
+        self.ss_count += 1
+        filename = (
+            f"{self.stack[-1].__uuid__}_{self.ss_count :0>3}_{self.stack[-1].title}"
+        )
+        ss_imagepath = self.ss_path + f"/{filename}.png"
+        ss = self.shared_state.screen().copy()
+        ss.save(ss_imagepath)
+        print(ss_imagepath)
 
     def remove_from_stack(self) -> None:
         if len(self.stack) > 1:
@@ -151,9 +168,6 @@ class MenuManager:
 
     def message(self, message: str, timeout: float) -> None:
         self.stack[-1].message(message, timeout)  # type: ignore[arg-type]
-
-    def screengrab(self) -> None:
-        self.stack[-1].screengrab()  # type: ignore[call-arg]
 
     def jump_to_label(self, label: str) -> None:
         menu_to_jump = find_menu_by_label(label)

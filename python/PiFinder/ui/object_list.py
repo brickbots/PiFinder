@@ -289,7 +289,7 @@ class UIObjectList(UITextMenu):
             "Med": TextLayouterScroll.MEDIUM,
             "Slow": TextLayouterScroll.SLOW,
         }
-        scrollspeed = self._config_options["Scrolling"]["value"]
+        scrollspeed = self.config_object.get_option("text_scroll_speed", "Med")
         return scroll_dict[scrollspeed]
 
     def _draw_scrollbar(self):
@@ -416,10 +416,7 @@ class UIObjectList(UITextMenu):
 
                 # calculate start of both pieces of text
                 begin_x = 12
-                space = (
-                    0 if is_focus and not self.current_mode == DisplayModes.NAME else 1
-                )
-                begin_x2 = begin_x + (len(item_name) + space) * line_font.width
+                begin_x2 = begin_x + (len(item_name) + 1) * line_font.width
 
                 # draw first text
                 self.draw.text(
@@ -442,8 +439,7 @@ class UIObjectList(UITextMenu):
                             width=math.floor(
                                 (self.display.width - begin_x2) / line_font.width
                             ),
-                            # scrollspeed=self._get_scrollspeed_config(),
-                            scrollspeed=TextLayouterScroll.FAST,
+                            scrollspeed=self._get_scrollspeed_config(),
                         )
                     # draw scrolling second text
                     self.item_text_scroll.draw((begin_x2, line_pos))
