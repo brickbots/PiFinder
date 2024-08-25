@@ -144,7 +144,7 @@ By holding down the Enter key and pressing the A (**ENT-A**) function key you ca
        about the solving state and other functions.  
 
        |
-       | This is also the screen which allows you to set :ref:`user_guide:global options`
+       | This is also the screen which allows you to set :ref:`user_guide:settings menu`
 
        *Function Keys*
 
@@ -195,7 +195,7 @@ Some types of options can only have a single value, like Magnitude above.  Other
 The Options screen can also contain less commonly used actions which will take place when a value is selected.  
 
 
-Global Options
+Settings Menu
 ----------------
 
 .. image:: images/user_guide/STATUS_OPTIONS_001_docs.png
@@ -463,7 +463,7 @@ WiFi
 Access Point and Client Mode
 ----------------------------------
 
-The PiFinder can either connect to an existing network via the Client mode, or serve as an wireless access point for other devices to connect to via the Access Point (AP) mode.  Use the :ref:`user_guide:Web Interface` or the :ref:`user_guide:Global Options` page of the Status screen to switch between these two modes and to see which mode is currently active.
+The PiFinder can either connect to an existing network via the Client mode, or serve as an wireless access point for other devices to connect to via the Access Point (AP) mode.  Use the :ref:`user_guide:Web Interface` or the :ref:`user_guide:settings menu` page of the Status screen to switch between these two modes and to see which mode is currently active.
 
 Using the PiFinder in Access Point mode creates a network called PiFinderAP with no password to allow easy connection of phones, tablets and other devices in the field.
 
@@ -472,7 +472,7 @@ To use the Client mode, you'll need to add information about the WiFi network yo
 PiFinder address
 -----------------
 
-In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computers or those that don't support zeroconf networking, you can use the IP address provides on the :ref:`Global Options<user_guide:global options>` screen to connect.  You can connect to the PiFinder via:
+In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computers or those that don't support zeroconf networking, you can use the IP address provides on the :ref:`Global Options<user_guide:settings menu>` screen to connect.  You can connect to the PiFinder via:
 
 
 * A web browser to use the :ref:`user_guide:Web Interface` for remote control, setting up access to other WiFi networks and for configuration changes
@@ -491,7 +491,7 @@ The PiFinder provides an easy to use web interface which allows you to:
 * Backup and restore your observing logs, settings and other data
 * View and download your logged observations
 
-To access the web interface for the first time, make sure the PiFinder is in Access Point mode (see :ref:`user_guide:Global Options`).  This is the default for new PiFinders to make first time set up easier.  Using a phone, tablet or computer, connect to the PiFinder's wireless network called PiFinderAP.  It's an open network with no password required.  Once connected, open your web browser and visit:
+To access the web interface for the first time, make sure the PiFinder is in Access Point mode (see :ref:`user_guide:settings menu`).  This is the default for new PiFinders to make first time set up easier.  Using a phone, tablet or computer, connect to the PiFinder's wireless network called PiFinderAP.  It's an open network with no password required.  Once connected, open your web browser and visit:
 ``http://pifinder.local``
 
 .. list-table::
@@ -558,7 +558,7 @@ Once connected, you'll see:
 Update Software
 ==================
 
-A Software action is available from the :ref:`user_guide:global options` screen.  This will both show which version the PiFinder currently has 
+A Software action is available from the :ref:`user_guide:settings menu` screen.  This will both show which version the PiFinder currently has 
 installed and allow you to update the software if the PiFinder is connected to the internet.  Step by step instructions for updating are below,
 and if you need to get your PiFinder connected to the Internet via your home wifi, please see the :ref:`user_guide:connecting to a new wifi network`
 section of the :ref:`user_guide:web interface` documentation.

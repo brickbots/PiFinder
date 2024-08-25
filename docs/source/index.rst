@@ -1,10 +1,16 @@
 PiFinder Welcome
 ================
-A plate solving telescope finder based around a Raspberry PI, RPI HQ Camera, and custom UI 'hat'
+A plate solving telescope finder based around a Raspberry PI, Camera, and custom UI 'hat'
 
 For an overview of what the PiFinder is and how it came to be visit the official project website at `PiFinder.io <https://www.pifinder.io/>`_
 
-.. image:: ../../images/banner_overview.png
+.. image:: images/PiFinder_v3_banner.png
+
+
+.. note::
+   This documentation is for v3 and v2.5 PiFinders running software 2.0.0 or above.
+   If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
+
 
 The PiFinder is my attempt to improve my time at my telescope.  I don't get nearly enough of it and I want to enjoy it as much as possible.  So after years of observing with paper charts and, later, a Nexus DSC here is what I felt I was missing:
 
