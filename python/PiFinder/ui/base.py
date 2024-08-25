@@ -5,7 +5,6 @@ This module contains the base UIModule class
 
 """
 
-import os
 import time
 import uuid
 from itertools import cycle
@@ -74,11 +73,6 @@ class UIModule:
         self.item_definition = item_definition
         self.title = item_definition.get("name", self.title)
 
-        # screenshot stuff
-        root_dir = str(utils.data_dir)
-        prefix = f"{self.__uuid__}_{self.title}"
-        self.ss_path = os.path.join(root_dir, "screenshots", prefix)
-        self.ss_count = 0
         self.config_object: Config = config_object
 
         # FPS
@@ -88,12 +82,6 @@ class UIModule:
 
         # anim timer stuff
         self.last_update_time = time.time()
-
-    def screengrab(self):
-        self.ss_count += 1
-        ss_imagepath = self.ss_path + f"_{self.ss_count :0>3}.png"
-        ss = self.screen.copy()
-        ss.save(ss_imagepath)
 
     def active(self):
         """

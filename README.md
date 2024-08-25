@@ -1,5 +1,5 @@
 # PiFinder
-A plate solving telescope finder based around a Raspberry PI, RPI HQ Camera, and custom UI 'hat'
+A plate solving telescope finder based around a Raspberry PI, imx296 camera, and custom UI 'hat'
 
 For an overview of what the PiFinder is and how it came to be visit the official project website at [PiFinder.io](https://www.pifinder.io/build-yours) 
 
