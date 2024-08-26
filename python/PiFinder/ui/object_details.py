@@ -387,7 +387,12 @@ class UIObjectDetails(UIModule):
         self.update()
 
     def scroll_object(self, direction: int) -> None:
-        current_index = self.object_list.index(self.object)
+        if isinstance(self.object_list, np.ndarray):
+            # For NumPy array
+            current_index = np.where(self.object_list == self.object)[0][0]
+        else:
+            # For regular Python list
+            current_index = self.object_list.index(self.object)
         current_index += direction
         if current_index < 0:
             current_index = 0
