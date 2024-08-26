@@ -116,7 +116,7 @@ function focusFirstDMSField() {
 }
 
 
-function setBrowserTime() {
+function setBrowserDateTime() {
     var now = new Date();
     var dateString = now.toISOString().split('T')[0]; // Extract date in YYYY-MM-DD format
     var timeString = now.getUTCHours() + ":" + now.getUTCMinutes() + ":" + now.getUTCSeconds();
