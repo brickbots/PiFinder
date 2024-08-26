@@ -22,6 +22,7 @@ from PiFinder import calc_utils
 import functools
 
 from PiFinder.db.observations_db import ObservationsDatabase
+import numpy as np
 
 
 # Constants for display modes
