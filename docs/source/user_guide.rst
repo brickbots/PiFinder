@@ -21,8 +21,70 @@ In order to direct you to wonders of the night sky, the PiFinder needs to know w
 Along with knowing where your telescope is pointing, the PiFinder knows where thousands of interesting objects are located. It can use these two pieces of information to indicate how you should move your telescope to bring any of those thousands of objects into your eyepiece.  Since it's directly observing where your telescope is pointing, you can be assured you are on target!
 
 .. note::
-   This documentation is a work in progress for v3 and v2.5 PiFinders running software 2.0.0 or above.
-   If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
+   If you would like a general overview of how to use the PiFinder, please give the 
+   :doc:`quick_start` a read.  This menual goes more in depth but does not cover some
+   of the first time set-up items in the Quick Start
+
+The Menu System
+=====================================
+
+All the functions of the PiFinder can be accessed via it's menu system:
+
+.. image:: images/quick_start/main_menu_01_docs.png
+
+
+Each menu is a list of items that represent a sub menu, screen, or a set of options you can choose from.  You can scroll
+though each menu and make selections using these keys:
+
+- The **UP** and **DOWN** arrows will scroll the current menu
+- The **RIGHT** arrow will activate the current option; selecting it or moving to another menu
+- The **LEFT** arrow will take you back to the previous menu or screen
+- Holding **LEFT** for more than one second will always take you back to the TOP of the menus
+
+The status bar at the top of the screen will show the name of the menu you are currently viewing.  
+
+Screens
+--------
+
+When you choose some menu items, like Camera, these will lead you to a specific screen such as showing the 
+camera preview, a start chart or details about a particular catalog object.  Each one of the screens are
+covered in more detail below.
+
+Options
+--------
+
+Some menus present a list of options where you can choose one or more items to control how
+the PiFinder operates.  For instance the Filter menu items takes you to a sub-menu of different
+ways you can filter your object lists:
+
+
+.. image:: images/user_guide/options_menu_01.png
+.. image:: images/user_guide/options_menu_02.png
+
+Selecting Types presents you with various DSO types that 
+you can select to control what objects appear in your object lists.
+
+.. image:: images/user_guide/options_menu_03.png
+.. image:: images/user_guide/options_menu_04.png
+
+Lists that offer selections will usually have a check-mark next to the one, or many, 
+option selected.  Pressing the **RIGHT** arrow with an option highlighted will select
+or de-select that item.
+
+
+.. image:: images/user_guide/options_menu_04.png
+.. image:: images/user_guide/options_menu_05.png
+
+For some menus that only allow a single item to be selected, such as Altitude, selecting
+one item will de-select any others.  Multi-Select menus have options to select or de-select
+all items for ease of use.
+
+When you are done selecting options for a particular setting, you can use the **LEFT** arrow
+key to return to your last menu or screen.
+
+
+With this simple set of scroll and select tools you can access all the powerful features of
+the PiFinder.
 
 
 Observing Screens
