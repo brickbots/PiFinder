@@ -18,6 +18,7 @@ class Nearby:
         self.closest_objects_finder = ClosestObjectsFinder()
         self.last_ra = 0
         self.last_dec = 0
+        self.last_refresh = 0
 
     def set_items(self, items: list[CompositeObject]):
         self.closest_objects_finder.calculate_objects_balltree(
