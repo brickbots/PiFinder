@@ -35,60 +35,53 @@ def is_tpv_accurate(tpv_dict):
 def gps_monitor(gps_queue, console_queue, log_queue):
     MultiprocLogging.configurer(log_queue)
     gps_locked = False
-    while True:
-        with GPSDClient(host="127.0.0.1") as client:
-            # see https://www.mankier.com/5/gpsd_json for the list of fields
-            while True:
-                logger.debug("GPS waking")
-                readings_filter = filter(
-                    lambda x: is_tpv_accurate(x),
-                    client.dict_stream(convert_datetime=True, filter=["TPV"]),
-                )
-                sky_filter = client.dict_stream(convert_datetime=True, filter=["SKY"])
-                readings_list = list(islice(readings_filter, 10))
-                sky_list = list(islice(sky_filter, 10))
-                if readings_list:
-                    result = min(
-                        readings_list,
-                        key=lambda x: x.get("ecefpAcc", x.get("sep", float("inf"))),
-                    )
-                    logger.debug("last reading is %s", result)
-                    if result.get("lat") and result.get("lon") and result.get("altHAE"):
-                        if gps_locked is False:
-                            gps_locked = True
-                            console_queue.put("GPS: Locked")
-                            logger.debug("GPS locked")
-                        msg = (
-                            "fix",
-                            {
-                                "lat": result.get("lat"),
-                                "lon": result.get("lon"),
-                                "altitude": result.get("altHAE"),
-                            },
-                        )
-                        logger.debug("GPS fix: %s", msg)
-                        gps_queue.put(msg)
+    last_sky_update = 0
 
-                    # search from the newest first, quit if something is found
-                    for result in reversed(readings_list):
-                        if result.get("time"):
-                            msg = ("time", result.get("time"))
-                            logger.debug("Setting time to %s", result.get("time"))
-                            gps_queue.put(msg)
-                            break
-                else:
-                    logger.debug("GPS TPV client queue is empty")
+    with GPSDClient(host="127.0.0.1") as client:
+        while True:
+            logger.debug("GPS waking")
 
-                if sky_list:
-                    # search from the newest first, quit if something is found
-                    for result in reversed(sky_list):
-                        if result["class"] == "SKY" and "nSat" in result:
-                            sats_seen = result["nSat"]
-                            sats_used = result["uSat"]
+            for msg in client.dict_stream(convert_datetime=True):
+                current_time = time.time()
+
+                if msg['class'] == 'TPV':
+                    if is_tpv_accurate(msg):
+                        if msg.get("lat") and msg.get("lon") and msg.get("altHAE"):
+                            if not gps_locked:
+                                gps_locked = True
+                                console_queue.put("GPS: Locked")
+                                logger.debug("GPS locked")
+
+                            fix_msg = (
+                                "fix",
+                                {
+                                    "lat": msg.get("lat"),
+                                    "lon": msg.get("lon"),
+                                    "altitude": msg.get("altHAE"),
+                                },
+                            )
+                            logger.debug("GPS fix: %s", fix_msg)
+                            gps_queue.put(fix_msg)
+
+                        if msg.get("time"):
+                            time_msg = ("time", msg.get("time"))
+                            logger.debug("Setting time to %s", msg.get("time"))
+                            gps_queue.put(time_msg)
+
+                elif msg['class'] == 'SKY':
+                    if current_time - last_sky_update >= 7:  # Update every 7 seconds
+                        if "nSat" in msg:
+                            sats_seen = msg["nSat"]
+                            sats_used = msg["uSat"]
                             num_sats = (sats_seen, sats_used)
-                            msg = ("satellites", num_sats)
-                            logger.debug("Number of sats seen: %i", num_sats)
-                            gps_queue.put(msg)
-                            break
-                logger.debug("GPS sleeping now for 7s")
-                time.sleep(7)
+                            sat_msg = ("satellites", num_sats)
+                            logger.debug("Number of sats seen/used: %i/%i", sats_seen, sats_used)
+                            gps_queue.put(sat_msg)
+                        last_sky_update = current_time
+
+                # Break the inner loop after processing a batch of messages
+                if current_time - last_sky_update >= 7:
+                    break
+
+            logger.debug("GPS sleeping now for 1s")
+            time.sleep(1)
