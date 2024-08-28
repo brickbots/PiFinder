@@ -219,7 +219,7 @@ class UIObjectDetails(UIModule):
         )
 
     def active(self):
-        pass
+        self.ui_state.add_recent(self.object)
 
     def _render_pointing_instructions(self):
         # Pointing Instructions
