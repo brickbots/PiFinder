@@ -243,6 +243,8 @@ best stars you can see. Make sure your lens cap is off, and immediately PiFinder
 what it sees.... the focus point of the lens is set when your PiFinder is assembled, but it may need
 some adjustment to see the dimmest stars.
 
+Screw the lens in and out in the holder to adjust focus if needed.
+
 Use the menu system to select the 'Camera' option
 
 .. image:: images/quick_start/main_menu_02_docs.png

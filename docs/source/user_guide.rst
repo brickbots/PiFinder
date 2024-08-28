@@ -61,7 +61,7 @@ ways you can filter your object lists:
 .. image:: images/user_guide/options_menu_01.png
 .. image:: images/user_guide/options_menu_02.png
 
-Selecting Types presents you with various DSO types that 
+Selecting Type presents you with various DSO types that 
 you can select to control what objects appear in your object lists.
 
 .. image:: images/user_guide/options_menu_03.png
