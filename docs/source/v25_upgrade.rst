@@ -38,7 +38,7 @@ as reasonable to the board.
 Grab the lens holder and look through it to make sure it's clear of any obstructions.
 
 Place the lens holder on the table with the large side up oriented as in the photo below.  The two screw
-tabs on the lens holder must stick out the opposite sides from the white and grey cable connector on the PCB.
+tabs on the lens holder must stick out the opposite sides from the cream-white and dark-grey cable connector on the PCB.
 You'll be removing the two screws (yours might be black) near the center of the green PCB and lifting it gently
 to the new lens holder.  
 
@@ -71,7 +71,7 @@ easier to remove the lens first if you have the internal battery installed.
 
 .. image:: images/v25_upgrade/v25_upgrade_19.jpeg
 
-Open the cable connector on the camera by gently sliding the grey part of the 
+Open the cable connector on the camera by gently sliding the dark-grey part of the 
 connector towards the cable.  Once open the cable should come loose easily.
 
 Unplug the cable and set the camera aside, saving the four m2.5 8mm screws.
@@ -93,15 +93,15 @@ this is aligned with the direction the cable is coming from.
 .. image:: images/v25_upgrade/v25_upgrade_23.jpeg
 
 Next you'll connect the cable to the new camera module.  Open the connector all the way
-by sliding the grey piece away from the PCB.  Be gentle as this part can break with too
+by sliding the dark-grey piece away from the PCB.  Be gentle as this part can break with too
 much force. 
 
 Once the connector is open, slide the cable into the connector using gentle force and making 
 sure it's well aligned.  Take you time and watch the
-grey clip.  It should not close as you are inserting the cable, and if it does, you'll need
+dark-grey clip.  It should not close as you are inserting the cable, and if it does, you'll need
 to re-open it to get the cable to slide in all the way.
 
-Once the cable is seated in the connector, close the grey clip by sliding it shut, this 
+Once the cable is seated in the connector, close the dark-grey clip by sliding it shut, this 
 may take a little force to get it completely closed.  Check the photo below if in doubt!
 
 .. image:: images/v25_upgrade/v25_upgrade_24.jpeg
