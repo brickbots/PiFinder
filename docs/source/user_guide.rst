@@ -25,6 +25,22 @@ Along with knowing where your telescope is pointing, the PiFinder knows where th
    :doc:`quick_start` a read.  This menual goes more in depth but does not cover some
    of the first time set-up items in the Quick Start
 
+
+Adjusting Brightness
+=====================================
+
+The PiFinder is designed to allow you to adjust the brightness of the screen and keypad at any 
+time: simply hold down the **SQUARE** button and push **+** for brighter, or **-** for dimmer. In a dark sky 
+site, you can turn the brightness down to preserve your dark-adapted vision.
+
+.. note::
+   The PiFinder will dim the screen and reduce the frequency of exposures, solving, and other processes 
+   when it’s been idle for a period of time. This helps save battery power and can also prevent glare 
+   at the eyepiece in especially dark environments. The default is 30 seconds and this can be configured, 
+   or turned off completely, in the :ref:`user_guide:settings menu`
+
+   Pressing any button, or moving the PFinder will wake it from power save mode.
+
 The Menu System
 =====================================
 
@@ -86,30 +102,80 @@ key to return to your last menu or screen.
 With this simple set of scroll and select tools you can access all the powerful features of
 the PiFinder.
 
-
-Observing Screens
+Quick Menu
 =====================================
 
-.. note::
-   This documentation is a work in progress for v3 and v2.5 PiFinders running software 2.0.0 or above.
-   If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
+Although you can access everything the PiFinder has to offer using just the menu system, we've
+introduced a secondary quick-menu to bring some of those functions into easier reach.  
 
+Hold down the **SQUARE** key to access the Quick Menu
+
+.. image:: images/user_guide/quick_menu_00.png
+
+This menu presents up to four options, one for each arrow button.  Pressing that arrow
+will select that item.  This menu is different depending on what screen you are on, but 
+often has :ref:`HELP<user_guide:help system>` at the UP option.
+
+Some Quick Menus have multiple layers like the one above.  Selecting RIGHT will open the 
+Background Subtraction (BG SUB) options.  To indicate a current setting, one option may
+have some subtle shading.  The image below is showing that the BG SUB setting is currently
+HALF.
+
+.. image:: images/user_guide/quick_menu_01.png
+
+Selecting RIGHT would switch this option to FULL.  You can exit the Quick Menu at any time
+by pressing the SQUARE button again.
+
+
+Help System
+==============
+
+Many screens offer help with specific button functions and other details about how things 
+work or the purpose of a particular page.  
+
+When available, HELP will be the UP option in the Quick Menu
+
+.. image:: images/user_guide/quick_menu_00.png
+
+Pressing the UP arrow will select the help option and display one or more pages of help.  There
+will be a prompt at the top or bottom of the screen to show if more pages are available and 
+pressing UP or DOWN will scroll through them
+
+.. image:: images/user_guide/camera_help_01.png
+.. image:: images/user_guide/camera_help_02.png
 
 
 Settings Menu
-----------------
-.. note::
-   This documentation is a work in progress for v3 and v2.5 PiFinders running software 2.0.0 or above.
-   If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
+==============
+
+All of the user configuable items for the PiFinder can be found in the Settings Menu which is near the
+bottom of the main PiFinder menu
+
+.. image:: images/user_guide/settings_01.png
+
+The top items collect several options together under User Preferences and Chart Screen.   The elipsis (...) indicates
+that there are more options below.
+
+.. image:: images/user_guide/settings_02.png
+
+Below the general UI options are settings to change which :ref:`user_guide:wifi` mode your PiFinder is in, what its 
+physical configuration is and more physical configuration items.
+
+.. image:: images/user_guide/settings_03.png
 
 
+Observing with PiFinder
+========================
 
-Catalog
-======================
+Object List
+--------------------
 
-.. note::
-   This documentation is a work in progress for v3 and v2.5 PiFinders running software 2.0.0 or above.
-   If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
+Object Details
+--------------------
+
+Filters
+----------
+
 
 Object Images
 ---------------
@@ -140,14 +206,14 @@ The bottom left of the screen shows the source of the current image and the left
 
 
 Observing Lists
-======================
+-----------------------
 
 .. note::
    This documentation is a work in progress for v3 and v2.5 PiFinders running software 2.0.0 or above.
    If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
 
 Logging Observations
-======================
+-----------------------
 
 .. note::
    This documentation is a work in progress for v3 and v2.5 PiFinders running software 2.0.0 or above.
@@ -162,7 +228,7 @@ Logging Observations
 
 
 Observing Projects
-===================
+--------------------
 .. note::
    This documentation is a work in progress for v3 and v2.5 PiFinders running software 2.0.0 or above.
    If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
@@ -173,6 +239,8 @@ This section covers a lot of the basic catalog/locating/observing features of th
 
 Combining the ability to filter a catalog by observation status and pushing the nearest 'X' objects to the observing list allows you to work your way through a collection of objects easily.
 
+Tools
+==========================
 
 WiFi
 ==========================
