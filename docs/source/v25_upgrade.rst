@@ -132,10 +132,10 @@ Remove the three screws, swap the plate and screw it back on
 .. image:: images/v25_upgrade/v25_upgrade_31.jpeg
 
 Software and Camera Set Up
------------------------
+----------------------------
 
 To use the new camera, you'll need to update to the latest PiFinder software.  Check the 
-`Version 1.x software update guide<https://pifinder.readthedocs.io/en/v1.11.2/user_guide.html#update-software>`_ 
+`Version 1.x software update guide <https://pifinder.readthedocs.io/en/v1.11.2/user_guide.html#update-software>`_ 
 for details on different ways to update your software.  If you PiFinder is very old, you 
 may need to write a new SD card.
 
