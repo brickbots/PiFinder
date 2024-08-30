@@ -180,14 +180,20 @@ Filters
 Object Images
 ---------------
 
-If you have used the prebuilt PiFinder image or have :ref:`downloaded<software:catalog image download>` the set of catalog images you can view what the selected object looks like via images from sky surveys.  Pressing the **B** key will cycle through various pages of information about each object including images from the Palomar Observatory Sky Survey and potentially updated images from the Sloan Digital Sky Survey.   
+If you have used the prebuilt PiFinder image or have :ref:`downloaded<software:catalog image download>`
+the set of catalog images you can view what the selected object looks like via images from sky surveys.  
+These images will display in the background of the :ref:`<user_guide:object details` screen and you 
+can see them in full detail by pressing the **SQUARE** key to cycle through various pages of 
+information about each object. 
+
+The images will be rotated and orient as they will appear through
+the eyepiece at the position and time you are observing them to help you identify the faintest of 
+targets.
+
+You can zoom in an out via the **+/-** keys and the FOV will
+be displayed at the bottom of the image so you can match it with your eyepiece FOV.
 
 As an example, here are the images available for M57
-
-
-.. image:: ../../images/screenshots/CATALOG_images_001_docs.png
-   :target: ../../images/screenshots/CATALOG_images_001_docs.png
-   :alt: Catalog Image
 
 
 .. image:: ../../images/screenshots/CATALOG_images_002_docs.png
