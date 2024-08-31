@@ -1,6 +1,6 @@
 
 ====================
-PiFinder User Manual
+PiFinder™ User Manual
 ====================
 
 .. note::
@@ -167,15 +167,131 @@ physical configuration is and more physical configuration items.
 Observing with PiFinder
 ========================
 
+When using the PiFinder under the stars to explore the universe, you'll be doing four basic things in various combinations:
+
+* Curating a list of objects you are interested in
+* Viewing details about those objects
+* Pushing the scope to bring them into your eyepiece
+* Logging your observations
+  
+Everyone has their own unique way to observe, so the PiFinder offers differnet ways to use (or not use!) these features
+to facilitate a great night of observing.
+
 Object List
 --------------------
+
+The Object list is one of the main features of the PiFinder.  It presents a collection of objects you've selected using 
+catalogs, filters, observing lists and text search tools.  
+
+To select a starting point for your observing journey, choose Objects from the main PiFinder menu.  You can then choose
+from one of four options:
+
+.. image:: images/user_guide/objects_menu.png
+
+- All Filtered: This will show you all the objects across all catalogs that meet 
+  your :ref:`filter criteria<user_guide:filtering>`.  This could be thousands of objects and is most useful with very
+  strict filter settings, such as only looking for globulars above 30 degree altitude and brighter than magnitude 10.
+- By Catalog: Shows all objects from a specific catalog that meet your filter criteria.  Great for observing projects
+  and looking for the nearest objects in a particular catalog.
+- Recent: This list starts empty and will contain a history of all the objects you've checked out during your current
+  observing session
+- Name Search: Using the number keypad and T9 style text entry, you can search for objects by name.  The snowball planetery?
+  Cats-Eye?  This is the way to find them!
+
+No matter how you get objects onto the list, it always displays 
+the same information and allows you to sort and select the same way.
+
+.. image:: images/user_guide/object_list_01_docs.png
+
+Along the left side is a symbol showing what sort of object each line represents.  Next to that is the designation of the
+object, usually the catalog abbreviation and index number, then the distance from your current telescope position to this
+object. The brightness of each entry in the list gives a little hint about it's magnitude.
+
+Pressing the **SQUARE** key will cycle through additional information for the objects on the list.
+
+.. image:: images/user_guide/object_list_02_docs.png
+
+You can see a scrolling list of common names for each object.
+
+.. image:: images/user_guide/object_list_03_docs.png
+
+And the magnitude and size of each object along with a little check mark to indicate if you've observed this 
+object before.
+
+Holding down the **SQUARE** key will bring up the Quick Menu which allows you to sort and filter this list
+
+.. image:: images/user_guide/object_list_radial_docs.png
+
+Pressing **LEFT** will select SORT
+
+.. image:: images/user_guide/object_list_sort_docs.png
+
+By default, lists are sorted in natural order... usually the order they appear in catalogs.  You can choose
+another sort order such as NEAREST by pressing the arrow key indicated.  Sorting by NEAREST puts the object 
+which is closest to your current telescope position at the top of the list.
+
+.. image:: images/user_guide/object_list_04_docs.png
+
+If you start typing a number, the Object list will jump to the next object with that index number.  You can
+use the **UP/DOWN** down arrows to go to the next/previous match and use the **SQUARE** key to exit the 
+jump mode and select an object.
+
+Pressing the **RIGHT** key will bring you to details for the selected object....
 
 Object Details
 --------------------
 
+Pressing the **RIGHT** key from the Object list will bring you to the Object Details screen 
+for the highlighted object. This screen shows large Push-To instructions, :ref:`object images<user_guide:object images>` and 
+catalog details for objects.
+
+Pressing **SQUARE** will cycle through the differnt information for the object and **UP/DOWN** will move to the next
+or previous object in the list.  **LEFT** will bring you back to the full list and **RIGHT** brings up the :ref:`Logging<user_guide:logging>` interface for the current object.
+
+.. image:: images/user_guide/object_details_01.png
+
+The Push-To info shows which way, and how far, to move your telescope to put the selected object in your 
+eyepiece.  As you move the scope the numbers will dim a bit to indicate that the PiFinder is using the
+accelerometer to provide and estimate of where the telescope is currently pointing.  When you stop, or 
+move slowly enough, the camera will be able to plate solve and provide an absolute position which will
+cause the numbers to brighten again.
+
+When the numbers are near 0.00 the object should be in your eyepiece.  The numbers indicate the distance
+to the object in degrees.  So if you have an eyepiece with a 0.5 degree true field of view, getting the
+numbers below 0.25 (half the true field of view) should be enough to put the object within the eyepiece.
+
+Closer to zero will mean more centered. If you are trying to find a very dim object, knowing it's right in 
+the center of field and consulting the object image can really make a difference.
+
+.. image:: images/user_guide/object_details_02.png
+
+The PiFinder can display images of all the objects in it's catalog!  
+See the section on :ref:`object images<user_guide:object images>`
+below for more information
+
+.. image:: images/user_guide/object_details_03.png
+
+Depending on the catalog, the PiFinder may have detailed notes about objects along with Type, constellation,
+magnitude and size.  Use the **+/-** keys to scroll the notes field.  At the bottom of the notes is a counter
+of how many times you've logged this object.
+
 Filters
 ----------
 
+Name Search
+------------
+
+.. image:: images/user_guide/name_search_01.png
+
+.. image:: images/user_guide/name_search_02.png
+
+.. image:: images/user_guide/name_search_cat_01.png
+
+.. image:: images/user_guide/name_search_cat_02.png
+
+.. image:: images/user_guide/name_search_cat_03.png
+
+.. image:: images/user_guide/name_search_results.png
 
 Object Images
 ---------------
@@ -210,43 +326,98 @@ These images are oriented as they would be through the eyepiece in a newtonian r
 
 The bottom left of the screen shows the source of the current image and the left side shows the current FOV information.
 
-
-Observing Lists
------------------------
-
-.. note::
-   This documentation is a work in progress for v3 and v2.5 PiFinders running software 2.0.0 or above.
-   If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
-
 Logging Observations
 -----------------------
 
-.. note::
-   This documentation is a work in progress for v3 and v2.5 PiFinders running software 2.0.0 or above.
-   If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
+Pressing the **RIGHT** arrow when looking at the details of any object will bring you to the 
+logging interface.  Here you can add a bit of context about your observation and save it to
+your log.
 
+.. image:: images/user_guide/logging_01_docs.png
+.. image:: images/user_guide/logging_02_docs.png
 
-* Transp. :  The transparency of the sky.  This is often noted along with Seeing below
-* Seeing:  The stillness of the atmosphere. 
-* Eyepiece:  You can note which of your eyepieces you are using.
-* Obsabillit:  Observability - How easy is it to spot and recognize this object
+Use the **UP/DOWN** arrows to select one of the four context items to change:
+
+* Observability: How easy is it to spot and recognize this object
 * Appeal: Overall rating of this object.. would you refer a friend?
+
+Both of these first two items are set by choosing a number between 1 and 5 to set the rating
+or pressing the **RIGHT** arrow to cycle through the stars.
+
+* Conditions....
+  * Transparency: A relative measure of contast. 
+  * Seeing:  The stillness of the atmosphere. 
+* Eyepiece:  You can note which of your eyepieces you are using.
+
+When you are done adding context, or if you want to just note that you observed an object 
+without context, use the **UP/DOWN** arrows to select **SAVE LOG** to record your observation.
 
 
 Observing Projects
 --------------------
-.. note::
-   This documentation is a work in progress for v3 and v2.5 PiFinders running software 2.0.0 or above.
-   If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
 
-If you are like me, you may enjoy various observing projects, such as observing all the Messier or Herschel objects.  The PiFinder makes these longer term efforts easy by allowing you to log each object and then only showing you objects you have left that are visible during any observing session!
+If you are like me, you may enjoy various observing projects, such as observing all the Messier 
+or Herschel objects.  The PiFinder makes these longer term efforts easy by allowing you to log each 
+object and then only showing you objects you have left that are visible during any observing session!
 
-This section covers a lot of the basic catalog/locating/observing features of the PiFinder and how it can be used to pursue such a project.
-
-Combining the ability to filter a catalog by observation status and pushing the nearest 'X' objects to the observing list allows you to work your way through a collection of objects easily.
+Combining the ability to :ref:`filter<user_guide:filtering>` a catalog by observation status and sorting the object list 
+by the nearest objects allows you to work your way through a collection of objects easily.
 
 Tools
 ==========================
+
+Near the bottom of the main PiFinder menu is an option that brings you to a set of tools.  These are screens
+that are not observing related but provide useful information about the PiFidner or let you perform actions.
+
+.. image:: images/user_guide/tools_menu_docs.png
+
+- :ref:`Status<user_guide:status screen`: General info about about the PiFinder operation. 
+- Console: Shows messages from various PiFinder subsystems
+- :ref:`Software Upd<user_guide:update software`: Updates the software of your PiFinder.  
+- Test Mode: Puts the PiFinder into a demo/debug mode which loads and solves an image from disk.  Will prevent proper operation at night, but allows exploration of PiFinder features during the day.
+- :ref:`Shutdown<user_guide:shutdown`: Shuts down the PiFinder
+
+Status Screen
+----------------------------------
+
+The Status Screen is the central place to get information about the current 
+state and operation of the PiFinder.  
+
+.. image:: images/user_guide/status_screen_docs.png
+
+Some of the key bits of information displayed:
+
+- The current solver state displayed as LST SLV on the top line.  It shows the
+  number of second since the last plate solve, the current solve state (i for IMU 
+  or C for camera) and the number of stars matched if the current solve is a camera solve
+- WiFi information is displayed a bit further down including the current WiFi mode, 
+  network name and IP address.
+
+
+Shutdown 
+---------------------------
+
+Although shutting down is not strictly needed before power-off, the PiFinder is a 
+computer and there is a chance of file corruption if you do not.  Some MicroSD 
+cards are more sensitive to this than others.
+
+The Tools menu offers a Shutdown option, and there is a quick way to access this as well.
+
+To easily shut down the PiFinder:
+
+- Hold the **LEFT** arrow button for more than a second to jump to the main menu
+- Hold the **SQUARE** button to access the Radial menu
+
+.. image:: images/quick_start/main_menu_01_docs.png
+.. image:: images/quick_start/main_menu_marking.png
+
+- Press **DOWN** to select the SHUTDOWN option
+- Use the **RIGHT** arrow to confirm, or the **LEFT** arrow to go back
+
+.. image:: images/quick_start/shutdown_confirm.png
+
+When you confrim the screen and keypad will turn off after a few seconds and it's then safe to
+turn off the unit using the power switch or unplugging the battery.
 
 WiFi
 ==========================
@@ -254,16 +425,23 @@ WiFi
 Access Point and Client Mode
 ----------------------------------
 
-The PiFinder can either connect to an existing network via the Client mode, or serve as an wireless access point for other devices to connect to via the Access Point (AP) mode.  Use the :ref:`user_guide:Web Interface` or the :ref:`user_guide:settings menu` page of the Status screen to switch between these two modes and to see which mode is currently active.
+The PiFinder can either connect to an existing network via the Client mode, or serve as an 
+wireless access point for other devices to connect to via the Access Point (AP) mode.  Use the 
+:ref:`user_guide:Web Interface` or the :ref:`user_guide:status screen` to switch between these two modes 
+and to see which mode is currently active.
 
-Using the PiFinder in Access Point mode creates a network called PiFinderAP with no password to allow easy connection of phones, tablets and other devices in the field.
+Using the PiFinder in Access Point mode creates a network called PiFinderAP with no password to allow 
+easy connection of phones, tablets and other devices in the field.
 
-To use the Client mode, you'll need to add information about the WiFi network you'd like the PiFinder to connect to using the Web Interface as described in :ref:`user_guide:connecting to a new wifi network`
+To use the Client mode, you'll need to add information about the WiFi network you'd like the 
+PiFinder to connect to using the Web Interface as described in :ref:`user_guide:connecting to a new wifi network`
 
 PiFinder address
 -----------------
 
-In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computers or those that don't support zeroconf networking, you can use the IP address provides on the :ref:`Global Options<user_guide:settings menu>` screen to connect.  You can connect to the PiFinder via:
+In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computers 
+or those that don't support zeroconf networking, you can use the IP address provides on the :ref:`Global 
+Options<user_guide:settings menu>` screen to connect.  You can connect to the PiFinder via:
 
 
 * A web browser to use the :ref:`user_guide:Web Interface` for remote control, setting up access to other WiFi networks and for configuration changes
@@ -292,9 +470,13 @@ To access the web interface for the first time, make sure the PiFinder is in Acc
 
      - .. image:: images/user_guide/pf_web_home_hamburger.jpg
 
-The home screen shows the general PiFinder status info and a live view of the screen.  Depending on your screen size you'll either see a navigation bar along the top of the page, or a 'hamburger' menu in the upper-left which contains these same options for smaller screens.
+The home screen shows the general PiFinder status info and a live view of the screen.  Depending 
+on your screen size you'll either see a navigation bar along the top of the page, or a 'hamburger' menu in the upper-left which contains these same options for smaller screens.
 
-While the home screen not require a password, most other functions will.  The password for the web interface is the same as what is used for the ``pifinder`` user and changing one will change the other.  The default password for new images and PiFinders is ``solveit``.  This can be changed using the Tools option in the web interface.
+While the home screen not require a password, most other functions will.  The password for the web 
+interface is the same as what is used for the ``pifinder`` user and changing one will change 
+the other.  The default password for new images and PiFinders is ``solveit``.  This can be changed using 
+the Tools option in the web interface.
 
 Connecting to a new WiFi network
 ---------------------------------
@@ -323,7 +505,8 @@ To add more WiFi networks for the PiFinder to look for, navigate to the Network 
 SkySafari
 ===================
 
-The PiFinder can provide real-time pointing information to a device running SkySafari via the LX200 protocol.  See this :doc:`skysafari` document for complete details, but here is the connection info:
+The PiFinder can provide real-time pointing information to a device running SkySafari via the LX200 protocol.  See 
+this :doc:`skysafari` document for complete details, but here is the connection info:
 
 
 * Use 'Other' telescope type
@@ -335,32 +518,47 @@ The PiFinder can provide real-time pointing information to a device running SkyS
 Shared Data Access
 ===================
 
-In the course of using the PiFinder several data files are created that may be of interest.  These are available via a SMB (samba) network share called ``//pifinder.local/shared``.  Accessing this will depend on your OS, but the PiFinder should be visible in a network browser provided.  There is no password requirement, just connect as ``guest`` with no password provided.
+In the course of using the PiFinder several data files are created that may be of interest.  
+These are available via a SMB (samba) network share called ``//pifinder.local/shared``.  Accessing this will depend on your 
+OS, but the PiFinder should be visible in a network browser provided.  There is no password requirement, 
+just connect as ``guest`` with no password provided.
 
 Once connected, you'll see:
 
 
 * ``captures/``\ : These are images saved when logging objects.  They are named with the observation ID from the database.
 * ``obslists/``\ : This folder holds observing saved during a PiFinder session or to load for future sessions.
-* ``screenshots/``\ :  It's possible to take screenshots while using the PiFinder (hold down **ENT** and press *0*\ ).  They are stored here.
-* ``solver_debug_dumps/``\ : If enabled, information about solver performance is stored here as a collection of images and json files.
+* ``screenshots/``\ :  It's possible to take screenshots while using the PiFinder (hold down **ENT** and press 
+  *0*\ ).  They are stored here.
+* ``solver_debug_dumps/``\ : If enabled, information about solver performance is stored here as a collection of images 
+  and json files.
 * ``observations.db``\ : This is the SQLite database which holds all the logged observations.
 
 Update Software
 ==================
-.. note::
-   This documentation is a work in progress for v3 and v2.5 PiFinders running software 2.0.0 or above.
-   If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
 
-.. note::
-   If the software version has not changed after the update, verify that the PiFinder is connected to a network with internet access, move 
-   closer to the WiFi access point and try again.  To save power the WiFi transmitter on the PiFinder is not as powerful as a laptop or 
-   other device so you may need to be fairly close to your WiFi access point to successfully complete the update.
+The PiFinder offers a way to download and install software updates directly from the PiFinder screen and 
+keypad.  To start this process you can choose Software Upd from the :ref:`<user_guide:tools menu>`
+
+.. image:: images/user_guide/software_update_01_docs.png
+
+The PiFinder will need to be connected to the internet, so you'll need to have it in Client Mode and connected
+to a WiFi network.  See :ref:`<user_guid:connecting to a new wifi network>` for more details.
+
+The PiFinder will check to make sure it can access the internet then compare the current release version to
+the version installed.  
+
+.. image:: images/user_guide/software_update_03_docs.png
+
+If a new version is available, you can use the presented option to start the update.  This may take several minutes
+and the PiFinder will restart when it's done.  
+
+.. image:: images/user_guide/software_update_02_docs.png
+
 
 You can also download a pre-built image of any software release and write it to the PiFinder's SD card.  
 See our `release page <https://github.com/brickbots/PiFinder/releases>`_ to find information about any
 of our releases and a link to download the images.
-
 
 Instructions for writing software release images to an SD card can be found on the doc:`software setup<software>` page.
 

@@ -1,4 +1,4 @@
-PiFinder Welcome
+PiFinder™ Welcome
 ================
 A plate solving telescope finder based around a Raspberry PI, Camera, and custom UI 'hat'
 
