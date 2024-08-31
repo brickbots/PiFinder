@@ -6,7 +6,7 @@ Quick Start
    If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
 
 
-Congratulations on getting your hands on a PiFinder! Whether you’ve built it from scratch, or ordered a completed model 
+Congratulations on getting your hands on a PiFinder™! Whether you’ve built it from scratch, or ordered a completed model 
 from BBLabs, you’re on your way to a whole new level of accuracy and ease while observing the night sky.
 
 This Quick Start guide aims to get you out and observing with most everything you need.  For more depth and information
