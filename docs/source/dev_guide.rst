@@ -329,7 +329,7 @@ Test the IMU
 First power up the unit and look at the Status page while moving it around. The
 status screen is part of the :ref:`user_guide:tools` menu.
 
-.. image:: images/user_guide/STATUS_002_docs.png
+.. image:: images/user_guide/status_screen_docs.png
 
 If the IMU section is empty ("- -") or does not move, it is likely, that either
 the IMU is defect or you have a problem on your board.

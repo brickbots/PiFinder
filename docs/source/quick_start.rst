@@ -402,4 +402,4 @@ To easily shut down the PiFinder:
 When you confrim the screen and keypad will turn off after a few seconds and it's then safe to
 turn off the unit using the power switch or unplugging the battery.
 
-You've now got the basics of using the PiFinder sorted, to learn more you can continue on to the full :ref:`user_guide:pifinder user manual`
+You've now got the basics of using the PiFinder sorted, to learn more you can continue on to the full :doc:`user_guide`
