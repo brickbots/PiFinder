@@ -1,6 +1,6 @@
 
-PiFinder Catalogs
-==================
+PiFinder™ Catalogs
+===================
 
 The PiFinder comes with a number of astronomical catalogs which can be searched and filtered.
 Each has a short catalog code displayed on the PiFinder UI.  You can select which catalogs

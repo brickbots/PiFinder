@@ -1,7 +1,7 @@
 
-====================
+======================
 PiFinder™ User Manual
-====================
+======================
 
 .. note::
    This documentation is a work in progress for v3 and v2.5 PiFinders running software 2.0.0 or above.
@@ -123,7 +123,7 @@ HALF.
 
 .. image:: images/user_guide/quick_menu_01.png
 
-Selecting RIGHT would switch this option to FULL.  You can exit the Quick Menu at any time
+Selecting LEFT would switch this option to FULL.  You can exit the Quick Menu at any time
 by pressing the SQUARE button again.
 
 
@@ -188,14 +188,14 @@ from one of four options:
 
 .. image:: images/user_guide/objects_menu.png
 
-- All Filtered: This will show you all the objects across all catalogs that meet 
-  your :ref:`filter criteria<user_guide:filtering>`.  This could be thousands of objects and is most useful with very
+- **All Filtered**: This will show you all the objects across all catalogs that meet 
+  your :ref:`filter criteria<user_guide:filters>`.  This could be thousands of objects and is most useful with very
   strict filter settings, such as only looking for globulars above 30 degree altitude and brighter than magnitude 10.
-- By Catalog: Shows all objects from a specific catalog that meet your filter criteria.  Great for observing projects
+- **By Catalog**: Shows all objects from a specific catalog that meet your filter criteria.  Great for observing projects
   and looking for the nearest objects in a particular catalog.
-- Recent: This list starts empty and will contain a history of all the objects you've checked out during your current
+- **Recent**: This list starts empty and will contain a history of all the objects you've checked out during your current
   observing session
-- Name Search: Using the number keypad and T9 style text entry, you can search for objects by name.  The snowball planetery?
+- **Name Search**: Using the number keypad and T9 style text entry, you can search for objects by name.  The snowball planetery?
   Cats-Eye?  This is the way to find them!
 
 No matter how you get objects onto the list, it always displays 
@@ -226,7 +226,7 @@ Pressing **LEFT** will select SORT
 
 .. image:: images/user_guide/object_list_sort_docs.png
 
-By default, lists are sorted in natural order... usually the order they appear in catalogs.  You can choose
+By default, lists are sorted in STANDARD order... usually the order they appear in catalogs.  You can choose
 another sort order such as NEAREST by pressing the arrow key indicated.  Sorting by NEAREST puts the object 
 which is closest to your current telescope position at the top of the list.
 
@@ -246,7 +246,8 @@ for the highlighted object. This screen shows large Push-To instructions, :ref:`
 catalog details for objects.
 
 Pressing **SQUARE** will cycle through the differnt information for the object and **UP/DOWN** will move to the next
-or previous object in the list.  **LEFT** will bring you back to the full list and **RIGHT** brings up the :ref:`Logging<user_guide:logging>` interface for the current object.
+or previous object in the list.  **LEFT** will bring you back to the full list and **RIGHT** brings 
+up the :ref:`Logging<user_guide:logging observations>` interface for the current object.
 
 .. image:: images/user_guide/object_details_01.png
 
@@ -278,18 +279,87 @@ of how many times you've logged this object.
 Filters
 ----------
 
+All the object lists aside from :ref:`user_guide:name search` and Recent will only show objects that meet
+the filter criteria you have set.  You can always view and adjust your filter settings using the Filter menu
+available from the main PiFinder menu
+
+.. image:: images/user_guide/main_filter_option.png
+
+You can also jump to the filter options using the :ref:`user_guide:quick menu` available from the 
+Object List screen
+
+.. image:: images/user_guide/object_list_radial_docs.png
+
+The Filter menu has several ways to limit which objects appear in the object list along with a 
+Reset All option to completely remove all filters.  
+
+.. image:: images/user_guide/filter_menu.png
+
+With no filters set every object available will appear on the object list.  
+For instance the All Filtered list will show over 18,000 objects!  
+
+Some filter types can have a single value, like Altitude, and some allow you to select multiple 
+options, like Object type.  Here's a brief explanation of each:
+
+- **Catalogs**: This allows you to limit which catalogs are included in the All Filtered list.  This 
+  is distinct from the Catalog specific object lists, which are a sort of shortcut to view objects
+  only from one specific catalog.  Using the Catalogs filter you can use the All Filtered list to 
+  see all of the different globular clusters across multiple catalogs.
+- **Type**: Limits by object type.  You can select multiple types of objects to include in your lists.
+- **Altitude**: The current apparent altitude of this object from your observing location.  
+- **Maganitude**: Limit objects displayed to those at least as bright as the selected magnitude.
+- **Observed**: Only include objects you've logged already, never logged, or any logged state.
+
+Catalogs Filter
+^^^^^^^^^^^^^^^^^
+
+The PiFinder has many different catalogs so this menu groups them by categories.
+
+.. image:: images/user_guide/filter_catalogs.png
+
+Some common catalogs are listed on the top level for quick reference and less 
+common catalogs are listed in their sub-categories indicated with an elipsis (...)
+
+Here's the DSO... category as an example:
+
+.. image:: images/user_guide/filter_catalogs_dso.png
+
+Selected catalogs are indicated with a check box and you may see the same catalog, like Messier,
+listed in multiple spots.  Selecting or de-selecting anywhere will change the state everywhere.
+
+
 Name Search
 ------------
 
+A powerful way to search the large database of objects included with the PiFinder is by name.  
+This lets you find objects by their common description, like the Cats Eye nebula.  To access 
+the Name Search screen select it from the Objects menu:
+
 .. image:: images/user_guide/name_search_01.png
+
+It uses a T9 style text input, like some popular celluar phones at the dawn of text messages!  
+The on-screen keypad shows the letters that are available by pressing each number key multiple
+times in a row.  
 
 .. image:: images/user_guide/name_search_02.png
 
+Each number key will generate it's number, then the three letters displayed
+in turn.  If you pause long enough between key-presses, or press a differnt key, the cursor
+will move to the next position.
+
 .. image:: images/user_guide/name_search_cat_01.png
+
+As you enter text, the PiFinder will show you how many objects match your search term to
+the far right of the text you are entering.
 
 .. image:: images/user_guide/name_search_cat_02.png
 
+You can see the number of objects reducing as we add more text....
+
 .. image:: images/user_guide/name_search_cat_03.png
+
+Once you have enough of a search term to limit the list of objects, press the **SQAURE** key
+to see the full list of matching objects.
 
 .. image:: images/user_guide/name_search_results.png
 
@@ -298,7 +368,7 @@ Object Images
 
 If you have used the prebuilt PiFinder image or have :ref:`downloaded<software:catalog image download>`
 the set of catalog images you can view what the selected object looks like via images from sky surveys.  
-These images will display in the background of the :ref:`<user_guide:object details` screen and you 
+These images will display in the background of the :ref:`user_guide:object details` screen and you 
 can see them in full detail by pressing the **SQUARE** key to cycle through various pages of 
 information about each object. 
 
@@ -338,16 +408,19 @@ your log.
 
 Use the **UP/DOWN** arrows to select one of the four context items to change:
 
-* Observability: How easy is it to spot and recognize this object
-* Appeal: Overall rating of this object.. would you refer a friend?
+- **Observability**: How easy is it to spot and recognize this object
+- **Appeal**: Overall rating of this object.. would you refer a friend?
 
 Both of these first two items are set by choosing a number between 1 and 5 to set the rating
 or pressing the **RIGHT** arrow to cycle through the stars.
 
-* Conditions....
-  * Transparency: A relative measure of contast. 
-  * Seeing:  The stillness of the atmosphere. 
-* Eyepiece:  You can note which of your eyepieces you are using.
+- **Conditions**...
+
+  - **Transparency**: A relative measure of contast. 
+
+  - **Seeing**: The stillness of the atmosphere. 
+
+- **Eyepiece**: You can note which of your eyepieces you are using.
 
 When you are done adding context, or if you want to just note that you observed an object 
 without context, use the **UP/DOWN** arrows to select **SAVE LOG** to record your observation.
@@ -360,7 +433,7 @@ If you are like me, you may enjoy various observing projects, such as observing 
 or Herschel objects.  The PiFinder makes these longer term efforts easy by allowing you to log each 
 object and then only showing you objects you have left that are visible during any observing session!
 
-Combining the ability to :ref:`filter<user_guide:filtering>` a catalog by observation status and sorting the object list 
+Combining the ability to :ref:`filter<user_guide:filters>` a catalog by observation status and sorting the object list 
 by the nearest objects allows you to work your way through a collection of objects easily.
 
 Tools
@@ -371,11 +444,11 @@ that are not observing related but provide useful information about the PiFidner
 
 .. image:: images/user_guide/tools_menu_docs.png
 
-- :ref:`Status<user_guide:status screen`: General info about about the PiFinder operation. 
+- :ref:`Status<user_guide:status screen>`: General info about about the PiFinder operation. 
 - Console: Shows messages from various PiFinder subsystems
-- :ref:`Software Upd<user_guide:update software`: Updates the software of your PiFinder.  
+- :ref:`Software Upd<user_guide:update software>`: Updates the software of your PiFinder.  
 - Test Mode: Puts the PiFinder into a demo/debug mode which loads and solves an image from disk.  Will prevent proper operation at night, but allows exploration of PiFinder features during the day.
-- :ref:`Shutdown<user_guide:shutdown`: Shuts down the PiFinder
+- :ref:`Shutdown<user_guide:shutdown>`: Shuts down the PiFinder
 
 Status Screen
 ----------------------------------
@@ -538,31 +611,33 @@ Update Software
 ==================
 
 The PiFinder offers a way to download and install software updates directly from the PiFinder screen and 
-keypad.  To start this process you can choose Software Upd from the :ref:`<user_guide:tools menu>`
+keypad.  To start this process you can choose Software Upd from the :ref:`user_guide:tools`
 
 .. image:: images/user_guide/software_update_01_docs.png
 
 The PiFinder will need to be connected to the internet, so you'll need to have it in Client Mode and connected
-to a WiFi network.  See :ref:`<user_guid:connecting to a new wifi network>` for more details.
+to a WiFi network.  See :ref:`user_guide:connecting to a new wifi network` for more details.
 
 The PiFinder will check to make sure it can access the internet then compare the current release version to
 the version installed.  
 
-.. image:: images/user_guide/software_update_03_docs.png
+.. image:: images/user_guide/software_update_02_docs.png
 
 If a new version is available, you can use the presented option to start the update.  This may take several minutes
 and the PiFinder will restart when it's done.  
 
-.. image:: images/user_guide/software_update_02_docs.png
+.. image:: images/user_guide/software_update_04_docs.png
 
+
+.. image:: images/user_guide/software_update_03_docs.png
 
 You can also download a pre-built image of any software release and write it to the PiFinder's SD card.  
 See our `release page <https://github.com/brickbots/PiFinder/releases>`_ to find information about any
 of our releases and a link to download the images.
 
-Instructions for writing software release images to an SD card can be found on the doc:`software setup<software>` page.
+Instructions for writing software release images to an SD card can be found on the :doc:`software setup<software>` page.
 
 FAQ
 ====
 
-Have any questions?  Please send them through to me at `rich@brickbots.com <mailto:rich@brickbots.com>`_ and I'll do my best to help and potentially add your question here.  Better yet, feel free to fork this repo and contribute via a pull request!
+Have any questions?  Please send them through to me at `info@PiFinder.io <mailto:info@pifinder.io>`_ and I'll do my best to help and potentially add your question here.  Better yet, feel free to fork this repo and contribute via a pull request!
