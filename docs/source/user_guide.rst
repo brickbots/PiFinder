@@ -358,7 +358,7 @@ You can see the number of objects reducing as we add more text....
 
 .. image:: images/user_guide/name_search_cat_03.png
 
-Once you have enough of a search term to limit the list of objects, press the **SQAURE** key
+Once you have enough of a search term to limit the list of objects, press the **SQUARE** key
 to see the full list of matching objects.
 
 .. image:: images/user_guide/name_search_results.png
