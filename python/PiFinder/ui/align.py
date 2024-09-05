@@ -7,18 +7,16 @@ This module contains all the UI Module classes
 """
 
 import time
-from PIL import ImageChops, Image
+from PIL import ImageChops
 
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
-from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder import plot
 from PiFinder.ui.base import UIModule
-from PiFinder import calc_utils
 
 
-class UIChart(UIModule):
-    __title__ = "CHART"
-    __help_name__ = "chart"
+class UIAlign(UIModule):
+    __title__ = "ALIGN"
+    __help_name__ = "align"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -32,6 +30,7 @@ class UIChart(UIModule):
         self.desired_fov = self.fov_list[self.fov_index]
         self.fov = self.desired_fov
         self.set_fov(self.desired_fov)
+        self.align_mode = False
 
         # Marking menu definition
         self.marking_menu = MarkingMenu(
@@ -42,53 +41,6 @@ class UIChart(UIModule):
             ),
             right=MarkingMenuOption(),
         )
-
-    def plot_markers(self):
-        """
-        Plot the contents of the observing list
-        and target if there is one
-        """
-        if not self.solution:
-            return
-
-        marker_list = []
-
-        # is there a target?
-        target = self.ui_state.target()
-        if target:
-            marker_list.append(
-                (plot.Angle(degrees=target.ra)._hours, target.dec, "target")
-            )
-
-        marker_brightness = self.config_object.get_option("chart_dso", 128)
-        if marker_brightness == 0:
-            return
-
-        for obs_target in self.ui_state.observing_list():
-            marker = OBJ_TYPE_MARKERS.get(obs_target.obj_type)
-            if marker:
-                marker_list.append(
-                    (
-                        plot.Angle(degrees=obs_target.ra)._hours,
-                        obs_target.dec,
-                        marker,
-                    )
-                )
-
-        if marker_list != []:
-            marker_image = self.starfield.plot_markers(
-                marker_list,
-            )
-
-            marker_image = ImageChops.multiply(
-                marker_image,
-                Image.new(
-                    "RGB",
-                    self.display_class.resolution,
-                    self.colors.get(marker_brightness),
-                ),
-            )
-            self.screen.paste(ImageChops.add(self.screen, marker_image))
 
     def draw_reticle(self):
         """
@@ -159,42 +111,18 @@ class UIChart(UIModule):
                 and self.solution["Dec"] is not None
             ):
                 # This needs to be called first to set RA/DEC/ROLL
-                image_obj, _visible_stars = self.starfield.plot_starfield(
-                    self.solution["RA"],
-                    self.solution["Dec"],
-                    self.solution["Roll"],
+                # We want to use the CAMERA center here as we'll be moving
+                # the reticle to the star
+                image_obj, visible_stars = self.starfield.plot_starfield(
+                    self.solution["RA_camera"],
+                    self.solution["Dec_camera"],
+                    self.solution["Roll_camera"],
                     constellation_brightness,
                 )
                 image_obj = ImageChops.multiply(
                     image_obj.convert("RGB"), self.colors.red_image
                 )
                 self.screen.paste(image_obj)
-
-                self.plot_markers()
-
-                # Display RA/DEC in selected format if enabled
-                if self.config_object.get_option("chart_radec") == "HH:MM":
-                    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(self.solution["RA"])
-                    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(self.solution["Dec"])
-                    ra_dec_disp = f"{ra_h:02d}:{ra_m:02d}:{ra_s:02d} / {dec_d:02d}°{dec_m:02d}:{dec_s}"
-                    self.draw.text(
-                        (0, 114),
-                        ra_dec_disp,
-                        font=self.fonts.base.font,
-                        fill=self.colors.get(255),
-                    )
-                if self.config_object.get_option("chart_radec") == "Degr":
-                    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(self.solution["RA"])
-                    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(self.solution["Dec"])
-                    ra_dec_disp = (
-                        f"{self.solution['RA']:0>6.2f} / {self.solution['Dec']:0>5.2f}"
-                    )
-                    self.draw.text(
-                        (0, 114),
-                        ra_dec_disp,
-                        font=self.fonts.base.font,
-                        fill=self.colors.get(255),
-                    )
 
                 self.last_update = last_solve_time
 
@@ -217,7 +145,7 @@ class UIChart(UIModule):
             )
 
         self.draw_reticle()
-        return self.screen_update()
+        return self.screen_update(title_bar=not self.align_mode)
 
     def change_fov(self, direction):
         self.fov_index += direction
@@ -235,7 +163,6 @@ class UIChart(UIModule):
         self.change_fov(1)
 
     def key_square(self):
-        # Set back to 10.2 to match the camera view
-        self.fov_index = 1
-        self.set_fov(self.fov_list[self.fov_index])
-        self.update()
+        self.align_mode = not self.align_mode
+        self._use_left = self.align_mode
+        self.update(force=True)

@@ -36,6 +36,9 @@ class UIModule:
     _display_mode_list = [None]  # List of display modes
     marking_menu: Union[None, MarkingMenu] = None
 
+    # Set this to TRUE to have left arrow passed through
+    _use_left = False
+
     def __init__(
         self,
         display_class: Type[DisplayBase],
@@ -299,4 +302,13 @@ class UIModule:
         pass
 
     def key_right(self):
+        pass
+
+    def key_left(self):
+        """
+        Normally not passed through to UIModules
+        set self._use_left = True to enable this, but
+        make sure to set it back or there is no way back
+        to the previous screen.
+        """
         pass

@@ -254,10 +254,16 @@ class Starfield:
             self.const_end_star_positions
         )
 
-        pil_image = self.render_starfield_pil(constellation_brightness)
-        return pil_image.rotate(self.roll).crop(self.render_crop)
+        pil_image, visible_stars = self.render_starfield_pil(constellation_brightness)
+        return pil_image.rotate(self.roll).crop(self.render_crop), visible_stars
 
     def render_starfield_pil(self, constellation_brightness):
+        """
+        If return_plotted_stars this will return a tuple:
+        (image, visible_stars)
+
+        Mainly for the new alignment system
+        """
         ret_image = Image.new("L", self.render_size)
         idraw = ImageDraw.Draw(ret_image)
 
@@ -324,6 +330,8 @@ class Starfield:
             y_pos=visible_stars["y"] * -1 * self.pixel_scale + self.render_center[1],
         )
 
+        # stash visible_stars
+
         for x_pos, y_pos, mag in zip(
             visible_stars["x_pos"], visible_stars["y_pos"], visible_stars["magnitude"]
         ):
@@ -345,4 +353,5 @@ class Starfield:
                     ],
                     fill=(255),
                 )
-        return ret_image
+
+        return ret_image, visible_stars

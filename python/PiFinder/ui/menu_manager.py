@@ -358,7 +358,10 @@ class MenuManager:
         if self.marking_menu_stack != []:
             self.mm_select(self.marking_menu_stack[-1].left)
         else:
-            self.remove_from_stack()
+            if self.stack[-1]._use_left:
+                self.stack[-1].key_left()
+            else:
+                self.remove_from_stack()
 
     def key_up(self):
         if self.help_images is not None:

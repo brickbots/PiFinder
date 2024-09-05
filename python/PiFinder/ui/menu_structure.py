@@ -4,6 +4,7 @@ from PiFinder.ui.status import UIStatus
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.software import UISoftware
 from PiFinder.ui.chart import UIChart
+from PiFinder.ui.align import UIAlign
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 import PiFinder.ui.callbacks as callbacks
@@ -14,6 +15,12 @@ pifinder_menu = {
     "select": "single",
     "start_index": 2,
     "items": [
+        {
+            "name": "Align",
+            "class": UIAlign,
+            "stateful": True,
+            "preload": True,
+        },
         {
             "name": "Camera",
             "class": UIPreview,
