@@ -241,6 +241,11 @@ class Starfield:
         self.update_projection(ra, dec)
         self.roll = roll
 
+        # rotate by roll....
+        roll_rad = (self.roll) * (np.pi / 180)
+        roll_sin = np.sin(roll_rad)
+        roll_cos = np.cos(roll_rad)
+
         # Set star x/y for projection
         # This is in a -1 to 1 space for the entire sky
         # with 0,0 being the provided RA/DEC
@@ -252,6 +257,14 @@ class Starfield:
         )
         self.const_edges_df["ex"], self.const_edges_df["ey"] = self.projection(
             self.const_end_star_positions
+        )
+
+        # roll the constellation lines
+        self.const_edges_df = self.const_edges_df.assign(
+            sxr=((self.const_edges_df["sx"]) * roll_cos - (self.const_edges_df["sy"]) * roll_sin),
+            syr=((self.const_edges_df["sy"]) * roll_cos + (self.const_edges_df["sx"]) * roll_sin),
+            exr=((self.const_edges_df["ex"]) * roll_cos - (self.const_edges_df["ey"]) * roll_sin),
+            eyr=((self.const_edges_df["ey"]) * roll_cos + (self.const_edges_df["ex"]) * roll_sin),
         )
 
         pil_image, visible_stars = self.render_starfield_pil(constellation_brightness)
@@ -273,13 +286,13 @@ class Starfield:
             # convert projection positions to screen space
             # using pandas to interate
             const_edges = self.const_edges_df.assign(
-                sx_pos=self.const_edges_df["sx"] * self.pixel_scale
+                sx_pos=self.const_edges_df["sxr"] * self.pixel_scale
                 + self.render_center[0],
-                sy_pos=self.const_edges_df["sy"] * -1 * self.pixel_scale
+                sy_pos=self.const_edges_df["syr"] * -1 * self.pixel_scale
                 + self.render_center[1],
-                ex_pos=self.const_edges_df["ex"] * self.pixel_scale
+                ex_pos=self.const_edges_df["exr"] * self.pixel_scale
                 + self.render_center[0],
-                ey_pos=self.const_edges_df["ey"] * -1 * self.pixel_scale
+                ey_pos=self.const_edges_df["eyr"] * -1 * self.pixel_scale
                 + self.render_center[1],
             )
 
@@ -301,56 +314,14 @@ class Starfield:
                 )
             ]
 
-            # rotate by roll....
-            roll_rad = (self.roll - 90) * (np.pi / 180)
-            roll_sin = np.sin(roll_rad)
-            roll_cos = np.cos(roll_rad)
-            const_edges_rot = visible_edges.assign(
-                sxr_pos=(
-                    (visible_edges["sx_pos"] - self.render_center[0]) * roll_cos
-                    - (visible_edges["sy_pos"] - self.render_center[1]) * roll_sin
-                    + self.render_center[0]
-                ),
-                syr_pos=(
-                    (visible_edges["sy_pos"] - self.render_center[1]) * roll_cos
-                    + (visible_edges["sx_pos"] - self.render_center[0]) * roll_sin
-                    + self.render_center[1]
-                ),
-                exr_pos=(
-                    (visible_edges["ex_pos"] - self.render_center[0]) * roll_cos
-                    - (visible_edges["ey_pos"] - self.render_center[1]) * roll_sin
-                    + self.render_center[0]
-                ),
-                eyr_pos=(
-                    (visible_edges["ey_pos"] - self.render_center[1]) * roll_cos
-                    + (visible_edges["ex_pos"] - self.render_center[0]) * roll_sin
-                    + self.render_center[1]
-                ),
-            )
-            """
+
+            # This seems strange, but is one of the generally recommended
+            # way to iterate through pandas frames.
             for start_x, start_y, end_x, end_y in zip(
                 visible_edges["sx_pos"],
                 visible_edges["sy_pos"],
                 visible_edges["ex_pos"],
                 visible_edges["ey_pos"],
-            ):
-            """
-
-            # This seems strange, but is one of the generally recommended
-            # way to iterate through pandas frames.
-            """
-            for start_x, start_y, end_x, end_y in zip(
-                const_edges_rot["sxr_pos"],
-                const_edges_rot["syr_pos"],
-                const_edges_rot["exr_pos"],
-                const_edges_rot["eyr_pos"],
-            ):
-            """
-            for start_x, start_y, end_x, end_y in zip(
-                const_edges_rot["sxr_pos"],
-                const_edges_rot["syr_pos"],
-                const_edges_rot["exr_pos"],
-                const_edges_rot["eyr_pos"],
             ):
                 idraw.line(
                     [start_x, start_y, end_x, end_y],
@@ -369,19 +340,20 @@ class Starfield:
         ]
 
         # Rotate them
-        visible_stars_rot = visible_stars.assign(
+        roll_rad = (self.roll) * (np.pi / 180)
+        roll_sin = np.sin(roll_rad)
+        roll_cos = np.cos(roll_rad)
+
+        visible_stars = visible_stars.assign(
             xr=((visible_stars["x"]) * roll_cos - (visible_stars["y"]) * roll_sin),
             yr=((visible_stars["y"]) * roll_cos + (visible_stars["x"]) * roll_sin),
         )
-        visible_stars = visible_stars_rot
 
         # convert star positions to screen space
         visible_stars = visible_stars.assign(
-            x_pos=visible_stars["x"] * self.pixel_scale + self.render_center[0],
-            y_pos=visible_stars["y"] * -1 * self.pixel_scale + self.render_center[1],
+            x_pos=visible_stars["xr"] * self.pixel_scale + self.render_center[0],
+            y_pos=visible_stars["yr"] * -1 * self.pixel_scale + self.render_center[1],
         )
-
-        # stash visible_stars
 
         for x_pos, y_pos, mag in zip(
             visible_stars["x_pos"], visible_stars["y_pos"], visible_stars["magnitude"]
