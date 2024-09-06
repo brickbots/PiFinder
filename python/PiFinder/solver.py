@@ -132,7 +132,6 @@ def solver(
                     # RA, Dec, Roll at the target pixel:
                     solved["RA"] = solved["RA_target"]
                     solved["Dec"] = solved["Dec_target"]
-                    solved["Roll"] = None  # To be calculated in integrator.py
                     if last_image_metadata["imu"]:
                         solved["imu_pos"] = last_image_metadata["imu"]["pos"]
                         solved["imu_quat"] = last_image_metadata["imu"]["quat"]
