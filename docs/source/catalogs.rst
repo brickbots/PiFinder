@@ -1,11 +1,11 @@
 
-PiFinder Catalogs
-==================
+PiFinder™ Catalogs
+===================
 
 The PiFinder comes with a number of astronomical catalogs which can be searched and filtered.
 Each has a short catalog code displayed on the PiFinder UI.  You can select which catalogs
-are active for the CATALOG and NEARBY screen via the :ref:`OPTIONS<user_guide:option pages>`
-page for either of these screen.
+are active via the :ref:`Filters<user_guide:filters>`
+menu.
 
 NGC
 ----------
