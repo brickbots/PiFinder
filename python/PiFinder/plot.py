@@ -255,7 +255,8 @@ class Starfield:
         )
 
         pil_image, visible_stars = self.render_starfield_pil(constellation_brightness)
-        return pil_image.rotate(self.roll).crop(self.render_crop), visible_stars
+        # return pil_image.rotate(self.roll).crop(self.render_crop), visible_stars
+        return pil_image.crop(self.render_crop), visible_stars
 
     def render_starfield_pil(self, constellation_brightness):
         """
@@ -300,13 +301,56 @@ class Starfield:
                 )
             ]
 
-            # This seems strange, but is one of the generally recommended
-            # way to iterate through pandas frames.
+            # rotate by roll....
+            roll_rad = (self.roll - 90) * (np.pi / 180)
+            roll_sin = np.sin(roll_rad)
+            roll_cos = np.cos(roll_rad)
+            const_edges_rot = visible_edges.assign(
+                sxr_pos=(
+                    (visible_edges["sx_pos"] - self.render_center[0]) * roll_cos
+                    - (visible_edges["sy_pos"] - self.render_center[1]) * roll_sin
+                    + self.render_center[0]
+                ),
+                syr_pos=(
+                    (visible_edges["sy_pos"] - self.render_center[1]) * roll_cos
+                    + (visible_edges["sx_pos"] - self.render_center[0]) * roll_sin
+                    + self.render_center[1]
+                ),
+                exr_pos=(
+                    (visible_edges["ex_pos"] - self.render_center[0]) * roll_cos
+                    - (visible_edges["ey_pos"] - self.render_center[1]) * roll_sin
+                    + self.render_center[0]
+                ),
+                eyr_pos=(
+                    (visible_edges["ey_pos"] - self.render_center[1]) * roll_cos
+                    + (visible_edges["ex_pos"] - self.render_center[0]) * roll_sin
+                    + self.render_center[1]
+                ),
+            )
+            """
             for start_x, start_y, end_x, end_y in zip(
                 visible_edges["sx_pos"],
                 visible_edges["sy_pos"],
                 visible_edges["ex_pos"],
                 visible_edges["ey_pos"],
+            ):
+            """
+
+            # This seems strange, but is one of the generally recommended
+            # way to iterate through pandas frames.
+            """
+            for start_x, start_y, end_x, end_y in zip(
+                const_edges_rot["sxr_pos"],
+                const_edges_rot["syr_pos"],
+                const_edges_rot["exr_pos"],
+                const_edges_rot["eyr_pos"],
+            ):
+            """
+            for start_x, start_y, end_x, end_y in zip(
+                const_edges_rot["sxr_pos"],
+                const_edges_rot["syr_pos"],
+                const_edges_rot["exr_pos"],
+                const_edges_rot["eyr_pos"],
             ):
                 idraw.line(
                     [start_x, start_y, end_x, end_y],
@@ -323,6 +367,13 @@ class Starfield:
             & (visible_stars["y"] > -self.limit)
             & (visible_stars["y"] < self.limit)
         ]
+
+        # Rotate them
+        visible_stars_rot = visible_stars.assign(
+            xr=((visible_stars["x"]) * roll_cos - (visible_stars["y"]) * roll_sin),
+            yr=((visible_stars["y"]) * roll_cos + (visible_stars["x"]) * roll_sin),
+        )
+        visible_stars = visible_stars_rot
 
         # convert star positions to screen space
         visible_stars = visible_stars.assign(
