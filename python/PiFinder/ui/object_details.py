@@ -23,6 +23,7 @@ import functools
 
 from PiFinder.db.observations_db import ObservationsDatabase
 import numpy as np
+import time
 
 
 # Constants for display modes
@@ -39,6 +40,7 @@ class UIObjectDetails(UIModule):
 
     __help_name__ = "object_details"
     __title__ = "OBJECT"
+    __ACTIVATION_TIMEOUT = 10
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -47,9 +49,6 @@ class UIObjectDetails(UIModule):
         self.mount_type = self.config_object.get_option("mount_type")
         self.object = self.item_definition["object"]
         self.object_list = self.item_definition["object_list"]
-        if self.object is not None:
-            self.ui_state.add_recent(self.object)
-
         self.object_display_mode = DM_LOCATE
         self.object_image = None
 
@@ -99,6 +98,7 @@ class UIObjectDetails(UIModule):
         self.alt_anchor = (0, self.display_class.resY - (self.fonts.huge.height * 1.2))
         self._elipsis_count = 0
 
+        self.active()  # fill in activation time
         self.update_object_info()
 
     def _layout_designator(self):
@@ -219,7 +219,7 @@ class UIObjectDetails(UIModule):
         )
 
     def active(self):
-        self.ui_state.add_recent(self.object)
+        self.activation_time = time.time()
 
     def _render_pointing_instructions(self):
         # Pointing Instructions
@@ -387,6 +387,11 @@ class UIObjectDetails(UIModule):
         self.update_object_info()
         self.update()
 
+    def maybe_add_to_recents(self):
+        if self.activation_time < time.time() - self.__ACTIVATION_TIMEOUT:
+            self.ui_state.add_recent(self.object)
+            self.active()  # reset activation time
+
     def scroll_object(self, direction: int) -> None:
         if isinstance(self.object_list, np.ndarray):
             # For NumPy array
@@ -405,16 +410,22 @@ class UIObjectDetails(UIModule):
         self.update()
 
     def key_down(self):
+        self.maybe_add_to_recents()
         self.scroll_object(1)
 
     def key_up(self):
+        self.maybe_add_to_recents()
         self.scroll_object(-1)
+
+    def key_left(self):
+        self.maybe_add_to_recents()
 
     def key_right(self):
         """
         When right is pressed, move to
         logging screen
         """
+        self.maybe_add_to_recents()
         if self.shared_state.solution() is None:
             return
         object_item_definition = {
