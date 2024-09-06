@@ -392,7 +392,7 @@ pifinder_menu = {
                     "name": "Magnitude",
                     "class": UITextMenu,
                     "select": "single",
-                    "config_option": "filter.altitude",
+                    "config_option": "filter.magnitude",
                     "items": [
                         {
                             "name": "None",
