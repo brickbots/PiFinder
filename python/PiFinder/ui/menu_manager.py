@@ -358,6 +358,7 @@ class MenuManager:
         if self.marking_menu_stack != []:
             self.mm_select(self.marking_menu_stack[-1].left)
         else:
+            self.stack[-1].key_left()  # allow left intercept for recents
             self.remove_from_stack()
 
     def key_up(self):
