@@ -31,6 +31,7 @@ class UIAlign(UIModule):
         self.fov = self.desired_fov
         self.set_fov(self.desired_fov)
         self.align_mode = False
+        self.visible_stars = None
 
         # Marking menu definition
         self.marking_menu = MarkingMenu(
@@ -113,7 +114,7 @@ class UIAlign(UIModule):
                 # This needs to be called first to set RA/DEC/ROLL
                 # We want to use the CAMERA center here as we'll be moving
                 # the reticle to the star
-                image_obj, visible_stars = self.starfield.plot_starfield(
+                image_obj, self.visible_stars = self.starfield.plot_starfield(
                     self.solution["RA_camera"],
                     self.solution["Dec_camera"],
                     self.solution["Roll_camera"],

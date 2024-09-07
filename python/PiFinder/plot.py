@@ -41,22 +41,11 @@ class Starfield:
             self.raw_stars = hipparcos.load_dataframe(f)
 
         # Image size stuff
-        self.target_size = max(self.resolution)
-        self.diag_mult = 1.422
-        self.render_size = (
-            int(self.target_size * self.diag_mult),
-            int(self.target_size * self.diag_mult),
-        )
+        self.render_size = resolution
         self.render_center = (
             int(self.render_size[0] / 2),
             int(self.render_size[1] / 2),
         )
-        self.render_crop = [
-            int((self.render_size[0] - self.target_size) / 2),
-            int((self.render_size[1] - self.target_size) / 2),
-            int((self.render_size[0] - self.target_size) / 2) + self.target_size,
-            int((self.render_size[1] - self.target_size) / 2) + self.target_size,
-        ]
 
         self.set_mag_limit(mag_limit)
         # Prefilter here for mag 7.5, just to make sure we have enough
@@ -125,7 +114,7 @@ class Starfield:
         # Used for vis culling in projection space
         self.limit = limit
 
-        self.image_scale = int(self.target_size / limit)
+        self.image_scale = int(self.render_size[0] / limit)
         self.pixel_scale = self.image_scale / 2
 
         # figure out magnitude limit for fov
@@ -192,10 +181,10 @@ class Starfield:
                 # Draw pointer....
                 # if not within screen
                 if (
-                    x_pos > self.render_crop[2]
-                    or x_pos < self.render_crop[0]
-                    or y_pos > self.render_crop[3]
-                    or y_pos < self.render_crop[1]
+                    x_pos > self.render_size[2]
+                    or x_pos < self.render_size[0]
+                    or y_pos > self.render_size[3]
+                    or y_pos < self.render_size[1]
                 ):
                     # calc degrees to target....
                     deg_to_target = (
@@ -218,7 +207,7 @@ class Starfield:
                 )
                 ret_image = ImageChops.add(ret_image, _image)
 
-        return ret_image.rotate(self.roll).crop(self.render_crop)
+        return ret_image
 
     def update_projection(self, ra, dec):
         """
@@ -241,7 +230,6 @@ class Starfield:
         self.update_projection(ra, dec)
         self.roll = roll
 
-
         # Set star x/y for projection
         # This is in a -1 to 1 space for the entire sky
         # with 0,0 being the provided RA/DEC
@@ -255,9 +243,8 @@ class Starfield:
             self.const_end_star_positions
         )
 
-
         pil_image, visible_stars = self.render_starfield_pil(constellation_brightness)
-        return pil_image.crop(self.render_crop), visible_stars
+        return pil_image, visible_stars
 
     def render_starfield_pil(self, constellation_brightness):
         """
@@ -278,13 +265,25 @@ class Starfield:
         if constellation_brightness:
             # convert projection positions to screen space
             # using pandas to interate
-            
+
             # roll the constellation lines
             self.const_edges_df = self.const_edges_df.assign(
-                sxr=((self.const_edges_df["sx"]) * roll_cos - (self.const_edges_df["sy"]) * roll_sin),
-                syr=((self.const_edges_df["sy"]) * roll_cos + (self.const_edges_df["sx"]) * roll_sin),
-                exr=((self.const_edges_df["ex"]) * roll_cos - (self.const_edges_df["ey"]) * roll_sin),
-                eyr=((self.const_edges_df["ey"]) * roll_cos + (self.const_edges_df["ex"]) * roll_sin),
+                sxr=(
+                    (self.const_edges_df["sx"]) * roll_cos
+                    - (self.const_edges_df["sy"]) * roll_sin
+                ),
+                syr=(
+                    (self.const_edges_df["sy"]) * roll_cos
+                    + (self.const_edges_df["sx"]) * roll_sin
+                ),
+                exr=(
+                    (self.const_edges_df["ex"]) * roll_cos
+                    - (self.const_edges_df["ey"]) * roll_sin
+                ),
+                eyr=(
+                    (self.const_edges_df["ey"]) * roll_cos
+                    + (self.const_edges_df["ex"]) * roll_sin
+                ),
             )
 
             const_edges = self.const_edges_df.assign(
@@ -315,7 +314,6 @@ class Starfield:
                     & (const_edges["ey_pos"] < self.render_size[1])
                 )
             ]
-
 
             # This seems strange, but is one of the generally recommended
             # way to iterate through pandas frames.
