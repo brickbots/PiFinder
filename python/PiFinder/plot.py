@@ -148,10 +148,21 @@ class Starfield:
 
         markers["x"], markers["y"] = self.projection(marker_positions)
 
+        # prep rotate by roll....
+        roll_rad = (self.roll) * (np.pi / 180)
+        roll_sin = np.sin(roll_rad)
+        roll_cos = np.cos(roll_rad)
+
+        # Rotate them
+        markers = markers.assign(
+            xr=((markers["x"]) * roll_cos - (markers["y"]) * roll_sin),
+            yr=((markers["y"]) * roll_cos + (markers["x"]) * roll_sin),
+        )
+
         # Rasterize marker positions
         markers = markers.assign(
-            x_pos=markers["x"] * self.pixel_scale + self.render_center[0],
-            y_pos=markers["y"] * -1 * self.pixel_scale + self.render_center[1],
+            x_pos=markers["xr"] * self.pixel_scale + self.render_center[0],
+            y_pos=markers["yr"] * -1 * self.pixel_scale + self.render_center[1],
         )
         # now filter by visiblity
         markers = markers[
@@ -163,6 +174,8 @@ class Starfield:
             )
             | (markers["symbol"] == "target")
         ]
+
+
 
         for x_pos, y_pos, symbol in zip(
             markers["x_pos"], markers["y_pos"], markers["symbol"]
@@ -181,9 +194,9 @@ class Starfield:
                 # Draw pointer....
                 # if not within screen
                 if (
-                    x_pos > self.render_size[2]
+                    x_pos > 0
                     or x_pos < self.render_size[0]
-                    or y_pos > self.render_size[3]
+                    or y_pos > 0
                     or y_pos < self.render_size[1]
                 ):
                     # calc degrees to target....
@@ -199,6 +212,26 @@ class Starfield:
                     tmp_pointer = self.pointer_image.copy()
                     tmp_pointer = tmp_pointer.rotate(-deg_to_target)
                     ret_image = ImageChops.add(ret_image, tmp_pointer)
+            elif symbol == "align_target":
+                # Draw cross
+                idraw.line(
+                    [x_pos, y_pos - 8, x_pos, y_pos - 3],
+                    fill=self.colors.get(255),
+                )
+                idraw.line(
+                    [x_pos, y_pos + 3, x_pos, y_pos + 8],
+                    fill=self.colors.get(255),
+                )
+                idraw.line(
+                    [x_pos - 8, y_pos, x_pos - 3, y_pos],
+                    fill=self.colors.get(255),
+                )
+
+                idraw.line(
+                    [x_pos + 3, y_pos, x_pos + 8, y_pos],
+                    fill=self.colors.get(255),
+                )
+
             else:
                 _image = ImageChops.offset(
                     self.markers[symbol],

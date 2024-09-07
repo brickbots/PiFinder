@@ -7,7 +7,8 @@ This module contains all the UI Module classes
 """
 
 import time
-from PIL import ImageChops
+import numpy as np
+from PIL import ImageChops, Image
 
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder import plot
@@ -32,6 +33,8 @@ class UIAlign(UIModule):
         self.set_fov(self.desired_fov)
         self.align_mode = False
         self.visible_stars = None
+        self.star_list = np.empty((0, 2))
+        self.alignment_star = None
 
         # Marking menu definition
         self.marking_menu = MarkingMenu(
@@ -47,24 +50,27 @@ class UIAlign(UIModule):
         """
         draw the reticle if desired
         """
-        brightness = self.config_object.get_option("chart_reticle", 128)
-        if brightness == 0:
-            # None....
+        if not self.solution:
             return
 
-        fov = self.fov
-        for circ_deg in [4, 2, 0.5]:
-            circ_rad = ((circ_deg / fov) * self.display_class.fov_res) / 2
-            bbox = [
-                self.display_class.centerX - circ_rad,
-                self.display_class.centerY - circ_rad,
-                self.display_class.centerX + circ_rad,
-                self.display_class.centerY + circ_rad,
-            ]
-            self.draw.arc(bbox, 20, 70, fill=self.colors.get(brightness))
-            self.draw.arc(bbox, 110, 160, fill=self.colors.get(brightness))
-            self.draw.arc(bbox, 200, 250, fill=self.colors.get(brightness))
-            self.draw.arc(bbox, 290, 340, fill=self.colors.get(brightness))
+        # create a marker list with JUST the reticle....
+        marker_list = [
+            (plot.Angle(degrees=self.solution["RA"])._hours, self.solution["Dec"], "align_target")
+        ]
+
+        marker_image = self.starfield.plot_markers(
+            marker_list,
+        )
+
+        marker_image = ImageChops.multiply(
+            marker_image,
+            Image.new(
+                "RGB",
+                self.display_class.resolution,
+                self.colors.get(128),
+            ),
+        )
+        self.screen.paste(ImageChops.add(self.screen, marker_image))
 
     def set_fov(self, fov):
         self.fov = fov
@@ -126,6 +132,7 @@ class UIAlign(UIModule):
                 self.screen.paste(image_obj)
 
                 self.last_update = last_solve_time
+                self.draw_reticle()
 
         else:
             self.draw.rectangle(
@@ -145,7 +152,6 @@ class UIAlign(UIModule):
                 fill=self.colors.get(255),
             )
 
-        self.draw_reticle()
         return self.screen_update(title_bar=not self.align_mode)
 
     def change_fov(self, direction):
@@ -167,3 +173,19 @@ class UIAlign(UIModule):
         self.align_mode = not self.align_mode
         self._use_left = self.align_mode
         self.update(force=True)
+
+    def key_up(self):
+        if self.align_mode:
+            self.switch_align_star("up")
+
+    def key_down(self):
+        if self.align_mode:
+            self.switch_align_star("down")
+
+    def key_right(self):
+        if self.align_mode:
+            self.switch_align_star("right")
+
+    def key_left(self):
+        if self.align_mode:
+            self.switch_align_star("left")
