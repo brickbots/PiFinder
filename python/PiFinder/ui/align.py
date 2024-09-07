@@ -8,7 +8,7 @@ This module contains all the UI Module classes
 
 import time
 import numpy as np
-from PIL import ImageChops, Image
+from PIL import ImageChops
 
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder import plot
@@ -35,6 +35,10 @@ class UIAlign(UIModule):
         self.visible_stars = None
         self.star_list = np.empty((0, 2))
         self.alignment_star = None
+        self.reticle_position = (
+            self.config_object.get_option("solve_pixel", (256, 256))[0] / 4,
+            self.config_object.get_option("solve_pixel", (256, 256))[1] / 4,
+        )
 
         # Marking menu definition
         self.marking_menu = MarkingMenu(
@@ -53,24 +57,27 @@ class UIAlign(UIModule):
         if not self.solution:
             return
 
-        # create a marker list with JUST the reticle....
-        marker_list = [
-            (plot.Angle(degrees=self.solution["RA"])._hours, self.solution["Dec"], "align_target")
-        ]
+        x_pos = round(self.reticle_position[0])
+        y_pos = round(self.reticle_position[1])
 
-        marker_image = self.starfield.plot_markers(
-            marker_list,
+        # Draw cross
+        self.draw.line(
+            [x_pos, y_pos - 8, x_pos, y_pos - 3],
+            fill=self.colors.get(255),
+        )
+        self.draw.line(
+            [x_pos, y_pos + 3, x_pos, y_pos + 8],
+            fill=self.colors.get(255),
+        )
+        self.draw.line(
+            [x_pos - 8, y_pos, x_pos - 3, y_pos],
+            fill=self.colors.get(255),
         )
 
-        marker_image = ImageChops.multiply(
-            marker_image,
-            Image.new(
-                "RGB",
-                self.display_class.resolution,
-                self.colors.get(128),
-            ),
+        self.draw.line(
+            [x_pos + 3, y_pos, x_pos + 8, y_pos],
+            fill=self.colors.get(255),
         )
-        self.screen.paste(ImageChops.add(self.screen, marker_image))
 
     def set_fov(self, fov):
         self.fov = fov
@@ -116,7 +123,7 @@ class UIAlign(UIModule):
                 and self.solution["Roll"] is not None
                 and self.solution["RA"] is not None
                 and self.solution["Dec"] is not None
-            ):
+            ) or force:
                 # This needs to be called first to set RA/DEC/ROLL
                 # We want to use the CAMERA center here as we'll be moving
                 # the reticle to the star
@@ -132,7 +139,7 @@ class UIAlign(UIModule):
                 self.screen.paste(image_obj)
 
                 self.last_update = last_solve_time
-                self.draw_reticle()
+            self.draw_reticle()
 
         else:
             self.draw.rectangle(
@@ -163,6 +170,86 @@ class UIAlign(UIModule):
         self.set_fov(self.fov_list[self.fov_index])
         self.update(force=True)
 
+    def radec_to_cam_pixel(self, ra: float, dec: float) -> tuple[int, int]:
+        # for now, just return the selected star pixels
+        return (self.alignment_star["x_pos"], self.alignment_star["y_pos"])
+
+    def switch_align_star(self, direction: str) -> None:
+        # iterate through all stars with screen coord on the requested
+        # side of the screen, find the closest, set thos coordinates
+        mag_limit = 5.5
+
+        # This 'pushes' the target in the direction of the
+        # arrow press to bias the closeness in that direction
+        offset_bias = 1
+
+        # filter with numpy
+        # mag /screen limits
+        candidate_stars = self.visible_stars
+        candidate_stars = candidate_stars[
+            (
+                (candidate_stars["x_pos"] > 0)
+                & (candidate_stars["x_pos"] < self.display_class.resolution[0])
+                & (candidate_stars["y_pos"] > 0)
+                & (candidate_stars["y_pos"] < self.display_class.resolution[1])
+                & (candidate_stars["magnitude"] < mag_limit)
+            )
+        ]
+        if direction == "up":
+            candidate_stars = candidate_stars[
+                (candidate_stars["y_pos"] < self.reticle_position[1] - offset_bias)
+            ]
+        if direction == "down":
+            candidate_stars = candidate_stars[
+                (candidate_stars["y_pos"] > self.reticle_position[1] + offset_bias)
+            ]
+        if direction == "left":
+            candidate_stars = candidate_stars[
+                (candidate_stars["x_pos"] < self.reticle_position[0] - offset_bias)
+            ]
+
+        if direction == "right":
+            candidate_stars = candidate_stars[
+                (candidate_stars["x_pos"] > self.reticle_position[0] + offset_bias)
+            ]
+
+        if len(candidate_stars) == 0:
+            return
+
+        # calculate distance in screen space
+        candidate_stars = candidate_stars.assign(
+            distance=np.hypot(
+                candidate_stars["x_pos"] - self.reticle_position[0],
+                candidate_stars["y_pos"] - self.reticle_position[1],
+            )
+        )
+        print(candidate_stars)
+
+        candidate_stars = candidate_stars.sort_values("distance")
+        print(candidate_stars)
+
+        self.alignment_star = candidate_stars.iloc[0]
+        print(self.alignment_star)
+
+        self.reticle_position = (
+            self.alignment_star["x_pos"],
+            self.alignment_star["y_pos"],
+        )
+
+        solve_pixel = self.radec_to_cam_pixel(
+            self.alignment_star["ra_degrees"], self.alignment_star["dec_degrees"]
+        )
+        self.config_object.set_option(
+            "solve_pixel", (solve_pixel[0] * 2, solve_pixel[1] * 2)
+        )
+        self.shared_state.set_solve_pixel((solve_pixel[0] * 2, solve_pixel[1] * 2))
+        self.reticle_position = solve_pixel
+        print(f"{solve_pixel=}")
+
+        self.update(force=True)
+
+        return
+
     def key_plus(self):
         self.change_fov(-1)
 
@@ -189,3 +276,13 @@ class UIAlign(UIModule):
     def key_left(self):
         if self.align_mode:
             self.switch_align_star("left")
+
+    def key_number(self, number):
+        if self.align_mode:
+            if number == 0:
+                # reset reticle
+                self.shared_state.set_solve_pixel((256, 256))
+                self.config_object.set_option("solve_pixel", (256, 256))
+                self.reticle_position = (64, 64)
+                self.align_mode = False
+                self.update(force=True)

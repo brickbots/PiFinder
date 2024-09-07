@@ -129,6 +129,39 @@ class Starfield:
         mag_setting = mag_range[0] - ((mag_range[0] - mag_range[1]) * perc_fov)
         self.set_mag_limit(mag_setting)
 
+    def radec_to_xy(self, ra: float, dec: float) -> tuple[float, float]:
+        """
+        Converts and RA/DEC to screen space x/y for the current projection
+        """
+        markers = pandas.DataFrame(
+            [(Angle(degrees=ra)._hours, dec)], columns=["ra_hours", "dec_degrees"]
+        )
+
+        # required, use the same epoch as stars
+        markers["epoch_year"] = 1991.25
+        marker_positions = self.earth.observe(Star.from_dataframe(markers))
+
+        markers["x"], markers["y"] = self.projection(marker_positions)
+
+        # prep rotate by roll....
+        roll_rad = (self.roll) * (np.pi / 180)
+        roll_sin = np.sin(roll_rad)
+        roll_cos = np.cos(roll_rad)
+
+        # Rotate them
+        markers = markers.assign(
+            xr=((markers["x"]) * roll_cos - (markers["y"]) * roll_sin),
+            yr=((markers["y"]) * roll_cos + (markers["x"]) * roll_sin),
+        )
+
+        # Rasterize marker positions
+        markers = markers.assign(
+            x_pos=markers["xr"] * self.pixel_scale + self.render_center[0],
+            y_pos=markers["yr"] * -1 * self.pixel_scale + self.render_center[1],
+        )
+
+        return markers["x_pos"][0], markers["y_pos"][0]
+
     def plot_markers(self, marker_list):
         """
         Returns an image to add to another image
@@ -175,8 +208,6 @@ class Starfield:
             | (markers["symbol"] == "target")
         ]
 
-
-
         for x_pos, y_pos, symbol in zip(
             markers["x_pos"], markers["y_pos"], markers["symbol"]
         ):
@@ -212,25 +243,6 @@ class Starfield:
                     tmp_pointer = self.pointer_image.copy()
                     tmp_pointer = tmp_pointer.rotate(-deg_to_target)
                     ret_image = ImageChops.add(ret_image, tmp_pointer)
-            elif symbol == "align_target":
-                # Draw cross
-                idraw.line(
-                    [x_pos, y_pos - 8, x_pos, y_pos - 3],
-                    fill=self.colors.get(255),
-                )
-                idraw.line(
-                    [x_pos, y_pos + 3, x_pos, y_pos + 8],
-                    fill=self.colors.get(255),
-                )
-                idraw.line(
-                    [x_pos - 8, y_pos, x_pos - 3, y_pos],
-                    fill=self.colors.get(255),
-                )
-
-                idraw.line(
-                    [x_pos + 3, y_pos, x_pos + 8, y_pos],
-                    fill=self.colors.get(255),
-                )
 
             else:
                 _image = ImageChops.offset(
@@ -396,14 +408,11 @@ class Starfield:
             if plot_size < 0.5:
                 idraw.point((x_pos, y_pos), fill=fill)
             else:
-                idraw.ellipse(
-                    [
-                        x_pos - plot_size,
-                        y_pos - plot_size,
-                        x_pos + plot_size,
-                        y_pos + plot_size,
-                    ],
+                idraw.circle(
+                    (round(x_pos), round(y_pos)),
+                    radius=plot_size,
                     fill=(255),
+                    width=0,
                 )
 
         return ret_image, visible_stars
