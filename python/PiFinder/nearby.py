@@ -87,11 +87,12 @@ class ClosestObjectsFinder:
         objects and returns the n closest objects to ra/dec
         """
 
-        if self._objects_balltree is None:
+        if self._objects_balltree is None or self._objects is None:
             return []
 
         nr_objects = len(self._objects)
 
+        # If n is 0, we want to find all objects
         if n == 0:
             n = nr_objects
 
@@ -109,17 +110,23 @@ def deduplicate_objects(
 ) -> list[CompositeObject]:
     deduplicated_dict = {}
 
+    # Define precedence for catalog codes
+    # M (Messier) objects have highest precedence, followed by NGC objects
     precedence = {"M": 2, "NGC": 1}
 
     for obj in unfiltered_objects:
         if obj.object_id not in deduplicated_dict:
+            # If the object ID is not in the dictionary, add it
             deduplicated_dict[obj.object_id] = obj
         else:
+            # If the object ID already exists, get it
             existing_obj = deduplicated_dict[obj.object_id]
+            # Get precedence for existing object, default to 0 if not in precedence dict
             existing_precedence = precedence.get(existing_obj.catalog_code, 0)
+            # Get precedence for new object, default to 0 if not in precedence dict
             new_precedence = precedence.get(obj.catalog_code, 0)
+            # Replace existing object if new object has higher precedence
             if new_precedence > existing_precedence:
                 deduplicated_dict[obj.object_id] = obj
-
     results = list(deduplicated_dict.values())
     return results

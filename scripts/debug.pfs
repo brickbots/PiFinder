@@ -1,4 +1,4 @@
-WAIT 2
+wait 4
 # Get into debug mode
 DOWN
 DOWN

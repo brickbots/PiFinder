@@ -1,0 +1,94 @@
+CONST;STAR;SAO#;RA2K_H;RA2K_M;RA2K_S;DEC2K_SIGN;DEC2K_D;DEC2K_M;DEC2K_S;VARTYPE;MagMax;MagMin;PERIOD_Days;DESCRIPTION
+Andromeda;SU And;;0;4;36,4;+;43;33;5;LC;8;8,5;;Red Carbon Star
+Andromeda;VX And;;0;19;54;+;44;42;34;SRA;7,8;9,3;369;Red Carbon Star
+Andromeda;Z And, The Original Symbiotic Variable;;23;33;40;+;48;49;6;ZAND;8;12,4;;Symbiotic Variable, a binary where the secondary is pulling material from the outer envelope of the primary.
+Andromeda;R And;53860;0;24;1,9;+;38;34;37;M;5,8;14,9;409,33;Pulsating Mira-type red giant
+Andromeda;AQ And;;0;27;31,7;+;35;35;15;SR;9,9;11,8;346;
+Aquarius;RY Aqr;;21;20;16;-;10;48;8;EA/SD:;8,8;10,1;1,966594;Eclipsing binary
+Aquarius;R Aqr;165849;23;43;49,5;-;15;17;4;M;5,8;12,4;386,96;Pulsating (Mira-type) red giant.  A spectroscopic binary - companion is a variable subdwarf.  Thus the system as a whole has irregular variability.
+Aquila;V Aql;142985;19;4;24,2;-;5;41;5;SRB;6,6;8,4;353;Red Carbon Star
+Aquila;R Aql;124266;19;6;22,3;+;8;13;48;M;5,5;12;284,2;"Mira-type pulsating red giant.  The variability is a bit of an optical illusion - its light output is shifting from visible to infrared as it cools; the actual energy output is only dropping one magnitude.  At minimum its temperature has dropped from 2350°K to 1890°K; one of the coolest stars known."
+Aquila;Eta Aql;125159;19;52;28,4;+;1;0;20;DCEP;3,48;4,39;7,176641;One of the brightest Cepheid variables.
+Auriga;Epsilon Aur;39955;5;1;58,1;+;43;49;24;EA/GS;2,92;3,83;9892;"White supergiant eclipsing binary.  Every 27 years the companion eclipses the primary for about a year, dropping the magnitude to 3.8; the next eclipse is due in 2009.  The companion has never been seen, and seems to be a star surrounded by a shell of obscuring dust."
+Auriga;Zeta Aur;39966;5;2;28,7;+;41;4;33;EA/GS;3,7;3,97;972,16;Orange giant eclipsing binary.
+Auriga;TX Aur;;5;9;5,5;+;39;0;8;LB;8,5;9,2;;"Red Carbon Star; near SAO 57755.  "
+Auriga;UV Aur;;5;21;48,9;+;32;30;43;M;7,4;10,6;394,42;Red Carbon Star
+Auriga;UU Aur;;6;36;32,8;+;38;26;44;SRB;7,83;10;234;Red Carbon Star
+Camelopardalis;U Cam;;3;41;48,2;+;62;38;54;SRB;11;12,8;;
+Camelopardalis;ST Cam;;4;51;13,3;+;68;10;8;SRB;9,2;12;300;Red Carbon Star
+Cancer;X Cnc;98230;8;55;22,9;+;17;13;53;SRB;5,6;7,5;195;
+Canes Venatici;Y CVn, La Superba;44317;12;45;7,8;+;45;26;25;SRB;7,4;10;157;"Red Carbon Star.  Named ""La Superba"" by the 19th century astronomer Pietro Secchi.  An enormous star whose diameter is 1 billion miles (outside the orbit of Saturn)!"
+Canis Major;W CMa;152427;7;8;3,4;-;11;55;24;LB;6,35;7,9;;Red Carbon Star
+Capricornus;RT Cap;;20;17;6,5;-;21;19;4;SRB;8,9;11,7;393;Red Carbon Star
+Cassiopeia;ST Cas;;0;17;32,1;+;50;17;14;SR;11,6;12,4;;Red Carbon Star, actually mag 9 at maximum.
+Cassiopeia;RZ Cas;12445;2;48;55,5;+;69;38;3;EA/SD;6,18;7,72;1,195247;Eclipsing binary: varies from mag 6.2 to 7.7 in a single 4-hour period every 1.19 days - variation should be visible in one evening.
+Cassiopeia;R Cas;35938;23;58;24,9;+;51;23;20;M;4,7;13,5;430,46;Long-period Mira-type variable (pulsating cool red giant).  Variability occurs as its light output shifts to infrared.
+Centaurus;T Cen;204739;13;41;45,6;-;33;35;51;SRA;5,5;9;90,44;
+Cepheus;U Cep;;1;2;18,4;+;81;52;32;EA/SD;6,75;9,24;2,4930475;Eclipsing binary.
+Cepheus;T Cep;19229;21;9;31,8;+;68;29;27;M;5,2;11,3;388,14;Red giant Mira-type variable.
+Cepheus;S Cep;10100;21;35;12,8;+;78;37;28;M;7,4;12,9;486,84;"One of the reddest stars in the sky.  Mira-type pulsating red giant; first observed by Lelande in 1789."
+Cepheus;VV Cep;19753;21;56;39,1;+;63;37;32;EA/GS+SRC;4,8;5,36;7430;A semi-regular variable red supergiant.  Also an eclipsing binary, being eclipsed by a smaller blue companion - this period is 20 years but the magnitude variation due to the eclipse is slight.  The primary may be the largest star in the sky, with a diameter of 1621 times the Sun, which is outside the orbit of Saturn!
+Cepheus;MU Cep, Herschel's Garnet Star;33693;22;23;38,6;+;57;40;51;CEP;12,7;14,1;3,76782;"Supergiant star and one of the reddest naked-eye stars in the sky; Mars' North Star.  Irregular variable; perhaps a billion miles in diameter; thus its outer atmosphere is cool enough to contain water vapor as steam!"
+Cepheus;Delta Cep, The Original Cepheid Variable;34508;22;29;10,3;+;58;24;55;DCEP;3,48;4,37;5,366341;Yellow supergiant and the original of the Cepheid (pulsating) Variables, which have a variable period related to their luminosity so their magnitudes were used to determine interstellar distances in the 1920s.
+Cetus;Omi Cet, MIRA;129825;2;19;20,8;-;2;58;40;M;2;10,1;331,96;Mira - the first variable star discovered, by David Fabricius in 1596.  A red giant which at maximum is one of the largest stars in the sky (500X the size of the Sun).
+Cetus;UV Cet, Luyten's Flare Star;;1;39;1,4;-;17;57;2;UV;6,8;12,95;;"A binary of magnitude 12.5 and 13 red dwarf stars.  With a combined mass of 0.08 times the sun, they are among the least massive stars yet identified.  With their low luminosity (0.00007 x the sun), the only reason they can be seen at all is because they are only 9 ly away, the sixth closest star.  However, B is ""Luyten's Flare Star"", discovered by W. J. Luyten at the University of Minnesota in 1949; it flares up to magnitude 6 occasionally.  The flare only lasts a few minutes and is a solar flare similar to the sun's, but is much more dramatic because of the star's low intrinsic luminosity."
+Corona Borealis;R CrB;84015;15;48;34,4;+;28;9;24;RCB;5,71;14,8;;Yellow supergiant 7,000 ly away.  Irregular variable, discovered in 1795.  Every few years it fades with no predictable pattern, to at least mag 7 and as low as mag 15, for a few weeks.
+Corona Borealis;T CrB, Blaze Star;;15;59;30,2;+;25;55;13;NR;2;10,8;29000;One of the few recurrent novae known.  Normally mag 10 but flared up to mag 2 in 1866 and 1946.  A very close binary consisting of a white dwarf and red giant.
+Cygnus;R Cyg;31822;19;36;49,4;+;50;11;59;M;6,1;14,4;426,45;Long-period Mira-type variable (pulsating cool red giant).
+Cygnus;TT Cyg;;19;40;57;+;32;37;6;SRB;10,2;11,9;118;Red Carbon Star
+Cygnus;Chi Cyg;68943;19;50;33,9;+;32;54;51;M;3,3;14,2;408,05;One of the first stars to be identified as a variable, by Gottfried Kirch in 1686.
+Cygnus;RY Cyg;;20;10;23,4;+;35;56;49;LB;8,5;10,3;;Red Carbon Star
+Cygnus;P Cyg;69773;20;17;47,2;+;38;1;59;SDOR;3;6;;"Blue supergiant evolving into a red supergiant.  Erratic variable; varies from mag 3 to mag 6, but it has been gradually brightening since the 18th century."
+Cygnus;U Cyg;;20;19;36,6;+;47;53;39;M;5,9;12,1;463,24;Red Carbon Star
+Cygnus;V460 Cyg;71613;21;42;1,1;+;35;30;37;SRB;5,57;7;180;An unresolved binary believed to harbor a Black Hole.
+Cygnus;SS Cyg;;21;42;42,8;+;43;35;10;UGSS;7,7;12,4;49,5;"An unusual ""cataclysmic"" variable that is a binary pair of dwarf stars.  The system is normally at mag 11 - 12, but approximately every 25 days it flares up 4 magnitudes for a few days, then returns to its former magnitude."
+Draco;RY Dra;15945;12;56;25,9;+;65;59;40;SRB:;6,03;8;200;Variable red giant
+Draco;R Dra;17137;16;32;40,2;+;66;45;18;M;6,7;13,2;245,6;Long-period Mira-type variable (pulsating cool red giant).
+Draco;UX Dra;9404;19;21;35,5;+;76;33;35;SRA:;5,94;7,1;168;Red Carbon Star
+Gemini;Eta Gem;78135;6;14;52,7;+;22;30;24;SRA+EA;3,15;3,9;232,9;"A red giant semi-regular variable.  Also a binary - the secondary is mag 8.8 with a separation of only 1.4""."
+Gemini;Zeta Gem;79031;7;4;6,5;+;20;34;13;DCEP;3,62;4,18;10,15073;One of the brightest Cepheid variables.
+Gemini;U Gem;;7;55;5,2;+;22;0;5;UGSS+E;8,2;14,9;105,2;An extremely close (a few hundred thousand miles, center-to-center) binary system and a cataclysmic variable: normally at mag 14 but brightens to mag 9 unpredictably, in a period varying from 62 to 257 days.
+Hercules;Alpha Her, Ras Algethi;102680;17;14;38,9;+;14;23;25;SRC;2,74;4;;"The primary is a semiregular (average period of 90 days) pulsating red supergiant and one of the largest naked-eye stars known, at 400X to 600X the sun's diameter.  It has a companion - a close (blue) binary, mag 5.4, with a separation of 4.8"" and an orbital period of 3,600 years.  The primary is surrounded by an expanding shell of very tenuous gas, which engulfs the companion."
+Hydra;Y Hya;178088;9;51;3,7;-;23;1;2;SRB;8,3;12;302,8;Red Carbon Star
+Hydra;U Hya;156110;10;37;33,3;-;13;23;4;SRB;7;9,4;450;Red Carbon Star
+Hydra;R Hya;181695;13;29;42,8;-;23;16;53;M;3,5;10,9;388,87;Mira-type pulsating red giant (the red color is most visible at minimum).  The fourth variable star to be discovered, by the Italian astronomer Maraldo in 1704.  Its period has been shortening.
+Leo;R Leo, Peltier's Variable Star;98769;9;47;33,5;+;11;25;44;M;4,4;11,3;309,95;The variable that started Leslie Peltier on his career in 1918.  Mira-type pulsating red giant.  At maximum one of the largest stars in the sky, with a diameter of Jupiter's orbit.  Because of its size and proximity (600 ly) the Hubble actually was able to image this star, and shows it to have an oval shape!
+Lepus;R Lep, Hind's Crimson Star;150058;4;59;36,3;-;14;48;23;M;5,5;11,7;427,07;Discovered by John Hind of London in 1845.  Mira-type pulsating red giant.
+Libra;Sigma Lib;183139;15;4;4,2;-;25;16;55;SRB;3,2;3,46;20;Irregular variable.
+Lyra;T Lyr;;18;32;20,1;+;36;59;56;LB;7,84;9,6;;Red Carbon Star
+Lyra;HK Lyr;;18;42;50;+;36;57;31;LB;7,8;9,6;;Red Carbon Star
+Lyra;Beta Lyr;67451;18;50;4,8;+;33;21;46;EB;3,25;4,36;12,913834;"Quadruple-star system; the primary is an eclipsing binary of two giant suns almost touching each other (and consequently having ovoid shapes)."
+Lyra;RR Lyr, Prototype Cluster Variable;48421;19;25;27,9;+;42;47;4;RRAB;7,06;8,12;0,56686776;"Prototype ""cluster variable"" star, because large numbers of them are found in many globular clusters, and their identical luminosities helps in determining the distance to these GCs.  Much of RR Lyrae's variability can be seen in one night."
+Ophiuchus;V Oph;159916;16;26;43,7;-;12;25;36;M;7,3;11,6;297,21;Red Carbon Star
+Ophiuchus;X Oph;123744;18;38;21,1;+;8;50;3;M;5,9;9,2;328,85;Mira-type pulsating red giant.
+Orion;W Ori;112406;5;5;23,7;+;1;10;39;SRB;8,2;12,4;212;Red Carbon Star
+Orion;U Ori;;5;55;49,2;+;20;10;31;M;4,8;13;368,3;Mira-type pulsating red giant.
+Orion;BL Ori;95659;6;25;28,2;+;14;43;19;LB;7,9;9,7;;Red Carbon Star
+Orion;FU Ori;;5;45;22,4;+;9;4;11;FU;9,6;16,5;;"Increased from mag 16 to mag 9 in 1937, and has remained there.  A yellow supergiant that at the time was assumed to be a nova but now is thought to be a star that exhibited early stages of development.  Nine other ""FUor"" variables have since been discovered."
+Pegasus;AG Peg;107436;21;51;2;+;12;37;32;NC;6;9,4;;"Symbiotic Variable"" (Z-Andromeda type variable), a binary where the secondary - in this case a compact blue subdwarf - is pulling material from the outer envelope of the red giant primary."
+Perseus;Rho Per;56138;3;5;10,6;+;38;50;25;SRB;3,3;4;50;
+Perseus;Beta Per, Algol, Prototypical Eclipsing Binary;38592;3;8;10,1;+;40;57;20;EA/SD;2,12;3,39;2,8673043;"""The Demon Star"" [from Arabic - the Demon's Head - the head of Medusa being held up by Perseus].  It is an eclipsing binary, eclipsing for 10 hours about every 3 days.  The 5-hour magnitude drop can often be viewed during a night of observing.  The two stars are only 6 million miles apart, center-to-center."
+Perseus;Y Per;;3;27;42,4;+;44;10;36;M;8,1;11,3;248,6;Red Carbon Star
+Pisces;UU Psc;109087;0;14;58,8;+;8;49;15;ELL/DW:;6,01;6,05;0,841678;Algol-type eclipsing binary
+Pisces;Z Psc;74593;1;16;5;+;25;46;10;SRB;8,8;10,1;144;Red Carbon Star
+Pisces;TX Psc;;23;46;23,5;+;3;29;13;LB;4,79;5,2;;"Red Carbon Star; semi-regular variable."
+Puppis;PV Pup;153363;7;45;28,7;-;14;41;9;EA/DM;6,88;7,32;1,660728;The secondary of this binary star is itself an eclipsing binary and thus gives the system a slight variablility (mag 6.9 to 7.3 with a period of 40 hours).
+Sagitta;U Sge;104711;19;18;48,5;+;19;36;37;EA/SD;6,45;9,28;3,38061933;"Eclipsing binary; drops from mag 6.4 to 9, for 1 hr 40 min every 3 days 9 hours."
+Sagitta;X Sge;;20;5;5,3;+;20;38;54;SR;7;9,7;196;Red semi-variable.
+Sagitta;WZ Sge;;20;7;36,7;+;17;42;15;UGSU+E+ZZ;7;15,53;11900;"""Cataclysmic Variable"" (dwarf nova); normally at magnitude 15.5, but every ~30 years it flares up dramatically.  The last outburst was in 2001, when it reached magnitude 8.2.  Believed to be a binary with an orbital period of about 80 minutes!"
+Sagitta;FG Sge;;20;11;56;+;20;20;7;*;9,45;13,6;;"A variable star (mag 13.7 to 9.1, then back to 15) within planetary nebula He 1-5; it has evolved into an orange supergiant within the last 100 years.  Stellar evolution events that occur within the span of a human lifetime are exceptionally rare."
+Sagittarius;V1492 Sgr;162465;18;4;15,2;-;29;52;18;E;15,2;15,9;0,51;Irregular variable.
+Sagittarius;RU Sgr;229959;19;58;42,9;-;41;50;58;M;6;13,8;240,49;
+Sagittarius;RT Sgr;;20;17;43,9;-;39;6;45;M;6;14,1;306,46;Long-period Mira-type variable (pulsating cool red giant).
+Scorpius;Delta Sco;184014;16;0;20;-;22;37;18;GCAS;1,86;2,32;;In July, 2000, Delta brightened and has since fluctuated to as high as mag 1.6
+Sculptor;R Scl;193122;1;26;58,1;-;32;32;34;SRB;9,1;12,9;370;Red Carbon Star
+Scutum;R Sct;142620;18;47;29,1;-;5;42;17;RVA;4,2;8,6;146,5;"A pulsating yellow supergiant of the class RV Tauri stars; discovered in 1797.  Varies between magnitude 5 and 6, but every 4th or 5th cycle it drops to magnitude 8."
+Scutum;S Sct;142674;18;50;20;-;7;54;27;SRB;9,63;10,9;148;Red Carbon Star
+Serpens;R Ser;101771;15;50;41,7;+;15;8;3;M;5,16;14,4;356,41;Mira-type pulsating red giant.
+Taurus;T Tau;;4;21;59,2;+;19;32;7;INT;9,3;13,5;;Within NGC 1555 (Hind's Variable Nebula).  T Tauri's brightness and spectrum change erratically, thought to be caused by the conflict between the last stages of gravitational contraction and the first stages of hydrogen fusion in its core.
+Taurus;RV Tau;;4;47;6,8;+;26;10;44;RVB;9,8;13,3;78,731;"A pulsating yellow supergiant; prototype of this class of variables."
+Taurus;Y Tau;;5;45;39,4;+;20;41;42;SRB;6,5;9,2;241,5;Red Carbon Star
+Triangulum;R Tri;55687;2;37;2,2;+;34;15;54;M;5,4;12,6;266,9;Long-period Mira-type variable (pulsating cool red giant).
+Ursa Major;R UMa;15273;10;44;38,8;+;68;46;33;M;6,5;13,7;301,62;Long-period Mira-type variable (pulsating cool red giant).
+Ursa Major;VY UMa;15274;10;45;3,9;+;67;24;41;LB;5,87;7;;Red Carbon Star
+Virgo;SS Vir;;12;25;13,7;+;0;46;12;SRA;6;9,6;364,14;Red Carbon Star

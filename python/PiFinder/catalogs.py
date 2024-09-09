@@ -182,13 +182,9 @@ class CatalogFilter:
                 return False
 
         # check magnitude
-        # first try to get object mag to float
-        try:
-            obj_mag = float(obj.mag)
-        except (ValueError, TypeError):
-            obj_mag = 99
+        obj_mag = obj.mag.filter_mag
 
-        if self._magnitude is not None and obj_mag <= self._magnitude:
+        if self._magnitude is not None and obj_mag > self._magnitude:
             obj.last_filtered_result = False
             return False
 

@@ -57,6 +57,11 @@ class UIAlign(UIModule):
         if not self.solution:
             return
 
+        if not self.align_mode:
+            self.reticle_position = self.starfield.radec_to_xy(
+                self.solution["RA"], self.solution["Dec"]
+            )
+
         x_pos = round(self.reticle_position[0])
         y_pos = round(self.reticle_position[1])
 
@@ -171,7 +176,8 @@ class UIAlign(UIModule):
         self.update(force=True)
 
     def radec_to_cam_pixel(self, ra: float, dec: float) -> tuple[int, int]:
-        # for now, just return the selected star pixels
+        self.command_queues["solver"].put(["align_on_radec", ra, dec])
+        # for expediency, just return the selected star pixels
         return (self.alignment_star["x_pos"], self.alignment_star["y_pos"])
 
     def switch_align_star(self, direction: str) -> None:
@@ -223,28 +229,24 @@ class UIAlign(UIModule):
                 candidate_stars["y_pos"] - self.reticle_position[1],
             )
         )
-        print(candidate_stars)
 
         candidate_stars = candidate_stars.sort_values("distance")
-        print(candidate_stars)
 
         self.alignment_star = candidate_stars.iloc[0]
-        print(self.alignment_star)
 
         self.reticle_position = (
             self.alignment_star["x_pos"],
             self.alignment_star["y_pos"],
         )
 
-        solve_pixel = self.radec_to_cam_pixel(
-            self.alignment_star["ra_degrees"], self.alignment_star["dec_degrees"]
+        # Send command to solver to work out the camera pixel for this target
+        self.command_queues["solver"].put(
+            [
+                "align_on_radec",
+                self.alignment_star["ra_degrees"],
+                self.alignment_star["dec_degrees"],
+            ]
         )
-        self.config_object.set_option(
-            "solve_pixel", (solve_pixel[0] * 2, solve_pixel[1] * 2)
-        )
-        self.shared_state.set_solve_pixel((solve_pixel[0] * 2, solve_pixel[1] * 2))
-        self.reticle_position = solve_pixel
-        print(f"{solve_pixel=}")
 
         self.update(force=True)
 
@@ -258,7 +260,6 @@ class UIAlign(UIModule):
 
     def key_square(self):
         self.align_mode = not self.align_mode
-        self._use_left = self.align_mode
         self.update(force=True)
 
     def key_up(self):
@@ -276,6 +277,8 @@ class UIAlign(UIModule):
     def key_left(self):
         if self.align_mode:
             self.switch_align_star("left")
+            return False
+        return True
 
     def key_number(self, number):
         if self.align_mode:

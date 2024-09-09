@@ -1,4 +1,4 @@
-20424133822329509
+20439582800106406
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -77119,12 +77119,47 @@ Through hole socket strip THT 1x06 2.54mm single row
 6
 6
 RSU
+GMT020-01 Screen
+
+
+0
+0
+0
+RSU
 GT-U7_GPS
 Through hole straight pin header, 1x05, 2.54mm pitch, single row
 Through hole pin header THT 1x05 2.54mm single row
 0
 5
 5
+RSU
+GT-U7_GPS_smt
+Through hole straight pin header, 1x05, 2.54mm pitch, single row
+Through hole pin header THT 1x05 2.54mm single row
+0
+5
+5
+RSU
+PFSMD_mezz_castle
+Through hole straight pin header, 1x07, 2.54mm pitch, single row
+Through hole pin header THT 1x07 2.54mm single row
+0
+7
+7
+RSU
+PFSMD_mezz_nocastle
+Through hole straight pin header, 1x07, 2.54mm pitch, single row
+Through hole pin header THT 1x07 2.54mm single row
+0
+7
+7
+RSU
+PF_SOT-23-NPN
+SOT, 3 Pin (https://www.jedec.org/system/files/docs/to-236h.pdf variant AB), generated with kicad-footprint-generator ipc_gullwing_generator.py
+SOT TO_SOT_SMD
+0
+3
+3
 RSU
 SPDT_miniswitch
 
@@ -77140,7 +77175,35 @@ tact sw push 6mm
 5
 2
 RSU
+SW_Push_6x6mm_SMT_withhole_tight
+tactile push button, 6x6mm e.g. PTS645xx series, height=9.5mm
+tact sw push 6mm smd
+0
+5
+2
+RSU
+SW_Push_6x6mm_withhole
+tactile push button, 6x6mm e.g. PTS645xx series, height=9.5mm
+tact sw push 6mm smd
+0
+5
+2
+RSU
 Waveshare1.5inOled
+Through hole straight pin header, 1x08, 2.54mm pitch, single row
+Through hole pin header THT 1x08 2.54mm single row
+0
+7
+7
+RSU
+Waveshare1.5inOled_flushmount
+Through hole straight pin header, 1x08, 2.54mm pitch, single row
+Through hole pin header THT 1x08 2.54mm single row
+0
+7
+7
+RSU
+Waveshare1.5inOled_screwholes
 Through hole straight pin header, 1x08, 2.54mm pitch, single row
 Through hole pin header THT 1x08 2.54mm single row
 0
