@@ -119,7 +119,7 @@ def deduplicate_objects(
             # If the object ID is not in the dictionary, add it
             deduplicated_dict[obj.object_id] = obj
         else:
-            # If the object ID already exists, get it 
+            # If the object ID already exists, get it
             existing_obj = deduplicated_dict[obj.object_id]
             # Get precedence for existing object, default to 0 if not in precedence dict
             existing_precedence = precedence.get(existing_obj.catalog_code, 0)

@@ -9,11 +9,11 @@ Each one takes the current ui module as an argument
 """
 
 import datetime
-import sh
 import logging
 
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
+
 try:
     from PiFinder import sys_utils
 except ImportError:

@@ -214,7 +214,9 @@ class Server:
                 datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
                 datetime_utc = datetime_obj.replace(tzinfo=timezone.utc)
                 time_lock(datetime_utc)
-            logger.debug("GPS update: %s, %s, %s, %s, %s", lat, lon, altitude, date_req, time_req)
+            logger.debug(
+                "GPS update: %s, %s, %s, %s, %s", lat, lon, altitude, date_req, time_req
+            )
             time.sleep(1)  # give the gps thread a chance to update
             return home()
 
