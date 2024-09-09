@@ -161,6 +161,7 @@ def _calculate_timeouts(cfg):
 
 
 def wake_screen(screen_brightness, shared_state, cfg) -> int:
+    global display_device
     set_brightness(screen_brightness, cfg)
     display_device.device.show()
     orig_power_state = shared_state.power_state()
