@@ -302,8 +302,7 @@ class UIModule:
         pass
 
     def key_left(self):
-        ''' allow module to intercept left key,
-            menu_manager normally handles this
-        '''
+        """allow module to intercept left key,
+        menu_manager normally handles this
+        """
         pass
-
