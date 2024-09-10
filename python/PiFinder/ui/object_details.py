@@ -9,6 +9,7 @@ This module contains all the UI Module classes
 from PiFinder import cat_images
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
+from PiFinder.ui.align import align_on_radec
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.log import UILog
 from PiFinder.ui.ui_utils import (
@@ -59,7 +60,15 @@ class UIObjectDetails(UIModule):
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(),
             right=MarkingMenuOption(),
-            down=MarkingMenuOption(),
+            down=MarkingMenuOption(
+                label="ALIGN",
+                callback=MarkingMenu(
+                    up=MarkingMenuOption(),
+                    left=MarkingMenuOption(label="CANCEL", callback=self.mm_cancel),
+                    down=MarkingMenuOption(),
+                    right=MarkingMenuOption(label="ALIGN", callback=self.mm_align),
+                ),
+            ),
         )
 
         # Used for displaying obsevation counts
@@ -409,6 +418,30 @@ class UIObjectDetails(UIModule):
         self.update_object_info()
         self.update()
 
+    def mm_cancel(self, _marking_menu, _menu_item) -> bool:
+        """
+        Do nothing....
+        """
+        return True
+
+    def mm_align(self, _marking_menu, _menu_item) -> bool:
+        """
+        Called from marking menu to align on curent object
+        """
+        self.message("Aligning...", 0.1)
+        if align_on_radec(
+            self.object.ra,
+            self.object.dec,
+            self.command_queues,
+            self.config_object,
+            self.shared_state,
+        ):
+            self.message("Aligned!", 1)
+        else:
+            self.message("Failed", 2)
+
+        return True
+
     def key_down(self):
         self.maybe_add_to_recents()
         self.scroll_object(1)
@@ -419,6 +452,7 @@ class UIObjectDetails(UIModule):
 
     def key_left(self):
         self.maybe_add_to_recents()
+        return True
 
     def key_right(self):
         """

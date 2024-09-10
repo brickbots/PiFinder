@@ -575,6 +575,11 @@ class UIObjectList(UITextMenu):
         ):
             return
 
+        # turn off input box if it's there
+        if self.jump_input_display:
+            self.jump_input_display = False
+            self.jump_to_number.reset_number()
+
         _menu_item = self._menu_items_sorted[self._current_item_index]
 
         object_item_definition = {

@@ -78,6 +78,9 @@ def find_target_pixel(t3, fov_estimate, centroids, ra, dec):
         search_distance = search_distance / 2
 
     # Done?
+    if min_dist > 0.1:
+        # Didn't find a good pixel...
+        return (-1, -1)
     return search_center
 
 
@@ -87,7 +90,8 @@ def solver(
     camera_image,
     console_queue,
     log_queue,
-    command_queue,
+    align_command_queue,
+    align_result_queue,
     is_debug=False,
 ):
     MultiprocLogging.configurer(log_queue)
@@ -132,7 +136,7 @@ def solver(
             command = True
             while command:
                 try:
-                    command = command_queue.get(block=False)
+                    command = align_command_queue.get(block=False)
                 except queue.Empty:
                     command = False
 
@@ -152,8 +156,7 @@ def solver(
                         )
                         print("Align DONE")
                         print(f"{align_target_pixel=}")
-                        shared_state.set_solve_pixel(align_target_pixel)
-                        solver_queue.put(["aligned", align_target_pixel])
+                        align_result_queue.put(["aligned", align_target_pixel])
 
             state_utils.sleep_for_framerate(shared_state)
 

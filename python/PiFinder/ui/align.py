@@ -6,6 +6,7 @@ This module contains all the UI Module classes
 
 """
 
+import queue
 import time
 import numpy as np
 from PIL import ImageChops
@@ -13,6 +14,50 @@ from PIL import ImageChops
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder import plot
 from PiFinder.ui.base import UIModule
+
+
+def align_on_radec(ra, dec, command_queues, config_object, shared_state) -> bool:
+    """
+    Handles the intricacies of:
+    * Telling the solver to figure out alignment pixel
+    * Wait for it to be done
+    * Set the config item and the shared state
+    * return the pixel or -1/-1 for error
+    """
+    # Send command to solver to work out the camera pixel for this target
+    command_queues["align_command"].put(
+        [
+            "align_on_radec",
+            ra,
+            dec,
+        ]
+    )
+
+    received_response = False
+    start_time = time.time()
+    while not received_response:
+        # only wait a second
+        if time.time() - start_time > 1:
+            return (-1, -1)
+
+        try:
+            command = command_queues["align_response"].get(block=False)
+        except queue.Empty:
+            command = False
+
+        if command is not False:
+            received_response = True
+            if command[0] == "aligned":
+                target_pixel = command[1]
+
+    if target_pixel[0] == -1:
+        # Failed to align
+        return False
+
+    # success, set all the things...
+    shared_state.set_solve_pixel(target_pixel)
+    config_object.set_option("solve_pixel", target_pixel)
+    return True
 
 
 class UIAlign(UIModule):
@@ -175,11 +220,6 @@ class UIAlign(UIModule):
         self.set_fov(self.fov_list[self.fov_index])
         self.update(force=True)
 
-    def radec_to_cam_pixel(self, ra: float, dec: float) -> tuple[int, int]:
-        self.command_queues["solver"].put(["align_on_radec", ra, dec])
-        # for expediency, just return the selected star pixels
-        return (self.alignment_star["x_pos"], self.alignment_star["y_pos"])
-
     def switch_align_star(self, direction: str) -> None:
         # iterate through all stars with screen coord on the requested
         # side of the screen, find the closest, set thos coordinates
@@ -239,15 +279,6 @@ class UIAlign(UIModule):
             self.alignment_star["y_pos"],
         )
 
-        # Send command to solver to work out the camera pixel for this target
-        self.command_queues["solver"].put(
-            [
-                "align_on_radec",
-                self.alignment_star["ra_degrees"],
-                self.alignment_star["dec_degrees"],
-            ]
-        )
-
         self.update(force=True)
 
         return
@@ -259,7 +290,21 @@ class UIAlign(UIModule):
         self.change_fov(1)
 
     def key_square(self):
-        self.align_mode = not self.align_mode
+        if self.align_mode:
+            self.align_mode = False
+            self.message("Aligning...", 0.1)
+            if align_on_radec(
+                self.alignment_star["ra_degrees"],
+                self.alignment_star["dec_degrees"],
+                self.command_queues,
+                self.config_object,
+                self.shared_state,
+            ):
+                self.message("Aligned!", 1)
+            else:
+                self.message("Failed", 2)
+        else:
+            self.align_mode = True
         self.update(force=True)
 
     def key_up(self):
@@ -282,10 +327,14 @@ class UIAlign(UIModule):
 
     def key_number(self, number):
         if self.align_mode:
-            if number == 0:
-                # reset reticle
+            if number == 1:
+                # reset reticle to center
                 self.shared_state.set_solve_pixel((256, 256))
                 self.config_object.set_option("solve_pixel", (256, 256))
                 self.reticle_position = (64, 64)
+                self.update(force=True)
+                self.align_mode = False
+            if number == 0:
+                # cancel without changing alignment
                 self.align_mode = False
                 self.update(force=True)
