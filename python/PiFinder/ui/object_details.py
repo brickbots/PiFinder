@@ -438,7 +438,7 @@ class UIObjectDetails(UIModule):
         ):
             self.message("Aligned!", 1)
         else:
-            self.message("Failed", 2)
+            self.message("Too Far", 2)
 
         return True
 

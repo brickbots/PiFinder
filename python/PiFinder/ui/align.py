@@ -272,7 +272,30 @@ class UIAlign(UIModule):
 
         candidate_stars = candidate_stars.sort_values("distance")
 
-        self.alignment_star = candidate_stars.iloc[0]
+        # look for stars that are within the 'cone' of the
+        # direction pressed
+        found_star = False
+        print(self.reticle_position)
+        for i in range(len(candidate_stars)):
+            test_star = candidate_stars.iloc[i]
+            x_delta = abs(test_star["x_pos"] - self.reticle_position[0])
+            y_delta = abs(test_star["y_pos"] - self.reticle_position[1])
+
+            if direction == "up" or direction == "down":
+                if y_delta > x_delta:
+                    found_star = True
+                    self.alignment_star = test_star
+                    break
+
+            if direction == "left" or direction == "right":
+                if x_delta > y_delta:
+                    found_star = True
+                    self.alignment_star = test_star
+                    break
+
+        if not found_star:
+            print("Fallback")
+            self.alignment_star = candidate_stars.iloc[0]
 
         self.reticle_position = (
             self.alignment_star["x_pos"],
@@ -292,17 +315,19 @@ class UIAlign(UIModule):
     def key_square(self):
         if self.align_mode:
             self.align_mode = False
-            self.message("Aligning...", 0.1)
-            if align_on_radec(
-                self.alignment_star["ra_degrees"],
-                self.alignment_star["dec_degrees"],
-                self.command_queues,
-                self.config_object,
-                self.shared_state,
-            ):
-                self.message("Aligned!", 1)
-            else:
-                self.message("Failed", 2)
+
+            if self.alignment_star is not None:
+                self.message("Aligning...", 0.1)
+                if align_on_radec(
+                    self.alignment_star["ra_degrees"],
+                    self.alignment_star["dec_degrees"],
+                    self.command_queues,
+                    self.config_object,
+                    self.shared_state,
+                ):
+                    self.message("Aligned!", 1)
+                else:
+                    self.message("Failed", 2)
         else:
             self.align_mode = True
         self.update(force=True)
