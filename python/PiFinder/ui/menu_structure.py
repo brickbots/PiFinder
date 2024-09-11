@@ -16,12 +16,6 @@ pifinder_menu = {
     "start_index": 2,
     "items": [
         {
-            "name": "Align",
-            "class": UIAlign,
-            "stateful": True,
-            "preload": True,
-        },
-        {
             "name": "Camera",
             "class": UIPreview,
         },
@@ -828,6 +822,19 @@ pifinder_menu = {
                     "items": [
                         {"name": "Confirm", "callback": callbacks.shutdown},
                         {"name": "Cancel", "callback": callbacks.go_back},
+                    ],
+                },
+                {
+                    "name": "Experimental",
+                    "class": UITextMenu,
+                    "select": "Single",
+                    "items": [
+                        {
+                            "name": "Align",
+                            "class": UIAlign,
+                            "stateful": True,
+                            "preload": True,
+                        },
                     ],
                 },
             ],
