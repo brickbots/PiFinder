@@ -224,6 +224,9 @@ class UITextMenu(UIModule):
                 if config_option == "active_catalogs":
                     self.catalogs.select_no_catalogs()
                     self.catalogs.select_catalogs(self._selected_values)
+                    self.catalogs.catalog_filter.selected_catalogs = (
+                        self._selected_values
+                    )
 
                 # is this a filter option?
                 if config_option.startswith("filter."):

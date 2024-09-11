@@ -569,10 +569,7 @@ class UIObjectList(UITextMenu):
         When right is pressed, move to
         object info screen
         """
-        if (
-            not self._menu_items_sorted
-            or not len(self._menu_items_sorted) > self._current_item_index
-        ):
+        if len(self._menu_items_sorted) < self._current_item_index:
             return
 
         # turn off input box if it's there
