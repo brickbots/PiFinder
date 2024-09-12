@@ -45,7 +45,7 @@ class KeyboardInterface:
             script = script_file.readlines()
             length = len(script)
             for idx, script_line in enumerate(script):
-                sleep(0.5)
+                sleep(0.1)
                 script_line = script_line.strip()
                 logger.debug("(%i/%i)\t%s", idx, length, script_line)
                 script_tokens = script_line.split(" ")

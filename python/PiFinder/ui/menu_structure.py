@@ -4,6 +4,7 @@ from PiFinder.ui.status import UIStatus
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.software import UISoftware
 from PiFinder.ui.chart import UIChart
+from PiFinder.ui.align import UIAlign
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 import PiFinder.ui.callbacks as callbacks
@@ -392,7 +393,7 @@ pifinder_menu = {
                     "name": "Magnitude",
                     "class": UITextMenu,
                     "select": "single",
-                    "config_option": "filter.altitude",
+                    "config_option": "filter.magnitude",
                     "items": [
                         {
                             "name": "None",
@@ -821,6 +822,19 @@ pifinder_menu = {
                     "items": [
                         {"name": "Confirm", "callback": callbacks.shutdown},
                         {"name": "Cancel", "callback": callbacks.go_back},
+                    ],
+                },
+                {
+                    "name": "Experimental",
+                    "class": UITextMenu,
+                    "select": "Single",
+                    "items": [
+                        {
+                            "name": "Align",
+                            "class": UIAlign,
+                            "stateful": True,
+                            "preload": True,
+                        },
                     ],
                 },
             ],

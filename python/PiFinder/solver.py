@@ -9,6 +9,7 @@ This module is the solver
 """
 
 from PiFinder.multiproclogging import MultiprocLogging
+import queue
 import numpy as np
 import time
 import logging
@@ -25,8 +26,73 @@ from PiFinder.tetra3.tetra3 import cedar_detect_client
 logger = logging.getLogger("Solver")
 
 
+def find_target_pixel(t3, fov_estimate, centroids, ra, dec):
+    """
+    Searches the most recent solve for a pixel
+    that matches the requested RA/DEC the best
+    """
+    search_center = (256, 256)
+    search_distance = 128
+    while search_distance >= 1:
+        # try 5 search points
+        search_points = [
+            [search_center[0] - search_distance, search_center[1] - search_distance],
+            [search_center[0] - search_distance, search_center[1] + search_distance],
+            [search_center[0] + search_distance, search_center[1] - search_distance],
+            [search_center[0] + search_distance, search_center[1] + search_distance],
+            [search_center[0], search_center[1]],
+        ]
+
+        # probe points
+        min_dist = 100000
+        for search_point in search_points:
+            print(f"\tTrying {search_point}")
+            try:
+                point_sol = t3.solve_from_centroids(
+                    centroids,
+                    (512, 512),
+                    fov_estimate=fov_estimate,
+                    fov_max_error=0.2,
+                    return_matches=False,
+                    target_pixel=[search_point[0], search_point[1]],
+                    solve_timeout=1000,
+                )
+            except Exception as e:
+                print("EXCEPT" + str(e))
+                point_sol = None
+
+            if point_sol is None:
+                print("FAILED TO FIND TARGET PIXEL")
+                return (256, 256)
+
+            # distance...
+            p_dist = np.hypot(
+                point_sol["RA_target"] - ra, point_sol["Dec_target"] - dec
+            )
+            print(f"\t{point_sol['RA']} - {point_sol['Dec']} - {p_dist}")
+            if p_dist < min_dist:
+                search_center = search_point
+                min_dist = p_dist
+
+        # cut search distance
+        search_distance = search_distance / 2
+
+    # Done?
+    if min_dist > 0.1:
+        # Didn't find a good pixel...
+        return (-1, -1)
+    return search_center
+
+
 def solver(
-    shared_state, solver_queue, camera_image, console_queue, log_queue, is_debug=False
+    shared_state,
+    solver_queue,
+    camera_image,
+    console_queue,
+    log_queue,
+    align_command_queue,
+    align_result_queue,
+    is_debug=False,
 ):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting Solver")
@@ -48,6 +114,8 @@ def solver(
         "cam_solve_time": 0,
     }
 
+    centroids = []
+
     # Start cedar detect server
     try:
         cedar_detect = cedar_detect_client.CedarDetectClient(
@@ -63,6 +131,33 @@ def solver(
 
     try:
         while True:
+            # Loop over any pending commands
+            # There may be more than one!
+            command = True
+            while command:
+                try:
+                    command = align_command_queue.get(block=False)
+                except queue.Empty:
+                    command = False
+
+                if command is not False:
+                    if command[0] == "align_on_radec":
+                        print("Align Command")
+                        # search image pixels to find the best match
+                        # for this RA/DEC and set it as alignment pixel
+                        align_ra = command[1]
+                        align_dec = command[2]
+                        align_target_pixel = find_target_pixel(
+                            t3=t3,
+                            fov_estimate=solved["FOV"],
+                            centroids=centroids,
+                            ra=align_ra,
+                            dec=align_dec,
+                        )
+                        print("Align DONE")
+                        print(f"{align_target_pixel=}")
+                        align_result_queue.put(["aligned", align_target_pixel])
+
             state_utils.sleep_for_framerate(shared_state)
 
             # use the time the exposure started here to
@@ -78,9 +173,8 @@ def solver(
                 np_image = np.asarray(img, dtype=np.uint8)
 
                 t0 = precision_timestamp()
-                if cedar_detect is None or shared_state.camera_align():
-                    # Use old tetr3 centroider to handle bloated/overexposed
-                    # stars in alignment
+                if cedar_detect is None:
+                    # Use old tetr3 centroider
                     centroids = tetra3.get_centroids_from_image(np_image)
                 else:
                     centroids = cedar_detect.extract_centroids(
@@ -132,7 +226,6 @@ def solver(
                     # RA, Dec, Roll at the target pixel:
                     solved["RA"] = solved["RA_target"]
                     solved["Dec"] = solved["Dec_target"]
-                    solved["Roll"] = None  # To be calculated in integrator.py
                     if last_image_metadata["imu"]:
                         solved["imu_pos"] = last_image_metadata["imu"]["pos"]
                         solved["imu_quat"] = last_image_metadata["imu"]["quat"]

@@ -9,6 +9,7 @@ This module contains all the UI Module classes
 from PiFinder import cat_images
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
+from PiFinder.ui.align import align_on_radec
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.log import UILog
 from PiFinder.ui.ui_utils import (
@@ -23,6 +24,7 @@ import functools
 
 from PiFinder.db.observations_db import ObservationsDatabase
 import numpy as np
+import time
 
 
 # Constants for display modes
@@ -39,6 +41,7 @@ class UIObjectDetails(UIModule):
 
     __help_name__ = "object_details"
     __title__ = "OBJECT"
+    __ACTIVATION_TIMEOUT = 10
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -47,9 +50,6 @@ class UIObjectDetails(UIModule):
         self.mount_type = self.config_object.get_option("mount_type")
         self.object = self.item_definition["object"]
         self.object_list = self.item_definition["object_list"]
-        if self.object is not None:
-            self.ui_state.add_recent(self.object)
-
         self.object_display_mode = DM_LOCATE
         self.object_image = None
 
@@ -60,7 +60,15 @@ class UIObjectDetails(UIModule):
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(),
             right=MarkingMenuOption(),
-            down=MarkingMenuOption(),
+            down=MarkingMenuOption(
+                label="ALIGN",
+                callback=MarkingMenu(
+                    up=MarkingMenuOption(),
+                    left=MarkingMenuOption(label="CANCEL", callback=self.mm_cancel),
+                    down=MarkingMenuOption(),
+                    right=MarkingMenuOption(label="ALIGN", callback=self.mm_align),
+                ),
+            ),
         )
 
         # Used for displaying obsevation counts
@@ -99,6 +107,7 @@ class UIObjectDetails(UIModule):
         self.alt_anchor = (0, self.display_class.resY - (self.fonts.huge.height * 1.2))
         self._elipsis_count = 0
 
+        self.active()  # fill in activation time
         self.update_object_info()
 
     def _layout_designator(self):
@@ -219,7 +228,7 @@ class UIObjectDetails(UIModule):
         )
 
     def active(self):
-        pass
+        self.activation_time = time.time()
 
     def _render_pointing_instructions(self):
         # Pointing Instructions
@@ -387,6 +396,11 @@ class UIObjectDetails(UIModule):
         self.update_object_info()
         self.update()
 
+    def maybe_add_to_recents(self):
+        if self.activation_time < time.time() - self.__ACTIVATION_TIMEOUT:
+            self.ui_state.add_recent(self.object)
+            self.active()  # reset activation time
+
     def scroll_object(self, direction: int) -> None:
         if isinstance(self.object_list, np.ndarray):
             # For NumPy array
@@ -404,17 +418,48 @@ class UIObjectDetails(UIModule):
         self.update_object_info()
         self.update()
 
+    def mm_cancel(self, _marking_menu, _menu_item) -> bool:
+        """
+        Do nothing....
+        """
+        return True
+
+    def mm_align(self, _marking_menu, _menu_item) -> bool:
+        """
+        Called from marking menu to align on curent object
+        """
+        self.message("Aligning...", 0.1)
+        if align_on_radec(
+            self.object.ra,
+            self.object.dec,
+            self.command_queues,
+            self.config_object,
+            self.shared_state,
+        ):
+            self.message("Aligned!", 1)
+        else:
+            self.message("Too Far", 2)
+
+        return True
+
     def key_down(self):
+        self.maybe_add_to_recents()
         self.scroll_object(1)
 
     def key_up(self):
+        self.maybe_add_to_recents()
         self.scroll_object(-1)
+
+    def key_left(self):
+        self.maybe_add_to_recents()
+        return True
 
     def key_right(self):
         """
         When right is pressed, move to
         logging screen
         """
+        self.maybe_add_to_recents()
         if self.shared_state.solution() is None:
             return
         object_item_definition = {

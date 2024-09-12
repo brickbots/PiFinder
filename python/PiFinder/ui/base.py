@@ -300,3 +300,12 @@ class UIModule:
 
     def key_right(self):
         pass
+
+    def key_left(self) -> bool:
+        """
+        This is passed through from menu_manager
+        and normally results in the module being
+        removed from the stack.  Return False to
+        override the remove from stack behavior
+        """
+        return True
