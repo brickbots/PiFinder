@@ -1154,9 +1154,7 @@ def load_sharpless():
             description=desc,
             aka_names=current_akas,
         )
-
         new_object.insert()
-
     insert_catalog_max_sequence(catalog)
     conn.commit()
 

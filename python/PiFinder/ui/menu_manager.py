@@ -358,7 +358,12 @@ class MenuManager:
         if self.marking_menu_stack != []:
             self.mm_select(self.marking_menu_stack[-1].left)
         else:
-            self.remove_from_stack()
+            # always send through to currently active UIModule
+            # default handler just returns True, can be
+            # overrided by UIModule to perform some action before
+            # being unloaded, or return False to prevent unload
+            if self.stack[-1].key_left():
+                self.remove_from_stack()
 
     def key_up(self):
         if self.help_images is not None:

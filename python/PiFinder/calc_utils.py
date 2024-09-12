@@ -115,8 +115,8 @@ def epoch_to_epoch(ep_from, ep_to, ra_hours, dec_deg):
     """
     # Load the ephemeris
     ts = sf_utils.ts
-    from_epoch = ts.tt(ep_from)
-    to_epoch = ts.tt(ep_to)
+    from_epoch = ts.tt(jd=ep_from)
+    to_epoch = ts.tt(jd=ep_to)
     _p = position_of_radec(ra_hours=ra_hours, dec_degrees=dec_deg, epoch=from_epoch)
     RA_h, Dec, _ = _p.radec(epoch=to_epoch)
     return RA_h, Dec

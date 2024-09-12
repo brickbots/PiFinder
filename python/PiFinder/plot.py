@@ -41,22 +41,11 @@ class Starfield:
             self.raw_stars = hipparcos.load_dataframe(f)
 
         # Image size stuff
-        self.target_size = max(self.resolution)
-        self.diag_mult = 1.422
-        self.render_size = (
-            int(self.target_size * self.diag_mult),
-            int(self.target_size * self.diag_mult),
-        )
+        self.render_size = resolution
         self.render_center = (
             int(self.render_size[0] / 2),
             int(self.render_size[1] / 2),
         )
-        self.render_crop = [
-            int((self.render_size[0] - self.target_size) / 2),
-            int((self.render_size[1] - self.target_size) / 2),
-            int((self.render_size[0] - self.target_size) / 2) + self.target_size,
-            int((self.render_size[1] - self.target_size) / 2) + self.target_size,
-        ]
 
         self.set_mag_limit(mag_limit)
         # Prefilter here for mag 7.5, just to make sure we have enough
@@ -125,7 +114,7 @@ class Starfield:
         # Used for vis culling in projection space
         self.limit = limit
 
-        self.image_scale = int(self.target_size / limit)
+        self.image_scale = int(self.render_size[0] / limit)
         self.pixel_scale = self.image_scale / 2
 
         # figure out magnitude limit for fov
@@ -139,6 +128,39 @@ class Starfield:
 
         mag_setting = mag_range[0] - ((mag_range[0] - mag_range[1]) * perc_fov)
         self.set_mag_limit(mag_setting)
+
+    def radec_to_xy(self, ra: float, dec: float) -> tuple[float, float]:
+        """
+        Converts and RA/DEC to screen space x/y for the current projection
+        """
+        markers = pandas.DataFrame(
+            [(Angle(degrees=ra)._hours, dec)], columns=["ra_hours", "dec_degrees"]
+        )
+
+        # required, use the same epoch as stars
+        markers["epoch_year"] = 1991.25
+        marker_positions = self.earth.observe(Star.from_dataframe(markers))
+
+        markers["x"], markers["y"] = self.projection(marker_positions)
+
+        # prep rotate by roll....
+        roll_rad = (self.roll) * (np.pi / 180)
+        roll_sin = np.sin(roll_rad)
+        roll_cos = np.cos(roll_rad)
+
+        # Rotate them
+        markers = markers.assign(
+            xr=((markers["x"]) * roll_cos - (markers["y"]) * roll_sin),
+            yr=((markers["y"]) * roll_cos + (markers["x"]) * roll_sin),
+        )
+
+        # Rasterize marker positions
+        markers = markers.assign(
+            x_pos=markers["xr"] * self.pixel_scale + self.render_center[0],
+            y_pos=markers["yr"] * -1 * self.pixel_scale + self.render_center[1],
+        )
+
+        return markers["x_pos"][0], markers["y_pos"][0]
 
     def plot_markers(self, marker_list):
         """
@@ -159,10 +181,21 @@ class Starfield:
 
         markers["x"], markers["y"] = self.projection(marker_positions)
 
+        # prep rotate by roll....
+        roll_rad = (self.roll) * (np.pi / 180)
+        roll_sin = np.sin(roll_rad)
+        roll_cos = np.cos(roll_rad)
+
+        # Rotate them
+        markers = markers.assign(
+            xr=((markers["x"]) * roll_cos - (markers["y"]) * roll_sin),
+            yr=((markers["y"]) * roll_cos + (markers["x"]) * roll_sin),
+        )
+
         # Rasterize marker positions
         markers = markers.assign(
-            x_pos=markers["x"] * self.pixel_scale + self.render_center[0],
-            y_pos=markers["y"] * -1 * self.pixel_scale + self.render_center[1],
+            x_pos=markers["xr"] * self.pixel_scale + self.render_center[0],
+            y_pos=markers["yr"] * -1 * self.pixel_scale + self.render_center[1],
         )
         # now filter by visiblity
         markers = markers[
@@ -192,10 +225,10 @@ class Starfield:
                 # Draw pointer....
                 # if not within screen
                 if (
-                    x_pos > self.render_crop[2]
-                    or x_pos < self.render_crop[0]
-                    or y_pos > self.render_crop[3]
-                    or y_pos < self.render_crop[1]
+                    x_pos > 0
+                    or x_pos < self.render_size[0]
+                    or y_pos > 0
+                    or y_pos < self.render_size[1]
                 ):
                     # calc degrees to target....
                     deg_to_target = (
@@ -210,6 +243,7 @@ class Starfield:
                     tmp_pointer = self.pointer_image.copy()
                     tmp_pointer = tmp_pointer.rotate(-deg_to_target)
                     ret_image = ImageChops.add(ret_image, tmp_pointer)
+
             else:
                 _image = ImageChops.offset(
                     self.markers[symbol],
@@ -218,7 +252,7 @@ class Starfield:
                 )
                 ret_image = ImageChops.add(ret_image, _image)
 
-        return ret_image.rotate(self.roll).crop(self.render_crop)
+        return ret_image
 
     def update_projection(self, ra, dec):
         """
@@ -254,25 +288,57 @@ class Starfield:
             self.const_end_star_positions
         )
 
-        pil_image = self.render_starfield_pil(constellation_brightness)
-        return pil_image.rotate(self.roll).crop(self.render_crop)
+        pil_image, visible_stars = self.render_starfield_pil(constellation_brightness)
+        return pil_image, visible_stars
 
     def render_starfield_pil(self, constellation_brightness):
+        """
+        If return_plotted_stars this will return a tuple:
+        (image, visible_stars)
+
+        Mainly for the new alignment system
+        """
         ret_image = Image.new("L", self.render_size)
         idraw = ImageDraw.Draw(ret_image)
+
+        # prep rotate by roll....
+        roll_rad = (self.roll) * (np.pi / 180)
+        roll_sin = np.sin(roll_rad)
+        roll_cos = np.cos(roll_rad)
 
         # constellation lines first
         if constellation_brightness:
             # convert projection positions to screen space
             # using pandas to interate
+
+            # roll the constellation lines
+            self.const_edges_df = self.const_edges_df.assign(
+                sxr=(
+                    (self.const_edges_df["sx"]) * roll_cos
+                    - (self.const_edges_df["sy"]) * roll_sin
+                ),
+                syr=(
+                    (self.const_edges_df["sy"]) * roll_cos
+                    + (self.const_edges_df["sx"]) * roll_sin
+                ),
+                exr=(
+                    (self.const_edges_df["ex"]) * roll_cos
+                    - (self.const_edges_df["ey"]) * roll_sin
+                ),
+                eyr=(
+                    (self.const_edges_df["ey"]) * roll_cos
+                    + (self.const_edges_df["ex"]) * roll_sin
+                ),
+            )
+
             const_edges = self.const_edges_df.assign(
-                sx_pos=self.const_edges_df["sx"] * self.pixel_scale
+                sx_pos=self.const_edges_df["sxr"] * self.pixel_scale
                 + self.render_center[0],
-                sy_pos=self.const_edges_df["sy"] * -1 * self.pixel_scale
+                sy_pos=self.const_edges_df["syr"] * -1 * self.pixel_scale
                 + self.render_center[1],
-                ex_pos=self.const_edges_df["ex"] * self.pixel_scale
+                ex_pos=self.const_edges_df["exr"] * self.pixel_scale
                 + self.render_center[0],
-                ey_pos=self.const_edges_df["ey"] * -1 * self.pixel_scale
+                ey_pos=self.const_edges_df["eyr"] * -1 * self.pixel_scale
                 + self.render_center[1],
             )
 
@@ -318,10 +384,16 @@ class Starfield:
             & (visible_stars["y"] < self.limit)
         ]
 
+        # Rotate them
+        visible_stars = visible_stars.assign(
+            xr=((visible_stars["x"]) * roll_cos - (visible_stars["y"]) * roll_sin),
+            yr=((visible_stars["y"]) * roll_cos + (visible_stars["x"]) * roll_sin),
+        )
+
         # convert star positions to screen space
         visible_stars = visible_stars.assign(
-            x_pos=visible_stars["x"] * self.pixel_scale + self.render_center[0],
-            y_pos=visible_stars["y"] * -1 * self.pixel_scale + self.render_center[1],
+            x_pos=visible_stars["xr"] * self.pixel_scale + self.render_center[0],
+            y_pos=visible_stars["yr"] * -1 * self.pixel_scale + self.render_center[1],
         )
 
         for x_pos, y_pos, mag in zip(
@@ -336,13 +408,11 @@ class Starfield:
             if plot_size < 0.5:
                 idraw.point((x_pos, y_pos), fill=fill)
             else:
-                idraw.ellipse(
-                    [
-                        x_pos - plot_size,
-                        y_pos - plot_size,
-                        x_pos + plot_size,
-                        y_pos + plot_size,
-                    ],
+                idraw.circle(
+                    (round(x_pos), round(y_pos)),
+                    radius=plot_size,
                     fill=(255),
+                    width=0,
                 )
-        return ret_image
+
+        return ret_image, visible_stars

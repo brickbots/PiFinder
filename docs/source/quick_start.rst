@@ -6,7 +6,7 @@ Quick Start
    If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
 
 
-Congratulations on getting your hands on a PiFinder! Whether you’ve built it from scratch, or ordered a completed model 
+Congratulations on getting your hands on a PiFinder™! Whether you’ve built it from scratch, or ordered a completed model 
 from BBLabs, you’re on your way to a whole new level of accuracy and ease while observing the night sky.
 
 This Quick Start guide aims to get you out and observing with most everything you need.  For more depth and information
@@ -243,6 +243,8 @@ best stars you can see. Make sure your lens cap is off, and immediately PiFinder
 what it sees.... the focus point of the lens is set when your PiFinder is assembled, but it may need
 some adjustment to see the dimmest stars.
 
+Screw the lens in and out in the holder to adjust focus if needed.
+
 Use the menu system to select the 'Camera' option
 
 .. image:: images/quick_start/main_menu_02_docs.png
@@ -400,4 +402,4 @@ To easily shut down the PiFinder:
 When you confrim the screen and keypad will turn off after a few seconds and it's then safe to
 turn off the unit using the power switch or unplugging the battery.
 
-You've now got the basics of using the PiFinder sorted, to learn more you can continue on to the full :ref:`user_guide:pifinder user manual`
+You've now got the basics of using the PiFinder sorted, to learn more you can continue on to the full :doc:`user_guide`

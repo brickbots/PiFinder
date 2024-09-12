@@ -9,11 +9,15 @@ Each one takes the current ui module as an argument
 """
 
 import datetime
-import sh
 import logging
 
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
+
+try:
+    from PiFinder import sys_utils
+except ImportError:
+    from PiFinder import sys_utils_fake as sys_utils  # type: ignore[no-redef]
 
 logger = logging.getLogger("UI.Callbacks")
 
@@ -67,8 +71,7 @@ def shutdown(ui_module: UIModule) -> None:
     shuts down the Pi
     """
     ui_module.message("Shutting Down", 10)
-    logger.info("SYS: Initiating Shutdown")
-    sh.sudo("shutdown", "now")
+    sys_utils.shutdown()
 
 
 def restart_pifinder(ui_module: UIModule) -> None:
@@ -77,8 +80,7 @@ def restart_pifinder(ui_module: UIModule) -> None:
     service
     """
     ui_module.message("Restarting...", 2)
-    logger.info("SYS: Restarting PiFinder")
-    sh.sudo("systemctl", "restart", "pifinder")
+    sys_utils.restart_pifinder()
 
 
 def restart_system(ui_module: UIModule) -> None:
@@ -86,33 +88,28 @@ def restart_system(ui_module: UIModule) -> None:
     Restarts the system
     """
     ui_module.message("Restarting...", 2)
-    logger.info("SYS: Initiating System Restart")
-    sh.sudo("shutdown", "-r", "now")
+    sys_utils.restart_system()
 
 
 def switch_cam_imx477(ui_module: UIModule) -> None:
     ui_module.message("Switching cam", 2)
-    logger.info("SYS: Switching cam to imx477")
-    sh.sudo("python", "-m", "PiFinder.switch_camera", "imx477")
+    sys_utils.switch_cam_imx477()
     restart_system(ui_module)
 
 
 def switch_cam_imx296(ui_module: UIModule) -> None:
     ui_module.message("Switching cam", 2)
-    logger.info("SYS: Switching cam to imx296")
-    sh.sudo("python", "-m", "PiFinder.switch_camera", "imx296")
+    sys_utils.switch_cam_imx296()
     restart_system(ui_module)
 
 
 def go_wifi_ap(ui_module: UIModule) -> None:
     ui_module.message("WiFi to AP", 2)
-    logger.info("SYS: Switching to AP")
-    sh.sudo("/home/pifinder/PiFinder/switch-ap.sh")
+    sys_utils.go_wifi_ap()
     restart_system(ui_module)
 
 
 def go_wifi_cli(ui_module: UIModule) -> None:
     ui_module.message("WiFi to Client", 2)
-    logger.info("SYS: Switching to Client")
-    sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
+    sys_utils.go_wifi_cli()
     restart_system(ui_module)

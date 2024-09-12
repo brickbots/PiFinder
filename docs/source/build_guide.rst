@@ -226,7 +226,7 @@ Any configuration can technically work with any scope, but since the camera alwa
 
 The Flat configuration places the keypad and screen in easy reach for refractors, SCT's and other rear-focuser scopes.  When the scope is pointed upward, the screen is tilted towards you for quick access.
 
-All the STL files for the PiFinder case parts can be found in the main `PiFinder git repo <https://github.com/brickbots/PiFinder/tree/release/case>`_
+All the STL files for the PiFinder case parts can be found in the main `PiFinder git repo case folder <https://github.com/brickbots/PiFinder/tree/release/case>`_
 
 
 Printed Parts

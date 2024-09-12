@@ -150,3 +150,13 @@ def change_password(username, current_password, new_password):
     Changes the PiFinder User password
     """
     return False
+
+
+def switch_cam_imx477() -> None:
+    logger.info("SYS: Switching cam to imx477")
+    logger.info('sh.sudo("python", "-m", "PiFinder.switch_camera", "imx477")')
+
+
+def switch_cam_imx296() -> None:
+    logger.info("SYS: Switching cam to imx296")
+    logger.info('sh.sudo("python", "-m", "PiFinder.switch_camera", "imx296")')
