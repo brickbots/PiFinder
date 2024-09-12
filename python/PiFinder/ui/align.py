@@ -182,6 +182,7 @@ class UIAlign(UIModule):
                     self.solution["Dec_camera"],
                     self.solution["Roll_camera"],
                     constellation_brightness,
+                    shade_frustrum=True,
                 )
                 image_obj = ImageChops.multiply(
                     image_obj.convert("RGB"), self.colors.red_image
@@ -307,10 +308,12 @@ class UIAlign(UIModule):
         return
 
     def key_plus(self):
-        self.change_fov(-1)
+        if not self.align_mode:
+            self.change_fov(-1)
 
     def key_minus(self):
-        self.change_fov(1)
+        if not self.align_mode:
+            self.change_fov(1)
 
     def key_square(self):
         if self.align_mode:
