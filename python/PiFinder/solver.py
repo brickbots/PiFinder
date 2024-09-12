@@ -46,7 +46,6 @@ def find_target_pixel(t3, fov_estimate, centroids, ra, dec):
         # probe points
         min_dist = 100000
         for search_point in search_points:
-            print(f"\tTrying {search_point}")
             try:
                 point_sol = t3.solve_from_centroids(
                     centroids,
@@ -57,19 +56,13 @@ def find_target_pixel(t3, fov_estimate, centroids, ra, dec):
                     target_pixel=[search_point[0], search_point[1]],
                     solve_timeout=1000,
                 )
-            except Exception as e:
-                print("EXCEPT" + str(e))
-                point_sol = None
-
-            if point_sol is None:
-                print("FAILED TO FIND TARGET PIXEL")
-                return (256, 256)
+            except Exception:
+                return (-1, -1)
 
             # distance...
             p_dist = np.hypot(
                 point_sol["RA_target"] - ra, point_sol["Dec_target"] - dec
             )
-            print(f"\t{point_sol['RA']} - {point_sol['Dec']} - {p_dist}")
             if p_dist < min_dist:
                 search_center = search_point
                 min_dist = p_dist
@@ -142,7 +135,7 @@ def solver(
 
                 if command is not False:
                     if command[0] == "align_on_radec":
-                        print("Align Command")
+                        logger.debug("Align Command Received")
                         # search image pixels to find the best match
                         # for this RA/DEC and set it as alignment pixel
                         align_ra = command[1]
@@ -154,8 +147,7 @@ def solver(
                             ra=align_ra,
                             dec=align_dec,
                         )
-                        print("Align DONE")
-                        print(f"{align_target_pixel=}")
+                        logger.debug(f"Align {align_target_pixel=}")
                         align_result_queue.put(["aligned", align_target_pixel])
 
             state_utils.sleep_for_framerate(shared_state)

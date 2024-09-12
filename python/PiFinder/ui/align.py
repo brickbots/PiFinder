@@ -276,7 +276,6 @@ class UIAlign(UIModule):
         # look for stars that are within the 'cone' of the
         # direction pressed
         found_star = False
-        print(self.reticle_position)
         for i in range(len(candidate_stars)):
             test_star = candidate_stars.iloc[i]
             x_delta = abs(test_star["x_pos"] - self.reticle_position[0])
@@ -295,7 +294,6 @@ class UIAlign(UIModule):
                     break
 
         if not found_star:
-            print("Fallback")
             self.alignment_star = candidate_stars.iloc[0]
 
         self.reticle_position = (
