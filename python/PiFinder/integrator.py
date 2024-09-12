@@ -90,7 +90,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             except queue.Empty:
                 pass
 
-            if next_image_solve:
+            if type(next_image_solve) is dict:
                 solved = next_image_solve
 
                 # see if we can generate alt/az

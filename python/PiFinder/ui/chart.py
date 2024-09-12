@@ -36,10 +36,7 @@ class UIChart(UIModule):
         # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(),
-            down=MarkingMenuOption(
-                label="Options",
-                menu_jump="chart_settings",
-            ),
+            down=MarkingMenuOption(),
             right=MarkingMenuOption(),
         )
 
@@ -159,7 +156,7 @@ class UIChart(UIModule):
                 and self.solution["Dec"] is not None
             ):
                 # This needs to be called first to set RA/DEC/ROLL
-                image_obj = self.starfield.plot_starfield(
+                image_obj, _visible_stars = self.starfield.plot_starfield(
                     self.solution["RA"],
                     self.solution["Dec"],
                     self.solution["Roll"],

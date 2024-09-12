@@ -193,6 +193,8 @@ def main(
     gps_queue: Queue = Queue()
     camera_command_queue: Queue = Queue()
     solver_queue: Queue = Queue()
+    alignment_command_queue: Queue = Queue()
+    alignment_response_queue: Queue = Queue()
     ui_queue: Queue = Queue()
 
     # init queues for logging
@@ -216,6 +218,8 @@ def main(
         "camera": camera_command_queue,
         "console": console_queue,
         "ui_queue": ui_queue,
+        "align_command": alignment_command_queue,
+        "align_response": alignment_response_queue,
     }
     cfg = config.Config()
 
@@ -334,6 +338,8 @@ def main(
                 camera_image,
                 console_queue,
                 solver_logqueue,
+                alignment_command_queue,
+                alignment_response_queue,
                 verbose,
             ),
         )
