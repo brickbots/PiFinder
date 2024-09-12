@@ -22,7 +22,7 @@
     "chart_reticle": 128,
     "chart_constellations": 64,
     "solve_pixel": [256, 256],
-    "active_catalogs": [
+    "filter.selected_catalogs": [
         "NGC",
         "M",
         "H",
