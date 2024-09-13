@@ -2,14 +2,11 @@
 # -*- coding:utf-8 -*-
 """
 This module is for GPS related functions
-
 """
-
-import time
+import asyncio
 from PiFinder.multiproclogging import MultiprocLogging
 from gpsdclient import GPSDClient
 import logging
-from itertools import islice
 
 logger = logging.getLogger("GPS")
 
@@ -32,63 +29,67 @@ def is_tpv_accurate(tpv_dict):
         return False
 
 
-def gps_monitor(gps_queue, console_queue, log_queue):
+async def sky_messages(client, gps_queue):
+    async for result in client.dict_stream(convert_datetime=True, filter=["SKY"]):
+        if result["class"] == "SKY" and "nSat" in result:
+            sats_seen = result["nSat"]
+            sats_used = result["uSat"]
+            num_sats = (sats_seen, sats_used)
+            msg = ("satellites", num_sats)
+            logger.debug("Number of sats seen: %i", sats_seen)
+            await gps_queue.put(msg)
+
+
+async def reading_messages(client, gps_queue, console_queue, gps_locked):
+    async for result in client.dict_stream(convert_datetime=True, filter=["TPV"]):
+        if is_tpv_accurate(result):
+            logger.debug("last reading is %s", result)
+            if result.get("lat") and result.get("lon") and result.get("altHAE"):
+                if not gps_locked:
+                    gps_locked = True
+                    await console_queue.put("GPS: Locked")
+                    logger.debug("GPS locked")
+                msg = (
+                    "fix",
+                    {
+                        "lat": result.get("lat"),
+                        "lon": result.get("lon"),
+                        "altitude": result.get("altHAE"),
+                    },
+                )
+                logger.debug("GPS fix: %s", msg)
+                await gps_queue.put(msg)
+
+            if result.get("time"):
+                msg = ("time", result.get("time"))
+                logger.debug("Setting time to %s", result.get("time"))
+                await gps_queue.put(msg)
+
+
+async def gps_main(gps_queue, console_queue, log_queue):
     MultiprocLogging.configurer(log_queue)
     gps_locked = False
+
     while True:
-        with GPSDClient(host="127.0.0.1") as client:
-            # see https://www.mankier.com/5/gpsd_json for the list of fields
-            while True:
-                logger.debug("GPS waking")
-                readings_filter = filter(
-                    lambda x: is_tpv_accurate(x),
-                    client.dict_stream(convert_datetime=True, filter=["TPV"]),
-                )
-                sky_filter = client.dict_stream(convert_datetime=True, filter=["SKY"])
-                readings_list = list(islice(readings_filter, 10))
-                sky_list = list(islice(sky_filter, 10))
-                if readings_list:
-                    result = min(
-                        readings_list,
-                        key=lambda x: x.get("ecefpAcc", x.get("sep", float("inf"))),
+        try:
+            with GPSDClient(host="127.0.0.1") as client:
+                while True:
+                    logger.debug("GPS waking")
+
+                    # Run both async functions concurrently
+                    await asyncio.gather(
+                        sky_messages(client, gps_queue),
+                        reading_messages(client, gps_queue,
+                                         console_queue, gps_locked)
                     )
-                    logger.debug("last reading is %s", result)
-                    if result.get("lat") and result.get("lon") and result.get("altHAE"):
-                        if gps_locked is False:
-                            gps_locked = True
-                            console_queue.put("GPS: Locked")
-                            logger.debug("GPS locked")
-                        msg = (
-                            "fix",
-                            {
-                                "lat": result.get("lat"),
-                                "lon": result.get("lon"),
-                                "altitude": result.get("altHAE"),
-                            },
-                        )
-                        logger.debug("GPS fix: %s", msg)
-                        gps_queue.put(msg)
 
-                    # search from the newest first, quit if something is found
-                    for result in reversed(readings_list):
-                        if result.get("time"):
-                            msg = ("time", result.get("time"))
-                            logger.debug("Setting time to %s", result.get("time"))
-                            gps_queue.put(msg)
-                            break
-                else:
-                    logger.debug("GPS TPV client queue is empty")
+                    logger.debug("GPS sleeping now for 7s")
+                    await asyncio.sleep(7)
+        except Exception as e:
+            logger.error(f"Error in GPS monitor: {e}")
+            await asyncio.sleep(5)  # Wait before attempting to reconnect
 
-                if sky_list:
-                    # search from the newest first, quit if something is found
-                    for result in reversed(sky_list):
-                        if result["class"] == "SKY" and "nSat" in result:
-                            sats_seen = result["nSat"]
-                            sats_used = result["uSat"]
-                            num_sats = (sats_seen, sats_used)
-                            msg = ("satellites", num_sats)
-                            logger.debug("Number of sats seen: %i", num_sats)
-                            gps_queue.put(msg)
-                            break
-                logger.debug("GPS sleeping now for 7s")
-                time.sleep(7)
+
+# To run the GPS monitor
+def gps_monitor(gps_queue, console_queue, log_queue):
+    asyncio.run(gps_main(gps_queue, console_queue, log_queue))
