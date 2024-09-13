@@ -29,8 +29,15 @@ def is_tpv_accurate(tpv_dict):
         return False
 
 
-async def sky_messages(client, gps_queue):
-    async for result in client.dict_stream(convert_datetime=True, filter=["SKY"]):
+async def aiter_wrapper(sync_iter):
+    """Wrap a synchronous iterable into an asynchronous one."""
+    for item in sync_iter:
+        yield item
+
+
+async def process_sky_messages(client, gps_queue):
+    sky_stream = client.dict_stream(convert_datetime=True, filter=["SKY"])
+    async for result in aiter_wrapper(sky_stream):
         if result["class"] == "SKY" and "nSat" in result:
             sats_seen = result["nSat"]
             sats_used = result["uSat"]
@@ -40,8 +47,9 @@ async def sky_messages(client, gps_queue):
             await gps_queue.put(msg)
 
 
-async def reading_messages(client, gps_queue, console_queue, gps_locked):
-    async for result in client.dict_stream(convert_datetime=True, filter=["TPV"]):
+async def process_reading_messages(client, gps_queue, console_queue, gps_locked):
+    tpv_stream = client.dict_stream(convert_datetime=True, filter=["TPV"])
+    async for result in aiter_wrapper(tpv_stream):
         if is_tpv_accurate(result):
             logger.debug("last reading is %s", result)
             if result.get("lat") and result.get("lon") and result.get("altHAE"):
@@ -76,11 +84,11 @@ async def gps_main(gps_queue, console_queue, log_queue):
                 while True:
                     logger.debug("GPS waking")
 
-                    # Run both async functions concurrently
+                    # Run both functions concurrently
                     await asyncio.gather(
-                        sky_messages(client, gps_queue),
-                        reading_messages(client, gps_queue,
-                                         console_queue, gps_locked)
+                        process_sky_messages(client, gps_queue),
+                        process_reading_messages(
+                            client, gps_queue, console_queue, gps_locked)
                     )
 
                     logger.debug("GPS sleeping now for 7s")
