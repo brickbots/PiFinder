@@ -106,7 +106,7 @@ class Server:
         @app.route("/")
         def home():
             logger.debug("/ called")
-            # need to collect alittle status info here
+            # need to collect a little status info here
             with open(self.version_txt, "r") as ver_f:
                 software_version = ver_f.read()
 
@@ -190,7 +190,7 @@ class Server:
         def gps_page():
             self.update_gps()
             show_new_form = request.query.add_new or 0
-            logger.debug("/gps: %f, %f, %f ", self.lat, self.lon, self.altitude)
+            logger.debug("/gps: %f, %f, %f ", self.lat or 0.0, self.lon or 0.0, self.altitude or 0.0)
 
             return template(
                 "gps",
@@ -445,6 +445,7 @@ class Server:
 
     def update_gps(self):
         location = self.shared_state.location()
+        logging.debug("self shared state is %s and location is %s", self.shared_state, location)
         if location["gps_lock"] is True:
             self.gps_locked = True
             self.lat = location["lat"]
