@@ -798,7 +798,7 @@ if __name__ == "__main__":
     else:
         hardware_platform = "Pi"
         display_hardware = "ssd1351"
-        importlib.import_module("rpi_hardware_pwm")
+        from rpi_hardware_pwm import HardwarePWM
         imu = importlib.import_module("PiFinder.imu_pi")
         gps_monitor = importlib.import_module("PiFinder.gps_pi")
 
