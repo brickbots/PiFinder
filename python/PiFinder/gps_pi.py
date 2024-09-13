@@ -36,8 +36,10 @@ async def aiter_wrapper(sync_iter):
 
 
 async def process_sky_messages(client, gps_queue):
-    sky_stream = client.dict_stream(convert_datetime=True, filter=["SKY"])
+    sky_stream = client.dict_stream(filter=["SKY"])
     async for result in aiter_wrapper(sky_stream):
+        logger.debug(
+            "GPS: SKY: %s", result) 
         if result["class"] == "SKY" and "nSat" in result:
             sats_seen = result["nSat"]
             sats_used = result["uSat"]
@@ -50,7 +52,8 @@ async def process_sky_messages(client, gps_queue):
 async def process_reading_messages(client, gps_queue, console_queue, gps_locked):
     tpv_stream = client.dict_stream(convert_datetime=True, filter=["TPV"])
     async for result in aiter_wrapper(tpv_stream):
-        if is_tpv_accurate(result):
+        #if is_tpv_accurate(result):
+        if True:
             logger.debug("last reading is %s", result)
             if result.get("lat") and result.get("lon") and result.get("altHAE"):
                 if not gps_locked:
