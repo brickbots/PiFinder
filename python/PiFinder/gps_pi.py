@@ -15,15 +15,19 @@ def is_tpv_accurate(tpv_dict):
     """
     Check the accuracy of the GPS fix
     """
+    # get the ecefpAcc if present, else get sep, else use 499
     error = tpv_dict.get("ecefpAcc", tpv_dict.get("sep", 499))
+    mode = tpv_dict.get("mode")
     logger.debug(
         "GPS: TPV: mode=%s, error=%s, ecefpAcc=%s, sep=%s",
-        tpv_dict.get("mode"),
+        mode,
         error,
         tpv_dict.get("ecefpAcc", -1),
         tpv_dict.get("sep", -1),
     )
-    if tpv_dict.get("mode") >= 2 and error < 500:
+    if mode == 2 and tpv_dict.get("epx", 999) < 1000 and tpv_dict.get("epy", 999) < 1000:
+        return True
+    if mode == 3 and error < 500:
         return True
     else:
         return False
@@ -52,8 +56,8 @@ async def process_sky_messages(client, gps_queue):
 async def process_reading_messages(client, gps_queue, console_queue, gps_locked):
     tpv_stream = client.dict_stream(convert_datetime=True, filter=["TPV"])
     async for result in aiter_wrapper(tpv_stream):
-        #if is_tpv_accurate(result):
-        if True:
+        if is_tpv_accurate(result):
+        #if True:
             logger.debug("last reading is %s", result)
             if result.get("lat") and result.get("lon") and result.get("altHAE"):
                 if not gps_locked:
