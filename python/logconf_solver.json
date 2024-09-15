@@ -1,0 +1,199 @@
+{
+    // Note that the JSON5 library that we use for configuration supports comments in JSON files.
+    "version": 1,
+    "disable_existing_loggers": false, // THIS MUST BE FALSE for logging to work
+    "formatters": {
+        "default": {
+            "format": "%(asctime)s %(processName)s-%(name)s:%(levelname)s:%(message)s"
+        }
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "level": "DEBUG",
+            "formatter": "default",
+            "stream": "ext://sys.stdout"
+        },
+        "null": {
+            "class": "logging.NullHandler",
+            "level": "ERROR"
+        }
+    },
+    "loggers": {
+
+
+        /////////////////////////////////////////////////////////////////
+        ////// root logger
+        //
+        // This is the main logging configuration
+        //
+        "": {
+            "level": "INFO",
+            "handlers": ["console"]
+            // The file handler is added automatically by code
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// State shared between Subsystems
+        //
+        // "SharedState": {
+        //     "level": "DEBUG"
+        // }
+
+        /////////////////////////////////////////////////////////////////
+        ////// User Interface loggging configuration
+        //
+        // Supporte logger hierarchy:
+        //   UI
+        //   UI.Callbacks
+        //
+        // "UI": {
+        //     "level": "DEBUG"
+        // }
+
+        /////////////////////////////////////////////////////////////////
+        ////// Camera Subsystem
+        //
+        // The camera subsystem supports the following hierarchy of loggers:
+        //   Camera
+        //   Camera.Interface
+        //   Camera.Pi
+        //   Camera.Debug
+        //   Camera.None
+        //
+        "Camera": {
+            "level": "INFO"
+        },
+        // You can set different configurations for child loggers like this:
+        // "Camera.Debug": {
+        //    "level": "DEBUG"
+        // },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Platesolver Subsystem
+        //
+        // Supported logger hierarchy:
+        //   Solver
+        //
+        "Solver": {
+            "level": "DEBUG"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// GPS Subsystem
+        "GPS": {
+            "level": "DEBUG" // Set this to debug, to see results parsed from the GPS
+        },
+        // "GPS.fake": {
+        //     "level": "DEBUG"
+        // }
+
+        /////////////////////////////////////////////////////////////////
+        ////// Catalog Subsystem
+        //
+        // The Catalog subsystem supports the following loggers:
+        //   Catalog
+        //   Catalog.Utils
+        //   Catalog.Images
+        //   Catalog.Nearby
+        //
+        // "Catalog": {
+        //    "level": "WARNING"
+        //},
+
+        /////////////////////////////////////////////////////////////////
+        ////// Database
+        //
+        // Supports only:
+        //   Database
+        //
+        // "Database": {
+        //   "level": "WARNING"
+        // }
+
+        /////////////////////////////////////////////////////////////////
+        // IMU Subsystem
+        //
+        //   IMU
+        //   IMU.Integrator
+        //
+        // "IMU": {
+        //    "level": "WARNING"
+        // },
+
+        /////////////////////////////////////////////////////////////////
+        //////  Keyboard Subsystem
+        //
+        // Supported logger hierarchy:
+        //   Keyboard
+        //   Keyboard.Local
+        //   Keyboard.Interface
+        //   Keybaord.None
+
+        "Keyboard": {
+            "level": "INFO"
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Observations Subsystem
+        //
+        // Supported logger hierarchy:
+        //   Observation
+        //   Observation.List
+        //   Observation.Log
+        //
+        // "Observation": {
+        //    "level": "WARNING"
+        // },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Web Server Subsystem
+        //
+        // Supported logger hierarchy:
+        //   Server
+        //
+        // "Server": {
+        //    "level": "DEBUG"
+        //}
+
+        /////////////////////////////////////////////////////////////////
+        ////// Pos Server Subsystem (SkySafari LX200 Interface)
+        //
+        // Supported logger hierarchy:
+        //   PosServer
+        //
+        // "PosServer": {
+        //    "level": "DEBUG"
+        //}
+
+        /////////////////////////////////////////////////////////////////
+        ////// Utils Libraries
+        //
+        // Supported Logger hierarchies:
+        //   SysUtils
+        //   SysUtils.Fake
+        //   Utils
+        //   Utils.Timer
+
+
+        /////////////////////////////////////////////////////////////////
+        ////// Third party  Libraries
+        //
+        // Silence logging of libraries that we use.
+        //
+        "PIL.PngImagePlugin": {
+            "level": "WARNING"
+        },
+        "tetra3.Tetra3": {
+            "level": "WARNING"
+        },
+        "picamera2.picamera2": {
+            "level": "WARNING"
+        },
+        "grpc": {
+            "level": "ERROR",
+            "propagate": false,
+            "handlers": ["null"]
+        },
+   }
+}

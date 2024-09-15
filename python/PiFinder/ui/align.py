@@ -182,6 +182,7 @@ class UIAlign(UIModule):
                     self.solution["Dec_camera"],
                     self.solution["Roll_camera"],
                     constellation_brightness,
+                    shade_frustrum=True,
                 )
                 image_obj = ImageChops.multiply(
                     image_obj.convert("RGB"), self.colors.red_image
@@ -275,7 +276,6 @@ class UIAlign(UIModule):
         # look for stars that are within the 'cone' of the
         # direction pressed
         found_star = False
-        print(self.reticle_position)
         for i in range(len(candidate_stars)):
             test_star = candidate_stars.iloc[i]
             x_delta = abs(test_star["x_pos"] - self.reticle_position[0])
@@ -294,7 +294,6 @@ class UIAlign(UIModule):
                     break
 
         if not found_star:
-            print("Fallback")
             self.alignment_star = candidate_stars.iloc[0]
 
         self.reticle_position = (
@@ -307,10 +306,12 @@ class UIAlign(UIModule):
         return
 
     def key_plus(self):
-        self.change_fov(-1)
+        if not self.align_mode:
+            self.change_fov(-1)
 
     def key_minus(self):
-        self.change_fov(1)
+        if not self.align_mode:
+            self.change_fov(1)
 
     def key_square(self):
         if self.align_mode:
