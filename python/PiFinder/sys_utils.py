@@ -47,7 +47,7 @@ class Network:
                     network_id += 1
 
                 elif in_network_block:
-                    key, value = line.strip().split("=")
+                    key, value = line.strip().split("=",1) # values might contain "="!
                     network_dict[key] = value.strip('"')
 
     def get_wifi_networks(self):
