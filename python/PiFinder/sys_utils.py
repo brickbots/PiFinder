@@ -50,6 +50,7 @@ class Network:
         network_id = 0
         in_network_block = False
         for line in contents:
+            line = line.strip()
             if line.startswith("network={"):
                 in_network_block = True
                 network_dict = {
@@ -59,7 +60,7 @@ class Network:
                     "key_mgmt": None,
                 }
 
-            elif line.strip() == "}" and in_network_block:
+            elif line == "}" and in_network_block:
                 in_network_block = False
                 wifi_networks.append(network_dict)
                 network_id += 1
