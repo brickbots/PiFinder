@@ -23,7 +23,7 @@ def is_tpv_accurate(tpv_dict):
     # error = tpv_dict.get("ecefpAcc", tpv_dict.get("sep", 499))
     mode = tpv_dict.get("mode")
     logger.debug(
-        "GPS: TPV: mode=%s, error=%s, ecefpAcc=%s, sep=%s",
+        "GPS: TPV: mode=%s, ecefpAcc=%s, sep=%s, error_2d=%s, error_3d=%s",
         mode,
         # error,
         tpv_dict.get("ecefpAcc", -1),
