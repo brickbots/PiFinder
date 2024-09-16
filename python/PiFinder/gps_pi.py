@@ -64,7 +64,7 @@ async def process_reading_messages(client, gps_queue, console_queue, gps_locked)
             if result.get("lat") and result.get("lon") and result.get("altHAE"):
                 if not gps_locked:
                     gps_locked = True
-                    await console_queue.put("GPS: Locked")
+                    console_queue.put("GPS: Locked")
                     logger.debug("GPS locked")
                 msg = (
                     "fix",
