@@ -18,6 +18,8 @@ def is_tpv_accurate(tpv_dict):
     # get the ecefpAcc if present, else get sep, else use 499
     error = tpv_dict.get("ecefpAcc", tpv_dict.get("sep", 499))
     mode = tpv_dict.get("mode")
+    error_2d = tpv_dict.get("hdop", 999)
+    error_3d = tpv_dict.get("pdop", 999)
     logger.debug(
         "GPS: TPV: mode=%s, error=%s, ecefpAcc=%s, sep=%s",
         mode,
@@ -25,9 +27,9 @@ def is_tpv_accurate(tpv_dict):
         tpv_dict.get("ecefpAcc", -1),
         tpv_dict.get("sep", -1),
     )
-    if mode == 2 and tpv_dict.get("epx", 999) < 1000 and tpv_dict.get("epy", 999) < 1000:
+    if mode == 2 and error_2d < 1000:
         return True
-    if mode == 3 and error < 500:
+    if mode == 3 and error_3d < 500:
         return True
     else:
         return False
