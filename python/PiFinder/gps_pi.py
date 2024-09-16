@@ -37,20 +37,22 @@ async def aiter_wrapper(sync_iter):
     """Wrap a synchronous iterable into an asynchronous one."""
     for item in sync_iter:
         yield item
+        await asyncio.sleep(0)  # Yield control to the event loop
 
 
 async def process_sky_messages(client, gps_queue):
     sky_stream = client.dict_stream(filter=["SKY"])
     async for result in aiter_wrapper(sky_stream):
         logger.debug(
-            "GPS: SKY: %s", result) 
+            "GPS: SKY: %s", result)
         if result["class"] == "SKY" and "nSat" in result:
             sats_seen = result["nSat"]
             sats_used = result["uSat"]
             num_sats = (sats_seen, sats_used)
             msg = ("satellites", num_sats)
             logger.debug("Number of sats seen: %i", sats_seen)
-            await gps_queue.put(msg)
+            gps_queue.put(msg)
+        await asyncio.sleep(0)  # Yield control to the event loop
 
 
 async def process_reading_messages(client, gps_queue, console_queue, gps_locked):
@@ -73,12 +75,13 @@ async def process_reading_messages(client, gps_queue, console_queue, gps_locked)
                     },
                 )
                 logger.debug("GPS fix: %s", msg)
-                await gps_queue.put(msg)
+                gps_queue.put(msg)
 
             if result.get("time"):
                 msg = ("time", result.get("time"))
                 logger.debug("Setting time to %s", result.get("time"))
-                await gps_queue.put(msg)
+                gps_queue.put(msg)
+        await asyncio.sleep(0)  # Yield control to the event loop
 
 
 async def gps_main(gps_queue, console_queue, log_queue):
