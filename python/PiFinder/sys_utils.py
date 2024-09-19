@@ -33,9 +33,8 @@ class Network:
         try:
             with open(wpa_supplicant_path, "r") as wpa_conf:
                 contents = wpa_conf.readlines()
-                print("contents", contents)
         except IOError as e:
-            print(f"Error reading wpa_supplicant.conf: {e}")
+            logger.error(f"Error reading wpa_supplicant.conf: {e}")
             return
 
         self._wifi_networks = Network._parse_wpa_supplicant(contents)
