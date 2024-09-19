@@ -266,7 +266,9 @@ class Starfield:
         center = self.earth.observe(sky_pos)
         self.projection = build_stereographic_projection(center)
 
-    def plot_starfield(self, ra, dec, roll, constellation_brightness=32):
+    def plot_starfield(
+        self, ra, dec, roll, constellation_brightness=32, shade_frustrum: bool = False
+    ):
         """
         Returns an image of the starfield at the
         provided RA/DEC/ROLL with or without
@@ -288,18 +290,48 @@ class Starfield:
             self.const_end_star_positions
         )
 
-        pil_image, visible_stars = self.render_starfield_pil(constellation_brightness)
+        pil_image, visible_stars = self.render_starfield_pil(
+            constellation_brightness, shade_frustrum
+        )
         return pil_image, visible_stars
 
-    def render_starfield_pil(self, constellation_brightness):
+    def render_starfield_pil(
+        self, constellation_brightness: int, shade_frustrum: bool = False
+    ):
         """
-        If return_plotted_stars this will return a tuple:
-        (image, visible_stars)
+        constellation_brightness: intensity of constellation lines
+        shade_frustrum: Shade areas of the chart that are outside of the actual camera FOV
 
-        Mainly for the new alignment system
+        returns (image, visible_stars)
         """
         ret_image = Image.new("L", self.render_size)
         idraw = ImageDraw.Draw(ret_image)
+
+        frustrum_perc = 9.5 / self.fov
+        if shade_frustrum and frustrum_perc < 0.99:
+            idraw.rectangle(
+                [
+                    0,
+                    0,
+                    self.render_size[0],
+                    self.render_size[1],
+                ],
+                fill=32,
+            )
+
+            # Calc square for in-frustrum
+            frustrum_offset = (
+                self.render_size[0] - frustrum_perc * self.render_size[0]
+            ) / 2
+            idraw.rectangle(
+                [
+                    frustrum_offset,
+                    frustrum_offset,
+                    self.render_size[0] - frustrum_offset,
+                    self.render_size[1] - frustrum_offset,
+                ],
+                fill=0,
+            )
 
         # prep rotate by roll....
         roll_rad = (self.roll) * (np.pi / 180)
@@ -414,5 +446,17 @@ class Starfield:
                     fill=(255),
                     width=0,
                 )
+
+        # now filter to stars in frustrum
+        if frustrum_perc < 0.99:
+            frustrum_offset = (
+                self.render_size[0] - frustrum_perc * self.render_size[0]
+            ) / 2
+            visible_stars = visible_stars[
+                (visible_stars["x_pos"] > frustrum_offset)
+                & (visible_stars["x_pos"] < self.render_size[0] - frustrum_offset)
+                & (visible_stars["y_pos"] > frustrum_offset)
+                & (visible_stars["y_pos"] < self.render_size[1] - frustrum_offset)
+            ]
 
         return ret_image, visible_stars
