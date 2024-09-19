@@ -349,18 +349,6 @@ class UIObjectList(UITextMenu):
     def line_position(self, line_number, title_offset=20):
         line_number_positions = [0, 13, 25, 42, 60, 76, 89]
         return line_number_positions[line_number] + title_offset
-        self.draw.rectangle(
-            [sbr_x - 1, sbr_y_start, sbr_x, sbr_y], fill=self.colors.get(128)
-        )
-        self.draw.rectangle(
-            [
-                sbr_x - 1,
-                sbr_y_start + box_pos - one_item_height // 2,
-                sbr_x,
-                sbr_y_start + box_pos + one_item_height // 2,
-            ],
-            fill=self.colors.get(255),
-        )
 
     def active(self):
         # trigger refilter
