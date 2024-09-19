@@ -52,6 +52,11 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         solved = {
             "RA": None,
             "Dec": None,
+            "Roll": None,
+            "RA_camera": None,
+            "Dec_camera": None,
+            "Roll_camera": None,
+            "Roll_offset": 0,  # May/may not be needed - for experimentation
             "imu_pos": None,
             "Alt": None,
             "Az": None,
@@ -64,6 +69,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         if (
             cfg.get_option("screen_direction") == "left"
             or cfg.get_option("screen_direction") == "flat"
+            or cfg.get_option("screen_direction") == "flat3"
             or cfg.get_option("screen_direction") == "straight"
         ):
             flip_alt_offset = True
@@ -84,7 +90,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             except queue.Empty:
                 pass
 
-            if next_image_solve:
+            if type(next_image_solve) is dict:
                 solved = next_image_solve
 
                 # see if we can generate alt/az
@@ -108,6 +114,20 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     )
                     solved["Alt"] = alt
                     solved["Az"] = az
+
+                    # Experimental: For monitoring roll offset
+                    # Estimate the roll offset due misalignment of the
+                    # camera sensor with the Pole-to-Source great circle.
+                    solved["Roll_offset"] = estimate_roll_offset(solved, dt)
+                    # Find the roll at the target RA/Dec. Note that this doesn't include the
+                    # roll offset so it's not the roll that the PiFinder camear sees but the
+                    # roll relative to the celestial pole
+                    roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
+                        solved["RA"], solved["Dec"], dt
+                    )
+                    # Compensate for the roll offset. This gives the roll at the target
+                    # as seen by the camera.
+                    solved["Roll"] = roll_target_calculated + solved["Roll_offset"]
 
                 last_image_solve = copy.copy(solved)
                 solved["solve_source"] = "CAM"
@@ -148,9 +168,12 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                                 solved["Alt"], solved["Az"], dt
                             )
 
-                            # Find the roll from the RA/Dec and time
-                            solved["Roll"] = calc_utils.sf_utils.radec_to_roll(
-                                solved["RA"], solved["Dec"], dt
+                            # Calculate the roll at the target RA/Dec and compensate for the offset.
+                            solved["Roll"] = (
+                                calc_utils.sf_utils.radec_to_roll(
+                                    solved["RA"], solved["Dec"], dt
+                                )
+                                + solved["Roll_offset"]
                             )
 
                             solved["solve_time"] = time.time()
@@ -169,3 +192,21 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 shared_state.set_solve_state(True)
     except EOFError:
         logger.error("Main no longer running for integrator")
+
+
+def estimate_roll_offset(solved, dt):
+    """
+    Estimate the roll offset due to misalignment of the camera sensor with
+    the mount/scope's coordinate system. The offset is calculated at the
+    center of the camera's FoV.
+
+    To calculate the roll with offset: roll = calculated_roll + roll_offset
+    """
+    # Calculate the expected roll at the camera center given the RA/Dec of
+    # of the camera center.
+    roll_camera_calculated = calc_utils.sf_utils.radec_to_roll(
+        solved["RA_camera"], solved["Dec_camera"], dt
+    )
+    roll_offset = solved["Roll_camera"] - roll_camera_calculated
+
+    return roll_offset

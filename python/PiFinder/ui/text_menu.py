@@ -7,6 +7,7 @@ This module contains all the UI Module classes
 
 from typing import Union
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 
 
 class UITextMenu(UIModule):
@@ -15,6 +16,8 @@ class UITextMenu(UIModule):
     text list
 
     """
+
+    __help_name__ = "menu"
 
     def __init__(
         self,
@@ -25,6 +28,16 @@ class UITextMenu(UIModule):
         self._current_item_index = self.item_definition.get("start_index", 0)
         self._menu_items = [x["name"] for x in self.item_definition["items"]]
         self._menu_type = self.item_definition["select"]
+
+        # Marking menu definition
+        self.marking_menu = MarkingMenu(
+            left=MarkingMenuOption(),
+            down=MarkingMenuOption(
+                label="Shutdown",
+                menu_jump="shutdown",
+            ),
+            right=MarkingMenuOption(),
+        )
 
         self._selected_values = []
         if config_option := self.item_definition.get("config_option"):
@@ -55,12 +68,7 @@ class UITextMenu(UIModule):
         self.draw.rectangle((-1, 60, 129, 80), outline=self.colors.get(128), width=1)
 
         line_number = 0
-        if self._menu_type == "multi":
-            # Leave room for checkmarks
-            line_horiz_pos = 15
-        else:
-            # Squeeze out a little more room...
-            line_horiz_pos = 5
+        line_horiz_pos = 13
 
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
             if i >= 0 and i < self.get_nr_of_menu_items():
@@ -109,7 +117,7 @@ class UITextMenu(UIModule):
                     in self._selected_values
                 ):
                     self.draw.text(
-                        (5, line_pos),
+                        (3, line_pos),
                         self._CHECKMARK,
                         font=line_font.font,
                         fill=self.colors.get(line_color),
@@ -216,6 +224,9 @@ class UITextMenu(UIModule):
                 if config_option == "active_catalogs":
                     self.catalogs.select_no_catalogs()
                     self.catalogs.select_catalogs(self._selected_values)
+                    self.catalogs.catalog_filter.selected_catalogs = (
+                        self._selected_values
+                    )
 
                 # is this a filter option?
                 if config_option.startswith("filter."):

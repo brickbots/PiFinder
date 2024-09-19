@@ -221,6 +221,31 @@ def restore_userdata(zip_path):
     unzip("-d", "/", "-o", zip_path)
 
 
+def restart_pifinder() -> None:
+    """
+    Uses systemctl to restart the PiFinder
+    service
+    """
+    logger.info("SYS: Restarting PiFinder")
+    sh.sudo("systemctl", "restart", "pifinder")
+
+
+def restart_system() -> None:
+    """
+    Restarts the system
+    """
+    logger.info("SYS: Initiating System Restart")
+    sh.sudo("shutdown", "-r", "now")
+
+
+def shutdown() -> None:
+    """
+    shuts down the system
+    """
+    logger.info("SYS: Initiating Shutdown")
+    sh.sudo("shutdown", "now")
+
+
 def update_software():
     """
     Uses systemctl to git pull and then restart
@@ -257,3 +282,13 @@ def change_password(username, current_password, new_password):
         return True
     else:
         return False
+
+
+def switch_cam_imx477() -> None:
+    logger.info("SYS: Switching cam to imx477")
+    sh.sudo("python", "-m", "PiFinder.switch_camera", "imx477")
+
+
+def switch_cam_imx296() -> None:
+    logger.info("SYS: Switching cam to imx296")
+    sh.sudo("python", "-m", "PiFinder.switch_camera", "imx296")

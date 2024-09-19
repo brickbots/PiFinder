@@ -23,6 +23,7 @@ import uuid
 import logging
 import argparse
 import pickle
+import shutil
 from pathlib import Path
 from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
@@ -128,9 +129,14 @@ def get_sleep_timeout(cfg):
     returns the sleep timeout amount
     """
     sleep_timeout_option = cfg.get_option("sleep_timeout")
-    sleep_timeout = {"Off": 100000, "10s": 10, "30s": 30, "1m": 60}[
-        sleep_timeout_option
-    ]
+    sleep_timeout = {
+        "Off": 100000,
+        "10s": 10,
+        "20s": 20,
+        "30s": 30,
+        "1m": 60,
+        "2m": 120,
+    }[sleep_timeout_option]
     return sleep_timeout
 
 
@@ -155,6 +161,7 @@ def _calculate_timeouts(cfg):
 
 
 def wake_screen(screen_brightness, shared_state, cfg) -> int:
+    global display_device
     set_brightness(screen_brightness, cfg)
     display_device.device.show()
     orig_power_state = shared_state.power_state()
@@ -163,7 +170,10 @@ def wake_screen(screen_brightness, shared_state, cfg) -> int:
 
 
 def main(
-    log_helper: MultiprocLogging, script_name=None, show_fps=False, verbose=False
+    log_helper: MultiprocLogging,
+    script_name=None,
+    show_fps=False,
+    verbose=False,
 ) -> None:
     """
     Get this show on the road!
@@ -183,6 +193,8 @@ def main(
     gps_queue: Queue = Queue()
     camera_command_queue: Queue = Queue()
     solver_queue: Queue = Queue()
+    alignment_command_queue: Queue = Queue()
+    alignment_response_queue: Queue = Queue()
     ui_queue: Queue = Queue()
 
     # init queues for logging
@@ -206,6 +218,8 @@ def main(
         "camera": camera_command_queue,
         "console": console_queue,
         "ui_queue": ui_queue,
+        "align_command": alignment_command_queue,
+        "align_response": alignment_response_queue,
     }
     cfg = config.Config()
 
@@ -324,6 +338,8 @@ def main(
                 camera_image,
                 console_queue,
                 solver_logqueue,
+                alignment_command_queue,
+                alignment_response_queue,
                 verbose,
             ),
         )
@@ -356,7 +372,7 @@ def main(
         posserver_process.start()
 
         # Start main event loop
-        console.write("   Event Loop")
+        console.write("   Catalogs")
         console.update()
 
         # Initialize Catalogs
@@ -370,8 +386,11 @@ def main(
                 object_types=cfg.get_option("filter.object_types"),
                 altitude=cfg.get_option("filter.altitude", -1),
                 observed=cfg.get_option("filter.observed", "Any"),
+                selected_catalogs=cfg.get_option("active_catalogs"),
             )
         )
+        console.write("   Menus")
+        console.update()
 
         # Initialize menu manager
         menu_manager = MenuManager(
@@ -382,6 +401,11 @@ def main(
             cfg,
             catalogs,
         )
+
+        # Start main event loop
+        console.write("   Event Loop")
+        console.update()
+
         # Start of main except handler / loop
         screen_dim, screen_off = _calculate_timeouts(cfg)
         try:
@@ -461,6 +485,10 @@ def main(
                             # Long left is return to top
                             if keycode == keyboard_base.LNG_LEFT:
                                 menu_manager.key_long_left()
+
+                            # Long right is return to last observed object
+                            if keycode == keyboard_base.LNG_RIGHT:
+                                menu_manager.key_long_right()
 
                             # Long square is marking menu
                             if keycode == keyboard_base.LNG_SQUARE:
@@ -651,16 +679,42 @@ def main(
             exit()
 
 
+def rotate_logs() -> Path:
+    """
+    Rotates log files, returns the log file to use
+    """
+    log_index = list(range(5))
+    log_index.reverse()
+    for i in log_index:
+        try:
+            shutil.copyfile(
+                utils.data_dir / f"pifinder.{i}.log",
+                utils.data_dir / f"pifinder.{i+1}.log",
+            )
+        except FileNotFoundError:
+            pass
+
+    try:
+        shutil.move(
+            utils.data_dir / "pifinder.log",
+            utils.data_dir / "pifinder.0.log",
+        )
+    except FileNotFoundError:
+        pass
+
+    return utils.data_dir / "pifinder.log"
+
+
 if __name__ == "__main__":
     print("Boostrap logging configuration ...")
     logging.basicConfig(format="%(asctime)s BASIC %(name)s: %(levelname)s %(message)s")
     rlogger = logging.getLogger()
     rlogger.setLevel(logging.INFO)
+    log_path = rotate_logs()
     try:
-        datenow = datetime.datetime.now()
         log_helper = MultiprocLogging(
             Path("pifinder_logconf.json"),
-            Path(f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"),
+            log_path,
         )
         MultiprocLogging.configurer(log_helper.get_queue())
     except FileNotFoundError:

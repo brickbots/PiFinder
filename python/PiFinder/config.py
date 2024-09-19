@@ -30,6 +30,10 @@ class Config:
         with open(self.default_file_path, "r") as config_file:
             self._default_config_dict = json.load(config_file)
 
+        # Set up session config items
+        # These are transient
+        self._session_config_dict = {}
+
     def dump_config(self):
         """
         Write config to config file
@@ -38,13 +42,19 @@ class Config:
             json.dump(self._config_dict, config_file, indent=4)
 
     def set_option(self, option, value):
-        self._config_dict[option] = value
-        self.dump_config()
+        if option.startswith("session."):
+            self._session_config_dict[option] = value
+        else:
+            self._config_dict[option] = value
+            self.dump_config()
 
     def get_option(self, option, default: Any = None):
-        return self._config_dict.get(
-            option, self._default_config_dict.get(option, default)
-        )
+        if option.startswith("session."):
+            return self._session_config_dict.get(option, default)
+        else:
+            return self._config_dict.get(
+                option, self._default_config_dict.get(option, default)
+            )
 
     def reset_filters(self):
         """

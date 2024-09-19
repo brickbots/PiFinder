@@ -81,12 +81,12 @@ These are the bigger items/assemblies which you'll need to purchase to include i
      - 
      - High quality is best to avoid power sensitivity and corruption.  The software only needs a couple gigs, so almost any available size should be fine
    * - 1
-     - Raspberry Pi HQ camera
-     - https://www.adafruit.com/product/4561
+     - InnoMaker imx296 mono camera module
+     - https://www.inno-maker.com/product/cam-mipi296raw-trigger/
      - 
    * - 1
-     - 25mm F1.4 CCTV Lens for C Mount
-     - https://www.amazon.com/gp/product/B01IECVHB6/
+     - 16mm F2 CCTV Lens for m12 Mount
+     - https://www.amazon.com/dp/B07VDWNSG9
      - Other lenses might work here, but something fast with a 10deg FOV is ideal
 
 Case hardware
@@ -105,7 +105,7 @@ In addition to the 3d printed parts detailed in the :doc:`Build Guide<build_guid
      - M2.5x4mm heat set inserts
      - 
      - 
-   * - 14
+   * - 20
      - M2.5x8mm bolts
      - 
      - Primary fastener for case frame
@@ -114,7 +114,7 @@ In addition to the 3d printed parts detailed in the :doc:`Build Guide<build_guid
      - 
      - Between Pi and Hat Depending on your heatsink and such you may need longer or shorter amounts here and you'll probably need to screw a couple together to get this length
    * - 4
-     - M2.5x6mm standoffs
+     - M2.5x5mm standoffs
      - 
      - Between the Camera and the 3d printed back piece
    * - 5

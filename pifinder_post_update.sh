@@ -1,4 +1,5 @@
 git submodule update --init --recursive
+sudo pip install -r /home/pifinder/PiFinder/python/requirements.txt
 
 # GPSD
 sudo apt install -y gpsd

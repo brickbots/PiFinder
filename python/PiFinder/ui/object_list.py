@@ -24,7 +24,7 @@ from PiFinder.ui.object_details import UIObjectDetails
 
 from PiFinder.calc_utils import aim_degrees
 from PiFinder import utils
-from PiFinder.catalogs import CompositeObject
+from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.nearby import Nearby
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
@@ -57,6 +57,7 @@ class UIObjectList(UITextMenu):
     Displayes a list of objects
     """
 
+    __help_name__ = "object_list"
     __title__ = "OBJECTS"
     checkmark = "󰄵"
     checkmark_no = ""
@@ -117,9 +118,9 @@ class UIObjectList(UITextMenu):
                     left=MarkingMenuOption(
                         label="Nearest", callback=self.mm_change_sort
                     ),
-                    down=MarkingMenuOption(label="RA", callback=self.mm_change_sort),
+                    down=MarkingMenuOption(),
                     right=MarkingMenuOption(
-                        label="Catalog", callback=self.mm_change_sort
+                        label="Standard", callback=self.mm_change_sort
                     ),
                 ),
             ),
@@ -152,6 +153,7 @@ class UIObjectList(UITextMenu):
             return
 
         self.catalogs.filter_catalogs()
+
         # The object list can display objects from various sources
         # This key of the item definition controls where to get the
         # particular object list
@@ -164,12 +166,13 @@ class UIObjectList(UITextMenu):
             for catalog in self.catalogs.get_catalogs(only_selected=False):
                 if catalog.catalog_code == self.item_definition["value"]:
                     self._menu_items = catalog.get_filtered_objects()
+                    # logging.debug(f"Filtered object list: {len(self._menu_items)}")
 
         if self.item_definition["objects"] == "recent":
             self._menu_items = self.ui_state.recent_list()
 
         if self.item_definition["objects"] == "custom":
-            # item_definition must contian a list of CompositeObjects
+            # item_definition must contain a list of CompositeObjects
             self._menu_items = self.item_definition["object_list"]
 
         self._menu_items_sorted = self._menu_items
@@ -184,9 +187,11 @@ class UIObjectList(UITextMenu):
             self._current_item_index = 0
 
         if self.current_sort == SortOrder.NEAREST:
+            self._menu_items = self.catalogs.catalog_filter.apply(self._menu_items)
             self.nearby.set_items(self._menu_items)
             self.nearby_refresh()
             self._current_item_index = 3
+        self.update()
 
     def nearby_refresh(self):
         self._menu_items_sorted = self.nearby.refresh()
@@ -261,7 +266,7 @@ class UIObjectList(UITextMenu):
 
     def create_info_text(self, obj: CompositeObject) -> str:
         obj_mag = self._safe_obj_mag(obj)
-        mag = f"m{obj_mag:2.0f}" if obj_mag != 99 else "m--"
+        mag = f"m{obj_mag:2.0f}" if obj_mag != MagnitudeObject.UNKNOWN_MAG else "m--"
         size = f"{self.ruler}{obj.size.strip()}" if obj.size.strip() else ""
         check = f" {self.checkmark}" if obj.logged else ""
         size_logged = f"{mag} {size}{check}"
@@ -288,7 +293,7 @@ class UIObjectList(UITextMenu):
             "Med": TextLayouterScroll.MEDIUM,
             "Slow": TextLayouterScroll.SLOW,
         }
-        scrollspeed = self._config_options["Scrolling"]["value"]
+        scrollspeed = self.config_object.get_option("text_scroll_speed", "Med")
         return scroll_dict[scrollspeed]
 
     def _draw_scrollbar(self):
@@ -381,6 +386,7 @@ class UIObjectList(UITextMenu):
                 fill=self.colors.get(255),
             )
             self.screen_update()
+            return
 
         # should we refresh the nearby list?
         if self.current_sort == SortOrder.NEAREST and self.nearby.should_refresh():
@@ -426,10 +432,7 @@ class UIObjectList(UITextMenu):
 
                 # calculate start of both pieces of text
                 begin_x = 12
-                space = (
-                    0 if is_focus and not self.current_mode == DisplayModes.NAME else 1
-                )
-                begin_x2 = begin_x + (len(item_name) + space) * line_font.width
+                begin_x2 = begin_x + (len(item_name) + 1) * line_font.width
 
                 # draw first text
                 self.draw.text(
@@ -452,8 +455,7 @@ class UIObjectList(UITextMenu):
                             width=math.floor(
                                 (self.display.width - begin_x2) / line_font.width
                             ),
-                            # scrollspeed=self._get_scrollspeed_config(),
-                            scrollspeed=TextLayouterScroll.FAST,
+                            scrollspeed=self._get_scrollspeed_config(),
                         )
                     # draw scrolling second text
                     self.item_text_scroll.draw((begin_x2, line_pos))
@@ -579,12 +581,22 @@ class UIObjectList(UITextMenu):
         When right is pressed, move to
         object info screen
         """
+        if len(self._menu_items_sorted) < self._current_item_index:
+            return
+
+        # turn off input box if it's there
+        if self.jump_input_display:
+            self.jump_input_display = False
+            self.jump_to_number.reset_number()
+
         _menu_item = self._menu_items_sorted[self._current_item_index]
 
         object_item_definition = {
             "name": _menu_item.display_name,
             "class": UIObjectDetails,
             "object": _menu_item,
+            "object_list": self._menu_items_sorted,
+            "label": "object_details",
         }
         self.add_to_stack(object_item_definition)
 

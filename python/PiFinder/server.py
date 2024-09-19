@@ -206,16 +206,17 @@ class Server:
             lat = request.forms.get("latitudeDecimal")
             lon = request.forms.get("longitudeDecimal")
             altitude = request.forms.get("altitude")
+            date_req = request.forms.get("date")
             time_req = request.forms.get("time")
             gps_lock(float(lat), float(lon), float(altitude))
-            if time_req:
-                current_date = datetime.now().date()
-                datetime_obj = datetime.combine(
-                    current_date, datetime.strptime(time_req, "%H:%M:%S").time()
-                )
+            if time_req and date_req:
+                datetime_str = f"{date_req} {time_req}"
+                datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
                 datetime_utc = datetime_obj.replace(tzinfo=timezone.utc)
                 time_lock(datetime_utc)
-            logger.debug("GPS update: %f, %f, %f, %f ", lat, lon, altitude, time_req)
+            logger.debug(
+                "GPS update: %s, %s, %s, %s, %s", lat, lon, altitude, date_req, time_req
+            )
             time.sleep(1)  # give the gps thread a chance to update
             return home()
 

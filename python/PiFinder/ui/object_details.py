@@ -7,8 +7,11 @@ This module contains all the UI Module classes
 """
 
 from PiFinder import cat_images
+from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
+from PiFinder.ui.align import align_on_radec
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.log import UILog
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     TextLayouter,
@@ -20,6 +23,8 @@ from PiFinder import calc_utils
 import functools
 
 from PiFinder.db.observations_db import ObservationsDatabase
+import numpy as np
+import time
 
 
 # Constants for display modes
@@ -34,7 +39,9 @@ class UIObjectDetails(UIModule):
     Shows details about an object
     """
 
+    __help_name__ = "object_details"
     __title__ = "OBJECT"
+    __ACTIVATION_TIMEOUT = 10
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -42,14 +49,27 @@ class UIObjectDetails(UIModule):
         self.screen_direction = self.config_object.get_option("screen_direction")
         self.mount_type = self.config_object.get_option("mount_type")
         self.object = self.item_definition["object"]
-        if self.object is not None:
-            self.ui_state.add_recent(self.object)
-
+        self.object_list = self.item_definition["object_list"]
         self.object_display_mode = DM_LOCATE
         self.object_image = None
 
         self.fov_list = [1, 0.5, 0.25, 0.125]
         self.fov_index = 0
+
+        # Marking Menu - Just default help for now
+        self.marking_menu = MarkingMenu(
+            left=MarkingMenuOption(),
+            right=MarkingMenuOption(),
+            down=MarkingMenuOption(
+                label="ALIGN",
+                callback=MarkingMenu(
+                    up=MarkingMenuOption(),
+                    left=MarkingMenuOption(label="CANCEL", callback=self.mm_cancel),
+                    down=MarkingMenuOption(),
+                    right=MarkingMenuOption(label="ALIGN", callback=self.mm_align),
+                ),
+            ),
+        )
 
         # Used for displaying obsevation counts
         self.observations_db = ObservationsDatabase()
@@ -87,6 +107,7 @@ class UIObjectDetails(UIModule):
         self.alt_anchor = (0, self.display_class.resY - (self.fonts.huge.height * 1.2))
         self._elipsis_count = 0
 
+        self.active()  # fill in activation time
         self.update_object_info()
 
     def _layout_designator(self):
@@ -126,6 +147,9 @@ class UIObjectDetails(UIModule):
         """
         Generates object text and loads object images
         """
+        # Title...
+        self.title = self.object.display_name
+
         # text stuff....
 
         self.texts = {}
@@ -204,7 +228,7 @@ class UIObjectDetails(UIModule):
         )
 
     def active(self):
-        pass
+        self.activation_time = time.time()
 
     def _render_pointing_instructions(self):
         # Pointing Instructions
@@ -360,21 +384,90 @@ class UIObjectDetails(UIModule):
 
         return self.screen_update()
 
-    def key_down(self):
-        # switch object display text
+    def cycle_display_mode(self):
+        """
+        Cycle through available display modes
+        for a module.  Invoked when the square
+        key is pressed
+        """
         self.object_display_mode = (
-            self.object_display_mode + 1 if self.object_display_mode < 2 else 2
+            self.object_display_mode + 1 if self.object_display_mode < 2 else 0
         )
         self.update_object_info()
         self.update()
 
-    def key_up(self):
-        # switch object display text
-        self.object_display_mode = (
-            self.object_display_mode - 1 if self.object_display_mode > 0 else 0
-        )
+    def maybe_add_to_recents(self):
+        if self.activation_time < time.time() - self.__ACTIVATION_TIMEOUT:
+            self.ui_state.add_recent(self.object)
+            self.active()  # reset activation time
+
+    def scroll_object(self, direction: int) -> None:
+        if isinstance(self.object_list, np.ndarray):
+            # For NumPy array
+            current_index = np.where(self.object_list == self.object)[0][0]
+        else:
+            # For regular Python list
+            current_index = self.object_list.index(self.object)
+        current_index += direction
+        if current_index < 0:
+            current_index = 0
+        if current_index >= len(self.object_list):
+            current_index = len(self.object_list) - 1
+
+        self.object = self.object_list[current_index]
         self.update_object_info()
         self.update()
+
+    def mm_cancel(self, _marking_menu, _menu_item) -> bool:
+        """
+        Do nothing....
+        """
+        return True
+
+    def mm_align(self, _marking_menu, _menu_item) -> bool:
+        """
+        Called from marking menu to align on curent object
+        """
+        self.message("Aligning...", 0.1)
+        if align_on_radec(
+            self.object.ra,
+            self.object.dec,
+            self.command_queues,
+            self.config_object,
+            self.shared_state,
+        ):
+            self.message("Aligned!", 1)
+        else:
+            self.message("Too Far", 2)
+
+        return True
+
+    def key_down(self):
+        self.maybe_add_to_recents()
+        self.scroll_object(1)
+
+    def key_up(self):
+        self.maybe_add_to_recents()
+        self.scroll_object(-1)
+
+    def key_left(self):
+        self.maybe_add_to_recents()
+        return True
+
+    def key_right(self):
+        """
+        When right is pressed, move to
+        logging screen
+        """
+        self.maybe_add_to_recents()
+        if self.shared_state.solution() is None:
+            return
+        object_item_definition = {
+            "name": "LOG",
+            "class": UILog,
+            "object": self.object,
+        }
+        self.add_to_stack(object_item_definition)
 
     def change_fov(self, direction):
         self.fov_index += direction

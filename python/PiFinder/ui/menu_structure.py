@@ -4,6 +4,7 @@ from PiFinder.ui.status import UIStatus
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.software import UISoftware
 from PiFinder.ui.chart import UIChart
+from PiFinder.ui.align import UIAlign
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 import PiFinder.ui.callbacks as callbacks
@@ -22,6 +23,7 @@ pifinder_menu = {
             "name": "Chart",
             "class": UIChart,
             "stateful": True,
+            "preload": True,
         },
         {
             "name": "Objects",
@@ -397,7 +399,7 @@ pifinder_menu = {
                     "name": "Magnitude",
                     "class": UITextMenu,
                     "select": "single",
-                    "config_option": "filter.altitude",
+                    "config_option": "filter.magnitude",
                     "items": [
                         {
                             "name": "None",
@@ -473,9 +475,137 @@ pifinder_menu = {
             "select": "single",
             "items": [
                 {
+                    "name": "User Pref...",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": "Key Bright",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "keypad_brightness",
+                            "items": [
+                                {
+                                    "name": "-4",
+                                    "value": "-4",
+                                },
+                                {
+                                    "name": "-3",
+                                    "value": "-3",
+                                },
+                                {
+                                    "name": "-2",
+                                    "value": "-2",
+                                },
+                                {
+                                    "name": "-1",
+                                    "value": "-1",
+                                },
+                                {
+                                    "name": "0",
+                                    "value": "0",
+                                },
+                                {
+                                    "name": "1",
+                                    "value": "+1",
+                                },
+                                {
+                                    "name": "2",
+                                    "value": "+2",
+                                },
+                                {
+                                    "name": "3",
+                                    "value": "+3",
+                                },
+                            ],
+                        },
+                        {
+                            "name": "Sleep Time",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "sleep_timeout",
+                            "items": [
+                                {
+                                    "name": "Off",
+                                    "value": "Off",
+                                },
+                                {
+                                    "name": "10s",
+                                    "value": "10s",
+                                },
+                                {
+                                    "name": "20s",
+                                    "value": "20s",
+                                },
+                                {
+                                    "name": "30s",
+                                    "value": "30s",
+                                },
+                                {
+                                    "name": "1m",
+                                    "value": "1m",
+                                },
+                                {
+                                    "name": "2m",
+                                    "value": "2m",
+                                },
+                            ],
+                        },
+                        {
+                            "name": "Menu Anim",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "menu_anim_speed",
+                            "items": [
+                                {
+                                    "name": "Off",
+                                    "value": 0,
+                                },
+                                {
+                                    "name": "Fast",
+                                    "value": 0.05,
+                                },
+                                {
+                                    "name": "Medium",
+                                    "value": 0.1,
+                                },
+                                {
+                                    "name": "Slow",
+                                    "value": 0.2,
+                                },
+                            ],
+                        },
+                        {
+                            "name": "Scroll Speed",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "text_scroll_speed",
+                            "items": [
+                                {
+                                    "name": "Off",
+                                    "value": "Off",
+                                },
+                                {
+                                    "name": "Fast",
+                                    "value": "Fast",
+                                },
+                                {
+                                    "name": "Medium",
+                                    "value": "Med",
+                                },
+                                {
+                                    "name": "Slow",
+                                    "value": "Slow",
+                                },
+                            ],
+                        },
+                    ],
+                },
+                {
                     "name": "Chart...",
                     "class": UITextMenu,
                     "select": "single",
+                    "label": "chart_settings",
                     "items": [
                         {
                             "name": "Reticle",
@@ -576,6 +706,7 @@ pifinder_menu = {
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "camera_exp",
+                    "label": "camera_exposure",
                     "post_callback": callbacks.set_exposure,
                     "items": [
                         {
@@ -609,84 +740,12 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": "Key Bright",
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "keypad_brightness",
-                    "items": [
-                        {
-                            "name": "-4",
-                            "value": "-4",
-                        },
-                        {
-                            "name": "-3",
-                            "value": "-3",
-                        },
-                        {
-                            "name": "-2",
-                            "value": "-2",
-                        },
-                        {
-                            "name": "-1",
-                            "value": "-1",
-                        },
-                        {
-                            "name": "0",
-                            "value": "0",
-                        },
-                        {
-                            "name": "1",
-                            "value": "+1",
-                        },
-                        {
-                            "name": "2",
-                            "value": "+2",
-                        },
-                        {
-                            "name": "3",
-                            "value": "+3",
-                        },
-                    ],
-                },
-                {
                     "name": "WiFi Mode",
                     "class": UITextMenu,
                     "select": "single",
                     "items": [
                         {"name": "Client Mode", "callback": callbacks.go_wifi_cli},
                         {"name": "AP Mode", "callback": callbacks.go_wifi_ap},
-                    ],
-                },
-                {
-                    "name": "Sleep Time",
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "sleep_timeout",
-                    "items": [
-                        {
-                            "name": "Off",
-                            "value": "Off",
-                        },
-                        {
-                            "name": "10s",
-                            "value": "10s",
-                        },
-                        {
-                            "name": "20s",
-                            "value": "20s",
-                        },
-                        {
-                            "name": "30s",
-                            "value": "30s",
-                        },
-                        {
-                            "name": "1m",
-                            "value": "1m",
-                        },
-                        {
-                            "name": "2m",
-                            "value": "2m",
-                        },
                     ],
                 },
                 {
@@ -705,12 +764,16 @@ pifinder_menu = {
                             "value": "right",
                         },
                         {
-                            "name": "Flat",
-                            "value": "flat",
-                        },
-                        {
                             "name": "Straight",
                             "value": "straight",
+                        },
+                        {
+                            "name": "Flat v3",
+                            "value": "flat3",
+                        },
+                        {
+                            "name": "Flat v2",
+                            "value": "flat",
                         },
                     ],
                 },
@@ -731,6 +794,21 @@ pifinder_menu = {
                         },
                     ],
                 },
+                {
+                    "name": "Camera Type",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": "v2 - imx477",
+                            "callback": callbacks.switch_cam_imx477,
+                        },
+                        {
+                            "name": "v3 - imx296",
+                            "callback": callbacks.switch_cam_imx296,
+                        },
+                    ],
+                },
             ],
         },
         {
@@ -746,9 +824,23 @@ pifinder_menu = {
                     "name": "Shutdown",
                     "class": UITextMenu,
                     "select": "Single",
+                    "label": "shutdown",
                     "items": [
                         {"name": "Confirm", "callback": callbacks.shutdown},
                         {"name": "Cancel", "callback": callbacks.go_back},
+                    ],
+                },
+                {
+                    "name": "Experimental",
+                    "class": UITextMenu,
+                    "select": "Single",
+                    "items": [
+                        {
+                            "name": "Align",
+                            "class": UIAlign,
+                            "stateful": True,
+                            "preload": True,
+                        },
                     ],
                 },
             ],

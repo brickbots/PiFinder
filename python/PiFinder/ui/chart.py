@@ -9,21 +9,16 @@ This module contains all the UI Module classes
 import time
 from PIL import ImageChops, Image
 
+from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPE_MARKERS
 from PiFinder import plot
 from PiFinder.ui.base import UIModule
-from PiFinder.ui.marking_menus import MarkingMenuOption
 from PiFinder import calc_utils
 
 
 class UIChart(UIModule):
     __title__ = "CHART"
-    _marking_menu_items = [
-        MarkingMenuOption(label="Const", selected=True),
-        MarkingMenuOption(label="Reticle", selected=True),
-        MarkingMenuOption(label="Options...", selected=True),
-        MarkingMenuOption(label="DSO", selected=True),
-    ]
+    __help_name__ = "chart"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,6 +32,13 @@ class UIChart(UIModule):
         self.desired_fov = self.fov_list[self.fov_index]
         self.fov = self.desired_fov
         self.set_fov(self.desired_fov)
+
+        # Marking menu definition
+        self.marking_menu = MarkingMenu(
+            left=MarkingMenuOption(),
+            down=MarkingMenuOption(),
+            right=MarkingMenuOption(),
+        )
 
     def plot_markers(self):
         """
@@ -109,11 +111,18 @@ class UIChart(UIModule):
             self.draw.arc(bbox, 290, 340, fill=self.colors.get(brightness))
 
     def set_fov(self, fov):
+        self.fov = fov
+        self.starfield.set_fov(fov)
+        return
+
+        # TODO: Fix zoom animation
         self.starting_fov = self.fov
         self.fov_starting_time = time.time()
         self.desired_fov = fov
 
     def animate_fov(self):
+        # TODO: Fix zoom animation
+        return
         if self.fov == self.desired_fov:
             return
 
@@ -147,7 +156,7 @@ class UIChart(UIModule):
                 and self.solution["Dec"] is not None
             ):
                 # This needs to be called first to set RA/DEC/ROLL
-                image_obj = self.starfield.plot_starfield(
+                image_obj, _visible_stars = self.starfield.plot_starfield(
                     self.solution["RA"],
                     self.solution["Dec"],
                     self.solution["Roll"],

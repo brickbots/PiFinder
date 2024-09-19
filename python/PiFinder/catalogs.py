@@ -94,15 +94,17 @@ class CatalogFilter:
         object_types: Union[list[str], None] = None,
         altitude: int = -1,
         observed: str = "Any",
+        selected_catalogs: list[str] = [],
     ):
         self.shared_state = shared_state
         # When was the last time filter params were changed?
         self.dirty_time = time.time()
 
-        self.magnitude = magnitude
-        self.object_types = object_types
-        self.altitude = altitude
-        self.observed = observed
+        self._magnitude = magnitude
+        self._object_types = object_types
+        self._altitude = altitude
+        self._observed = observed
+        self._selected_catalogs = set(selected_catalogs)
         self.last_filtered_time = 0
 
     @property
@@ -139,6 +141,15 @@ class CatalogFilter:
     @observed.setter
     def observed(self, observed: str):
         self._observed = observed
+        self.dirty_time = time.time()
+
+    @property
+    def selected_catalogs(self):
+        return self._selected_catalogs
+
+    @selected_catalogs.setter
+    def selected_catalogs(self, catalog_codes: list[str]):
+        self._selected_catalogs = set(catalog_codes)
         self.dirty_time = time.time()
 
     def calc_fast_aa(self, shared_state):
@@ -184,13 +195,9 @@ class CatalogFilter:
                 return False
 
         # check magnitude
-        # first try to get object mag to float
-        try:
-            obj_mag = float(obj.mag)
-        except (ValueError, TypeError):
-            obj_mag = 99
+        obj_mag = obj.mag.filter_mag
 
-        if self._magnitude is not None and obj_mag <= self._magnitude:
+        if self._magnitude is not None and obj_mag > self._magnitude:
             obj.last_filtered_result = False
             return False
 
@@ -326,7 +333,15 @@ class Catalog(CatalogBase):
         self.filtered_objects: List[CompositeObject] = self.get_objects()
         self.filtered_objects_seq: List[int] = self._filtered_objects_to_seq()
         self.last_filtered = 0
-        self.is_selected = True
+
+    def is_selected(self):
+        """
+        Convenience function to see if this catalog is in the
+        current filter list
+        """
+        if self.catalog_filter is None:
+            return False
+        return self.catalog_code in self.catalog_filter.selected_catalogs
 
     def has(self, sequence: int, filtered=True):
         return sequence in self.filtered_objects_seq
@@ -365,7 +380,6 @@ class Catalogs:
 
     def __init__(self, catalogs: List[Catalog]):
         self.__catalogs: List[Catalog] = catalogs
-        self.select_all_catalogs()
         self.catalog_filter: Union[CatalogFilter, None] = None
 
     def filter_catalogs(self):
@@ -388,7 +402,7 @@ class Catalogs:
     def get_catalogs(self, only_selected: bool = True) -> List[Catalog]:
         return_list = []
         for catalog in self.__catalogs:
-            if (only_selected and catalog.is_selected) or not only_selected:
+            if (only_selected and catalog.is_selected()) or not only_selected:
                 return_list.append(catalog)
 
         return return_list
@@ -398,7 +412,7 @@ class Catalogs:
     ) -> list[CompositeObject]:
         return_list = []
         for catalog in self.__catalogs:
-            if (only_selected and catalog.is_selected) or not only_selected:
+            if (only_selected and catalog.is_selected()) or not only_selected:
                 if filtered:
                     return_list += catalog.get_filtered_objects()
                 else:
@@ -406,9 +420,8 @@ class Catalogs:
         return return_list
 
     def select_catalogs(self, catalog_codes: List[str]):
-        for catalog in self.__catalogs:
-            if catalog.catalog_code in catalog_codes:
-                catalog.is_selected = True
+        for catalog_code in catalog_codes:
+            self.catalog_filter.selected_catalogs.add(catalog_code)
 
     def has_code(self, catalog_code: str, only_selected: bool = True) -> bool:
         return catalog_code in self.get_codes(only_selected)
@@ -446,7 +459,7 @@ class Catalogs:
     def add(self, catalog: Catalog, select: bool = False):
         if catalog.catalog_code not in [x.catalog_code for x in self.__catalogs]:
             if select:
-                catalog.is_selected = True
+                self.catalog_filter.selected_catalogs.add(catalog.catalog_code)
             self.__catalogs.append(catalog)
         else:
             logger.warning(
@@ -464,7 +477,7 @@ class Catalogs:
     def get_codes(self, only_selected: bool = True) -> List[str]:
         return_list = []
         for catalog in self.__catalogs:
-            if (only_selected and catalog.is_selected) or not only_selected:
+            if (only_selected and catalog.is_selected()) or not only_selected:
                 return_list.append(catalog.catalog_code)
 
         return return_list
@@ -480,12 +493,11 @@ class Catalogs:
         return len(self.get_catalogs())
 
     def select_no_catalogs(self):
-        for catalog in self.__catalogs:
-            catalog.is_selected = False
+        self.catalog_filter.selected_catalogs = set()
 
     def select_all_catalogs(self):
         for catalog in self.__catalogs:
-            catalog.is_selected = True
+            self.catalog_filter.selected_catalogs.add(catalog.catalog_code)
 
     def __repr__(self):
         return f"Catalogs(\n{pformat(self.get_catalogs(only_selected=False))})"
@@ -762,7 +774,7 @@ class CatalogBuilder:
         return lowest_object_id
 
     def check_catalogs_sequences(self, catalogs: Catalogs):
-        for catalog in catalogs.get_catalogs():
+        for catalog in catalogs.get_catalogs(only_selected=False):
             result = catalog.check_sequences()
             if not result:
                 logger.error("Duplicate sequence catalog %s!", catalog.catalog_code)
@@ -944,8 +956,7 @@ class CatalogTracker:
             )
         )
         self.catalogs.add(push_catalog)
-        self.designator_tracker[catalog_name] = CatalogDesignator(
-            catalog_name, 1)
+        self.designator_tracker[catalog_name] = CatalogDesignator(catalog_name, 1)
         self.object_tracker[catalog_name] = None
 
     def set_current_catalog(self, catalog_code: str):

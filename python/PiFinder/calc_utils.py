@@ -139,8 +139,8 @@ def epoch_to_epoch(ep_from, ep_to, ra_hours, dec_deg):
     """
     # Load the ephemeris
     ts = sf_utils.ts
-    from_epoch = ts.tt(ep_from)
-    to_epoch = ts.tt(ep_to)
+    from_epoch = ts.tt(jd=ep_from)
+    to_epoch = ts.tt(jd=ep_to)
     _p = position_of_radec(ra_hours=ra_hours, dec_degrees=dec_deg, epoch=from_epoch)
     RA_h, Dec, _ = _p.radec(epoch=to_epoch)
     return RA_h, Dec
@@ -251,7 +251,7 @@ def hadec_to_roll(ha_deg, dec_deg, lat_deg):
     The roll or the field rotation angle, as returned by the Tetra3 solver,
     describes how much the source (S) is rotated on the sky as seen by and
     the observer. The roll measures the same angle as the parallactic but
-    measured with a different orientation. See ha_dec2pa() for explanation of
+    measured with a different orientation. See hadec_to_pa() for explanation of
     the parallactic angle. The roll is positive for anti-clockwise rotation of
     ZS to PS when looking out towards the sky.
 

@@ -1,14 +1,37 @@
 import time
+import os
 from typing import Union
 from PIL import Image
+from PiFinder import utils
 from PiFinder.ui.base import UIModule
 from PiFinder.ui import menu_structure
+from PiFinder.ui.object_details import UIObjectDetails
 from PiFinder.displays import DisplayBase
 from PiFinder.ui.marking_menus import (
     MarkingMenu,
     MarkingMenuOption,
     render_marking_menu,
 )
+
+
+def collect_preloads() -> list[dict]:
+    """
+    Returns a list of modules to preload
+    """
+    preload_modules = []
+    stack = [menu_structure.pifinder_menu]
+    while stack:
+        menu_item = stack.pop()
+        menu_item["foo"] = "Bar"
+        for k, v in menu_item.items():
+            if isinstance(v, dict):
+                stack.append(v)
+                break
+            elif isinstance(v, list):
+                stack.extend(v)
+            elif k == "preload" and v is True:
+                preload_modules.append(menu_item)
+    return preload_modules
 
 
 def find_menu_by_label(label: str):
@@ -19,7 +42,6 @@ def find_menu_by_label(label: str):
 
     Returns None is not found
     """
-    # stack = [iter(menu_structure.pifinder_menu.items())]
     stack = [menu_structure.pifinder_menu]
     while stack:
         menu_item = stack.pop()
@@ -53,7 +75,6 @@ class MenuManager:
         self.catalogs = catalogs
 
         # stack switch anim stuff
-        self._stack_anim_duration: float = 0.1
         self._stack_anim_counter: float = 0
         self._stack_anim_direction: int = 0
 
@@ -67,13 +88,50 @@ class MenuManager:
         self.help_images: Union[None, list[Image.Image]] = None
         self.help_image_index = 0
 
+        # screenshot stuff
+        root_dir = str(utils.data_dir)
+        self.ss_path = os.path.join(root_dir, "screenshots")
+        self.ss_count = 0
+
+        self.preload_modules()
+
+    def screengrab(self):
+        self.ss_count += 1
+        filename = (
+            f"{self.stack[-1].__uuid__}_{self.ss_count :0>3}_{self.stack[-1].title}"
+        )
+        ss_imagepath = self.ss_path + f"/{filename}.png"
+        ss = self.shared_state.screen().copy()
+        ss.save(ss_imagepath)
+        print(ss_imagepath)
+
     def remove_from_stack(self) -> None:
         if len(self.stack) > 1:
             self._stack_top_image = self.stack[-1].screen.copy()
             self.stack.pop()
             self.stack[-1].active()  # type: ignore[call-arg]
-            self._stack_anim_counter = time.time() + self._stack_anim_duration
+            self._stack_anim_counter = time.time() + self.config_object.get_option(
+                "menu_anim_speed", 0
+            )
             self._stack_anim_direction = 1
+
+    def preload_modules(self) -> None:
+        """
+        Loads any modules that need a bit of extra time
+        like chart, so they are ready to go
+        """
+        for module_def in collect_preloads():
+            module_def["state"] = module_def["class"](
+                display_class=self.display_class,
+                camera_image=self.camera_image,
+                shared_state=self.shared_state,
+                command_queues=self.command_queues,
+                config_object=self.config_object,
+                catalogs=self.catalogs,
+                item_definition=module_def,
+                add_to_stack=self.add_to_stack,
+                remove_from_stack=self.remove_from_stack,
+            )
 
     def add_to_stack(self, item: dict) -> None:
         """
@@ -103,14 +161,13 @@ class MenuManager:
 
         self.stack[-1].active()  # type: ignore[call-arg]
         if len(self.stack) > 1:
-            self._stack_anim_counter = time.time() + self._stack_anim_duration
+            self._stack_anim_counter = time.time() + self.config_object.get_option(
+                "menu_anim_speed", 0
+            )
             self._stack_anim_direction = -1
 
     def message(self, message: str, timeout: float) -> None:
         self.stack[-1].message(message, timeout)  # type: ignore[arg-type]
-
-    def screengrab(self) -> None:
-        self.stack[-1].screengrab()  # type: ignore[call-arg]
 
     def jump_to_label(self, label: str) -> None:
         menu_to_jump = find_menu_by_label(label)
@@ -173,9 +230,12 @@ class MenuManager:
                 top_image = self._stack_top_image
                 bottom_image = self.stack[-1].screen
                 top_pos = int(
-                    (self.display_class.resolution[0] / self._stack_anim_duration)
+                    (
+                        self.display_class.resolution[0]
+                        / self.config_object.get_option("menu_anim_speed", 0)
+                    )
                     * (
-                        self._stack_anim_duration
+                        self.config_object.get_option("menu_anim_speed", 0)
                         - (self._stack_anim_counter - time.time())
                     )
                 )
@@ -183,7 +243,10 @@ class MenuManager:
                 top_image = self.stack[-1].screen
                 bottom_image = self.stack[-2].screen
                 top_pos = int(
-                    (self.display_class.resolution[0] / self._stack_anim_duration)
+                    (
+                        self.display_class.resolution[0]
+                        / self.config_object.get_option("menu_anim_speed", 0)
+                    )
                     * (self._stack_anim_counter - time.time())
                 )
             bottom_image.paste(top_image, (top_pos, 0))
@@ -260,7 +323,18 @@ class MenuManager:
         pass
 
     def key_long_right(self):
-        pass
+        # jump to recent objects
+        if self.stack[-1].item_definition.get("label") != "object_details":
+            recent_list = self.ui_state.recent_list()
+            if len(recent_list) > 0:
+                object_item_definition = {
+                    "name": recent_list[-1].display_name,
+                    "class": UIObjectDetails,
+                    "object_list": recent_list,
+                    "object": recent_list[-1],
+                    "label": "object_details",
+                }
+                self.add_to_stack(object_item_definition)
 
     def key_long_left(self):
         """
@@ -284,7 +358,12 @@ class MenuManager:
         if self.marking_menu_stack != []:
             self.mm_select(self.marking_menu_stack[-1].left)
         else:
-            self.remove_from_stack()
+            # always send through to currently active UIModule
+            # default handler just returns True, can be
+            # overrided by UIModule to perform some action before
+            # being unloaded, or return False to prevent unload
+            if self.stack[-1].key_left():
+                self.remove_from_stack()
 
     def key_up(self):
         if self.help_images is not None:
@@ -338,8 +417,9 @@ class MenuManager:
         elif selected_item.label == "HELP":
             self.exit_marking_menu()
             self.help_images = self.stack[-1].help()
-            self.help_image_index = 0
-            self.update_screen(self.help_images[0])
+            if self.help_images is not None:
+                self.help_image_index = 0
+                self.update_screen(self.help_images[0])
         elif selected_item.menu_jump is not None:
             self.exit_marking_menu()
             self.jump_to_label(selected_item.menu_jump)

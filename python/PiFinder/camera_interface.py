@@ -82,6 +82,7 @@ class CameraInterface:
                         if (
                             screen_direction == "right"
                             or screen_direction == "straight"
+                            or screen_direction == "flat3"
                         ):
                             base_image = base_image.rotate(90)
                         else:

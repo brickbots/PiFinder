@@ -59,11 +59,15 @@
             </div>
         <div class="row">
             <div class="input-field col s4">
+                <input id="date" type="date" name="date"/>
+                <label for="date">Date</label>
+            </div>
+            <div class="input-field col s4">
                 <input id="time" type="text" name="time"/>
                 <label for="time">UTC Time (h:m:s)</label>
             </div>
             <div class="input-field col s8">
-                <button type="button" class="waves-effect waves-light btn" onclick="setBrowserTime()">Set to Browser Time</button>
+                 <button type="button" class="waves-effect waves-light btn" onclick="setBrowserDateTime()">Set to Browser Date/Time</button>
             </div>
         </div>
         <div class="row">
@@ -112,14 +116,16 @@ function focusFirstDMSField() {
 }
 
 
-function setBrowserTime() {
+function setBrowserDateTime() {
     var now = new Date();
+    var dateString = now.toISOString().split('T')[0]; // Extract date in YYYY-MM-DD format
     var timeString = now.getUTCHours() + ":" + now.getUTCMinutes() + ":" + now.getUTCSeconds();
-    var timeField = document.getElementById("time");
-    timeField.value = timeString;
 
-    // Set focus to the 'time' field
-    //timeField.focus();
+    document.getElementById("date").value = dateString;
+    document.getElementById("time").value = timeString;
+
+    // Set focus to the 'date' field if needed
+    document.getElementById("date").focus();
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -155,7 +161,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initial check on page load
     checkFields();
 
-    setBrowserTime();
+    setBrowserDateTime();
 
     // Convert decimal to DMS on page load if fields are pre-filled
     convertDecimalToDMS();
