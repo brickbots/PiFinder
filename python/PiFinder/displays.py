@@ -77,7 +77,8 @@ class DisplayPygame_128(DisplayBase):
             height=128,
             rotate=0,
             mode="RGB",
-            scale=1,
+            transform="scale2x",
+            scale=2,
             frame_rate=60,
         )
         self.device = pygame
