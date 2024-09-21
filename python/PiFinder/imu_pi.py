@@ -76,9 +76,17 @@ class Imu:
         self.__moving_threshold = (0.0005, 0.0003)
 
     def quat_to_euler(self, quat):
+        """ 
+        INPUTS:
+        quat: Scalar last quaternion (x, y, z, w)
+
+        OUTPUTS:
+        rot_euler: [Az, related_to_roll, Alt]
+        """
         if quat[0] + quat[1] + quat[2] + quat[3] == 0:
             return 0, 0, 0
-        rot = Rotation.from_quat(quat)
+        rot = Rotation.from_quat(quat)  # Expects scalar-last quaternion
+        # Lowercase 'xyz' indicate extrinsic rotation:
         rot_euler = rot.as_euler("xyz", degrees=True)
         # convert from -180/180 to 0/360
         rot_euler[0] += 180
@@ -105,6 +113,7 @@ class Imu:
         if self.calibration == 0:
             logger.warning("NOIMU CAL")
             return True
+        # adafruit_bno055 gives quaternion convention (w, x, y,)
         quat = self.sensor.quaternion
         if quat[0] is None:
             logger.warning("IMU: Failed to get sensor values")
@@ -181,11 +190,12 @@ def imu_monitor(shared_state, console_queue, log_queue):
         "moving": False,
         "move_start": None,
         "move_end": None,
-        "pos": [0, 0, 0],
-        "quat": [0, 0, 0, 0],
+        "pos": [0, 0, 0],  # Corresponds to [Az, related_to_roll, Alt]
+        "quat": [0, 0, 0, 0],  # Scalar last quaternion (x, y, z, w)
         "start_pos": [0, 0, 0],
         "status": 0,
     }
+
     while True:
         imu.update()
         imu_data["status"] = imu.calibration
