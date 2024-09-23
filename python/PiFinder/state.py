@@ -46,7 +46,6 @@ class UIState:
     def __init__(self):
         self.__observing_list = []
         self.__recent = RecentCompositeObjectList()
-        self.__active_list = []  # either observing or history
         self.__target = None
         self.__message_timeout = 0
         self.__hint_timeout = 0
@@ -63,12 +62,6 @@ class UIState:
 
     def add_recent(self, v: CompositeObject):
         self.__recent.append(v)
-
-    def active_list(self):
-        return self.__active_list
-
-    def set_active_list(self, v):
-        self.__active_list = v
 
     def target(self):
         return self.__target
@@ -94,40 +87,13 @@ class UIState:
     def set_show_fps(self, v: bool):
         self.__show_fps = v
 
-    def set_active_list_to_observing_list(self):
-        self.__active_list = self.__observing_list
-
-    def active_list_is_history_list(self):
-        return self.__active_list == self.__history_list
-
-    def active_list_is_observing_list(self):
-        return self.__active_list == self.__observing_list
-
-    def set_active_list_to_history_list(self):
-        self.__active_list = self.__history_list
-
-    def set_target_to_active_list_index(self, index: int):
-        self.__target = self.__active_list[index]
-
-    def set_target_and_add_to_history(self, target):
-        logger.debug("set_target_and_add_to_history")
-        logger.debug("setting target to %s", target)
-        self.__target = target
-        if len(self.__history_list) == 0:
-            self.__history_list.append(self.__target)
-        elif self.__history_list[-1] != self.__target:
-            self.__history_list.append(self.__target)
-
-    def push_object(self, target):
-        self.set_target_and_add_to_history(target)
-        self.set_active_list_to_history_list()
-
     def __str__(self):
         return str(
             {
+                "recent": self.__recent,
+                "hint_timeout": self.__hint_timeout,
+                "show_fps": self.__show_fps,
                 "observing_list": self.__observing_list,
-                "history_list": self.__history_list,
-                "active_list": self.__active_list,
                 "target": self.__target,
                 "message_timeout": self.__message_timeout,
             }

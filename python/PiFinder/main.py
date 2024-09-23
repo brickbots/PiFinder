@@ -236,7 +236,6 @@ def main(
         ui_state = manager.UIState()  # type: ignore[attr-defined]
         ui_state.set_show_fps(show_fps)
         ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
-        # ui_state.set_active_list_to_history_list()
         shared_state.set_ui_state(ui_state)
         shared_state.set_arch(arch)  # Normal
         logger.debug("Ui state in main is" + str(shared_state.ui_state()))
@@ -704,7 +703,7 @@ def rotate_logs() -> Path:
 
 
 if __name__ == "__main__":
-    print("Boostrap logging configuration ...")
+    print("Bootstrap logging configuration ...")
     logging.basicConfig(format="%(asctime)s BASIC %(name)s: %(levelname)s %(message)s")
     rlogger = logging.getLogger()
     rlogger.setLevel(logging.INFO)
@@ -789,17 +788,19 @@ if __name__ == "__main__":
     if args.verbose:
         rlogger.setLevel(logging.DEBUG)
 
+    import importlib
     if args.fakehardware:
         hardware_platform = "Fake"
         display_hardware = "pg_128"
-        from PiFinder import imu_fake as imu
-        from PiFinder import gps_fake as gps_monitor
+        imu = importlib.import_module("PiFinder.imu_fake")
+        # gps_monitor = importlib.import_module("PiFinder.gps_fake")
+        gps_monitor = importlib.import_module("PiFinder.gps_pi")
     else:
         hardware_platform = "Pi"
         display_hardware = "ssd1351"
         from rpi_hardware_pwm import HardwarePWM
-        from PiFinder import imu_pi as imu  # type: ignore[no-redef]
-        from PiFinder import gps_pi as gps_monitor  # type: ignore[no-redef]
+        imu = importlib.import_module("PiFinder.imu_pi")
+        gps_monitor = importlib.import_module("PiFinder.gps_pi")
 
     if args.display is not None:
         display_hardware = args.display.lower()
