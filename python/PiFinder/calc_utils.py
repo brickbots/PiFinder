@@ -508,19 +508,19 @@ def comet_data_download(local_filename, url=mpc.COMET_URL):
 
         if last_modified:
             remote_date = datetime.strptime(last_modified, '%a, %d %b %Y %H:%M:%S GMT')
-            print(f"Remote Last-Modified: {remote_date}")
+            logger.debug(f"Remote Last-Modified: {remote_date}")
 
             # Check if local file exists and its modification time
             if os.path.exists(local_filename):
                 local_date = datetime.fromtimestamp(os.path.getmtime(local_filename))
-                print(f"Local Last-Modified: {local_date}")
+                logger.debug(f"Local Last-Modified: {local_date}")
 
                 if remote_date <= local_date:
-                    print("Local file is up to date. No download needed.")
+                    logger.debug("Local file is up to date. No download needed.")
                     return False
 
             # Download the file if it's new or doesn't exist locally
-            print("Downloading new file...")
+            logger.debug("Downloading new file...")
             response = requests.get(url)
             response.raise_for_status()
 
@@ -530,21 +530,21 @@ def comet_data_download(local_filename, url=mpc.COMET_URL):
             # Set the file's modification time to match the server's last-modified time
             os.utime(local_filename, (remote_date.timestamp(), remote_date.timestamp()))
 
-            print("File downloaded successfully.")
+            logger.debug("File downloaded successfully.")
             return True
         else:
-            print("Last-Modified header not available. Downloading file...")
+            logger.debug("Last-Modified header not available. Downloading file...")
             response = requests.get(url)
             response.raise_for_status()
 
             with open(local_filename, 'wb') as f:
                 f.write(response.content)
 
-            print("File downloaded successfully.")
+            logger.debug("File downloaded successfully.")
             return True
 
     except requests.RequestException as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"An error occurred: {e}")
         return False
 
 
@@ -567,7 +567,7 @@ def calc_comets(dt, comet_names=None) -> dict:
         for comet in comet_data:
             if comet_names is None or comet[0] in comet_names:
                 result = process_comet(comet, dt)
-                if result is not None:
+                if result:
                     comet_dict[result["name"]] = result
         return comet_dict
 

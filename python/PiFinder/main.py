@@ -793,8 +793,8 @@ if __name__ == "__main__":
         hardware_platform = "Fake"
         display_hardware = "pg_128"
         imu = importlib.import_module("PiFinder.imu_fake")
-        # gps_monitor = importlib.import_module("PiFinder.gps_fake")
-        gps_monitor = importlib.import_module("PiFinder.gps_pi")
+        gps_monitor = importlib.import_module("PiFinder.gps_fake")
+        # gps_monitor = importlib.import_module("PiFinder.gps_pi")
     else:
         hardware_platform = "Pi"
         display_hardware = "ssd1351"

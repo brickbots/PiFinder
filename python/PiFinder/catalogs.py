@@ -629,7 +629,7 @@ class PlanetCatalog(TimerCatalog):
     def do_timed_task(self):
         if not self.initialised:
             return
-        with Timer("Planet Catalog"):
+        with Timer("Planet Catalog periodic update"):
             """ updating planet catalog data """
             dt = self.shared_state.datetime()
             if not dt or not sf_utils.observer_loc:
@@ -644,7 +644,6 @@ class PlanetCatalog(TimerCatalog):
                     obj.mag = MagnitudeObject([planet["mag"]])
                     obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
                     obj.mag_str = obj.mag.calc_two_mag_representation()
-                time.sleep(0.05)
 
 
 class CometCatalog(TimerCatalog):
@@ -709,7 +708,7 @@ class CometCatalog(TimerCatalog):
 
     def do_timed_task(self):
         """ updating comet catalog data """
-        with Timer("Comet Catalog timed task"):
+        with Timer("Comet Catalog periodic update"):
             with self._init_lock:
                 if not self.initialised:
                     return
@@ -719,13 +718,12 @@ class CometCatalog(TimerCatalog):
                 return
             for obj in self._get_objects():
                 name = obj.names[0]
-                print("Processing", name)
+                logging.debug("Processing", name)
                 comet = comet_dict.get(name, {})
                 obj.ra, obj.dec = comet["radec"]
                 obj.mag = MagnitudeObject([comet["mag"]])
                 obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
                 obj.mag_str = obj.mag.calc_two_mag_representation()
-                print("mag_str", obj.mag_str)
                 obj.description = obj.description + "."
             logger.debug("Updated comet catalog")
 
@@ -770,7 +768,6 @@ class CatalogBuilder:
 
         assert self.check_catalogs_sequences(all_catalogs) is True
         return all_catalogs
-
 
     def check_catalogs_sequences(self, catalogs: Catalogs):
         for catalog in catalogs.get_catalogs(only_selected=False):
