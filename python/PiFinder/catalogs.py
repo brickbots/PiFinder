@@ -8,12 +8,13 @@ import threading
 from typing import List, Dict, DefaultDict, Optional, Union
 from collections import defaultdict
 import PiFinder.calc_utils as calc_utils
+from PiFinder.calc_utils import sf_utils
 from PiFinder.state import SharedStateObj
 from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
-from PiFinder.calc_utils import sf_utils, calc_comets
+import PiFinder.comets as comets
 from PiFinder.utils import Timer, comet_file
 
 logger = logging.getLogger("Catalog")
@@ -354,7 +355,8 @@ class Catalog(CatalogBase):
 
         self.filtered_objects = self.catalog_filter.apply(self.get_objects())
         logger.info(
-            f"FILTERED {self.catalog_code} {len(self.filtered_objects)}/{len(self.get_objects())}"
+            "FILTERED %s %d/%d", self.catalog_code, len(
+                self.filtered_objects), len(self.get_objects())
         )
         self.filtered_objects_seq = self._filtered_objects_to_seq()
         self.last_filtered = time.time()
@@ -462,7 +464,7 @@ class Catalogs:
             self.__catalogs.append(catalog)
         else:
             logger.warning(
-                f"Catalog {catalog.catalog_code} already exists, not replaced (in Catalogs.add)"
+                "Catalog %s already exists, not replaced (in Catalogs.add)", catalog.catalog_code
             )
 
     def remove(self, catalog_code: str):
@@ -471,7 +473,8 @@ class Catalogs:
                 self.__catalogs.remove(catalog)
                 return
 
-        logger.warning("Catalog %s does not exist, cannot remove", catalog_code)
+        logger.warning(
+            "Catalog %s does not exist, cannot remove", catalog_code)
 
     def get_codes(self, only_selected: bool = True) -> List[str]:
         return_list = []
@@ -530,7 +533,7 @@ class TimerCatalog(VirtualCatalog):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.initialised = False  #
+        self.initialised = False
         logger.debug("in init of timercatalog")
         self.timer: Optional[threading.Timer] = None
         self.is_running: bool = False
@@ -642,7 +645,8 @@ class PlanetCatalog(TimerCatalog):
                     planet = planet_dict[name]
                     obj.ra, obj.dec = planet["radec"]
                     obj.mag = MagnitudeObject([planet["mag"]])
-                    obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
+                    obj.const = sf_utils.radec_to_constellation(
+                        obj.ra, obj.dec)
                     obj.mag_str = obj.mag.calc_two_mag_representation()
 
 
@@ -657,17 +661,18 @@ class CometCatalog(TimerCatalog):
 
     def _start_background_init(self, dt):
         def init_task():
-            calc_utils.comet_data_download(comet_file)
+            comets.comet_data_download(comet_file)
             self.initialised = self.calc_comet_first_time(dt)
             with self.virtual_id_lock:
-                new_low = self.assign_virtual_object_ids(self, self.virtual_id_low)
+                new_low = self.assign_virtual_object_ids(
+                    self, self.virtual_id_low)
                 self.virtual_id_low = new_low
 
         threading.Thread(target=init_task, daemon=True).start()
 
     def calc_comet_first_time(self, dt):
         with Timer("CometCatalog.__init__"):
-            comet_dict = calc_comets(dt)
+            comet_dict = comets.calc_comets(dt)
             if not comet_dict:
                 return False
             for sequence, (name, comet) in enumerate(comet_dict.items()):
@@ -683,8 +688,6 @@ class CometCatalog(TimerCatalog):
         constellation = sf_utils.radec_to_constellation(ra, dec)
         # desc = f"{comet['radec_pretty']}, AltAZ: {comet['altaz']}\nAltAz2: {comet['altaz2']}\nAltAz3: {comet['altaz3']}\n{comet['radec_pretty']}, Earth distance: {comet['earth_distance']} AU\n"
         desc = f"Distance to\nEarth: {comet['earth_distance']:.2f} AU\nSun: {comet['sun_distance']:.2f} AU"
-        # if "Olbers" in name:
-        #     print(comet)
 
         mag = MagnitudeObject([comet.get("mag", [])])
         obj = CompositeObject.from_dict(
@@ -713,12 +716,13 @@ class CometCatalog(TimerCatalog):
                 if not self.initialised:
                     return
             dt = self.shared_state.datetime()
-            comet_dict = calc_comets(dt, [x.names[0] for x in self._get_objects()])
+            comet_dict = comets.calc_comets(
+                dt, [x.names[0] for x in self._get_objects()])
             if not comet_dict:
                 return
             for obj in self._get_objects():
                 name = obj.names[0]
-                logging.debug("Processing", name)
+                logger.debug("Processing %s", name)
                 comet = comet_dict.get(name, {})
                 obj.ra, obj.dec = comet["radec"]
                 obj.mag = MagnitudeObject([comet["mag"]])
@@ -751,7 +755,8 @@ class CatalogBuilder:
         # to speed up repeated searches
         self.catalog_dicts = {}
         logger.debug("Loaded %i objects from database", len(composite_objects))
-        all_catalogs: Catalogs = self._get_catalogs(composite_objects, catalogs_info)
+        all_catalogs: Catalogs = self._get_catalogs(
+            composite_objects, catalogs_info)
         # Initialize planet catalog with whatever date we have for now
         # This will be re-initialized on activation of Catalog ui module
         # if we have GPS lock
@@ -773,7 +778,8 @@ class CatalogBuilder:
         for catalog in catalogs.get_catalogs(only_selected=False):
             result = catalog.check_sequences()
             if not result:
-                logger.error("Duplicate sequence catalog %s!", catalog.catalog_code)
+                logger.error("Duplicate sequence catalog %s!",
+                             catalog.catalog_code)
                 return False
             return True
 
