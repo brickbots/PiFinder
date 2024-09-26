@@ -187,7 +187,8 @@ class UIObjectList(UITextMenu):
             self._current_item_index = 0
 
         if self.current_sort == SortOrder.NEAREST:
-            self._menu_items = self.catalogs.catalog_filter.apply(self._menu_items)
+            if self.catalogs.catalog_filter:
+                self._menu_items = self.catalogs.catalog_filter.apply(self._menu_items)
             self.nearby.set_items(self._menu_items)
             self.nearby_refresh()
             self._current_item_index = 3
@@ -360,7 +361,7 @@ class UIObjectList(UITextMenu):
         begin_x = 12
 
         # no objects to display
-        if len(self._menu_items) == 0:
+        if self.get_nr_of_menu_items() == 0:
             self.draw.text(
                 (begin_x, self.line_position(2)),
                 "No objects",
@@ -569,7 +570,8 @@ class UIObjectList(UITextMenu):
         When right is pressed, move to
         object info screen
         """
-        if len(self._menu_items_sorted) < self._current_item_index:
+        nr_menu_items = self.get_nr_of_menu_items()
+        if nr_menu_items < self._current_item_index or nr_menu_items == 0:
             return
 
         # turn off input box if it's there

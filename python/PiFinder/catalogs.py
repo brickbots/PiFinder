@@ -4,7 +4,7 @@ import time
 import datetime
 import pytz
 from pprint import pformat
-
+import threading
 from typing import List, Dict, DefaultDict, Optional, Union
 from collections import defaultdict
 import PiFinder.calc_utils as calc_utils
@@ -14,8 +14,7 @@ from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.calc_utils import sf_utils, calc_comets
-from PiFinder.utils import Timer
-import threading
+from PiFinder.utils import Timer, comet_file
 
 logger = logging.getLogger("Catalog")
 
@@ -271,7 +270,6 @@ class CatalogBase:
 
     def _add_object(self, obj: CompositeObject):
         self.__objects.append(obj)
-        # print(f"Adding {obj} to {self.catalog_code}, with mag {obj.mag}")
         if (obj.sequence > self.max_sequence):
             self.max_sequence = obj.sequence
 
@@ -333,6 +331,7 @@ class Catalog(CatalogBase):
         self.filtered_objects: List[CompositeObject] = self.get_objects()
         self.filtered_objects_seq: List[int] = self._filtered_objects_to_seq()
         self.last_filtered = 0
+        self.initialised = True
 
     def is_selected(self):
         """
@@ -486,8 +485,7 @@ class Catalogs:
         for catalog in self.__catalogs:
             if catalog.catalog_code == catalog_code:
                 return catalog
-
-            return None
+        return None
 
     def count(self) -> int:
         return len(self.get_catalogs())
@@ -509,15 +507,34 @@ class Catalogs:
         return iter(self.get_catalogs())
 
 
-class TimerCatalog(Catalog):
+class VirtualCatalog(Catalog):
+    virtual_id_lock = threading.Lock()
+    virtual_id_low = 0
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @staticmethod
+    def assign_virtual_object_ids(catalog: Catalog, low_id: int) -> int:
+        """
+        Assigns virtual object_ids for non-DB objects. Return new low.
+        """
+        for obj in catalog.get_objects():
+            low_id -= 1
+            obj.object_id = low_id
+        return low_id
+
+
+class TimerCatalog(VirtualCatalog):
     """Catalog that runs a task periodically"""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        logging.debug("in init of timercatalog")
+        self.initialised = False  #
+        logger.debug("in init of timercatalog")
         self.timer: Optional[threading.Timer] = None
         self.is_running: bool = False
-        logging.debug("Starting timer")
+        logger.debug("Starting timer")
         self.start_timer()
 
     @property
@@ -536,18 +553,21 @@ class TimerCatalog(Catalog):
         self.timer.start()
 
     def _run(self) -> None:
-        """Execute the timed task and reschedule if still running"""
+        """Execute the timed task in a separate thread and reschedule if still running"""
+        threading.Thread(target=self._execute_task).start()
+        if self.is_running:
+            self._schedule_next_run()
+
+    def _execute_task(self) -> None:
+        """Execute the timed task"""
         try:
             self.do_timed_task()
         except Exception as e:
-            logging.error(f"Error in timed task: {e}", exc_info=True)
-        finally:
-            if self.is_running:
-                self._schedule_next_run()
+            logger.error(f"Error in timed task: {e}", exc_info=True)
 
     def do_timed_task(self) -> None:
         """Override this method in subclasses to define the timed task"""
-        logging.warning("Executing uninitialized timed task")
+        logger.warning("Executing uninitialized timed task")
 
     def stop(self) -> None:
         """Stop the timer"""
@@ -559,41 +579,6 @@ class TimerCatalog(Catalog):
     def __del__(self) -> None:
         """Ensure the timer is stopped when the object is deleted"""
         self.stop()
-
-# class TimerCatalog(Catalog):
-#     """Catalog that runs a task every X seconds"""
-#
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.timer = None
-#         self.is_running = False
-#         self._start_timer()
-#
-#     def get_time_delay_seconds(self):
-#         return 300
-#
-#     def _start_timer(self):
-#         if not self.is_running:
-#             self.is_running = True
-#             self.timer = threading.Timer(
-#                 self.get_time_delay_seconds(), self._run)
-#             self.timer.start()
-#
-#     def _run(self):
-#         self.do_timed_task()
-#         logging.debug(f"TimerCatalog, are we running: {self.is_running}")
-#         if self.is_running:
-#             logging.debug("Restarting timer")
-#             self._start_timer()
-#
-#     def do_timed_task(self):
-#         # This method will be called every 5 minutes
-#         logging.debug("Executing uninitialized task")
-#
-#     def _stop(self):
-#         self.is_running = False
-#         if self.timer:
-#             self.timer.cancel()
 
 
 class PlanetCatalog(TimerCatalog):
@@ -615,6 +600,10 @@ class PlanetCatalog(TimerCatalog):
             if name.lower() != "sun":
                 self.add_planet(sequence, name, planet_dict[name])
                 sequence += 1
+        with self.virtual_id_lock:
+            new_low = self.assign_virtual_object_ids(self, self.virtual_id_low)
+            self.virtual_id_low = new_low
+        self.initialised = True
 
     def add_planet(self, sequence: int, name: str, planet: Dict[str, Dict[str, float]]):
         ra, dec = planet["radec"]
@@ -638,21 +627,24 @@ class PlanetCatalog(TimerCatalog):
         self.add_object(obj)
 
     def do_timed_task(self):
-        """ updating planet catalog data """
-        dt = self.shared_state.datetime()
-        if not dt or not sf_utils.observer_loc:
+        if not self.initialised:
             return
-        planet_dict = sf_utils.calc_planets(dt)
-        for obj in self._get_objects():
-            name = obj.names[0]
-            if name in planet_dict:
-                planet = planet_dict[name]
-                obj.ra, obj.dec = planet["radec"]
-                obj.mag = MagnitudeObject([planet["mag"]])
-                obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
-                obj.mag_str = obj.mag.calc_two_mag_representation()
-            time.sleep(0)
-        logging.debug("Updated planet catalog")
+        with Timer("Planet Catalog"):
+            """ updating planet catalog data """
+            dt = self.shared_state.datetime()
+            if not dt or not sf_utils.observer_loc:
+                return
+            planet_dict = sf_utils.calc_planets(dt)
+            for obj in self._get_objects():
+                name = obj.names[0]
+                if name in planet_dict:
+                    print(f"Processing {name}")
+                    planet = planet_dict[name]
+                    obj.ra, obj.dec = planet["radec"]
+                    obj.mag = MagnitudeObject([planet["mag"]])
+                    obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
+                    obj.mag_str = obj.mag.calc_two_mag_representation()
+                time.sleep(0.05)
 
 
 class CometCatalog(TimerCatalog):
@@ -661,10 +653,27 @@ class CometCatalog(TimerCatalog):
     def __init__(self, dt: datetime.datetime, shared_state: SharedStateObj):
         super().__init__("CM", "Comets")
         self.shared_state = shared_state
-        with Timer("Calculating comets"):
+        self._init_lock = threading.Lock()
+        self._start_background_init(dt)
+
+    def _start_background_init(self, dt):
+        def init_task():
+            calc_utils.comet_data_download(comet_file)
+            self.initialised = self.calc_comet_first_time(dt)
+            with self.virtual_id_lock:
+                new_low = self.assign_virtual_object_ids(self, self.virtual_id_low)
+                self.virtual_id_low = new_low
+
+        threading.Thread(target=init_task, daemon=True).start()
+
+    def calc_comet_first_time(self, dt):
+        with Timer("CometCatalog.__init__"):
             comet_dict = calc_comets(dt)
-        for sequence, (name, comet) in enumerate(comet_dict.items()):
-            self.add_comet(sequence, name, comet)
+            if not comet_dict:
+                return False
+            for sequence, (name, comet) in enumerate(comet_dict.items()):
+                self.add_comet(sequence, name, comet)
+            return True
 
     @property
     def time_delay_seconds(self) -> int:
@@ -673,10 +682,12 @@ class CometCatalog(TimerCatalog):
     def add_comet(self, sequence: int, name: str, comet: Dict[str, Dict[str, float]]):
         ra, dec = comet["radec"]
         constellation = sf_utils.radec_to_constellation(ra, dec)
-        desc = f"{comet['radec_pretty']}, AltAZ: {comet['altaz']}\nAltAz2: {comet['altaz2']}\nAltAz3: {comet['altaz3']}\n{comet['radec_pretty']}, Earth distance: {comet['earth_distance']} AU\n"
-        if "Olbers" in name:
-            print(comet)
+        # desc = f"{comet['radec_pretty']}, AltAZ: {comet['altaz']}\nAltAz2: {comet['altaz2']}\nAltAz3: {comet['altaz3']}\n{comet['radec_pretty']}, Earth distance: {comet['earth_distance']} AU\n"
+        desc = f"Distance to\nEarth: {comet['earth_distance']:.2f} AU\nSun: {comet['sun_distance']:.2f} AU"
+        # if "Olbers" in name:
+        #     print(comet)
 
+        mag = MagnitudeObject([comet.get("mag", [])])
         obj = CompositeObject.from_dict(
             {
                 "id": -1,
@@ -686,7 +697,8 @@ class CometCatalog(TimerCatalog):
                 "const": constellation,
                 "size": "",
                 # Use '?' if magnitude is not available
-                "mag": MagnitudeObject([comet.get("mag", [])]),
+                "mag": mag,
+                "mag_str": mag.calc_two_mag_representation(),
                 "names": [name],
                 "catalog_code": "CM",
                 "sequence": sequence + 1,
@@ -697,23 +709,26 @@ class CometCatalog(TimerCatalog):
 
     def do_timed_task(self):
         """ updating comet catalog data """
-        print("Updating comet catalog")
-        dt = self.shared_state.datetime()
-        # checking gps_lock should be better than this, and also distinguish
-        # between gps lock and time lock
-        if not dt or not self.shared_state.location()["gps_lock"]:
-            return
-        comet_dict = calc_comets(dt)
-        for obj in self._get_objects():
-            name = obj.names[0]
-            if name in comet_dict:
-                comet = comet_dict[name]
+        with Timer("Comet Catalog timed task"):
+            with self._init_lock:
+                if not self.initialised:
+                    return
+            dt = self.shared_state.datetime()
+            comet_dict = calc_comets(dt, [x.names[0] for x in self._get_objects()])
+            if not comet_dict:
+                return
+            for obj in self._get_objects():
+                name = obj.names[0]
+                print("Processing", name)
+                comet = comet_dict.get(name, {})
                 obj.ra, obj.dec = comet["radec"]
                 obj.mag = MagnitudeObject([comet["mag"]])
                 obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
                 obj.mag_str = obj.mag.calc_two_mag_representation()
-            time.sleep(0)
-        logging.debug("Updated comet catalog")
+                print("mag_str", obj.mag_str)
+                obj.description = obj.description + "."
+            logger.debug("Updated comet catalog")
+
 
 class CatalogBuilder:
     """
@@ -747,31 +762,15 @@ class CatalogBuilder:
             shared_state=shared_state,
         )
         all_catalogs.add(planet_catalog)
-        self.assign_virtual_object_ids(planet_catalog, all_catalogs)
         comet_catalog: Catalog = CometCatalog(
             datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC")),
             shared_state=shared_state,
         )
         all_catalogs.add(comet_catalog)
-        self.assign_virtual_object_ids(comet_catalog, all_catalogs)
 
         assert self.check_catalogs_sequences(all_catalogs) is True
         return all_catalogs
 
-    def assign_virtual_object_ids(self, catalog: Catalog, catalogs: Catalogs):
-        """
-        Assigns virtual object ids to the catalog objects
-        """
-        low_id = self.check_lowest_object_id(catalogs)
-        for obj in catalog.get_objects():
-            low_id -= 1
-            obj.object_id = low_id
-
-    def check_lowest_object_id(self, catalogs: Catalogs) -> int:
-        """check the lowest object_id in all catalogs"""
-        objs = catalogs.get_objects(only_selected=False, filtered=False)
-        lowest_object_id = min([x.object_id for x in objs])
-        return lowest_object_id
 
     def check_catalogs_sequences(self, catalogs: Catalogs):
         for catalog in catalogs.get_catalogs(only_selected=False):
@@ -889,188 +888,3 @@ class CatalogDesignator:
 
     def __repr__(self):
         return self.field
-
-
-class CatalogTracker:
-    object_tracker: Dict[str, Optional[int]]
-    designator_tracker: Dict[str, Optional[CatalogDesignator]]
-    current_catalog_code: str
-
-    def __init__(self, catalogs: Catalogs, shared_state, config_options):
-        self.shared_state = shared_state
-        self.config_options = config_options
-        self.catalogs: Catalogs = catalogs
-        self.refresh_catalogs()
-
-    def get_current_catalog(self) -> Optional[Catalog]:
-        return self.catalogs.get_catalog_by_code(self.current_catalog_code)
-
-    def refresh_catalogs(self):
-        self.object_tracker = {}
-        self.designator_tracker = {}
-        logger.debug(
-            f"refresh_catalogs: {self.catalogs=}, {self.object_tracker=}, {self.designator_tracker=}"
-        )
-        self.designator_tracker = {
-            c.catalog_code: CatalogDesignator(c.catalog_code, c.max_sequence)
-            for c in self.catalogs.get_catalogs()
-        }
-        catalog_codes = self.catalogs.get_codes()
-        self.set_default_current_catalog()
-        self.object_tracker = {c: None for c in catalog_codes}
-        logger.debug(
-            f"refresh_catalogs: {self.catalogs=}, {self.object_tracker=}, {self.designator_tracker=}"
-        )
-
-    def select_catalogs(self, catalog_names: List[str]):
-        self.catalogs.select_catalogs(catalog_names)
-        self.refresh_catalogs()
-
-    def add_foreign_catalog(self, catalog_name):
-        """foreign objects not in our database, e.g. skysafari coords"""
-        ui_state = self.shared_state.ui_state()
-        logger.debug("adding foreign catalog %s", catalog_name)
-        logger.debug("current catalog codes: %s", self.catalogs.get_codes())
-        logger.debug("current catalog: %s", self.current_catalog_code)
-        logger.debug("current object: %s", self.get_current_object())
-        logger.debug("current designator: %s", self.get_designator())
-        logger.debug("current target: %s", ui_state.target())
-        logger.debug("ui state: %s", str(ui_state))
-        push_catalog = Catalog("PUSH", 1, "Skysafari push")
-        target = ui_state.target()
-        if target is None:
-            logger.warning("No target to push")
-            return push_catalog
-        push_catalog.add_object(
-            CompositeObject(
-                id=-1,
-                sequence=1,
-                catalog_code="PUSH",
-                ra=target.ra,
-                dec=target.dec,
-                mag="0",
-                obj_type="",
-                description="Skysafari push target",
-                logged=False,
-                names=[],
-            )
-        )
-        self.catalogs.add(push_catalog)
-        self.designator_tracker[catalog_name] = CatalogDesignator(catalog_name, 1)
-        self.object_tracker[catalog_name] = None
-
-    def set_current_catalog(self, catalog_code: str):
-        if self.catalogs.has_code(catalog_code):
-            self.current_catalog_code = catalog_code
-        elif self.catalogs.has_code(catalog_code, only_selected=False):
-            self.set_default_current_catalog()
-        else:
-            self.add_foreign_catalog(catalog_code)
-            self.current_catalog_code = catalog_code
-
-    def set_default_current_catalog(self):
-        self.current_catalog_code = self.catalogs.get_codes()[0]
-
-    def next_catalog(self, direction=1):
-        next = self.catalogs.next_catalog(self.current_catalog_code, direction)
-        self.set_current_catalog(next.catalog_code)
-
-    def previous_catalog(self):
-        self.next_catalog(-1)
-
-    def next_object(self, direction=1, filtered=True):
-        """
-        direction: 1 for next, -1 for previous
-
-        """
-        current_catalog = self.get_current_catalog()
-        objects = (
-            current_catalog.filtered_objects
-            if filtered
-            else current_catalog.get_objects()
-        )
-        object_ids = [x.sequence for x in objects]
-        current_key = self.object_tracker[self.current_catalog_code]
-        next_key = None
-        designator = self.get_designator()
-        # there is no current object, so set the first object the first or last
-        if current_key is None or current_key not in object_ids:
-            next_index = 0 if direction == 1 else len(object_ids) - 1
-            next_key = object_ids[next_index]
-            designator.set_number(next_key)
-
-        else:
-            current_index = object_ids.index(current_key)
-            next_index = current_index + direction
-            if next_index == -1 or next_index >= len(object_ids):
-                next_key = None  # hack to get around the fact that 0 is a valid key
-                designator.set_number(0)  # todo use -1 in designator as well
-            else:
-                next_key = object_ids[next_index % len(object_ids)]
-                designator.set_number(next_key)
-        self.set_current_object(next_key)
-        return self.get_current_object()
-
-    def previous_object(self):
-        return self.next_object(-1)
-
-    def get_current_object(self) -> Optional[CompositeObject]:
-        object_key = self.object_tracker[self.current_catalog_code]
-        current_catalog = self.get_current_catalog()
-        if object_key is None or current_catalog is None:
-            return None
-        return current_catalog.get_object_by_sequence(object_key)
-
-    def set_current_object(self, object_number: int, catalog_code: str = ""):
-        if catalog_code:
-            try:
-                self.set_current_catalog(catalog_code)
-            except AssertionError:
-                # Requested catalog not in tracker!
-                # Set to current catalog/zero
-                self.designator_tracker[catalog_code].set_number(0)
-                return
-        else:
-            catalog_code = self.current_catalog_code
-        self.object_tracker[catalog_code] = object_number
-
-        # Make sure this catalog is in the designator tracker
-        # if not, add it so it can be set
-        if self.designator_tracker.get(catalog_code) is None:
-            _c = self.catalogs.get_catalog_by_code(catalog_code)
-            self.designator_tracker[catalog_code] = CatalogDesignator(
-                catalog_code, _c.max_sequence
-            )
-
-        self.designator_tracker[catalog_code].set_number(
-            object_number if object_number else 0
-        )
-
-    def get_designator(self, catalog_code: str = "") -> CatalogDesignator:
-        catalog_code: str = catalog_code or self.current_catalog_code
-        return self.designator_tracker[catalog_code]
-
-    def filter(self):
-        catalog_list = self.catalogs.get_catalogs()
-        magnitude_filter = self.config_options["Magnitude"]["value"]
-        type_filter = self.config_options["Obj Types"]["value"]
-        altitude_filter = self.config_options["Alt Limit"]["value"]
-        observed_filter = self.config_options["Observed"]["value"]
-
-        for catalog in catalog_list:
-            catalog.catalog_filter.set_values(
-                magnitude_filter,
-                type_filter,
-                altitude_filter,
-                observed_filter,
-            )
-            catalog.filter_objects(self.shared_state)
-
-        current_object = self.object_tracker[self.current_catalog_code]
-        if current_object is not None and not self.get_current_catalog().has(
-            current_object
-        ):
-            self.set_current_object(None, catalog_list[0].catalog_code)
-
-    def __repr__(self):
-        return f"CatalogTracker(Current:{self.current_catalog_code} {self.object_tracker[self.current_catalog_code]}, Designator:{self.designator_tracker})"

@@ -1,9 +1,8 @@
-import datetime
+from datetime import datetime
 import pytz
 import math
 import numpy as np
-from typing import Tuple, Optional
-from PiFinder.state import SharedStateObj
+from typing import Tuple, Optional, Dict, Any
 from skyfield.api import (
     wgs84,
     Loader,
@@ -17,6 +16,7 @@ from skyfield.magnitudelib import planetary_magnitude
 import PiFinder.utils as utils
 import json
 import hashlib
+from pathlib import Path
 
 from skyfield.api import load
 from skyfield.data import mpc
@@ -31,16 +31,10 @@ from multiprocessing import Manager
 from multiprocessing import Pool
 import time
 import requests
+import os
+import logging
 
-
-def sleep_for_framerate(shared_state: SharedStateObj, limit_framerate=True) -> bool:
-    if shared_state.power_state() <= 0:
-        time.sleep(0.5)
-        return True
-    elif limit_framerate:
-        time.sleep(1 / 30)
-    return False
-
+logger = logging.getLogger("Catalogs.calc_utils")
 
 class FastAltAz:
     """
@@ -53,7 +47,7 @@ class FastAltAz:
         self.lon = lon
         self.dt = dt
 
-        j2000 = datetime.datetime(2000, 1, 1, 12, 0, 0)
+        j2000 = datetime(2000, 1, 1, 12, 0, 0)
         utc_tz = pytz.timezone("UTC")
         j2000 = utc_tz.localize(j2000)
         _d = self.dt - j2000
@@ -463,65 +457,47 @@ class Skyfield_utils:
         return planet_dict
 
 
-def process_comet(comet_data, dt, latlonalt: Tuple[float, float, float]):
+def process_comet(comet_data, dt) -> Dict[str, Any]:
+    name, row = comet_data
     t = sf_utils.ts.from_datetime(dt)
     sun = sf_utils.eph['sun']
-    earth = sf_utils.eph['earth']
+    comet = sun + mpc.comet_orbit(row, sf_utils.ts, GM_SUN)
 
-    # Calculate RA/DEC position of the comet
-    name, row = comet_data
-    cometvec = sun + mpc.comet_orbit(row, sf_utils.ts, GM_SUN)
-    cometpos = earth.at(t).observe(cometvec)
-    ra, dec, earth_comet = cometpos.radec()
-    # print("RA", ra, "   DEC", dec, "   Distance", earth_comet.au)
+    # print(f"Processing comet: {name}, {sf_utils.observer_loc}")
+    topocentric = (comet - sf_utils.observer_loc).at(t)
+    heliocentric = (comet - sun).at(t)
 
-    # Calculate ALT/AZ position of the comet
-    lat, lon, altitude = latlonalt
-    obstopos = Topos(latitude_degrees=lat,
-                     longitude_degrees=lon,
-                     elevation_m=altitude)
-    # print("\nObserver at",
-    #       obstopos.latitude, "N  ", obstopos.longitude, "E  ",
-    #       "Elevation", obstopos.elevation.m, "m")
-    obsvec = earth + obstopos
-    alt, az, _ = obsvec.at(t).observe(cometvec).apparent().altaz()
-    # print("Altitude", alt, "     Azumuth", az, distance)
-    sun_comet = sun.at(t).observe(cometvec).distance().au
-    g = row.get('magnitude_g', 10)
-    k = row.get('magnitude_k', 10)
-    mag = g + 5 * np.log10(earth_comet.au) + k * 2.5 * np.log10(sun_comet)
-    elements = osculating_elements_of(cometvec.at(t))
+    ra, dec, earth_distance = topocentric.radec(sf_utils.ts.J2000)
+    sun_distance = heliocentric.radec(sf_utils.ts.J2000)[2]
+
+    mag_g = float(row['magnitude_g'])
+    mag_k = float(row['magnitude_k'])
+    mag = mag_g + 2.5 * mag_k * math.log10(sun_distance.au) + \
+        5.0 * math.log10(earth_distance.au)
+    if mag > 15:
+        return {}
+
+    alt, az = sf_utils.radec_to_altaz(ra._degrees, dec.degrees, dt, atmos=False)
     ra_dec = (ra._degrees, dec.degrees)
     ra_dec_pretty = (ra_to_hms(ra._degrees), dec_to_dms(dec.degrees))
-    alt_az = (alt.degrees, az.degrees)
-    sf_utils.set_location(lat, lon, altitude)
-    alt_az2 = sf_utils.radec_to_altaz(ra._degrees, dec.degrees, dt, atmos=False)
-    aa = FastAltAz(
-        lat,
-        lon,
-        dt,
-    )
-    alt, az = aa.radec_to_altaz(
-        ra._degrees,
-        dec._degrees,
-        alt_only=False,
-    )
+    alt_az = (alt, az)
+
     return {
         "name": name,
         "radec": ra_dec,
         "radec_pretty": ra_dec_pretty,
         "altaz": alt_az,
-        "altaz2": alt_az2,
+        "altaz2": (0, 0),
         "altaz3": (alt, az),
         "mag": mag,
-        "earth_distance": earth_comet.au,
-        "sun_distance": sun_comet,
-        "orbital_elements": elements,
+        "earth_distance": earth_distance.au,
+        "sun_distance": sun_distance.au,
+        "orbital_elements": None,
         "row": row
     }
 
 
-def comet_data_download():
+def comet_data_download(local_filename, url=mpc.COMET_URL):
     try:
         # Send a HEAD request to get headers without downloading the entire file
         response = requests.head(url)
@@ -531,42 +507,69 @@ def comet_data_download():
         last_modified = response.headers.get('Last-Modified')
 
         if last_modified:
-            # Parse the date string to a datetime object
-            date = datetime.strptime(last_modified, '%a, %d %b %Y %H:%M:%S GMT')
-            return date
+            remote_date = datetime.strptime(last_modified, '%a, %d %b %Y %H:%M:%S GMT')
+            print(f"Remote Last-Modified: {remote_date}")
+
+            # Check if local file exists and its modification time
+            if os.path.exists(local_filename):
+                local_date = datetime.fromtimestamp(os.path.getmtime(local_filename))
+                print(f"Local Last-Modified: {local_date}")
+
+                if remote_date <= local_date:
+                    print("Local file is up to date. No download needed.")
+                    return False
+
+            # Download the file if it's new or doesn't exist locally
+            print("Downloading new file...")
+            response = requests.get(url)
+            response.raise_for_status()
+
+            with open(local_filename, 'wb') as f:
+                f.write(response.content)
+
+            # Set the file's modification time to match the server's last-modified time
+            os.utime(local_filename, (remote_date.timestamp(), remote_date.timestamp()))
+
+            print("File downloaded successfully.")
+            return True
         else:
-            print("Last-Modified header not available.")
-            return None
+            print("Last-Modified header not available. Downloading file...")
+            response = requests.get(url)
+            response.raise_for_status()
+
+            with open(local_filename, 'wb') as f:
+                f.write(response.content)
+
+            print("File downloaded successfully.")
+            return True
 
     except requests.RequestException as e:
         print(f"An error occurred: {e}")
-        return None
+        return False
 
 
-def calc_comets(dt):
-    print("entering calc_comets")
-    comet_dict = {}
-    if sf_utils.observer_loc is None or dt is None:
-        print(f"sf_utils.observer_loc: {sf_utils.observer_loc}, dt: {dt}")
+def calc_comets(dt, comet_names=None) -> dict:
+    with Timer("calc_comets()"):
+        comet_dict: Dict[str, Any] = {}
+        if sf_utils.observer_loc is None or dt is None:
+            logger.debug(f"calc_comets can't run: observer loc is None: {sf_utils.observer_loc is None}, dt is None: {dt is None}")
+            return comet_dict
+
+        with open(utils.comet_file, "rb") as f:
+            comets_df = mpc.load_comets_dataframe(f)
+
+        comets_df = (comets_df.sort_values('reference')
+                     .groupby('designation', as_index=False).last()
+                     .set_index('designation', drop=False))
+
+        comet_data = list(comets_df.iterrows())
+
+        for comet in comet_data:
+            if comet_names is None or comet[0] in comet_names:
+                result = process_comet(comet, dt)
+                if result is not None:
+                    comet_dict[result["name"]] = result
         return comet_dict
-
-    with load.open(mpc.COMET_URL) as f:
-        comets_df = mpc.load_comets_dataframe(f)
-
-    comets_df = (comets_df.sort_values('reference')
-                 .groupby('designation', as_index=False).last()
-                 .set_index('designation', drop=False))
-
-    comet_data = list(comets_df.iterrows())
-
-    # Use a Manager to share the sun and observer objects
-    process_comet_partial = partial(process_comet, dt=dt, latlonalt=sf_utils.get_lat_lon_alt())
-
-    p = Pool(4)
-    for result in p.imap_unordered(process_comet_partial, comet_data):
-        if result is not None:
-            comet_dict[result["name"]] = result
-    return comet_dict
 
 
 sf_utils = Skyfield_utils()

@@ -34,12 +34,13 @@ def reset_filters(ui_module: UIModule) -> None:
     """
     Reset all filters to default
     """
-
-    ui_module.catalogs.set_catalog_filter(
-        CatalogFilter(shared_state=ui_module.shared_state)
-    )
+    if ui_module.catalogs is not None:
+        ui_module.catalogs.set_catalog_filter(
+            CatalogFilter(shared_state=ui_module.shared_state)
+        )
     ui_module.config_object.reset_filters()
-    ui_module.catalogs.filter_catalogs()
+    if ui_module.catalogs is not None:
+        ui_module.catalogs.filter_catalogs()
     ui_module.message("Filters Reset")
     ui_module.remove_from_stack()
     return

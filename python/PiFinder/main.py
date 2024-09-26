@@ -441,8 +441,6 @@ def main(
                                 location["gps_lock"] = True
 
                             shared_state.set_location(location)
-                            print(f"GPS: Location {location['lat']} {location['lon']} {location['altitude']}")
-                            print(f"In shared state: {shared_state.location()}")
                     if gps_msg == "time":
                         # logger.debug("GPS time msg: %s", gps_content)
                         gps_dt = gps_content
@@ -731,14 +729,6 @@ if __name__ == "__main__":
         "-fh",
         "--fakehardware",
         help="Use fake hardware for imu, gps",
-        default=False,
-        action="store_true",
-        required=False,
-    )
-    parser.add_argument(
-        "-fi",
-        "--fakeimu",
-        help="Use fake hardware for imu",
         default=False,
         action="store_true",
         required=False,
