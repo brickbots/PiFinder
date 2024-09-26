@@ -13,13 +13,14 @@ import time
 from PIL import Image
 from PiFinder.ui.base import UIModule
 from PiFinder.image_util import convert_image_to_mode
+from PiFinder.catalogs import Catalogs
 
 
 class UIConsole(UIModule):
     __title__ = "CONSOLE"
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, catalogs=Catalogs([]), **kwargs)
         self.dirty = True
         self.welcome = True
 
