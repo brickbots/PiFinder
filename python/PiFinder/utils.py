@@ -2,6 +2,7 @@ import os
 import time
 import logging
 from pathlib import Path
+import importlib
 
 
 def create_dir(adir: str):
@@ -22,6 +23,15 @@ pifinder_db = astro_data_dir / "pifinder_objects.db"
 observations_db = data_dir / "observations.db"
 debug_dump_dir = data_dir / "solver_debug_dumps"
 comet_file = astro_data_dir / Path("comets.txt")
+
+
+def get_sys_utils():
+    try:
+        # Attempt to import the real sys_utils
+        sys_utils = importlib.import_module('PiFinder.sys_utils')
+    except ImportError:
+        sys_utils = importlib.import_module('PiFinder.sys_utils_fake')
+    return sys_utils
 
 
 def get_os_info():

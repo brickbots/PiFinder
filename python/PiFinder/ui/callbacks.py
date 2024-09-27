@@ -11,13 +11,11 @@ Each one takes the current ui module as an argument
 import datetime
 import logging
 
+from PiFinder import utils
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
+sys_utils = utils.get_sys_utils()
 
-try:
-    from PiFinder import sys_utils
-except ImportError:
-    from PiFinder import sys_utils_fake as sys_utils  # type: ignore[no-redef]
 
 logger = logging.getLogger("UI.Callbacks")
 
@@ -34,13 +32,11 @@ def reset_filters(ui_module: UIModule) -> None:
     """
     Reset all filters to default
     """
-    if ui_module.catalogs is not None:
-        ui_module.catalogs.set_catalog_filter(
-            CatalogFilter(shared_state=ui_module.shared_state)
-        )
+    ui_module.catalogs.set_catalog_filter(
+        CatalogFilter(shared_state=ui_module.shared_state)
+    )
     ui_module.config_object.reset_filters()
-    if ui_module.catalogs is not None:
-        ui_module.catalogs.filter_catalogs()
+    ui_module.catalogs.filter_catalogs()
     ui_module.message("Filters Reset")
     ui_module.remove_from_stack()
     return

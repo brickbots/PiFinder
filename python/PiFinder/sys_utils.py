@@ -1,11 +1,13 @@
 import glob
 import re
 from typing import Dict, Any
+import sh
 try:
-    import sh
     from sh import wpa_cli, unzip, su, passwd
+    REAL_SYS_UTILS = True
 except ImportError:
-    print("sh is not installed. Please install it by running 'pip install sh'")
+    REAL_SYS_UTILS = False
+
 import socket
 from PiFinder import utils
 import logging
