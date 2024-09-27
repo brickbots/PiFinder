@@ -662,7 +662,8 @@ class CometCatalog(TimerCatalog):
     def _start_background_init(self, dt):
         def init_task():
             comets.comet_data_download(comet_file)
-            self.initialised = self.calc_comet_first_time(dt)
+            with self._init_lock:
+                self.initialised = self.calc_comet_first_time(dt)
             with self.virtual_id_lock:
                 new_low = self.assign_virtual_object_ids(
                     self, self.virtual_id_low)
@@ -714,6 +715,7 @@ class CometCatalog(TimerCatalog):
         with Timer("Comet Catalog periodic update"):
             with self._init_lock:
                 if not self.initialised:
+                    logging.debug("Comets not yet initialised, skip periodic update...")
                     return
             dt = self.shared_state.datetime()
             comet_dict = comets.calc_comets(
@@ -722,7 +724,7 @@ class CometCatalog(TimerCatalog):
                 return
             for obj in self._get_objects():
                 name = obj.names[0]
-                logger.debug("Processing %s", name)
+                logger.debug("Processing %s")
                 comet = comet_dict.get(name, {})
                 obj.ra, obj.dec = comet["radec"]
                 obj.mag = MagnitudeObject([comet["mag"]])
