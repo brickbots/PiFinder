@@ -33,22 +33,18 @@ def process_comet(comet_data, dt) -> Dict[str, Any]:
     if mag > 15:
         return {}
 
-    alt, az = sf_utils.radec_to_altaz(ra._degrees, dec.degrees, dt, atmos=False)
     ra_dec = (ra._degrees, dec.degrees)
-    ra_dec_pretty = (ra_to_hms(ra._degrees), dec_to_dms(dec.degrees))
-    alt_az = (alt, az)
+    # alt, az = sf_utils.radec_to_altaz(ra._degrees, dec.degrees, dt, atmos=False)
+    # ra_dec_pretty = (ra_to_hms(ra._degrees), dec_to_dms(dec.degrees))
+    # alt_az = (alt, az)
 
     return {
         "name": name,
         "radec": ra_dec,
-        "radec_pretty": ra_dec_pretty,
-        "altaz": alt_az,
-        "altaz2": (0, 0),
-        "altaz3": (alt, az),
         "mag": mag,
         "earth_distance": earth_distance.au,
         "sun_distance": sun_distance.au,
-        "orbital_elements": None,
+        "orbital_elements": None,  # could add this later
         "row": row
     }
 

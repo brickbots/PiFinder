@@ -645,7 +645,6 @@ class PlanetCatalog(TimerCatalog):
             for obj in self._get_objects():
                 name = obj.names[0]
                 if name in planet_dict:
-                    print(f"Processing {name}")
                     planet = planet_dict[name]
                     obj.ra, obj.dec = planet["radec"]
                     obj.mag = MagnitudeObject([planet["mag"]])
@@ -672,7 +671,6 @@ class CometCatalog(TimerCatalog):
         def init_task():
             while True:
                 success, self.age = comets.comet_data_download(comet_file)
-                print(f"Comet data download success: {success}, age: {self.age}")
                 if success:
                     with self._init_lock:
                         self.initialised = self.calc_comet_first_time(dt)
