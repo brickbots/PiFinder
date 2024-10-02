@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 import pytz
 import math
 import numpy as np
@@ -16,6 +16,9 @@ from skyfield.magnitudelib import planetary_magnitude
 import PiFinder.utils as utils
 import json
 import hashlib
+import logging
+
+logger = logging.getLogger("Catalogs.calc_utils")
 
 
 class FastAltAz:
@@ -29,7 +32,7 @@ class FastAltAz:
         self.lon = lon
         self.dt = dt
 
-        j2000 = datetime.datetime(2000, 1, 1, 12, 0, 0)
+        j2000 = datetime(2000, 1, 1, 12, 0, 0)
         utc_tz = pytz.timezone("UTC")
         j2000 = utc_tz.localize(j2000)
         _d = self.dt - j2000
@@ -303,11 +306,12 @@ class Skyfield_utils:
         # Note: We can't get this info from self.observer_loc
         self._observer_geoid = wgs84.latlon(lat, lon, altitude)
 
-    def get_latlon(self):
+    def get_lat_lon_alt(self):
         """Returns the observer latitude & longitude in degrees"""
         return (
             self._observer_geoid.latitude.degrees,
             self._observer_geoid.longitude.degrees,
+            self._observer_geoid.elevation.m,
         )
 
     def altaz_to_radec(self, alt, az, dt):
@@ -438,5 +442,4 @@ class Skyfield_utils:
         return planet_dict
 
 
-# Create a single instance of the skyfield utils
 sf_utils = Skyfield_utils()

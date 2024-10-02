@@ -48,7 +48,7 @@ class Nearby:
 
     def refresh(self):
         if not self.shared_state.solution():
-            return None
+            return []
         else:
             # with Timer("Nearby.refresh"):
             ra, dec = (

@@ -20,15 +20,11 @@ from bottle import (
 from PIL import Image
 
 from PiFinder.keyboard_interface import KeyboardInterface
-
-try:
-    from PiFinder import sys_utils
-except ImportError:
-    from PiFinder import sys_utils_fake as sys_utils  # type: ignore[no-redef]
 from PiFinder import utils, calc_utils
 from PiFinder.db.observations_db import (
     ObservationsDatabase,
 )
+sys_utils = utils.get_sys_utils()
 
 logger = logging.getLogger("Server")
 
