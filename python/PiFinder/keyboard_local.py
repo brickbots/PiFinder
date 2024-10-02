@@ -22,6 +22,7 @@ class KeyboardLocal(KeyboardInterface):
             keyboard.set_magickey_on_release("q", self.callback, self.PLUS)
             keyboard.set_magickey_on_release("a", self.callback, self.MINUS)
             keyboard.set_magickey_on_release("z", self.callback, self.SQUARE)
+            keyboard.set_magickey_on_release("m", self.callback, self.LNG_SQUARE)
             keyboard.set_magickey_on_release("0", self.callback, 0)
             keyboard.set_magickey_on_release("1", self.callback, 1)
             keyboard.set_magickey_on_release("2", self.callback, 2)

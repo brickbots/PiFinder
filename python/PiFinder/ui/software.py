@@ -8,12 +8,9 @@ This module contains all the UI Module classes
 import time
 import requests
 
-try:
-    from PiFinder import sys_utils
-except ImportError:
-    from PiFinder import sys_utils_fake as sys_utils  # type: ignore[no-redef]
 from PiFinder import utils
 from PiFinder.ui.base import UIModule
+sys_utils = utils.get_sys_utils()
 
 
 class UISoftware(UIModule):

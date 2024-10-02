@@ -12,10 +12,16 @@ import pytz
 from PiFinder import config
 import logging
 from typing import List
+import threading
 from PiFinder.composite_object import CompositeObject
+
+logger = logging.getLogger("SharedState")
 
 
 class RecentCompositeObjectList(list):
+    """ keeps the recent list of composite_objects,
+        handling duplicates """
+
     def __init__(self):
         super().__init__()
 
@@ -37,9 +43,6 @@ class RecentCompositeObjectList(list):
 
     def __str__(self) -> str:
         return super().__str__()
-
-
-logger = logging.getLogger("SharedState")
 
 
 class UIState:
