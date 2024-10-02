@@ -1,5 +1,5 @@
-from typing import Dict, Any
-from datetime import datetime
+from typing import Dict, Any, Tuple, Optional
+from datetime import datetime, timezone
 from skyfield.data import mpc
 from skyfield.constants import GM_SUN_Pitjeva_2005_km3_s2 as GM_SUN
 from skyfield.elementslib import osculating_elements_of
@@ -33,28 +33,30 @@ def process_comet(comet_data, dt) -> Dict[str, Any]:
     if mag > 15:
         return {}
 
-    alt, az = sf_utils.radec_to_altaz(ra._degrees, dec.degrees, dt, atmos=False)
     ra_dec = (ra._degrees, dec.degrees)
-    ra_dec_pretty = (ra_to_hms(ra._degrees), dec_to_dms(dec.degrees))
-    alt_az = (alt, az)
+    # alt, az = sf_utils.radec_to_altaz(ra._degrees, dec.degrees, dt, atmos=False)
+    # ra_dec_pretty = (ra_to_hms(ra._degrees), dec_to_dms(dec.degrees))
+    # alt_az = (alt, az)
 
     return {
         "name": name,
         "radec": ra_dec,
-        "radec_pretty": ra_dec_pretty,
-        "altaz": alt_az,
-        "altaz2": (0, 0),
-        "altaz3": (alt, az),
         "mag": mag,
         "earth_distance": earth_distance.au,
         "sun_distance": sun_distance.au,
-        "orbital_elements": None,
+        "orbital_elements": None,  # could add this later
         "row": row
     }
 
 
-def comet_data_download(local_filename, url=mpc.COMET_URL):
+def comet_data_download(local_filename, url=mpc.COMET_URL) -> Tuple[bool, Optional[float]]:
+    """
+    Download the latest comet data from the Minor Planet Center.
+    Return values are succes and the age of the file in days, if available.
+    """
     try:
+        now = datetime.now(timezone.utc)
+
         # Send a HEAD request to get headers without downloading the entire file
         response = requests.head(url)
         response.raise_for_status()  # Raise an exception for bad responses
@@ -63,17 +65,17 @@ def comet_data_download(local_filename, url=mpc.COMET_URL):
         last_modified = response.headers.get('Last-Modified')
 
         if last_modified:
-            remote_date = datetime.strptime(last_modified, '%a, %d %b %Y %H:%M:%S GMT')
+            remote_date = datetime.strptime(last_modified, '%a, %d %b %Y %H:%M:%S GMT').replace(tzinfo=timezone.utc)
             logger.debug(f"Remote Last-Modified: {remote_date}")
 
             # Check if local file exists and its modification time
             if os.path.exists(local_filename):
-                local_date = datetime.fromtimestamp(os.path.getmtime(local_filename))
+                local_date = datetime.fromtimestamp(os.path.getmtime(local_filename)).replace(tzinfo=timezone.utc)
                 logger.debug(f"Local Last-Modified: {local_date}")
 
                 if remote_date <= local_date:
                     logger.debug("Local file is up to date. No download needed.")
-                    return False
+                    return True, round((now - local_date).days)
 
             # Download the file if it's new or doesn't exist locally
             logger.debug("Downloading new file...")
@@ -87,7 +89,7 @@ def comet_data_download(local_filename, url=mpc.COMET_URL):
             os.utime(local_filename, (remote_date.timestamp(), remote_date.timestamp()))
 
             logger.debug("File downloaded successfully.")
-            return True
+            return True, round((now - remote_date).days)
         else:
             logger.debug("Last-Modified header not available. Downloading file...")
             response = requests.get(url)
@@ -97,11 +99,11 @@ def comet_data_download(local_filename, url=mpc.COMET_URL):
                 f.write(response.content)
 
             logger.debug("File downloaded successfully.")
-            return True
+            return True, None
 
     except requests.RequestException as e:
         logger.error(f"Error downloading comet data: {e}")
-        return False
+        return False, None
 
 
 def calc_comets(dt, comet_names=None) -> dict:
@@ -126,5 +128,3 @@ def calc_comets(dt, comet_names=None) -> dict:
                 if result:
                     comet_dict[result["name"]] = result
         return comet_dict
-
-
