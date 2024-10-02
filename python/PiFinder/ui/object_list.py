@@ -78,6 +78,8 @@ class UIObjectList(UITextMenu):
         self.mount_type = self.config_object.get_option("mount_type")
 
         self._menu_items: list[CompositeObject] = []
+        self.catalog_info_1: str = ""
+        self.catalog_info_2: str = ""
 
         # Init display mode defaults
         self.mode_cycle = cycle(DisplayModes)
@@ -166,7 +168,8 @@ class UIObjectList(UITextMenu):
             for catalog in self.catalogs.get_catalogs(only_selected=False):
                 if catalog.catalog_code == self.item_definition["value"]:
                     self._menu_items = catalog.get_filtered_objects()
-                    # logging.debug(f"Filtered object list: {len(self._menu_items)}")
+                    age = catalog.get_age()
+                    self.catalog_info_2 = "" if age is None else str(round(age, 0))
 
         if self.item_definition["objects"] == "recent":
             self._menu_items = self.ui_state.recent_list()
@@ -175,6 +178,7 @@ class UIObjectList(UITextMenu):
             # item_definition must contain a list of CompositeObjects
             self._menu_items = self.item_definition["object_list"]
 
+        self.catalog_info_1 = str(self.get_nr_of_menu_items())
         self._menu_items_sorted = self._menu_items
         self.sort()
 
@@ -386,6 +390,12 @@ class UIObjectList(UITextMenu):
             intensity: int = int(64 + ((2.0 - self._current_item_index) * 32.0))
             self.draw.text(
                 (begin_x, self.line_position(0)),
+                f"{self.catalog_info_1} obj{f', {self.catalog_info_2}d old' if self.catalog_info_2 else ''}",
+                font=self.fonts.bold.font,
+                fill=self.colors.get(intensity),
+            )
+            self.draw.text(
+                (begin_x, self.line_position(1)),
                 f"Sort: {'Catalog' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'Nearby'}",
                 font=self.fonts.bold.font,
                 fill=self.colors.get(intensity),

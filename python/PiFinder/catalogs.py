@@ -368,6 +368,10 @@ class Catalog(CatalogBase):
     def get_filtered_count(self):
         return len(self.filtered_objects)
 
+    def get_age(self) -> Optional[int]:
+        """ If the catalog data is time-sensitive, return age in days. """
+        return None
+
     def __repr__(self):
         super().__repr__()
         return f"{super().__repr__()} - filtered={self.get_filtered_count()})"
@@ -594,7 +598,7 @@ class PlanetCatalog(TimerCatalog):
 
     @property
     def time_delay_seconds(self) -> int:
-        return 300
+        return 307
 
     def init_planets(self, dt):
         planet_dict = sf_utils.calc_planets(dt)
@@ -655,19 +659,29 @@ class CometCatalog(TimerCatalog):
 
     def __init__(self, dt: datetime.datetime, shared_state: SharedStateObj):
         super().__init__("CM", "Comets")
+        self.age = None
         self.shared_state = shared_state
         self._init_lock = threading.Lock()
         self._start_background_init(dt)
 
+    def get_age(self) -> Optional[int]:
+        """ Return the age of the comet data in days """
+        return self.age
+
     def _start_background_init(self, dt):
         def init_task():
-            comets.comet_data_download(comet_file)
-            with self._init_lock:
-                self.initialised = self.calc_comet_first_time(dt)
-            with self.virtual_id_lock:
-                new_low = self.assign_virtual_object_ids(
-                    self, self.virtual_id_low)
-                self.virtual_id_low = new_low
+            while True:
+                success, self.age = comets.comet_data_download(comet_file)
+                print(f"Comet data download success: {success}, age: {self.age}")
+                if success:
+                    with self._init_lock:
+                        self.initialised = self.calc_comet_first_time(dt)
+                    with self.virtual_id_lock:
+                        new_low = self.assign_virtual_object_ids(
+                            self, self.virtual_id_low)
+                        self.virtual_id_low = new_low
+                    break
+                time.sleep(60)  # retry every minute to download comet data
 
         threading.Thread(target=init_task, daemon=True).start()
 
@@ -682,7 +696,7 @@ class CometCatalog(TimerCatalog):
 
     @property
     def time_delay_seconds(self) -> int:
-        return 60
+        return 293
 
     def add_comet(self, sequence: int, name: str, comet: Dict[str, Dict[str, float]]):
         ra, dec = comet["radec"]
