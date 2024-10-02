@@ -1,5 +1,5 @@
 {
-    // Note that the JSON5 library that we use for configuration supports comments in JSON files. 
+    // Note that the JSON5 library that we use for configuration supports comments in JSON files.
     "version": 1,
     "disable_existing_loggers": false, // THIS MUST BE FALSE for logging to work
     "formatters": {
@@ -20,11 +20,11 @@
         }
     },
     "loggers": {
-        
+
 
         /////////////////////////////////////////////////////////////////
         ////// root logger
-        // 
+        //
         // This is the main logging configuration
         //
         "": {
@@ -58,25 +58,25 @@
         //   Camera
         //   Camera.Interface
         //   Camera.Pi
-        //   Camera.Debug 
+        //   Camera.Debug
         //   Camera.None
         //
         "Camera": {
             "level": "INFO"
         },
-        // You can set different configurations for child loggers like this: 
+        // You can set different configurations for child loggers like this:
         // "Camera.Debug": {
         //    "level": "DEBUG"
-        // }, 
+        // },
 
         /////////////////////////////////////////////////////////////////
         ////// Platesolver Subsystem
         //
-        // Supported logger hierarchy: 
+        // Supported logger hierarchy:
         //   Solver
         //
         "Solver": {
-            "level": "WARNING"
+            "level": "ERROR"
         },
 
         /////////////////////////////////////////////////////////////////
@@ -97,9 +97,9 @@
         //   Catalog.Images
         //   Catalog.Nearby
         //
-        // "Catalog": {
-        //    "level": "WARNING"
-        //},
+        "Catalog": {
+           "level": "INFO"
+        },
 
         /////////////////////////////////////////////////////////////////
         ////// Database
@@ -147,7 +147,7 @@
         // },
 
         /////////////////////////////////////////////////////////////////
-        ////// Web Server Subsystem 
+        ////// Web Server Subsystem
         //
         // Supported logger hierarchy:
         //   Server
@@ -155,7 +155,7 @@
         // "Server": {
         //    "level": "DEBUG"
         //}
-        
+
         /////////////////////////////////////////////////////////////////
         ////// Pos Server Subsystem (SkySafari LX200 Interface)
         //

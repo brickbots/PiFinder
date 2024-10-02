@@ -123,12 +123,14 @@ class TestCalcUtils:
         # Set observation location
         expected_lat_deg = 35.819676052
         expected_lon_deg = -120.959589646
-        sf.set_location(expected_lat_deg, expected_lon_deg, 0)
+        expected_alt_deg = 5.959589
+        sf.set_location(expected_lat_deg, expected_lon_deg, expected_alt_deg)
 
         # Check observer location
-        lat_deg, lon_deg = sf.get_latlon()
+        lat_deg, lon_deg, alt_deg = sf.get_lat_lon_alt()
         assert lat_deg == pytest.approx(expected_lat_deg, abs=0.001)
         assert lon_deg == pytest.approx(expected_lon_deg, abs=0.001)
+        assert alt_deg == pytest.approx(expected_alt_deg, abs=0.001)
 
     def test_sf_get_lst_hrs(self):
         """

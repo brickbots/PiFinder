@@ -20,6 +20,7 @@ from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.multiproclogging import MultiprocLogging
 from skyfield.positionlib import position_of_radec
 import sys
+import time
 
 logger = logging.getLogger("PosServer")
 
@@ -179,46 +180,6 @@ def extract_command(s):
     return match.group(1) if match else None
 
 
-def run_server(shared_state, p_ui_queue, log_queue):
-    MultiprocLogging.configurer(log_queue)
-    global ui_queue
-    try:
-        ui_queue = p_ui_queue
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-            logger.info("Starting SkySafari server")
-            server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            server_socket.bind(("", 4030))
-            server_socket.listen(1)
-            out_data = None
-            while True:
-                client_socket, _address = server_socket.accept()
-                while True:
-                    in_data = client_socket.recv(1024).decode()
-                    if in_data:
-                        logger.debug("Received from skysafari: '%s'", in_data)
-                        command = extract_command(in_data)
-                        if command:
-                            command_handler = lx_command_dict.get(command, None)
-                            if command_handler:
-                                out_data = command_handler(shared_state, in_data)
-                            else:
-                                logger.warn("Unknown Command: %s", in_data)
-                                out_data = not_implemented(shared_state, in_data)
-                    else:
-                        break
-
-                    if out_data:
-                        if out_data in ("0", "1"):
-                            client_socket.send(bytes(out_data, "utf-8"))
-                        else:
-                            client_socket.send(bytes(out_data + "#", "utf-8"))
-                        out_data = None
-                client_socket.close()
-    except Exception as e:
-        logger.exception(e)
-        logger.error("An error occurred in the skysafari server, exiting!")
-
-
 lx_command_dict = {
     "GD": get_telescope_dec,
     "GR": get_telescope_ra,
@@ -228,3 +189,62 @@ lx_command_dict = {
     "Sr": parse_sr_command,
     "Q": respond_none,
 }
+
+
+def setup_server_socket():
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server_socket.bind(("", 4030))
+    server_socket.listen(1)
+    return server_socket
+
+
+def handle_client(client_socket, shared_state):
+    client_socket.settimeout(60)
+    client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+
+    while True:
+        try:
+            in_data = client_socket.recv(1024).decode()
+            if not in_data:
+                break
+
+            logging.debug("Received from skysafari: %s", in_data)
+            command = extract_command(in_data)
+            if command:
+                command_handler = lx_command_dict.get(command, not_implemented)
+                out_data = command_handler(shared_state, in_data)
+                if out_data:
+                    response = out_data if out_data in ("0", "1") else out_data + "#"
+                    client_socket.send(response.encode())
+        except socket.timeout:
+            logging.warning("Connection timed out.")
+            break
+        except ConnectionResetError:
+            logging.warning("Client disconnected unexpectedly.")
+            break
+
+    client_socket.close()
+
+
+def run_server(shared_state, p_ui_queue, log_queue):
+    MultiprocLogging.configurer(log_queue)
+    global ui_queue
+    ui_queue = p_ui_queue
+    logger = logging.getLogger(__name__)
+
+    while True:
+        try:
+            with setup_server_socket() as server_socket:
+                logger.info("SkySafari server started and listening")
+                while True:
+                    client_socket, address = server_socket.accept()
+                    logger.info("New connection from %s", address)
+                    handle_client(client_socket, shared_state)
+        except Exception:
+            logger.exception("Unexpected server error")
+            logger.info("Attempting to restart server in 5 seconds...")
+            time.sleep(5)
+        except KeyboardInterrupt:
+            logger.info("Server shutting down...")
+            break
