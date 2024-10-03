@@ -789,6 +789,7 @@ if __name__ == "__main__":
         rlogger.setLevel(logging.DEBUG)
 
     import importlib
+
     if args.fakehardware:
         hardware_platform = "Fake"
         display_hardware = "pg_128"
@@ -799,6 +800,7 @@ if __name__ == "__main__":
         hardware_platform = "Pi"
         display_hardware = "ssd1351"
         from rpi_hardware_pwm import HardwarePWM
+
         imu = importlib.import_module("PiFinder.imu_pi")
         gps_monitor = importlib.import_module("PiFinder.gps_pi")
 

@@ -38,7 +38,7 @@ def align_on_radec(ra, dec, command_queues, config_object, shared_state) -> bool
     while not received_response:
         # only wait a second
         if time.time() - start_time > 1:
-            return (-1, -1)
+            return False
 
         try:
             command = command_queues["align_response"].get(block=False)
