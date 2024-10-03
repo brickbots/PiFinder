@@ -22,9 +22,13 @@ def test_wpa_supplicant_parsing():
         key_mgmt=WPA-PSK
     }
     """
-    wpa_list = [line.strip() for line in wpa_supplicant_example.strip().split('\n') if line.strip()]
+    wpa_list = [
+        line.strip()
+        for line in wpa_supplicant_example.strip().split("\n")
+        if line.strip()
+    ]
     result = sys_utils.Network._parse_wpa_supplicant(wpa_list)
-    assert result[1]['psk'] == 'compl3x=p@ssw0rd!'
+    assert result[1]["psk"] == "compl3x=p@ssw0rd!"
 
     example2 = """
     ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
@@ -58,7 +62,6 @@ def test_wpa_supplicant_parsing():
             key_mgmt=WPA-PSK
     }
     """
-    wpa_list = [line for line in example2.split('\n') if line.strip()]
+    wpa_list = [line for line in example2.split("\n") if line.strip()]
     result = sys_utils.Network._parse_wpa_supplicant(wpa_list)
-    assert result[1]['psk'] == '1234@===!!!'
-
+    assert result[1]["psk"] == "1234@===!!!"
