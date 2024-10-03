@@ -135,22 +135,22 @@ def solver(
                     except queue.Empty:
                         command = False
 
-                if command is not False:
-                    if command[0] == "align_on_radec":
-                        logger.debug("Align Command Received")
-                        # search image pixels to find the best match
-                        # for this RA/DEC and set it as alignment pixel
-                        align_ra = command[1]
-                        align_dec = command[2]
-                        align_target_pixel = find_target_pixel(
-                            t3=t3,
-                            fov_estimate=solved["FOV"],
-                            centroids=centroids,
-                            ra=align_ra,
-                            dec=align_dec,
-                        )
-                        logger.debug(f"Align {align_target_pixel=}")
-                        align_result_queue.put(["aligned", align_target_pixel])
+                    if command is not False:
+                        if command[0] == "align_on_radec":
+                            logger.debug("Align Command Received")
+                            # search image pixels to find the best match
+                            # for this RA/DEC and set it as alignment pixel
+                            align_ra = command[1]
+                            align_dec = command[2]
+                            align_target_pixel = find_target_pixel(
+                                t3=t3,
+                                fov_estimate=solved["FOV"],
+                                centroids=centroids,
+                                ra=align_ra,
+                                dec=align_dec,
+                            )
+                            logger.debug(f"Align {align_target_pixel=}")
+                            align_result_queue.put(["aligned", align_target_pixel])
 
                 state_utils.sleep_for_framerate(shared_state)
 
