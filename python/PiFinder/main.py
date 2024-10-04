@@ -85,7 +85,6 @@ def set_brightness(level, cfg):
     Sets oled/keypad brightness
     0-255
     """
-    print(f"{level=}")
     global display_device
     display_device.set_brightness(level)
 
