@@ -31,6 +31,7 @@ def find_target_pixel(t3, fov_estimate, centroids, ra, dec):
     Searches the most recent solve for a pixel
     that matches the requested RA/DEC the best
     """
+    print(f"{len(centroids)=}")
     search_center = (256, 256)
     search_distance = 128
     while search_distance >= 1:
@@ -46,18 +47,25 @@ def find_target_pixel(t3, fov_estimate, centroids, ra, dec):
         # probe points
         min_dist = 100000
         for search_point in search_points:
-            try:
-                point_sol = t3.solve_from_centroids(
-                    centroids,
-                    (512, 512),
-                    fov_estimate=fov_estimate,
-                    fov_max_error=0.2,
-                    return_matches=False,
-                    target_pixel=[search_point[0], search_point[1]],
-                    solve_timeout=1000,
-                )
-            except Exception:
-                return (-1, -1)
+            solve_fails=0
+            point_sol = {}
+            while point_sol.get("RA_target") is None:
+                solve_fails +=1
+                if solve_fails > 10:
+                    print("Too many fails")
+                    return (-1,-1)
+                try:
+                    point_sol = t3.solve_from_centroids(
+                        centroids,
+                        (512, 512),
+                        fov_estimate=fov_estimate,
+                        fov_max_error=0.2,
+                        return_matches=False,
+                        target_pixel=[search_point[0], search_point[1]],
+                        solve_timeout=1000,
+                    )
+                except Exception:
+                    return (-1, -1)
 
             # distance...
             p_dist = np.hypot(
