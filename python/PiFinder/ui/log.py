@@ -157,6 +157,18 @@ class UILog(UIModule):
 
         self.reset_config()
 
+    def draw_stars(self, horiz_pos, star_count):
+        for i in range(5):
+            star_color = 64
+            if star_count > i:
+                star_color = 255
+            self.draw.text(
+                (i * 15 + 20, horiz_pos),
+                self._STAR,
+                font=self.fonts.large.font,
+                fill=self.colors.get(star_color),
+            )
+
     def reset_config(self):
         """
         Set log entries to default
@@ -205,16 +217,6 @@ class UILog(UIModule):
             self.draw_menu_pointer(horiz_pos)
         horiz_pos += 18
 
-        # ID Line in BOld
-        # Type / Constellation
-        """
-        object_type = OBJ_TYPES.get(self.object.obj_type, self.object.obj_type)
-        object_text = f"{object_type: <14} {self.object.const}"
-        self.draw.text(
-            (0, 36), object_text, font=self.fonts.bold.font, fill=self.colors.get(255)
-        )
-        """
-
         # Observability
         self.draw.text(
             (10, horiz_pos),
@@ -225,16 +227,7 @@ class UILog(UIModule):
         if self.menu_index == 1:
             self.draw_menu_pointer(horiz_pos)
         horiz_pos += 14
-        for i in range(5):
-            star_color = 128
-            if self.log_observability > i:
-                star_color = 255
-            self.draw.text(
-                (i * 15 + 20, horiz_pos),
-                self._STAR,
-                font=self.fonts.large.font,
-                fill=self.colors.get(star_color),
-            )
+        self.draw_stars(horiz_pos, self.log_observability)
         horiz_pos += 11
 
         # Appeal
@@ -247,16 +240,7 @@ class UILog(UIModule):
         if self.menu_index == 2:
             self.draw_menu_pointer(horiz_pos)
         horiz_pos += 14
-        for i in range(5):
-            star_color = 128
-            if self.log_appeal > i:
-                star_color = 255
-            self.draw.text(
-                (i * 15 + 20, horiz_pos),
-                self._STAR,
-                font=self.fonts.large.font,
-                fill=self.colors.get(star_color),
-            )
+        self.draw_stars(horiz_pos, self.log_appeal)
         horiz_pos += 15
 
         self.draw.text(
