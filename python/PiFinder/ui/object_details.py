@@ -319,20 +319,10 @@ class UIObjectDetails(UIModule):
         self.clear_screen()
 
         # paste image
-        self.screen.paste(self.object_image)
+        if self.object_display_mode in [DM_POSS, DM_SDSS]:
+            self.screen.paste(self.object_image)
 
         if self.object_display_mode == DM_DESC or self.object_display_mode == DM_LOCATE:
-            # dim image
-            self.draw.rectangle(
-                [
-                    0,
-                    0,
-                    self.display_class.resX,
-                    self.display_class.resY,
-                ],
-                fill=(0, 0, 0, 100),
-            )
-
             # catalog and entry field i.e. NGC-311
             self.refresh_designator()
             desc_available_lines = 4
