@@ -219,7 +219,7 @@ pifinder_menu = {
                     "name": "Catalogs",
                     "class": UITextMenu,
                     "select": "multi",
-                    "config_option": "active_catalogs",
+                    "config_option": "filter.selected_catalogs",
                     "items": [
                         {
                             "name": "Planets",
@@ -237,7 +237,7 @@ pifinder_menu = {
                             "name": "DSO...",
                             "class": UITextMenu,
                             "select": "multi",
-                            "config_option": "active_catalogs",
+                            "config_option": "filter.selected_catalogs",
                             "items": [
                                 {
                                     "name": "Abell Pn",
@@ -293,7 +293,7 @@ pifinder_menu = {
                             "name": "Stars...",
                             "class": UITextMenu,
                             "select": "multi",
-                            "config_option": "active_catalogs",
+                            "config_option": "filter.selected_catalogs",
                             "items": [
                                 {
                                     "name": "Bright Named",
