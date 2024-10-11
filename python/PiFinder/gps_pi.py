@@ -3,6 +3,7 @@
 """
 This module is for GPS related functions
 """
+
 import asyncio
 from PiFinder.multiproclogging import MultiprocLogging
 from gpsdclient import GPSDClient
@@ -50,8 +51,7 @@ async def process_sky_messages(client, gps_queue):
     sky_stream = client.dict_stream(filter=["SKY"])
     global error_2d, error_3d
     async for result in aiter_wrapper(sky_stream):
-        logger.debug(
-            "GPS: SKY: %s", result)
+        logger.debug("GPS: SKY: %s", result)
         if result["class"] == "SKY":
             error_2d = result.get("hdop", 999)
             error_3d = result.get("pdop", 999)
@@ -69,7 +69,7 @@ async def process_reading_messages(client, gps_queue, console_queue, gps_locked)
     tpv_stream = client.dict_stream(convert_datetime=True, filter=["TPV"])
     async for result in aiter_wrapper(tpv_stream):
         if is_tpv_accurate(result):
-        #if True:
+            # if True:
             logger.debug("last reading is %s", result)
             if result.get("lat") and result.get("lon") and result.get("altHAE"):
                 if not gps_locked:
@@ -108,7 +108,8 @@ async def gps_main(gps_queue, console_queue, log_queue):
                     await asyncio.gather(
                         process_sky_messages(client, gps_queue),
                         process_reading_messages(
-                            client, gps_queue, console_queue, gps_locked)
+                            client, gps_queue, console_queue, gps_locked
+                        ),
                     )
 
                     logger.debug("GPS sleeping now for 7s")

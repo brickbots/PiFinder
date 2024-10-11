@@ -124,49 +124,109 @@ StateManager.register("UIState", UIState)
 StateManager.register("NewImage", Image.new)
 
 
-def get_sleep_timeout(cfg):
-    """
-    returns the sleep timeout amount
-    """
-    sleep_timeout_option = cfg.get_option("sleep_timeout")
-    sleep_timeout = {
-        "Off": 100000,
-        "10s": 10,
-        "20s": 20,
-        "30s": 30,
-        "1m": 60,
-        "2m": 120,
-    }[sleep_timeout_option]
-    return sleep_timeout
+class PowerManager:
+    def __init__(self, cfg, shared_state, display_device):
+        self.cfg = cfg
+        self.shared_state = shared_state
+        self.display_device = display_device
+        self.last_activity = time.time()
 
+    def register_activity(self):
+        """
+        Resets idle counter, wakes up systems if needed
+        returns True if activity caused wakeup
+        """
+        self.last_activity = time.time()
 
-def get_screen_off_timeout(cfg):
-    """
-    returns the screen off timeout amount
-    """
-    screen_off_option = cfg.get_option("screen_off_timeout")
-    screen_off = {"Off": -1, "30s": 30, "1m": 60, "10m": 600, "30m": 1800}[
-        screen_off_option
-    ]
-    return screen_off
+        # power states
+        # 0 = Sleep
+        # 1 = Wake
+        if self.shared_state.power_state() < 1:
+            # wake up
+            self.wake_up()
+            return True
 
+        return False
 
-def _calculate_timeouts(cfg):
-    t = time.time()
-    screen_dim = get_sleep_timeout(cfg)
-    screen_dim = t + screen_dim if screen_dim > 0 else None
-    screen_off = get_screen_off_timeout(cfg)
-    screen_off = t + screen_off if screen_off > 0 else None
-    return screen_dim, screen_off
+    def wake_up(self):
+        """
+        Do all the wakeup things
+        """
+        self.last_activity = time.time()
+        self.shared_state.set_power_state(1)
+        self.wake_screen()
 
+    def go_to_sleep(self):
+        """
+        Do all the sleep things
+        """
+        self.shared_state.set_power_state(0)
+        self.sleep_screen()
 
-def wake_screen(screen_brightness, shared_state, cfg) -> int:
-    global display_device
-    set_brightness(screen_brightness, cfg)
-    display_device.device.show()
-    orig_power_state = shared_state.power_state()
-    shared_state.set_power_state(1)  # Normal
-    return orig_power_state
+    def update(self):
+        """
+        Check IMU for activity
+        go to sleep if needed
+        if asleep, Introduce wait state
+        """
+        if self.get_sleep_timeout() <= 0:
+            # Disabled
+            self.register_activity()
+            return
+
+        if self.shared_state.power_state() > 0:
+            # We are awake, should we sleep?
+            if time.time() - self.last_activity > self.get_sleep_timeout():
+                self.go_to_sleep()
+
+        else:  # We are asleepd, should we wake up?
+            _imu = self.shared_state.imu()
+            if _imu:
+                if _imu["moving"]:
+                    self.wake_up()
+
+        # should we pause execution for a bit?
+        if self.shared_state.power_state() < 1:
+            time.sleep(0.2)
+
+    def get_sleep_timeout(self):
+        """
+        returns the sleep timeout amount
+        """
+        sleep_timeout_option = self.cfg.get_option("sleep_timeout")
+        sleep_timeout = {
+            "Off": -1,
+            "10s": 10,
+            "20s": 20,
+            "30s": 30,
+            "1m": 60,
+            "2m": 120,
+        }[sleep_timeout_option]
+        return sleep_timeout
+
+    def get_screen_off_timeout(self):
+        """
+        returns the screen off timeout amount
+        """
+        screen_off_option = self.cfg.get_option("screen_off_timeout")
+        screen_off = {
+            "Off": -1,
+            "30s": 30,
+            "1m": 60,
+            "10m": 600,
+            "30m": 1800,
+        }[screen_off_option]
+        return screen_off
+
+    def wake_screen(self) -> None:
+        screen_brightness = self.cfg.get_option("display_brightness")
+        set_brightness(screen_brightness, self.cfg)
+        self.display_device.device.show()
+
+    def sleep_screen(self):
+        screen_brightness = self.cfg.get_option("display_brightness")
+        set_brightness(int(screen_brightness / 4), self.cfg)
+        self.display_device.device.show()
 
 
 def main(
@@ -370,7 +430,7 @@ def main(
         )
         posserver_process.start()
 
-        # Start main event loop
+        # Initialize Catalogs
         console.write("   Catalogs")
         console.update()
 
@@ -401,12 +461,14 @@ def main(
             catalogs,
         )
 
+        # Initialize power manager
+        power_manager = PowerManager(cfg, shared_state, display_device)
+
         # Start main event loop
         console.write("   Event Loop")
         console.update()
 
         # Start of main except handler / loop
-        screen_dim, screen_off = _calculate_timeouts(cfg)
         try:
             while True:
                 # Console
@@ -469,170 +531,133 @@ def main(
                 except queue.Empty:
                     pass
 
-                if keycode is not None:
-                    # logger.debug("Keycode: %s", keycode)
-                    screen_dim, screen_off = _calculate_timeouts(cfg)
-                    original_power_state = wake_screen(
-                        screen_brightness, shared_state, cfg
-                    )
-
+                # Register activity here will return True if the power
+                # state changes.  If so, we DO NOT process this keystroke
+                if keycode is not None and power_manager.register_activity() is False:
                     # ignore keystroke if we have been asleep
-                    if original_power_state > 0:
-                        if keycode > 99:
-                            # Long left is return to top
-                            if keycode == keyboard_base.LNG_LEFT:
-                                menu_manager.key_long_left()
+                    if keycode > 99:
+                        # Long left is return to top
+                        if keycode == keyboard_base.LNG_LEFT:
+                            menu_manager.key_long_left()
 
-                            # Long right is return to last observed object
-                            if keycode == keyboard_base.LNG_RIGHT:
-                                menu_manager.key_long_right()
+                        # Long right is return to last observed object
+                        if keycode == keyboard_base.LNG_RIGHT:
+                            menu_manager.key_long_right()
 
-                            # Long square is marking menu
-                            if keycode == keyboard_base.LNG_SQUARE:
-                                menu_manager.key_long_square()
+                        # Long square is marking menu
+                        if keycode == keyboard_base.LNG_SQUARE:
+                            menu_manager.key_long_square()
 
-                            # Special codes....
-                            if (
-                                keycode == keyboard_base.ALT_PLUS
-                                or keycode == keyboard_base.ALT_MINUS
-                            ):
-                                if keycode == keyboard_base.ALT_PLUS:
-                                    screen_brightness = screen_brightness + 10
-                                    if screen_brightness > 255:
-                                        screen_brightness = 255
-                                else:
-                                    screen_brightness = screen_brightness - 10
-                                    if screen_brightness < 1:
-                                        screen_brightness = 1
+                        # Special codes....
+                        if (
+                            keycode == keyboard_base.ALT_PLUS
+                            or keycode == keyboard_base.ALT_MINUS
+                        ):
+                            if keycode == keyboard_base.ALT_PLUS:
+                                screen_brightness = screen_brightness + 10
+                                if screen_brightness > 255:
+                                    screen_brightness = 255
+                            else:
+                                screen_brightness = screen_brightness - 10
+                                if screen_brightness < 0:
+                                    screen_brightness = 0
 
-                                set_brightness(screen_brightness, cfg)
-                                cfg.set_option("display_brightness", screen_brightness)
-                                console.write("Brightness: " + str(screen_brightness))
+                            set_brightness(screen_brightness, cfg)
+                            cfg.set_option("display_brightness", screen_brightness)
+                            console.write("Brightness: " + str(screen_brightness))
 
-                            if keycode == keyboard_base.ALT_0:
-                                # screenshot
-                                menu_manager.screengrab()
-                                console.write("Screenshot saved")
+                        if keycode == keyboard_base.ALT_0:
+                            # screenshot
+                            menu_manager.screengrab()
+                            console.write("Screenshot saved")
 
-                            if keycode == keyboard_base.ALT_RIGHT:
-                                # Debug snapshot
-                                uid = str(uuid.uuid1()).split("-")[0]
+                        if keycode == keyboard_base.ALT_RIGHT:
+                            # Debug snapshot
+                            uid = str(uuid.uuid1()).split("-")[0]
 
-                                # current screen
-                                ss = menu_manager.stack[-1].screen.copy()
+                            # current screen
+                            ss = menu_manager.stack[-1].screen.copy()
 
-                                # wait two seconds for any vibration from
-                                # pressing the button to pass.
-                                menu_manager.message("Debug: 2", 1)
-                                time.sleep(1)
-                                menu_manager.message("Debug: 1", 1)
-                                time.sleep(1)
-                                menu_manager.message("Debug: Saving", 1)
-                                time.sleep(1)
-                                debug_image = camera_image.copy()
-                                debug_solution = shared_state.solution()
-                                debug_location = shared_state.location()
-                                debug_dt = shared_state.datetime()
+                            # wait two seconds for any vibration from
+                            # pressing the button to pass.
+                            menu_manager.message("Debug: 2", 1)
+                            time.sleep(1)
+                            menu_manager.message("Debug: 1", 1)
+                            time.sleep(1)
+                            menu_manager.message("Debug: Saving", 1)
+                            time.sleep(1)
+                            debug_image = camera_image.copy()
+                            debug_solution = shared_state.solution()
+                            debug_location = shared_state.location()
+                            debug_dt = shared_state.datetime()
 
-                                # write images
-                                debug_image.save(
-                                    f"{utils.debug_dump_dir}/{uid}_raw.png"
-                                )
-                                debug_image = subtract_background(debug_image)
-                                debug_image = debug_image.convert("RGB")
-                                debug_image = ImageOps.autocontrast(debug_image)
-                                debug_image.save(
-                                    f"{utils.debug_dump_dir}/{uid}_sub.png"
-                                )
+                            # write images
+                            debug_image.save(f"{utils.debug_dump_dir}/{uid}_raw.png")
+                            debug_image = subtract_background(debug_image)
+                            debug_image = debug_image.convert("RGB")
+                            debug_image = ImageOps.autocontrast(debug_image)
+                            debug_image.save(f"{utils.debug_dump_dir}/{uid}_sub.png")
 
-                                ss.save(f"{utils.debug_dump_dir}/{uid}_screenshot.png")
+                            ss.save(f"{utils.debug_dump_dir}/{uid}_screenshot.png")
 
+                            with open(
+                                f"{utils.debug_dump_dir}/{uid}_solution.json", "w"
+                            ) as f:
+                                json.dump(debug_solution, f, indent=4)
+
+                            with open(
+                                f"{utils.debug_dump_dir}/{uid}_location.json", "w"
+                            ) as f:
+                                json.dump(debug_location, f, indent=4)
+
+                            if debug_dt is not None:
                                 with open(
-                                    f"{utils.debug_dump_dir}/{uid}_solution.json", "w"
+                                    f"{utils.debug_dump_dir}/{uid}_datetime.json",
+                                    "w",
                                 ) as f:
-                                    json.dump(debug_solution, f, indent=4)
+                                    json.dump(debug_dt.isoformat(), f, indent=4)
 
-                                with open(
-                                    f"{utils.debug_dump_dir}/{uid}_location.json", "w"
-                                ) as f:
-                                    json.dump(debug_location, f, indent=4)
+                            # Dump shared state
+                            shared_state.serialize(
+                                f"{utils.debug_dump_dir}/{uid}_sharedstate.pkl"
+                            )
 
-                                if debug_dt is not None:
-                                    with open(
-                                        f"{utils.debug_dump_dir}/{uid}_datetime.json",
-                                        "w",
-                                    ) as f:
-                                        json.dump(debug_dt.isoformat(), f, indent=4)
+                            # Dump UI State
+                            with open(
+                                f"{utils.debug_dump_dir}/{uid}_uistate.json", "wb"
+                            ) as f:
+                                pickle.dump(ui_state, f)
 
-                                # Dump shared state
-                                shared_state.serialize(
-                                    f"{utils.debug_dump_dir}/{uid}_sharedstate.pkl"
-                                )
+                            console.write(f"Debug dump: {uid}")
+                            menu_manager.message("Debug Info Saved", timeout=1)
 
-                                # Dump UI State
-                                with open(
-                                    f"{utils.debug_dump_dir}/{uid}_uistate.json", "wb"
-                                ) as f:
-                                    pickle.dump(ui_state, f)
+                    else:
+                        if keycode < 10:
+                            menu_manager.key_number(keycode)
 
-                                console.write(f"Debug dump: {uid}")
-                                menu_manager.message("Debug Info Saved", timeout=1)
+                        elif keycode == keyboard_base.PLUS:
+                            menu_manager.key_plus()
 
-                        else:
-                            if keycode < 10:
-                                menu_manager.key_number(keycode)
+                        elif keycode == keyboard_base.MINUS:
+                            menu_manager.key_minus()
 
-                            elif keycode == keyboard_base.PLUS:
-                                menu_manager.key_plus()
+                        elif keycode == keyboard_base.SQUARE:
+                            menu_manager.key_square()
 
-                            elif keycode == keyboard_base.MINUS:
-                                menu_manager.key_minus()
+                        elif keycode == keyboard_base.LEFT:
+                            menu_manager.key_left()
 
-                            elif keycode == keyboard_base.SQUARE:
-                                menu_manager.key_square()
+                        elif keycode == keyboard_base.UP:
+                            menu_manager.key_up()
 
-                            elif keycode == keyboard_base.LEFT:
-                                menu_manager.key_left()
+                        elif keycode == keyboard_base.DOWN:
+                            menu_manager.key_down()
 
-                            elif keycode == keyboard_base.UP:
-                                menu_manager.key_up()
-
-                            elif keycode == keyboard_base.DOWN:
-                                menu_manager.key_down()
-
-                            elif keycode == keyboard_base.RIGHT:
-                                menu_manager.key_right()
+                        elif keycode == keyboard_base.RIGHT:
+                            menu_manager.key_right()
 
                 menu_manager.update()
-
-                # check for coming out of power save...
-                if get_sleep_timeout(cfg) or get_screen_off_timeout(cfg):
-                    # make sure that if there is a sleep
-                    # time configured, the timouts are reset
-                    if screen_dim is None:
-                        screen_dim, screen_off = _calculate_timeouts(cfg)
-
-                    _imu = shared_state.imu()
-                    if _imu:
-                        if _imu["moving"]:
-                            screen_dim, screen_off = _calculate_timeouts(cfg)
-                            wake_screen(screen_brightness, shared_state, cfg)
-                            shared_state.set_power_state(1)  # Normal
-
-                    power_state = shared_state.power_state()
-                    # Check for going into power save...
-                    if screen_off and time.time() > screen_off and power_state != -1:
-                        shared_state.set_power_state(-1)  # screen off
-                        keypad_value = (
-                            3 if cfg.get_option("keypad_brightness") != "Off" else 0
-                        )
-                        set_keypad_brightness(keypad_value)
-                        display_device.device.hide()
-                    elif screen_dim and time.time() > screen_dim and power_state == 1:
-                        shared_state.set_power_state(0)  # screen dimmed
-                        set_brightness(int(screen_brightness / 4), cfg)
-                    if power_state < 1:
-                        time.sleep(0.2)
+                power_manager.update()
 
         except KeyboardInterrupt:
             logger.info("KeyboardInterrupt received: shutting down.")
@@ -789,6 +814,7 @@ if __name__ == "__main__":
         rlogger.setLevel(logging.DEBUG)
 
     import importlib
+
     if args.fakehardware:
         hardware_platform = "Fake"
         display_hardware = "pg_128"
@@ -799,6 +825,7 @@ if __name__ == "__main__":
         hardware_platform = "Pi"
         display_hardware = "ssd1351"
         from rpi_hardware_pwm import HardwarePWM
+
         imu = importlib.import_module("PiFinder.imu_pi")
         gps_monitor = importlib.import_module("PiFinder.gps_pi")
 
