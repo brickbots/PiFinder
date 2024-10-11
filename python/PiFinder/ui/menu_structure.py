@@ -20,6 +20,12 @@ pifinder_menu = {
             "class": UIPreview,
         },
         {
+            "name": "Align",
+            "class": UIAlign,
+            "stateful": True,
+            "preload": True,
+        },
+        {
             "name": "Chart",
             "class": UIChart,
             "stateful": True,

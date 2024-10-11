@@ -1,8 +1,9 @@
 import glob
 import re
 from typing import Dict, Any
-import sh
+
 try:
+    import sh
     from sh import wpa_cli, unzip, su, passwd
     REAL_SYS_UTILS = True
 except ImportError:
@@ -67,7 +68,7 @@ class Network:
                 network_id += 1
 
             elif in_network_block:
-                match = re.match(r'(\w+)=(.+)', line)
+                match = re.match(r"(\w+)=(.+)", line)
                 if match:
                     key, value = match.groups()
                     if key in network_dict:
