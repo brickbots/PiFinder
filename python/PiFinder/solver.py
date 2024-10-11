@@ -31,6 +31,7 @@ def find_target_pixel(t3, fov_estimate, centroids, ra, dec):
     Searches the most recent solve for a pixel
     that matches the requested RA/DEC the best
     """
+    print(f"{len(centroids)=}")
     search_center = (256, 256)
     search_distance = 128
     while search_distance >= 1:
@@ -46,18 +47,25 @@ def find_target_pixel(t3, fov_estimate, centroids, ra, dec):
         # probe points
         min_dist = 100000
         for search_point in search_points:
-            try:
-                point_sol = t3.solve_from_centroids(
-                    centroids,
-                    (512, 512),
-                    fov_estimate=fov_estimate,
-                    fov_max_error=0.2,
-                    return_matches=False,
-                    target_pixel=[search_point[0], search_point[1]],
-                    solve_timeout=1000,
-                )
-            except Exception:
-                return (-1, -1)
+            solve_fails=0
+            point_sol = {}
+            while point_sol.get("RA_target") is None:
+                solve_fails +=1
+                if solve_fails > 10:
+                    print("Too many fails")
+                    return (-1,-1)
+                try:
+                    point_sol = t3.solve_from_centroids(
+                        centroids,
+                        (512, 512),
+                        fov_estimate=fov_estimate,
+                        fov_max_error=0.2,
+                        return_matches=False,
+                        target_pixel=[search_point[0], search_point[1]],
+                        solve_timeout=1000,
+                    )
+                except Exception:
+                    return (-1, -1)
 
             # distance...
             p_dist = np.hypot(
@@ -135,22 +143,22 @@ def solver(
                     except queue.Empty:
                         command = False
 
-                if command is not False:
-                    if command[0] == "align_on_radec":
-                        logger.debug("Align Command Received")
-                        # search image pixels to find the best match
-                        # for this RA/DEC and set it as alignment pixel
-                        align_ra = command[1]
-                        align_dec = command[2]
-                        align_target_pixel = find_target_pixel(
-                            t3=t3,
-                            fov_estimate=solved["FOV"],
-                            centroids=centroids,
-                            ra=align_ra,
-                            dec=align_dec,
-                        )
-                        logger.debug(f"Align {align_target_pixel=}")
-                        align_result_queue.put(["aligned", align_target_pixel])
+                    if command is not False:
+                        if command[0] == "align_on_radec":
+                            logger.debug("Align Command Received")
+                            # search image pixels to find the best match
+                            # for this RA/DEC and set it as alignment pixel
+                            align_ra = command[1]
+                            align_dec = command[2]
+                            align_target_pixel = find_target_pixel(
+                                t3=t3,
+                                fov_estimate=solved["FOV"],
+                                centroids=centroids,
+                                ra=align_ra,
+                                dec=align_dec,
+                            )
+                            logger.debug(f"Align {align_target_pixel=}")
+                            align_result_queue.put(["aligned", align_target_pixel])
 
                 state_utils.sleep_for_framerate(shared_state)
 
