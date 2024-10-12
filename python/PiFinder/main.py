@@ -299,7 +299,7 @@ def main(
         shared_state.set_ui_state(ui_state)
         shared_state.set_arch(arch)  # Normal
         logger.debug("Ui state in main is" + str(shared_state.ui_state()))
-        console = UIConsole(display_device, None, shared_state, command_queues, cfg)
+        console = UIConsole(display_device, None, shared_state, command_queues, cfg, Catalogs([]))
         console.write("Starting....")
         console.update()
 
@@ -434,7 +434,8 @@ def main(
         console.write("   Catalogs")
         console.update()
 
-        catalogs: Catalogs = CatalogBuilder().build()
+        # Initialize Catalogs
+        catalogs: Catalogs = CatalogBuilder().build(shared_state)
 
         # Establish the common catalog filter object
         catalogs.set_catalog_filter(
@@ -752,7 +753,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-fh",
         "--fakehardware",
-        help="Use a fake hardware for imu, gps",
+        help="Use fake hardware for imu, gps",
         default=False,
         action="store_true",
         required=False,
@@ -818,8 +819,8 @@ if __name__ == "__main__":
         hardware_platform = "Fake"
         display_hardware = "pg_128"
         imu = importlib.import_module("PiFinder.imu_fake")
-        # gps_monitor = importlib.import_module("PiFinder.gps_fake")
-        gps_monitor = importlib.import_module("PiFinder.gps_pi")
+        gps_monitor = importlib.import_module("PiFinder.gps_fake")
+        # gps_monitor = importlib.import_module("PiFinder.gps_pi")
     else:
         hardware_platform = "Pi"
         display_hardware = "ssd1351"

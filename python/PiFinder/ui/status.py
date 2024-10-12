@@ -8,14 +8,10 @@ This module contains all the UI Module classes
 import time
 
 from PiFinder.ui.base import UIModule
-
-try:
-    from PiFinder import sys_utils
-except ImportError:
-    from PiFinder import sys_utils_fake as sys_utils  # type: ignore[no-redef]
 from PiFinder import calc_utils
 from PiFinder import utils
 from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed
+sys_utils = utils.get_sys_utils()
 
 
 class UIStatus(UIModule):

@@ -78,6 +78,8 @@ class UIObjectList(UITextMenu):
         self.mount_type = self.config_object.get_option("mount_type")
 
         self._menu_items: list[CompositeObject] = []
+        self.catalog_info_1: str = ""
+        self.catalog_info_2: str = ""
 
         # Init display mode defaults
         self.mode_cycle = cycle(DisplayModes)
@@ -166,7 +168,8 @@ class UIObjectList(UITextMenu):
             for catalog in self.catalogs.get_catalogs(only_selected=False):
                 if catalog.catalog_code == self.item_definition["value"]:
                     self._menu_items = catalog.get_filtered_objects()
-                    # logging.debug(f"Filtered object list: {len(self._menu_items)}")
+                    age = catalog.get_age()
+                    self.catalog_info_2 = "" if age is None else str(round(age, 0))
 
         if self.item_definition["objects"] == "recent":
             self._menu_items = self.ui_state.recent_list()
@@ -175,6 +178,7 @@ class UIObjectList(UITextMenu):
             # item_definition must contain a list of CompositeObjects
             self._menu_items = self.item_definition["object_list"]
 
+        self.catalog_info_1 = str(self.get_nr_of_menu_items())
         self._menu_items_sorted = self._menu_items
         self.sort()
 
@@ -187,7 +191,8 @@ class UIObjectList(UITextMenu):
             self._current_item_index = 0
 
         if self.current_sort == SortOrder.NEAREST:
-            self._menu_items = self.catalogs.catalog_filter.apply(self._menu_items)
+            if self.catalogs.catalog_filter:
+                self._menu_items = self.catalogs.catalog_filter.apply(self._menu_items)
             self.nearby.set_items(self._menu_items)
             self.nearby_refresh()
             self._current_item_index = 3
@@ -360,7 +365,7 @@ class UIObjectList(UITextMenu):
         begin_x = 12
 
         # no objects to display
-        if len(self._menu_items) == 0:
+        if self.get_nr_of_menu_items() == 0:
             self.draw.text(
                 (begin_x, self.line_position(2)),
                 "No objects",
@@ -385,6 +390,12 @@ class UIObjectList(UITextMenu):
             intensity: int = int(64 + ((2.0 - self._current_item_index) * 32.0))
             self.draw.text(
                 (begin_x, self.line_position(0)),
+                f"{self.catalog_info_1} obj{f', {self.catalog_info_2}d old' if self.catalog_info_2 else ''}",
+                font=self.fonts.bold.font,
+                fill=self.colors.get(intensity),
+            )
+            self.draw.text(
+                (begin_x, self.line_position(1)),
                 f"Sort: {'Catalog' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'Nearby'}",
                 font=self.fonts.bold.font,
                 fill=self.colors.get(intensity),
@@ -569,7 +580,8 @@ class UIObjectList(UITextMenu):
         When right is pressed, move to
         object info screen
         """
-        if len(self._menu_items_sorted) < self._current_item_index:
+        nr_menu_items = self.get_nr_of_menu_items()
+        if nr_menu_items < self._current_item_index or nr_menu_items == 0:
             return
 
         # turn off input box if it's there

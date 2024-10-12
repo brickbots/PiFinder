@@ -27,17 +27,18 @@ class MagnitudeObject:
             self.filter_mag = self.UNKNOWN_MAG
 
     def _filter_floats(self) -> List[float]:
+        """ only used valid floats for magnitude"""
         return [float(x) for x in self.mags if is_number(x)]
 
     def calc_two_mag_representation(self):
         """reduce the mags to a string with max 2 values"""
-        if len(self.mags) == 0 or self.filter_mag == self.UNKNOWN_MAG:
+        filtered = self._filter_floats()
+        if len(filtered) == 0 or self.filter_mag == self.UNKNOWN_MAG:
             return "-"
-        elif len(self.mags) == 1:
-            return self.mags[0]
+        if len(filtered) == 1:
+            return f"{filtered[0]:.1f}"
         else:
-            filtered = self._filter_floats()
-            return f"{np.min(filtered)}/{np.max(filtered)}"
+            return f"{np.min(filtered):.1f}/{np.max(filtered):.1f}"
 
     def to_json(self):
         return json.dumps({"mags": self.mags, "filter_mag": self.filter_mag})

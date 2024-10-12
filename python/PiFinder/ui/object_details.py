@@ -230,6 +230,11 @@ class UIObjectDetails(UIModule):
     def active(self):
         self.activation_time = time.time()
 
+    def _check_catalog_initialised(self):
+        code = self.object.catalog_code
+        catalog = self.catalogs.get_catalog_by_code(code)
+        return catalog and catalog.initialised
+
     def _render_pointing_instructions(self):
         # Pointing Instructions
         indicator_color = 255 if self._unmoved else 128
@@ -269,6 +274,19 @@ class UIObjectDetails(UIModule):
             self._elipsis_count += 1
             if self._elipsis_count > 39:
                 self._elipsis_count = 0
+        elif not self._check_catalog_initialised():
+            self.draw.text(
+                (10, 70),
+                "Calculating",
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
+            self.draw.text(
+                (10, 90),
+                f"positions{'.' * int(self._elipsis_count / 10)}",
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
         else:
             if point_az < 0:
                 point_az *= -1
