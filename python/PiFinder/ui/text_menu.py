@@ -221,7 +221,7 @@ class UITextMenu(UIModule):
 
                 self.config_object.set_option(config_option, self._selected_values)
                 # are we setting active catalogs
-                if config_option == "active_catalogs":
+                if config_option == "filter.selected_catalogs":
                     self.catalogs.select_no_catalogs()
                     self.catalogs.select_catalogs(self._selected_values)
                     self.catalogs.catalog_filter.selected_catalogs = (
