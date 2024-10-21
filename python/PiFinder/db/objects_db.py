@@ -116,8 +116,7 @@ class ObjectsDatabase(Database):
         """Combines objects and object_images tables"""
         self.cursor.execute(
             """
-                SELECT objects.*,image_name FROM objects
-                LEFT JOIN object_images on object_id=objects.id;
+                SELECT objects.* FROM objects;
             """
         )
         return self.cursor.fetchall()
