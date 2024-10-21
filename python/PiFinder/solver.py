@@ -16,15 +16,17 @@ import logging
 import sys
 from time import perf_counter as precision_timestamp
 
+from PiFinder.utils import Timer
 from PiFinder import state_utils
 from PiFinder import utils
+from PiFinder.sqm import SQM
 
 sys.path.append(str(utils.tetra3_dir))
 import PiFinder.tetra3.tetra3 as tetra3
 from PiFinder.tetra3.tetra3 import cedar_detect_client
 
 logger = logging.getLogger("Solver")
-
+sqm = SQM()
 
 def find_target_pixel(t3, fov_estimate, centroids, ra, dec):
     """
@@ -183,6 +185,7 @@ def solver(
                             np_image, sigma=8, max_size=10, use_binned=True
                         )
                     t_extract = (precision_timestamp() - t0) * 1000
+
                     logger.debug(
                         "File %s, extracted %d centroids in %.2fms"
                         % ("camera", len(centroids), t_extract)
@@ -214,6 +217,10 @@ def solver(
                             del solution["cache_hit_fraction"]
 
                     solved |= solution
+
+                    # Calculate SQM
+                    measured_sqm = sqm.calculate(solved["FOV"], centroids, solution, np_image)
+                    solved["SQM"] = measured_sqm
 
                     total_tetra_time = t_extract + solved["T_solve"]
                     if total_tetra_time > 1000:
