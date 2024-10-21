@@ -145,4 +145,7 @@ astro_data/hip_main.dat
 *.3mf
 *.gcode
 case/my_printer
-
+# sqlite write-ahead log file and the shared memory file used by WAL mode.
+*.db-shm
+*.db-wal
+comets.txt

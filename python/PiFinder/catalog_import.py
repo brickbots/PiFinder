@@ -15,8 +15,6 @@ from pathlib import Path
 from typing import Dict
 from dataclasses import dataclass, field
 from PiFinder.composite_object import MagnitudeObject
-
-# from PiFinder.obj_types import OBJ_DESCRIPTORS
 import PiFinder.utils as utils
 from PiFinder.ui.ui_utils import normalize
 from PiFinder.calc_utils import (
@@ -29,6 +27,7 @@ from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from collections import namedtuple, defaultdict
 import sqlite3
+import numpy as np
 
 objects_db: ObjectsDatabase
 observations_db: ObservationsDatabase
@@ -47,7 +46,7 @@ class NewCatalogObject:
     description: str = ""
     aka_names: list[str] = field(default_factory=list)
 
-    def insert(self):
+    def insert(self, find_object_id=True):
         """
         Inserts object into DB
         """
@@ -56,34 +55,50 @@ class NewCatalogObject:
             raise TypeError("Aka names not list")
 
         # Check to see if this object matches one in the DB already
-        self.find_object_id()
+        # This is a costly operation, so disabled for 'source' catalogs like WDS
+        if find_object_id:
+            self.find_object_id()
 
-        if self.object_id == 0:
-            # Did not find a match, first insert object info
-            self.find_constellation()
-            assert isinstance(self.mag, MagnitudeObject)
+        try:
+            objects_db.conn.execute("BEGIN TRANSACTION")
 
-            self.object_id = objects_db.insert_object(
-                self.object_type,
-                self.ra,
-                self.dec,
-                self.constellation,
-                self.size,
-                self.mag.to_json(),
+            if self.object_id == 0:
+                # Did not find a match, first insert object info
+                self.find_constellation()
+                assert isinstance(self.mag, MagnitudeObject)
+
+                self.object_id = objects_db.insert_object(
+                    self.object_type,
+                    self.ra,
+                    self.dec,
+                    self.constellation,
+                    self.size,
+                    self.mag.to_json(),
+                    commit=False,
+                )
+
+            # By the time we get here, we have an object_id
+            objects_db.insert_catalog_object(
+                self.object_id, self.catalog_code, self.sequence, self.description, commit=False
             )
 
-        # By the time we get here, we have an object_id
-        objects_db.insert_catalog_object(
-            self.object_id, self.catalog_code, self.sequence, self.description
-        )
-
-        # now the names
-        # First, catalog name
-        objects_db.insert_name(
-            self.object_id, f"{self.catalog_code} {self.sequence}", self.catalog_code
-        )
-        for aka in self.aka_names:
-            objects_db.insert_name(self.object_id, aka, self.catalog_code)
+            # now the names
+            # First, catalog name
+            objects_db.insert_name(
+                self.object_id, f"{self.catalog_code} {self.sequence}", self.catalog_code, commit=False
+            )
+            for aka in self.aka_names:
+                objects_db.insert_name(self.object_id, aka, self.catalog_code, commit=False)
+            objects_db.conn.commit()
+            logging.debug("Transaction committed successfully")
+        except sqlite3.Error as e:
+            objects_db.conn.rollback()
+            logging.error(f"An error occurred: {e}")
+            print("An error occurred:", e)
+            raise
+        finally:
+            if objects_db.conn:
+                objects_db.conn.rollback()  # This will do nothing if the transaction was already committed
 
     def find_constellation(self):
         """
@@ -268,44 +283,6 @@ def insert_catalog_max_sequence(catalog_name):
     # print(query)
     db_c.execute(query)
     conn.commit()
-
-
-def resolve_object_images():
-    # This is the list of catalogs to search for
-    # objects to match against image names
-    _conn, db_c = objects_db.get_conn_cursor()
-    resolution_priority = db_c.execute(
-        """
-            SELECT catalog_code
-            FROM catalogs
-            ORDER BY rowid
-        """
-    ).fetchall()
-
-    # load all objects in objects table
-    all_objects = objects_db.get_objects()
-
-    for obj_record in tqdm(all_objects):
-        resolved_name = None
-        for entry in resolution_priority:
-            catalog_code = entry["catalog_code"]
-            catalog_check = db_c.execute(
-                f"""
-                    SELECT sequence
-                    FROM catalog_objects
-                    WHERE catalog_code = '{catalog_code}'
-                    AND object_id = {obj_record['id']}
-                """
-            ).fetchone()
-            if catalog_check:
-                # Found a match!
-                resolved_name = f"{catalog_code}{catalog_check['sequence']}"
-                break
-
-        if not resolved_name:
-            logging.warning(f"No catalog entries for object: { obj_record['id']}")
-        else:
-            objects_db.insert_image_object(obj_record["id"], resolved_name)
 
 
 # not used atm
@@ -1335,6 +1312,188 @@ def load_abell():
     conn.commit()
 
 
+def read_wds_catalog(file_path):
+    # Define the column specifications
+    col_specs = [
+        (0, 10),     # coords
+        (10, 17),    # discoverer
+        (17, 22),    # components
+        (23, 27),    # date_first
+        (28, 32),    # date_last
+        (33, 37),    # num_obs
+        (38, 41),    # pa_first
+        (42, 45),    # pa_last
+        (46, 51),    # sep_first
+        (52, 57),    # sep_last
+        (58, 63),    # mag_first
+        (64, 69),    # mag_second
+        (70, 79),    # spectral_type
+        (80, 84),    # pm_ra_primary
+        (84, 88),    # pm_dec_primary
+        (89, 93),    # pm_ra_secondary
+        (93, 97),    # pm_dec_secondary
+        (98, 106),   # dm_number
+        (107, 111),  # notes
+        (112, 130)   # coords_arc
+    ]
+
+    # Define dtype for structured array
+    dtype = [
+        ('Coordinates_2000', 'U10'), ('Discoverer_Number', 'U7'), ('Components', 'U5'),
+        ('Date_First', 'i4'), ('Date_Last', 'i4'), ('Num_Observations', 'i4'),
+        ('PA_First', 'f4'), ('PA_Last', 'f4'), ('Sep_First', 'f4'), ('Sep_Last', 'f4'),
+        ('Mag_First', 'f4'), ('Mag_Second', 'f4'), ('Spectral_Type', 'U9'),
+        ('PM_RA_Primary', 'i4'), ('PM_Dec_Primary', 'i4'), ('PM_RA_Secondary', 'i4'),
+        ('PM_Dec_Secondary', 'i4'), ('DM_Number', 'U8'), ('Notes', 'U4'),
+        ('Coordinates_Arcsec', 'U18')
+    ]
+
+    def parse_line(line):
+        return tuple(parse_field(line[start:end].strip(), dtype) for (start, end), (_, dtype) in zip(col_specs, dtype))
+
+    def parse_field(value, dtype):
+        value = value.strip()
+        if dtype.startswith('U'):
+            return value
+        elif dtype == 'i4':
+            return int(value) if value and value != '.' else 0
+        elif dtype == 'f4':
+            try:
+                return float(value) if value and value != '.' else 0.0
+            except ValueError:
+                return 0.0
+
+    data = []
+    with open(file_path, 'r') as file:
+        for line in file:
+            data.append(parse_line(line))
+
+    return np.array(data, dtype=dtype)
+
+
+def load_wds():
+    logging.info("Loading WDS")
+    catalog = "WDS"
+    obj_type = "D*"
+    conn, _ = objects_db.get_conn_cursor()
+    data_path = Path(utils.astro_data_dir, "WDS/wds_precise.txt")
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, Path(utils.astro_data_dir) / "WDS/wds.desc")
+    data = read_wds_catalog(data_path)
+
+    def parse_coordinates_2000(coord):
+        ra_h = float(coord[:2])
+        ra_m = float(coord[2:4])
+        ra_s = float(coord[4:5]) * 6  # Convert tenths of minutes to seconds
+        dec_deg = float(coord[5:8])
+        dec_m = float(coord[8:10])
+        return ra_to_deg(ra_h, ra_m, ra_s), dec_to_deg(dec_deg, dec_m, 0)
+
+    def parse_coordinates_arcsec(coord):
+        try:
+            ra_h = float(coord[:2])
+            ra_m = float(coord[2:4])
+            ra_s = float(coord[4:9])
+            dec_sign = 1 if coord[9] == '+' else -1
+            dec_deg = float(coord[10:12]) * dec_sign
+            dec_m = float(coord[12:14])
+            dec_s = float(coord[14:])
+            # 00000+7530A  000006.64+752859.8
+        except ValueError:
+            return None, None
+        return ra_to_deg(ra_h, ra_m, ra_s), dec_to_deg(dec_deg, dec_m, dec_s)
+
+    def handle_multiples(key, values) -> dict:
+        discoverers = set()
+        components = {}
+        result = {}
+        descriptions = []
+        for i, value in enumerate(values):
+            mag1 = round(value['Mag_First'].item(), 2)
+            mag2 = round(value['Mag_Second'].item(), 2)
+            if i == 0:
+                result['ra'] = value['ra']
+                result['dec'] = value['dec']
+                result['mag'] = MagnitudeObject([mag1, mag2])
+                sizemax = np.max([value['Sep_First'], value['Sep_Last']])
+                result['size'] = str(round(sizemax, 1))
+            discoverers.add(value['Discoverer_Number'])
+            notes = value['Notes'].strip()
+            notes_str = "" if len(notes) == 0 else f" Notes: {notes}"
+            components = value['Components'].strip()
+            components_str = "" if len(components) == 0 else f"{components}: "
+            pa = value['PA_Last']
+            pa_str = f", PA={pa} ({value['Date_Last']})"
+            sep = value['Sep_Last'].item()
+            sep_str = f", Sep={sep}"
+            mag_str = f"Mag={mag1}/{mag2}"
+
+            descriptions.append(f"{components_str}{mag_str}{pa_str}{sep_str}{notes_str}")
+
+        result['discoverers'] = list(discoverers)
+        result['name'] = key
+        result['description'] = "\n".join(descriptions)
+        return result
+
+    # Convert coordinates
+    ra_2000, dec_2000 = np.vectorize(parse_coordinates_2000)(data['Coordinates_2000'])
+    ra_arcsec, dec_arcsec = np.vectorize(parse_coordinates_arcsec)(data['Coordinates_Arcsec'])
+
+    # Add these new coordinates to the numpy array
+    new_dtype = data.dtype.descr + [('ra_2000', 'f8'), ('dec_2000', 'f8'), ('ra_arcsec', 'f8'), ('dec_arcsec', 'f8'), ('ra', 'f8'), ('dec', 'f8')]
+    new_data = np.empty(data.shape, dtype=new_dtype)
+
+    # Copy existing data
+    for name in data.dtype.names:
+        new_data[name] = data[name]
+
+    # Add new data
+    new_data['ra_2000'] = ra_2000
+    new_data['dec_2000'] = dec_2000
+    new_data['ra_arcsec'] = ra_arcsec
+    new_data['dec_arcsec'] = dec_arcsec
+    new_data['ra'] = 0
+    new_data['dec'] = 0
+
+    # Replace the old data with the new data
+    data = new_data
+
+    # Append new columns to data
+    for i, entry in enumerate(data):
+        if ra_arcsec[i] is None or dec_arcsec[i] is None:
+            entry['ra'] = ra_2000[i]
+            entry['dec'] = dec_2000[i]
+        else:
+            entry['ra'] = ra_arcsec[i]
+            entry['dec'] = dec_arcsec[i]
+
+    # make a dictionary of WDS objects to group duplicates
+    wds_dict = defaultdict(list)
+
+    for line, entry in enumerate(tqdm(data, total=len(data))):
+        wds_dict[entry['Coordinates_2000']].append(entry)
+
+    seq = 1
+    for key, value in tqdm(wds_dict.items(), total=len(wds_dict.items())):
+        current_result = handle_multiples(key, value)
+        new_object = NewCatalogObject(
+            object_type=obj_type,
+            catalog_code=catalog,
+            sequence=seq,
+            ra=current_result["ra"],
+            dec=current_result["dec"],
+            mag=current_result["mag"],
+            size=current_result["size"],
+            aka_names=[current_result['name']] + current_result["discoverers"],
+            description=current_result["description"],
+        )
+        new_object.insert(find_object_id=False)
+        seq += 1
+
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
+
+
 def load_ngc_catalog():
     logging.info("Loading NGC catalog")
     conn, _db_c = objects_db.get_conn_cursor()
@@ -1489,6 +1648,7 @@ if __name__ == "__main__":
     # to keep some of the object referencing working
     # particularly starting with the NGC as the base
     load_ngc_catalog()
+    load_wds()
     load_caldwell()
     load_collinder()
     load_taas200()
@@ -1504,8 +1664,4 @@ if __name__ == "__main__":
     load_abell()
     load_arp()
     load_tlk_90_vars()
-
-    # Populate the images table
-    logging.info("Resolving object images...")
-    resolve_object_images()
     print_database()

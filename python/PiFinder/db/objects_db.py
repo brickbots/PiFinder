@@ -68,17 +68,20 @@ class ObjectsDatabase(Database):
         """
         )
 
-        # Create images_objects table
-        self.cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS object_images (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                object_id INTEGER,
-                image_name TEXT,
-                FOREIGN KEY (object_id) REFERENCES objects(id)
-            );
-        """
-        )
+        # Execute the PRAGMA statements for performance
+        self.cursor.execute("PRAGMA journal_mode = WAL")
+        self.cursor.execute("PRAGMA synchronous = NORMAL")
+        self.cursor.execute("PRAGMA journal_size_limit = 6144000")
+
+        # Optionally, you can check the settings
+        self.cursor.execute("PRAGMA journal_mode")
+        print(self.cursor.fetchone()[0])
+
+        self.cursor.execute("PRAGMA synchronous")
+        print(self.cursor.fetchone()[0])
+
+        self.cursor.execute("PRAGMA journal_size_limit")
+        print(self.cursor.fetchone()[0])
 
         # Commit changes to the database
         self.conn.commit()
@@ -94,7 +97,7 @@ class ObjectsDatabase(Database):
 
     # ---- OBJECTS methods ----
 
-    def insert_object(self, obj_type, ra, dec, const, size, mag):
+    def insert_object(self, obj_type, ra, dec, const, size, mag, commit=True):
         logging.debug(
             f"Inserting object {obj_type}, {ra}, {dec}, {const}, {size}, {mag}"
         )
@@ -105,7 +108,8 @@ class ObjectsDatabase(Database):
         """,
             (obj_type, ra, dec, const, size, mag),
         )
-        self.conn.commit()
+        if commit:
+            self.conn.commit()
         return self.cursor.lastrowid
 
     def get_objects(self):
@@ -131,7 +135,7 @@ class ObjectsDatabase(Database):
 
     # ---- NAMES methods ----
 
-    def insert_name(self, object_id, common_name, origin=""):
+    def insert_name(self, object_id, common_name, origin="", commit=True):
         common_name = common_name.strip()
         if common_name == "":
             logging.debug(f"Skipping empty name for {object_id}")
@@ -144,7 +148,8 @@ class ObjectsDatabase(Database):
         """,
             (object_id, common_name, origin),
         )
-        self.conn.commit()
+        if commit:
+            self.conn.commit()
 
     def get_name_by_object_id(self, object_id):
         self.cursor.execute("SELECT * FROM names WHERE object_id = ?;", (object_id,))
@@ -217,7 +222,7 @@ class ObjectsDatabase(Database):
 
     # ---- CATALOG_OBJECTS methods ----
 
-    def insert_catalog_object(self, object_id, catalog_code, sequence, description):
+    def insert_catalog_object(self, object_id, catalog_code, sequence, description, commit=True):
         logging.debug(
             f"Inserting catalog object '{object_id}' into '{catalog_code}-{sequence}', {description=}"
         )
@@ -228,7 +233,8 @@ class ObjectsDatabase(Database):
         """,
             (object_id, catalog_code, sequence, description),
         )
-        self.conn.commit()
+        if commit:
+            self.conn.commit()
 
     def get_catalog_objects_by_object_id(self, object_id):
         self.cursor.execute(
@@ -252,17 +258,6 @@ class ObjectsDatabase(Database):
     def get_catalog_objects(self):
         self.cursor.execute("SELECT * FROM catalog_objects;")
         return self.cursor.fetchall()
-
-    # ---- IMAGES_OBJECTS methods ----
-    def insert_image_object(self, object_id, image_name):
-        self.cursor.execute(
-            """
-            INSERT INTO object_images(object_id, image_name)
-            VALUES (?, ?);
-        """,
-            (object_id, image_name),
-        )
-        self.conn.commit()
 
     # Generic delete method for all tables
     def delete_by_id(self, table, record_id):
