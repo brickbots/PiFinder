@@ -219,7 +219,7 @@ def solver(
                     solved |= solution
 
                     # Calculate SQM
-                    measured_sqm = sqm.calculate(solved["FOV"], centroids, solution, np_image)
+                    measured_sqm = sqm.calculate(solved["FOV"], centroids, solution, np_image, radius=3)
                     solved["SQM"] = measured_sqm
 
                     total_tetra_time = t_extract + solved["T_solve"]
