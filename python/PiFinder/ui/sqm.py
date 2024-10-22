@@ -23,7 +23,7 @@ class UISQM(UIModule):
         sleep_for_framerate(self.shared_state)
         self.clear_screen()
 
-        if (self.shared_state.solution is None):
+        if (self.shared_state.solution is None or self.shared_state.solution()["SQM"] is None):
             return self.screen_update()
 
         self.draw.text(
