@@ -1,7 +1,9 @@
 import numpy as np
 import logging
+from typing import Tuple
 
 logger = logging.getLogger("Solver")
+
 
 class SQM():
     """
@@ -14,19 +16,20 @@ class SQM():
         - calculate sqm by using the known adu and the known magnitude of the matched stars
     """
 
-    def __init__(self, radius=4):
-        self.radius = radius
+    def __init__(self):
+        super()
 
     def _calc_degrees(self, degrees):
         self.degrees = degrees
         self.field_in_arcseconds = (degrees * 3600)**2
         self.pixel_arcseconds = self.field_in_arcseconds / 512**2
 
-    def calculate(self, fov_estimate, centroids, solution, image) -> float:
+    def calculate(self, fov_estimate, centroids, solution, image, radius=4) -> Tuple[float, list]:
         """
         Calculate SQM value from centroids and image
         """
         self._calc_degrees(fov_estimate)
+        self.radius = radius
         matched_centroids = solution["matched_centroids"]
         matched_stars = solution["matched_stars"]
         assert len(matched_centroids) == len(matched_stars)
@@ -37,9 +40,9 @@ class SQM():
         background_ADU_corrected = background_ADU - np.sum(all_stars_ADU)
         field_corrected = self.field_in_arcseconds - self.pixel_arcseconds * len(all_stars_ADU) * np.pi * self.radius**2
         background = background_ADU_corrected / field_corrected  # background ADU per arcsecond squared
-        sqm = self._calculate_sqm(background, matched_stars_ADU, matched_stars)
+        sqm, sqms = self._calculate_sqm(background, matched_stars_ADU, matched_stars)
         logger.debug(f"{background=}, {sqm=}")
-        return sqm
+        return sqm, sqms
 
     def _calculate_background(self, np_image) -> float:
         """
@@ -71,11 +74,11 @@ class SQM():
             results.append(annulus_sum)
         return results
 
-    def _calculate_sqm(self, background, matched_stars_ADU, matched_stars) -> float:
+    def _calculate_sqm(self, background, matched_stars_ADU, matched_stars) -> Tuple[float, list]:
         """
         Calculate SQM value from background
         """
-        smqs = []
+        sqms = []
         # take the ADU of the centroids and the mag of the matched stars
         for adu, star in zip(matched_stars_ADU, matched_stars):
             ratio = adu / background
@@ -83,7 +86,7 @@ class SQM():
                 continue
             mag = -2.5 * np.log10(1/ratio)
             sqm = star[2] + mag
-            smqs.append(sqm)
-        logger.debug(f"{smqs=}")
-        return float(np.median(smqs))
+            sqms.append(sqm)
+        logger.debug(f"{sqms=}")
+        return float(np.median(sqms)), sqms
 
