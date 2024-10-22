@@ -30,7 +30,8 @@ class SQM():
         """
         self._calc_degrees(fov_estimate)
         self.radius = radius
-        matched_centroids = solution["matched_centroids"]
+        centroids = np.array(centroids)[:, ::-1]
+        matched_centroids = np.array(solution["matched_centroids"])[:, ::-1]  # reverses the last dimension
         matched_stars = solution["matched_stars"]
         assert len(matched_centroids) == len(matched_stars)
 
