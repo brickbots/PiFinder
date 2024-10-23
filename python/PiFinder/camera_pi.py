@@ -54,16 +54,30 @@ class CameraPI(CameraInterface):
             # using this smaller scale auto-selects binning on the sensor...
             cam_config = self.camera.create_still_configuration({"size": (512, 512)})
         self.camera.configure(cam_config)
+        self._default_controls()
+        self.camera.start()
+
+    def _default_controls(self) -> None:
         self.camera.set_controls({"AeEnable": False})
         self.camera.set_controls({"AnalogueGain": self.gain})
         self.camera.set_controls({"ExposureTime": self.exposure_time})
-        self.camera.start()
 
     def capture(self) -> Image.Image:
         tmp_capture = self.camera.capture_image()
         if self.camera_type == "imx296":
             # Sensor orientation is different
             tmp_capture = tmp_capture.rotate(180)
+        return tmp_capture
+
+    def capture_bias(self) -> Image.Image:
+        """Capture a bias frame for dark subtraction"""
+        self.camera.stop()
+        self.camera.set_controls({"ExposureTime": 0})
+        self.camera.start()
+        tmp_capture = self.camera.capture_image()
+        self.camera.stop()
+        self._default_controls()
+        self.camera.start()
         return tmp_capture
 
     def capture_file(self, filename) -> None:

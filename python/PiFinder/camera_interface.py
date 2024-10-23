@@ -30,6 +30,9 @@ class CameraInterface:
     def capture(self) -> Image.Image:
         return Image.Image()
 
+    def capture_bias(self) -> Image.Image:
+        return Image.Image()
+
     def capture_file(self, filename) -> None:
         pass
 
@@ -42,7 +45,7 @@ class CameraInterface:
         return "foo"
 
     def get_image_loop(
-        self, shared_state, camera_image, command_queue, console_queue, cfg
+        self, shared_state, camera_image, bias_image, command_queue, console_queue, cfg
     ):
         try:
             debug = False
@@ -78,6 +81,8 @@ class CameraInterface:
                 if not debug:
                     base_image = self.capture()
                     base_image = base_image.convert("L")
+                    bias_image = self.capture_bias()
+                    base_image = bias_image.convert("L")
                     if camera_rotation is None:
                         if (
                             screen_direction == "right"
@@ -107,6 +112,7 @@ class CameraInterface:
                     )
 
                 camera_image.paste(base_image)
+                bias_image.paste(bias_image)
                 shared_state.set_last_image_metadata(
                     {
                         "exposure_start": image_start_time,

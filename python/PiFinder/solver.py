@@ -91,6 +91,7 @@ def solver(
     shared_state,
     solver_queue,
     camera_image,
+    bias_image,
     console_queue,
     log_queue,
     align_command_queue,
@@ -219,7 +220,7 @@ def solver(
                     solved |= solution
 
                     # Calculate SQM
-                    measured_sqm = sqm.calculate(solved["FOV"], centroids, solution, np_image, radius=2)
+                    measured_sqm = sqm.calculate(bias_image, solved["FOV"], centroids, solution, np_image, radius=2)
                     solved["SQM"] = measured_sqm
 
                     total_tetra_time = t_extract + solved["T_solve"]

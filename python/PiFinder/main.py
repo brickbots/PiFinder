@@ -361,12 +361,14 @@ def main(
         console.write("   Camera")
         console.update()
         camera_image = manager.NewImage("RGB", (512, 512))  # type: ignore[attr-defined]
+        bias_image = manager.NewImage("RGB", (512, 512))  # type: ignore[attr-defined]
         image_process = Process(
             name="Camera",
             target=camera.get_images,
             args=(
                 shared_state,
                 camera_image,
+                bias_image,
                 camera_command_queue,
                 console_queue,
                 camera_logqueue,
@@ -395,6 +397,7 @@ def main(
                 shared_state,
                 solver_queue,
                 camera_image,
+                bias_image,
                 console_queue,
                 solver_logqueue,
                 alignment_command_queue,
