@@ -35,6 +35,7 @@ class SQM():
         matched_centroids = np.array(solution["matched_centroids"])[:, ::-1]  # reverses the last dimension
         matched_stars = solution["matched_stars"]
         assert len(matched_centroids) == len(matched_stars)
+        # image = image - bias_image
 
         bias_ADU = self._calculate_background(bias_image)
         print("bias adu is:", bias_ADU)

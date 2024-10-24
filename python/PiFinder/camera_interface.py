@@ -97,7 +97,6 @@ class CameraInterface:
                     else:
                         # TODO: support arbitrary numpy rotations?
                         base_image = base_image.rotate(int(camera_rotation) * -1)
-
                     base_image = base_image.rotate(rotate_amount)
                 else:
                     # load image and wait

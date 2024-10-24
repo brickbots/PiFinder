@@ -96,6 +96,7 @@ class CameraPI(CameraInterface):
         self.camera.stop()
         self._default_controls()
         self.camera.start()
+        print("Bias frame has {np.mean(tmp_capture)=}, {np.std(tmp_capture)=}, {np.max(tmp_capture)=}, {np.min(tmp_capture)=}, {np.median(tmp_capture)=}")
         return tmp_capture
 
     def capture_file(self, filename) -> None:
