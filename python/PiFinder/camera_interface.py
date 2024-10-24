@@ -80,10 +80,10 @@ class CameraInterface:
                 imu_start = shared_state.imu()
                 image_start_time = time.time()
                 if not debug:
-                    base_image, raw_image = self.capture()
+                    base_image = self.capture()
                     base_image = base_image.convert("L")
                     bias_image = self.capture_bias()
-                    base_image = bias_image.convert("L")
+                    bias_image = bias_image.convert("L")
                     rotate_amount = 0
                     if camera_rotation is None:
                         if (
@@ -99,7 +99,6 @@ class CameraInterface:
                         base_image = base_image.rotate(int(camera_rotation) * -1)
 
                     base_image = base_image.rotate(rotate_amount)
-                    raw_image = np.rot90(raw_image, rotate_amount / 90)
                 else:
                     # load image and wait
                     base_image = Image.open(test_image_path)
