@@ -118,7 +118,6 @@ class CameraInterface:
 
                 camera_image.paste(base_image)
                 bias_image.paste(bias_image)
-                shared_state.set_cam_raw(raw_image)
                 shared_state.set_last_image_metadata(
                     {
                         "exposure_start": image_start_time,
