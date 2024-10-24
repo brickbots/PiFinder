@@ -17,6 +17,7 @@ from PiFinder import state_utils
 from typing import Tuple
 import logging
 from PiFinder import utils
+import numpy as np
 
 logger = logging.getLogger("Camera.Interface")
 
@@ -79,21 +80,26 @@ class CameraInterface:
                 imu_start = shared_state.imu()
                 image_start_time = time.time()
                 if not debug:
-                    base_image = self.capture()
+                    base_image, raw_image = self.capture()
                     base_image = base_image.convert("L")
                     bias_image = self.capture_bias()
                     base_image = bias_image.convert("L")
+                    rotate_amount = 0
                     if camera_rotation is None:
                         if (
                             screen_direction == "right"
                             or screen_direction == "straight"
                             or screen_direction == "flat3"
                         ):
-                            base_image = base_image.rotate(90)
+                            rotate_amount = 90
                         else:
-                            base_image = base_image.rotate(270)
+                            rotate_amount = 270
                     else:
+                        # TODO: support arbitrary numpy rotations?
                         base_image = base_image.rotate(int(camera_rotation) * -1)
+
+                    base_image = base_image.rotate(rotate_amount)
+                    raw_image = np.rot90(raw_image, rotate_amount / 90)
                 else:
                     # load image and wait
                     base_image = Image.open(test_image_path)
@@ -113,6 +119,7 @@ class CameraInterface:
 
                 camera_image.paste(base_image)
                 bias_image.paste(bias_image)
+                shared_state.set_cam_raw(raw_image)
                 shared_state.set_last_image_metadata(
                     {
                         "exposure_start": image_start_time,
