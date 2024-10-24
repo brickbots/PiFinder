@@ -49,7 +49,7 @@ class CameraPI(CameraInterface):
                 {
                     "size": (512, 512),
                 },
-                raw={"size": (1456, 1088), "format": "SRGGB10"},
+                raw={"size": (1456, 1088), "format": "R8"},
             )
         else:
             # using this smaller scale auto-selects binning on the sensor...
@@ -70,6 +70,9 @@ class CameraPI(CameraInterface):
         _request.release()
         if self.camera_type == "imx296":
             # Sensor orientation is different
+            raw_capture = raw_capture.copy().view(np.uint16)[:,184:-184]
+            raw_capture = raw_capture.astype(np.float32)
+            raw_capture = (raw_capture / 1024 * 255).astype(np.uint8)
             tmp_capture = tmp_capture.rotate(180)
             raw_capture = np.rot90(raw_capture, 2)
         else:
@@ -77,10 +80,34 @@ class CameraPI(CameraInterface):
             # from RGB to L. Easiest way to do this is just to
             # add the flux from all the channels
             raw_capture = np.sum(raw_capture, axis=[0, 1])
-        return tmp_capture, raw_capture
 
-    def capture_file(self, filename) -> None:
-        return self.camera.capture_file(filename)
+        raw_image = Image.fromarray(raw_capture).resize((512,512))
+        #return tmp_capture, raw_image
+        return raw_image, raw_image
+
+    def capture_file(self, filename, filename_raw) -> None:
+        _request = self.camera.capture_request()
+        tmp_capture = _request.make_image("main")
+        raw_capture = _request.make_array("raw")
+        _request.release()
+        if self.camera_type == "imx296":
+            # Sensor orientation is different
+            raw_capture = raw_capture.copy().view(np.uint16)[:,184:-184]
+            raw_capture = raw_capture.astype(np.float32)
+            raw_capture = (raw_capture / 1024 * 255).astype(np.uint8)
+            tmp_capture = tmp_capture.rotate(180)
+            raw_capture = np.rot90(raw_capture, 2)
+        else:
+            # For OG camera type, the array needs to be converted
+            # from RGB to L. Easiest way to do this is just to
+            # add the flux from all the channels
+            raw_capture = np.sum(raw_capture, axis=[0, 1])
+        print(raw_capture.shape)
+
+        tmp_capture.save(filename)
+        tmp_image = Image.fromarray(raw_capture).resize((512,512))
+        tmp_image.save(filename_raw)
+        return raw_capture
 
     def set_camera_config(
         self, exposure_time: float, gain: float
