@@ -16,15 +16,17 @@ import logging
 import sys
 from time import perf_counter as precision_timestamp
 
+from PiFinder.utils import Timer
 from PiFinder import state_utils
 from PiFinder import utils
+from PiFinder.sqm import SQM
 
 sys.path.append(str(utils.tetra3_dir))
 import PiFinder.tetra3.tetra3 as tetra3
 from PiFinder.tetra3.tetra3 import cedar_detect_client
 
 logger = logging.getLogger("Solver")
-
+sqm = SQM()
 
 def find_target_pixel(t3, fov_estimate, centroids, ra, dec):
     """
@@ -89,6 +91,7 @@ def solver(
     shared_state,
     solver_queue,
     camera_image,
+    bias_image,
     console_queue,
     log_queue,
     align_command_queue,
@@ -183,6 +186,7 @@ def solver(
                             np_image, sigma=8, max_size=10, use_binned=True
                         )
                     t_extract = (precision_timestamp() - t0) * 1000
+
                     logger.debug(
                         "File %s, extracted %d centroids in %.2fms"
                         % ("camera", len(centroids), t_extract)
@@ -204,9 +208,11 @@ def solver(
                         )
 
                         if "matched_centroids" in solution:
+                            # Calculate SQM
+                            measured_sqm = sqm.calculate(bias_image, centroids, solution, np_image, radius=2)
+                            solved["SQM"] = measured_sqm
+
                             # Don't clutter printed solution with these fields.
-                            # del solution['matched_centroids']
-                            # del solution['matched_stars']
                             del solution["matched_catID"]
                             del solution["pattern_centroids"]
                             del solution["epoch_equinox"]

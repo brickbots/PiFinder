@@ -15,6 +15,7 @@ from PiFinder.camera_interface import CameraInterface
 from typing import Tuple
 import logging
 from PiFinder.multiproclogging import MultiprocLogging
+import numpy as np
 
 logger = logging.getLogger("Camera.Pi")
 
@@ -48,22 +49,54 @@ class CameraPI(CameraInterface):
                 {
                     "size": (512, 512),
                 },
-                raw={"size": (1456, 1088)},
+                raw={"size": (1456, 1088), "format": "R8"},
             )
         else:
             # using this smaller scale auto-selects binning on the sensor...
-            cam_config = self.camera.create_still_configuration({"size": (512, 512)})
+            # cam_config = self.camera.create_still_configuration({"size": (512, 512)})
+            cam_config = self.camera.create_still_configuration(
+                {"size": (512, 512)}, raw={"size": (2028, 1520), "format": "SRGGB10"}
+            )
         self.camera.configure(cam_config)
+        self._default_controls()
+        self.camera.start()
+
+    def _default_controls(self) -> None:
         self.camera.set_controls({"AeEnable": False})
         self.camera.set_controls({"AnalogueGain": self.gain})
         self.camera.set_controls({"ExposureTime": self.exposure_time})
-        self.camera.start()
 
     def capture(self) -> Image.Image:
-        tmp_capture = self.camera.capture_image()
+        _request = self.camera.capture_request()
+        tmp_capture = _request.make_image("main")
+        raw_capture = _request.make_array("raw")
+        _request.release()
         if self.camera_type == "imx296":
             # Sensor orientation is different
+            raw_capture = raw_capture.copy().view(np.uint16)[:,184:-184]
+            raw_capture = raw_capture.astype(np.float32)
+            raw_capture = (raw_capture / 1024 * 255).astype(np.uint8)
             tmp_capture = tmp_capture.rotate(180)
+            raw_capture = np.rot90(raw_capture, 2)
+        else:
+            # For OG camera type, the array needs to be converted
+            # from RGB to L. Easiest way to do this is just to
+            # add the flux from all the channels
+            raw_capture = np.sum(raw_capture, axis=[0, 1])
+        raw_image = Image.fromarray(raw_capture).resize((512, 512))
+        #  return tmp_capture, raw_image
+        return raw_image
+
+    def capture_bias(self) -> Image.Image:
+        """Capture a bias frame for dark subtraction"""
+        self.camera.stop()
+        self.camera.set_controls({"ExposureTime": 0})
+        self.camera.start()
+        tmp_capture = self.camera.capture_image()
+        self.camera.stop()
+        self._default_controls()
+        self.camera.start()
+        print("Bias frame has {np.mean(tmp_capture)=}, {np.std(tmp_capture)=}, {np.max(tmp_capture)=}, {np.min(tmp_capture)=}, {np.median(tmp_capture)=}")
         return tmp_capture
 
     def capture_file(self, filename) -> None:
@@ -82,7 +115,7 @@ class CameraPI(CameraInterface):
         return self.camType
 
 
-def get_images(shared_state, camera_image, command_queue, console_queue, log_queue):
+def get_images(shared_state, camera_image, bias_image, command_queue, console_queue, log_queue):
     """
     Instantiates the camera hardware
     then calls the universal image loop
@@ -93,5 +126,5 @@ def get_images(shared_state, camera_image, command_queue, console_queue, log_que
     exposure_time = cfg.get_option("camera_exp")
     camera_hardware = CameraPI(exposure_time)
     camera_hardware.get_image_loop(
-        shared_state, camera_image, command_queue, console_queue, cfg
+        shared_state, camera_image, bias_image, command_queue, console_queue, cfg
     )
