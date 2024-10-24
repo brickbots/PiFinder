@@ -24,10 +24,11 @@ class SQM():
         self.field_in_arcseconds = (degrees * 3600)**2
         self.pixel_arcseconds = self.field_in_arcseconds / 512**2
 
-    def calculate(self, bias_image, fov_estimate, centroids, solution, image, radius=4) -> Tuple[float, list]:
+    def calculate(self, bias_image, centroids, solution, image, radius=4) -> Tuple[float, list]:
         """
         Calculate SQM value from centroids and image
         """
+        fov_estimate = solution['FOV']
         self._calc_degrees(fov_estimate)
         self.radius = radius
         centroids = np.array(centroids)[:, ::-1]

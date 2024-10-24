@@ -208,9 +208,11 @@ def solver(
                         )
 
                         if "matched_centroids" in solution:
+                            # Calculate SQM
+                            measured_sqm = sqm.calculate(bias_image, centroids, solution, np_image, radius=2)
+                            solved["SQM"] = measured_sqm
+
                             # Don't clutter printed solution with these fields.
-                            # del solution['matched_centroids']
-                            # del solution['matched_stars']
                             del solution["matched_catID"]
                             del solution["pattern_centroids"]
                             del solution["epoch_equinox"]
@@ -218,10 +220,6 @@ def solver(
                             del solution["cache_hit_fraction"]
 
                     solved |= solution
-
-                    # Calculate SQM
-                    measured_sqm = sqm.calculate(bias_image, solved["FOV"], centroids, solution, np_image, radius=2)
-                    solved["SQM"] = measured_sqm
 
                     total_tetra_time = t_extract + solved["T_solve"]
                     if total_tetra_time > 1000:
