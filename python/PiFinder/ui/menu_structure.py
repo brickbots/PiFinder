@@ -53,6 +53,12 @@ pifinder_menu = {
                             "value": "PL",
                         },
                         {
+                            "name": "Comets",
+                            "class": UIObjectList,
+                            "objects": "catalog",
+                            "value": "CM",
+                        },
+                        {
                             "name": "NGC",
                             "class": UIObjectList,
                             "objects": "catalog",
@@ -821,14 +827,31 @@ pifinder_menu = {
                 {"name": "Software Upd", "class": UISoftware},
                 {"name": "Test Mode", "callback": callbacks.activate_debug},
                 {
-                    "name": "Shutdown",
+                    "name": "Power",
                     "class": UITextMenu,
                     "select": "Single",
-                    "label": "shutdown",
+                    "label": "power",
                     "items": [
-                        {"name": "Confirm", "callback": callbacks.shutdown},
-                        {"name": "Cancel", "callback": callbacks.go_back},
-                    ],
+                        {
+                            "name": "Shutdown",
+                            "class": UITextMenu,
+                            "select": "Single",
+                            "label": "shutdown",
+                            "items": [
+                                {"name": "Confirm", "callback": callbacks.shutdown},
+                                {"name": "Cancel", "callback": callbacks.go_back},
+                            ],
+                        },
+                        {
+                            "name": "Restart",
+                            "class": UITextMenu,
+                            "select": "Single",
+                            "label": "shutdown",
+                            "items": [
+                                {"name": "Confirm", "callback": callbacks.restart_system},
+                                {"name": "Cancel", "callback": callbacks.go_back},
+                            ],
+                        }],
                 },
                 {
                     "name": "Experimental",

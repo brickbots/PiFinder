@@ -13,7 +13,7 @@ import os
 import queue
 import time
 from PIL import Image
-from PiFinder import state_utils as utils
+from PiFinder import state_utils, utils
 from typing import Tuple
 import logging
 import numpy as np
@@ -61,7 +61,7 @@ class CameraInterface:
             # 60 half-second cycles
             sleep_delay = 60
             while True:
-                sleeping = utils.sleep_for_framerate(
+                sleeping = state_utils.sleep_for_framerate(
                     shared_state, limit_framerate=False
                 )
                 if sleeping:
