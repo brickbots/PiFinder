@@ -71,25 +71,27 @@ class CameraPI(CameraInterface):
         """
         _request = self.camera.capture_request()
         raw_capture = _request.make_array("raw")
+        # tmp_image = _request.make_image("main")
         _request.release()
         if self.camera_type == "imx296":
-            # Sensor orientation is different
+            # crop to square and resample to 16 bit from 2 8 bit entries
             raw_capture = raw_capture.copy().view(np.uint16)[:, 184:-184]
+            # Sensor orientation is different
             raw_capture = np.rot90(raw_capture, 2)
         else:
-            # For OG camera type, the array needs to be converted
-            # from RGB to L. Easiest way to do this is just to
-            # add the flux from all the channels
-            raw_capture = np.sum(raw_capture, axis=[0, 1])
+            # crop to square and resample to 16 bit from 2 8 bit entries
+            raw_capture = raw_capture.copy().view(np.uint16)[:, 256:-256]
 
         raw_capture = raw_capture.astype(np.float32)
         max_pixel = np.max(raw_capture)
+
         # if the whitepoint is already below 255, just cast it
         # as we don't want to create fake in-between values
         if max_pixel < 255:
             raw_capture = raw_capture.astype(np.uint8)
         else:
             raw_capture = (raw_capture / max_pixel * 255).astype(np.uint8)
+
         raw_image = Image.fromarray(raw_capture).resize((512, 512))
         return raw_image
 

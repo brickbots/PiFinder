@@ -27,7 +27,7 @@ class CameraInterface:
         pass
 
     def capture(self) -> Image.Image:
-        return Image.Image(), None
+        return Image.Image()
 
     def capture_file(self, filename) -> None:
         pass
