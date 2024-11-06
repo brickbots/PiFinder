@@ -16,7 +16,6 @@ from PIL import Image
 from PiFinder import state_utils, utils
 from typing import Tuple
 import logging
-import numpy as np
 
 logger = logging.getLogger("Camera.Interface")
 
@@ -76,7 +75,7 @@ class CameraInterface:
                 imu_start = shared_state.imu()
                 image_start_time = time.time()
                 if not debug:
-                    base_image, raw_image = self.capture()
+                    base_image = self.capture()
                     base_image = base_image.convert("L")
                     rotate_amount = 0
                     if camera_rotation is None:
@@ -89,11 +88,9 @@ class CameraInterface:
                         else:
                             rotate_amount = 270
                     else:
-                        # TODO: support arbitrary numpy rotations?
                         base_image = base_image.rotate(int(camera_rotation) * -1)
 
                     base_image = base_image.rotate(rotate_amount)
-                    raw_image = np.rot90(raw_image, rotate_amount / 90)
                 else:
                     # load image and wait
                     base_image = Image.open(test_image_path)
@@ -112,7 +109,6 @@ class CameraInterface:
                     )
 
                 camera_image.paste(base_image)
-                shared_state.set_cam_raw(raw_image)
                 shared_state.set_last_image_metadata(
                     {
                         "exposure_start": image_start_time,

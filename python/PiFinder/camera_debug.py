@@ -59,7 +59,7 @@ class CameraDebug(CameraInterface):
         if time.time() - self.last_image_time > 5:
             self.last_image = next(self.image_cycle)
             self.last_image_time = time.time()
-        return self.last_image, None
+        return self.last_image
 
     def capture_file(self, filename) -> None:
         logger.warn("capture_file not implemented in Camera Debug")
