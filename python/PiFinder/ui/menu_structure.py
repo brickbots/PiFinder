@@ -846,12 +846,16 @@ pifinder_menu = {
                             "name": "Restart",
                             "class": UITextMenu,
                             "select": "Single",
-                            "label": "shutdown",
+                            "label": "restart",
                             "items": [
-                                {"name": "Confirm", "callback": callbacks.restart_system},
+                                {
+                                    "name": "Confirm",
+                                    "callback": callbacks.restart_system,
+                                },
                                 {"name": "Cancel", "callback": callbacks.go_back},
                             ],
-                        }],
+                        },
+                    ],
                 },
                 {
                     "name": "Experimental",
