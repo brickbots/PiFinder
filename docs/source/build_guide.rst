@@ -585,7 +585,7 @@ The combined PiSugar/RPI stack then gets secured to the PI Mount using the 20mm 
 
 
 
-Right / Left Configuration
+Left / Right Configuration
 ---------------------------
 
 Continue on with this section to build a Right/Left hand unit.  The build progresses the same for both versions with some differences in the part orientation.  
