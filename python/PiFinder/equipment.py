@@ -7,7 +7,7 @@ from typing import Union
 class Eyepiece:
     make: str
     name: str
-    focal_length_mm: int
+    focal_length_mm: float
     afov: int
     field_stop: float = 0
 
