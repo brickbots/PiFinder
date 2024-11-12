@@ -18,38 +18,25 @@ os.environ["MKL_NUM_THREADS"] = "1"
 import time
 import queue
 import datetime
-import json
-import uuid
 import logging
 import argparse
-import pickle
 import shutil
 from pathlib import Path
-from PIL import Image, ImageOps
+from PIL import Image
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
-from timezonefinder import TimezoneFinder
 
-from PiFinder import solver
-from PiFinder import integrator
-from PiFinder import config
-from PiFinder import pos_server
 from PiFinder import utils
-from PiFinder import server
 from PiFinder import keyboard_interface
 
 from PiFinder.multiproclogging import MultiprocLogging
-from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
 
 from PiFinder.ui.console import UIConsole
-from PiFinder.ui.menu_manager import MenuManager
 
 from PiFinder.state import SharedStateObj, UIState
 
-from PiFinder.image_util import subtract_background
-
-from PiFinder.calc_utils import sf_utils
 from PiFinder.displays import DisplayBase, get_display
+from PiFinder import sys_utils
 
 logger = logging.getLogger("main")
 
@@ -80,7 +67,7 @@ def set_keypad_brightness(percentage: float):
         keypad_pwm.change_duty_cycle(percentage)
 
 
-def set_brightness(level, cfg):
+def set_brightness(level):
     """
     Sets oled/keypad brightness
     0-255
@@ -89,30 +76,7 @@ def set_brightness(level, cfg):
     display_device.set_brightness(level)
 
     if keypad_pwm:
-        # determine offset for keypad
-        keypad_offsets = {
-            "+3": 2,
-            "+2": 1.6,
-            "+1": 1.3,
-            "0": 1,
-            "-1": 0.75,
-            "-2": 0.5,
-            "-3": 0.25,
-            "-4": 0.13,
-            "Off": 0,
-        }
-        keypad_brightness = cfg.get_option("keypad_brightness")
-        set_keypad_brightness(level * 0.05 * keypad_offsets[keypad_brightness])
-
-
-def setup_dirs():
-    utils.create_path(Path(utils.data_dir))
-    utils.create_path(Path(utils.data_dir, "captures"))
-    utils.create_path(Path(utils.data_dir, "obslists"))
-    utils.create_path(Path(utils.data_dir, "screenshots"))
-    utils.create_path(Path(utils.data_dir, "solver_debug_dumps"))
-    utils.create_path(Path(utils.data_dir, "logs"))
-    os.chmod(Path(utils.data_dir), 0o777)
+        set_keypad_brightness(level * 0.05)
 
 
 class StateManager(BaseManager):
@@ -122,111 +86,6 @@ class StateManager(BaseManager):
 StateManager.register("SharedState", SharedStateObj)
 StateManager.register("UIState", UIState)
 StateManager.register("NewImage", Image.new)
-
-
-class PowerManager:
-    def __init__(self, cfg, shared_state, display_device):
-        self.cfg = cfg
-        self.shared_state = shared_state
-        self.display_device = display_device
-        self.last_activity = time.time()
-
-    def register_activity(self):
-        """
-        Resets idle counter, wakes up systems if needed
-        returns True if activity caused wakeup
-        """
-        self.last_activity = time.time()
-
-        # power states
-        # 0 = Sleep
-        # 1 = Wake
-        if self.shared_state.power_state() < 1:
-            # wake up
-            self.wake_up()
-            return True
-
-        return False
-
-    def wake_up(self):
-        """
-        Do all the wakeup things
-        """
-        self.last_activity = time.time()
-        self.shared_state.set_power_state(1)
-        self.wake_screen()
-
-    def go_to_sleep(self):
-        """
-        Do all the sleep things
-        """
-        self.shared_state.set_power_state(0)
-        self.sleep_screen()
-
-    def update(self):
-        """
-        Check IMU for activity
-        go to sleep if needed
-        if asleep, Introduce wait state
-        """
-        if self.get_sleep_timeout() <= 0:
-            # Disabled
-            self.register_activity()
-            return
-
-        if self.shared_state.power_state() > 0:
-            # We are awake, should we sleep?
-            if time.time() - self.last_activity > self.get_sleep_timeout():
-                self.go_to_sleep()
-
-        else:  # We are asleepd, should we wake up?
-            _imu = self.shared_state.imu()
-            if _imu:
-                if _imu["moving"]:
-                    self.wake_up()
-
-        # should we pause execution for a bit?
-        if self.shared_state.power_state() < 1:
-            time.sleep(0.2)
-
-    def get_sleep_timeout(self):
-        """
-        returns the sleep timeout amount
-        """
-        sleep_timeout_option = self.cfg.get_option("sleep_timeout")
-        sleep_timeout = {
-            "Off": -1,
-            "10s": 10,
-            "20s": 20,
-            "30s": 30,
-            "1m": 60,
-            "2m": 120,
-        }[sleep_timeout_option]
-        return sleep_timeout
-
-    def get_screen_off_timeout(self):
-        """
-        returns the screen off timeout amount
-        """
-        screen_off_option = self.cfg.get_option("screen_off_timeout")
-        screen_off = {
-            "Off": -1,
-            "30s": 30,
-            "1m": 60,
-            "10m": 600,
-            "30m": 1800,
-        }[screen_off_option]
-        return screen_off
-
-    def wake_screen(self) -> None:
-        screen_brightness = self.cfg.get_option("display_brightness")
-        set_brightness(screen_brightness, self.cfg)
-        self.display_device.device.show()
-
-    def sleep_screen(self):
-        screen_brightness = self.cfg.get_option("display_brightness")
-        set_brightness(int(screen_brightness / 4), self.cfg)
-        self.display_device.device.show()
 
 
 def main(
@@ -242,17 +101,12 @@ def main(
 
     display_device = get_display(display_hardware)
     init_keypad_pwm()
-    setup_dirs()
-
-    # Instantiate base keyboard class for keycode
-    keyboard_base = keyboard_interface.KeyboardInterface()
 
     # init queues
     console_queue: Queue = Queue()
     keyboard_queue: Queue = Queue()
     gps_queue: Queue = Queue()
     camera_command_queue: Queue = Queue()
-    solver_queue: Queue = Queue()
     alignment_command_queue: Queue = Queue()
     alignment_response_queue: Queue = Queue()
     ui_queue: Queue = Queue()
@@ -260,11 +114,6 @@ def main(
     # init queues for logging
     keyboard_logqueue: Queue = log_helper.get_queue()
     gps_logqueue: Queue = log_helper.get_queue()
-    camera_logqueue: Queue = log_helper.get_queue()
-    solver_logqueue: Queue = log_helper.get_queue()
-    server_logqueue: Queue = log_helper.get_queue()
-    posserver_logqueue: Queue = log_helper.get_queue()
-    integrator_logqueque: Queue = log_helper.get_queue()
     imu_logqueue: Queue = log_helper.get_queue()
 
     # Start log consolidation process first.
@@ -281,12 +130,11 @@ def main(
         "align_command": alignment_command_queue,
         "align_response": alignment_response_queue,
     }
-    cfg = config.Config()
 
     # init screen
-    screen_brightness = cfg.get_option("display_brightness")
-    set_brightness(screen_brightness, cfg)
+    set_brightness(255)
 
+    cfg = None
     import PiFinder.manager_patch as patch
 
     patch.apply()
@@ -294,14 +142,18 @@ def main(
     with StateManager() as manager:
         shared_state = manager.SharedState()  # type: ignore[attr-defined]
         ui_state = manager.UIState()  # type: ignore[attr-defined]
-        ui_state.set_show_fps(show_fps)
-        ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
         shared_state.set_ui_state(ui_state)
         shared_state.set_arch(arch)  # Normal
         logger.debug("Ui state in main is" + str(shared_state.ui_state()))
-        console = UIConsole(display_device, None, shared_state, command_queues, cfg, Catalogs([]))
+        console = UIConsole(
+            display_device, None, shared_state, command_queues, cfg, None
+        )
         console.write("Starting....")
         console.update()
+
+        # Load last location, set lock to false
+        initial_location = {"gps_lock": False}
+        shared_state.set_location(initial_location)
 
         # spawn gps service....
         console.write("   GPS")
@@ -336,45 +188,6 @@ def main(
             )
             p.start()
 
-        server_process = Process(
-            name="Webserver",
-            target=server.run_server,
-            args=(keyboard_queue, gps_queue, shared_state, server_logqueue, verbose),
-        )
-        server_process.start()
-
-        # Load last location, set lock to false
-        tz_finder = TimezoneFinder()
-        initial_location = cfg.get_option("last_location")
-        initial_location["timezone"] = tz_finder.timezone_at(
-            lat=initial_location["lat"], lng=initial_location["lon"]
-        )
-        initial_location["gps_lock"] = False
-        initial_location["last_gps_lock"] = None
-        shared_state.set_location(initial_location)
-        sf_utils.set_location(
-            initial_location["lat"],
-            initial_location["lon"],
-            initial_location["altitude"],
-        )
-
-        console.write("   Camera")
-        console.update()
-        camera_image = manager.NewImage("RGB", (512, 512))  # type: ignore[attr-defined]
-        image_process = Process(
-            name="Camera",
-            target=camera.get_images,
-            args=(
-                shared_state,
-                camera_image,
-                camera_command_queue,
-                console_queue,
-                camera_logqueue,
-            ),
-        )
-        image_process.start()
-        time.sleep(1)
-
         # IMU
         console.write("   IMU")
         console.update()
@@ -385,92 +198,26 @@ def main(
         )
         imu_process.start()
 
-        # Solver
-        console.write("   Solver")
-        console.update()
-        solver_process = Process(
-            name="Solver",
-            target=solver.solver,
-            args=(
-                shared_state,
-                solver_queue,
-                camera_image,
-                console_queue,
-                solver_logqueue,
-                alignment_command_queue,
-                alignment_response_queue,
-                verbose,
-            ),
-        )
-        solver_process.start()
-
-        # Integrator
-        console.write("   Integrator")
-        console.update()
-        integrator_process = Process(
-            name="Integrator",
-            target=integrator.integrator,
-            args=(
-                shared_state,
-                solver_queue,
-                console_queue,
-                integrator_logqueque,
-                verbose,
-            ),
-        )
-        integrator_process.start()
-
-        # Server
-        console.write("   Server")
-        console.update()
-        posserver_process = Process(
-            name="SkySafariServer",
-            target=pos_server.run_server,
-            args=(shared_state, ui_queue, posserver_logqueue),
-        )
-        posserver_process.start()
-
-        # Initialize Catalogs
-        console.write("   Catalogs")
-        console.update()
-
-        # Initialize Catalogs
-        catalogs: Catalogs = CatalogBuilder().build(shared_state)
-
-        # Establish the common catalog filter object
-        catalogs.set_catalog_filter(
-            CatalogFilter(
-                shared_state=shared_state,
-                magnitude=cfg.get_option("filter.magnitude"),
-                object_types=cfg.get_option("filter.object_types"),
-                altitude=cfg.get_option("filter.altitude", -1),
-                observed=cfg.get_option("filter.observed", "Any"),
-                selected_catalogs=cfg.get_option("active_catalogs"),
-            )
-        )
-        console.write("   Menus")
-        console.update()
-
-        # Initialize menu manager
-        menu_manager = MenuManager(
-            display_device,
-            camera_image,
-            shared_state,
-            command_queues,
-            cfg,
-            catalogs,
-        )
-
-        # Initialize power manager
-        power_manager = PowerManager(cfg, shared_state, display_device)
-
         # Start main event loop
         console.write("   Event Loop")
         console.update()
 
+        console.active()
+
         # Start of main except handler / loop
+        kp_level = 100
         try:
             while True:
+                imu_state = shared_state.imu()
+                while imu_state is None:
+                    if kp_level > 0:
+                        kp_level = 0
+                    else:
+                        kp_level = 100
+                    set_keypad_brightness(kp_level)
+                    time.sleep(0.250)
+                    imu_state = shared_state.imu()
+
                 # Console
                 try:
                     console_msg = console_queue.get(block=False)
@@ -481,6 +228,8 @@ def main(
                 # GPS
                 try:
                     gps_msg, gps_content = gps_queue.get(block=False)
+                    console.write(f"{gps_msg} / {gps_content}")
+                    console.update()
                     if gps_msg == "fix":
                         # logger.debug("GPS fix msg: %s", gps_content)
                         if gps_content["lat"] + gps_content["lon"] != 0:
@@ -492,14 +241,6 @@ def main(
                                 datetime.datetime.now().time().isoformat()[:8]
                             )
                             if location["gps_lock"] is False:
-                                # Write to config if we just got a lock
-                                location["timezone"] = tz_finder.timezone_at(
-                                    lat=location["lat"], lng=location["lon"]
-                                )
-                                cfg.set_option("last_location", location)
-                                console.write(
-                                    f'GPS: Location {location["lat"]} {location["lon"]} {location["altitude"]}'
-                                )
                                 location["gps_lock"] = True
 
                             shared_state.set_location(location)
@@ -513,16 +254,6 @@ def main(
                 except queue.Empty:
                     pass
 
-                # ui queue
-                try:
-                    ui_command = ui_queue.get(block=False)
-                except queue.Empty:
-                    ui_command = None
-                if ui_command == "set_brightness":
-                    set_brightness(screen_brightness, cfg)
-                elif ui_command == "push_object":
-                    menu_manager.jump_to_label("recent")
-
                 # Keyboard
                 keycode = None
                 try:
@@ -533,131 +264,14 @@ def main(
 
                 # Register activity here will return True if the power
                 # state changes.  If so, we DO NOT process this keystroke
-                if keycode is not None and power_manager.register_activity() is False:
-                    # ignore keystroke if we have been asleep
-                    if keycode > 99:
-                        # Long left is return to top
-                        if keycode == keyboard_base.LNG_LEFT:
-                            menu_manager.key_long_left()
-
-                        # Long right is return to last observed object
-                        if keycode == keyboard_base.LNG_RIGHT:
-                            menu_manager.key_long_right()
-
-                        # Long square is marking menu
-                        if keycode == keyboard_base.LNG_SQUARE:
-                            menu_manager.key_long_square()
-
-                        # Special codes....
-                        if (
-                            keycode == keyboard_base.ALT_PLUS
-                            or keycode == keyboard_base.ALT_MINUS
-                        ):
-                            if keycode == keyboard_base.ALT_PLUS:
-                                screen_brightness = screen_brightness + 10
-                                if screen_brightness > 255:
-                                    screen_brightness = 255
-                            else:
-                                screen_brightness = screen_brightness - 10
-                                if screen_brightness < 0:
-                                    screen_brightness = 0
-
-                            set_brightness(screen_brightness, cfg)
-                            cfg.set_option("display_brightness", screen_brightness)
-                            console.write("Brightness: " + str(screen_brightness))
-
-                        if keycode == keyboard_base.ALT_0:
-                            # screenshot
-                            menu_manager.screengrab()
-                            console.write("Screenshot saved")
-
-                        if keycode == keyboard_base.ALT_RIGHT:
-                            # Debug snapshot
-                            uid = str(uuid.uuid1()).split("-")[0]
-
-                            # current screen
-                            ss = menu_manager.stack[-1].screen.copy()
-
-                            # wait two seconds for any vibration from
-                            # pressing the button to pass.
-                            menu_manager.message("Debug: 2", 1)
-                            time.sleep(1)
-                            menu_manager.message("Debug: 1", 1)
-                            time.sleep(1)
-                            menu_manager.message("Debug: Saving", 1)
-                            time.sleep(1)
-                            debug_image = camera_image.copy()
-                            debug_solution = shared_state.solution()
-                            debug_location = shared_state.location()
-                            debug_dt = shared_state.datetime()
-
-                            # write images
-                            debug_image.save(f"{utils.debug_dump_dir}/{uid}_raw.png")
-                            debug_image = subtract_background(debug_image)
-                            debug_image = debug_image.convert("RGB")
-                            debug_image = ImageOps.autocontrast(debug_image)
-                            debug_image.save(f"{utils.debug_dump_dir}/{uid}_sub.png")
-
-                            ss.save(f"{utils.debug_dump_dir}/{uid}_screenshot.png")
-
-                            with open(
-                                f"{utils.debug_dump_dir}/{uid}_solution.json", "w"
-                            ) as f:
-                                json.dump(debug_solution, f, indent=4)
-
-                            with open(
-                                f"{utils.debug_dump_dir}/{uid}_location.json", "w"
-                            ) as f:
-                                json.dump(debug_location, f, indent=4)
-
-                            if debug_dt is not None:
-                                with open(
-                                    f"{utils.debug_dump_dir}/{uid}_datetime.json",
-                                    "w",
-                                ) as f:
-                                    json.dump(debug_dt.isoformat(), f, indent=4)
-
-                            # Dump shared state
-                            shared_state.serialize(
-                                f"{utils.debug_dump_dir}/{uid}_sharedstate.pkl"
-                            )
-
-                            # Dump UI State
-                            with open(
-                                f"{utils.debug_dump_dir}/{uid}_uistate.json", "wb"
-                            ) as f:
-                                pickle.dump(ui_state, f)
-
-                            console.write(f"Debug dump: {uid}")
-                            menu_manager.message("Debug Info Saved", timeout=1)
-
+                if keycode is not None:
+                    if keycode == 204:  # lng square
+                        sys_utils.shutdown()
+                    if kp_level > 0:
+                        kp_level = 0
                     else:
-                        if keycode < 10:
-                            menu_manager.key_number(keycode)
-
-                        elif keycode == keyboard_base.PLUS:
-                            menu_manager.key_plus()
-
-                        elif keycode == keyboard_base.MINUS:
-                            menu_manager.key_minus()
-
-                        elif keycode == keyboard_base.SQUARE:
-                            menu_manager.key_square()
-
-                        elif keycode == keyboard_base.LEFT:
-                            menu_manager.key_left()
-
-                        elif keycode == keyboard_base.UP:
-                            menu_manager.key_up()
-
-                        elif keycode == keyboard_base.DOWN:
-                            menu_manager.key_down()
-
-                        elif keycode == keyboard_base.RIGHT:
-                            menu_manager.key_right()
-
-                menu_manager.update()
-                power_manager.update()
+                        kp_level = 10
+                    set_keypad_brightness(kp_level)
 
         except KeyboardInterrupt:
             logger.info("KeyboardInterrupt received: shutting down.")
@@ -676,26 +290,11 @@ def main(
             except queue.Empty:
                 keyboard_process.join()
 
-            logger.info("\tServer...")
-            server_process.join()
-
-            logger.info("\tPos Server...")
-            posserver_process.join()
-
             logger.info("\tGPS...")
             gps_process.terminate()
 
-            logger.info("\tImaging...")
-            image_process.join()
-
             logger.info("\tIMU...")
             imu_process.join()
-
-            logger.info("\tIntegrator...")
-            integrator_process.join()
-
-            logger.info("\tSolver...")
-            solver_process.join()
 
             log_helper.join()
             exit()
@@ -834,15 +433,12 @@ if __name__ == "__main__":
 
     if args.camera.lower() == "pi":
         rlogger.info("using pi camera")
-        from PiFinder import camera_pi as camera
     elif args.camera.lower() == "debug":
         rlogger.info("using debug camera")
-        from PiFinder import camera_debug as camera  # type: ignore[no-redef]
     elif args.camera.lower() == "asi":
         rlogger.info("using asi camera")
     else:
         rlogger.warn("not using camera")
-        from PiFinder import camera_none as camera  # type: ignore[no-redef]
 
     if args.keyboard.lower() == "pi":
         from PiFinder import keyboard_pi as keyboard
