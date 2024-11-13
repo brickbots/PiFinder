@@ -209,14 +209,13 @@ def main(
         try:
             while True:
                 imu_state = shared_state.imu()
-                while imu_state is None:
+                if imu_state is None:
                     if kp_level > 0:
                         kp_level = 0
                     else:
                         kp_level = 100
                     set_keypad_brightness(kp_level)
                     time.sleep(0.250)
-                    imu_state = shared_state.imu()
 
                 # Console
                 try:
