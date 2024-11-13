@@ -41,7 +41,7 @@
     <div class="modal-content">
         <h4>Download instruments from DeepskyLog</h4>
         <p>This will delete all instruments and eyepieces from your PiFinder and replace them
-            with the instruments and eyepieces from DeepskyLog. Are you sure?</p>
+            with the instruments and eyepieces from DeepskyLog. Are you really sure?</p>
         <form action="/equipment/import_from_deepskylog" method="post" id="deepskylog_form" class="col s12">
             <div class="row">
                 <div class="input-field col s12">
