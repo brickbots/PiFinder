@@ -270,6 +270,8 @@ def main(
                         kp_level = 0
                     else:
                         kp_level = 10
+                    console.write(f"key: {keycode}")
+                    console.update()
                     set_keypad_brightness(kp_level)
 
         except KeyboardInterrupt:
