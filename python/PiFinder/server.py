@@ -5,7 +5,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 
-import pydeepskylog as pds  # type: ignore[no-redef]
+import pydeepskylog as pds
 from PIL import Image
 from PiFinder import utils, calc_utils, config
 from PiFinder.db.observations_db import (
@@ -374,7 +374,7 @@ class Server:
                         aperture_mm=int(instrument["diameter"]),
                         focal_length_mm=int(instrument["diameter"] * instrument["fd"]),
                         obstruction_perc=0,
-                        mount_type="",
+                        mount_type="alt/az",
                         flip_image=flip,
                         flop_image=flop,
                         reverse_arrow_a=False,
