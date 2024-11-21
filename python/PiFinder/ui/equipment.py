@@ -38,7 +38,7 @@ class UIEquipment(UIModule):
         for eyepiece in eyepieces:
             eyepiece_menu_items.append(
                 {
-                    "name": eyepiece.make + " " + eyepiece.name,
+                    "name": eyepiece.name,
                     "value": cnt,
                 }
             )
@@ -59,7 +59,7 @@ class UIEquipment(UIModule):
         for telescope in telescopes:
             telescope_menu_items.append(
                 {
-                    "name": telescope.make + " " + telescope.name,
+                    "name": telescope.name,
                     "value": cnt,
                 }
             )
