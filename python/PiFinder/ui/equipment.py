@@ -101,8 +101,8 @@ class UIEquipment(UIModule):
         else:
             self.draw.text(
                 (10, 20),
-                (cfg.equipment.active_telescope.make + " " + cfg.equipment.active_telescope.name).strip(),
-                font=self.fonts.small.font,
+                cfg.equipment.active_telescope.name.strip(),
+                font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
 
@@ -116,8 +116,8 @@ class UIEquipment(UIModule):
         else:
             self.draw.text(
                 (10, 35),
-                (cfg.equipment.active_eyepiece.make + " " + cfg.equipment.active_eyepiece.name).strip(),
-                font=self.fonts.small.font,
+                cfg.equipment.active_eyepiece.name.strip(),
+                font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
 
