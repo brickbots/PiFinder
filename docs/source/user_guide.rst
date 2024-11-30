@@ -22,7 +22,7 @@ Along with knowing where your telescope is pointing, the PiFinder knows where th
 
 .. note::
    If you would like a general overview of how to use the PiFinder, please give the 
-   :doc:`quick_start` a read.  This menual goes more in depth but does not cover some
+   :doc:`quick_start` a read.  This manual goes more in depth but does not cover some
    of the first time set-up items in the Quick Start
 
 

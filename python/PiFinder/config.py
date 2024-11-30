@@ -7,7 +7,7 @@ This module handles non-volatile config options
 import json
 import os
 from pathlib import Path
-from PiFinder import utils
+from PiFinder import utils, equipment
 from typing import Any
 
 
@@ -33,6 +33,19 @@ class Config:
         # Set up session config items
         # These are transient
         self._session_config_dict = {}
+
+        # Load the equipment config
+        eq_config = self.get_option("equipment")
+        if eq_config is None:
+            self.equipment = equipment.Equipment(telescopes=[], eyepieces=[])
+        else:
+            self.equipment = equipment.Equipment.from_dict(eq_config)
+
+    def save_equipment(self):
+        """
+        Saves the equipment object state
+        """
+        self.set_option("equipment", self.equipment.to_dict())
 
     def dump_config(self):
         """
