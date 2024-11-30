@@ -9,7 +9,7 @@ fi
 
 # v1.x.x
 # everying prior to selecitve migrations
-if ! [ -d "/home/pifinder/PiFinder_data/migrations/v1.x.x"]
+if ! [ -f "/home/pifinder/PiFinder_data/migrations/v1.x.x"]
 then
     source /home/pifinder/PiFinder/migration_source/v1.x.x.sh
     touch /home/pifinder/PiFinder_data/migrations/v1.x.x
@@ -17,7 +17,7 @@ fi
 
 # v2.1.0
 # Switch to Cedar
-if ! [ -d "/home/pifinder/PiFinder_data/migrations/v2.1.0"]
+if ! [ -f "/home/pifinder/PiFinder_data/migrations/v2.1.0"]
 then
     source /home/pifinder/PiFinder/migration_source/v2.1.0.sh
     touch /home/pifinder/PiFinder_data/migrations/v2.1.0
