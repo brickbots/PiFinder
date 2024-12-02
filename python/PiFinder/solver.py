@@ -7,7 +7,7 @@ This module is the solver
 * If solved, emits solution into queue
 
 """
-from pprint import pprint
+
 from PiFinder.multiproclogging import MultiprocLogging
 import queue
 import numpy as np
@@ -95,10 +95,8 @@ def solver(
                             align_dec = command[2]
 
                         if command[0] == "align_cancel":
-                            print("--Cancelled")
                             align_ra = 0
                             align_dec = 0
-
 
                 state_utils.sleep_for_framerate(shared_state)
 
@@ -134,7 +132,7 @@ def solver(
                     else:
                         _solver_args = {}
                         if align_ra != 0 and align_dec != 0:
-                            _solver_args["target_sky_coord"]=[[align_ra,align_dec]]
+                            _solver_args["target_sky_coord"] = [[align_ra, align_dec]]
 
                         solution = t3.solve_from_centroids(
                             centroids,
@@ -142,7 +140,7 @@ def solver(
                             fov_estimate=12.0,
                             fov_max_error=4.0,
                             match_max_error=0.005,
-                            #return_matches=True,
+                            # return_matches=True,
                             target_pixel=shared_state.solve_pixel(),
                             solve_timeout=1000,
                             **_solver_args,
@@ -184,17 +182,16 @@ def solver(
                         solver_queue.put(solved)
 
                         # See if we are waiting for alignment
-                        if align_ra !=0 and align_dec != 0:
-                            print("Looking for align...")
+                        if align_ra != 0 and align_dec != 0:
                             if solved.get("x_target") is not None:
-                                align_target_pixel=(solved["y_target"], solved["x_target"])
-                                print("Found it")
-                                pprint(solved)
-
+                                align_target_pixel = (
+                                    solved["y_target"],
+                                    solved["x_target"],
+                                )
                                 logger.debug(f"Align {align_target_pixel=}")
                                 align_result_queue.put(["aligned", align_target_pixel])
-                                align_ra=0
-                                align_dec=0
+                                align_ra = 0
+                                align_dec = 0
                                 solved["x_target"] = None
                                 solved["y_target"] = None
 

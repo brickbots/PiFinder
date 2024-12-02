@@ -32,7 +32,6 @@ def align_on_radec(ra, dec, command_queues, config_object, shared_state) -> bool
         except queue.Empty:
             break
 
-    print("START AL")
     # Send command to solver to work out the camera pixel for this target
     command_queues["align_command"].put(
         [
@@ -54,7 +53,7 @@ def align_on_radec(ra, dec, command_queues, config_object, shared_state) -> bool
                     dec,
                 ]
             )
-            print("AL TIMEOUT")
+            command_queues["console"].put("Align Timeout")
             return False
 
         try:
@@ -70,8 +69,6 @@ def align_on_radec(ra, dec, command_queues, config_object, shared_state) -> bool
     if target_pixel[0] == -1:
         # Failed to align
         return False
-
-    print(f"AL: {target_pixel=}")
 
     # success, set all the things...
     shared_state.set_solve_pixel(target_pixel)
