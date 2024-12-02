@@ -20,8 +20,8 @@ from PiFinder import state_utils
 from PiFinder import utils
 
 sys.path.append(str(utils.tetra3_dir))
-import PiFinder.tetra3.tetra3 as tetra3  # type: ignore
-from PiFinder.tetra3.tetra3 import cedar_detect_client  # type: ignore
+import PiFinder.tetra3.tetra3 as tetra3
+from PiFinder.tetra3.tetra3 import cedar_detect_client
 
 logger = logging.getLogger("Solver")
 
