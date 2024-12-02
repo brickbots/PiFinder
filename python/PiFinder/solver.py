@@ -20,12 +20,72 @@ from PiFinder import state_utils
 from PiFinder import utils
 
 sys.path.append(str(utils.tetra3_dir))
-import tetra3
-from tetra3 import cedar_detect_client
+import tetra3 # type: ignore
+from tetra3 import cedar_detect_client # type: ignore
 
 logger = logging.getLogger("Solver")
 
 
+def find_target_pixel(t3, fov_estimate, centroids, ra, dec):
+    """
+    Searches the most recent solve for a pixel
+    that matches the requested RA/DEC the best
+    """
+    print(f"{len(centroids)=}")
+    search_center = (256, 256)
+    search_distance = 128
+    while search_distance >= 1:
+        # try 5 search points
+        search_points = [
+            [search_center[0] - search_distance, search_center[1] - search_distance],
+            [search_center[0] - search_distance, search_center[1] + search_distance],
+            [search_center[0] + search_distance, search_center[1] - search_distance],
+            [search_center[0] + search_distance, search_center[1] + search_distance],
+            [search_center[0], search_center[1]],
+        ]
+
+        # probe points
+        min_dist = 100000
+        for search_point in search_points:
+            solve_fails = 0
+            point_sol = {}
+            while point_sol.get("RA_target") is None:
+                solve_fails += 1
+                if solve_fails > 10:
+                    print("Too many fails")
+                    return (-1, -1)
+                try:
+                    point_sol = t3.solve_from_centroids(
+                        centroids,
+                        (512, 512),
+                        fov_estimate=fov_estimate,
+                        fov_max_error=0.2,
+                        return_matches=False,
+                        target_pixel=[search_point[0], search_point[1]],
+                        solve_timeout=1000,
+                    )
+                except Exception:
+                    return (-1, -1)
+
+            # distance...
+            p_dist = np.hypot(
+                point_sol["RA_target"] - ra, point_sol["Dec_target"] - dec
+            )
+            if p_dist < min_dist:
+                search_center = search_point
+                min_dist = p_dist
+
+        # cut search distance
+        search_distance = search_distance / 2
+
+    # Done?
+    if min_dist > 0.1:
+        # Didn't find a good pixel...
+        return (-1, -1)
+    return search_center
+
+
+>>>>>>> main
 def solver(
     shared_state,
     solver_queue,
