@@ -105,10 +105,7 @@ class UIAlign(UIModule):
         # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(),
-            down=MarkingMenuOption(
-                label="Options",
-                menu_jump="chart_settings",
-            ),
+            down=MarkingMenuOption(),
             right=MarkingMenuOption(),
         )
 
