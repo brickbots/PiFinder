@@ -71,6 +71,7 @@ def align_on_radec(ra, dec, command_queues, config_object, shared_state) -> bool
         return False
 
     # success, set all the things...
+    command_queues["console"].put("Alignment Set")
     shared_state.set_solve_pixel(target_pixel)
     config_object.set_option("solve_pixel", target_pixel)
     return True
@@ -97,8 +98,8 @@ class UIAlign(UIModule):
         self.star_list = np.empty((0, 2))
         self.alignment_star = None
         self.reticle_position = (
-            self.config_object.get_option("solve_pixel", (256, 256))[0] / 4,
             self.config_object.get_option("solve_pixel", (256, 256))[1] / 4,
+            self.config_object.get_option("solve_pixel", (256, 256))[0] / 4,
         )
 
         # Marking menu definition
@@ -119,8 +120,9 @@ class UIAlign(UIModule):
             return
 
         if not self.align_mode:
-            self.reticle_position = self.starfield.radec_to_xy(
-                self.solution["RA"], self.solution["Dec"]
+            self.reticle_position = (
+                self.config_object.get_option("solve_pixel", (256, 256))[1] / 4,
+                self.config_object.get_option("solve_pixel", (256, 256))[0] / 4,
             )
 
         x_pos = round(self.reticle_position[0])
@@ -179,9 +181,7 @@ class UIAlign(UIModule):
 
         if self.shared_state.solve_state():
             self.animate_fov()
-            constellation_brightness = self.config_object.get_option(
-                "chart_constellations", 64
-            )
+            constellation_brightness = 64
             self.solution = self.shared_state.solution()
             last_solve_time = self.solution["solve_time"]
             if (
@@ -206,7 +206,7 @@ class UIAlign(UIModule):
                 self.screen.paste(image_obj)
 
                 self.last_update = last_solve_time
-            self.draw_reticle()
+                self.draw_reticle()
 
         else:
             self.draw.rectangle(
