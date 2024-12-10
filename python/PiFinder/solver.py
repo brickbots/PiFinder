@@ -47,13 +47,13 @@ def find_target_pixel(t3, fov_estimate, centroids, ra, dec):
         # probe points
         min_dist = 100000
         for search_point in search_points:
-            solve_fails=0
+            solve_fails = 0
             point_sol = {}
             while point_sol.get("RA_target") is None:
-                solve_fails +=1
+                solve_fails += 1
                 if solve_fails > 10:
                     print("Too many fails")
-                    return (-1,-1)
+                    return (-1, -1)
                 try:
                     point_sol = t3.solve_from_centroids(
                         centroids,

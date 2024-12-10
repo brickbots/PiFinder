@@ -1,0 +1,3 @@
+(fp_lib_table
+  (lib (name "PiHat")(type "KiCad")(uri "/Users/rich/Projects/mk/kicad/RPi_Hat.pretty")(options "")(descr ""))
+)
