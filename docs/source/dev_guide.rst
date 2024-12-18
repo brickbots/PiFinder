@@ -58,17 +58,12 @@ Documentation
 
 The `PiFinder documentation <https://pifinder.readthedocs.io/en/release/index.html>`_
 is written in `reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#external-links>`_ . 
-The files are located in PiFinders GitHub repository under ``docs/source`` and have 
-the ending ``.rst``. We publish the documentation to `redthedocs.io <eadthedocs.io>`_ manually. 
+The files are located in PiFinders GitHub repository under ``docs`` and have 
+the ending ``.rst``. Many open source projects use `redthedocs.io <eadthedocs.io>` 
+for creating documentation since it is immediately generated, when you are committing 
+the GitHub code (CI/CD pipeline). It is very easy to link your fork of the documentation 
+code to GitHub. 
 
-For reviewing your changes to the docs locally, install sphinx into your development environment using pip:
-
-.. code-block::
-
-    pip install sphinx sphinx_rtd_theme 
-
-and then use the supplied Makefile using ``make html``. 
-The docs are then stored in ``build/html``. To serve it locally run ``python -m http.server`` in the html directory. 
 
 Setup the development environment
 ---------------------------------
