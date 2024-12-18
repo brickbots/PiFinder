@@ -54,7 +54,7 @@ the procedure. If not, here is how you do this:
 * `Youtube - How To Pull Request in 3 Minutes <https://www.youtube.com/watch?v=jRLGobWwA3Y>`_
 
 Documentation
-.............
+-------------
 
 The `PiFinder documentation <https://pifinder.readthedocs.io/en/release/index.html>`_
 is written in `reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#external-links>`_ . 
@@ -88,6 +88,10 @@ IMU, GPS or other physical hardware features.  You can emulate these using the
 You can also develop on any Posix compatible system (Linux / MacOS) in roughly the 
 same way you can on a Raspberry Pi.  The emulated hardware and networking features 
 will work differently so this is mostly useful for UI/Catalog feature development.
+
+Note that you can develop on Windows by activating Windows Subsystem for Linux (WSL2) 
+and installing Ubuntu from the Microsoft Store. The window launched by PiFinder will 
+be fully integrated into your windows desktop. 
 
 To get started, fork the repo and set up your virtual environment system of choice
 using Python 3.9.  Then follow some of the steps below!
