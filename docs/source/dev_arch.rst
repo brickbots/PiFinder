@@ -68,17 +68,74 @@ This choice of architecture means that logging to disk is a little bit more comp
 need to avoid writing to the same log file from multiple processes, to avoid overwriting
 each other‘s logs. We have therefore implemented a log thread and queues delivering log 
 messages from the processes. This means that in a log file, the order of log messages 
-can be out of order.  
+can be out of order. 
+
+To set this up, in each process you need to invoke logging like this:
+
+.. code-block::
+
+    from PiFinder.multiproclogging import MultiprocLogging
+    
+    # You can create loggers with-out setting up forwarding
+    logger = logging.getLogger(„Solver“)
+    
+    ...
+    
+    # In the main loop of the process ... 
+    def process( ..., log_queue, ...)
+        MultiprocLogging.configurer(log_queue) # ... Enable log forwarding
+        
+        # only then create log messages
+        logger.debug(„Starting Solver“)
+
 
 Choice of Plate-Solver
 ------------------------ 
 
-PiFinder uses 
+PiFinder uses ``cedar-detect-server <https://github.com/smroid/cedar-detect>``_ 
+in binary form to determine star centroids in an image. This is a fast centroider written
+in the Rust programming language that is running in a separate process. A gRPC API is used
+to interface with this process. 
 
+The detected centroids are then passed to the 
+``tetra3 solver <https://github.com/esa/tetra3>``_ for plate-solving. 
+If the platform that PiFinder is running on is not supported by cedar,[3] PiFinder 
+falls back to using the centroider of tetra3.
+
+.. [3] This can only happen when PiFinder‘s software is not running on a Raspberry Pi.
 
 Testing
 -------—--
 
+Unit Testing
+...............
+
+On commit to the repository the unit tests in ``python/tests`` is run using the 
+configuration in ``pyproject.toml`` using nox (also see its configuration in 
+``noxfile.py``). Please provide unit tests with your pull request.
+
+Fuzz Testing
+...............
+
+A.k.a „monkey testing“.
+
+PiFinder‘s software can be invoked with the ``--script <file>`` parameter, 
+which plays back the key strokes listed in the specified file. 
+
+In the ``scripts`` folder you will find two files that contain randomly created key
+presses. One file contains 1k the other 10k simulated key presses. We recommend 
+to run this after every change to the UI, before you create the pull request. 
+This is currently not automatically done on commit to the repository.
+
+There‘s also a script to create other files. 
+ 
+Help Needed
+...............
+
+Currently the number of tests is rather low and needs improvement. 
+
+Please visit ``Issue #232 <https://github.com/brickbots/PiFinder/issues/232>``_ 
+for a discussion of tests that we would like to implement.  
 
 
 .. [NIELSEN_LIMITS] https://www.nngroup.com/articles/response-times-3-important-limits/
