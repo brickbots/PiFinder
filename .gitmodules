@@ -1,4 +1,3 @@
 [submodule "python/PiFinder/tetra3"]
 	path = python/PiFinder/tetra3
-	url = https://github.com/esa/tetra3.git
-	branch = no_big_files
+	url = https://github.com/smroid/cedar-solve

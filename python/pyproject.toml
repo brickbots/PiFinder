@@ -123,6 +123,7 @@ module = [
     'sklearn.*',
     'PyHotKey.*',
     'PiFinder.tetra3.*',
+    'tetra3.*',
     'grpc',
     'ceder_detect_pb2',
     'RPi.*',
