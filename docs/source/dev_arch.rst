@@ -38,7 +38,16 @@ there are some time-critical requirements:
    be displayed "instantanously". This means a very fast blind plate-solver MUST be used.
 3. While the telescope is moved, the camera is not able to supply pictures that could
    be solved by the plate-solver (motion blur). In order to be able to provide 
-   feedback on the movement to the users, PiFinder MUST use an IMU[2]_. 
+   feedback on the movement to the users, PiFinder uses an IMU[2]_. Information derived
+   from this subsystem MUST also be displayed to the user in an instantaneous fashion.
+4. PiFinder offers a webserver interface, that users can connect to, 
+   to remotely control PiFinder and to display and set certain configuration 
+   information, that would be cumbersome to change using the keyboard. 
+   This means that in parallel http requests MUST be parsed and serviced.
+5. ``SkySafari <https://skysafariastronomy.com/>``_ can connect to PiFinder and 
+   be used as planetarium software to a) see there PiFinder is pointing and 
+   b) to push targets to PiFinder. This means that PiFinder MUST support the 
+   LX200 protocol as supported by SkySafari. 
    
 This implies, that a lot of information needs to be collected in parallel, and MUST be 
 processed and integrated to be displayed to the users. Given the choice of Python 
@@ -51,15 +60,30 @@ processes either queues or shared memory are employed. **Wherever possible, we p
 use queues, as it provides a decoupling of creation and consumption of data, so that
 the receiving end can process the data at a convenient point in time.**
 
-Therefore PiFinder consists of the following processes: 
+Therefore PiFinder consists of the following processes with their main responsibilities:
 
-- **a** cde
-- **b** efg
-- tbd.
+- **main**: processing keystrokes and UI ``main.py``. This also sets 
+  up all other processes. 
+- **camera**: setup the image acquisition pipeline and acquire 
+  images regularly, distributing this to the other modules ``camera_pi.py``
+- **gps**: read out gps position using a serial interface ``gps_pi.py``
+- **imu**: read out 3D position information from IMU ``imu_pi.py``
+- **keyboard**: read out keystrokes and send it to the keyboard queue ``keyboard_pi.py``
+- **pos_server**: the server that SkySafari connects to.
+- **server**: the web interface server process
 
 .. [1] Realistically, < 0.5 - 1 s.
 .. [2] inertial measurement unit, that uses accelerometers, gyroscopes and a magnetometer
-       to estimate the movements it has undergone
+       to record the movements it has undergone and estimates the position the 
+       PiFinder is in.
+
+Handling Images
+.....................
+
+The exception to the rule of using queues for interprocess communication is the 
+image that is recorded by the camera. This uses a shared memory image, 
+that is constantly updated by the image acquision thread. When ever working on 
+this image, make sure that you create your own local copy of it.  
 
 Logging
 --------- 
@@ -112,7 +136,7 @@ Unit Testing
 
 On commit to the repository the unit tests in ``python/tests`` is run using the 
 configuration in ``pyproject.toml`` using nox (also see its configuration in 
-``noxfile.py``). Please provide unit tests with your pull request.
+``noxfile.py``). **Please provide unit tests with your pull request.**
 
 Fuzz Testing
 ...............
