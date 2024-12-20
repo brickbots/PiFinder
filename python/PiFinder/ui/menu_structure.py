@@ -204,10 +204,6 @@ pifinder_menu = {
                     "name": "Name Search",
                     "class": UITextEntry,
                 },
-                {
-                    "name": "Enter RA/Dec",
-                    "class": UITextEntry,
-                }
             ],
         },
         {
