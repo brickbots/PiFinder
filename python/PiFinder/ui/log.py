@@ -11,6 +11,7 @@ from PiFinder import obslog
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.text_menu import UITextMenu
+from PiFinder import config
 
 from PiFinder.db.observations_db import ObservationsDatabase
 
@@ -126,33 +127,32 @@ class UILog(UIModule):
             ],
         }
 
+        cfg = config.Config()
+
+        eyepieces_list = cfg.equipment.eyepieces
+
+        # Loop over eyepieces and add to menu
+        eyepiece_items = [
+            {
+                "name": "NA",
+                "value": "NA",
+            },
+        ]
+        for eyepiece in eyepieces_list:
+            eyepiece_items.append(
+                {
+                    "name": eyepiece.name,
+
+                    "value": (eyepiece.make + " " + eyepiece.name).lstrip(),
+                }
+            )
+
         self.eyepiece_menu = {
             "name": "Eyepiece",
             "class": UITextMenu,
             "select": "single",
             "config_option": "session.log_eyepiece",
-            "items": [
-                {
-                    "name": "NA",
-                    "value": "NA",
-                },
-                {
-                    "name": "32mm",
-                    "value": "32mm",
-                },
-                {
-                    "name": "25mm",
-                    "value": "25mm",
-                },
-                {
-                    "name": "13mm",
-                    "value": "13mm",
-                },
-                {
-                    "name": "9mm",
-                    "value": "9mm",
-                },
-            ],
+            "items": eyepiece_items
         }
 
         self.reset_config()
