@@ -859,19 +859,6 @@ pifinder_menu = {
                         },
                     ],
                 },
-                {
-                    "name": "Experimental",
-                    "class": UITextMenu,
-                    "select": "Single",
-                    "items": [
-                        {
-                            "name": "Align",
-                            "class": UIAlign,
-                            "stateful": True,
-                            "preload": True,
-                        },
-                    ],
-                },
             ],
         },
     ],
