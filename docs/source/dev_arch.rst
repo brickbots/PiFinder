@@ -24,8 +24,8 @@ image manipulation, statistics, APIs and implementing web servers.
 The second most used language are shell scripts managing especially the setup of the
 Raspberry Pi and upgrades.
 
-Architecture 
----------------
+Architecture Overview
+------------------------
 
 Architecture determining Requirements
 ..........................................
@@ -65,10 +65,10 @@ processed and integrated to be displayed to the users. Given the choice of Pytho
 as the main programming language means that the choice of concurrency primitives is
 important: 
 
-As Python has a Global Interpreter Lock [GIL], **PiFinder uses separate processes
+As Python has a Global Interpreter Lock [GIL]_, **PiFinder uses separate processes
 for the different tasks** mentioned above. This means that for communication between the 
 processes either queues or shared memory are employed. Wherever possible, **we prefer to 
-use queues** as a means to communicate between processes, as it provides a decoupling 
+use queues to communicate between processes**, as it provides a decoupling 
 of creation and consumption of data, so that the receiving end can process the data 
 at a convenient point in time.
 
@@ -79,10 +79,36 @@ Therefore PiFinder consists of the following processes with their main responsib
 - **camera**: setup the image acquisition pipeline and acquire 
   images regularly, distributing this to the other modules in ``camera_pi.py``
 - **gps**: read out gps position using a serial interface in ``gps_pi.py``
-- **imu**: read out 3D position information from IMU in ``imu_pi.py``
+- **integratro**: read out 3D position information from IMU and estimate position in ``integrator.py``
 - **keyboard**: read out keystrokes and send it to the keyboard queue in ``keyboard_pi.py``
 - **pos_server**: the server that SkySafari connects to, in ``pos_server.py``.
 - **server**: the web interface server process, in - you guessed it - ``server.py``.
+
+In each of these code units, there's a function that will be called as the entry routine 
+into that module. All of these have a signature and general structure like this:
+
+.. code-block::
+
+   def entry_function(shared_state, ..., <queues>, ..., <startup parameters>)
+      MultiprocLogging.configurer(log_queue) # ... Enable log forwarding, see below
+
+      # Instantiate classes and hardware
+      ...
+
+      # Processing loop
+      while true:
+         ...
+         # Use shared memory 
+         var = shared_state.get ...
+         ...
+         shared_state.set ...
+         ...
+         # Use messages on queues
+         var = queue.receive ...
+         ...
+         queue.send ...
+         ...
+
 
 Shared Image Handling
 .....................
@@ -92,6 +118,13 @@ image that is recorded by the camera. This uses a **shared memory image,
 that is constantly updated by the image acquision thread**. Whenever working on 
 this image, make sure that you create your own local copy of it, so it does not get 
 changed while you process it. 
+
+Running with-out hardware
+.............................
+
+When PiFinder's software is not run on a Raspberry Pi equipped with the additional hardware, 
+during startup instead of importing and instantiating the classes using the "real" hardware with ``<class>_pi.py``, the startup
+routine imports the respective ``<class>_fake.py`` or ``<class>_none.py`` code units. 
 
 Logging
 --------- 
@@ -104,12 +137,12 @@ can be out of order.
 
 To set this up, in each process you need to invoke logging like this:
 
-.. code-block::
+.. code-block:: python
 
     from PiFinder.multiproclogging import MultiprocLogging
     
     # You can create loggers with-out setting up forwarding
-    logger = logging.getLogger(„Solver“)
+    logger = logging.getLogger("Solver")
     
     ...
     
@@ -118,19 +151,22 @@ To set this up, in each process you need to invoke logging like this:
         MultiprocLogging.configurer(log_queue) # ... Enable log forwarding
         
         # only then create log messages
-        logger.debug(„Starting Solver“)
+        logger.debug("Starting Solver")
 
 
 Choice of Plate-Solver
 ------------------------ 
 
-PiFinder uses `cedar-detect-server <https://github.com/smroid/cedar-detect>`_ 
+PiFinder uses `cedar-detect-server (on GitHub) <https://github.com/smroid/cedar-detect>`_ 
 in binary form to determine star centroids in an image. This is a fast centroider written
 in the Rust programming language that is running in a separate process. A gRPC API is used
-to interface with this process. 
+to interface with this process. See the Python documentation in the linked GitHub repository.
 
 The detected centroids are then passed to the 
-`tetra3 solver <https://github.com/esa/tetra3>`_ for plate-solving. 
+`tetra3 solver <https://github.com/esa/tetra3>`_ for plate-solving. tetra3 uses a database that
+is stripped down to work with the approximate focal length of compatible lenses as listed 
+in the `Parts List <BOM.html>`_ so that the time to get a solve is minimal.
+
 If the platform that PiFinder is running on is not supported by cedar, [3]_ PiFinder 
 falls back to using the centroider of tetra3.
 
@@ -166,7 +202,7 @@ Help Needed
 
 Currently the number of tests is rather low and needs improvement. 
 
-Please visit ``Issue #232 <https://github.com/brickbots/PiFinder/issues/232>``_ 
+Please visit `Issue #232 <https://github.com/brickbots/PiFinder/issues/232>`_ 
 for a discussion of tests that we would like to implement.  
 
 References
