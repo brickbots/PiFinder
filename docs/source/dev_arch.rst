@@ -70,26 +70,35 @@ for the different tasks** mentioned above. This means that for communication bet
 processes either queues or shared memory are employed. Wherever possible, **we prefer to 
 use queues to communicate between processes**, as it provides a decoupling 
 of creation and consumption of data, so that the receiving end can process the data 
-at a convenient point in time.
+at a convenient point in time. In real life, most of the data is passed back and forth 
+using shared memory. 
 
-Therefore PiFinder consists of the following processes with their main responsibilities:
+Processes 
+....................
 
-- **main**: processing keystrokes and UI in file ``main.py``. This also sets 
-  up all other processes. 
-- **camera**: setup the image acquisition pipeline and acquire 
-  images regularly, distributing this to the other modules in ``camera_pi.py``
-- **gps**: read out gps position using a serial interface in ``gps_pi.py``
-- **integratro**: read out 3D position information from IMU and estimate position in ``integrator.py``
-- **keyboard**: read out keystrokes and send it to the keyboard queue in ``keyboard_pi.py``
-- **pos_server**: the server that SkySafari connects to, in ``pos_server.py``.
-- **server**: the web interface server process, in - you guessed it - ``server.py``.
+PiFinder consists of the following processes with their main responsibilities - 
+
+Offloading Device interfacing to separate processes: 
+ - **GPS**: Read telescope position and local time from GPS and post it to other processes. main stores this in the shared_state. ``gps_pi.py``
+ - **keyboard**: Scan the keyboard, convert each button press into a keyboard event and post it. ``keyboard_pi.py``
+ - **camera**: Setup the camera, read images into shared image. ``camera_pi.py``
+ - **IMU**: Setup the IMU, read movements from IMU, share its orientation ``imu_pi.py``
+ 
+Main Processing:
+ - **main**: Entry point for PiFinder, this is the UI process, including Console, menu_manager and display. ``main.py``
+ - **solver**: platesolve image, share position. ``solver.py``
+ - **integrator**: Estimate PiFinder's current pointing by merging platesolve information and IMU data. ``integrator.py``
+
+External Interfaces: 
+ - **webserver**: Provide webpage, that shows the display and current status and allows users to control PiFinder via this website, e.g. from a mobile. ``server.py``
+ - **pos_server**: Provide SkySafari the current position of PiFinder, receive new targets from SkySafari. ``pos_server.py``
 
 In each of these code units, there's a function that will be called as the entry routine 
 into that module. All of these have a signature and general structure like this:
 
 .. code-block::
 
-   def entry_function(shared_state, ..., <queues>, ..., <startup parameters>)
+   def entry_function(shared_state, ..., <queues>, log_queue, ..., <startup parameters>)
       MultiprocLogging.configurer(log_queue) # ... Enable log forwarding, see below
 
       # Instantiate classes and hardware
@@ -98,29 +107,141 @@ into that module. All of these have a signature and general structure like this:
       # Processing loop
       while true:
          ...
+
          # Use shared memory 
          var = shared_state.get ...
          ...
          shared_state.set ...
          ...
+
          # Use messages on queues
          var = queue.receive ...
          ...
          queue.send ...
          ...
 
+Collaboration
+....................
 
-Shared Image Handling
-.....................
+The following diagram provides an overview of the collaboration of processes: 
 
-The exception to the rule of using queues for interprocess communication is the 
-image that is recorded by the camera. This uses a **shared memory image, 
-that is constantly updated by the image acquision thread**. Whenever working on 
-this image, make sure that you create your own local copy of it, so it does not get 
-changed while you process it. 
+.. 
+   mermaid
+   ---
+   title: Association of Shared State and Processes
+   ---
+
+   graph LR
+	
+	shared_state([shared_state])
+	camera_image([camera_image])
+    
+	shared_state --- keyboard 
+	keyboard_queue[\keyboard_queue/]
+	keyboard --> keyboard_queue
+	 
+	script --> keyboard_queue
+	 
+	shared_state --- webserver
+	webserver --> keyboard_queue
+	webserver --- gps_queue
+    
+	gps_queue[\gps_queue/]
+	GPS --- gps_queue
+	console_queue[\console_queue/]
+	GPS --> console_queue
+
+	shared_state --- IMU
+	IMU --> console_queue
+
+	shared_state --- camera
+	camera --> console_queue
+	camera_command_queue[\camera_command_queue/]
+	camera --- camera_command_queue
+	camera_image --- camera 
+    
+	shared_state --- integrator
+	integrator --> console_queue
+	solver_queue[\solver_queue/]
+	integrator --- solver_queue
+    
+	shared_state --- solver 
+	camera_image --- solver
+	solver --> console_queue
+	alignment_command_queue[\alignment_command_queue/]
+	solver --- alignment_command_queue
+	solver --- solver_queue 
+	alignment_response_queue[\alignment_response_queue/]
+	solver --- alignment_response_queue
+    
+	shared_state --- pos_server
+	ui_queue[\ui_queue/]
+	pos_server --- ui_queue
+    
+	console_queue --> main
+	keyboard_queue --> main
+	ui_queue --> main
+	gps_queue --> main
+
+.. image:: images/mermaid_process_collaboration.png
+
+Note: **main** is associated with all queues and processes. Here we show only the queues 
+that are explicitly processed and consumed in main's loop. 
+
+Further note: The graphic was generated automatically by `mermaid <https://mermaid.js.org/>`_. 
+We only show some of the flow directions, as the rendering engine gets confused and a lot 
+of the clarity of the representation is lost. 
+
+Here some details: 
+ - The camera shares pictures using the Shared Memory image (see below) and receives 
+   commands on exposure time through `camera_command_queue`
+ - The solver processes the image and notifies the integrator of new solves 
+   through the `solver_queue`
+ - The `aligment_command_queue` is used to ask the solver, which pixel corresponds 
+   to a given position and the result is handed back using the `aligment_response_queue`
+ - Through the `ui_queue` a new target is set by the SkySafari server
+ - Commands and telescope location (GPS) are injected by the `webserver` into the respective queues.
+
+State in Shared Memory 
+........................
+
+The second option to share information between processes is using shared memory. 
+This is setup using a `multiprocessing.manager` which is responsible to setup the shared memory structures
+and providing objects to the processes to access the shared memory. 
+
+There are three types of shared state in PiFinder 
+
+- A structure **shared_state** - 
+  The definition of which can be found in ``state.py``. Example:
+
+.. code-block:: python
+
+   SharedStateObj(
+      power_state=1,
+      solve_state=True,
+      solution={'RA': 22.86683471463411, 'Dec': 15.347716050003328, 'imu_pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
+                'solve_time': 1695297930.5532792, 'cam_solve_time': 1695297930.5532837, 'Roll': 306.2951794424281, 'FOV': 10.200729425086111,
+                RMSE': 21.995567413046142, 'Matches': 12, 'Prob': 6.987725483613384e-13, 'T_solve': 15.00384000246413, 'RA_target': 22.86683471463411,
+                'Dec_target': 15.347716050003328, 'T_extract': 75.79255499877036, 'Alt': None, 'Az': None, 'solve_source': 'CAM', 'constellation': 'Psc'},
+      imu={'moving': False, 'move_start': 1695297928.69749, 'move_end': 1695297928.764207, 'pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
+           'start_pos': [171.4009455613444, 202.76321535004726, 358.2587208386012], 'status': 3},
+      location={'lat': 59.05139745, 'lon': 7.987654, 'altitude': 151.4, 'gps_lock': False, 'timezone': 'Europe/Stockholm', 'last_gps_lock': None},
+      datetime=None,
+      screen=<PIL.Image.Image image mode=RGB size=128x128 at 0xE693C910>,
+      solve_pixel=[305.6970520019531, 351.9438781738281]
+   )
+
+
+- The shared image - 
+  This uses a **shared memory image, that is constantly updated by the 
+  image acquision thread**. Whenever working on this image, make sure that 
+  you create your own local copy of it, so it does not get changed while you process it. 
+
+- An UIState object - see ``ui/status.py`` 
+
 
 Running with-out hardware
-.............................
+---------------------------
 
 When PiFinder's software is not run on a Raspberry Pi equipped with the additional hardware, 
 during startup instead of importing and instantiating the classes using the "real" hardware with ``<class>_pi.py``, the startup
