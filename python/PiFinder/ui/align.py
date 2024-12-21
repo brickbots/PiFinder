@@ -117,9 +117,8 @@ class UIAlign(UIModule):
             return
 
         if not self.align_mode:
-            self.reticle_position = (
-                self.config_object.get_option("solve_pixel", (256, 256))[1] / 4,
-                self.config_object.get_option("solve_pixel", (256, 256))[0] / 4,
+            self.reticle_position = self.starfield.radec_to_xy(
+                self.solution["RA_target"], self.solution["Dec_target"]
             )
 
         x_pos = round(self.reticle_position[0])
