@@ -284,11 +284,13 @@ in the Rust programming language that is running in a separate process. A gRPC A
 to interface with this process. See the Python documentation in the linked GitHub repository.
 
 The detected centroids are then passed to the 
-`tetra3 solver <https://github.com/esa/tetra3>`_ for plate-solving. tetra3 uses a database that
+`cedar-solve (on GitHub) <https://github.com/smroid/cedar-solve>`_ for plate-solving. Note that in the code 
+it is still called `tetra3`, as this was used before, and cedar-solve is a 
+fork of the `tetra3-solver (on GitHub) <https://github.com/esa/tetra3>`_. It uses a database that
 is stripped down to work with the approximate focal length of compatible lenses as listed 
 in the `Parts List <BOM.html>`_ so that the time to get a solve is minimal.
 
-If the platform that PiFinder is running on is not supported by cedar, [3]_ PiFinder 
+If the platform that PiFinder is running on is not supported by cedar-detect, [3]_ PiFinder 
 falls back to using the centroider of tetra3.
 
 .. [3] This can only happen when PiFinder's software is not running on a Raspberry Pi.
