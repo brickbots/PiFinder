@@ -10,30 +10,31 @@ import select
 # disconnects to test the server's robustness.
 
 # Set up logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Server details
-SERVER_HOST = 'localhost'  # Change this if the server is on a different machine
+SERVER_HOST = "localhost"  # Change this if the server is on a different machine
 SERVER_PORT = 4030
 
 # List of valid LX200 commands (add more as needed)
 VALID_COMMANDS = [
-    ':GR#',  # Get RA
-    ':GD#',  # Get DEC
-    ':Q#',   # Stop all motion
-    ':MS#',  # Slew to target
-    ':CM#',  # Sync to target
+    ":GR#",  # Get RA
+    ":GD#",  # Get DEC
+    ":Q#",  # Stop all motion
+    ":MS#",  # Slew to target
+    ":CM#",  # Sync to target
 ]
 
 # List of invalid commands
 INVALID_COMMANDS = [
-    ':XX#',
-    ':YY#',
-    ':ZZ#',
-    'INVALID',
-    'RANDOM',
+    ":XX#",
+    ":YY#",
+    ":ZZ#",
+    "INVALID",
+    "RANDOM",
 ]
 
 # Command response timeout (in seconds)

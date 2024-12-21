@@ -8,7 +8,7 @@ This module contains the base UIModule class
 import time
 import uuid
 from itertools import cycle
-from typing import Type, Union, Optional
+from typing import Type, Union
 
 from PIL import Image, ImageDraw
 from PiFinder import utils
@@ -156,8 +156,7 @@ class UIModule:
             fill=self.colors.get(0),
             outline=self.colors.get(0),
         )
-        self.draw.rectangle(size, fill=self.colors.get(0),
-                            outline=self.colors.get(128))
+        self.draw.rectangle(size, fill=self.colors.get(0), outline=self.colors.get(128))
 
         line_length = int((size[2] - size[0]) / self.fonts.bold.width)
         message = " " * int((line_length - len(message)) / 2) + message
@@ -190,8 +189,7 @@ class UIModule:
                     (6, 1), str(self.fps), font=self.fonts.bold.font, fill=fg
                 )
             else:
-                self.draw.text((6, 1), self.title,
-                               font=self.fonts.bold.font, fill=fg)
+                self.draw.text((6, 1), self.title, font=self.fonts.bold.font, fill=fg)
             imu = self.shared_state.imu()
             moving = True if imu and imu["pos"] and imu["moving"] else False
 
@@ -224,8 +222,7 @@ class UIModule:
                     # a fresh cam solve sets unmoved to True
                     self._unmoved = True if cam_active else self._unmoved
                     if self._unmoved:
-                        time_since_cam_solve = time.time() - \
-                            solution["cam_solve_time"]
+                        time_since_cam_solve = time.time() - solution["cam_solve_time"]
                         var_fg = min(64, int(time_since_cam_solve / 6 * 64))
                     # self.draw.rectangle([115, 2, 125, 14], fill=bg)
 
