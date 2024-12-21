@@ -142,7 +142,6 @@ class UILog(UIModule):
             eyepiece_items.append(
                 {
                     "name": eyepiece.name,
-
                     "value": (eyepiece.make + " " + eyepiece.name).lstrip(),
                 }
             )
@@ -152,7 +151,7 @@ class UILog(UIModule):
             "class": UITextMenu,
             "select": "single",
             "config_option": "session.log_eyepiece",
-            "items": eyepiece_items
+            "items": eyepiece_items,
         }
 
         self.reset_config()

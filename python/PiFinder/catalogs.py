@@ -271,7 +271,7 @@ class CatalogBase:
 
     def _add_object(self, obj: CompositeObject):
         self.__objects.append(obj)
-        if (obj.sequence > self.max_sequence):
+        if obj.sequence > self.max_sequence:
             self.max_sequence = obj.sequence
 
     def add_objects(self, objects: List[CompositeObject]):
@@ -313,8 +313,7 @@ class CatalogBase:
         self.id_to_pos = {obj.id: i for i, obj in enumerate(self.__objects)}
 
     def _update_sequence_to_pos(self):
-        self.sequence_to_pos = {obj.sequence: i for i,
-                                obj in enumerate(self.__objects)}
+        self.sequence_to_pos = {obj.sequence: i for i, obj in enumerate(self.__objects)}
 
     def __repr__(self):
         return f"Catalog({self.catalog_code=}, {self.max_sequence=}, count={self.get_count()})"
@@ -355,8 +354,10 @@ class Catalog(CatalogBase):
 
         self.filtered_objects = self.catalog_filter.apply(self.get_objects())
         logger.info(
-            "FILTERED %s %d/%d", self.catalog_code, len(
-                self.filtered_objects), len(self.get_objects())
+            "FILTERED %s %d/%d",
+            self.catalog_code,
+            len(self.filtered_objects),
+            len(self.get_objects()),
         )
         self.filtered_objects_seq = self._filtered_objects_to_seq()
         self.last_filtered = time.time()
@@ -369,7 +370,7 @@ class Catalog(CatalogBase):
         return len(self.filtered_objects)
 
     def get_age(self) -> Optional[int]:
-        """ If the catalog data is time-sensitive, return age in days. """
+        """If the catalog data is time-sensitive, return age in days."""
         return None
 
     def __repr__(self):
@@ -468,7 +469,8 @@ class Catalogs:
             self.__catalogs.append(catalog)
         else:
             logger.warning(
-                "Catalog %s already exists, not replaced (in Catalogs.add)", catalog.catalog_code
+                "Catalog %s already exists, not replaced (in Catalogs.add)",
+                catalog.catalog_code,
             )
 
     def remove(self, catalog_code: str):
@@ -477,8 +479,7 @@ class Catalogs:
                 self.__catalogs.remove(catalog)
                 return
 
-        logger.warning(
-            "Catalog %s does not exist, cannot remove", catalog_code)
+        logger.warning("Catalog %s does not exist, cannot remove", catalog_code)
 
     def get_codes(self, only_selected: bool = True) -> List[str]:
         return_list = []
@@ -648,8 +649,7 @@ class PlanetCatalog(TimerCatalog):
                     planet = planet_dict[name]
                     obj.ra, obj.dec = planet["radec"]
                     obj.mag = MagnitudeObject([planet["mag"]])
-                    obj.const = sf_utils.radec_to_constellation(
-                        obj.ra, obj.dec)
+                    obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
                     obj.mag_str = obj.mag.calc_two_mag_representation()
 
 
@@ -664,7 +664,7 @@ class CometCatalog(TimerCatalog):
         self._start_background_init(dt)
 
     def get_age(self) -> Optional[int]:
-        """ Return the age of the comet data in days """
+        """Return the age of the comet data in days"""
         return self.age
 
     def _start_background_init(self, dt):
@@ -676,7 +676,8 @@ class CometCatalog(TimerCatalog):
                         self.initialised = self.calc_comet_first_time(dt)
                     with self.virtual_id_lock:
                         new_low = self.assign_virtual_object_ids(
-                            self, self.virtual_id_low)
+                            self, self.virtual_id_low
+                        )
                         self.virtual_id_low = new_low
                     break
                 time.sleep(60)  # retry every minute to download comet data
@@ -723,7 +724,7 @@ class CometCatalog(TimerCatalog):
         self.add_object(obj)
 
     def do_timed_task(self):
-        """ updating comet catalog data """
+        """updating comet catalog data"""
         with Timer("Comet Catalog periodic update"):
             with self._init_lock:
                 if not self.initialised:
@@ -731,7 +732,8 @@ class CometCatalog(TimerCatalog):
                     return
             dt = self.shared_state.datetime()
             comet_dict = comets.calc_comets(
-                dt, [x.names[0] for x in self._get_objects()])
+                dt, [x.names[0] for x in self._get_objects()]
+            )
             if not comet_dict:
                 return
             for obj in self._get_objects():
@@ -756,8 +758,7 @@ class CatalogBuilder:
         db: Database = ObjectsDatabase()
         obs_db: Database = ObservationsDatabase()
         # list of dicts, one dict for each entry in the catalog_objects table
-        catalog_objects: List[Dict] = [
-            dict(row) for row in db.get_catalog_objects()]
+        catalog_objects: List[Dict] = [dict(row) for row in db.get_catalog_objects()]
         objects = db.get_objects()
         common_names = Names()
         catalogs_info = db.get_catalogs_dict()
@@ -769,8 +770,7 @@ class CatalogBuilder:
         # to speed up repeated searches
         self.catalog_dicts = {}
         logger.debug("Loaded %i objects from database", len(composite_objects))
-        all_catalogs: Catalogs = self._get_catalogs(
-            composite_objects, catalogs_info)
+        all_catalogs: Catalogs = self._get_catalogs(composite_objects, catalogs_info)
         # Initialize planet catalog with whatever date we have for now
         # This will be re-initialized on activation of Catalog ui module
         # if we have GPS lock
@@ -792,8 +792,7 @@ class CatalogBuilder:
         for catalog in catalogs.get_catalogs(only_selected=False):
             result = catalog.check_sequences()
             if not result:
-                logger.error("Duplicate sequence catalog %s!",
-                             catalog.catalog_code)
+                logger.error("Duplicate sequence catalog %s!", catalog.catalog_code)
                 return False
             return True
 

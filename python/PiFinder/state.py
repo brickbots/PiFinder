@@ -12,15 +12,14 @@ import pytz
 from PiFinder import config
 import logging
 from typing import List
-import threading
 from PiFinder.composite_object import CompositeObject
 
 logger = logging.getLogger("SharedState")
 
 
 class RecentCompositeObjectList(list):
-    """ keeps the recent list of composite_objects,
-        handling duplicates """
+    """keeps the recent list of composite_objects,
+    handling duplicates"""
 
     def __init__(self):
         super().__init__()

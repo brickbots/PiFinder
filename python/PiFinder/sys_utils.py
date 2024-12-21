@@ -5,6 +5,7 @@ from typing import Dict, Any
 try:
     import sh
     from sh import wpa_cli, unzip, su, passwd
+
     REAL_SYS_UTILS = True
 except ImportError:
     REAL_SYS_UTILS = False

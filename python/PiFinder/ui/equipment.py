@@ -1,11 +1,8 @@
-import time
-
 from PiFinder.ui.base import UIModule
 from PiFinder import utils
 from PiFinder.state_utils import sleep_for_framerate
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.ui.text_menu import UITextMenu
-from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed
 from PiFinder import config
 
 sys_utils = utils.get_sys_utils()
@@ -82,12 +79,16 @@ class UIEquipment(UIModule):
         selected_telescope = self.config_object.get_option("session.log_telescope", "")
 
         if selected_eyepiece != "":
-            cfg.equipment.set_active_eyepiece(cfg.equipment.eyepieces[selected_eyepiece])
+            cfg.equipment.set_active_eyepiece(
+                cfg.equipment.eyepieces[selected_eyepiece]
+            )
             cfg.save_equipment()
             self.config_object.set_option("session.log_eyepiece", "")
 
         if selected_telescope != "":
-            cfg.equipment.set_active_telescope(cfg.equipment.telescopes[selected_telescope])
+            cfg.equipment.set_active_telescope(
+                cfg.equipment.telescopes[selected_telescope]
+            )
             cfg.save_equipment()
             self.config_object.set_option("session.log_telescope", "")
 
@@ -121,7 +122,10 @@ class UIEquipment(UIModule):
                 fill=self.colors.get(128),
             )
 
-        if cfg.equipment.active_telescope is not None and cfg.equipment.active_eyepiece is not None:
+        if (
+            cfg.equipment.active_telescope is not None
+            and cfg.equipment.active_eyepiece is not None
+        ):
             mag = cfg.equipment.calc_magnification()
             if mag > 0:
                 self.draw.text(

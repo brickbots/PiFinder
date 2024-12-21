@@ -27,7 +27,7 @@ class MagnitudeObject:
             self.filter_mag = self.UNKNOWN_MAG
 
     def _filter_floats(self) -> List[float]:
-        """ only used valid floats for magnitude"""
+        """only used valid floats for magnitude"""
         return [float(x) for x in self.mags if is_number(x)]
 
     def calc_two_mag_representation(self):
