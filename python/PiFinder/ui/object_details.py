@@ -257,6 +257,7 @@ class UIObjectDetails(UIModule):
                 self.contrast = ""
             else:
                 try:
+                    # Calculate the contrast reserve.
                     # The object diameters are given in arc minutes, but expected in arc seconds.
                     self.contrast = pds.contrast_reserve(
                         sqm=sqm,
