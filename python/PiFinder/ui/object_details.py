@@ -46,6 +46,7 @@ class UIObjectDetails(UIModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.contrast = None
         self.screen_direction = self.config_object.get_option("screen_direction")
         self.mount_type = self.config_object.get_option("mount_type")
         self.object = self.item_definition["object"]
@@ -71,7 +72,7 @@ class UIObjectDetails(UIModule):
             ),
         )
 
-        # Used for displaying obsevation counts
+        # Used for displaying observation counts
         self.observations_db = ObservationsDatabase()
 
         self.simpleTextLayout = functools.partial(
@@ -120,37 +121,12 @@ class UIObjectDetails(UIModule):
         designator_color = 255
         if not self.object.last_filtered_result:
             designator_color = 128
-        # TODO: Get the SQM from the shared state
-        # sqm = self.shared_state.get_sky_brightness()
-        sqm = 20.15
-        # Check if a telescope and eyepiece are set
-        if self.config_object.equipment.active_eyepiece is None or self.config_object.equipment.active_eyepiece is None:
-            contrast = ""
-        else:
-            # Calculate contrast reserve. The object diameters are given in arc seconds.
-            magnification = self.config_object.equipment.calc_magnification(
-                self.config_object.equipment.active_telescope, self.config_object.equipment.active_eyepiece)
-            if self.object.mag_str == "-":
-                contrast = ""
-            else:
-                try:
-                    contrast = pds.contrast_reserve(
-                        sqm=sqm, telescope_diameter=self.config_object.equipment.active_telescope.aperture_mm,
-                        magnification=magnification, magnitude=float(self.object.mag_str),
-                        object_diameter1=float(self.object.size) * 60.0, object_diameter2=float(self.object.size) * 60.0)
-                except:
-                    contrast = ""
-        try:
-            contrast = f"{contrast: .2f}"
-        except:
-            print(contrast)
-            contrast = ""
 
         # layout the name - contrast reserve line
         space_calculator = SpaceCalculatorFixed(14)
 
         _, typeconst = space_calculator.calculate_spaces(
-            self.object.display_name, contrast
+            self.object.display_name, self.contrast
         )
         return self.simpleTextLayout(
             typeconst,
@@ -258,6 +234,32 @@ class UIObjectDetails(UIModule):
             self.display_class,
             burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
         )
+
+        # Calculate contrast reserve
+        # TODO: Get the SQM from the shared state
+        # sqm = self.shared_state.get_sky_brightness()
+        sqm = 20.15
+        # Check if a telescope and eyepiece are set
+        if self.config_object.equipment.active_eyepiece is None or self.config_object.equipment.active_eyepiece is None:
+            self.contrast = ""
+        else:
+            # Calculate contrast reserve. The object diameters are given in arc seconds.
+            magnification = self.config_object.equipment.calc_magnification(
+                self.config_object.equipment.active_telescope, self.config_object.equipment.active_eyepiece)
+            if self.object.mag_str == "-":
+                self.contrast = ""
+            else:
+                try:
+                    self.contrast = pds.contrast_reserve(
+                        sqm=sqm, telescope_diameter=self.config_object.equipment.active_telescope.aperture_mm,
+                        magnification=magnification, magnitude=float(self.object.mag_str),
+                        object_diameter1=float(self.object.size) * 60.0, object_diameter2=float(self.object.size) * 60.0)
+                except:
+                    self.contrast = ""
+        try:
+            self.contrast = f"{self.contrast: .2f}"
+        except:
+            self.contrast = ""
 
     def active(self):
         self.activation_time = time.time()
@@ -466,7 +468,7 @@ class UIObjectDetails(UIModule):
 
     def mm_align(self, _marking_menu, _menu_item) -> bool:
         """
-        Called from marking menu to align on curent object
+        Called from marking menu to align on current object
         """
         self.message("Aligning...", 0.1)
         if align_on_radec(
