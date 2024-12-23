@@ -247,7 +247,8 @@ class UIObjectDetails(UIModule):
         ):
             self.contrast = ""
         else:
-            # Calculate contrast reserve. The object diameters are given in arc seconds.
+            # Calculate contrast reserve.
+            # Get the used magnification from the equipment configuration
             magnification = self.config_object.equipment.calc_magnification(
                 self.config_object.equipment.active_telescope,
                 self.config_object.equipment.active_eyepiece,
@@ -256,6 +257,7 @@ class UIObjectDetails(UIModule):
                 self.contrast = ""
             else:
                 try:
+                    # The object diameters are given in arc minutes, but expected in arc seconds.
                     self.contrast = pds.contrast_reserve(
                         sqm=sqm,
                         telescope_diameter=self.config_object.equipment.active_telescope.aperture_mm,
