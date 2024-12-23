@@ -5,7 +5,7 @@
 This module contains all the UI Module classes
 
 """
-
+import pydeepskylog as pds
 from PiFinder import cat_images
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
@@ -120,8 +120,40 @@ class UIObjectDetails(UIModule):
         designator_color = 255
         if not self.object.last_filtered_result:
             designator_color = 128
+        # TODO: Get the SQM from the shared state
+        # sqm = self.shared_state.get_sky_brightness()
+        sqm = 20.15
+        # Check if a telescope and eyepiece are set
+        if self.config_object.equipment.active_eyepiece is None or self.config_object.equipment.active_eyepiece is None:
+            contrast = ""
+        else:
+            # Calculate contrast reserve. The object diameters are given in arc seconds.
+            magnification = self.config_object.equipment.calc_magnification(
+                self.config_object.equipment.active_telescope, self.config_object.equipment.active_eyepiece)
+            if self.object.mag_str == "-":
+                contrast = ""
+            else:
+                try:
+                    contrast = pds.contrast_reserve(
+                        sqm=sqm, telescope_diameter=self.config_object.equipment.active_telescope.aperture_mm,
+                        magnification=magnification, magnitude=float(self.object.mag_str),
+                        object_diameter1=float(self.object.size) * 60.0, object_diameter2=float(self.object.size) * 60.0)
+                except:
+                    contrast = ""
+        try:
+            contrast = f"{contrast: .2f}"
+        except:
+            print(contrast)
+            contrast = ""
+
+        # layout the name - contrast reserve line
+        space_calculator = SpaceCalculatorFixed(14)
+
+        _, typeconst = space_calculator.calculate_spaces(
+            self.object.display_name, contrast
+        )
         return self.simpleTextLayout(
-            self.object.display_name,
+            typeconst,
             font=self.fonts.large,
             color=self.colors.get(designator_color),
         )
