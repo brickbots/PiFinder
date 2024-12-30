@@ -53,9 +53,6 @@ class UIObjectDetails(UIModule):
         self.object_display_mode = DM_LOCATE
         self.object_image = None
 
-        self.fov_list = [1, 0.5, 0.25, 0.125]
-        self.fov_index = 0
-
         # Marking Menu - Just default help for now
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(),
@@ -208,11 +205,6 @@ class UIObjectDetails(UIModule):
         self.descTextLayout.set_text(desc)
         self.texts["desc"] = self.descTextLayout
 
-        if self.object_display_mode == DM_SDSS:
-            source = "SDSS"
-        else:
-            source = "POSS"
-
         solution = self.shared_state.solution()
         roll = 0
         if solution:
@@ -220,8 +212,8 @@ class UIObjectDetails(UIModule):
 
         self.object_image = cat_images.get_display_image(
             self.object,
-            source,
-            self.fov_list[self.fov_index],
+            str(self.config_object.equipment.active_eyepiece),
+            self.config_object.equipment.calc_tfov(),
             roll,
             self.display_class,
             burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
@@ -478,11 +470,7 @@ class UIObjectDetails(UIModule):
         self.add_to_stack(object_item_definition)
 
     def change_fov(self, direction):
-        self.fov_index += direction
-        if self.fov_index < 0:
-            self.fov_index = 0
-        if self.fov_index >= len(self.fov_list):
-            self.fov_index = len(self.fov_list) - 1
+        self.config_object.equipment.cycle_eyepieces(direction)
         self.update_object_info()
         self.update()
 
