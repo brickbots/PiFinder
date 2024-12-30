@@ -50,7 +50,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         logger.debug("Starting Integrator")
 
         solved = {
-            "RA": None,
+            "RA": None,  # RA of scope
             "Dec": None,
             "Roll": None,
             "camera_center": {
@@ -67,7 +67,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             },
             "Roll_offset": 0,  # May/may not be needed - for experimentation
             "imu_pos": None,
-            "Alt": None,
+            "Alt": None,  # Alt of scope
             "Az": None,
             "solve_source": None,
             "solve_time": None,
@@ -137,8 +137,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     # camera sensor with the Pole-to-Source great circle.
                     solved["Roll_offset"] = estimate_roll_offset(solved, dt)
                     # Find the roll at the target RA/Dec. Note that this doesn't include the
-                    # roll offset so it's not the roll that the PiFinder camear sees but the
-                    # roll relative to the celestial pole
+                    # roll offset so it's not the roll that the PiFinder cameara sees but the
+                    # roll relative to the celestial pole given the RA and Dec.
                     roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
                         solved["RA"], solved["Dec"], dt
                     )
@@ -162,7 +162,13 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 solved["solve_source"] = "CAM"
 
             # Use IMU dead-reckoning from the last camera solve:
-            # Check we have an alt/az solve, otherwise we can't use the IMU
+            # 1) Check we have an alt/az solve, otherwise we can't use the IMU
+            # If Alt exists:
+            # 2) Calculate the difference in the IMU measurements since the
+            # last plage solve. IMU "pos" is stored as Alt/Az.
+            # 3) Add the relative Alt/Az difference from the IMU to the plate
+            # -solved Alt/Az to give a dead-reckoning estimate of the current
+            # position.
             elif solved["Alt"]:
                 imu = shared_state.imu()
                 if imu:

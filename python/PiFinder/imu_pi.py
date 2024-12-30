@@ -113,7 +113,7 @@ class Imu:
         if self.calibration == 0:
             logger.warning("NOIMU CAL")
             return True
-        # adafruit_bno055 gives quaternion convention (w, x, y,)
+        # adafruit_bno055 gives quaternion convention (w, x, y, z)
         quat = self.sensor.quaternion
         if quat[0] is None:
             logger.warning("IMU: Failed to get sensor values")
@@ -191,7 +191,7 @@ def imu_monitor(shared_state, console_queue, log_queue):
         "move_start": None,
         "move_end": None,
         "pos": [0, 0, 0],  # Corresponds to [Az, related_to_roll, Alt]
-        "quat": [0, 0, 0, 0],  # Scalar last quaternion (x, y, z, w)
+        "quat": [0, 0, 0, 0],  # Scalar-last quaternion (x, y, z, w)
         "start_pos": [0, 0, 0],
         "status": 0,
     }
