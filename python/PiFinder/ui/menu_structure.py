@@ -606,6 +606,23 @@ pifinder_menu = {
                                 },
                             ],
                         },
+                        {
+                            "name": "Az Arrows",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "pushto_az_arrows",
+                            "label": "pushto_az_arrows",
+                            "items": [
+                                {
+                                    "name": "Default",
+                                    "value": "Default",
+                                },
+                                {
+                                    "name": "Reverse",
+                                    "value": "Reverse",
+                                },
+                            ],
+                        },
                     ],
                 },
                 {
