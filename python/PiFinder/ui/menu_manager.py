@@ -7,6 +7,7 @@ from PiFinder.ui.base import UIModule
 from PiFinder.ui import menu_structure
 from PiFinder.ui.object_details import UIObjectDetails
 from PiFinder.displays import DisplayBase
+from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.marking_menus import (
     MarkingMenu,
     MarkingMenuOption,
@@ -56,6 +57,53 @@ def find_menu_by_label(label: str):
     return None
 
 
+def dyn_menu_equipment(cfg):
+    """
+    Add's equipment related menus to the menu tree
+    these are hidden under the equipment ui menu object
+    """
+    equipment_menu_item = find_menu_by_label("equipment")
+
+    eyepiece_menu_items = []
+    for eyepiece in cfg.equipment.eyepieces:
+        eyepiece_menu_items.append(
+            {
+                "name": f"{eyepiece.focal_length_mm}mm {eyepiece.name}",
+                "value": eyepiece,
+            }
+        )
+
+    eyepiece_menu = {
+        "name": "Eyepiece",
+        "class": UITextMenu,
+        "select": "single",
+        "label": "select_eyepiece",
+        "config_option": "equipment.active_eyepiece",
+        "items": eyepiece_menu_items,
+    }
+
+    # Loop over telescopes
+    telescope_menu_items = []
+    for telescope in cfg.equipment.telescopes:
+        telescope_menu_items.append(
+            {
+                "name": telescope.name,
+                "value": telescope,
+            }
+        )
+
+    telescope_menu = {
+        "name": "Telescope",
+        "class": UITextMenu,
+        "select": "single",
+        "label": "select_telescope",
+        "config_option": "equipment.actice_telescope",
+        "items": telescope_menu_items,
+    }
+
+    equipment_menu_item["items"] = [telescope_menu, eyepiece_menu]
+
+
 class MenuManager:
     def __init__(
         self,
@@ -93,6 +141,7 @@ class MenuManager:
         self.ss_path = os.path.join(root_dir, "screenshots")
         self.ss_count = 0
 
+        dyn_menu_equipment(self.config_object)
         self.preload_modules()
 
     def screengrab(self):
@@ -131,6 +180,7 @@ class MenuManager:
                 item_definition=module_def,
                 add_to_stack=self.add_to_stack,
                 remove_from_stack=self.remove_from_stack,
+                jump_to_label=self.jump_to_label,
             )
 
     def add_to_stack(self, item: dict) -> None:
@@ -154,6 +204,7 @@ class MenuManager:
                     item_definition=item,
                     add_to_stack=self.add_to_stack,
                     remove_from_stack=self.remove_from_stack,
+                    jump_to_label=self.jump_to_label,
                 )
             )
             if item.get("stateful", False):

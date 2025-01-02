@@ -18,7 +18,9 @@ CATALOG_PATH = f"{utils.astro_data_dir}/pifinder_objects.db"
 logger = logging.getLogger("Catalog.Images")
 
 
-def get_display_image(catalog_object, source, fov, roll, display_class, burn_in=True):
+def get_display_image(
+    catalog_object, eyepiece_text, fov, roll, display_class, burn_in=True
+):
     """
     Returns a 128x128 image buffer for
     the catalog object/source
@@ -29,8 +31,9 @@ def get_display_image(catalog_object, source, fov, roll, display_class, burn_in=
         degrees
     """
 
-    object_image_path = resolve_image_name(catalog_object, source)
+    object_image_path = resolve_image_name(catalog_object, source="POSS")
     logger.debug("object_image_path = %s", object_image_path)
+    print("object_image_path = %s", object_image_path)
     if not os.path.exists(object_image_path):
         return_image = Image.new("RGB", display_class.resolution)
         ri_draw = ImageDraw.Draw(return_image)
@@ -118,7 +121,7 @@ def get_display_image(catalog_object, source, fov, roll, display_class, burn_in=
             ui_utils.shadow_outline_text(
                 ri_draw,
                 (1, display_class.resY - (display_class.fonts.base.height * 1.1)),
-                source,
+                eyepiece_text,
                 font=display_class.fonts.base,
                 align="left",
                 fill=display_class.colors.get(128),

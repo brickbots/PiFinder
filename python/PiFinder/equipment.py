@@ -11,6 +11,9 @@ class Eyepiece:
     afov: int
     field_stop: float = 0
 
+    def __str__(self):
+        return f"{self.focal_length_mm}mm {self.name}"
+
 
 @dataclass
 class Telescope:
@@ -31,8 +34,8 @@ class Telescope:
 class Equipment:
     telescopes: list[Telescope]
     eyepieces: list[Eyepiece]
-    active_telescope_index: Union[None, int] = None
-    active_eyepiece_index: Union[None, int] = None
+    active_telescope_index: int = -1
+    active_eyepiece_index: int = -1
 
     def set_active_telescope(self, telescope: Telescope):
         self.active_telescope_index = self.telescopes.index(telescope)
@@ -53,6 +56,16 @@ class Equipment:
             return self.eyepieces[self.active_eyepiece_index]
         except (IndexError, TypeError):
             return None
+
+    def cycle_eyepieces(self, direction: int) -> Eyepiece:
+        self.active_eyepiece_index += direction
+        if self.active_eyepiece_index >= len(self.eyepieces):
+            self.active_eyepiece_index = 0
+
+        if self.active_eyepiece_index < 0:
+            self.active_eyepiece_index = len(self.eyepieces) - 1
+
+        return self.active_eyepiece
 
     def calc_magnification(
         self,

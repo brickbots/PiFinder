@@ -2,8 +2,6 @@ from PiFinder.ui.base import UIModule
 from PiFinder import utils
 from PiFinder.state_utils import sleep_for_framerate
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
-from PiFinder.ui.text_menu import UITextMenu
-from PiFinder import config
 
 sys_utils = utils.get_sys_utils()
 
@@ -26,73 +24,11 @@ class UIEquipment(UIModule):
             down=MarkingMenuOption(),
         )
 
-        cfg = config.Config()
-
-        eyepieces = cfg.equipment.eyepieces
-        # Loop over eyepieces
-        eyepiece_menu_items = []
-        cnt = 0
-        for eyepiece in eyepieces:
-            eyepiece_menu_items.append(
-                {
-                    "name": eyepiece.name,
-                    "value": cnt,
-                }
-            )
-            cnt += 1
-
-        self.eyepiece_menu = {
-            "name": "Eyepiece",
-            "class": UITextMenu,
-            "select": "single",
-            "config_option": "session.log_eyepiece",
-            "items": eyepiece_menu_items,
-        }
-
-        telescopes = cfg.equipment.telescopes
-        # Loop over telescopes
-        telescope_menu_items = []
-        cnt = 0
-        for telescope in telescopes:
-            telescope_menu_items.append(
-                {
-                    "name": telescope.name,
-                    "value": cnt,
-                }
-            )
-            cnt += 1
-
-        self.telescope_menu = {
-            "name": "Telescope",
-            "class": UITextMenu,
-            "select": "single",
-            "config_option": "session.log_telescope",
-            "items": telescope_menu_items,
-        }
-
     def update(self, force=False):
         sleep_for_framerate(self.shared_state)
-        cfg = config.Config()
         self.clear_screen()
 
-        selected_eyepiece = self.config_object.get_option("session.log_eyepiece", "")
-        selected_telescope = self.config_object.get_option("session.log_telescope", "")
-
-        if selected_eyepiece != "":
-            cfg.equipment.set_active_eyepiece(
-                cfg.equipment.eyepieces[selected_eyepiece]
-            )
-            cfg.save_equipment()
-            self.config_object.set_option("session.log_eyepiece", "")
-
-        if selected_telescope != "":
-            cfg.equipment.set_active_telescope(
-                cfg.equipment.telescopes[selected_telescope]
-            )
-            cfg.save_equipment()
-            self.config_object.set_option("session.log_telescope", "")
-
-        if cfg.equipment.active_telescope is None:
+        if self.config_object.equipment.active_telescope is None:
             self.draw.text(
                 (10, 20),
                 "No telescope selected",
@@ -102,12 +38,12 @@ class UIEquipment(UIModule):
         else:
             self.draw.text(
                 (10, 20),
-                cfg.equipment.active_telescope.name.strip(),
+                self.config_object.equipment.active_telescope.name.strip(),
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
 
-        if cfg.equipment.active_eyepiece is None:
+        if self.config_object.equipment.active_eyepiece is None:
             self.draw.text(
                 (10, 35),
                 "No eyepiece selected",
@@ -117,16 +53,16 @@ class UIEquipment(UIModule):
         else:
             self.draw.text(
                 (10, 35),
-                cfg.equipment.active_eyepiece.name.strip(),
+                f"{self.config_object.equipment.active_eyepiece.focal_length_mm}mm {self.config_object.equipment.active_eyepiece.name}",
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
 
         if (
-            cfg.equipment.active_telescope is not None
-            and cfg.equipment.active_eyepiece is not None
+            self.config_object.equipment.active_telescope is not None
+            and self.config_object.equipment.active_eyepiece is not None
         ):
-            mag = cfg.equipment.calc_magnification()
+            mag = self.config_object.equipment.calc_magnification()
             if mag > 0:
                 self.draw.text(
                     (10, 50),
@@ -135,7 +71,7 @@ class UIEquipment(UIModule):
                     fill=self.colors.get(128),
                 )
 
-                tfov = cfg.equipment.calc_tfov()
+                tfov = self.config_object.equipment.calc_tfov()
                 tfov_degrees = int(tfov)
                 tfov_minutes = int((tfov - tfov_degrees) * 60)
                 self.draw.text(
@@ -171,8 +107,8 @@ class UIEquipment(UIModule):
 
     def key_down(self):
         self.menu_index += 1
-        if self.menu_index > 4:
-            self.menu_index = 4
+        if self.menu_index > 1:
+            self.menu_index = 1
 
     def key_up(self):
         self.menu_index -= 1
@@ -181,9 +117,9 @@ class UIEquipment(UIModule):
 
     def key_right(self):
         if self.menu_index == 0:
-            self.add_to_stack(self.telescope_menu)
+            self.jump_to_label("select_telescope")
         if self.menu_index == 1:
-            self.add_to_stack(self.eyepiece_menu)
+            self.jump_to_label("select_eyepiece")
 
     def draw_menu_pointer(self, horiz_position: int):
         self.draw.text(

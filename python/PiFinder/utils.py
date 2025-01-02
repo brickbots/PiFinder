@@ -1,16 +1,9 @@
 import os
 import time
 import logging
+import json
 from pathlib import Path
 import importlib
-
-
-def create_dir(adir: str):
-    create_path(Path(adir))
-
-
-def create_path(apath: Path):
-    os.makedirs(apath, exist_ok=True)
 
 
 home_dir = Path.home()
@@ -23,6 +16,32 @@ pifinder_db = astro_data_dir / "pifinder_objects.db"
 observations_db = data_dir / "observations.db"
 debug_dump_dir = data_dir / "solver_debug_dumps"
 comet_file = astro_data_dir / Path("comets.txt")
+
+
+def create_dir(adir: str):
+    create_path(Path(adir))
+
+
+def create_path(apath: Path):
+    os.makedirs(apath, exist_ok=True)
+
+
+def serialize_solution(solution: dict) -> str:
+    """
+    Take a solution dictionary and serialize it to a string
+    for logging and other debug output
+    """
+
+    out_dict = {}
+    for k, v in solution.items():
+        if "uint16" in str(type(v)):
+            v = int(v)
+
+        if "numpy.float" in str(type(v)):
+            v = float(v)
+        out_dict[k] = v
+
+    return json.dumps(out_dict)
 
 
 def get_sys_utils():

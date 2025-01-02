@@ -115,7 +115,7 @@ class ObservationsDatabase(Database):
                 "obs_time": obs_time,
                 "catalog": catalog,
                 "sequence": sequence,
-                "solution": json.dumps(solution),
+                "solution": utils.serialize_solution(solution),
                 "notes": json.dumps(notes),
             },
         )
