@@ -294,6 +294,16 @@ class UIObjectDetails(UIModule):
             else:
                 az_arrow = self._RIGHT_ARROW
 
+            # Check az arrow config
+            if (
+                self.config_object.get_option("pushto_az_arrows", "Default")
+                == "Reverse"
+            ):
+                if az_arrow is self._LEFT_ARROW:
+                    az_arrow = self._RIGHT_ARROW
+                else:
+                    az_arrow = self._LEFT_ARROW
+
             # Change decimal points when within 1 degree
             if point_az < 1:
                 self.draw.text(

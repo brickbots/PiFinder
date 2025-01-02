@@ -211,6 +211,16 @@ class UIObjectList(UITextMenu):
             point_az *= -1
             az_arrow_symbol = self._LEFT_ARROW
 
+            # Check az arrow config
+            if (
+                self.config_object.get_option("pushto_az_arrows", "Default")
+                == "Reverse"
+            ):
+                if az_arrow_symbol == self._LEFT_ARROW:
+                    az_arrow_symbol = self._RIGHT_ARROW
+                else:
+                    az_arrow_symbol = self._LEFT_ARROW
+
         if point_az > 100:
             point_az = 99
 
