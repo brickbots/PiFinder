@@ -447,7 +447,7 @@ def main(
                 object_types=cfg.get_option("filter.object_types"),
                 altitude=cfg.get_option("filter.altitude", -1),
                 observed=cfg.get_option("filter.observed", "Any"),
-                selected_catalogs=cfg.get_option("active_catalogs"),
+                selected_catalogs=cfg.get_option("filter.selected_catalogs"),
             )
         )
         console.write("   Menus")
