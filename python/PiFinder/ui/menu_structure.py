@@ -7,6 +7,7 @@ from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
+from PiFinder.ui.equipment import UIEquipment
 import PiFinder.ui.callbacks as callbacks
 
 pifinder_menu = {
@@ -18,6 +19,12 @@ pifinder_menu = {
         {
             "name": "Camera",
             "class": UIPreview,
+        },
+        {
+            "name": "Align",
+            "class": UIAlign,
+            "stateful": True,
+            "preload": True,
         },
         {
             "name": "Chart",
@@ -45,6 +52,12 @@ pifinder_menu = {
                             "class": UIObjectList,
                             "objects": "catalog",
                             "value": "PL",
+                        },
+                        {
+                            "name": "Comets",
+                            "class": UIObjectList,
+                            "objects": "catalog",
+                            "value": "CM",
                         },
                         {
                             "name": "NGC",
@@ -593,6 +606,23 @@ pifinder_menu = {
                                 },
                             ],
                         },
+                        {
+                            "name": "Az Arrows",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "pushto_az_arrows",
+                            "label": "pushto_az_arrows",
+                            "items": [
+                                {
+                                    "name": "Default",
+                                    "value": "Default",
+                                },
+                                {
+                                    "name": "Reverse",
+                                    "value": "Reverse",
+                                },
+                            ],
+                        },
                     ],
                 },
                 {
@@ -811,29 +841,38 @@ pifinder_menu = {
             "select": "single",
             "items": [
                 {"name": "Status", "class": UIStatus},
+                {"name": "Equipment", "class": UIEquipment},
                 {"name": "Console", "class": UIConsole},
                 {"name": "Software Upd", "class": UISoftware},
                 {"name": "Test Mode", "callback": callbacks.activate_debug},
                 {
-                    "name": "Shutdown",
+                    "name": "Power",
                     "class": UITextMenu,
                     "select": "Single",
-                    "label": "shutdown",
-                    "items": [
-                        {"name": "Confirm", "callback": callbacks.shutdown},
-                        {"name": "Cancel", "callback": callbacks.go_back},
-                    ],
-                },
-                {
-                    "name": "Experimental",
-                    "class": UITextMenu,
-                    "select": "Single",
+                    "label": "power",
                     "items": [
                         {
-                            "name": "Align",
-                            "class": UIAlign,
-                            "stateful": True,
-                            "preload": True,
+                            "name": "Shutdown",
+                            "class": UITextMenu,
+                            "select": "Single",
+                            "label": "shutdown",
+                            "items": [
+                                {"name": "Confirm", "callback": callbacks.shutdown},
+                                {"name": "Cancel", "callback": callbacks.go_back},
+                            ],
+                        },
+                        {
+                            "name": "Restart",
+                            "class": UITextMenu,
+                            "select": "Single",
+                            "label": "restart",
+                            "items": [
+                                {
+                                    "name": "Confirm",
+                                    "callback": callbacks.restart_system,
+                                },
+                                {"name": "Cancel", "callback": callbacks.go_back},
+                            ],
                         },
                     ],
                 },

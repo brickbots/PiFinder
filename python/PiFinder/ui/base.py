@@ -16,6 +16,7 @@ from PiFinder.image_util import make_red
 from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
 from PiFinder.ui.marking_menus import MarkingMenu
+from PiFinder.catalogs import Catalogs
 
 
 class UIModule:
@@ -43,7 +44,7 @@ class UIModule:
         shared_state,
         command_queues,
         config_object,
-        catalogs=None,
+        catalogs: Catalogs,
         item_definition={},
         add_to_stack=None,
         remove_from_stack=None,

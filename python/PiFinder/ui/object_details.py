@@ -230,6 +230,11 @@ class UIObjectDetails(UIModule):
     def active(self):
         self.activation_time = time.time()
 
+    def _check_catalog_initialised(self):
+        code = self.object.catalog_code
+        catalog = self.catalogs.get_catalog_by_code(code)
+        return catalog and catalog.initialised
+
     def _render_pointing_instructions(self):
         # Pointing Instructions
         indicator_color = 255 if self._unmoved else 128
@@ -269,12 +274,35 @@ class UIObjectDetails(UIModule):
             self._elipsis_count += 1
             if self._elipsis_count > 39:
                 self._elipsis_count = 0
+        elif not self._check_catalog_initialised():
+            self.draw.text(
+                (10, 70),
+                "Calculating",
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
+            self.draw.text(
+                (10, 90),
+                f"positions{'.' * int(self._elipsis_count / 10)}",
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
         else:
             if point_az < 0:
                 point_az *= -1
                 az_arrow = self._LEFT_ARROW
             else:
                 az_arrow = self._RIGHT_ARROW
+
+            # Check az arrow config
+            if (
+                self.config_object.get_option("pushto_az_arrows", "Default")
+                == "Reverse"
+            ):
+                if az_arrow is self._LEFT_ARROW:
+                    az_arrow = self._RIGHT_ARROW
+                else:
+                    az_arrow = self._LEFT_ARROW
 
             # Change decimal points when within 1 degree
             if point_az < 1:
@@ -319,20 +347,10 @@ class UIObjectDetails(UIModule):
         self.clear_screen()
 
         # paste image
-        self.screen.paste(self.object_image)
+        if self.object_display_mode in [DM_POSS, DM_SDSS]:
+            self.screen.paste(self.object_image)
 
         if self.object_display_mode == DM_DESC or self.object_display_mode == DM_LOCATE:
-            # dim image
-            self.draw.rectangle(
-                [
-                    0,
-                    0,
-                    self.display_class.resX,
-                    self.display_class.resY,
-                ],
-                fill=(0, 0, 0, 100),
-            )
-
             # catalog and entry field i.e. NGC-311
             self.refresh_designator()
             desc_available_lines = 4

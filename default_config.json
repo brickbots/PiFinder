@@ -29,5 +29,46 @@
         "Str",
         "PL",
         "RDS"
-    ]
+    ],
+    "equipment": {
+        "telescopes": [
+            {
+                "make": "Generic",
+                "name": "Dobsonian",
+                "aperture_mm": 200,
+                "focal_length_mm": 1000,
+                "obstruction_perc": 17.0,
+                "mount_type": "alt/az",
+                "flip_image": false,
+                "flop_image": true,
+                "reverse_arrow_a": false,
+                "reverse_arrow_b": false
+            }
+        ],
+        "eyepieces": [
+            {
+                "make": "Generic",
+                "name": "Plossl",
+                "focal_length_mm": 25,
+                "afov": 50,
+                "field_stop": 21.2
+            },
+            {
+                "make": "Generic",
+                "name": "Plossl",
+                "focal_length_mm": 11,
+                "afov": 50,
+                "field_stop": 9.1
+            },
+            {
+                "make": "Generic",
+                "name": "Plossl",
+                "focal_length_mm": 8,
+                "afov": 50,
+                "field_stop": 6.5
+            }
+        ],
+        "active_telescope_index": 0,
+        "active_eyepiece_index": 0
+    }
 }
