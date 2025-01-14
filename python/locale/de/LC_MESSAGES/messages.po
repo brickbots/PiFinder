@@ -249,7 +249,7 @@ msgstr "nicht beobachtet"
 
 #: python/PiFinder/ui/menu_structure.py:480
 msgid "Settings"
-msgstr "Einstellgn"
+msgstr "Einstellungen"
 
 #: python/PiFinder/ui/menu_structure.py:485
 msgid "User Pref..."
@@ -389,7 +389,7 @@ msgstr "WLAN"
 
 #: python/PiFinder/ui/menu_structure.py:776
 msgid "PiFinder Type"
-msgstr "PiFinder Typ"
+msgstr "PiFinder Art"
 
 #: python/PiFinder/ui/menu_structure.py:783
 msgid "Left"
@@ -413,19 +413,19 @@ msgstr "Flach v2"
 
 #: python/PiFinder/ui/menu_structure.py:805
 msgid "Mount Type"
-msgstr "Montierungstyp"
+msgstr "Montierungsart"
 
 #: python/PiFinder/ui/menu_structure.py:812
 msgid "Alt/Az"
-msgstr "Alt/Az"
+msgstr "Azimutal"
 
 #: python/PiFinder/ui/menu_structure.py:816
 msgid "Equitorial"
-msgstr "Äquatorial"
+msgstr "Parallaktisch"
 
 #: python/PiFinder/ui/menu_structure.py:822
 msgid "Camera Type"
-msgstr "Kamera Typ"
+msgstr "Typ Kamera"
 
 #: python/PiFinder/ui/menu_structure.py:827
 msgid "v2 - imx477"
@@ -445,7 +445,7 @@ msgstr "Status"
 
 #: python/PiFinder/ui/menu_structure.py:844
 msgid "Equipment"
-msgstr "Ausstattung"
+msgstr "Zubehör"
 
 #: python/PiFinder/ui/menu_structure.py:845
 msgid "Console"

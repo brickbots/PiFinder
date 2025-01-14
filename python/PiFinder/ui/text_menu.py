@@ -107,7 +107,7 @@ class UITextMenu(UIModule):
 
                 self.draw.text(
                     (line_horiz_pos, line_pos),
-                    item_text,
+                    _(item_text),
                     font=line_font.font,
                     fill=self.colors.get(line_color),
                 )

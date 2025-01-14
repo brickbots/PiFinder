@@ -17,10 +17,6 @@ This module is the main entry point for PiFinder it:
 import gettext
 gettext.install('PiFinder', 'locale')
 
-# langFR = gettext.translation('messages', languages=['fr']) 
-langDE = gettext.translation('messages', 'locale', languages=['de'])
-langDE.install()
-
 import os
 
 # skyfield performance fix, see: https://rhodesmill.org/skyfield/accuracy-efficiency.html
@@ -760,6 +756,13 @@ if __name__ == "__main__":
         logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
         logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
         logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
+
+    rlogger.info("Configure language ...")
+    # langFR = gettext.translation('messages', languages=['fr']) 
+    langDE = gettext.translation('messages', 'locale', languages=['de'])
+    langDE.install()
+
+
 
     rlogger.info("Starting PiFinder ...")
     parser = argparse.ArgumentParser(description="eFinder")
