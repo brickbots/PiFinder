@@ -28,9 +28,9 @@ comet_file = astro_data_dir / Path("comets.txt")
 def get_sys_utils():
     try:
         # Attempt to import the real sys_utils
-        sys_utils = importlib.import_module('PiFinder.sys_utils')
+        sys_utils = importlib.import_module("PiFinder.sys_utils")
     except ImportError:
-        sys_utils = importlib.import_module('PiFinder.sys_utils_fake')
+        sys_utils = importlib.import_module("PiFinder.sys_utils_fake")
     return sys_utils
 
 

@@ -14,6 +14,7 @@ import logging
 from PiFinder import utils
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
+
 sys_utils = utils.get_sys_utils()
 
 

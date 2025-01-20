@@ -299,7 +299,9 @@ def main(
         shared_state.set_ui_state(ui_state)
         shared_state.set_arch(arch)  # Normal
         logger.debug("Ui state in main is" + str(shared_state.ui_state()))
-        console = UIConsole(display_device, None, shared_state, command_queues, cfg, Catalogs([]))
+        console = UIConsole(
+            display_device, None, shared_state, command_queues, cfg, Catalogs([])
+        )
         console.write("Starting....")
         console.update()
 

@@ -1,9 +1,18 @@
-import logging
 import io
-import uuid
 import json
-from datetime import datetime, timezone
+import logging
 import time
+import uuid
+from datetime import datetime, timezone
+
+import pydeepskylog as pds
+from PIL import Image
+from PiFinder import utils, calc_utils, config
+from PiFinder.db.observations_db import (
+    ObservationsDatabase,
+)
+from PiFinder.equipment import Telescope, Eyepiece
+from PiFinder.keyboard_interface import KeyboardInterface
 from PiFinder.multiproclogging import MultiprocLogging
 from bottle import (
     Bottle,
@@ -17,13 +26,6 @@ from bottle import (
     CherootServer,
 )
 
-from PIL import Image
-
-from PiFinder.keyboard_interface import KeyboardInterface
-from PiFinder import utils, calc_utils
-from PiFinder.db.observations_db import (
-    ObservationsDatabase,
-)
 sys_utils = utils.get_sys_utils()
 
 logger = logging.getLogger("Server")
@@ -147,7 +149,7 @@ class Server:
             password = request.forms.get("password")
             origin_url = request.forms.get("origin_url", "/")
             if sys_utils.verify_password("pifinder", password):
-                # set auth cookie, doesnt matter whats in it, just as long
+                # set auth cookie, doesn't matter what's in it, just as long
                 # as it's there and cryptographically valid
                 response.set_cookie("pf_auth", str(uuid.uuid4()), secret=SESSION_SECRET)
                 redirect(origin_url)
@@ -292,6 +294,234 @@ class Server:
             """
             sys_utils.restart_pifinder()
             return "restarting"
+
+        @app.route("/equipment")
+        @auth_required
+        def equipment():
+            return template("equipment", equipment=config.Config().equipment)
+
+        @app.route("/equipment/set_active_instrument/<instrument_id:int>")
+        @auth_required
+        def set_active_instrument(instrument_id: int):
+            cfg = config.Config()
+            cfg.equipment.set_active_telescope(cfg.equipment.telescopes[instrument_id])
+            cfg.save_equipment()
+            return template(
+                "equipment",
+                equipment=cfg.equipment,
+                success_message=cfg.equipment.active_telescope.make
+                + " "
+                + cfg.equipment.active_telescope.name
+                + " set as active instrument.",
+            )
+
+        @app.route("/equipment/set_active_eyepiece/<eyepiece_id:int>")
+        @auth_required
+        def set_active_eyepiece(eyepiece_id: int):
+            cfg = config.Config()
+            cfg.equipment.set_active_eyepiece(cfg.equipment.eyepieces[eyepiece_id])
+            cfg.save_equipment()
+            return template(
+                "equipment",
+                equipment=cfg.equipment,
+                success_message=cfg.equipment.active_eyepiece.make
+                + " "
+                + cfg.equipment.active_eyepiece.name
+                + " set as active eyepiece.",
+            )
+
+        @app.route("/equipment/import_from_deepskylog", method="post")
+        @auth_required
+        def equipment_import():
+            username = request.forms.get("dsl_name")
+            cfg = config.Config()
+            if username:
+                instruments = pds.dsl_instruments(username)
+                for instrument in instruments:
+                    if instrument["type"] == 0:
+                        # Skip the naked eye
+                        continue
+
+                    # Convert the html special characters (ampersand, quote, ...) in instrument["name"]
+                    # to the corresponding character
+                    instrument["name"] = instrument["name"].replace("&amp;", "&")
+                    instrument["name"] = instrument["name"].replace("&quot;", '"')
+                    instrument["name"] = instrument["name"].replace("&apos;", "'")
+                    instrument["name"] = instrument["name"].replace("&lt;", "<")
+                    instrument["name"] = instrument["name"].replace("&gt;", ">")
+
+                    flip = False
+                    flop = False
+
+                    if (
+                        instrument["type"] == 2
+                        or instrument["type"] == 4
+                        or instrument["type"] == 6
+                        or instrument["type"] == 8
+                        or instrument["type"] == 9
+                    ):
+                        # Refractor (2), Finderscope (4), Cassegrain (6), Maksutov (8), Schmidt Cassegrain (9)
+                        flip = True
+                        flop = False
+                    elif instrument["type"] == 3 or instrument["type"] == 7:
+                        # Reflector (3), Kutter (7)
+                        flip = True
+                        flop = True
+
+                    new_instrument = Telescope(
+                        make="",
+                        name=instrument["name"],
+                        aperture_mm=int(instrument["diameter"]),
+                        focal_length_mm=int(instrument["diameter"] * instrument["fd"]),
+                        obstruction_perc=0,
+                        mount_type="alt/az",
+                        flip_image=flip,
+                        flop_image=flop,
+                        reverse_arrow_a=False,
+                        reverse_arrow_b=False,
+                    )
+                    try:
+                        cfg.equipment.telescopes.index(new_instrument)
+                    except ValueError:
+                        cfg.equipment.telescopes.append(new_instrument)
+
+                # Add the eyepieces from deepskylog
+                eyepieces = pds.dsl_eyepieces(username)
+                for eyepiece in eyepieces:
+                    # Convert the html special characters (ampersand, quote, ...) in eyepiece["name"]
+                    # to the corresponding character
+                    eyepiece["name"] = eyepiece["name"].replace("&amp;", "&")
+                    eyepiece["name"] = eyepiece["name"].replace("&quot;", '"')
+                    eyepiece["name"] = eyepiece["name"].replace("&apos;", "'")
+                    eyepiece["name"] = eyepiece["name"].replace("&lt;", "<")
+                    eyepiece["name"] = eyepiece["name"].replace("&gt;", ">")
+
+                    new_eyepiece = Eyepiece(
+                        make="",
+                        name=eyepiece["name"],
+                        focal_length_mm=float(eyepiece["focalLength"]),
+                        afov=int(eyepiece["apparentFOV"]),
+                        field_stop=0.0,
+                    )
+                    try:
+                        cfg.equipment.eyepieces.index(new_eyepiece)
+                    except ValueError:
+                        cfg.equipment.eyepieces.append(new_eyepiece)
+
+                cfg.save_equipment()
+            return template("equipment", equipment=config.Config().equipment)
+
+        @app.route("/equipment/edit_eyepiece/<eyepiece_id:int>")
+        @auth_required
+        def edit_eyepiece(eyepiece_id: int):
+            if eyepiece_id >= 0:
+                eyepiece = config.Config().equipment.eyepieces[eyepiece_id]
+            else:
+                eyepiece = Eyepiece(
+                    make="", name="", focal_length_mm=0, afov=0, field_stop=0
+                )
+
+            return template("edit_eyepiece", eyepiece=eyepiece, eyepiece_id=eyepiece_id)
+
+        @app.route("/equipment/add_eyepiece/<eyepiece_id:int>", method="post")
+        @auth_required
+        def equipment_add_eyepiece(eyepiece_id: int):
+            cfg = config.Config()
+
+            try:
+                eyepiece = Eyepiece(
+                    make=request.forms.get("make"),
+                    name=request.forms.get("name"),
+                    focal_length_mm=float(request.forms.get("focal_length_mm")),
+                    afov=int(request.forms.get("afov")),
+                    field_stop=float(request.forms.get("field_stop")),
+                )
+
+                if eyepiece_id >= 0:
+                    cfg.equipment.eyepieces[eyepiece_id] = eyepiece
+                else:
+                    try:
+                        index = cfg.equipment.telescopes.index(eyepiece)
+                        cfg.equipment.eyepieces[index] = eyepiece
+                    except ValueError:
+                        cfg.equipment.eyepieces.append(eyepiece)
+
+                cfg.save_equipment()
+            except Exception as e:
+                logger.error(f"Error adding eyepiece: {e}")
+
+            return template("equipment", equipment=config.Config().equipment)
+
+        @app.route("/equipment/delete_eyepiece/<eyepiece_id:int>")
+        @auth_required
+        def equipment_delete_eyepiece(eyepiece_id: int):
+            cfg = config.Config()
+            cfg.equipment.eyepieces.pop(eyepiece_id)
+            cfg.save_equipment()
+            return template("equipment", equipment=config.Config().equipment)
+
+        @app.route("/equipment/edit_instrument/<instrument_id:int>")
+        @auth_required
+        def edit_instrument(instrument_id: int):
+            if instrument_id >= 0:
+                telescope = config.Config().equipment.telescopes[instrument_id]
+            else:
+                telescope = Telescope(
+                    make="",
+                    name="",
+                    aperture_mm=0,
+                    focal_length_mm=0,
+                    obstruction_perc=0,
+                    mount_type="",
+                    flip_image=False,
+                    flop_image=False,
+                    reverse_arrow_a=False,
+                    reverse_arrow_b=False,
+                )
+
+            return template(
+                "edit_instrument", telescope=telescope, instrument_id=instrument_id
+            )
+
+        @app.route("/equipment/add_instrument/<instrument_id:int>", method="post")
+        @auth_required
+        def equipment_add_instrument(instrument_id: int):
+            cfg = config.Config()
+
+            try:
+                instrument = Telescope(
+                    make=request.forms.get("make"),
+                    name=request.forms.get("name"),
+                    aperture_mm=request.forms.get("aperture"),
+                    focal_length_mm=request.forms.get("focal_length_mm"),
+                    obstruction_perc=float(request.forms.get("obstruction_perc")),
+                    mount_type=request.forms.get("mount_type"),
+                    flip_image=bool(request.forms.get("flip")),
+                    flop_image=bool(request.forms.get("flop")),
+                    reverse_arrow_a=bool(request.forms.get("reverse_arrow_a")),
+                    reverse_arrow_b=bool(request.forms.get("reverse_arrow_b")),
+                )
+                if instrument_id >= 0:
+                    cfg.equipment.telescopes[instrument_id] = instrument
+                else:
+                    try:
+                        index = cfg.equipment.telescopes.index(instrument)
+                        cfg.equipment.telescopes[index] = instrument
+                    except ValueError:
+                        cfg.equipment.telescopes.append(instrument)
+
+                cfg.save_equipment()
+            except Exception as e:
+                logger.error(f"Error adding instrument: {e}")
+            return template("equipment", equipment=config.Config().equipment)
+
+        @app.route("/equipment/delete_instrument/<instrument_id:int>")
+        @auth_required
+        def equipment_delete_instrument(instrument_id: int):
+            cfg = config.Config()
+            cfg.equipment.telescopes.pop(instrument_id)
+            cfg.save_equipment()
+            return template("equipment", equipment=config.Config().equipment)
 
         @app.route("/observations")
         @auth_required

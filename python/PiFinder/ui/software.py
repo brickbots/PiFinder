@@ -10,6 +10,7 @@ import requests
 
 from PiFinder import utils
 from PiFinder.ui.base import UIModule
+
 sys_utils = utils.get_sys_utils()
 
 

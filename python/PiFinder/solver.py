@@ -20,69 +20,10 @@ from PiFinder import state_utils
 from PiFinder import utils
 
 sys.path.append(str(utils.tetra3_dir))
-import PiFinder.tetra3.tetra3 as tetra3
-from PiFinder.tetra3.tetra3 import cedar_detect_client
+import tetra3
+from tetra3 import cedar_detect_client
 
 logger = logging.getLogger("Solver")
-
-
-def find_target_pixel(t3, fov_estimate, centroids, ra, dec):
-    """
-    Searches the most recent solve for a pixel
-    that matches the requested RA/DEC the best
-    """
-    print(f"{len(centroids)=}")
-    search_center = (256, 256)
-    search_distance = 128
-    while search_distance >= 1:
-        # try 5 search points
-        search_points = [
-            [search_center[0] - search_distance, search_center[1] - search_distance],
-            [search_center[0] - search_distance, search_center[1] + search_distance],
-            [search_center[0] + search_distance, search_center[1] - search_distance],
-            [search_center[0] + search_distance, search_center[1] + search_distance],
-            [search_center[0], search_center[1]],
-        ]
-
-        # probe points
-        min_dist = 100000
-        for search_point in search_points:
-            solve_fails = 0
-            point_sol = {}
-            while point_sol.get("RA_target") is None:
-                solve_fails += 1
-                if solve_fails > 10:
-                    print("Too many fails")
-                    return (-1, -1)
-                try:
-                    point_sol = t3.solve_from_centroids(
-                        centroids,
-                        (512, 512),
-                        fov_estimate=fov_estimate,
-                        fov_max_error=0.2,
-                        return_matches=False,
-                        target_pixel=[search_point[0], search_point[1]],
-                        solve_timeout=1000,
-                    )
-                except Exception:
-                    return (-1, -1)
-
-            # distance...
-            p_dist = np.hypot(
-                point_sol["RA_target"] - ra, point_sol["Dec_target"] - dec
-            )
-            if p_dist < min_dist:
-                search_center = search_point
-                min_dist = p_dist
-
-        # cut search distance
-        search_distance = search_distance / 2
-
-    # Done?
-    if min_dist > 0.1:
-        # Didn't find a good pixel...
-        return (-1, -1)
-    return search_center
 
 
 def solver(
@@ -101,6 +42,8 @@ def solver(
         str(utils.cwd_dir / "PiFinder/tetra3/tetra3/data/default_database.npz")
     )
     last_solve_time = 0
+    align_ra = 0
+    align_dec = 0
     solved = {
         # RA, Dec, Roll solved at the center of the camera FoV:
         "RA_camera": None,
@@ -150,15 +93,10 @@ def solver(
                             # for this RA/DEC and set it as alignment pixel
                             align_ra = command[1]
                             align_dec = command[2]
-                            align_target_pixel = find_target_pixel(
-                                t3=t3,
-                                fov_estimate=solved["FOV"],
-                                centroids=centroids,
-                                ra=align_ra,
-                                dec=align_dec,
-                            )
-                            logger.debug(f"Align {align_target_pixel=}")
-                            align_result_queue.put(["aligned", align_target_pixel])
+
+                        if command[0] == "align_cancel":
+                            align_ra = 0
+                            align_dec = 0
 
                 state_utils.sleep_for_framerate(shared_state)
 
@@ -192,15 +130,20 @@ def solver(
                         logger.warn("No stars found, skipping")
                         continue
                     else:
+                        _solver_args = {}
+                        if align_ra != 0 and align_dec != 0:
+                            _solver_args["target_sky_coord"] = [[align_ra, align_dec]]
+
                         solution = t3.solve_from_centroids(
                             centroids,
                             (512, 512),
                             fov_estimate=12.0,
                             fov_max_error=4.0,
                             match_max_error=0.005,
-                            return_matches=True,
+                            # return_matches=True,
                             target_pixel=shared_state.solve_pixel(),
                             solve_timeout=1000,
+                            **_solver_args,
                         )
 
                         if "matched_centroids" in solution:
@@ -237,6 +180,20 @@ def solver(
                         solved["solve_time"] = time.time()
                         solved["cam_solve_time"] = solved["solve_time"]
                         solver_queue.put(solved)
+
+                        # See if we are waiting for alignment
+                        if align_ra != 0 and align_dec != 0:
+                            if solved.get("x_target") is not None:
+                                align_target_pixel = (
+                                    solved["y_target"],
+                                    solved["x_target"],
+                                )
+                                logger.debug(f"Align {align_target_pixel=}")
+                                align_result_queue.put(["aligned", align_target_pixel])
+                                align_ra = 0
+                                align_dec = 0
+                                solved["x_target"] = None
+                                solved["y_target"] = None
 
                     last_solve_time = last_image_metadata["exposure_end"]
         except EOFError:

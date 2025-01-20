@@ -11,6 +11,7 @@ from PiFinder.ui.base import UIModule
 from PiFinder import calc_utils
 from PiFinder import utils
 from PiFinder.ui.ui_utils import TextLayouter, SpaceCalculatorFixed
+
 sys_utils = utils.get_sys_utils()
 
 

@@ -7,6 +7,7 @@ from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
+from PiFinder.ui.equipment import UIEquipment
 import PiFinder.ui.callbacks as callbacks
 
 pifinder_menu = {
@@ -611,6 +612,23 @@ pifinder_menu = {
                                 },
                             ],
                         },
+                        {
+                            "name": "Az Arrows",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "pushto_az_arrows",
+                            "label": "pushto_az_arrows",
+                            "items": [
+                                {
+                                    "name": "Default",
+                                    "value": "Default",
+                                },
+                                {
+                                    "name": "Reverse",
+                                    "value": "Reverse",
+                                },
+                            ],
+                        },
                     ],
                 },
                 {
@@ -829,6 +847,7 @@ pifinder_menu = {
             "select": "single",
             "items": [
                 {"name": "Status", "class": UIStatus},
+                {"name": "Equipment", "class": UIEquipment},
                 {"name": "Console", "class": UIConsole},
                 {"name": "Software Upd", "class": UISoftware},
                 {"name": "Test Mode", "callback": callbacks.activate_debug},
@@ -860,19 +879,6 @@ pifinder_menu = {
                                 },
                                 {"name": "Cancel", "callback": callbacks.go_back},
                             ],
-                        },
-                    ],
-                },
-                {
-                    "name": "Experimental",
-                    "class": UITextMenu,
-                    "select": "Single",
-                    "items": [
-                        {
-                            "name": "Align",
-                            "class": UIAlign,
-                            "stateful": True,
-                            "preload": True,
                         },
                     ],
                 },
