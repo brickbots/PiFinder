@@ -110,7 +110,6 @@ def switch_cam_imx462(ui_module: UIModule) -> None:
 
 
 def get_camera_type(ui_module: UIModule) -> list:
-    print("Looking for cammmm")
     cam_id = "000"
 
     # read config.txt into a list
@@ -121,7 +120,9 @@ def get_camera_type(ui_module: UIModule) -> list:
     for line in boot_lines:
         if line.startswith("dtoverlay=imx"):
             cam_id = line[10:16]
-            print("found cam " + cam_id)
+            # imx462 uses imx290 driver
+            if cam_id == "imx290":
+                cam_id = "imx462"
 
     return [cam_id]
 

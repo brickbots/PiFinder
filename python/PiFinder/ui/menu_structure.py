@@ -861,7 +861,7 @@ pifinder_menu = {
                         {
                             "name": "v3 - imx462",
                             "callback": callbacks.switch_cam_imx462,
-                            "value": "imx290",
+                            "value": "imx462",
                         },
                     ],
                 },
