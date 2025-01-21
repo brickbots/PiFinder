@@ -42,8 +42,6 @@ class UIPreview(UIModule):
         self.capture_prefix = f"{self.__uuid__}_diag"
         self.capture_count = 0
 
-        self.align_mode = False
-
         # the centroiding returns an ndarray
         # so we're initialiazing one here
         self.star_list = np.empty((0, 2))
@@ -180,15 +178,8 @@ class UIPreview(UIModule):
         if last_image_time > self.last_update:
             image_obj = self.camera_image.copy()
 
-            # Fetch Centroids before image is altered
-            # Do this at least once to get a numpy array in
-            # star_list
-            if self.align_mode and self.shared_state and self.shared_state.solution():
-                matched_centroids = self.shared_state.solution()["matched_centroids"]
-                self.star_list = np.array(matched_centroids)
-
             # Resize
-            if self.zoom_level == 0 or self.align_mode:
+            if self.zoom_level == 0:
                 image_obj = image_obj.resize((128, 128))
             elif self.zoom_level == 1:
                 image_obj = image_obj.resize((256, 256))
@@ -217,23 +208,18 @@ class UIPreview(UIModule):
             self.screen.paste(image_obj)
             self.last_update = last_image_time
 
-            if self.align_mode:
-                self.draw_star_selectors()
+            if self.zoom_level > 0:
+                zoom_number = self.zoom_level * 2
+                self.draw.text(
+                    (75, 112),
+                    f"Zoom x{zoom_number}",
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(128),
+                )
             else:
-                if self.zoom_level > 0:
-                    zoom_number = self.zoom_level * 2
-                    self.draw.text(
-                        (75, 112),
-                        f"Zoom x{zoom_number}",
-                        font=self.fonts.bold.font,
-                        fill=self.colors.get(128),
-                    )
-                else:
-                    self.draw_reticle()
+                self.draw_reticle()
 
-        return self.screen_update(
-            title_bar=not self.align_mode, button_hints=not self.align_mode
-        )
+        return self.screen_update()
 
     def key_plus(self):
         self.zoom_level += 1
@@ -244,36 +230,3 @@ class UIPreview(UIModule):
         self.zoom_level -= 1
         if self.zoom_level < 0:
             self.zoom_level = 0
-
-    def key_square(self):
-        if self.align_mode:
-            self.align_mode = False
-            self.shared_state.set_camera_align(self.align_mode)
-            self.update(force=True)
-        else:
-            self.align_mode = True
-            self.shared_state.set_camera_align(self.align_mode)
-            self.update(force=True)
-
-    def key_number(self, number):
-        if self.align_mode:
-            if number == 0:
-                # reset reticle
-                self.shared_state.set_solve_pixel((256, 256))
-                self.config_object.set_option("solve_pixel", (256, 256))
-                self.align_mode = False
-            if number in list(range(1, self.highlight_count + 1)):
-                # They picked a star to align....
-                star_index = number - 1
-                if self.star_list.shape[0] > star_index:
-                    star_cam_x = self.star_list[star_index][0]
-                    star_cam_y = self.star_list[star_index][1]
-                    self.shared_state.set_solve_pixel((star_cam_x, star_cam_y))
-                    self.config_object.set_option(
-                        "solve_pixel",
-                        (star_cam_x, star_cam_y),
-                    )
-                self.align_mode = False
-
-            self.shared_state.set_camera_align(self.align_mode)
-            self.update(force=True)
