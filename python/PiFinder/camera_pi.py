@@ -34,6 +34,11 @@ class CameraPI(CameraInterface):
             self.camera_type = "imx296"
             # maximum analog gain for this sensor
             self.gain = 15
+
+        if "imx290" in self.camera.camera.id:
+            self.camera_type = "imx462"
+            self.gain = 30
+
         self.camType = f"PI {self.camera_type}"
         self.initialize()
 
@@ -50,6 +55,14 @@ class CameraPI(CameraInterface):
                 },
                 raw={"size": (1456, 1088)},
             )
+        elif self.camera_type == "imx462":
+            cam_config = self.camera.create_still_configuration(
+                {
+                    "size": (980, 980),
+                },
+                raw={"size": (1920, 1080)},
+            )
+
         else:
             # using this smaller scale auto-selects binning on the sensor...
             cam_config = self.camera.create_still_configuration({"size": (512, 512)})
@@ -64,6 +77,8 @@ class CameraPI(CameraInterface):
         if self.camera_type == "imx296":
             # Sensor orientation is different
             tmp_capture = tmp_capture.rotate(180)
+        if self.camera_type == "imx462":
+            tmp_capture = tmp_capture.resize((512, 512))
         return tmp_capture
 
     def capture_file(self, filename) -> None:

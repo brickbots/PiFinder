@@ -40,6 +40,12 @@ class UITextMenu(UIModule):
         )
 
         self._selected_values = []
+        if self.item_definition.get("value_callback"):
+            self._selected_values = self.item_definition.get("value_callback")(self)
+            # Set current item index based on selection
+            for i, _item in enumerate(self.item_definition["items"]):
+                if _item["value"] == self._selected_values[0]:
+                    self._current_item_index = i
         if config_option := self.item_definition.get("config_option"):
             if self._menu_type == "multi":
                 self._selected_values = self.config_object.get_option(config_option)
