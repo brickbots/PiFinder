@@ -16,6 +16,7 @@ from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 import PiFinder.comets as comets
 from PiFinder.utils import Timer, comet_file
+from PiFinder.config import Config
 
 logger = logging.getLogger("Catalog")
 
@@ -94,6 +95,7 @@ class CatalogFilter:
         object_types: Union[list[str], None] = None,
         altitude: int = -1,
         observed: str = "Any",
+        constellations: list[str] = [],
         selected_catalogs: list[str] = [],
     ):
         self.shared_state = shared_state
@@ -104,7 +106,20 @@ class CatalogFilter:
         self._object_types = object_types
         self._altitude = altitude
         self._observed = observed
+        self._constellations = constellations
         self._selected_catalogs = set(selected_catalogs)
+        self.last_filtered_time = 0
+
+    def load_from_config(self, config_object: Config):
+        """
+        Loads filter values from configuration object
+        """
+        self._magnitude = config_object.get_option("filter.magnitude")
+        self._object_types = config_object.get_option("filter.object_types", [])
+        self._altitude = config_object.get_option("filter.altitude", -1)
+        self._observed = config_object.get_option("filter.observed", "Any")
+        self._constellations = config_object.get_option("filter.constellations", [])
+        self._selected_catalogs = config_object.get_option("filter.selected_catalogs")
         self.last_filtered_time = 0
 
     @property
@@ -141,6 +156,15 @@ class CatalogFilter:
     @observed.setter
     def observed(self, observed: str):
         self._observed = observed
+        self.dirty_time = time.time()
+
+    @property
+    def constellations(self):
+        return self._constellations
+
+    @constellations.setter
+    def constellations(self, constellations: list[str]):
+        self._constellations = constellations
         self.dirty_time = time.time()
 
     @property
@@ -183,6 +207,16 @@ class CatalogFilter:
 
         obj.last_filtered_time = time.time()
         self.last_filtered_time = time.time()
+
+        # check constellation
+        if self._constellations:
+            if obj.const not in self._constellations:
+                obj.last_filtered_result = False
+                return False
+        else:
+            obj.last_filtered_result = False
+            return False
+
         # check altitude
         if self._altitude != -1 and self.fast_aa:
             obj_altitude, _ = self.fast_aa.radec_to_altaz(
@@ -202,7 +236,11 @@ class CatalogFilter:
             return False
 
         # check type
-        if self._object_types is not None and obj.obj_type not in self._object_types:
+        if self._object_types:
+            if obj.obj_type not in self._object_types:
+                obj.last_filtered_result = False
+                return False
+        else:
             obj.last_filtered_result = False
             return False
 
