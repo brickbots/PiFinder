@@ -440,16 +440,9 @@ def main(
         catalogs: Catalogs = CatalogBuilder().build(shared_state)
 
         # Establish the common catalog filter object
-        catalogs.set_catalog_filter(
-            CatalogFilter(
-                shared_state=shared_state,
-                magnitude=cfg.get_option("filter.magnitude"),
-                object_types=cfg.get_option("filter.object_types"),
-                altitude=cfg.get_option("filter.altitude", -1),
-                observed=cfg.get_option("filter.observed", "Any"),
-                selected_catalogs=cfg.get_option("filter.selected_catalogs"),
-            )
-        )
+        _new_filter = CatalogFilter(shared_state=shared_state)
+        _new_filter.load_from_config(cfg)
+        catalogs.set_catalog_filter(_new_filter)
         console.write("   Menus")
         console.update()
 

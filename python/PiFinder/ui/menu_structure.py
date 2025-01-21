@@ -345,6 +345,10 @@ pifinder_menu = {
                             "value": "OC",
                         },
                         {
+                            "name": "Cluster/Neb",
+                            "value": "C+N",
+                        },
+                        {
                             "name": "Globular",
                             "value": "Gb",
                         },
@@ -354,11 +358,27 @@ pifinder_menu = {
                         },
                         {
                             "name": "P. Nebula",
-                            "value": "Pl",
+                            "value": "PN",
+                        },
+                        {
+                            "name": "Dark Nebula",
+                            "value": "DN",
+                        },
+                        {
+                            "name": "Star",
+                            "value": "*",
                         },
                         {
                             "name": "Double Str",
                             "value": "D*",
+                        },
+                        {
+                            "name": "Triple Str",
+                            "value": "***",
+                        },
+                        {
+                            "name": "Knot",
+                            "value": "Kt",
                         },
                         {
                             "name": "Asterism",
@@ -367,6 +387,10 @@ pifinder_menu = {
                         {
                             "name": "Planet",
                             "value": "Pla",
+                        },
+                        {
+                            "name": "Comet",
+                            "value": "CM",
                         },
                     ],
                 },
