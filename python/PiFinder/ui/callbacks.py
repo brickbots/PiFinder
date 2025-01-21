@@ -103,6 +103,29 @@ def switch_cam_imx296(ui_module: UIModule) -> None:
     restart_system(ui_module)
 
 
+def switch_cam_imx462(ui_module: UIModule) -> None:
+    ui_module.message("Switching cam", 2)
+    sys_utils.switch_cam_imx462()
+    restart_system(ui_module)
+
+
+def get_camera_type(ui_module: UIModule) -> list:
+    print("Looking for cammmm")
+    cam_id = "000"
+
+    # read config.txt into a list
+    with open("/boot/config.txt", "r") as boot_in:
+        boot_lines = list(boot_in)
+
+    # Look for the line without a comment...
+    for line in boot_lines:
+        if line.startswith("dtoverlay=imx"):
+            cam_id = line[10:16]
+            print("found cam " + cam_id)
+
+    return [cam_id]
+
+
 def go_wifi_ap(ui_module: UIModule) -> None:
     ui_module.message("WiFi to AP", 2)
     sys_utils.go_wifi_ap()

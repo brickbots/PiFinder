@@ -7,6 +7,9 @@ def switch_boot(cam_type: str) -> None:
     Edit /boot/config.txt to swap camera drive
     must be run as roo
     """
+    if cam_type == "imx462":
+        # The 462 uses the 290 driver
+        cam_type = "imx290"
 
     # read config.txt into a list
     with open("/boot/config.txt", "r") as boot_in:
@@ -28,7 +31,10 @@ def switch_boot(cam_type: str) -> None:
             cam_added = True
 
     if not cam_added:
-        boot_lines.append(f"dtoverlay={cam_type}\n")
+        if cam_type == "imx290":
+            boot_lines.append(f"dtoverlay={cam_type},clock-frequency=74250000\n")
+        else:
+            boot_lines.append(f"dtoverlay={cam_type}\n")
         cam_added = True
 
     with open("/boot/config.txt", "w") as boot_out:
