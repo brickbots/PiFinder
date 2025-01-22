@@ -287,7 +287,7 @@ msgstr "Mise en Sommeil"
 #: PiFinder/ui/menu_structure.py:671 PiFinder/ui/menu_structure.py:695
 #: PiFinder/ui/menu_structure.py:719
 msgid "Off"
-msgstr "Off "
+msgstr "Off"
 
 #: PiFinder/ui/menu_structure.py:568
 msgid "Menu Anim"
