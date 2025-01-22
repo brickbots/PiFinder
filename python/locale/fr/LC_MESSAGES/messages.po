@@ -142,7 +142,7 @@ msgstr "Collinder"
 #: python/PiFinder/ui/menu_structure.py:114
 #: python/PiFinder/ui/menu_structure.py:274
 msgid "E.G. Globs"
-msgstr "E.G. Globs "
+msgstr "E.G. Globs"
 
 #: python/PiFinder/ui/menu_structure.py:120
 #: python/PiFinder/ui/menu_structure.py:278
