@@ -187,7 +187,7 @@ msgstr "SAC Asterismes"
 #: python/PiFinder/ui/menu_structure.py:181
 #: python/PiFinder/ui/menu_structure.py:322
 msgid "SAC Red Stars"
-msgstr "SAC Etoiles rouges"
+msgstr "SAC Etoiles Rouges"
 
 #: python/PiFinder/ui/menu_structure.py:187
 #: python/PiFinder/ui/menu_structure.py:326
@@ -293,15 +293,15 @@ msgstr "Non Observé"
 
 #: python/PiFinder/ui/menu_structure.py:484
 msgid "Settings"
-msgstr "Réglage"
+msgstr "Réglages"
 
 #: python/PiFinder/ui/menu_structure.py:489
 msgid "User Pref..."
-msgstr "Pref Utilisateur"
+msgstr "Pref. Utilisateur"
 
 #: python/PiFinder/ui/menu_structure.py:494
 msgid "Key Bright"
-msgstr "Brillance Touches"
+msgstr "Brillance Touche"
 
 #: python/PiFinder/ui/menu_structure.py:534
 msgid "Sleep Time"
@@ -319,7 +319,7 @@ msgstr "Off "
 
 #: python/PiFinder/ui/menu_structure.py:566
 msgid "Menu Anim"
-msgstr "Anim Menu"
+msgstr "Anim. Menu"
 
 #: python/PiFinder/ui/menu_structure.py:576
 #: python/PiFinder/ui/menu_structure.py:600
@@ -349,11 +349,11 @@ msgstr "Fleches AZ"
 
 #: python/PiFinder/ui/menu_structure.py:621
 msgid "Default"
-msgstr "par défaut"
+msgstr "Par défaut"
 
 #: python/PiFinder/ui/menu_structure.py:625
 msgid "Reverse"
-msgstr "à l'envers"
+msgstr "A l'envers"
 
 #: python/PiFinder/ui/menu_structure.py:633
 msgid "Chart..."
@@ -385,7 +385,7 @@ msgstr "Affichage DSO"
 
 #: python/PiFinder/ui/menu_structure.py:711
 msgid "RA/DEC Disp."
-msgstr "affichage AD/DEC"
+msgstr "Affichage AD/DEC"
 
 #: python/PiFinder/ui/menu_structure.py:721
 msgid "HH:MM"
@@ -457,7 +457,7 @@ msgstr "Plat v2"
 
 #: python/PiFinder/ui/menu_structure.py:809
 msgid "Mount Type"
-msgstr "Type de Mon,ture"
+msgstr "Type de Monture"
 
 #: python/PiFinder/ui/menu_structure.py:816
 msgid "Alt/Az"
@@ -489,7 +489,7 @@ msgstr "Anglais"
 
 #: python/PiFinder/ui/menu_structure.py:850
 msgid "german"
-msgstr "Allemenand"
+msgstr "Allemand"
 
 #: python/PiFinder/ui/menu_structure.py:854
 msgid "french"
