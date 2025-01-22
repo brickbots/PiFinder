@@ -82,7 +82,7 @@ msgstr "Objets"
 
 #: PiFinder/ui/menu_structure.py:47
 msgid "All Filtered"
-msgstr "Tout filtres"
+msgstr "Tous filtres"
 
 #: PiFinder/ui/menu_structure.py:52
 msgid "By Catalog"
