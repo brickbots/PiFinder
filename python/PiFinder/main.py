@@ -736,6 +736,10 @@ def rotate_logs() -> Path:
     return utils.data_dir / "pifinder.log"
 
 
+#############################################################################################
+#############################################################################################
+#############################################################################################
+
 if __name__ == "__main__":
     print("Bootstrap logging configuration ...")
     logging.basicConfig(format="%(asctime)s BASIC %(name)s: %(levelname)s %(message)s")
@@ -757,12 +761,13 @@ if __name__ == "__main__":
         logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
         logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
 
-    rlogger.info("Configure language ...")
-    # langFR = gettext.translation('messages', languages=['fr']) 
+    rlogger.info("Configure languages ...")
+    langEN = gettext.translation('messages', 'locale', languages=['en'], fallback=True)
+    langFR = gettext.translation('messages', 'locale', languages=['fr']) 
     langDE = gettext.translation('messages', 'locale', languages=['de'])
+    langES = gettext.translation('messages', 'locale', languages=['es'])
+
     langDE.install()
-
-
 
     rlogger.info("Starting PiFinder ...")
     parser = argparse.ArgumentParser(description="eFinder")

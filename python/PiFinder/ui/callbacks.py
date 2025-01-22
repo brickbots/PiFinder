@@ -38,7 +38,7 @@ def reset_filters(ui_module: UIModule) -> None:
     )
     ui_module.config_object.reset_filters()
     ui_module.catalogs.filter_catalogs()
-    ui_module.message("Filters Reset")
+    ui_module.message(_("Filters Reset"))
     ui_module.remove_from_stack()
     return
 
@@ -52,7 +52,7 @@ def activate_debug(ui_module: UIModule) -> None:
     ui_module.command_queues["console"].put("Debug: Activated")
     dt = datetime.datetime(2024, 6, 1, 2, 0, 0)
     ui_module.shared_state.set_datetime(dt)
-    ui_module.message("Test Mode")
+    ui_module.message(_("Test Mode"))
 
 
 def set_exposure(ui_module: UIModule) -> None:
@@ -68,7 +68,7 @@ def shutdown(ui_module: UIModule) -> None:
     """
     shuts down the Pi
     """
-    ui_module.message("Shutting Down", 10)
+    ui_module.message(_("Shutting Down"), 10)
     sys_utils.shutdown()
 
 
@@ -77,7 +77,7 @@ def restart_pifinder(ui_module: UIModule) -> None:
     Uses systemctl to restart the PiFinder
     service
     """
-    ui_module.message("Restarting...", 2)
+    ui_module.message(_("Restarting..."), 2)
     sys_utils.restart_pifinder()
 
 
@@ -85,29 +85,48 @@ def restart_system(ui_module: UIModule) -> None:
     """
     Restarts the system
     """
-    ui_module.message("Restarting...", 2)
+    ui_module.message(_("Restarting..."), 2)
     sys_utils.restart_system()
 
 
 def switch_cam_imx477(ui_module: UIModule) -> None:
-    ui_module.message("Switching cam", 2)
+    ui_module.message(_("Switching cam"), 2)
     sys_utils.switch_cam_imx477()
     restart_system(ui_module)
 
 
 def switch_cam_imx296(ui_module: UIModule) -> None:
-    ui_module.message("Switching cam", 2)
+    ui_module.message(_("Switching cam"), 2)
     sys_utils.switch_cam_imx296()
     restart_system(ui_module)
 
+def switch_lang_en(ui_module: UIModule) -> None:
+    logger.info("Switch language to Englisch")
+    ui_module.message(_("Language: englisch"), 2)
+    # TODO
+
+def switch_lang_de(ui_module: UIModule) -> None:
+    logger.info("Switch language to German")
+    ui_module.message(_("Language: German"), 2)
+    # TODO
+
+def switch_lang_fr(ui_module: UIModule) -> None:
+    logger.info("Switch language to French")
+    ui_module.message(_("Language: French"), 2)
+    # TODO
+
+def switch_lang_es(ui_module: UIModule) -> None:
+    logger.info("Switch language to Spanish")
+    ui_module.message(_("Language: Spanish)"), 2)
+    # TODO
 
 def go_wifi_ap(ui_module: UIModule) -> None:
-    ui_module.message("WiFi to AP", 2)
+    ui_module.message(_("WiFi to AP"), 2)
     sys_utils.go_wifi_ap()
     restart_system(ui_module)
 
 
 def go_wifi_cli(ui_module: UIModule) -> None:
-    ui_module.message("WiFi to Client", 2)
+    ui_module.message(_("WiFi to Client"), 2)
     sys_utils.go_wifi_cli()
     restart_system(ui_module)

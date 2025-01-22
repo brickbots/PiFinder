@@ -837,6 +837,29 @@ pifinder_menu = {
                         },
                     ],
                 },
+                {
+                    "name": _("language"),
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": _("english"),
+                            "callback": callbacks.switch_lang_en,
+                        },
+                        {
+                            "name": _("german"),
+                            "callback": callbacks.switch_lang_de,
+                        },
+                        {
+                            "name": _("french"), 
+                            "callback": callbacks.switch_lang_fr,
+                        },
+                        {
+                            "name": _("spanish"),
+                            "callback": callbacks.switch_lang_es,
+                        },
+                    ],
+                },
             ],
         },
         {
