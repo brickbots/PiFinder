@@ -20,7 +20,7 @@ msgstr ""
 
 #: python/PiFinder/ui/callbacks.py:41
 msgid "Filters Reset"
-msgstr "RaZ filtres"
+msgstr "RàZ filtres"
 
 #: python/PiFinder/ui/callbacks.py:55 python/PiFinder/ui/menu_structure.py:874
 msgid "Test Mode"
@@ -36,7 +36,7 @@ msgstr "Redémarrage"
 
 #: python/PiFinder/ui/callbacks.py:93 python/PiFinder/ui/callbacks.py:99
 msgid "Switching cam"
-msgstr ""
+msgstr "Bascule Caméra"
 
 #: python/PiFinder/ui/callbacks.py:105
 msgid "Language: englisch"
@@ -56,15 +56,15 @@ msgstr "Langage: Espagnol"
 
 #: python/PiFinder/ui/callbacks.py:124
 msgid "WiFi to AP"
-msgstr ""
+msgstr "Wifi vers AP"
 
 #: python/PiFinder/ui/callbacks.py:130
 msgid "WiFi to Client"
-msgstr ""
+msgstr "Wifi vers Client"
 
 #: python/PiFinder/ui/menu_structure.py:24
 msgid "Camera"
-msgstr "Camera"
+msgstr "Caméra"
 
 #: python/PiFinder/ui/menu_structure.py:28
 msgid "Align"
@@ -172,7 +172,7 @@ msgstr "Etoiles"
 #: python/PiFinder/ui/menu_structure.py:163
 #: python/PiFinder/ui/menu_structure.py:310
 msgid "Bright Named"
-msgstr ""
+msgstr "Brillantes"
 
 #: python/PiFinder/ui/menu_structure.py:169
 #: python/PiFinder/ui/menu_structure.py:314
@@ -201,7 +201,7 @@ msgstr "TLK 90 Variables"
 
 #: python/PiFinder/ui/menu_structure.py:203
 msgid "Recent"
-msgstr ""
+msgstr "Récent"
 
 #: python/PiFinder/ui/menu_structure.py:209
 msgid "Name Search"
@@ -297,15 +297,15 @@ msgstr "Réglage"
 
 #: python/PiFinder/ui/menu_structure.py:489
 msgid "User Pref..."
-msgstr ""
+msgstr "Pref Utilisateur"
 
 #: python/PiFinder/ui/menu_structure.py:494
 msgid "Key Bright"
-msgstr ""
+msgstr "Brillance Touches"
 
 #: python/PiFinder/ui/menu_structure.py:534
 msgid "Sleep Time"
-msgstr ""
+msgstr "Mise en Sommeil"
 
 #: python/PiFinder/ui/menu_structure.py:540
 #: python/PiFinder/ui/menu_structure.py:572
@@ -315,16 +315,16 @@ msgstr ""
 #: python/PiFinder/ui/menu_structure.py:693
 #: python/PiFinder/ui/menu_structure.py:717
 msgid "Off"
-msgstr ""
+msgstr "Off "
 
 #: python/PiFinder/ui/menu_structure.py:566
 msgid "Menu Anim"
-msgstr ""
+msgstr "Anim Menu"
 
 #: python/PiFinder/ui/menu_structure.py:576
 #: python/PiFinder/ui/menu_structure.py:600
 msgid "Fast"
-msgstr ""
+msgstr "Rapide"
 
 #: python/PiFinder/ui/menu_structure.py:580
 #: python/PiFinder/ui/menu_structure.py:604
@@ -332,128 +332,128 @@ msgstr ""
 #: python/PiFinder/ui/menu_structure.py:677
 #: python/PiFinder/ui/menu_structure.py:701
 msgid "Medium"
-msgstr ""
+msgstr "Moyen"
 
 #: python/PiFinder/ui/menu_structure.py:584
 #: python/PiFinder/ui/menu_structure.py:608
 msgid "Slow"
-msgstr ""
+msgstr "Lent"
 
 #: python/PiFinder/ui/menu_structure.py:590
 msgid "Scroll Speed"
-msgstr ""
+msgstr "Vitesse défilement"
 
 #: python/PiFinder/ui/menu_structure.py:614
 msgid "Az Arrows"
-msgstr ""
+msgstr "Fleches AZ"
 
 #: python/PiFinder/ui/menu_structure.py:621
 msgid "Default"
-msgstr ""
+msgstr "par défaut"
 
 #: python/PiFinder/ui/menu_structure.py:625
 msgid "Reverse"
-msgstr ""
+msgstr "à l'envers"
 
 #: python/PiFinder/ui/menu_structure.py:633
 msgid "Chart..."
-msgstr ""
+msgstr "Carte..."
 
 #: python/PiFinder/ui/menu_structure.py:639
 msgid "Reticle"
-msgstr ""
+msgstr "Réticule"
 
 #: python/PiFinder/ui/menu_structure.py:649
 #: python/PiFinder/ui/menu_structure.py:673
 #: python/PiFinder/ui/menu_structure.py:697
 msgid "Low"
-msgstr ""
+msgstr "Bas"
 
 #: python/PiFinder/ui/menu_structure.py:657
 #: python/PiFinder/ui/menu_structure.py:681
 #: python/PiFinder/ui/menu_structure.py:705
 msgid "High"
-msgstr ""
+msgstr "Haut"
 
 #: python/PiFinder/ui/menu_structure.py:663
 msgid "Constellation"
-msgstr ""
+msgstr "Constéllation"
 
 #: python/PiFinder/ui/menu_structure.py:687
 msgid "DSO Display"
-msgstr ""
+msgstr "Affichage DSO"
 
 #: python/PiFinder/ui/menu_structure.py:711
 msgid "RA/DEC Disp."
-msgstr ""
+msgstr "affichage AD/DEC"
 
 #: python/PiFinder/ui/menu_structure.py:721
 msgid "HH:MM"
-msgstr ""
+msgstr "HH:MM"
 
 #: python/PiFinder/ui/menu_structure.py:725
 msgid "Degrees"
-msgstr ""
+msgstr "Degrés"
 
 #: python/PiFinder/ui/menu_structure.py:733
 msgid "Camera Exp"
-msgstr ""
+msgstr "Expo Caméra"
 
 #: python/PiFinder/ui/menu_structure.py:741
 msgid "0.025s"
-msgstr ""
+msgstr "0.025s"
 
 #: python/PiFinder/ui/menu_structure.py:745
 msgid "0.05s"
-msgstr ""
+msgstr "0.05s"
 
 #: python/PiFinder/ui/menu_structure.py:749
 msgid "0.1s"
-msgstr ""
+msgstr "0.1s"
 
 #: python/PiFinder/ui/menu_structure.py:753
 msgid "0.2s"
-msgstr ""
+msgstr "0.2s"
 
 #: python/PiFinder/ui/menu_structure.py:757
 msgid "0.4s"
-msgstr ""
+msgstr "0.4s"
 
 #: python/PiFinder/ui/menu_structure.py:761
 msgid "0.8s"
-msgstr ""
+msgstr "0.8s"
 
 #: python/PiFinder/ui/menu_structure.py:765
 msgid "1s"
-msgstr ""
+msgstr "1s"
 
 #: python/PiFinder/ui/menu_structure.py:771
 msgid "WiFi Mode"
-msgstr ""
+msgstr "Mode Wifi"
 
 #: python/PiFinder/ui/menu_structure.py:780
 msgid "PiFinder Type"
-msgstr ""
+msgstr "Type de PiFinder"
 
 #: python/PiFinder/ui/menu_structure.py:787
 msgid "Left"
-msgstr ""
+msgstr "Gauche"
 
 #: python/PiFinder/ui/menu_structure.py:791
 msgid "Right"
-msgstr ""
+msgstr "Droit"
 
 #: python/PiFinder/ui/menu_structure.py:795
 msgid "Straight"
-msgstr ""
+msgstr "Face"
 
 #: python/PiFinder/ui/menu_structure.py:799
 msgid "Flat v3"
-msgstr ""
+msgstr "Plat v3"
 
 #: python/PiFinder/ui/menu_structure.py:803
 msgid "Flat v2"
-msgstr ""
+msgstr "Plat v2"
 
 #: python/PiFinder/ui/menu_structure.py:809
 msgid "Mount Type"
