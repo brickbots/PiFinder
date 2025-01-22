@@ -40,19 +40,19 @@ msgstr ""
 
 #: python/PiFinder/ui/callbacks.py:105
 msgid "Language: englisch"
-msgstr ""
+msgstr "Langage: Anglais"
 
 #: python/PiFinder/ui/callbacks.py:110
 msgid "Language: German"
-msgstr ""
+msgstr "Langage: Allemand"
 
 #: python/PiFinder/ui/callbacks.py:115
 msgid "Language: French"
-msgstr ""
+msgstr "Langage: Français"
 
 #: python/PiFinder/ui/callbacks.py:120
-msgid "Language: Spanish)"
-msgstr ""
+msgid "Language: Spanish"
+msgstr "Langage: Espagnol"
 
 #: python/PiFinder/ui/callbacks.py:124
 msgid "WiFi to AP"
@@ -64,80 +64,80 @@ msgstr ""
 
 #: python/PiFinder/ui/menu_structure.py:24
 msgid "Camera"
-msgstr ""
+msgstr "Camera"
 
 #: python/PiFinder/ui/menu_structure.py:28
 msgid "Align"
-msgstr ""
+msgstr "Alignement"
 
 #: python/PiFinder/ui/menu_structure.py:34
 msgid "Chart"
-msgstr ""
+msgstr "Cartes"
 
 #: python/PiFinder/ui/menu_structure.py:40
 msgid "Objects"
-msgstr ""
+msgstr "Objets"
 
 #: python/PiFinder/ui/menu_structure.py:45
 msgid "All Filtered"
-msgstr ""
+msgstr "Tout filtres"
 
 #: python/PiFinder/ui/menu_structure.py:50
 msgid "By Catalog"
-msgstr ""
+msgstr "Par catalogue"
 
 #: python/PiFinder/ui/menu_structure.py:55
 #: python/PiFinder/ui/menu_structure.py:236
 msgid "Planets"
-msgstr ""
+msgstr "Planetes"
 
 #: python/PiFinder/ui/menu_structure.py:61
 msgid "Comets"
-msgstr ""
+msgstr "Cometes"
 
 #: python/PiFinder/ui/menu_structure.py:67
 #: python/PiFinder/ui/menu_structure.py:138
 #: python/PiFinder/ui/menu_structure.py:240
 #: python/PiFinder/ui/menu_structure.py:290
 msgid "NGC"
-msgstr ""
+msgstr "NGC"
 
 #: python/PiFinder/ui/menu_structure.py:73
 #: python/PiFinder/ui/menu_structure.py:132
 #: python/PiFinder/ui/menu_structure.py:244
 #: python/PiFinder/ui/menu_structure.py:286
 msgid "Messier"
-msgstr ""
+msgstr "Messier"
 
 #: python/PiFinder/ui/menu_structure.py:79
 #: python/PiFinder/ui/menu_structure.py:248
 msgid "DSO..."
-msgstr ""
+msgstr "DSO..."
 
 #: python/PiFinder/ui/menu_structure.py:84
 #: python/PiFinder/ui/menu_structure.py:254
 msgid "Abell Pn"
-msgstr ""
+msgstr "Abell Pn"
 
 #: python/PiFinder/ui/menu_structure.py:90
 #: python/PiFinder/ui/menu_structure.py:258
 msgid "Arp Galaxies"
-msgstr ""
+msgstr "Arp Galaxies"
 
 #: python/PiFinder/ui/menu_structure.py:96
 #: python/PiFinder/ui/menu_structure.py:262
 msgid "Barnard"
-msgstr ""
+msgstr "Barnard"
 
 #: python/PiFinder/ui/menu_structure.py:102
 #: python/PiFinder/ui/menu_structure.py:266
 msgid "Caldwell"
-msgstr ""
+msgstr "Caldwell"
 
 #: python/PiFinder/ui/menu_structure.py:108
 #: python/PiFinder/ui/menu_structure.py:270
 msgid "Collinder"
-msgstr ""
+msgstr "Collinder"
 
 #: python/PiFinder/ui/menu_structure.py:114
 #: python/PiFinder/ui/menu_structure.py:274
@@ -147,27 +147,27 @@ msgstr ""
 #: python/PiFinder/ui/menu_structure.py:120
 #: python/PiFinder/ui/menu_structure.py:278
 msgid "Herschel 400"
-msgstr ""
+msgstr "Herschel 400"
 
 #: python/PiFinder/ui/menu_structure.py:126
 #: python/PiFinder/ui/menu_structure.py:282
 msgid "IC"
-msgstr ""
+msgstr "IC"
 
 #: python/PiFinder/ui/menu_structure.py:144
 #: python/PiFinder/ui/menu_structure.py:294
 msgid "Sharpless"
-msgstr ""
+msgstr "Sharpless"
 
 #: python/PiFinder/ui/menu_structure.py:150
 #: python/PiFinder/ui/menu_structure.py:298
 msgid "TAAS 200"
-msgstr ""
+msgstr "TAAS 200"
 
 #: python/PiFinder/ui/menu_structure.py:158
 #: python/PiFinder/ui/menu_structure.py:304
 msgid "Stars..."
-msgstr ""
+msgstr "Etoiles"
 
 #: python/PiFinder/ui/menu_structure.py:163
 #: python/PiFinder/ui/menu_structure.py:310
