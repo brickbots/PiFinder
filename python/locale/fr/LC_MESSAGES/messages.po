@@ -20,19 +20,19 @@ msgstr ""
 
 #: python/PiFinder/ui/callbacks.py:41
 msgid "Filters Reset"
-msgstr ""
+msgstr "RaZ filtres"
 
 #: python/PiFinder/ui/callbacks.py:55 python/PiFinder/ui/menu_structure.py:874
 msgid "Test Mode"
-msgstr ""
+msgstr "Mode Test"
 
 #: python/PiFinder/ui/callbacks.py:71
 msgid "Shutting Down"
-msgstr ""
+msgstr "Arrêt"
 
 #: python/PiFinder/ui/callbacks.py:80 python/PiFinder/ui/callbacks.py:88
 msgid "Restarting..."
-msgstr ""
+msgstr "Redémarrage"
 
 #: python/PiFinder/ui/callbacks.py:93 python/PiFinder/ui/callbacks.py:99
 msgid "Switching cam"
