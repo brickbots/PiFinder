@@ -744,15 +744,6 @@ def rotate_logs() -> Path:
     return utils.data_dir / "pifinder.log"
 
 
-def PiFinder_switch_language(iso2_code: str) -> None:
-    lang = gettext.translation(
-        "messages", "locale", languages=[iso2_code], fallback=(iso2_code == "en")
-    )
-    lang.install()
-    cfg = config.Config()
-    cfg.set_option("language", iso2_code)
-
-
 #############################################################################################
 #############################################################################################
 #############################################################################################

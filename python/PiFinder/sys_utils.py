@@ -1,5 +1,6 @@
 import glob
 import re
+import gettext
 from typing import Dict, Any
 
 try:
@@ -319,3 +320,14 @@ def switch_cam_imx477() -> None:
 def switch_cam_imx296() -> None:
     logger.info("SYS: Switching cam to imx296")
     sh.sudo("python", "-m", "PiFinder.switch_camera", "imx296")
+
+from PiFinder import config
+
+def switch_language(iso2_code: str) -> None:
+    lang = gettext.translation(
+        "messages", "locale", languages=[iso2_code], fallback=(iso2_code == "en")
+    )
+    lang.install()
+    cfg = config.Config()
+    cfg.set_option("language", iso2_code)
+

@@ -12,7 +12,6 @@ import datetime
 import logging
 
 from PiFinder import utils
-from PiFinder.main import PiFinder_switch_language
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
 
@@ -104,25 +103,25 @@ def switch_cam_imx296(ui_module: UIModule) -> None:
 
 def switch_lang_en(ui_module: UIModule) -> None:
     logger.info("Switch language to Englisch")
-    PiFinder_switch_language("en")
+    sys_utils.switch_language("en")
     ui_module.message(_("Language: Englisch"), 2)
 
 
 def switch_lang_de(ui_module: UIModule) -> None:
     logger.info("Switch language to German")
-    PiFinder_switch_language("de")
+    sys_utils.switch_language("de")
     ui_module.message(_("Language: German"), 2)
 
 
 def switch_lang_fr(ui_module: UIModule) -> None:
     logger.info("Switch language to French")
-    PiFinder_switch_language("fr")
+    sys_utils.switch_language("fr")
     ui_module.message(_("Language: French"), 2)
 
 
 def switch_lang_es(ui_module: UIModule) -> None:
     logger.info("Switch language to Spanish")
-    PiFinder_switch_language("es")
+    sys_utils.switch_language("es")
     ui_module.message(_("Language: Spanish)"), 2)
 
 
