@@ -1,6 +1,6 @@
 import nox
 
-nox.options.sessions = ["lint", "format", "type_hints", "smoke_tests"]
+nox.options.sessions = ["lint", "format", "type_hints", "smoke_tests", "babel"]
 
 
 @nox.session(reuse_venv=True, python="3.9")
@@ -79,3 +79,14 @@ def smoke_tests(session: nox.Session) -> None:
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
     session.run("pytest", "-m", "smoke")
+
+
+@nox.session(reuse_venv=True, python="3.9")
+def babel(session: nox.Session) -> None:
+    """
+    Run the I18N toolchain
+    """
+
+    session.run("pybabel", "extract", "-o", "locale/messages.pot", ".")
+    session.run("pybabel", "update", "-i", "locale/messages.pot", "-d", "locale")
+    session.run("pybabel", "compile", "-d", "locale")

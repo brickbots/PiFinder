@@ -15,7 +15,8 @@ This module is the main entry point for PiFinder it:
 # You need to install `apt install language-pack_xx`, where xx is the ISO country code.
 # Passing nothing as third parameter means the language is determined from environment variables (e.g. LANG)
 import gettext
-gettext.install('PiFinder', 'locale')
+
+gettext.install("PiFinder", "locale")
 
 import os
 
@@ -293,6 +294,13 @@ def main(
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness, cfg)
+
+    # Set user interface language
+    lang = cfg.get_option("language")
+    langXX = gettext.translation(
+        "messages", "locale", languages=[lang], fallback=(lang == "en")
+    )
+    langXX.install()
 
     import PiFinder.manager_patch as patch
 
@@ -736,6 +744,15 @@ def rotate_logs() -> Path:
     return utils.data_dir / "pifinder.log"
 
 
+def PiFinder_switch_language(iso2_code: str) -> None:
+    lang = gettext.translation(
+        "messages", "locale", languages=[iso2_code], fallback=(iso2_code == "en")
+    )
+    lang.install()
+    cfg = config.Config()
+    cfg.set_option("language", iso2_code)
+
+
 #############################################################################################
 #############################################################################################
 #############################################################################################
@@ -760,14 +777,6 @@ if __name__ == "__main__":
         logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
         logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
         logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
-
-    rlogger.info("Configure languages ...")
-    langEN = gettext.translation('messages', 'locale', languages=['en'], fallback=True)
-    langFR = gettext.translation('messages', 'locale', languages=['fr']) 
-    langDE = gettext.translation('messages', 'locale', languages=['de'])
-    langES = gettext.translation('messages', 'locale', languages=['es'])
-
-    langDE.install()
 
     rlogger.info("Starting PiFinder ...")
     parser = argparse.ArgumentParser(description="eFinder")

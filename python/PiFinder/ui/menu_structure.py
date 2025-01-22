@@ -10,9 +10,11 @@ from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.equipment import UIEquipment
 import PiFinder.ui.callbacks as callbacks
 
+
 # override locally the gettext marker function, i.e. the strings are not translated on load, but extracted.
-def _(key: str) -> str: 
+def _(key: str) -> str:
     return key
+
 
 pifinder_menu = {
     "name": "PiFinder",
@@ -838,7 +840,7 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": _("language"),
+                    "name": _("Language"),
                     "class": UITextMenu,
                     "select": "single",
                     "items": [
@@ -851,7 +853,7 @@ pifinder_menu = {
                             "callback": callbacks.switch_lang_de,
                         },
                         {
-                            "name": _("french"), 
+                            "name": _("french"),
                             "callback": callbacks.switch_lang_fr,
                         },
                         {
