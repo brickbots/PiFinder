@@ -3,6 +3,8 @@ import re
 import gettext
 from typing import Dict, Any
 
+from PiFinder import config
+
 try:
     import sh
     from sh import wpa_cli, unzip, su, passwd
@@ -321,8 +323,6 @@ def switch_cam_imx296() -> None:
     logger.info("SYS: Switching cam to imx296")
     sh.sudo("python", "-m", "PiFinder.switch_camera", "imx296")
 
-from PiFinder import config
-
 def switch_language(iso2_code: str) -> None:
     lang = gettext.translation(
         "messages", "locale", languages=[iso2_code], fallback=(iso2_code == "en")
@@ -330,4 +330,3 @@ def switch_language(iso2_code: str) -> None:
     lang.install()
     cfg = config.Config()
     cfg.set_option("language", iso2_code)
-

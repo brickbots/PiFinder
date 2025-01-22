@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-01-22 19:36+0100\n"
+"POT-Creation-Date: 2025-01-22 20:15+0100\n"
 "PO-Revision-Date: 2025-01-22 17:58+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es\n"
@@ -18,47 +18,47 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.16.0\n"
 
-#: PiFinder/ui/callbacks.py:42
+#: PiFinder/ui/callbacks.py:41
 msgid "Filters Reset"
 msgstr ""
 
-#: PiFinder/ui/callbacks.py:56 PiFinder/ui/menu_structure.py:876
+#: PiFinder/ui/callbacks.py:55 PiFinder/ui/menu_structure.py:876
 msgid "Test Mode"
 msgstr ""
 
-#: PiFinder/ui/callbacks.py:72
+#: PiFinder/ui/callbacks.py:71
 msgid "Shutting Down"
 msgstr ""
 
-#: PiFinder/ui/callbacks.py:81 PiFinder/ui/callbacks.py:89
+#: PiFinder/ui/callbacks.py:80 PiFinder/ui/callbacks.py:88
 msgid "Restarting..."
 msgstr ""
 
-#: PiFinder/ui/callbacks.py:94 PiFinder/ui/callbacks.py:100
+#: PiFinder/ui/callbacks.py:93 PiFinder/ui/callbacks.py:99
 msgid "Switching cam"
 msgstr ""
 
-#: PiFinder/ui/callbacks.py:108
+#: PiFinder/ui/callbacks.py:107
 msgid "Language: Englisch"
 msgstr ""
 
-#: PiFinder/ui/callbacks.py:114
+#: PiFinder/ui/callbacks.py:113
 msgid "Language: German"
 msgstr ""
 
-#: PiFinder/ui/callbacks.py:120
+#: PiFinder/ui/callbacks.py:119
 msgid "Language: French"
 msgstr ""
 
-#: PiFinder/ui/callbacks.py:126
+#: PiFinder/ui/callbacks.py:125
 msgid "Language: Spanish)"
 msgstr ""
 
-#: PiFinder/ui/callbacks.py:130
+#: PiFinder/ui/callbacks.py:129
 msgid "WiFi to AP"
 msgstr ""
 
-#: PiFinder/ui/callbacks.py:136
+#: PiFinder/ui/callbacks.py:135
 msgid "WiFi to Client"
 msgstr ""
 
