@@ -142,7 +142,7 @@ msgstr "Collinder"
 #: python/PiFinder/ui/menu_structure.py:114
 #: python/PiFinder/ui/menu_structure.py:274
 msgid "E.G. Globs"
-msgstr ""
+msgstr "E.G. Globs "
 
 #: python/PiFinder/ui/menu_structure.py:120
 #: python/PiFinder/ui/menu_structure.py:278
@@ -177,27 +177,27 @@ msgstr ""
 #: python/PiFinder/ui/menu_structure.py:169
 #: python/PiFinder/ui/menu_structure.py:314
 msgid "SAC Doubles"
-msgstr ""
+msgstr "SAC Doubles"
 
 #: python/PiFinder/ui/menu_structure.py:175
 #: python/PiFinder/ui/menu_structure.py:318
 msgid "SAC Asterisms"
-msgstr ""
+msgstr "SAC Asterismes"
 
 #: python/PiFinder/ui/menu_structure.py:181
 #: python/PiFinder/ui/menu_structure.py:322
 msgid "SAC Red Stars"
-msgstr ""
+msgstr "SAC Etoiles rouges"
 
 #: python/PiFinder/ui/menu_structure.py:187
 #: python/PiFinder/ui/menu_structure.py:326
 msgid "RASC Doubles"
-msgstr ""
+msgstr "RASC Doubles"
 
 #: python/PiFinder/ui/menu_structure.py:193
 #: python/PiFinder/ui/menu_structure.py:330
 msgid "TLK 90 Variables"
-msgstr ""
+msgstr "TLK 90 Variables"
 
 #: python/PiFinder/ui/menu_structure.py:203
 msgid "Recent"
@@ -205,95 +205,95 @@ msgstr ""
 
 #: python/PiFinder/ui/menu_structure.py:209
 msgid "Name Search"
-msgstr ""
+msgstr "Recherche par Nom"
 
 #: python/PiFinder/ui/menu_structure.py:215
 msgid "Filter"
-msgstr ""
+msgstr "Filtre"
 
 #: python/PiFinder/ui/menu_structure.py:221
 msgid "Reset All"
-msgstr ""
+msgstr "RàZ tout"
 
 #: python/PiFinder/ui/menu_structure.py:225
 #: python/PiFinder/ui/menu_structure.py:898
 msgid "Confirm"
-msgstr ""
+msgstr "Confirmation"
 
 #: python/PiFinder/ui/menu_structure.py:226
 #: python/PiFinder/ui/menu_structure.py:901
 msgid "Cancel"
-msgstr ""
+msgstr "Abandon"
 
 #: python/PiFinder/ui/menu_structure.py:230
 msgid "Catalogs"
-msgstr ""
+msgstr "Catalogues"
 
 #: python/PiFinder/ui/menu_structure.py:338
 msgid "Type"
-msgstr ""
+msgstr "Type"
 
 #: python/PiFinder/ui/menu_structure.py:344
 msgid "Galaxy"
-msgstr ""
+msgstr "Galaxie"
 
 #: python/PiFinder/ui/menu_structure.py:348
 msgid "Open Cluster"
-msgstr ""
+msgstr "Amas Ouvert"
 
 #: python/PiFinder/ui/menu_structure.py:352
 msgid "Globular"
-msgstr ""
+msgstr "Amas Globulaire"
 
 #: python/PiFinder/ui/menu_structure.py:356
 msgid "Nebula"
-msgstr ""
+msgstr "Nébuleuse"
 
 #: python/PiFinder/ui/menu_structure.py:360
 msgid "P. Nebula"
-msgstr ""
+msgstr "Nébuleuse planétaire"
 
 #: python/PiFinder/ui/menu_structure.py:364
 msgid "Double Str"
-msgstr ""
+msgstr "Etoile Double"
 
 #: python/PiFinder/ui/menu_structure.py:368
 msgid "Asterism"
-msgstr ""
+msgstr "Asterisme"
 
 #: python/PiFinder/ui/menu_structure.py:372
 msgid "Planet"
-msgstr ""
+msgstr "Planete"
 
 #: python/PiFinder/ui/menu_structure.py:378
 msgid "Altitude"
-msgstr ""
+msgstr "Altitude"
 
 #: python/PiFinder/ui/menu_structure.py:384
 #: python/PiFinder/ui/menu_structure.py:416
 msgid "None"
-msgstr ""
+msgstr "Aucun"
 
 #: python/PiFinder/ui/menu_structure.py:410
 msgid "Magnitude"
-msgstr ""
+msgstr "Magnitude"
 
 #: python/PiFinder/ui/menu_structure.py:462
 #: python/PiFinder/ui/menu_structure.py:472
 msgid "Observed"
-msgstr ""
+msgstr "Observé"
 
 #: python/PiFinder/ui/menu_structure.py:468
 msgid "Any"
-msgstr ""
+msgstr "Tous"
 
 #: python/PiFinder/ui/menu_structure.py:476
 msgid "Not Observed"
-msgstr ""
+msgstr "Non Observé"
 
 #: python/PiFinder/ui/menu_structure.py:484
 msgid "Settings"
-msgstr ""
+msgstr "Réglage"
 
 #: python/PiFinder/ui/menu_structure.py:489
 msgid "User Pref..."
