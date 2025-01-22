@@ -9,7 +9,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2025-01-22 17:53+0100\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Last-Translator: Laurent BOURASSEAU <laurent.astro.505@hotmail.com>\n"
 "Language: fr_FR\n"
 "Language-Team: fr_FR <LL@li.org>\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
@@ -205,7 +205,7 @@ msgstr "Récent"
 
 #: python/PiFinder/ui/menu_structure.py:209
 msgid "Name Search"
-msgstr "Recherche par Nom"
+msgstr "Rech. par Nom"
 
 #: python/PiFinder/ui/menu_structure.py:215
 msgid "Filter"
@@ -251,7 +251,7 @@ msgstr "Nébuleuse"
 
 #: python/PiFinder/ui/menu_structure.py:360
 msgid "P. Nebula"
-msgstr "Nébuleuse planétaire"
+msgstr "Nébuleuse Planétaire"
 
 #: python/PiFinder/ui/menu_structure.py:364
 msgid "Double Str"
@@ -457,77 +457,77 @@ msgstr "Plat v2"
 
 #: python/PiFinder/ui/menu_structure.py:809
 msgid "Mount Type"
-msgstr ""
+msgstr "Type de Mon,ture"
 
 #: python/PiFinder/ui/menu_structure.py:816
 msgid "Alt/Az"
-msgstr ""
+msgstr "Alt/Az"
 
 #: python/PiFinder/ui/menu_structure.py:820
 msgid "Equitorial"
-msgstr ""
+msgstr "Equatoriale"
 
 #: python/PiFinder/ui/menu_structure.py:826
 msgid "Camera Type"
-msgstr ""
+msgstr "Type Caméra"
 
 #: python/PiFinder/ui/menu_structure.py:831
 msgid "v2 - imx477"
-msgstr ""
+msgstr "v2 - imx477"
 
 #: python/PiFinder/ui/menu_structure.py:835
 msgid "v3 - imx296"
-msgstr ""
+msgstr "v3 - imx296"
 
 #: python/PiFinder/ui/menu_structure.py:841
 msgid "language"
-msgstr ""
+msgstr "Langage"
 
 #: python/PiFinder/ui/menu_structure.py:846
 msgid "english"
-msgstr ""
+msgstr "Anglais"
 
 #: python/PiFinder/ui/menu_structure.py:850
 msgid "german"
-msgstr ""
+msgstr "Allemenand"
 
 #: python/PiFinder/ui/menu_structure.py:854
 msgid "french"
-msgstr ""
+msgstr "Français"
 
 #: python/PiFinder/ui/menu_structure.py:858
 msgid "spanish"
-msgstr ""
+msgstr "Espagnol"
 
 #: python/PiFinder/ui/menu_structure.py:866
 msgid "Tools"
-msgstr ""
+msgstr "Outils"
 
 #: python/PiFinder/ui/menu_structure.py:870
 msgid "Status"
-msgstr ""
+msgstr "Status"
 
 #: python/PiFinder/ui/menu_structure.py:871
 msgid "Equipment"
-msgstr ""
+msgstr "Equipment"
 
 #: python/PiFinder/ui/menu_structure.py:872
 msgid "Console"
-msgstr ""
+msgstr "Console"
 
 #: python/PiFinder/ui/menu_structure.py:873
 msgid "Software Upd"
-msgstr ""
+msgstr "Montée Logicielle"
 
 #: python/PiFinder/ui/menu_structure.py:876
 msgid "Power"
-msgstr ""
+msgstr "Allumage"
 
 #: python/PiFinder/ui/menu_structure.py:882
 msgid "Shutdown"
-msgstr ""
+msgstr "Arrêt"
 
 #: python/PiFinder/ui/menu_structure.py:892
 msgid "Restart"
-msgstr ""
+msgstr "Redémarrage"
 
