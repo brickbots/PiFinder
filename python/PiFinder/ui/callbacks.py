@@ -138,7 +138,6 @@ def get_camera_type(ui_module: UIModule) -> list:
 def switch_language(ui_module: UIModule) -> None:
     iso2_code = ui_module.config_object.get_option("language")
     msg = str(f"Language: {iso2_code}")
-    print("****", msg, _(msg))
     ui_module.message(_(msg))
     lang = gettext.translation(
         "messages", "locale", languages=[iso2_code], fallback=(iso2_code == "en")
