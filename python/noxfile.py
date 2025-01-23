@@ -15,7 +15,7 @@ def lint(session: nox.Session) -> None:
         session (nox.Session): The Nox session being run, providing context and methods for session actions.
     """
     session.install("ruff==0.4.8")
-    session.run("ruff", "check", "--fix")
+    session.run("ruff", "check", "--fix", "--config", "builtins=['_']")
 
 
 @nox.session(reuse_venv=True, python="3.9")
@@ -68,13 +68,13 @@ def unit_tests(session: nox.Session) -> None:
 @nox.session(reuse_venv=True, python="3.9")
 def smoke_tests(session: nox.Session) -> None:
     """
-    Run the project's smoke tests.
+        Run the project's smoke tests.
+    nox
+        This session installs the necessary dependencies and runs a subset of tests designed to quickly
+        check the most important functions of the program, often as a prelude to more thorough testing.
 
-    This session installs the necessary dependencies and runs a subset of tests designed to quickly
-    check the most important functions of the program, often as a prelude to more thorough testing.
-
-    Args:
-        session (nox.Session): The Nox session being run, providing context and methods for session actions.
+        Args:
+            session (nox.Session): The Nox session being run, providing context and methods for session actions.
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
@@ -86,6 +86,8 @@ def babel(session: nox.Session) -> None:
     """
     Run the I18N toolchain
     """
+    session.install("-r", "requirements.txt")
+    session.install("-r", "requirements_dev.txt")
 
     session.run("pybabel", "extract", "-o", "locale/messages.pot", ".")
     session.run("pybabel", "update", "-i", "locale/messages.pot", "-d", "locale")

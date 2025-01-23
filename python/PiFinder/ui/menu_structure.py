@@ -16,6 +16,12 @@ def _(key: str) -> str:
     return key
 
 
+s = _("Language: de")  # this way ruff lint and mypy type_hints warnings are silenced
+s = _("Language: en")
+s = _("Language: es")
+s = _("Language: fr")
+s = s
+
 pifinder_menu = {
     "name": "PiFinder",
     "class": UITextMenu,
@@ -843,22 +849,24 @@ pifinder_menu = {
                     "name": _("Language"),
                     "class": UITextMenu,
                     "select": "single",
+                    "config_option": "language",
+                    "post_callback": callbacks.switch_language,
                     "items": [
                         {
-                            "name": _("english"),
-                            "callback": callbacks.switch_lang_en,
+                            "name": _("English"),
+                            "value": "en",
                         },
                         {
-                            "name": _("german"),
-                            "callback": callbacks.switch_lang_de,
+                            "name": _("German"),
+                            "value": "de",
                         },
                         {
-                            "name": _("french"),
-                            "callback": callbacks.switch_lang_fr,
+                            "name": _("French"),
+                            "value": "fr",
                         },
                         {
-                            "name": _("spanish"),
-                            "callback": callbacks.switch_lang_es,
+                            "name": _("Spanish"),
+                            "value": "es",
                         },
                     ],
                 },
@@ -909,6 +917,7 @@ pifinder_menu = {
         },
     ],
 }
+
 
 # Remove local definition and reactivate the global gettext function (that translates)
 del _

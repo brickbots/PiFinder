@@ -10,10 +10,18 @@ Each one takes the current ui module as an argument
 
 import datetime
 import logging
+import gettext
 
+from typing import Any, TYPE_CHECKING
 from PiFinder import utils
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
+
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
+
 
 sys_utils = utils.get_sys_utils()
 
@@ -101,28 +109,16 @@ def switch_cam_imx296(ui_module: UIModule) -> None:
     restart_system(ui_module)
 
 
-def switch_lang_en(ui_module: UIModule) -> None:
-    logger.info("Switch language to Englisch")
-    sys_utils.switch_language("en")
-    ui_module.message(_("Language: Englisch"), 2)
-
-
-def switch_lang_de(ui_module: UIModule) -> None:
-    logger.info("Switch language to German")
-    sys_utils.switch_language("de")
-    ui_module.message(_("Language: German"), 2)
-
-
-def switch_lang_fr(ui_module: UIModule) -> None:
-    logger.info("Switch language to French")
-    sys_utils.switch_language("fr")
-    ui_module.message(_("Language: French"), 2)
-
-
-def switch_lang_es(ui_module: UIModule) -> None:
-    logger.info("Switch language to Spanish")
-    sys_utils.switch_language("es")
-    ui_module.message(_("Language: Spanish)"), 2)
+def switch_language(ui_module: UIModule) -> None:
+    iso2_code = ui_module.config_object.get_option("language")
+    msg = str(f"Language: {iso2_code}")
+    print("****", msg, _(msg))
+    ui_module.message(_(msg))
+    lang = gettext.translation(
+        "messages", "locale", languages=[iso2_code], fallback=(iso2_code == "en")
+    )
+    lang.install()
+    logger.info("Switch Language: %s", iso2_code)
 
 
 def go_wifi_ap(ui_module: UIModule) -> None:
