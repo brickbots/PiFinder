@@ -238,7 +238,7 @@ pifinder_menu = {
                     "name": _("Catalogs"),
                     "class": UITextMenu,
                     "select": "multi",
-                    "config_option": "active_catalogs",
+                    "config_option": "filter.selected_catalogs",
                     "items": [
                         {
                             "name": _("Planets"),
@@ -256,7 +256,7 @@ pifinder_menu = {
                             "name": _("DSO..."),
                             "class": UITextMenu,
                             "select": "multi",
-                            "config_option": "active_catalogs",
+                            "config_option": "filter.selected_catalogs",
                             "items": [
                                 {
                                     "name": _("Abell Pn"),
@@ -312,7 +312,7 @@ pifinder_menu = {
                             "name": _("Stars..."),
                             "class": UITextMenu,
                             "select": "multi",
-                            "config_option": "active_catalogs",
+                            "config_option": "filter.selected_catalogs",
                             "items": [
                                 {
                                     "name": _("Bright Named"),
@@ -357,6 +357,10 @@ pifinder_menu = {
                             "value": "OC",
                         },
                         {
+                            "name": _("Cluster/Neb"),
+                            "value": "C+N",
+                        },
+                        {
                             "name": _("Globular"),
                             "value": "Gb",
                         },
@@ -366,11 +370,27 @@ pifinder_menu = {
                         },
                         {
                             "name": _("P. Nebula"),
-                            "value": "Pl",
+                            "value": "PN",
+                        },
+                        {
+                            "name": _("Dark Nebula"),
+                            "value": "DN",
+                        },
+                        {
+                            "name": _("Star"),
+                            "value": "*",
                         },
                         {
                             "name": _("Double Str"),
                             "value": "D*",
+                        },
+                        {
+                            "name": _("Triple Str"),
+                            "value": "***",
+                        },
+                        {
+                            "name": _("Knot"),
+                            "value": "Kt",
                         },
                         {
                             "name": _("Asterism"),
@@ -379,6 +399,10 @@ pifinder_menu = {
                         {
                             "name": _("Planet"),
                             "value": "Pla",
+                        },
+                        {
+                            "name": _("Comet"),
+                            "value": "CM",
                         },
                     ],
                 },
@@ -834,14 +858,22 @@ pifinder_menu = {
                     "name": _("Camera Type"),
                     "class": UITextMenu,
                     "select": "single",
+                    "value_callback": callbacks.get_camera_type,
                     "items": [
                         {
                             "name": _("v2 - imx477"),
                             "callback": callbacks.switch_cam_imx477,
+                            "value": "imx477",
                         },
                         {
                             "name": _("v3 - imx296"),
                             "callback": callbacks.switch_cam_imx296,
+                            "value": "imx296",
+                        },
+                        {
+                            "name": _("v3 - imx462"),
+                            "callback": callbacks.switch_cam_imx462,
+                            "value": "imx462",
                         },
                     ],
                 },

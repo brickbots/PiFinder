@@ -40,6 +40,13 @@ class UITextMenu(UIModule):
         )
 
         self._selected_values = []
+        if self.item_definition.get("value_callback"):
+            self._selected_values = self.item_definition.get("value_callback")(self)
+            # Set current item index based on selection
+            for i, _item in enumerate(self.item_definition["items"]):
+                if _item["value"] == self._selected_values[0]:
+                    self._current_item_index = i
+
         if config_option := self.item_definition.get("config_option"):
             if self._menu_type == "multi":
                 self._selected_values = self.config_object.get_option(config_option)
@@ -221,7 +228,7 @@ class UITextMenu(UIModule):
 
                 self.config_object.set_option(config_option, self._selected_values)
                 # are we setting active catalogs
-                if config_option == "active_catalogs":
+                if config_option == "filter.selected_catalogs":
                     self.catalogs.select_no_catalogs()
                     self.catalogs.select_catalogs(self._selected_values)
                     self.catalogs.catalog_filter.selected_catalogs = (
