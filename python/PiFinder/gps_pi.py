@@ -6,6 +6,7 @@ This module is for GPS related functions
 
 import asyncio
 from PiFinder.multiproclogging import MultiprocLogging
+from PiFinder.gps_ubx import UBXParser
 import logging
 
 logger = logging.getLogger("GPS")
