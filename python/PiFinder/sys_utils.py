@@ -2,13 +2,8 @@ import glob
 import re
 from typing import Dict, Any
 
-try:
-    import sh
-    from sh import wpa_cli, unzip, su, passwd
-
-    REAL_SYS_UTILS = True
-except ImportError:
-    REAL_SYS_UTILS = False
+import sh
+from sh import wpa_cli, unzip, su, passwd
 
 import socket
 from PiFinder import utils
@@ -152,7 +147,7 @@ class Network:
     def get_host_name(self):
         return socket.gethostname()
 
-    def get_connected_ssid(self):
+    def get_connected_ssid(self) -> str:
         """
         Returns the SSID of the connected wifi network or
         None if not connected or in AP mode
@@ -160,11 +155,14 @@ class Network:
         if self.wifi_mode() == "AP":
             return None
         # get output from iwgetid
-        iwgetid = sh.Command("iwgetid")
-        _t = iwgetid(_ok_code=(0, 255)).strip()
-        return _t.split(":")[-1].strip('"')
+        try:
+            iwgetid = sh.Command("iwgetid")
+            _t = iwgetid(_ok_code=(0, 255)).strip()
+            return _t.split(":")[-1].strip('"')
+        except sh.CommandNotFound:
+            return "ssid_not_found"
 
-    def set_host_name(self, hostname):
+    def set_host_name(self, hostname) -> None:
         if hostname == self.get_host_name():
             return
         _result = sh.sudo("hostnamectl", "set-hostname", hostname)
