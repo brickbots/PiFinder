@@ -10,6 +10,7 @@ from PiFinder.gps_ubx import UBXParser
 import logging
 
 logger = logging.getLogger("GPS")
+sats = [0,0]
 
 def is_tpv_accurate(tpv_dict, error_info):
     """
@@ -36,6 +37,7 @@ def is_tpv_accurate(tpv_dict, error_info):
 async def process_messages(parser, gps_queue, console_queue, error_info):
     gps_locked = False
     async for msg in parser.parse_messages():
+        print(msg)
         if msg.get("class") == "SKY":
             logger.debug("GPS: SKY: %s", msg)
             if "hdop" in msg:
@@ -44,29 +46,33 @@ async def process_messages(parser, gps_queue, console_queue, error_info):
                 error_info['error_3d'] = msg["pdop"]
             if "nSat" in msg:
                 sats_seen = msg["nSat"]
-                sats_used = msg.get("uSat", 0)
-                gps_queue.put(("satellites", (sats_seen, sats_used)))
+                sats[0] = sats_seen
+                gps_queue.put(("satellites", tuple(sats)))
                 logger.debug("Number of sats seen: %i", sats_seen)
         elif msg.get("class") == "TPV":
             logger.debug("GPS: TPV: %s", msg)
-            if is_tpv_accurate(msg, error_info):
-                if "lat" in msg and "lon" in msg and "altHAE" in msg:
-                    if not gps_locked:
-                        gps_locked = True
-                        console_queue.put("GPS: Locked")
-                        logger.debug("GPS locked")
-                    gps_queue.put((
-                        "fix",
-                        {
-                            "lat": msg["lat"],
-                            "lon": msg["lon"],
-                            "altitude": msg["altHAE"]
-                        }
-                    ))
-                    logger.debug("GPS fix: %s", msg)
-                if "time" in msg:
-                    gps_queue.put(("time", msg["time"]))
-                    logger.debug("Setting time to %s", msg["time"])
+            if "satellites" in msg:
+                sats[1] = msg["satellites"]
+                sats_used = msg.get("satellites", 0)
+                gps_queue.put(("satellites", tuple(sats)))
+                logger.debug("Number of sats used: %i", sats_used)
+            if "lat" in msg and "lon" in msg and "altHAE" in msg:
+                if not gps_locked:
+                    gps_locked = True
+                    console_queue.put("GPS: Locked")
+                    logger.debug("GPS locked")
+                gps_queue.put((
+                    "fix",
+                    {
+                        "lat": msg["lat"],
+                        "lon": msg["lon"],
+                        "altitude": msg["altHAE"]
+                    }
+                ))
+                logger.debug("GPS fix: %s", msg)
+            if "time" in msg:
+                gps_queue.put(("time", msg["time"]))
+                logger.debug("Setting time to %s", msg["time"])
         await asyncio.sleep(0)
 
 async def gps_main(gps_queue, console_queue, log_queue):

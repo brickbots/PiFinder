@@ -179,6 +179,7 @@ class UBXParser:
     def _parse_nav_sol(self, data: bytes) -> dict:
         if len(data) < 52:
             return {"error": "Invalid payload length"}
+        logging.debug("Parsing nav-sol")
         gpsFix = data[10]
         ecefX = int.from_bytes(data[12:16], 'little', signed=True) / 100.0
         ecefY = int.from_bytes(data[16:20], 'little', signed=True) / 100.0
@@ -199,7 +200,9 @@ class UBXParser:
     def _parse_nav_sat(self, data: bytes) -> dict:
         if len(data) < 8:
             return {"error": "Invalid payload length"}
+        logging.debug("Parsing nav-sat")
         numSvs = data[5]
+        print(f"{numSvs=}")
         satellites = []
         for i in range(numSvs):
             offset = 8 + (12 * i)
@@ -221,15 +224,15 @@ class UBXParser:
             })
         return {
             "class": "SKY",
-            "nSat": numSvs,
-            "uSat": sum(1 for sat in satellites if sat["used"]),
+            "nSat": sum(1 for sat in satellites),
             "satellites": satellites
         }
 
     def _parse_nav_svinfo(self, data: bytes) -> dict:
         if len(data) < 8:
             return {"error": "Invalid payload length"}
-        numCh = int.from_bytes(data[4:6], 'little')
+        logging.debug("Parsing nav-svinfo")
+        numCh = data[4]
         satellites = []
         for i in range(numCh):
             offset = 8 + (12 * i)
