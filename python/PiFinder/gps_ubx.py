@@ -27,11 +27,13 @@ class CFGMessageId(IntEnum):
     MSG = 0x01
     RATE = 0x08
 
+
 @dataclass
 class ParserConfig:
     enable: bool = True
     json: bool = False
     raw: int = 2
+
 
 class UBXParser:
     def __init__(
@@ -232,7 +234,7 @@ class UBXParser:
         if len(data) < 8:
             return {"error": "Invalid payload length"}
         logging.debug("Parsing nav-svinfo")
-        numCh = data[4]
+        numCh = data[4]  # Read single byte for number of channels
         satellites = []
         for i in range(numCh):
             offset = 8 + (12 * i)
@@ -280,6 +282,7 @@ class UBXParser:
             "hdop": int.from_bytes(data[12:14], 'little') * 0.01,
             "pdop": int.from_bytes(data[6:8], 'little') * 0.01
         }
+
 
 if __name__ == "__main__":
     async def test():
