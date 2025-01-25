@@ -161,21 +161,16 @@ class UBXParser:
     def _ecef_to_lla(self, x: float, y: float, z: float):
         a = 6378137.0
         f = 1/298.257223563
-        b = a * (1 - f)
-        e = (a**2 - b**2)**0.5 / a
+        e = 0.0818191908426  # First eccentricity
         p = (x**2 + y**2)**0.5
-        theta = math.atan2(z*a, p*b)
+        lat = math.atan2(z, p * (1 - e**2))
         lon = math.atan2(y, x)
-        lat = math.atan2(
-            z + e**2 * b * math.sin(theta)**3,
-            p - e**2 * a * math.cos(theta)**3
-        )
         N = a / (1 - e**2 * math.sin(lat)**2)**0.5
-        alt = p / math.cos(lat) - N
+        h = z / math.sin(lat) - N * (1 - e**2)
         return {
             "latitude": math.degrees(lat),
             "longitude": math.degrees(lon),
-            "altitude": alt
+            "altitude": h
         }
 
     def _parse_nav_sol(self, data: bytes) -> dict:
