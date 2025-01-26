@@ -638,6 +638,7 @@ class Server:
                     "lat": lat,
                     "lon": lon,
                     "altitude": altitude,
+                    "source": "WEB",
                 },
             )
             self.gps_queue.put(msg)
@@ -679,11 +680,11 @@ class Server:
         logging.debug(
             "self shared state is %s and location is %s", self.shared_state, location
         )
-        if location["gps_lock"] is True:
+        if location.lock is True:
             self.gps_locked = True
-            self.lat = location["lat"]
-            self.lon = location["lon"]
-            self.altitude = location["altitude"]
+            self.lat = location.lat
+            self.lon = location.lon
+            self.altitude = location.altitude
         else:
             self.gps_locked = False
             self.lat = None

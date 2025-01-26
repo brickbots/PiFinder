@@ -13,6 +13,9 @@ from PiFinder import config
 import logging
 from typing import List
 from PiFinder.composite_object import CompositeObject
+from typing import Optional
+from dataclasses import dataclass, asdict
+import json
 
 logger = logging.getLogger("SharedState")
 
@@ -117,13 +120,51 @@ SharedStateObj(
               'Dec_target': 15.347716050003328, 'T_extract': 75.79255499877036, 'Alt': None, 'Az': None, 'solve_source': 'CAM', 'constellation': 'Psc'},
     imu={'moving': False, 'move_start': 1695297928.69749, 'move_end': 1695297928.764207, 'pos': [171.39798541261814, 202.7646132036331, 358.2794741322842],
          'start_pos': [171.4009455613444, 202.76321535004726, 358.2587208386012], 'status': 3},
-    location={'lat': 59.05139745, 'lon': 7.987654, 'altitude': 151.4, 'gps_lock': False, 'timezone': 'Europe/Stockholm', 'last_gps_lock': None},
+    location={'lat': 59.05139745, 'lon': 7.987654, 'altitude': 151.4, 'source': 'GPS', gps_lock': False, 'timezone': 'Europe/Stockholm', 'last_gps_lock': None},
     datetime=None,
     screen=<PIL.Image.Image image mode=RGB size=128x128 at 0xE693C910>,
     solve_pixel=[305.6970520019531, 351.9438781738281]
 )
 """
 
+
+@dataclass
+class Location:
+    """
+    the location of the observer, lat/lon/altitude and the source of the data.
+    """
+    lat: float = 0.0
+    lon: float = 0.0
+    altitude: float = 0.0
+    source: str = "None"
+    lock: bool = False
+    timezone: Optional[str] = None
+    last_gps_lock: Optional[str] = None
+
+    def __str__(self):
+        return f"Location(lat={self.lat:.6f}, " \
+                f"lon={self.lon:.6f}, alt={self.altitude:.1f}m, " \
+                f"source={self.source}, alt={self.altitude:.1f}m, " \
+                f"Lock: {'Yes' if self.lock else 'No'})"
+
+    def to_dict(self):
+        """Convert the Location object to a dictionary."""
+        return asdict(self)
+
+    def to_json(self):
+        """Convert the Location object to a JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data):
+        """Create a Location object from a dictionary."""
+        return cls(**data)
+
+    @classmethod
+    def from_json(cls, json_str):
+        """Create a Location object from a JSON string."""
+        data = json.loads(json_str)
+        return cls.from_dict(data)
 
 class SharedStateObj:
     def __init__(self):
@@ -139,7 +180,7 @@ class SharedStateObj:
         self.__solution = None
         self.__sats = None
         self.__imu = None
-        self.__location = None
+        self.__location: Location = Location()
         self.__datetime = None
         self.__datetime_time = None
         self.__screen = None
@@ -233,7 +274,7 @@ class SharedStateObj:
             return self.datetime()
 
         dt = self.datetime()
-        return dt.astimezone(pytz.timezone(self.__location["timezone"]))
+        return dt.astimezone(pytz.timezone(self.__location.timezone))
 
     def set_datetime(self, dt):
         if dt.tzname() is None:

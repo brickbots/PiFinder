@@ -23,7 +23,7 @@ def gps_monitor(gps_queue, console_queue, log_queue):
         time.sleep(0.5)
         fix = (
             "fix",
-            {"lat": 34.22, "lon": -118.22, "altitude": 22},
+            {"lat": 34.22, "lon": -118.22, "altitude": 22, "source": "fakeGPS"},
         )
         gps_queue.put(fix)
         tm = ("time", datetime.datetime.now())

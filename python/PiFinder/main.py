@@ -44,7 +44,7 @@ from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.menu_manager import MenuManager
 
-from PiFinder.state import SharedStateObj, UIState
+from PiFinder.state import SharedStateObj, UIState, Location
 
 from PiFinder.image_util import subtract_background
 
@@ -347,18 +347,18 @@ def main(
 
         # Load last location, set lock to false
         tz_finder = TimezoneFinder()
-        initial_location = cfg.get_option("last_location")
-        initial_location["timezone"] = tz_finder.timezone_at(
-            lat=initial_location["lat"], lng=initial_location["lon"]
-        )
-        initial_location["gps_lock"] = False
-        initial_location["last_gps_lock"] = None
-        shared_state.set_location(initial_location)
-        sf_utils.set_location(
-            initial_location["lat"],
-            initial_location["lon"],
-            initial_location["altitude"],
-        )
+        # initial_location = cfg.get_option("last_location")
+        # initial_location["timezone"] = tz_finder.timezone_at(
+        #     lat=initial_location["lat"], lng=initial_location["lon"]
+        # )
+        # initial_location["gps_lock"] = False
+        # initial_location["last_gps_lock"] = None
+        # shared_state.set_location(initial_location)
+        # sf_utils.set_location(
+        #     initial_location["lat"],
+        #     initial_location["lon"],
+        #     initial_location["altitude"],
+        # )
 
         console.write("   Camera")
         console.update()
@@ -479,23 +479,23 @@ def main(
                     if gps_msg == "fix":
                         # logger.debug("GPS fix msg: %s", gps_content)
                         if gps_content["lat"] + gps_content["lon"] != 0:
-                            location = shared_state.location()
-                            location["lat"] = gps_content["lat"]
-                            location["lon"] = gps_content["lon"]
-                            location["altitude"] = gps_content["altitude"]
-                            location["last_gps_lock"] = (
+                            location: Location = shared_state.location()
+                            location.lat = gps_content["lat"]
+                            location.lon = gps_content["lon"]
+                            location.altitude = gps_content["altitude"]
+                            location.last_gps_lock = (
                                 datetime.datetime.now().time().isoformat()[:8]
                             )
-                            if location["gps_lock"] is False:
+                            if not location.lock:
                                 # Write to config if we just got a lock
-                                location["timezone"] = tz_finder.timezone_at(
-                                    lat=location["lat"], lng=location["lon"]
+                                location.timezone = tz_finder.timezone_at(
+                                    lat=location.lat, lng=location.lon
                                 )
                                 cfg.set_option("last_location", location)
                                 console.write(
-                                    f'GPS: Location {location["lat"]} {location["lon"]} {location["altitude"]}'
+                                    f'GPS: Location {location.lat} {location.lon} {location.altitude}'
                                 )
-                                location["gps_lock"] = True
+                                location.lock = True
 
                             shared_state.set_location(location)
                     if gps_msg == "time":

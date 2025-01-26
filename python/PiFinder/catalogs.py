@@ -182,8 +182,8 @@ class CatalogFilter:
         dt = shared_state.datetime()
         if location and dt and solution:
             self.fast_aa = calc_utils.FastAltAz(
-                location["lat"],
-                location["lon"],
+                location.lat,
+                location.lon,
                 dt,
             )
         else:
@@ -643,8 +643,9 @@ class PlanetCatalog(TimerCatalog):
         planet_dict = sf_utils.calc_planets(dt)
         sequence = 0
         for name in sf_utils.planet_names:
-            if name.lower() != "sun":
-                self.add_planet(sequence, name, planet_dict[name])
+            planet_data = planet_dict.get(name, None)
+            if name.lower() != "sun" and planet_data:
+                self.add_planet(sequence, name, planet_data)
                 sequence += 1
         with self.virtual_id_lock:
             new_low = self.assign_virtual_object_ids(self, self.virtual_id_low)

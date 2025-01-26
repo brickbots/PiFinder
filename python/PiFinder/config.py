@@ -24,6 +24,7 @@ class Config:
             self._config_dict = {}
         else:
             with open(self.config_file_path, "r") as config_file:
+                print("Loading config from", self.config_file_path)
                 self._config_dict = json.load(config_file)
 
         # open default default_config

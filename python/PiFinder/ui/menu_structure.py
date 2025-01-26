@@ -3,6 +3,7 @@ from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.status import UIStatus
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.software import UISoftware
+from PiFinder.ui.gpsstatus import UIGPSStatus
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
 from PiFinder.ui.textentry import UITextEntry
@@ -17,8 +18,43 @@ pifinder_menu = {
     "start_index": 2,
     "items": [
         {
-            "name": "Camera",
-            "class": UIPreview,
+            "name": "Setup",
+            "class": UITextMenu,
+            "select": "single",
+            "items": [
+                {
+                    "name": "Focus",
+                    "class": UIPreview,
+                },
+                {
+                    "name": "Align",
+                    "class": UIAlign,
+                    "stateful": True,
+                    "preload": True,
+                },
+                {
+                    "name": "GPS",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": "Status",
+                            "class": UIGPSStatus,
+                            "config_option": "location.latitude",
+                        },
+                        {
+                            "name": "Save location",
+                            "class": UITextEntry,
+                            "config_option": "location.longitude",
+                        },
+                        {
+                            "name": "Set location",
+                            "class": UITextEntry,
+                            "config_option": "location.altitude",
+                        },
+                    ],
+                },
+            ],
         },
         {
             "name": "Align",
@@ -37,175 +73,316 @@ pifinder_menu = {
             "class": UITextMenu,
             "select": "single",
             "items": [
-                {
-                    "name": "All Filtered",
-                    "class": UIObjectList,
-                    "objects": "catalogs.filtered",
-                },
-                {
-                    "name": "By Catalog",
-                    "class": UITextMenu,
-                    "select": "single",
-                    "items": [
-                        {
-                            "name": "Planets",
-                            "class": UIObjectList,
-                            "objects": "catalog",
-                            "value": "PL",
-                        },
-                        {
-                            "name": "Comets",
-                            "class": UIObjectList,
-                            "objects": "catalog",
-                            "value": "CM",
-                        },
-                        {
-                            "name": "NGC",
-                            "class": UIObjectList,
-                            "objects": "catalog",
-                            "value": "NGC",
-                        },
-                        {
-                            "name": "Messier",
-                            "class": UIObjectList,
-                            "objects": "catalog",
-                            "value": "M",
-                        },
-                        {
-                            "name": "DSO...",
-                            "class": UITextMenu,
-                            "select": "single",
-                            "items": [
-                                {
-                                    "name": "Abell Pn",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "Abl",
-                                },
-                                {
-                                    "name": "Arp Galaxies",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "Arp",
-                                },
-                                {
-                                    "name": "Barnard",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "B",
-                                },
-                                {
-                                    "name": "Caldwell",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "C",
-                                },
-                                {
-                                    "name": "Collinder",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "Col",
-                                },
-                                {
-                                    "name": "E.G. Globs",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "EGC",
-                                },
-                                {
-                                    "name": "Herschel 400",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "H",
-                                },
-                                {
-                                    "name": "IC",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "IC",
-                                },
-                                {
-                                    "name": "Messier",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "M",
-                                },
-                                {
-                                    "name": "NGC",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "NGC",
-                                },
-                                {
-                                    "name": "Sharpless",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "Sh2",
-                                },
-                                {
-                                    "name": "TAAS 200",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "Ta2",
-                                },
-                            ],
-                        },
-                        {
-                            "name": "Stars...",
-                            "class": UITextMenu,
-                            "select": "single",
-                            "items": [
-                                {
-                                    "name": "Bright Named",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "Str",
-                                },
-                                {
-                                    "name": "SAC Doubles",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "SaM",
-                                },
-                                {
-                                    "name": "SAC Asterisms",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "SaA",
-                                },
-                                {
-                                    "name": "SAC Red Stars",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "SaR",
-                                },
-                                {
-                                    "name": "RASC Doubles",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "RDS",
-                                },
-                                {
-                                    "name": "TLK 90 Variables",
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "TLK",
-                                },
-                            ],
-                        },
-                    ],
-                },
-                {
-                    "name": "Recent",
-                    "class": UIObjectList,
-                    "objects": "recent",
-                    "label": "recent",
-                },
-                {
-                    "name": "Name Search",
-                    "class": UITextEntry,
-                },
-            ],
+                    {
+                        "name": "All Filtered",
+                        "class": UIObjectList,
+                        "objects": "catalogs.filtered",
+                    },
+                    {
+                        "name": "By Catalog",
+                        "class": UITextMenu,
+                        "select": "single",
+                        "items": [
+                            {
+                                "name": "Planets",
+                                "class": UIObjectList,
+                                "objects": "catalog",
+                                "value": "PL",
+                            },
+                            {
+                                "name": "NGC",
+                                "class": UIObjectList,
+                                "objects": "catalog",
+                                "value": "NGC",
+                            },
+                            {
+                                "name": "Messier",
+                                "class": UIObjectList,
+                                "objects": "catalog",
+                                "value": "M",
+                            },
+                            {
+                                "name": "DSO...",
+                                "class": UITextMenu,
+                                "select": "single",
+                                "items": [
+                                    {
+                                        "name": "Abell Pn",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "Abl",
+                                    },
+                                    {
+                                        "name": "Arp Galaxies",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "Arp",
+                                    },
+                                    {
+                                        "name": "Barnard",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "B",
+                                    },
+                                    {
+                                        "name": "Caldwell",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "C",
+                                    },
+                                    {
+                                        "name": "Collinder",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "Col",
+                                    },
+                                    {
+                                        "name": "E.G. Globs",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "EGC",
+                                    },
+                                    {
+                                        "name": "Herschel 400",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "H",
+                                    },
+                                    {
+                                        "name": "IC",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "IC",
+                                    },
+                                    {
+                                        "name": "Messier",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "M",
+                                    },
+                                    {
+                                        "name": "NGC",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "NGC",
+                                    },
+                                    {
+                                        "name": "Sharpless",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "Sh2",
+                                    },
+                                    {
+                                        "name": "TAAS 200",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "Ta2",
+                                    },
+                                ],
+                            },
+                            {
+                                "name": "Stars...",
+                                "class": UITextMenu,
+                                "select": "single",
+                                "items": [
+                                    {
+                                        "name": "Bright Named",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "Str",
+                                    },
+                                    {
+                                        "name": "SAC Doubles",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "SaM",
+                                    },
+                                    {
+                                        "name": "SAC Asterisms",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "SaA",
+                                    },
+                                    {
+                                        "name": "SAC Red Stars",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "SaR",
+                                    },
+                                    {
+                                        "name": "RASC Doubles",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "RDS",
+                                    },
+                                    {
+                                        "name": "TLK 90 Variables",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "TLK",
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    {
+                        "name": "By Catalog",
+                        "class": UITextMenu,
+                        "select": "single",
+                        "items": [
+                            {
+                                "name": "Planets",
+                                "class": UIObjectList,
+                                "objects": "catalog",
+                                "value": "PL",
+                            },
+                            {
+                                "name": "Comets",
+                                "class": UIObjectList,
+                                "objects": "catalog",
+                                "value": "CM",
+                            },
+                            {
+                                "name": "NGC",
+                                "class": UIObjectList,
+                                "objects": "catalog",
+                                "value": "NGC",
+                            },
+                            {
+                                "name": "Messier",
+                                "class": UIObjectList,
+                                "objects": "catalog",
+                                "value": "M",
+                            },
+                            {
+                                "name": "DSO...",
+                                "class": UITextMenu,
+                                "select": "single",
+                                "items": [
+                                    {
+                                        "name": "Abell Pn",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "Abl",
+                                    },
+                                    {
+                                        "name": "Arp Galaxies",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "Arp",
+                                    },
+                                    {
+                                        "name": "Barnard",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "B",
+                                    },
+                                    {
+                                        "name": "Caldwell",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "C",
+                                    },
+                                    {
+                                        "name": "Collinder",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "Col",
+                                    },
+                                    {
+                                        "name": "E.G. Globs",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "EGC",
+                                    },
+                                    {
+                                        "name": "Herschel 400",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "H",
+                                    },
+                                    {
+                                        "name": "IC",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "IC",
+                                    },
+                                    {
+                                        "name": "Messier",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "M",
+                                    },
+                                    {
+                                        "name": "NGC",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "NGC",
+                                    },
+                                    {
+                                        "name": "Sharpless",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "Sh2",
+                                    },
+                                    {
+                                        "name": "TAAS 200",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "Ta2",
+                                    },
+                                ],
+                            },
+                            {
+                                "name": "Stars...",
+                                "class": UITextMenu,
+                                "select": "single",
+                                "items": [
+                                    {
+                                        "name": "Bright Named",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "Str",
+                                    },
+                                    {
+                                        "name": "SAC Doubles",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "SaM",
+                                    },
+                                    {
+                                        "name": "SAC Asterisms",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "SaA",
+                                    },
+                                    {
+                                        "name": "SAC Red Stars",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "SaR",
+                                    },
+                                    {
+                                        "name": "RASC Doubles",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "RDS",
+                                    },
+                                    {
+                                        "name": "TLK 90 Variables",
+                                        "class": UIObjectList,
+                                        "objects": "catalog",
+                                        "value": "TLK",
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                    {
+                            "name": "Name Search",
+                            "class": UITextEntry,
+                    },
+                ],
         },
         {
             "name": "Filter",

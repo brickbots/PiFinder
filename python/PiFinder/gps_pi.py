@@ -111,6 +111,23 @@ async def gps_main(gps_queue, console_queue, log_queue):
                             client, gps_queue, console_queue, gps_locked
                         ),
                     )
+                    logger.debug("last reading is %s", result)
+                    if result.get("lat") and result.get("lon") and result.get("altHAE"):
+                        if gps_locked is False:
+                            gps_locked = True
+                            console_queue.put("GPS: Locked")
+                            logger.debug("GPS locked")
+                        msg = (
+                            "fix",
+                            {
+                                "lat": result.get("lat"),
+                                "lon": result.get("lon"),
+                                "altitude": result.get("altHAE"),
+                                "source": "GPS",
+                            },
+                        )
+                        logger.debug("GPS fix: %s", msg)
+                        gps_queue.put(msg)
 
                     logger.debug("GPS sleeping now for 7s")
                     await asyncio.sleep(7)

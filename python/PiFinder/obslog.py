@@ -57,9 +57,9 @@ class Observation_session:
 
         self.db.create_obs_session(
             local_time.timestamp(),
-            location["lat"],
-            location["lon"],
-            location["timezone"],
+            location.lat,
+            location.lon,
+            location.timezone,
             self.__session_uuid,
         )
 
