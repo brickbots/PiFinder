@@ -35,6 +35,11 @@ class CameraPI(CameraInterface):
             self.camera_type = "imx296"
             # maximum analog gain for this sensor
             self.gain = 15
+
+        if "imx290" in self.camera.camera.id:
+            self.camera_type = "imx462"
+            self.gain = 30
+
         self.camType = f"PI {self.camera_type}"
         self.initialize()
 
@@ -50,6 +55,13 @@ class CameraPI(CameraInterface):
                     "size": (512, 512),
                 },
                 raw={"size": (1456, 1088), "format": "R10"},
+            )
+        elif self.camera_type == "imx462":
+            cam_config = self.camera.create_still_configuration(
+                {
+                    "size": (512, 512),
+                },
+                raw={"size": (1920, 1080), "format": "SRGGB12"},
             )
         else:
             # using this smaller scale auto-selects binning on the sensor...
@@ -78,6 +90,10 @@ class CameraPI(CameraInterface):
             raw_capture = raw_capture.copy().view(np.uint16)[:, 184:-184]
             # Sensor orientation is different
             raw_capture = np.rot90(raw_capture, 2)
+        elif self.camera_type == "imx462":
+            # crop to square and resample to 16 bit from 2 8 bit entries
+            # to get the right FOV, we want a 980 square....
+            raw_capture = raw_capture.copy().view(np.uint16)[50:-50, 470:-470]
         else:
             # crop to square and resample to 16 bit from 2 8 bit entries
             raw_capture = raw_capture.copy().view(np.uint16)[:, 256:-256]

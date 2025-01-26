@@ -33,10 +33,12 @@ def reset_filters(ui_module: UIModule) -> None:
     """
     Reset all filters to default
     """
-    ui_module.catalogs.set_catalog_filter(
-        CatalogFilter(shared_state=ui_module.shared_state)
-    )
     ui_module.config_object.reset_filters()
+
+    new_filter = CatalogFilter(shared_state=ui_module.shared_state)
+    new_filter.load_from_config(ui_module.config_object)
+
+    ui_module.catalogs.set_catalog_filter(new_filter)
     ui_module.catalogs.filter_catalogs()
     ui_module.message("Filters Reset")
     ui_module.remove_from_stack()
@@ -99,6 +101,30 @@ def switch_cam_imx296(ui_module: UIModule) -> None:
     ui_module.message("Switching cam", 2)
     sys_utils.switch_cam_imx296()
     restart_system(ui_module)
+
+
+def switch_cam_imx462(ui_module: UIModule) -> None:
+    ui_module.message("Switching cam", 2)
+    sys_utils.switch_cam_imx462()
+    restart_system(ui_module)
+
+
+def get_camera_type(ui_module: UIModule) -> list:
+    cam_id = "000"
+
+    # read config.txt into a list
+    with open("/boot/config.txt", "r") as boot_in:
+        boot_lines = list(boot_in)
+
+    # Look for the line without a comment...
+    for line in boot_lines:
+        if line.startswith("dtoverlay=imx"):
+            cam_id = line[10:16]
+            # imx462 uses imx290 driver
+            if cam_id == "imx290":
+                cam_id = "imx462"
+
+    return [cam_id]
 
 
 def go_wifi_ap(ui_module: UIModule) -> None:

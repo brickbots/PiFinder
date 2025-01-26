@@ -226,7 +226,7 @@ pifinder_menu = {
                     "name": "Catalogs",
                     "class": UITextMenu,
                     "select": "multi",
-                    "config_option": "active_catalogs",
+                    "config_option": "filter.selected_catalogs",
                     "items": [
                         {
                             "name": "Planets",
@@ -244,7 +244,7 @@ pifinder_menu = {
                             "name": "DSO...",
                             "class": UITextMenu,
                             "select": "multi",
-                            "config_option": "active_catalogs",
+                            "config_option": "filter.selected_catalogs",
                             "items": [
                                 {
                                     "name": "Abell Pn",
@@ -300,7 +300,7 @@ pifinder_menu = {
                             "name": "Stars...",
                             "class": UITextMenu,
                             "select": "multi",
-                            "config_option": "active_catalogs",
+                            "config_option": "filter.selected_catalogs",
                             "items": [
                                 {
                                     "name": "Bright Named",
@@ -345,6 +345,10 @@ pifinder_menu = {
                             "value": "OC",
                         },
                         {
+                            "name": "Cluster/Neb",
+                            "value": "C+N",
+                        },
+                        {
                             "name": "Globular",
                             "value": "Gb",
                         },
@@ -354,11 +358,27 @@ pifinder_menu = {
                         },
                         {
                             "name": "P. Nebula",
-                            "value": "Pl",
+                            "value": "PN",
+                        },
+                        {
+                            "name": "Dark Nebula",
+                            "value": "DN",
+                        },
+                        {
+                            "name": "Star",
+                            "value": "*",
                         },
                         {
                             "name": "Double Str",
                             "value": "D*",
+                        },
+                        {
+                            "name": "Triple Str",
+                            "value": "***",
+                        },
+                        {
+                            "name": "Knot",
+                            "value": "Kt",
                         },
                         {
                             "name": "Asterism",
@@ -367,6 +387,10 @@ pifinder_menu = {
                         {
                             "name": "Planet",
                             "value": "Pla",
+                        },
+                        {
+                            "name": "Comet",
+                            "value": "CM",
                         },
                     ],
                 },
@@ -822,14 +846,22 @@ pifinder_menu = {
                     "name": "Camera Type",
                     "class": UITextMenu,
                     "select": "single",
+                    "value_callback": callbacks.get_camera_type,
                     "items": [
                         {
                             "name": "v2 - imx477",
                             "callback": callbacks.switch_cam_imx477,
+                            "value": "imx477",
                         },
                         {
                             "name": "v3 - imx296",
                             "callback": callbacks.switch_cam_imx296,
+                            "value": "imx296",
+                        },
+                        {
+                            "name": "v3 - imx462",
+                            "callback": callbacks.switch_cam_imx462,
+                            "value": "imx462",
                         },
                     ],
                 },
