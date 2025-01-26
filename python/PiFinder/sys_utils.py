@@ -153,7 +153,7 @@ class Network:
         None if not connected or in AP mode
         """
         if self.wifi_mode() == "AP":
-            return None
+            return ""
         # get output from iwgetid
         try:
             iwgetid = sh.Command("iwgetid")
