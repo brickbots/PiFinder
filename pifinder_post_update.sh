@@ -1,26 +1,26 @@
 git submodule update --init --recursive
-# sudo pip install -r ./python/ments.txt
+sudo pip install -r /home/pifinder/PiFinder/python/requirements.txt
 
 # Set up migrations folder if it does not exist
-if ! [ -d "~/PiFinder_data/migrations" ]
+if ! [ -d "/home/pifinder/PiFinder_data/migrations" ]
 then
-    mkdir ~/PiFinder_data/migrations
+    mkdir /home/pifinder/PiFinder_data/migrations
 fi
 
 # v1.x.x
 # everying prior to selecitve migrations
-if ! [ -f "~/PiFinder_data/migrations/v1.x.x" ]
+if ! [ -f "/home/pifinder/PiFinder_data/migrations/v1.x.x" ]
 then
-    source ./migration_source/v1.x.x.sh
-    touch ~/PiFinder_data/migrations/v1.x.x
+    source /home/pifinder/PiFinder/migration_source/v1.x.x.sh
+    touch /home/pifinder/PiFinder_data/migrations/v1.x.x
 fi
 
 # v2.1.0
 # Switch to Cedar
-if ! [ -f "~/PiFinder_data/migrations/v2.1.0" ]
+if ! [ -f "/home/pifinder/PiFinder_data/migrations/v2.1.0" ]
 then
-    source ./migration_source/v2.1.0.sh
-    touch ~/PiFinder_data/migrations/v2.1.0
+    source /home/pifinder/PiFinder/migration_source/v2.1.0.sh
+    touch /home/pifinder/PiFinder_data/migrations/v2.1.0
 fi
 
 # DONE
