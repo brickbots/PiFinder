@@ -483,6 +483,7 @@ def main(
                             location.lat = gps_content["lat"]
                             location.lon = gps_content["lon"]
                             location.altitude = gps_content["altitude"]
+                            location.source = gps_content["source"]
                             location.last_gps_lock = (
                                 datetime.datetime.now().time().isoformat()[:8]
                             )

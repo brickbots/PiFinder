@@ -20,28 +20,25 @@ class UIGPSStatus(UIModule):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
+    def _get_error_string(self, error: float) -> str:
+        if error > 1000:
+            return f"{error/1000:.1f} km"
+        else:
+            return f"{error:.0f} m"
+
     def update(self, force=False):
         state_utils.sleep_for_framerate(self.shared_state)
         self.clear_screen()
         draw_pos = self.display_class.titlebar_height + 2
 
-        # Header
-        self.draw.text(
-            (0, draw_pos),
-            "GPS Status",
-            font=self.fonts.base.font,
-            fill=self.colors.get(128),
-        )
-        draw_pos += 10
-
         # Status message
         self.draw.text(
             (0, draw_pos),
             "Stay here for lock",
-            font=self.fonts.base.font,
+            font=self.fonts.bold.font,
             fill=self.colors.get(128),
         )
-        draw_pos += 10
+        draw_pos += 16
 
         location = self.shared_state.location()
         sats = self.shared_state.sats()
@@ -51,15 +48,7 @@ class UIGPSStatus(UIModule):
         # Satellite info
         self.draw.text(
             (0, draw_pos),
-            f"sats seen: {sats[0]}",
-            font=self.fonts.base.font,
-            fill=self.colors.get(128),
-        )
-        draw_pos += 10
-
-        self.draw.text(
-            (0, draw_pos),
-            f"sats used: {sats[1]}",
+            f"sats seen/used: {sats[0]}/{sats[1]}",
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
@@ -68,7 +57,7 @@ class UIGPSStatus(UIModule):
         # Error display
         self.draw.text(
             (0, draw_pos),
-            "Error: m",
+            f"Error: {self._get_error_string(location.error_in_m)}",
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
@@ -78,10 +67,10 @@ class UIGPSStatus(UIModule):
         self.draw.text(
             (0, draw_pos),
             f"Lock?: {location.lock}",
-            font=self.fonts.bold.font,
-            fill=self.colors.get(192),
+            font=self.fonts.base.font,
+            fill=self.colors.get(128),
         )
-        draw_pos += 16
+        draw_pos += 10
 
         # Position data if locked
         if location.lock:
@@ -111,7 +100,7 @@ class UIGPSStatus(UIModule):
 
             self.draw.text(
                 (0, draw_pos),
-                f"source: {location.source:.1f} m",
+                f"source: {location.source}",
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )

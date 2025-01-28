@@ -38,19 +38,16 @@ pifinder_menu = {
                     "select": "single",
                     "items": [
                         {
-                            "name": "Status",
+                            "name": "GPS Status",
                             "class": UIGPSStatus,
-                            "config_option": "location.latitude",
                         },
                         {
                             "name": "Save location",
                             "class": UITextEntry,
-                            "config_option": "location.longitude",
                         },
                         {
                             "name": "Set location",
                             "class": UITextEntry,
-                            "config_option": "location.altitude",
                         },
                     ],
                 },
