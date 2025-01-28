@@ -138,6 +138,7 @@ class Location:
     altitude: float = 0.0
     source: str = "None"
     lock: bool = False
+    error_in_m: float = 0.0
     timezone: Optional[str] = None
     last_gps_lock: Optional[str] = None
 

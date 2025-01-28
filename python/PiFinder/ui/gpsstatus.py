@@ -37,7 +37,7 @@ class UIGPSStatus(UIModule):
         # Status message
         self.draw.text(
             (0, draw_pos),
-            "keep open for faster lock",
+            "Stay here for lock",
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
@@ -101,4 +101,19 @@ class UIGPSStatus(UIModule):
             )
             draw_pos += 10
 
+            self.draw.text(
+                (0, draw_pos),
+                f"alt: {location.alt:.1f} m",
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
+            draw_pos += 10
+
+            self.draw.text(
+                (0, draw_pos),
+                f"source: {location.source:.1f} m",
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
+            draw_pos += 10
         return self.screen_update()
