@@ -73,7 +73,7 @@ class CameraPI(CameraInterface):
         self.camera.set_controls({"AeEnable": False})
         self.camera.set_controls({"AnalogueGain": self.gain})
         self.camera.set_controls({"ExposureTime": self.exposure_time})
-        #self.camera.start()
+        self.camera.start()
 
     def capture(self) -> Image.Image:
         """
@@ -121,7 +121,7 @@ class CameraPI(CameraInterface):
         self.camera.stop()
         self.camera.set_controls({"AnalogueGain": gain})
         self.camera.set_controls({"ExposureTime": exposure_time})
-        #self.camera.start()
+        self.camera.start()
         return exposure_time, gain
 
     def get_cam_type(self) -> str:

@@ -491,7 +491,7 @@ def main(
                                 location.timezone = tz_finder.timezone_at(
                                     lat=location.lat, lng=location.lon
                                 )
-                                cfg.set_option("last_location", location)
+                                # cfg.set_option("last_location", location)
                                 console.write(
                                     f'GPS: Location {location.lat} {location.lon} {location.altitude}'
                                 )
