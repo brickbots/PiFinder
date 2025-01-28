@@ -103,7 +103,7 @@ class UIGPSStatus(UIModule):
 
             self.draw.text(
                 (0, draw_pos),
-                f"alt: {location.alt:.1f} m",
+                f"alt: {location.altitude:.1f} m",
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
