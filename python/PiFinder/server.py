@@ -638,6 +638,7 @@ class Server:
                     "lat": lat,
                     "lon": lon,
                     "altitude": altitude,
+                    "error_in_m": 0,
                     "source": "WEB",
                 },
             )

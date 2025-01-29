@@ -16,29 +16,39 @@ MAX_GPS_ERROR = 50000  # 50 km
 
 async def process_messages(parser, gps_queue, console_queue, error_info):
     gps_locked = False
+    got_sat_update = False  # Track if we got a NAV-SAT message this cycle
+    
     async for msg in parser.parse_messages():
-        # logging.debug(msg)
-        if msg.get("class") == "SKY":
-            logger.debug("GPS: SKY: %s", msg)
-            if "hdop" in msg:
-                error_info['error_2d'] = msg["hdop"]
-            if "pdop" in msg:
-                error_info['error_3d'] = msg["pdop"]
+        msg_class = msg.get("class", "")
+        logger.debug("GPS: %s: %s", msg_class, msg)
+        
+        if msg_class == "NAV-DOP":
+            error_info['error_2d'] = msg["hdop"]
+            error_info['error_3d'] = msg["pdop"]
+            
+        elif msg_class == "NAV-SAT":
+            # Preferred satellite info source
+            got_sat_update = True  # Mark that we got NAV-SAT
+            sats_seen = msg["nSat"]
+            sats_used = sum(1 for sat in msg.get("satellites", []) if sat.get("used", False))
+            sats[0] = sats_seen
+            sats[1] = sats_used
+            gps_queue.put(("satellites", tuple(sats)))
+            logger.debug("Number of sats seen: %i, used: %i", sats_seen, sats_used)
+            
+        elif msg_class == "NAV-SVINFO" and not got_sat_update:
+            # Fallback satellite info if NAV-SAT not available
             if "nSat" in msg and "uSat" in msg:
                 sats_seen = msg["nSat"]
                 sats_used = msg["uSat"]
                 sats[0] = sats_seen
                 sats[1] = sats_used
                 gps_queue.put(("satellites", tuple(sats)))
-                logger.debug("Number of sats seen: %i", sats_seen)
-        elif msg.get("class") == "TPV":
-            logger.debug("GPS: TPV: %s", msg)
-            if "satellites" in msg:
-                sats[1] = msg["satellites"]
-                sats_used = msg.get("satellites", 0)
-                gps_queue.put(("satellites", tuple(sats)))
-                logger.debug("Number of sats used: %i", sats_used)
-            if "lat" in msg and "lon" in msg and "altHAE" in msg and "ecefpAcc" in msg:
+                logger.debug("Number of sats (SVINFO) seen: %i, used: %i", sats_seen, sats_used)
+            got_sat_update = False  # Reset for next cycle
+            
+        elif msg_class == "NAV-SOL":
+            if all(k in msg for k in ["lat", "lon", "altHAE", "ecefpAcc"]):
                 if not gps_locked and msg["ecefpAcc"] < MAX_GPS_ERROR:
                     gps_locked = True
                     console_queue.put("GPS: Locked")
@@ -54,9 +64,12 @@ async def process_messages(parser, gps_queue, console_queue, error_info):
                     }
                 ))
                 logger.debug("GPS fix: %s", msg)
+                
+        elif msg_class == "NAV-TIMEGPS":
             if "time" in msg:
                 gps_queue.put(("time", msg["time"]))
                 logger.debug("Setting time to %s", msg["time"])
+                
         await asyncio.sleep(0)
 
 async def gps_main(gps_queue, console_queue, log_queue):

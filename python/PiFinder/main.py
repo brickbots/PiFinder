@@ -480,25 +480,27 @@ def main(
                         # logger.debug("GPS fix msg: %s", gps_content)
                         if gps_content["lat"] + gps_content["lon"] != 0:
                             location: Location = shared_state.location()
-                            location.lat = gps_content["lat"]
-                            location.lon = gps_content["lon"]
-                            location.altitude = gps_content["altitude"]
-                            location.source = gps_content["source"]
-                            location.last_gps_lock = (
-                                datetime.datetime.now().time().isoformat()[:8]
-                            )
-                            if not location.lock:
-                                # Write to config if we just got a lock
-                                location.timezone = tz_finder.timezone_at(
-                                    lat=location.lat, lng=location.lon
+                            if location.source != "WEB":
+                                location.lat = gps_content["lat"]
+                                location.lon = gps_content["lon"]
+                                location.altitude = gps_content["altitude"]
+                                location.source = gps_content["source"]
+                                location.error_in_m = gps_content["error_in_m"]
+                                location.last_gps_lock = (
+                                    datetime.datetime.now().time().isoformat()[:8]
                                 )
-                                # cfg.set_option("last_location", location)
-                                console.write(
-                                    f'GPS: Location {location.lat} {location.lon} {location.altitude}'
-                                )
-                                location.lock = True
+                                if not location.lock:
+                                    # Write to config if we just got a lock
+                                    location.timezone = tz_finder.timezone_at(
+                                        lat=location.lat, lng=location.lon
+                                    )
+                                    # cfg.set_option("last_location", location)
+                                    console.write(
+                                        f'GPS: Location {location.lat} {location.lon} {location.altitude}'
+                                    )
+                                    location.lock = True
 
-                            shared_state.set_location(location)
+                                shared_state.set_location(location)
                     if gps_msg == "time":
                         # logger.debug("GPS time msg: %s", gps_content)
                         gps_dt = gps_content
