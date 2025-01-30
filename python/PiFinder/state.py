@@ -137,16 +137,22 @@ class Location:
     lon: float = 0.0
     altitude: float = 0.0
     source: str = "None"
-    lock: bool = False
+    lock: bool = False  # lock means: we received a good enough location, not a GPS Fix
+    lock_type: int = 0
     error_in_m: float = 0.0
     timezone: Optional[str] = None
     last_gps_lock: Optional[str] = None
 
     def __str__(self):
-        return f"Location(lat={self.lat:.6f}, " \
-                f"lon={self.lon:.6f}, alt={self.altitude:.1f}m, " \
-                f"source={self.source}, alt={self.altitude:.1f}m, " \
-                f"Lock: {'Yes' if self.lock else 'No'})"
+        return (f"Location(lat={self.lat:.6f}, "
+                f"lon={self.lon:.6f}, "
+                f"alt={self.altitude:.1f}m, "
+                f"source={self.source}, "
+                f"error={self.error_in_m:.1f}m, "
+                f"lock={'Yes' if self.lock else 'No'}"
+                f"lock_type={self.lock_type}, "
+                f"{f', tz={self.timezone}' if self.timezone else ''}"
+                f"{f', last_lock={self.last_gps_lock}' if self.last_gps_lock else ''})")
 
     def to_dict(self):
         """Convert the Location object to a dictionary."""

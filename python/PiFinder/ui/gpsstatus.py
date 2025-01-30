@@ -16,6 +16,11 @@ class UIGPSStatus(UIModule):
     """
 
     __title__ = "GPS"
+    _lock_type_dict = {
+        0: "poor lock",
+        1: "good lock",
+        2: "great lock"
+    }
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -48,7 +53,7 @@ class UIGPSStatus(UIModule):
         # Satellite info
         self.draw.text(
             (0, draw_pos),
-            f"sats seen/used: {sats[0]}/{sats[1]}",
+            f"Sats seen/used: {sats[0]}/{sats[1]}",
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
@@ -66,43 +71,42 @@ class UIGPSStatus(UIModule):
         # Lock status
         self.draw.text(
             (0, draw_pos),
-            f"Lock?: {location.lock}",
+            f"Lock: {'No' if not location.lock else self._lock_type_dict[location.lock_type]}",
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
         draw_pos += 10
 
         # Position data if locked
-        if location.lock:
-            self.draw.text(
-                (0, draw_pos),
-                f"lat: {location.lat:.5f}",
-                font=self.fonts.base.font,
-                fill=self.colors.get(128),
-            )
-            draw_pos += 10
+        self.draw.text(
+            (0, draw_pos),
+            f"Lat: {location.lat:.5f}",
+            font=self.fonts.base.font,
+            fill=self.colors.get(128),
+        )
+        draw_pos += 10
 
-            self.draw.text(
-                (0, draw_pos),
-                f"lon: {location.lon:.5f}",
-                font=self.fonts.base.font,
-                fill=self.colors.get(128),
-            )
-            draw_pos += 10
+        self.draw.text(
+            (0, draw_pos),
+            f"Lon: {location.lon:.5f}",
+            font=self.fonts.base.font,
+            fill=self.colors.get(128),
+        )
+        draw_pos += 10
 
-            self.draw.text(
-                (0, draw_pos),
-                f"alt: {location.altitude:.1f} m",
-                font=self.fonts.base.font,
-                fill=self.colors.get(128),
-            )
-            draw_pos += 10
+        self.draw.text(
+            (0, draw_pos),
+            f"Alt: {location.altitude:.1f} m",
+            font=self.fonts.base.font,
+            fill=self.colors.get(128),
+        )
+        draw_pos += 10
 
-            self.draw.text(
-                (0, draw_pos),
-                f"source: {location.source}",
-                font=self.fonts.base.font,
-                fill=self.colors.get(128),
-            )
-            draw_pos += 10
+        self.draw.text(
+            (0, draw_pos),
+            f"Source: {location.source}",
+            font=self.fonts.base.font,
+            fill=self.colors.get(128),
+        )
+        draw_pos += 10
         return self.screen_update()
