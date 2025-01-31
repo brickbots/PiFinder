@@ -141,7 +141,7 @@ class MenuManager:
         item dict
         """
         if item.get("state") is not None:
-            self.stack[-1].inactive()
+            self.stack[-1].inactive()  # type: ignore[call-arg]
             self.stack.append(item["state"])
         else:
             self.stack.append(

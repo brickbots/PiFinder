@@ -20,7 +20,7 @@ class UIGPSStatus(UIModule):
         0: "limited",  # there's no lock but we accept the position due to low enough error value
         1: "basic",    # coarse fix, does this happen?
         2: "accurate", # 2D Fix
-        3: "precise"  # 3D Fix 
+        3: "precise"  # 3D Fix
     }
 
     def __init__(self, *args, **kwargs) -> None:
@@ -46,7 +46,7 @@ class UIGPSStatus(UIModule):
         # Status message
         self.draw.text(
             (0, draw_pos),
-            "Stay here for lock",
+            "Stay here until lock",
             font=self.fonts.bold.font,
             fill=self.colors.get(128),
         )
