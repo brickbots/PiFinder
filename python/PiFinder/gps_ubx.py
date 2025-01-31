@@ -30,9 +30,7 @@ async def process_messages(parser, gps_queue, console_queue, error_info):
             # Fallback satellite info if NAV-SAT not available
             if "nSat" in msg and "uSat" in msg:
                 sats_seen = msg["nSat"]
-                # sats_used = msg["uSat"]
                 sats[0] = sats_seen
-                # sats[1] = sats_used
                 gps_queue.put(("satellites", tuple(sats)))
                 logger.debug("Number of sats (SVINFO) seen: %i, used: %i (used is unreliable and not used)", sats_seen, sats_used)
 

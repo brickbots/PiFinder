@@ -487,7 +487,8 @@ def main(
                                 location.altitude = gps_content["altitude"]
                                 location.source = gps_content["source"]
                                 location.error_in_m = gps_content["error_in_m"]
-                                location.lock = gps_content["lock"]
+                                if "lock" in gps_content:
+                                    location.lock = gps_content["lock"]
                                 location.lock_type = gps_content["lock_type"]
                                 location.last_gps_lock = (
                                     datetime.datetime.now().time().isoformat()[:8]

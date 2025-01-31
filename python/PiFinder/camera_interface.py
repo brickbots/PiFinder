@@ -162,5 +162,13 @@ class CameraInterface:
                         filename = f"{utils.data_dir}/captures/{filename}.png"
                         self.capture_file(filename)
                         console_queue.put("CAM: Saved Image")
+                    if command.startswith("stop"):
+                        self.camera.stop()
+                        console_queue.put("CAM: Stopped camera")
+                    if command.startswith("start"):
+                        self.camera.start()
+                        console_queue.put("CAM: Started camera")
+
+
         except (BrokenPipeError, EOFError, FileNotFoundError):
             logger.exception("Error in Camera Loop")

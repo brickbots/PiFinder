@@ -17,9 +17,10 @@ class UIGPSStatus(UIModule):
 
     __title__ = "GPS"
     _lock_type_dict = {
-        0: "poor lock",
-        1: "good lock",
-        2: "great lock"
+        0: "limited",  # there's no lock but we accept the position due to low enough error value
+        1: "basic",    # coarse fix, does this happen?
+        2: "accurate", # 2D Fix
+        3: "precise"  # 3D Fix 
     }
 
     def __init__(self, *args, **kwargs) -> None:
@@ -30,6 +31,12 @@ class UIGPSStatus(UIModule):
             return f"{error/1000:.1f} km"
         else:
             return f"{error:.0f} m"
+
+    def active(self):
+        self.command_queues["camera"].put("stop")
+
+    def inactive(self):
+        self.command_queues["camera"].put("start")
 
     def update(self, force=False):
         state_utils.sleep_for_framerate(self.shared_state)

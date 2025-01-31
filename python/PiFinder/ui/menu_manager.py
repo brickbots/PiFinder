@@ -141,6 +141,7 @@ class MenuManager:
         item dict
         """
         if item.get("state") is not None:
+            self.stack[-1].inactive()
             self.stack.append(item["state"])
         else:
             self.stack.append(
@@ -345,6 +346,7 @@ class MenuManager:
             self.help_images = None
             self.update()
 
+        self.stack[-1].inactive()
         self.stack = self.stack[:1]
         self.stack[0].active()
 

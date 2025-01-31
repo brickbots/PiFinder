@@ -91,6 +91,13 @@ class UIModule:
         """
         pass
 
+    def inactive(self):
+        """
+        Called when a module becomes inactive
+        i.e. leaving a UI screen
+        """
+        pass
+    
     def help(self) -> Union[None, list[Image.Image]]:
         """
         Called when help is selected from the
