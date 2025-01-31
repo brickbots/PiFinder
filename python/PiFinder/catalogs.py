@@ -632,6 +632,7 @@ class PlanetCatalog(TimerCatalog):
 
     def __init__(self, dt: datetime.datetime, shared_state: SharedStateObj):
         super().__init__("PL", "Planets")
+        print(f"init of catalogs with {dt}, {shared_state}")
         self.shared_state = shared_state
         self.init_planets(dt)
 
@@ -679,6 +680,7 @@ class PlanetCatalog(TimerCatalog):
         with Timer("Planet Catalog periodic update"):
             """ updating planet catalog data """
             dt = self.shared_state.datetime()
+            print(f"timed task of catalogs with {dt}, {sf_utils.observer_loc}, {self.shared_state}")
             if not dt or not sf_utils.observer_loc:
                 return
             planet_dict = sf_utils.calc_planets(dt)

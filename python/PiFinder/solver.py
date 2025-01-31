@@ -83,6 +83,7 @@ def solver(
                 while command:
                     try:
                         command = align_command_queue.get(block=False)
+                        print(f"the command is {command}")
                     except queue.Empty:
                         command = False
 
@@ -103,7 +104,10 @@ def solver(
                 # use the time the exposure started here to
                 # reject images started before the last solve
                 # which might be from the IMU
-                last_image_metadata = shared_state.last_image_metadata()
+                try:
+                    last_image_metadata = shared_state.last_image_metadata()
+                except (BrokenPipeError, ConnectionResetError) as e:
+                    logger.error(f"Lost connection to shared state manager: {e}")
                 if (
                     last_image_metadata["exposure_end"] > (last_solve_time)
                     and last_image_metadata["imu_delta"] < 1

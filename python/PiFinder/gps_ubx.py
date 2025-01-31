@@ -91,7 +91,7 @@ async def gps_main(gps_queue, console_queue, log_queue):
 
     while True:
         try:
-            parser = await UBXParser.connect(host='127.0.0.1', port=2947)
+            parser = await UBXParser.connect(log_queue, host='127.0.0.1', port=2947)
             await process_messages(parser, gps_queue, console_queue, error_info)
         except Exception as e:
             logger.error(f"Error in GPS monitor: {e}")

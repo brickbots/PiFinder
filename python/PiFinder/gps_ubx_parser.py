@@ -3,13 +3,14 @@
 import json
 import math
 import logging
+from PiFinder.multiproclogging import MultiprocLogging
 import asyncio
 from typing import Dict, Callable, Optional, Tuple
 from dataclasses import dataclass
 from enum import IntEnum
 import datetime
 
-logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("GPS")
 
 class UBXClass(IntEnum):
     NAV = 0x01
@@ -37,10 +38,12 @@ class ParserConfig:
 class UBXParser:
     def __init__(
         self,
+        log_queue,
         reader: Optional[asyncio.StreamReader] = None,
         writer: Optional[asyncio.StreamWriter] = None,
         file_path: Optional[str] = None
     ):
+        MultiprocLogging.configurer(log_queue)
         self.reader = reader
         self.writer = writer
         self.file_path = file_path
@@ -106,9 +109,9 @@ class UBXParser:
             await asyncio.sleep(1)
 
     @classmethod
-    async def connect(cls, host='127.0.0.1', port=2947):
+    async def connect(cls, log_queue, host='127.0.0.1', port=2947):
         reader, writer = await asyncio.open_connection(host, port)
-        parser = cls(reader=reader, writer=writer)
+        parser = cls(log_queue, reader=reader, writer=writer)
         await parser._handle_initial_messages()
         asyncio.create_task(parser._poll_messages())  # Start polling in background
         return parser
@@ -199,7 +202,7 @@ class UBXParser:
         }
 
     def _parse_nav_sol(self, data: bytes) -> dict:
-        logging.debug("Parsing nav-sol")
+        logger.debug("Parsing nav-sol")
         if len(data) < 52:
             return {"error": "Invalid payload length for nav-sol"}
         gpsFix = data[10]
@@ -218,11 +221,11 @@ class UBXParser:
             "ecefpAcc": pAcc,
             "satellites": numSV
         }
-        logging.debug(f"NAV-SOL result: {result}")
+        logger.debug(f"NAV-SOL result: {result}")
         return result
 
     def _parse_nav_sat(self, data: bytes) -> dict:
-        logging.debug("Parsing nav-sat")
+        logger.debug("Parsing nav-sat")
         if len(data) < 8:
             return {"error": "Invalid payload length for nav-sat"}
         numSvs = data[5]
@@ -250,18 +253,18 @@ class UBXParser:
             "nSat": sum(1 for sat in satellites),
             "satellites": satellites
         }
-        logging.debug(f"NAV-SAT result: {result}")
+        logger.debug(f"NAV-SAT result: {result}")
         return result
 
     def _parse_nav_svinfo(self, data: bytes) -> dict:
-        logging.debug("Parsing nav-svinfo")
+        logger.debug("Parsing nav-svinfo")
         if len(data) < 8:
-            logging.debug(f"SVINFO: Message too short ({len(data)} bytes)")
+            logger.debug(f"SVINFO: Message too short ({len(data)} bytes)")
             return {"error": "Invalid payload length for nav-svinfo"}
 
         numCh = data[4]
         globalFlags = data[5]
-        logging.debug(f"SVINFO: Number of channels: {numCh}, flags: 0x{globalFlags:02x}")
+        logger.debug(f"SVINFO: Number of channels: {numCh}, flags: 0x{globalFlags:02x}")
 
         satellites = []
         used_sats = 0
@@ -269,7 +272,7 @@ class UBXParser:
         for i in range(numCh):
             offset = 8 + (12 * i)
             if len(data) < offset + 12:
-                logging.warning(f"SVINFO: Message truncated at satellite {i}")
+                logger.warning(f"SVINFO: Message truncated at satellite {i}")
                 break
 
             svid = data[offset]
@@ -301,11 +304,11 @@ class UBXParser:
             "uSat": used_sats,
             "satellites": sorted(satellites, key=lambda x: x["id"])
         }
-        logging.debug(f"NAV-SVINFO result: {result}")
+        logger.debug(f"NAV-SVINFO result: {result}")
         return result
 
     def _parse_nav_timegps(self, data: bytes) -> dict:
-        logging.debug("Parsing nav-timegps")
+        logger.debug("Parsing nav-timegps")
         if len(data) < 16:
             return {"error": "Invalid payload length for nav-timegps"}
 
@@ -340,7 +343,7 @@ class UBXParser:
             "hdop": int.from_bytes(data[12:14], 'little') * 0.01,
             "pdop": int.from_bytes(data[6:8], 'little') * 0.01
         }
-        logging.debug(f"NAV-DOP result: {result}")
+        logger.debug(f"NAV-DOP result: {result}")
         return result
 
 

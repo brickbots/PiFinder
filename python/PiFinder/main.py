@@ -494,11 +494,6 @@ def main(
                                 )
                                 location.timezone = tz_finder.timezone_at(lat=location.lat, lng=location.lon)
                                 print(location)
-                                # if not location.lock:
-                                #     # Write to config if we just got a lock
-                                #     location.timezone = tz_finder.timezone_at(
-                                #         lat=location.lat, lng=location.lon
-                                #     )
                                 #     # cfg.set_option("last_location", location)
                                 #     console.write(
                                 #         f'GPS: Location {location.lat} {location.lon} {location.altitude}'
@@ -506,6 +501,8 @@ def main(
                                 #     location.lock = True
 
                                 shared_state.set_location(location)
+                                sf_utils.set_location(location.lat, location.lon, location.alt)
+
                     if gps_msg == "time":
                         # logger.debug("GPS time msg: %s", gps_content)
                         gps_dt = gps_content["time"]

@@ -126,7 +126,15 @@ def get_camera_type(ui_module: UIModule) -> list:
 
     return [cam_id]
 
+def get_gps_type(ui_module: UIModule) -> list:
+    pass
 
+def switch_gps_ublox(ui_module: UIModule) -> list:
+    restart_system(ui_module)
+
+def switch_gps_gpsd(ui_module: UIModule) -> list:
+    restart_system(ui_module)
+    
 def go_wifi_ap(ui_module: UIModule) -> None:
     ui_module.message("WiFi to AP", 2)
     sys_utils.go_wifi_ap()
