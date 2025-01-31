@@ -48,7 +48,6 @@ from PiFinder.state import SharedStateObj, UIState, Location
 
 from PiFinder.image_util import subtract_background
 
-from PiFinder.calc_utils import sf_utils
 from PiFinder.displays import DisplayBase, get_display
 
 logger = logging.getLogger("main")

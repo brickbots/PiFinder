@@ -5,7 +5,6 @@ This module contains all the UI Module classes
 
 """
 
-import time
 from PiFinder import state_utils
 from PiFinder.ui.base import UIModule
 

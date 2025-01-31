@@ -17,22 +17,23 @@ MAX_GPS_ERROR = 50000  # 50 km
 async def process_messages(parser, gps_queue, console_queue, error_info):
     gps_locked = False
     got_sat_update = False  # Track if we got a NAV-SAT message this cycle
-    
+
     async for msg in parser.parse_messages():
         msg_class = msg.get("class", "")
         logger.debug("GPS: %s: %s", msg_class, msg)
-        
+
         if msg_class == "NAV-DOP":
             error_info['error_2d'] = msg["hdop"]
             error_info['error_3d'] = msg["pdop"]
-            
+
         elif msg_class == "NAV-SVINFO" and not got_sat_update:
             # Fallback satellite info if NAV-SAT not available
-            if "nSat" in msg and "uSat" in msg:
+            if "nSat" in msg:
+                # uSat is also in the message but contains stale info
                 sats_seen = msg["nSat"]
                 sats[0] = sats_seen
                 gps_queue.put(("satellites", tuple(sats)))
-                logger.debug("Number of sats (SVINFO) seen: %i, used: %i (used is unreliable and not used)", sats_seen, sats_used)
+                logger.debug("Number of sats (SVINFO) seen: %i", sats_seen)
 
         elif msg_class == "NAV-SAT":
             # Preferred satellite info source - not seen in the current pifinder gps versions
@@ -42,14 +43,14 @@ async def process_messages(parser, gps_queue, console_queue, error_info):
             sats[1] = sats_used
             gps_queue.put(("satellites", tuple(sats)))
             logger.debug("Number of sats (NAV-SAT) seen: %i, used: %i", sats_seen, sats_used)
-            
+
         elif msg_class == "NAV-SOL":
             # only source of truth for satellites used in a FIX
             if "satellites" in msg:
                 sats_used = msg["satellites"]
                 sats[1] = sats_used
                 gps_queue.put(("satellites", tuple(sats)))
-            
+
             if all(k in msg for k in ["lat", "lon", "altHAE", "ecefpAcc", "mode"]):
                 if not gps_locked and msg["ecefpAcc"] < MAX_GPS_ERROR:
                     gps_locked = True
@@ -68,7 +69,7 @@ async def process_messages(parser, gps_queue, console_queue, error_info):
                     }
                 ))
                 logger.debug("GPS fix: %s", msg)
-                
+
         elif msg_class == "NAV-TIMEGPS":
             if "time" in msg and "valid" in msg and msg["valid"]:
                 gps_queue.put((
@@ -81,7 +82,7 @@ async def process_messages(parser, gps_queue, console_queue, error_info):
                 ))
             else:
                 logger.warning(f"TIMEGPS message does not qualify: {msg}")
-                
+
         await asyncio.sleep(0)
 
 async def gps_main(gps_queue, console_queue, log_queue):

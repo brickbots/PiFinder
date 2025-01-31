@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
 import json
-import re
 import math
 import logging
 import asyncio
-from typing import Dict, Callable, Any, Optional, Tuple, List
+from typing import Dict, Callable, Optional, Tuple
 from dataclasses import dataclass
 from enum import IntEnum
 import datetime
@@ -74,7 +73,7 @@ class UBXParser:
         if self.writer is None:
             return
 
-        # Watch command needs proper JSON 
+        # Watch command needs proper JSON
         watch_json = json.dumps({
             "enable": True,
             "json": False,
@@ -99,7 +98,7 @@ class UBXParser:
                 prefix = bytes.fromhex('21 31 57 3d')  # !1W=
                 suffix = bytes.fromhex('0d 0a')        # \r\n
                 wrapped_msg = prefix + poll_msg + suffix
-                
+
                 # logging.debug(f"Raw poll message: {poll_msg.hex()}")
                 # logging.debug(f"Wrapped poll message: {wrapped_msg.hex()}")
                 self.writer.write(wrapped_msg)
@@ -133,30 +132,27 @@ class UBXParser:
                 if start == -1:
                     self.buffer.clear()
                     break
-                
+
                 if start > 0:
                     self.buffer = self.buffer[start:]
-                
+
                 # Get message length from header
-                msg_class = self.buffer[2]
-                msg_id = self.buffer[3]
                 length = int.from_bytes(self.buffer[4:6], 'little')
                 total_length = 8 + length  # header (6) + payload + checksum (2)
-                
                 # Check if we have the complete message
                 if len(self.buffer) < total_length:
                     logging.debug(f"Incomplete message: have {len(self.buffer)}, need {total_length}")
                     break  # Wait for more data
-                    
+
                 # Extract message including checksum
                 msg_data = self.buffer[:total_length]
-                
+
                 # Verify checksum
                 ck_a = ck_b = 0
                 for b in msg_data[2:-2]:  # Skip header and checksum
                     ck_a = (ck_a + b) & 0xFF
                     ck_b = (ck_b + ck_a) & 0xFF
-                    
+
                 if msg_data[-2] == ck_a and msg_data[-1] == ck_b:
                     # logging.debug(f"Valid message: class=0x{msg_class:02x}, id=0x{msg_id:02x}, len={length}")
                     parsed = self._parse_ubx(bytes(msg_data))
@@ -164,10 +160,10 @@ class UBXParser:
                         yield parsed
                 else:
                     logging.warning(f"Checksum mismatch: expected {ck_a:02x}{ck_b:02x}, got {msg_data[-2]:02x}{msg_data[-1]:02x}")
-                
+
                 # Remove processed message from buffer
                 self.buffer = self.buffer[total_length:]
-                
+
             if self.file_path and not self.buffer:
                 break
             await asyncio.sleep(0)
@@ -190,7 +186,6 @@ class UBXParser:
 
     def _ecef_to_lla(self, x: float, y: float, z: float):
         a = 6378137.0
-        f = 1/298.257223563
         e = 0.0818191908426  # First eccentricity
         p = (x**2 + y**2)**0.5
         lat = math.atan2(z, p * (1 - e**2))
@@ -263,31 +258,31 @@ class UBXParser:
         if len(data) < 8:
             logging.debug(f"SVINFO: Message too short ({len(data)} bytes)")
             return {"error": "Invalid payload length for nav-svinfo"}
-            
+
         numCh = data[4]
         globalFlags = data[5]
         logging.debug(f"SVINFO: Number of channels: {numCh}, flags: 0x{globalFlags:02x}")
-        
+
         satellites = []
         used_sats = 0
-        
+
         for i in range(numCh):
             offset = 8 + (12 * i)
             if len(data) < offset + 12:
                 logging.warning(f"SVINFO: Message truncated at satellite {i}")
                 break
-                
+
             svid = data[offset]
             flags = data[offset + 1]
             quality = data[offset + 2]
             cno = data[offset + 3]
             elev = data[offset + 4]
             azim = int.from_bytes(data[offset+6:offset+8], 'little')
-            
+
             is_used = bool(flags & 0x01)
             if is_used:
                 used_sats += 1
-                
+
             if cno > 0:
                 satellites.append({
                     "id": svid,
@@ -297,9 +292,9 @@ class UBXParser:
                     "used": is_used,
                     "quality": quality
                 })
-                    
+
         logging.debug(f"SVINFO: Processed {len(satellites)} visible satellites, {used_sats} used in fix")
-        
+
         result = {
             "class": "NAV-SVINFO",
             "nSat": len(satellites),
@@ -312,20 +307,20 @@ class UBXParser:
     def _parse_nav_timegps(self, data: bytes) -> dict:
         logging.debug("Parsing nav-timegps")
         if len(data) < 16:
-            return {"error": "Invalid payload length for nav-timegps"}        
-                
+            return {"error": "Invalid payload length for nav-timegps"}
+
         iTOW = int.from_bytes(data[0:4], 'little')
         fTOW = int.from_bytes(data[4:8], 'little')
         week = int.from_bytes(data[8:10], 'little', signed=True)
         leapS = data[10]
         valid = data[11]
         tAcc = int.from_bytes(data[12:16], 'little')
-            
+
         gps_epoch = datetime.datetime(1980, 1, 6, tzinfo=datetime.timezone.utc)
         tow = iTOW / 1000.0 + fTOW * 1e-9
         gps_time = gps_epoch + datetime.timedelta(weeks=week) + datetime.timedelta(seconds=tow)
         utc_time = gps_time - datetime.timedelta(seconds=leapS)
-            
+
         result = {
             "class": "NAV-TIMEGPS",
             "time": utc_time.replace(tzinfo=datetime.timezone.utc),
