@@ -15,6 +15,7 @@ import time
 import logging
 import sys
 from time import perf_counter as precision_timestamp
+import os
 
 from PiFinder import state_utils
 from PiFinder import utils
@@ -200,8 +201,18 @@ def solver(
                                 solved["y_target"] = None
 
                     last_solve_time = last_image_metadata["exposure_end"]
-        except EOFError:
-            logger.error("Main no longer running for solver")
+        except EOFError as eof:
+            logger.error(f"Main process no longer running for solver: {eof}")
+            logger.exception(eof)  # This logs the full stack trace
+            # Optionally log additional context
+            logger.error(f"Current solver state: {self.get_state()}")  # If you have state info
         except Exception as e:
-            logger.error("Exception in Solver")
-            logger.exception(e)
+            logger.error(f"Exception in Solver: {e.__class__.__name__}: {str(e)}")
+            logger.exception(e)  # Logs the full stack trace
+            # Log additional context that might be helpful
+            logger.error(f"Current process ID: {os.getpid()}")
+            logger.error(f"Current thread: {threading.current_thread().name}")
+            try:
+                logger.error(f"Active threads: {[t.name for t in threading.enumerate()]}")
+            except:
+                pass  # Don't let diagnostic logging fail

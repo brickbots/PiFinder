@@ -40,6 +40,7 @@ from PiFinder import keyboard_interface
 
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
+from PiFinder.calc_utils import sf_utils
 
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.menu_manager import MenuManager
@@ -493,7 +494,6 @@ def main(
                                     datetime.datetime.now().time().isoformat()[:8]
                                 )
                                 location.timezone = tz_finder.timezone_at(lat=location.lat, lng=location.lon)
-                                print(location)
                                 #     # cfg.set_option("last_location", location)
                                 #     console.write(
                                 #         f'GPS: Location {location.lat} {location.lon} {location.altitude}'
@@ -501,7 +501,7 @@ def main(
                                 #     location.lock = True
 
                                 shared_state.set_location(location)
-                                sf_utils.set_location(location.lat, location.lon, location.alt)
+                                sf_utils.set_location( location.lat, location.lon, location.altitude,)
 
                     if gps_msg == "time":
                         # logger.debug("GPS time msg: %s", gps_content)

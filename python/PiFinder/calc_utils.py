@@ -334,7 +334,7 @@ class Skyfield_utils:
         t = self.ts.from_datetime(dt)
 
         observer = self.observer_loc.at(t)
-        # logger.debug("radec_to_altaz: '%f' '%f' '%f'", ra, dec, dt)
+        # Logger.debug("radec_to_altaz: '%f' '%f' '%f'", ra, dec, dt)
         sky_pos = Star(
             ra=Angle(degrees=ra),
             dec_degrees=dec,
@@ -413,6 +413,7 @@ class Skyfield_utils:
         }
         """
         if not self.observer_loc:
+            logger.warning("no observer location set")
             return {}
         t = self.ts.from_datetime(dt)
         observer = self.observer_loc.at(t)
