@@ -232,6 +232,9 @@ class UIObjectDetails(UIModule):
 
     def _check_catalog_initialised(self):
         code = self.object.catalog_code
+        if code == "PUSH":
+            # Special code for objects pushed from sky-safari
+            return True
         catalog = self.catalogs.get_catalog_by_code(code)
         return catalog and catalog.initialised
 

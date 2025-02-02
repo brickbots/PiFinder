@@ -170,6 +170,7 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
     )
     logger.debug("handle_goto_command: Pushing object: %s", obj)
     shared_state.ui_state().add_recent(obj)
+    shared_state.ui_state().set_new_pushto(True)
     ui_queue.put("push_object")
     return "1"
 
@@ -239,7 +240,7 @@ def run_server(shared_state, p_ui_queue, log_queue):
                 logger.info("SkySafari server started and listening")
                 while True:
                     client_socket, address = server_socket.accept()
-                    logger.info("New connection from %s", address)
+                    logger.debug("New connection from %s", address)
                     handle_client(client_socket, shared_state)
         except Exception:
             logger.exception("Unexpected server error")

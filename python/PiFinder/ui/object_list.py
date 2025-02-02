@@ -368,7 +368,14 @@ class UIObjectList(UITextMenu):
     def active(self):
         # trigger refilter
         super().active()
-        self.refresh_object_list()
+
+        # check for new push_to
+        if self.ui_state.new_pushto():
+            self.refresh_object_list(force_update=True)
+            self.ui_state.set_new_pushto(False)
+            self.show_object_details(0)
+        else:
+            self.refresh_object_list()
 
     def update(self, force: bool = False) -> None:
         self.clear_screen()
@@ -585,6 +592,22 @@ class UIObjectList(UITextMenu):
         self._marking_menu_items[3].selected = False
         self.sort()
 
+    def show_object_details(self, object_index):
+        """
+        Adds the object details UI module for the object
+        at object_index to the top of the stack.
+        """
+        _menu_item = self._menu_items_sorted[object_index]
+
+        object_item_definition = {
+            "name": _menu_item.display_name,
+            "class": UIObjectDetails,
+            "object": _menu_item,
+            "object_list": self._menu_items_sorted,
+            "label": "object_details",
+        }
+        self.add_to_stack(object_item_definition)
+
     def key_right(self):
         """
         When right is pressed, move to
@@ -599,16 +622,7 @@ class UIObjectList(UITextMenu):
             self.jump_input_display = False
             self.jump_to_number.reset_number()
 
-        _menu_item = self._menu_items_sorted[self._current_item_index]
-
-        object_item_definition = {
-            "name": _menu_item.display_name,
-            "class": UIObjectDetails,
-            "object": _menu_item,
-            "object_list": self._menu_items_sorted,
-            "label": "object_details",
-        }
-        self.add_to_stack(object_item_definition)
+        self.show_object_details(self._current_item_index)
 
     def key_number(self, number):
         self.jump_to_number.append_number(number)
