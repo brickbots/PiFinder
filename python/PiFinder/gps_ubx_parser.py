@@ -117,8 +117,8 @@ class UBXParser:
         return parser
 
     @classmethod
-    def from_file(cls, file_path: str):
-        return cls(file_path=file_path)
+    def from_file(cls, log_queue, file_path: str):
+        return cls(log_queue=log_queue, file_path=file_path)
 
     async def parse_messages(self):
         while True:

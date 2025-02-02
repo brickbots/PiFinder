@@ -890,21 +890,19 @@ pifinder_menu = {
                     "name": "GPS Type",
                     "class": UITextMenu,
                     "select": "single",
-                    "value_callback": callbacks.get_gps_type,
+                    "config_option": "gps_type",
+                    "label": "gps_type",
                     "items": [
                         {
                             "name": "UBlox",
-                            "callback": callbacks.switch_gps_ublox,
                             "value": "ublox",
                         },
                         {
                             "name": "GPSD (generic)",
-                            "callback": callbacks.switch_gps_gpsd,
                             "value": "gpsd",
                         },
                     ],
                 },
-
             ],
         },
         {

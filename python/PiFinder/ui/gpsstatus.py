@@ -18,7 +18,7 @@ class UIGPSStatus(UIModule):
     _lock_type_dict = {
         0: "limited",  # there's no lock but we accept the position due to low enough error value
         1: "basic",    # coarse fix, does this happen?
-        2: "accurate", # 2D Fix
+        2: "accurate",  # 2D Fix
         3: "precise"  # 3D Fix
     }
 
