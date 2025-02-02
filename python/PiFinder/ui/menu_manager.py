@@ -221,6 +221,19 @@ class MenuManager:
         self.stack[-1].message(message, timeout)  # type: ignore[arg-type]
 
     def jump_to_label(self, label: str) -> None:
+        # to prevent many recent/object UI modules
+        # being added to the list upon repeated object
+        # pushes, check for existing 'recent' in the
+        # stack and jump to that, rather than adding
+        # a new one
+        if label in ["recent"]:
+            for stack_index, ui_module in enumerate(self.stack):
+                if ui_module.item_definition.get("label", "") == label:
+                    self.stack = self.stack[: stack_index + 1]
+                    self.stack[-1].active()  # type: ignore[call-arg]
+                    return
+        # either this is not a special case, or we didn't find
+        # the label already in the stack
         menu_to_jump = find_menu_by_label(label)
         if menu_to_jump is not None:
             self.add_to_stack(menu_to_jump)
