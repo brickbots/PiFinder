@@ -275,11 +275,12 @@ class MenuManager:
         if time.time() < self.ui_state.message_timeout():
             return None
 
-        screen_to_display = screen_image.convert(self.display_class.device.mode)
-        self.display_class.device.display(screen_to_display)
+        # screen_to_display = screen_image.convert(self.display_class.device.mode)
+        # self.display_class.device.display(screen_to_display)
+        self.display_class.write_to_screen(screen_image)
 
         if self.shared_state:
-            self.shared_state.set_screen(screen_to_display)
+            self.shared_state.set_screen(screen_image)
 
     def key_number(self, number):
         if self.help_images is not None:

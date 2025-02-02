@@ -2,7 +2,7 @@ import functools
 from collections import namedtuple
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageChops
 
 import luma.core.device
 from luma.core.interface.serial import spi
@@ -41,6 +41,7 @@ class DisplayBase:
     large_font_size = 15
     huge_font_size = 35
     device = luma.core.device.device
+    brightness = 255
 
     def __init__(self):
         self.colors = Colors(self.color_mask, self.resolution)
@@ -63,6 +64,9 @@ class DisplayBase:
 
     def set_brightness(self, brightness: int) -> None:
         return None
+
+    def write_to_screen(self, image_to_display: Image.Image) -> None:
+        self.device.display(image_to_display.convert(self.device.mode))
 
 
 class DisplayPygame_128(DisplayBase):
@@ -115,6 +119,12 @@ class DisplaySSD1351(DisplayBase):
             width=self.resolution[0], height=self.resolution[1], rotate=0, mode="RGB"
         )
         self.device = device_serial
+        self.brightness_mult_image = Image.new(
+            "RGB",
+            (self.resolution[0], self.resolution[1]),
+            (self.brightness, self.brightness, self.brightness),
+        )
+
         super().__init__()
 
     def set_brightness(self, level):
@@ -122,7 +132,21 @@ class DisplaySSD1351(DisplayBase):
         Sets oled brightness
         0-255
         """
-        self.device.contrast(level)
+        self.brightness = level
+        #self.device.contrast(int(level/2))
+        self.device.contrast(255)
+        self.brightness_mult_image = Image.new(
+            "RGB",
+            (self.resolution[0], self.resolution[1]),
+            (self.brightness, self.brightness, self.brightness),
+        )
+        print("bb: " + str(level))
+
+    def write_to_screen(self, image_to_display: Image.Image) -> None:
+        image_to_display = ImageChops.multiply(
+            image_to_display.convert("RGB"), self.brightness_mult_image
+        )
+        super().write_to_screen(image_to_display)
 
 
 class DisplayST7789_128(DisplayBase):
