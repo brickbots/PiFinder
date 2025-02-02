@@ -11,7 +11,6 @@ from PiFinder import obslog
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.text_menu import UITextMenu
-from PiFinder import config
 
 from PiFinder.db.observations_db import ObservationsDatabase
 
@@ -125,33 +124,6 @@ class UILog(UIModule):
                     ],
                 },
             ],
-        }
-
-        cfg = config.Config()
-
-        eyepieces_list = cfg.equipment.eyepieces
-
-        # Loop over eyepieces and add to menu
-        eyepiece_items = [
-            {
-                "name": "NA",
-                "value": "NA",
-            },
-        ]
-        for eyepiece in eyepieces_list:
-            eyepiece_items.append(
-                {
-                    "name": eyepiece.name,
-                    "value": (eyepiece.make + " " + eyepiece.name).lstrip(),
-                }
-            )
-
-        self.eyepiece_menu = {
-            "name": "Eyepiece",
-            "class": UITextMenu,
-            "select": "single",
-            "config_option": "session.log_eyepiece",
-            "items": eyepiece_items,
         }
 
         self.reset_config()
@@ -281,13 +253,19 @@ class UILog(UIModule):
         These will be jsonified when logging
         """
         # build notes
+        log_eyepiece = self.config_object.equipment.active_eyepiece
+        if log_eyepiece is None:
+            log_eyepiece = "NA"
+        else:
+            log_eyepiece = f"{log_eyepiece.focal_length_mm}mm {log_eyepiece.name}"
+
         notes = {
             "schema_ver": 2,
             "transparency": self.config_object.get_option(
                 "session.log_transparency", "NA"
             ),
             "seeing": self.config_object.get_option("session.log_seeing", "NA"),
-            "eyepiece": self.config_object.get_option("session.log_eyepiece", "NA"),
+            "eyepiece": log_eyepiece,
             "observability": self.log_observability,
             "appeal": self.log_appeal,
         }
@@ -338,7 +316,7 @@ class UILog(UIModule):
             self.add_to_stack(self.conditions_menu)
 
         if self.menu_index == 4:
-            self.add_to_stack(self.eyepiece_menu)
+            self.jump_to_label("select_eyepiece")
 
     def cycle_display_mode(self):
         """

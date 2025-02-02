@@ -338,10 +338,21 @@ def main(
             )
             p.start()
 
+        # Web server
+        console.write("   Webserver")
+        console.update()
+
         server_process = Process(
             name="Webserver",
             target=server.run_server,
-            args=(keyboard_queue, gps_queue, shared_state, server_logqueue, verbose),
+            args=(
+                keyboard_queue,
+                ui_queue,
+                gps_queue,
+                shared_state,
+                server_logqueue,
+                verbose,
+            ),
         )
         server_process.start()
 
@@ -423,7 +434,7 @@ def main(
         integrator_process.start()
 
         # Server
-        console.write("   Server")
+        console.write("  POS Server")
         console.update()
         posserver_process = Process(
             name="SkySafariServer",
@@ -517,6 +528,8 @@ def main(
                     set_brightness(screen_brightness, cfg)
                 elif ui_command == "push_object":
                     menu_manager.jump_to_label("recent")
+                elif ui_command == "reload_config":
+                    cfg.load_config()
 
                 # Keyboard
                 keycode = None

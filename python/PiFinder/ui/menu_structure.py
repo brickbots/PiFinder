@@ -882,7 +882,7 @@ pifinder_menu = {
             "select": "single",
             "items": [
                 {"name": "Status", "class": UIStatus},
-                {"name": "Equipment", "class": UIEquipment},
+                {"name": "Equipment", "class": UIEquipment, "label": "equipment"},
                 {"name": "Console", "class": UIConsole},
                 {"name": "Software Upd", "class": UISoftware},
                 {"name": "Test Mode", "callback": callbacks.activate_debug},

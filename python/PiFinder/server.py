@@ -47,9 +47,12 @@ def auth_required(func):
 
 
 class Server:
-    def __init__(self, q, gps_queue, shared_state, is_debug=False):
+    def __init__(
+        self, keyboard_queue, ui_queue, gps_queue, shared_state, is_debug=False
+    ):
         self.version_txt = f"{utils.pifinder_dir}/version.txt"
-        self.q = q
+        self.keyboard_queue = keyboard_queue
+        self.ui_queue = ui_queue
         self.gps_queue = gps_queue
         self.shared_state = shared_state
         self.ki = KeyboardInterface()
@@ -306,6 +309,7 @@ class Server:
             cfg = config.Config()
             cfg.equipment.set_active_telescope(cfg.equipment.telescopes[instrument_id])
             cfg.save_equipment()
+            self.ui_queue.put("reload_config")
             return template(
                 "equipment",
                 equipment=cfg.equipment,
@@ -321,6 +325,7 @@ class Server:
             cfg = config.Config()
             cfg.equipment.set_active_eyepiece(cfg.equipment.eyepieces[eyepiece_id])
             cfg.save_equipment()
+            self.ui_queue.put("reload_config")
             return template(
                 "equipment",
                 equipment=cfg.equipment,
@@ -409,7 +414,12 @@ class Server:
                         cfg.equipment.eyepieces.append(new_eyepiece)
 
                 cfg.save_equipment()
-            return template("equipment", equipment=config.Config().equipment)
+                self.ui_queue.put("reload_config")
+            return template(
+                "equipment",
+                equipment=config.Config().equipment,
+                success_message="Equipment Imported, restart your PiFinder to use this new data",
+            )
 
         @app.route("/equipment/edit_eyepiece/<eyepiece_id:int>")
         @auth_required
@@ -447,10 +457,15 @@ class Server:
                         cfg.equipment.eyepieces.append(eyepiece)
 
                 cfg.save_equipment()
+                self.ui_queue.put("reload_config")
             except Exception as e:
                 logger.error(f"Error adding eyepiece: {e}")
 
-            return template("equipment", equipment=config.Config().equipment)
+            return template(
+                "equipment",
+                equipment=config.Config().equipment,
+                success_message="Eyepiece added, restart your PiFinder to use",
+            )
 
         @app.route("/equipment/delete_eyepiece/<eyepiece_id:int>")
         @auth_required
@@ -458,7 +473,12 @@ class Server:
             cfg = config.Config()
             cfg.equipment.eyepieces.pop(eyepiece_id)
             cfg.save_equipment()
-            return template("equipment", equipment=config.Config().equipment)
+            self.ui_queue.put("reload_config")
+            return template(
+                "equipment",
+                equipment=config.Config().equipment,
+                success_message="Eyepiece Deleted, restart your PiFinder to remove from menu",
+            )
 
         @app.route("/equipment/edit_instrument/<instrument_id:int>")
         @auth_required
@@ -511,9 +531,14 @@ class Server:
                         cfg.equipment.telescopes.append(instrument)
 
                 cfg.save_equipment()
+                self.ui_queue.put("reload_config")
             except Exception as e:
                 logger.error(f"Error adding instrument: {e}")
-            return template("equipment", equipment=config.Config().equipment)
+            return template(
+                "equipment",
+                equipment=config.Config().equipment,
+                success_message="Instrument Added, restart your PiFinder to use",
+            )
 
         @app.route("/equipment/delete_instrument/<instrument_id:int>")
         @auth_required
@@ -521,7 +546,12 @@ class Server:
             cfg = config.Config()
             cfg.equipment.telescopes.pop(instrument_id)
             cfg.save_equipment()
-            return template("equipment", equipment=config.Config().equipment)
+            self.ui_queue.put("reload_config")
+            return template(
+                "equipment",
+                equipment=config.Config().equipment,
+                success_message="Instrument Deleted, restart your PiFinder to remove from menu",
+            )
 
         @app.route("/observations")
         @auth_required
@@ -672,7 +702,7 @@ class Server:
             )
 
     def key_callback(self, key):
-        self.q.put(key)
+        self.keyboard_queue.put(key)
 
     def update_gps(self):
         location = self.shared_state.location()
@@ -691,6 +721,8 @@ class Server:
             self.altitude = None
 
 
-def run_server(q, gps_q, shared_state, log_queue, verbose=False):
+def run_server(
+    keyboard_queue, ui_queue, gps_queue, shared_state, log_queue, verbose=False
+):
     MultiprocLogging.configurer(log_queue)
-    Server(q, gps_q, shared_state, verbose)
+    Server(keyboard_queue, ui_queue, gps_queue, shared_state, verbose)
