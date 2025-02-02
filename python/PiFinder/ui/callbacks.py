@@ -109,7 +109,7 @@ def switch_cam_imx462(ui_module: UIModule) -> None:
     restart_system(ui_module)
 
 
-def get_camera_type(ui_module: UIModule) -> list:
+def get_camera_type(ui_module: UIModule) -> list[str]:
     cam_id = "000"
 
     # read config.txt into a list
@@ -137,3 +137,9 @@ def go_wifi_cli(ui_module: UIModule) -> None:
     ui_module.message("WiFi to Client", 2)
     sys_utils.go_wifi_cli()
     restart_system(ui_module)
+
+
+def get_wifi_mode(ui_module: UIModule) -> list[str]:
+    wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
+    with open(wifi_txt, "r") as wfs:
+        return [wfs.read()]
