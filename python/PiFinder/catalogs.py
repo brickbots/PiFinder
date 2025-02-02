@@ -635,7 +635,7 @@ class PlanetCatalog(TimerCatalog):
     # Shorter time delay when waiting for GPS lock
     WAITING_FOR_GPS_DELAY = 10
     short_delay = True
-    
+
     def __init__(self, dt: datetime.datetime, shared_state: SharedStateObj):
         super().__init__("PL", "Planets")
         self.shared_state = shared_state
@@ -644,12 +644,14 @@ class PlanetCatalog(TimerCatalog):
     @property
     def time_delay_seconds(self) -> int:
         # Return shorter delay if waiting for GPS lock
-        return self.DEFAULT_DELAY if not self.short_delay else self.WAITING_FOR_GPS_DELAY
+        return (
+            self.DEFAULT_DELAY if not self.short_delay else self.WAITING_FOR_GPS_DELAY
+        )
 
     def init_planets(self, dt):
         planet_dict = sf_utils.calc_planets(dt)
         logger.debug(f"starting planet dict {planet_dict}")
-        
+
         if not planet_dict:
             logger.debug("No GPS lock during initialization - will retry soon")
             self.initialised = True  # Still mark as initialized so timer starts
@@ -699,12 +701,16 @@ class PlanetCatalog(TimerCatalog):
         with Timer("Planet Catalog periodic update"):
             dt = self.shared_state.datetime()
             logger.debug(f"Planet catalog update at {dt}")
-            
-            if not dt or not sf_utils.observer_loc or not self.shared_state.location().lock:
+
+            if (
+                not dt
+                or not sf_utils.observer_loc
+                or not self.shared_state.location().lock
+            ):
                 return
 
             planet_dict = sf_utils.calc_planets(dt)
-            
+
             # If we just got GPS lock and previously had no planets, do a full reinit
             if not self.get_objects():
                 logger.info("GPS lock acquired - reinitializing planet catalog")
@@ -723,7 +729,8 @@ class PlanetCatalog(TimerCatalog):
                         obj.mag_str = obj.mag.calc_two_mag_representation()
                 except (KeyError, ValueError) as e:
                     logger.error(f"Error updating planet {name}: {e}")
-                        
+
+
 class CometCatalog(TimerCatalog):
     """Creates a catalog of comets"""
 
