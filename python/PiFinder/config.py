@@ -16,6 +16,16 @@ class Config:
         """
         load all settings from config file
         """
+        # Set up session config items
+        # These are transient
+        self._session_config_dict = {}
+        self.load_config()
+
+    def load_config(self):
+        """
+        Loads all config from disk useful if another
+        process has changed config
+        """
         cwd = Path.cwd()
         self.config_file_path = Path(utils.data_dir, "config.json")
 
@@ -29,10 +39,6 @@ class Config:
         # open default default_config
         with open(self.default_file_path, "r") as config_file:
             self._default_config_dict = json.load(config_file)
-
-        # Set up session config items
-        # These are transient
-        self._session_config_dict = {}
 
         # Load the equipment config
         eq_config = self.get_option("equipment")
