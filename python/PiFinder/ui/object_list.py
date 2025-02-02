@@ -186,23 +186,30 @@ class UIObjectList(UITextMenu):
         message = f"Sorting by\n{'number' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'nearby'}"
         self.message(message, 0.1)
         self.update()
+
+        if self.current_sort == SortOrder.NEAREST:
+            if self.shared_state.solution() is None:
+                self.message("No Solve Yet", 1)
+                self.current_sort = SortOrder.CATALOG_SEQUENCE
+            else:
+                if self.catalogs.catalog_filter:
+                    self._menu_items = self.catalogs.catalog_filter.apply(
+                        self._menu_items
+                    )
+                self.nearby.set_items(self._menu_items)
+                self.nearby_refresh()
+                self._current_item_index = 3
+
         if self.current_sort == SortOrder.CATALOG_SEQUENCE:
             self._menu_items_sorted = self._menu_items
             self._current_item_index = 0
-
-        if self.current_sort == SortOrder.NEAREST:
-            if self.catalogs.catalog_filter:
-                self._menu_items = self.catalogs.catalog_filter.apply(self._menu_items)
-            self.nearby.set_items(self._menu_items)
-            self.nearby_refresh()
-            self._current_item_index = 3
         self.update()
 
     def nearby_refresh(self):
         self._menu_items_sorted = self.nearby.refresh()
         if self._menu_items_sorted is None:
             self._menu_items_sorted = self._menu_items
-            self.message("No Solution Yet", 2)
+            self.message("No Solve Yet", 1)
 
     def format_az_alt(self, point_az, point_alt):
         if point_az >= 0:
@@ -574,24 +581,6 @@ class UIObjectList(UITextMenu):
             self.current_mode = next(self.mode_cycle)
             self.refresh()
 
-    def marking_menu_left(self):
-        """
-        Switch sort modes
-        """
-        self.current_sort = SortOrder.CATALOG_SEQUENCE
-        self._marking_menu_items[3].selected = True
-        self._marking_menu_items[1].selected = False
-        self.sort()
-
-    def marking_menu_right(self):
-        """
-        Switch sort modes
-        """
-        self.current_sort = SortOrder.NEAREST
-        self._marking_menu_items[1].selected = True
-        self._marking_menu_items[3].selected = False
-        self.sort()
-
     def show_object_details(self, object_index):
         """
         Adds the object details UI module for the object
@@ -656,7 +645,7 @@ class UIObjectList(UITextMenu):
             self.sort()
             return True
 
-        if menu_item.label == "Catalog":
+        if menu_item.label == "Standard":
             self.current_sort = SortOrder.CATALOG_SEQUENCE
             self.sort()
             return True
