@@ -97,7 +97,7 @@ def dyn_menu_equipment(cfg):
         "class": UITextMenu,
         "select": "single",
         "label": "select_telescope",
-        "config_option": "equipment.actice_telescope",
+        "config_option": "equipment.active_telescope",
         "items": telescope_menu_items,
     }
 
