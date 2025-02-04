@@ -347,6 +347,14 @@ class Server:
                         # Skip the naked eye
                         continue
 
+                    make = instrument["instrument_make"]["name"]
+
+                    obstruction_perc = instrument["obstruction_perc"]
+                    if obstruction_perc is None:
+                        obstruction_perc = 0
+                    else:
+                        obstruction_perc = float(obstruction_perc)
+
                     # Convert the html special characters (ampersand, quote, ...) in instrument["name"]
                     # to the corresponding character
                     instrument["name"] = instrument["name"].replace("&amp;", "&")
@@ -355,33 +363,15 @@ class Server:
                     instrument["name"] = instrument["name"].replace("&lt;", "<")
                     instrument["name"] = instrument["name"].replace("&gt;", ">")
 
-                    flip = False
-                    flop = False
-
-                    if (
-                        instrument["type"] == 2
-                        or instrument["type"] == 4
-                        or instrument["type"] == 6
-                        or instrument["type"] == 8
-                        or instrument["type"] == 9
-                    ):
-                        # Refractor (2), Finderscope (4), Cassegrain (6), Maksutov (8), Schmidt Cassegrain (9)
-                        flip = True
-                        flop = False
-                    elif instrument["type"] == 3 or instrument["type"] == 7:
-                        # Reflector (3), Kutter (7)
-                        flip = True
-                        flop = True
-
                     new_instrument = Telescope(
-                        make="",
+                        make=make,
                         name=instrument["name"],
                         aperture_mm=int(instrument["diameter"]),
                         focal_length_mm=int(instrument["diameter"] * instrument["fd"]),
-                        obstruction_perc=0,
-                        mount_type="alt/az",
-                        flip_image=flip,
-                        flop_image=flop,
+                        obstruction_perc=obstruction_perc,
+                        mount_type=instrument["mount_type"]["name"].lower(),
+                        flip_image=bool(instrument["flip_image"]),
+                        flop_image=bool(instrument["flop_image"]),
                         reverse_arrow_a=False,
                         reverse_arrow_b=False,
                     )
