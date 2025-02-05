@@ -10,9 +10,10 @@ from PiFinder.gps_ubx_parser import UBXParser
 import logging
 
 logger = logging.getLogger("GPS")
-sats = [0,0]
+sats = [0, 0]
 
 MAX_GPS_ERROR = 50000  # 50 km
+
 
 async def process_messages(parser, gps_queue, console_queue, error_info):
     gps_locked = False
@@ -23,8 +24,8 @@ async def process_messages(parser, gps_queue, console_queue, error_info):
         logger.debug("GPS: %s: %s", msg_class, msg)
 
         if msg_class == "NAV-DOP":
-            error_info['error_2d'] = msg["hdop"]
-            error_info['error_3d'] = msg["pdop"]
+            error_info["error_2d"] = msg["hdop"]
+            error_info["error_3d"] = msg["pdop"]
 
         elif msg_class == "NAV-SVINFO" and not got_sat_update:
             # Fallback satellite info if NAV-SAT not available
@@ -38,11 +39,15 @@ async def process_messages(parser, gps_queue, console_queue, error_info):
         elif msg_class == "NAV-SAT":
             # Preferred satellite info source - not seen in the current pifinder gps versions
             sats_seen = msg["nSat"]
-            sats_used = sum(1 for sat in msg.get("satellites", []) if sat.get("used", False))
+            sats_used = sum(
+                1 for sat in msg.get("satellites", []) if sat.get("used", False)
+            )
             sats[0] = sats_seen
             sats[1] = sats_used
             gps_queue.put(("satellites", tuple(sats)))
-            logger.debug("Number of sats (NAV-SAT) seen: %i, used: %i", sats_seen, sats_used)
+            logger.debug(
+                "Number of sats (NAV-SAT) seen: %i, used: %i", sats_seen, sats_used
+            )
 
         elif msg_class == "NAV-SOL":
             # only source of truth for satellites used in a FIX
@@ -56,34 +61,39 @@ async def process_messages(parser, gps_queue, console_queue, error_info):
                     gps_locked = True
                     console_queue.put("GPS: Locked")
                     logger.debug("GPS locked")
-                gps_queue.put((
-                    "fix",
-                    {
-                        "lat": msg["lat"],
-                        "lon": msg["lon"],
-                        "altitude": msg["altHAE"],
-                        "source": "GPS",
-                        "lock": gps_locked,
-                        "lock_type": msg["mode"],
-                        "error_in_m": msg["ecefpAcc"]
-                    }
-                ))
+                gps_queue.put(
+                    (
+                        "fix",
+                        {
+                            "lat": msg["lat"],
+                            "lon": msg["lon"],
+                            "altitude": msg["altHAE"],
+                            "source": "GPS",
+                            "lock": gps_locked,
+                            "lock_type": msg["mode"],
+                            "error_in_m": msg["ecefpAcc"],
+                        },
+                    )
+                )
                 logger.debug("GPS fix: %s", msg)
 
         elif msg_class == "NAV-TIMEGPS":
             if "time" in msg and "valid" in msg and msg["valid"]:
-                gps_queue.put((
-                    "time",
-                    {
-                        "time": msg["time"],
-                        "tAcc": msg["tAcc"] if "tAcc" in msg else -1,
-                        "source": "GPS"
-                    }
-                ))
+                gps_queue.put(
+                    (
+                        "time",
+                        {
+                            "time": msg["time"],
+                            "tAcc": msg["tAcc"] if "tAcc" in msg else -1,
+                            "source": "GPS",
+                        },
+                    )
+                )
             else:
                 logger.warning(f"TIMEGPS message does not qualify: {msg}")
 
         await asyncio.sleep(0)
+
 
 async def gps_main(gps_queue, console_queue, log_queue):
     MultiprocLogging.configurer(log_queue)
@@ -92,11 +102,12 @@ async def gps_main(gps_queue, console_queue, log_queue):
 
     while True:
         try:
-            parser = await UBXParser.connect(log_queue, host='127.0.0.1', port=2947)
+            parser = await UBXParser.connect(log_queue, host="127.0.0.1", port=2947)
             await process_messages(parser, gps_queue, console_queue, error_info)
         except Exception as e:
             logger.error(f"Error in GPS monitor: {e}")
             await asyncio.sleep(5)
+
 
 def gps_monitor(gps_queue, console_queue, log_queue):
     asyncio.run(gps_main(gps_queue, console_queue, log_queue))

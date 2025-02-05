@@ -481,7 +481,15 @@ def main(
                         if gps_content["lat"] + gps_content["lon"] != 0:
                             location: Location = shared_state.location()
                             # only update if there's no fixed WEB lock, and the precision is better than what we had
-                            if location.source != "WEB" and (not location.lock or (location.lock and (gps_content["error_in_m"] < location.error_in_m))):
+                            if location.source != "WEB" and (
+                                not location.lock
+                                or (
+                                    location.lock
+                                    and (
+                                        gps_content["error_in_m"] < location.error_in_m
+                                    )
+                                )
+                            ):
                                 location.lat = gps_content["lat"]
                                 location.lon = gps_content["lon"]
                                 location.altitude = gps_content["altitude"]
@@ -493,7 +501,9 @@ def main(
                                 location.last_gps_lock = (
                                     datetime.datetime.now().time().isoformat()[:8]
                                 )
-                                location.timezone = tz_finder.timezone_at(lat=location.lat, lng=location.lon)
+                                location.timezone = tz_finder.timezone_at(
+                                    lat=location.lat, lng=location.lon
+                                )
                                 #     # cfg.set_option("last_location", location)
                                 #     console.write(
                                 #         f'GPS: Location {location.lat} {location.lon} {location.altitude}'
@@ -501,7 +511,11 @@ def main(
                                 #     location.lock = True
 
                                 shared_state.set_location(location)
-                                sf_utils.set_location( location.lat, location.lon, location.altitude,)
+                                sf_utils.set_location(
+                                    location.lat,
+                                    location.lon,
+                                    location.altitude,
+                                )
 
                     if gps_msg == "time":
                         # logger.debug("GPS time msg: %s", gps_content)

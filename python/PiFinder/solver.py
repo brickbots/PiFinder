@@ -205,7 +205,9 @@ def solver(
             logger.error(f"Main process no longer running for solver: {eof}")
             logger.exception(eof)  # This logs the full stack trace
             # Optionally log additional context
-            logger.error(f"Current solver state: {self.get_state()}")  # If you have state info
+            logger.error(
+                f"Current solver state: {self.get_state()}"
+            )  # If you have state info
         except Exception as e:
             logger.error(f"Exception in Solver: {e.__class__.__name__}: {str(e)}")
             logger.exception(e)  # Logs the full stack trace
@@ -213,6 +215,8 @@ def solver(
             logger.error(f"Current process ID: {os.getpid()}")
             logger.error(f"Current thread: {threading.current_thread().name}")
             try:
-                logger.error(f"Active threads: {[t.name for t in threading.enumerate()]}")
+                logger.error(
+                    f"Active threads: {[t.name for t in threading.enumerate()]}"
+                )
             except:
                 pass  # Don't let diagnostic logging fail

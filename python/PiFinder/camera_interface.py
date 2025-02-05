@@ -169,6 +169,5 @@ class CameraInterface:
                         self.camera.initialize()
                         console_queue.put("CAM: Started camera")
 
-
         except (BrokenPipeError, EOFError, FileNotFoundError):
             logger.exception("Error in Camera Loop")

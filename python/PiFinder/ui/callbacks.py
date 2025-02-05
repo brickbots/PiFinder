@@ -126,6 +126,7 @@ def get_camera_type(ui_module: UIModule) -> list:
 
     return [cam_id]
 
+
 def go_wifi_ap(ui_module: UIModule) -> None:
     ui_module.message("WiFi to AP", 2)
     sys_utils.go_wifi_ap()

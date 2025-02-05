@@ -133,6 +133,7 @@ class Location:
     """
     the location of the observer, lat/lon/altitude and the source of the data.
     """
+
     lat: float = 0.0
     lon: float = 0.0
     altitude: float = 0.0
@@ -144,15 +145,17 @@ class Location:
     last_gps_lock: Optional[str] = None
 
     def __str__(self):
-        return (f"Location(lat={self.lat:.6f}, "
-                f"lon={self.lon:.6f}, "
-                f"alt={self.altitude:.1f}m, "
-                f"source={self.source}, "
-                f"error={self.error_in_m:.1f}m, "
-                f"lock={'Yes' if self.lock else 'No'} "
-                f"lock_type={self.lock_type}, "
-                f"{f', tz={self.timezone}' if self.timezone else ''}"
-                f"{f', last_lock={self.last_gps_lock}' if self.last_gps_lock else ''})")
+        return (
+            f"Location(lat={self.lat:.6f}, "
+            f"lon={self.lon:.6f}, "
+            f"alt={self.altitude:.1f}m, "
+            f"source={self.source}, "
+            f"error={self.error_in_m:.1f}m, "
+            f"lock={'Yes' if self.lock else 'No'} "
+            f"lock_type={self.lock_type}, "
+            f"{f', tz={self.timezone}' if self.timezone else ''}"
+            f"{f', last_lock={self.last_gps_lock}' if self.last_gps_lock else ''})"
+        )
 
     def to_dict(self):
         """Convert the Location object to a dictionary."""
@@ -172,6 +175,7 @@ class Location:
         """Create a Location object from a JSON string."""
         data = json.loads(json_str)
         return cls.from_dict(data)
+
 
 class SharedStateObj:
     def __init__(self):
