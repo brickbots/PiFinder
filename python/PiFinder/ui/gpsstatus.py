@@ -32,7 +32,7 @@ class UIGPSStatus(UIModule):
             return f"{error:.0f} m"
 
     def active(self):
-        print("gpssatus became active")
+        print("gpsstatus became active")
         self.command_queues["camera"].put("stop")
 
     def inactive(self):

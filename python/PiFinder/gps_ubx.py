@@ -87,6 +87,7 @@ async def process_messages(parser, gps_queue, console_queue, error_info):
 
 async def gps_main(gps_queue, console_queue, log_queue):
     MultiprocLogging.configurer(log_queue)
+    logger.info(f"Using UBX GPS code")
     error_info = {'error_2d': 999, 'error_3d': 999}
 
     while True:

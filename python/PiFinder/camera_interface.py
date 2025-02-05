@@ -166,7 +166,7 @@ class CameraInterface:
                         self.camera.stop()
                         console_queue.put("CAM: Stopped camera")
                     if command.startswith("start"):
-                        self.camera.start()
+                        self.camera.initialize()
                         console_queue.put("CAM: Started camera")
 
 
