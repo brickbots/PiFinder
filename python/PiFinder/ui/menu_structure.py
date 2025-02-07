@@ -803,9 +803,18 @@ pifinder_menu = {
                     "name": _("WiFi Mode"),
                     "class": UITextMenu,
                     "select": "single",
+                    "value_callback": callbacks.get_wifi_mode,
                     "items": [
-                        {"name": "Client Mode", "callback": callbacks.go_wifi_cli},
-                        {"name": "AP Mode", "callback": callbacks.go_wifi_ap},
+                        {
+                            "name": "Client Mode",
+                            "value": "Client",
+                            "callback": callbacks.go_wifi_cli,
+                        },
+                        {
+                            "name": "AP Mode",
+                            "value": "AP",
+                            "callback": callbacks.go_wifi_ap,
+                        },
                     ],
                 },
                 {
@@ -910,7 +919,7 @@ pifinder_menu = {
             "select": "single",
             "items": [
                 {"name": _("Status"), "class": UIStatus},
-                {"name": _("Equipment"), "class": UIEquipment},
+                {"name": _("Equipment"), "class": UIEquipment, "label": "equipment"},
                 {"name": _("Console"), "class": UIConsole},
                 {"name": _("Software Upd"), "class": UISoftware},
                 {"name": _("Test Mode"), "callback": callbacks.activate_debug},

@@ -10,17 +10,17 @@
         <button class="btn remote-button" onclick="buttonClicked(this, 'B')">↑</button>
         <button class="btn remote-button" onclick="buttonClicked(this, 'C')">↓</button>
         <button class="btn remote-button" onclick="buttonClicked(this, 'D')">→</button>
-        <button class="btn remote-button" onclick="buttonClicked(this, '1')">1</button>
-        <button class="btn remote-button" onclick="buttonClicked(this, '2')">2</button>
-        <button class="btn remote-button" onclick="buttonClicked(this, '3')">3</button>
+        <button class="btn remote-button" onclick="buttonClicked(this, '7')">7</button>
+        <button class="btn remote-button" onclick="buttonClicked(this, '8')">8</button>
+        <button class="btn remote-button" onclick="buttonClicked(this, '9')">9</button>
         <button class="btn remote-button" onclick="buttonClicked(this, 'UP')">+</button>
         <button class="btn remote-button" onclick="buttonClicked(this, '4')">4</button>
         <button class="btn remote-button" onclick="buttonClicked(this, '5')">5</button>
         <button class="btn remote-button" onclick="buttonClicked(this, '6')">6</button>
         <button class="btn remote-button" onclick="buttonClicked(this, 'DN')">-</button>
-        <button class="btn remote-button" onclick="buttonClicked(this, '7')">7</button>
-        <button class="btn remote-button" onclick="buttonClicked(this, '8')">8</button>
-        <button class="btn remote-button" onclick="buttonClicked(this, '9')">9</button>
+        <button class="btn remote-button" onclick="buttonClicked(this, '1')">1</button>
+        <button class="btn remote-button" onclick="buttonClicked(this, '2')">2</button>
+        <button class="btn remote-button" onclick="buttonClicked(this, '3')">3</button>
         <button class="btn remote-button" onclick="buttonClicked(this, 'SQUARE')">■</button>
         <button class="btn remote-button" id="altButton" onclick="buttonPressed(this)">Ent+</button>
         <button class="btn remote-button" onclick="buttonClicked(this, '0')">0</button>
