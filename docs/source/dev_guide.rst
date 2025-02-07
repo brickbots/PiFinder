@@ -79,17 +79,18 @@ You can then use the supplied ``Makefile`` to build a html tree using ``make htm
 Internationalization
 -----------------------
 
-PiFinder uses `gettext` and `pybabel` for internationalization.
-You can find the information at `python/locale`. This means that strings that need translation must be 
-enclosed a call to `_()` such als `_("string that needs translation")`. 
+PiFinder uses ``gettext`` and ``pybabel`` for internationalization.
+You can find the information in folder ``python/locale`` in the repository. 
+This means that strings that need translation must be 
+enclosed in a call to ``_()`` such als ``_("string that needs translation")``. 
 
-As we would like to allow users to switch language of the user interface from the menu, and with-out restarting PiFinder,
-care must be taken, that translation is performed dynamically, i.e. not at load time of python files. 
-If you have a variable at package level, that needs to be translated, you still need to mark the strings with `_()`, but 
-override the `_()`-function with a local one, that returns the string and then `del` it from the context. 
-You can find an example of this in `menu_structure.py` at the top and bottom of the file. 
+As we would like to allow users to switch the language of the user interface from the menu, and with-out restarting PiFinder,
+care must be taken, that translations are performed dynamically, i.e. not at load time of python files. 
+If you have a variable at package level that needs to be translated, you still need to mark the strings with ``_()``, but make sure 
+it is not translated by overriding the ``_()``-function with a local one, that returns the string and then ``del`` that from the context, when you're done.
+You can find an example of this in ``menu_structure.py`` at the top and bottom of the file. 
 
-Please also check your unit tests, that these take care of installing `_()` into the local context. (We have not had that case yet.)
+Please also check your unit tests, that these take care of installing ``_()`` into the local context. (We have not had that case yet.)
 
 Setup the development environment
 ---------------------------------
