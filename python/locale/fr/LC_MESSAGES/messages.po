@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-01-23 16:24+0100\n"
+"POT-Creation-Date: 2025-02-07 07:44+0100\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: xxxxxx <xxxxx@xxxxx.com>\n"
 "Language: fr_FR\n"
@@ -38,11 +38,11 @@ msgstr "Redémarrage"
 msgid "Switching cam"
 msgstr "Bascule Caméra"
 
-#: PiFinder/ui/callbacks.py:151
+#: PiFinder/ui/callbacks.py:150
 msgid "WiFi to AP"
 msgstr "Wifi vers AP"
 
-#: PiFinder/ui/callbacks.py:157
+#: PiFinder/ui/callbacks.py:156
 msgid "WiFi to Client"
 msgstr "Wifi vers Client"
 
