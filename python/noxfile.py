@@ -1,6 +1,6 @@
 import nox
 
-nox.options.sessions = ["lint", "format", "type_hints", "smoke_tests", "babel"]
+nox.options.sessions = ["lint", "format", "type_hints", "smoke_tests"]
 
 
 @nox.session(reuse_venv=True, python="3.9")
