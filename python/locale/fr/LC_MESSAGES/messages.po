@@ -20,20 +20,20 @@ msgstr ""
 
 #: PiFinder/ui/align.py:56
 msgid "Align Timeout"
-msgstr ""
+msgstr "Temps d'alignement dépassé"
 
 #: PiFinder/ui/align.py:74
 msgid "Alignment Set"
-msgstr ""
+msgstr "Alignement en cours"
 
 #: PiFinder/ui/align.py:214 PiFinder/ui/chart.py:205
 msgid "Can't plot"
-msgstr ""
+msgstr "Peux pas aligner"
 
 #: PiFinder/ui/align.py:220 PiFinder/ui/chart.py:211 PiFinder/ui/log.py:174
 #: PiFinder/ui/object_list.py:199 PiFinder/ui/object_list.py:219
 msgid "No Solve Yet"
-msgstr ""
+msgstr "Pas d'astrometrie"
 
 #: PiFinder/ui/align.py:333 PiFinder/ui/object_details.py:444
 #, fuzzy
@@ -47,7 +47,7 @@ msgstr "Alignement"
 
 #: PiFinder/ui/align.py:343
 msgid "Alignment failed"
-msgstr ""
+msgstr "Erreur d'alignement"
 
 #: PiFinder/ui/callbacks.py:51
 msgid "Filters Reset"
@@ -55,7 +55,7 @@ msgstr "RàZ filtres"
 
 #: PiFinder/ui/callbacks.py:62
 msgid "Debug: Activated"
-msgstr ""
+msgstr "Debug : actif"
 
 #: PiFinder/ui/callbacks.py:65 PiFinder/ui/menu_structure.py:901
 msgid "Test Mode"
@@ -84,99 +84,99 @@ msgstr "Wifi vers Client"
 
 #: PiFinder/ui/equipment.py:35
 msgid "No telescope selected"
-msgstr ""
+msgstr "Pas de telescope choisi"
 
 #: PiFinder/ui/equipment.py:50
 msgid "No eyepiece selected"
-msgstr ""
+msgstr "Pas d'oculaire choisi"
 
 #: PiFinder/ui/equipment.py:89
 msgid "Telescope..."
-msgstr ""
+msgstr "Telescope..."
 
 #: PiFinder/ui/equipment.py:100 PiFinder/ui/log.py:231
 msgid "Eyepiece..."
-msgstr ""
+msgstr "Oculaire"
 
 #: PiFinder/ui/log.py:58
 #, fuzzy
 msgid "Conditions"
-msgstr "Constéllation"
+msgstr "Conditions"
 
 #: PiFinder/ui/log.py:63
 msgid "Transparency"
-msgstr ""
+msgstr "Transparence"
 
 #. TRANSLATORS: Transparency not available
 #. TRANSLATORS: Seeing not available
 #. TRANSLATORS: eyepiece info not available
 #: PiFinder/ui/log.py:70 PiFinder/ui/log.py:103 PiFinder/ui/log.py:261
 msgid "NA"
-msgstr ""
+msgstr "NA"
 
 #: PiFinder/ui/log.py:74 PiFinder/ui/log.py:107
 #, fuzzy
 msgid "Excellent"
-msgstr "Récent"
+msgstr "Excellent"
 
 #: PiFinder/ui/log.py:78 PiFinder/ui/log.py:111
 msgid "Very Good"
-msgstr ""
+msgstr "Trés bon"
 
 #: PiFinder/ui/log.py:82 PiFinder/ui/log.py:115
 msgid "Good"
-msgstr ""
+msgstr "Bon"
 
 #: PiFinder/ui/log.py:86 PiFinder/ui/log.py:119
 #, fuzzy
 msgid "Fair"
-msgstr "Filtre"
+msgstr "Moyen"
 
 #: PiFinder/ui/log.py:90 PiFinder/ui/log.py:123
 #, fuzzy
 msgid "Poor"
-msgstr "Allumage"
+msgstr "Bas"
 
 #: PiFinder/ui/log.py:96
 #, fuzzy
 msgid "Seeing"
-msgstr "Réglages"
+msgstr "Seeing"
 
 #: PiFinder/ui/log.py:185
 msgid "SAVE Log"
-msgstr ""
+msgstr "Sauvegarde Log"
 
 #: PiFinder/ui/log.py:196
 msgid "Observability"
-msgstr ""
+msgstr "Observation"
 
 #: PiFinder/ui/log.py:209
 msgid "Appeal"
-msgstr ""
+msgstr "Appel"
 
 #: PiFinder/ui/log.py:221
 msgid "Conditions..."
-msgstr ""
+msgstr "Conditions..."
 
 #: PiFinder/ui/log.py:304
 #, fuzzy
 msgid "Logged!"
-msgstr "Alignement"
+msgstr "Connecté"
 
 #: PiFinder/ui/menu_structure.py:19
 #, fuzzy
 msgid "Language: de"
-msgstr "Langage"
+msgstr "Langage : Allemand"
 
 #: PiFinder/ui/menu_structure.py:20
 #, fuzzy
 msgid "Language: en"
-msgstr "Langage: Allemand"
+msgstr "Langage: Anglais"
 
 #: PiFinder/ui/menu_structure.py:21
 #, fuzzy
 msgid "Language: es"
-msgstr "Langage: Anglais"
+msgstr "Langage: Espagnol"
 
 #: PiFinder/ui/menu_structure.py:22
 #, fuzzy
