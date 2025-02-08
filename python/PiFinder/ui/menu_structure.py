@@ -21,6 +21,7 @@ s = _("Language: en")
 s = _("Language: es")
 s = _("Language: fr")
 s = s
+del s
 
 pifinder_menu = {
     "name": "PiFinder",
@@ -886,31 +887,6 @@ pifinder_menu = {
                         },
                     ],
                 },
-                {
-                    "name": _("Language"),
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "language",
-                    "post_callback": callbacks.switch_language,
-                    "items": [
-                        {
-                            "name": _("English"),
-                            "value": "en",
-                        },
-                        {
-                            "name": _("German"),
-                            "value": "de",
-                        },
-                        {
-                            "name": _("French"),
-                            "value": "fr",
-                        },
-                        {
-                            "name": _("Spanish"),
-                            "value": "es",
-                        },
-                    ],
-                },
             ],
         },
         {
@@ -950,6 +926,38 @@ pifinder_menu = {
                                     "callback": callbacks.restart_system,
                                 },
                                 {"name": _("Cancel"), "callback": callbacks.go_back},
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "name": _("Experimental"),
+                    "class": UITextMenu,
+                    "select": "Single",
+                    "items": [
+                        {
+                            "name": _("Language"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "language",
+                            "post_callback": callbacks.switch_language,
+                            "items": [
+                                {
+                                    "name": _("English"),
+                                    "value": "en",
+                                },
+                                {
+                                    "name": _("German"),
+                                    "value": "de",
+                                },
+                                {
+                                    "name": _("French"),
+                                    "value": "fr",
+                                },
+                                {
+                                    "name": _("Spanish"),
+                                    "value": "es",
+                                },
                             ],
                         },
                     ],

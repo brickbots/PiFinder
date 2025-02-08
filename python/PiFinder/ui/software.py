@@ -56,12 +56,12 @@ class UISoftware(UIModule):
             self._release_version = "Unknown"
 
     def update_software(self):
-        self.message("Updating...", 10)
+        self.message(_("Updating..."), 10)
         if sys_utils.update_software():
-            self.message("Ok! Restarting", 10)
+            self.message(_("Ok! Restarting"), 10)
             sys_utils.restart_system()
         else:
-            self.message("Error on Upd", 3)
+            self.message(_("Error on Upd"), 3)
 
     def update(self, force=False):
         # check elipsis count here... if we are at >30 check for
@@ -74,7 +74,7 @@ class UISoftware(UIModule):
         draw_pos = self.display_class.titlebar_height + 2
         self.draw.text(
             (0, draw_pos),
-            f"Wifi Mode: {self._wifi_mode}",
+            _(f"Wifi Mode: {self._wifi_mode}"),
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
@@ -82,7 +82,7 @@ class UISoftware(UIModule):
 
         self.draw.text(
             (0, draw_pos),
-            "Current Version",
+            _("Current Version"),
             font=self.fonts.bold.font,
             fill=self.colors.get(128),
         )
@@ -98,7 +98,7 @@ class UISoftware(UIModule):
 
         self.draw.text(
             (0, draw_pos),
-            "Release Version",
+            _("Release Version"),
             font=self.fonts.bold.font,
             fill=self.colors.get(128),
         )
@@ -114,13 +114,13 @@ class UISoftware(UIModule):
         if self._wifi_mode != "Client":
             self.draw.text(
                 (10, 90),
-                "WiFi must be",
+                _("WiFi must be"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 105),
-                "client mode",
+                _("client mode"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -129,13 +129,13 @@ class UISoftware(UIModule):
         if self._release_version == "-.-.-":
             self.draw.text(
                 (10, 90),
-                "Checking for",
+                _("Checking for"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 105),
-                f"updates{'.' * int(self._elipsis_count / 10)}",
+                _(f"updates{'.' * int(self._elipsis_count / 10)}"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -147,13 +147,13 @@ class UISoftware(UIModule):
         if self._release_version.strip() == self._software_version.strip():
             self.draw.text(
                 (10, 90),
-                "No Update",
+                _("No Update"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 105),
-                "needed",
+                _("needed"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -163,13 +163,13 @@ class UISoftware(UIModule):
         self._go_for_update = True
         self.draw.text(
             (10, 90),
-            "Update Now",
+            _("Update Now"),
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )
         self.draw.text(
             (10, 105),
-            "Cancel",
+            _("Cancel"),
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )

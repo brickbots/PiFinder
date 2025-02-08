@@ -89,6 +89,6 @@ def babel(session: nox.Session) -> None:
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
 
-    session.run("pybabel", "extract", "-o", "locale/messages.pot", ".")
+    session.run("pybabel", "extract", "-c", "TRANSLATORS", "-o", "locale/messages.pot", ".")
     session.run("pybabel", "update", "-i", "locale/messages.pot", "-d", "locale")
     session.run("pybabel", "compile", "-d", "locale")

@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 # mypy: ignore-errors
 """
-This module contains all the UI Module classes
+This module contains the chart (starfield + constellation lines) UI Module class
 
 """
 
@@ -202,13 +202,13 @@ class UIChart(UIModule):
             )
             self.draw.text(
                 (self.display_class.titlebar_height + 2, 20),
-                "Can't plot",
+                _("Can't plot"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (self.display_class.titlebar_height + 2 + self.fonts.large.height, 50),
-                "No Solve Yet",
+                _("No Solve Yet"),
                 font=self.fonts.base.font,
                 fill=self.colors.get(255),
             )

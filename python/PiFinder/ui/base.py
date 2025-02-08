@@ -191,7 +191,7 @@ class UIModule:
                     (6, 1), str(self.fps), font=self.fonts.bold.font, fill=fg
                 )
             else:
-                self.draw.text((6, 1), self.title, font=self.fonts.bold.font, fill=fg)
+                self.draw.text((6, 1), _(self.title), font=self.fonts.bold.font, fill=fg)
             imu = self.shared_state.imu()
             moving = True if imu and imu["pos"] and imu["moving"] else False
 

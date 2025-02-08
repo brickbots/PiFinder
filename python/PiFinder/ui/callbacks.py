@@ -59,7 +59,7 @@ def activate_debug(ui_module: UIModule) -> None:
     add fake gps info
     """
     ui_module.command_queues["camera"].put("debug")
-    ui_module.command_queues["console"].put("Debug: Activated")
+    ui_module.command_queues["console"].put(_("Debug: Activated"))
     dt = datetime.datetime(2024, 6, 1, 2, 0, 0)
     ui_module.shared_state.set_datetime(dt)
     ui_module.message(_("Test Mode"))
@@ -112,7 +112,7 @@ def switch_cam_imx296(ui_module: UIModule) -> None:
 
 
 def switch_cam_imx462(ui_module: UIModule) -> None:
-    ui_module.message("Switching cam", 2)
+    ui_module.message(_("Switching cam"), 2)
     sys_utils.switch_cam_imx462()
     restart_system(ui_module)
 
