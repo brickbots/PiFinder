@@ -258,7 +258,7 @@ class UILog(UIModule):
         log_eyepiece = self.config_object.equipment.active_eyepiece
         if log_eyepiece is None:
             # TRANSLATORS: eyepiece info not available
-            log_eyepiece = _("NA") 
+            log_eyepiece = _("NA")
         else:
             log_eyepiece = f"{log_eyepiece.focal_length_mm}mm {log_eyepiece.name}"
 

@@ -30,7 +30,13 @@ from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     name_deduplicate,
 )
+from typing import Any, TYPE_CHECKING
 
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
+nox
 
 class DisplayModes(Enum):
     """
@@ -183,7 +189,9 @@ class UIObjectList(UITextMenu):
         self.sort()
 
     def sort(self) -> None:
-        message = _(f"Sorting by\n{'number' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'nearby'}")
+        message = _(
+            f"Sorting by\n{'number' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'nearby'}"
+        )
         self.message(message, 0.1)
         self.update()
 
@@ -414,13 +422,17 @@ class UIObjectList(UITextMenu):
             intensity: int = int(64 + ((2.0 - self._current_item_index) * 32.0))
             self.draw.text(
                 (begin_x, self.line_position(0)),
-                _(f"{self.catalog_info_1} obj{f', {self.catalog_info_2}d old' if self.catalog_info_2 else ''}"),
+                _(
+                    f"{self.catalog_info_1} obj{f', {self.catalog_info_2}d old' if self.catalog_info_2 else ''}"
+                ),
                 font=self.fonts.bold.font,
                 fill=self.colors.get(intensity),
             )
             self.draw.text(
                 (begin_x, self.line_position(1)),
-                _(f"Sort: {'Catalog' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'Nearby'}"),
+                _(
+                    f"Sort: {'Catalog' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'Nearby'}"
+                ),
                 font=self.fonts.bold.font,
                 fill=self.colors.get(intensity),
             )
