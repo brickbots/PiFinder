@@ -36,7 +36,6 @@ if TYPE_CHECKING:
 
     def _(a) -> Any:
         return a
-nox
 
 class DisplayModes(Enum):
     """
