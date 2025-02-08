@@ -376,7 +376,7 @@ msgstr "Etoile Double"
 
 #: PiFinder/ui/menu_structure.py:393
 msgid "Knot"
-msgstr ""
+msgstr "Knot"
 
 #: PiFinder/ui/menu_structure.py:397
 msgid "Asterism"
@@ -436,7 +436,7 @@ msgstr "Mise en Sommeil"
 #: PiFinder/ui/menu_structure.py:702 PiFinder/ui/menu_structure.py:726
 #: PiFinder/ui/menu_structure.py:750
 msgid "Off"
-msgstr "Off"
+msgstr "Arret"
 
 #: PiFinder/ui/menu_structure.py:599
 msgid "Menu Anim"
@@ -597,7 +597,7 @@ msgstr "v3 - imx296"
 #: PiFinder/ui/menu_structure.py:884
 #, fuzzy
 msgid "v3 - imx462"
-msgstr "v3 - imx296"
+msgstr "v3 - imx462"
 
 #: PiFinder/ui/menu_structure.py:893
 msgid "Tools"
@@ -633,7 +633,7 @@ msgstr "Redémarrage"
 
 #: PiFinder/ui/menu_structure.py:934
 msgid "Experimental"
-msgstr ""
+msgstr "Experimental"
 
 #: PiFinder/ui/menu_structure.py:939
 #, fuzzy
@@ -667,21 +667,21 @@ msgstr "Réglages"
 
 #: PiFinder/ui/object_details.py:275
 msgid "Calculating"
-msgstr ""
+msgstr "Calcul en cours"
 
 #: PiFinder/ui/object_details.py:454
 msgid "Too Far"
-msgstr ""
+msgstr "Trop loin"
 
 #: PiFinder/ui/object_list.py:402
 #, fuzzy
 msgid "No objects"
-msgstr "Objets"
+msgstr "Pas d'objets"
 
 #: PiFinder/ui/object_list.py:408
 #, fuzzy
 msgid "match filter"
-msgstr "Filtre"
+msgstr "Filtre de rech."
 
 #: PiFinder/ui/software.py:59
 #, fuzzy
@@ -691,19 +691,19 @@ msgstr "Redémarrage"
 #: PiFinder/ui/software.py:61
 #, fuzzy
 msgid "Ok! Restarting"
-msgstr "Redémarrage"
+msgstr "Ok! Redémarrage"
 
 #: PiFinder/ui/software.py:64
 msgid "Error on Upd"
-msgstr ""
+msgstr "Erreur de mise à jour"
 
 #: PiFinder/ui/software.py:85
 msgid "Current Version"
-msgstr ""
+msgstr "Version courante"
 
 #: PiFinder/ui/software.py:101
 msgid "Release Version"
-msgstr ""
+msgstr "Version disponible"
 
 #: PiFinder/ui/software.py:117
 #, fuzzy
@@ -717,25 +717,25 @@ msgstr "Mode Test"
 
 #: PiFinder/ui/software.py:132
 msgid "Checking for"
-msgstr ""
+msgstr "Vérification"
 
 #: PiFinder/ui/software.py:150
 msgid "No Update"
-msgstr ""
+msgstr "Pas de mise à jour"
 
 #: PiFinder/ui/software.py:156
 msgid "needed"
-msgstr ""
+msgstr "Necessaire"
 
 #: PiFinder/ui/software.py:166
 msgid "Update Now"
-msgstr ""
+msgstr "Mise à jour maintenant"
 
-#~ msgid "Language: Spanish)"
+#~ msgid "Language: Spanish"
 #~ msgstr "Langage: Espagnol"
 
 #~ msgid "Nearest"
-#~ msgstr ""
+#~ msgstr "Plus prêt"
 
 #~ msgid "Standard"
 #~ msgstr "Redémarrage"
