@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-02-08 17:15+0100\n"
+"POT-Creation-Date: 2025-02-08 17:26+0100\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: Jens Scheidtmann\n"
 "Language: de_DE\n"
@@ -31,7 +31,7 @@ msgid "Can't plot"
 msgstr "keine Just."
 
 #: PiFinder/ui/align.py:220 PiFinder/ui/chart.py:211 PiFinder/ui/log.py:174
-#: PiFinder/ui/object_list.py:192 PiFinder/ui/object_list.py:212
+#: PiFinder/ui/object_list.py:199 PiFinder/ui/object_list.py:219
 msgid "No Solve Yet"
 msgstr "ohne Position"
 
@@ -109,7 +109,7 @@ msgstr "Transparenz"
 #. TRANSLATORS: eyepiece info not available
 #: PiFinder/ui/log.py:70 PiFinder/ui/log.py:103 PiFinder/ui/log.py:261
 msgid "NA"
-msgstr "∅"
+msgstr "Nicht eingetragen"
 
 #: PiFinder/ui/log.py:74 PiFinder/ui/log.py:107
 msgid "Excellent"
@@ -649,11 +649,11 @@ msgstr "berechnen..."
 msgid "Too Far"
 msgstr "zu weit"
 
-#: PiFinder/ui/object_list.py:395
+#: PiFinder/ui/object_list.py:402
 msgid "No objects"
 msgstr "Keine Objekte"
 
-#: PiFinder/ui/object_list.py:401
+#: PiFinder/ui/object_list.py:408
 msgid "match filter"
 msgstr "gefiltert"
 
