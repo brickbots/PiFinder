@@ -1,10 +1,11 @@
-wait 4
+wait 12
 # Get into debug mode
 DOWN
 DOWN
 DOWN
 DOWN
 RIGHT
+DOWN
 DOWN
 DOWN
 DOWN

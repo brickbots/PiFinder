@@ -14,6 +14,36 @@ from PiFinder.ui.base import UIModule
 sys_utils = utils.get_sys_utils()
 
 
+def update_needed(current_version: str, repo_version: str) -> bool:
+    """
+    Returns true if an update is available
+
+    Update is available if semvar of repo_version is > current_version
+    Also returns True on error to allow be biased towards allowing
+    updates if issues
+    """
+    try:
+        _tmp_split = current_version.split(".")
+        current_version_compare = (
+            int(_tmp_split[0]),
+            int(_tmp_split[1]),
+            int(_tmp_split[2]),
+        )
+
+        _tmp_split = repo_version.split(".")
+        repo_version_compare = (
+            int(_tmp_split[0]),
+            int(_tmp_split[1]),
+            int(_tmp_split[2]),
+        )
+
+        # tuples compare in signifcance from first to last element
+        return repo_version_compare > current_version_compare
+
+    except Exception:
+        return True
+
+
 class UISoftware(UIModule):
     """
     UI for updating software versions
@@ -40,7 +70,6 @@ class UISoftware(UIModule):
         Fetches current release version from
         github, sets class variable if found
         """
-
         try:
             res = requests.get(
                 "https://raw.githubusercontent.com/brickbots/PiFinder/release/version.txt"
@@ -64,11 +93,6 @@ class UISoftware(UIModule):
             self.message(_("Error on Upd"), 3)
 
     def update(self, force=False):
-        # check elipsis count here... if we are at >30 check for
-        # release versions
-        if self._elipsis_count > 30:
-            self.get_release_version()
-
         time.sleep(1 / 30)
         self.clear_screen()
         draw_pos = self.display_class.titlebar_height + 2
@@ -127,6 +151,10 @@ class UISoftware(UIModule):
             return self.screen_update()
 
         if self._release_version == "-.-.-":
+            # check elipsis count here... if we are at >30 check for
+            # release versions
+            if self._elipsis_count > 30:
+                self.get_release_version()
             self.draw.text(
                 (10, 90),
                 _("Checking for"),
@@ -144,7 +172,9 @@ class UISoftware(UIModule):
                 self._elipsis_count = 0
             return self.screen_update()
 
-        if self._release_version.strip() == self._software_version.strip():
+        if not update_needed(
+            self._software_version.strip(), self._release_version.strip()
+        ):
             self.draw.text(
                 (10, 90),
                 _("No Update"),
