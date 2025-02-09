@@ -1,4 +1,4 @@
-# French (France) translations for PROJECT.
+t# French (France) translations for PROJECT.
 # Copyright (C) 2025 ORGANIZATION
 # This file is distributed under the same license as the PROJECT project.
 # FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
@@ -363,7 +363,7 @@ msgstr "Nébuleuse"
 #: PiFinder/ui/menu_structure.py:381
 #, fuzzy
 msgid "Star"
-msgstr "Redémarrage"
+msgstr "Etoile"
 
 #: PiFinder/ui/menu_structure.py:385
 msgid "Double Str"
@@ -512,7 +512,7 @@ msgstr "Degrés"
 
 #: PiFinder/ui/menu_structure.py:766
 msgid "Camera Exp"
-msgstr "Expo Caméra"
+msgstr "Expo. Caméra"
 
 #: PiFinder/ui/menu_structure.py:774
 msgid "0.025s"
