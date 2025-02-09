@@ -165,7 +165,7 @@ msgstr "Connecté"
 #: PiFinder/ui/menu_structure.py:19
 #, fuzzy
 msgid "Language: de"
-msgstr "Langage : Allemand"
+msgstr "Langage: Allemand"
 
 #: PiFinder/ui/menu_structure.py:20
 #, fuzzy
@@ -208,11 +208,11 @@ msgstr "Par catalogue"
 
 #: PiFinder/ui/menu_structure.py:64 PiFinder/ui/menu_structure.py:245
 msgid "Planets"
-msgstr "Planetes"
+msgstr "Planètes"
 
 #: PiFinder/ui/menu_structure.py:70
 msgid "Comets"
-msgstr "Cometes"
+msgstr "Comètes"
 
 #: PiFinder/ui/menu_structure.py:76 PiFinder/ui/menu_structure.py:147
 #: PiFinder/ui/menu_structure.py:249 PiFinder/ui/menu_structure.py:299
@@ -357,7 +357,7 @@ msgstr "Nébuleuse Planétaire"
 #: PiFinder/ui/menu_structure.py:377
 #, fuzzy
 msgid "Dark Nebula"
-msgstr "Nébuleuse"
+msgstr "Nébuleuse obscure"
 
 #: PiFinder/ui/menu_structure.py:381
 #, fuzzy
@@ -383,12 +383,12 @@ msgstr "Asterisme"
 
 #: PiFinder/ui/menu_structure.py:401
 msgid "Planet"
-msgstr "Planete"
+msgstr "Planète"
 
 #: PiFinder/ui/menu_structure.py:405
 #, fuzzy
 msgid "Comet"
-msgstr "Cometes"
+msgstr "Comètes"
 
 #: PiFinder/ui/menu_structure.py:411
 msgid "Altitude"
@@ -632,7 +632,7 @@ msgstr "Redémarrage"
 
 #: PiFinder/ui/menu_structure.py:934
 msgid "Experimental"
-msgstr "Experimental"
+msgstr "Expèrimental"
 
 #: PiFinder/ui/menu_structure.py:939
 #, fuzzy
@@ -707,12 +707,12 @@ msgstr "Version disponible"
 #: PiFinder/ui/software.py:117
 #, fuzzy
 msgid "WiFi must be"
-msgstr "Mode Wifi"
+msgstr "Wifi obligatoire"
 
 #: PiFinder/ui/software.py:123
 #, fuzzy
 msgid "client mode"
-msgstr "Mode Test"
+msgstr "Mode client"
 
 #: PiFinder/ui/software.py:132
 msgid "Checking for"
