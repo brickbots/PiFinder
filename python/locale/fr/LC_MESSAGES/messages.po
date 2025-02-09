@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-02-09 10:37+0100\n"
+"POT-Creation-Date: 2025-02-09 18:27+0100\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: xxxxxx <xxxxx@xxxxx.com>\n"
 "Language: fr_FR\n"
@@ -317,7 +317,7 @@ msgid "Confirm"
 msgstr "Confirmation"
 
 #: PiFinder/ui/menu_structure.py:235 PiFinder/ui/menu_structure.py:928
-#: PiFinder/ui/software.py:172
+#: PiFinder/ui/software.py:202
 msgid "Cancel"
 msgstr "Abandon"
 
@@ -682,51 +682,51 @@ msgstr "Pas d'objets"
 msgid "match filter"
 msgstr "Filtre de rech."
 
-#: PiFinder/ui/software.py:59
+#: PiFinder/ui/software.py:88
 #, fuzzy
 msgid "Updating..."
 msgstr "Redémarrage"
 
-#: PiFinder/ui/software.py:61
+#: PiFinder/ui/software.py:90
 #, fuzzy
 msgid "Ok! Restarting"
 msgstr "Ok! Redémarrage"
 
-#: PiFinder/ui/software.py:64
+#: PiFinder/ui/software.py:93
 msgid "Error on Upd"
 msgstr "Erreur de mise à jour"
 
-#: PiFinder/ui/software.py:85
+#: PiFinder/ui/software.py:109
 msgid "Current Version"
 msgstr "Version courante"
 
-#: PiFinder/ui/software.py:101
+#: PiFinder/ui/software.py:125
 msgid "Release Version"
 msgstr "Version disponible"
 
-#: PiFinder/ui/software.py:117
+#: PiFinder/ui/software.py:141
 #, fuzzy
 msgid "WiFi must be"
 msgstr "Wifi obligatoire"
 
-#: PiFinder/ui/software.py:123
+#: PiFinder/ui/software.py:147
 #, fuzzy
 msgid "client mode"
 msgstr "Mode client"
 
-#: PiFinder/ui/software.py:132
+#: PiFinder/ui/software.py:160
 msgid "Checking for"
 msgstr "Vérification"
 
-#: PiFinder/ui/software.py:150
+#: PiFinder/ui/software.py:180
 msgid "No Update"
 msgstr "Pas de mise à jour"
 
-#: PiFinder/ui/software.py:156
+#: PiFinder/ui/software.py:186
 msgid "needed"
 msgstr "Necessaire"
 
-#: PiFinder/ui/software.py:166
+#: PiFinder/ui/software.py:196
 msgid "Update Now"
 msgstr "Mise à jour maintenant"
 
