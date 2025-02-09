@@ -118,7 +118,7 @@ class UIAlign(UIModule):
 
         if not self.align_mode:
             self.reticle_position = self.starfield.radec_to_xy(
-                self.solution["RA_target"], self.solution["Dec_target"]
+                self.solution["RA"], self.solution["Dec"]
             )
 
         x_pos = round(self.reticle_position[0])
@@ -190,9 +190,9 @@ class UIAlign(UIModule):
                 # We want to use the CAMERA center here as we'll be moving
                 # the reticle to the star
                 image_obj, self.visible_stars = self.starfield.plot_starfield(
-                    self.solution["RA_camera"],
-                    self.solution["Dec_camera"],
-                    self.solution["Roll_camera"],
+                    self.solution["camera_center"]["RA"],
+                    self.solution["camera_center"]["Dec"],
+                    self.solution["camera_center"]["Roll"],
                     constellation_brightness,
                     shade_frustrum=True,
                 )
@@ -202,7 +202,9 @@ class UIAlign(UIModule):
                 self.screen.paste(image_obj)
 
                 self.last_update = last_solve_time
-                self.draw_reticle()
+                # draw_reticle if we have a camera solve
+                if self.solution["solve_source"]=="CAM":
+                    self.draw_reticle()
 
         else:
             self.draw.rectangle(
@@ -318,12 +320,12 @@ class UIAlign(UIModule):
         return
 
     def key_plus(self):
-        if not self.align_mode:
-            self.change_fov(-1)
+        #if not self.align_mode:
+        self.change_fov(-1)
 
     def key_minus(self):
-        if not self.align_mode:
-            self.change_fov(1)
+        #if not self.align_mode:
+        self.change_fov(1)
 
     def key_square(self):
         if self.align_mode:
