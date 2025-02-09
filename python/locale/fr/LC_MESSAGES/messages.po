@@ -27,7 +27,7 @@ msgstr "Alignement en cours"
 
 #: PiFinder/ui/align.py:214 PiFinder/ui/chart.py:205
 msgid "Can't plot"
-msgstr "Peux pas aligner"
+msgstr "Peux pas pointer"
 
 #: PiFinder/ui/align.py:220 PiFinder/ui/chart.py:211 PiFinder/ui/log.py:174
 #: PiFinder/ui/object_list.py:199 PiFinder/ui/object_list.py:219
