@@ -108,6 +108,7 @@ class UIAlign(UIModule):
             down=MarkingMenuOption(),
             right=MarkingMenuOption(),
         )
+
     def draw_reticle(self):
         """
         draw the reticle if desired
@@ -249,11 +250,13 @@ class UIAlign(UIModule):
                 # draw the help text
                 if not self.align_mode:
                     # Prompt to start align
-                    hint_text = "Start Align"
+                    hint_text = f"  {self._SQUARE_} START ALIGN"
+                elif self.alignment_star is None:
+                    hint_text = f"{self._ARROWS_} SELECT STAR"
                 else:
-                    hint_text = "Pick Star"
+                    hint_text = f"{self._SQUARE_} SAVE / 0 CANCEL"
                 self.draw.text(
-                    (5,self.display_class.resY - self.fonts.base.height),
+                    (15, self.display_class.resY - self.fonts.base.height - 2),
                     hint_text,
                     font=self.fonts.base.font,
                     fill=self.colors.get(255),
@@ -265,13 +268,19 @@ class UIAlign(UIModule):
                 fill=self.colors.get(0),
             )
             self.draw.text(
-                (20,self.display_class.titlebar_height + 10),
+                (16, self.display_class.titlebar_height + 10),
                 "Can't plot",
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (30,self.display_class.titlebar_height + 10 + self.fonts.large.height + 4),
+                (
+                    26,
+                    self.display_class.titlebar_height
+                    + 10
+                    + self.fonts.large.height
+                    + 4,
+                ),
                 "No Solve Yet",
                 font=self.fonts.base.font,
                 fill=self.colors.get(255),
@@ -373,11 +382,11 @@ class UIAlign(UIModule):
         return
 
     def key_plus(self):
-        #if not self.align_mode:
+        # if not self.align_mode:
         self.change_fov(-1)
 
     def key_minus(self):
-        #if not self.align_mode:
+        # if not self.align_mode:
         self.change_fov(1)
 
     def key_square(self):
