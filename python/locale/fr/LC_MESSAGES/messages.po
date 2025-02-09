@@ -38,7 +38,7 @@ msgstr "Pas d'astrometrie"
 #: PiFinder/ui/align.py:333 PiFinder/ui/object_details.py:444
 #, fuzzy
 msgid "Aligning..."
-msgstr "Alignement"
+msgstr "Alignement..."
 
 #: PiFinder/ui/align.py:341 PiFinder/ui/object_details.py:452
 #, fuzzy
