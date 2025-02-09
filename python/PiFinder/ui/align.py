@@ -97,7 +97,7 @@ class UIAlign(UIModule):
         self.visible_stars = None
         self.star_list = np.empty((0, 2))
         self.alignment_star = None
-        self.reticle_position = (
+        self.marker_position = (
             self.config_object.get_option("solve_pixel", (256, 256))[1] / 4,
             self.config_object.get_option("solve_pixel", (256, 256))[0] / 4,
         )
@@ -117,7 +117,7 @@ class UIAlign(UIModule):
             # None....
             return
 
-        self.reticle_position = self.starfield.radec_to_xy(
+        reticle_position = self.starfield.radec_to_xy(
             self.solution["RA"], self.solution["Dec"]
         )
 
@@ -125,10 +125,10 @@ class UIAlign(UIModule):
         for circ_deg in [4, 2, 0.5]:
             circ_rad = ((circ_deg / fov) * self.display_class.fov_res) / 2
             bbox = [
-                self.reticle_position[0] - circ_rad,
-                self.reticle_position[1] - circ_rad,
-                self.reticle_position[0] + circ_rad,
-                self.reticle_position[1] + circ_rad,
+                reticle_position[0] - circ_rad,
+                reticle_position[1] - circ_rad,
+                reticle_position[0] + circ_rad,
+                reticle_position[1] + circ_rad,
             ]
             self.draw.arc(bbox, 20, 70, fill=self.colors.get(brightness))
             self.draw.arc(bbox, 110, 160, fill=self.colors.get(brightness))
@@ -142,8 +142,14 @@ class UIAlign(UIModule):
         if not self.solution:
             return
 
-        x_pos = round(self.reticle_position[0])
-        y_pos = round(self.reticle_position[1])
+        if self.alignment_star is not None:
+            # update the marker position
+            self.marker_position = self.starfield.radec_to_xy(
+                self.alignment_star["ra_degrees"], self.alignment_star["dec_degrees"]
+            )
+
+        x_pos = round(self.marker_position[0])
+        y_pos = round(self.marker_position[1])
 
         # Draw cross
         self.draw.line(
@@ -219,7 +225,6 @@ class UIAlign(UIModule):
                         constellation_brightness,
                         shade_frustrum=True,
                     )
-                    print(self.visible_stars)
                 else:
                     image_obj, self.visible_stars = self.starfield.plot_starfield(
                         self.solution["camera_center"]["RA"],
@@ -241,19 +246,32 @@ class UIAlign(UIModule):
                 else:
                     self.draw_reticle()
 
+                # draw the help text
+                if not self.align_mode:
+                    # Prompt to start align
+                    hint_text = "Start Align"
+                else:
+                    hint_text = "Pick Star"
+                self.draw.text(
+                    (5,self.display_class.resY - self.fonts.base.height),
+                    hint_text,
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(255),
+                )
+
         else:
             self.draw.rectangle(
                 [0, 0, self.display_class.resX, self.display_class.resY],
                 fill=self.colors.get(0),
             )
             self.draw.text(
-                (self.display_class.titlebar_height + 2, 20),
+                (20,self.display_class.titlebar_height + 10),
                 "Can't plot",
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (self.display_class.titlebar_height + 2 + self.fonts.large.height, 50),
+                (30,self.display_class.titlebar_height + 10 + self.fonts.large.height + 4),
                 "No Solve Yet",
                 font=self.fonts.base.font,
                 fill=self.colors.get(255),
@@ -293,20 +311,20 @@ class UIAlign(UIModule):
         ]
         if direction == "up":
             candidate_stars = candidate_stars[
-                (candidate_stars["y_pos"] < self.reticle_position[1] - offset_bias)
+                (candidate_stars["y_pos"] < self.marker_position[1] - offset_bias)
             ]
         if direction == "down":
             candidate_stars = candidate_stars[
-                (candidate_stars["y_pos"] > self.reticle_position[1] + offset_bias)
+                (candidate_stars["y_pos"] > self.marker_position[1] + offset_bias)
             ]
         if direction == "left":
             candidate_stars = candidate_stars[
-                (candidate_stars["x_pos"] < self.reticle_position[0] - offset_bias)
+                (candidate_stars["x_pos"] < self.marker_position[0] - offset_bias)
             ]
 
         if direction == "right":
             candidate_stars = candidate_stars[
-                (candidate_stars["x_pos"] > self.reticle_position[0] + offset_bias)
+                (candidate_stars["x_pos"] > self.marker_position[0] + offset_bias)
             ]
 
         if len(candidate_stars) == 0:
@@ -315,8 +333,8 @@ class UIAlign(UIModule):
         # calculate distance in screen space
         candidate_stars = candidate_stars.assign(
             distance=np.hypot(
-                candidate_stars["x_pos"] - self.reticle_position[0],
-                candidate_stars["y_pos"] - self.reticle_position[1],
+                candidate_stars["x_pos"] - self.marker_position[0],
+                candidate_stars["y_pos"] - self.marker_position[1],
             )
         )
 
@@ -327,8 +345,8 @@ class UIAlign(UIModule):
         found_star = False
         for i in range(len(candidate_stars)):
             test_star = candidate_stars.iloc[i]
-            x_delta = abs(test_star["x_pos"] - self.reticle_position[0])
-            y_delta = abs(test_star["y_pos"] - self.reticle_position[1])
+            x_delta = abs(test_star["x_pos"] - self.marker_position[0])
+            y_delta = abs(test_star["y_pos"] - self.marker_position[1])
 
             if direction == "up" or direction == "down":
                 if y_delta > x_delta:
@@ -345,7 +363,7 @@ class UIAlign(UIModule):
         if not found_star:
             self.alignment_star = candidate_stars.iloc[0]
 
-        self.reticle_position = (
+        self.marker_position = (
             self.alignment_star["x_pos"],
             self.alignment_star["y_pos"],
         )
@@ -406,7 +424,7 @@ class UIAlign(UIModule):
                 # reset reticle to center
                 self.shared_state.set_solve_pixel((256, 256))
                 self.config_object.set_option("solve_pixel", (256, 256))
-                self.reticle_position = (64, 64)
+                self.marker_position = (64, 64)
                 self.update(force=True)
                 self.align_mode = False
             if number == 0:
