@@ -3,6 +3,10 @@ A plate solving telescope finder based around a Raspberry PI, imx296 camera, and
 
 For an overview of what the PiFinder™ is and how it came to be visit the official project website at [PiFinder.io](https://www.pifinder.io/build-yours) 
 
+The PiFinder™ uses the [Ceder Detect](https://github.com/smroid/cedar-detect) and
+[Cedar Solve](https://github.com/smroid/cedar-solve) libraries with express permission.
+Thank you to [smroid] for all your support of the PiFinder project!
+
 ![Banner](./docs/source/images/PiFinder_v3_banner.png)
 The PiFinder™ is my attempt to improve my time at my telescope.  I don't get nearly enough of it and I want to enjoy it as much as possible.  So after years of observing with paper charts and, later, a Nexus DSC here is what I felt I was missing:
 * **Reliable telescope positioning:**  The Nexus DSC is great, but my scope just isn't built for solid encoder integration.  The slop in the way I have to couple the encoders means poor pointing accuracy.
@@ -45,4 +49,3 @@ If you'd like to learn more about how it works, and potentially build your own, 
 ## Discord
 Join the  [PiFinder™ Discord server](https://discord.gg/Nk5fHcAtWD) for support with your build, usage questions, and suggestions for improvement.
 
-<a href='https://ko-fi.com/brickbots' target='_blank'><img height='35' style='border:0px;height:46px;' src='https://az743702.vo.msecnd.net/cdn/kofi3.png?v=0' border='0' alt='Buy Me a Coffee at ko-fi.com' />

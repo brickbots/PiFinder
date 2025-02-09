@@ -7,6 +7,7 @@ from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
+from PiFinder.ui.equipment import UIEquipment
 import PiFinder.ui.callbacks as callbacks
 
 pifinder_menu = {
@@ -18,6 +19,12 @@ pifinder_menu = {
         {
             "name": "Camera",
             "class": UIPreview,
+        },
+        {
+            "name": "Align",
+            "class": UIAlign,
+            "stateful": True,
+            "preload": True,
         },
         {
             "name": "Chart",
@@ -45,6 +52,12 @@ pifinder_menu = {
                             "class": UIObjectList,
                             "objects": "catalog",
                             "value": "PL",
+                        },
+                        {
+                            "name": "Comets",
+                            "class": UIObjectList,
+                            "objects": "catalog",
+                            "value": "CM",
                         },
                         {
                             "name": "NGC",
@@ -213,7 +226,7 @@ pifinder_menu = {
                     "name": "Catalogs",
                     "class": UITextMenu,
                     "select": "multi",
-                    "config_option": "active_catalogs",
+                    "config_option": "filter.selected_catalogs",
                     "items": [
                         {
                             "name": "Planets",
@@ -231,7 +244,7 @@ pifinder_menu = {
                             "name": "DSO...",
                             "class": UITextMenu,
                             "select": "multi",
-                            "config_option": "active_catalogs",
+                            "config_option": "filter.selected_catalogs",
                             "items": [
                                 {
                                     "name": "Abell Pn",
@@ -287,7 +300,7 @@ pifinder_menu = {
                             "name": "Stars...",
                             "class": UITextMenu,
                             "select": "multi",
-                            "config_option": "active_catalogs",
+                            "config_option": "filter.selected_catalogs",
                             "items": [
                                 {
                                     "name": "Bright Named",
@@ -332,6 +345,10 @@ pifinder_menu = {
                             "value": "OC",
                         },
                         {
+                            "name": "Cluster/Neb",
+                            "value": "C+N",
+                        },
+                        {
                             "name": "Globular",
                             "value": "Gb",
                         },
@@ -341,11 +358,27 @@ pifinder_menu = {
                         },
                         {
                             "name": "P. Nebula",
-                            "value": "Pl",
+                            "value": "PN",
+                        },
+                        {
+                            "name": "Dark Nebula",
+                            "value": "DN",
+                        },
+                        {
+                            "name": "Star",
+                            "value": "*",
                         },
                         {
                             "name": "Double Str",
                             "value": "D*",
+                        },
+                        {
+                            "name": "Triple Str",
+                            "value": "***",
+                        },
+                        {
+                            "name": "Knot",
+                            "value": "Kt",
                         },
                         {
                             "name": "Asterism",
@@ -354,6 +387,10 @@ pifinder_menu = {
                         {
                             "name": "Planet",
                             "value": "Pla",
+                        },
+                        {
+                            "name": "Comet",
+                            "value": "CM",
                         },
                     ],
                 },
@@ -593,6 +630,23 @@ pifinder_menu = {
                                 },
                             ],
                         },
+                        {
+                            "name": "Az Arrows",
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "pushto_az_arrows",
+                            "label": "pushto_az_arrows",
+                            "items": [
+                                {
+                                    "name": "Default",
+                                    "value": "Default",
+                                },
+                                {
+                                    "name": "Reverse",
+                                    "value": "Reverse",
+                                },
+                            ],
+                        },
                     ],
                 },
                 {
@@ -737,9 +791,18 @@ pifinder_menu = {
                     "name": "WiFi Mode",
                     "class": UITextMenu,
                     "select": "single",
+                    "value_callback": callbacks.get_wifi_mode,
                     "items": [
-                        {"name": "Client Mode", "callback": callbacks.go_wifi_cli},
-                        {"name": "AP Mode", "callback": callbacks.go_wifi_ap},
+                        {
+                            "name": "Client Mode",
+                            "value": "Client",
+                            "callback": callbacks.go_wifi_cli,
+                        },
+                        {
+                            "name": "AP Mode",
+                            "value": "AP",
+                            "callback": callbacks.go_wifi_ap,
+                        },
                     ],
                 },
                 {
@@ -792,14 +855,22 @@ pifinder_menu = {
                     "name": "Camera Type",
                     "class": UITextMenu,
                     "select": "single",
+                    "value_callback": callbacks.get_camera_type,
                     "items": [
                         {
                             "name": "v2 - imx477",
                             "callback": callbacks.switch_cam_imx477,
+                            "value": "imx477",
                         },
                         {
                             "name": "v3 - imx296",
                             "callback": callbacks.switch_cam_imx296,
+                            "value": "imx296",
+                        },
+                        {
+                            "name": "v3 - imx462",
+                            "callback": callbacks.switch_cam_imx462,
+                            "value": "imx462",
                         },
                     ],
                 },
@@ -811,29 +882,38 @@ pifinder_menu = {
             "select": "single",
             "items": [
                 {"name": "Status", "class": UIStatus},
+                {"name": "Equipment", "class": UIEquipment, "label": "equipment"},
                 {"name": "Console", "class": UIConsole},
                 {"name": "Software Upd", "class": UISoftware},
                 {"name": "Test Mode", "callback": callbacks.activate_debug},
                 {
-                    "name": "Shutdown",
+                    "name": "Power",
                     "class": UITextMenu,
                     "select": "Single",
-                    "label": "shutdown",
-                    "items": [
-                        {"name": "Confirm", "callback": callbacks.shutdown},
-                        {"name": "Cancel", "callback": callbacks.go_back},
-                    ],
-                },
-                {
-                    "name": "Experimental",
-                    "class": UITextMenu,
-                    "select": "Single",
+                    "label": "power",
                     "items": [
                         {
-                            "name": "Align",
-                            "class": UIAlign,
-                            "stateful": True,
-                            "preload": True,
+                            "name": "Shutdown",
+                            "class": UITextMenu,
+                            "select": "Single",
+                            "label": "shutdown",
+                            "items": [
+                                {"name": "Confirm", "callback": callbacks.shutdown},
+                                {"name": "Cancel", "callback": callbacks.go_back},
+                            ],
+                        },
+                        {
+                            "name": "Restart",
+                            "class": UITextMenu,
+                            "select": "Single",
+                            "label": "restart",
+                            "items": [
+                                {
+                                    "name": "Confirm",
+                                    "callback": callbacks.restart_system,
+                                },
+                                {"name": "Cancel", "callback": callbacks.go_back},
+                            ],
                         },
                     ],
                 },

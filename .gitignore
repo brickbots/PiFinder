@@ -52,7 +52,6 @@ coverage.xml
 .pytest_cache/
 
 # Translations
-*.mo
 *.pot
 
 # Django stuff:
@@ -139,6 +138,7 @@ kicad/PiFinder/PiFinder-backups
 .obsidian
 *.ps?
 config.json
+astro_data/hip_main.dat
 
 # 3d printing business
 *.3mf

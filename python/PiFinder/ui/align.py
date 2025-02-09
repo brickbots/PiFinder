@@ -24,6 +24,14 @@ def align_on_radec(ra, dec, command_queues, config_object, shared_state) -> bool
     * Set the config item and the shared state
     * return the pixel or -1/-1 for error
     """
+
+    # Clear out any pending responses
+    while True:
+        try:
+            command = command_queues["align_response"].get(block=False)
+        except queue.Empty:
+            break
+
     # Send command to solver to work out the camera pixel for this target
     command_queues["align_command"].put(
         [
@@ -36,9 +44,17 @@ def align_on_radec(ra, dec, command_queues, config_object, shared_state) -> bool
     received_response = False
     start_time = time.time()
     while not received_response:
-        # only wait a second
-        if time.time() - start_time > 1:
-            return (-1, -1)
+        # only wait two seconds
+        if time.time() - start_time > 2:
+            command_queues["align_command"].put(
+                [
+                    "align_cancel",
+                    ra,
+                    dec,
+                ]
+            )
+            command_queues["console"].put("Align Timeout")
+            return False
 
         try:
             command = command_queues["align_response"].get(block=False)
@@ -55,6 +71,7 @@ def align_on_radec(ra, dec, command_queues, config_object, shared_state) -> bool
         return False
 
     # success, set all the things...
+    command_queues["console"].put("Alignment Set")
     shared_state.set_solve_pixel(target_pixel)
     config_object.set_option("solve_pixel", target_pixel)
     return True
@@ -81,17 +98,14 @@ class UIAlign(UIModule):
         self.star_list = np.empty((0, 2))
         self.alignment_star = None
         self.reticle_position = (
-            self.config_object.get_option("solve_pixel", (256, 256))[0] / 4,
             self.config_object.get_option("solve_pixel", (256, 256))[1] / 4,
+            self.config_object.get_option("solve_pixel", (256, 256))[0] / 4,
         )
 
         # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(),
-            down=MarkingMenuOption(
-                label="Options",
-                menu_jump="chart_settings",
-            ),
+            down=MarkingMenuOption(),
             right=MarkingMenuOption(),
         )
 
@@ -104,7 +118,7 @@ class UIAlign(UIModule):
 
         if not self.align_mode:
             self.reticle_position = self.starfield.radec_to_xy(
-                self.solution["RA"], self.solution["Dec"]
+                self.solution["RA_target"], self.solution["Dec_target"]
             )
 
         x_pos = round(self.reticle_position[0])
@@ -163,9 +177,7 @@ class UIAlign(UIModule):
 
         if self.shared_state.solve_state():
             self.animate_fov()
-            constellation_brightness = self.config_object.get_option(
-                "chart_constellations", 64
-            )
+            constellation_brightness = 64
             self.solution = self.shared_state.solution()
             last_solve_time = self.solution["solve_time"]
             if (
@@ -182,6 +194,7 @@ class UIAlign(UIModule):
                     self.solution["Dec_camera"],
                     self.solution["Roll_camera"],
                     constellation_brightness,
+                    shade_frustrum=True,
                 )
                 image_obj = ImageChops.multiply(
                     image_obj.convert("RGB"), self.colors.red_image
@@ -189,7 +202,7 @@ class UIAlign(UIModule):
                 self.screen.paste(image_obj)
 
                 self.last_update = last_solve_time
-            self.draw_reticle()
+                self.draw_reticle()
 
         else:
             self.draw.rectangle(
@@ -275,7 +288,6 @@ class UIAlign(UIModule):
         # look for stars that are within the 'cone' of the
         # direction pressed
         found_star = False
-        print(self.reticle_position)
         for i in range(len(candidate_stars)):
             test_star = candidate_stars.iloc[i]
             x_delta = abs(test_star["x_pos"] - self.reticle_position[0])
@@ -294,7 +306,6 @@ class UIAlign(UIModule):
                     break
 
         if not found_star:
-            print("Fallback")
             self.alignment_star = candidate_stars.iloc[0]
 
         self.reticle_position = (
@@ -307,10 +318,12 @@ class UIAlign(UIModule):
         return
 
     def key_plus(self):
-        self.change_fov(-1)
+        if not self.align_mode:
+            self.change_fov(-1)
 
     def key_minus(self):
-        self.change_fov(1)
+        if not self.align_mode:
+            self.change_fov(1)
 
     def key_square(self):
         if self.align_mode:

@@ -16,6 +16,7 @@ from PiFinder.image_util import make_red
 from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
 from PiFinder.ui.marking_menus import MarkingMenu
+from PiFinder.catalogs import Catalogs
 
 
 class UIModule:
@@ -43,10 +44,11 @@ class UIModule:
         shared_state,
         command_queues,
         config_object,
-        catalogs=None,
+        catalogs: Catalogs,
         item_definition={},
         add_to_stack=None,
         remove_from_stack=None,
+        jump_to_label=None,
     ):
         assert shared_state is not None
         self.title = self.__title__
@@ -60,6 +62,7 @@ class UIModule:
         self.command_queues = command_queues
         self.add_to_stack = add_to_stack
         self.remove_from_stack = remove_from_stack
+        self.jump_to_label = jump_to_label
 
         # mode stuff
         self._display_mode_cycle = cycle(self._display_mode_list)
