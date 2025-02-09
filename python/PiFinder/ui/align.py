@@ -108,18 +108,39 @@ class UIAlign(UIModule):
             down=MarkingMenuOption(),
             right=MarkingMenuOption(),
         )
-
     def draw_reticle(self):
+        """
+        draw the reticle if desired
+        """
+        brightness = self.config_object.get_option("chart_reticle", 128)
+        if brightness == 0:
+            # None....
+            return
+
+        self.reticle_position = self.starfield.radec_to_xy(
+            self.solution["RA"], self.solution["Dec"]
+        )
+
+        fov = self.fov
+        for circ_deg in [4, 2, 0.5]:
+            circ_rad = ((circ_deg / fov) * self.display_class.fov_res) / 2
+            bbox = [
+                self.reticle_position[0] - circ_rad,
+                self.reticle_position[1] - circ_rad,
+                self.reticle_position[0] + circ_rad,
+                self.reticle_position[1] + circ_rad,
+            ]
+            self.draw.arc(bbox, 20, 70, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 110, 160, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 200, 250, fill=self.colors.get(brightness))
+            self.draw.arc(bbox, 290, 340, fill=self.colors.get(brightness))
+
+    def draw_marker(self):
         """
         draw the reticle if desired
         """
         if not self.solution:
             return
-
-        if not self.align_mode:
-            self.reticle_position = self.starfield.radec_to_xy(
-                self.solution["RA"], self.solution["Dec"]
-            )
 
         x_pos = round(self.reticle_position[0])
         y_pos = round(self.reticle_position[1])
@@ -187,15 +208,27 @@ class UIAlign(UIModule):
                 and self.solution["Dec"] is not None
             ) or force:
                 # This needs to be called first to set RA/DEC/ROLL
-                # We want to use the CAMERA center here as we'll be moving
-                # the reticle to the star
-                image_obj, self.visible_stars = self.starfield.plot_starfield(
-                    self.solution["camera_center"]["RA"],
-                    self.solution["camera_center"]["Dec"],
-                    self.solution["camera_center"]["Roll"],
-                    constellation_brightness,
-                    shade_frustrum=True,
-                )
+                if self.align_mode:
+                    # We want to use the CAMERA solve as
+                    # it's not updated by the IMU and we'll be moving
+                    # the reticle to the star
+                    image_obj, self.visible_stars = self.starfield.plot_starfield(
+                        self.solution["camera_solve"]["RA"],
+                        self.solution["camera_solve"]["Dec"],
+                        self.solution["camera_solve"]["Roll"],
+                        constellation_brightness,
+                        shade_frustrum=True,
+                    )
+                    print(self.visible_stars)
+                else:
+                    image_obj, self.visible_stars = self.starfield.plot_starfield(
+                        self.solution["camera_center"]["RA"],
+                        self.solution["camera_center"]["Dec"],
+                        self.solution["camera_center"]["Roll"],
+                        constellation_brightness,
+                        shade_frustrum=True,
+                    )
+
                 image_obj = ImageChops.multiply(
                     image_obj.convert("RGB"), self.colors.red_image
                 )
@@ -203,7 +236,9 @@ class UIAlign(UIModule):
 
                 self.last_update = last_solve_time
                 # draw_reticle if we have a camera solve
-                if self.solution["solve_source"]=="CAM":
+                if self.align_mode:
+                    self.draw_marker()
+                else:
                     self.draw_reticle()
 
         else:
@@ -237,7 +272,7 @@ class UIAlign(UIModule):
 
     def switch_align_star(self, direction: str) -> None:
         # iterate through all stars with screen coord on the requested
-        # side of the screen, find the closest, set thos coordinates
+        # side of the screen, find the closest, set those coordinates
         mag_limit = 5.5
 
         # This 'pushes' the target in the direction of the
