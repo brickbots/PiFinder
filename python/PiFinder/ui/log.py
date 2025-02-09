@@ -126,36 +126,19 @@ class UILog(UIModule):
             ],
         }
 
-        self.eyepiece_menu = {
-            "name": "Eyepiece",
-            "class": UITextMenu,
-            "select": "single",
-            "config_option": "session.log_eyepiece",
-            "items": [
-                {
-                    "name": "NA",
-                    "value": "NA",
-                },
-                {
-                    "name": "32mm",
-                    "value": "32mm",
-                },
-                {
-                    "name": "25mm",
-                    "value": "25mm",
-                },
-                {
-                    "name": "13mm",
-                    "value": "13mm",
-                },
-                {
-                    "name": "9mm",
-                    "value": "9mm",
-                },
-            ],
-        }
-
         self.reset_config()
+
+    def draw_stars(self, horiz_pos, star_count):
+        for i in range(5):
+            star_color = 64
+            if star_count > i:
+                star_color = 255
+            self.draw.text(
+                (i * 15 + 20, horiz_pos),
+                self._STAR,
+                font=self.fonts.large.font,
+                fill=self.colors.get(star_color),
+            )
 
     def reset_config(self):
         """
@@ -205,16 +188,6 @@ class UILog(UIModule):
             self.draw_menu_pointer(horiz_pos)
         horiz_pos += 18
 
-        # ID Line in BOld
-        # Type / Constellation
-        """
-        object_type = OBJ_TYPES.get(self.object.obj_type, self.object.obj_type)
-        object_text = f"{object_type: <14} {self.object.const}"
-        self.draw.text(
-            (0, 36), object_text, font=self.fonts.bold.font, fill=self.colors.get(255)
-        )
-        """
-
         # Observability
         self.draw.text(
             (10, horiz_pos),
@@ -225,16 +198,7 @@ class UILog(UIModule):
         if self.menu_index == 1:
             self.draw_menu_pointer(horiz_pos)
         horiz_pos += 14
-        for i in range(5):
-            star_color = 128
-            if self.log_observability > i:
-                star_color = 255
-            self.draw.text(
-                (i * 15 + 20, horiz_pos),
-                self._STAR,
-                font=self.fonts.large.font,
-                fill=self.colors.get(star_color),
-            )
+        self.draw_stars(horiz_pos, self.log_observability)
         horiz_pos += 11
 
         # Appeal
@@ -247,16 +211,7 @@ class UILog(UIModule):
         if self.menu_index == 2:
             self.draw_menu_pointer(horiz_pos)
         horiz_pos += 14
-        for i in range(5):
-            star_color = 128
-            if self.log_appeal > i:
-                star_color = 255
-            self.draw.text(
-                (i * 15 + 20, horiz_pos),
-                self._STAR,
-                font=self.fonts.large.font,
-                fill=self.colors.get(star_color),
-            )
+        self.draw_stars(horiz_pos, self.log_appeal)
         horiz_pos += 15
 
         self.draw.text(
@@ -298,13 +253,19 @@ class UILog(UIModule):
         These will be jsonified when logging
         """
         # build notes
+        log_eyepiece = self.config_object.equipment.active_eyepiece
+        if log_eyepiece is None:
+            log_eyepiece = "NA"
+        else:
+            log_eyepiece = f"{log_eyepiece.focal_length_mm}mm {log_eyepiece.name}"
+
         notes = {
             "schema_ver": 2,
             "transparency": self.config_object.get_option(
                 "session.log_transparency", "NA"
             ),
             "seeing": self.config_object.get_option("session.log_seeing", "NA"),
-            "eyepiece": self.config_object.get_option("session.log_eyepiece", "NA"),
+            "eyepiece": log_eyepiece,
             "observability": self.log_observability,
             "appeal": self.log_appeal,
         }
@@ -355,7 +316,7 @@ class UILog(UIModule):
             self.add_to_stack(self.conditions_menu)
 
         if self.menu_index == 4:
-            self.add_to_stack(self.eyepiece_menu)
+            self.jump_to_label("select_eyepiece")
 
     def cycle_display_mode(self):
         """

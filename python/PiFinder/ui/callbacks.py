@@ -11,13 +11,12 @@ Each one takes the current ui module as an argument
 import datetime
 import logging
 
+from PiFinder import utils
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
 
-try:
-    from PiFinder import sys_utils
-except ImportError:
-    from PiFinder import sys_utils_fake as sys_utils  # type: ignore[no-redef]
+sys_utils = utils.get_sys_utils()
+
 
 logger = logging.getLogger("UI.Callbacks")
 
@@ -34,11 +33,12 @@ def reset_filters(ui_module: UIModule) -> None:
     """
     Reset all filters to default
     """
-
-    ui_module.catalogs.set_catalog_filter(
-        CatalogFilter(shared_state=ui_module.shared_state)
-    )
     ui_module.config_object.reset_filters()
+
+    new_filter = CatalogFilter(shared_state=ui_module.shared_state)
+    new_filter.load_from_config(ui_module.config_object)
+
+    ui_module.catalogs.set_catalog_filter(new_filter)
     ui_module.catalogs.filter_catalogs()
     ui_module.message("Filters Reset")
     ui_module.remove_from_stack()
@@ -109,7 +109,7 @@ def switch_cam_imx462(ui_module: UIModule) -> None:
     restart_system(ui_module)
 
 
-def get_camera_type(ui_module: UIModule) -> list:
+def get_camera_type(ui_module: UIModule) -> list[str]:
     cam_id = "000"
 
     # read config.txt into a list
@@ -120,7 +120,7 @@ def get_camera_type(ui_module: UIModule) -> list:
     for line in boot_lines:
         if line.startswith("dtoverlay=imx"):
             cam_id = line[10:16]
-            # the imx462 uses the 290 overlay...
+            # imx462 uses imx290 driver
             if cam_id == "imx290":
                 cam_id = "imx462"
 
@@ -137,3 +137,9 @@ def go_wifi_cli(ui_module: UIModule) -> None:
     ui_module.message("WiFi to Client", 2)
     sys_utils.go_wifi_cli()
     restart_system(ui_module)
+
+
+def get_wifi_mode(ui_module: UIModule) -> list[str]:
+    wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
+    with open(wifi_txt, "r") as wfs:
+        return [wfs.read()]

@@ -1,0 +1,12 @@
+Comment,Designator,Footprint,LCSC
+"1uF","C1","Capacitor_SMD:C_0805_2012Metric","C2940738"
+"100nF","C2","Capacitor_SMD:C_0805_2012Metric","C49678"
+"22pF","C3,C4","Capacitor_SMD:C_0805_2012Metric","C24658"
+"LED","D1,D2,D3,D4,D5,D6,D7,D8,D9,D10,D11,D12,D13,D14,D15,D16,D17","LED_SMD:LED_1210_3225Metric","C125112"
+"BNO055","IMU1","Package_LGA:LGA-28_5.2x3.8mm_P0.5mm","C93216"
+"Q_NPN_EBC","Q1","RSU:PF_SOT-23-NPN","C280842"
+"22","R1","Resistor_SMD:R_0805_2012Metric","C17561"
+"330","R2","Resistor_SMD:R_0805_2012Metric","C17630"
+"10k","R3,R4,R5,R6","Resistor_SMD:R_0805_2012Metric","C17414"
+"SW_Push_Dual","SW0,SW1,SW_A1,SW_B1,SW_C1,SW_D1,SW_DN1,SW_GO1,SW_UP1,SW2,SW3,SW4,SW5,SW6,SW7,SW8,SW9","RSU:SW_Push_6x6mm_SMT_withhole_tight","C4364377"
+"Crystal","Y1","Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm","C5366532"

@@ -1,6 +1,10 @@
 import glob
+import re
+from typing import Dict, Any
+
 import sh
 from sh import wpa_cli, unzip, su, passwd
+
 import socket
 from PiFinder import utils
 import logging
@@ -22,33 +26,51 @@ class Network:
 
         self.populate_wifi_networks()
 
-    def populate_wifi_networks(self):
+    def populate_wifi_networks(self) -> None:
+        wpa_supplicant_path = "/etc/wpa_supplicant/wpa_supplicant.conf"
+        self._wifi_networks = []
+        try:
+            with open(wpa_supplicant_path, "r") as wpa_conf:
+                contents = wpa_conf.readlines()
+        except IOError as e:
+            logger.error(f"Error reading wpa_supplicant.conf: {e}")
+            return
+
+        self._wifi_networks = Network._parse_wpa_supplicant(contents)
+
+    @staticmethod
+    def _parse_wpa_supplicant(contents: list[str]) -> list:
         """
         Parses wpa_supplicant.conf to get current config
         """
-        self._wifi_networks = []
+        wifi_networks = []
+        network_dict: Dict[str, Any] = {}
+        network_id = 0
+        in_network_block = False
+        for line in contents:
+            line = line.strip()
+            if line.startswith("network={"):
+                in_network_block = True
+                network_dict = {
+                    "id": network_id,
+                    "ssid": None,
+                    "psk": None,
+                    "key_mgmt": None,
+                }
 
-        with open("/etc/wpa_supplicant/wpa_supplicant.conf", "r") as wpa_conf:
-            network_id = 0
-            in_network_block = False
-            for line in wpa_conf:
-                if line.startswith("network={"):
-                    in_network_block = True
-                    network_dict = {
-                        "id": network_id,
-                        "ssid": None,
-                        "psk": None,
-                        "key_mgmt": None,
-                    }
+            elif line == "}" and in_network_block:
+                in_network_block = False
+                wifi_networks.append(network_dict)
+                network_id += 1
 
-                elif line.strip() == "}" and in_network_block:
-                    in_network_block = False
-                    self._wifi_networks.append(network_dict)
-                    network_id += 1
+            elif in_network_block:
+                match = re.match(r"(\w+)=(.+)", line)
+                if match:
+                    key, value = match.groups()
+                    if key in network_dict:
+                        network_dict[key] = value.strip('"')
 
-                elif in_network_block:
-                    key, value = line.strip().split("=")
-                    network_dict[key] = value.strip('"')
+        return wifi_networks
 
     def get_wifi_networks(self):
         return self._wifi_networks
@@ -125,19 +147,22 @@ class Network:
     def get_host_name(self):
         return socket.gethostname()
 
-    def get_connected_ssid(self):
+    def get_connected_ssid(self) -> str:
         """
         Returns the SSID of the connected wifi network or
         None if not connected or in AP mode
         """
         if self.wifi_mode() == "AP":
-            return None
+            return ""
         # get output from iwgetid
-        iwgetid = sh.Command("iwgetid")
-        _t = iwgetid(_ok_code=(0, 255)).strip()
-        return _t.split(":")[-1].strip('"')
+        try:
+            iwgetid = sh.Command("iwgetid")
+            _t = iwgetid(_ok_code=(0, 255)).strip()
+            return _t.split(":")[-1].strip('"')
+        except sh.CommandNotFound:
+            return "ssid_not_found"
 
-    def set_host_name(self, hostname):
+    def set_host_name(self, hostname) -> None:
         if hostname == self.get_host_name():
             return
         _result = sh.sudo("hostnamectl", "set-hostname", hostname)

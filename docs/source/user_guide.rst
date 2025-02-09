@@ -536,6 +536,12 @@ The PiFinder provides an easy to use web interface which allows you to:
 To access the web interface for the first time, make sure the PiFinder is in Access Point mode (see :ref:`user_guide:settings menu`).  This is the default for new PiFinders to make first time set up easier.  Using a phone, tablet or computer, connect to the PiFinder's wireless network called PiFinderAP.  It's an open network with no password required.  Once connected, open your web browser and visit:
 ``http://pifinder.local``
 
+
+.. note::
+   If you are connected to the PiFinderAP network and can't load the PiFinder web interface using
+   http://pifinder.local try http://10.10.10.1 as some systems may not support the network features
+   required to resolve local computer names
+
 .. list-table::
    :width: 100%
 

@@ -1,15 +1,9 @@
 import os
 import time
 import logging
+import json
 from pathlib import Path
-
-
-def create_dir(adir: str):
-    create_path(Path(adir))
-
-
-def create_path(apath: Path):
-    os.makedirs(apath, exist_ok=True)
+import importlib
 
 
 home_dir = Path.home()
@@ -21,6 +15,42 @@ data_dir = Path(Path.home(), "PiFinder_data")
 pifinder_db = astro_data_dir / "pifinder_objects.db"
 observations_db = data_dir / "observations.db"
 debug_dump_dir = data_dir / "solver_debug_dumps"
+comet_file = astro_data_dir / Path("comets.txt")
+
+
+def create_dir(adir: str):
+    create_path(Path(adir))
+
+
+def create_path(apath: Path):
+    os.makedirs(apath, exist_ok=True)
+
+
+def serialize_solution(solution: dict) -> str:
+    """
+    Take a solution dictionary and serialize it to a string
+    for logging and other debug output
+    """
+
+    out_dict = {}
+    for k, v in solution.items():
+        if "uint16" in str(type(v)):
+            v = int(v)
+
+        if "numpy.float" in str(type(v)):
+            v = float(v)
+        out_dict[k] = v
+
+    return json.dumps(out_dict)
+
+
+def get_sys_utils():
+    try:
+        # Attempt to import the real sys_utils
+        sys_utils = importlib.import_module("PiFinder.sys_utils")
+    except ImportError:
+        sys_utils = importlib.import_module("PiFinder.sys_utils_fake")
+    return sys_utils
 
 
 def get_os_info():
@@ -71,7 +101,7 @@ class Timer:
     def __exit__(self, exc_type, exc_value, traceback):
         end_time = time.time()
         elapsed_time = end_time - self.start_time
-        self.logger.info("%s: %.6f seconds", self.name, elapsed_time)
+        self.logger.debug("%s: %.6f seconds", self.name, elapsed_time)
 
 
 def is_number(s):
