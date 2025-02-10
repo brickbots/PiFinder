@@ -10,6 +10,19 @@ from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.equipment import UIEquipment
 import PiFinder.ui.callbacks as callbacks
 
+
+# override locally the gettext marker function, i.e. the strings are not translated on load, but extracted.
+def _(key: str) -> str:
+    return key
+
+
+s = _("Language: de")  # this way ruff lint and mypy type_hints warnings are silenced
+s = _("Language: en")
+s = _("Language: es")
+s = _("Language: fr")
+s = s
+del s
+
 pifinder_menu = {
     "name": "PiFinder",
     "class": UITextMenu,
@@ -17,133 +30,133 @@ pifinder_menu = {
     "start_index": 2,
     "items": [
         {
-            "name": "Camera",
+            "name": _("Camera"),
             "class": UIPreview,
         },
         {
-            "name": "Align",
+            "name": _("Align"),
             "class": UIAlign,
             "stateful": True,
             "preload": True,
         },
         {
-            "name": "Chart",
+            "name": _("Chart"),
             "class": UIChart,
             "stateful": True,
             "preload": True,
         },
         {
-            "name": "Objects",
+            "name": _("Objects"),
             "class": UITextMenu,
             "select": "single",
             "items": [
                 {
-                    "name": "All Filtered",
+                    "name": _("All Filtered"),
                     "class": UIObjectList,
                     "objects": "catalogs.filtered",
                 },
                 {
-                    "name": "By Catalog",
+                    "name": _("By Catalog"),
                     "class": UITextMenu,
                     "select": "single",
                     "items": [
                         {
-                            "name": "Planets",
+                            "name": _("Planets"),
                             "class": UIObjectList,
                             "objects": "catalog",
                             "value": "PL",
                         },
                         {
-                            "name": "Comets",
+                            "name": _("Comets"),
                             "class": UIObjectList,
                             "objects": "catalog",
                             "value": "CM",
                         },
                         {
-                            "name": "NGC",
+                            "name": _("NGC"),
                             "class": UIObjectList,
                             "objects": "catalog",
                             "value": "NGC",
                         },
                         {
-                            "name": "Messier",
+                            "name": _("Messier"),
                             "class": UIObjectList,
                             "objects": "catalog",
                             "value": "M",
                         },
                         {
-                            "name": "DSO...",
+                            "name": _("DSO..."),
                             "class": UITextMenu,
                             "select": "single",
                             "items": [
                                 {
-                                    "name": "Abell Pn",
+                                    "name": _("Abell Pn"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "Abl",
                                 },
                                 {
-                                    "name": "Arp Galaxies",
+                                    "name": _("Arp Galaxies"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "Arp",
                                 },
                                 {
-                                    "name": "Barnard",
+                                    "name": _("Barnard"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "B",
                                 },
                                 {
-                                    "name": "Caldwell",
+                                    "name": _("Caldwell"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "C",
                                 },
                                 {
-                                    "name": "Collinder",
+                                    "name": _("Collinder"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "Col",
                                 },
                                 {
-                                    "name": "E.G. Globs",
+                                    "name": _("E.G. Globs"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "EGC",
                                 },
                                 {
-                                    "name": "Herschel 400",
+                                    "name": _("Herschel 400"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "H",
                                 },
                                 {
-                                    "name": "IC",
+                                    "name": _("IC"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "IC",
                                 },
                                 {
-                                    "name": "Messier",
+                                    "name": _("Messier"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "M",
                                 },
                                 {
-                                    "name": "NGC",
+                                    "name": _("NGC"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "NGC",
                                 },
                                 {
-                                    "name": "Sharpless",
+                                    "name": _("Sharpless"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "Sh2",
                                 },
                                 {
-                                    "name": "TAAS 200",
+                                    "name": _("TAAS 200"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "Ta2",
@@ -151,42 +164,42 @@ pifinder_menu = {
                             ],
                         },
                         {
-                            "name": "Stars...",
+                            "name": _("Stars..."),
                             "class": UITextMenu,
                             "select": "single",
                             "items": [
                                 {
-                                    "name": "Bright Named",
+                                    "name": _("Bright Named"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "Str",
                                 },
                                 {
-                                    "name": "SAC Doubles",
+                                    "name": _("SAC Doubles"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "SaM",
                                 },
                                 {
-                                    "name": "SAC Asterisms",
+                                    "name": _("SAC Asterisms"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "SaA",
                                 },
                                 {
-                                    "name": "SAC Red Stars",
+                                    "name": _("SAC Red Stars"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "SaR",
                                 },
                                 {
-                                    "name": "RASC Doubles",
+                                    "name": _("RASC Doubles"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "RDS",
                                 },
                                 {
-                                    "name": "TLK 90 Variables",
+                                    "name": _("TLK 90 Variables"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
                                     "value": "TLK",
@@ -196,134 +209,134 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": "Recent",
+                    "name": _("Recent"),
                     "class": UIObjectList,
                     "objects": "recent",
                     "label": "recent",
                 },
                 {
-                    "name": "Name Search",
+                    "name": _("Name Search"),
                     "class": UITextEntry,
                 },
             ],
         },
         {
-            "name": "Filter",
+            "name": _("Filter"),
             "class": UITextMenu,
             "select": "single",
             "label": "filter_options",
             "items": [
                 {
-                    "name": "Reset All",
+                    "name": _("Reset All"),
                     "class": UITextMenu,
                     "select": "Single",
                     "items": [
-                        {"name": "Confirm", "callback": callbacks.reset_filters},
-                        {"name": "Cancel", "callback": callbacks.go_back},
+                        {"name": _("Confirm"), "callback": callbacks.reset_filters},
+                        {"name": _("Cancel"), "callback": callbacks.go_back},
                     ],
                 },
                 {
-                    "name": "Catalogs",
+                    "name": _("Catalogs"),
                     "class": UITextMenu,
                     "select": "multi",
                     "config_option": "filter.selected_catalogs",
                     "items": [
                         {
-                            "name": "Planets",
+                            "name": _("Planets"),
                             "value": "PL",
                         },
                         {
-                            "name": "NGC",
+                            "name": _("NGC"),
                             "value": "NGC",
                         },
                         {
-                            "name": "Messier",
+                            "name": _("Messier"),
                             "value": "M",
                         },
                         {
-                            "name": "DSO...",
+                            "name": _("DSO..."),
                             "class": UITextMenu,
                             "select": "multi",
                             "config_option": "filter.selected_catalogs",
                             "items": [
                                 {
-                                    "name": "Abell Pn",
+                                    "name": _("Abell Pn"),
                                     "value": "Abl",
                                 },
                                 {
-                                    "name": "Arp Galaxies",
+                                    "name": _("Arp Galaxies"),
                                     "value": "Arp",
                                 },
                                 {
-                                    "name": "Barnard",
+                                    "name": _("Barnard"),
                                     "value": "B",
                                 },
                                 {
-                                    "name": "Caldwell",
+                                    "name": _("Caldwell"),
                                     "value": "C",
                                 },
                                 {
-                                    "name": "Collinder",
+                                    "name": _("Collinder"),
                                     "value": "Col",
                                 },
                                 {
-                                    "name": "E.G. Globs",
+                                    "name": _("E.G. Globs"),
                                     "value": "EGC",
                                 },
                                 {
-                                    "name": "Herschel 400",
+                                    "name": _("Herschel 400"),
                                     "value": "H",
                                 },
                                 {
-                                    "name": "IC",
+                                    "name": _("IC"),
                                     "value": "IC",
                                 },
                                 {
-                                    "name": "Messier",
+                                    "name": _("Messier"),
                                     "value": "M",
                                 },
                                 {
-                                    "name": "NGC",
+                                    "name": _("NGC"),
                                     "value": "NGC",
                                 },
                                 {
-                                    "name": "Sharpless",
+                                    "name": _("Sharpless"),
                                     "value": "Sh2",
                                 },
                                 {
-                                    "name": "TAAS 200",
+                                    "name": _("TAAS 200"),
                                     "value": "Ta2",
                                 },
                             ],
                         },
                         {
-                            "name": "Stars...",
+                            "name": _("Stars..."),
                             "class": UITextMenu,
                             "select": "multi",
                             "config_option": "filter.selected_catalogs",
                             "items": [
                                 {
-                                    "name": "Bright Named",
+                                    "name": _("Bright Named"),
                                     "value": "Str",
                                 },
                                 {
-                                    "name": "SAC Doubles",
+                                    "name": _("SAC Doubles"),
                                     "value": "SaM",
                                 },
                                 {
-                                    "name": "SAC Asterisms",
+                                    "name": _("SAC Asterisms"),
                                     "value": "SaA",
                                 },
                                 {
-                                    "name": "SAC Red Stars",
+                                    "name": _("SAC Red Stars"),
                                     "value": "SaR",
                                 },
                                 {
-                                    "name": "RASC Doubles",
+                                    "name": _("RASC Doubles"),
                                     "value": "RDS",
                                 },
                                 {
-                                    "name": "TLK 90 Variables",
+                                    "name": _("TLK 90 Variables"),
                                     "value": "TLK",
                                 },
                             ],
@@ -331,77 +344,77 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": "Type",
+                    "name": _("Type"),
                     "class": UITextMenu,
                     "select": "multi",
                     "config_option": "filter.object_types",
                     "items": [
                         {
-                            "name": "Galaxy",
+                            "name": _("Galaxy"),
                             "value": "Gx",
                         },
                         {
-                            "name": "Open Cluster",
+                            "name": _("Open Cluster"),
                             "value": "OC",
                         },
                         {
-                            "name": "Cluster/Neb",
+                            "name": _("Cluster/Neb"),
                             "value": "C+N",
                         },
                         {
-                            "name": "Globular",
+                            "name": _("Globular"),
                             "value": "Gb",
                         },
                         {
-                            "name": "Nebula",
+                            "name": _("Nebula"),
                             "value": "Nb",
                         },
                         {
-                            "name": "P. Nebula",
+                            "name": _("P. Nebula"),
                             "value": "PN",
                         },
                         {
-                            "name": "Dark Nebula",
+                            "name": _("Dark Nebula"),
                             "value": "DN",
                         },
                         {
-                            "name": "Star",
+                            "name": _("Star"),
                             "value": "*",
                         },
                         {
-                            "name": "Double Str",
+                            "name": _("Double Str"),
                             "value": "D*",
                         },
                         {
-                            "name": "Triple Str",
+                            "name": _("Triple Str"),
                             "value": "***",
                         },
                         {
-                            "name": "Knot",
+                            "name": _("Knot"),
                             "value": "Kt",
                         },
                         {
-                            "name": "Asterism",
+                            "name": _("Asterism"),
                             "value": "Ast",
                         },
                         {
-                            "name": "Planet",
+                            "name": _("Planet"),
                             "value": "Pla",
                         },
                         {
-                            "name": "Comet",
+                            "name": _("Comet"),
                             "value": "CM",
                         },
                     ],
                 },
                 {
-                    "name": "Altitude",
+                    "name": _("Altitude"),
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "filter.altitude",
                     "items": [
                         {
-                            "name": "None",
+                            "name": _("None"),
                             "value": -1,
                         },
                         {
@@ -427,13 +440,13 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": "Magnitude",
+                    "name": _("Magnitude"),
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "filter.magnitude",
                     "items": [
                         {
-                            "name": "None",
+                            "name": _("None"),
                             "value": -1,
                         },
                         {
@@ -479,21 +492,21 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": "Observed",
+                    "name": _("Observed"),
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "filter.observed",
                     "items": [
                         {
-                            "name": "Any",
+                            "name": _("Any"),
                             "value": "Any",
                         },
                         {
-                            "name": "Observed",
+                            "name": _("Observed"),
                             "value": "Yes",
                         },
                         {
-                            "name": "Not Observed",
+                            "name": _("Not Observed"),
                             "value": "No",
                         },
                     ],
@@ -501,17 +514,17 @@ pifinder_menu = {
             ],
         },
         {
-            "name": "Settings",
+            "name": _("Settings"),
             "class": UITextMenu,
             "select": "single",
             "items": [
                 {
-                    "name": "User Pref...",
+                    "name": _("User Pref..."),
                     "class": UITextMenu,
                     "select": "single",
                     "items": [
                         {
-                            "name": "Key Bright",
+                            "name": _("Key Bright"),
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "keypad_brightness",
@@ -551,13 +564,13 @@ pifinder_menu = {
                             ],
                         },
                         {
-                            "name": "Sleep Time",
+                            "name": _("Sleep Time"),
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "sleep_timeout",
                             "items": [
                                 {
-                                    "name": "Off",
+                                    "name": _("Off"),
                                     "value": "Off",
                                 },
                                 {
@@ -583,66 +596,66 @@ pifinder_menu = {
                             ],
                         },
                         {
-                            "name": "Menu Anim",
+                            "name": _("Menu Anim"),
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "menu_anim_speed",
                             "items": [
                                 {
-                                    "name": "Off",
+                                    "name": _("Off"),
                                     "value": 0,
                                 },
                                 {
-                                    "name": "Fast",
+                                    "name": _("Fast"),
                                     "value": 0.05,
                                 },
                                 {
-                                    "name": "Medium",
+                                    "name": _("Medium"),
                                     "value": 0.1,
                                 },
                                 {
-                                    "name": "Slow",
+                                    "name": _("Slow"),
                                     "value": 0.2,
                                 },
                             ],
                         },
                         {
-                            "name": "Scroll Speed",
+                            "name": _("Scroll Speed"),
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "text_scroll_speed",
                             "items": [
                                 {
-                                    "name": "Off",
+                                    "name": _("Off"),
                                     "value": "Off",
                                 },
                                 {
-                                    "name": "Fast",
+                                    "name": _("Fast"),
                                     "value": "Fast",
                                 },
                                 {
-                                    "name": "Medium",
+                                    "name": _("Medium"),
                                     "value": "Med",
                                 },
                                 {
-                                    "name": "Slow",
+                                    "name": _("Slow"),
                                     "value": "Slow",
                                 },
                             ],
                         },
                         {
-                            "name": "Az Arrows",
+                            "name": _("Az Arrows"),
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "pushto_az_arrows",
                             "label": "pushto_az_arrows",
                             "items": [
                                 {
-                                    "name": "Default",
+                                    "name": _("Default"),
                                     "value": "Default",
                                 },
                                 {
-                                    "name": "Reverse",
+                                    "name": _("Reverse"),
                                     "value": "Reverse",
                                 },
                             ],
@@ -650,99 +663,99 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": "Chart...",
+                    "name": _("Chart..."),
                     "class": UITextMenu,
                     "select": "single",
                     "label": "chart_settings",
                     "items": [
                         {
-                            "name": "Reticle",
+                            "name": _("Reticle"),
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "chart_reticle",
                             "items": [
                                 {
-                                    "name": "Off",
+                                    "name": _("Off"),
                                     "value": 0,
                                 },
                                 {
-                                    "name": "Low",
+                                    "name": _("Low"),
                                     "value": 64,
                                 },
                                 {
-                                    "name": "Medium",
+                                    "name": _("Medium"),
                                     "value": 128,
                                 },
                                 {
-                                    "name": "High",
+                                    "name": _("High"),
                                     "value": 192,
                                 },
                             ],
                         },
                         {
-                            "name": "Constellation",
+                            "name": _("Constellation"),
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "chart_constellations",
                             "items": [
                                 {
-                                    "name": "Off",
+                                    "name": _("Off"),
                                     "value": 0,
                                 },
                                 {
-                                    "name": "Low",
+                                    "name": _("Low"),
                                     "value": 64,
                                 },
                                 {
-                                    "name": "Medium",
+                                    "name": _("Medium"),
                                     "value": 128,
                                 },
                                 {
-                                    "name": "High",
+                                    "name": _("High"),
                                     "value": 192,
                                 },
                             ],
                         },
                         {
-                            "name": "DSO Display",
+                            "name": _("DSO Display"),
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "chart_dso",
                             "items": [
                                 {
-                                    "name": "Off",
+                                    "name": _("Off"),
                                     "value": 0,
                                 },
                                 {
-                                    "name": "Low",
+                                    "name": _("Low"),
                                     "value": 64,
                                 },
                                 {
-                                    "name": "Medium",
+                                    "name": _("Medium"),
                                     "value": 128,
                                 },
                                 {
-                                    "name": "High",
+                                    "name": _("High"),
                                     "value": 192,
                                 },
                             ],
                         },
                         {
-                            "name": "RA/DEC Disp.",
+                            "name": _("RA/DEC Disp."),
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "chart_radec",
                             "items": [
                                 {
-                                    "name": "Off",
+                                    "name": _("Off"),
                                     "value": "Off",
                                 },
                                 {
-                                    "name": "HH:MM",
+                                    "name": _("HH:MM"),
                                     "value": "HH:MM",
                                 },
                                 {
-                                    "name": "Degrees",
+                                    "name": _("Degrees"),
                                     "value": "Degr",
                                 },
                             ],
@@ -750,7 +763,7 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": "Camera Exp",
+                    "name": _("Camera Exp"),
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "camera_exp",
@@ -758,37 +771,37 @@ pifinder_menu = {
                     "post_callback": callbacks.set_exposure,
                     "items": [
                         {
-                            "name": "0.025s",
+                            "name": _("0.025s"),
                             "value": 25000,
                         },
                         {
-                            "name": "0.05s",
+                            "name": _("0.05s"),
                             "value": 50000,
                         },
                         {
-                            "name": "0.1s",
+                            "name": _("0.1s"),
                             "value": 100000,
                         },
                         {
-                            "name": "0.2s",
+                            "name": _("0.2s"),
                             "value": 200000,
                         },
                         {
-                            "name": "0.4s",
+                            "name": _("0.4s"),
                             "value": 400000,
                         },
                         {
-                            "name": "0.8s",
+                            "name": _("0.8s"),
                             "value": 800000,
                         },
                         {
-                            "name": "1s",
+                            "name": _("1s"),
                             "value": 1000000,
                         },
                     ],
                 },
                 {
-                    "name": "WiFi Mode",
+                    "name": _("WiFi Mode"),
                     "class": UITextMenu,
                     "select": "single",
                     "value_callback": callbacks.get_wifi_mode,
@@ -806,69 +819,69 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": "PiFinder Type",
+                    "name": _("PiFinder Type"),
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "screen_direction",
                     "post_callback": callbacks.restart_pifinder,
                     "items": [
                         {
-                            "name": "Left",
+                            "name": _("Left"),
                             "value": "left",
                         },
                         {
-                            "name": "Right",
+                            "name": _("Right"),
                             "value": "right",
                         },
                         {
-                            "name": "Straight",
+                            "name": _("Straight"),
                             "value": "straight",
                         },
                         {
-                            "name": "Flat v3",
+                            "name": _("Flat v3"),
                             "value": "flat3",
                         },
                         {
-                            "name": "Flat v2",
+                            "name": _("Flat v2"),
                             "value": "flat",
                         },
                     ],
                 },
                 {
-                    "name": "Mount Type",
+                    "name": _("Mount Type"),
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "mount_type",
                     "post_callback": callbacks.restart_pifinder,
                     "items": [
                         {
-                            "name": "Alt/Az",
+                            "name": _("Alt/Az"),
                             "value": "Alt/Az",
                         },
                         {
-                            "name": "Equitorial",
+                            "name": _("Equitorial"),
                             "value": "EQ",
                         },
                     ],
                 },
                 {
-                    "name": "Camera Type",
+                    "name": _("Camera Type"),
                     "class": UITextMenu,
                     "select": "single",
                     "value_callback": callbacks.get_camera_type,
                     "items": [
                         {
-                            "name": "v2 - imx477",
+                            "name": _("v2 - imx477"),
                             "callback": callbacks.switch_cam_imx477,
                             "value": "imx477",
                         },
                         {
-                            "name": "v3 - imx296",
+                            "name": _("v3 - imx296"),
                             "callback": callbacks.switch_cam_imx296,
                             "value": "imx296",
                         },
                         {
-                            "name": "v3 - imx462",
+                            "name": _("v3 - imx462"),
                             "callback": callbacks.switch_cam_imx462,
                             "value": "imx462",
                         },
@@ -877,23 +890,23 @@ pifinder_menu = {
             ],
         },
         {
-            "name": "Tools",
+            "name": _("Tools"),
             "class": UITextMenu,
             "select": "single",
             "items": [
-                {"name": "Status", "class": UIStatus},
-                {"name": "Equipment", "class": UIEquipment, "label": "equipment"},
-                {"name": "Console", "class": UIConsole},
-                {"name": "Software Upd", "class": UISoftware},
-                {"name": "Test Mode", "callback": callbacks.activate_debug},
+                {"name": _("Status"), "class": UIStatus},
+                {"name": _("Equipment"), "class": UIEquipment, "label": "equipment"},
+                {"name": _("Console"), "class": UIConsole},
+                {"name": _("Software Upd"), "class": UISoftware},
+                {"name": _("Test Mode"), "callback": callbacks.activate_debug},
                 {
-                    "name": "Power",
+                    "name": _("Power"),
                     "class": UITextMenu,
                     "select": "Single",
                     "label": "power",
                     "items": [
                         {
-                            "name": "Shutdown",
+                            "name": _("Shutdown"),
                             "class": UITextMenu,
                             "select": "Single",
                             "label": "shutdown",
@@ -903,16 +916,48 @@ pifinder_menu = {
                             ],
                         },
                         {
-                            "name": "Restart",
+                            "name": _("Restart"),
                             "class": UITextMenu,
                             "select": "Single",
                             "label": "restart",
                             "items": [
                                 {
-                                    "name": "Confirm",
+                                    "name": _("Confirm"),
                                     "callback": callbacks.restart_system,
                                 },
-                                {"name": "Cancel", "callback": callbacks.go_back},
+                                {"name": _("Cancel"), "callback": callbacks.go_back},
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "name": _("Experimental"),
+                    "class": UITextMenu,
+                    "select": "Single",
+                    "items": [
+                        {
+                            "name": _("Language"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "language",
+                            "post_callback": callbacks.switch_language,
+                            "items": [
+                                {
+                                    "name": _("English"),
+                                    "value": "en",
+                                },
+                                {
+                                    "name": _("German"),
+                                    "value": "de",
+                                },
+                                {
+                                    "name": _("French"),
+                                    "value": "fr",
+                                },
+                                {
+                                    "name": _("Spanish"),
+                                    "value": "es",
+                                },
                             ],
                         },
                     ],
@@ -921,3 +966,7 @@ pifinder_menu = {
         },
     ],
 }
+
+
+# Remove local definition and reactivate the global gettext function (that translates)
+del _

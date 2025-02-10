@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 # mypy: ignore-errors
 """
-This module contains all the UI Module classes
+This module contains all the UI code for the object details screen
 
 """
 
@@ -256,13 +256,13 @@ class UIObjectDetails(UIModule):
             else:
                 self.draw.text(
                     (10, 70),
-                    "Searching",
+                    _("Searching"),
                     font=self.fonts.large.font,
                     fill=self.colors.get(255),
                 )
                 self.draw.text(
                     (10, 90),
-                    f"for GPS{'.' * int(self._elipsis_count / 10)}",
+                    _(f"for GPS{'.' * int(self._elipsis_count / 10)}"),
                     font=self.fonts.large.font,
                     fill=self.colors.get(255),
                 )
@@ -272,13 +272,13 @@ class UIObjectDetails(UIModule):
         elif not self._check_catalog_initialised():
             self.draw.text(
                 (10, 70),
-                "Calculating",
+                _("Calculating"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 90),
-                f"positions{'.' * int(self._elipsis_count / 10)}",
+                _(f"positions{'.' * int(self._elipsis_count / 10)}"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -441,7 +441,7 @@ class UIObjectDetails(UIModule):
         """
         Called from marking menu to align on curent object
         """
-        self.message("Aligning...", 0.1)
+        self.message(_("Aligning..."), 0.1)
         if align_on_radec(
             self.object.ra,
             self.object.dec,
@@ -449,9 +449,9 @@ class UIObjectDetails(UIModule):
             self.config_object,
             self.shared_state,
         ):
-            self.message("Aligned!", 1)
+            self.message(_("Aligned!"), 1)
         else:
-            self.message("Too Far", 2)
+            self.message(_("Too Far"), 2)
 
         return True
 

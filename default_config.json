@@ -8,6 +8,7 @@
         "gps_lock": false,
         "timezone": "America/Los_Angeles"
     },
+    "language": "en",
     "camera_exp": 400000,
     "camera_gain": 20,
     "menu_anim_speed": 0.1,

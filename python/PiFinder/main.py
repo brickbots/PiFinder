@@ -10,6 +10,8 @@ This module is the main entry point for PiFinder it:
 
 """
 
+import gettext
+
 import os
 
 # skyfield performance fix, see: https://rhodesmill.org/skyfield/accuracy-efficiency.html
@@ -50,6 +52,12 @@ from PiFinder.image_util import subtract_background
 
 from PiFinder.calc_utils import sf_utils
 from PiFinder.displays import DisplayBase, get_display
+
+# Install the _("text") into global context for Internationalization
+# On RasPi/Ubuntu the default locale is C.utf8, see `locale -a`, which locales are available
+# You need to install `apt install language-pack_xx`, where xx is the ISO country code.
+# Passing nothing as third parameter means the language is determined from environment variables (e.g. LANG)
+gettext.install("PiFinder", "locale")
 
 logger = logging.getLogger("main")
 
@@ -286,6 +294,13 @@ def main(
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness, cfg)
+
+    # Set user interface language
+    lang = cfg.get_option("language")
+    langXX = gettext.translation(
+        "messages", "locale", languages=[lang], fallback=(lang == "en")
+    )
+    langXX.install()
 
     import PiFinder.manager_patch as patch
 
@@ -735,6 +750,10 @@ def rotate_logs() -> Path:
     return utils.data_dir / "pifinder.log"
 
 
+#############################################################################################
+#############################################################################################
+#############################################################################################
+
 if __name__ == "__main__":
     print("Bootstrap logging configuration ...")
     logging.basicConfig(format="%(asctime)s BASIC %(name)s: %(levelname)s %(message)s")
@@ -816,6 +835,11 @@ if __name__ == "__main__":
         "-x", "--verbose", help="Set logging to debug mode", action="store_true"
     )
     parser.add_argument("-l", "--log", help="Log to file", action="store_true")
+    parser.add_argument(
+        "--lang",
+        help="Force user interface language (iso2 code). Changes configuration",
+        type=str,
+    )
     args = parser.parse_args()
     # add the handlers to the logger
     if args.verbose:
@@ -863,7 +887,13 @@ if __name__ == "__main__":
     elif args.keyboard.lower() == "none":
         from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
-        rlogger.warn("using no keyboard")
+        rlogger.warning("using no keyboard")
+
+    if args.lang:
+        if args.lang.lower() not in ["en", "de", "fr", "es"]:
+            raise Exception(f"Unknown language '{args.lang}' passed via command line.")
+        else:
+            config.Config().set_option("language", args.lang)
 
     # if args.log:
     #    datenow = datetime.datetime.now()

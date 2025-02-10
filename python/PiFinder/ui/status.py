@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-This module contains all the UI Module classes
+This module contains the UI Status class
 
 """
 

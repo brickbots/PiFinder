@@ -4,6 +4,12 @@ from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.ui_utils import format_number
 import time
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
 
 # class CompositeObjectBuilder:
 #

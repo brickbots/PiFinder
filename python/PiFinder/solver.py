@@ -69,9 +69,15 @@ def solver(
                 + shared_state.arch()
             )
         except FileNotFoundError as e:
-            logger.warn(
+            logger.warning(
                 "Not using cedar_detect, as corresponding file '%s' could not be found",
                 e.filename,
+            )
+            cedar_detect = None
+        except ValueError as e:
+            logger.warning(
+                "Not using cedar_detect, as the binary path could not be determined: %s",
+                e,
             )
             cedar_detect = None
 
