@@ -23,6 +23,8 @@ logger = logging.getLogger("Camera.Interface")
 class CameraInterface:
     """The CameraInterface interface."""
 
+    _camera_started = False
+
     def initialize(self) -> None:
         pass
 
@@ -49,7 +51,7 @@ class CameraInterface:
             screen_direction = cfg.get_option("screen_direction")
             camera_rotation = cfg.get_option("camera_rotation")
 
-            # Set path for test images
+            # Set path for test mode image
             root_dir = os.path.realpath(
                 os.path.join(os.path.dirname(__file__), "..", "..")
             )
@@ -74,6 +76,8 @@ class CameraInterface:
 
                 imu_start = shared_state.imu()
                 image_start_time = time.time()
+                if not self._camera_started:
+                    continue
                 if not debug:
                     base_image = self.capture()
                     base_image = base_image.convert("L")
@@ -92,7 +96,7 @@ class CameraInterface:
 
                     base_image = base_image.rotate(rotate_amount)
                 else:
-                    # load image and wait
+                    # Test Mode: load image from disc and wait
                     base_image = Image.open(test_image_path)
                     time.sleep(1)
                 image_end_time = time.time()
@@ -162,5 +166,14 @@ class CameraInterface:
                         filename = f"{utils.data_dir}/captures/{filename}.png"
                         self.capture_file(filename)
                         console_queue.put("CAM: Saved Image")
+                    if command.startswith("stop"):
+                        self._camera_started = False
+                        self.camera.stop()
+                        console_queue.put("CAM: Stopped camera")
+                    if command.startswith("start"):
+                        self.camera.start()
+                        self._camera_started = True
+                        console_queue.put("CAM: Started camera")
+
         except (BrokenPipeError, EOFError, FileNotFoundError):
             logger.exception("Error in Camera Loop")

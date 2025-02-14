@@ -40,15 +40,15 @@ from PiFinder import keyboard_interface
 
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
+from PiFinder.calc_utils import sf_utils
 
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.menu_manager import MenuManager
 
-from PiFinder.state import SharedStateObj, UIState
+from PiFinder.state import SharedStateObj, UIState, Location
 
 from PiFinder.image_util import subtract_background
 
-from PiFinder.calc_utils import sf_utils
 from PiFinder.displays import DisplayBase, get_display
 
 logger = logging.getLogger("main")
@@ -358,18 +358,18 @@ def main(
 
         # Load last location, set lock to false
         tz_finder = TimezoneFinder()
-        initial_location = cfg.get_option("last_location")
-        initial_location["timezone"] = tz_finder.timezone_at(
-            lat=initial_location["lat"], lng=initial_location["lon"]
-        )
-        initial_location["gps_lock"] = False
-        initial_location["last_gps_lock"] = None
-        shared_state.set_location(initial_location)
-        sf_utils.set_location(
-            initial_location["lat"],
-            initial_location["lon"],
-            initial_location["altitude"],
-        )
+        # initial_location = cfg.get_option("last_location")
+        # initial_location["timezone"] = tz_finder.timezone_at(
+        #     lat=initial_location["lat"], lng=initial_location["lon"]
+        # )
+        # initial_location["gps_lock"] = False
+        # initial_location["last_gps_lock"] = None
+        # shared_state.set_location(initial_location)
+        # sf_utils.set_location(
+        #     initial_location["lat"],
+        #     initial_location["lon"],
+        #     initial_location["altitude"],
+        # )
 
         console.write("   Camera")
         console.update()
@@ -490,28 +490,52 @@ def main(
                     if gps_msg == "fix":
                         # logger.debug("GPS fix msg: %s", gps_content)
                         if gps_content["lat"] + gps_content["lon"] != 0:
-                            location = shared_state.location()
-                            location["lat"] = gps_content["lat"]
-                            location["lon"] = gps_content["lon"]
-                            location["altitude"] = gps_content["altitude"]
-                            location["last_gps_lock"] = (
-                                datetime.datetime.now().time().isoformat()[:8]
-                            )
-                            if location["gps_lock"] is False:
-                                # Write to config if we just got a lock
-                                location["timezone"] = tz_finder.timezone_at(
-                                    lat=location["lat"], lng=location["lon"]
+                            location: Location = shared_state.location()
+                            # only update if there's no fixed WEB lock, and the precision is better than what we had
+                            if location.source != "WEB" and (
+                                not location.lock
+                                or (
+                                    location.lock
+                                    and (
+                                        gps_content["error_in_m"] < location.error_in_m
+                                    )
                                 )
-                                cfg.set_option("last_location", location)
-                                console.write(
-                                    f'GPS: Location {location["lat"]} {location["lon"]} {location["altitude"]}'
+                            ):
+                                location.lat = gps_content["lat"]
+                                location.lon = gps_content["lon"]
+                                location.altitude = gps_content["altitude"]
+                                location.source = gps_content["source"]
+                                if "error_in_m" in gps_content:
+                                    location.error_in_m = gps_content["error_in_m"]
+                                if "lock" in gps_content:
+                                    location.lock = gps_content["lock"]
+                                if "lock_type" in gps_content:
+                                    location.lock_type = gps_content["lock_type"]
+                                location.last_gps_lock = (
+                                    datetime.datetime.now().time().isoformat()[:8]
                                 )
-                                location["gps_lock"] = True
+                                location.timezone = tz_finder.timezone_at(
+                                    lat=location.lat, lng=location.lon
+                                )
+                                #     # cfg.set_option("last_location", location)
+                                #     console.write(
+                                #         f'GPS: Location {location.lat} {location.lon} {location.altitude}'
+                                #     )
+                                #     location.lock = True
 
-                            shared_state.set_location(location)
+                                shared_state.set_location(location)
+                                sf_utils.set_location(
+                                    location.lat,
+                                    location.lon,
+                                    location.altitude,
+                                )
+
                     if gps_msg == "time":
                         # logger.debug("GPS time msg: %s", gps_content)
-                        gps_dt = gps_content
+                        if isinstance(gps_content, datetime.datetime):
+                            gps_dt = gps_content
+                        else:
+                            gps_dt = gps_content["time"]
                         shared_state.set_datetime(gps_dt)
                     if gps_msg == "satellites":
                         logger.debug("Main: GPS nr sats seen: %s", gps_content)
@@ -828,14 +852,18 @@ if __name__ == "__main__":
         display_hardware = "pg_128"
         imu = importlib.import_module("PiFinder.imu_fake")
         gps_monitor = importlib.import_module("PiFinder.gps_fake")
-        # gps_monitor = importlib.import_module("PiFinder.gps_pi")
     else:
         hardware_platform = "Pi"
         display_hardware = "ssd1351"
         from rpi_hardware_pwm import HardwarePWM
 
         imu = importlib.import_module("PiFinder.imu_pi")
-        gps_monitor = importlib.import_module("PiFinder.gps_pi")
+        cfg = config.Config()
+        gps_type = cfg.get_option("gps_type")
+        if gps_type == "ublox":
+            gps_monitor = importlib.import_module("PiFinder.gps_ubx")
+        else:
+            gps_monitor = importlib.import_module("PiFinder.gps_gpsd")
 
     if args.display is not None:
         display_hardware = args.display.lower()

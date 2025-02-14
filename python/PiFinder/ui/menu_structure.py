@@ -3,6 +3,7 @@ from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.status import UIStatus
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.software import UISoftware
+from PiFinder.ui.gpsstatus import UIGPSStatus
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
 from PiFinder.ui.textentry import UITextEntry
@@ -17,14 +18,40 @@ pifinder_menu = {
     "start_index": 2,
     "items": [
         {
-            "name": "Camera",
-            "class": UIPreview,
-        },
-        {
-            "name": "Align",
-            "class": UIAlign,
-            "stateful": True,
-            "preload": True,
+            "name": "Setup",
+            "class": UITextMenu,
+            "select": "single",
+            "items": [
+                {
+                    "name": "Focus",
+                    "class": UIPreview,
+                },
+                {
+                    "name": "Align",
+                    "class": UIAlign,
+                    "stateful": True,
+                    "preload": True,
+                },
+                {
+                    "name": "GPS",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": "GPS Status",
+                            "class": UIGPSStatus,
+                        },
+                        {
+                            "name": "Save location",
+                            "class": UITextEntry,
+                        },
+                        {
+                            "name": "Set location",
+                            "class": UITextEntry,
+                        },
+                    ],
+                },
+            ],
         },
         {
             "name": "Chart",
@@ -52,12 +79,6 @@ pifinder_menu = {
                             "class": UIObjectList,
                             "objects": "catalog",
                             "value": "PL",
-                        },
-                        {
-                            "name": "Comets",
-                            "class": UIObjectList,
-                            "objects": "catalog",
-                            "value": "CM",
                         },
                         {
                             "name": "NGC",
@@ -871,6 +892,24 @@ pifinder_menu = {
                             "name": "v3 - imx462",
                             "callback": callbacks.switch_cam_imx462,
                             "value": "imx462",
+                        },
+                    ],
+                },
+                {
+                    "name": "GPS Type",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "gps_type",
+                    "label": "gps_type",
+                    "post_callback": callbacks.restart_pifinder,
+                    "items": [
+                        {
+                            "name": "UBlox",
+                            "value": "ublox",
+                        },
+                        {
+                            "name": "GPSD (generic)",
+                            "value": "gpsd",
                         },
                     ],
                 },
