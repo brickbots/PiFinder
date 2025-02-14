@@ -32,6 +32,11 @@ class UIModule:
     _UP_ARROW = ""
     _DOWN_ARROW = ""
     _CHECKMARK = ""
+    _SQUARE_ = "󰝤"
+    _ARROWS_ = ""
+    _PLUS_ = "󰐕"
+    _MINUS_ = "󰍴"
+    _PLUSMINUS_ = "󰐕/󰍴"
     _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
     _display_mode_list = [None]  # List of display modes
