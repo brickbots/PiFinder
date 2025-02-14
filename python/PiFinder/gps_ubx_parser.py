@@ -381,9 +381,8 @@ class UBXParser:
 
 
 if __name__ == "__main__":
-
     # Parse files stored by gpumon's "l<filename>" command.
-    msg_types = {}
+    msg_types: dict = {}
 
     async def test(f_path: str):
         parser = UBXParser.from_file(file_path=f_path)
@@ -393,7 +392,6 @@ if __name__ == "__main__":
             if msg_type != "":
                 x = msg_types.get(msg_type, 0) + 1
                 msg_types[msg_type] = x
-
 
     if len(sys.argv) < 2 or len(sys.argv) > 2:
         print("Usage: python gps_ubx_parser.py <file_path>")
