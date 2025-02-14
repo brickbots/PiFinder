@@ -95,14 +95,14 @@ async def process_messages(parser, gps_queue, console_queue, error_info):
         await asyncio.sleep(0)
 
 
-async def gps_main(gps_queue, console_queue, log_queue, inject_parser = None):
+async def gps_main(gps_queue, console_queue, log_queue, inject_parser=None):
     MultiprocLogging.configurer(log_queue)
-    logger.info(f"Using UBX GPS code")
+    logger.info("Using UBX GPS code")
     error_info = {"error_2d": 123_456, "error_3d": 123_456}
 
     while True:
         try:
-            if inject_parser: # dependency injection for testing, see gps_fake.py
+            if inject_parser:  # dependency injection for testing, see gps_fake.py
                 parser = inject_parser
             else:
                 parser = await UBXParser.connect(log_queue, host="127.0.0.1", port=2947)

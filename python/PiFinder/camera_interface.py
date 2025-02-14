@@ -51,7 +51,7 @@ class CameraInterface:
             screen_direction = cfg.get_option("screen_direction")
             camera_rotation = cfg.get_option("camera_rotation")
 
-            # Set path for test images
+            # Set path for test mode image
             root_dir = os.path.realpath(
                 os.path.join(os.path.dirname(__file__), "..", "..")
             )
@@ -96,7 +96,7 @@ class CameraInterface:
 
                     base_image = base_image.rotate(rotate_amount)
                 else:
-                    # load image and wait
+                    # Test Mode: load image from disc and wait
                     base_image = Image.open(test_image_path)
                     time.sleep(1)
                 image_end_time = time.time()

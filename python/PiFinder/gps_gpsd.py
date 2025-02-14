@@ -96,7 +96,7 @@ async def process_reading_messages(client, gps_queue, console_queue, gps_locked)
 
 async def gps_main(gps_queue, console_queue, log_queue):
     MultiprocLogging.configurer(log_queue)
-    logger.info(f"Using GPSD GPS code")
+    logger.info("Using GPSD GPS code")
     gps_locked = False
 
     while True:
