@@ -845,7 +845,12 @@ if __name__ == "__main__":
         from rpi_hardware_pwm import HardwarePWM
 
         imu = importlib.import_module("PiFinder.imu_pi")
-        gps_monitor = importlib.import_module("PiFinder.gps_ubx")
+        cfg = config.Config()
+        gps_type = cfg.get_option("gps_type")
+        if gps_type == 'ublox':
+            gps_monitor = importlib.import_module("PiFinder.gps_ubx")
+        else:
+            gps_monitor = importlib.import_module("PiFinder.gps_gpsd")
 
     if args.display is not None:
         display_hardware = args.display.lower()

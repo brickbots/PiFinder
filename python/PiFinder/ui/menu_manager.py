@@ -365,6 +365,7 @@ class MenuManager:
             # overrided by UIModule to perform some action before
             # being unloaded, or return False to prevent unload
             if self.stack[-1].key_left():
+                self.stack[-1].inactive()
                 self.remove_from_stack()
 
     def key_up(self):

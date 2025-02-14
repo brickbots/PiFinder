@@ -23,6 +23,8 @@ logger = logging.getLogger("Camera.Interface")
 class CameraInterface:
     """The CameraInterface interface."""
 
+    _camera_started = False
+    
     def initialize(self) -> None:
         pass
 
@@ -74,6 +76,8 @@ class CameraInterface:
 
                 imu_start = shared_state.imu()
                 image_start_time = time.time()
+                if not self._camera_started:
+                    continue
                 if not debug:
                     base_image = self.capture()
                     base_image = base_image.convert("L")
@@ -163,10 +167,12 @@ class CameraInterface:
                         self.capture_file(filename)
                         console_queue.put("CAM: Saved Image")
                     if command.startswith("stop"):
+                        self._camera_started = False
                         self.camera.stop()
                         console_queue.put("CAM: Stopped camera")
                     if command.startswith("start"):
                         self.camera.start()
+                        self._camera_started = True
                         console_queue.put("CAM: Started camera")
 
         except (BrokenPipeError, EOFError, FileNotFoundError):

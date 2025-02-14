@@ -892,6 +892,7 @@ pifinder_menu = {
                     "select": "single",
                     "config_option": "gps_type",
                     "label": "gps_type",
+                    "post_callback": callbacks.restart_pifinder,
                     "items": [
                         {
                             "name": "UBlox",
