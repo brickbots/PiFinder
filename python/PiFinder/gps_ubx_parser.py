@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
+import sys
 import json
 import math
 import logging
 from PiFinder.multiproclogging import MultiprocLogging
 import asyncio
+import aiofiles
 from typing import Dict, Callable, Optional, Tuple
 from dataclasses import dataclass
 from enum import IntEnum
@@ -46,7 +48,8 @@ class UBXParser:
         writer: Optional[asyncio.StreamWriter] = None,
         file_path: Optional[str] = None,
     ):
-        MultiprocLogging.configurer(log_queue)
+        if log_queue is not None:
+            MultiprocLogging.configurer(log_queue)
         self.reader = reader
         self.writer = writer
         self.file_path = file_path
@@ -129,8 +132,14 @@ class UBXParser:
         return parser
 
     @classmethod
-    def from_file(cls, log_queue, file_path: str):
-        return cls(log_queue=log_queue, file_path=file_path)
+    def from_file(cls, file_path: str):
+        return cls(log_queue=None, file_path=file_path)
+
+    async def parse_from_file(self):
+        async with aiofiles.open(self.file_path, "rb") as f:
+            self.reader = f
+            async for msg in self.parse_messages():
+                yield msg
 
     async def parse_messages(self):
         while True:
@@ -144,6 +153,7 @@ class UBXParser:
             while len(self.buffer) >= 6:  # Minimum bytes needed to check length
                 # Find UBX header
                 start = self.buffer.find(b"\xb5\x62")
+                print(f"Header found at {start}")
                 if start == -1:
                     self.buffer.clear()
                     break
@@ -183,8 +193,6 @@ class UBXParser:
                 # Remove processed message from buffer
                 self.buffer = self.buffer[total_length:]
 
-            if self.file_path and not self.buffer:
-                break
             await asyncio.sleep(0)
 
     def _parse_ubx(self, data: bytes) -> dict:
@@ -374,9 +382,24 @@ class UBXParser:
 
 if __name__ == "__main__":
 
-    async def test():
-        parser = UBXParser.from_file("captured.ubx")
-        async for msg in parser.parse_messages():
-            print(msg)
+    # Parse files stored by gpumon's "l<filename>" command.
+    msg_types = {}
 
-    asyncio.run(test())
+    async def test(f_path: str):
+        parser = UBXParser.from_file(file_path=f_path)
+        async for msg in parser.parse_from_file():
+            print(msg)
+            msg_type = msg.get("class", "")
+            if msg_type != "":
+                x = msg_types.get(msg_type, 0) + 1
+                msg_types[msg_type] = x
+
+
+    if len(sys.argv) < 2 or len(sys.argv) > 2:
+        print("Usage: python gps_ubx_parser.py <file_path>")
+        sys.exit(1)
+
+    file_path = sys.argv[1]
+    asyncio.run(test(file_path))
+
+    print(msg_types)
