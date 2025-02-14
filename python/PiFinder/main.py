@@ -494,10 +494,12 @@ def main(
                                 location.lon = gps_content["lon"]
                                 location.altitude = gps_content["altitude"]
                                 location.source = gps_content["source"]
-                                location.error_in_m = gps_content["error_in_m"]
+                                if "error_in_m" in gps_content:
+                                    location.error_in_m = gps_content["error_in_m"]
                                 if "lock" in gps_content:
                                     location.lock = gps_content["lock"]
-                                location.lock_type = gps_content["lock_type"]
+                                if "lock_type" in gps_content:
+                                    location.lock_type = gps_content["lock_type"]
                                 location.last_gps_lock = (
                                     datetime.datetime.now().time().isoformat()[:8]
                                 )
@@ -519,7 +521,10 @@ def main(
 
                     if gps_msg == "time":
                         # logger.debug("GPS time msg: %s", gps_content)
-                        gps_dt = gps_content["time"]
+                        if isinstance(gps_content, datetime.datetime):
+                            gps_dt = gps_content
+                        else:
+                            gps_dt = gps_content["time"]
                         shared_state.set_datetime(gps_dt)
                     if gps_msg == "satellites":
                         logger.debug("Main: GPS nr sats seen: %s", gps_content)
