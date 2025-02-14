@@ -16,6 +16,7 @@ import logging
 import sys
 from time import perf_counter as precision_timestamp
 import os
+import threading
 
 from PiFinder import state_utils
 from PiFinder import utils
@@ -205,9 +206,7 @@ def solver(
             logger.error(f"Main process no longer running for solver: {eof}")
             logger.exception(eof)  # This logs the full stack trace
             # Optionally log additional context
-            logger.error(
-                f"Current solver state: {self.get_state()}"
-            )  # If you have state info
+            logger.error(f"Current solver state: {solved}")  # If you have state info
         except Exception as e:
             logger.error(f"Exception in Solver: {e.__class__.__name__}: {str(e)}")
             logger.exception(e)  # Logs the full stack trace
@@ -218,5 +217,5 @@ def solver(
                 logger.error(
                     f"Active threads: {[t.name for t in threading.enumerate()]}"
                 )
-            except:
+            except Exception as e:
                 pass  # Don't let diagnostic logging fail
