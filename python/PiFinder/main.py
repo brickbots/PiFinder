@@ -527,7 +527,7 @@ def main(
                             gps_dt = gps_content["time"]
                         shared_state.set_datetime(gps_dt)
                     if gps_msg == "satellites":
-                        logger.debug("Main: GPS nr sats seen: %s", gps_content)
+                        # logger.debug("Main: GPS nr sats seen: %s", gps_content)
                         shared_state.set_sats(gps_content)
                 except queue.Empty:
                     pass
