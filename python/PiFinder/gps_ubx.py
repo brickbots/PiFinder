@@ -15,11 +15,11 @@ sats = [0, 0]
 MAX_GPS_ERROR = 50000  # 50 km
 
 
-async def process_messages(parser, gps_queue, console_queue, error_info):
+async def process_messages(parser_iterator, gps_queue, console_queue, error_info, wait=0, info=None):
     gps_locked = False
     got_sat_update = False  # Track if we got a NAV-SAT message this cycle
 
-    async for msg in parser.parse_messages():
+    async for msg in parser_iterator():
         msg_class = msg.get("class", "")
         logger.debug("GPS: %s: %s", msg_class, msg)
 
@@ -68,7 +68,7 @@ async def process_messages(parser, gps_queue, console_queue, error_info):
                             "lat": msg["lat"],
                             "lon": msg["lon"],
                             "altitude": msg["altHAE"],
-                            "source": "GPS",
+                            "source": "GPS" if not info else info,
                             "lock": gps_locked,
                             "lock_type": msg["mode"],
                             "error_in_m": msg["ecefpAcc"],
@@ -85,14 +85,14 @@ async def process_messages(parser, gps_queue, console_queue, error_info):
                         {
                             "time": msg["time"],
                             "tAcc": msg["tAcc"] if "tAcc" in msg else -1,
-                            "source": "GPS",
+                            "source": "GPS" if not info else info,
                         },
                     )
                 )
             else:
                 logger.warning(f"TIMEGPS message does not qualify: {msg}")
 
-        await asyncio.sleep(0)
+        await asyncio.sleep(wait)
 
 
 async def gps_main(gps_queue, console_queue, log_queue, inject_parser=None):
@@ -106,7 +106,7 @@ async def gps_main(gps_queue, console_queue, log_queue, inject_parser=None):
                 parser = inject_parser
             else:
                 parser = await UBXParser.connect(log_queue, host="127.0.0.1", port=2947)
-            await process_messages(parser, gps_queue, console_queue, error_info)
+            await process_messages(parser.parse_messages, gps_queue, console_queue, error_info)
         except Exception as e:
             logger.error(f"Error in GPS monitor: {e}")
             await asyncio.sleep(5)
