@@ -82,10 +82,10 @@
         /////////////////////////////////////////////////////////////////
         ////// GPS Subsystem
         "GPS": {
-            "level": "WARNING" // Set this to debug, to see results parsed from the GPS
+            "level": "DEBUG" // Set this to debug, to see results parsed from the GPS
         },
         "GPS.parser": {
-             "level": "ERROR"
+             "level": "ERROR" // Low level messages from the parser
         },
 
         /////////////////////////////////////////////////////////////////
