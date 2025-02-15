@@ -5,27 +5,59 @@ This module is for GPS related functions
 
 """
 
+import asyncio
+from multiprocessing import Queue
+import os
 import time
 import datetime
 import logging
 
 from PiFinder.multiproclogging import MultiprocLogging
+from PiFinder.gps_ubx_parser import UBXParser
+from PiFinder.gps_ubx import process_messages
 
-logger = logging.getLogger("GPS")
+logger = logging.getLogger("GPS.fake")
 
 # Have a linear count-down in error, simulating a bad fix, that gets better
 
 error_delta = 100  # 200 * 0.5 = 100 seconds
-error_start = 2_000  # 100 km
-lock_at = 1_000  # 1 km
-fix_2d = 500  # m
-fix_3d = 200  # m
+error_start = 7_000  # 100 km
+lock_at = 6_000  # 1 km
+fix_2d = 4_000  # m
+fix_3d = 1_000  # m
 error_stop = 200  # 10s meters
 
 
+async def emit(f_path: str, gps_queue: Queue, console_queue: Queue, filename: str):
+    parser = UBXParser.from_file(file_path=f_path)
+    error_info = {"error_2d": 123_456, "error_3d": 123_456}
+    await process_messages(parser.parse_from_file, gps_queue, console_queue, error_info, wait=1, info=filename)
+
 def gps_monitor(gps_queue, console_queue, log_queue):
     MultiprocLogging.configurer(log_queue)
+    logger.warning("GPS fake started")
     time.sleep(5)
+
+
+    dir = '../test_ubx'
+    if os.path.isdir(dir):
+        logger.error(f"Directory does not exist: {dir}")
+        
+        files = os.listdir(dir)
+        if not files:
+            logger.error(f"Directory is empty: {dir}")
+        else:
+            while True:
+                for filename in files:
+                    if filename.endswith('.ubx'):
+                        f_path = os.path.join(dir, filename)
+                        logger.fatal(f"************************************************************************")
+                        logger.fatal(f"************************************************************************")
+                        logger.fatal(f"************************************************************************")
+                        logger.fatal(f"******************************* {f_path}")
+                        asyncio.run(emit(f_path, gps_queue, console_queue, filename))
+
+    # Simulate no fix at start, becoming better in error over time.
     error_in_m = error_start
     lock = False
     lock_type = None
