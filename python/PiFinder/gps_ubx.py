@@ -15,7 +15,9 @@ sats = [0, 0]
 MAX_GPS_ERROR = 50000  # 50 km
 
 
-async def process_messages(parser_iterator, gps_queue, console_queue, error_info, wait=0, info=None):
+async def process_messages(
+    parser_iterator, gps_queue, console_queue, error_info, wait=0, info=None
+):
     gps_locked = False
     got_sat_update = False  # Track if we got a NAV-SAT message this cycle
 
@@ -106,7 +108,9 @@ async def gps_main(gps_queue, console_queue, log_queue, inject_parser=None):
                 parser = inject_parser
             else:
                 parser = await UBXParser.connect(log_queue, host="127.0.0.1", port=2947)
-            await process_messages(parser.parse_messages, gps_queue, console_queue, error_info)
+            await process_messages(
+                parser.parse_messages, gps_queue, console_queue, error_info
+            )
         except Exception as e:
             logger.error(f"Error in GPS monitor: {e}")
             await asyncio.sleep(5)

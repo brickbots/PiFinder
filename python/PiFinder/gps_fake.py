@@ -31,29 +31,42 @@ error_stop = 200  # 10s meters
 async def emit(f_path: str, gps_queue: Queue, console_queue: Queue, filename: str):
     parser = UBXParser.from_file(file_path=f_path)
     error_info = {"error_2d": 123_456, "error_3d": 123_456}
-    await process_messages(parser.parse_from_file, gps_queue, console_queue, error_info, wait=1, info=filename)
+    await process_messages(
+        parser.parse_from_file,
+        gps_queue,
+        console_queue,
+        error_info,
+        wait=1,
+        info=filename,
+    )
+
 
 def gps_monitor(gps_queue, console_queue, log_queue):
     MultiprocLogging.configurer(log_queue)
     logger.warning("GPS fake started")
     time.sleep(5)
 
-
-    dir = '../test_ubx'
+    dir = "../test_ubx"
     if os.path.isdir(dir):
         logger.error(f"Directory does not exist: {dir}")
-        
+
         files = os.listdir(dir)
         if not files:
             logger.error(f"Directory is empty: {dir}")
         else:
             while True:
                 for filename in files:
-                    if filename.endswith('.ubx'):
+                    if filename.endswith(".ubx"):
                         f_path = os.path.join(dir, filename)
-                        logger.fatal(f"************************************************************************")
-                        logger.fatal(f"************************************************************************")
-                        logger.fatal(f"************************************************************************")
+                        logger.fatal(
+                            "************************************************************************"
+                        )
+                        logger.fatal(
+                            "************************************************************************"
+                        )
+                        logger.fatal(
+                            "************************************************************************"
+                        )
                         logger.fatal(f"******************************* {f_path}")
                         asyncio.run(emit(f_path, gps_queue, console_queue, filename))
 
