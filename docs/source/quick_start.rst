@@ -250,9 +250,9 @@ Use the menu system to select the 'Camera' option
 .. image:: images/quick_start/main_menu_02_docs.png
 
 The camera screen shows a live preview of what the camera is seeing.  It uses special image processing to 
-highlight stars and remove background skyglow so that you can easily focus and align your PiFinder camera.
+highlight stars and remove background skyglow so that you can easily focus your PiFinder camera.
 
-If there are no stars visible or the image is too defocuses he screen may seem too bright or dark or 
+If there are no stars visible or the image is too defocused he screen may seem too bright or dark or 
 have a noisy appearance, this is normal until the camera is near focus.  See below for some examples
 
 .. list-table::
@@ -270,7 +270,8 @@ Try to pan your scope until you see some bright object in the camera view.  You 
 to adjust focus.  Once something star-like is in the FOV and near focus, the image processing in the preview screen 
 will work properly and start dimming the background and highlighting the stars.
 
-Focus is not critical, it just needs to be close.  If the sky is dark enough and you've got focus 
+Good focus is important for the quickest solves.  Close will work, but you should use the **+/-** keys to zoom in the view
+to get the stars as tight as you reasonably can.  If the sky is dark enough and you've got focus 
 correct, you should see the camera icon appear in the top right and the current constellation will be shown in 
 the title bar.  Congratulations, the PiFinder knows where it is pointing!
 
@@ -284,35 +285,75 @@ the title bar.  Congratulations, the PiFinder knows where it is pointing!
 
 Alignment
 ^^^^^^^^^^^
-In order to get the most out of PiFinder, you must align it with your telescope. Even the smallest change 
-in how your PiFinder sits in its mount as you setup your scope from night to night can change where 
-it aims, so our first step will be to get a bright star in the center of your eyepiece.  This 
-will be used to tell the PiFinder what part of the sky your telescope is seeing. Any star you can 
-identify with the naked eye will work.
+In order to get the most out of PiFinder, you must align it with your telescope. The PiFinder
+uses a digital alignment system. Rather than physically adjust the PiFinder so the center
+of it's FOV lines up with your telescope, you tell the PiFinder where within it's wide FOV 
+your telescope is pointing.
 
-Use the menu system to choose the Camera option if you are not already seeing the live preview and
-you should be able to see your chosen star in the PiFinder’s screen.  
-
-.. image:: images/quick_start/align_CAMERA_001.png
-
-Next, press **SQUARE** to enter ALIGN mode. PiFinder will identify up to three bright 
-stars in the field of view, and give each a number from 1-3. 
+The PiFinder camera sees a patch of sky that is 10 degrees wide.  That's about 20 full moons
+across and the much smaller field of view (FOV) of your telescope is somehwere in 
+that patch of sky.  By pointing your telescope at a star, and then selecting that same star 
+on the PiFinder's alignment chart, you are telling the PiFinder where to put DSO's so they
+are in the middle of your eyepiece each time.
 
 
-.. image:: images/quick_start/align_CAMERA_002.png
 
-Choose the number that represents the star currently in your telescope’s eyepiece, and press that number 
-on PiFinder’s number pad.  You will be taken back to the CAMERA screen, and now the reticle will be 
-centered on your chosen star. In the example below the **2** button was pressed and you can see the 
-Reticle is now centered on that star.
-You are now aligned, and ready to explore the universe!
+To being, select the 'Align' option from the main menu 
 
-.. image:: images/quick_start/align_CAMERA_003.png
+.. image:: images/quick_start/align_menu.png
+
+You'll see a rendered star chart with constellation lines showing the area of the sky the
+PiFinder is seeing.  If you instead see a message about not having a solve, return to the 
+focus section above.
+
+.. image:: images/quick_start/align_intro.png
+
+In this chart view the current alignment point is shown with a Telrad style reticle. As 
+you move your telescope, this chart will update and you can zoom in and out using the **+/-**
+keys.
+
+Next, pick a star you can easily recognize in the sky.  This can be a bright star, or 
+a star which is part of a distinctive constellation or asterism.  You can choose any star
+you can see with your naked eye, but you can't align using a planet.  Point your telescope
+at this star and roughly center it in your eyepiece.
+
+Look at the screen of the PiFinder and you should see the star plotted there.  You can use
+the **+/-** key to zoom out and make it easier to identify the star if needed.
+
+Press the **SQUARE** button to switch to star-selection mode
+
+.. image:: images/quick_start/align_start.png
+
+The large reticle will be replaced with a smaller selection marker that you can move from star
+to star using the arrow keys.  Pressing one of the arrows will move the selection to the next 
+closest star in that direction.
+
+.. image:: images/quick_start/align_start.png
+
+Once you have used the arrow keys to highlight the star your telescope is pointing at 
+go back to the eyepiece and center it up as well you can.  When you press the 
+**SQUARE** button to select the star, the PiFinder will put objects you want to see
+wherever in your telescope eyepiece the star is at that moment
+
+Press the **SQUARE** button to complete the alignment, or you can press the **0** key
+to exit alignment mode without changing the alignmnet point.
+
+.. image:: images/quick_start/align_done.png
+
+The indicator will return to the normal Telrad style reticle to indicate the newly adjusted
+alignment point.  
+
+The PiFinder will save this alignment point so you won't need to complete this process again
+unless you remove and re-attach your PiFinder to your telescope.
 
 .. note::
-   **Can’t find your star on the ALIGN screen?** The PiFinder camera field of view is 10 degrees, which is about 
-   20 full moons wide.  If the star you are looking at with your telescope is not in this field, check 
-   the physical alignment of your finder shoe to make sure it's roughly parallel to your telescopes optical tube. 
+   You can also align using any catalog object!  If you have used the PiFinder to find an object
+   and it's not centered in your eyepiece, center it up, hold down the **SQUARE** key for one 
+   second and choose align.  
+
+   This is not the same as adding alignment points to a standard DSC to improve accuracy, this is 
+   simply telling the PiFinder where in your eyepiece you'd like objects to be put if your initial
+   alignment was not quite to your liking.
 
 
 Find Your First Object
