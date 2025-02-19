@@ -182,8 +182,8 @@ class CatalogFilter:
         dt = shared_state.datetime()
         if location and dt and solution:
             self.fast_aa = calc_utils.FastAltAz(
-                location["lat"],
-                location["lon"],
+                location.lat,
+                location.lon,
                 dt,
             )
         else:
@@ -628,7 +628,13 @@ class TimerCatalog(VirtualCatalog):
 
 
 class PlanetCatalog(TimerCatalog):
-    """Creates a catalog of planets"""
+    """Creates a catalog of planets with adaptive update frequency based on GPS lock status"""
+
+    # Default time delay when we have GPS lock
+    DEFAULT_DELAY = 307
+    # Shorter time delay when waiting for GPS lock
+    WAITING_FOR_GPS_DELAY = 10
+    short_delay = True
 
     def __init__(self, dt: datetime.datetime, shared_state: SharedStateObj):
         super().__init__("PL", "Planets")
@@ -637,58 +643,92 @@ class PlanetCatalog(TimerCatalog):
 
     @property
     def time_delay_seconds(self) -> int:
-        return 307
+        # Return shorter delay if waiting for GPS lock
+        return (
+            self.DEFAULT_DELAY if not self.short_delay else self.WAITING_FOR_GPS_DELAY
+        )
 
     def init_planets(self, dt):
         planet_dict = sf_utils.calc_planets(dt)
+        logger.debug(f"starting planet dict {planet_dict}")
+
+        if not planet_dict:
+            logger.debug("No GPS lock during initialization - will retry soon")
+            self.initialised = True  # Still mark as initialized so timer starts
+            return
+
         sequence = 0
         for name in sf_utils.planet_names:
-            if name.lower() != "sun":
-                self.add_planet(sequence, name, planet_dict[name])
+            planet_data = planet_dict.get(name)
+            if name.lower() != "sun" and planet_data:
+                self.add_planet(sequence, name, planet_data)
                 sequence += 1
+
         with self.virtual_id_lock:
             new_low = self.assign_virtual_object_ids(self, self.virtual_id_low)
             self.virtual_id_low = new_low
+
         self.initialised = True
 
     def add_planet(self, sequence: int, name: str, planet: Dict[str, Dict[str, float]]):
-        ra, dec = planet["radec"]
-        constellation = sf_utils.radec_to_constellation(ra, dec)
+        try:
+            ra, dec = planet["radec"]
+            constellation = sf_utils.radec_to_constellation(ra, dec)
 
-        obj = CompositeObject.from_dict(
-            {
-                "id": 0,
-                "obj_type": "Pla",
-                "ra": ra,
-                "dec": dec,
-                "const": constellation,
-                "size": "",
-                "mag": MagnitudeObject([planet["mag"]]),
-                "names": [name.capitalize()],
-                "catalog_code": "PL",
-                "sequence": sequence + 1,
-                "description": "",
-            }
-        )
-        self.add_object(obj)
+            obj = CompositeObject.from_dict(
+                {
+                    "id": 0,
+                    "obj_type": "Pla",
+                    "ra": ra,
+                    "dec": dec,
+                    "const": constellation,
+                    "size": "",
+                    "mag": MagnitudeObject([planet["mag"]]),
+                    "names": [name.capitalize()],
+                    "catalog_code": "PL",
+                    "sequence": sequence + 1,
+                    "description": "",
+                }
+            )
+            self.add_object(obj)
+        except (KeyError, ValueError) as e:
+            logger.error(f"Error adding planet {name}: {e}")
 
     def do_timed_task(self):
         if not self.initialised:
             return
+
         with Timer("Planet Catalog periodic update"):
-            """ updating planet catalog data """
             dt = self.shared_state.datetime()
-            if not dt or not sf_utils.observer_loc:
+            logger.debug(f"Planet catalog update at {dt}")
+
+            if (
+                not dt
+                or not sf_utils.observer_loc
+                or not self.shared_state.location().lock
+            ):
                 return
+
             planet_dict = sf_utils.calc_planets(dt)
+
+            # If we just got GPS lock and previously had no planets, do a full reinit
+            if not self.get_objects():
+                logger.info("GPS lock acquired - reinitializing planet catalog")
+                self.init_planets(dt)
+                return
+
+            # Regular update if we have GPS lock
             for obj in self._get_objects():
-                name = obj.names[0]
-                if name in planet_dict:
-                    planet = planet_dict[name]
-                    obj.ra, obj.dec = planet["radec"]
-                    obj.mag = MagnitudeObject([planet["mag"]])
-                    obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
-                    obj.mag_str = obj.mag.calc_two_mag_representation()
+                try:
+                    name = obj.names[0]
+                    if name in planet_dict:
+                        planet = planet_dict[name]
+                        obj.ra, obj.dec = planet["radec"]
+                        obj.mag = MagnitudeObject([planet["mag"]])
+                        obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
+                        obj.mag_str = obj.mag.calc_two_mag_representation()
+                except (KeyError, ValueError) as e:
+                    logger.error(f"Error updating planet {name}: {e}")
 
 
 class CometCatalog(TimerCatalog):

@@ -142,14 +142,14 @@ def aim_degrees(shared_state, mount_type, screen_direction, target):
     solution = shared_state.solution()
     location = shared_state.location()
     dt = shared_state.datetime()
-    if location and dt and solution:
+    if location.lock and dt and solution:
         if mount_type == "Alt/Az":
             if solution["Alt"]:
                 # We have position and time/date!
                 sf_utils.set_location(
-                    location["lat"],
-                    location["lon"],
-                    location["altitude"],
+                    location.lat,
+                    location.lon,
+                    location.altitude,
                 )
                 target_alt, target_az = sf_utils.radec_to_altaz(
                     target.ra,
@@ -180,8 +180,8 @@ def calc_object_altitude(shared_state, obj) -> Optional[float]:
     dt = shared_state.datetime()
     if location and dt and solution:
         aa = FastAltAz(
-            location["lat"],
-            location["lon"],
+            location.lat,
+            location.lon,
             dt,
         )
         alt, _ = aa.radec_to_altaz(
@@ -334,7 +334,7 @@ class Skyfield_utils:
         t = self.ts.from_datetime(dt)
 
         observer = self.observer_loc.at(t)
-        # logger.debug("radec_to_altaz: '%f' '%f' '%f'", ra, dec, dt)
+        # Logger.debug("radec_to_altaz: '%f' '%f' '%f'", ra, dec, dt)
         sky_pos = Star(
             ra=Angle(degrees=ra),
             dec_degrees=dec,
@@ -412,6 +412,9 @@ class Skyfield_utils:
                  'altaz': (1.667930045300066, 228.61434416619613)},
         }
         """
+        if not self.observer_loc:
+            logger.warning("no observer location set")
+            return {}
         t = self.ts.from_datetime(dt)
         observer = self.observer_loc.at(t)
         planet_dict = {}
