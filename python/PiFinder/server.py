@@ -502,8 +502,8 @@ class Server:
                 instrument = Telescope(
                     make=request.forms.get("make"),
                     name=request.forms.get("name"),
-                    aperture_mm=request.forms.get("aperture"),
-                    focal_length_mm=request.forms.get("focal_length_mm"),
+                    aperture_mm=int(request.forms.get("aperture")),
+                    focal_length_mm=int(request.forms.get("focal_length_mm")),
                     obstruction_perc=float(request.forms.get("obstruction_perc")),
                     mount_type=request.forms.get("mount_type"),
                     flip_image=bool(request.forms.get("flip")),
