@@ -76,13 +76,13 @@
         //   Solver
         //
         "Solver": {
-            "level": "ERROR"
+            "level": "INFO"
         },
 
         /////////////////////////////////////////////////////////////////
         ////// GPS Subsystem
         "GPS": {
-            "level": "WARNING" // Set this to debug, to see results parsed from the GPS
+            "level": "INFO" // Set this to debug, to see results parsed from the GPS
         },
         // "GPS.fake": {
         //     "level": "DEBUG"
