@@ -304,10 +304,12 @@ def main(
         )
         console.write("Starting....")
         console.update()
+        logger.info("Starting ....")
 
         # spawn gps service....
         console.write("   GPS")
         console.update()
+        logger.info("   GPS")
         gps_process = Process(
             name="GPS",
             target=gps_monitor.gps_monitor,
@@ -322,6 +324,7 @@ def main(
 
         # spawn keyboard service....
         console.write("   Keyboard")
+        logger.info("   Keyboard")
         console.update()
         keyboard_process = Process(
             name="Keyboard",
@@ -340,6 +343,7 @@ def main(
 
         # Web server
         console.write("   Webserver")
+        logger.info("   Webserver")
         console.update()
 
         server_process = Process(
@@ -372,6 +376,7 @@ def main(
         )
 
         console.write("   Camera")
+        logger.info("   Camera")
         console.update()
         camera_image = manager.NewImage("RGB", (512, 512))  # type: ignore[attr-defined]
         image_process = Process(
@@ -390,6 +395,7 @@ def main(
 
         # IMU
         console.write("   IMU")
+        logger.info("   IMU")
         console.update()
         imu_process = Process(
             name="IMU",
@@ -400,6 +406,7 @@ def main(
 
         # Solver
         console.write("   Solver")
+        logger.info("   Solver")
         console.update()
         solver_process = Process(
             name="Solver",
@@ -419,6 +426,7 @@ def main(
 
         # Integrator
         console.write("   Integrator")
+        logger.info("   Integrator")
         console.update()
         integrator_process = Process(
             name="Integrator",
@@ -435,6 +443,7 @@ def main(
 
         # Server
         console.write("  POS Server")
+        logger.info("  POS Server")
         console.update()
         posserver_process = Process(
             name="SkySafariServer",
@@ -445,6 +454,7 @@ def main(
 
         # Initialize Catalogs
         console.write("   Catalogs")
+        logger.info("   Catalogs")
         console.update()
 
         # Initialize Catalogs
@@ -472,8 +482,10 @@ def main(
 
         # Start main event loop
         console.write("   Event Loop")
+        logger.info("   Event Loop")
         console.update()
 
+        log_time = True
         # Start of main except handler / loop
         try:
             while True:
@@ -506,6 +518,9 @@ def main(
                                 console.write(
                                     f'GPS: Location {location["lat"]} {location["lon"]} {location["altitude"]}'
                                 )
+                                logger.info(
+                                    f'GPS: Location {location["lat"]} {location["lon"]} {location["altitude"]}'
+                                )
                                 location["gps_lock"] = True
 
                             shared_state.set_location(location)
@@ -513,6 +528,9 @@ def main(
                         # logger.debug("GPS time msg: %s", gps_content)
                         gps_dt = gps_content
                         shared_state.set_datetime(gps_dt)
+                        if log_time:
+                            logger.info("GPS Time (logged only once): %s", gps_dt)
+                            log_time = False
                     if gps_msg == "satellites":
                         logger.debug("Main: GPS nr sats seen: %s", gps_content)
                         shared_state.set_sats(gps_content)
@@ -573,11 +591,13 @@ def main(
                             set_brightness(screen_brightness, cfg)
                             cfg.set_option("display_brightness", screen_brightness)
                             console.write("Brightness: " + str(screen_brightness))
+                            logger.info("Brightness: %s", screen_brightness)
 
                         if keycode == keyboard_base.ALT_0:
                             # screenshot
                             menu_manager.screengrab()
                             console.write("Screenshot saved")
+                            logger.info("Screenshot saved")
 
                         if keycode == keyboard_base.ALT_RIGHT:
                             # Debug snapshot
@@ -637,6 +657,7 @@ def main(
                                 pickle.dump(ui_state, f)
 
                             console.write(f"Debug dump: {uid}")
+                            logger.info(f"Debug dump: {uid}")
                             menu_manager.message("Debug Info Saved", timeout=1)
 
                     else:
