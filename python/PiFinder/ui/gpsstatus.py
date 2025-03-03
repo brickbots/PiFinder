@@ -47,7 +47,7 @@ class UIGPSStatus(UIModule):
         # Status message
         self.draw.text(
             (0, draw_pos),
-            "Stay here until lock",
+            "Stay here for lock",
             font=self.fonts.bold.font,
             fill=self.colors.get(128),
         )
