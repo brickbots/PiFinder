@@ -541,7 +541,7 @@ def main(
                                     location.lon,
                                     location.altitude,
                                 )
-                    if ps_msg == "time":
+                    if gps_msg == "time":
                         # logger.debug("GPS time msg: %s", gps_content)
                         if isinstance(gps_content, datetime.datetime):
                             gps_dt = gps_content
