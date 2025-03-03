@@ -1,8 +1,11 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-This module contains all the UI Module classes
+This module contains the UIPreview class, a UI module for displaying and interacting with camera images.
 
+It handles image processing, including background subtraction and gamma correction, and provides zoom
+functionality. It also manages a marking menu for adjusting camera settings and draws reticles and star
+selectors on the images.
 """
 
 import sys

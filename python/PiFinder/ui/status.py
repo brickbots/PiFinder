@@ -270,11 +270,11 @@ class UIStatus(UIModule):
         sats = self.shared_state.sats()
         self.status_dict["GPS"] = [
             f"GPS {sats[0]}/{sats[1]}" if sats else "GPS 0/0",
-            f"{location['lat']:.2f}/{location['lon']:.2f}",
+            f"{location.lat:.2f}/{location.lon:.2f}",
         ]
 
-        self.status_dict["GPS ALT"] = f"{location['altitude']:.1f}m"
-        last_lock = location["last_gps_lock"]
+        self.status_dict["GPS ALT"] = f"{location.altitude:.1f}m"
+        last_lock = location.last_gps_lock
         self.status_dict["GPS LST"] = last_lock if last_lock else "--"
 
         dt = self.shared_state.datetime()

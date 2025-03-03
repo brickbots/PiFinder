@@ -7,3 +7,4 @@ mypy==1.10.0
 pytest==8.2.2
 pygame==2.6.0
 pre-commit==3.7.1
+aiofiles==24.1.0
