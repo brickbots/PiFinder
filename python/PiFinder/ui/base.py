@@ -32,6 +32,11 @@ class UIModule:
     _UP_ARROW = ""
     _DOWN_ARROW = ""
     _CHECKMARK = ""
+    _SQUARE_ = "󰝤"
+    _ARROWS_ = ""
+    _PLUS_ = "󰐕"
+    _MINUS_ = "󰍴"
+    _PLUSMINUS_ = "󰐕/󰍴"
     _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
     _display_mode_list = [None]  # List of display modes
@@ -48,6 +53,7 @@ class UIModule:
         item_definition={},
         add_to_stack=None,
         remove_from_stack=None,
+        jump_to_label=None,
     ):
         assert shared_state is not None
         self.title = self.__title__
@@ -61,6 +67,7 @@ class UIModule:
         self.command_queues = command_queues
         self.add_to_stack = add_to_stack
         self.remove_from_stack = remove_from_stack
+        self.jump_to_label = jump_to_label
 
         # mode stuff
         self._display_mode_cycle = cycle(self._display_mode_list)

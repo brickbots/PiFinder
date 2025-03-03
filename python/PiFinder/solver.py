@@ -47,10 +47,22 @@ def solver(
     align_ra = 0
     align_dec = 0
     solved = {
-        # RA, Dec, Roll solved at the center of the camera FoV:
-        "RA_camera": None,
-        "Dec_camera": None,
-        "Roll_camera": None,
+        # RA, Dec, Roll solved at the center of the camera FoV
+        # update by integrator
+        "camera_center": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+            "Alt": None,
+            "Az": None,
+        },
+        # RA, Dec, Roll from the camera, not
+        # affected by IMU in integrator
+        "camera_solve": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+        },
         # RA, Dec, Roll at the target pixel
         "RA": None,
         "Dec": None,
@@ -71,10 +83,13 @@ def solver(
                 + shared_state.arch()
             )
         except FileNotFoundError as e:
-            logger.warn(
+            logger.warning(
                 "Not using cedar_detect, as corresponding file '%s' could not be found",
                 e.filename,
             )
+            cedar_detect = None
+        except ValueError:
+            logger.exception("Not using cedar_detect")
             cedar_detect = None
 
         try:
@@ -133,7 +148,7 @@ def solver(
                     )
 
                     if len(centroids) == 0:
-                        logger.warn("No stars found, skipping")
+                        logger.warning("No stars found, skipping")
                         continue
                     else:
                         _solver_args = {}
@@ -167,13 +182,18 @@ def solver(
                     total_tetra_time = t_extract + solved["T_solve"]
                     if total_tetra_time > 1000:
                         console_queue.put(f"SLV: Long: {total_tetra_time}")
-                        logger.warn("Long solver time: %i", total_tetra_time)
+                        logger.warning("Long solver time: %i", total_tetra_time)
 
                     if solved["RA"] is not None:
                         # RA, Dec, Roll at the center of the camera's FoV:
-                        solved["RA_camera"] = solved["RA"]
-                        solved["Dec_camera"] = solved["Dec"]
-                        solved["Roll_camera"] = solved["Roll"]
+                        solved["camera_center"]["RA"] = solved["RA"]
+                        solved["camera_center"]["Dec"] = solved["Dec"]
+                        solved["camera_center"]["Roll"] = solved["Roll"]
+
+                        # RA, Dec, Roll at the center of the camera's not imu:
+                        solved["camera_solve"]["RA"] = solved["RA"]
+                        solved["camera_solve"]["Dec"] = solved["Dec"]
+                        solved["camera_solve"]["Roll"] = solved["Roll"]
                         # RA, Dec, Roll at the target pixel:
                         solved["RA"] = solved["RA_target"]
                         solved["Dec"] = solved["Dec_target"]

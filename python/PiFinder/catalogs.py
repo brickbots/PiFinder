@@ -816,9 +816,13 @@ class CometCatalog(TimerCatalog):
                 return
             for obj in self._get_objects():
                 name = obj.names[0]
-                logger.debug("Processing %s")
+                logger.debug("Processing %s" % name)
                 comet = comet_dict.get(name, {})
-                obj.ra, obj.dec = comet["radec"]
+                try:
+                    obj.ra, obj.dec = comet["radec"]
+                except KeyError:
+                    logger.error("No radec for comet " + name)
+                    continue
                 obj.mag = MagnitudeObject([comet["mag"]])
                 obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
                 obj.mag_str = obj.mag.calc_two_mag_representation()

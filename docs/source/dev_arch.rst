@@ -274,6 +274,8 @@ To set this up, in each process you need to invoke logging like this:
         # only then create log messages
         logger.debug("Starting Solver")
 
+Note that if you use ``console.write()``, you'll in almost all cases also want to issue a ``logging.info()``: 
+If the console cannot be displayed, the log file's the only way to see what's going on.
 
 Choice of Plate-Solver
 ------------------------ 

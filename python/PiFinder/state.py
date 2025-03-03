@@ -55,6 +55,11 @@ class UIState:
         self.__message_timeout = 0
         self.__hint_timeout = 0
         self.__show_fps = False
+        # Set to true when an object is pushed
+        # to the recent list from the pos_server
+        # proccess (i.e. skysafari goto).  Used
+        # to jump from object list to object details
+        self.__new_pushto = False
 
     def observing_list(self):
         return self.__observing_list
@@ -67,6 +72,12 @@ class UIState:
 
     def add_recent(self, v: CompositeObject):
         self.__recent.append(v)
+
+    def set_new_pushto(self, v: bool):
+        self.__new_pushto = v
+
+    def new_pushto(self) -> bool:
+        return self.__new_pushto
 
     def target(self):
         return self.__target
