@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 import datetime
 
-logger = logging.getLogger("GPS")
+logger = logging.getLogger("GPS.parser")
 
 
 class UBXClass(IntEnum):
@@ -81,7 +81,7 @@ class UBXParser:
             ck_a = (ck_a + b) & 0xFF
             ck_b = (ck_b + ck_a) & 0xFF
         final_msg = b"\xb5\x62" + msg + bytes([ck_a, ck_b])
-        # logging.debug(f"Generated message class=0x{msg_class:02x}, id=0x{msg_id:02x}, len={len(payload)}, checksum=0x{ck_a:02x}{ck_b:02x}")
+        # logger.debug(f"Generated message class=0x{msg_class:02x}, id=0x{msg_id:02x}, len={len(payload)}, checksum=0x{ck_a:02x}{ck_b:02x}")
         return final_msg
 
     async def _handle_initial_messages(self):
@@ -117,8 +117,8 @@ class UBXParser:
                 suffix = bytes.fromhex("0d 0a")  # \r\n
                 wrapped_msg = prefix + poll_msg + suffix
 
-                # logging.debug(f"Raw poll message: {poll_msg.hex()}")
-                # logging.debug(f"Wrapped poll message: {wrapped_msg.hex()}")
+                # logger.debug(f"Raw poll message: {poll_msg.hex()}")
+                # logger.debug(f"Wrapped poll message: {wrapped_msg.hex()}")
                 self.writer.write(wrapped_msg)
                 await self.writer.drain()
             await asyncio.sleep(1)
@@ -147,13 +147,13 @@ class UBXParser:
                 data = await self.reader.read(1024)
                 if not data:
                     break
-                # logging.debug(f"Raw data received ({len(data)} bytes): {data.hex()}")
+                # logger.debug(f"Raw data received ({len(data)} bytes): {data.hex()}")
                 self.buffer.extend(data)
 
             while len(self.buffer) >= 6:  # Minimum bytes needed to check length
                 # Find UBX header
                 start = self.buffer.find(b"\xb5\x62")
-                print(f"Header found at {start}")
+                logger.debug(f"Header found at {start}")
                 if start == -1:
                     self.buffer.clear()
                     break
@@ -166,7 +166,7 @@ class UBXParser:
                 total_length = 8 + length  # header (6) + payload + checksum (2)
                 # Check if we have the complete message
                 if len(self.buffer) < total_length:
-                    logging.debug(
+                    logger.debug(
                         f"Incomplete message: have {len(self.buffer)}, need {total_length}"
                     )
                     break  # Wait for more data
@@ -181,12 +181,12 @@ class UBXParser:
                     ck_b = (ck_b + ck_a) & 0xFF
 
                 if msg_data[-2] == ck_a and msg_data[-1] == ck_b:
-                    # logging.debug(f"Valid message: class=0x{msg_class:02x}, id=0x{msg_id:02x}, len={length}")
+                    # logger.debug(f"Valid message: class=0x{msg_class:02x}, id=0x{msg_id:02x}, len={length}")
                     parsed = self._parse_ubx(bytes(msg_data))
                     if parsed.get("class"):
                         yield parsed
                 else:
-                    logging.warning(
+                    logger.warning(
                         f"Checksum mismatch: expected {ck_a:02x}{ck_b:02x}, got {msg_data[-2]:02x}{msg_data[-1]:02x}"
                     )
 
@@ -204,10 +204,10 @@ class UBXParser:
         payload = data[6 : 6 + length]
         parser = self.message_parsers.get((msg_class, msg_id))
         if parser:
-            # logging.debug(f"Found parser for message class=0x{msg_class:02x}, id=0x{msg_id:02x}")
+            # logger.debug(f"Found parser for message class=0x{msg_class:02x}, id=0x{msg_id:02x}")
             result = parser(payload)
             return result
-        logging.debug(
+        logger.debug(
             f"No parser found for message class=0x{msg_class:02x}, id=0x{msg_id:02x}"
         )
         return {"error": "Unknown message type"}
@@ -252,6 +252,7 @@ class UBXParser:
     def _parse_nav_sat(self, data: bytes) -> dict:
         logger.debug("Parsing nav-sat")
         if len(data) < 8:
+            logger.error("NAV-SAT: Message too short")
             return {"error": "Invalid payload length for nav-sat"}
         numSvs = data[5]
         satellites = []
@@ -286,7 +287,7 @@ class UBXParser:
     def _parse_nav_svinfo(self, data: bytes) -> dict:
         logger.debug("Parsing nav-svinfo")
         if len(data) < 8:
-            logger.debug(f"SVINFO: Message too short ({len(data)} bytes)")
+            logger.warning(f"SVINFO: Message too short ({len(data)} bytes)")
             return {"error": "Invalid payload length for nav-svinfo"}
 
         numCh = data[4]
@@ -325,7 +326,7 @@ class UBXParser:
                     }
                 )
 
-        logging.debug(
+        logger.debug(
             f"SVINFO: Processed {len(satellites)} visible satellites, {used_sats} used in fix"
         )
 
@@ -364,12 +365,13 @@ class UBXParser:
             "valid": bool(valid & 0x01),
             "tAcc": tAcc * 1e-9,
         }
-        logging.debug(f"NAV-TIMEGPS result: {result}")
+        logger.debug(f"NAV-TIMEGPS result: {result}")
         return result
 
     def _parse_nav_dop(self, data: bytes) -> dict:
-        logging.debug("Parsing nav-dop")
+        logger.debug("Parsing nav-dop")
         if len(data) < 18:
+            logger.error("NAV-DOP: Message too short")
             return {"error": "Invalid payload length for nav-dop"}
         result = {
             "class": "NAV-DOP",
@@ -382,6 +384,7 @@ class UBXParser:
 
 if __name__ == "__main__":
     # Parse files stored by gpumon's "l<filename>" command.
+    # Note that gpumon is not supported anymore by gpsd (it is deprecated), use gpspipe instead.
     msg_types: dict = {}
 
     async def test(f_path: str):

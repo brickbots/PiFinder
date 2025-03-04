@@ -552,7 +552,7 @@ def main(
                             logger.info("GPS Time (logged only once): %s", gps_dt)
                             log_time = False
                     if gps_msg == "satellites":
-                        logger.debug("Main: GPS nr sats seen: %s", gps_content)
+                        # logger.debug("Main: GPS nr sats seen: %s", gps_content)
                         shared_state.set_sats(gps_content)
                 except queue.Empty:
                     pass
