@@ -112,9 +112,9 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 if location and dt:
                     # We have position and time/date!
                     calc_utils.sf_utils.set_location(
-                        location["lat"],
-                        location["lon"],
-                        location["altitude"],
+                        location.lat,
+                        location.lon,
+                        location.altitude,
                     )
                     alt, az = calc_utils.sf_utils.radec_to_altaz(
                         solved["RA"],

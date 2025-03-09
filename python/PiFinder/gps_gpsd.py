@@ -82,6 +82,7 @@ async def process_reading_messages(client, gps_queue, console_queue, gps_locked)
                         "lat": result.get("lat"),
                         "lon": result.get("lon"),
                         "altitude": result.get("altHAE"),
+                        "lock": True,
                     },
                 )
                 logger.debug("GPS fix: %s", msg)

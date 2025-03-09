@@ -1,13 +1,6 @@
 {
     "display_brightness": 255,
     "keypad_brightness": "0",
-    "last_location": {
-        "lat": 34.0,
-        "lon": -118.0,
-        "altitude": 51.0,
-        "gps_lock": false,
-        "timezone": "America/Los_Angeles"
-    },
     "camera_exp": 400000,
     "camera_gain": 20,
     "menu_anim_speed": 0.1,
