@@ -13,13 +13,14 @@ logger = logging.getLogger("GPS")
 
 error_2d = 999
 error_3d = 999
+error_in_m = 999
 
 
 def is_tpv_accurate(tpv_dict):
     """
     Check the accuracy of the GPS fix
     """
-    global error_2d, error_3d
+    global error_2d, error_3d, error_in_m
     # get the ecefpAcc if present, else get sep, else use 499
     # error = tpv_dict.get("ecefpAcc", tpv_dict.get("sep", 499))
     mode = tpv_dict.get("mode")
@@ -33,8 +34,10 @@ def is_tpv_accurate(tpv_dict):
         error_3d,
     )
     if mode == 2 and error_2d < 1000:
+        error_in_m = error_2d
         return True
     if mode == 3 and error_3d < 500:
+        error_in_m = error_3d
         return True
     else:
         return False
@@ -66,6 +69,7 @@ async def process_sky_messages(client, gps_queue):
 
 
 async def process_reading_messages(client, gps_queue, console_queue, gps_locked):
+    global error_in_m
     tpv_stream = client.dict_stream(convert_datetime=True, filter=["TPV"])
     async for result in aiter_wrapper(tpv_stream):
         if is_tpv_accurate(result):
@@ -82,7 +86,9 @@ async def process_reading_messages(client, gps_queue, console_queue, gps_locked)
                         "lat": result.get("lat"),
                         "lon": result.get("lon"),
                         "altitude": result.get("altHAE"),
+                        "source": "GPS",
                         "lock": True,
+                        "error_in_m": error_in_m,
                     },
                 )
                 logger.debug("GPS fix: %s", msg)
