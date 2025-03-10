@@ -177,18 +177,17 @@ class CatalogFilter:
         self.dirty_time = time.time()
 
     def calc_fast_aa(self, shared_state):
-        solution = shared_state.solution()
-        location = shared_state.location()
-        dt = shared_state.datetime()
-        if location and dt and solution:
+        if shared_state.altaz_ready():
+            location = shared_state.location()
+            dt = shared_state.datetime()
             self.fast_aa = calc_utils.FastAltAz(
-                location["lat"],
-                location["lon"],
+                location.lat,
+                location.lon,
                 dt,
             )
         else:
             logger.warning(
-                f"Calc_fast_aa: {'solution' if not solution else 'location' if not location else 'datetime' if not dt else 'nothing'} not set"
+                f"Calc_fast_aa: {'location' if not location else 'datetime' if not dt else 'nothing'} not set"
             )
 
     def is_dirty(self) -> bool:
@@ -369,7 +368,7 @@ class Catalog(CatalogBase):
         self.filtered_objects: List[CompositeObject] = self.get_objects()
         self.filtered_objects_seq: List[int] = self._filtered_objects_to_seq()
         self.last_filtered = 0
-        self.initialised = True
+        self.initialized = True
 
     def is_selected(self):
         """
@@ -576,7 +575,7 @@ class TimerCatalog(VirtualCatalog):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.initialised = False
+        self.initialized = False
         logger.debug("in init of timercatalog")
         self.timer: Optional[threading.Timer] = None
         self.is_running: bool = False
@@ -633,11 +632,15 @@ class PlanetCatalog(TimerCatalog):
     def __init__(self, dt: datetime.datetime, shared_state: SharedStateObj):
         super().__init__("PL", "Planets")
         self.shared_state = shared_state
-        self.init_planets(dt)
 
     @property
     def time_delay_seconds(self) -> int:
-        return 307
+        if self.initialized:
+            # We've calculated at least once....
+            return 307
+        else:
+            # Check for a lock/time every 10 seconds
+            return 10
 
     def init_planets(self, dt):
         planet_dict = sf_utils.calc_planets(dt)
@@ -649,7 +652,7 @@ class PlanetCatalog(TimerCatalog):
         with self.virtual_id_lock:
             new_low = self.assign_virtual_object_ids(self, self.virtual_id_low)
             self.virtual_id_low = new_low
-        self.initialised = True
+        self.initialized = True
 
     def add_planet(self, sequence: int, name: str, planet: Dict[str, Dict[str, float]]):
         ra, dec = planet["radec"]
@@ -673,13 +676,15 @@ class PlanetCatalog(TimerCatalog):
         self.add_object(obj)
 
     def do_timed_task(self):
-        if not self.initialised:
-            return
         with Timer("Planet Catalog periodic update"):
             """ updating planet catalog data """
-            dt = self.shared_state.datetime()
-            if not dt or not sf_utils.observer_loc:
+            if not self.shared_state.altaz_ready():
                 return
+
+            dt = self.shared_state.datetime()
+            if not self.initialized:
+                self.init_planets(dt)
+
             planet_dict = sf_utils.calc_planets(dt)
             for obj in self._get_objects():
                 name = obj.names[0]
@@ -711,7 +716,7 @@ class CometCatalog(TimerCatalog):
                 success, self.age = comets.comet_data_download(comet_file)
                 if success:
                     with self._init_lock:
-                        self.initialised = self.calc_comet_first_time(dt)
+                        self.initialized = self.calc_comet_first_time(dt)
                     with self.virtual_id_lock:
                         new_low = self.assign_virtual_object_ids(
                             self, self.virtual_id_low
@@ -765,8 +770,8 @@ class CometCatalog(TimerCatalog):
         """updating comet catalog data"""
         with Timer("Comet Catalog periodic update"):
             with self._init_lock:
-                if not self.initialised:
-                    logging.debug("Comets not yet initialised, skip periodic update...")
+                if not self.initialized:
+                    logging.debug("Comets not yet initialized, skip periodic update...")
                     return
             dt = self.shared_state.datetime()
             comet_dict = comets.calc_comets(
