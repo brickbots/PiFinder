@@ -325,11 +325,7 @@ class SharedStateObj:
             curtime = self.__datetime + datetime.timedelta(
                 seconds=time.time() - self.__datetime_time
             )
-            if curtime > dt:
-                diff = (curtime - dt).seconds
-            else:
-                diff = (dt - curtime).seconds
-            if diff > 60:
+            if curtime < dt:
                 self.__datetime_time = time.time()
                 self.__datetime = dt
 

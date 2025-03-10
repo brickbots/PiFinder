@@ -508,9 +508,12 @@ def main(
                                     location.lock = gps_content["lock"]
                                 if "lock_type" in gps_content:
                                     location.lock_type = gps_content["lock_type"]
-                                location.last_gps_lock = (
-                                    datetime.datetime.now().time().isoformat()[:8]
-                                )
+
+                                dt = shared_state.datetime()
+                                if dt is None:
+                                    location.last_gps_lock = "--"
+                                else:
+                                    location.last_gps_lock = dt.time().isoformat()[:8]
                                 console.write(
                                     f"GPS: Location {location.lat} {location.lon} {location.altitude}"
                                 )
