@@ -604,11 +604,19 @@ def main(
                             or keycode == keyboard_base.ALT_MINUS
                         ):
                             if keycode == keyboard_base.ALT_PLUS:
-                                screen_brightness = screen_brightness + 10
+                                screen_adjust = int(screen_brightness * 0.2)
+                                if screen_adjust < 2:
+                                    screen_adjust = 2
+
+                                screen_brightness += screen_adjust
                                 if screen_brightness > 255:
                                     screen_brightness = 255
                             else:
-                                screen_brightness = screen_brightness - 10
+                                screen_adjust = int(screen_brightness * 0.1)
+                                if screen_adjust < 1:
+                                    screen_adjust = 1
+
+                                screen_brightness -= screen_adjust
                                 if screen_brightness < 0:
                                     screen_brightness = 0
 
