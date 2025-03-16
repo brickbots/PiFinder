@@ -8,7 +8,6 @@ Each one takes the current ui module as an argument
 
 """
 
-import datetime
 import logging
 
 from PiFinder import utils
@@ -51,9 +50,8 @@ def activate_debug(ui_module: UIModule) -> None:
     add fake gps info
     """
     ui_module.command_queues["camera"].put("debug")
-    ui_module.command_queues["console"].put("Debug: Activated")
-    dt = datetime.datetime(2024, 6, 1, 2, 0, 0)
-    ui_module.shared_state.set_datetime(dt)
+    ui_module.command_queues["console"].put("Test Mode Activated")
+    ui_module.command_queues["ui_queue"].put("test_mode")
     ui_module.message("Test Mode")
 
 

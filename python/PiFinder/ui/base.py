@@ -98,6 +98,13 @@ class UIModule:
         """
         pass
 
+    def inactive(self):
+        """
+        Called when a module becomes inactive
+        i.e. leaving a UI screen
+        """
+        pass
+
     def help(self) -> Union[None, list[Image.Image]]:
         """
         Called when help is selected from the
@@ -201,7 +208,7 @@ class UIModule:
             moving = True if imu and imu["pos"] and imu["moving"] else False
 
             # GPS status
-            if self.shared_state.location()["gps_lock"]:
+            if self.shared_state.altaz_ready():
                 self._gps_brightness = 0
             else:
                 gps_anim = int(128 * (time.time() - self.last_update_time)) + 1
