@@ -177,9 +177,9 @@ class CatalogFilter:
         self.dirty_time = time.time()
 
     def calc_fast_aa(self, shared_state):
+        location = shared_state.location()
+        dt = shared_state.datetime()
         if shared_state.altaz_ready():
-            location = shared_state.location()
-            dt = shared_state.datetime()
             self.fast_aa = calc_utils.FastAltAz(
                 location.lat,
                 location.lon,

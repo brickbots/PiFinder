@@ -222,13 +222,13 @@ class UIObjectDetails(UIModule):
     def active(self):
         self.activation_time = time.time()
 
-    def _check_catalog_initialised(self):
+    def _check_catalog_initialized(self):
         code = self.object.catalog_code
         if code == "PUSH":
             # Special code for objects pushed from sky-safari
             return True
         catalog = self.catalogs.get_catalog_by_code(code)
-        return catalog and catalog.initialised
+        return catalog and catalog.initialized
 
     def _render_pointing_instructions(self):
         # Pointing Instructions
@@ -268,7 +268,7 @@ class UIObjectDetails(UIModule):
                 self._elipsis_count = 0
             return
 
-        if not self._check_catalog_initialised():
+        if not self._check_catalog_initialized():
             self.draw.text(
                 (10, 70),
                 "Calculating",
