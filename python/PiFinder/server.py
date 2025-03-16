@@ -502,8 +502,8 @@ class Server:
                 instrument = Telescope(
                     make=request.forms.get("make"),
                     name=request.forms.get("name"),
-                    aperture_mm=request.forms.get("aperture"),
-                    focal_length_mm=request.forms.get("focal_length_mm"),
+                    aperture_mm=int(request.forms.get("aperture")),
+                    focal_length_mm=int(request.forms.get("focal_length_mm")),
                     obstruction_perc=float(request.forms.get("obstruction_perc")),
                     mount_type=request.forms.get("mount_type"),
                     flip_image=bool(request.forms.get("flip")),
@@ -658,6 +658,9 @@ class Server:
                     "lat": lat,
                     "lon": lon,
                     "altitude": altitude,
+                    "error_in_m": 0,
+                    "source": "WEB",
+                    "lock": True,
                 },
             )
             self.gps_queue.put(msg)
@@ -699,11 +702,11 @@ class Server:
         logging.debug(
             "self shared state is %s and location is %s", self.shared_state, location
         )
-        if location["gps_lock"] is True:
+        if location.lock is True:
             self.gps_locked = True
-            self.lat = location["lat"]
-            self.lon = location["lon"]
-            self.altitude = location["altitude"]
+            self.lat = location.lat
+            self.lon = location.lon
+            self.altitude = location.altitude
         else:
             self.gps_locked = False
             self.lat = None

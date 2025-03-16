@@ -81,10 +81,13 @@ def solver(
                 + shared_state.arch()
             )
         except FileNotFoundError as e:
-            logger.warn(
+            logger.warning(
                 "Not using cedar_detect, as corresponding file '%s' could not be found",
                 e.filename,
             )
+            cedar_detect = None
+        except ValueError:
+            logger.exception("Not using cedar_detect")
             cedar_detect = None
 
         try:
@@ -139,7 +142,7 @@ def solver(
                     )
 
                     if len(centroids) == 0:
-                        logger.warn("No stars found, skipping")
+                        logger.warning("No stars found, skipping")
                         continue
                     else:
                         _solver_args = {}
@@ -173,7 +176,7 @@ def solver(
                     total_tetra_time = t_extract + solved["T_solve"]
                     if total_tetra_time > 1000:
                         console_queue.put(f"SLV: Long: {total_tetra_time}")
-                        logger.warn("Long solver time: %i", total_tetra_time)
+                        logger.warning("Long solver time: %i", total_tetra_time)
 
                     if solved["RA"] is not None:
                         # RA, Dec, Roll at the center of the camera's FoV:
