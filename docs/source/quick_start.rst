@@ -328,7 +328,7 @@ The large reticle will be replaced with a smaller selection marker that you can 
 to star using the arrow keys.  Pressing one of the arrows will move the selection to the next 
 closest star in that direction.
 
-.. image:: images/quick_start/align_start.png
+.. image:: images/quick_start/align_select.png
 
 Once you have used the arrow keys to highlight the star your telescope is pointing at 
 go back to the eyepiece and center it up as well you can.  When you press the 
