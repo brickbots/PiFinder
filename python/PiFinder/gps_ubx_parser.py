@@ -238,18 +238,22 @@ class UBXParser:
         return {"error": "Unknown message type"}
 
     def _ecef_to_lla(self, x: float, y: float, z: float):
-        a = 6378137.0
-        e = 0.0818191908426
-        p = (x**2 + y**2) ** 0.5
-        lat = math.atan2(z, p * (1 - e**2))
-        lon = math.atan2(y, x)
-        N = a / (1 - e**2 * math.sin(lat) ** 2) ** 0.5
-        h = z / math.sin(lat) - N * (1 - e**2)
-        return {
-            "latitude": math.degrees(lat),
-            "longitude": math.degrees(lon),
-            "altitude": h,
-        }
+        try:
+            a = 6378137.0
+            e = 0.0818191908426
+            p = (x**2 + y**2) ** 0.5
+            lat = math.atan2(z, p * (1 - e**2))
+            lon = math.atan2(y, x)
+            N = a / (1 - e**2 * math.sin(lat) ** 2) ** 0.5
+            h = z / math.sin(lat) - N * (1 - e**2)
+            return {
+                "latitude": math.degrees(lat),
+                "longitude": math.degrees(lon),
+                "altitude": h,
+            }
+        except Exception as e:
+            logger.error(f"Error converting ECEF to LLA: {e}, x: {x}, y: {y}, z: {z}")
+            return {"error": "Invalid ECEF coordinates"}
 
     def _parse_nav_sol(self, data: bytes) -> dict:
         logger.debug("Parsing nav-sol")
