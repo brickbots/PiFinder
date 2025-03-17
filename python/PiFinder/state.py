@@ -16,6 +16,7 @@ from PiFinder.composite_object import CompositeObject
 from typing import Optional
 from dataclasses import dataclass, asdict
 import json
+from timezonefinder import TimezoneFinder
 
 logger = logging.getLogger("SharedState")
 
@@ -209,10 +210,17 @@ class SharedStateObj:
         self.__solve_pixel = config.Config().get_option("solve_pixel")
         self.__arch = None
         self.__camera_align = False
+        # Are we prepared to do alt/az math
+        # We need gps lock and datetime
+        self.__altaz_ready = False
+        self.__tz_finder = TimezoneFinder()
 
     def serialize(self, output_file):
         with open(output_file, "wb") as f:
             pickle.dump(self, f)
+
+    def altaz_ready(self):
+        return bool(self.__location.lock and self.datetime())
 
     def solve_pixel(self, screen_space=False):
         """
@@ -273,6 +281,10 @@ class SharedStateObj:
         return self.__location
 
     def set_location(self, v):
+        # if value is not none, set the timezone
+        # before saving the value
+        if v:
+            v.timezone = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon)
         self.__location = v
 
     def last_image_metadata(self):
@@ -313,11 +325,7 @@ class SharedStateObj:
             curtime = self.__datetime + datetime.timedelta(
                 seconds=time.time() - self.__datetime_time
             )
-            if curtime > dt:
-                diff = (curtime - dt).seconds
-            else:
-                diff = (dt - curtime).seconds
-            if diff > 60:
+            if curtime < dt:
                 self.__datetime_time = time.time()
                 self.__datetime = dt
 

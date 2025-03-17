@@ -660,6 +660,7 @@ class Server:
                     "altitude": altitude,
                     "error_in_m": 0,
                     "source": "WEB",
+                    "lock": True,
                 },
             )
             self.gps_queue.put(msg)

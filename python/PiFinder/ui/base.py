@@ -208,7 +208,7 @@ class UIModule:
             moving = True if imu and imu["pos"] and imu["moving"] else False
 
             # GPS status
-            if self.shared_state.location().lock:
+            if self.shared_state.altaz_ready():
                 self._gps_brightness = 0
             else:
                 gps_anim = int(128 * (time.time() - self.last_update_time)) + 1

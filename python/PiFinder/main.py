@@ -28,7 +28,6 @@ from pathlib import Path
 from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
-from timezonefinder import TimezoneFinder
 
 from PiFinder import solver
 from PiFinder import integrator
@@ -45,7 +44,7 @@ from PiFinder.calc_utils import sf_utils
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.menu_manager import MenuManager
 
-from PiFinder.state import SharedStateObj, UIState, Location
+from PiFinder.state import SharedStateObj, UIState
 
 from PiFinder.image_util import subtract_background
 
@@ -293,6 +292,7 @@ def main(
 
     with StateManager() as manager:
         shared_state = manager.SharedState()  # type: ignore[attr-defined]
+        location = shared_state.location()
         ui_state = manager.UIState()  # type: ignore[attr-defined]
         ui_state.set_show_fps(show_fps)
         ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
@@ -359,21 +359,6 @@ def main(
             ),
         )
         server_process.start()
-
-        # Load last location, set lock to false
-        tz_finder = TimezoneFinder()
-        # initial_location = cfg.get_option("last_location")
-        # initial_location["timezone"] = tz_finder.timezone_at(
-        #     lat=initial_location["lat"], lng=initial_location["lon"]
-        # )
-        # initial_location["gps_lock"] = False
-        # initial_location["last_gps_lock"] = None
-        # shared_state.set_location(initial_location)
-        # sf_utils.set_location(
-        #     initial_location["lat"],
-        #     initial_location["lon"],
-        #     initial_location["altitude"],
-        # )
 
         console.write("   Camera")
         logger.info("   Camera")
@@ -502,7 +487,7 @@ def main(
                     if gps_msg == "fix":
                         # logger.debug("GPS fix msg: %s", gps_content)
                         if gps_content["lat"] + gps_content["lon"] != 0:
-                            location: Location = shared_state.location()
+                            location = shared_state.location()
                             # only update if there's no fixed WEB lock, and the precision is better than what we had
                             if location.source != "WEB" and (
                                 not location.lock
@@ -523,18 +508,15 @@ def main(
                                     location.lock = gps_content["lock"]
                                 if "lock_type" in gps_content:
                                     location.lock_type = gps_content["lock_type"]
-                                location.last_gps_lock = (
-                                    datetime.datetime.now().time().isoformat()[:8]
-                                )
-                                location.timezone = tz_finder.timezone_at(
-                                    lat=location.lat, lng=location.lon
-                                )
-                                #     # cfg.set_option("last_location", location)
-                                #     console.write(
-                                #         f'GPS: Location {location.lat} {location.lon} {location.altitude}'
-                                #     )
-                                #     location.lock = True
 
+                                dt = shared_state.datetime()
+                                if dt is None:
+                                    location.last_gps_lock = "--"
+                                else:
+                                    location.last_gps_lock = dt.time().isoformat()[:8]
+                                console.write(
+                                    f"GPS: Location {location.lat} {location.lon} {location.altitude}"
+                                )
                                 shared_state.set_location(location)
                                 sf_utils.set_location(
                                     location.lat,
@@ -568,6 +550,28 @@ def main(
                     menu_manager.jump_to_label("recent")
                 elif ui_command == "reload_config":
                     cfg.load_config()
+                elif ui_command == "test_mode":
+                    dt = datetime.datetime(2024, 6, 1, 2, 0, 0)
+                    shared_state.set_datetime(dt)
+                    location.lat = 35.00
+                    location.lon = -118.00
+                    location.altitude = 10
+                    location.source = "test"
+                    location.error_in_m = 5
+                    location.lock = True
+                    location.lock_type = 3
+                    location.last_gps_lock = (
+                        datetime.datetime.now().time().isoformat()[:8]
+                    )
+                    console.write(
+                        f"GPS: Location {location.lat} {location.lon} {location.altitude}"
+                    )
+                    shared_state.set_location(location)
+                    sf_utils.set_location(
+                        location.lat,
+                        location.lon,
+                        location.altitude,
+                    )
 
                 # Keyboard
                 keycode = None
@@ -600,11 +604,19 @@ def main(
                             or keycode == keyboard_base.ALT_MINUS
                         ):
                             if keycode == keyboard_base.ALT_PLUS:
-                                screen_brightness = screen_brightness + 10
+                                screen_adjust = int(screen_brightness * 0.2)
+                                if screen_adjust < 2:
+                                    screen_adjust = 2
+
+                                screen_brightness += screen_adjust
                                 if screen_brightness > 255:
                                     screen_brightness = 255
                             else:
-                                screen_brightness = screen_brightness - 10
+                                screen_adjust = int(screen_brightness * 0.1)
+                                if screen_adjust < 1:
+                                    screen_adjust = 1
+
+                                screen_brightness -= screen_adjust
                                 if screen_brightness < 0:
                                     screen_brightness = 0
 
@@ -909,13 +921,6 @@ if __name__ == "__main__":
         from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
         rlogger.warn("using no keyboard")
-
-    # if args.log:
-    #    datenow = datetime.datetime.now()
-    #    filehandler = f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"
-    #    fh = logging.FileHandler(filehandler)
-    #    fh.setLevel(logger.level)
-    #    rlogger.addHandler(fh)
 
     try:
         main(log_helper, args.script, args.fps, args.verbose)
