@@ -5,9 +5,11 @@ This module contains all the UI Module classes
 
 """
 
+import logging
 from PiFinder import state_utils
 from PiFinder.ui.base import UIModule
 
+logger = logging.getLogger("GPS.status")
 
 class UIGPSStatus(UIModule):
     """
@@ -33,11 +35,17 @@ class UIGPSStatus(UIModule):
 
     def active(self):
         print("gpsstatus became active")
+        logger.info("gpsstatus became active")
         self.command_queues["camera"].put("stop")
+        print("gpsstatus active command sent")
+        logger.info("gpsstatus active command sent")
 
     def inactive(self):
-        print("gpssatus became inactive")
+        print("gpsstatus became inactive")
+        logger.info("gpsstatus became inactive")
         self.command_queues["camera"].put("start")
+        print("gpsstatus: camera started command sent")
+        logger.info("gpsstatus: camera started command sent")
 
     def update(self, force=False):
         state_utils.sleep_for_framerate(self.shared_state)

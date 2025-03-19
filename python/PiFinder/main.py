@@ -479,7 +479,7 @@ def main(
                     console_msg = console_queue.get(block=False)
                     console.write(console_msg)
                 except queue.Empty:
-                    pass
+                    time.sleep(0.1)
 
                 # GPS
                 try:
@@ -488,15 +488,12 @@ def main(
                         # logger.debug("GPS fix msg: %s", gps_content)
                         if gps_content["lat"] + gps_content["lon"] != 0:
                             location = shared_state.location()
-                            # only update if there's no fixed WEB lock, and the precision is better than what we had
+                            
+                            # Only update if there's no fixed WEB lock, and the precision is better than what we had
                             if location.source != "WEB" and (
-                                not location.lock
-                                or (
-                                    location.lock
-                                    and (
-                                        gps_content["error_in_m"] < location.error_in_m
-                                    )
-                                )
+                                location.error_in_m == 0 
+                                or
+                                    float(gps_content["error_in_m"]) < float(location.error_in_m)  # Only if new error is smaller
                             ):
                                 location.lat = gps_content["lat"]
                                 location.lon = gps_content["lon"]
@@ -515,7 +512,7 @@ def main(
                                 else:
                                     location.last_gps_lock = dt.time().isoformat()[:8]
                                 console.write(
-                                    f"GPS: Location {location.lat} {location.lon} {location.altitude}"
+                                    f"GPS: Location {location.lat} {location.lon} {location.altitude} {location.error_in_m}"
                                 )
                                 shared_state.set_location(location)
                                 sf_utils.set_location(

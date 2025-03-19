@@ -19,7 +19,6 @@ import logging
 
 logger = logging.getLogger("Camera.Interface")
 
-
 class CameraInterface:
     """The CameraInterface interface."""
 
@@ -41,6 +40,19 @@ class CameraInterface:
 
     def get_cam_type(self) -> str:
         return "foo"
+
+    def start_camera(self) -> None:
+        logger.info("CameraInterface: Camera started 1")
+        self.camera.start()
+        self._camera_started = True
+        logger.info("CameraInterface: Camera started 2")
+
+    def stop_camera(self) -> None:
+        logger.info("CameraInterface: Camera stopped 1")
+        self.camera.stop()
+        self._camera_started = False
+        logger.info("CameraInterface: Camera stopped 2")
+
 
     def get_image_loop(
         self, shared_state, camera_image, command_queue, console_queue, cfg
@@ -77,6 +89,7 @@ class CameraInterface:
                 imu_start = shared_state.imu()
                 image_start_time = time.time()
                 if not self._camera_started:
+                    logger.error("CameraInterface: Camera not started !!!!!!!!")
                     continue
                 if not debug:
                     base_image = self.capture()
@@ -128,52 +141,65 @@ class CameraInterface:
                 while command:
                     try:
                         command = command_queue.get(block=False)
+                        logger.info(f"CameraInterface: Command received: {command}")
                     except queue.Empty:
-                        command = ""
+                        command = True
+                        time.sleep(0.1)
+                        continue
+                    except Exception as e:
+                        logger.error(f"CameraInterface: Command error: {e}")
 
-                    if command == "debug":
-                        if debug:
-                            debug = False
-                        else:
-                            debug = True
+                    try:
+                        if command == "debug":
+                            if debug:
+                                debug = False
+                            else:
+                                debug = True
 
-                    if command.startswith("set_exp"):
-                        self.exposure_time = int(command.split(":")[1])
-                        self.set_camera_config(self.exposure_time, self.gain)
-                        console_queue.put("CAM: Exp=" + str(self.exposure_time))
+                        if command.startswith("set_exp"):
+                            self.exposure_time = int(command.split(":")[1])
+                            self.set_camera_config(self.exposure_time, self.gain)
+                            console_queue.put("CAM: Exp=" + str(self.exposure_time))
 
-                    if command.startswith("set_gain"):
-                        self.gain = int(command.split(":")[1])
-                        self.exposure_time, self.gain = self.set_camera_config(
-                            self.exposure_time, self.gain
-                        )
-                        console_queue.put("CAM: Gain=" + str(self.gain))
+                        if command.startswith("set_gain"):
+                            self.gain = int(command.split(":")[1])
+                            self.exposure_time, self.gain = self.set_camera_config(
+                                self.exposure_time, self.gain
+                            )
+                            console_queue.put("CAM: Gain=" + str(self.gain))
 
-                    if command == "exp_up" or command == "exp_dn":
-                        if command == "exp_up":
-                            self.exposure_time = int(self.exposure_time * 1.25)
-                        else:
-                            self.exposure_time = int(self.exposure_time * 0.75)
-                        self.set_camera_config(self.exposure_time, self.gain)
-                        console_queue.put("CAM: Exp=" + str(self.exposure_time))
-                    if command == "exp_save":
-                        console_queue.put("CAM: Exp Saved")
-                        cfg.set_option("camera_exp", self.exposure_time)
-                        cfg.set_option("camera_gain", int(self.gain))
+                        if command == "exp_up" or command == "exp_dn":
+                            if command == "exp_up":
+                                self.exposure_time = int(self.exposure_time * 1.25)
+                            else:
+                                self.exposure_time = int(self.exposure_time * 0.75)
+                            self.set_camera_config(self.exposure_time, self.gain)
+                            console_queue.put("CAM: Exp=" + str(self.exposure_time))
+                        if command == "exp_save":
+                            console_queue.put("CAM: Exp Saved")
+                            cfg.set_option("camera_exp", self.exposure_time)
+                            cfg.set_option("camera_gain", int(self.gain))
 
-                    if command.startswith("save"):
-                        filename = command.split(":")[1]
-                        filename = f"{utils.data_dir}/captures/{filename}.png"
-                        self.capture_file(filename)
-                        console_queue.put("CAM: Saved Image")
-                    if command.startswith("stop"):
-                        self._camera_started = False
-                        self.camera.stop()
-                        console_queue.put("CAM: Stopped camera")
-                    if command.startswith("start"):
-                        self.camera.start()
-                        self._camera_started = True
-                        console_queue.put("CAM: Started camera")
+                        if command.startswith("save"):
+                            filename = command.split(":")[1]
+                            filename = f"{utils.data_dir}/captures/{filename}.png"
+                            self.capture_file(filename)
+                            console_queue.put("CAM: Saved Image")
+                        if command.startswith("stop"):
+                            self.stop_camera()
+                            console_queue.put("CAM: Stopped camera")
+                        if command.startswith("start"):
+                            self.start_camera()
+                            console_queue.put("CAM: Started camera")
+                    except ValueError as e:
+                        logger.error(f"Error processing camera command '{command}': {str(e)}")
+                        console_queue.put(f"CAM ERROR: Invalid command format - {str(e)}")
+                    except AttributeError as e:
+                        logger.error(f"Camera component not initialized for command '{command}': {str(e)}")
+                        console_queue.put("CAM ERROR: Camera not properly initialized")
+                    except Exception as e:
+                        logger.error(f"Unexpected error processing camera command '{command}': {str(e)}")
+                        console_queue.put(f"CAM ERROR: {str(e)}")
 
         except (BrokenPipeError, EOFError, FileNotFoundError):
             logger.exception("Error in Camera Loop")

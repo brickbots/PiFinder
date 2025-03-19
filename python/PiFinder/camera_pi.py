@@ -45,7 +45,7 @@ class CameraPI(CameraInterface):
 
     def initialize(self) -> None:
         """Initializes the camera and set the needed control parameters"""
-        self.camera.stop()
+        self.stop_camera()
         if self.camera_type == "imx296":
             # The auto selected 728x544 sensor mode returns black frames if the
             # exposure is too high.  So we need to force a specific sensor
@@ -73,7 +73,7 @@ class CameraPI(CameraInterface):
         self.camera.set_controls({"AeEnable": False})
         self.camera.set_controls({"AnalogueGain": self.gain})
         self.camera.set_controls({"ExposureTime": self.exposure_time})
-        self.camera.start()
+        self.start_camera()
 
     def capture(self) -> Image.Image:
         """
@@ -118,10 +118,10 @@ class CameraPI(CameraInterface):
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
-        self.camera.stop()
+        self.stop_camera()
         self.camera.set_controls({"AnalogueGain": gain})
         self.camera.set_controls({"ExposureTime": exposure_time})
-        self.camera.start()
+        self.start_camera()
         return exposure_time, gain
 
     def get_cam_type(self) -> str:

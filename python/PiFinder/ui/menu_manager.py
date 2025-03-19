@@ -157,6 +157,7 @@ class MenuManager:
     def remove_from_stack(self) -> None:
         if len(self.stack) > 1:
             self._stack_top_image = self.stack[-1].screen.copy()
+            self.stack[-1].inactive()  # type: ignore[call-arg]
             self.stack.pop()
             self.stack[-1].active()  # type: ignore[call-arg]
             self._stack_anim_counter = time.time() + self.config_object.get_option(
