@@ -88,63 +88,59 @@ class CameraInterface:
 
                 imu_start = shared_state.imu()
                 image_start_time = time.time()
-                if not self._camera_started:
-                    logger.error("CameraInterface: Camera not started !!!!!!!!")
-                    continue
-                if not debug:
-                    base_image = self.capture()
-                    base_image = base_image.convert("L")
-                    rotate_amount = 0
-                    if camera_rotation is None:
-                        if (
-                            screen_direction == "right"
-                            or screen_direction == "straight"
-                            or screen_direction == "flat3"
-                        ):
-                            rotate_amount = 90
+                if self._camera_started:
+                    if not debug:
+                        base_image = self.capture()
+                        base_image = base_image.convert("L")
+                        rotate_amount = 0
+                        if camera_rotation is None:
+                            if (
+                                screen_direction == "right"
+                                or screen_direction == "straight"
+                                or screen_direction == "flat3"
+                            ):
+                                rotate_amount = 90
+                            else:
+                                rotate_amount = 270
                         else:
-                            rotate_amount = 270
+                            base_image = base_image.rotate(int(camera_rotation) * -1)
+
+                        base_image = base_image.rotate(rotate_amount)
                     else:
-                        base_image = base_image.rotate(int(camera_rotation) * -1)
+                        # Test Mode: load image from disc and wait
+                        base_image = Image.open(test_image_path)
+                        time.sleep(1)
+                    image_end_time = time.time()
+                    # check imu to make sure we're still static
+                    imu_end = shared_state.imu()
 
-                    base_image = base_image.rotate(rotate_amount)
-                else:
-                    # Test Mode: load image from disc and wait
-                    base_image = Image.open(test_image_path)
-                    time.sleep(1)
-                image_end_time = time.time()
-                # check imu to make sure we're still static
-                imu_end = shared_state.imu()
+                    # see if we moved during exposure
+                    reading_diff = 0
+                    if imu_start and imu_end:
+                        reading_diff = (
+                            abs(imu_start["pos"][0] - imu_end["pos"][0])
+                            + abs(imu_start["pos"][1] - imu_end["pos"][1])
+                            + abs(imu_start["pos"][2] - imu_end["pos"][2])
+                        )
 
-                # see if we moved during exposure
-                reading_diff = 0
-                if imu_start and imu_end:
-                    reading_diff = (
-                        abs(imu_start["pos"][0] - imu_end["pos"][0])
-                        + abs(imu_start["pos"][1] - imu_end["pos"][1])
-                        + abs(imu_start["pos"][2] - imu_end["pos"][2])
+                    camera_image.paste(base_image)
+                    shared_state.set_last_image_metadata(
+                        {
+                            "exposure_start": image_start_time,
+                            "exposure_end": image_end_time,
+                            "imu": imu_end,
+                            "imu_delta": reading_diff,
+                        }
                     )
-
-                camera_image.paste(base_image)
-                shared_state.set_last_image_metadata(
-                    {
-                        "exposure_start": image_start_time,
-                        "exposure_end": image_end_time,
-                        "imu": imu_end,
-                        "imu_delta": reading_diff,
-                    }
-                )
 
                 # Loop over any pending commands
                 # There may be more than one!
                 command = True
                 while command:
                     try:
-                        command = command_queue.get(block=False)
-                        logger.info(f"CameraInterface: Command received: {command}")
+                        command = command_queue.get(block=True, timeout=0.1)
                     except queue.Empty:
-                        command = True
-                        time.sleep(0.1)
+                        command = ""
                         continue
                     except Exception as e:
                         logger.error(f"CameraInterface: Command error: {e}")
@@ -200,6 +196,6 @@ class CameraInterface:
                     except Exception as e:
                         logger.error(f"Unexpected error processing camera command '{command}': {str(e)}")
                         console_queue.put(f"CAM ERROR: {str(e)}")
-
+            logger.info(f"CameraInterface: Camera loop exited with command: '{command}'")
         except (BrokenPipeError, EOFError, FileNotFoundError):
             logger.exception("Error in Camera Loop")
