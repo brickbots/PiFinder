@@ -11,6 +11,7 @@ from PiFinder.ui.base import UIModule
 
 logger = logging.getLogger("GPS.status")
 
+
 class UIGPSStatus(UIModule):
     """
     UI for seeing GPS status

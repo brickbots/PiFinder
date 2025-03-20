@@ -75,6 +75,18 @@ class CameraPI(CameraInterface):
         self.camera.set_controls({"ExposureTime": self.exposure_time})
         self.start_camera()
 
+    def start_camera(self) -> None:
+        logger.info("CameraInterface: Camera started 1")
+        self.camera.start()
+        self._camera_started = True
+        logger.info("CameraInterface: Camera started 2")
+
+    def stop_camera(self) -> None:
+        logger.info("CameraInterface: Camera stopped 1")
+        self.camera.stop()
+        self._camera_started = False
+        logger.info("CameraInterface: Camera stopped 2")
+
     def capture(self) -> Image.Image:
         """
         Captures a raw 10/12bit sensor output and converts

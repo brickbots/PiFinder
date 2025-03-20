@@ -488,12 +488,14 @@ def main(
                         # logger.debug("GPS fix msg: %s", gps_content)
                         if gps_content["lat"] + gps_content["lon"] != 0:
                             location = shared_state.location()
-                            
+
                             # Only update if there's no fixed WEB lock, and the precision is better than what we had
                             if location.source != "WEB" and (
-                                location.error_in_m == 0 
-                                or
-                                    float(gps_content["error_in_m"]) < float(location.error_in_m)  # Only if new error is smaller
+                                location.error_in_m == 0
+                                or float(gps_content["error_in_m"])
+                                < float(
+                                    location.error_in_m
+                                )  # Only if new error is smaller
                             ):
                                 location.lat = gps_content["lat"]
                                 location.lon = gps_content["lon"]

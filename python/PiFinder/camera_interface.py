@@ -19,9 +19,9 @@ import logging
 
 logger = logging.getLogger("Camera.Interface")
 
+
 class CameraInterface:
     """The CameraInterface interface."""
-
     _camera_started = False
 
     def initialize(self) -> None:
@@ -42,17 +42,10 @@ class CameraInterface:
         return "foo"
 
     def start_camera(self) -> None:
-        logger.info("CameraInterface: Camera started 1")
-        self.camera.start()
-        self._camera_started = True
-        logger.info("CameraInterface: Camera started 2")
+        pass
 
     def stop_camera(self) -> None:
-        logger.info("CameraInterface: Camera stopped 1")
-        self.camera.stop()
-        self._camera_started = False
-        logger.info("CameraInterface: Camera stopped 2")
-
+        pass
 
     def get_image_loop(
         self, shared_state, camera_image, command_queue, console_queue, cfg
@@ -188,14 +181,24 @@ class CameraInterface:
                             self.start_camera()
                             console_queue.put("CAM: Started camera")
                     except ValueError as e:
-                        logger.error(f"Error processing camera command '{command}': {str(e)}")
-                        console_queue.put(f"CAM ERROR: Invalid command format - {str(e)}")
+                        logger.error(
+                            f"Error processing camera command '{command}': {str(e)}"
+                        )
+                        console_queue.put(
+                            f"CAM ERROR: Invalid command format - {str(e)}"
+                        )
                     except AttributeError as e:
-                        logger.error(f"Camera component not initialized for command '{command}': {str(e)}")
+                        logger.error(
+                            f"Camera component not initialized for command '{command}': {str(e)}"
+                        )
                         console_queue.put("CAM ERROR: Camera not properly initialized")
                     except Exception as e:
-                        logger.error(f"Unexpected error processing camera command '{command}': {str(e)}")
+                        logger.error(
+                            f"Unexpected error processing camera command '{command}': {str(e)}"
+                        )
                         console_queue.put(f"CAM ERROR: {str(e)}")
-            logger.info(f"CameraInterface: Camera loop exited with command: '{command}'")
+            logger.info(
+                f"CameraInterface: Camera loop exited with command: '{command}'"
+            )
         except (BrokenPipeError, EOFError, FileNotFoundError):
             logger.exception("Error in Camera Loop")
