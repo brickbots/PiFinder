@@ -110,8 +110,7 @@ class UILocationList(UITextMenu):
                 # Recreate menu definition to update the items displayed
                 self.item_definition = self.create_menu_definition()
                # Update the menu items list from the new definition
-                self._menu_items = self.item_definition["items"]
-                print("menu items", self._menu_items)
+                self._menu_items = [x["name"] for x in self.item_definition["items"]]
  
                 # Ensure the current item index is valid
                 if self._current_item_index >= len(self.item_definition["items"]):
