@@ -7,7 +7,7 @@ This module handles non-volatile config options
 import json
 import os
 from pathlib import Path
-from PiFinder import utils, equipment
+from PiFinder import utils, equipment, locations
 from typing import Any
 
 
@@ -34,6 +34,7 @@ class Config:
             self._config_dict = {}
         else:
             with open(self.config_file_path, "r") as config_file:
+                print("Loading config from", self.config_file_path)
                 self._config_dict = json.load(config_file)
 
         # open default default_config
@@ -47,11 +48,24 @@ class Config:
         else:
             self.equipment = equipment.Equipment.from_dict(eq_config)
 
+        # Load the locations config
+        loc_config = self.get_option("locations")
+        if loc_config is None:
+            self.locations = locations.Locations(locations=[])
+        else:
+            self.locations = locations.Locations.from_dict(loc_config)
+
     def save_equipment(self):
         """
         Saves the equipment object state
         """
         self.set_option("equipment", self.equipment.to_dict())
+
+    def save_locations(self):
+        """
+        Saves the locations object state
+        """
+        self.set_option("locations", self.locations.to_dict())
 
     def dump_config(self):
         """
@@ -72,6 +86,10 @@ class Config:
 
             self.save_equipment()
 
+        elif option.startswith("locations."):
+            # Just save locations when any locations option changes
+            self.save_locations()
+
         else:
             self._config_dict[option] = value
             self.dump_config()
@@ -85,6 +103,10 @@ class Config:
                 return self.equipment.active_telescope
             if option == "active_eyepiece":
                 return self.equipment.active_eyepiece
+        elif option.startswith("locations."):
+            option = option.split(".")[1]
+            if option == "default":
+                return self.locations.default_location
         else:
             return self._config_dict.get(
                 option, self._default_config_dict.get(option, default)

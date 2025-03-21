@@ -17,6 +17,8 @@ from typing import Optional
 from dataclasses import dataclass, asdict
 import json
 from timezonefinder import TimezoneFinder
+import threading
+import copy
 
 logger = logging.getLogger("SharedState")
 
@@ -151,9 +153,9 @@ class Location:
     altitude: float = 0.0
     source: str = "None"
     lock: bool = False  # lock means: we received a good enough location, not a GPS Fix
-    lock_type: int = 0
+    lock_type: int = 0 # limited, basic, accurate, precise
     error_in_m: float = 0.0
-    timezone: Optional[str] = None
+    timezone: Optional[str] = "UTC"
     last_gps_lock: Optional[str] = None
 
     def __str__(self):
@@ -168,6 +170,17 @@ class Location:
             f"{f', tz={self.timezone}' if self.timezone else ''}"
             f"{f', last_lock={self.last_gps_lock}' if self.last_gps_lock else ''})"
         )
+    
+    def reset(self):
+        self.lat = 0.0
+        self.lon = 0.0
+        self.altitude = 0.0
+        self.source = "None"
+        self.lock = False
+        self.lock_type = 0
+        self.error_in_m = 0
+        self.timezone = "UTC"
+        self.last_gps_lock = None
 
     def to_dict(self):
         """Convert the Location object to a dictionary."""
@@ -187,7 +200,6 @@ class Location:
         """Create a Location object from a JSON string."""
         data = json.loads(json_str)
         return cls.from_dict(data)
-
 
 class SharedStateObj:
     def __init__(self):
@@ -212,7 +224,6 @@ class SharedStateObj:
         self.__camera_align = False
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
-        self.__altaz_ready = False
         self.__tz_finder = TimezoneFinder()
 
     def serialize(self, output_file):
@@ -278,6 +289,7 @@ class SharedStateObj:
         self.__solution = v
 
     def location(self):
+        """Return the current location"""
         return self.__location
 
     def set_location(self, v):
@@ -304,11 +316,14 @@ class SharedStateObj:
         if self.__datetime is None:
             return self.__datetime
 
-        if not self.__location:
-            return self.datetime()
-
         dt = self.datetime()
-        return dt.astimezone(pytz.timezone(self.__location.timezone))
+        if self.__location and self.__location.timezone:
+            try:
+                return dt.astimezone(pytz.timezone(self.__location.timezone))
+            except (pytz.exceptions.UnknownTimeZoneError, AttributeError):
+                # Fall back to UTC if timezone is invalid or None
+                return dt.astimezone(pytz.timezone("UTC"))
+        return dt.astimezone(pytz.timezone("UTC"))
 
     def set_datetime(self, dt):
         if dt.tzname() is None:

@@ -157,6 +157,7 @@ class MenuManager:
     def remove_from_stack(self) -> None:
         if len(self.stack) > 1:
             self._stack_top_image = self.stack[-1].screen.copy()
+            self.stack[-1].inactive()  # type: ignore[call-arg]
             self.stack.pop()
             self.stack[-1].active()  # type: ignore[call-arg]
             self._stack_anim_counter = time.time() + self.config_object.get_option(
@@ -191,6 +192,7 @@ class MenuManager:
         item dict
         """
         if item.get("state") is not None:
+            self.stack[-1].inactive()  # type: ignore[call-arg]
             self.stack.append(item["state"])
         else:
             self.stack.append(
@@ -409,6 +411,7 @@ class MenuManager:
             self.help_images = None
             self.update()
 
+        self.stack[-1].inactive()
         self.stack = self.stack[:1]
         self.stack[0].active()
 
@@ -427,6 +430,7 @@ class MenuManager:
             # overrided by UIModule to perform some action before
             # being unloaded, or return False to prevent unload
             if self.stack[-1].key_left():
+                self.stack[-1].inactive()
                 self.remove_from_stack()
 
     def key_up(self):
