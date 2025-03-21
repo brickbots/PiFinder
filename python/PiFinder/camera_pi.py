@@ -76,16 +76,12 @@ class CameraPI(CameraInterface):
         self.start_camera()
 
     def start_camera(self) -> None:
-        logger.info("CameraInterface: Camera started 1")
         self.camera.start()
         self._camera_started = True
-        logger.info("CameraInterface: Camera started 2")
 
     def stop_camera(self) -> None:
-        logger.info("CameraInterface: Camera stopped 1")
         self.camera.stop()
         self._camera_started = False
-        logger.info("CameraInterface: Camera stopped 2")
 
     def capture(self) -> Image.Image:
         """

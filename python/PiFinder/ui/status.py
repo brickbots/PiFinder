@@ -297,7 +297,7 @@ class UIStatus(UIModule):
         if time.time() - self.last_IP_time > 20:
             self.last_IP_time = time.time()
             # IP address
-            self.status_dict["IP ADDR"] = self.net.local_ip()
+            self.status_dict["IP"] = self.net.local_ip()
             if self.net.wifi_mode() == "AP":
                 self.status_dict["SSID"] = self.net.get_ap_name()
             else:

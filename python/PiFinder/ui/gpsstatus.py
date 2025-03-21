@@ -199,7 +199,7 @@ class UIGPSStatus(UIModule):
 
         self.draw.text(
             (0, draw_pos),
-            f"Source: {location.source}",
+            f"From: {location.source}",
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )

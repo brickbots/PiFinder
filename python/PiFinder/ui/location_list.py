@@ -106,6 +106,17 @@ class UILocationList(UITextMenu):
                 self.config_object.locations.remove_location(location)
                 self.config_object.save_locations()
                 self.locations = self.config_object.locations.locations
+                
+                # Recreate menu definition to update the items displayed
+                self.item_definition = self.create_menu_definition()
+               # Update the menu items list from the new definition
+                self._menu_items = self.item_definition["items"]
+                print("menu items", self._menu_items)
+ 
+                # Ensure the current item index is valid
+                if self._current_item_index >= len(self.item_definition["items"]):
+                    self._current_item_index = max(0, len(self.item_definition["items"]) - 1)
+                
                 self.selected_index = None
                 self.message(f"Deleted: {location.name}", timeout=2)
                 self.action_menu_active = False
