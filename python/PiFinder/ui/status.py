@@ -94,7 +94,7 @@ class UIStatus(UIModule):
             "RA/DEC": "--",
             "AZ/ALT": "--",
             "WIFI": "--",
-            "IP ADDR": "--",
+            "IP": "--",
             "SSID": "--",
             "IMU": "--",
             "IMU PS": "--",
