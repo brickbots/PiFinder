@@ -279,6 +279,7 @@ def main(
         "ui_queue": ui_queue,
         "align_command": alignment_command_queue,
         "align_response": alignment_response_queue,
+        "gps": gps_queue,
     }
     cfg = config.Config()
 
