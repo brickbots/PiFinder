@@ -199,6 +199,14 @@ class UIGPSStatus(UIModule):
 
         self.draw.text(
             (0, draw_pos),
+            f"Time: {self.shared_state.local_datetime().strftime('%H:%M:%S')}",
+            font=self.fonts.base.font,
+            fill=self.colors.get(128),
+        )
+        draw_pos += 10
+
+        self.draw.text(
+            (0, draw_pos),
             f"From: {location.source}",
             font=self.fonts.base.font,
             fill=self.colors.get(128),
