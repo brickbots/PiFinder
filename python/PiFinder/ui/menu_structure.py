@@ -9,7 +9,9 @@ from PiFinder.ui.align import UIAlign
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.equipment import UIEquipment
+from PiFinder.ui.location_list import UILocationList
 import PiFinder.ui.callbacks as callbacks
+from multiprocessing import Queue
 
 pifinder_menu = {
     "name": "PiFinder",
@@ -42,12 +44,12 @@ pifinder_menu = {
                             "class": UIGPSStatus,
                         },
                         {
-                            "name": "Save location",
-                            "class": UITextEntry,
+                            "name": "Locations",
+                            "class": UILocationList,
                         },
                         {
-                            "name": "Set location",
-                            "class": UITextEntry,
+                            "name": "Reset",
+                            "callback": callbacks.gps_reset
                         },
                     ],
                 },

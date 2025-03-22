@@ -279,6 +279,7 @@ def main(
         "ui_queue": ui_queue,
         "align_command": alignment_command_queue,
         "align_response": alignment_response_queue,
+        "gps": gps_queue,
     }
     cfg = config.Config()
 
@@ -485,18 +486,19 @@ def main(
                 try:
                     gps_msg, gps_content = gps_queue.get(block=False)
                     if gps_msg == "fix":
-                        # logger.debug("GPS fix msg: %s", gps_content)
+                        logger.debug("GPS fix msg: %s", gps_content)
                         if gps_content["lat"] + gps_content["lon"] != 0:
                             location = shared_state.location()
 
-                            # Only update if there's no fixed WEB lock, and the precision is better than what we had
-                            if location.source != "WEB" and (
+                            # Only update GPS fixes, as soon as it's loaded or comes from the WEB it's untouchable
+                            if not location.source == "WEB" and not location.source.startswith("CONFIG:") and (
                                 location.error_in_m == 0
                                 or float(gps_content["error_in_m"])
                                 < float(
                                     location.error_in_m
                                 )  # Only if new error is smaller
                             ):
+                                logger.info(f"Updating GPS location: new content: {gps_content}, old content: {location}")
                                 location.lat = gps_content["lat"]
                                 location.lon = gps_content["lon"]
                                 location.altitude = gps_content["altitude"]
@@ -532,6 +534,9 @@ def main(
                         if log_time:
                             logger.info("GPS Time (logged only once): %s", gps_dt)
                             log_time = False
+                    if gps_msg == "reset":
+                        location.reset()
+                        shared_state.set_location(location)
                     if gps_msg == "satellites":
                         logger.debug("Main: GPS nr sats seen: %s", gps_content)
                         shared_state.set_sats(gps_content)
