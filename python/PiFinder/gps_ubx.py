@@ -9,7 +9,7 @@ from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.gps_ubx_parser import UBXParser
 import logging
 
-logger = logging.getLogger("GPS")
+logger = logging.getLogger("GPS.parser")
 sats = [0, 0]
 
 MAX_GPS_ERROR = 50000  # 50 km

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 import datetime
 
-logger = logging.getLogger("GPS")
+logger = logging.getLogger("GPS.parser")
 
 
 class UBXClass(IntEnum):
