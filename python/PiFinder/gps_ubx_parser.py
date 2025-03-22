@@ -416,6 +416,7 @@ class UBXParser:
         return result
 
     def _parse_nav_posecef(self, data: bytes) -> dict:
+        """Position solution in ECEF"""
         logger.debug("Parsing nav-posecef")
         if len(data) < 20:
             return {"error": "Invalid payload length for nav-posecef"}
@@ -433,20 +434,49 @@ class UBXParser:
         return result
         
     def _parse_nav_pvt(self, data: bytes) -> dict:
-        logger.debug("Parsining nav-pvt")
+        """This message combines position, velocity and time solution, including accuracy figures. 
+        Note that during a leap second there may be more or less than 60 seconds in a minute."""
+        
+        logger.debug("Parsing nav-pvt")
         if len(data) < 90:
             return {"error": "Invalid payload length for nav-pvt"}
+        year = int.from_bytes(data[4:6], "little", signed=False) 
+        month = data[6]
+        day = data[7]
+        hour = data[8]
+        minute = data[9]
+        seconds = data[10]
+        tAcc = int.from_bytes(data[24:28], "little", signed=False) / 1e9 # nano seconds
+        nano = int.from_bytes(data[24:28], "little", signed=True) / 1e9 # nano seconds 
         gpsFix = data[20]
+        numSV = data[23]
         lon = int.from_bytes(data[24:28], "little", signed=True) / 1e7
         lat = int.from_bytes(data[28:32], "little", signed=True) / 1e7
-        height = int.from_bytes(data[32:36], "little", signed=True) / 1000.0
+        height = int.from_bytes(data[32:36], "little", signed=True) / 1000.0 # Height above ellipsoid / m
+        hMSL = int.from_bytes(data[36:40], "little", signed=True) / 1000.0 # Main Sea Level / m
+        hAcc = int.from_bytes(data[40:44], "little", signed=False) / 1000.0 # horizontal Accurary / m
+        vAcc = int.from_bytes(data[44:48], "little", signed=False) / 1000.0 # vertical Accuracy / m
+        pDOP = int.from_bytes(data[76:78], "little", signed=False) / 100.0 # position DOP 
 
         result = {
             "class": "NAV-PVT",
+            "UTCyear": year,
+            "UTCmonth": month, 
+            "UTCday": day,
+            "UTChour": hour,
+            "UTCminute": minute,
+            "UTCseconds": seconds,
+            "UTCnano": nano,
+            "tAcc": tAcc,
             "mode": gpsFix,
             "lat": lat,
             "lon": lon,
             "altHAE": height,
+            "hMSL": hMSL,
+            "numSV": numSV,
+            "hAcc": hAcc,
+            "vAcc": vAcc,
+            "pDOP": pDOP,
         }
         logger.debug(f"NAV-PVT result: {result}")
         return result
