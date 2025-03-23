@@ -92,38 +92,44 @@ class UBXParser:
 
         watch_json = json.dumps(
             {
-                "enable": True,
-                "json": False,
+                "class": "WATCH",  # Add class for clarity
+                "enable": "true",
+                "json": "false",
                 "raw": 2,
-                "binary": True,
-                "nmea": False,
-                "scaled": False,
-                "timing": False,
-                "split24": False,
-                "pps": False,
-                "device": True,
+                "binary": "true",
+                "nmea": "false",
+                "scaled": "false",
+                "timing": "false",
+                "split24": "false",
+                "pps": "false",
+                "device": "true",
             },
             separators=(",", ":"),
         )
         watch_command = f"?WATCH={watch_json}\r\n"
+        logger.debug(f"Sending WATCH command: {watch_command}")
         self.writer.write(watch_command.encode())
         await self.writer.drain()
+        # Optional: Read response to confirm
+        response = await self.reader.read(1024)
+        logger.debug(f"WATCH response: {response.decode('utf-8', errors='ignore')}")
 
     async def _poll_messages(self):
-        while self._running and self.writer and not self.writer.is_closing():
-            try:
-                for msg_id in [NAVMessageId.SVINFO, NAVMessageId.TIMEGPS]:
-                    poll_msg = self._generate_ubx_message(UBXClass.NAV, msg_id, b"")
-                    prefix = bytes.fromhex("21 31 57 3d")  # !1W=
-                    suffix = bytes.fromhex("0d 0a")  # \r\n
-                    wrapped_msg = prefix + poll_msg + suffix
-                    self.writer.write(wrapped_msg)
-                    await self.writer.drain()
-                await asyncio.sleep(1)
-            except (ConnectionResetError, BrokenPipeError, AttributeError) as e:
-                logger.error(f"Polling error: {e}. Stopping polling.")
-                self._running = False
-                break
+        # while self._running and self.writer and not self.writer.is_closing():
+        #     try:
+        #         for msg_id in [NAVMessageId.SVINFO, NAVMessageId.TIMEGPS]:
+        #             poll_msg = self._generate_ubx_message(UBXClass.NAV, msg_id, b"")
+        #             prefix = bytes.fromhex("21 31 57 3d")  # !1W=
+        #             suffix = bytes.fromhex("0d 0a")  # \r\n
+        #             wrapped_msg = prefix + poll_msg + suffix
+        #             self.writer.write(wrapped_msg)
+        #             await self.writer.drain()
+        #         await asyncio.sleep(1)
+        #     except (ConnectionResetError, BrokenPipeError, AttributeError) as e:
+        #         logger.error(f"Polling error: {e}. Stopping polling.")
+        #         self._running = False
+        #         break
+        pass
 
     @classmethod
     async def connect(cls, log_queue, host="127.0.0.1", port=2947, max_attempts=5):
@@ -133,11 +139,11 @@ class UBXParser:
                 reader, writer = await asyncio.open_connection(host, port)
                 parser = cls(log_queue, reader=reader, writer=writer)
                 await parser._handle_initial_messages()
-                parser._poll_task = asyncio.create_task(parser._poll_messages())
+                # No polling task needed; gpsd streams automatically
                 return parser
             except (ConnectionRefusedError, ConnectionResetError) as e:
                 attempt += 1
-                delay = min(2**attempt, 30)  # Exponential backoff
+                delay = min(2**attempt, 30)
                 logger.error(
                     f"Connection attempt {attempt}/{max_attempts} failed: {e}. Retrying in {delay}s..."
                 )
@@ -179,48 +185,38 @@ class UBXParser:
                         logger.debug("No more data to read")
                         break
                     self.buffer.extend(data)
+                    while len(self.buffer) >= 6:  # Minimum UBX header size
+                        start = self.buffer.find(b"\xb5\x62")  # UBX sync chars
+                        if start == -1:
+                            logger.debug("No UBX header found, clearing buffer")
+                            self.buffer.clear()
+                            break
+                        if start > 0:
+                            self.buffer = self.buffer[start:]
+                        length = int.from_bytes(self.buffer[4:6], "little")
+                        total_length = 8 + length  # Header (6) + checksum (2) + payload
+                        if len(self.buffer) < total_length:
+                            break
+                        msg_data = self.buffer[:total_length]
+                        ck_a = ck_b = 0
+                        for b in msg_data[2:-2]:  # Skip sync and checksum
+                            ck_a = (ck_a + b) & 0xFF
+                            ck_b = (ck_b + ck_a) & 0xFF
+                        if msg_data[-2] == ck_a and msg_data[-1] == ck_b:
+                            parsed = self._parse_ubx(bytes(msg_data))
+                            if parsed.get("class"):
+                                logger.debug(f"Parsed UBX message: {parsed}")
+                                yield parsed
+                        else:
+                            logger.warning(
+                                f"Checksum mismatch: expected {ck_a:02x}{ck_b:02x}, got {msg_data[-2]:02x}{msg_data[-1]:02x}"
+                            )
+                        self.buffer = self.buffer[total_length:]
                 except Exception as e:
                     logger.error(f"Error reading data: {e}")
                     break
-
-            while len(self.buffer) >= 6:
-                # Find UBX header
-                start = self.buffer.find(b"\xb5\x62")
-                if start == -1:
-                    self.buffer.clear()
-                    break
-
-                if start > 0:
-                    self.buffer = self.buffer[start:]
-
-                # Get message length from header
-                length = int.from_bytes(self.buffer[4:6], "little")
-                total_length = 8 + length
-                # Get message length from header
-                if len(self.buffer) < total_length:
-                    break
-                # Extract message including checksum
-                msg_data = self.buffer[:total_length]
-                # Verify checksum
-                ck_a = ck_b = 0
-                for b in msg_data[2:-2]:  # Skip header and checksum
-                    ck_a = (ck_a + b) & 0xFF
-                    ck_b = (ck_b + ck_a) & 0xFF
-
-                if msg_data[-2] == ck_a and msg_data[-1] == ck_b:
-                    parsed = self._parse_ubx(bytes(msg_data))
-                    if parsed.get("class"):
-                        yield parsed
-                else:
-                    logger.warning(
-                        f"Checksum mismatch: expected {ck_a:02x}{ck_b:02x}, got {msg_data[-2]:02x}{msg_data[-1]:02x}"
-                    )
-
-                # Remove processed message from buffer
-                self.buffer = self.buffer[total_length:]
-
-            await asyncio.sleep(0)
-
+            await asyncio.sleep(0.1)  # Prevent tight loop
+            
     def _parse_ubx(self, data: bytes) -> dict:
         if len(data) < 8:
             return {"error": "Invalid UBX message"}
