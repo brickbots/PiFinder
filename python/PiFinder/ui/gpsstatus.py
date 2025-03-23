@@ -30,21 +30,17 @@ class UIGPSStatus(UIModule):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        
+
         # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
-                label="Save",
-                callback=self.mm_save_location,
-                enabled=True
+                label="Save", callback=self.mm_save_location, enabled=True
             ),
             right=MarkingMenuOption(
-                label="Lock",
-                callback=self.mm_lock_location,
-                enabled=True
+                label="Lock", callback=self.mm_lock_location, enabled=True
             ),
             up=MarkingMenuOption(),  # Empty option
-            down=MarkingMenuOption()  # Empty option
+            down=MarkingMenuOption(),  # Empty option
         )
 
     def _send_fix_message(self, gps_reading, source):
@@ -67,16 +63,16 @@ class UIGPSStatus(UIModule):
     def mm_save_location(self, marking_menu, menu_item):
         """Save current location to the locations config"""
         gps_reading = self.shared_state.location()
-        
+
         # Create text entry definition for location name
         item_definition = {
             "name": "Location Name",
             "class": UITextEntry,
             "callback": lambda name: self._save_location_with_name(name, gps_reading),
             "initial_text": f"Loc {len(self.config_object.locations.locations) + 1}",
-            "mode": "text_entry"  # This will be passed through item_definition
+            "mode": "text_entry",  # This will be passed through item_definition
         }
-        
+
         # Add text entry to UI stack
         self.add_to_stack(item_definition)
         return True
@@ -90,26 +86,26 @@ class UIGPSStatus(UIModule):
             longitude=gps_reading.lon,
             height=gps_reading.altitude,
             error_in_m=gps_reading.error_in_m,
-            source=gps_reading.source
+            source=gps_reading.source,
         )
-        
+
         # Add to locations config
         self.config_object.locations.add_location(new_location)
         self.config_object.save_locations()
 
         # Set as current location
         self._send_fix_message(gps_reading, f"Saved: {name}")
-        
+
         # Show confirmation message
         self.message("Location saved", timeout=2)
 
     def mm_lock_location(self, marking_menu, menu_item):
         """Lock to current location"""
         gps_reading = self.shared_state.location()
-        
+
         # Set current location
         self._send_fix_message(gps_reading, "GPS")
-        
+
         # Show confirmation message
         self.message("Location locked", timeout=2)
         return True
@@ -197,9 +193,14 @@ class UIGPSStatus(UIModule):
         )
         draw_pos += 10
 
+        local_time = self.shared_state.local_datetime()
+        if local_time:
+            time_text = f"Time: {local_time.strftime('%H:%M:%S')}"
+        else:
+            time_text = "Time: ---"
         self.draw.text(
             (0, draw_pos),
-            f"Time: {self.shared_state.local_datetime().strftime('%H:%M:%S')}",
+            time_text,
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
