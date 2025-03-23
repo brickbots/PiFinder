@@ -92,17 +92,11 @@ class UBXParser:
 
         watch_json = json.dumps(
             {
-                "class": "WATCH",  # Add class for clarity
-                "enable": "true",
-                "json": "false",
-                "raw": 2,
-                "binary": "true",
-                "nmea": "false",
-                "scaled": "false",
-                "timing": "false",
-                "split24": "false",
-                "pps": "false",
-                "device": "true",
+            "enable": True,
+            "raw": 2,
+            "json": False,
+            "binary": True,
+            "nmea": False
             },
             separators=(",", ":"),
         )
