@@ -22,6 +22,7 @@ logger = logging.getLogger("Camera.Interface")
 
 class CameraInterface:
     """The CameraInterface interface."""
+
     _camera_started = False
 
     def initialize(self) -> None:

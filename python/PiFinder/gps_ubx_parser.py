@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 import datetime
 
-logger = logging.getLogger("GPS")
+logger = logging.getLogger("GPS.parser")
 
 
 class UBXClass(IntEnum):
@@ -21,11 +21,17 @@ class UBXClass(IntEnum):
 
 
 class NAVMessageId(IntEnum):
+    # U7 Messages (standard GPS as in the build guide), see https://content.u-blox.com/sites/default/files/products/documents/u-blox7-V14_ReceiverDescriptionProtocolSpec_%28GPS.G7-SW-12001%29_Public.pdf
     SOL = 0x06
     SVINFO = 0x30
     SAT = 0x35
     TIMEGPS = 0x20
     DOP = 0x04
+    # For EOE, PVT and POSECEF see https://www.u-blox.com/docs/UBX-20053845 for specification of the messages
+    # (search for 0x01 0xMM)
+    EOE = 0x61  # End of Epoch
+    PVT = 0x07  # Position Velocity Time
+    POSECEF = 0x01  # Position solution in ECEF
 
 
 class CFGMessageId(IntEnum):
@@ -68,6 +74,11 @@ class UBXParser:
         )
         self._register_parser(UBXClass.NAV, NAVMessageId.DOP, self._parse_nav_dop)
         self._register_parser(UBXClass.NAV, NAVMessageId.SVINFO, self._parse_nav_svinfo)
+        self._register_parser(UBXClass.NAV, NAVMessageId.PVT, self._parse_nav_pvt)
+        self._register_parser(
+            UBXClass.NAV, NAVMessageId.POSECEF, self._parse_nav_posecef
+        )
+        self._register_parser(UBXClass.NAV, NAVMessageId.EOE, self._parse_nav_eoe)
 
     def _register_parser(
         self, msg_class: UBXClass, msg_id: int, parser: Callable[[bytes], dict]
@@ -354,7 +365,7 @@ class UBXParser:
                     }
                 )
 
-        logging.debug(
+        logger.debug(
             f"SVINFO: Processed {len(satellites)} visible satellites, {used_sats} used in fix"
         )
 
@@ -393,11 +404,11 @@ class UBXParser:
             "valid": bool(valid & 0x01),
             "tAcc": tAcc * 1e-9,
         }
-        logging.debug(f"NAV-TIMEGPS result: {result}")
+        logger.debug(f"NAV-TIMEGPS result: {result}")
         return result
 
     def _parse_nav_dop(self, data: bytes) -> dict:
-        logging.debug("Parsing nav-dop")
+        logger.debug("Parsing nav-dop")
         if len(data) < 18:
             return {"error": "Invalid payload length for nav-dop"}
         result = {
@@ -408,8 +419,96 @@ class UBXParser:
         logger.debug(f"NAV-DOP result: {result}")
         return result
 
+    def _parse_nav_posecef(self, data: bytes) -> dict:
+        """Position solution in ECEF"""
+        logger.debug("Parsing nav-posecef")
+        if len(data) < 20:
+            return {"error": "Invalid payload length for nav-posecef"}
+        ecefX = int.from_bytes(data[4:8], "little", signed=True) / 100.0
+        ecefY = int.from_bytes(data[8:12], "little", signed=True) / 100.0
+        ecefZ = int.from_bytes(data[12:16], "little", signed=True) / 100.0
+        lla = self._ecef_to_lla(ecefX, ecefY, ecefZ)
+        result = {
+            "class": "NAV-POSECEF",
+            "lat": lla["latitude"],
+            "lon": lla["longitude"],
+            "altHAE": lla["altitude"],
+        }
+        logger.debug(f"NAV-POSECEF result: {result}")
+        return result
+
+    def _parse_nav_pvt(self, data: bytes) -> dict:
+        """This message combines position, velocity and time solution, including accuracy figures.
+        Note that during a leap second there may be more or less than 60 seconds in a minute."""
+
+        logger.debug("Parsing nav-pvt")
+        if len(data) < 90:
+            return {"error": "Invalid payload length for nav-pvt"}
+        year = int.from_bytes(data[4:6], "little", signed=False)
+        month = data[6]
+        day = data[7]
+        hour = data[8]
+        minute = data[9]
+        seconds = data[10]
+        tAcc = int.from_bytes(data[24:28], "little", signed=False) / 1e9  # nano seconds
+        nano = int.from_bytes(data[24:28], "little", signed=True) / 1e9  # nano seconds
+        gpsFix = data[20]
+        numSV = data[23]
+        lon = int.from_bytes(data[24:28], "little", signed=True) / 1e7
+        lat = int.from_bytes(data[28:32], "little", signed=True) / 1e7
+        height = (
+            int.from_bytes(data[32:36], "little", signed=True) / 1000.0
+        )  # Height above ellipsoid / m
+        hMSL = (
+            int.from_bytes(data[36:40], "little", signed=True) / 1000.0
+        )  # Main Sea Level / m
+        hAcc = (
+            int.from_bytes(data[40:44], "little", signed=False) / 1000.0
+        )  # horizontal Accurary / m
+        vAcc = (
+            int.from_bytes(data[44:48], "little", signed=False) / 1000.0
+        )  # vertical Accuracy / m
+        pDOP = (
+            int.from_bytes(data[76:78], "little", signed=False) / 100.0
+        )  # position DOP
+
+        result = {
+            "class": "NAV-PVT",
+            "UTCyear": year,
+            "UTCmonth": month,
+            "UTCday": day,
+            "UTChour": hour,
+            "UTCminute": minute,
+            "UTCseconds": seconds,
+            "UTCnano": nano,
+            "tAcc": tAcc,
+            "mode": gpsFix,
+            "lat": lat,
+            "lon": lon,
+            "altHAE": height,
+            "hMSL": hMSL,
+            "numSV": numSV,
+            "hAcc": hAcc,
+            "vAcc": vAcc,
+            "pDOP": pDOP,
+        }
+        logger.debug(f"NAV-PVT result: {result}")
+        return result
+
+    def _parse_nav_eoe(self, data: bytes) -> dict:
+        logger.debug("Ignoring nav-eoe")
+        if len(data) < 4:
+            return {"error": "Invalid payload length for nav-pvt"}
+        # The End of Epoch message consists of an iTOW Time only
+        return {"class": "NAV-EOE"}
+
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.WARNING,
+        format="%(asctime)s %(message)s",
+        handlers=[logging.StreamHandler()],
+    )
     # Remove processed message from buffer
     msg_types: dict = {}
 
@@ -432,11 +531,14 @@ if __name__ == "__main__":
             finally:
                 await parser.close()
 
-    if len(sys.argv) < 2 or len(sys.argv) > 2:
-        print("Usage: python gps_ubx_parser.py <file_path> (optional)")
-        asyncio.run(test())
-    else:
-        file_path = sys.argv[1]
-        asyncio.run(test(file_path))
+    try:
+        if len(sys.argv) < 2 or len(sys.argv) > 2:
+            print("Usage: python gps_ubx_parser.py <file_path> (optional)")
+            asyncio.run(test())
+        else:
+            file_path = sys.argv[1]
+            asyncio.run(test(file_path))
+    except KeyboardInterrupt:
+        print("Keyboard Interrupt received.")
 
     print(msg_types)
