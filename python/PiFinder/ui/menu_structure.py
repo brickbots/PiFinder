@@ -1,3 +1,4 @@
+from PiFinder.ui.timeentry import UITimeEntry
 from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.status import UIStatus
@@ -44,8 +45,13 @@ pifinder_menu = {
                             "class": UIGPSStatus,
                         },
                         {
-                            "name": "Locations",
+                            "name": "Set Location",
                             "class": UILocationList,
+                        },
+                        {
+                            "name": "Set Time",
+                            "class": UITimeEntry,
+                            "custom_callback": callbacks.set_time
                         },
                         {
                             "name": "Reset",
