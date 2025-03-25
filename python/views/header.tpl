@@ -20,6 +20,7 @@
         <li><a href="/observations">Observations</a></li>
         <li><a href="/tools">Tools</a></li>
         <li><a href="/equipment">Equipment</a></li>
+        <li><a href="/locations">Locations</a></li>
       </ul>
 
       <ul id="nav-mobile" class="sidenav">
@@ -29,6 +30,7 @@
         <li><a href="/observations">Observations</a></li>
         <li><a href="/tools">Tools</a></li>
         <li><a href="/equipment">Equipment</a></li>
+        <li><a href="/locations">Locations</a></li>
       </ul>
       <a href="#" data-target="nav-mobile" class="sidenav-trigger"><i class="material-icons">menu</i></a>
     </div>

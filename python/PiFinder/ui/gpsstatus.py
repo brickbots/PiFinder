@@ -132,7 +132,7 @@ class UIGPSStatus(UIModule):
             (0, draw_pos),
             "Stay here for lock",
             font=self.fonts.bold.font,
-            fill=self.colors.get(128),
+            fill=self.colors.get(255),
         )
         draw_pos += 16
 
@@ -164,7 +164,7 @@ class UIGPSStatus(UIModule):
             (0, draw_pos),
             f"Lock: {'No' if not location.lock else self._lock_type_dict[location.lock_type]}",
             font=self.fonts.base.font,
-            fill=self.colors.get(128),
+            fill=self.colors.get(255),
         )
         draw_pos += 10
 
