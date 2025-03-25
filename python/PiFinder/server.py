@@ -300,9 +300,23 @@ class Server:
             cfg = config.Config()
             cfg.load_config()
             if 0 <= location_id < len(cfg.locations.locations):
-                new_name = request.forms.get("name")
+                # Get all fields from the form
+                name = request.forms.get("name")
+                lat = float(request.forms.get("latitude"))
+                lon = float(request.forms.get("longitude"))
+                altitude = float(request.forms.get("altitude"))
+                error_in_m = float(request.forms.get("error_in_m", "0"))
+                source = request.forms.get("source", "Manual Entry")
+                
+                # Update the location with all fields
                 location = cfg.locations.locations[location_id]
-                location.name = new_name
+                location.name = name
+                location.latitude = lat
+                location.longitude = lon
+                location.height = altitude
+                location.error_in_m = error_in_m
+                location.source = source
+                
                 cfg.save_locations()
                 # Notify main process to reload config
                 self.ui_queue.put("reload_config")
