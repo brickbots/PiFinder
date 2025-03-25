@@ -23,23 +23,29 @@ class UITimeEntry(UIModule):
         self.draw = ImageDraw.Draw(self.screen)
         self.bold = self.fonts.bold
         
-        # Layout constants
+        # Layout constants - updated to center the boxes
         self.text_y = 25
         self.box_width = 25
         self.box_height = 20
         self.box_spacing = 15
-        self.start_x = 20
+        
+        # Calculate start_x to center the boxes on screen
+        total_width = (3 * self.box_width) + (2 * self.box_spacing)
+        self.start_x = (self.width - total_width) // 2
 
     def draw_time_boxes(self):
         # Draw the three boxes with colons between them
         for i in range(3):
             x = self.start_x + i * (self.box_width + self.box_spacing)
             
-            # Draw box outline
+            # Draw box outline - highlight current box with a brighter outline
+            outline_color = self.red if i == self.current_box else self.half_red
+            outline_width = 2 if i == self.current_box else 1
+            
             self.draw.rectangle(
                 [x, self.text_y, x + self.box_width, self.text_y + self.box_height],
-                outline=self.half_red,
-                width=1
+                outline=outline_color,
+                width=outline_width
             )
             
             # Draw text or placeholder
@@ -47,7 +53,7 @@ class UITimeEntry(UIModule):
             if not text and i != self.current_box:
                 # Show placeholder if box is empty and not selected
                 text = self.placeholders[i]
-                color = self.colors.get(64)  # Dimmer color for placeholder
+                color = self.colors.get(180)  # Brighter color for placeholder
             else:
                 color = self.red
             
@@ -82,27 +88,50 @@ class UITimeEntry(UIModule):
                 fill=self.red
             )
 
-    def draw_legend(self):
-        legend_y = self.text_y + self.box_height + 15
+    def draw_local_time_note(self):
+        # Add a note about local time
+        note_y = self.text_y + self.box_height + 10
         self.draw.text(
-            (10, legend_y),
-            "Right: Next box",
+            (10, note_y),
+            "Enter Local Time",
             font=self.fonts.base.font,
-            fill=self.half_red
+            fill=self.red  # Brighter color for better visibility
         )
-        legend_y += 12
-        self.draw.text(
-            (10, legend_y),
-            "Left/Square: Done",
-            font=self.fonts.base.font,
-            fill=self.half_red
+        return note_y + 15  # Return the Y position after this element
+
+    def draw_separator(self, start_y):
+        # Draw a separator line before the legend
+        self.draw.line(
+            [(10, start_y), (self.width - 10, start_y)],
+            fill=self.half_red,
+            width=1
         )
-        legend_y += 12
+        return start_y + 5  # Return the Y position after the separator
+
+    def draw_legend(self, start_y):
+        legend_y = start_y
+        # Still using full red for better visibility but smaller font
+        legend_color = self.red
+        
         self.draw.text(
             (10, legend_y),
-            "-: Delete",
+            "  Next box",  # Right
+            font=self.fonts.base.font,  # Using base font
+            fill=legend_color
+        )
+        legend_y += 12  # Standard spacing
+        self.draw.text(
+            (10, legend_y),
+            "  Done",  # Left
             font=self.fonts.base.font,
-            fill=self.half_red
+            fill=legend_color
+        )
+        legend_y += 12  # Standard spacing
+        self.draw.text(
+            (10, legend_y),
+            "󰍴  Delete/Previous",  # minus
+            font=self.fonts.base.font,
+            fill=legend_color
         )
 
     def validate_box(self, box_index, value):
@@ -134,18 +163,18 @@ class UITimeEntry(UIModule):
                 self.current_box = (self.current_box + 1) % 3
 
     def key_minus(self):
-        """Delete last digit in current box"""
+        """Delete last digit in current box or move to previous box if empty"""
         if self.boxes[self.current_box]:
+            # Delete the last digit
             self.boxes[self.current_box] = self.boxes[self.current_box][:-1]
+        else:
+            # If current box is empty, move to previous box
+            self.current_box = (self.current_box - 1) % 3
 
     def key_right(self):
         """Move to next box"""
         self.current_box = (self.current_box + 1) % 3
         return False
-
-    def key_square(self):
-        """Alternative way to finish time entry"""
-        return self.key_left()
 
     def inactive(self):
         """Called when the module is no longer the active module"""
@@ -157,16 +186,20 @@ class UITimeEntry(UIModule):
         self.draw.rectangle((0, 0, 128, 128), fill=self.black)
         
         # Draw title
-        self.draw.text(
-            (7, 5),
-            "Enter Time:",
-            font=self.fonts.base.font,
-            fill=self.half_red,
-        )
+        # self.draw.text(
+        #     (7, 5),
+        #     "Enter Time:",
+        #     font=self.fonts.base.font,
+        #     fill=self.half_red,
+        # )
         
         self.draw_time_boxes()
-        self.draw_legend()
+        
+        # Draw additional elements with proper positioning
+        note_y = self.draw_local_time_note()
+        separator_y = self.draw_separator(note_y+15)
+        self.draw_legend(separator_y)
         
         if self.shared_state:
             self.shared_state.set_screen(self.screen)
-        return self.screen_update() 
+        return self.screen_update()

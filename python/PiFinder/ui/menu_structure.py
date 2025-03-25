@@ -21,7 +21,7 @@ pifinder_menu = {
     "start_index": 2,
     "items": [
         {
-            "name": "Setup",
+            "name": "Start",
             "class": UITextMenu,
             "select": "single",
             "items": [
@@ -36,7 +36,7 @@ pifinder_menu = {
                     "preload": True,
                 },
                 {
-                    "name": "GPS",
+                    "name": "Location&Time",
                     "class": UITextMenu,
                     "select": "single",
                     "items": [
