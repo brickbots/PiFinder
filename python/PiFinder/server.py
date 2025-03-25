@@ -107,31 +107,44 @@ class Server:
         @app.route("/")
         def home():
             logger.debug("/ called")
-            # need to collect a little status info here
-            with open(self.version_txt, "r") as ver_f:
-                software_version = ver_f.read()
+            # Get version info
+            software_version = "Unknown"
+            try:
+                with open(self.version_txt, "r") as ver_f:
+                    software_version = ver_f.read()
+            except (FileNotFoundError, IOError) as e:
+                logger.warning(f"Could not read version file: {str(e)}")
 
-            self.update_gps()
-            lat_text = ""
-            lon_text = ""
-            gps_icon = "gps_off"
-            gps_text = "Not Locked"
-            if self.gps_locked is True:
-                gps_icon = "gps_fixed"
-                gps_text = "Locked"
-                lat_text = str(self.lat)
-                lon_text = str(self.lon)
+            # Try to update GPS state
+            try:
+                self.update_gps()
+            except Exception as e:
+                logger.error(f"Failed to update GPS in home route: {str(e)}")
 
+            # Use GPS data if available
+            lat_text = str(self.lat) if self.gps_locked else ""
+            lon_text = str(self.lon) if self.gps_locked else ""
+            gps_icon = "gps_fixed" if self.gps_locked else "gps_off"
+            gps_text = "Locked" if self.gps_locked else "Not Locked"
+
+            # Default camera values
             ra_text = "0"
             dec_text = "0"
             camera_icon = "broken_image"
-            if self.shared_state.solve_state() is True:
-                camera_icon = "camera_alt"
-                solution = self.shared_state.solution()
-                hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
-                ra_text = f"{hh:02.0f}h{mm:02.0f}m"
-                dec_text = f"{solution['Dec']: .2f}"
+            
+            # Try to get solution data
+            try:
+                if self.shared_state.solve_state() is True:
+                    camera_icon = "camera_alt"
+                    solution = self.shared_state.solution()
+                    if solution:
+                        hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
+                        ra_text = f"{hh:02.0f}h{mm:02.0f}m"
+                        dec_text = f"{solution['Dec']: .2f}"
+            except Exception as e:
+                logger.error(f"Failed to get solution data: {str(e)}")
 
+            # Render the template with available data
             return template(
                 "index",
                 software_version=software_version,
@@ -698,10 +711,9 @@ class Server:
         self.keyboard_queue.put(key)
 
     def update_gps(self):
+        """Update GPS information"""
         location = self.shared_state.location()
-        logging.debug(
-            "self shared state is %s and location is %s", self.shared_state, location
-        )
+        
         if location.lock is True:
             self.gps_locked = True
             self.lat = location.lat
@@ -712,7 +724,6 @@ class Server:
             self.lat = None
             self.lon = None
             self.altitude = None
-
 
 def run_server(
     keyboard_queue, ui_queue, gps_queue, shared_state, log_queue, verbose=False

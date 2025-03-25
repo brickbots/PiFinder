@@ -141,3 +141,7 @@ def get_wifi_mode(ui_module: UIModule) -> list[str]:
     wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
     with open(wifi_txt, "r") as wfs:
         return [wfs.read()]
+
+def gps_reset(ui_module: UIModule) -> None:
+    ui_module.command_queues["gps"].put(("reset", {}))
+    ui_module.message("Location Reset", 2)
