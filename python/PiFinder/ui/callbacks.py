@@ -145,3 +145,29 @@ def get_wifi_mode(ui_module: UIModule) -> list[str]:
 def gps_reset(ui_module: UIModule) -> None:
     ui_module.command_queues["gps"].put(("reset", {}))
     ui_module.message("Location Reset", 2)
+    
+def set_time(ui_module: UIModule, time_str: str) -> None:
+    """
+    Sets the time from the time entry UI
+    """
+    logger.info(f"Setting time to: {time_str}")
+    from datetime import datetime
+    import pytz
+
+    timezone_str = ui_module.shared_state.location().timezone
+
+    # First create a datetime object (using today's date by default)
+    dt = datetime.strptime(time_str, "%H:%M:%S")
+
+    # Get the timezone object
+    timezone = pytz.timezone(timezone_str)
+
+    # Create a timezone-aware datetime by combining today's date with the time
+    # and localizing it to the specified timezone
+    now = datetime.now()
+    dt_with_date = datetime(now.year, now.month, now.day, 
+                            dt.hour, dt.minute, dt.second)
+    dt_with_timezone = timezone.localize(dt_with_date)
+
+    ui_module.command_queues["gps"].put(("time", {"time": dt_with_timezone}))
+    ui_module.message(f"Time: {time_str}", 2)
