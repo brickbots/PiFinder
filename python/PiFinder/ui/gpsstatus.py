@@ -162,7 +162,7 @@ class UIGPSStatus(UIModule):
         # Lock status
         self.draw.text(
             (0, draw_pos),
-            f"Lock: {'No' if not location.lock else self._lock_type_dict[location.lock_type]}",
+            f"Lock:  {'No' if not location.lock else self._lock_type_dict[location.lock_type]}",
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
@@ -171,7 +171,7 @@ class UIGPSStatus(UIModule):
         # Position data if locked
         self.draw.text(
             (0, draw_pos),
-            f"Lat: {location.lat:.5f}",
+            f"Lat:  {location.lat:.5f}",
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
@@ -179,7 +179,7 @@ class UIGPSStatus(UIModule):
 
         self.draw.text(
             (0, draw_pos),
-            f"Lon: {location.lon:.5f}",
+            f"Lon:  {location.lon:.5f}",
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
@@ -187,12 +187,11 @@ class UIGPSStatus(UIModule):
 
         self.draw.text(
             (0, draw_pos),
-            f"Alt: {location.altitude:.1f} m",
+            f"Alt:  {location.altitude:.1f} m",
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
         draw_pos += 10
-
 
         time = self.shared_state.local_datetime()
         self.draw.text(
