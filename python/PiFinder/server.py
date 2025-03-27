@@ -239,6 +239,152 @@ class Server:
             time.sleep(1)  # give the gps thread a chance to update
             return home()
 
+        @app.route("/locations")
+        @auth_required
+        def locations_page():
+            show_new_form = request.query.add_new or 0
+            cfg = config.Config()
+            cfg.load_config()  # Ensure config is loaded
+            return template(
+                "locations",
+                locations=cfg.locations.locations,
+                show_new_form=show_new_form,
+            )
+
+        @app.route("/locations/add", method="post")
+        @auth_required
+        def location_add():
+            try:
+                name = request.forms.get("name").strip()
+                lat = float(request.forms.get("latitude"))
+                lon = float(request.forms.get("longitude"))
+                altitude = float(request.forms.get("altitude"))
+                error_in_m = float(request.forms.get("error_in_m", "0"))
+                source = request.forms.get("source", "Manual Entry")
+                
+                # Server-side validation
+                if not name:
+                    raise ValueError("Location name is required")
+                if not (-90 <= lat <= 90):
+                    raise ValueError("Latitude must be between -90 and 90")
+                if not (-180 <= lon <= 180):
+                    raise ValueError("Longitude must be between -180 and 180")
+                if not (-1000 <= altitude <= 10000):
+                    raise ValueError("Altitude must be between -1000 and 10000 meters")
+                if not (0 <= error_in_m <= 10000):
+                    raise ValueError("Error must be between 0 and 10000 meters")
+
+                from PiFinder.locations import Location
+                new_location = Location(
+                    name=name,
+                    latitude=lat,
+                    longitude=lon,
+                    height=altitude,
+                    error_in_m=error_in_m,
+                    source=source
+                )
+                
+                cfg = config.Config()
+                cfg.load_config()
+                cfg.locations.add_location(new_location)
+                cfg.save_locations()
+                
+                self.ui_queue.put("reload_config")
+                redirect("/locations")
+        
+            except ValueError as e:
+                return template(
+                    "locations",
+                    locations=config.Config().locations.locations,
+                    show_new_form=1,
+                    error_message=str(e)
+                )
+
+        @app.route("/locations/rename/<location_id:int>", method="post")
+        @auth_required
+        def location_rename(location_id):
+            try:
+                cfg = config.Config()
+                cfg.load_config()
+                
+                if not (0 <= location_id < len(cfg.locations.locations)):
+                    raise ValueError("Invalid location ID")
+
+                name = request.forms.get("name").strip()
+                lat = float(request.forms.get("latitude"))
+                lon = float(request.forms.get("longitude"))
+                altitude = float(request.forms.get("altitude"))
+                error_in_m = float(request.forms.get("error_in_m", "0"))
+                source = request.forms.get("source", "Manual Entry")
+                
+                # Server-side validation
+                if not name:
+                    raise ValueError("Location name is required")
+                if not (-90 <= lat <= 90):
+                    raise ValueError("Latitude must be between -90 and 90")
+                if not (-180 <= lon <= 180):
+                    raise ValueError("Longitude must be between -180 and 180")
+                if not (-1000 <= altitude <= 10000):
+                    raise ValueError("Altitude must be between -1000 and 10000 meters")
+                if not (0 <= error_in_m <= 10000):
+                    raise ValueError("Error must be between 0 and 10000 meters")
+
+                location = cfg.locations.locations[location_id]
+                location.name = name
+                location.latitude = lat
+                location.longitude = lon
+                location.height = altitude
+                location.error_in_m = error_in_m
+                location.source = source
+                
+                cfg.save_locations()
+                self.ui_queue.put("reload_config")
+                redirect("/locations")
+                
+            except ValueError as e:
+                return template(
+                    "locations",
+                    locations=config.Config().locations.locations,
+                    show_new_form=0,
+                    error_message=str(e)
+                )
+
+        @app.route("/locations/delete/<location_id:int>")
+        @auth_required
+        def location_delete(location_id):
+            cfg = config.Config()
+            cfg.load_config()
+            if 0 <= location_id < len(cfg.locations.locations):
+                location = cfg.locations.locations[location_id]
+                cfg.locations.remove_location(location)
+                cfg.save_locations()
+                # Notify main process to reload config
+                self.ui_queue.put("reload_config")
+            redirect("/locations")
+
+        @app.route("/locations/set_default/<location_id:int>")
+        @auth_required
+        def location_set_default(location_id):
+            cfg = config.Config()
+            cfg.load_config()
+            if 0 <= location_id < len(cfg.locations.locations):
+                location = cfg.locations.locations[location_id]
+                cfg.locations.set_default(location)
+                cfg.save_locations()
+                # Notify main process to reload config
+                self.ui_queue.put("reload_config")
+            redirect("/locations")
+
+        @app.route("/locations/load/<location_id:int>")
+        @auth_required
+        def location_load(location_id):
+            cfg = config.Config()
+            cfg.load_config()  # Ensure config is loaded
+            if 0 <= location_id < len(cfg.locations.locations):
+                location = cfg.locations.locations[location_id]
+                gps_lock(location.latitude, location.longitude, location.height)
+            redirect("/locations")
+
         @app.route("/network/add", method="post")
         @auth_required
         def network_add():
