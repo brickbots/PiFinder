@@ -757,6 +757,67 @@ class Server:
         def tools():
             return template("tools")
 
+        @app.route("/logs")
+        @auth_required
+        def logs_page():
+            return template("logs")
+
+        @app.route("/logs/stream")
+        @auth_required
+        def stream_logs():
+            try:
+                position = int(request.query.get('position', 0))
+                log_file = "/home/pifinder/PiFinder_data/pifinder.log"
+                
+                with open(log_file, 'r') as f:
+                    f.seek(position)
+                    new_lines = f.readlines()
+                    new_position = f.tell()
+                
+                return {
+                    'logs': new_lines,
+                    'position': new_position
+                }
+            except Exception as e:
+                logger.error(f"Error streaming logs: {e}")
+                return {'logs': [], 'position': position}
+
+        @app.route("/logs/download")
+        @auth_required
+        def download_logs():
+            import zipfile
+            import os
+            from datetime import datetime
+            
+            try:
+                # Create a temporary zip file
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                zip_path = f"/home/pifinder/PiFinder_data/logs_{timestamp}.zip"
+                
+                with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    # Add all log files
+                    log_dir = "/home/pifinder/PiFinder_data"
+                    for filename in os.listdir(log_dir):
+                        if filename.startswith("pifinder") and filename.endswith(".log"):
+                            file_path = os.path.join(log_dir, filename)
+                            zipf.write(file_path, filename)
+                
+                # Send the zip file
+                response.set_header('Content-Type', 'application/zip')
+                response.set_header('Content-Disposition', f'attachment; filename=logs_{timestamp}.zip')
+                
+                with open(zip_path, 'rb') as f:
+                    content = f.read()
+                
+                # Clean up the temporary zip file
+                os.remove(zip_path)
+                
+                return content
+                
+            except Exception as e:
+                logger.error(f"Error creating log zip: {e}")
+                return template("logs", error_message="Error creating log archive")
+
         @app.route("/tools/backup")
         @auth_required
         def tools_backup():
