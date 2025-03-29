@@ -9,7 +9,7 @@ from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.gps_ubx_parser import UBXParser
 import logging
 
-logger = logging.getLogger("GPS")
+logger = logging.getLogger("GPS.parser")
 sats = [0, 0]
 
 MAX_GPS_ERROR = 50000  # 50 km
@@ -94,7 +94,29 @@ async def process_messages(
             else:
                 logger.warning(f"TIMEGPS message does not qualify: {msg}")
 
-        await asyncio.sleep(wait)
+        elif msg_class == "NAV-PVT":
+            if all(k in msg for k in ["lat", "lon", "altHAE", "hAcc", "vAcc"]):
+                if not gps_locked and msg["hAcc"] < MAX_GPS_ERROR:
+                    gps_locked = True
+                    console_queue.put("GPS: Locked")
+                    logger.info("GPS locked")
+                gps_queue.put(
+                    (
+                        "fix",
+                        {
+                            "lat": msg["lat"],
+                            "lon": msg["lon"],
+                            "altitude": msg["altHAE"],
+                            "source": "GPS",
+                            "lock": gps_locked,
+                            "lock_type": msg["mode"],
+                            "error_in_m": msg["hAcc"],
+                        },
+                    )
+                )
+                logger.debug("GPS fix: %s", msg)
+
+        await asyncio.sleep(0)
 
 
 async def gps_main(gps_queue, console_queue, log_queue, inject_parser=None):

@@ -47,9 +47,12 @@ def auth_required(func):
 
 
 class Server:
-    def __init__(self, q, gps_queue, shared_state, is_debug=False):
+    def __init__(
+        self, keyboard_queue, ui_queue, gps_queue, shared_state, is_debug=False
+    ):
         self.version_txt = f"{utils.pifinder_dir}/version.txt"
-        self.q = q
+        self.keyboard_queue = keyboard_queue
+        self.ui_queue = ui_queue
         self.gps_queue = gps_queue
         self.shared_state = shared_state
         self.ki = KeyboardInterface()
@@ -104,31 +107,44 @@ class Server:
         @app.route("/")
         def home():
             logger.debug("/ called")
-            # need to collect a little status info here
-            with open(self.version_txt, "r") as ver_f:
-                software_version = ver_f.read()
+            # Get version info
+            software_version = "Unknown"
+            try:
+                with open(self.version_txt, "r") as ver_f:
+                    software_version = ver_f.read()
+            except (FileNotFoundError, IOError) as e:
+                logger.warning(f"Could not read version file: {str(e)}")
 
-            self.update_gps()
-            lat_text = ""
-            lon_text = ""
-            gps_icon = "gps_off"
-            gps_text = "Not Locked"
-            if self.gps_locked is True:
-                gps_icon = "gps_fixed"
-                gps_text = "Locked"
-                lat_text = str(self.lat)
-                lon_text = str(self.lon)
+            # Try to update GPS state
+            try:
+                self.update_gps()
+            except Exception as e:
+                logger.error(f"Failed to update GPS in home route: {str(e)}")
 
+            # Use GPS data if available
+            lat_text = str(self.lat) if self.gps_locked else ""
+            lon_text = str(self.lon) if self.gps_locked else ""
+            gps_icon = "gps_fixed" if self.gps_locked else "gps_off"
+            gps_text = "Locked" if self.gps_locked else "Not Locked"
+
+            # Default camera values
             ra_text = "0"
             dec_text = "0"
             camera_icon = "broken_image"
-            if self.shared_state.solve_state() is True:
-                camera_icon = "camera_alt"
-                solution = self.shared_state.solution()
-                hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
-                ra_text = f"{hh:02.0f}h{mm:02.0f}m"
-                dec_text = f"{solution['Dec']: .2f}"
+            
+            # Try to get solution data
+            try:
+                if self.shared_state.solve_state() is True:
+                    camera_icon = "camera_alt"
+                    solution = self.shared_state.solution()
+                    if solution:
+                        hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
+                        ra_text = f"{hh:02.0f}h{mm:02.0f}m"
+                        dec_text = f"{solution['Dec']: .2f}"
+            except Exception as e:
+                logger.error(f"Failed to get solution data: {str(e)}")
 
+            # Render the template with available data
             return template(
                 "index",
                 software_version=software_version,
@@ -306,6 +322,7 @@ class Server:
             cfg = config.Config()
             cfg.equipment.set_active_telescope(cfg.equipment.telescopes[instrument_id])
             cfg.save_equipment()
+            self.ui_queue.put("reload_config")
             return template(
                 "equipment",
                 equipment=cfg.equipment,
@@ -321,6 +338,7 @@ class Server:
             cfg = config.Config()
             cfg.equipment.set_active_eyepiece(cfg.equipment.eyepieces[eyepiece_id])
             cfg.save_equipment()
+            self.ui_queue.put("reload_config")
             return template(
                 "equipment",
                 equipment=cfg.equipment,
@@ -342,6 +360,14 @@ class Server:
                         # Skip the naked eye
                         continue
 
+                    make = instrument["instrument_make"]["name"]
+
+                    obstruction_perc = instrument["obstruction_perc"]
+                    if obstruction_perc is None:
+                        obstruction_perc = 0
+                    else:
+                        obstruction_perc = float(obstruction_perc)
+
                     # Convert the html special characters (ampersand, quote, ...) in instrument["name"]
                     # to the corresponding character
                     instrument["name"] = instrument["name"].replace("&amp;", "&")
@@ -350,33 +376,15 @@ class Server:
                     instrument["name"] = instrument["name"].replace("&lt;", "<")
                     instrument["name"] = instrument["name"].replace("&gt;", ">")
 
-                    flip = False
-                    flop = False
-
-                    if (
-                        instrument["type"] == 2
-                        or instrument["type"] == 4
-                        or instrument["type"] == 6
-                        or instrument["type"] == 8
-                        or instrument["type"] == 9
-                    ):
-                        # Refractor (2), Finderscope (4), Cassegrain (6), Maksutov (8), Schmidt Cassegrain (9)
-                        flip = True
-                        flop = False
-                    elif instrument["type"] == 3 or instrument["type"] == 7:
-                        # Reflector (3), Kutter (7)
-                        flip = True
-                        flop = True
-
                     new_instrument = Telescope(
-                        make="",
+                        make=make,
                         name=instrument["name"],
                         aperture_mm=int(instrument["diameter"]),
                         focal_length_mm=int(instrument["diameter"] * instrument["fd"]),
-                        obstruction_perc=0,
-                        mount_type="alt/az",
-                        flip_image=flip,
-                        flop_image=flop,
+                        obstruction_perc=obstruction_perc,
+                        mount_type=instrument["mount_type"]["name"].lower(),
+                        flip_image=bool(instrument["flip_image"]),
+                        flop_image=bool(instrument["flop_image"]),
                         reverse_arrow_a=False,
                         reverse_arrow_b=False,
                     )
@@ -409,7 +417,12 @@ class Server:
                         cfg.equipment.eyepieces.append(new_eyepiece)
 
                 cfg.save_equipment()
-            return template("equipment", equipment=config.Config().equipment)
+                self.ui_queue.put("reload_config")
+            return template(
+                "equipment",
+                equipment=config.Config().equipment,
+                success_message="Equipment Imported, restart your PiFinder to use this new data",
+            )
 
         @app.route("/equipment/edit_eyepiece/<eyepiece_id:int>")
         @auth_required
@@ -447,10 +460,15 @@ class Server:
                         cfg.equipment.eyepieces.append(eyepiece)
 
                 cfg.save_equipment()
+                self.ui_queue.put("reload_config")
             except Exception as e:
                 logger.error(f"Error adding eyepiece: {e}")
 
-            return template("equipment", equipment=config.Config().equipment)
+            return template(
+                "equipment",
+                equipment=config.Config().equipment,
+                success_message="Eyepiece added, restart your PiFinder to use",
+            )
 
         @app.route("/equipment/delete_eyepiece/<eyepiece_id:int>")
         @auth_required
@@ -458,7 +476,12 @@ class Server:
             cfg = config.Config()
             cfg.equipment.eyepieces.pop(eyepiece_id)
             cfg.save_equipment()
-            return template("equipment", equipment=config.Config().equipment)
+            self.ui_queue.put("reload_config")
+            return template(
+                "equipment",
+                equipment=config.Config().equipment,
+                success_message="Eyepiece Deleted, restart your PiFinder to remove from menu",
+            )
 
         @app.route("/equipment/edit_instrument/<instrument_id:int>")
         @auth_required
@@ -492,8 +515,8 @@ class Server:
                 instrument = Telescope(
                     make=request.forms.get("make"),
                     name=request.forms.get("name"),
-                    aperture_mm=request.forms.get("aperture"),
-                    focal_length_mm=request.forms.get("focal_length_mm"),
+                    aperture_mm=int(request.forms.get("aperture")),
+                    focal_length_mm=int(request.forms.get("focal_length_mm")),
                     obstruction_perc=float(request.forms.get("obstruction_perc")),
                     mount_type=request.forms.get("mount_type"),
                     flip_image=bool(request.forms.get("flip")),
@@ -511,9 +534,14 @@ class Server:
                         cfg.equipment.telescopes.append(instrument)
 
                 cfg.save_equipment()
+                self.ui_queue.put("reload_config")
             except Exception as e:
                 logger.error(f"Error adding instrument: {e}")
-            return template("equipment", equipment=config.Config().equipment)
+            return template(
+                "equipment",
+                equipment=config.Config().equipment,
+                success_message="Instrument Added, restart your PiFinder to use",
+            )
 
         @app.route("/equipment/delete_instrument/<instrument_id:int>")
         @auth_required
@@ -521,7 +549,12 @@ class Server:
             cfg = config.Config()
             cfg.equipment.telescopes.pop(instrument_id)
             cfg.save_equipment()
-            return template("equipment", equipment=config.Config().equipment)
+            self.ui_queue.put("reload_config")
+            return template(
+                "equipment",
+                equipment=config.Config().equipment,
+                success_message="Instrument Deleted, restart your PiFinder to remove from menu",
+            )
 
         @app.route("/observations")
         @auth_required
@@ -640,6 +673,7 @@ class Server:
                     "altitude": altitude,
                     "error_in_m": 0,
                     "source": "WEB",
+                    "lock": True,
                 },
             )
             self.gps_queue.put(msg)
@@ -674,13 +708,12 @@ class Server:
             )
 
     def key_callback(self, key):
-        self.q.put(key)
+        self.keyboard_queue.put(key)
 
     def update_gps(self):
+        """Update GPS information"""
         location = self.shared_state.location()
-        logging.debug(
-            "self shared state is %s and location is %s", self.shared_state, location
-        )
+        
         if location.lock is True:
             self.gps_locked = True
             self.lat = location.lat
@@ -692,7 +725,8 @@ class Server:
             self.lon = None
             self.altitude = None
 
-
-def run_server(q, gps_q, shared_state, log_queue, verbose=False):
+def run_server(
+    keyboard_queue, ui_queue, gps_queue, shared_state, log_queue, verbose=False
+):
     MultiprocLogging.configurer(log_queue)
-    Server(q, gps_q, shared_state, verbose)
+    Server(keyboard_queue, ui_queue, gps_queue, shared_state, verbose)

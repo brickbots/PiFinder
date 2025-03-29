@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 import datetime
 
-logger = logging.getLogger("GPS.parser")
+logger = logging.getLogger("GPS.parser.parser")
 
 
 class UBXClass(IntEnum):
@@ -21,11 +21,17 @@ class UBXClass(IntEnum):
 
 
 class NAVMessageId(IntEnum):
+    # U7 Messages (standard GPS as in the build guide), see https://content.u-blox.com/sites/default/files/products/documents/u-blox7-V14_ReceiverDescriptionProtocolSpec_%28GPS.G7-SW-12001%29_Public.pdf
     SOL = 0x06
     SVINFO = 0x30
     SAT = 0x35
     TIMEGPS = 0x20
     DOP = 0x04
+    # For EOE, PVT and POSECEF see https://www.u-blox.com/docs/UBX-20053845 for specification of the messages
+    # (search for 0x01 0xMM)
+    EOE = 0x61  # End of Epoch
+    PVT = 0x07  # Position Velocity Time
+    POSECEF = 0x01  # Position solution in ECEF
 
 
 class CFGMessageId(IntEnum):
@@ -56,6 +62,8 @@ class UBXParser:
         self.config = ParserConfig()
         self.message_parsers: Dict[Tuple[int, int], Callable[[bytes], dict]] = {}
         self.buffer = bytearray()
+        self._poll_task = None  # Store polling task for cleanup
+        self._running = True  # Control flag for polling loop
         self._initialize_parsers()
 
     def _initialize_parsers(self):
@@ -66,6 +74,11 @@ class UBXParser:
         )
         self._register_parser(UBXClass.NAV, NAVMessageId.DOP, self._parse_nav_dop)
         self._register_parser(UBXClass.NAV, NAVMessageId.SVINFO, self._parse_nav_svinfo)
+        self._register_parser(UBXClass.NAV, NAVMessageId.PVT, self._parse_nav_pvt)
+        self._register_parser(
+            UBXClass.NAV, NAVMessageId.POSECEF, self._parse_nav_posecef
+        )
+        self._register_parser(UBXClass.NAV, NAVMessageId.EOE, self._parse_nav_eoe)
 
     def _register_parser(
         self, msg_class: UBXClass, msg_id: int, parser: Callable[[bytes], dict]
@@ -81,59 +94,86 @@ class UBXParser:
             ck_a = (ck_a + b) & 0xFF
             ck_b = (ck_b + ck_a) & 0xFF
         final_msg = b"\xb5\x62" + msg + bytes([ck_a, ck_b])
-        # logger.debug(f"Generated message class=0x{msg_class:02x}, id=0x{msg_id:02x}, len={len(payload)}, checksum=0x{ck_a:02x}{ck_b:02x}")
         return final_msg
 
     async def _handle_initial_messages(self):
-        if self.writer is None:
+        if self.writer is None or self.writer.is_closing():
+            logger.warning("Writer unavailable for initial messages")
             return
 
-        # Watch command needs proper JSON
         watch_json = json.dumps(
             {
-                "enable": True,
-                "json": False,
-                "raw": 2,
-                "binary": True,
-                "nmea": False,
-                "scaled": False,
-                "timing": False,
-                "split24": False,
-                "pps": False,
-                "device": True,
+            "enable": True,
+            "raw": 2,
+            "json": False,
+            "binary": True,
+            "nmea": False
             },
             separators=(",", ":"),
         )
         watch_command = f"?WATCH={watch_json}\r\n"
+        logger.debug(f"Sending WATCH command: {watch_command}")
         self.writer.write(watch_command.encode())
         await self.writer.drain()
+        # Optional: Read response to confirm
+        response = await self.reader.read(1024)
+        logger.debug(f"WATCH response: {response.decode('utf-8', errors='ignore')}")
 
     async def _poll_messages(self):
-        while True:
-            for msg_id in [NAVMessageId.SVINFO, NAVMessageId.TIMEGPS]:
-                poll_msg = self._generate_ubx_message(UBXClass.NAV, msg_id, b"")
-                # Use bytes.fromhex to create the wrapped message
-                prefix = bytes.fromhex("21 31 57 3d")  # !1W=
-                suffix = bytes.fromhex("0d 0a")  # \r\n
-                wrapped_msg = prefix + poll_msg + suffix
-
-                # logger.debug(f"Raw poll message: {poll_msg.hex()}")
-                # logger.debug(f"Wrapped poll message: {wrapped_msg.hex()}")
-                self.writer.write(wrapped_msg)
-                await self.writer.drain()
-            await asyncio.sleep(1)
+        # while self._running and self.writer and not self.writer.is_closing():
+        #     try:
+        #         for msg_id in [NAVMessageId.SVINFO, NAVMessageId.TIMEGPS]:
+        #             poll_msg = self._generate_ubx_message(UBXClass.NAV, msg_id, b"")
+        #             prefix = bytes.fromhex("21 31 57 3d")  # !1W=
+        #             suffix = bytes.fromhex("0d 0a")  # \r\n
+        #             wrapped_msg = prefix + poll_msg + suffix
+        #             self.writer.write(wrapped_msg)
+        #             await self.writer.drain()
+        #         await asyncio.sleep(1)
+        #     except (ConnectionResetError, BrokenPipeError, AttributeError) as e:
+        #         logger.error(f"Polling error: {e}. Stopping polling.")
+        #         self._running = False
+        #         break
+        pass
 
     @classmethod
-    async def connect(cls, log_queue, host="127.0.0.1", port=2947):
-        reader, writer = await asyncio.open_connection(host, port)
-        parser = cls(log_queue, reader=reader, writer=writer)
-        await parser._handle_initial_messages()
-        asyncio.create_task(parser._poll_messages())  # Start polling in background
-        return parser
+    async def connect(cls, log_queue, host="127.0.0.1", port=2947, max_attempts=5):
+        attempt = 0
+        while attempt < max_attempts:
+            try:
+                reader, writer = await asyncio.open_connection(host, port)
+                parser = cls(log_queue, reader=reader, writer=writer)
+                await parser._handle_initial_messages()
+                # No polling task needed; gpsd streams automatically
+                return parser
+            except (ConnectionRefusedError, ConnectionResetError) as e:
+                attempt += 1
+                delay = min(2**attempt, 30)
+                logger.error(
+                    f"Connection attempt {attempt}/{max_attempts} failed: {e}. Retrying in {delay}s..."
+                )
+                await asyncio.sleep(delay)
+        raise Exception("Failed to connect to gpsd after maximum attempts")
 
     @classmethod
     def from_file(cls, file_path: str):
         return cls(log_queue=None, file_path=file_path)
+
+    async def close(self):
+        """Clean up resources and close the connection."""
+        self._running = False
+        if self._poll_task:
+            self._poll_task.cancel()
+            try:
+                await self._poll_task
+            except asyncio.CancelledError:
+                logger.debug("Polling task cancelled")
+            self._poll_task = None
+        if self.writer:
+            self.writer.close()
+            await self.writer.wait_closed()
+            self.writer = None
+        self.reader = None
 
     async def parse_from_file(self):
         async with aiofiles.open(self.file_path, "rb") as f:
@@ -142,59 +182,46 @@ class UBXParser:
                 yield msg
 
     async def parse_messages(self):
-        while True:
+        while self._running:
             if self.reader:
-                data = await self.reader.read(1024)
-                if not data:
+                try:
+                    data = await self.reader.read(1024)
+                    if not data:
+                        logger.debug("No more data to read")
+                        break
+                    self.buffer.extend(data)
+                    while len(self.buffer) >= 6:  # Minimum UBX header size
+                        start = self.buffer.find(b"\xb5\x62")  # UBX sync chars
+                        if start == -1:
+                            logger.debug("No UBX header found, clearing buffer")
+                            self.buffer.clear()
+                            break
+                        if start > 0:
+                            self.buffer = self.buffer[start:]
+                        length = int.from_bytes(self.buffer[4:6], "little")
+                        total_length = 8 + length  # Header (6) + checksum (2) + payload
+                        if len(self.buffer) < total_length:
+                            break
+                        msg_data = self.buffer[:total_length]
+                        ck_a = ck_b = 0
+                        for b in msg_data[2:-2]:  # Skip sync and checksum
+                            ck_a = (ck_a + b) & 0xFF
+                            ck_b = (ck_b + ck_a) & 0xFF
+                        if msg_data[-2] == ck_a and msg_data[-1] == ck_b:
+                            parsed = self._parse_ubx(bytes(msg_data))
+                            if parsed.get("class"):
+                                logger.debug(f"Parsed UBX message: {parsed}")
+                                yield parsed
+                        else:
+                            logger.warning(
+                                f"Checksum mismatch: expected {ck_a:02x}{ck_b:02x}, got {msg_data[-2]:02x}{msg_data[-1]:02x}"
+                            )
+                        self.buffer = self.buffer[total_length:]
+                except Exception as e:
+                    logger.error(f"Error reading data: {e}")
                     break
-                # logger.debug(f"Raw data received ({len(data)} bytes): {data.hex()}")
-                self.buffer.extend(data)
-
-            while len(self.buffer) >= 6:  # Minimum bytes needed to check length
-                # Find UBX header
-                start = self.buffer.find(b"\xb5\x62")
-                logger.debug(f"Header found at {start}")
-                if start == -1:
-                    self.buffer.clear()
-                    break
-
-                if start > 0:
-                    self.buffer = self.buffer[start:]
-
-                # Get message length from header
-                length = int.from_bytes(self.buffer[4:6], "little")
-                total_length = 8 + length  # header (6) + payload + checksum (2)
-                # Check if we have the complete message
-                if len(self.buffer) < total_length:
-                    logger.debug(
-                        f"Incomplete message: have {len(self.buffer)}, need {total_length}"
-                    )
-                    break  # Wait for more data
-
-                # Extract message including checksum
-                msg_data = self.buffer[:total_length]
-
-                # Verify checksum
-                ck_a = ck_b = 0
-                for b in msg_data[2:-2]:  # Skip header and checksum
-                    ck_a = (ck_a + b) & 0xFF
-                    ck_b = (ck_b + ck_a) & 0xFF
-
-                if msg_data[-2] == ck_a and msg_data[-1] == ck_b:
-                    # logger.debug(f"Valid message: class=0x{msg_class:02x}, id=0x{msg_id:02x}, len={length}")
-                    parsed = self._parse_ubx(bytes(msg_data))
-                    if parsed.get("class"):
-                        yield parsed
-                else:
-                    logger.warning(
-                        f"Checksum mismatch: expected {ck_a:02x}{ck_b:02x}, got {msg_data[-2]:02x}{msg_data[-1]:02x}"
-                    )
-
-                # Remove processed message from buffer
-                self.buffer = self.buffer[total_length:]
-
-            await asyncio.sleep(0)
-
+            await asyncio.sleep(0.1)  # Prevent tight loop
+            
     def _parse_ubx(self, data: bytes) -> dict:
         if len(data) < 8:
             return {"error": "Invalid UBX message"}
@@ -204,7 +231,6 @@ class UBXParser:
         payload = data[6 : 6 + length]
         parser = self.message_parsers.get((msg_class, msg_id))
         if parser:
-            # logger.debug(f"Found parser for message class=0x{msg_class:02x}, id=0x{msg_id:02x}")
             result = parser(payload)
             return result
         logger.debug(
@@ -213,18 +239,22 @@ class UBXParser:
         return {"error": "Unknown message type"}
 
     def _ecef_to_lla(self, x: float, y: float, z: float):
-        a = 6378137.0
-        e = 0.0818191908426  # First eccentricity
-        p = (x**2 + y**2) ** 0.5
-        lat = math.atan2(z, p * (1 - e**2))
-        lon = math.atan2(y, x)
-        N = a / (1 - e**2 * math.sin(lat) ** 2) ** 0.5
-        h = z / math.sin(lat) - N * (1 - e**2)
-        return {
-            "latitude": math.degrees(lat),
-            "longitude": math.degrees(lon),
-            "altitude": h,
-        }
+        try:
+            a = 6378137.0
+            e = 0.0818191908426
+            p = (x**2 + y**2) ** 0.5
+            lat = math.atan2(z, p * (1 - e**2))
+            lon = math.atan2(y, x)
+            N = a / (1 - e**2 * math.sin(lat) ** 2) ** 0.5
+            h = z / math.sin(lat) - N * (1 - e**2)
+            return {
+                "latitude": math.degrees(lat),
+                "longitude": math.degrees(lon),
+                "altitude": h,
+            }
+        except Exception as e:
+            logger.error(f"Error converting ECEF to LLA: {e}, x: {x}, y: {y}, z: {z}")
+            return {"error": "Invalid ECEF coordinates"}
 
     def _parse_nav_sol(self, data: bytes) -> dict:
         logger.debug("Parsing nav-sol")
@@ -381,26 +411,126 @@ class UBXParser:
         logger.debug(f"NAV-DOP result: {result}")
         return result
 
+    def _parse_nav_posecef(self, data: bytes) -> dict:
+        """Position solution in ECEF"""
+        logger.debug("Parsing nav-posecef")
+        if len(data) < 20:
+            return {"error": "Invalid payload length for nav-posecef"}
+        ecefX = int.from_bytes(data[4:8], "little", signed=True) / 100.0
+        ecefY = int.from_bytes(data[8:12], "little", signed=True) / 100.0
+        ecefZ = int.from_bytes(data[12:16], "little", signed=True) / 100.0
+        lla = self._ecef_to_lla(ecefX, ecefY, ecefZ)
+        result = {
+            "class": "NAV-POSECEF",
+            "lat": lla["latitude"],
+            "lon": lla["longitude"],
+            "altHAE": lla["altitude"],
+        }
+        logger.debug(f"NAV-POSECEF result: {result}")
+        return result
+
+    def _parse_nav_pvt(self, data: bytes) -> dict:
+        """This message combines position, velocity and time solution, including accuracy figures.
+        Note that during a leap second there may be more or less than 60 seconds in a minute."""
+
+        logger.debug("Parsing nav-pvt")
+        if len(data) < 90:
+            return {"error": "Invalid payload length for nav-pvt"}
+        year = int.from_bytes(data[4:6], "little", signed=False)
+        month = data[6]
+        day = data[7]
+        hour = data[8]
+        minute = data[9]
+        seconds = data[10]
+        tAcc = int.from_bytes(data[24:28], "little", signed=False) / 1e9  # nano seconds
+        nano = int.from_bytes(data[24:28], "little", signed=True) / 1e9  # nano seconds
+        gpsFix = data[20]
+        numSV = data[23]
+        lon = int.from_bytes(data[24:28], "little", signed=True) / 1e7
+        lat = int.from_bytes(data[28:32], "little", signed=True) / 1e7
+        height = (
+            int.from_bytes(data[32:36], "little", signed=True) / 1000.0
+        )  # Height above ellipsoid / m
+        hMSL = (
+            int.from_bytes(data[36:40], "little", signed=True) / 1000.0
+        )  # Main Sea Level / m
+        hAcc = (
+            int.from_bytes(data[40:44], "little", signed=False) / 1000.0
+        )  # horizontal Accurary / m
+        vAcc = (
+            int.from_bytes(data[44:48], "little", signed=False) / 1000.0
+        )  # vertical Accuracy / m
+        pDOP = (
+            int.from_bytes(data[76:78], "little", signed=False) / 100.0
+        )  # position DOP
+
+        result = {
+            "class": "NAV-PVT",
+            "UTCyear": year,
+            "UTCmonth": month,
+            "UTCday": day,
+            "UTChour": hour,
+            "UTCminute": minute,
+            "UTCseconds": seconds,
+            "UTCnano": nano,
+            "tAcc": tAcc,
+            "mode": gpsFix,
+            "lat": lat,
+            "lon": lon,
+            "altHAE": height,
+            "hMSL": hMSL,
+            "numSV": numSV,
+            "hAcc": hAcc,
+            "vAcc": vAcc,
+            "pDOP": pDOP,
+        }
+        logger.debug(f"NAV-PVT result: {result}")
+        return result
+
+    def _parse_nav_eoe(self, data: bytes) -> dict:
+        logger.debug("Ignoring nav-eoe")
+        if len(data) < 4:
+            return {"error": "Invalid payload length for nav-pvt"}
+        # The End of Epoch message consists of an iTOW Time only
+        return {"class": "NAV-EOE"}
+
 
 if __name__ == "__main__":
-    # Parse files stored by gpumon's "l<filename>" command.
-    # Note that gpumon is not supported anymore by gpsd (it is deprecated), use gpspipe instead.
+    logging.basicConfig(
+        level=logging.WARNING,
+        format="%(asctime)s %(message)s",
+        handlers=[logging.StreamHandler()],
+    )
+    # Remove processed message from buffer
     msg_types: dict = {}
 
-    async def test(f_path: str):
-        parser = UBXParser.from_file(file_path=f_path)
-        async for msg in parser.parse_from_file():
-            print(msg)
-            msg_type = msg.get("class", "")
-            if msg_type != "":
-                x = msg_types.get(msg_type, 0) + 1
-                msg_types[msg_type] = x
+    async def test(f_path: str = ""):
+        if f_path:
+            parser = UBXParser.from_file(file_path=f_path)
+            async for msg in parser.parse_from_file():
+                print(msg)
+                msg_type = msg.get("class", "")
+                if msg_type != "":
+                    msg_types[msg_type] = msg_types.get(msg_type, 0) + 1
+        else:
+            parser = await UBXParser.connect(log_queue=None)
+            try:
+                async for msg in parser.parse_messages():
+                    print(msg)
+                    msg_type = msg.get("class", "")
+                    if msg_type != "":
+                        msg_types[msg_type] = msg_types.get(msg_type, 0) + 1
+            finally:
+                await parser.close()
 
-    if len(sys.argv) < 2 or len(sys.argv) > 2:
-        print("Usage: python gps_ubx_parser.py <file_path>")
-        sys.exit(1)
-
-    file_path = sys.argv[1]
-    asyncio.run(test(file_path))
+    try:
+        if len(sys.argv) < 2 or len(sys.argv) > 2:
+            print("Usage: python gps_ubx_parser.py <file_path> (optional)")
+            asyncio.run(test())
+        else:
+            file_path = sys.argv[1]
+            asyncio.run(test(file_path))
+    except KeyboardInterrupt:
+        print("Keyboard Interrupt received.")
 
     print(msg_types)

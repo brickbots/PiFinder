@@ -111,7 +111,7 @@ class MultiprocLogging:
         This is the process that consumes every log message (sink)
 
         All log messages send here over queues will be passed by this method to the log handlers that write it out to the single log file.
-        This is started in __init__.
+        This is started in start().
         """
 
         # To avoid an endless loop, remove handlers from root logger.
@@ -126,6 +126,8 @@ class MultiprocLogging:
         f = logging.Formatter(self._formatter)
         h.setFormatter(f)
         rLogger.addHandler(h)
+        rLogger.warning("Starting logging process")
+        rLogger.warning("Logging to %s", output)
 
         # import logging_tree
         # logging_tree.printout()

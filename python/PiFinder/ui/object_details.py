@@ -53,9 +53,6 @@ class UIObjectDetails(UIModule):
         self.object_display_mode = DM_LOCATE
         self.object_image = None
 
-        self.fov_list = [1, 0.5, 0.25, 0.125]
-        self.fov_index = 0
-
         # Marking Menu - Just default help for now
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(),
@@ -208,11 +205,6 @@ class UIObjectDetails(UIModule):
         self.descTextLayout.set_text(desc)
         self.texts["desc"] = self.descTextLayout
 
-        if self.object_display_mode == DM_SDSS:
-            source = "SDSS"
-        else:
-            source = "POSS"
-
         solution = self.shared_state.solution()
         roll = 0
         if solution:
@@ -220,8 +212,8 @@ class UIObjectDetails(UIModule):
 
         self.object_image = cat_images.get_display_image(
             self.object,
-            source,
-            self.fov_list[self.fov_index],
+            str(self.config_object.equipment.active_eyepiece),
+            self.config_object.equipment.calc_tfov(),
             roll,
             self.display_class,
             burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
@@ -230,51 +222,53 @@ class UIObjectDetails(UIModule):
     def active(self):
         self.activation_time = time.time()
 
-    def _check_catalog_initialised(self):
+    def _check_catalog_initialized(self):
         code = self.object.catalog_code
+        if code == "PUSH":
+            # Special code for objects pushed from sky-safari
+            return True
         catalog = self.catalogs.get_catalog_by_code(code)
-        return catalog and catalog.initialised
+        return catalog and catalog.initialized
 
     def _render_pointing_instructions(self):
         # Pointing Instructions
-        indicator_color = 255 if self._unmoved else 128
-        point_az, point_alt = calc_utils.aim_degrees(
-            self.shared_state,
-            self.mount_type,
-            self.screen_direction,
-            self.object,
-        )
-        if not point_az:
-            if self.shared_state.solution() is None:
-                self.draw.text(
-                    (10, 70),
-                    "No solve",
-                    font=self.fonts.large.font,
-                    fill=self.colors.get(255),
-                )
-                self.draw.text(
-                    (10, 90),
-                    f"yet{'.' * int(self._elipsis_count / 10)}",
-                    font=self.fonts.large.font,
-                    fill=self.colors.get(255),
-                )
-            else:
-                self.draw.text(
-                    (10, 70),
-                    "Searching",
-                    font=self.fonts.large.font,
-                    fill=self.colors.get(255),
-                )
-                self.draw.text(
-                    (10, 90),
-                    f"for GPS{'.' * int(self._elipsis_count / 10)}",
-                    font=self.fonts.large.font,
-                    fill=self.colors.get(255),
-                )
+        if self.shared_state.solution() is None:
+            self.draw.text(
+                (10, 70),
+                "No solve",
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
+            self.draw.text(
+                (10, 90),
+                f"yet{'.' * int(self._elipsis_count / 10)}",
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
             self._elipsis_count += 1
             if self._elipsis_count > 39:
                 self._elipsis_count = 0
-        elif not self._check_catalog_initialised():
+            return
+
+        if not self.shared_state.altaz_ready():
+            self.draw.text(
+                (10, 70),
+                "Searching",
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
+            self.draw.text(
+                (10, 90),
+                f"for GPS{'.' * int(self._elipsis_count / 10)}",
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
+            self._elipsis_count += 1
+            if self._elipsis_count > 39:
+                self._elipsis_count = 0
+            return
+
+        if not self._check_catalog_initialized():
             self.draw.text(
                 (10, 70),
                 "Calculating",
@@ -287,60 +281,68 @@ class UIObjectDetails(UIModule):
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
+            self._elipsis_count += 1
+            if self._elipsis_count > 39:
+                self._elipsis_count = 0
+            return
+
+        indicator_color = 255 if self._unmoved else 128
+        point_az, point_alt = calc_utils.aim_degrees(
+            self.shared_state,
+            self.mount_type,
+            self.screen_direction,
+            self.object,
+        )
+        if point_az < 0:
+            point_az *= -1
+            az_arrow = self._LEFT_ARROW
         else:
-            if point_az < 0:
-                point_az *= -1
-                az_arrow = self._LEFT_ARROW
-            else:
+            az_arrow = self._RIGHT_ARROW
+
+        # Check az arrow config
+        if self.config_object.get_option("pushto_az_arrows", "Default") == "Reverse":
+            if az_arrow is self._LEFT_ARROW:
                 az_arrow = self._RIGHT_ARROW
-
-            # Check az arrow config
-            if (
-                self.config_object.get_option("pushto_az_arrows", "Default")
-                == "Reverse"
-            ):
-                if az_arrow is self._LEFT_ARROW:
-                    az_arrow = self._RIGHT_ARROW
-                else:
-                    az_arrow = self._LEFT_ARROW
-
-            # Change decimal points when within 1 degree
-            if point_az < 1:
-                self.draw.text(
-                    self.az_anchor,
-                    f"{az_arrow}{point_az : >5.2f}",
-                    font=self.fonts.huge.font,
-                    fill=self.colors.get(indicator_color),
-                )
             else:
-                self.draw.text(
-                    self.az_anchor,
-                    f"{az_arrow}{point_az : >5.1f}",
-                    font=self.fonts.huge.font,
-                    fill=self.colors.get(indicator_color),
-                )
+                az_arrow = self._LEFT_ARROW
 
-            if point_alt < 0:
-                point_alt *= -1
-                alt_arrow = self._DOWN_ARROW
-            else:
-                alt_arrow = self._UP_ARROW
+        # Change decimal points when within 1 degree
+        if point_az < 1:
+            self.draw.text(
+                self.az_anchor,
+                f"{az_arrow}{point_az : >5.2f}",
+                font=self.fonts.huge.font,
+                fill=self.colors.get(indicator_color),
+            )
+        else:
+            self.draw.text(
+                self.az_anchor,
+                f"{az_arrow}{point_az : >5.1f}",
+                font=self.fonts.huge.font,
+                fill=self.colors.get(indicator_color),
+            )
 
-            # Change decimal points when within 1 degree
-            if point_alt < 1:
-                self.draw.text(
-                    self.alt_anchor,
-                    f"{alt_arrow}{point_alt : >5.2f}",
-                    font=self.fonts.huge.font,
-                    fill=self.colors.get(indicator_color),
-                )
-            else:
-                self.draw.text(
-                    self.alt_anchor,
-                    f"{alt_arrow}{point_alt : >5.1f}",
-                    font=self.fonts.huge.font,
-                    fill=self.colors.get(indicator_color),
-                )
+        if point_alt < 0:
+            point_alt *= -1
+            alt_arrow = self._DOWN_ARROW
+        else:
+            alt_arrow = self._UP_ARROW
+
+        # Change decimal points when within 1 degree
+        if point_alt < 1:
+            self.draw.text(
+                self.alt_anchor,
+                f"{alt_arrow}{point_alt : >5.2f}",
+                font=self.fonts.huge.font,
+                fill=self.colors.get(indicator_color),
+            )
+        else:
+            self.draw.text(
+                self.alt_anchor,
+                f"{alt_arrow}{point_alt : >5.1f}",
+                font=self.fonts.huge.font,
+                fill=self.colors.get(indicator_color),
+            )
 
     def update(self, force=True):
         # Clear Screen
@@ -488,11 +490,7 @@ class UIObjectDetails(UIModule):
         self.add_to_stack(object_item_definition)
 
     def change_fov(self, direction):
-        self.fov_index += direction
-        if self.fov_index < 0:
-            self.fov_index = 0
-        if self.fov_index >= len(self.fov_list):
-            self.fov_index = len(self.fov_list) - 1
+        self.config_object.equipment.cycle_eyepieces(direction)
         self.update_object_info()
         self.update()
 

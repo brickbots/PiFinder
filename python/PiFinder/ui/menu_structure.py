@@ -9,7 +9,9 @@ from PiFinder.ui.align import UIAlign
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.equipment import UIEquipment
+from PiFinder.ui.location_list import UILocationList
 import PiFinder.ui.callbacks as callbacks
+from multiprocessing import Queue
 
 pifinder_menu = {
     "name": "PiFinder",
@@ -42,12 +44,12 @@ pifinder_menu = {
                             "class": UIGPSStatus,
                         },
                         {
-                            "name": "Save location",
-                            "class": UITextEntry,
+                            "name": "Locations",
+                            "class": UILocationList,
                         },
                         {
-                            "name": "Set location",
-                            "class": UITextEntry,
+                            "name": "Reset",
+                            "callback": callbacks.gps_reset
                         },
                     ],
                 },
@@ -812,9 +814,18 @@ pifinder_menu = {
                     "name": "WiFi Mode",
                     "class": UITextMenu,
                     "select": "single",
+                    "value_callback": callbacks.get_wifi_mode,
                     "items": [
-                        {"name": "Client Mode", "callback": callbacks.go_wifi_cli},
-                        {"name": "AP Mode", "callback": callbacks.go_wifi_ap},
+                        {
+                            "name": "Client Mode",
+                            "value": "Client",
+                            "callback": callbacks.go_wifi_cli,
+                        },
+                        {
+                            "name": "AP Mode",
+                            "value": "AP",
+                            "callback": callbacks.go_wifi_ap,
+                        },
                     ],
                 },
                 {
@@ -912,7 +923,7 @@ pifinder_menu = {
             "select": "single",
             "items": [
                 {"name": "Status", "class": UIStatus},
-                {"name": "Equipment", "class": UIEquipment},
+                {"name": "Equipment", "class": UIEquipment, "label": "equipment"},
                 {"name": "Console", "class": UIConsole},
                 {"name": "Software Upd", "class": UISoftware},
                 {"name": "Test Mode", "callback": callbacks.activate_debug},

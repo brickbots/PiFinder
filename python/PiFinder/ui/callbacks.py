@@ -8,7 +8,6 @@ Each one takes the current ui module as an argument
 
 """
 
-import datetime
 import logging
 
 from PiFinder import utils
@@ -51,9 +50,8 @@ def activate_debug(ui_module: UIModule) -> None:
     add fake gps info
     """
     ui_module.command_queues["camera"].put("debug")
-    ui_module.command_queues["console"].put("Debug: Activated")
-    dt = datetime.datetime(2024, 6, 1, 2, 0, 0)
-    ui_module.shared_state.set_datetime(dt)
+    ui_module.command_queues["console"].put("Test Mode Activated")
+    ui_module.command_queues["ui_queue"].put("test_mode")
     ui_module.message("Test Mode")
 
 
@@ -109,7 +107,7 @@ def switch_cam_imx462(ui_module: UIModule) -> None:
     restart_system(ui_module)
 
 
-def get_camera_type(ui_module: UIModule) -> list:
+def get_camera_type(ui_module: UIModule) -> list[str]:
     cam_id = "000"
 
     # read config.txt into a list
@@ -137,3 +135,13 @@ def go_wifi_cli(ui_module: UIModule) -> None:
     ui_module.message("WiFi to Client", 2)
     sys_utils.go_wifi_cli()
     restart_system(ui_module)
+
+
+def get_wifi_mode(ui_module: UIModule) -> list[str]:
+    wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
+    with open(wifi_txt, "r") as wfs:
+        return [wfs.read()]
+
+def gps_reset(ui_module: UIModule) -> None:
+    ui_module.command_queues["gps"].put(("reset", {}))
+    ui_module.message("Location Reset", 2)

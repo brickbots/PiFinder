@@ -15,6 +15,18 @@ from PiFinder.ui.base import UIModule
 from PiFinder.image_util import convert_image_to_mode
 
 
+def singleton(class_):
+    instances = {}
+
+    def getinstance(*args, **kwargs):
+        if class_ not in instances:
+            instances[class_] = class_(*args, **kwargs)
+        return instances[class_]
+
+    return getinstance
+
+
+@singleton
 class UIConsole(UIModule):
     __title__ = "CONSOLE"
 
@@ -126,7 +138,7 @@ class UIConsole(UIModule):
             moving = True if imu and imu["pos"] and imu["moving"] else False
 
             # GPS status
-            if self.shared_state.location().lock:
+            if self.shared_state.altaz_ready():
                 self._gps_brightness = 0
             else:
                 gps_anim = int(128 * (time.time() - self.last_update_time)) + 1
