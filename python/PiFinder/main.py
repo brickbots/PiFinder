@@ -538,7 +538,7 @@ def main(
                         location.reset()
                         shared_state.set_location(location)
                     if gps_msg == "satellites":
-                        logger.debug("Main: GPS nr sats seen: %s", gps_content)
+                        # logger.debug("Main: GPS nr sats seen: %s", gps_content)
                         shared_state.set_sats(gps_content)
                 except queue.Empty:
                     pass
