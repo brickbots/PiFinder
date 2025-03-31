@@ -323,7 +323,6 @@ def main(
         gps_process.start()
         console.set_shared_state(shared_state)
 
-        # spawn keyboard service....
         console.write("   Keyboard")
         logger.info("   Keyboard")
         console.update()
@@ -537,7 +536,6 @@ def main(
                         location.reset()
                         shared_state.set_location(location)
                     if gps_msg == "satellites":
-                        logger.debug("Main: GPS nr sats seen: %s", gps_content)
                         shared_state.set_sats(gps_content)
                 except queue.Empty:
                     pass
@@ -793,9 +791,12 @@ def rotate_logs() -> Path:
 
 if __name__ == "__main__":
     print("Bootstrap logging configuration ...")
-    logging.basicConfig(format="%(asctime)s BASIC %(name)s: %(levelname)s %(message)s")
-    rlogger = logging.getLogger()
-    rlogger.setLevel(logging.INFO)
+    
+    # Remove any existing handlers
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+    
     log_path = rotate_logs()
     try:
         log_helper = MultiprocLogging(
@@ -804,15 +805,15 @@ if __name__ == "__main__":
         )
         MultiprocLogging.configurer(log_helper.get_queue())
     except FileNotFoundError:
-        rlogger.warning(
+        root_logger.warning(
             "Cannot find log configuration file, proceeding with basic configuration."
         )
-        rlogger.warning("Logs will not be stored on disk, unless you use --log")
+        root_logger.warning("Logs will not be stored on disk, unless you use --log")
         logging.getLogger("PIL.PngImagePlugin").setLevel(logging.WARNING)
         logging.getLogger("tetra3.Tetra3").setLevel(logging.WARNING)
         logging.getLogger("picamera2.picamera2").setLevel(logging.WARNING)
 
-    rlogger.info("Starting PiFinder ...")
+    root_logger.info("Starting PiFinder ...")
     parser = argparse.ArgumentParser(description="eFinder")
     parser.add_argument(
         "-fh",
@@ -873,9 +874,14 @@ if __name__ == "__main__":
     )
     parser.add_argument("-l", "--log", help="Log to file", action="store_true")
     args = parser.parse_args()
-    # add the handlers to the logger
+    
+    log_helper.start()
+    # Override log level if --verbose is specified
     if args.verbose:
-        rlogger.setLevel(logging.DEBUG)
+        # Update running configuration only
+        root_logger.setLevel(logging.DEBUG)
+        log_helper.get_queue().put(("change_log_level", logging.DEBUG))
+        logging.info("Verbose mode requested: Log level set to DEBUG for main process and sink.")
 
     import importlib
 
@@ -901,32 +907,32 @@ if __name__ == "__main__":
         display_hardware = args.display.lower()
 
     if args.camera.lower() == "pi":
-        rlogger.info("using pi camera")
+        root_logger.info("using pi camera")
         from PiFinder import camera_pi as camera
     elif args.camera.lower() == "debug":
-        rlogger.info("using debug camera")
+        root_logger.info("using debug camera")
         from PiFinder import camera_debug as camera  # type: ignore[no-redef]
     elif args.camera.lower() == "asi":
-        rlogger.info("using asi camera")
+        root_logger.info("using asi camera")
     else:
-        rlogger.warn("not using camera")
+        root_logger.warn("not using camera")
         from PiFinder import camera_none as camera  # type: ignore[no-redef]
 
     if args.keyboard.lower() == "pi":
         from PiFinder import keyboard_pi as keyboard
 
-        rlogger.info("using pi keyboard hat")
+        root_logger.info("using pi keyboard hat")
     elif args.keyboard.lower() == "local":
         from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
 
-        rlogger.info("using local keyboard")
+        root_logger.info("using local keyboard")
     elif args.keyboard.lower() == "none":
         from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
-        rlogger.warn("using no keyboard")
+        root_logger.warn("using no keyboard")
 
     try:
         main(log_helper, args.script, args.fps, args.verbose)
     except Exception:
-        rlogger.exception("Exception in main(). Aborting program.")
+        root_logger.exception("Exception in main(). Aborting program.")
         os._exit(1)

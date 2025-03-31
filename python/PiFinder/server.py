@@ -3,6 +3,7 @@ import json
 import logging
 import time
 import uuid
+import os
 from datetime import datetime, timezone
 
 import pydeepskylog as pds
@@ -48,12 +49,13 @@ def auth_required(func):
 
 class Server:
     def __init__(
-        self, keyboard_queue, ui_queue, gps_queue, shared_state, is_debug=False
+        self, keyboard_queue, ui_queue, gps_queue, log_queue, shared_state, is_debug=False
     ):
         self.version_txt = f"{utils.pifinder_dir}/version.txt"
         self.keyboard_queue = keyboard_queue
         self.ui_queue = ui_queue
         self.gps_queue = gps_queue
+        self.log_queue = log_queue
         self.shared_state = shared_state
         self.ki = KeyboardInterface()
         # gps info
@@ -760,7 +762,10 @@ class Server:
         @app.route("/logs")
         @auth_required
         def logs_page():
-            return template("logs")
+            # Get current log level
+            root_logger = logging.getLogger()
+            current_level = logging.getLevelName(root_logger.getEffectiveLevel())
+            return template("logs", current_level=current_level)
 
         @app.route("/logs/stream")
         @auth_required
@@ -769,18 +774,109 @@ class Server:
                 position = int(request.query.get('position', 0))
                 log_file = "/home/pifinder/PiFinder_data/pifinder.log"
                 
-                with open(log_file, 'r') as f:
-                    f.seek(position)
-                    new_lines = f.readlines()
-                    new_position = f.tell()
-                
-                return {
-                    'logs': new_lines,
-                    'position': new_position
-                }
+                try:
+                    file_size = os.path.getsize(log_file)
+                    # If position is beyond file size or 0, start from beginning
+                    if position >= file_size or position == 0:
+                        position = 0
+                    
+                    with open(log_file, 'r') as f:
+                        if position > 0:
+                            f.seek(position)
+                        new_lines = f.readlines()
+                        new_position = f.tell()
+                    
+                    # If we're at the start of the file, get all lines
+                    # Otherwise, only return new lines if there are any
+                    if position == 0 or new_lines:
+                        return {
+                            'logs': new_lines,
+                            'position': new_position
+                        }
+                    else:
+                        return {
+                            'logs': [],
+                            'position': position
+                        }
+                except FileNotFoundError:
+                    logger.error(f"Log file not found: {log_file}")
+                    return {'logs': [], 'position': 0}
+                    
             except Exception as e:
                 logger.error(f"Error streaming logs: {e}")
                 return {'logs': [], 'position': position}
+
+        @app.route("/logs/level", method="post")
+        @auth_required
+        def change_log_level():
+            try:
+                new_level = request.forms.get('level', 'INFO')
+                # Convert string level to logging constant
+                numeric_level = getattr(logging, new_level.upper())
+                
+                self.log_queue.put(("change_log_level", numeric_level))
+
+                # Update the current server.py logger 
+                server_logger = logging.getLogger()
+                server_logger.setLevel(numeric_level)
+                
+                logger.info(f"Changed logging level to {new_level}")
+                return {"status": "success", "message": f"Log level changed to {new_level}"}
+            except Exception as e:
+                logger.error(f"Error changing log level: {e}")
+                return {"status": "error", "message": str(e)}
+
+        @app.route("/logs/current_level")
+        @auth_required
+        def get_current_log_level():
+            root_logger = logging.getLogger()
+            current_level = logging.getLevelName(root_logger.getEffectiveLevel())
+            return {"level": current_level}
+
+        @app.route("/logs/components")
+        @auth_required
+        def get_component_levels():
+            try:
+                import json5
+                with open("pifinder_logconf.json", "r") as f:
+                    config = json5.load(f)
+                # Get all loggers from the config
+                loggers = config.get("loggers", {})
+                # Get current runtime levels for each logger
+                current_levels = {}
+                # Get all loggers from the config file
+                for logger_name in loggers.keys():
+                    logger = logging.getLogger(logger_name)
+                    current_levels[logger_name] = {
+                        "config_level": loggers.get(logger_name, {}).get("level", "INFO"),
+                        "current_level": logging.getLevelName(logger.getEffectiveLevel())
+                    }
+                return {"components": current_levels}
+            except Exception as e:
+                logging.error(f"Error reading log configuration: {e}")
+                return {"status": "error", "message": str(e)}
+
+        @app.route("/logs/component_level", method="post")
+        @auth_required
+        def change_component_level():
+            try:
+                component = request.forms.get('component')
+                new_level = request.forms.get('level', 'INFO')
+                numeric_level = getattr(logging, new_level.upper())
+                self.log_queue.put(("change_component_level", component, numeric_level))
+                
+                # Update logger in running process
+                server_logger = logging.getLogger(component)
+                server_logger.setLevel(numeric_level)
+                
+                # Notify all processes to update their log levels
+                self.ui_queue.put(("change_component_level", component, new_level))
+                
+                logger.info(f"Changed {component} log level to {new_level}")
+                return {"status": "success", "message": f"Log level for {component} changed to {new_level}"}
+            except Exception as e:
+                logger.error(f"Error changing component log level: {e}")
+                return {"status": "error", "message": str(e)}
 
         @app.route("/logs/download")
         @auth_required
@@ -936,4 +1032,4 @@ def run_server(
     keyboard_queue, ui_queue, gps_queue, shared_state, log_queue, verbose=False
 ):
     MultiprocLogging.configurer(log_queue)
-    Server(keyboard_queue, ui_queue, gps_queue, shared_state, verbose)
+    Server(keyboard_queue, ui_queue, gps_queue, log_queue, shared_state, verbose)

@@ -141,6 +141,30 @@ class MultiprocLogging:
                     rec = q.get(block=False)
                     if rec is None:  # Received End Marker
                         return
+                    if isinstance(rec, tuple):
+                        if rec[0] == "change_log_level":
+                            # Update the root logger level
+                            rLogger.setLevel(rec[1])
+                            # Also update the console handler level
+                            for handler in rLogger.handlers:
+                                if isinstance(handler, logging.StreamHandler):
+                                    handler.setLevel(rec[1])
+                            continue
+                        elif rec[0] == "change_component_level":
+                            # Update the component logger level
+                            component, numeric_level = rec[1:]
+                            component_logger = logging.getLogger(component)
+                            component_logger.setLevel(numeric_level)
+                            # Also update any handlers for this logger
+                            for handler in component_logger.handlers:
+                                if isinstance(handler, logging.StreamHandler):
+                                    handler.setLevel(numeric_level)
+                            continue
+                        # Skip other tuples that aren't log records
+                        continue
+                    if not hasattr(rec, 'name'):
+                        rLogger.warning("Received a log record without a name: %s", rec)
+                        continue
                     logger = logging.getLogger(rec.name)
                     logger.handle(rec)
                 except Empty:
