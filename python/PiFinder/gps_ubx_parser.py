@@ -282,6 +282,7 @@ class UBXParser:
     def _parse_nav_sat(self, data: bytes) -> dict:
         logger.debug("Parsing nav-sat")
         if len(data) < 8:
+            logger.error("NAV-SAT: Message too short")
             return {"error": "Invalid payload length for nav-sat"}
         numSvs = data[5]
         satellites = []
@@ -316,7 +317,7 @@ class UBXParser:
     def _parse_nav_svinfo(self, data: bytes) -> dict:
         logger.debug("Parsing nav-svinfo")
         if len(data) < 8:
-            logger.debug(f"SVINFO: Message too short ({len(data)} bytes)")
+            logger.warning(f"SVINFO: Message too short ({len(data)} bytes)")
             return {"error": "Invalid payload length for nav-svinfo"}
 
         numCh = data[4]
@@ -400,6 +401,7 @@ class UBXParser:
     def _parse_nav_dop(self, data: bytes) -> dict:
         logger.debug("Parsing nav-dop")
         if len(data) < 18:
+            logger.error("NAV-DOP: Message too short")
             return {"error": "Invalid payload length for nav-dop"}
         result = {
             "class": "NAV-DOP",
