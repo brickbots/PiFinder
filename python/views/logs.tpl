@@ -122,7 +122,7 @@
           <button id="copyButton" class="btn">
             <i class="material-icons left">content_copy</i>Copy to Clipboard
           </button>
-          <select id="globalLevel" class="browser-default">
+          <select id="globalLevel" class="browser-default" disabled>
             <option value="DEBUG">Global: Debug</option>
             <option value="INFO">Global: Info</option>
             <option value="WARNING">Global: Warning</option>
@@ -131,7 +131,7 @@
           <select id="componentSelect" class="browser-default">
             <option value="" disabled selected>Select Component</option>
           </select>
-          <select id="componentLevel" class="browser-default" style="display: none;">
+          <select id="componentLevel" class="browser-default" style="display: none;" disabled>
             <option value="DEBUG">Debug</option>
             <option value="INFO">Info</option>
             <option value="WARNING">Warning</option>

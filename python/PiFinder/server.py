@@ -806,26 +806,6 @@ class Server:
                 logger.error(f"Error streaming logs: {e}")
                 return {'logs': [], 'position': position}
 
-        @app.route("/logs/level", method="post")
-        @auth_required
-        def change_log_level():
-            try:
-                new_level = request.forms.get('level', 'INFO')
-                # Convert string level to logging constant
-                numeric_level = getattr(logging, new_level.upper())
-                
-                self.log_queue.put(("change_log_level", numeric_level))
-
-                # Update the current server.py logger 
-                server_logger = logging.getLogger()
-                server_logger.setLevel(numeric_level)
-                
-                logger.info(f"Changed logging level to {new_level}")
-                return {"status": "success", "message": f"Log level changed to {new_level}"}
-            except Exception as e:
-                logger.error(f"Error changing log level: {e}")
-                return {"status": "error", "message": str(e)}
-
         @app.route("/logs/current_level")
         @auth_required
         def get_current_log_level():
@@ -854,28 +834,6 @@ class Server:
                 return {"components": current_levels}
             except Exception as e:
                 logging.error(f"Error reading log configuration: {e}")
-                return {"status": "error", "message": str(e)}
-
-        @app.route("/logs/component_level", method="post")
-        @auth_required
-        def change_component_level():
-            try:
-                component = request.forms.get('component')
-                new_level = request.forms.get('level', 'INFO')
-                numeric_level = getattr(logging, new_level.upper())
-                self.log_queue.put(("change_component_level", component, numeric_level))
-                
-                # Update logger in running process
-                server_logger = logging.getLogger(component)
-                server_logger.setLevel(numeric_level)
-                
-                # Notify all processes to update their log levels
-                self.ui_queue.put(("change_component_level", component, new_level))
-                
-                logger.info(f"Changed {component} log level to {new_level}")
-                return {"status": "success", "message": f"Log level for {component} changed to {new_level}"}
-            except Exception as e:
-                logger.error(f"Error changing component log level: {e}")
                 return {"status": "error", "message": str(e)}
 
         @app.route("/logs/download")

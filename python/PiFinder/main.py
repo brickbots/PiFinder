@@ -875,7 +875,6 @@ if __name__ == "__main__":
     parser.add_argument("-l", "--log", help="Log to file", action="store_true")
     args = parser.parse_args()
     
-    log_helper.start()
     # Override log level if --verbose is specified
     if args.verbose:
         # Update running configuration only
