@@ -65,7 +65,6 @@ class UBXParser:
         self._poll_task = None  # Store polling task for cleanup
         self._running = True  # Control flag for polling loop
         self._initialize_parsers()
-        self.log_queue = log_queue
 
     def _initialize_parsers(self):
         self._register_parser(UBXClass.NAV, NAVMessageId.SOL, self._parse_nav_sol)
