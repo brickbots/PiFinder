@@ -36,7 +36,7 @@ pifinder_menu = {
                     "preload": True,
                 },
                 {
-                    "name": "Location&Time",
+                    "name": "Place & Time",
                     "class": UITextMenu,
                     "select": "single",
                     "items": [
