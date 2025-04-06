@@ -43,10 +43,9 @@ class Network:
         action_needed = False
         with open("/etc/hostapd/hostapd.conf", "r") as conf:
             for line in conf: 
-                if line.startswith("ssid="): 
+                if line.startswith("ssid=") and "CHANGEME" in line: 
                     logger.info(f"SSID detected: {line} {line.endswith('CHANGEME')}")
-                    action_needed = False
-                    break
+                    action_needed = True
 
         if not action_needed:
             logger.info("SYSUTILS: No change in hostapd.conf needed.")
