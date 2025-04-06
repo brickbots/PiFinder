@@ -228,7 +228,7 @@ class UBXParser:
                             ck_b = (ck_b + ck_a) & 0xFF
                         if msg_data[-2] == ck_a and msg_data[-1] == ck_b:
                             parsed = self._parse_ubx(bytes(msg_data))
-                            if parsed.get("class"):
+                            if "class" in parsed:
                                 logger.debug(f"Parsed UBX message: {parsed}")
                                 yield parsed
                         else:
@@ -292,16 +292,20 @@ class UBXParser:
         ecefZ = int.from_bytes(data[20:24], "little", signed=True) / 100.0
         pAcc = int.from_bytes(data[24:28], "little") / 100.0
         numSV = data[47]
-        lla = self._ecef_to_lla(ecefX, ecefY, ecefZ)
-        result = {
-            "class": "NAV-SOL",
-            "mode": gpsFix,
-            "lat": lla["latitude"],
-            "lon": lla["longitude"],
-            "altHAE": lla["altitude"],
-            "ecefpAcc": pAcc,
-            "satellites": numSV,
-        }
+        result = {}
+        if ecefX == 0 or ecefY == 0 or ecefZ == 0:
+            logging.debug(f"nav_sol zeroes: ecefX: {ecefX}, ecefY: {ecefY}, ecefZ: {ecefZ}, pAcc: {pAcc}, numSV: {numSV}")
+        else:
+            lla = self._ecef_to_lla(ecefX, ecefY, ecefZ)
+            result = {
+                "class": "NAV-SOL",
+                "mode": gpsFix,
+                "lat": lla["latitude"],
+                "lon": lla["longitude"],
+                "altHAE": lla["altitude"],
+                "ecefpAcc": pAcc,
+                "satellites": numSV,
+            }
         logger.debug(f"NAV-SOL result: {result}")
         return result
 
@@ -443,13 +447,17 @@ class UBXParser:
         ecefX = int.from_bytes(data[4:8], "little", signed=True) / 100.0
         ecefY = int.from_bytes(data[8:12], "little", signed=True) / 100.0
         ecefZ = int.from_bytes(data[12:16], "little", signed=True) / 100.0
-        lla = self._ecef_to_lla(ecefX, ecefY, ecefZ)
-        result = {
-            "class": "NAV-POSECEF",
-            "lat": lla["latitude"],
-            "lon": lla["longitude"],
-            "altHAE": lla["altitude"],
-        }
+        result = {}
+        if ecefX == 0 or ecefY == 0 or ecefZ == 0:
+            logging.debug(f"nav_posecef zeroes: ecefX: {ecefX}, ecefY: {ecefY}, ecefZ: {ecefZ}")
+        else:
+            lla = self._ecef_to_lla(ecefX, ecefY, ecefZ)
+            result = {
+                "class": "NAV-POSECEF",
+                "lat": lla["latitude"],
+                "lon": lla["longitude"],
+                "altHAE": lla["altitude"],
+            }
         logger.debug(f"NAV-POSECEF result: {result}")
         return result
 
