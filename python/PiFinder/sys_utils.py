@@ -34,7 +34,8 @@ class Network:
 
         Tasks:
          1) if SSID in current config ends with CHANGEME, create a random SSID of the from PiFinder-XYZAB, XYZAB 5 random chars (see below)
-         2) Create a random password (20 chars in 5 groups of random chars, separeted by '-', see below)
+         2) If SSID was changed, add encryption to hostapd.conf, generate a 20 character random password
+            (20 chars in 5 groups of random chars, separeted by '-', see below)
         
         where 'random char' means from a randomly selected character out of the set of 0-9, a-z and A-Z.
         """
@@ -53,10 +54,10 @@ class Network:
                         passphrase_detected = True
                     new_conf.write(line)
                 # consumed all lines, so: 
-                if not passphrase_detected:
+                if not passphrase_detected and ssid_changed:
                     logger.warning("Network: Enabling WPA2 with PSK")
                     # Add encrpytion directives 
-                    pwd = Network._generated_random_chars(20, "-", 5)
+                    pwd = Network._generate_random_chars(20, "-", 5)
                     new_conf.write("wpa=2")
                     new_conf.write("wpa_key_mgmt=WPA-PSK")
                     new_conf.write(f"wpa_passphrase={pwd}")
@@ -83,11 +84,11 @@ class Network:
         self._wifi_networks = Network._parse_wpa_supplicant(contents)
 
     @staticmethod
-    def _generate_random_chars(length: int, ch: str = None, group: int = -1) -> str:
+    def _generate_random_chars(length: int, ch: str = "", group: int = -1) -> str:
         """ Generate a string using random characters from the set of 0-9,a-z and A-Z"""
-        rndstr = ''.join(random.SystemRandom().choice(string.ascii_letters + string.digits) for _ in range(length))
-        if str is not None and group > 0:
-            rndstr = str.join([rndstr[i:i+group] for i in range(0, len(rndstr), group)])
+        rndstr = ''.join([random.SystemRandom().choice(string.ascii_letters + string.digits) for _ in range(length)])
+        if ch != "" and group > 0:
+            rndstr = ch.join([rndstr[i:i+group] for i in range(0, len(rndstr), group)])
         return rndstr
         
     @staticmethod

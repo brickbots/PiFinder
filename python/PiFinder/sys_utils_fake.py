@@ -15,7 +15,7 @@ class Network:
         pass
 
     @staticmethod
-    def secure_accesspoint() -> None: 
+    def secure_accesspoint() -> None:
         pass
 
     def populate_wifi_networks(self):
