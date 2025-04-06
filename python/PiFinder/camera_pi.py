@@ -31,10 +31,12 @@ class CameraPI(CameraInterface):
         self.camera_type = "hq"
         self.gain = 20
         self.exposure_time = exposure_time
+        self.bit_depth = 12
         if "imx296" in self.camera.camera.id:
             self.camera_type = "imx296"
             # maximum analog gain for this sensor
             self.gain = 15
+            self.bit_depth = 10
 
         if "imx290" in self.camera.camera.id:
             self.camera_type = "imx462"
@@ -107,7 +109,8 @@ class CameraPI(CameraInterface):
             raw_capture = raw_capture.copy().view(np.uint16)[:, 256:-256]
 
         raw_capture = raw_capture.astype(np.float32)
-        max_pixel = np.max(raw_capture)
+        #max_pixel = np.max(raw_capture)
+        max_pixel = pow(2,self.bit_depth) - 1
 
         # if the whitepoint is already below 255, just cast it
         # as we don't want to create fake in-between values
