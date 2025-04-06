@@ -836,7 +836,7 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": "WiFi Password"
+                    "name": "WiFi Password",
                     "class": UIWiFiPassword
                 },
                 {

@@ -7,7 +7,7 @@ from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 logger = logging.getLogger("WiFiPassword")
 
 
-class UIGPSStatus(UIModule):
+class UIWiFiPassword(UIModule):
     """
     UI for seeing GPS status
     """
@@ -20,10 +20,46 @@ class UIGPSStatus(UIModule):
         self.clear_screen()
         draw_pos = self.display_class.titlebar_height + 2
 
-        # Status message
+        # SSID
         self.draw.text(
             (0, draw_pos),
             "SSID:",
+            font=self.fonts.bold.font,
+            fill=self.colors.get(128),
+        )
+        draw_pos += 16
+        self.draw.text(
+            (0, draw_pos),
+            "1234567890123457890123456789012",
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
+        )
+        # Password
+        draw_pos += 16
+        self.draw.text(
+            (0, draw_pos),
+            "Password:",
+            font=self.fonts.bold.font,
+            fill=self.colors.get(128),
+        )
+        draw_pos += 16
+        self.draw.text(
+            (0, draw_pos),
+            "1234567890123457890123456789012",
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
+        )
+        draw_pos += 16
+        self.draw.text(
+            (0, draw_pos),
+            "1234567890123457890123456789012",
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
+        )
+        draw_pos += 16
+        self.draw.text(
+            (0, draw_pos),
+            "1234567890123457890123456789012",
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
