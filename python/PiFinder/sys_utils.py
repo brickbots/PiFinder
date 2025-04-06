@@ -33,8 +33,8 @@ class Network:
         """ Add WPA2 encryption, if not already enabled.
 
         Tasks:
-         1) if SSID in current config ends with CHANGEME, create a random SSID of the from PiFinder-XYZAB, XYZAB 5 random chars (see below)
-         2) If SSID was changed, add encryption to hostapd.conf, generate a 20 character random password
+            1) if SSID in current config ends with CHANGEME, create a random SSID of the from PiFinder-XYZAB, XYZAB 5 random chars (see below)
+            2) If SSID was changed, add encryption to hostapd.conf, generate a 20 character random password
             (20 chars in 5 groups of random chars, separeted by '-', see below)
         
         where 'random char' means from a randomly selected character out of the set of 0-9, a-z and A-Z.
@@ -44,25 +44,23 @@ class Network:
         with open("/etc/hostapd/hostapd.conf", "r") as conf:
             for line in conf: 
                 if line.startswith("ssid=") and "CHANGEME" in line: 
-                    logger.info(f"SSID detected: {line} {line.endswith('CHANGEME')}")
                     action_needed = True
 
         if not action_needed:
-            logger.info("SYSUTILS: No change in hostapd.conf needed.")
             return
         
-        logger.info("SYSUTILS: Change in hostapd.conf needed.")
+        logger.info("SYSUTILS: Securing WIFI.")
 
         passphrase_detected = False
         ssid_changed = False
         with open("/tmp/hostapd.conf", "w") as new_conf:
             with open("/etc/hostapd/hostapd.conf", "r") as conf:
                 for line in conf:
-                    if line.startswith("ssid=") and line.endswith("CHANGEME"):
+                    if line.startswith("ssid=") and "CHANGEME" in line:
                         ap_rnd = Network._generate_random_chars(5)
                         line = f"ssid=PiFinder-{ap_rnd}\n"
                         ssid_changed = True
-                        logger.warning(f"Network: Chaning SSID to {ap_rnd}")
+                        logger.warning(f"Network: Changing SSID to {ap_rnd}")
                     elif line.startswith("wpa_passphrase="):
                         passphrase_detected = True
                     new_conf.write(line)
@@ -71,10 +69,10 @@ class Network:
                     logger.warning("Network: Enabling WPA2 with PSK")
                     # Add encrpytion directives 
                     pwd = Network._generate_random_chars(20, "-", 5)
-                    new_conf.write("wpa=2")
-                    new_conf.write("wpa_key_mgmt=WPA-PSK")
-                    new_conf.write(f"wpa_passphrase={pwd}")
-                    new_conf.write("rsn_pairwise=CCMP")
+                    new_conf.write("wpa=2\n")
+                    new_conf.write("wpa_key_mgmt=WPA-PSK\n")
+                    new_conf.write(f"wpa_passphrase={pwd}\n")
+                    new_conf.write("rsn_pairwise=CCMP\n")
         # Backup and move new file into place, restart service.
         logger.warning("Network: Changing configuration for hostapd") 
         sh.sudo("cp", "/etc/hostapd/hostapd.conf", "/etc/hostapd/hostapd.conf.bck")
