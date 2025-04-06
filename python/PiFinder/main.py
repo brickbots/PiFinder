@@ -272,6 +272,9 @@ def main(
     os_detail, platform, arch = utils.get_os_info()
     logger.info("PiFinder running on %s, %s, %s", os_detail, platform, arch)
 
+    sys_utils = utils.get_sys_utils()
+    sys_utils.Network.secure_accesspoint()
+
     # init UI Modes
     command_queues = {
         "camera": camera_command_queue,

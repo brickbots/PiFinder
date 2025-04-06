@@ -14,6 +14,10 @@ class Network:
     def __init__(self):
         pass
 
+    @staticmethod
+    def secure_accesspoint() -> None: 
+        pass
+
     def populate_wifi_networks(self):
         """
         Parses wpa_supplicant.conf to get current config
