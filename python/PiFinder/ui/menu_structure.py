@@ -11,6 +11,7 @@ from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.equipment import UIEquipment
 from PiFinder.ui.location_list import UILocationList
+from PiFinder.ui.wifi_password import UIWiFiPassword
 import PiFinder.ui.callbacks as callbacks
 from multiprocessing import Queue
 
@@ -833,6 +834,10 @@ pifinder_menu = {
                             "callback": callbacks.go_wifi_ap,
                         },
                     ],
+                },
+                {
+                    "name": "WiFi Password"
+                    "class": UIWiFiPassword
                 },
                 {
                     "name": "PiFinder Type",
