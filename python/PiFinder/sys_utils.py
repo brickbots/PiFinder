@@ -48,7 +48,10 @@ class Network:
                     break
 
         if not action_needed:
+            logger.info("SYSUTILS: No change in hostapd.conf needed.")
             return
+        
+        logger.info("SYSUTILS: Change in hostapd.conf needed.")
 
         passphrase_detected = False
         ssid_changed = False
