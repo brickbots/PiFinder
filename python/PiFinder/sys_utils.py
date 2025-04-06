@@ -33,7 +33,7 @@ class Network:
         """ Add WPA2 encryption, if not already enabled.
 
         Tasks:
-            1) if SSID in current config ends with CHANGEME, create a random SSID of the from PiFinder-XYZAB, XYZAB 5 random chars (see below)
+            1) if SSID in current config contains CHANGEME, create a random SSID of the from PiFinder-XYZAB, XYZAB 5 random chars (see below)
             2) If SSID was changed, add encryption to hostapd.conf, generate a 20 character random password
             (20 chars in 5 groups of random chars, separeted by '-', see below)
         
@@ -49,7 +49,7 @@ class Network:
         if not action_needed:
             return
         
-        logger.info("SYSUTILS: Securing WIFI.")
+        logger.info("SYSUTILS: Changing WIFI.")
 
         passphrase_detected = False
         ssid_changed = False
@@ -60,7 +60,7 @@ class Network:
                         ap_rnd = Network._generate_random_chars(5)
                         line = f"ssid=PiFinder-{ap_rnd}\n"
                         ssid_changed = True
-                        logger.warning(f"Network: Changing SSID to {ap_rnd}")
+                        logger.warning(f"Network: Changing SSID to 'PiFinder-{ap_rnd}'")
                     elif line.startswith("wpa_passphrase="):
                         passphrase_detected = True
                     new_conf.write(line)
