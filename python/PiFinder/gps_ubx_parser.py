@@ -141,23 +141,19 @@ class UBXParser:
         attempt = 0
         while attempt < max_attempts:
             try:
-                # Add delay between connection attempts
-                if attempt > 0:
-                    delay = min(2**attempt, 30)
-                    logger.error(
-                        f"Connection attempt {attempt}/{max_attempts} failed. Retrying in {delay}s..."
-                    )
-                    await asyncio.sleep(delay)
-
                 reader, writer = await asyncio.open_connection(host, port)
                 parser = cls(log_queue, reader=reader, writer=writer)
                 await parser._handle_initial_messages()
+                # No polling task needed; gpsd streams automatically
                 return parser
             except (ConnectionRefusedError, ConnectionResetError) as e:
                 attempt += 1
-                if attempt >= max_attempts:
-                    logger.error(f"Failed to connect after {max_attempts} attempts: {e}")
-                    raise
+                delay = min(2**attempt, 30)
+                logger.error(
+                    f"Connection attempt {attempt}/{max_attempts} failed: {e}. Retrying in {delay}s..."
+                )
+                await asyncio.sleep(delay)
+        raise Exception("Failed to connect to gpsd after maximum attempts")
 
     @classmethod
     def from_file(cls, file_path: str):
@@ -174,15 +170,10 @@ class UBXParser:
                 logger.debug("Polling task cancelled")
             self._poll_task = None
         if self.writer:
-            try:
-                self.writer.close()
-                await self.writer.wait_closed()
-            except Exception as e:
-                logger.error(f"Error closing writer: {e}")
-            finally:
-                self.writer = None
+            self.writer.close()
+            await self.writer.wait_closed()
+            self.writer = None
         self.reader = None
-        self.buffer.clear()  # Clear any remaining data
 
     async def parse_from_file(self):
         async with aiofiles.open(self.file_path, "rb") as f:
@@ -191,22 +182,13 @@ class UBXParser:
                 yield msg
 
     async def parse_messages(self):
-        """Parse messages from the GPS device."""
         while self._running:
-            if self.file_path:
-                async for msg in self.parse_from_file():
-                    yield msg
-            else:
+            if self.reader:
                 try:
-                    if not self.reader:
-                        logger.error("Reader not available")
-                        break
-                    
                     data = await self.reader.read(1024)
                     if not data:
-                        logger.warning("Connection closed by server")
+                        logger.debug("No more data to read")
                         break
-
                     self.buffer.extend(data)
                     while len(self.buffer) >= 6:  # Minimum UBX header size
                         start = self.buffer.find(b"\xb5\x62")  # UBX sync chars
@@ -235,18 +217,11 @@ class UBXParser:
                                 f"Checksum mismatch: expected {ck_a:02x}{ck_b:02x}, got {msg_data[-2]:02x}{msg_data[-1]:02x}"
                             )
                         self.buffer = self.buffer[total_length:]
-                except (ConnectionResetError, BrokenPipeError) as e:
-                    logger.error(f"Connection error: {e}")
-                    break
                 except Exception as e:
                     logger.error(f"Error reading data: {e}")
                     break
-
             await asyncio.sleep(0.1)  # Prevent tight loop
-        
-        # Ensure cleanup when loop ends
-        await self.close()
-
+            
     def _parse_ubx(self, data: bytes) -> dict:
         if len(data) < 8:
             return {"error": "Invalid UBX message"}
