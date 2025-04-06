@@ -40,6 +40,16 @@ class Network:
         where 'random char' means from a randomly selected character out of the set of 0-9, a-z and A-Z.
         """
 
+        action_needed = False
+        with open("/etc/hostapd/hostapd.conf", "r") as conf:
+            for line in conf: 
+                if line.startswith("ssid=") and line.endswith("CHANGEME"):
+                    action_needed = True
+                    break
+
+        if not action_needed:
+            return
+
         passphrase_detected = False
         ssid_changed = False
         with open("/tmp/hostapd.conf", "w") as new_conf:
