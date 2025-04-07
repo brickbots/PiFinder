@@ -51,12 +51,10 @@
     margin-right: 0;
     white-space: nowrap;
   }
-  .controls select {
-    height: 36px;
-    margin: 0;
+  .log-level-text {
+    color: #d4d4d4;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
     padding: 0 10px;
-    width: auto;
-    min-width: fit-content;
   }
   .log-stats {
     color: #888;
@@ -122,21 +120,7 @@
           <button id="copyButton" class="btn">
             <i class="material-icons left">content_copy</i>Copy to Clipboard
           </button>
-          <select id="globalLevel" class="browser-default" disabled>
-            <option value="DEBUG">Global: Debug</option>
-            <option value="INFO">Global: Info</option>
-            <option value="WARNING">Global: Warning</option>
-            <option value="ERROR">Global: Error</option>
-          </select>
-          <select id="componentSelect" class="browser-default">
-            <option value="" disabled selected>Select Component</option>
-          </select>
-          <select id="componentLevel" class="browser-default" style="display: none;" disabled>
-            <option value="DEBUG">Debug</option>
-            <option value="INFO">Info</option>
-            <option value="WARNING">Warning</option>
-            <option value="ERROR">Error</option>
-          </select>
+          <span class="log-level-text">Global Level: <span id="globalLevelText">INFO</span></span>
         </div>
         <div class="log-stats">
           Total lines: <span id="totalLines">0</span>
@@ -266,9 +250,6 @@ document.addEventListener('DOMContentLoaded', () => {
         subtree: true,
         characterData: true
     });
-
-    // Load component levels
-    updateComponentLevels();
 });
 
 // Cleanup on page unload
@@ -299,94 +280,21 @@ document.getElementById('copyButton').addEventListener('click', function() {
     });
 });
 
-// Log level management
-function updateComponentLevels() {
+// Add this function to update the global level text
+function updateGlobalLevelText() {
     fetch('/logs/components')
         .then(response => response.json())
         .then(data => {
-            const componentSelect = document.getElementById('componentSelect');
-            componentSelect.innerHTML = '<option value="" disabled selected>Select Component</option>';
-            
-            // Sort components alphabetically
-            const sortedComponents = Object.entries(data.components).sort(([a], [b]) => a.localeCompare(b));
-            
-            sortedComponents.forEach(([component, levels]) => {
-                const option = document.createElement('option');
-                option.value = component;
-                option.textContent = component;
-                componentSelect.appendChild(option);
-            });
+            const globalLevel = data.global_level || 'INFO';
+            document.getElementById('globalLevelText').textContent = globalLevel;
         })
-        .catch(error => console.error('Error fetching component levels:', error));
+        .catch(error => console.error('Error fetching global level:', error));
 }
 
-// Handle global level change
-document.getElementById('globalLevel').addEventListener('change', function(e) {
-    const newLevel = e.target.value;
-    fetch('/logs/level', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `level=${encodeURIComponent(newLevel)}`
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.status === 'success') {
-            console.log(`Changed global log level to ${newLevel}`);
-        } else {
-            console.error('Failed to update global log level:', result.message);
-        }
-    })
-    .catch(error => console.error('Error updating global log level:', error));
-});
-
-// Handle component selection
-document.getElementById('componentSelect').addEventListener('change', function(e) {
-    const component = e.target.value;
-    if (!component) {
-        document.getElementById('componentLevel').style.display = 'none';
-        return;
-    }
-    
-    // Show level select and set current level
-    const levelSelect = document.getElementById('componentLevel');
-    levelSelect.style.display = 'block';
-    
-    // Get current level for selected component
-    fetch('/logs/components')
-        .then(response => response.json())
-        .then(data => {
-            const currentLevel = data.components[component].current_level;
-            levelSelect.value = currentLevel;
-        });
-});
-
-// Handle component level change
-document.getElementById('componentLevel').addEventListener('change', function(e) {
-    const component = document.getElementById('componentSelect').value;
-    const newLevel = e.target.value;
-    
-    fetch('/logs/component_level', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `component=${encodeURIComponent(component)}&level=${encodeURIComponent(newLevel)}`
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.status === 'success') {
-            console.log(`Changed ${component} log level to ${newLevel}`);
-        } else {
-            console.error('Failed to update log level:', result.message);
-        }
-    })
-    .catch(error => console.error('Error updating log level:', error));
-});
-
-// Initial load of components
-updateComponentLevels();
+// Call updateGlobalLevelText periodically
+setInterval(updateGlobalLevelText, 5000);
+// Initial call
+updateGlobalLevelText();
 
 // Set up button event listeners
 document.getElementById('pauseButton').addEventListener('click', function() {
