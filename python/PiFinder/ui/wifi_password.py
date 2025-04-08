@@ -1,5 +1,7 @@
 
 import logging
+import qrcode
+
 from PiFinder import state_utils
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
@@ -11,6 +13,7 @@ logger = logging.getLogger("WiFiPassword")
 # Constants for Display Modes
 DM_QR = 0    # Display QR code for scanning with smartphone or tablet. 
 DM_PLAIN_PWD = 1 # Display plain password
+DM_LAST = DM_PLAIN_PWD
 
 class UIWiFiPassword(UIModule):
     """
@@ -23,14 +26,18 @@ class UIWiFiPassword(UIModule):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        net: Network = get_sys_utils().Network()
-        self.ap_mode = net.wifi_mode()
-        self.ap_name = net.get_ap_name()
-        self.ap_pwd = net.get_ap_pwd()
+        self.network: Network = get_sys_utils().Network()
+        self._update_info()
 
         self.qr_image = None
 
         self.display_mode = DM_PLAIN_PWD
+
+    def _update_info(self):
+        self.ap_mode = self.network.wifi_mode()
+        self.ap_name = self.network.get_ap_name()
+        self.ap_pwd = self.network.get_ap_pwd()
+        self.wifi_qr = self._generate_wifi_qrcode(self.ap_name, self.ap_pwd, "WPA")
 
     def cycle_display_mode(self):
         """
@@ -39,10 +46,34 @@ class UIWiFiPassword(UIModule):
         key is pressed
         """
         self.display_mode = (
-            self.display_mode + 1 if self.display_mode < 1 else 0
+            self.display_mode + 1 if self.display_mode < DM_LAST else 0
         )
+        self._update_info()
         self.update()
 
+
+    def _generate_wifi_qrcode(
+            ssid: str,
+            password: str,
+            security_type: str,
+            qr_code_file: str = "~/qrcode.png"):
+
+        wifi_data = f"WIFI:S:{ssid};T:{security_type};P:{password};H:false;"
+
+        qr = qrcode.QRCode(
+            version=1, # 21x21 matrix
+            error_correction=qrcode.constants.ERROR_CORRECT_H,
+            box_size=2, # Size of a box of the 
+            border=0,
+        )
+        qr.add_data(wifi_data)
+        qr.make(fit=True)
+
+        qr_code_image = qr.make_image(
+            fill_color="red", back_color="black"
+        )
+
+        return qr_code_image
 
     def update(self, force=False):
         state_utils.sleep_for_framerate(self.shared_state)
@@ -52,11 +83,17 @@ class UIWiFiPassword(UIModule):
         if self.display_mode == DM_PLAIN_PWD: 
             self._display_plain_pwd(draw_pos)
         else: 
-            pass
+            self._display_wifi_qr(draw_pos)
             
         return self.screen_update()
 
-    def _display_plain_pwd(self, draw_pos):
+    def _display_wifi_qr(self, draw_pos: int) -> None:
+        draw_pos = self.display_class.titlebar_height + 2
+        self._show_ssid(draw_pos)
+        self.screen.paste(self.wifi_qr, (0, draw_pos))
+        pass 
+
+    def _display_plain_pwd(self, draw_pos: int) -> None:
         if self.ap_mode == "Client" or self.ap_mode == "UNKN":
             # Mode
             self.draw.text(
@@ -71,18 +108,7 @@ class UIWiFiPassword(UIModule):
         else:
             raise Exception(f"unexpected wifi mode: {self.ap_mode}")
 
-        self.draw.text(
-            (0, draw_pos),
-            "SSID:",
-            font=self.fonts.base.font,
-            fill=self.colors.get(128),
-        )
-        self.draw.text(
-            (30, draw_pos-2),
-            self.ap_name,
-            font=self.fonts.bold.font,
-            fill=self.colors.get(255),
-        )
+        self._show_ssid(draw_pos)
         # Password
         draw_pos += 10
         self.draw.text(
@@ -133,3 +159,17 @@ class UIWiFiPassword(UIModule):
                 i = 0
                 x = 0
                 draw_pos += dy
+
+    def _show_ssid(self, draw_pos):
+        self.draw.text(
+            (0, draw_pos),
+            "SSID:",
+            font=self.fonts.base.font,
+            fill=self.colors.get(128),
+        )
+        self.draw.text(
+            (30, draw_pos-2),
+            self.ap_name,
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
+        )
