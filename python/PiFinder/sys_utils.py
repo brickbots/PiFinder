@@ -196,6 +196,13 @@ class Network:
                 if line.startswith("ssid="):
                     return line[5:-1]
         return "UNKN"
+    
+    def get_ap_pwd(self):
+        with open("/etc/hostapd/hostapd.conf", "r") as conf:
+            for line in conf:
+                if line.startswith("wpa_passphrase="):
+                    return line[15:-1]
+        return "<no password defined>"
 
     def set_ap_name(self, ap_name):
         if ap_name == self.get_ap_name():
