@@ -56,6 +56,24 @@
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
     padding: 0 10px;
   }
+  .loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
   .log-stats {
     color: #888;
     font-size: 0.9em;
@@ -257,10 +275,52 @@ window.addEventListener('beforeunload', () => {
     clearInterval(updateInterval);
 });
 
+// Add download functionality
+document.getElementById('downloadButton').addEventListener('click', function() {
+    const button = this;
+    const originalContent = button.innerHTML;
+    
+    // Disable button and show loading state
+    button.disabled = true;
+    button.innerHTML = '<span class="loading-spinner"></span>Preparing download...';
+    
+    // Start the download
+    fetch('/logs/download')
+        .then(response => {
+            if (!response.ok) throw new Error('Download failed');
+            return response.blob();
+        })
+        .then(blob => {
+            // Create a download link
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `logs_${new Date().toISOString().slice(0,19).replace(/[:]/g, '-')}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            // Reset button state
+            button.innerHTML = originalContent;
+            button.disabled = false;
+        })
+        .catch(error => {
+            console.error('Download error:', error);
+            button.innerHTML = '<i class="material-icons left">error</i>Download Failed';
+            setTimeout(() => {
+                button.innerHTML = originalContent;
+                button.disabled = false;
+            }, 2000);
+        });
+});
+
 // Add copy to clipboard functionality
 document.getElementById('copyButton').addEventListener('click', function() {
     const logContent = document.getElementById('logContent');
-    const text = logContent.innerText;
+    const text = Array.from(logContent.children)
+        .map(line => line.textContent)
+        .join('\n');
     
     navigator.clipboard.writeText(text).then(() => {
         // Visual feedback

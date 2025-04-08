@@ -852,7 +852,7 @@ class Server:
                     # Add all log files
                     log_dir = "/home/pifinder/PiFinder_data"
                     for filename in os.listdir(log_dir):
-                        if filename.startswith("pifinder") and filename.endswith(".log"):
+                        if filename.startswith("pifinder.log"):
                             file_path = os.path.join(log_dir, filename)
                             zipf.write(file_path, filename)
                 
