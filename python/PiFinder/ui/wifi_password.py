@@ -55,12 +55,13 @@ class UIWiFiPassword(UIModule):
 
 
     def _generate_wifi_qrcode(
+            self,
             ssid: str,
             password: str,
-            security_type: str,
-            qr_code_file: str = "~/qrcode.png"):
+            security_type: str):
 
         wifi_data = f"WIFI:S:{ssid};T:{security_type};P:{password};H:false;"
+        # logger.debug(f"WIFI Data: '{wifi_data}'")
 
         qr = qrcode.QRCode(
             version=1, # 21x21 matrix
@@ -73,8 +74,10 @@ class UIWiFiPassword(UIModule):
 
         qr_code_image = qr.make_image(
             # fill_color="red", back_color="black"
-            fill_color="black", back_color="white"
+            fill_color="red", back_color="black"
         )
+        # logger.warning(f"Generating WiFi QR Code: {qr_code_image.size[0]}, {qr_code_image.size[1]}")
+        # qr_code_image.save("WiFi_QR_code.png", "PNG")
 
         return qr_code_image
 
@@ -101,6 +104,8 @@ class UIWiFiPassword(UIModule):
             scale = min(target_width/width, target_height/height)
             self.wifi_qr = self.wifi_qr.resize((math.floor(width*scale), math.floor(height*scale)), 1) # Do antialiasing using LANCZOS (Can't find the constant)
             self.wifi_qr_scaled = True
+            # logger.warning(f"WiFi QR Code scaled size: {math.floor(width*scale)}^²")
+            # self.wifi_qr.save("WiFi_QR_Code_scaled.png", "PNG")
         
         self.screen.paste(self.wifi_qr, (0, draw_pos))
         pass 
