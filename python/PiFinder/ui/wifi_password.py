@@ -27,12 +27,12 @@ class UIWiFiPassword(UIModule):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-        self.network: Network = get_sys_utils().Network()
+        self.network = get_sys_utils().Network()
         self._update_info()
 
         self.qr_image = None
 
-        self.display_mode = DM_PLAIN_PWD
+        self.wifi_display_mode:int = DM_PLAIN_PWD
 
     def _update_info(self):
         self.ap_mode = self.network.wifi_mode()
@@ -47,8 +47,8 @@ class UIWiFiPassword(UIModule):
         for a module.  Invoked when the square
         key is pressed
         """
-        self.display_mode = (
-            self.display_mode + 1 if self.display_mode < DM_LAST else 0
+        self.wifi_display_mode = (
+            self.wifi_display_mode + 1 if self.wifi_display_mode < DM_LAST else 0
         )
         self._update_info()
         self.update()
@@ -86,7 +86,7 @@ class UIWiFiPassword(UIModule):
         self.clear_screen()
         draw_pos = self.display_class.titlebar_height + 2
 
-        if self.display_mode == DM_PLAIN_PWD: 
+        if self.wifi_display_mode == DM_PLAIN_PWD: 
             self._display_plain_pwd(draw_pos)
         else: 
             self._display_wifi_qr(draw_pos)
