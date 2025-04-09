@@ -1,6 +1,7 @@
 
 import logging
 import qrcode
+import math
 
 from PiFinder import state_utils
 from PiFinder.ui.base import UIModule
@@ -38,6 +39,7 @@ class UIWiFiPassword(UIModule):
         self.ap_name = self.network.get_ap_name()
         self.ap_pwd = self.network.get_ap_pwd()
         self.wifi_qr = self._generate_wifi_qrcode(self.ap_name, self.ap_pwd, "WPA")
+        self.wifi_qr_scaled = False
 
     def cycle_display_mode(self):
         """
@@ -62,15 +64,16 @@ class UIWiFiPassword(UIModule):
 
         qr = qrcode.QRCode(
             version=1, # 21x21 matrix
-            error_correction=qrcode.constants.ERROR_CORRECT_H,
-            box_size=2, # Size of a box of the 
-            border=0,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10, # Size of a box of the 
+            border=1,
         )
         qr.add_data(wifi_data)
         qr.make(fit=True)
 
         qr_code_image = qr.make_image(
-            fill_color="red", back_color="black"
+            # fill_color="red", back_color="black"
+            fill_color="black", back_color="white"
         )
 
         return qr_code_image
@@ -90,6 +93,15 @@ class UIWiFiPassword(UIModule):
     def _display_wifi_qr(self, draw_pos: int) -> None:
         draw_pos = self.display_class.titlebar_height + 2
         self._show_ssid(draw_pos)
+
+        if not self.wifi_qr_scaled:
+            (width, height) = self.wifi_qr.size
+            (target_width, target_height) = self.screen.size
+            target_height -= draw_pos
+            scale = min(target_width/width, target_height/height)
+            self.wifi_qr = self.wifi_qr.resize((math.floor(width*scale), math.floor(height*scale)), 1) # Do antialiasing using LANCZOS (Can't find the constant)
+            self.wifi_qr_scaled = True
+        
         self.screen.paste(self.wifi_qr, (0, draw_pos))
         pass 
 
