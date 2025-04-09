@@ -41,7 +41,7 @@ class Network:
 
     def get_ap_pwd(self):
         # Return an example password, e.g. to test the password display.
-        return "UNKN8-01234-abcde-testpw-²³{[]}-!""§$%&/()="
+        return "UNKN8-01234-abcde-testpw"
 
     def get_ap_name(self):
         return "UNKN"
