@@ -95,7 +95,7 @@ class UIWiFiPassword(UIModule):
 
     def _display_wifi_qr(self, draw_pos: int) -> None:
         draw_pos = self.display_class.titlebar_height + 2
-        self._show_ssid(draw_pos)
+        draw_pos = self._show_ssid(draw_pos, True)
 
         if not self.wifi_qr_scaled:
             (width, height) = self.wifi_qr.size
@@ -125,9 +125,8 @@ class UIWiFiPassword(UIModule):
         else:
             raise Exception(f"unexpected wifi mode: {self.ap_mode}")
 
-        self._show_ssid(draw_pos)
+        draw_pos = self._show_ssid(draw_pos)
         # Password
-        draw_pos += 10
         self.draw.text(
             (0, draw_pos),
             "Password:",
@@ -177,16 +176,28 @@ class UIWiFiPassword(UIModule):
                 x = 0
                 draw_pos += dy
 
-    def _show_ssid(self, draw_pos):
+    def _show_ssid(self, draw_pos, truncate = False):
         self.draw.text(
             (0, draw_pos),
             "SSID:",
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
+
+        # logger.debug(f"_show_ssid: {draw_pos}, {truncate}")
+        x_pos = 30
+
+        # If SSID is too long, display on separate line.
+        if not truncate: 
+            if len(self.ap_name) > 14:
+                draw_pos += 10
+                x_pos = 0
+
         self.draw.text(
-            (30, draw_pos-2),
+            (x_pos, draw_pos),
             self.ap_name,
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
+        draw_pos += 16
+        return draw_pos
