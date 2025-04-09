@@ -1,20 +1,19 @@
-
 import logging
 import qrcode
 import math
 
 from PiFinder import state_utils
 from PiFinder.ui.base import UIModule
-from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.utils import get_sys_utils
 # from PiFinder.sys_utils import Network
 
 logger = logging.getLogger("WiFiPassword")
 
 # Constants for Display Modes
-DM_QR = 0    # Display QR code for scanning with smartphone or tablet. 
-DM_PLAIN_PWD = 1 # Display plain password
+DM_QR = 0  # Display QR code for scanning with smartphone or tablet.
+DM_PLAIN_PWD = 1  # Display plain password
 DM_LAST = DM_PLAIN_PWD
+
 
 class UIWiFiPassword(UIModule):
     """
@@ -32,7 +31,7 @@ class UIWiFiPassword(UIModule):
 
         self.qr_image = None
 
-        self.wifi_display_mode:int = DM_PLAIN_PWD
+        self.wifi_display_mode: int = DM_PLAIN_PWD
 
     def _update_info(self):
         self.ap_mode = self.network.wifi_mode()
@@ -53,20 +52,14 @@ class UIWiFiPassword(UIModule):
         self._update_info()
         self.update()
 
-
-    def _generate_wifi_qrcode(
-            self,
-            ssid: str,
-            password: str,
-            security_type: str):
-
+    def _generate_wifi_qrcode(self, ssid: str, password: str, security_type: str):
         wifi_data = f"WIFI:S:{ssid};T:{security_type};P:{password};H:false;"
         # logger.debug(f"WIFI Data: '{wifi_data}'")
 
         qr = qrcode.QRCode(
-            version=1, # 21x21 matrix
+            version=1,  # 21x21 matrix
             error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10, # Size of a box of the 
+            box_size=10,  # Size of a box of the
             border=1,
         )
         qr.add_data(wifi_data)
@@ -74,7 +67,8 @@ class UIWiFiPassword(UIModule):
 
         qr_code_image = qr.make_image(
             # fill_color="red", back_color="black"
-            fill_color="red", back_color="black"
+            fill_color="red",
+            back_color="black",
         )
         # logger.warning(f"Generating WiFi QR Code: {qr_code_image.size[0]}, {qr_code_image.size[1]}")
         # qr_code_image.save("WiFi_QR_code.png", "PNG")
@@ -86,11 +80,11 @@ class UIWiFiPassword(UIModule):
         self.clear_screen()
         draw_pos = self.display_class.titlebar_height + 2
 
-        if self.wifi_display_mode == DM_PLAIN_PWD: 
+        if self.wifi_display_mode == DM_PLAIN_PWD:
             self._display_plain_pwd(draw_pos)
-        else: 
+        else:
             self._display_wifi_qr(draw_pos)
-            
+
         return self.screen_update()
 
     def _display_wifi_qr(self, draw_pos: int) -> None:
@@ -101,14 +95,16 @@ class UIWiFiPassword(UIModule):
             (width, height) = self.wifi_qr.size
             (target_width, target_height) = self.screen.size
             target_height -= draw_pos
-            scale = min(target_width/width, target_height/height)
-            self.wifi_qr = self.wifi_qr.resize((math.floor(width*scale), math.floor(height*scale)), 1) # Do antialiasing using LANCZOS (Can't find the constant)
+            scale = min(target_width / width, target_height / height)
+            self.wifi_qr = self.wifi_qr.resize(
+                (math.floor(width * scale), math.floor(height * scale)), 1
+            )  # Do antialiasing using LANCZOS (Can't find the constant)
             self.wifi_qr_scaled = True
             # logger.warning(f"WiFi QR Code scaled size: {math.floor(width*scale)}^²")
             # self.wifi_qr.save("WiFi_QR_Code_scaled.png", "PNG")
-        
+
         self.screen.paste(self.wifi_qr, (0, draw_pos))
-        pass 
+        pass
 
     def _display_plain_pwd(self, draw_pos: int) -> None:
         if self.ap_mode == "Client" or self.ap_mode == "UNKN":
@@ -135,12 +131,12 @@ class UIWiFiPassword(UIModule):
         )
         draw_pos += 16
         dx = 8  # size of character
-        dy = 16 # line height
-        brk = 16 # max number of characters in line
-        x = 0 # draw position
-        i = 0 # character count in line
-        for ch in self.ap_pwd: 
-            if ch.isdigit(): 
+        dy = 16  # line height
+        brk = 16  # max number of characters in line
+        x = 0  # draw position
+        i = 0  # character count in line
+        for ch in self.ap_pwd:
+            if ch.isdigit():
                 self.draw.text(
                     (x, draw_pos),
                     ch,
@@ -161,7 +157,7 @@ class UIWiFiPassword(UIModule):
                     font=self.fonts.bold.font,
                     fill=self.colors.get(255),
                 )
-            else: 
+            else:
                 self.draw.text(
                     (x, draw_pos),
                     ch,
@@ -176,7 +172,7 @@ class UIWiFiPassword(UIModule):
                 x = 0
                 draw_pos += dy
 
-    def _show_ssid(self, draw_pos, truncate = False):
+    def _show_ssid(self, draw_pos, truncate=False):
         self.draw.text(
             (0, draw_pos),
             "SSID:",
@@ -188,7 +184,7 @@ class UIWiFiPassword(UIModule):
         x_pos = 30
 
         # If SSID is too long, display on separate line.
-        if not truncate: 
+        if not truncate:
             if len(self.ap_name) > 14:
                 draw_pos += 10
                 x_pos = 0
