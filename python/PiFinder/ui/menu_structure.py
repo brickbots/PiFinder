@@ -820,6 +820,7 @@ pifinder_menu = {
                 {
                     "name": "WiFi Mode",
                     "class": UITextMenu,
+                    "label": "wifi_mode",
                     "select": "single",
                     "value_callback": callbacks.get_wifi_mode,
                     "items": [

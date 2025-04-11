@@ -5,6 +5,7 @@ import math
 from PiFinder import state_utils
 from PiFinder.ui.base import UIModule
 from PiFinder.utils import get_sys_utils
+from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 # from PiFinder.sys_utils import Network
 
 logger = logging.getLogger("WiFiPassword")
@@ -31,7 +32,43 @@ class UIWiFiPassword(UIModule):
 
         self.qr_image = None
 
-        self.wifi_display_mode: int = DM_PLAIN_PWD
+        self.wifi_display_mode = DM_QR
+
+        self.marking_menu = MarkingMenu(
+            left=MarkingMenuOption(
+                label="QR", callback=self.mm_display_qr, enabled=True
+            ),
+            right=MarkingMenuOption(
+                label="Passwd", callback=self.mm_display_pwd, enabled=True
+            ),
+            down=MarkingMenuOption(
+                label="Mode", callback=self.mm_switch_mode, enabled=True
+            ),
+        )
+
+    def mm_display_qr(self, marking_menu, menu_item):
+        """
+        Marking menu option to display the QR code
+        """
+        self.wifi_display_mode = DM_QR
+        self._update_info()
+        self.update()
+        # logger.debug(f"Marking menu: {self.marking_menu}")
+        return True
+
+    def mm_display_pwd(self, marking_menu, menu_item):
+        """
+        Marking menu option to display the plain password
+        """
+        self.wifi_display_mode = DM_PLAIN_PWD
+        self._update_info()
+        self.update()
+        # logger.debug(f"Marking menu: {self.marking_menu}")
+        return True
+
+    def mm_switch_mode(self, marking_menu, menu_item):
+        self.jump_to_label("WiFi Mode")
+        return False
 
     def _update_info(self):
         self.ap_mode = self.network.wifi_mode()
