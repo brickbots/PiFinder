@@ -14,6 +14,10 @@ class Network:
     def __init__(self):
         pass
 
+    @staticmethod
+    def secure_accesspoint() -> None:
+        pass
+
     def populate_wifi_networks(self):
         """
         Parses wpa_supplicant.conf to get current config
@@ -35,11 +39,18 @@ class Network:
         """
         pass
 
+    def get_ap_pwd(self):
+        # Return an example password, e.g. to test the password display.
+        return "UNKN8-01234-abcde-testpw"
+
     def get_ap_name(self):
         return "UNKN"
 
     def set_ap_name(self, ap_name):
         pass
+
+    def is_ap_open(self):
+        return False # Not ( Is AP encrypted? )
 
     def get_host_name(self):
         return socket.gethostname()
@@ -49,7 +60,7 @@ class Network:
         Returns the SSID of the connected wifi network or
         None if not connected or in AP mode
         """
-        return "UNKN"
+        return "UNKN SSID"
 
     def set_host_name(self, hostname):
         if hostname == self.get_host_name():
