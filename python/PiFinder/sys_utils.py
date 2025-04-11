@@ -217,6 +217,13 @@ class Network:
 
     def get_host_name(self):
         return socket.gethostname()
+    
+    def is_ap_open(self):
+        with open("/etc/hostapd/hostapd.conf", "r") as conf:
+            for line in conf:
+                if line.startswith("wpa="):
+                    return False
+        return True
 
     def get_connected_ssid(self) -> str:
         """

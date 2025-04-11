@@ -13,6 +13,7 @@ logger = logging.getLogger("WiFiPassword")
 # Constants for Display Modes
 DM_QR = 0  # Display QR code for scanning with smartphone or tablet.
 DM_PLAIN_PWD = 1  # Display plain password
+DM_CLIENT = 2
 DM_LAST = DM_PLAIN_PWD
 
 
@@ -32,19 +33,29 @@ class UIWiFiPassword(UIModule):
 
         self.qr_image = None
 
-        self.wifi_display_mode = DM_QR
+        if self.ap_mode == "Client":
+            self.wifi_display_mode = DM_CLIENT
+            self.marking_menu = MarkingMenu(
+                left=MarkingMenuOption(),
+                right=MarkingMenuOption(),
+                down=MarkingMenuOption(),
+            )
+        else:
+            # Default to QR code display
+            self.wifi_display_mode = DM_QR
+            # self.wifi_display_mode = DM_PLAIN_PWD
 
-        self.marking_menu = MarkingMenu(
-            left=MarkingMenuOption(
-                label="QR", callback=self.mm_display_qr, enabled=True
-            ),
-            right=MarkingMenuOption(
-                label="Passwd", callback=self.mm_display_pwd, enabled=True
-            ),
-            down=MarkingMenuOption(
-                label="Mode", callback=self.mm_switch_mode, enabled=True
-            ),
-        )
+            self.marking_menu = MarkingMenu(
+                left=MarkingMenuOption(
+                    label="QR", callback=self.mm_display_qr, enabled=True
+                ),
+                right=MarkingMenuOption(
+                    label="Passwd", callback=self.mm_display_pwd, enabled=True
+                ),
+                down=MarkingMenuOption(
+                    label="Exit", callback=self.mm_switch_mode, enabled=True
+                ),
+            )
 
     def mm_display_qr(self, marking_menu, menu_item):
         """
@@ -67,15 +78,23 @@ class UIWiFiPassword(UIModule):
         return True
 
     def mm_switch_mode(self, marking_menu, menu_item):
-        self.jump_to_label("WiFi Mode")
-        return False
+        # self.jump_to_label("WiFi Mode")
+        return True
 
     def _update_info(self):
         self.ap_mode = self.network.wifi_mode()
         self.ap_name = self.network.get_ap_name()
+        self.ap_open = self.network.is_ap_open()
         self.ap_pwd = self.network.get_ap_pwd()
-        self.wifi_qr = self._generate_wifi_qrcode(self.ap_name, self.ap_pwd, "WPA")
-        self.wifi_qr_scaled = False
+        self.connected_ssid = self.network.get_connected_ssid()
+        if self.ap_mode == "Client":
+            self.wifi_qr = None
+        else:
+            if self.ap_open:
+                self.wifi_qr = self._generate_wifi_qrcode(self.ap_name, "0", "nopass")
+            else:
+                self.wifi_qr = self._generate_wifi_qrcode(self.ap_name, self.ap_pwd, "WPA", False)
+            self.wifi_qr_scaled = False
 
     def cycle_display_mode(self):
         """
@@ -83,15 +102,19 @@ class UIWiFiPassword(UIModule):
         for a module.  Invoked when the square
         key is pressed
         """
+        if self.ap_mode == "Client":
+            # Do not cycle in client mode
+            return 
+        
         self.wifi_display_mode = (
             self.wifi_display_mode + 1 if self.wifi_display_mode < DM_LAST else 0
         )
         self._update_info()
         self.update()
 
-    def _generate_wifi_qrcode(self, ssid: str, password: str, security_type: str):
+    def _generate_wifi_qrcode(self, ssid: str, password: str, security_type: str) -> qrcode.image.base.BaseImage: 
         wifi_data = f"WIFI:S:{ssid};T:{security_type};P:{password};H:false;"
-        # logger.debug(f"WIFI Data: '{wifi_data}'")
+        logger.debug(f"WIFI Data: '{wifi_data}'")
 
         qr = qrcode.QRCode(
             version=1,  # 21x21 matrix
@@ -119,13 +142,51 @@ class UIWiFiPassword(UIModule):
 
         if self.wifi_display_mode == DM_PLAIN_PWD:
             self._display_plain_pwd(draw_pos)
-        else:
+        elif self.wifi_display_mode == DM_QR:
             self._display_wifi_qr(draw_pos)
+        elif self.wifi_display_mode == DM_CLIENT: 
+            self._display_client_ssid(draw_pos)
 
         return self.screen_update()
 
+    def _display_client_ssid(self, draw_pos: int) -> None:
+        self.draw.text(
+            (0, draw_pos),
+            "Client Mode!",
+            font=self.fonts.base.font,
+            fill=self.colors.get(255),
+        )
+        draw_pos += 20
+        self.draw.text(
+            (0, draw_pos),
+            "Connected to:",
+            font=self.fonts.base.font,
+            fill=self.colors.get(255),
+        )
+        draw_pos += 10
+        self.draw.text(
+            (0, draw_pos),
+            self.connected_ssid,
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
+        )
+        draw_pos += 16
+        return draw_pos
+
+
     def _display_wifi_qr(self, draw_pos: int) -> None:
         draw_pos = self.display_class.titlebar_height + 2
+        if self.ap_mode == "Client":
+            # Mode
+            self.draw.text(
+                (0, draw_pos),
+                f"Client mode!",
+                font=self.fonts.base.font,
+                fill=self.colors.get(255),
+            )
+            draw_pos += 16
+            return draw_pos
+        
         draw_pos = self._show_ssid(draw_pos, True)
 
         if not self.wifi_qr_scaled:
@@ -144,7 +205,7 @@ class UIWiFiPassword(UIModule):
         pass
 
     def _display_plain_pwd(self, draw_pos: int) -> None:
-        if self.ap_mode == "Client" or self.ap_mode == "UNKN":
+        if self.ap_mode == "Client":
             # Mode
             self.draw.text(
                 (0, draw_pos),
@@ -153,7 +214,7 @@ class UIWiFiPassword(UIModule):
                 fill=self.colors.get(255),
             )
             draw_pos += 16
-        elif self.ap_mode == "Access Point":
+        elif self.ap_mode == "AP" or self.ap_mode == "UNKN":
             pass
         else:
             raise Exception(f"unexpected wifi mode: {self.ap_mode}")
