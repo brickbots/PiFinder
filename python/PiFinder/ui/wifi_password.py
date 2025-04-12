@@ -52,9 +52,7 @@ class UIWiFiPassword(UIModule):
                 right=MarkingMenuOption(
                     label="Passwd", callback=self.mm_display_pwd, enabled=True
                 ),
-                down=MarkingMenuOption(
-                    label="mode", menu_jump="wifi_mode"                
-                ),
+                down=MarkingMenuOption(label="mode", menu_jump="wifi_mode"),
             )
 
     def mm_display_qr(self, marking_menu, menu_item):
@@ -89,7 +87,9 @@ class UIWiFiPassword(UIModule):
             if self.ap_open:
                 self.wifi_qr = self._generate_wifi_qrcode(self.ap_name, "0", "nopass")
             else:
-                self.wifi_qr = self._generate_wifi_qrcode(self.ap_name, self.ap_pwd, "WPA")
+                self.wifi_qr = self._generate_wifi_qrcode(
+                    self.ap_name, self.ap_pwd, "WPA"
+                )
             self.wifi_qr_scaled = False
 
     def cycle_display_mode(self):
@@ -100,15 +100,17 @@ class UIWiFiPassword(UIModule):
         """
         if self.ap_mode == "Client":
             # Do not cycle in client mode
-            return 
-        
+            return
+
         self.wifi_display_mode = (
             self.wifi_display_mode + 1 if self.wifi_display_mode < DM_LAST else 0
         )
         self._update_info()
         self.update()
 
-    def _generate_wifi_qrcode(self, ssid: str, password: str, security_type: str) -> qrcode.image.base.BaseImage: 
+    def _generate_wifi_qrcode(
+        self, ssid: str, password: str, security_type: str
+    ) -> qrcode.image.base.BaseImage:
         wifi_data = f"WIFI:S:{ssid};T:{security_type};P:{password};H:false;"
         logger.debug(f"WIFI Data: '{wifi_data}'")
 
@@ -140,7 +142,7 @@ class UIWiFiPassword(UIModule):
             self._display_plain_pwd(draw_pos)
         elif self.wifi_display_mode == DM_QR:
             self._display_wifi_qr(draw_pos)
-        elif self.wifi_display_mode == DM_CLIENT: 
+        elif self.wifi_display_mode == DM_CLIENT:
             self._display_client_ssid(draw_pos)
 
         return self.screen_update()
@@ -169,7 +171,6 @@ class UIWiFiPassword(UIModule):
         draw_pos += 16
         return draw_pos
 
-
     def _display_wifi_qr(self, draw_pos: int) -> None:
         draw_pos = self.display_class.titlebar_height + 2
         if self.ap_mode == "Client":
@@ -182,7 +183,7 @@ class UIWiFiPassword(UIModule):
             )
             draw_pos += 16
             return draw_pos
-        
+
         draw_pos = self._show_ssid(draw_pos, True)
 
         if not self.wifi_qr_scaled:

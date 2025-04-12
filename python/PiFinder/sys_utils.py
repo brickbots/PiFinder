@@ -30,25 +30,25 @@ class Network:
 
     @staticmethod
     def secure_accesspoint() -> None:
-        """ Add WPA2 encryption, if not already enabled.
+        """Add WPA2 encryption, if not already enabled.
 
         Tasks:
             1) if SSID in current config contains CHANGEME, create a random SSID of the from PiFinder-XYZAB, XYZAB 5 random chars (see below)
             2) If SSID was changed, add encryption to hostapd.conf, generate a 20 character random password
             (20 chars in 5 groups of random chars, separeted by '-', see below)
-        
+
         where 'random char' means from a randomly selected character out of the set of 0-9, a-z and A-Z.
         """
 
         action_needed = False
         with open("/etc/hostapd/hostapd.conf", "r") as conf:
-            for line in conf: 
-                if line.startswith("ssid=") and "CHANGEME" in line: 
+            for line in conf:
+                if line.startswith("ssid=") and "CHANGEME" in line:
                     action_needed = True
 
         if not action_needed:
             return
-        
+
         logger.info("SYSUTILS: Changing WIFI.")
 
         passphrase_detected = False
@@ -64,17 +64,17 @@ class Network:
                     elif line.startswith("wpa_passphrase="):
                         passphrase_detected = True
                     new_conf.write(line)
-                # consumed all lines, so: 
+                # consumed all lines, so:
                 if not passphrase_detected and ssid_changed:
                     logger.warning("Network: Enabling WPA2 with PSK")
-                    # Add encrpytion directives 
+                    # Add encrpytion directives
                     pwd = Network._generate_random_chars(20, "-", 5)
                     new_conf.write("wpa=2\n")
                     new_conf.write("wpa_key_mgmt=WPA-PSK\n")
                     new_conf.write(f"wpa_passphrase={pwd}\n")
                     new_conf.write("rsn_pairwise=CCMP\n")
         # Backup and move new file into place, restart service.
-        logger.warning("Network: Changing configuration for hostapd") 
+        logger.warning("Network: Changing configuration for hostapd")
         sh.sudo("cp", "/etc/hostapd/hostapd.conf", "/etc/hostapd/hostapd.conf.bck")
         sh.sudo("cp", "/tmp/hostapd.conf", "/etc/hostapd/hostapd.conf")
         # If we changed config, restart hostapd
@@ -96,12 +96,19 @@ class Network:
 
     @staticmethod
     def _generate_random_chars(length: int, ch: str = "", group: int = -1) -> str:
-        """ Generate a string using random characters from the set of 0-9,a-z and A-Z"""
-        rndstr = ''.join([random.SystemRandom().choice(string.ascii_letters + string.digits) for _ in range(length)])
+        """Generate a string using random characters from the set of 0-9,a-z and A-Z"""
+        rndstr = "".join(
+            [
+                random.SystemRandom().choice(string.ascii_letters + string.digits)
+                for _ in range(length)
+            ]
+        )
         if ch != "" and group > 0:
-            rndstr = ch.join([rndstr[i:i+group] for i in range(0, len(rndstr), group)])
+            rndstr = ch.join(
+                [rndstr[i : i + group] for i in range(0, len(rndstr), group)]
+            )
         return rndstr
-        
+
     @staticmethod
     def _parse_wpa_supplicant(contents: list[str]) -> list:
         """
@@ -196,7 +203,7 @@ class Network:
                 if line.startswith("ssid="):
                     return line[5:-1]
         return "UNKN"
-    
+
     def get_ap_pwd(self):
         with open("/etc/hostapd/hostapd.conf", "r") as conf:
             for line in conf:
@@ -217,7 +224,7 @@ class Network:
 
     def get_host_name(self):
         return socket.gethostname()
-    
+
     def is_ap_open(self):
         with open("/etc/hostapd/hostapd.conf", "r") as conf:
             for line in conf:

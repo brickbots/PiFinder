@@ -50,7 +50,7 @@ class Network:
         pass
 
     def is_ap_open(self):
-        return False # Not ( Is AP encrypted? )
+        return False  # Not ( Is AP encrypted? )
 
     def get_host_name(self):
         return socket.gethostname()
