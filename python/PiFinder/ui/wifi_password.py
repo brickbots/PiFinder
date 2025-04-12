@@ -38,7 +38,7 @@ class UIWiFiPassword(UIModule):
             self.marking_menu = MarkingMenu(
                 left=MarkingMenuOption(),
                 right=MarkingMenuOption(),
-                down=MarkingMenuOption(),
+                down=MarkingMenuOption(label=""),
             )
         else:
             # Default to QR code display
@@ -53,7 +53,7 @@ class UIWiFiPassword(UIModule):
                     label="Passwd", callback=self.mm_display_pwd, enabled=True
                 ),
                 down=MarkingMenuOption(
-                    label="Exit", callback=self.mm_switch_mode, enabled=True
+                    label="mode", menu_jump="wifi_mode"                
                 ),
             )
 
@@ -77,10 +77,6 @@ class UIWiFiPassword(UIModule):
         # logger.debug(f"Marking menu: {self.marking_menu}")
         return True
 
-    def mm_switch_mode(self, marking_menu, menu_item):
-        # self.jump_to_label("WiFi Mode")
-        return True
-
     def _update_info(self):
         self.ap_mode = self.network.wifi_mode()
         self.ap_name = self.network.get_ap_name()
@@ -93,7 +89,7 @@ class UIWiFiPassword(UIModule):
             if self.ap_open:
                 self.wifi_qr = self._generate_wifi_qrcode(self.ap_name, "0", "nopass")
             else:
-                self.wifi_qr = self._generate_wifi_qrcode(self.ap_name, self.ap_pwd, "WPA", False)
+                self.wifi_qr = self._generate_wifi_qrcode(self.ap_name, self.ap_pwd, "WPA")
             self.wifi_qr_scaled = False
 
     def cycle_display_mode(self):
