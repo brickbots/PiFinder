@@ -147,7 +147,7 @@ class UIWiFiPassword(UIModule):
 
         return self.screen_update()
 
-    def _display_client_ssid(self, draw_pos: int) -> None:
+    def _display_client_ssid(self, draw_pos: int) -> int:
         self.draw.text(
             (0, draw_pos),
             "Client Mode!",
@@ -171,7 +171,7 @@ class UIWiFiPassword(UIModule):
         draw_pos += 16
         return draw_pos
 
-    def _display_wifi_qr(self, draw_pos: int) -> None:
+    def _display_wifi_qr(self, draw_pos: int) -> int:
         draw_pos = self.display_class.titlebar_height + 2
         if self.ap_mode == "Client":
             # Mode
@@ -199,7 +199,7 @@ class UIWiFiPassword(UIModule):
             # self.wifi_qr.save("WiFi_QR_Code_scaled.png", "PNG")
 
         self.screen.paste(self.wifi_qr, (0, draw_pos))
-        pass
+        return draw_pos
 
     def _display_plain_pwd(self, draw_pos: int) -> None:
         if self.ap_mode == "Client":
