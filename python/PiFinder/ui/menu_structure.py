@@ -60,6 +60,10 @@ pifinder_menu = {
                         },
                     ],
                 },
+                {
+                    "name": "Connect WiFi",
+                    "class": UIWiFiPassword
+                },
             ],
         },
         {
@@ -835,10 +839,6 @@ pifinder_menu = {
                             "callback": callbacks.go_wifi_ap,
                         },
                     ],
-                },
-                {
-                    "name": "WiFi Password",
-                    "class": UIWiFiPassword
                 },
                 {
                     "name": "PiFinder Type",
