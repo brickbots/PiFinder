@@ -112,7 +112,7 @@ class Network:
                 logger.debug(f"Country Codes: {self.COUNTRY_CODES}")
                 # print(self.COUNTRY_CODES)
         except IOError as e:
-            logger.error("Error reading /var/share/zoneinfo/iso3166.tab", exc_info=1)
+            logger.error("Error reading /usr/share/zoneinfo/iso3166.tab", exc_info=True)
             self.COUNTRY_CODES = ['US', 'CA', 'GB', 'DE', 'FR', 'IT', 'ES', 'NL', 'JP', 'CN']
             logger.error(f"Using default country codes: {self.COUNTRY_CODES}")
 
