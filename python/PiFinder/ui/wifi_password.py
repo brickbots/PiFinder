@@ -22,7 +22,7 @@ class UIWiFiPassword(UIModule):
     UI for displaying the Access Point name and password.
     """
 
-    __help_name__ = "wifi_password"
+    __help_name__ = "wifi_connect"
     __title__ = "WIFI"
 
     def __init__(self, *args, **kwargs) -> None:
