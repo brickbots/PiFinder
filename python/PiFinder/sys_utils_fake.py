@@ -12,7 +12,7 @@ class Network:
     """
 
     def __init__(self):
-        pass
+        self.COUNTRY_CODES = ['US', 'BE', 'DE']
 
     @staticmethod
     def secure_accesspoint() -> None:
@@ -43,14 +43,24 @@ class Network:
         # Return an example password, e.g. to test the password display.
         return "UNKN8-01234-abcde-testpw"
 
+    def set_ap_pwd(self, ap_pwd):
+        pass
+
     def get_ap_name(self):
         return "UNKN"
 
     def set_ap_name(self, ap_name):
         pass
 
+    def get_ap_wifi_country(self):
+        return "UNKN"
+    
+    def set_ap_wifi_country(self, ap_wifi_country):
+        pass
+
     def is_ap_open(self):
-        return False  # Not ( Is AP encrypted? )
+        return True
+        # return False  # Not ( Is AP encrypted? )
 
     def get_host_name(self):
         return socket.gethostname()

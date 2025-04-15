@@ -23,13 +23,18 @@ class Network:
 
     def __init__(self):
         self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
-        with open(self.wifi_txt, "r") as wifi_f:
-            self._wifi_mode = wifi_f.read()
+        self._wifi_mode = Network.get_wifi_mode()
 
         self.populate_wifi_networks()
+        self.populate_wifi_countries()
 
     @staticmethod
-    def secure_accesspoint() -> None:
+    def get_wifi_mode():
+        with open("/tmp/wifi_mode.txt", "r") as wifi_f:
+            return wifi_f.read()
+        
+    @staticmethod
+    def configure_accesspoint() -> None:
         """Add WPA2 encryption, if not already enabled.
 
         Tasks:
@@ -43,16 +48,14 @@ class Network:
         action_needed = False
         with open("/etc/hostapd/hostapd.conf", "r") as conf:
             for line in conf:
-                if line.startswith("ssid=") and "CHANGEME" in line:
-                    action_needed = True
+                if not (line.startswith("ssid=") and ("ENCRYPTME" in line or "CHANGEME" in line)):
+                    return
 
-        if not action_needed:
-            return
-
-        logger.info("SYSUTILS: Changing WIFI.")
+        logger.info("SYSUTILS: Configuring WIFI Access Point definition.")
 
         passphrase_detected = False
         ssid_changed = False
+        encryption_needed = False
         with open("/tmp/hostapd.conf", "w") as new_conf:
             with open("/etc/hostapd/hostapd.conf", "r") as conf:
                 for line in conf:
@@ -60,13 +63,16 @@ class Network:
                         ap_rnd = Network._generate_random_chars(5)
                         line = f"ssid=PiFinder-{ap_rnd}\n"
                         ssid_changed = True
-                        logger.warning(f"Network: Changing SSID to 'PiFinder-{ap_rnd}'")
+                        logger.warning(f"SYS-Network: Changing SSID to 'PiFinder-{ap_rnd}'")
+                    elif line.startswith("ssid=") and "ENCRYPTME" in line:
+                        encryption_needed = True
                     elif line.startswith("wpa_passphrase="):
                         passphrase_detected = True
                     new_conf.write(line)
                 # consumed all lines, so:
-                if not passphrase_detected and ssid_changed:
-                    logger.warning("Network: Enabling WPA2 with PSK")
+                if encryption_needed and not passphrase_detected:
+                    # Do not change password, if passphrase was detected
+                    logger.warning("SYS-Network: Enabling WPA2 with PSK")
                     # Add encrpytion directives
                     pwd = Network._generate_random_chars(20, "-", 5)
                     new_conf.write("wpa=2\n")
@@ -77,10 +83,10 @@ class Network:
         logger.warning("Network: Changing configuration for hostapd")
         sh.sudo("cp", "/etc/hostapd/hostapd.conf", "/etc/hostapd/hostapd.conf.bck")
         sh.sudo("cp", "/tmp/hostapd.conf", "/etc/hostapd/hostapd.conf")
-        # If we changed config, restart hostapd
-        if not passphrase_detected or ssid_changed:
-            logger.warning("Network: Restarting hostapd")
-            sh.sudo("systemctl", "restart", "hostapd")
+        # If we are enabling encryption or changed SSID, restart hostapd, if in AP mode
+        if (not (passphrase_detected and encryption_needed) or ssid_changed) and Network.get_wifi_mode() == "AP":
+                logger.warning("Network: Restarting hostapd")
+                sh.sudo("systemctl", "restart", "hostapd")
 
     def populate_wifi_networks(self) -> None:
         wpa_supplicant_path = "/etc/wpa_supplicant/wpa_supplicant.conf"
@@ -93,6 +99,22 @@ class Network:
             return
 
         self._wifi_networks = Network._parse_wpa_supplicant(contents)
+
+    def populate_wifi_countries(self) -> None:
+        """
+        Read country codes from iso3166.tabs
+        """
+        try:
+            with open("/usr/share/zoneinfo/iso3166.tab", "r") as iso_countries:
+                lines = iso_countries.readlines()
+                lines = [line for line in lines if not line.startswith("#") and line != "\n" and line != "\t\n"]
+                self.COUNTRY_CODES = [line.split("\t")[0] for line in lines]
+                logger.debug(f"Country Codes: {self.COUNTRY_CODES}")
+                # print(self.COUNTRY_CODES)
+        except IOError as e:
+            logger.error("Error reading /var/share/zoneinfo/iso3166.tab", exc_info=1)
+            self.COUNTRY_CODES = ['US', 'CA', 'GB', 'DE', 'FR', 'IT', 'ES', 'NL', 'JP', 'CN']
+            logger.error(f"Using default country codes: {self.COUNTRY_CODES}")
 
     @staticmethod
     def _generate_random_chars(length: int, ch: str = "", group: int = -1) -> str:
@@ -197,19 +219,30 @@ class Network:
             # Restart the supplicant
             wpa_cli("reconfigure")
 
-    def get_ap_name(self):
-        with open("/etc/hostapd/hostapd.conf", "r") as conf:
-            for line in conf:
-                if line.startswith("ssid="):
-                    return line[5:-1]
-        return "UNKN"
-
     def get_ap_pwd(self):
         with open("/etc/hostapd/hostapd.conf", "r") as conf:
             for line in conf:
                 if line.startswith("wpa_passphrase="):
                     return line[15:-1]
         return "<no password defined>"
+
+    def set_ap_pwd(self, ap_pwd):
+        if ap_pwd == self.get_ap_pwd():
+            return
+        with open("/tmp/hostapd.conf", "w") as new_conf:
+            with open("/etc/hostapd/hostapd.conf", "r") as conf:
+                for line in conf:
+                    if line.startswith("wpa_passphrase="):
+                        line = f"wpa_passphrase={ap_pwd}\n"
+                    new_conf.write(line)
+        sh.sudo("cp", "/tmp/hostapd.conf", "/etc/hostapd/hostapd.conf")
+
+    def get_ap_name(self):
+        with open("/etc/hostapd/hostapd.conf", "r") as conf:
+            for line in conf:
+                if line.startswith("ssid="):
+                    return line[5:-1]
+        return "UNKN"
 
     def set_ap_name(self, ap_name):
         if ap_name == self.get_ap_name():
@@ -221,6 +254,34 @@ class Network:
                         line = f"ssid={ap_name}\n"
                     new_conf.write(line)
         sh.sudo("cp", "/tmp/hostapd.conf", "/etc/hostapd/hostapd.conf")
+
+    def get_ap_wifi_country(self):
+        with open("/etc/hostapd/hostapd.conf", "r") as conf:
+            for line in conf:
+                if line.startswith("country_code="):
+                    return line[13:-1]
+        return "US"
+    
+    def set_ap_wifi_country(self, country_code):
+        country_changed = False
+        with open("/tmp/hostapd.conf", "w") as new_conf:
+            no_country = True
+            with open("/etc/hostapd/hostapd.conf", "r") as conf:
+                for line in conf:
+                    if line.startswith("country_code="):
+                        line = f"country_code={country_code}\n"
+                        no_country = False
+                        country_changed = True
+                    new_conf.write(line)
+            if no_country:
+                new_conf.write(f"country_code={country_code}\n")
+        if country_changed:
+            try:
+                sh.sudo("raspi-config", "nonint", "do_wifi_country", country_code)
+                sh.sudo("cp", "/tmp/hostapd.conf", "/etc/hostapd/hostapd.conf")
+            except: 
+                logger.warning(f"SYS: Failed to set wifi country code to {country_code}")
+                raise
 
     def get_host_name(self):
         return socket.gethostname()
@@ -407,3 +468,9 @@ def switch_cam_imx296() -> None:
 def switch_cam_imx462() -> None:
     logger.info("SYS: Switching cam to imx462")
     sh.sudo("python", "-m", "PiFinder.switch_camera", "imx462")
+
+
+if __name__ == "__main__":
+    # This is for testing purposes only
+    network = Network()
+    print(network.COUNTRY_CODES)

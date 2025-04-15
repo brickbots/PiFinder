@@ -27,7 +27,23 @@
         <div class="row">
             <div class="input-field col s12">
                 <input value="{{net.get_ap_name()}}" id="ap_name" type="text" name="ap_name">
-                <label for="ap_name">AP Network Name</label>
+                <label for="ap_name">Acess Point WiFi Name</label>
+            </div>
+        </div>
+        % if not net.is_ap_open(): 
+        <div class="row">
+            <div class="input-field col s12">
+                <input value="{{net.get_ap_pwd()}}" id="ap_passwd" type="password" name="ap_passwd">
+                <label for="ap_passwd">Access Point WiFi Password</label>
+                <p class="red-text">{{err_pwd}}</p>
+            </div>
+        </div>
+        %end
+        <div class="row">
+            <div class="input-field col s12">
+                <input value="{{net.get_ap_wifi_country()}}" id="wifi_country" type="text" name="wifi_country">
+                <label for="wifi_country">Access Point WiFi Country</label>
+                <p class="red-text">{{err_country}}</p>
             </div>
         </div>
         <div class="row">
