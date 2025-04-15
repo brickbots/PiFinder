@@ -2,9 +2,9 @@ Quick Start
 ================
 
 .. note::
-   This documentation is for v3 and v2.5 PiFinders running software 2.0.0 or above.
-   If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
-
+   This documentation is for v3 and v2.5 PiFinders running software 2.1.0 or above.
+   If you need docs for a previous version please choose `1.x.x <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
+   or `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_
 
 Congratulations on getting your hands on a PiFinder™! Whether you’ve built it from scratch, or ordered a completed model 
 from BBLabs, you’re on your way to a whole new level of accuracy and ease while observing the night sky.
@@ -296,6 +296,10 @@ that patch of sky.  By pointing your telescope at a star, and then selecting tha
 on the PiFinder's alignment chart, you are telling the PiFinder where to put DSO's so they
 are in the middle of your eyepiece each time.
 
+.. note::
+   The instructions below are for the new alignment system in PiFinders running software
+   version 2.1.0 and above.  For the previous alignment instructions, please 
+   `click here <https://pifinder.readthedocs.io/en/v2.0.4/quick_start.html#alignment>`_
 
 
 To being, select the 'Align' option from the main menu 

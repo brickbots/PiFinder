@@ -141,19 +141,23 @@ class UBXParser:
         attempt = 0
         while attempt < max_attempts:
             try:
+                # Add delay between connection attempts
+                if attempt > 0:
+                    delay = min(2**attempt, 30)
+                    logger.error(
+                        f"Connection attempt {attempt}/{max_attempts} failed. Retrying in {delay}s..."
+                    )
+                    await asyncio.sleep(delay)
+
                 reader, writer = await asyncio.open_connection(host, port)
                 parser = cls(log_queue, reader=reader, writer=writer)
                 await parser._handle_initial_messages()
-                # No polling task needed; gpsd streams automatically
                 return parser
             except (ConnectionRefusedError, ConnectionResetError) as e:
                 attempt += 1
-                delay = min(2**attempt, 30)
-                logger.error(
-                    f"Connection attempt {attempt}/{max_attempts} failed: {e}. Retrying in {delay}s..."
-                )
-                await asyncio.sleep(delay)
-        raise Exception("Failed to connect to gpsd after maximum attempts")
+                if attempt >= max_attempts:
+                    logger.error(f"Failed to connect after {max_attempts} attempts: {e}")
+                    raise
 
     @classmethod
     def from_file(cls, file_path: str):
@@ -170,10 +174,15 @@ class UBXParser:
                 logger.debug("Polling task cancelled")
             self._poll_task = None
         if self.writer:
-            self.writer.close()
-            await self.writer.wait_closed()
-            self.writer = None
+            try:
+                self.writer.close()
+                await self.writer.wait_closed()
+            except Exception as e:
+                logger.error(f"Error closing writer: {e}")
+            finally:
+                self.writer = None
         self.reader = None
+        self.buffer.clear()  # Clear any remaining data
 
     async def parse_from_file(self):
         async with aiofiles.open(self.file_path, "rb") as f:
@@ -182,13 +191,22 @@ class UBXParser:
                 yield msg
 
     async def parse_messages(self):
+        """Parse messages from the GPS device."""
         while self._running:
-            if self.reader:
+            if self.file_path:
+                async for msg in self.parse_from_file():
+                    yield msg
+            else:
                 try:
+                    if not self.reader:
+                        logger.error("Reader not available")
+                        break
+                    
                     data = await self.reader.read(1024)
                     if not data:
-                        logger.debug("No more data to read")
+                        logger.warning("Connection closed by server")
                         break
+
                     self.buffer.extend(data)
                     while len(self.buffer) >= 6:  # Minimum UBX header size
                         start = self.buffer.find(b"\xb5\x62")  # UBX sync chars
@@ -209,7 +227,7 @@ class UBXParser:
                             ck_b = (ck_b + ck_a) & 0xFF
                         if msg_data[-2] == ck_a and msg_data[-1] == ck_b:
                             parsed = self._parse_ubx(bytes(msg_data))
-                            if parsed.get("class"):
+                            if "class" in parsed:
                                 logger.debug(f"Parsed UBX message: {parsed}")
                                 yield parsed
                         else:
@@ -217,11 +235,18 @@ class UBXParser:
                                 f"Checksum mismatch: expected {ck_a:02x}{ck_b:02x}, got {msg_data[-2]:02x}{msg_data[-1]:02x}"
                             )
                         self.buffer = self.buffer[total_length:]
+                except (ConnectionResetError, BrokenPipeError) as e:
+                    logger.error(f"Connection error: {e}")
+                    break
                 except Exception as e:
                     logger.error(f"Error reading data: {e}")
                     break
+
             await asyncio.sleep(0.1)  # Prevent tight loop
-            
+        
+        # Ensure cleanup when loop ends
+        await self.close()
+
     def _parse_ubx(self, data: bytes) -> dict:
         if len(data) < 8:
             return {"error": "Invalid UBX message"}
@@ -266,16 +291,20 @@ class UBXParser:
         ecefZ = int.from_bytes(data[20:24], "little", signed=True) / 100.0
         pAcc = int.from_bytes(data[24:28], "little") / 100.0
         numSV = data[47]
-        lla = self._ecef_to_lla(ecefX, ecefY, ecefZ)
-        result = {
-            "class": "NAV-SOL",
-            "mode": gpsFix,
-            "lat": lla["latitude"],
-            "lon": lla["longitude"],
-            "altHAE": lla["altitude"],
-            "ecefpAcc": pAcc,
-            "satellites": numSV,
-        }
+        result = {}
+        if ecefX == 0 or ecefY == 0 or ecefZ == 0:
+            logging.debug(f"nav_sol zeroes: ecefX: {ecefX}, ecefY: {ecefY}, ecefZ: {ecefZ}, pAcc: {pAcc}, numSV: {numSV}")
+        else:
+            lla = self._ecef_to_lla(ecefX, ecefY, ecefZ)
+            result = {
+                "class": "NAV-SOL",
+                "mode": gpsFix,
+                "lat": lla["latitude"],
+                "lon": lla["longitude"],
+                "altHAE": lla["altitude"],
+                "ecefpAcc": pAcc,
+                "satellites": numSV,
+            }
         logger.debug(f"NAV-SOL result: {result}")
         return result
 
@@ -417,13 +446,17 @@ class UBXParser:
         ecefX = int.from_bytes(data[4:8], "little", signed=True) / 100.0
         ecefY = int.from_bytes(data[8:12], "little", signed=True) / 100.0
         ecefZ = int.from_bytes(data[12:16], "little", signed=True) / 100.0
-        lla = self._ecef_to_lla(ecefX, ecefY, ecefZ)
-        result = {
-            "class": "NAV-POSECEF",
-            "lat": lla["latitude"],
-            "lon": lla["longitude"],
-            "altHAE": lla["altitude"],
-        }
+        result = {}
+        if ecefX == 0 or ecefY == 0 or ecefZ == 0:
+            logging.debug(f"nav_posecef zeroes: ecefX: {ecefX}, ecefY: {ecefY}, ecefZ: {ecefZ}")
+        else:
+            lla = self._ecef_to_lla(ecefX, ecefY, ecefZ)
+            result = {
+                "class": "NAV-POSECEF",
+                "lat": lla["latitude"],
+                "lon": lla["longitude"],
+                "altHAE": lla["altitude"],
+            }
         logger.debug(f"NAV-POSECEF result: {result}")
         return result
 
