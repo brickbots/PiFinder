@@ -272,6 +272,9 @@ def main(
     os_detail, platform, arch = utils.get_os_info()
     logger.info("PiFinder running on %s, %s, %s", os_detail, platform, arch)
 
+    sys_utils = utils.get_sys_utils()
+    sys_utils.Network.configure_accesspoint()
+
     # init UI Modes
     command_queues = {
         "camera": camera_command_queue,
@@ -490,14 +493,20 @@ def main(
                             location = shared_state.location()
 
                             # Only update GPS fixes, as soon as it's loaded or comes from the WEB it's untouchable
-                            if not location.source == "WEB" and not location.source.startswith("CONFIG:") and (
-                                location.error_in_m == 0
-                                or float(gps_content["error_in_m"])
-                                < float(
-                                    location.error_in_m
-                                )  # Only if new error is smaller
+                            if (
+                                not location.source == "WEB"
+                                and not location.source.startswith("CONFIG:")
+                                and (
+                                    location.error_in_m == 0
+                                    or float(gps_content["error_in_m"])
+                                    < float(
+                                        location.error_in_m
+                                    )  # Only if new error is smaller
+                                )
                             ):
-                                logger.info(f"Updating GPS location: new content: {gps_content}, old content: {location}")
+                                logger.info(
+                                    f"Updating GPS location: new content: {gps_content}, old content: {location}"
+                                )
                                 location.lat = gps_content["lat"]
                                 location.lon = gps_content["lon"]
                                 location.altitude = gps_content["altitude"]
