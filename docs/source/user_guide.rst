@@ -587,6 +587,23 @@ can follow the steps below:
 
 To add more WiFi networks for the PiFinder to look for, navigate to the Network Setup page of the :ref:`user_guide:web interface` and click the + button near the list of WiFi networks and repeat the steps above.
 
+
+Reset Access Point
+--------------------------------------
+
+.. stop::
+   Only do this if you're not able to connect to the PiFinder's access point using the QR code from "Start" > "Connect WiFi", or you can't display it.
+
+If you can't connect to the PiFinder's access point using the QR code from "Start" > "Connect WiFi", or this doesn't display, you can login into the PiFinder using SSH, if you have a network cable connected. If this does not work, you can plug-in a monitor cable and a keyboard and directly login to the Raspberry Pi. The default username and password are ``pifinder`` and ``solveit``. You may have to open up the PiFinder to have access to the mentioned ports.
+
+1. Login into PiFinder as described above. You should be in the home directory. Check with ``pwd``, it should display ``/home/pifinder``. If not, execute ``cd``.
+2. Copy over the default configuration file for hostapd into it's default location: ``sudo cp pi_config_files/hostapd-open.conf /etc/hostapd/hostapd.conf``.
+3. Then check, if PiFinder is in "Client" or "Access Point" mode. Execute ``cat wifi_status.txt``. This should display either "AP" or "Client"
+4. If it says "client", execute ``sudo switch-ap.sh``.
+5. Now reboot the PiFinder with ``sudo reboot``.
+
+After the reboot, PiFinder presents with an open Access Point with-out encryption. 
+
 SkySafari
 ===================
 

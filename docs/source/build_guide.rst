@@ -200,7 +200,37 @@ After you have all the pins soldrerd, it's a good time to insert the SD card and
 
 .. image:: images/build_guide/ui_module_18.jpeg
 
-There you go!  The PiFinder hat is fully assembled and you can move on to printing your parts or :ref:`final assembly<build_guide:assembly>`
+There you go!  The PiFinder hat is fully assembled and you can move on to configuring the software, to :ref:`printing your parts<build_guide:Configurations Overview>` or :ref:`user_guide: final assembly<build_guide:assembly>`
+
+Test & Software Setup
+=========================
+
+Now is the right time to provide power to the Pi and check if everything is alright and configure PiFinder's Access Point and WiFi networks you want to connect to. Note that you can do this also after the assembly, but it is easier and safer to do it now, when all ports of the Raspberry Pi are accessible (in case something goes wrong and you're not able to connect to the PiFinder) and it is easier to exchange a LED, if necessary. 
+
+.. note::
+   Set the PiFinder on the desk and leave it sitting there, until the menu displays. The motion detector (IMU) needs to calibrate itself and it is not able to do so if you move it around. If you hold it in your hand, then the next test may fail.
+
+If the PiFinder is powered up, the screen should display the main menu. If it does not, please check the soldering of the components and the connections to the Raspberry Pi. You may have to reflow the solder joints. 
+
+Once the menu displays correctly, move to Tools > Status. This displays the current status of the PiFinder. You should see the following: 
+
+.. image:: images/build_guide/status.png
+   :target: images/build_guide/status.png
+   :alt: Status of PiFinder on first power up.
+
+The IMU displays "static" or "moving" and the GPS displays 0/0 or N/0 where N is a small number.
+
+WiFi configurations
+-----------------------
+
+Now insert a network cable into the Raspberry Pi and connect it to your router. The PiFinder will use DHCP to configure its network. Then use an internet browser on your regular computer and enter ``pifinder.local`` in the address bar. This opens up the PiFinder web interface. If this does not work, you can also try to enter the IP address of the Raspberry Pi (you can find it in your router). 
+
+.. warning::
+   If you do not attach a network cable now, you have to do the configuration later on. If you access the PiFinder in its default configuration, any passwords you enter will be transferred in clear over the air.
+
+Now using the web interface, configure your PiFinder's Access Point and add any additional WiFis that the PiFinder is going to connect to. This is described at :ref:`user_guide:WiFi`. Note that the default password is ``solveit``. As part of the configuration, your PiFinder will reboot. 
+
+Once you have configured the Access Point and WiFi networks, you can display the network's QR code in "Start" > "Connect WiFi", now scan the code with your phone or tablet to connect to the PiFinder's Access Point. Open up a browser and enter ``pifinder.local`` in the address bar. This opens up the PiFinder web interface. If this works, congrats! You have successfully configured PiFinder's Access Point and WiFis!
 
 Configurations Overview
 ========================
