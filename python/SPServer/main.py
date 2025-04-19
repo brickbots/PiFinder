@@ -5,13 +5,21 @@ Primary module for the Star Party local server
 """
 
 import asyncio
+import uuid
 from random import random
 
-test_dict = {}
+from SPServer.sps_data import Observer, ServerState, Mark, Group, Position
+
+state_lock = asyncio.Lock()
+server_state = ServerState()
 
 
-async def handle_command(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-    global test_dict
+async def handle_command(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, observer: Observer):
+    global server_state
+
+    connection_id = observer.connection_id
+    connection_id_short = connection_id[-4]
+
     while True:
         in_data_raw = await reader.readline()
         in_data = in_data_raw.decode()
@@ -19,20 +27,24 @@ async def handle_command(reader: asyncio.StreamReader, writer: asyncio.StreamWri
             # This indicates EOF/Reader closed
             break
 
-        print("in: " + in_data)
+        print(f"{connection_id_short}:{in_data}")
         command = in_data.split("|")
-        if command[0] == "e":  # echo
+        if command[0] == "echo":  # echo
             writer.write(command[1].encode())
             await writer.drain()
 
-        if command[0] == "s":  # set
-            # lock
-            # update
-            pass
+        if command[0] == "pos":  # set position
+            with state_lock:
+                observer.position.ra=float(command[1])
+                observer.position.dec=float(command[2])
+
+        if command[0] == "groups": # list groups
+            
 
 
-async def update_pos(writer: asyncio.StreamWriter):
-    global test_dict
+async def send_pos_updates(writer: asyncio.StreamWriter, observer: Observer):
+
+    global server_state
     while True:
         if random() > 0.9:
             writer.write("pos|20|20\n".encode())
@@ -45,9 +57,33 @@ async def update_pos(writer: asyncio.StreamWriter):
 
 
 async def client_connected(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-    print("Client connected")
-    await asyncio.gather(handle_command(reader, writer), update_pos(writer))
-    print("Client CLOSED")
+    global server_state
+
+    connection_id = str(uuid.uuid4())
+    connection_id_short = connection_id[-4]
+    print(f"{connection_id_short}: Attempt")
+    in_data_raw = await reader.readline()
+    in_data = in_data_raw.decode()
+    command = in_data.split("|")
+    if len(command) != 2 or command[0] != "name":
+        print(f"{connection_id_short}: Bad Connection Attempt")
+        writer.close()
+        await writer.wait_closed()
+        return
+
+    # Register new connection
+    observer_name = command[1]
+    observer = Observer(
+        connection_id=connection_id,
+        name=observer_name,
+        group=None,
+    )
+    with state_lock:
+        server_state.observers.append(observer)
+
+    print(f"{connection_id_short}: {observer_name} Connected")
+    await asyncio.gather(handle_command(reader, writer, observer), send_pos_updates(writer, observer))
+    print(f"{connection_id_short}: Closed")
 
 
 async def server_main(host: str, port: int):
