@@ -90,9 +90,8 @@ async def handle_command(
 
         if command[0] == "groups":  # list groups
             for group_touple in server_state.list_groups():
-                _out_line = f"{group_touple[0]}|{group_touple[1]}\n"
-                writer.write(_out_line.encode())
-                await writer.drain()
+                await writeline(writer,f"{group_touple[0]}|{group_touple[1]}")
+            await writeline(writer, "ack")
 
         if command[0] == "add_group":  # Add new group
             new_group_name = make_group_name()
@@ -102,7 +101,7 @@ async def handle_command(
 
         if command[0] == "join":  # join group
             group_name = command[1]
-            with state_lock:
+            async with state_lock:
                 result = server_state.join_group(observer, group_name)
 
             if result:

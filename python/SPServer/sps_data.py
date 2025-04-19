@@ -46,9 +46,10 @@ class ServerState:
         to it
         """
         if observer.group:
-            self.leave_group(observer.group)
+            self.leave_group(observer)
 
         new_group = Group(name=group_name, observers=[observer])
+        self.groups.append(new_group)
         observer.group = new_group
         return new_group
 
@@ -64,12 +65,12 @@ class ServerState:
             # already in the group!
             return True
 
-        self.leave_group(observer.group)
+        self.leave_group(observer)
         _group.observers.append(observer)
         observer.group = _group
         return True
 
-    def get_group_by_name(self, group_name: str) -> Union[None | Group]:
+    def get_group_by_name(self, group_name: str) -> Union[None, Group]:
         """
         Find a group by name
         """
@@ -79,14 +80,16 @@ class ServerState:
 
         return None
 
-    def leave_group(self, group: Group, observer: Observer) -> bool:
+    def leave_group(self, observer: Observer) -> bool:
         """
         Called whenever someone is leaving a group.
         If the group is empty, it's deleted
         """
-        if observer.group != group:
-            # not in the group!
+        if observer.group is None:
+            # not in a group!
             return False
+
+        group = observer.group
 
         group.observers.remove(observer)
         observer.group = None
