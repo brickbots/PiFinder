@@ -12,7 +12,6 @@ from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.equipment import UIEquipment
 from PiFinder.ui.location_list import UILocationList
 import PiFinder.ui.callbacks as callbacks
-from multiprocessing import Queue
 
 pifinder_menu = {
     "name": "PiFinder",
@@ -36,28 +35,8 @@ pifinder_menu = {
                     "preload": True,
                 },
                 {
-                    "name": "Place & Time",
-                    "class": UITextMenu,
-                    "select": "single",
-                    "items": [
-                        {
-                            "name": "GPS Status",
-                            "class": UIGPSStatus,
-                        },
-                        {
-                            "name": "Set Location",
-                            "class": UILocationList,
-                        },
-                        {
-                            "name": "Set Time",
-                            "class": UITimeEntry,
-                            "custom_callback": callbacks.set_time
-                        },
-                        {
-                            "name": "Reset",
-                            "callback": callbacks.gps_reset
-                        },
-                    ],
+                    "name": "GPS Status",
+                    "class": UIGPSStatus,
                 },
             ],
         },
@@ -930,6 +909,27 @@ pifinder_menu = {
             "items": [
                 {"name": "Status", "class": UIStatus},
                 {"name": "Equipment", "class": UIEquipment, "label": "equipment"},
+                {
+                    "name": "Place & Time",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": "GPS Status",
+                            "class": UIGPSStatus,
+                        },
+                        {
+                            "name": "Set Location",
+                            "class": UILocationList,
+                        },
+                        {
+                            "name": "Set Time",
+                            "class": UITimeEntry,
+                            "custom_callback": callbacks.set_time,
+                        },
+                        {"name": "Reset", "callback": callbacks.gps_reset},
+                    ],
+                },
                 {"name": "Console", "class": UIConsole},
                 {"name": "Software Upd", "class": UISoftware},
                 {"name": "Test Mode", "callback": callbacks.activate_debug},
