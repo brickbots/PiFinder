@@ -46,14 +46,15 @@ class Network:
 
         where 'random char' means a randomly selected character out of the set of 0-9, a-z and A-Z.
         """
-
         action_needed = False
         with open("/etc/hostapd/hostapd.conf", "r") as conf:
             for line in conf:
-                if not (line.startswith("ssid=") and ("ENCRYPTME" in line or "CHANGEME" in line)):
-                    logger.info("SYS-Network: No action needed in configure_accesspoint.")
-                    return
-
+                if line.startswith("ssid="):
+                    if ("ENCRYPTME" in line or "CHANGEME" in line)):
+                        action_needed = True
+        if not action_needed:
+            return 
+        
         logger.info("SYSUTILS: Configuring WIFI Access Point definition.")
 
         passphrase_detected = False
@@ -496,9 +497,6 @@ def switch_cam_imx296() -> None:
 def switch_cam_imx462() -> None:
     logger.info("SYS: Switching cam to imx462")
     sh.sudo("python", "-m", "PiFinder.switch_camera", "imx462")
-
-def get_version() -> str:
-    return "sysutils"
 
 if __name__ == "__main__":
     # This is for testing purposes only
