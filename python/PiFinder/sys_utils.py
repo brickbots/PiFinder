@@ -31,7 +31,7 @@ class Network:
 
     @staticmethod
     def get_wifi_mode():
-        with open("/tmp/wifi_mode.txt", "r") as wifi_f:
+        with open("/home/pifinder/PiFinder/wifi_status.txt", "r") as wifi_f:
             return wifi_f.read()
         
     @staticmethod
