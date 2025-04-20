@@ -500,5 +500,4 @@ def switch_cam_imx462() -> None:
 
 if __name__ == "__main__":
     # This is for testing purposes only
-    network = Network()
-    print(network.COUNTRY_CODES)
+    Network.configure_accesspoint()
