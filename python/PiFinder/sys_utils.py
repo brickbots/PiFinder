@@ -63,14 +63,14 @@ class Network:
         with open("/tmp/hostapd.conf", "w") as new_conf:
             with open("/etc/hostapd/hostapd.conf", "r") as conf:
                 for line in conf:
+                    if line.startswith("ssid=") and "ENCRYPTME" in line:
+                        encryption_needed = True
+                        logger.info("SYS-Network: Encryption needed.")
                     if line.startswith("ssid=") and "CHANGEME" in line:
                         ap_rnd = Network._generate_random_chars(5)
                         line = f"ssid=PiFinder-{ap_rnd}\n"
                         ssid_changed = True
                         logger.warning(f"SYS-Network: Changing SSID to 'PiFinder-{ap_rnd}'")
-                    if line.startswith("ssid=") and "ENCRYPTME" in line:
-                        encryption_needed = True
-                        logger.info("SYS-Network: Encryption needed.")
                     if line.startswith("wpa_passphrase="):
                         logger.info("SYS-Network: Passphrase detected.")
                         passphrase_detected = True
