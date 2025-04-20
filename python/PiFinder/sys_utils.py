@@ -12,6 +12,7 @@ from PiFinder import utils
 import logging
 
 BACKUP_PATH = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
+NO_PASSWORD_DEFINED = "<no password defined>"
 
 logger = logging.getLogger("SysUtils")
 
@@ -38,11 +39,12 @@ class Network:
         """Add WPA2 encryption, if not already enabled.
 
         Tasks:
-            1) if SSID in current config contains CHANGEME, create a random SSID of the from PiFinder-XYZAB, XYZAB 5 random chars (see below)
-            2) If SSID was changed, add encryption to hostapd.conf, generate a 20 character random password
-            (20 chars in 5 groups of random chars, separeted by '-', see below)
+            0) If passphrase is already in hostapd.conf, do not change it (this ignores the case where the ap_name contains ENCRYPTME)
+            1) if SSID in current config contains CHANGEME, create a random SSID of the from PiFinder-XYZAB, XYZAB 5 random chars (see below) and use that.
+            2) If SSID in current config contains ENCRYPTME, add encryption to hostapd.conf, generate a 20 character random password
+            (20 chars in 5 groups of random chars, separeted by '-', see below) 
 
-        where 'random char' means from a randomly selected character out of the set of 0-9, a-z and A-Z.
+        where 'random char' means a randomly selected character out of the set of 0-9, a-z and A-Z.
         """
 
         action_needed = False
@@ -224,11 +226,36 @@ class Network:
             for line in conf:
                 if line.startswith("wpa_passphrase="):
                     return line[15:-1]
-        return "<no password defined>"
+        return NO_PASSWORD_DEFINED 
 
     def set_ap_pwd(self, ap_pwd):
-        if ap_pwd == self.get_ap_pwd():
+        """ Set Access Point password. 
+
+        If the password is the same as the current password, nothing is done.
+
+        If the password is NO_PASSWORD_DEFINED we consider the Access Point as open and enable encryption as a result of calling this method.
+        It is the responsiblity of the caller to ensure that this method is only called when the AP needs to be encrypted.
+
+        This method throws an ValueError of the password is < 8 or > 63 characters long.
+        """
+        current_pwd = self.get_ap_pwd()
+        if ap_pwd == current_pwd:
             return
+        
+        # Enable encryption, if needed
+        if current_pwd == NO_PASSWORD_DEFINED:
+            ap_name = self.get_ap_name()
+            self.set_ap_name(ap_name + "ENCRYPTME") 
+            Network.configure_accesspoint()
+            self.set_ap_name(ap_name)
+
+        # Check password length
+        if len(ap_pwd) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        if len(ap_pwd) > 63:
+            raise ValueError("Password must be at most 63 characters long")
+
+        # Change password
         with open("/tmp/hostapd.conf", "w") as new_conf:
             with open("/etc/hostapd/hostapd.conf", "r") as conf:
                 for line in conf:
