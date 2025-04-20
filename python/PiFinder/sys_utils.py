@@ -246,18 +246,18 @@ class Network:
         if ap_pwd == current_pwd:
             return
         
+        # Check password length
+        if len(ap_pwd) < 8:
+            raise ValueError("Password must be at least 8 characters long")
+        if len(ap_pwd) > 63:
+            raise ValueError("Password must be at most 63 characters long")
+
         # Enable encryption, if needed
         if current_pwd == NO_PASSWORD_DEFINED:
             ap_name = self.get_ap_name()
             self.set_ap_name(ap_name + "ENCRYPTME") 
             Network.configure_accesspoint()
             self.set_ap_name(ap_name)
-
-        # Check password length
-        if len(ap_pwd) < 8:
-            raise ValueError("Password must be at least 8 characters long")
-        if len(ap_pwd) > 63:
-            raise ValueError("Password must be at most 63 characters long")
 
         # Change password
         with open("/tmp/hostapd.conf", "w") as new_conf:
