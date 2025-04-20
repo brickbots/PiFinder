@@ -18,6 +18,10 @@ class Network:
     def configure_accesspoint() -> None:
         pass
 
+    @staticmethod
+    def enable_encryption() -> None:
+        pass    
+
     def populate_wifi_networks(self):
         """
         Parses wpa_supplicant.conf to get current config

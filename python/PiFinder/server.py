@@ -423,6 +423,7 @@ class Server:
                 ap_encrypt = request.forms.get("ap_encrypt")
                 if ap_encrypt == "1":
                     try: 
+                        self.network.enable_encryption()
                         self.network.set_ap_pwd(ap_passwd)
                     except Exception as e:
                         err_pwd = "Invalid password: " + e.args[0]
