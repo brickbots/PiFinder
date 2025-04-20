@@ -24,14 +24,7 @@ MOVE_CHECK_LEN = 2
 class Imu:
     def __init__(self):
         i2c = board.I2C()
-        self.sensor = None
-        self.calibration = 0
-        try: 
-            self.sensor = adafruit_bno055.BNO055_I2C(i2c)
-        except ValueError as e:
-            logger.error("IMU: No IMU found", exc_info=True)
-            return
-        
+        self.sensor = adafruit_bno055.BNO055_I2C(i2c)
         self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
         # self.sensor.mode = adafruit_bno055.NDOF_MODE
         cfg = config.Config()
@@ -59,6 +52,7 @@ class Imu:
             )
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
         self._flip_count = 0
+        self.calibration = 0
         self.avg_quat = (0, 0, 0, 0)
         self.__moving = False
 
