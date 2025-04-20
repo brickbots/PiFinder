@@ -988,12 +988,12 @@ class Server:
                 server=CherootServer,
             )
         except (PermissionError, OSError):
-            logger.info("Web Interface on port 8181")
+            logger.info("Web Interface on port 8080")
             debug()
             run(
                 app,
                 host="0.0.0.0",
-                port=8181,
+                port=8080,
                 quiet=True,
                 debug=True,
                 server=CherootServer,
