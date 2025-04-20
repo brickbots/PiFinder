@@ -279,6 +279,7 @@ def main(
         "ui_queue": ui_queue,
         "align_command": alignment_command_queue,
         "align_response": alignment_response_queue,
+        "gps": gps_queue,
     }
     cfg = config.Config()
 
@@ -479,25 +480,24 @@ def main(
                     console_msg = console_queue.get(block=False)
                     console.write(console_msg)
                 except queue.Empty:
-                    pass
+                    time.sleep(0.1)
 
                 # GPS
                 try:
                     gps_msg, gps_content = gps_queue.get(block=False)
                     if gps_msg == "fix":
-                        # logger.debug("GPS fix msg: %s", gps_content)
                         if gps_content["lat"] + gps_content["lon"] != 0:
                             location = shared_state.location()
-                            # only update if there's no fixed WEB lock, and the precision is better than what we had
-                            if location.source != "WEB" and (
-                                not location.lock
-                                or (
-                                    location.lock
-                                    and (
-                                        gps_content["error_in_m"] < location.error_in_m
-                                    )
-                                )
+
+                            # Only update GPS fixes, as soon as it's loaded or comes from the WEB it's untouchable
+                            if not location.source == "WEB" and not location.source.startswith("CONFIG:") and (
+                                location.error_in_m == 0
+                                or float(gps_content["error_in_m"])
+                                < float(
+                                    location.error_in_m
+                                )  # Only if new error is smaller
                             ):
+                                logger.info(f"Updating GPS location: new content: {gps_content}, old content: {location}")
                                 location.lat = gps_content["lat"]
                                 location.lon = gps_content["lon"]
                                 location.altitude = gps_content["altitude"]
@@ -515,7 +515,7 @@ def main(
                                 else:
                                     location.last_gps_lock = dt.time().isoformat()[:8]
                                 console.write(
-                                    f"GPS: Location {location.lat} {location.lon} {location.altitude}"
+                                    f"GPS: Location {location.lat} {location.lon} {location.altitude} {location.error_in_m}"
                                 )
                                 shared_state.set_location(location)
                                 sf_utils.set_location(
@@ -524,7 +524,6 @@ def main(
                                     location.altitude,
                                 )
                     if gps_msg == "time":
-                        # logger.debug("GPS time msg: %s", gps_content)
                         if isinstance(gps_content, datetime.datetime):
                             gps_dt = gps_content
                         else:
@@ -533,6 +532,9 @@ def main(
                         if log_time:
                             logger.info("GPS Time (logged only once): %s", gps_dt)
                             log_time = False
+                    if gps_msg == "reset":
+                        location.reset()
+                        shared_state.set_location(location)
                     if gps_msg == "satellites":
                         logger.debug("Main: GPS nr sats seen: %s", gps_content)
                         shared_state.set_sats(gps_content)
@@ -762,38 +764,12 @@ def main(
             exit()
 
 
-def rotate_logs() -> Path:
-    """
-    Rotates log files, returns the log file to use
-    """
-    log_index = list(range(5))
-    log_index.reverse()
-    for i in log_index:
-        try:
-            shutil.copyfile(
-                utils.data_dir / f"pifinder.{i}.log",
-                utils.data_dir / f"pifinder.{i+1}.log",
-            )
-        except FileNotFoundError:
-            pass
-
-    try:
-        shutil.move(
-            utils.data_dir / "pifinder.log",
-            utils.data_dir / "pifinder.0.log",
-        )
-    except FileNotFoundError:
-        pass
-
-    return utils.data_dir / "pifinder.log"
-
-
 if __name__ == "__main__":
     print("Bootstrap logging configuration ...")
     logging.basicConfig(format="%(asctime)s BASIC %(name)s: %(levelname)s %(message)s")
     rlogger = logging.getLogger()
     rlogger.setLevel(logging.INFO)
-    log_path = rotate_logs()
+    log_path = utils.data_dir / "pifinder.log"
     try:
         log_helper = MultiprocLogging(
             Path("pifinder_logconf.json"),

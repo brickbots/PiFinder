@@ -3,6 +3,7 @@ import json
 import logging
 import time
 import uuid
+import os
 from datetime import datetime, timezone
 
 import pydeepskylog as pds
@@ -48,12 +49,13 @@ def auth_required(func):
 
 class Server:
     def __init__(
-        self, keyboard_queue, ui_queue, gps_queue, shared_state, is_debug=False
+        self, keyboard_queue, ui_queue, gps_queue, log_queue, shared_state, is_debug=False
     ):
         self.version_txt = f"{utils.pifinder_dir}/version.txt"
         self.keyboard_queue = keyboard_queue
         self.ui_queue = ui_queue
         self.gps_queue = gps_queue
+        self.log_queue = log_queue
         self.shared_state = shared_state
         self.ki = KeyboardInterface()
         # gps info
@@ -107,31 +109,44 @@ class Server:
         @app.route("/")
         def home():
             logger.debug("/ called")
-            # need to collect a little status info here
-            with open(self.version_txt, "r") as ver_f:
-                software_version = ver_f.read()
+            # Get version info
+            software_version = "Unknown"
+            try:
+                with open(self.version_txt, "r") as ver_f:
+                    software_version = ver_f.read()
+            except (FileNotFoundError, IOError) as e:
+                logger.warning(f"Could not read version file: {str(e)}")
 
-            self.update_gps()
-            lat_text = ""
-            lon_text = ""
-            gps_icon = "gps_off"
-            gps_text = "Not Locked"
-            if self.gps_locked is True:
-                gps_icon = "gps_fixed"
-                gps_text = "Locked"
-                lat_text = str(self.lat)
-                lon_text = str(self.lon)
+            # Try to update GPS state
+            try:
+                self.update_gps()
+            except Exception as e:
+                logger.error(f"Failed to update GPS in home route: {str(e)}")
 
+            # Use GPS data if available
+            lat_text = str(self.lat) if self.gps_locked else ""
+            lon_text = str(self.lon) if self.gps_locked else ""
+            gps_icon = "gps_fixed" if self.gps_locked else "gps_off"
+            gps_text = "Locked" if self.gps_locked else "Not Locked"
+
+            # Default camera values
             ra_text = "0"
             dec_text = "0"
             camera_icon = "broken_image"
-            if self.shared_state.solve_state() is True:
-                camera_icon = "camera_alt"
-                solution = self.shared_state.solution()
-                hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
-                ra_text = f"{hh:02.0f}h{mm:02.0f}m"
-                dec_text = f"{solution['Dec']: .2f}"
+            
+            # Try to get solution data
+            try:
+                if self.shared_state.solve_state() is True:
+                    camera_icon = "camera_alt"
+                    solution = self.shared_state.solution()
+                    if solution:
+                        hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
+                        ra_text = f"{hh:02.0f}h{mm:02.0f}m"
+                        dec_text = f"{solution['Dec']: .2f}"
+            except Exception as e:
+                logger.error(f"Failed to get solution data: {str(e)}")
 
+            # Render the template with available data
             return template(
                 "index",
                 software_version=software_version,
@@ -225,6 +240,152 @@ class Server:
             )
             time.sleep(1)  # give the gps thread a chance to update
             return home()
+
+        @app.route("/locations")
+        @auth_required
+        def locations_page():
+            show_new_form = request.query.add_new or 0
+            cfg = config.Config()
+            cfg.load_config()  # Ensure config is loaded
+            return template(
+                "locations",
+                locations=cfg.locations.locations,
+                show_new_form=show_new_form,
+            )
+
+        @app.route("/locations/add", method="post")
+        @auth_required
+        def location_add():
+            try:
+                name = request.forms.get("name").strip()
+                lat = float(request.forms.get("latitude"))
+                lon = float(request.forms.get("longitude"))
+                altitude = float(request.forms.get("altitude"))
+                error_in_m = float(request.forms.get("error_in_m", "0"))
+                source = request.forms.get("source", "Manual Entry")
+                
+                # Server-side validation
+                if not name:
+                    raise ValueError("Location name is required")
+                if not (-90 <= lat <= 90):
+                    raise ValueError("Latitude must be between -90 and 90")
+                if not (-180 <= lon <= 180):
+                    raise ValueError("Longitude must be between -180 and 180")
+                if not (-1000 <= altitude <= 10000):
+                    raise ValueError("Altitude must be between -1000 and 10000 meters")
+                if not (0 <= error_in_m <= 10000):
+                    raise ValueError("Error must be between 0 and 10000 meters")
+
+                from PiFinder.locations import Location
+                new_location = Location(
+                    name=name,
+                    latitude=lat,
+                    longitude=lon,
+                    height=altitude,
+                    error_in_m=error_in_m,
+                    source=source
+                )
+                
+                cfg = config.Config()
+                cfg.load_config()
+                cfg.locations.add_location(new_location)
+                cfg.save_locations()
+                
+                self.ui_queue.put("reload_config")
+                redirect("/locations")
+        
+            except ValueError as e:
+                return template(
+                    "locations",
+                    locations=config.Config().locations.locations,
+                    show_new_form=1,
+                    error_message=str(e)
+                )
+
+        @app.route("/locations/rename/<location_id:int>", method="post")
+        @auth_required
+        def location_rename(location_id):
+            try:
+                cfg = config.Config()
+                cfg.load_config()
+                
+                if not (0 <= location_id < len(cfg.locations.locations)):
+                    raise ValueError("Invalid location ID")
+
+                name = request.forms.get("name").strip()
+                lat = float(request.forms.get("latitude"))
+                lon = float(request.forms.get("longitude"))
+                altitude = float(request.forms.get("altitude"))
+                error_in_m = float(request.forms.get("error_in_m", "0"))
+                source = request.forms.get("source", "Manual Entry")
+                
+                # Server-side validation
+                if not name:
+                    raise ValueError("Location name is required")
+                if not (-90 <= lat <= 90):
+                    raise ValueError("Latitude must be between -90 and 90")
+                if not (-180 <= lon <= 180):
+                    raise ValueError("Longitude must be between -180 and 180")
+                if not (-1000 <= altitude <= 10000):
+                    raise ValueError("Altitude must be between -1000 and 10000 meters")
+                if not (0 <= error_in_m <= 10000):
+                    raise ValueError("Error must be between 0 and 10000 meters")
+
+                location = cfg.locations.locations[location_id]
+                location.name = name
+                location.latitude = lat
+                location.longitude = lon
+                location.height = altitude
+                location.error_in_m = error_in_m
+                location.source = source
+                
+                cfg.save_locations()
+                self.ui_queue.put("reload_config")
+                redirect("/locations")
+                
+            except ValueError as e:
+                return template(
+                    "locations",
+                    locations=config.Config().locations.locations,
+                    show_new_form=0,
+                    error_message=str(e)
+                )
+
+        @app.route("/locations/delete/<location_id:int>")
+        @auth_required
+        def location_delete(location_id):
+            cfg = config.Config()
+            cfg.load_config()
+            if 0 <= location_id < len(cfg.locations.locations):
+                location = cfg.locations.locations[location_id]
+                cfg.locations.remove_location(location)
+                cfg.save_locations()
+                # Notify main process to reload config
+                self.ui_queue.put("reload_config")
+            redirect("/locations")
+
+        @app.route("/locations/set_default/<location_id:int>")
+        @auth_required
+        def location_set_default(location_id):
+            cfg = config.Config()
+            cfg.load_config()
+            if 0 <= location_id < len(cfg.locations.locations):
+                location = cfg.locations.locations[location_id]
+                cfg.locations.set_default(location)
+                cfg.save_locations()
+                # Notify main process to reload config
+                self.ui_queue.put("reload_config")
+            redirect("/locations")
+
+        @app.route("/locations/load/<location_id:int>")
+        @auth_required
+        def location_load(location_id):
+            cfg = config.Config()
+            cfg.load_config()  # Ensure config is loaded
+            if 0 <= location_id < len(cfg.locations.locations):
+                location = cfg.locations.locations[location_id]
+                gps_lock(location.latitude, location.longitude, location.height)
+            redirect("/locations")
 
         @app.route("/network/add", method="post")
         @auth_required
@@ -598,6 +759,119 @@ class Server:
         def tools():
             return template("tools")
 
+        @app.route("/logs")
+        @auth_required
+        def logs_page():
+            # Get current log level
+            root_logger = logging.getLogger()
+            current_level = logging.getLevelName(root_logger.getEffectiveLevel())
+            return template("logs", current_level=current_level)
+
+        @app.route("/logs/stream")
+        @auth_required
+        def stream_logs():
+            try:
+                position = int(request.query.get('position', 0))
+                log_file = "/home/pifinder/PiFinder_data/pifinder.log"
+                
+                try:
+                    file_size = os.path.getsize(log_file)
+                    # If position is beyond file size or 0, start from beginning
+                    if position >= file_size or position == 0:
+                        position = 0
+                    
+                    with open(log_file, 'r') as f:
+                        if position > 0:
+                            f.seek(position)
+                        new_lines = f.readlines()
+                        new_position = f.tell()
+                    
+                    # If we're at the start of the file, get all lines
+                    # Otherwise, only return new lines if there are any
+                    if position == 0 or new_lines:
+                        return {
+                            'logs': new_lines,
+                            'position': new_position
+                        }
+                    else:
+                        return {
+                            'logs': [],
+                            'position': position
+                        }
+                except FileNotFoundError:
+                    logger.error(f"Log file not found: {log_file}")
+                    return {'logs': [], 'position': 0}
+                    
+            except Exception as e:
+                logger.error(f"Error streaming logs: {e}")
+                return {'logs': [], 'position': position}
+
+        @app.route("/logs/current_level")
+        @auth_required
+        def get_current_log_level():
+            root_logger = logging.getLogger()
+            current_level = logging.getLevelName(root_logger.getEffectiveLevel())
+            return {"level": current_level}
+
+        @app.route("/logs/components")
+        @auth_required
+        def get_component_levels():
+            try:
+                import json5
+                with open("pifinder_logconf.json", "r") as f:
+                    config = json5.load(f)
+                # Get all loggers from the config
+                loggers = config.get("loggers", {})
+                # Get current runtime levels for each logger
+                current_levels = {}
+                # Get all loggers from the config file
+                for logger_name in loggers.keys():
+                    logger = logging.getLogger(logger_name)
+                    current_levels[logger_name] = {
+                        "config_level": loggers.get(logger_name, {}).get("level", "INFO"),
+                        "current_level": logging.getLevelName(logger.getEffectiveLevel())
+                    }
+                return {"components": current_levels}
+            except Exception as e:
+                logging.error(f"Error reading log configuration: {e}")
+                return {"status": "error", "message": str(e)}
+
+        @app.route("/logs/download")
+        @auth_required
+        def download_logs():
+            import zipfile
+            import os
+            from datetime import datetime
+            
+            try:
+                # Create a temporary zip file
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                zip_path = f"/home/pifinder/PiFinder_data/logs_{timestamp}.zip"
+                
+                with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                    # Add all log files
+                    log_dir = "/home/pifinder/PiFinder_data"
+                    for filename in os.listdir(log_dir):
+                        if filename.startswith("pifinder") and filename.endswith(".log"):
+                            file_path = os.path.join(log_dir, filename)
+                            zipf.write(file_path, filename)
+                
+                # Send the zip file
+                response.set_header('Content-Type', 'application/zip')
+                response.set_header('Content-Disposition', f'attachment; filename=logs_{timestamp}.zip')
+                
+                with open(zip_path, 'rb') as f:
+                    content = f.read()
+                
+                # Clean up the temporary zip file
+                os.remove(zip_path)
+                
+                return content
+                
+            except Exception as e:
+                logger.error(f"Error creating log zip: {e}")
+                return template("logs", error_message="Error creating log archive")
+
         @app.route("/tools/backup")
         @auth_required
         def tools_backup():
@@ -698,10 +972,9 @@ class Server:
         self.keyboard_queue.put(key)
 
     def update_gps(self):
+        """Update GPS information"""
         location = self.shared_state.location()
-        logging.debug(
-            "self shared state is %s and location is %s", self.shared_state, location
-        )
+        
         if location.lock is True:
             self.gps_locked = True
             self.lat = location.lat
@@ -713,9 +986,8 @@ class Server:
             self.lon = None
             self.altitude = None
 
-
 def run_server(
     keyboard_queue, ui_queue, gps_queue, shared_state, log_queue, verbose=False
 ):
     MultiprocLogging.configurer(log_queue)
-    Server(keyboard_queue, ui_queue, gps_queue, shared_state, verbose)
+    Server(keyboard_queue, ui_queue, gps_queue, log_queue, shared_state, verbose)
