@@ -273,7 +273,6 @@ def main(
     logger.info("PiFinder running on %s, %s, %s", os_detail, platform, arch)
 
     sys_utils = utils.get_sys_utils()
-    print(sys_utils.get_version())
     sys_utils.Network.configure_accesspoint()
 
     # init UI Modes
