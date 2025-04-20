@@ -35,7 +35,7 @@ class Network:
             return wifi_f.read()
         
     @staticmethod
-    def configure_accesspoint() -> None:
+    def configure_accesspoint(restart_hostapd = True) -> None:
         """Add WPA2 encryption, if not already enabled.
 
         Tasks:
@@ -90,9 +90,15 @@ class Network:
         sh.sudo("cp", "/etc/hostapd/hostapd.conf", "/etc/hostapd/hostapd.conf.bck")
         sh.sudo("cp", "/tmp/hostapd.conf", "/etc/hostapd/hostapd.conf")
         # If we are enabling encryption or changed SSID, restart hostapd, if in AP mode
-        if (not (passphrase_detected and encryption_needed) or ssid_changed) and Network.get_wifi_mode() == "AP":
-                logger.warning("Network: Restarting hostapd")
-                sh.sudo("systemctl", "restart", "hostapd")
+        if (not (passphrase_detected and encryption_needed) or ssid_changed) and restart_hostapd:
+            Network.force_restart_hostapd() 
+
+    @staticmethod
+    def force_restart_hostapd() -> None:
+        if Network.get_wifi_mode() == "AP":
+            logger.warning("Network: Restarting hostapd")
+            sh.sudo("systemctl", "restart", "hostapd")
+
 
     def populate_wifi_networks(self) -> None:
         wpa_supplicant_path = "/etc/wpa_supplicant/wpa_supplicant.conf"
@@ -238,7 +244,8 @@ class Network:
         If the password is the same as the current password, nothing is done.
 
         If the password is NO_PASSWORD_DEFINED we consider the Access Point as open and enable encryption as a result of calling this method.
-        It is the responsiblity of the caller to ensure that this method is only called when the AP needs to be encrypted.
+        It is the responsiblity of the caller to ensure that this method is only called when the AP needs to be encrypted or already is encrypted
+        The method also trusts the caller to do a restart! I.e. hostapd is not restarted, when using this method.
 
         This method throws an ValueError of the password is < 8 or > 63 characters long.
         """
@@ -256,7 +263,7 @@ class Network:
         if current_pwd == NO_PASSWORD_DEFINED:
             ap_name = self.get_ap_name()
             self.set_ap_name(ap_name + "ENCRYPTME") 
-            Network.configure_accesspoint()
+            Network.configure_accesspoint(False) # Do not force restart of hostapd,
             self.set_ap_name(ap_name)
 
         # Change password
