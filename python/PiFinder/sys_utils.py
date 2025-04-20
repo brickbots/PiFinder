@@ -14,7 +14,7 @@ import logging
 BACKUP_PATH = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
 NO_PASSWORD_DEFINED = "<no password defined>"
 
-logger = logging.getLogger()
+logger = logging.getLogger("SysUtils")
 
 
 class Network:
