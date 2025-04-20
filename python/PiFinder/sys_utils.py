@@ -68,9 +68,9 @@ class Network:
                         line = f"ssid=PiFinder-{ap_rnd}\n"
                         ssid_changed = True
                         logger.warning(f"SYS-Network: Changing SSID to 'PiFinder-{ap_rnd}'")
-                    elif line.startswith("ssid=") and "ENCRYPTME" in line:
+                    if line.startswith("ssid=") and "ENCRYPTME" in line:
                         encryption_needed = True
-                    elif line.startswith("wpa_passphrase="):
+                    if line.startswith("wpa_passphrase="):
                         passphrase_detected = True
                     new_conf.write(line)
                 # consumed all lines, so:
