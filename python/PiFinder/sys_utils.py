@@ -50,7 +50,7 @@ class Network:
         with open("/etc/hostapd/hostapd.conf", "r") as conf:
             for line in conf:
                 if line.startswith("ssid="):
-                    if ("ENCRYPTME" in line or "CHANGEME" in line)):
+                    if ("ENCRYPTME" in line or "CHANGEME" in line):
                         action_needed = True
         if not action_needed:
             return 
