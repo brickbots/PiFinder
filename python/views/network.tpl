@@ -30,7 +30,16 @@
                 <label for="ap_name">Acess Point WiFi Name</label>
             </div>
         </div>
-        % if not net.is_ap_open(): 
+        % if net.is_ap_open(): 
+        <div class="row">
+            <div class="input-field col s12">
+                <label>
+                    <input type="checkbox" id="ap_encrypt" name="ap_encrypt" value="1">
+                    <span class="red-text">Encrypt Access Point - Check & Enter a valid password below (Ignore this to leave AP open)</span>
+                </label>
+            </div>
+        </div>
+        %end
         <div class="row">
             <div class="input-field col s12">
                 <input value="{{net.get_ap_pwd()}}" id="ap_passwd" type="password" name="ap_passwd">
@@ -38,7 +47,6 @@
                 <p class="red-text">{{err_pwd}}</p>
             </div>
         </div>
-        %end
         <div class="row">
             <div class="input-field col s12">
                 <input value="{{net.get_ap_wifi_country()}}" id="wifi_country" type="text" name="wifi_country">

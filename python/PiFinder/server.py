@@ -413,18 +413,26 @@ class Server:
         def network_update():
             wifi_mode = request.forms.get("wifi_mode")
             ap_name = request.forms.get("ap_name")
+            ap_passwd = request.forms.get("ap_passwd")
             wifi_country = request.forms.get("wifi_country")
             host_name = request.forms.get("host_name")
 
             error_triggered = False
             err_pwd = ""
-            if not self.network.is_ap_open():
-                ap_passwd = request.forms.get("ap_passwd")
-                if len(ap_passwd) < 8:
-                    err_pwd = "Password must be at least 8 characters"
-                    error_triggered = True
-                else:
+            if self.network.is_ap_open():
+                ap_encrypt = request.forms.get("ap_encrypt")
+                if ap_encrypt == "1":
+                    try: 
+                        self.network.set_ap_pwd(ap_passwd)
+                    except Exception as e:
+                        err_pwd = "Invalid password: " + e.args[0]
+                        error_triggered = True
+            else:
+                try:
                     self.network.set_ap_pwd(ap_passwd)
+                except Exception as e:
+                    err_pwd = "Invalid password: " + e.args[0]
+                    error_triggered = True
 
             err_country=""
             if wifi_country not in self.network.COUNTRY_CODES:
