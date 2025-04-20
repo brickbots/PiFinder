@@ -1,13 +1,16 @@
+from PiFinder.ui.timeentry import UITimeEntry
 from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.status import UIStatus
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.software import UISoftware
+from PiFinder.ui.gpsstatus import UIGPSStatus
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.equipment import UIEquipment
+from PiFinder.ui.location_list import UILocationList
 import PiFinder.ui.callbacks as callbacks
 
 pifinder_menu = {
@@ -17,14 +20,25 @@ pifinder_menu = {
     "start_index": 2,
     "items": [
         {
-            "name": "Camera",
-            "class": UIPreview,
-        },
-        {
-            "name": "Align",
-            "class": UIAlign,
-            "stateful": True,
-            "preload": True,
+            "name": "Start",
+            "class": UITextMenu,
+            "select": "single",
+            "items": [
+                {
+                    "name": "Focus",
+                    "class": UIPreview,
+                },
+                {
+                    "name": "Align",
+                    "class": UIAlign,
+                    "stateful": True,
+                    "preload": True,
+                },
+                {
+                    "name": "GPS Status",
+                    "class": UIGPSStatus,
+                },
+            ],
         },
         {
             "name": "Chart",
@@ -52,12 +66,6 @@ pifinder_menu = {
                             "class": UIObjectList,
                             "objects": "catalog",
                             "value": "PL",
-                        },
-                        {
-                            "name": "Comets",
-                            "class": UIObjectList,
-                            "objects": "catalog",
-                            "value": "CM",
                         },
                         {
                             "name": "NGC",
@@ -874,6 +882,24 @@ pifinder_menu = {
                         },
                     ],
                 },
+                {
+                    "name": "GPS Type",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "gps_type",
+                    "label": "gps_type",
+                    "post_callback": callbacks.restart_pifinder,
+                    "items": [
+                        {
+                            "name": "UBlox",
+                            "value": "ublox",
+                        },
+                        {
+                            "name": "GPSD (generic)",
+                            "value": "gpsd",
+                        },
+                    ],
+                },
             ],
         },
         {
@@ -883,6 +909,27 @@ pifinder_menu = {
             "items": [
                 {"name": "Status", "class": UIStatus},
                 {"name": "Equipment", "class": UIEquipment, "label": "equipment"},
+                {
+                    "name": "Place & Time",
+                    "class": UITextMenu,
+                    "select": "single",
+                    "items": [
+                        {
+                            "name": "GPS Status",
+                            "class": UIGPSStatus,
+                        },
+                        {
+                            "name": "Set Location",
+                            "class": UILocationList,
+                        },
+                        {
+                            "name": "Set Time",
+                            "class": UITimeEntry,
+                            "custom_callback": callbacks.set_time,
+                        },
+                        {"name": "Reset", "callback": callbacks.gps_reset},
+                    ],
+                },
                 {"name": "Console", "class": UIConsole},
                 {"name": "Software Upd", "class": UISoftware},
                 {"name": "Test Mode", "callback": callbacks.activate_debug},

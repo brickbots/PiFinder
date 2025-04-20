@@ -15,6 +15,8 @@ import time
 import logging
 import sys
 from time import perf_counter as precision_timestamp
+import os
+import threading
 
 from PiFinder import state_utils
 from PiFinder import utils
@@ -71,6 +73,7 @@ def solver(
     }
 
     centroids = []
+    log_no_stars_found = True
 
     while True:
         logger.info("Starting Solver Loop")
@@ -98,6 +101,7 @@ def solver(
                 while command:
                     try:
                         command = align_command_queue.get(block=False)
+                        print(f"the command is {command}")
                     except queue.Empty:
                         command = False
 
@@ -118,7 +122,10 @@ def solver(
                 # use the time the exposure started here to
                 # reject images started before the last solve
                 # which might be from the IMU
-                last_image_metadata = shared_state.last_image_metadata()
+                try:
+                    last_image_metadata = shared_state.last_image_metadata()
+                except (BrokenPipeError, ConnectionResetError) as e:
+                    logger.error(f"Lost connection to shared state manager: {e}")
                 if (
                     last_image_metadata["exposure_end"] > (last_solve_time)
                     and last_image_metadata["imu_delta"] < 1
@@ -142,9 +149,12 @@ def solver(
                     )
 
                     if len(centroids) == 0:
-                        logger.warning("No stars found, skipping")
+                        if log_no_stars_found:
+                            logger.info("No stars found, skipping (Logged only once)")
+                            log_no_stars_found = False
                         continue
                     else:
+                        log_no_stars_found = True
                         _solver_args = {}
                         if align_ra != 0 and align_dec != 0:
                             _solver_args["target_sky_coord"] = [[align_ra, align_dec]]
@@ -216,8 +226,20 @@ def solver(
                                 solved["y_target"] = None
 
                     last_solve_time = last_image_metadata["exposure_end"]
-        except EOFError:
-            logger.error("Main no longer running for solver")
+        except EOFError as eof:
+            logger.error(f"Main process no longer running for solver: {eof}")
+            logger.exception(eof)  # This logs the full stack trace
+            # Optionally log additional context
+            logger.error(f"Current solver state: {solved}")  # If you have state info
         except Exception as e:
-            logger.error("Exception in Solver")
-            logger.exception(e)
+            logger.error(f"Exception in Solver: {e.__class__.__name__}: {str(e)}")
+            logger.exception(e)  # Logs the full stack trace
+            # Log additional context that might be helpful
+            logger.error(f"Current process ID: {os.getpid()}")
+            logger.error(f"Current thread: {threading.current_thread().name}")
+            try:
+                logger.error(
+                    f"Active threads: {[t.name for t in threading.enumerate()]}"
+                )
+            except Exception as e:
+                pass  # Don't let diagnostic logging fail

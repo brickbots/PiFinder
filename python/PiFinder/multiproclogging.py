@@ -121,8 +121,10 @@ class MultiprocLogging:
         for hdlr in hdlrs:
             rLogger.removeHandler(hdlr)
 
-        # configure logging to store everything in output
-        h = logging.handlers.WatchedFileHandler(output)
+        # Set maxBytes to 50MB (50 * 1024 * 1024 bytes) and keep 5 backup files
+        h = logging.handlers.RotatingFileHandler(
+            output, maxBytes=50*1024*1024, backupCount=5, encoding='utf-8'
+        )
         f = logging.Formatter(self._formatter)
         h.setFormatter(f)
         rLogger.addHandler(h)

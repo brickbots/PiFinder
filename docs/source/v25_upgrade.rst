@@ -139,8 +139,9 @@ To use the new camera, you'll need to update to the latest PiFinder software.  C
 for details on different ways to update your software.  If you PiFinder is very old, you 
 may need to write a new SD card.
 
-Once you have the new software running, you'll need to switch camera types to the new imx296 sensor used
-in the v3.  From the main PiFinder menu:
+Once you have the new software running, you'll need to switch camera types to one of the
+sensors used in the v3.  PiFinder upgrade kits currently shipping will include the Sony
+StarSense imx462 sensor. From the main PiFinder menu:
 
 * Scroll down and choose Settings
 
@@ -150,7 +151,7 @@ in the v3.  From the main PiFinder menu:
 
 .. image:: images/v25_upgrade/v25_upgrade_42.png
 
-* Finally, choose v3 - imx296
+* Finally, choose either v3 - imx462 or v3 - imx296
 
 .. image:: images/v25_upgrade/v25_upgrade_44.png
 

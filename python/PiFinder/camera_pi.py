@@ -31,10 +31,12 @@ class CameraPI(CameraInterface):
         self.camera_type = "hq"
         self.gain = 20
         self.exposure_time = exposure_time
+        self.bit_depth = 12
         if "imx296" in self.camera.camera.id:
             self.camera_type = "imx296"
             # maximum analog gain for this sensor
             self.gain = 15
+            self.bit_depth = 10
 
         if "imx290" in self.camera.camera.id:
             self.camera_type = "imx462"
@@ -45,7 +47,7 @@ class CameraPI(CameraInterface):
 
     def initialize(self) -> None:
         """Initializes the camera and set the needed control parameters"""
-        self.camera.stop()
+        self.stop_camera()
         if self.camera_type == "imx296":
             # The auto selected 728x544 sensor mode returns black frames if the
             # exposure is too high.  So we need to force a specific sensor
@@ -73,7 +75,15 @@ class CameraPI(CameraInterface):
         self.camera.set_controls({"AeEnable": False})
         self.camera.set_controls({"AnalogueGain": self.gain})
         self.camera.set_controls({"ExposureTime": self.exposure_time})
+        self.start_camera()
+
+    def start_camera(self) -> None:
         self.camera.start()
+        self._camera_started = True
+
+    def stop_camera(self) -> None:
+        self.camera.stop()
+        self._camera_started = False
 
     def capture(self) -> Image.Image:
         """
@@ -99,7 +109,8 @@ class CameraPI(CameraInterface):
             raw_capture = raw_capture.copy().view(np.uint16)[:, 256:-256]
 
         raw_capture = raw_capture.astype(np.float32)
-        max_pixel = np.max(raw_capture)
+        #max_pixel = np.max(raw_capture)
+        max_pixel = pow(2,self.bit_depth) - 1
 
         # if the whitepoint is already below 255, just cast it
         # as we don't want to create fake in-between values
@@ -118,10 +129,10 @@ class CameraPI(CameraInterface):
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
-        self.camera.stop()
+        self.stop_camera()
         self.camera.set_controls({"AnalogueGain": gain})
         self.camera.set_controls({"ExposureTime": exposure_time})
-        self.camera.start()
+        self.start_camera()
         return exposure_time, gain
 
     def get_cam_type(self) -> str:
