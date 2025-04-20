@@ -51,6 +51,7 @@ class Network:
         with open("/etc/hostapd/hostapd.conf", "r") as conf:
             for line in conf:
                 if not (line.startswith("ssid=") and ("ENCRYPTME" in line or "CHANGEME" in line)):
+                    logger.debug("SYS-Network: No action needed in configure_accesspoint.")
                     return
 
         logger.info("SYSUTILS: Configuring WIFI Access Point definition.")
