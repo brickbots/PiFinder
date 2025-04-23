@@ -113,8 +113,8 @@ async def handle_command(
 async def send_event_updates(writer: asyncio.StreamWriter, observer: Observer):
     global server_state
     while True:
-        if observer.group 1= None:
-        while observer.group
+        if observer.group != None:
+            while observer.group.
 
             writer.write("pos|20|20\n".encode())
             try:
