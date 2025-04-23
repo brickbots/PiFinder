@@ -36,7 +36,10 @@ class UIChart(UIModule):
         # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(),
-            down=MarkingMenuOption(),
+            down=MarkingMenuOption(
+                label="Settings",
+                menu_jump="chart_settings",
+            ),
             right=MarkingMenuOption(),
         )
 
