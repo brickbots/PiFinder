@@ -5,14 +5,47 @@ Dataclasses to support the StarParty Server
 """
 
 from dataclasses import dataclass, field
+from time import time
 from typing import Union
+from collections import deque
 
+@dataclass
+class GroupEvent:
+    """
+    Events that go belong to a specific group for dumping to all
+    connections for that group
+    """
+    event_time: float
+    event_type: str
+    event_data: str
 
 @dataclass
 class Group:
     name: str
     marks: list["Mark"] = field(default_factory=list)
     observers: list["Observer"] = field(default_factory=list)
+    events: deque[GroupEvent] = deque(maxlen=20)
+
+    def add_event(self, event_type: str, event_data:str) -> None:
+        self.events.append(GroupEvent(time(), event_type, event_data))
+
+    def get_next_event(self, event_time: float) -> Union[GroupEvent, None]:
+        """
+        Returns the next oldest event after event_time
+        or None if no event is older than the requested
+        time
+        """
+        if self.events[-1] <= event_time:
+            # Early bail out
+            return None
+
+        for group_event in self.events:
+            if group_event.event_time > event_time:
+                return group_event
+
+        # Should never get here....
+        return None
+
 
 
 @dataclass

@@ -110,10 +110,12 @@ async def handle_command(
                 await writeline(writer, "err")
 
 
-async def send_pos_updates(writer: asyncio.StreamWriter, observer: Observer):
+async def send_event_updates(writer: asyncio.StreamWriter, observer: Observer):
     global server_state
     while True:
-        if random() > 1:
+        if observer.group 1= None:
+        while observer.group
+
             writer.write("pos|20|20\n".encode())
             try:
                 await writer.drain()
