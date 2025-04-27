@@ -4,8 +4,13 @@ PiFinder™ User Manual
 ======================
 
 .. note::
-   This documentation is a work in progress for v3 and v2.5 PiFinders running software 2.0.0 or above.
-   If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
+   This documentation is for v3 and v2.5 PiFinders running software 2.2.0 or above.
+   You can see what version of software is running by lookin in the upper right of
+   the welcome screen. 
+
+   If you need docs for a previous version please choose `1.x.x <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
+   , `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_
+   or `2.1.x <https://pifinder.readthedocs.io/en/v2.1.1/index.html>`_
 
 Thanks for your interest in the PiFinder!  This guide describes how to use a PiFinder but if you want information on building one, please see the :doc:`Build Guide <build_guide>` and the :doc:`Bill of Materials <BOM>`.
 
