@@ -486,7 +486,7 @@ def main(
                 try:
                     gps_msg, gps_content = gps_queue.get(block=False)
                     if gps_msg == "fix":
-                        logger.debug("GPS fix msg: %s", gps_content)
+                        # logger.debug("GPS fix msg: %s", gps_content)
                         if gps_content["lat"] + gps_content["lon"] != 0:
                             location = shared_state.location()
 
@@ -525,7 +525,7 @@ def main(
                                     location.altitude,
                                 )
                     if gps_msg == "time":
-                        logger.info("GPS time msg: %s", gps_content)
+                        # logger.debug("GPS time msg: %s", gps_content)
                         if isinstance(gps_content, datetime.datetime):
                             gps_dt = gps_content
                         else:
