@@ -163,7 +163,7 @@ def solver(
                             centroids,
                             (512, 512),
                             fov_estimate=12.0,
-                            fov_max_error=4.0,
+                            fov_max_error=6.0,
                             match_max_error=0.005,
                             # return_matches=True,
                             target_pixel=shared_state.solve_pixel(),
