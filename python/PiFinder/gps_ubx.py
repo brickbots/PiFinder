@@ -92,7 +92,7 @@ async def process_messages(
                     )
                 )
             else:
-                logger.warning(f"TIMEGPS message does not qualify: {msg}")
+                logger.debug(f"TIMEGPS message does not qualify: {msg}")
 
         elif msg_class == "NAV-PVT":
             if all(k in msg for k in ["lat", "lon", "altHAE", "hAcc", "vAcc"]):

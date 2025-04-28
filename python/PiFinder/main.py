@@ -486,7 +486,6 @@ def main(
                 try:
                     gps_msg, gps_content = gps_queue.get(block=False)
                     if gps_msg == "fix":
-                        # logger.debug("GPS fix msg: %s", gps_content)
                         if gps_content["lat"] + gps_content["lon"] != 0:
                             location = shared_state.location()
 
@@ -525,7 +524,6 @@ def main(
                                     location.altitude,
                                 )
                     if gps_msg == "time":
-                        # logger.debug("GPS time msg: %s", gps_content)
                         if isinstance(gps_content, datetime.datetime):
                             gps_dt = gps_content
                         else:
@@ -766,38 +764,12 @@ def main(
             exit()
 
 
-def rotate_logs() -> Path:
-    """
-    Rotates log files, returns the log file to use
-    """
-    log_index = list(range(5))
-    log_index.reverse()
-    for i in log_index:
-        try:
-            shutil.copyfile(
-                utils.data_dir / f"pifinder.{i}.log",
-                utils.data_dir / f"pifinder.{i+1}.log",
-            )
-        except FileNotFoundError:
-            pass
-
-    try:
-        shutil.move(
-            utils.data_dir / "pifinder.log",
-            utils.data_dir / "pifinder.0.log",
-        )
-    except FileNotFoundError:
-        pass
-
-    return utils.data_dir / "pifinder.log"
-
-
 if __name__ == "__main__":
     print("Bootstrap logging configuration ...")
     logging.basicConfig(format="%(asctime)s BASIC %(name)s: %(levelname)s %(message)s")
     rlogger = logging.getLogger()
     rlogger.setLevel(logging.INFO)
-    log_path = rotate_logs()
+    log_path = utils.data_dir / "pifinder.log"
     try:
         log_helper = MultiprocLogging(
             Path("pifinder_logconf.json"),

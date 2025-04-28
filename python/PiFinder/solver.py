@@ -73,6 +73,7 @@ def solver(
     }
 
     centroids = []
+    log_no_stars_found = True
 
     while True:
         logger.info("Starting Solver Loop")
@@ -148,9 +149,12 @@ def solver(
                     )
 
                     if len(centroids) == 0:
-                        logger.warning("No stars found, skipping")
+                        if log_no_stars_found:
+                            logger.info("No stars found, skipping (Logged only once)")
+                            log_no_stars_found = False
                         continue
                     else:
+                        log_no_stars_found = True
                         _solver_args = {}
                         if align_ra != 0 and align_dec != 0:
                             _solver_args["target_sky_coord"] = [[align_ra, align_dec]]
