@@ -160,8 +160,10 @@ class UBXParser:
                     raise
 
     @classmethod
-    def from_file(cls, file_path: str):
-        return cls(log_queue=None, file_path=file_path)
+    async def from_file(cls, file_path: str):
+        """Create a UBXParser instance from a file."""
+        f = await aiofiles.open(file_path, "rb")
+        return cls(log_queue=None, reader=f, file_path=file_path)
 
     async def close(self):
         """Clean up resources and close the connection."""
@@ -184,63 +186,53 @@ class UBXParser:
         self.reader = None
         self.buffer.clear()  # Clear any remaining data
 
-    async def parse_from_file(self):
-        async with aiofiles.open(self.file_path, "rb") as f:
-            self.reader = f
-            async for msg in self.parse_messages():
-                yield msg
-
     async def parse_messages(self):
         """Parse messages from the GPS device."""
         while self._running:
-            if self.file_path:
-                async for msg in self.parse_from_file():
-                    yield msg
-            else:
-                try:
-                    if not self.reader:
-                        logger.error("Reader not available")
-                        break
-                    
-                    data = await self.reader.read(1024)
-                    if not data:
-                        logger.warning("Connection closed by server")
-                        break
+            try:
+                if not self.reader:
+                    logger.error("Reader not available")
+                    break
+                
+                data = await self.reader.read(1024)
+                if not data:
+                    logger.warning("Read failed. Connection closed by server")
+                    break
 
-                    self.buffer.extend(data)
-                    while len(self.buffer) >= 6:  # Minimum UBX header size
-                        start = self.buffer.find(b"\xb5\x62")  # UBX sync chars
-                        if start == -1:
-                            logger.debug("No UBX header found, clearing buffer")
-                            self.buffer.clear()
-                            break
-                        if start > 0:
-                            self.buffer = self.buffer[start:]
-                        length = int.from_bytes(self.buffer[4:6], "little")
-                        total_length = 8 + length  # Header (6) + checksum (2) + payload
-                        if len(self.buffer) < total_length:
-                            break
-                        msg_data = self.buffer[:total_length]
-                        ck_a = ck_b = 0
-                        for b in msg_data[2:-2]:  # Skip sync and checksum
-                            ck_a = (ck_a + b) & 0xFF
-                            ck_b = (ck_b + ck_a) & 0xFF
-                        if msg_data[-2] == ck_a and msg_data[-1] == ck_b:
-                            parsed = self._parse_ubx(bytes(msg_data))
-                            if "class" in parsed:
-                                logger.debug(f"Parsed UBX message: {parsed}")
-                                yield parsed
-                        else:
-                            logger.warning(
-                                f"Checksum mismatch: expected {ck_a:02x}{ck_b:02x}, got {msg_data[-2]:02x}{msg_data[-1]:02x}"
-                            )
-                        self.buffer = self.buffer[total_length:]
-                except (ConnectionResetError, BrokenPipeError) as e:
-                    logger.error(f"Connection error: {e}")
-                    break
-                except Exception as e:
-                    logger.error(f"Error reading data: {e}")
-                    break
+                self.buffer.extend(data)
+                while len(self.buffer) >= 6:  # Minimum UBX header size
+                    start = self.buffer.find(b"\xb5\x62")  # UBX sync chars
+                    if start == -1:
+                        logger.debug("No UBX header found, clearing buffer")
+                        self.buffer.clear()
+                        break
+                    if start > 0:
+                        self.buffer = self.buffer[start:]
+                    length = int.from_bytes(self.buffer[4:6], "little")
+                    total_length = 8 + length  # Header (6) + checksum (2) + payload
+                    if len(self.buffer) < total_length:
+                        break
+                    msg_data = self.buffer[:total_length]
+                    ck_a = ck_b = 0
+                    for b in msg_data[2:-2]:  # Skip sync and checksum
+                        ck_a = (ck_a + b) & 0xFF
+                        ck_b = (ck_b + ck_a) & 0xFF
+                    if msg_data[-2] == ck_a and msg_data[-1] == ck_b:
+                        parsed = self._parse_ubx(bytes(msg_data))
+                        if "class" in parsed:
+                            logger.debug(f"Parsed UBX message: {parsed}")
+                            yield parsed
+                    else:
+                        logger.warning(
+                            f"Checksum mismatch: expected {ck_a:02x}{ck_b:02x}, got {msg_data[-2]:02x}{msg_data[-1]:02x}"
+                        )
+                    self.buffer = self.buffer[total_length:]
+            except (ConnectionResetError, BrokenPipeError) as e:
+                logger.exception("Connection error")
+                break
+            except Exception as e:
+                logger.exception("Error reading data.")
+                break
 
             await asyncio.sleep(0.1)  # Prevent tight loop
         

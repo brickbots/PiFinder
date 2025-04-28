@@ -116,7 +116,7 @@ async def process_messages(
                 )
                 logger.debug("GPS fix: %s", msg)
 
-        await asyncio.sleep(0)
+        await asyncio.sleep(wait)
 
 
 async def gps_main(gps_queue, console_queue, log_queue, inject_parser=None):
