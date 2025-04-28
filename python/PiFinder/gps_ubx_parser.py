@@ -517,9 +517,13 @@ if __name__ == "__main__":
             try:
                 async for msg in parser.parse_messages():
                     print(msg)
-                    msg_type = msg.get("class", "")
-                    if msg_type != "":
-                        msg_types[msg_type] = msg_types.get(msg_type, 0) + 1
+                    if "error" in msg:
+                        error_msg = msg.get("error")
+                        msg_types[error_msg] = msg_types.get(error_msg, 0) + 1
+                    else:
+                        msg_type = msg.get("class", "")
+                        if msg_type != "":
+                            msg_types[msg_type] = msg_types.get(msg_type, 0) + 1
             finally:
                 await parser.close()
 
