@@ -316,7 +316,7 @@ class UBXParser:
             cno = data[offset + 2]
             elev = data[offset + 3]
             azim = int.from_bytes(data[offset + 4 : offset + 6], "little")
-            flags = data[offset + 11]
+            flags = data[offset + 8] # Warning this is a 4 byte field of flags, we're only using the first byte
             satellites.append(
                 {
                     "id": svId,
@@ -324,7 +324,8 @@ class UBXParser:
                     "signal": cno,
                     "elevation": elev,
                     "azimuth": azim,
-                    "used": bool(flags & 0x08),
+                    "used": (flags & 0x07) > 3, # lowest 3 bits are used for the status
+                    "flags": flags & 0x07,
                 }
             )
         result = {
