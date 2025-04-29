@@ -317,6 +317,9 @@ class UBXParser:
             elev = data[offset + 3]
             azim = int.from_bytes(data[offset + 4 : offset + 6], "little")
             flags = data[offset + 8] # Warning this is a 4 byte field of flags, we're only using the first byte
+            # lowest 3 bits are a quality indicator and according to
+            # https://portal.u-blox.com/s/question/0D52p000097B0bFCAS/interpretation-of-signal-quality-indicator-in-ubxnavsat 
+            # the 0-7 values from an ordered scale. So taking 3 as the threshold below.q
             satellites.append(
                 {
                     "id": svId,
