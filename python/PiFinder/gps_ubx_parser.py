@@ -531,17 +531,25 @@ if __name__ == "__main__":
 
     async def test(f_path: str = ""):
         if f_path:
-            parser = UBXParser.from_file(file_path=f_path)
-            async for msg in parser.parse_from_file():
-                print(msg)
-                msg_type = msg.get("class", "")
-                if msg_type != "":
-                    msg_types[msg_type] = msg_types.get(msg_type, 0) + 1
+            parser = await UBXParser.from_file(file_path=f_path)
+            i = 0
+            try:
+                async for msg in parser.parse_messages():
+                    print(msg)
+                    msg_type = msg.get("class", "")
+                    if msg_type != "":
+                        msg_types[msg_type] = msg_types.get(msg_type, 0) + 1
+                    i += 1
+                    if i % 1000 == 0: 
+                        print(".", end="", flush=True)
+            finally:
+                await parser.close()
+                print(f"\nTotal messages processed: {i}")
         else:
             parser = await UBXParser.connect(log_queue=None)
             try:
                 async for msg in parser.parse_messages():
-                    print(msg)
+                    # print(msg)
                     if "error" in msg:
                         error_msg = msg.get("error")
                         msg_types[error_msg] = msg_types.get(error_msg, 0) + 1
