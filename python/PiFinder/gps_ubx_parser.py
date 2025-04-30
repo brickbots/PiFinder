@@ -227,10 +227,10 @@ class UBXParser:
                             f"Checksum mismatch: expected {ck_a:02x}{ck_b:02x}, got {msg_data[-2]:02x}{msg_data[-1]:02x}"
                         )
                     self.buffer = self.buffer[total_length:]
-            except (ConnectionResetError, BrokenPipeError) as e:
+            except (ConnectionResetError, BrokenPipeError):
                 logger.exception("Connection error")
                 break
-            except Exception as e:
+            except Exception:
                 logger.exception("Error reading data.")
                 break
 

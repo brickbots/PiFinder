@@ -122,5 +122,6 @@ def gps_monitor(gps_queue, console_queue, log_queue, file_name="test.ubx"):
                 i = 0
                 logger.debug("GPS fake: %s", fix)
                 logger.debug("GPD fake: %s", tm)
-    except:
+    except BaseException:
         logger.exception("GPS.fake: gps_monitor() aborted.")
+        time.sleep(1) # Give time for log to be written
