@@ -53,9 +53,18 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             "RA": None,
             "Dec": None,
             "Roll": None,
-            "RA_camera": None,
-            "Dec_camera": None,
-            "Roll_camera": None,
+            "camera_center": {
+                "RA": None,
+                "Dec": None,
+                "Roll": None,
+                "Alt": None,
+                "Az": None,
+            },
+            "camera_solve": {
+                "RA": None,
+                "Dec": None,
+                "Roll": None,
+            },
             "Roll_offset": 0,  # May/may not be needed - for experimentation
             "imu_pos": None,
             "Alt": None,
@@ -103,9 +112,9 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 if location and dt:
                     # We have position and time/date!
                     calc_utils.sf_utils.set_location(
-                        location["lat"],
-                        location["lon"],
-                        location["altitude"],
+                        location.lat,
+                        location.lon,
+                        location.altitude,
                     )
                     alt, az = calc_utils.sf_utils.radec_to_altaz(
                         solved["RA"],
@@ -114,6 +123,14 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     )
                     solved["Alt"] = alt
                     solved["Az"] = az
+
+                    alt, az = calc_utils.sf_utils.radec_to_altaz(
+                        solved["camera_center"]["RA"],
+                        solved["camera_center"]["Dec"],
+                        dt,
+                    )
+                    solved["camera_center"]["Alt"] = alt
+                    solved["camera_center"]["Az"] = az
 
                     # Experimental: For monitoring roll offset
                     # Estimate the roll offset due misalignment of the
@@ -129,7 +146,19 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     # as seen by the camera.
                     solved["Roll"] = roll_target_calculated + solved["Roll_offset"]
 
-                last_image_solve = copy.copy(solved)
+                    # calculate roll for camera center
+                    roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
+                        solved["camera_center"]["RA"],
+                        solved["camera_center"]["Dec"],
+                        dt,
+                    )
+                    # Compensate for the roll offset. This gives the roll at the target
+                    # as seen by the camera.
+                    solved["camera_center"]["Roll"] = (
+                        roll_target_calculated + solved["Roll_offset"]
+                    )
+
+                last_image_solve = copy.deepcopy(solved)
                 solved["solve_source"] = "CAM"
 
             # Use IMU dead-reckoning from the last camera solve:
@@ -150,14 +179,17 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                                 alt_offset = ((alt_offset + 180) % 360 - 180) * -1
                             else:
                                 alt_offset = (alt_offset + 180) % 360 - 180
-                            alt_upd = (last_image_solve["Alt"] - alt_offset) % 360
+                            solved["Alt"] = (last_image_solve["Alt"] - alt_offset) % 360
+                            solved["camera_center"]["Alt"] = (
+                                last_image_solve["camera_center"]["Alt"] - alt_offset
+                            ) % 360
 
                             az_offset = imu_pos[IMU_AZ] - lis_imu[IMU_AZ]
                             az_offset = (az_offset + 180) % 360 - 180
-                            az_upd = (last_image_solve["Az"] + az_offset) % 360
-
-                            solved["Alt"] = alt_upd
-                            solved["Az"] = az_upd
+                            solved["Az"] = (last_image_solve["Az"] + az_offset) % 360
+                            solved["camera_center"]["Az"] = (
+                                last_image_solve["camera_center"]["Az"] + az_offset
+                            ) % 360
 
                             # N.B. Assumes that location hasn't changed since last solve
                             # Turn this into RA/DEC
@@ -167,11 +199,29 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                             ) = calc_utils.sf_utils.altaz_to_radec(
                                 solved["Alt"], solved["Az"], dt
                             )
-
                             # Calculate the roll at the target RA/Dec and compensate for the offset.
                             solved["Roll"] = (
                                 calc_utils.sf_utils.radec_to_roll(
                                     solved["RA"], solved["Dec"], dt
+                                )
+                                + solved["Roll_offset"]
+                            )
+
+                            # Now for camera centered solve
+                            (
+                                solved["camera_center"]["RA"],
+                                solved["camera_center"]["Dec"],
+                            ) = calc_utils.sf_utils.altaz_to_radec(
+                                solved["camera_center"]["Alt"],
+                                solved["camera_center"]["Az"],
+                                dt,
+                            )
+                            # Calculate the roll at the target RA/Dec and compensate for the offset.
+                            solved["camera_center"]["Roll"] = (
+                                calc_utils.sf_utils.radec_to_roll(
+                                    solved["camera_center"]["RA"],
+                                    solved["camera_center"]["Dec"],
+                                    dt,
                                 )
                                 + solved["Roll_offset"]
                             )
@@ -205,8 +255,8 @@ def estimate_roll_offset(solved, dt):
     # Calculate the expected roll at the camera center given the RA/Dec of
     # of the camera center.
     roll_camera_calculated = calc_utils.sf_utils.radec_to_roll(
-        solved["RA_camera"], solved["Dec_camera"], dt
+        solved["camera_center"]["RA"], solved["camera_center"]["Dec"], dt
     )
-    roll_offset = solved["Roll_camera"] - roll_camera_calculated
+    roll_offset = solved["camera_center"]["Roll"] - roll_camera_calculated
 
     return roll_offset

@@ -36,7 +36,10 @@ class UIChart(UIModule):
         # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(),
-            down=MarkingMenuOption(),
+            down=MarkingMenuOption(
+                label="Settings",
+                menu_jump="chart_settings",
+            ),
             right=MarkingMenuOption(),
         )
 
@@ -195,25 +198,32 @@ class UIChart(UIModule):
 
                 self.last_update = last_solve_time
 
+                self.draw_reticle()
+
         else:
             self.draw.rectangle(
                 [0, 0, self.display_class.resX, self.display_class.resY],
                 fill=self.colors.get(0),
             )
             self.draw.text(
-                (self.display_class.titlebar_height + 2, 20),
-                _("Can't plot"),
+                (16, self.display_class.titlebar_height + 10),
+                "Can't plot",
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
-                (self.display_class.titlebar_height + 2 + self.fonts.large.height, 50),
-                _("No Solve Yet"),
+                (
+                    26,
+                    self.display_class.titlebar_height
+                    + 10
+                    + self.fonts.large.height
+                    + 4,
+                ),
+                "No Solve Yet",
                 font=self.fonts.base.font,
                 fill=self.colors.get(255),
             )
 
-        self.draw_reticle()
         return self.screen_update()
 
     def change_fov(self, direction):

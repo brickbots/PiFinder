@@ -38,9 +38,14 @@ class UIModule:
     _UP_ARROW = ""
     _DOWN_ARROW = ""
     _CHECKMARK = ""
+    _SQUARE_ = "󰝤"
+    _ARROWS_ = ""
+    _PLUS_ = "󰐕"
+    _MINUS_ = "󰍴"
+    _PLUSMINUS_ = "󰐕/󰍴"
     _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
-    _display_mode_list = [None]  # List of display modes
+    _display_mode_list: Union[list[None], list[str]] = [None]  # List of display modes
     marking_menu: Union[None, MarkingMenu] = None
 
     def __init__(
@@ -96,6 +101,13 @@ class UIModule:
         """
         Called when a module becomes active
         i.e. foreground controlling display
+        """
+        pass
+
+    def inactive(self):
+        """
+        Called when a module becomes inactive
+        i.e. leaving a UI screen
         """
         pass
 
@@ -204,7 +216,7 @@ class UIModule:
             moving = True if imu and imu["pos"] and imu["moving"] else False
 
             # GPS status
-            if self.shared_state.location()["gps_lock"]:
+            if self.shared_state.altaz_ready():
                 self._gps_brightness = 0
             else:
                 gps_anim = int(128 * (time.time() - self.last_update_time)) + 1
