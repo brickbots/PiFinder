@@ -33,22 +33,22 @@ pifinder_menu = {
     "start_index": 2,
     "items": [
         {
-            "name": "Start",
+            "name": _("Start"),
             "class": UITextMenu,
             "select": "single",
             "items": [
                 {
-                    "name": "Focus",
+                    "name": _("Focus"),
                     "class": UIPreview,
                 },
                 {
-                    "name": "Align",
+                    "name": _("Align"),
                     "class": UIAlign,
                     "stateful": True,
                     "preload": True,
                 },
                 {
-                    "name": "GPS Status",
+                    "name": _("GPS Status"),
                     "class": UIGPSStatus,
                 },
             ],
@@ -81,7 +81,7 @@ pifinder_menu = {
                             "value": "PL",
                         },
                         {
-                            "name": "NGC",
+                            "name": _("NGC"),
                             "class": UIObjectList,
                             "objects": "catalog",
                             "value": "NGC",
@@ -815,12 +815,12 @@ pifinder_menu = {
                     "value_callback": callbacks.get_wifi_mode,
                     "items": [
                         {
-                            "name": "Client Mode",
+                            "name": _("Client Mode"),
                             "value": "Client",
                             "callback": callbacks.go_wifi_cli,
                         },
                         {
-                            "name": "AP Mode",
+                            "name": _("AP Mode"),
                             "value": "AP",
                             "callback": callbacks.go_wifi_ap,
                         },
@@ -896,7 +896,7 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": "GPS Type",
+                    "name": _("GPS Type"),
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "gps_type",
@@ -904,11 +904,11 @@ pifinder_menu = {
                     "post_callback": callbacks.restart_pifinder,
                     "items": [
                         {
-                            "name": "UBlox",
+                            "name": _("UBlox"),
                             "value": "ublox",
                         },
                         {
-                            "name": "GPSD (generic)",
+                            "name": _("GPSD (generic)"),
                             "value": "gpsd",
                         },
                     ],
@@ -920,32 +920,32 @@ pifinder_menu = {
             "class": UITextMenu,
             "select": "single",
             "items": [
-                {"name": "Status", "class": UIStatus},
-                {"name": "Equipment", "class": UIEquipment, "label": "equipment"},
+                {"name": _("Status"), "class": UIStatus},
+                {"name": _("Equipment"), "class": UIEquipment, "label": "equipment"},
                 {
-                    "name": "Place & Time",
+                    "name": _("Place & Time"),
                     "class": UITextMenu,
                     "select": "single",
                     "items": [
                         {
-                            "name": "GPS Status",
+                            "name": _("GPS Status"),
                             "class": UIGPSStatus,
                         },
                         {
-                            "name": "Set Location",
+                            "name": _("Set Location"),
                             "class": UILocationList,
                         },
                         {
-                            "name": "Set Time",
+                            "name": _("Set Time"),
                             "class": UITimeEntry,
                             "custom_callback": callbacks.set_time,
                         },
-                        {"name": "Reset", "callback": callbacks.gps_reset},
+                        {"name": _("Reset"), "callback": callbacks.gps_reset},
                     ],
                 },
-                {"name": "Console", "class": UIConsole},
-                {"name": "Software Upd", "class": UISoftware},
-                {"name": "Test Mode", "callback": callbacks.activate_debug},
+                {"name": _("Console"), "class": UIConsole},
+                {"name": _("Software Upd"), "class": UISoftware},
+                {"name": _("Test Mode"), "callback": callbacks.activate_debug},
                 {
                     "name": _("Power"),
                     "class": UITextMenu,
