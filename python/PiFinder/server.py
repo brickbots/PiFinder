@@ -791,20 +791,43 @@ class Server:
                     if position == 0 or new_lines:
                         return {
                             'logs': new_lines,
-                            'position': new_position
+                            'position': new_position,
+                            'file_size': file_size
                         }
                     else:
                         return {
                             'logs': [],
-                            'position': position
+                            'position': position,
+                            'file_size': file_size
                         }
                 except FileNotFoundError:
                     logger.error(f"Log file not found: {log_file}")
-                    return {'logs': [], 'position': 0}
+                    return {'logs': [], 'position': 0, 'file_size': 0}
                     
             except Exception as e:
                 logger.error(f"Error streaming logs: {e}")
-                return {'logs': [], 'position': position}
+                return {'logs': [], 'position': position, 'file_size': 0}
+
+        @app.route("/logs/file_info")
+        @auth_required
+        def get_log_file_info():
+            try:
+                log_file = "/home/pifinder/PiFinder_data/pifinder.log"
+                file_size = os.path.getsize(log_file)
+                
+                # Count total lines
+                total_lines = 0
+                with open(log_file, 'r') as f:
+                    total_lines = sum(1 for _ in f)
+                
+                return {
+                    'filename': os.path.basename(log_file),
+                    'total_lines': total_lines,
+                    'file_size': file_size
+                }
+            except Exception as e:
+                logger.error(f"Error getting log file info: {e}")
+                return {'error': str(e)}
 
         @app.route("/logs/current_level")
         @auth_required

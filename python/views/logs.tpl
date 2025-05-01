@@ -78,6 +78,16 @@
     color: #888;
     font-size: 0.9em;
     margin-bottom: 10px;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+  }
+  .log-stats .separator {
+    color: #666;
+  }
+  .log-stats span {
+    display: inline-flex;
+    align-items: center;
   }
   /* Add horizontal scrollbar styles */
   .log-container::-webkit-scrollbar,
@@ -141,7 +151,11 @@
           <span class="log-level-text">Global Level: <span id="globalLevelText">INFO</span></span>
         </div>
         <div class="log-stats">
-          Total lines: <span id="totalLines">0</span>
+          <span>File: <span id="logFilename">pifinder.log</span></span>
+          <span class="separator">|</span>
+          <span>Position: <span id="currentLine">0</span>/<span id="totalLines">0</span> lines</span>
+          <span class="separator">|</span>
+          <span>Last update: <span id="lastUpdate">just now</span></span>
         </div>
       </div>
     </div>
@@ -165,6 +179,55 @@ const BUFFER_SIZE = 100;
 const LINE_HEIGHT = 20;
 let updateInterval;
 let lastLine = '';
+let totalLinesSeen = 0;
+let lastUpdateTime = Date.now();
+let currentLine = 0;
+let totalFileLines = 0;
+let isAtEndOfFile = false;
+
+function updateStats() {
+    // Update current line to show the last line number in the view
+    currentLine = Math.min(totalLinesSeen, totalFileLines);
+    document.getElementById('currentLine').textContent = currentLine;
+    document.getElementById('totalLines').textContent = totalFileLines;
+    
+    // Only update the time display if we're not paused
+    if (!isPaused) {
+        // Calculate time since last update
+        const now = Date.now();
+        const secondsAgo = Math.floor((now - lastUpdateTime) / 1000);
+        let lastUpdateText;
+        
+        if (secondsAgo < 1) {
+            lastUpdateText = 'just now';
+        } else if (secondsAgo < 60) {
+            lastUpdateText = `${secondsAgo}s ago`;
+        } else if (secondsAgo < 3600) {
+            const minutes = Math.floor(secondsAgo / 60);
+            lastUpdateText = `${minutes}m ago`;
+        } else {
+            const hours = Math.floor(secondsAgo / 3600);
+            lastUpdateText = `${hours}h ago`;
+        }
+        
+        document.getElementById('lastUpdate').textContent = lastUpdateText;
+    }
+}
+
+function updateFileInfo() {
+    fetch('/logs/file_info')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Error getting file info:', data.error);
+                return;
+            }
+            document.getElementById('logFilename').textContent = data.filename;
+            totalFileLines = data.total_lines;
+            updateStats();
+        })
+        .catch(error => console.error('Error fetching file info:', error));
+}
 
 function fetchLogs() {
     if (isPaused) return;
@@ -172,18 +235,35 @@ function fetchLogs() {
     fetch(`/logs/stream?position=${currentPosition}`)
         .then(response => response.json())
         .then(data => {
-            if (!data.logs || data.logs.length === 0) return;
+            if (!data.logs || data.logs.length === 0) {
+                // If we're at the end of the file, update the last update time
+                if (!isAtEndOfFile) {
+                    isAtEndOfFile = true;
+                    lastUpdateTime = Date.now();
+                    updateStats();
+                }
+                return;
+            }
             
-            currentPosition = data.position;
-            const logContent = document.getElementById('logContent');
+            isAtEndOfFile = false;
+            let newLinesAdded = false;
             
             // Add new logs to buffer, skipping duplicates
             data.logs.forEach(line => {
                 if (line !== lastLine) {
                     logBuffer.push(line);
                     lastLine = line;
+                    totalLinesSeen++;
+                    newLinesAdded = true;
                 }
             });
+            
+            // Only update position and last update time if new lines were actually added
+            if (newLinesAdded) {
+                currentPosition = data.position;
+                lastUpdateTime = Date.now();
+                updateStats();
+            }
             
             // Trim buffer if it exceeds size
             if (logBuffer.length > BUFFER_SIZE) {
@@ -231,6 +311,10 @@ function togglePause() {
     const pauseButton = document.getElementById('pauseButton');
     pauseButton.textContent = isPaused ? 'Resume' : 'Pause';
     
+    // Update the last update time when pause state changes
+    lastUpdateTime = Date.now();
+    updateStats();
+    
     if (!isPaused) {
         // Resume fetching from last position
         fetchLogs();
@@ -240,6 +324,8 @@ function togglePause() {
 function restartFromEnd() {
     currentPosition = 0;
     logBuffer = [];
+    totalLinesSeen = 0;  // Reset the line counter
+    isAtEndOfFile = false;
     isPaused = false;
     document.getElementById('pauseButton').textContent = 'Pause';
     fetchLogs();
@@ -250,6 +336,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show loading message
     const loadingMessage = document.querySelector('.loading-message');
     loadingMessage.style.display = 'flex';
+    
+    // Get initial file info
+    updateFileInfo();
     
     // Start log fetching
     fetchLogs();
@@ -317,10 +406,8 @@ document.getElementById('downloadButton').addEventListener('click', function() {
 
 // Add copy to clipboard functionality
 document.getElementById('copyButton').addEventListener('click', function() {
-    const logContent = document.getElementById('logContent');
-    const text = Array.from(logContent.children)
-        .map(line => line.textContent)
-        .join('\n');
+    // Use the logBuffer directly instead of DOM elements
+    const text = logBuffer.join('\n');
     
     navigator.clipboard.writeText(text).then(() => {
         // Visual feedback
