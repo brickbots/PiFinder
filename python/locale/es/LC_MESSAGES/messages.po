@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-01 15:39+0000\n"
+"POT-Creation-Date: 2025-05-01 16:08+0000\n"
 "PO-Revision-Date: 2025-01-22 17:58+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es\n"
@@ -159,6 +159,22 @@ msgstr ""
 msgid "Language: fr"
 msgstr ""
 
+#: PiFinder/ui/menu_structure.py:36
+msgid "Start"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:41
+msgid "Focus"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:45
+msgid "Align"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:51 PiFinder/ui/menu_structure.py:931
+msgid "GPS Status"
+msgstr ""
+
 #: PiFinder/ui/menu_structure.py:57
 msgid "Chart"
 msgstr ""
@@ -177,6 +193,11 @@ msgstr ""
 
 #: PiFinder/ui/menu_structure.py:78 PiFinder/ui/menu_structure.py:253
 msgid "Planets"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:84 PiFinder/ui/menu_structure.py:155
+#: PiFinder/ui/menu_structure.py:257 PiFinder/ui/menu_structure.py:307
+msgid "NGC"
 msgstr ""
 
 #: PiFinder/ui/menu_structure.py:90 PiFinder/ui/menu_structure.py:149
@@ -218,11 +239,6 @@ msgstr ""
 
 #: PiFinder/ui/menu_structure.py:143 PiFinder/ui/menu_structure.py:299
 msgid "IC"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:155 PiFinder/ui/menu_structure.py:257
-#: PiFinder/ui/menu_structure.py:307
-msgid "NGC"
 msgstr ""
 
 #: PiFinder/ui/menu_structure.py:161 PiFinder/ui/menu_structure.py:311
@@ -505,6 +521,14 @@ msgstr ""
 msgid "WiFi Mode"
 msgstr ""
 
+#: PiFinder/ui/menu_structure.py:818
+msgid "Client Mode"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:823
+msgid "AP Mode"
+msgstr ""
+
 #: PiFinder/ui/menu_structure.py:830
 msgid "PiFinder Type"
 msgstr ""
@@ -557,8 +581,56 @@ msgstr ""
 msgid "v3 - imx462"
 msgstr ""
 
+#: PiFinder/ui/menu_structure.py:899
+msgid "GPS Type"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:907
+msgid "UBlox"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:911
+msgid "GPSD (generic)"
+msgstr ""
+
 #: PiFinder/ui/menu_structure.py:919
 msgid "Tools"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:923
+msgid "Status"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:924
+msgid "Equipment"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:926
+msgid "Place & Time"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:935
+msgid "Set Location"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:939
+msgid "Set Time"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:943
+msgid "Reset"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:946
+msgid "Console"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:947
+msgid "Software Upd"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:948
+msgid "Test Mode"
 msgstr ""
 
 #: PiFinder/ui/menu_structure.py:950

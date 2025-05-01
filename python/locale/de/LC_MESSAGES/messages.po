@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-01 15:39+0000\n"
+"POT-Creation-Date: 2025-05-01 16:08+0000\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: Jens Scheidtmann\n"
 "Language: de_DE\n"
@@ -73,7 +73,7 @@ msgstr "Kein Okular gewählt"
 
 #: PiFinder/ui/equipment.py:89
 msgid "Telescope..."
-msgstr "Teleskope..."
+msgstr "Teleskop..."
 
 #: PiFinder/ui/equipment.py:100 PiFinder/ui/log.py:231
 msgid "Eyepiece..."
@@ -129,7 +129,7 @@ msgstr "Log speichern"
 
 #: PiFinder/ui/log.py:196
 msgid "Observability"
-msgstr "Beobachtbarkeita"
+msgstr "Beobachtbarkeit"
 
 #: PiFinder/ui/log.py:209
 msgid "Appeal"
@@ -159,6 +159,24 @@ msgstr "Sprache: Spanisch"
 msgid "Language: fr"
 msgstr "Sprache: Französisch"
 
+#: PiFinder/ui/menu_structure.py:36
+#, fuzzy
+msgid "Start"
+msgstr "Start"
+
+#: PiFinder/ui/menu_structure.py:41
+msgid "Focus"
+msgstr "Fokus"
+
+#: PiFinder/ui/menu_structure.py:45
+#, fuzzy
+msgid "Align"
+msgstr "Justieren"
+
+#: PiFinder/ui/menu_structure.py:51 PiFinder/ui/menu_structure.py:931
+msgid "GPS Status"
+msgstr "GPS Status"
+
 #: PiFinder/ui/menu_structure.py:57
 msgid "Chart"
 msgstr "Karte"
@@ -169,7 +187,7 @@ msgstr "Objekte"
 
 #: PiFinder/ui/menu_structure.py:68
 msgid "All Filtered"
-msgstr "Gefiltr Obj"
+msgstr "Gefilt. Obj"
 
 #: PiFinder/ui/menu_structure.py:73
 msgid "By Catalog"
@@ -178,6 +196,11 @@ msgstr "nach Katalog"
 #: PiFinder/ui/menu_structure.py:78 PiFinder/ui/menu_structure.py:253
 msgid "Planets"
 msgstr "Planeten"
+
+#: PiFinder/ui/menu_structure.py:84 PiFinder/ui/menu_structure.py:155
+#: PiFinder/ui/menu_structure.py:257 PiFinder/ui/menu_structure.py:307
+msgid "NGC"
+msgstr "NGC"
 
 #: PiFinder/ui/menu_structure.py:90 PiFinder/ui/menu_structure.py:149
 #: PiFinder/ui/menu_structure.py:261 PiFinder/ui/menu_structure.py:303
@@ -219,11 +242,6 @@ msgstr "Herschel 400"
 #: PiFinder/ui/menu_structure.py:143 PiFinder/ui/menu_structure.py:299
 msgid "IC"
 msgstr "IC"
-
-#: PiFinder/ui/menu_structure.py:155 PiFinder/ui/menu_structure.py:257
-#: PiFinder/ui/menu_structure.py:307
-msgid "NGC"
-msgstr "NGC"
 
 #: PiFinder/ui/menu_structure.py:161 PiFinder/ui/menu_structure.py:311
 msgid "Sharpless"
@@ -304,7 +322,7 @@ msgstr "Offene Haufen"
 
 #: PiFinder/ui/menu_structure.py:369
 msgid "Cluster/Neb"
-msgstr "Offene Haufen/Nebel"
+msgstr "Off. Haufen/Nebel"
 
 #: PiFinder/ui/menu_structure.py:373
 msgid "Globular"
@@ -328,7 +346,7 @@ msgstr "Stern"
 
 #: PiFinder/ui/menu_structure.py:393
 msgid "Double Str"
-msgstr "Doppel Strn"
+msgstr "Dp. Stern"
 
 #: PiFinder/ui/menu_structure.py:397
 msgid "Triple Str"
@@ -505,6 +523,16 @@ msgstr "1s"
 msgid "WiFi Mode"
 msgstr "WLAN"
 
+#: PiFinder/ui/menu_structure.py:818
+#, fuzzy
+msgid "Client Mode"
+msgstr "client mode sein"
+
+#: PiFinder/ui/menu_structure.py:823
+#, fuzzy
+msgid "AP Mode"
+msgstr "WLAN"
+
 #: PiFinder/ui/menu_structure.py:830
 msgid "PiFinder Type"
 msgstr "PiFinder Art"
@@ -557,9 +585,62 @@ msgstr "v3 - imx296"
 msgid "v3 - imx462"
 msgstr "v3 - imx462"
 
+#: PiFinder/ui/menu_structure.py:899
+#, fuzzy
+msgid "GPS Type"
+msgstr "GPS Typ"
+
+#: PiFinder/ui/menu_structure.py:907
+msgid "UBlox"
+msgstr "Ublox"
+
+#: PiFinder/ui/menu_structure.py:911
+msgid "GPSD (generic)"
+msgstr "GPSD (generisch)"
+
 #: PiFinder/ui/menu_structure.py:919
 msgid "Tools"
 msgstr "Werkzeuge"
+
+#: PiFinder/ui/menu_structure.py:923
+#, fuzzy
+msgid "Status"
+msgstr "Status"
+
+#: PiFinder/ui/menu_structure.py:924
+msgid "Equipment"
+msgstr "Ausrüstung"
+
+#: PiFinder/ui/menu_structure.py:926
+msgid "Place & Time"
+msgstr "Ort & Zeit"
+
+#: PiFinder/ui/menu_structure.py:935
+msgid "Set Location"
+msgstr "Ort setzen"
+
+#: PiFinder/ui/menu_structure.py:939
+#, fuzzy
+msgid "Set Time"
+msgstr "Zeit setzen"
+
+#: PiFinder/ui/menu_structure.py:943
+#, fuzzy
+msgid "Reset"
+msgstr "Reset"
+
+#: PiFinder/ui/menu_structure.py:946
+msgid "Console"
+msgstr "Konsole"
+
+#: PiFinder/ui/menu_structure.py:947
+msgid "Software Upd"
+msgstr "Update Softw"
+
+#: PiFinder/ui/menu_structure.py:948
+#, fuzzy
+msgid "Test Mode"
+msgstr "Test Modus"
 
 #: PiFinder/ui/menu_structure.py:950
 msgid "Power"
@@ -658,7 +739,7 @@ msgid "Update Now"
 msgstr "Jetzt Updaten"
 
 #~ msgid "Can't plot"
-#~ msgstr "keine Just."
+#~ msgstr "kein Plot"
 
 #~ msgid "Debug: Activated"
 #~ msgstr "Debug: Aktiviert"

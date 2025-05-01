@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-01 15:39+0000\n"
+"POT-Creation-Date: 2025-05-01 16:08+0000\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: xxxxxx <xxxxx@xxxxx.com>\n"
 "Language: fr_FR\n"
@@ -170,6 +170,24 @@ msgstr "Langage: Espagnol"
 msgid "Language: fr"
 msgstr "Langage: Français"
 
+#: PiFinder/ui/menu_structure.py:36
+#, fuzzy
+msgid "Start"
+msgstr "Etoile"
+
+#: PiFinder/ui/menu_structure.py:41
+msgid "Focus"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:45
+#, fuzzy
+msgid "Align"
+msgstr "Alignement"
+
+#: PiFinder/ui/menu_structure.py:51 PiFinder/ui/menu_structure.py:931
+msgid "GPS Status"
+msgstr ""
+
 #: PiFinder/ui/menu_structure.py:57
 msgid "Chart"
 msgstr "Cartes"
@@ -189,6 +207,11 @@ msgstr "Par catalogue"
 #: PiFinder/ui/menu_structure.py:78 PiFinder/ui/menu_structure.py:253
 msgid "Planets"
 msgstr "Planètes"
+
+#: PiFinder/ui/menu_structure.py:84 PiFinder/ui/menu_structure.py:155
+#: PiFinder/ui/menu_structure.py:257 PiFinder/ui/menu_structure.py:307
+msgid "NGC"
+msgstr "NGC"
 
 #: PiFinder/ui/menu_structure.py:90 PiFinder/ui/menu_structure.py:149
 #: PiFinder/ui/menu_structure.py:261 PiFinder/ui/menu_structure.py:303
@@ -230,11 +253,6 @@ msgstr "Herschel 400"
 #: PiFinder/ui/menu_structure.py:143 PiFinder/ui/menu_structure.py:299
 msgid "IC"
 msgstr "IC"
-
-#: PiFinder/ui/menu_structure.py:155 PiFinder/ui/menu_structure.py:257
-#: PiFinder/ui/menu_structure.py:307
-msgid "NGC"
-msgstr "NGC"
 
 #: PiFinder/ui/menu_structure.py:161 PiFinder/ui/menu_structure.py:311
 msgid "Sharpless"
@@ -521,6 +539,16 @@ msgstr "1s"
 msgid "WiFi Mode"
 msgstr "Mode Wifi"
 
+#: PiFinder/ui/menu_structure.py:818
+#, fuzzy
+msgid "Client Mode"
+msgstr "Mode client"
+
+#: PiFinder/ui/menu_structure.py:823
+#, fuzzy
+msgid "AP Mode"
+msgstr "Mode Wifi"
+
 #: PiFinder/ui/menu_structure.py:830
 msgid "PiFinder Type"
 msgstr "Type de PiFinder"
@@ -574,9 +602,64 @@ msgstr "v3 - imx296"
 msgid "v3 - imx462"
 msgstr "v3 - imx462"
 
+#: PiFinder/ui/menu_structure.py:899
+#, fuzzy
+msgid "GPS Type"
+msgstr "Type"
+
+#: PiFinder/ui/menu_structure.py:907
+msgid "UBlox"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:911
+msgid "GPSD (generic)"
+msgstr ""
+
 #: PiFinder/ui/menu_structure.py:919
 msgid "Tools"
 msgstr "Outils"
+
+#: PiFinder/ui/menu_structure.py:923
+#, fuzzy
+msgid "Status"
+msgstr "Redémarrage"
+
+#: PiFinder/ui/menu_structure.py:924
+msgid "Equipment"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:926
+#, fuzzy
+msgid "Place & Time"
+msgstr "Mise en Sommeil"
+
+#: PiFinder/ui/menu_structure.py:935
+#, fuzzy
+msgid "Set Location"
+msgstr "Réglages"
+
+#: PiFinder/ui/menu_structure.py:939
+#, fuzzy
+msgid "Set Time"
+msgstr "Mise en Sommeil"
+
+#: PiFinder/ui/menu_structure.py:943
+#, fuzzy
+msgid "Reset"
+msgstr "Récent"
+
+#: PiFinder/ui/menu_structure.py:946
+msgid "Console"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:947
+msgid "Software Upd"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:948
+#, fuzzy
+msgid "Test Mode"
+msgstr "Mode client"
 
 #: PiFinder/ui/menu_structure.py:950
 msgid "Power"
