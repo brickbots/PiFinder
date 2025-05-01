@@ -51,12 +51,28 @@
     margin-right: 0;
     white-space: nowrap;
   }
-  .controls select {
-    height: 36px;
-    margin: 0;
+  .log-level-text {
+    color: #d4d4d4;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
     padding: 0 10px;
-    width: auto;
-    min-width: fit-content;
+  }
+  .loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  .btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
   }
   .log-stats {
     color: #888;
@@ -122,21 +138,7 @@
           <button id="copyButton" class="btn">
             <i class="material-icons left">content_copy</i>Copy to Clipboard
           </button>
-          <select id="globalLevel" class="browser-default" disabled>
-            <option value="DEBUG">Global: Debug</option>
-            <option value="INFO">Global: Info</option>
-            <option value="WARNING">Global: Warning</option>
-            <option value="ERROR">Global: Error</option>
-          </select>
-          <select id="componentSelect" class="browser-default">
-            <option value="" disabled selected>Select Component</option>
-          </select>
-          <select id="componentLevel" class="browser-default" style="display: none;" disabled>
-            <option value="DEBUG">Debug</option>
-            <option value="INFO">Info</option>
-            <option value="WARNING">Warning</option>
-            <option value="ERROR">Error</option>
-          </select>
+          <span class="log-level-text">Global Level: <span id="globalLevelText">INFO</span></span>
         </div>
         <div class="log-stats">
           Total lines: <span id="totalLines">0</span>
@@ -266,9 +268,6 @@ document.addEventListener('DOMContentLoaded', () => {
         subtree: true,
         characterData: true
     });
-
-    // Load component levels
-    updateComponentLevels();
 });
 
 // Cleanup on page unload
@@ -276,10 +275,52 @@ window.addEventListener('beforeunload', () => {
     clearInterval(updateInterval);
 });
 
+// Add download functionality
+document.getElementById('downloadButton').addEventListener('click', function() {
+    const button = this;
+    const originalContent = button.innerHTML;
+    
+    // Disable button and show loading state
+    button.disabled = true;
+    button.innerHTML = '<span class="loading-spinner"></span>Preparing download...';
+    
+    // Start the download
+    fetch('/logs/download')
+        .then(response => {
+            if (!response.ok) throw new Error('Download failed');
+            return response.blob();
+        })
+        .then(blob => {
+            // Create a download link
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `logs_${new Date().toISOString().slice(0,19).replace(/[:]/g, '-')}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            // Reset button state
+            button.innerHTML = originalContent;
+            button.disabled = false;
+        })
+        .catch(error => {
+            console.error('Download error:', error);
+            button.innerHTML = '<i class="material-icons left">error</i>Download Failed';
+            setTimeout(() => {
+                button.innerHTML = originalContent;
+                button.disabled = false;
+            }, 2000);
+        });
+});
+
 // Add copy to clipboard functionality
 document.getElementById('copyButton').addEventListener('click', function() {
     const logContent = document.getElementById('logContent');
-    const text = logContent.innerText;
+    const text = Array.from(logContent.children)
+        .map(line => line.textContent)
+        .join('\n');
     
     navigator.clipboard.writeText(text).then(() => {
         // Visual feedback
@@ -299,94 +340,21 @@ document.getElementById('copyButton').addEventListener('click', function() {
     });
 });
 
-// Log level management
-function updateComponentLevels() {
+// Add this function to update the global level text
+function updateGlobalLevelText() {
     fetch('/logs/components')
         .then(response => response.json())
         .then(data => {
-            const componentSelect = document.getElementById('componentSelect');
-            componentSelect.innerHTML = '<option value="" disabled selected>Select Component</option>';
-            
-            // Sort components alphabetically
-            const sortedComponents = Object.entries(data.components).sort(([a], [b]) => a.localeCompare(b));
-            
-            sortedComponents.forEach(([component, levels]) => {
-                const option = document.createElement('option');
-                option.value = component;
-                option.textContent = component;
-                componentSelect.appendChild(option);
-            });
+            const globalLevel = data.global_level || 'INFO';
+            document.getElementById('globalLevelText').textContent = globalLevel;
         })
-        .catch(error => console.error('Error fetching component levels:', error));
+        .catch(error => console.error('Error fetching global level:', error));
 }
 
-// Handle global level change
-document.getElementById('globalLevel').addEventListener('change', function(e) {
-    const newLevel = e.target.value;
-    fetch('/logs/level', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `level=${encodeURIComponent(newLevel)}`
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.status === 'success') {
-            console.log(`Changed global log level to ${newLevel}`);
-        } else {
-            console.error('Failed to update global log level:', result.message);
-        }
-    })
-    .catch(error => console.error('Error updating global log level:', error));
-});
-
-// Handle component selection
-document.getElementById('componentSelect').addEventListener('change', function(e) {
-    const component = e.target.value;
-    if (!component) {
-        document.getElementById('componentLevel').style.display = 'none';
-        return;
-    }
-    
-    // Show level select and set current level
-    const levelSelect = document.getElementById('componentLevel');
-    levelSelect.style.display = 'block';
-    
-    // Get current level for selected component
-    fetch('/logs/components')
-        .then(response => response.json())
-        .then(data => {
-            const currentLevel = data.components[component].current_level;
-            levelSelect.value = currentLevel;
-        });
-});
-
-// Handle component level change
-document.getElementById('componentLevel').addEventListener('change', function(e) {
-    const component = document.getElementById('componentSelect').value;
-    const newLevel = e.target.value;
-    
-    fetch('/logs/component_level', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `component=${encodeURIComponent(component)}&level=${encodeURIComponent(newLevel)}`
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.status === 'success') {
-            console.log(`Changed ${component} log level to ${newLevel}`);
-        } else {
-            console.error('Failed to update log level:', result.message);
-        }
-    })
-    .catch(error => console.error('Error updating log level:', error));
-});
-
-// Initial load of components
-updateComponentLevels();
+// Call updateGlobalLevelText periodically
+setInterval(updateGlobalLevelText, 5000);
+// Initial call
+updateGlobalLevelText();
 
 // Set up button event listeners
 document.getElementById('pauseButton').addEventListener('click', function() {
