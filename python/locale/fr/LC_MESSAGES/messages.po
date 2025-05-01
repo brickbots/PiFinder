@@ -177,7 +177,7 @@ msgstr "Etoile"
 
 #: PiFinder/ui/menu_structure.py:41
 msgid "Focus"
-msgstr ""
+msgstr "Mise au point"
 
 #: PiFinder/ui/menu_structure.py:45
 #, fuzzy
