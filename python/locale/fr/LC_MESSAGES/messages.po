@@ -186,7 +186,7 @@ msgstr "Alignement"
 
 #: PiFinder/ui/menu_structure.py:51 PiFinder/ui/menu_structure.py:931
 msgid "GPS Status"
-msgstr ""
+msgstr "Status du GPS"
 
 #: PiFinder/ui/menu_structure.py:57
 msgid "Chart"
@@ -605,15 +605,15 @@ msgstr "v3 - imx462"
 #: PiFinder/ui/menu_structure.py:899
 #, fuzzy
 msgid "GPS Type"
-msgstr "Type"
+msgstr "Type de GPS"
 
 #: PiFinder/ui/menu_structure.py:907
 msgid "UBlox"
-msgstr ""
+msgstr "UBlox"
 
 #: PiFinder/ui/menu_structure.py:911
 msgid "GPSD (generic)"
-msgstr ""
+msgstr "GPSD (generique)"
 
 #: PiFinder/ui/menu_structure.py:919
 msgid "Tools"
@@ -626,7 +626,7 @@ msgstr "Redémarrage"
 
 #: PiFinder/ui/menu_structure.py:924
 msgid "Equipment"
-msgstr ""
+msgstr "Equipment"
 
 #: PiFinder/ui/menu_structure.py:926
 #, fuzzy
@@ -650,11 +650,11 @@ msgstr "Récent"
 
 #: PiFinder/ui/menu_structure.py:946
 msgid "Console"
-msgstr ""
+msgstr "Console"
 
 #: PiFinder/ui/menu_structure.py:947
 msgid "Software Upd"
-msgstr ""
+msgstr "Mise à jour"
 
 #: PiFinder/ui/menu_structure.py:948
 #, fuzzy
