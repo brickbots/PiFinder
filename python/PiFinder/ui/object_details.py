@@ -158,7 +158,7 @@ class UIObjectDetails(UIModule):
             object_type, self.object.const
         )
         self.texts["type-const"] = self.simpleTextLayout(
-            typeconst,
+            _(typeconst),
             font=self.fonts.bold,
             color=self.colors.get(255),
         )

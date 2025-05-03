@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-03 17:24+0200\n"
+"POT-Creation-Date: 2025-05-03 22:44+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: Jens Scheidtmann\n"
 "Language: de_DE\n"
@@ -21,6 +21,84 @@ msgstr ""
 #: PiFinder/cat_images.py:43
 msgid "No Image"
 msgstr "Kein Bild"
+
+#: PiFinder/obj_types.py:7 PiFinder/ui/menu_structure.py:361
+msgid "Galaxy"
+msgstr "Galaxie"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:8 PiFinder/ui/menu_structure.py:365
+msgid "Open Cluster"
+msgstr "Offene Haufen"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:9 PiFinder/ui/menu_structure.py:373
+msgid "Globular"
+msgstr "Kugelsternhaufen"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:10 PiFinder/ui/menu_structure.py:377
+msgid "Nebula"
+msgstr "Nebel"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:11 PiFinder/ui/menu_structure.py:385
+msgid "Dark Nebula"
+msgstr "Dunkelnebel"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:12
+#, fuzzy
+msgid "Planetary"
+msgstr "Planet"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:13
+#, fuzzy
+msgid "Cluster + Neb"
+msgstr "Off. Haufen/Nebel"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:14 PiFinder/ui/menu_structure.py:405
+msgid "Asterism"
+msgstr "Asterismus"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:15 PiFinder/ui/menu_structure.py:401
+msgid "Knot"
+msgstr "Knoten"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:16
+#, fuzzy
+msgid "Triple star"
+msgstr "Dreif. Strn"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:17
+#, fuzzy
+msgid "Double star"
+msgstr "Dp. Stern"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:18 PiFinder/ui/menu_structure.py:389
+msgid "Star"
+msgstr "Stern"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:19
+msgid "Unkn"
+msgstr ""
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:20 PiFinder/ui/menu_structure.py:409
+msgid "Planet"
+msgstr "Planet"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:21 PiFinder/ui/menu_structure.py:413
+msgid "Comet"
+msgstr "Komet"
 
 #: PiFinder/ui/align.py:56
 msgid "Align Timeout"
@@ -300,7 +378,7 @@ msgstr "Bedingungen..."
 msgid "Logged!"
 msgstr "Geloggt!"
 
-#: PiFinder/ui/marking_menus.py:38 PiFinder/ui/menu_manager.py:485
+#: PiFinder/ui/marking_menus.py:38
 msgid "HELP"
 msgstr "HILFE"
 
@@ -479,37 +557,13 @@ msgstr "Kataloge"
 msgid "Type"
 msgstr "Typ"
 
-#: PiFinder/ui/menu_structure.py:361
-msgid "Galaxy"
-msgstr "Galaxie"
-
-#: PiFinder/ui/menu_structure.py:365
-msgid "Open Cluster"
-msgstr "Offene Haufen"
-
 #: PiFinder/ui/menu_structure.py:369
 msgid "Cluster/Neb"
 msgstr "Off. Haufen/Nebel"
 
-#: PiFinder/ui/menu_structure.py:373
-msgid "Globular"
-msgstr "Kugelsternhaufen"
-
-#: PiFinder/ui/menu_structure.py:377
-msgid "Nebula"
-msgstr "Nebel"
-
 #: PiFinder/ui/menu_structure.py:381
 msgid "P. Nebula"
 msgstr "Plan. Nebel"
-
-#: PiFinder/ui/menu_structure.py:385
-msgid "Dark Nebula"
-msgstr "Dunkelnebel"
-
-#: PiFinder/ui/menu_structure.py:389
-msgid "Star"
-msgstr "Stern"
 
 #: PiFinder/ui/menu_structure.py:393
 msgid "Double Str"
@@ -518,22 +572,6 @@ msgstr "Dp. Stern"
 #: PiFinder/ui/menu_structure.py:397
 msgid "Triple Str"
 msgstr "Dreif. Strn"
-
-#: PiFinder/ui/menu_structure.py:401
-msgid "Knot"
-msgstr "Knoten"
-
-#: PiFinder/ui/menu_structure.py:405
-msgid "Asterism"
-msgstr "Asterismus"
-
-#: PiFinder/ui/menu_structure.py:409
-msgid "Planet"
-msgstr "Planet"
-
-#: PiFinder/ui/menu_structure.py:413
-msgid "Comet"
-msgstr "Komet"
 
 #: PiFinder/ui/menu_structure.py:419
 msgid "Altitude"
@@ -1046,4 +1084,295 @@ msgstr "󰍴  Löschen/Zurück"
 
 #~ msgid "Mag:{obj_magn}"
 #~ msgstr "Gr.:{obj_mag}"
+
+#~ msgid "galaxy"
+#~ msgstr "Galaxie"
+
+#~ msgid "oc"
+#~ msgstr "Sperren"
+
+#~ msgid "gc"
+#~ msgstr "NGC"
+
+#~ msgid "neb"
+#~ msgstr "Nebel"
+
+#~ msgid "pneb"
+#~ msgstr "Plan. Nebel"
+
+#~ msgid "dstar"
+#~ msgstr "Stern"
+
+#~ msgid "ast"
+#~ msgstr "Schnell"
+
+#~ msgid "planet"
+#~ msgstr "Planet"
+
+#~ msgid "about"
+#~ msgstr ""
+
+#~ msgid "almost"
+#~ msgstr "Schnell"
+
+#~ msgid "among"
+#~ msgstr ""
+
+#~ msgid "annular or ring nebula"
+#~ msgstr ""
+
+#~ msgid "attached"
+#~ msgstr ""
+
+#~ msgid "brighter"
+#~ msgstr "Rechts"
+
+#~ msgid "between"
+#~ msgstr ""
+
+#~ msgid "binuclear"
+#~ msgstr ""
+
+#~ msgid "brightest to n side"
+#~ msgstr ""
+
+#~ msgid "brightest to s side"
+#~ msgstr ""
+
+#~ msgid "brightest to p side"
+#~ msgstr ""
+
+#~ msgid "brightest to f side"
+#~ msgstr ""
+
+#~ msgid "bright"
+#~ msgstr "Rechts"
+
+#~ msgid "considerably"
+#~ msgstr "Beobachtbarkeit"
+
+#~ msgid "chevelure"
+#~ msgstr "Umgekehrt"
+
+#~ msgid "coarse, coarsely"
+#~ msgstr ""
+
+#~ msgid "cometic (cometary form)"
+#~ msgstr ""
+
+#~ msgid "companion"
+#~ msgstr "Bedingungen"
+
+#~ msgid "connected"
+#~ msgstr ""
+
+#~ msgid "in contact"
+#~ msgstr ""
+
+#~ msgid "compressed"
+#~ msgstr ""
+
+#~ msgid "cluster"
+#~ msgstr "Off. Haufen/Nebel"
+
+#~ msgid "diameter"
+#~ msgstr ""
+
+#~ msgid "defined"
+#~ msgstr ""
+
+#~ msgid "diffused"
+#~ msgstr ""
+
+#~ msgid "difficult"
+#~ msgstr "Standard"
+
+#~ msgid "distance, or distant"
+#~ msgstr ""
+
+#~ msgid "double"
+#~ msgstr "Dp. Stern"
+
+#~ msgid "extremely, excessively"
+#~ msgstr ""
+
+#~ msgid "most extremely"
+#~ msgstr ""
+
+#~ msgid "easily resolvable"
+#~ msgstr ""
+
+#~ msgid "excentric"
+#~ msgstr "Letzte..."
+
+#~ msgid "extended"
+#~ msgstr ""
+
+#~ msgid "following (eastward)"
+#~ msgstr ""
+
+#~ msgid "faint"
+#~ msgstr "Schnell"
+
+#~ msgid "gradually"
+#~ msgstr ""
+
+#~ msgid "globular"
+#~ msgstr "Kugelsternhaufen"
+
+#~ msgid "group"
+#~ msgstr ""
+
+#~ msgid "irregular"
+#~ msgstr ""
+
+#~ msgid "irregular figure"
+#~ msgstr ""
+
+#~ msgid "involved, involving"
+#~ msgstr ""
+
+#~ msgid "little (adv.); long (adj.)"
+#~ msgstr ""
+
+#~ msgid "large"
+#~ msgstr "Sprache"
+
+#~ msgid "magnitude"
+#~ msgstr "Magnitude"
+
+#~ msgid "middle, or in the middle"
+#~ msgstr ""
+
+#~ msgid "north"
+#~ msgstr "Sortieren"
+
+#~ msgid "nebula"
+#~ msgstr "Nebel"
+
+#~ msgid "nebulous"
+#~ msgstr "Nebel"
+
+#~ msgid "nebulosity"
+#~ msgstr "Nebel"
+
+#~ msgid "north following"
+#~ msgstr ""
+
+#~ msgid "north preceding"
+#~ msgstr ""
+
+#~ msgid "north-south"
+#~ msgstr ""
+
+#~ msgid "near"
+#~ msgstr "Nächster"
+
+#~ msgid "nucleus, or to a nucleus"
+#~ msgstr ""
+
+#~ msgid "preceding-following"
+#~ msgstr ""
+
+#~ msgid "pretty (adv., before F. B. L, S)"
+#~ msgstr ""
+
+#~ msgid "pretty gradually"
+#~ msgstr ""
+
+#~ msgid "pretty much"
+#~ msgstr ""
+
+#~ msgid "pretty suddenly"
+#~ msgstr ""
+
+#~ msgid "planetary nebula (same as PN)"
+#~ msgstr ""
+
+#~ msgid "probably"
+#~ msgstr ""
+
+#~ msgid "poor (sparse) in stars"
+#~ msgstr ""
+
+#~ msgid "planetary nebula"
+#~ msgstr "Dunkelnebel"
+
+#~ msgid "resolvable (mottled, not resolved)"
+#~ msgstr ""
+
+#~ msgid "partially resolved, some stars seen"
+#~ msgstr ""
+
+#~ msgid "well resolved, clearly consisting of stars"
+#~ msgstr ""
+
+#~ msgid "round"
+#~ msgstr ""
+
+#~ msgid "exactly round"
+#~ msgstr ""
+
+#~ msgid "rich in stars"
+#~ msgstr "SAC Rote Riesen"
+
+#~ msgid "south"
+#~ msgstr "Sortieren"
+
+#~ msgid "south following"
+#~ msgstr ""
+
+#~ msgid "south preceding"
+#~ msgstr ""
+
+#~ msgid "scattered"
+#~ msgstr ""
+
+#~ msgid "several"
+#~ msgstr ""
+
+#~ msgid "stars (pl.)"
+#~ msgstr "Sterne..."
+
+#~ msgid "stars of 9th magnitude and fainter"
+#~ msgstr ""
+
+#~ msgid "stars of mag. 9 to 13"
+#~ msgstr ""
+
+#~ msgid "stellar, pointlike"
+#~ msgstr ""
+
+#~ msgid "suspected"
+#~ msgstr ""
+
+#~ msgid "small in angular size"
+#~ msgstr ""
+
+#~ msgid "trapezium"
+#~ msgstr ""
+
+#~ msgid "triangle, forms a triangle with"
+#~ msgstr ""
+
+#~ msgid "trinuclear"
+#~ msgstr "Dreif. Strn"
+
+#~ msgid "very"
+#~ msgstr "Sehr gut"
+
+#~ msgid "_very_"
+#~ msgstr ""
+
+#~ msgid "variable"
+#~ msgstr "TLK 90 Variable"
+
+#~ msgid "remarkable"
+#~ msgstr ""
+
+#~ msgid "very much so"
+#~ msgstr ""
+
+#~ msgid "a magnificent or otherwise interesting object"
+#~ msgstr ""
 

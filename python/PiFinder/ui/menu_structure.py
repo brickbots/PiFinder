@@ -14,7 +14,7 @@ from PiFinder.ui.location_list import UILocationList
 import PiFinder.ui.callbacks as callbacks
 
 
-# override locally the gettext marker function, i.e. the strings are not translated on load, but extracted.
+# override locally the gettext marker function, i.e. the strings are not translated on load, but extracted. CHECK END OF FILE
 def _(key: str) -> str:
     return key
 

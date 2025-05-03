@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-03 17:24+0200\n"
+"POT-Creation-Date: 2025-05-03 22:44+0200\n"
 "PO-Revision-Date: 2025-01-22 17:58+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es\n"
@@ -20,6 +20,80 @@ msgstr ""
 
 #: PiFinder/cat_images.py:43
 msgid "No Image"
+msgstr ""
+
+#: PiFinder/obj_types.py:7 PiFinder/ui/menu_structure.py:361
+msgid "Galaxy"
+msgstr ""
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:8 PiFinder/ui/menu_structure.py:365
+msgid "Open Cluster"
+msgstr ""
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:9 PiFinder/ui/menu_structure.py:373
+msgid "Globular"
+msgstr ""
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:10 PiFinder/ui/menu_structure.py:377
+msgid "Nebula"
+msgstr ""
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:11 PiFinder/ui/menu_structure.py:385
+msgid "Dark Nebula"
+msgstr ""
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:12
+msgid "Planetary"
+msgstr ""
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:13
+msgid "Cluster + Neb"
+msgstr ""
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:14 PiFinder/ui/menu_structure.py:405
+msgid "Asterism"
+msgstr ""
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:15 PiFinder/ui/menu_structure.py:401
+msgid "Knot"
+msgstr ""
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:16
+msgid "Triple star"
+msgstr ""
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:17
+msgid "Double star"
+msgstr ""
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:18 PiFinder/ui/menu_structure.py:389
+msgid "Star"
+msgstr ""
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:19
+msgid "Unkn"
+msgstr ""
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:20 PiFinder/ui/menu_structure.py:409
+msgid "Planet"
+msgstr ""
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:21 PiFinder/ui/menu_structure.py:413
+msgid "Comet"
 msgstr ""
 
 #: PiFinder/ui/align.py:56
@@ -300,7 +374,7 @@ msgstr ""
 msgid "Logged!"
 msgstr ""
 
-#: PiFinder/ui/marking_menus.py:38 PiFinder/ui/menu_manager.py:485
+#: PiFinder/ui/marking_menus.py:38
 msgid "HELP"
 msgstr ""
 
@@ -479,36 +553,12 @@ msgstr ""
 msgid "Type"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:361
-msgid "Galaxy"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:365
-msgid "Open Cluster"
-msgstr ""
-
 #: PiFinder/ui/menu_structure.py:369
 msgid "Cluster/Neb"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:373
-msgid "Globular"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:377
-msgid "Nebula"
-msgstr ""
-
 #: PiFinder/ui/menu_structure.py:381
 msgid "P. Nebula"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:385
-msgid "Dark Nebula"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:389
-msgid "Star"
 msgstr ""
 
 #: PiFinder/ui/menu_structure.py:393
@@ -517,22 +567,6 @@ msgstr ""
 
 #: PiFinder/ui/menu_structure.py:397
 msgid "Triple Str"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:401
-msgid "Knot"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:405
-msgid "Asterism"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:409
-msgid "Planet"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:413
-msgid "Comet"
 msgstr ""
 
 #: PiFinder/ui/menu_structure.py:419
@@ -1127,5 +1161,296 @@ msgstr ""
 #~ msgstr ""
 
 #~ msgid "Sz:{sz}"
+#~ msgstr ""
+
+#~ msgid "galaxy"
+#~ msgstr ""
+
+#~ msgid "oc"
+#~ msgstr ""
+
+#~ msgid "gc"
+#~ msgstr ""
+
+#~ msgid "neb"
+#~ msgstr ""
+
+#~ msgid "pneb"
+#~ msgstr ""
+
+#~ msgid "dstar"
+#~ msgstr ""
+
+#~ msgid "ast"
+#~ msgstr ""
+
+#~ msgid "planet"
+#~ msgstr ""
+
+#~ msgid "about"
+#~ msgstr ""
+
+#~ msgid "almost"
+#~ msgstr ""
+
+#~ msgid "among"
+#~ msgstr ""
+
+#~ msgid "annular or ring nebula"
+#~ msgstr ""
+
+#~ msgid "attached"
+#~ msgstr ""
+
+#~ msgid "brighter"
+#~ msgstr ""
+
+#~ msgid "between"
+#~ msgstr ""
+
+#~ msgid "binuclear"
+#~ msgstr ""
+
+#~ msgid "brightest to n side"
+#~ msgstr ""
+
+#~ msgid "brightest to s side"
+#~ msgstr ""
+
+#~ msgid "brightest to p side"
+#~ msgstr ""
+
+#~ msgid "brightest to f side"
+#~ msgstr ""
+
+#~ msgid "bright"
+#~ msgstr ""
+
+#~ msgid "considerably"
+#~ msgstr ""
+
+#~ msgid "chevelure"
+#~ msgstr ""
+
+#~ msgid "coarse, coarsely"
+#~ msgstr ""
+
+#~ msgid "cometic (cometary form)"
+#~ msgstr ""
+
+#~ msgid "companion"
+#~ msgstr ""
+
+#~ msgid "connected"
+#~ msgstr ""
+
+#~ msgid "in contact"
+#~ msgstr ""
+
+#~ msgid "compressed"
+#~ msgstr ""
+
+#~ msgid "cluster"
+#~ msgstr ""
+
+#~ msgid "diameter"
+#~ msgstr ""
+
+#~ msgid "defined"
+#~ msgstr ""
+
+#~ msgid "diffused"
+#~ msgstr ""
+
+#~ msgid "difficult"
+#~ msgstr ""
+
+#~ msgid "distance, or distant"
+#~ msgstr ""
+
+#~ msgid "double"
+#~ msgstr ""
+
+#~ msgid "extremely, excessively"
+#~ msgstr ""
+
+#~ msgid "most extremely"
+#~ msgstr ""
+
+#~ msgid "easily resolvable"
+#~ msgstr ""
+
+#~ msgid "excentric"
+#~ msgstr ""
+
+#~ msgid "extended"
+#~ msgstr ""
+
+#~ msgid "following (eastward)"
+#~ msgstr ""
+
+#~ msgid "faint"
+#~ msgstr ""
+
+#~ msgid "gradually"
+#~ msgstr ""
+
+#~ msgid "globular"
+#~ msgstr ""
+
+#~ msgid "group"
+#~ msgstr ""
+
+#~ msgid "irregular"
+#~ msgstr ""
+
+#~ msgid "irregular figure"
+#~ msgstr ""
+
+#~ msgid "involved, involving"
+#~ msgstr ""
+
+#~ msgid "little (adv.); long (adj.)"
+#~ msgstr ""
+
+#~ msgid "large"
+#~ msgstr ""
+
+#~ msgid "magnitude"
+#~ msgstr ""
+
+#~ msgid "middle, or in the middle"
+#~ msgstr ""
+
+#~ msgid "north"
+#~ msgstr ""
+
+#~ msgid "nebula"
+#~ msgstr ""
+
+#~ msgid "nebulous"
+#~ msgstr ""
+
+#~ msgid "nebulosity"
+#~ msgstr ""
+
+#~ msgid "north following"
+#~ msgstr ""
+
+#~ msgid "north preceding"
+#~ msgstr ""
+
+#~ msgid "north-south"
+#~ msgstr ""
+
+#~ msgid "near"
+#~ msgstr ""
+
+#~ msgid "nucleus, or to a nucleus"
+#~ msgstr ""
+
+#~ msgid "preceding-following"
+#~ msgstr ""
+
+#~ msgid "pretty (adv., before F. B. L, S)"
+#~ msgstr ""
+
+#~ msgid "pretty gradually"
+#~ msgstr ""
+
+#~ msgid "pretty much"
+#~ msgstr ""
+
+#~ msgid "pretty suddenly"
+#~ msgstr ""
+
+#~ msgid "planetary nebula (same as PN)"
+#~ msgstr ""
+
+#~ msgid "probably"
+#~ msgstr ""
+
+#~ msgid "poor (sparse) in stars"
+#~ msgstr ""
+
+#~ msgid "planetary nebula"
+#~ msgstr ""
+
+#~ msgid "resolvable (mottled, not resolved)"
+#~ msgstr ""
+
+#~ msgid "partially resolved, some stars seen"
+#~ msgstr ""
+
+#~ msgid "well resolved, clearly consisting of stars"
+#~ msgstr ""
+
+#~ msgid "round"
+#~ msgstr ""
+
+#~ msgid "exactly round"
+#~ msgstr ""
+
+#~ msgid "rich in stars"
+#~ msgstr ""
+
+#~ msgid "south"
+#~ msgstr ""
+
+#~ msgid "south following"
+#~ msgstr ""
+
+#~ msgid "south preceding"
+#~ msgstr ""
+
+#~ msgid "scattered"
+#~ msgstr ""
+
+#~ msgid "several"
+#~ msgstr ""
+
+#~ msgid "stars (pl.)"
+#~ msgstr ""
+
+#~ msgid "stars of 9th magnitude and fainter"
+#~ msgstr ""
+
+#~ msgid "stars of mag. 9 to 13"
+#~ msgstr ""
+
+#~ msgid "stellar, pointlike"
+#~ msgstr ""
+
+#~ msgid "suspected"
+#~ msgstr ""
+
+#~ msgid "small in angular size"
+#~ msgstr ""
+
+#~ msgid "trapezium"
+#~ msgstr ""
+
+#~ msgid "triangle, forms a triangle with"
+#~ msgstr ""
+
+#~ msgid "trinuclear"
+#~ msgstr ""
+
+#~ msgid "very"
+#~ msgstr ""
+
+#~ msgid "_very_"
+#~ msgstr ""
+
+#~ msgid "variable"
+#~ msgstr ""
+
+#~ msgid "remarkable"
+#~ msgstr ""
+
+#~ msgid "very much so"
+#~ msgstr ""
+
+#~ msgid "a magnificent or otherwise interesting object"
 #~ msgstr ""
 
