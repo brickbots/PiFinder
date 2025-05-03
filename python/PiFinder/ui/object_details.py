@@ -171,8 +171,10 @@ class UIObjectDetails(UIModule):
         # Only construct mag/size if at least one is present
         magsize = ""
         if size != "-" or obj_mag != "-":
+            print(self.space_calculator)
             spaces, magsize = self.space_calculator.calculate_spaces(
-                _("Mag:{obj_mag}").format(obj_mag=obj_mag), _("Sz:{size}").format(size=size) # TRANSLATORS: object info mag and size
+                _("Mag:{obj_magn}").format(obj_magn=obj_mag), # TRANSLATORS: object info magnitude
+                _("Sz:{size}").format(size=size) # TRANSLATORS: object info size
             )
             if spaces == -1:
                 spaces, magsize = self.space_calculator.calculate_spaces(

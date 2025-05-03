@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-03 16:13+0200\n"
+"POT-Creation-Date: 2025-05-03 16:51+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: xxxxxx <xxxxx@xxxxx.com>\n"
 "Language: fr_FR\n"
@@ -34,12 +34,12 @@ msgstr ""
 msgid "No Solve Yet"
 msgstr "Pas d'astrometrie"
 
-#: PiFinder/ui/align.py:397 PiFinder/ui/object_details.py:451
+#: PiFinder/ui/align.py:397 PiFinder/ui/object_details.py:453
 #, fuzzy
 msgid "Aligning..."
 msgstr "Alignement..."
 
-#: PiFinder/ui/align.py:405 PiFinder/ui/object_details.py:459
+#: PiFinder/ui/align.py:405 PiFinder/ui/object_details.py:461
 #, fuzzy
 msgid "Aligned!"
 msgstr "Alignement"
@@ -220,6 +220,11 @@ msgstr ""
 #: PiFinder/ui/gpsstatus.py:247
 msgid "Lock:  {locktype}"
 msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:247
+#, fuzzy
+msgid "No"
+msgstr "Aucun"
 
 #: PiFinder/ui/gpsstatus.py:256
 msgid "Lat:   {latitude:.5f}"
@@ -871,50 +876,55 @@ msgstr "Abandon"
 msgid "No Object Found"
 msgstr "Pas d'objets"
 
-#: PiFinder/ui/object_details.py:175 PiFinder/ui/object_details.py:179
-msgid "Mag:{obj_mag}"
+#: PiFinder/ui/object_details.py:176
+msgid "Mag:{obj_magn}"
 msgstr ""
 
-#: PiFinder/ui/object_details.py:175
+#. TRANSLATORS: object info magnitude
+#: PiFinder/ui/object_details.py:177
 msgid "Sz:{size}"
 msgstr ""
 
-#: PiFinder/ui/object_details.py:201
+#: PiFinder/ui/object_details.py:181
+msgid "Mag:{obj_mag}"
+msgstr ""
+
+#: PiFinder/ui/object_details.py:203
 #, fuzzy
 msgid "  Not Logged"
 msgstr "Connecté"
 
-#: PiFinder/ui/object_details.py:203
+#: PiFinder/ui/object_details.py:205
 msgid "  {logs} Logs"
 msgstr ""
 
-#: PiFinder/ui/object_details.py:238
+#: PiFinder/ui/object_details.py:240
 #, fuzzy
 msgid "No solve"
 msgstr "Pas d'astrometrie"
 
-#: PiFinder/ui/object_details.py:244
+#: PiFinder/ui/object_details.py:246
 msgid "yet{elipsis}"
 msgstr ""
 
-#: PiFinder/ui/object_details.py:256
+#: PiFinder/ui/object_details.py:258
 #, fuzzy
 msgid "Searching"
 msgstr "Seeing"
 
-#: PiFinder/ui/object_details.py:262
+#: PiFinder/ui/object_details.py:264
 msgid "for GPS{elipsis}"
 msgstr ""
 
-#: PiFinder/ui/object_details.py:274
+#: PiFinder/ui/object_details.py:276
 msgid "Calculating"
 msgstr "Calcul en cours"
 
-#: PiFinder/ui/object_details.py:461
+#: PiFinder/ui/object_details.py:463
 msgid "Too Far"
 msgstr "Trop loin"
 
-#: PiFinder/ui/object_details.py:486
+#: PiFinder/ui/object_details.py:488
 #, fuzzy
 msgid "LOG"
 msgstr "Bas"

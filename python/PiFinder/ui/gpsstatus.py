@@ -190,7 +190,7 @@ class UIGPSStatus(UIModule):
             draw_pos += 10
             self.draw.text(
                 (10, draw_pos),
-                _('None') if not location.lock else self._lock_type_dict[location.lock_type], # TRANSLATORS: GPS Lock Type
+                _('None') if not location.lock else _(self._lock_type_dict[location.lock_type]), # TRANSLATORS: GPS Lock Type
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -244,7 +244,7 @@ class UIGPSStatus(UIModule):
             # Lock status
             self.draw.text(
                 (0, draw_pos),
-                _("Lock:  {locktype}").format(locktype='No' if not location.lock else self._lock_type_dict[location.lock_type]),
+                _("Lock:  {locktype}").format(locktype=_('No') if not location.lock else _(self._lock_type_dict[location.lock_type])),
                 font=self.fonts.base.font,
                 fill=self.colors.get(255),
             )
@@ -253,7 +253,7 @@ class UIGPSStatus(UIModule):
             # Position data if locked
             self.draw.text(
                 (0, draw_pos),
-                _("Lat:   {latitude:.5f}").format(latitude=location.latitude), 
+                _("Lat:   {latitude:.5f}").format(latitude=location.lat), 
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )

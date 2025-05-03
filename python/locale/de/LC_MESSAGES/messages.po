@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-03 16:13+0200\n"
+"POT-Creation-Date: 2025-05-03 16:51+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: Jens Scheidtmann\n"
 "Language: de_DE\n"
@@ -28,18 +28,18 @@ msgstr "Justage fertig"
 
 #: PiFinder/ui/align.py:272 PiFinder/ui/chart.py:210
 msgid "Can't plot"
-msgstr ""
+msgstr "keine Anzge"
 
 #: PiFinder/ui/align.py:284 PiFinder/ui/chart.py:222 PiFinder/ui/log.py:174
 #: PiFinder/ui/object_list.py:205 PiFinder/ui/object_list.py:225
 msgid "No Solve Yet"
-msgstr "ohne Position"
+msgstr "ohne Platesolve"
 
-#: PiFinder/ui/align.py:397 PiFinder/ui/object_details.py:451
+#: PiFinder/ui/align.py:397 PiFinder/ui/object_details.py:453
 msgid "Aligning..."
 msgstr "Justage..."
 
-#: PiFinder/ui/align.py:405 PiFinder/ui/object_details.py:459
+#: PiFinder/ui/align.py:405 PiFinder/ui/object_details.py:461
 msgid "Aligned!"
 msgstr "Justiert!"
 
@@ -52,7 +52,6 @@ msgid "Filters Reset"
 msgstr "Filterreset"
 
 #: PiFinder/ui/callbacks.py:63 PiFinder/ui/menu_structure.py:948
-#, fuzzy
 msgid "Test Mode"
 msgstr "Test Modus"
 
@@ -126,12 +125,10 @@ msgstr "akkurat"
 
 #. TRANSLATORS: GPS 2D Fix
 #: PiFinder/ui/gpsstatus.py:28
-#, fuzzy
 msgid "Precise"
 msgstr "präzise"
 
 #: PiFinder/ui/gpsstatus.py:38
-#, fuzzy
 msgid "Save"
 msgstr "Log speichern"
 
@@ -140,7 +137,6 @@ msgid "Lock"
 msgstr "Sperren"
 
 #: PiFinder/ui/gpsstatus.py:70
-#, fuzzy
 msgid "Location Name"
 msgstr "Ort setzen"
 
@@ -149,7 +145,6 @@ msgid "Loc {number}"
 msgstr "Ort {number}"
 
 #: PiFinder/ui/gpsstatus.py:101
-#, fuzzy
 msgid "Location saved"
 msgstr "Ort setzen"
 
@@ -163,22 +158,21 @@ msgstr "{error:.1f} km"
 
 #: PiFinder/ui/gpsstatus.py:118
 msgid "{error:.0f} m"
-msgstr "{error:.1f} km"
+msgstr "{error:.0f} m"
 
 #: PiFinder/ui/gpsstatus.py:139
 msgid "GPS Locked"
-msgstr "GPS gefixt"
+msgstr "GPS fix!"
 
 #: PiFinder/ui/gpsstatus.py:146
 msgid "Lock boost on"
-msgstr "GPS Verstärkung an"
+msgstr "GPS verstärkt"
 
 #: PiFinder/ui/gpsstatus.py:155
 msgid "You are ready"
 msgstr "Bereit zur"
 
 #: PiFinder/ui/gpsstatus.py:162
-#, fuzzy
 msgid "to observe!"
 msgstr "Beobachtung!"
 
@@ -191,7 +185,6 @@ msgid "for quicker lock"
 msgstr "schnellen GPS Fix"
 
 #: PiFinder/ui/gpsstatus.py:186
-#, fuzzy
 msgid "Lock Type:"
 msgstr "Fix-Typ:"
 
@@ -202,7 +195,7 @@ msgstr "Nix"
 
 #: PiFinder/ui/gpsstatus.py:202
 msgid "Sats seen/used:"
-msgstr "Sats gesehen/ben:"
+msgstr "Sat gesehen/ben:"
 
 #: PiFinder/ui/gpsstatus.py:218
 msgid "{square} Toggle Details"
@@ -210,15 +203,20 @@ msgstr "{square} für Details"
 
 #: PiFinder/ui/gpsstatus.py:227
 msgid "Sats seen/used: {sats_seen}/{sats_used}"
-msgstr "Sats gesehen/ben: {sats_seen}/{sats_used}"
+msgstr "Sats ges/ben: {sats_seen}/{sats_used}"
 
 #: PiFinder/ui/gpsstatus.py:238
 msgid "Error: {error}"
-msgstr "Unsicherheit: {error}"
+msgstr "Fehler: {error}"
 
 #: PiFinder/ui/gpsstatus.py:247
 msgid "Lock:  {locktype}"
 msgstr "Fix:   {locktype}"
+
+#: PiFinder/ui/gpsstatus.py:247
+#, fuzzy
+msgid "No"
+msgstr "Nix"
 
 #: PiFinder/ui/gpsstatus.py:256
 msgid "Lat:   {latitude:.5f}"
@@ -324,7 +322,6 @@ msgid "Language: fr"
 msgstr "Sprache: Französisch"
 
 #: PiFinder/ui/menu_structure.py:36
-#, fuzzy
 msgid "Start"
 msgstr "Start"
 
@@ -333,7 +330,6 @@ msgid "Focus"
 msgstr "Fokus"
 
 #: PiFinder/ui/menu_structure.py:45
-#, fuzzy
 msgid "Align"
 msgstr "Justieren"
 
@@ -681,12 +677,10 @@ msgid "WiFi Mode"
 msgstr "WLAN"
 
 #: PiFinder/ui/menu_structure.py:818
-#, fuzzy
 msgid "Client Mode"
 msgstr "client mode sein"
 
 #: PiFinder/ui/menu_structure.py:823
-#, fuzzy
 msgid "AP Mode"
 msgstr "WLAN"
 
@@ -743,7 +737,6 @@ msgid "v3 - imx462"
 msgstr "v3 - imx462"
 
 #: PiFinder/ui/menu_structure.py:899
-#, fuzzy
 msgid "GPS Type"
 msgstr "GPS Typ"
 
@@ -760,7 +753,6 @@ msgid "Tools"
 msgstr "Werkzeuge"
 
 #: PiFinder/ui/menu_structure.py:923
-#, fuzzy
 msgid "Status"
 msgstr "Status"
 
@@ -777,12 +769,10 @@ msgid "Set Location"
 msgstr "Ort setzen"
 
 #: PiFinder/ui/menu_structure.py:939
-#, fuzzy
 msgid "Set Time"
 msgstr "Zeit setzen"
 
 #: PiFinder/ui/menu_structure.py:943
-#, fuzzy
 msgid "Reset"
 msgstr "Reset"
 
@@ -835,57 +825,60 @@ msgid "ALIGN"
 msgstr "JUSTAGE"
 
 #: PiFinder/ui/object_details.py:64
-#, fuzzy
 msgid "CANCEL"
 msgstr "ABBR"
 
 #: PiFinder/ui/object_details.py:96
-#, fuzzy
 msgid "No Object Found"
 msgstr "Keine Objekte"
 
-#: PiFinder/ui/object_details.py:175 PiFinder/ui/object_details.py:179
-msgid "Mag:{obj_mag}"
+#: PiFinder/ui/object_details.py:176
+#, fuzzy
+msgid "Mag:{obj_magn}"
 msgstr "Gr.:{obj_mag}"
 
-#: PiFinder/ui/object_details.py:175
+#. TRANSLATORS: object info magnitude
+#: PiFinder/ui/object_details.py:177
 msgid "Sz:{size}"
 msgstr "⌀:{size}"
 
-#: PiFinder/ui/object_details.py:201
-#, fuzzy
+#: PiFinder/ui/object_details.py:181
+msgid "Mag:{obj_mag}"
+msgstr "Gr.:{obj_mag}"
+
+#: PiFinder/ui/object_details.py:203
 msgid "  Not Logged"
 msgstr "  Nicht geloggt!"
 
-#: PiFinder/ui/object_details.py:203
+#: PiFinder/ui/object_details.py:205
 msgid "  {logs} Logs"
 msgstr "  {logs} Logs"
 
-#: PiFinder/ui/object_details.py:238
+#: PiFinder/ui/object_details.py:240
 msgid "No solve"
 msgstr "Bisher keine"
 
-#: PiFinder/ui/object_details.py:244
+#: PiFinder/ui/object_details.py:246
 msgid "yet{elipsis}"
 msgstr "Lösung{elipsis}"
 
-#: PiFinder/ui/object_details.py:256
+#: PiFinder/ui/object_details.py:258
 msgid "Searching"
 msgstr "Suche"
 
-#: PiFinder/ui/object_details.py:262
+#: PiFinder/ui/object_details.py:264
 msgid "for GPS{elipsis}"
 msgstr "nach Satelliten{elipsis}"
 
-#: PiFinder/ui/object_details.py:274
+#: PiFinder/ui/object_details.py:276
 msgid "Calculating"
 msgstr "berechne..."
 
-#: PiFinder/ui/object_details.py:461
+#: PiFinder/ui/object_details.py:463
 msgid "Too Far"
 msgstr "zu weit"
 
-#: PiFinder/ui/object_details.py:486
+#: PiFinder/ui/object_details.py:488
 msgid "LOG"
 msgstr "Loggen"
 
@@ -898,7 +891,6 @@ msgid "Nearest"
 msgstr "Nächste"
 
 #: PiFinder/ui/object_list.py:130 PiFinder/ui/object_list.py:663
-#, fuzzy
 msgid "Standard"
 msgstr "Standard"
 
@@ -944,7 +936,7 @@ msgstr "Gamma"
 
 #: PiFinder/ui/preview.py:73
 msgid "BG Sub"
-msgstr "Hintergrundabzug"
+msgstr "Hgrabz"
 
 #: PiFinder/ui/preview.py:76
 msgid "Full"
@@ -1023,7 +1015,6 @@ msgid "Search:"
 msgstr "Namenssuche:"
 
 #: PiFinder/ui/timeentry.py:14
-#, fuzzy
 msgid "hh"
 msgstr "hh"
 
@@ -1036,9 +1027,8 @@ msgid "ss"
 msgstr "ss"
 
 #: PiFinder/ui/timeentry.py:96
-#, fuzzy
 msgid "Enter Local Time"
-msgstr "Zeit eingeben"
+msgstr "lok Zeit eingeben"
 
 #: PiFinder/ui/timeentry.py:118
 msgid "  Next box"
