@@ -172,7 +172,7 @@ class UIObjectDetails(UIModule):
         magsize = ""
         if size != "-" or obj_mag != "-":
             spaces, magsize = self.space_calculator.calculate_spaces(
-                _("Mag:{obj_mag}").format(obj_mag=obj_mag), _("Sz:{size}").format(size=size) # TRANSLATE: object info mag and size
+                _("Mag:{obj_mag}").format(obj_mag=obj_mag), _("Sz:{size}").format(size=size) # TRANSLATORS: object info mag and size
             )
             if spaces == -1:
                 spaces, magsize = self.space_calculator.calculate_spaces(
@@ -235,13 +235,13 @@ class UIObjectDetails(UIModule):
         if self.shared_state.solution() is None:
             self.draw.text(
                 (10, 70),
-                _("No solve"), # TRANSLATE: No solve yet... (Part 1/2)
+                _("No solve"), # TRANSLATORS: No solve yet... (Part 1/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 90),
-                _("yet{ellipsis}").format(ellipsis="." * int(self._elipsis_count / 10)), # TRANSLATE: No solve yet... (Part 2/2)
+                _("yet{elipsis}").format(elipsis="." * int(self._elipsis_count / 10)), # TRANSLATORS: No solve yet... (Part 2/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -253,13 +253,13 @@ class UIObjectDetails(UIModule):
         if not self.shared_state.altaz_ready():
             self.draw.text(
                 (10, 70),
-                _("Searching"), # TRANSLATE: Searching for GPS (Part 1/2)
+                _("Searching"), # TRANSLATORS: Searching for GPS (Part 1/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 90),
-                _("for GPS{ellipsis}").format(ellipsis='.' * int(self._elipsis_count / 10)), # TRANSLATE: Searching for GPS (Part 2/2)
+                _("for GPS{elipsis}").format(elipsis='.' * int(self._elipsis_count / 10)), # TRANSLATORS: Searching for GPS (Part 2/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )

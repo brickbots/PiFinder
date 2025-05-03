@@ -114,7 +114,7 @@ class UITextMenu(UIModule):
 
                 self.draw.text(
                     (line_horiz_pos, line_pos),
-                    _(item_text),
+                    _(item_text), # I18N: translate item for display. 
                     font=line_font.font,
                     fill=self.colors.get(line_color),
                 )

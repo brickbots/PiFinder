@@ -11,7 +11,7 @@ class UITimeEntry(UIModule):
         # Initialize three empty boxes for hours, minutes, seconds
         self.boxes = ["", "", ""]
         self.current_box = 0  # Start with hours
-        self.placeholders = [_("hh"), _("mm"), _("ss")] # TRANSLATE: Place holders for hours, minutes, seconds in time entry
+        self.placeholders = [_("hh"), _("mm"), _("ss")] # TRANSLATORS: Place holders for hours, minutes, seconds in time entry
         
         # Screen setup
         self.width = 128

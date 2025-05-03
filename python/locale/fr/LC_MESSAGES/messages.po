@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-01 16:08+0000\n"
+"POT-Creation-Date: 2025-05-03 16:13+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: xxxxxx <xxxxx@xxxxx.com>\n"
 "Language: fr_FR\n"
@@ -25,6 +25,15 @@ msgstr "Temps d'alignement dépassé"
 msgid "Alignment Set"
 msgstr "Alignement en cours"
 
+#: PiFinder/ui/align.py:272 PiFinder/ui/chart.py:210
+msgid "Can't plot"
+msgstr ""
+
+#: PiFinder/ui/align.py:284 PiFinder/ui/chart.py:222 PiFinder/ui/log.py:174
+#: PiFinder/ui/object_list.py:205 PiFinder/ui/object_list.py:225
+msgid "No Solve Yet"
+msgstr "Pas d'astrometrie"
+
 #: PiFinder/ui/align.py:397 PiFinder/ui/object_details.py:451
 #, fuzzy
 msgid "Aligning..."
@@ -42,6 +51,11 @@ msgstr "Erreur d'alignement"
 #: PiFinder/ui/callbacks.py:50
 msgid "Filters Reset"
 msgstr "RàZ filtres"
+
+#: PiFinder/ui/callbacks.py:63 PiFinder/ui/menu_structure.py:948
+#, fuzzy
+msgid "Test Mode"
+msgstr "Mode client"
 
 #: PiFinder/ui/callbacks.py:79
 msgid "Shutting Down"
@@ -64,6 +78,14 @@ msgstr "Wifi vers AP"
 msgid "WiFi to Client"
 msgstr "Wifi vers Client"
 
+#: PiFinder/ui/callbacks.py:192
+msgid "Time: {0}"
+msgstr ""
+
+#: PiFinder/ui/chart.py:40 PiFinder/ui/menu_structure.py:525
+msgid "Settings"
+msgstr "Réglages"
+
 #: PiFinder/ui/equipment.py:35
 msgid "No telescope selected"
 msgstr "Pas de telescope choisi"
@@ -72,13 +94,152 @@ msgstr "Pas de telescope choisi"
 msgid "No eyepiece selected"
 msgstr "Pas d'oculaire choisi"
 
-#: PiFinder/ui/equipment.py:89
+#: PiFinder/ui/equipment.py:70
+msgid "Mag: {mag:.0f}x"
+msgstr ""
+
+#: PiFinder/ui/equipment.py:80
+msgid "TFOV: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
+msgstr ""
+
+#: PiFinder/ui/equipment.py:91
 msgid "Telescope..."
 msgstr "Telescope..."
 
-#: PiFinder/ui/equipment.py:100 PiFinder/ui/log.py:231
+#: PiFinder/ui/equipment.py:102 PiFinder/ui/log.py:231
 msgid "Eyepiece..."
 msgstr "Oculaire"
+
+#: PiFinder/ui/gpsstatus.py:25
+msgid "Limited"
+msgstr ""
+
+#. TRANSLATORS: there's no GPS lock but we accept the position due to low
+#. enough error value
+#: PiFinder/ui/gpsstatus.py:26
+msgid "Basic"
+msgstr ""
+
+#. TRANSLATORS: coarse GPS fix, does this happen?
+#: PiFinder/ui/gpsstatus.py:27
+msgid "Accurate"
+msgstr ""
+
+#. TRANSLATORS: GPS 2D Fix
+#: PiFinder/ui/gpsstatus.py:28
+#, fuzzy
+msgid "Precise"
+msgstr "Récent"
+
+#: PiFinder/ui/gpsstatus.py:38
+#, fuzzy
+msgid "Save"
+msgstr "Sauvegarde Log"
+
+#: PiFinder/ui/gpsstatus.py:41
+msgid "Lock"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:70
+#, fuzzy
+msgid "Location Name"
+msgstr "Réglages"
+
+#: PiFinder/ui/gpsstatus.py:73
+msgid "Loc {number}"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:101
+#, fuzzy
+msgid "Location saved"
+msgstr "Réglages"
+
+#: PiFinder/ui/gpsstatus.py:111
+msgid "Location locked"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:116
+msgid "{error:.1f} km"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:118
+msgid "{error:.0f} m"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:139
+msgid "GPS Locked"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:146
+msgid "Lock boost on"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:155
+msgid "You are ready"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:162
+#, fuzzy
+msgid "to observe!"
+msgstr "Non Observé"
+
+#: PiFinder/ui/gpsstatus.py:170
+msgid "Stay on this screen"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:177
+msgid "for quicker lock"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:186
+#, fuzzy
+msgid "Lock Type:"
+msgstr "Type de Monture"
+
+#: PiFinder/ui/gpsstatus.py:193 PiFinder/ui/menu_structure.py:425
+#: PiFinder/ui/menu_structure.py:457
+msgid "None"
+msgstr "Aucun"
+
+#: PiFinder/ui/gpsstatus.py:202
+msgid "Sats seen/used:"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:218
+msgid "{square} Toggle Details"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:227
+msgid "Sats seen/used: {sats_seen}/{sats_used}"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:238
+msgid "Error: {error}"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:247
+msgid "Lock:  {locktype}"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:256
+msgid "Lat:   {latitude:.5f}"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:264
+msgid "Lon:   {longitude:.5f}"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:272
+msgid "Alt:   {altitude:.1f} m"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:281
+msgid "Time:  {time}"
+msgstr ""
+
+#: PiFinder/ui/gpsstatus.py:288
+msgid "From:  {location_source}"
+msgstr ""
 
 #: PiFinder/ui/log.py:58
 #, fuzzy
@@ -124,11 +285,6 @@ msgstr "Bas"
 msgid "Seeing"
 msgstr "Seeing"
 
-#: PiFinder/ui/log.py:174 PiFinder/ui/object_list.py:199
-#: PiFinder/ui/object_list.py:219
-msgid "No Solve Yet"
-msgstr "Pas d'astrometrie"
-
 #: PiFinder/ui/log.py:185
 msgid "SAVE Log"
 msgstr "Sauvegarde Log"
@@ -149,6 +305,16 @@ msgstr "Conditions..."
 #, fuzzy
 msgid "Logged!"
 msgstr "Connecté"
+
+#: PiFinder/ui/menu_manager.py:77
+#, fuzzy
+msgid "Eyepiece"
+msgstr "Oculaire"
+
+#: PiFinder/ui/menu_manager.py:96
+#, fuzzy
+msgid "Telescope"
+msgstr "Telescope..."
 
 #: PiFinder/ui/menu_structure.py:22
 #, fuzzy
@@ -298,7 +464,7 @@ msgstr "Récent"
 msgid "Name Search"
 msgstr "Rech. par Nom"
 
-#: PiFinder/ui/menu_structure.py:232
+#: PiFinder/ui/menu_structure.py:232 PiFinder/ui/object_list.py:135
 msgid "Filter"
 msgstr "Filtre"
 
@@ -388,10 +554,6 @@ msgstr "Comètes"
 msgid "Altitude"
 msgstr "Altitude"
 
-#: PiFinder/ui/menu_structure.py:425 PiFinder/ui/menu_structure.py:457
-msgid "None"
-msgstr "Aucun"
-
 #: PiFinder/ui/menu_structure.py:451
 msgid "Magnitude"
 msgstr "Magnitude"
@@ -408,10 +570,6 @@ msgstr "Tous"
 msgid "Not Observed"
 msgstr "Non Observé"
 
-#: PiFinder/ui/menu_structure.py:525
-msgid "Settings"
-msgstr "Réglages"
-
 #: PiFinder/ui/menu_structure.py:530
 msgid "User Pref..."
 msgstr "Pref. Utilisateur"
@@ -427,7 +585,8 @@ msgstr "Mise en Sommeil"
 #: PiFinder/ui/menu_structure.py:581 PiFinder/ui/menu_structure.py:613
 #: PiFinder/ui/menu_structure.py:637 PiFinder/ui/menu_structure.py:686
 #: PiFinder/ui/menu_structure.py:710 PiFinder/ui/menu_structure.py:734
-#: PiFinder/ui/menu_structure.py:758
+#: PiFinder/ui/menu_structure.py:758 PiFinder/ui/preview.py:62
+#: PiFinder/ui/preview.py:75
 msgid "Off"
 msgstr "Arret"
 
@@ -441,7 +600,7 @@ msgstr "Rapide"
 
 #: PiFinder/ui/menu_structure.py:621 PiFinder/ui/menu_structure.py:645
 #: PiFinder/ui/menu_structure.py:694 PiFinder/ui/menu_structure.py:718
-#: PiFinder/ui/menu_structure.py:742
+#: PiFinder/ui/menu_structure.py:742 PiFinder/ui/preview.py:65
 msgid "Medium"
 msgstr "Moyen"
 
@@ -474,12 +633,12 @@ msgid "Reticle"
 msgstr "Réticule"
 
 #: PiFinder/ui/menu_structure.py:690 PiFinder/ui/menu_structure.py:714
-#: PiFinder/ui/menu_structure.py:738
+#: PiFinder/ui/menu_structure.py:738 PiFinder/ui/preview.py:69
 msgid "Low"
 msgstr "Bas"
 
 #: PiFinder/ui/menu_structure.py:698 PiFinder/ui/menu_structure.py:722
-#: PiFinder/ui/menu_structure.py:746
+#: PiFinder/ui/menu_structure.py:746 PiFinder/ui/preview.py:63
 msgid "High"
 msgstr "Haut"
 
@@ -656,11 +815,6 @@ msgstr "Console"
 msgid "Software Upd"
 msgstr "Mise à jour"
 
-#: PiFinder/ui/menu_structure.py:948
-#, fuzzy
-msgid "Test Mode"
-msgstr "Mode client"
-
 #: PiFinder/ui/menu_structure.py:950
 msgid "Power"
 msgstr "Allumage"
@@ -702,6 +856,56 @@ msgstr "Français"
 msgid "Spanish"
 msgstr "Espagnol"
 
+#: PiFinder/ui/object_details.py:61 PiFinder/ui/object_details.py:66
+#, fuzzy
+msgid "ALIGN"
+msgstr "Alignement"
+
+#: PiFinder/ui/object_details.py:64
+#, fuzzy
+msgid "CANCEL"
+msgstr "Abandon"
+
+#: PiFinder/ui/object_details.py:96
+#, fuzzy
+msgid "No Object Found"
+msgstr "Pas d'objets"
+
+#: PiFinder/ui/object_details.py:175 PiFinder/ui/object_details.py:179
+msgid "Mag:{obj_mag}"
+msgstr ""
+
+#: PiFinder/ui/object_details.py:175
+msgid "Sz:{size}"
+msgstr ""
+
+#: PiFinder/ui/object_details.py:201
+#, fuzzy
+msgid "  Not Logged"
+msgstr "Connecté"
+
+#: PiFinder/ui/object_details.py:203
+msgid "  {logs} Logs"
+msgstr ""
+
+#: PiFinder/ui/object_details.py:238
+#, fuzzy
+msgid "No solve"
+msgstr "Pas d'astrometrie"
+
+#: PiFinder/ui/object_details.py:244
+msgid "yet{elipsis}"
+msgstr ""
+
+#: PiFinder/ui/object_details.py:256
+#, fuzzy
+msgid "Searching"
+msgstr "Seeing"
+
+#: PiFinder/ui/object_details.py:262
+msgid "for GPS{elipsis}"
+msgstr ""
+
 #: PiFinder/ui/object_details.py:274
 msgid "Calculating"
 msgstr "Calcul en cours"
@@ -710,15 +914,82 @@ msgstr "Calcul en cours"
 msgid "Too Far"
 msgstr "Trop loin"
 
-#: PiFinder/ui/object_list.py:402
+#: PiFinder/ui/object_details.py:486
+#, fuzzy
+msgid "LOG"
+msgstr "Bas"
+
+#: PiFinder/ui/object_list.py:122
+#, fuzzy
+msgid "Sort"
+msgstr "Etoile"
+
+#: PiFinder/ui/object_list.py:126 PiFinder/ui/object_list.py:657
+#, fuzzy
+msgid "Nearest"
+msgstr "Récent"
+
+#: PiFinder/ui/object_list.py:130 PiFinder/ui/object_list.py:663
+#, fuzzy
+msgid "Standard"
+msgstr "Etoile"
+
+#: PiFinder/ui/object_list.py:192
+msgid ""
+"Sorting by\n"
+"{sort_order}"
+msgstr ""
+
+#: PiFinder/ui/object_list.py:193 PiFinder/ui/object_list.py:668
+msgid "RA"
+msgstr ""
+
+#: PiFinder/ui/object_list.py:195
+#, fuzzy
+msgid "Catalog"
+msgstr "Catalogues"
+
+#: PiFinder/ui/object_list.py:197 PiFinder/ui/object_list.py:438
+msgid "Nearby"
+msgstr ""
+
+#: PiFinder/ui/object_list.py:408
 #, fuzzy
 msgid "No objects"
 msgstr "Pas d'objets"
 
-#: PiFinder/ui/object_list.py:408
+#: PiFinder/ui/object_list.py:414
 #, fuzzy
 msgid "match filter"
 msgstr "Filtre de rech."
+
+#: PiFinder/ui/object_list.py:438
+msgid "Sort: {sort_order}"
+msgstr ""
+
+#: PiFinder/ui/preview.py:56
+msgid "Exposure"
+msgstr ""
+
+#: PiFinder/ui/preview.py:60
+msgid "Gamma"
+msgstr ""
+
+#: PiFinder/ui/preview.py:73
+msgid "BG Sub"
+msgstr ""
+
+#: PiFinder/ui/preview.py:76
+msgid "Full"
+msgstr ""
+
+#: PiFinder/ui/preview.py:79
+msgid "Half"
+msgstr ""
+
+#: PiFinder/ui/preview.py:218
+msgid "Zoom x{zoom_number}"
+msgstr ""
 
 #: PiFinder/ui/software.py:88
 #, fuzzy
@@ -733,6 +1004,10 @@ msgstr "Ok! Redémarrage"
 #: PiFinder/ui/software.py:93
 msgid "Error on Upd"
 msgstr "Erreur de mise à jour"
+
+#: PiFinder/ui/software.py:101
+msgid "Wifi Mode: {wifi_mode}"
+msgstr ""
 
 #: PiFinder/ui/software.py:109
 msgid "Current Version"
@@ -756,6 +1031,10 @@ msgstr "Mode client"
 msgid "Checking for"
 msgstr "Vérification"
 
+#: PiFinder/ui/software.py:166
+msgid "updates{elipsis}"
+msgstr ""
+
 #: PiFinder/ui/software.py:180
 msgid "No Update"
 msgstr "Pas de mise à jour"
@@ -767,6 +1046,51 @@ msgstr "Necessaire"
 #: PiFinder/ui/software.py:196
 msgid "Update Now"
 msgstr "Mise à jour maintenant"
+
+#: PiFinder/ui/textentry.py:186
+#, fuzzy
+msgid "Results"
+msgstr "Récent"
+
+#: PiFinder/ui/textentry.py:291
+#, fuzzy
+msgid "Enter Location Name:"
+msgstr "Réglages"
+
+#: PiFinder/ui/textentry.py:299
+#, fuzzy
+msgid "Search:"
+msgstr "Rech. par Nom"
+
+#: PiFinder/ui/timeentry.py:14
+#, fuzzy
+msgid "hh"
+msgstr "Haut"
+
+#: PiFinder/ui/timeentry.py:14
+msgid "mm"
+msgstr ""
+
+#: PiFinder/ui/timeentry.py:14
+msgid "ss"
+msgstr ""
+
+#: PiFinder/ui/timeentry.py:96
+#, fuzzy
+msgid "Enter Local Time"
+msgstr "Réglages"
+
+#: PiFinder/ui/timeentry.py:118
+msgid "  Next box"
+msgstr ""
+
+#: PiFinder/ui/timeentry.py:125
+msgid "  Done"
+msgstr ""
+
+#: PiFinder/ui/timeentry.py:132
+msgid "󰍴  Delete/Previous"
+msgstr ""
 
 #~ msgid "Language: Spanish"
 #~ msgstr "Langage: Espagnol"
@@ -809,4 +1133,10 @@ msgstr "Mise à jour maintenant"
 
 #~ msgid "Searching"
 #~ msgstr "Réglages"
+
+#~ msgid "yet{ellipsis}"
+#~ msgstr ""
+
+#~ msgid "for GPS{ellipsis}"
+#~ msgstr ""
 

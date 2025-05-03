@@ -22,10 +22,10 @@ class UIGPSStatus(UIModule):
 
     __title__ = "GPS"
     _lock_type_dict = {
-        0: _("Limited"),  # there's no lock but we accept the position due to low enough error value
-        1: _("Basic"),  # coarse fix, does this happen?
-        2: _("Accurate"),  # 2D Fix
-        3: _("Precise"),  # 3D Fix
+        0: _("Limited"),  # TRANSLATORS: there's no GPS lock but we accept the position due to low enough error value 
+        1: _("Basic"),  # TRANSLATORS: coarse GPS fix, does this happen?
+        2: _("Accurate"),  # TRANSLATORS: GPS 2D Fix
+        3: _("Precise"),  # TRANSLATORS: GPS 3D Fix
     }
     _display_mode_list = ["large", "detailed"]
 
@@ -38,7 +38,7 @@ class UIGPSStatus(UIModule):
                 label=_("Save"), callback=self.mm_save_location, enabled=True
             ),
             right=MarkingMenuOption(
-                label=_("Lock"), callback=self.mm_lock_location, enabled=True
+                label=_("Lock"), callback=self.mm_lock_location, enabled=True # TRANSLATORS GPS Context menu: lock position 
             ),
             up=MarkingMenuOption(),  # Empty option
             down=MarkingMenuOption(),  # Empty option
@@ -108,7 +108,7 @@ class UIGPSStatus(UIModule):
         self._send_fix_message(gps_reading, "GPS")
 
         # Show confirmation message
-        self.message(_("Location locked"), timeout=2)
+        self.message(_("Location locked"), timeout=2) # TRANSLATORS Location was stored
         return True
 
     def _get_error_string(self, error: float) -> str:
@@ -183,7 +183,7 @@ class UIGPSStatus(UIModule):
             # Lock status
             self.draw.text(
                 (10, draw_pos),
-                _("Lock Type:"),
+                _("Lock Type:"), # TRANSLATORS: GPS Lock type
                 font=self.fonts.bold.font,
                 fill=self.colors.get(128),
             )
@@ -235,7 +235,7 @@ class UIGPSStatus(UIModule):
             # Error display
             self.draw.text(
                 (0, draw_pos),
-                _("Error: {error}").format(error=self._get_error_string(location.error_in_m)),
+                _("Error: {error}").format(error=self._get_error_string(location.error_in_m)), # TRANSLATORS: GPS uncertainty
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
