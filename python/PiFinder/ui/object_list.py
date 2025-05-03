@@ -435,7 +435,7 @@ class UIObjectList(UITextMenu):
             )
             self.draw.text(
                 (begin_x, self.line_position(1)),
-                _("Sort: {sort_order}").format(sort_order='Catalog' if self.current_sort == SortOrder.CATALOG_SEQUENCE else _('Nearby'))
+                _("Sort: {sort_order}").format(sort_order='Catalog' if self.current_sort == SortOrder.CATALOG_SEQUENCE else _('Nearby')),
                 font=self.fonts.bold.font,
                 fill=self.colors.get(intensity),
             )

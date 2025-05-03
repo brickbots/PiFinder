@@ -215,7 +215,7 @@ class UIGPSStatus(UIModule):
 
             self.draw.text(
                 (15, self.display_class.resY - self.fonts.base.height - 2),
-                _("{square} Toggle Details").format(square=self._SQUARE),
+                _("{square} Toggle Details").format(square=self._SQUARE_),
                 font=self.fonts.base.font,
                 fill=self.colors.get(255),
             )
@@ -261,7 +261,7 @@ class UIGPSStatus(UIModule):
 
             self.draw.text(
                 (0, draw_pos),
-                _("Lon:   {longitude:.5f}").format(longitude=location.lon:.5f),
+                _("Lon:   {longitude:.5f}").format(longitude=location.lon),
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )

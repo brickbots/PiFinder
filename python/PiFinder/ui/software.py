@@ -163,7 +163,7 @@ class UISoftware(UIModule):
             )
             self.draw.text(
                 (10, 105),
-                _("updates{elipsis}").format(elipsis='.' * int(self._elipsis_count / 10),
+                _("updates{elipsis}").format(elipsis='.' * int(self._elipsis_count / 10)),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
