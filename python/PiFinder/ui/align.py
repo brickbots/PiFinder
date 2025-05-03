@@ -250,11 +250,11 @@ class UIAlign(UIModule):
                 # draw the help text
                 if not self.align_mode:
                     # Prompt to start align
-                    hint_text = f"  {self._SQUARE_} START ALIGN"
+                    hint_text = _(f"  {self._SQUARE_} START ALIGN")
                 elif self.alignment_star is None:
-                    hint_text = f"{self._ARROWS_} SELECT STAR"
+                    hint_text = _(f"{self._ARROWS_} SELECT STAR")
                 else:
-                    hint_text = f"{self._SQUARE_} SAVE / 0 CANCEL"
+                    hint_text = _(f"{self._SQUARE_} SAVE / 0 CANCEL")
                 self.draw.text(
                     (15, self.display_class.resY - self.fonts.base.height - 2),
                     hint_text,
@@ -269,7 +269,7 @@ class UIAlign(UIModule):
             )
             self.draw.text(
                 (16, self.display_class.titlebar_height + 10),
-                "Can't plot",
+                _("Can't plot"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -281,7 +281,7 @@ class UIAlign(UIModule):
                     + self.fonts.large.height
                     + 4,
                 ),
-                "No Solve Yet",
+                _("No Solve Yet"),
                 font=self.fonts.base.font,
                 fill=self.colors.get(255),
             )

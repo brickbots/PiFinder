@@ -11,7 +11,7 @@ class UITimeEntry(UIModule):
         # Initialize three empty boxes for hours, minutes, seconds
         self.boxes = ["", "", ""]
         self.current_box = 0  # Start with hours
-        self.placeholders = ["hh", "mm", "ss"]
+        self.placeholders = [_("hh"), _("mm"), _("ss")] # TRANSLATE: Place holders for hours, minutes, seconds in time entry
         
         # Screen setup
         self.width = 128
@@ -93,7 +93,7 @@ class UITimeEntry(UIModule):
         note_y = self.text_y + self.box_height + 10
         self.draw.text(
             (10, note_y),
-            "Enter Local Time",
+            _("Enter Local Time"),
             font=self.fonts.base.font,
             fill=self.red  # Brighter color for better visibility
         )
@@ -115,21 +115,21 @@ class UITimeEntry(UIModule):
         
         self.draw.text(
             (10, legend_y),
-            "  Next box",  # Right
+            _("  Next box"),  # Right
             font=self.fonts.base.font,  # Using base font
             fill=legend_color
         )
         legend_y += 12  # Standard spacing
         self.draw.text(
             (10, legend_y),
-            "  Done",  # Left
+            _("  Done"),  # Left
             font=self.fonts.base.font,
             fill=legend_color
         )
         legend_y += 12  # Standard spacing
         self.draw.text(
             (10, legend_y),
-            "󰍴  Delete/Previous",  # minus
+            _("󰍴  Delete/Previous"),  # minus
             font=self.fonts.base.font,
             fill=legend_color
         )

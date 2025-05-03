@@ -60,7 +60,7 @@ def activate_debug(ui_module: UIModule) -> None:
     ui_module.command_queues["camera"].put("debug")
     ui_module.command_queues["console"].put("Test Mode Activated")
     ui_module.command_queues["ui_queue"].put("test_mode")
-    ui_module.message("Test Mode")
+    ui_module.message(_("Test Mode"))
 
 
 def set_exposure(ui_module: UIModule) -> None:
@@ -189,4 +189,4 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
     dt_with_timezone = timezone.localize(dt_with_date)
 
     ui_module.command_queues["gps"].put(("time", {"time": dt_with_timezone}))
-    ui_module.message(f"Time: {time_str}", 2)
+    ui_module.message(_("Time: {0}").format(time_str), 2)

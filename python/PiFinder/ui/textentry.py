@@ -183,7 +183,7 @@ class UITextEntry(UIModule):
 
     def draw_results(self):
         item_definition = {
-            "name": "Results",
+            "name": _("Results"),
             "class": UIObjectList,
             "objects": "custom",
             "object_list": self.search_results,
@@ -288,7 +288,7 @@ class UITextEntry(UIModule):
             # Pure text entry mode
             self.draw.text(
                 (7, 0),
-                "Enter Location Name:",
+                _("Enter Location Name:"),
                 font=self.fonts.base.font,
                 fill=self.half_red,
             )
@@ -296,7 +296,7 @@ class UITextEntry(UIModule):
             # Search mode
             self.draw.text(
                 (7, 0),
-                "Search:",
+                _("Search:"),
                 font=self.fonts.base.font,
                 fill=self.half_red,
             )

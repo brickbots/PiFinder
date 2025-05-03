@@ -37,7 +37,7 @@ class UIChart(UIModule):
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(),
             down=MarkingMenuOption(
-                label="Settings",
+                label=_("Settings"),
                 menu_jump="chart_settings",
             ),
             right=MarkingMenuOption(),
@@ -207,7 +207,7 @@ class UIChart(UIModule):
             )
             self.draw.text(
                 (16, self.display_class.titlebar_height + 10),
-                "Can't plot",
+                _("Can't plot"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -219,7 +219,7 @@ class UIChart(UIModule):
                     + self.fonts.large.height
                     + 4,
                 ),
-                "No Solve Yet",
+                _("No Solve Yet"),
                 font=self.fonts.base.font,
                 fill=self.colors.get(255),
             )

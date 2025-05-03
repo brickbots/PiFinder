@@ -37,7 +37,7 @@ def update_needed(current_version: str, repo_version: str) -> bool:
             int(_tmp_split[2]),
         )
 
-        # tuples compare in signifcance from first to last element
+        # tuples compare in significance from first to last element
         return repo_version_compare > current_version_compare
 
     except Exception:
@@ -98,7 +98,7 @@ class UISoftware(UIModule):
         draw_pos = self.display_class.titlebar_height + 2
         self.draw.text(
             (0, draw_pos),
-            _(f"Wifi Mode: {self._wifi_mode}"),
+            _("Wifi Mode: {wifi_mode}").format(self._wifi_mode),
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
@@ -163,7 +163,7 @@ class UISoftware(UIModule):
             )
             self.draw.text(
                 (10, 105),
-                _(f"updates{'.' * int(self._elipsis_count / 10)}"),
+                _("updates{elipsis}").format(elipsis='.' * int(self._elipsis_count / 10),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )

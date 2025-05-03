@@ -53,30 +53,30 @@ class UIPreview(UIModule):
         # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
-                label="Exposure",
+                label=_("Exposure"),
                 menu_jump="camera_exposure",
             ),
             down=MarkingMenuOption(
-                label="Gamma",
+                label=_("Gamma"),
                 callback=MarkingMenu(
-                    up=MarkingMenuOption(label="Off", callback=self.mm_change_gamma),
-                    left=MarkingMenuOption(label="High", callback=self.mm_change_gamma),
+                    up=MarkingMenuOption(label=_("Off"), callback=self.mm_change_gamma),
+                    left=MarkingMenuOption(label=_("High"), callback=self.mm_change_gamma),
                     down=MarkingMenuOption(
-                        label="Medium",
+                        label=_("Medium"),
                         callback=self.mm_change_gamma,
-                        selected=True,
+                        selected=True, # TODO Selected item should be read from config.
                     ),
-                    right=MarkingMenuOption(label="Low", callback=self.mm_change_gamma),
+                    right=MarkingMenuOption(label=_("Low"), callback=self.mm_change_gamma),
                 ),
             ),
             right=MarkingMenuOption(
-                label="BG Sub",
+                label=_("BG Sub"), # TRANSLATE: Background Subtraction context menu
                 callback=MarkingMenu(
-                    up=MarkingMenuOption(label="Off", callback=self.mm_change_bgsub),
-                    left=MarkingMenuOption(label="Full", callback=self.mm_change_bgsub),
+                    up=MarkingMenuOption(label=_("Off"), callback=self.mm_change_bgsub),
+                    left=MarkingMenuOption(label=_("Full"), callback=self.mm_change_bgsub),
                     down=MarkingMenuOption(),
                     right=MarkingMenuOption(
-                        label="Half", callback=self.mm_change_bgsub, selected=True
+                        label=_("Half"), callback=self.mm_change_bgsub, selected=True # TODO Selected item should be read from config.
                     ),
                 ),
             ),
@@ -89,7 +89,7 @@ class UIPreview(UIModule):
         marking_menu.select_none()
         menu_item.selected = True
 
-        self.config_object.set_option("session.camera_gamma", menu_item.label)
+        self.config_object.set_option("session.camera_gamma", menu_item.label) # TODO I18N: context menu need display names
         return True
 
     def mm_change_bgsub(self, marking_menu, menu_item):
@@ -215,7 +215,7 @@ class UIPreview(UIModule):
                 zoom_number = self.zoom_level * 2
                 self.draw.text(
                     (75, 112),
-                    f"Zoom x{zoom_number}",
+                    _("Zoom x{zoom_number}").format(zoom_number=zoom_number),
                     font=self.fonts.bold.font,
                     fill=self.colors.get(128),
                 )

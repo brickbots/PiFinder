@@ -58,12 +58,12 @@ class UIObjectDetails(UIModule):
             left=MarkingMenuOption(),
             right=MarkingMenuOption(),
             down=MarkingMenuOption(
-                label="ALIGN",
+                label=_("ALIGN"),
                 callback=MarkingMenu(
                     up=MarkingMenuOption(),
-                    left=MarkingMenuOption(label="CANCEL", callback=self.mm_cancel),
+                    left=MarkingMenuOption(label=_("CANCEL"), callback=self.mm_cancel),
                     down=MarkingMenuOption(),
-                    right=MarkingMenuOption(label="ALIGN", callback=self.mm_align),
+                    right=MarkingMenuOption(label=_("ALIGN"), callback=self.mm_align),
                 ),
             ),
         )
@@ -93,7 +93,7 @@ class UIObjectDetails(UIModule):
         self.space_calculator = SpaceCalculatorFixed(18)
         self.texts = {
             "type-const": self.simpleTextLayout(
-                "No Object Found",
+                _("No Object Found"),
                 font=self.fonts.bold,
                 color=self.colors.get(255),
             ),
@@ -172,11 +172,11 @@ class UIObjectDetails(UIModule):
         magsize = ""
         if size != "-" or obj_mag != "-":
             spaces, magsize = self.space_calculator.calculate_spaces(
-                f"Mag:{obj_mag}", f"Sz:{size}"
+                _("Mag:{obj_mag}").format(obj_mag=obj_mag), _("Sz:{size}").format(size=size) # TRANSLATE: object info mag and size
             )
             if spaces == -1:
                 spaces, magsize = self.space_calculator.calculate_spaces(
-                    f"Mag:{obj_mag}", size
+                    _("Mag:{obj_mag}").format(obj_mag=obj_mag), size
                 )
             if spaces == -1:
                 spaces, magsize = self.space_calculator.calculate_spaces(obj_mag, size)
@@ -198,9 +198,9 @@ class UIObjectDetails(UIModule):
         logs = self.observations_db.get_logs_for_object(self.object)
         desc = self.object.description.replace("\t", " ") + "\n"
         if len(logs) == 0:
-            desc = desc + "  Not Logged"
+            desc = desc + _("  Not Logged")
         else:
-            desc = desc + f"  {len(logs)} Logs"
+            desc = desc + _("  {logs} Logs").format(logs=len(logs))
 
         self.descTextLayout.set_text(desc)
         self.texts["desc"] = self.descTextLayout
@@ -235,13 +235,13 @@ class UIObjectDetails(UIModule):
         if self.shared_state.solution() is None:
             self.draw.text(
                 (10, 70),
-                "No solve",
+                _("No solve"), # TRANSLATE: No solve yet... (Part 1/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 90),
-                f"yet{'.' * int(self._elipsis_count / 10)}",
+                _("yet{ellipsis}").format(ellipsis="." * int(self._elipsis_count / 10)), # TRANSLATE: No solve yet... (Part 2/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -253,13 +253,13 @@ class UIObjectDetails(UIModule):
         if not self.shared_state.altaz_ready():
             self.draw.text(
                 (10, 70),
-                "Searching",
+                _("Searching"), # TRANSLATE: Searching for GPS (Part 1/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 90),
-                f"for GPS{'.' * int(self._elipsis_count / 10)}",
+                _("for GPS{ellipsis}").format(ellipsis='.' * int(self._elipsis_count / 10)), # TRANSLATE: Searching for GPS (Part 2/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -367,7 +367,7 @@ class UIObjectDetails(UIModule):
         if self.object_display_mode == DM_LOCATE:
             self._render_pointing_instructions()
 
-        if self.object_display_mode == DM_DESC:
+        elif self.object_display_mode == DM_DESC:
             # Object Magnitude and size i.e. 'Mag:4.0   Sz:7"'
             magsize = self.texts.get("magsize")
             posy = 52
@@ -483,7 +483,7 @@ class UIObjectDetails(UIModule):
         if self.shared_state.solution() is None:
             return
         object_item_definition = {
-            "name": "LOG",
+            "name": _("LOG"),
             "class": UILog,
             "object": self.object,
         }

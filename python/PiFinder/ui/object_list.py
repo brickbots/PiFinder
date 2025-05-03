@@ -119,20 +119,20 @@ class UIObjectList(UITextMenu):
 
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
-                label="Sort",
+                label=_("Sort"),
                 callback=MarkingMenu(
                     up=MarkingMenuOption(),
                     left=MarkingMenuOption(
-                        label="Nearest", callback=self.mm_change_sort
+                        label=_("Nearest"), callback=self.mm_change_sort
                     ),
                     down=MarkingMenuOption(),
                     right=MarkingMenuOption(
-                        label="Standard", callback=self.mm_change_sort
+                        label=_("Standard"), callback=self.mm_change_sort
                     ),
                 ),
             ),
             down=MarkingMenuOption(),
-            right=MarkingMenuOption(label="Filter", menu_jump="filter_options"),
+            right=MarkingMenuOption(label=_("Filter"), menu_jump="filter_options"),
         )
 
         if self.current_sort == SortOrder.CATALOG_SEQUENCE:
@@ -189,7 +189,13 @@ class UIObjectList(UITextMenu):
 
     def sort(self) -> None:
         message = _(
-            f"Sorting by\n{'number' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'nearby'}"
+            _("Sorting by\n{sort_order}").format(
+                sort_order=_("RA")
+                if self.current_sort == SortOrder.RA
+                else _("Catalog")
+                if self.current_sort == SortOrder.CATALOG_SEQUENCE
+                else _("Nearby")
+            )
         )
         self.message(message, 0.1)
         self.update()
@@ -422,16 +428,14 @@ class UIObjectList(UITextMenu):
             self.draw.text(
                 (begin_x, self.line_position(0)),
                 _(
-                    f"{self.catalog_info_1} obj{f', {self.catalog_info_2}d old' if self.catalog_info_2 else ''}"
+                    f"{self.catalog_info_1} obj{f', {self.catalog_info_2}d old' if self.catalog_info_2 else ''}" # TODO I18N
                 ),
                 font=self.fonts.bold.font,
                 fill=self.colors.get(intensity),
             )
             self.draw.text(
                 (begin_x, self.line_position(1)),
-                _(
-                    f"Sort: {'Catalog' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'Nearby'}"
-                ),
+                _("Sort: {sort_order}").format(sort_order='Catalog' if self.current_sort == SortOrder.CATALOG_SEQUENCE else _('Nearby'))
                 font=self.fonts.bold.font,
                 fill=self.colors.get(intensity),
             )
@@ -471,7 +475,7 @@ class UIObjectList(UITextMenu):
                 # draw first text
                 self.draw.text(
                     (begin_x, line_pos),
-                    item_name,
+                    item_name, # TODO I18N: Does this need to be translated?
                     font=line_font.font,
                     fill=self.colors.get(line_color),
                 )
@@ -484,7 +488,7 @@ class UIObjectList(UITextMenu):
                     ):
                         self.last_item_index = self._current_item_index
                         self.item_text_scroll = self.ScrollTextLayout(
-                            item_text,
+                            item_text, # TODO I18N: Does this need to be translated?
                             font=self.fonts.bold,
                             width=math.floor(
                                 (self.display.width - begin_x2) / line_font.width
@@ -497,7 +501,7 @@ class UIObjectList(UITextMenu):
                     # draw non-scrolling second text
                     self.draw.text(
                         (begin_x2, line_pos),
-                        item_text,
+                        item_text, # TODO I18N: Does this need to be translated?
                         font=line_font.font,
                         fill=self.colors.get(line_color),
                     )
@@ -650,18 +654,18 @@ class UIObjectList(UITextMenu):
         marking_menu.select_none()
         menu_item.selected = True
 
-        if menu_item.label == "Nearest":
+        if menu_item.label == _("Nearest"):
             self.current_sort = SortOrder.NEAREST
             self.nearby_refresh()
             self.sort()
             return True
 
-        if menu_item.label == "Standard":
+        if menu_item.label == _("Standard"):
             self.current_sort = SortOrder.CATALOG_SEQUENCE
             self.sort()
             return True
 
-        if menu_item.label == "RA":
+        if menu_item.label == _("RA"):
             self.current_sort = SortOrder.RA
             self.sort()
             return True
