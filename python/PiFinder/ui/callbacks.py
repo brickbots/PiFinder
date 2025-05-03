@@ -189,4 +189,4 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
     dt_with_timezone = timezone.localize(dt_with_date)
 
     ui_module.command_queues["gps"].put(("time", {"time": dt_with_timezone}))
-    ui_module.message(_("Time: {0}").format(time_str), 2)
+    ui_module.message(_("Time: {time}").format(time=time_str), 2)

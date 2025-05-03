@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-03 16:51+0200\n"
+"POT-Creation-Date: 2025-05-03 17:24+0200\n"
 "PO-Revision-Date: 2025-01-22 17:58+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es\n"
@@ -17,6 +17,10 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.16.0\n"
+
+#: PiFinder/cat_images.py:43
+msgid "No Image"
+msgstr ""
 
 #: PiFinder/ui/align.py:56
 msgid "Align Timeout"
@@ -77,7 +81,7 @@ msgid "WiFi to Client"
 msgstr ""
 
 #: PiFinder/ui/callbacks.py:192
-msgid "Time: {0}"
+msgid "Time: {time}"
 msgstr ""
 
 #: PiFinder/ui/chart.py:40 PiFinder/ui/menu_structure.py:525
@@ -294,6 +298,10 @@ msgstr ""
 
 #: PiFinder/ui/log.py:304
 msgid "Logged!"
+msgstr ""
+
+#: PiFinder/ui/marking_menus.py:38 PiFinder/ui/menu_manager.py:485
+msgid "HELP"
 msgstr ""
 
 #: PiFinder/ui/menu_manager.py:77
@@ -831,17 +839,13 @@ msgstr ""
 msgid "No Object Found"
 msgstr ""
 
-#: PiFinder/ui/object_details.py:176
-msgid "Mag:{obj_magn}"
+#: PiFinder/ui/object_details.py:175 PiFinder/ui/object_details.py:181
+msgid "Mag:{obj_mag}"
 msgstr ""
 
 #. TRANSLATORS: object info magnitude
-#: PiFinder/ui/object_details.py:177
+#: PiFinder/ui/object_details.py:176
 msgid "Sz:{size}"
-msgstr ""
-
-#: PiFinder/ui/object_details.py:181
-msgid "Mag:{obj_mag}"
 msgstr ""
 
 #: PiFinder/ui/object_details.py:203
@@ -1111,5 +1115,17 @@ msgstr ""
 #~ msgstr ""
 
 #~ msgid "for GPS{ellipsis}"
+#~ msgstr ""
+
+#~ msgid "Sz:{size}"
+#~ msgstr ""
+
+#~ msgid "Time: {0}"
+#~ msgstr ""
+
+#~ msgid "Mag:{obj_magn}"
+#~ msgstr ""
+
+#~ msgid "Sz:{sz}"
 #~ msgstr ""
 

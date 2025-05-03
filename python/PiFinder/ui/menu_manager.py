@@ -482,7 +482,7 @@ class MenuManager:
         if type(selected_item.callback) is MarkingMenu:
             self.marking_menu_stack.append(selected_item.callback)
             self.display_marking_menu()
-        elif selected_item.label == "HELP": # TODO: This needs to be changed for I18N
+        elif selected_item.label == _("HELP"): # TODO: This needs to be changed for I18N
             self.exit_marking_menu()
             self.help_images = self.stack[-1].help()
             if self.help_images is not None:

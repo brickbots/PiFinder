@@ -154,7 +154,7 @@ class UIObjectDetails(UIModule):
         object_type = OBJ_TYPES.get(self.object.obj_type, self.object.obj_type)
 
         # layout the type - constellation line
-        _, typeconst = self.space_calculator.calculate_spaces(
+        discarded, typeconst = self.space_calculator.calculate_spaces(
             object_type, self.object.const
         )
         self.texts["type-const"] = self.simpleTextLayout(
@@ -171,11 +171,11 @@ class UIObjectDetails(UIModule):
         # Only construct mag/size if at least one is present
         magsize = ""
         if size != "-" or obj_mag != "-":
-            print(self.space_calculator)
             spaces, magsize = self.space_calculator.calculate_spaces(
-                _("Mag:{obj_magn}").format(obj_magn=obj_mag), # TRANSLATORS: object info magnitude
+                _("Mag:{obj_mag}").format(obj_mag=obj_mag), # TRANSLATORS: object info magnitude
                 _("Sz:{size}").format(size=size) # TRANSLATORS: object info size
             )
+            print("there")
             if spaces == -1:
                 spaces, magsize = self.space_calculator.calculate_spaces(
                     _("Mag:{obj_mag}").format(obj_mag=obj_mag), size
