@@ -89,7 +89,7 @@ msgstr "Etoile"
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:19
 msgid "Unkn"
-msgstr ""
+msgstr "Inconnu"
 
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:20 PiFinder/ui/menu_structure.py:409
@@ -112,7 +112,7 @@ msgstr "Alignement en cours"
 
 #: PiFinder/ui/align.py:272 PiFinder/ui/chart.py:210
 msgid "Can't plot"
-msgstr ""
+msgstr "Pas d'astrométrie"
 
 #: PiFinder/ui/align.py:284 PiFinder/ui/chart.py:222 PiFinder/ui/log.py:174
 #: PiFinder/ui/object_list.py:205 PiFinder/ui/object_list.py:225
@@ -165,7 +165,7 @@ msgstr "Wifi vers Client"
 
 #: PiFinder/ui/callbacks.py:192
 msgid "Time: {time}"
-msgstr ""
+msgstr "Temps: {time}"
 
 #: PiFinder/ui/chart.py:40 PiFinder/ui/menu_structure.py:525
 msgid "Settings"
@@ -181,11 +181,11 @@ msgstr "Pas d'oculaire choisi"
 
 #: PiFinder/ui/equipment.py:70
 msgid "Mag: {mag:.0f}x"
-msgstr ""
+msgstr "Mag: {mag:.0f}x"
 
 #: PiFinder/ui/equipment.py:80
 msgid "TFOV: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
-msgstr ""
+msgstr "CdVT: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
 
 #: PiFinder/ui/equipment.py:91
 msgid "Telescope..."
@@ -197,18 +197,18 @@ msgstr "Oculaire"
 
 #: PiFinder/ui/gpsstatus.py:25
 msgid "Limited"
-msgstr ""
+msgstr "Limité"
 
 #. TRANSLATORS: there's no GPS lock but we accept the position due to low
 #. enough error value
 #: PiFinder/ui/gpsstatus.py:26
 msgid "Basic"
-msgstr ""
+msgstr "Basique"
 
 #. TRANSLATORS: coarse GPS fix, does this happen?
 #: PiFinder/ui/gpsstatus.py:27
 msgid "Accurate"
-msgstr ""
+msgstr "Fin"
 
 #. TRANSLATORS: GPS 2D Fix
 #: PiFinder/ui/gpsstatus.py:28
@@ -223,54 +223,54 @@ msgstr "Sauvegarde Log"
 
 #: PiFinder/ui/gpsstatus.py:41
 msgid "Lock"
-msgstr ""
+msgstr "Vérouillé"
 
 #: PiFinder/ui/gpsstatus.py:70
 #, fuzzy
 msgid "Location Name"
-msgstr "Réglages"
+msgstr "Localisation"
 
 #: PiFinder/ui/gpsstatus.py:73
 msgid "Loc {number}"
-msgstr ""
+msgstr "Loc {number}"
 
 #: PiFinder/ui/gpsstatus.py:101
 #, fuzzy
 msgid "Location saved"
-msgstr "Réglages"
+msgstr "Sauveg. Loc"
 
 #: PiFinder/ui/gpsstatus.py:111
 msgid "Location locked"
-msgstr ""
+msgstr "Loc. vérouillée"
 
 #: PiFinder/ui/gpsstatus.py:116
 msgid "{error:.1f} km"
-msgstr ""
+msgstr "{error:.1f} km"
 
 #: PiFinder/ui/gpsstatus.py:118
 msgid "{error:.0f} m"
-msgstr ""
+msgstr "{error:.0f} m"
 
 #: PiFinder/ui/gpsstatus.py:139
 msgid "GPS Locked"
-msgstr ""
+msgstr "GPS vérouillé"
 
 #: PiFinder/ui/gpsstatus.py:146
 msgid "Lock boost on"
-msgstr ""
+msgstr "Boust du vérouillage"
 
 #: PiFinder/ui/gpsstatus.py:155
 msgid "You are ready"
-msgstr ""
+msgstr "Vous êtes prêt"
 
 #: PiFinder/ui/gpsstatus.py:162
 #, fuzzy
 msgid "to observe!"
-msgstr "Non Observé"
+msgstr "A observé"
 
 #: PiFinder/ui/gpsstatus.py:170
 msgid "Stay on this screen"
-msgstr ""
+msgstr "Rester sur cet écran"
 
 #: PiFinder/ui/gpsstatus.py:177
 msgid "for quicker lock"
@@ -288,23 +288,23 @@ msgstr "Aucun"
 
 #: PiFinder/ui/gpsstatus.py:202
 msgid "Sats seen/used:"
-msgstr ""
+msgstr "Sats vus/utilisés:"
 
 #: PiFinder/ui/gpsstatus.py:218
 msgid "{square} Toggle Details"
-msgstr ""
+msgstr "{square} Détails basculés"
 
 #: PiFinder/ui/gpsstatus.py:227
 msgid "Sats seen/used: {sats_seen}/{sats_used}"
-msgstr ""
+msgstr "Sats vus/utilisés: {sats_seen}/{sats_used}"
 
 #: PiFinder/ui/gpsstatus.py:238
 msgid "Error: {error}"
-msgstr ""
+msgstr "Erreur: {error}"
 
 #: PiFinder/ui/gpsstatus.py:247
 msgid "Lock:  {locktype}"
-msgstr ""
+msgstr "Vérouiullage:  {locktype}"
 
 #: PiFinder/ui/gpsstatus.py:247
 #, fuzzy
@@ -313,23 +313,23 @@ msgstr "Aucun"
 
 #: PiFinder/ui/gpsstatus.py:256
 msgid "Lat:   {latitude:.5f}"
-msgstr ""
+msgstr "Lat:   {latitude:.5f}"
 
 #: PiFinder/ui/gpsstatus.py:264
 msgid "Lon:   {longitude:.5f}"
-msgstr ""
+msgstr "Lon:   {longitude:.5f}"
 
 #: PiFinder/ui/gpsstatus.py:272
 msgid "Alt:   {altitude:.1f} m"
-msgstr ""
+msgstr "Alt:   {altitude:.1f} m"
 
 #: PiFinder/ui/gpsstatus.py:281
 msgid "Time:  {time}"
-msgstr ""
+msgstr "Temps:  {time}"
 
 #: PiFinder/ui/gpsstatus.py:288
 msgid "From:  {location_source}"
-msgstr ""
+msgstr "Depuis:  {location_source}"
 
 #: PiFinder/ui/log.py:58
 #, fuzzy
