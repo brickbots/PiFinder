@@ -405,13 +405,13 @@ class UIObjectList(UITextMenu):
         if self.get_nr_of_menu_items() == 0:
             self.draw.text(
                 (begin_x, self.line_position(2)),
-                _("No objects"),
+                _("No objects"), # TRANSLATORS: no objects in object list (1/2)
                 font=self.fonts.bold.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (begin_x, self.line_position(3)),
-                _("match filter"),
+                _("match filter"), # TRANSLATORS: no objects in object list (2/2)
                 font=self.fonts.bold.font,
                 fill=self.colors.get(255),
             )
@@ -427,15 +427,15 @@ class UIObjectList(UITextMenu):
             intensity: int = int(64 + ((2.0 - self._current_item_index) * 32.0))
             self.draw.text(
                 (begin_x, self.line_position(0)),
-                _(
-                    f"{self.catalog_info_1} obj{f', {self.catalog_info_2}d old' if self.catalog_info_2 else ''}" # TODO I18N
-                ),
+                    _("{catalog_info_1} obj").format(catalog_info_1=self.catalog_info_1) + # TRANSLATORS: number of objects in object list
+                    _(", {catalog_info_2}d old").format(catalog_info_2=self.catalog_info_2) if self.catalog_info_2 else '' # TRANSLATORS: suffix to number of objects in object list (indicating age of catalog data)
+                ,
                 font=self.fonts.bold.font,
                 fill=self.colors.get(intensity),
             )
             self.draw.text(
                 (begin_x, self.line_position(1)),
-                _("Sort: {sort_order}").format(sort_order='Catalog' if self.current_sort == SortOrder.CATALOG_SEQUENCE else _('Nearby')),
+                _("Sort: {sort_order}").format(sort_order=_('Catalog') if self.current_sort == SortOrder.CATALOG_SEQUENCE else _('Nearby')),
                 font=self.fonts.bold.font,
                 fill=self.colors.get(intensity),
             )

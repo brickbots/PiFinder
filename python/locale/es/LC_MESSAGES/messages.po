@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-03 22:44+0200\n"
+"POT-Creation-Date: 2025-05-04 13:23+0200\n"
 "PO-Revision-Date: 2025-01-22 17:58+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es\n"
@@ -940,7 +940,7 @@ msgstr ""
 msgid "RA"
 msgstr ""
 
-#: PiFinder/ui/object_list.py:195
+#: PiFinder/ui/object_list.py:195 PiFinder/ui/object_list.py:438
 msgid "Catalog"
 msgstr ""
 
@@ -954,6 +954,15 @@ msgstr ""
 
 #: PiFinder/ui/object_list.py:414
 msgid "match filter"
+msgstr ""
+
+#: PiFinder/ui/object_list.py:430
+msgid "{catalog_info_1} obj"
+msgstr ""
+
+#. TRANSLATORS: number of objects in object list
+#: PiFinder/ui/object_list.py:431
+msgid ", {catalog_info_2}d old"
 msgstr ""
 
 #: PiFinder/ui/object_list.py:438
@@ -1034,6 +1043,14 @@ msgstr ""
 
 #: PiFinder/ui/software.py:196
 msgid "Update Now"
+msgstr ""
+
+#: PiFinder/ui/text_menu.py:59
+msgid "Select None"
+msgstr ""
+
+#: PiFinder/ui/text_menu.py:219
+msgid "Select All"
 msgstr ""
 
 #: PiFinder/ui/textentry.py:186

@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-03 22:44+0200\n"
+"POT-Creation-Date: 2025-05-04 13:23+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: xxxxxx <xxxxx@xxxxx.com>\n"
 "Language: fr_FR\n"
@@ -996,7 +996,7 @@ msgstr ""
 msgid "RA"
 msgstr ""
 
-#: PiFinder/ui/object_list.py:195
+#: PiFinder/ui/object_list.py:195 PiFinder/ui/object_list.py:438
 #, fuzzy
 msgid "Catalog"
 msgstr "Catalogues"
@@ -1014,6 +1014,15 @@ msgstr "Pas d'objets"
 #, fuzzy
 msgid "match filter"
 msgstr "Filtre de rech."
+
+#: PiFinder/ui/object_list.py:430
+msgid "{catalog_info_1} obj"
+msgstr ""
+
+#. TRANSLATORS: number of objects in object list
+#: PiFinder/ui/object_list.py:431
+msgid ", {catalog_info_2}d old"
+msgstr ""
 
 #: PiFinder/ui/object_list.py:438
 msgid "Sort: {sort_order}"
@@ -1098,6 +1107,16 @@ msgstr "Necessaire"
 #: PiFinder/ui/software.py:196
 msgid "Update Now"
 msgstr "Mise à jour maintenant"
+
+#: PiFinder/ui/text_menu.py:59
+#, fuzzy
+msgid "Select None"
+msgstr "Telescope..."
+
+#: PiFinder/ui/text_menu.py:219
+#, fuzzy
+msgid "Select All"
+msgstr "RàZ tout"
 
 #: PiFinder/ui/textentry.py:186
 #, fuzzy
