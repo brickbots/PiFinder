@@ -60,23 +60,31 @@ class UIPreview(UIModule):
                 label=_("Gamma"),
                 callback=MarkingMenu(
                     up=MarkingMenuOption(label=_("Off"), callback=self.mm_change_gamma),
-                    left=MarkingMenuOption(label=_("High"), callback=self.mm_change_gamma),
+                    left=MarkingMenuOption(
+                        label=_("High"), callback=self.mm_change_gamma
+                    ),
                     down=MarkingMenuOption(
                         label=_("Medium"),
                         callback=self.mm_change_gamma,
-                        selected=True, # TODO Selected item should be read from config.
+                        selected=True,  # TODO Selected item should be read from config.
                     ),
-                    right=MarkingMenuOption(label=_("Low"), callback=self.mm_change_gamma),
+                    right=MarkingMenuOption(
+                        label=_("Low"), callback=self.mm_change_gamma
+                    ),
                 ),
             ),
             right=MarkingMenuOption(
-                label=_("BG Sub"), # TRANSLATE: Background Subtraction context menu
+                label=_("BG Sub"),  # TRANSLATE: Background Subtraction context menu
                 callback=MarkingMenu(
                     up=MarkingMenuOption(label=_("Off"), callback=self.mm_change_bgsub),
-                    left=MarkingMenuOption(label=_("Full"), callback=self.mm_change_bgsub),
+                    left=MarkingMenuOption(
+                        label=_("Full"), callback=self.mm_change_bgsub
+                    ),
                     down=MarkingMenuOption(),
                     right=MarkingMenuOption(
-                        label=_("Half"), callback=self.mm_change_bgsub, selected=True # TODO Selected item should be read from config.
+                        label=_("Half"),
+                        callback=self.mm_change_bgsub,
+                        selected=True,  # TODO Selected item should be read from config.
                     ),
                 ),
             ),
@@ -89,7 +97,9 @@ class UIPreview(UIModule):
         marking_menu.select_none()
         menu_item.selected = True
 
-        self.config_object.set_option("session.camera_gamma", menu_item.label) # TODO I18N: context menu need display names
+        self.config_object.set_option(
+            "session.camera_gamma", menu_item.label
+        )  # TODO I18N: context menu need display names
         return True
 
     def mm_change_bgsub(self, marking_menu, menu_item):

@@ -1,4 +1,3 @@
-
 import gettext
 
 # Install the _("text") into global context for Internationalization

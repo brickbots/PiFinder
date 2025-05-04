@@ -35,7 +35,7 @@ class MarkingMenu:
     down: MarkingMenuOption
     left: MarkingMenuOption
     right: MarkingMenuOption
-    up: MarkingMenuOption = MarkingMenuOption(label=_("HELP"))
+    up: MarkingMenuOption = MarkingMenuOption(label="HELP")
 
     def select_none(self):
         self.up.selected = False

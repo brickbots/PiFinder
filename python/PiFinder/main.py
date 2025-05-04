@@ -30,7 +30,7 @@ from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 
-import PiFinder.i18n # noqa: F401
+import PiFinder.i18n  # noqa: F401
 from PiFinder import solver
 from PiFinder import integrator
 from PiFinder import config
@@ -499,14 +499,20 @@ def main(
                             location = shared_state.location()
 
                             # Only update GPS fixes, as soon as it's loaded or comes from the WEB it's untouchable
-                            if not location.source == "WEB" and not location.source.startswith("CONFIG:") and (
-                                location.error_in_m == 0
-                                or float(gps_content["error_in_m"])
-                                < float(
-                                    location.error_in_m
-                                )  # Only if new error is smaller
+                            if (
+                                not location.source == "WEB"
+                                and not location.source.startswith("CONFIG:")
+                                and (
+                                    location.error_in_m == 0
+                                    or float(gps_content["error_in_m"])
+                                    < float(
+                                        location.error_in_m
+                                    )  # Only if new error is smaller
+                                )
                             ):
-                                logger.info(f"Updating GPS location: new content: {gps_content}, old content: {location}")
+                                logger.info(
+                                    f"Updating GPS location: new content: {gps_content}, old content: {location}"
+                                )
                                 location.lat = gps_content["lat"]
                                 location.lon = gps_content["lon"]
                                 location.altitude = gps_content["altitude"]

@@ -67,7 +67,9 @@ class UIEquipment(UIModule):
             if mag > 0:
                 self.draw.text(
                     (10, 50),
-                    _("Mag: {mag:.0f}x").format(mag=mag), # TRANSLATORS: Magnification e.g. 200x
+                    _("Mag: {mag:.0f}x").format(
+                        mag=mag
+                    ),  # TRANSLATORS: Magnification e.g. 200x
                     font=self.fonts.base.font,
                     fill=self.colors.get(128),
                 )
@@ -77,7 +79,9 @@ class UIEquipment(UIModule):
                 tfov_minutes = int((tfov - tfov_degrees) * 60)
                 self.draw.text(
                     (10, 70),
-                    _("TFOV: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'").format( # TRANSLATORS: True field of View in degree and minutes
+                    _(
+                        "TFOV: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
+                    ).format(  # TRANSLATORS: True field of View in degree and minutes
                         tfov_degrees=tfov_degrees, tfov_minutes=tfov_minutes
                     ),
                     font=self.fonts.base.font,

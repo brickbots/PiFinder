@@ -56,7 +56,9 @@ class UITextMenu(UIModule):
                     self._selected_values = [
                         x["value"] for x in self.item_definition["items"]
                     ]
-                self._menu_items = [_("Select None")] + self._menu_items # TRANSLATORS: catalog filter deselect all
+                self._menu_items = [
+                    _("Select None")
+                ] + self._menu_items  # TRANSLATORS: catalog filter deselect all
             else:
                 self._selected_values = [self.config_object.get_option(config_option)]
                 if self._selected_values == [None]:
@@ -114,7 +116,7 @@ class UITextMenu(UIModule):
 
                 self.draw.text(
                     (line_horiz_pos, line_pos),
-                    _(item_text), # I18N: translate item for display. 
+                    _(item_text),  # I18N: translate item for display.
                     font=line_font.font,
                     fill=self.colors.get(line_color),
                 )
@@ -216,7 +218,9 @@ class UITextMenu(UIModule):
                             and item_value in self._selected_values
                         ):
                             self._selected_values.remove(item_value)
-                    self._menu_items[0] = _("Select All") # TRANSLATORS: catalog filter select all catalogs
+                    self._menu_items[0] = _(
+                        "Select All"
+                    )  # TRANSLATORS: catalog filter select all catalogs
 
                 elif (
                     self.get_item(selected_item).get("value", "--")

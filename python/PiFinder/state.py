@@ -151,7 +151,7 @@ class Location:
     altitude: float = 0.0
     source: str = "None"
     lock: bool = False  # lock means: we received a good enough location, not a GPS Fix
-    lock_type: int = 0 # limited, basic, accurate, precise
+    lock_type: int = 0  # limited, basic, accurate, precise
     error_in_m: float = 0.0
     timezone: Optional[str] = "UTC"
     last_gps_lock: Optional[str] = None
@@ -168,7 +168,7 @@ class Location:
             f"{f', tz={self.timezone}' if self.timezone else ''}"
             f"{f', last_lock={self.last_gps_lock}' if self.last_gps_lock else ''})"
         )
-    
+
     def reset(self):
         self.lat = 0.0
         self.lon = 0.0
@@ -198,6 +198,7 @@ class Location:
         """Create a Location object from a JSON string."""
         data = json.loads(json_str)
         return cls.from_dict(data)
+
 
 class SharedStateObj:
     def __init__(self):

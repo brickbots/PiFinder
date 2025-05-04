@@ -4,21 +4,21 @@ def _(key: str) -> str:
 
 
 OBJ_TYPES = {
-    "Gx": _("Galaxy"), # TRANSLATORS: Object type
-    "OC": _("Open Cluster"), # TRANSLATORS: Object type
-    "Gb": _("Globular"), # TRANSLATORS: Object type
-    "Nb": _("Nebula"), # TRANSLATORS: Object type
-    "DN": _("Dark Nebula"), # TRANSLATORS: Object type
-    "PN": _("Planetary"), # TRANSLATORS: Object type
-    "C+N": _("Cluster + Neb"), # TRANSLATORS: Object type
-    "Ast": _("Asterism"), # TRANSLATORS: Object type
-    "Kt": _("Knot"), # TRANSLATORS: Object type
-    "***": _("Triple star"), # TRANSLATORS: Object type
-    "D*": _("Double star"), # TRANSLATORS: Object type
-    "*": _("Star"), # TRANSLATORS: Object type
-    "?": _("Unkn"), # TRANSLATORS: Object type
-    "Pla": _("Planet"), # TRANSLATORS: Object type
-    "CM": _("Comet"), # TRANSLATORS: Object type
+    "Gx": _("Galaxy"),  # TRANSLATORS: Object type
+    "OC": _("Open Cluster"),  # TRANSLATORS: Object type
+    "Gb": _("Globular"),  # TRANSLATORS: Object type
+    "Nb": _("Nebula"),  # TRANSLATORS: Object type
+    "DN": _("Dark Nebula"),  # TRANSLATORS: Object type
+    "PN": _("Planetary"),  # TRANSLATORS: Object type
+    "C+N": _("Cluster + Neb"),  # TRANSLATORS: Object type
+    "Ast": _("Asterism"),  # TRANSLATORS: Object type
+    "Kt": _("Knot"),  # TRANSLATORS: Object type
+    "***": _("Triple star"),  # TRANSLATORS: Object type
+    "D*": _("Double star"),  # TRANSLATORS: Object type
+    "*": _("Star"),  # TRANSLATORS: Object type
+    "?": _("Unkn"),  # TRANSLATORS: Object type
+    "Pla": _("Planet"),  # TRANSLATORS: Object type
+    "CM": _("Comet"),  # TRANSLATORS: Object type
 }
 
 OBJ_TYPE_MARKERS = {

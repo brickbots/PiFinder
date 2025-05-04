@@ -154,7 +154,7 @@ class UIObjectDetails(UIModule):
         object_type = OBJ_TYPES.get(self.object.obj_type, self.object.obj_type)
 
         # layout the type - constellation line
-        discarded, typeconst = self.space_calculator.calculate_spaces( # noqa: F841
+        discarded, typeconst = self.space_calculator.calculate_spaces(  # noqa: F841
             object_type, self.object.const
         )
         self.texts["type-const"] = self.simpleTextLayout(
@@ -172,8 +172,10 @@ class UIObjectDetails(UIModule):
         magsize = ""
         if size != "-" or obj_mag != "-":
             spaces, magsize = self.space_calculator.calculate_spaces(
-                _("Mag:{obj_mag}").format(obj_mag=obj_mag), # TRANSLATORS: object info magnitude
-                _("Sz:{size}").format(size=size) # TRANSLATORS: object info size
+                _("Mag:{obj_mag}").format(
+                    obj_mag=obj_mag
+                ),  # TRANSLATORS: object info magnitude
+                _("Sz:{size}").format(size=size),  # TRANSLATORS: object info size
             )
             print("there")
             if spaces == -1:
@@ -198,7 +200,9 @@ class UIObjectDetails(UIModule):
 
         # NGC description....
         logs = self.observations_db.get_logs_for_object(self.object)
-        desc = self.object.description.replace("\t", " ") + "\n" # TODO I18N Add facilities to translate object descriptions. See object_types.OBJ_DESCRIPTORS
+        desc = (
+            self.object.description.replace("\t", " ") + "\n"
+        )  # TODO I18N Add facilities to translate object descriptions. See object_types.OBJ_DESCRIPTORS
         if len(logs) == 0:
             desc = desc + _("  Not Logged")
         else:
@@ -237,13 +241,15 @@ class UIObjectDetails(UIModule):
         if self.shared_state.solution() is None:
             self.draw.text(
                 (10, 70),
-                _("No solve"), # TRANSLATORS: No solve yet... (Part 1/2)
+                _("No solve"),  # TRANSLATORS: No solve yet... (Part 1/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 90),
-                _("yet{elipsis}").format(elipsis="." * int(self._elipsis_count / 10)), # TRANSLATORS: No solve yet... (Part 2/2)
+                _("yet{elipsis}").format(
+                    elipsis="." * int(self._elipsis_count / 10)
+                ),  # TRANSLATORS: No solve yet... (Part 2/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -255,13 +261,15 @@ class UIObjectDetails(UIModule):
         if not self.shared_state.altaz_ready():
             self.draw.text(
                 (10, 70),
-                _("Searching"), # TRANSLATORS: Searching for GPS (Part 1/2)
+                _("Searching"),  # TRANSLATORS: Searching for GPS (Part 1/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 90),
-                _("for GPS{elipsis}").format(elipsis='.' * int(self._elipsis_count / 10)), # TRANSLATORS: Searching for GPS (Part 2/2)
+                _("for GPS{elipsis}").format(
+                    elipsis="." * int(self._elipsis_count / 10)
+                ),  # TRANSLATORS: Searching for GPS (Part 2/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )

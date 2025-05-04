@@ -6,6 +6,7 @@ This module contains all the UI Module classes
 """
 
 import logging
+from typing import TYPE_CHECKING, Any
 from PiFinder import state_utils
 from PiFinder.ui.base import UIModule
 from PiFinder.locations import Location
@@ -13,6 +14,11 @@ from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.ui.textentry import UITextEntry
 
 logger = logging.getLogger("GPS.status")
+
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
 
 
 class UIGPSStatus(UIModule):
@@ -22,7 +28,9 @@ class UIGPSStatus(UIModule):
 
     __title__ = "GPS"
     _lock_type_dict = {
-        0: _("Limited"),  # TRANSLATORS: there's no GPS lock but we accept the position due to low enough error value 
+        0: _(
+            "Limited"
+        ),  # TRANSLATORS: there's no GPS lock but we accept the position due to low enough error value
         1: _("Basic"),  # TRANSLATORS: coarse GPS fix, does this happen?
         2: _("Accurate"),  # TRANSLATORS: GPS 2D Fix
         3: _("Precise"),  # TRANSLATORS: GPS 3D Fix
@@ -38,7 +46,9 @@ class UIGPSStatus(UIModule):
                 label=_("Save"), callback=self.mm_save_location, enabled=True
             ),
             right=MarkingMenuOption(
-                label=_("Lock"), callback=self.mm_lock_location, enabled=True # TRANSLATORS GPS Context menu: lock position 
+                label=_("Lock"),
+                callback=self.mm_lock_location,
+                enabled=True,  # TRANSLATORS GPS Context menu: lock position
             ),
             up=MarkingMenuOption(),  # Empty option
             down=MarkingMenuOption(),  # Empty option
@@ -70,7 +80,9 @@ class UIGPSStatus(UIModule):
             "name": _("Location Name"),
             "class": UITextEntry,
             "callback": lambda name: self._save_location_with_name(name, gps_reading),
-            "initial_text": _("Loc {number}").format(number=len(self.config_object.locations.locations) + 1), # TRANSLATORS: Default location name
+            "initial_text": _("Loc {number}").format(
+                number=len(self.config_object.locations.locations) + 1
+            ),  # TRANSLATORS: Default location name
             "mode": "text_entry",  # This will be passed through item_definition
         }
 
@@ -108,14 +120,18 @@ class UIGPSStatus(UIModule):
         self._send_fix_message(gps_reading, "GPS")
 
         # Show confirmation message
-        self.message(_("Location locked"), timeout=2) # TRANSLATORS Location was stored
+        self.message(_("Location locked"), timeout=2)  # TRANSLATORS Location was stored
         return True
 
     def _get_error_string(self, error: float) -> str:
         if error > 1000:
-            return _("{error:.1f} km").format(error=error/1000) # TRANSLATORS: Positional Error in km
+            return _("{error:.1f} km").format(
+                error=error / 1000
+            )  # TRANSLATORS: Positional Error in km
         else:
-            return _("{error:.0f} m").format(error=error) # TRANSLATORS: Positional Error in m
+            return _("{error:.0f} m").format(
+                error=error
+            )  # TRANSLATORS: Positional Error in m
 
     def active(self):
         self.command_queues["camera"].put("stop")
@@ -152,14 +168,14 @@ class UIGPSStatus(UIModule):
             if location.lock_type and location.lock_type > 1:
                 self.draw.text(
                     (25, draw_pos),
-                    _("You are ready"), # TRANSLATORS: GPS Locked message Part 1/2
+                    _("You are ready"),  # TRANSLATORS: GPS Locked message Part 1/2
                     font=self.fonts.base.font,
                     fill=self.colors.get(192),
                 )
                 draw_pos += 10
                 self.draw.text(
                     (35, draw_pos),
-                    _("to observe!"), # TRANSLATORS: GPS Locked message Part 2/2
+                    _("to observe!"),  # TRANSLATORS: GPS Locked message Part 2/2
                     font=self.fonts.base.font,
                     fill=self.colors.get(192),
                 )
@@ -167,14 +183,18 @@ class UIGPSStatus(UIModule):
             else:
                 self.draw.text(
                     (5, draw_pos),
-                    _("Stay on this screen"), # TRANSLATORS: GPS Not locked message Part 1/2
+                    _(
+                        "Stay on this screen"
+                    ),  # TRANSLATORS: GPS Not locked message Part 1/2
                     font=self.fonts.base.font,
                     fill=self.colors.get(192),
                 )
                 draw_pos += 10
                 self.draw.text(
                     (10, draw_pos),
-                    _("for quicker lock"), # TRANSLATORS: GPS Not locked message Part 2/2
+                    _(
+                        "for quicker lock"
+                    ),  # TRANSLATORS: GPS Not locked message Part 2/2
                     font=self.fonts.base.font,
                     fill=self.colors.get(192),
                 )
@@ -183,14 +203,18 @@ class UIGPSStatus(UIModule):
             # Lock status
             self.draw.text(
                 (10, draw_pos),
-                _("Lock Type:"), # TRANSLATORS: GPS Lock type
+                _("Lock Type:"),  # TRANSLATORS: GPS Lock type
                 font=self.fonts.bold.font,
                 fill=self.colors.get(128),
             )
             draw_pos += 10
             self.draw.text(
                 (10, draw_pos),
-                _('None') if not location.lock else _(self._lock_type_dict[location.lock_type]), # TRANSLATORS: GPS Lock Type
+                _("None")
+                if not location.lock
+                else _(
+                    self._lock_type_dict[location.lock_type]
+                ),  # TRANSLATORS: GPS Lock Type
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -235,7 +259,9 @@ class UIGPSStatus(UIModule):
             # Error display
             self.draw.text(
                 (0, draw_pos),
-                _("Error: {error}").format(error=self._get_error_string(location.error_in_m)), # TRANSLATORS: GPS uncertainty
+                _("Error: {error}").format(
+                    error=self._get_error_string(location.error_in_m)
+                ),  # TRANSLATORS: GPS uncertainty
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
@@ -244,7 +270,11 @@ class UIGPSStatus(UIModule):
             # Lock status
             self.draw.text(
                 (0, draw_pos),
-                _("Lock:  {locktype}").format(locktype=_('No') if not location.lock else _(self._lock_type_dict[location.lock_type])),
+                _("Lock:  {locktype}").format(
+                    locktype=_("No")
+                    if not location.lock
+                    else _(self._lock_type_dict[location.lock_type])
+                ),
                 font=self.fonts.base.font,
                 fill=self.colors.get(255),
             )
@@ -253,7 +283,7 @@ class UIGPSStatus(UIModule):
             # Position data if locked
             self.draw.text(
                 (0, draw_pos),
-                _("Lat:   {latitude:.5f}").format(latitude=location.lat), 
+                _("Lat:   {latitude:.5f}").format(latitude=location.lat),
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
@@ -278,7 +308,9 @@ class UIGPSStatus(UIModule):
             time = self.shared_state.local_datetime()
             self.draw.text(
                 (0, draw_pos),
-                _("Time:  {time}").format(time=time.strftime('%H:%M:%S') if time else '---'),
+                _("Time:  {time}").format(
+                    time=time.strftime("%H:%M:%S") if time else "---"
+                ),
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )

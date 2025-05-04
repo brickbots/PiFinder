@@ -1,3 +1,4 @@
+from typing import Any
 from PiFinder.ui.timeentry import UITimeEntry
 from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_list import UIObjectList
@@ -15,7 +16,7 @@ import PiFinder.ui.callbacks as callbacks
 
 
 # override locally the gettext marker function, i.e. the strings are not translated on load, but extracted. CHECK END OF FILE
-def _(key: str) -> str:
+def _(key: str) -> Any:
     return key
 
 
