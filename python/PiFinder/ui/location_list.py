@@ -1,4 +1,3 @@
-from PiFinder.ui.base import UIModule
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.text_menu import UITextMenu
 

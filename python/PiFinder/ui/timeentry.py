@@ -1,6 +1,5 @@
 from PIL import Image, ImageDraw
 from PiFinder.ui.base import UIModule
-import time
 
 class UITimeEntry(UIModule):
     def __init__(self, *args, **kwargs):

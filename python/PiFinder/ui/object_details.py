@@ -154,7 +154,7 @@ class UIObjectDetails(UIModule):
         object_type = OBJ_TYPES.get(self.object.obj_type, self.object.obj_type)
 
         # layout the type - constellation line
-        discarded, typeconst = self.space_calculator.calculate_spaces(
+        discarded, typeconst = self.space_calculator.calculate_spaces( # noqa: F841
             object_type, self.object.const
         )
         self.texts["type-const"] = self.simpleTextLayout(

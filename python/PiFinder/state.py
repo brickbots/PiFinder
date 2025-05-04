@@ -17,8 +17,6 @@ from typing import Optional
 from dataclasses import dataclass, asdict
 import json
 from timezonefinder import TimezoneFinder
-import threading
-import copy
 
 logger = logging.getLogger("SharedState")
 

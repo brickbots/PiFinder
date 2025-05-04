@@ -25,17 +25,10 @@ import uuid
 import logging
 import argparse
 import pickle
-import shutil
 from pathlib import Path
 from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
-
-# Install the _("text") into global context for Internationalization
-# On RasPi/Ubuntu the default locale is C.utf8, see `locale -a`, which locales are available
-# You need to install `apt install language-pack_xx`, where xx is the ISO country code.
-# Passing nothing as third parameter means the language is determined from environment variables (e.g. LANG)
-gettext.install("PiFinder", "locale")
 
 from PiFinder import solver
 from PiFinder import integrator
