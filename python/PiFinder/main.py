@@ -30,6 +30,7 @@ from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 
+import PiFinder.i18n # noqa: F401
 from PiFinder import solver
 from PiFinder import integrator
 from PiFinder import config
