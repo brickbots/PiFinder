@@ -198,13 +198,15 @@ class Server:
 
         @app.route("/network")
         @auth_required
-        def network_page():
+        def network_page(err_pwd="", err_country=""):
             show_new_form = request.query.add_new or 0
 
             return template(
                 "network",
                 net=self.network,
                 show_new_form=show_new_form,
+                err_pwd=err_pwd,
+                err_country=err_country,
             )
 
         @app.route("/gps")
@@ -418,10 +420,39 @@ class Server:
         def network_update():
             wifi_mode = request.forms.get("wifi_mode")
             ap_name = request.forms.get("ap_name")
+            ap_passwd = request.forms.get("ap_passwd")
+            wifi_country = request.forms.get("wifi_country")
             host_name = request.forms.get("host_name")
+
+            error_triggered = False
+            err_pwd = ""
+            if self.network.is_ap_open():
+                ap_encrypt = request.forms.get("ap_encrypt")
+                if ap_encrypt == "1":
+                    try:
+                        self.network.enable_encryption()
+                        self.network.set_ap_pwd(ap_passwd)
+                    except Exception as e:
+                        err_pwd = "Invalid password: " + e.args[0]
+                        error_triggered = True
+            else:
+                try:
+                    self.network.set_ap_pwd(ap_passwd)
+                except Exception as e:
+                    err_pwd = "Invalid password: " + e.args[0]
+                    error_triggered = True
+
+            err_country = ""
+            if wifi_country not in self.network.COUNTRY_CODES:
+                err_country = "Invalid country code"
+                error_triggered = True
+
+            if error_triggered:
+                return network_page(err_pwd=err_pwd, err_country=err_country)
 
             self.network.set_wifi_mode(wifi_mode)
             self.network.set_ap_name(ap_name)
+            self.network.set_ap_wifi_country(wifi_country)
             self.network.set_host_name(host_name)
             return template("restart")
 
@@ -969,6 +1000,7 @@ class Server:
             )
         except (PermissionError, OSError):
             logger.info("Web Interface on port 8080")
+            debug()
             run(
                 app,
                 host="0.0.0.0",

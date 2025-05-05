@@ -67,6 +67,16 @@ try:
         result = sys_utils.Network._parse_wpa_supplicant(wpa_list)
         assert result[1]["psk"] == "1234@===!!!"
 
+    @pytest.mark.unit
+    def test_generate_five():
+        five = sys_utils.Network._generate_random_chars(5)
+        assert len(five) == 5, "length wrong"
+
+        twenty = sys_utils.Network._generate_random_chars(20, "-", 5)
+        assert len(twenty) == 23, "length wrong"
+        assert twenty[5] == "-", "no '-' after first group"
+        assert twenty[12] == "-", "no '-' after second group"
+        assert twenty[17] == "-", "no '-' aftger thrid group"
 
 except ImportError:
     pass

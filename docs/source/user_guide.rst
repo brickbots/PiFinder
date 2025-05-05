@@ -508,17 +508,23 @@ wireless access point for other devices to connect to via the Access Point (AP) 
 :ref:`user_guide:Web Interface` or the :ref:`user_guide:status screen` to switch between these two modes 
 and to see which mode is currently active.
 
-Using the PiFinder in Access Point mode creates a network called PiFinderAP with no password to allow 
-easy connection of phones, tablets and other devices in the field.
+Using the PiFinder in Access Point mode creates a network called PiFinder-12345, where 12345 will be 5 random characters,
+that are determined at first startup of the PiFinder (this avoids collisions on star parties). 
+Open the "Start" > "Connect WiFi" menu on the PiFinder, this displays a QR code, that you can use to connect to the 
+PiFinder's network. This network will be encrypted using WPA2. Using **SQUARE** button, you can switch to 
+display the AP name and password. You can also use the Quick Menu to switch the display or switch the WiFi Mode.
 
 To use the Client mode, you'll need to add information about the WiFi network you'd like the 
 PiFinder to connect to using the Web Interface as described in :ref:`user_guide:connecting to a new wifi network`
 
+In order to configure the WiFi's name, password and encryption, you can use the PiFinder's web interface, 
+see :ref:`user_guide:Web Interface` for more details.
+
 PiFinder address
 -----------------
 
-In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computers 
-or those that don't support zeroconf networking, you can use the IP address provides on the :ref:`Global 
+Once you are connected to the same WiFi, in most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computers 
+or those that don't support zeroconf networking, you can use the IP address provided on the :ref:`Global 
 Options<user_guide:settings menu>` screen to connect.  You can connect to the PiFinder via:
 
 
@@ -538,12 +544,13 @@ The PiFinder provides an easy to use web interface which allows you to:
 * Backup and restore your observing logs, settings and other data
 * View and download your logged observations
 
-To access the web interface for the first time, make sure the PiFinder is in Access Point mode (see :ref:`user_guide:settings menu`).  This is the default for new PiFinders to make first time set up easier.  Using a phone, tablet or computer, connect to the PiFinder's wireless network called PiFinderAP.  It's an open network with no password required.  Once connected, open your web browser and visit:
-``http://pifinder.local``
+To access the web interface for the first time, make sure the PiFinder is in Access Point mode (see :ref:`user_guide:settings menu`).  
+This is the default for new PiFinders to make first time set up easier. Use the "Start" > "Connect WiFi" display, to connect your phone or tablet.
+Once connected, open your web browser and visit: ``http://pifinder.local``
 
 
 .. note::
-   If you are connected to the PiFinderAP network and can't load the PiFinder web interface using
+   If you are connected to the PiFinder-12345 network and can't load the PiFinder web interface using
    http://pifinder.local try http://10.10.10.1 as some systems may not support the network features
    required to resolve local computer names
 
@@ -565,12 +572,12 @@ the Tools option in the web interface.
 Connecting to a new WiFi network
 ---------------------------------
 
-The default behavior of the PiFinder is to generate it's own WiFi network call ``PiFinderAP`` that you can connect to 
+The default behavior of the PiFinder is to generate it's own WiFi network call ``PiFinder-12345`` that you can connect to 
 and configure additional networks. To get the PiFinder to connect to an existing WiFi network with Internet access you
 can follow the steps below:
 
 1) Make sure the PiFinder is in Access Point mode
-2) Connect your phone, tablet, or computer to the PiFinder's wifi network called PiFinderAP
+2) Connect your phone, tablet, or computer to the PiFinder's wifi network called similar to PiFinder-12345, see "Start" > "Connect WiFi" for connection infos.
 3) Visit http://pifinder.local using your web browser
 4) Click the 'Network' link in the top bar, or if you have a smaller screen, click the three stacked horizontal lines in the upper-right corner to access the menu and choose 'Network' from there.
     .. image:: images/user_guide/pf_web_net0.png
@@ -585,6 +592,22 @@ can follow the steps below:
 
 To add more WiFi networks for the PiFinder to look for, navigate to the Network Setup page of the :ref:`user_guide:web interface` and click the + button near the list of WiFi networks and repeat the steps above.
 
+
+Reset Access Point
+--------------------------------------
+
+.. stop::
+   Only do this if you're not able to connect to the PiFinder's access point using the QR code from "Start" > "Connect WiFi", or you can't display it.
+
+If you can't connect to the PiFinder's access point using the QR code from "Start" > "Connect WiFi", or this doesn't display, you can login into the PiFinder using SSH, if you have a network cable connected. If this does not work, you can plug-in a monitor cable and a keyboard and directly login to the Raspberry Pi. The default username and password are ``pifinder`` and ``solveit``. You may have to open up the PiFinder to have access to the mentioned ports.
+
+1. Login into PiFinder as described above. You should be in the home directory. Check with ``pwd``, it should display ``/home/pifinder``. If not, execute ``cd``.
+2. Copy over the default configuration file for hostapd into it's default location: ``sudo cp pi_config_files/hostapd-open.conf /etc/hostapd/hostapd.conf``.
+3. Then check, if PiFinder is in "Client" or "Access Point" mode. Execute ``cat wifi_status.txt``. This should display either "AP" or "Client"
+4. If it says "client", execute ``sudo switch-ap.sh``.
+5. Now reboot the PiFinder with ``sudo reboot``.
+
+After the reboot, PiFinder presents with an open Access Point with-out encryption. 
 
 SkySafari
 ===================
@@ -604,8 +627,11 @@ Shared Data Access
 
 In the course of using the PiFinder several data files are created that may be of interest.  
 These are available via a SMB (samba) network share called ``//pifinder.local/shared``.  Accessing this will depend on your 
-OS, but the PiFinder should be visible in a network browser provided.  There is no password requirement, 
-just connect as ``guest`` with no password provided.
+OS, but the PiFinder should be visible in a network browser provided. On Windows, open up file explorer and enter 
+``\\pifinder.local\shared`` in the address bar.  On Mac, open Finder and select Go > Connect to Server and enter 
+``smb://pifinder.local/shared``.  On Linux, you can use the file manager or command line to access the share.
+
+There is no password requirement, just connect as ``guest`` with no password provided.
 
 Once connected, you'll see:
 
