@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     def _(a) -> Any:
         return a
 
+
 logger = logging.getLogger("WiFiPassword")
 
 # Constants for Display Modes
@@ -44,7 +45,9 @@ class UIWiFiPassword(UIModule):
             self.marking_menu = MarkingMenu(
                 left=MarkingMenuOption(),
                 right=MarkingMenuOption(),
-                down=MarkingMenuOption(label=_("mode"), menu_jump="wifi_mode"), # TRANSLATORS: Jump to WiFi mode selection from context menu
+                down=MarkingMenuOption(
+                    label=_("mode"), menu_jump="wifi_mode"
+                ),  # TRANSLATORS: Jump to WiFi mode selection from context menu
             )
         else:
             # Default to QR code display
@@ -53,10 +56,14 @@ class UIWiFiPassword(UIModule):
 
             self.marking_menu = MarkingMenu(
                 left=MarkingMenuOption(
-                    label=_("QR"), callback=self.mm_display_qr, enabled=True # TRANSLATORS: Switch to QR code WiFi display in context menu
+                    label=_("QR"),
+                    callback=self.mm_display_qr,
+                    enabled=True,  # TRANSLATORS: Switch to QR code WiFi display in context menu
                 ),
                 right=MarkingMenuOption(
-                    label=_("Passwd"), callback=self.mm_display_pwd, enabled=True # TRANSLATORS: Switch to WiFi plain password display in context menu
+                    label=_("Passwd"),
+                    callback=self.mm_display_pwd,
+                    enabled=True,  # TRANSLATORS: Switch to WiFi plain password display in context menu
                 ),
                 down=MarkingMenuOption(label="mode", menu_jump="wifi_mode"),
             )

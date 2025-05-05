@@ -12,7 +12,7 @@ class Network:
     """
 
     def __init__(self):
-        self.COUNTRY_CODES = ['US', 'BE', 'DE']
+        self.COUNTRY_CODES = ["US", "BE", "DE"]
 
     @staticmethod
     def configure_accesspoint() -> None:
@@ -20,7 +20,7 @@ class Network:
 
     @staticmethod
     def enable_encryption() -> None:
-        pass    
+        pass
 
     def populate_wifi_networks(self):
         """
@@ -58,12 +58,12 @@ class Network:
 
     def get_ap_wifi_country(self):
         return "UNKN"
-    
+
     def set_ap_wifi_country(self, ap_wifi_country):
         pass
 
     def is_ap_open(self):
-        return False  # i.e. encrypted = Not ( Is AP encrypted? ) 
+        return False  # i.e. encrypted = Not ( Is AP encrypted? )
 
     def get_host_name(self):
         return socket.gethostname()

@@ -53,10 +53,7 @@ pifinder_menu = {
                     "name": _("GPS Status"),
                     "class": UIGPSStatus,
                 },
-                {
-                    "name": _("Connect WiFi"),
-                    "class": UIWiFiPassword
-                },
+                {"name": _("Connect WiFi"), "class": UIWiFiPassword},
             ],
         },
         {

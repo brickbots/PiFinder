@@ -429,7 +429,7 @@ class Server:
             if self.network.is_ap_open():
                 ap_encrypt = request.forms.get("ap_encrypt")
                 if ap_encrypt == "1":
-                    try: 
+                    try:
                         self.network.enable_encryption()
                         self.network.set_ap_pwd(ap_passwd)
                     except Exception as e:
@@ -442,11 +442,11 @@ class Server:
                     err_pwd = "Invalid password: " + e.args[0]
                     error_triggered = True
 
-            err_country=""
+            err_country = ""
             if wifi_country not in self.network.COUNTRY_CODES:
                 err_country = "Invalid country code"
                 error_triggered = True
-        
+
             if error_triggered:
                 return network_page(err_pwd=err_pwd, err_country=err_country)
 
