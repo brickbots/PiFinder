@@ -38,7 +38,7 @@ class UIWiFiPassword(UIModule):
             self.marking_menu = MarkingMenu(
                 left=MarkingMenuOption(),
                 right=MarkingMenuOption(),
-                down=MarkingMenuOption(label=""),
+                down=MarkingMenuOption(label=_("mode"), menu_jump="wifi_mode"), # TRANSLATORS: Jump to WiFi mode selection from context menu
             )
         else:
             # Default to QR code display
@@ -47,10 +47,10 @@ class UIWiFiPassword(UIModule):
 
             self.marking_menu = MarkingMenu(
                 left=MarkingMenuOption(
-                    label="QR", callback=self.mm_display_qr, enabled=True
+                    label=_("QR"), callback=self.mm_display_qr, enabled=True # TRANSLATORS: Switch to QR code WiFi display in context menu
                 ),
                 right=MarkingMenuOption(
-                    label="Passwd", callback=self.mm_display_pwd, enabled=True
+                    label=_("Passwd"), callback=self.mm_display_pwd, enabled=True # TRANSLATORS: Switch to WiFi plain password display in context menu
                 ),
                 down=MarkingMenuOption(label="mode", menu_jump="wifi_mode"),
             )
@@ -112,12 +112,12 @@ class UIWiFiPassword(UIModule):
         self, ssid: str, password: str, security_type: str
     ) -> qrcode.image.base.BaseImage:
         wifi_data = f"WIFI:S:{ssid};T:{security_type};P:{password};H:false;"
-        logger.debug(f"WIFI Data: '{wifi_data}'")
+        # logger.debug(f"WIFI Data: '{wifi_data}'") # Do NOT log password
 
         qr = qrcode.QRCode(
             version=1,  # 21x21 matrix
             error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,  # Size of a box of the
+            box_size=10,  # Size of a box of the QR code (scaling it down later gives better results)
             border=1,
         )
         qr.add_data(wifi_data)
@@ -150,14 +150,14 @@ class UIWiFiPassword(UIModule):
     def _display_client_ssid(self, draw_pos: int) -> int:
         self.draw.text(
             (0, draw_pos),
-            "Client Mode!",
+            _("Client mode!"),
             font=self.fonts.base.font,
             fill=self.colors.get(255),
         )
         draw_pos += 20
         self.draw.text(
             (0, draw_pos),
-            "Connected to:",
+            _("Connected to:"),
             font=self.fonts.base.font,
             fill=self.colors.get(255),
         )
@@ -177,7 +177,7 @@ class UIWiFiPassword(UIModule):
             # Mode
             self.draw.text(
                 (0, draw_pos),
-                f"Client mode!",
+                _("Client mode!"),
                 font=self.fonts.base.font,
                 fill=self.colors.get(255),
             )
@@ -206,7 +206,7 @@ class UIWiFiPassword(UIModule):
             # Mode
             self.draw.text(
                 (0, draw_pos),
-                f"Note: {self.ap_mode} mode!",
+                _("Note: {wifi_mode} mode!").format(wifi_mode=self.ap_mode),
                 font=self.fonts.base.font,
                 fill=self.colors.get(255),
             )
@@ -220,7 +220,7 @@ class UIWiFiPassword(UIModule):
         # Password
         self.draw.text(
             (0, draw_pos),
-            "Password:",
+            _("Password:"),
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
@@ -270,7 +270,7 @@ class UIWiFiPassword(UIModule):
     def _show_ssid(self, draw_pos, truncate=False):
         self.draw.text(
             (0, draw_pos),
-            "SSID:",
+            _("SSID:"),
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
