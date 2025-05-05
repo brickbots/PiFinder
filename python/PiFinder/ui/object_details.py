@@ -201,8 +201,9 @@ class UIObjectDetails(UIModule):
         # NGC description....
         logs = self.observations_db.get_logs_for_object(self.object)
         desc = (
-            self.object.description.replace("\t", " ") + "\n" # I18N: Descriptions are not translated
-        )  
+            self.object.description.replace("\t", " ")
+            + "\n"  # I18N: Descriptions are not translated
+        )
         if len(logs) == 0:
             desc = desc + _("  Not Logged")
         else:

@@ -290,7 +290,7 @@ def main(
     set_brightness(screen_brightness, cfg)
 
     # Set user interface language
-    lang = cfg.get_option("language")
+    lang = cfg.get_option("language", "en")
     langXX = gettext.translation(
         "messages", "locale", languages=[lang], fallback=(lang == "en")
     )

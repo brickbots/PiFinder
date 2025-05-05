@@ -36,15 +36,15 @@ OBJ_TYPE_MARKERS = {
 # abbreviations and symbols as used in the NGC/IC catalogues
 # and in the original Dreyer's book "New General Catalogue of Nebulae and Clusters of Stars"
 # see https://ngcicproject.observers.org/abbrev.htm
-# 
-# This German web page gives a German description of the notation used in the NGC/IC catalogues and 
+#
+# This German web page gives a German description of the notation used in the NGC/IC catalogues and
 # does not translate the abbreviations:
 # https://www.astronomische-vereinigung-augsburg.de/artikel/objekte-und-listen/ngc-katalog/
-# 
-# ** So we do not translate the abbreviations, but to keep them in English. ** 
-# 
+#
+# ** So we do not translate the abbreviations, but to keep them in English. **
+#
 # On 2025-05-04, OBJ_DESCRIPTORS is not used by the software, so it's not translated.
-# 
+#
 OBJ_DESCRIPTORS = {
     "ab": "about",
     "alm": "almost",

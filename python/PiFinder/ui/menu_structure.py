@@ -669,6 +669,31 @@ pifinder_menu = {
                                 },
                             ],
                         },
+                        {
+                            "name": _("Language"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "language",
+                            "post_callback": callbacks.switch_language,
+                            "items": [
+                                {
+                                    "name": _("English"),
+                                    "value": "en",
+                                },
+                                {
+                                    "name": _("German"),
+                                    "value": "de",
+                                },
+                                {
+                                    "name": _("French"),
+                                    "value": "fr",
+                                },
+                                {
+                                    "name": _("Spanish"),
+                                    "value": "es",
+                                },
+                            ],
+                        },
                     ],
                 },
                 {
@@ -982,33 +1007,7 @@ pifinder_menu = {
                     "name": _("Experimental"),
                     "class": UITextMenu,
                     "select": "Single",
-                    "items": [
-                        {
-                            "name": _("Language"),
-                            "class": UITextMenu,
-                            "select": "single",
-                            "config_option": "language",
-                            "post_callback": callbacks.switch_language,
-                            "items": [
-                                {
-                                    "name": _("English"),
-                                    "value": "en",
-                                },
-                                {
-                                    "name": _("German"),
-                                    "value": "de",
-                                },
-                                {
-                                    "name": _("French"),
-                                    "value": "fr",
-                                },
-                                {
-                                    "name": _("Spanish"),
-                                    "value": "es",
-                                },
-                            ],
-                        },
-                    ],
+                    "items": [],
                 },
             ],
         },
