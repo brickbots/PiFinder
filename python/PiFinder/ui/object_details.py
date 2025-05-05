@@ -2,7 +2,7 @@
 # -*- coding:utf-8 -*-
 # mypy: ignore-errors
 """
-This module contains all the UI Module classes
+This module contains all the UI code for the object details screen
 
 """
 
@@ -58,12 +58,12 @@ class UIObjectDetails(UIModule):
             left=MarkingMenuOption(),
             right=MarkingMenuOption(),
             down=MarkingMenuOption(
-                label="ALIGN",
+                label=_("ALIGN"),
                 callback=MarkingMenu(
                     up=MarkingMenuOption(),
-                    left=MarkingMenuOption(label="CANCEL", callback=self.mm_cancel),
+                    left=MarkingMenuOption(label=_("CANCEL"), callback=self.mm_cancel),
                     down=MarkingMenuOption(),
-                    right=MarkingMenuOption(label="ALIGN", callback=self.mm_align),
+                    right=MarkingMenuOption(label=_("ALIGN"), callback=self.mm_align),
                 ),
             ),
         )
@@ -93,7 +93,7 @@ class UIObjectDetails(UIModule):
         self.space_calculator = SpaceCalculatorFixed(18)
         self.texts = {
             "type-const": self.simpleTextLayout(
-                "No Object Found",
+                _("No Object Found"),
                 font=self.fonts.bold,
                 color=self.colors.get(255),
             ),
@@ -154,11 +154,11 @@ class UIObjectDetails(UIModule):
         object_type = OBJ_TYPES.get(self.object.obj_type, self.object.obj_type)
 
         # layout the type - constellation line
-        _, typeconst = self.space_calculator.calculate_spaces(
+        discarded, typeconst = self.space_calculator.calculate_spaces(  # noqa: F841
             object_type, self.object.const
         )
         self.texts["type-const"] = self.simpleTextLayout(
-            typeconst,
+            _(typeconst),
             font=self.fonts.bold,
             color=self.colors.get(255),
         )
@@ -172,11 +172,15 @@ class UIObjectDetails(UIModule):
         magsize = ""
         if size != "-" or obj_mag != "-":
             spaces, magsize = self.space_calculator.calculate_spaces(
-                f"Mag:{obj_mag}", f"Sz:{size}"
+                _("Mag:{obj_mag}").format(
+                    obj_mag=obj_mag
+                ),  # TRANSLATORS: object info magnitude
+                _("Sz:{size}").format(size=size),  # TRANSLATORS: object info size
             )
+            print("there")
             if spaces == -1:
                 spaces, magsize = self.space_calculator.calculate_spaces(
-                    f"Mag:{obj_mag}", size
+                    _("Mag:{obj_mag}").format(obj_mag=obj_mag), size
                 )
             if spaces == -1:
                 spaces, magsize = self.space_calculator.calculate_spaces(obj_mag, size)
@@ -196,11 +200,13 @@ class UIObjectDetails(UIModule):
 
         # NGC description....
         logs = self.observations_db.get_logs_for_object(self.object)
-        desc = self.object.description.replace("\t", " ") + "\n"
+        desc = (
+            self.object.description.replace("\t", " ") + "\n" # I18N: Descriptions are not translated
+        )  
         if len(logs) == 0:
-            desc = desc + "  Not Logged"
+            desc = desc + _("  Not Logged")
         else:
-            desc = desc + f"  {len(logs)} Logs"
+            desc = desc + _("  {logs} Logs").format(logs=len(logs))
 
         self.descTextLayout.set_text(desc)
         self.texts["desc"] = self.descTextLayout
@@ -235,13 +241,15 @@ class UIObjectDetails(UIModule):
         if self.shared_state.solution() is None:
             self.draw.text(
                 (10, 70),
-                "No solve",
+                _("No solve"),  # TRANSLATORS: No solve yet... (Part 1/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 90),
-                f"yet{'.' * int(self._elipsis_count / 10)}",
+                _("yet{elipsis}").format(
+                    elipsis="." * int(self._elipsis_count / 10)
+                ),  # TRANSLATORS: No solve yet... (Part 2/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -253,13 +261,15 @@ class UIObjectDetails(UIModule):
         if not self.shared_state.altaz_ready():
             self.draw.text(
                 (10, 70),
-                "Searching",
+                _("Searching"),  # TRANSLATORS: Searching for GPS (Part 1/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 90),
-                f"for GPS{'.' * int(self._elipsis_count / 10)}",
+                _("for GPS{elipsis}").format(
+                    elipsis="." * int(self._elipsis_count / 10)
+                ),  # TRANSLATORS: Searching for GPS (Part 2/2)
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -271,13 +281,13 @@ class UIObjectDetails(UIModule):
         if not self._check_catalog_initialized():
             self.draw.text(
                 (10, 70),
-                "Calculating",
+                _("Calculating"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 90),
-                f"positions{'.' * int(self._elipsis_count / 10)}",
+                _(f"positions{'.' * int(self._elipsis_count / 10)}"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -367,7 +377,7 @@ class UIObjectDetails(UIModule):
         if self.object_display_mode == DM_LOCATE:
             self._render_pointing_instructions()
 
-        if self.object_display_mode == DM_DESC:
+        elif self.object_display_mode == DM_DESC:
             # Object Magnitude and size i.e. 'Mag:4.0   Sz:7"'
             magsize = self.texts.get("magsize")
             posy = 52
@@ -448,7 +458,7 @@ class UIObjectDetails(UIModule):
         """
         Called from marking menu to align on curent object
         """
-        self.message("Aligning...", 0.1)
+        self.message(_("Aligning..."), 0.1)
         if align_on_radec(
             self.object.ra,
             self.object.dec,
@@ -456,9 +466,9 @@ class UIObjectDetails(UIModule):
             self.config_object,
             self.shared_state,
         ):
-            self.message("Aligned!", 1)
+            self.message(_("Aligned!"), 1)
         else:
-            self.message("Too Far", 2)
+            self.message(_("Too Far"), 2)
 
         return True
 
@@ -483,7 +493,7 @@ class UIObjectDetails(UIModule):
         if self.shared_state.solution() is None:
             return
         object_item_definition = {
-            "name": "LOG",
+            "name": _("LOG"),
             "class": UILog,
             "object": self.object,
         }
