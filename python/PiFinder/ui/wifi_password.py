@@ -1,12 +1,18 @@
 import logging
 import qrcode
 import math
+from typing import Any, TYPE_CHECKING
 
 from PiFinder import state_utils
 from PiFinder.ui.base import UIModule
 from PiFinder.utils import get_sys_utils
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 # from PiFinder.sys_utils import Network
+
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
 
 logger = logging.getLogger("WiFiPassword")
 
