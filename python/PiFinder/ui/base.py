@@ -121,8 +121,19 @@ class UIModule:
         if self.__help_name__ == "":
             return None
 
+        language = self.config_object.get_option("language", "en")
         help_image_list = []
-        help_image_path = utils.pifinder_dir / "help" / self.__help_name__
+
+        help_template_path = utils.pifinder_dir / "help" / language
+
+        # look for template
+
+        # try English as a fallback
+
+        # fall back to pre-rendered if no template found
+        help_image_path = (
+            utils.pifinder_dir / "help" / "en" / "prerendered" / self.__help_name__
+        )
         for i in range(1, 10):
             try:
                 help_image = Image.open(help_image_path / f"{i}.png")
