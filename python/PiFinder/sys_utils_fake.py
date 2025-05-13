@@ -12,6 +12,14 @@ class Network:
     """
 
     def __init__(self):
+        self.COUNTRY_CODES = ["US", "BE", "DE"]
+
+    @staticmethod
+    def configure_accesspoint() -> None:
+        pass
+
+    @staticmethod
+    def enable_encryption() -> None:
         pass
 
     def populate_wifi_networks(self):
@@ -35,11 +43,27 @@ class Network:
         """
         pass
 
+    def get_ap_pwd(self):
+        # Return an example password, e.g. to test the password display.
+        return "UNKN8-01234-abcde-testpw"
+
+    def set_ap_pwd(self, ap_pwd):
+        pass
+
     def get_ap_name(self):
         return "UNKN"
 
     def set_ap_name(self, ap_name):
         pass
+
+    def get_ap_wifi_country(self):
+        return "UNKN"
+
+    def set_ap_wifi_country(self, ap_wifi_country):
+        pass
+
+    def is_ap_open(self):
+        return False  # i.e. encrypted = Not ( Is AP encrypted? )
 
     def get_host_name(self):
         return socket.gethostname()
@@ -49,7 +73,7 @@ class Network:
         Returns the SSID of the connected wifi network or
         None if not connected or in AP mode
         """
-        return "UNKN"
+        return "UNKN SSID"
 
     def set_host_name(self, hostname):
         if hostname == self.get_host_name():

@@ -486,6 +486,21 @@ be in your eyepiece!
      The numbers displayed will shift a bit and become brighter indicating a 100% reliable position.
 
 
+Checklist: Observation Session
+-------------------------------------
+
+These are the things, you need to do to start an observation session with the PiFinder:
+
+- Ensure the PiFinder is securely mounted and perpendicular to the ground
+- Check that the internal battery is charged or an external power source is connected
+- Make sure the lens cap is off
+- Verify the PiFinder has a clear view of the sky and is focused. Use "Start" > "Focus" to check the focus
+- Put a bright star star at the center of your eyepiece and align PiFinder to it, using "Start" > "Align"
+- Confirm you have a GPS lock and local time or select your observation location from your list of saved locations, using "Start" > "Location&Time"
+- Optionally connect your smartphone or tablet to the PiFinder (WiFi) network and use the webserver to control it. 
+- Optionally startup SkySafari and send targets to the PiFinder
+
+
 Shutting down the PiFinder
 ---------------------------
 

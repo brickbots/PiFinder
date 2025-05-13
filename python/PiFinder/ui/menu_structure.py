@@ -12,6 +12,7 @@ from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.equipment import UIEquipment
 from PiFinder.ui.location_list import UILocationList
+from PiFinder.ui.wifi_password import UIWiFiPassword
 import PiFinder.ui.callbacks as callbacks
 
 
@@ -52,6 +53,7 @@ pifinder_menu = {
                     "name": _("GPS Status"),
                     "class": UIGPSStatus,
                 },
+                {"name": _("Connect WiFi"), "class": UIWiFiPassword},
             ],
         },
         {
@@ -837,6 +839,7 @@ pifinder_menu = {
                 {
                     "name": _("WiFi Mode"),
                     "class": UITextMenu,
+                    "label": "wifi_mode",
                     "select": "single",
                     "value_callback": callbacks.get_wifi_mode,
                     "items": [
