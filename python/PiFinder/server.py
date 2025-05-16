@@ -559,12 +559,14 @@ class Server:
                     eyepiece["name"] = eyepiece["name"].replace("&lt;", "<")
                     eyepiece["name"] = eyepiece["name"].replace("&gt;", ">")
 
+                    make = eyepiece["eyepiece_make"]["name"]
+
                     new_eyepiece = Eyepiece(
-                        make="",
+                        make=make,
                         name=eyepiece["name"],
                         focal_length_mm=float(eyepiece["focalLength"]),
                         afov=int(eyepiece["apparentFOV"]),
-                        field_stop=0.0,
+                        field_stop=float(eyepiece["field_stop_mm"]),
                     )
                     try:
                         cfg.equipment.eyepieces.index(new_eyepiece)
