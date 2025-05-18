@@ -149,7 +149,7 @@ async def client_connected(reader: asyncio.StreamReader, writer: asyncio.StreamW
         return
 
     # Register new connection
-    observer_name = command[1]
+    observer_name = command[1].strip()
     observer = Observer(
         connection_id=connection_id,
         name=observer_name,

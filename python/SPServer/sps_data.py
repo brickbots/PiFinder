@@ -14,6 +14,7 @@ from enum import Enum
 class EventType(Enum):
     POSITION = "POS"
     MARK = "MRK"
+    MESSAGE = "MSG"
 
 
 @dataclass
@@ -28,7 +29,7 @@ class GroupEvent:
     event_data: tuple
 
     def serialize(self) -> str:
-        return_string = f"{self.event_type}|"
+        return_string = f"{self.event_type.value}|"
         data_string = "|".join([str(x) for x in self.event_data])
         return_string += data_string
         return return_string
@@ -50,6 +51,8 @@ class Group:
         or None if no event is older than the requested
         time
         """
+        if len(self.events) == 0:
+            return None
         if self.events[-1].event_time <= event_time:
             # Early bail out
             return None
@@ -75,6 +78,9 @@ class Observer:
     group: Union[Group, None] = None
     position: Position = field(default_factory=Position)
 
+    def __str__(self):
+        return self.name
+
 
 @dataclass
 class ServerState:
@@ -97,7 +103,7 @@ class ServerState:
 
         new_group = Group(name=group_name, observers=[observer])
         self.groups.append(new_group)
-        observer.group = new_group
+        self.join_group(observer, group_name)
         return new_group
 
     def join_group(self, observer: Observer, group_name: str) -> bool:
@@ -115,6 +121,8 @@ class ServerState:
         self.leave_group(observer)
         _group.observers.append(observer)
         observer.group = _group
+        _group.add_event(EventType.MESSAGE, (observer.name, "has joined"))
+
         return True
 
     def get_group_by_name(self, group_name: str) -> Union[None, Group]:
@@ -137,6 +145,7 @@ class ServerState:
             return False
 
         group = observer.group
+        group.add_event(EventType.MESSAGE, (observer.name, "has left"))
 
         group.observers.remove(observer)
         observer.group = None
