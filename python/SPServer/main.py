@@ -84,7 +84,7 @@ async def handle_command(
         if command[0] == "echo":  # echo
             await writeline(writer, command[1])
 
-        if command[0] == "pos":  # set position
+        elif command[0] == "pos":  # set position
             async with state_lock:
                 observer.position.ra = float(command[1])
                 observer.position.dec = float(command[2])
@@ -94,18 +94,23 @@ async def handle_command(
                         (observer, float(command[1]), float(command[2])),
                     )
 
-        if command[0] == "groups":  # list groups
+        elif command[0] == "groups":  # list groups
             for group_touple in server_state.list_groups():
                 await writeline(writer, f"{group_touple[0]}|{group_touple[1]}")
             await writeline(writer, "ack")
 
-        if command[0] == "add_group":  # Add new group
+        elif command[0] == "observers":  # list observers with groups
+            for observer_touple in server_state.list_observers():
+                await writeline(writer, f"{observer_touple[0]}|{observer_touple[1]}")
+            await writeline(writer, "ack")
+
+        elif command[0] == "add_group":  # Add new group
             new_group_name = make_group_name()
             async with state_lock:
                 new_group = server_state.add_group(observer, new_group_name)
             await writeline(writer, new_group.name)
 
-        if command[0] == "join":  # join group
+        elif command[0] == "join":  # join group
             group_name = command[1]
             async with state_lock:
                 result = server_state.join_group(observer, group_name)
@@ -114,13 +119,24 @@ async def handle_command(
                 await writeline(writer, "ack")
             else:
                 await writeline(writer, "err")
+        elif command[0] == "leave":  # leave current group
+            async with state_lock:
+                result = server_state.leave_group(observer)
+
+            if result:
+                await writeline(writer, "ack")
+            else:
+                await writeline(writer, "err")
+        else:
+            # unknown command
+            await writeline(writer, "err")
 
 
 async def send_event_updates(writer: asyncio.StreamWriter, observer: Observer):
     global server_state
-    last_event_time = time()
+    last_event_time: float = 0
     while True:
-        if observer.group is not None:
+        if observer.group is not None and last_event_time > 0:
             if event := observer.group.get_next_event(last_event_time):
                 try:
                     await writeline(writer, event.serialize())
@@ -128,6 +144,11 @@ async def send_event_updates(writer: asyncio.StreamWriter, observer: Observer):
                     # Tried to write, but lost connection
                     break
                 last_event_time = event.event_time
+        else:
+            # if they are not a member of a group right now
+            # update the last event time so they only get events
+            # since they joined
+            last_event_time = time()
 
         await asyncio.sleep(0.1)
 

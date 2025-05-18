@@ -40,7 +40,7 @@ class Group:
     name: str
     marks: list["Mark"] = field(default_factory=list)
     observers: list["Observer"] = field(default_factory=list)
-    events: deque[GroupEvent] = deque(maxlen=20)
+    events: deque[GroupEvent] = field(default_factory=lambda: deque(maxlen=20))
 
     def add_event(self, event_type: EventType, event_data: tuple) -> None:
         self.events.append(GroupEvent(time(), event_type, event_data))
@@ -101,7 +101,7 @@ class ServerState:
         if observer.group:
             self.leave_group(observer)
 
-        new_group = Group(name=group_name, observers=[observer])
+        new_group = Group(name=group_name, observers=[])
         self.groups.append(new_group)
         self.join_group(observer, group_name)
         return new_group
@@ -162,6 +162,17 @@ class ServerState:
         _ret_list = []
         for group in self.groups:
             _ret_list.append((group.name, self.observer_count(group)))
+
+        return _ret_list
+
+    def list_observers(self):
+        """
+        Returns a list of tuples with observers
+        and group names
+        """
+        _ret_list = []
+        for observer in self.observers:
+            _ret_list.append((observer.name, observer.group.name))
 
         return _ret_list
 
