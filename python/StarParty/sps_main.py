@@ -9,7 +9,7 @@ import uuid
 from random import choice
 from time import time
 
-from SPServer.sps_data import Observer, ServerState, EventType
+from StarParty.sps_data import Observer, ServerState, EventType
 
 state_lock = asyncio.Lock()
 server_state = ServerState()
