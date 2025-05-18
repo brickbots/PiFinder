@@ -6,9 +6,10 @@ Primary module for the Star Party local server
 
 import asyncio
 import uuid
-from random import random, choice
+from random import choice
+from time import time
 
-from SPServer.sps_data import Observer, ServerState
+from SPServer.sps_data import Observer, ServerState, EventType
 
 state_lock = asyncio.Lock()
 server_state = ServerState()
@@ -87,10 +88,15 @@ async def handle_command(
             async with state_lock:
                 observer.position.ra = float(command[1])
                 observer.position.dec = float(command[2])
+                if observer.group is not None:
+                    observer.group.add_event(
+                        EventType.POSITION,
+                        (observer, float(command[1]), float(command[2])),
+                    )
 
         if command[0] == "groups":  # list groups
             for group_touple in server_state.list_groups():
-                await writeline(writer,f"{group_touple[0]}|{group_touple[1]}")
+                await writeline(writer, f"{group_touple[0]}|{group_touple[1]}")
             await writeline(writer, "ack")
 
         if command[0] == "add_group":  # Add new group
@@ -112,16 +118,17 @@ async def handle_command(
 
 async def send_event_updates(writer: asyncio.StreamWriter, observer: Observer):
     global server_state
+    last_event_time = time()
     while True:
-        if observer.group != None:
-            while observer.group.
+        if observer.group is not None:
+            if event := observer.group.get_next_event(last_event_time):
+                try:
+                    await writeline(writer, event.serialize())
+                except ConnectionResetError:
+                    # Tried to write, but lost connection
+                    break
+                last_event_time = event.event_time
 
-            writer.write("pos|20|20\n".encode())
-            try:
-                await writer.drain()
-            except ConnectionResetError:
-                # Tried to write, but lost connection
-                break
         await asyncio.sleep(0.1)
 
 
@@ -154,7 +161,7 @@ async def client_connected(reader: asyncio.StreamReader, writer: asyncio.StreamW
     await writeline(writer, "ack")
     print(f"{connection_id_short}: {observer_name} Connected")
     await asyncio.gather(
-        handle_command(reader, writer, observer), send_pos_updates(writer, observer)
+        handle_command(reader, writer, observer), send_event_updates(writer, observer)
     )
     print(f"{connection_id_short}: Closed")
 

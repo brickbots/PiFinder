@@ -8,6 +8,13 @@ from dataclasses import dataclass, field
 from time import time
 from typing import Union
 from collections import deque
+from enum import Enum
+
+
+class EventType(Enum):
+    POSITION = "POS"
+    MARK = "MRK"
+
 
 @dataclass
 class GroupEvent:
@@ -15,9 +22,17 @@ class GroupEvent:
     Events that go belong to a specific group for dumping to all
     connections for that group
     """
+
     event_time: float
-    event_type: str
-    event_data: str
+    event_type: EventType
+    event_data: tuple
+
+    def serialize(self) -> str:
+        return_string = f"{self.event_type}|"
+        data_string = "|".join([str(x) for x in self.event_data])
+        return_string += data_string
+        return return_string
+
 
 @dataclass
 class Group:
@@ -26,7 +41,7 @@ class Group:
     observers: list["Observer"] = field(default_factory=list)
     events: deque[GroupEvent] = deque(maxlen=20)
 
-    def add_event(self, event_type: str, event_data:str) -> None:
+    def add_event(self, event_type: EventType, event_data: tuple) -> None:
         self.events.append(GroupEvent(time(), event_type, event_data))
 
     def get_next_event(self, event_time: float) -> Union[GroupEvent, None]:
@@ -35,7 +50,7 @@ class Group:
         or None if no event is older than the requested
         time
         """
-        if self.events[-1] <= event_time:
+        if self.events[-1].event_time <= event_time:
             # Early bail out
             return None
 
@@ -45,7 +60,6 @@ class Group:
 
         # Should never get here....
         return None
-
 
 
 @dataclass
