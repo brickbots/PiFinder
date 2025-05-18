@@ -1,18 +1,22 @@
 from PIL import Image, ImageDraw
 from PiFinder.ui.base import UIModule
-import time
+
 
 class UITimeEntry(UIModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
-        self.callback = self.item_definition.get('callback')
-        self.custom_callback = self.item_definition.get('custom_callback')
+
+        self.callback = self.item_definition.get("callback")
+        self.custom_callback = self.item_definition.get("custom_callback")
         # Initialize three empty boxes for hours, minutes, seconds
         self.boxes = ["", "", ""]
         self.current_box = 0  # Start with hours
-        self.placeholders = ["hh", "mm", "ss"]
-        
+        self.placeholders = [
+            _("hh"),
+            _("mm"),
+            _("ss"),
+        ]  # TRANSLATORS: Place holders for hours, minutes, seconds in time entry
+
         # Screen setup
         self.width = 128
         self.height = 128
@@ -22,13 +26,13 @@ class UITimeEntry(UIModule):
         self.screen = Image.new("RGB", (self.width, self.height), "black")
         self.draw = ImageDraw.Draw(self.screen)
         self.bold = self.fonts.bold
-        
+
         # Layout constants - updated to center the boxes
         self.text_y = 25
         self.box_width = 25
         self.box_height = 20
         self.box_spacing = 15
-        
+
         # Calculate start_x to center the boxes on screen
         total_width = (3 * self.box_width) + (2 * self.box_spacing)
         self.start_x = (self.width - total_width) // 2
@@ -37,17 +41,17 @@ class UITimeEntry(UIModule):
         # Draw the three boxes with colons between them
         for i in range(3):
             x = self.start_x + i * (self.box_width + self.box_spacing)
-            
+
             # Draw box outline - highlight current box with a brighter outline
             outline_color = self.red if i == self.current_box else self.half_red
             outline_width = 2 if i == self.current_box else 1
-            
+
             self.draw.rectangle(
                 [x, self.text_y, x + self.box_width, self.text_y + self.box_height],
                 outline=outline_color,
-                width=outline_width
+                width=outline_width,
             )
-            
+
             # Draw text or placeholder
             text = self.boxes[i]
             if not text and i != self.current_box:
@@ -56,36 +60,33 @@ class UITimeEntry(UIModule):
                 color = self.colors.get(180)  # Brighter color for placeholder
             else:
                 color = self.red
-            
+
             # Center text in box
             text_width = self.bold.font.getbbox(text if text else "00")[2]
             text_x = x + (self.box_width - text_width) // 2
             text_y = self.text_y + 2
-            
-            self.draw.text(
-                (text_x, text_y),
-                text,
-                font=self.bold.font,
-                fill=color
-            )
-            
+
+            self.draw.text((text_x, text_y), text, font=self.bold.font, fill=color)
+
             # Draw colon after first two boxes
             if i < 2:
                 colon_x = x + self.box_width + self.box_spacing // 2 - 2
                 self.draw.text(
-                    (colon_x, self.text_y + 2),
-                    ":",
-                    font=self.bold.font,
-                    fill=self.red
+                    (colon_x, self.text_y + 2), ":", font=self.bold.font, fill=self.red
                 )
-        
+
         # Draw cursor in current box if empty
         if not self.boxes[self.current_box]:
             x = self.start_x + self.current_box * (self.box_width + self.box_spacing)
             cursor_x = x + 2
             self.draw.rectangle(
-                [cursor_x, self.text_y + 2, cursor_x + 8, self.text_y + self.box_height - 2],
-                fill=self.red
+                [
+                    cursor_x,
+                    self.text_y + 2,
+                    cursor_x + 8,
+                    self.text_y + self.box_height - 2,
+                ],
+                fill=self.red,
             )
 
     def draw_local_time_note(self):
@@ -93,18 +94,16 @@ class UITimeEntry(UIModule):
         note_y = self.text_y + self.box_height + 10
         self.draw.text(
             (10, note_y),
-            "Enter Local Time",
+            _("Enter Local Time"),
             font=self.fonts.base.font,
-            fill=self.red  # Brighter color for better visibility
+            fill=self.red,  # Brighter color for better visibility
         )
         return note_y + 15  # Return the Y position after this element
 
     def draw_separator(self, start_y):
         # Draw a separator line before the legend
         self.draw.line(
-            [(10, start_y), (self.width - 10, start_y)],
-            fill=self.half_red,
-            width=1
+            [(10, start_y), (self.width - 10, start_y)], fill=self.half_red, width=1
         )
         return start_y + 5  # Return the Y position after the separator
 
@@ -112,26 +111,26 @@ class UITimeEntry(UIModule):
         legend_y = start_y
         # Still using full red for better visibility but smaller font
         legend_color = self.red
-        
+
         self.draw.text(
             (10, legend_y),
-            "  Next box",  # Right
+            _("  Next box"),  # Right
             font=self.fonts.base.font,  # Using base font
-            fill=legend_color
+            fill=legend_color,
         )
         legend_y += 12  # Standard spacing
         self.draw.text(
             (10, legend_y),
-            "  Done",  # Left
+            _("  Done"),  # Left
             font=self.fonts.base.font,
-            fill=legend_color
+            fill=legend_color,
         )
         legend_y += 12  # Standard spacing
         self.draw.text(
             (10, legend_y),
-            "󰍴  Delete/Previous",  # minus
+            _("󰍴  Delete/Previous"),  # minus
             font=self.fonts.base.font,
-            fill=legend_color
+            fill=legend_color,
         )
 
     def validate_box(self, box_index, value):
@@ -150,11 +149,11 @@ class UITimeEntry(UIModule):
     def key_number(self, number):
         current = self.boxes[self.current_box]
         new_value = current + str(number)
-        
+
         # Only allow 2 digits per box
         if len(new_value) > 2:
             return
-            
+
         # Validate the new value
         if self.validate_box(self.current_box, new_value):
             self.boxes[self.current_box] = new_value
@@ -184,7 +183,7 @@ class UITimeEntry(UIModule):
 
     def update(self, force=False):
         self.draw.rectangle((0, 0, 128, 128), fill=self.black)
-        
+
         # Draw title
         # self.draw.text(
         #     (7, 5),
@@ -192,14 +191,14 @@ class UITimeEntry(UIModule):
         #     font=self.fonts.base.font,
         #     fill=self.half_red,
         # )
-        
+
         self.draw_time_boxes()
-        
+
         # Draw additional elements with proper positioning
         note_y = self.draw_local_time_note()
-        separator_y = self.draw_separator(note_y+15)
+        separator_y = self.draw_separator(note_y + 15)
         self.draw_legend(separator_y)
-        
+
         if self.shared_state:
             self.shared_state.set_screen(self.screen)
         return self.screen_update()
