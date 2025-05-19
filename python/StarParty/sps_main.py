@@ -110,19 +110,19 @@ async def handle_command(
 
         elif command[0] == "groups":  # list groups
             for group_touple in server_state.list_groups():
-                await writeline(writer, f"{group_touple[0]}|{group_touple[1]}")
-            await writeline(writer, "ack")
+                await writeline(writer, f"\t{group_touple[0]}|{group_touple[1]}")
+            await writeline(writer, "\tack")
 
         elif command[0] == "observers":  # list observers with groups
             for observer_touple in server_state.list_observers():
-                await writeline(writer, f"{observer_touple[0]}|{observer_touple[1]}")
-            await writeline(writer, "ack")
+                await writeline(writer, f"\t{observer_touple[0]}|{observer_touple[1]}")
+            await writeline(writer, "\tack")
 
         elif command[0] == "add_group":  # Add new group
             new_group_name = make_group_name([x[0] for x in server_state.list_groups()])
             async with state_lock:
                 new_group = server_state.add_group(observer, new_group_name)
-            await writeline(writer, new_group.name)
+            await writeline(writer, f"\t{new_group.name}\n\tack")
 
         elif command[0] == "join":  # join group
             group_name = command[1]
@@ -130,20 +130,20 @@ async def handle_command(
                 result = server_state.join_group(observer, group_name)
 
             if result:
-                await writeline(writer, "ack")
+                await writeline(writer, "\tack")
             else:
-                await writeline(writer, "err")
+                await writeline(writer, "\terr")
         elif command[0] == "leave":  # leave current group
             async with state_lock:
                 result = server_state.leave_group(observer)
 
             if result:
-                await writeline(writer, "ack")
+                await writeline(writer, "\tack")
             else:
-                await writeline(writer, "err")
+                await writeline(writer, "\terr")
         else:
             # unknown command
-            await writeline(writer, "err")
+            await writeline(writer, "\terr")
 
 
 async def send_event_updates(writer: asyncio.StreamWriter, observer: Observer):
@@ -191,7 +191,7 @@ async def client_connected(reader: asyncio.StreamReader, writer: asyncio.StreamW
     in_data = in_data_raw.decode()
     command = in_data.split("|")
     if len(command) != 2 or command[0] != "name":
-        await writeline(writer, "err")
+        await writeline(writer, "\terr")
         print(f"{connection_id_short}: Bad Connection Attempt")
         writer.close()
         await writer.wait_closed()
@@ -207,7 +207,7 @@ async def client_connected(reader: asyncio.StreamReader, writer: asyncio.StreamW
     async with state_lock:
         server_state.observers.append(observer)
 
-    await writeline(writer, "ack")
+    await writeline(writer, "\tack")
     print(f"{connection_id_short}: {observer_name} Connected")
 
     command_task = asyncio.create_task(handle_command(reader, writer, observer))
