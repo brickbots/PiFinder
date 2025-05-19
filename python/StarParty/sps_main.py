@@ -6,6 +6,7 @@ Primary module for the Star Party local server
 
 import asyncio
 import uuid
+import contextlib
 from random import choice
 from time import time
 
@@ -15,7 +16,7 @@ state_lock = asyncio.Lock()
 server_state = ServerState()
 
 
-def make_group_name() -> str:
+def make_group_name(current_names: list[str]) -> str:
     adjectives = [
         "stellar",
         "bright",
@@ -29,6 +30,11 @@ def make_group_name() -> str:
         "local",
         "infrared",
         "radio",
+        "compact",
+        "spiral",
+        "diffuse",
+        "dwarf",
+        "double",
     ]
 
     nouns = [
@@ -40,18 +46,26 @@ def make_group_name() -> str:
         "galaxy",
         "asteroid",
         "scope",
-        "dwarf",
         "cluster",
         "planet",
         "moon",
         "orbit",
         "flare",
         "core",
+        "group",
+        "star",
+        "system",
+        "arm",
     ]
 
-    adj = choice(adjectives)
-    noun = choice(nouns)
-    return f"{adj.capitalize()}{noun.capitalize()}"
+    return_name = None
+    while return_name is None:
+        adj = choice(adjectives)
+        noun = choice(nouns)
+        return_name = f"{adj.capitalize()}{noun.capitalize()}"
+        if return_name in current_names:
+            return_name = None
+    return return_name
 
 
 async def writeline(writer: asyncio.StreamWriter, message: str):
@@ -70,14 +84,14 @@ async def handle_command(
 
     while True:
         in_data_raw = await reader.readline()
+        if not in_data_raw:
+            print(f"{connection_id_short}: Closed in reader")
+            return
+
         try:
             in_data = in_data_raw.decode().strip()
         except UnicodeDecodeError:
             in_data = "error"
-
-        if in_data == "":
-            # This indicates EOF/Reader closed
-            break
 
         print(f"{connection_id_short}:{in_data}")
         command = in_data.split("|")
@@ -105,7 +119,7 @@ async def handle_command(
             await writeline(writer, "ack")
 
         elif command[0] == "add_group":  # Add new group
-            new_group_name = make_group_name()
+            new_group_name = make_group_name([x[0] for x in server_state.list_groups()])
             async with state_lock:
                 new_group = server_state.add_group(observer, new_group_name)
             await writeline(writer, new_group.name)
@@ -150,7 +164,7 @@ async def send_event_updates(writer: asyncio.StreamWriter, observer: Observer):
             # since they joined
             last_event_time = time()
 
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.025)
 
 
 async def client_connected(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
@@ -159,7 +173,21 @@ async def client_connected(reader: asyncio.StreamReader, writer: asyncio.StreamW
     connection_id = str(uuid.uuid4())
     connection_id_short = connection_id[-4:]
     print(f"{connection_id_short}: Attempt")
-    in_data_raw = await reader.readline()
+
+    try:
+        in_data_raw = await asyncio.wait_for(reader.readline(), timeout=5)
+        if not in_data_raw:
+            # client disconnected before sending
+            print(f"{connection_id_short}: Disconnected before name")
+            writer.close()
+            await writer.wait_closed()
+            return
+    except asyncio.TimeoutError:
+        print(f"{connection_id_short}: Timeout")
+        writer.close()
+        await writer.wait_closed()
+        return
+
     in_data = in_data_raw.decode()
     command = in_data.split("|")
     if len(command) != 2 or command[0] != "name":
@@ -181,9 +209,33 @@ async def client_connected(reader: asyncio.StreamReader, writer: asyncio.StreamW
 
     await writeline(writer, "ack")
     print(f"{connection_id_short}: {observer_name} Connected")
-    await asyncio.gather(
-        handle_command(reader, writer, observer), send_event_updates(writer, observer)
-    )
+
+    command_task = asyncio.create_task(handle_command(reader, writer, observer))
+    event_task = asyncio.create_task(send_event_updates(writer, observer))
+
+    try:
+        done, _pending = await asyncio.wait(
+            [command_task, event_task], return_when=asyncio.FIRST_COMPLETED
+        )
+        for task in done:
+            if (e := task.exception()) is not None:
+                raise e
+
+    except Exception as e:
+        print(f"{connection_id_short}: {e}")
+
+    finally:
+        for task in (command_task, event_task):
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+    writer.close()
+    await writer.wait_closed()
+
+    # Cleanup connection here....
+    async with state_lock:
+        server_state.remove_observer(observer)
     print(f"{connection_id_short}: Closed")
 
 

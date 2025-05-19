@@ -157,7 +157,7 @@ class ServerState:
     def list_groups(self):
         """
         Returns a list of tuples with group names and
-        observer count
+        observer count if count=True
         """
         _ret_list = []
         for group in self.groups:
@@ -172,9 +172,19 @@ class ServerState:
         """
         _ret_list = []
         for observer in self.observers:
-            _ret_list.append((observer.name, observer.group.name))
+            group_name = "Home"
+            if observer.group is not None:
+                group_name = observer.group.name
+            _ret_list.append((observer.name, group_name))
 
         return _ret_list
+
+    def remove_observer(self, observer: Observer):
+        """
+        Cleans up all observer records on disconnect
+        """
+        self.leave_group(observer)
+        self.observers.remove(observer)
 
 
 @dataclass
