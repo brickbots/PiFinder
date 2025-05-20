@@ -17,6 +17,11 @@ class EventType(Enum):
     MESSAGE = "MSG"
 
 
+class GroupActivities(Enum):
+    IDLE = "Hang"
+    HUNT = "Timed Hunt"
+
+
 @dataclass
 class GroupEvent:
     """
@@ -38,6 +43,7 @@ class GroupEvent:
 @dataclass
 class Group:
     name: str
+    activity: GroupActivities = GroupActivities.IDLE
     marks: list["Mark"] = field(default_factory=list)
     observers: list["Observer"] = field(default_factory=list)
     events: deque[GroupEvent] = field(default_factory=lambda: deque(maxlen=20))
