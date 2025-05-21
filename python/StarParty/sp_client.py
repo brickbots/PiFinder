@@ -9,7 +9,7 @@ import asyncio
 from asyncio import StreamReader, StreamWriter
 from typing import Union
 import contextlib
-from StarParty.sps_data import Position
+from StarParty.sps_data import Position, GroupActivities
 
 
 @dataclass
@@ -22,12 +22,19 @@ class ClientObserver:
         return self.name
 
 
+@dataclass
+class ClientGroup:
+    name: str
+    activity: GroupActivities = GroupActivities.IDLE
+
+
 class SPClient:
     def __init__(self):
         self.reader: Union[StreamReader, None] = None
         self.writer: Union[StreamWriter, None] = None
-        self._observers: list[ClientObserver] = []
+        self._group_observers: list[ClientObserver] = []
         self.connected: bool = False
+        self._current_group = Union[ClientGroup, None] = None
         self.username: Union[str, None] = None
 
         self._reader_task: Union[asyncio.Task, None] = None
@@ -54,6 +61,18 @@ class SPClient:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._reader_task
         self.connected = False
+
+    async def join_group(self, group_name):
+        resp = await self.send_command(f"join|{group_name}")
+        if resp == "err":
+            return False
+
+        # if we get here, the first line of the response will be
+        # the group info, then observers in the group
+
+        # split and drop the ack from the response
+        resp_line = resp.split("\n")[:-1]
+        print(resp_line)
 
     async def _listen_for_messages(self):
         assert self.reader is not None
@@ -98,8 +117,6 @@ class SPClient:
 
     async def _handle_event(self, message: str):
         print(f"[Event] {message}")
-        # async with self._state_lock:
-        #    self._state["last_event"] = message
 
     async def send_command(self, cmd: str, timeout: float = 5.0) -> str:
         if not self.writer:
