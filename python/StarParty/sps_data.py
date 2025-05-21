@@ -9,6 +9,7 @@ from time import time
 from typing import Union
 from collections import deque
 from enum import Enum
+import zlib
 
 
 class EventType(Enum):
@@ -70,6 +71,9 @@ class Group:
         # Should never get here....
         return None
 
+    def serialize(self) -> str:
+        return f"{self.name}|{self.activity.value}|{len(self.observers)}"
+
 
 @dataclass
 class Position:
@@ -81,11 +85,23 @@ class Position:
 class Observer:
     connection_id: str
     name: str
+    avatar_bits: int = 0
     group: Union[Group, None] = None
     position: Position = field(default_factory=Position)
 
-    def __str__(self):
+    def __post_init__(self):
+        # compute the avatar_bits
+        self.avatar_bits = zlib.crc32(self.name.encode("utf-8"))
+
+    def __str__(self) -> str:
         return self.name
+
+    def serialize(self) -> str:
+        if self.group is None:
+            group_name = "Home"
+        else:
+            group_name = self.group.name
+        return f"{self.name}|{self.avatar_bits}|{group_name}|{self.position.ra},{self.position.dec}"
 
 
 @dataclass
@@ -112,24 +128,24 @@ class ServerState:
         self.join_group(observer, group_name)
         return new_group
 
-    def join_group(self, observer: Observer, group_name: str) -> bool:
+    def join_group(self, observer: Observer, group_name: str) -> Union[Group, None]:
         """
         Add an observer to a group
         """
         _group = self.get_group_by_name(group_name)
         if _group is None:
-            return False
+            return None
 
         if observer.group is _group:
             # already in the group!
-            return True
+            return _group
 
         self.leave_group(observer)
         _group.observers.append(observer)
         observer.group = _group
         _group.add_event(EventType.MESSAGE, (observer.name, "has joined"))
 
-        return True
+        return _group
 
     def get_group_by_name(self, group_name: str) -> Union[None, Group]:
         """
@@ -167,7 +183,7 @@ class ServerState:
         """
         _ret_list = []
         for group in self.groups:
-            _ret_list.append((group.name, self.observer_count(group)))
+            _ret_list.append(group.serialize())
 
         return _ret_list
 
@@ -178,10 +194,7 @@ class ServerState:
         """
         _ret_list = []
         for observer in self.observers:
-            group_name = "Home"
-            if observer.group is not None:
-                group_name = observer.group.name
-            _ret_list.append((observer.name, group_name))
+            _ret_list.append(observer.serialize())
 
         return _ret_list
 

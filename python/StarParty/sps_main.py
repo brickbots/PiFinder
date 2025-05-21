@@ -109,13 +109,13 @@ async def handle_command(
                     )
 
         elif command[0] == "groups":  # list groups
-            for group_touple in server_state.list_groups():
-                await writeline(writer, f"\t{group_touple[0]}|{group_touple[1]}")
+            for group_string in server_state.list_groups():
+                await writeline(writer, f"\t{group_string}")
             await writeline(writer, "\tack")
 
         elif command[0] == "observers":  # list observers with groups
-            for observer_touple in server_state.list_observers():
-                await writeline(writer, f"\t{observer_touple[0]}|{observer_touple[1]}")
+            for observer_string in server_state.list_observers():
+                await writeline(writer, f"\t{observer_string}")
             await writeline(writer, "\tack")
 
         elif command[0] == "add_group":  # Add new group
@@ -127,9 +127,18 @@ async def handle_command(
         elif command[0] == "join":  # join group
             group_name = command[1]
             async with state_lock:
-                result = server_state.join_group(observer, group_name)
+                result_group = server_state.join_group(observer, group_name)
 
-            if result:
+            if result_group:
+                # write group info
+                await writeline(
+                    writer, f"\t{result_group.name}|{result_group.activity.value}"
+                )
+
+                # write out observers in the group
+                for observer in result_group.observers:
+                    await writeline(writer, f"\t{observer.serialize()}")
+
                 await writeline(writer, "\tack")
             else:
                 await writeline(writer, "\terr")
