@@ -12,6 +12,7 @@ from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.equipment import UIEquipment
 from PiFinder.ui.location_list import UILocationList
+from PiFinder.ui.sp_main import UISPMain
 import PiFinder.ui.callbacks as callbacks
 
 
@@ -1007,7 +1008,14 @@ pifinder_menu = {
                     "name": _("Experimental"),
                     "class": UITextMenu,
                     "select": "Single",
-                    "items": [],
+                    "items": [
+                        {
+                            "name": _("StarParty"),
+                            "class": UISPMain,
+                            "stateful": True,
+                            "preload": True,
+                        },
+                    ],
                 },
             ],
         },
