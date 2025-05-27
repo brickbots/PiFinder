@@ -35,6 +35,11 @@ pifinder_menu = {
     "start_index": 2,
     "items": [
         {
+            "name": _("StarParty"),
+            "class": UISPMain,
+            "stateful": True,
+        },
+        {
             "name": _("Start"),
             "class": UITextMenu,
             "select": "single",
@@ -1008,14 +1013,7 @@ pifinder_menu = {
                     "name": _("Experimental"),
                     "class": UITextMenu,
                     "select": "Single",
-                    "items": [
-                        {
-                            "name": _("StarParty"),
-                            "class": UISPMain,
-                            "stateful": True,
-                            "preload": True,
-                        },
-                    ],
+                    "items": [],
                 },
             ],
         },

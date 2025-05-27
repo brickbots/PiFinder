@@ -25,6 +25,8 @@ import uuid
 import logging
 import argparse
 import pickle
+import asyncio
+import contextlib
 from pathlib import Path
 from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
@@ -52,12 +54,16 @@ from PiFinder.image_util import subtract_background
 
 from PiFinder.displays import DisplayBase, get_display
 
+from StarParty import sp_client
+
 logger = logging.getLogger("main")
 
 hardware_platform = "Pi"
 display_hardware = "SSD1351"
 display_device: DisplayBase = DisplayBase()
 keypad_pwm = None
+
+sp_client_class = sp_client.SPClient()
 
 
 def init_keypad_pwm():
@@ -230,7 +236,7 @@ class PowerManager:
         self.display_device.device.show()
 
 
-def main(
+async def main(
     log_helper: MultiprocLogging,
     script_name=None,
     show_fps=False,
@@ -386,7 +392,7 @@ def main(
             ),
         )
         image_process.start()
-        time.sleep(1)
+        await asyncio.sleep(1)
 
         # IMU
         console.write("   IMU")
@@ -489,7 +495,7 @@ def main(
                     console_msg = console_queue.get(block=False)
                     console.write(console_msg)
                 except queue.Empty:
-                    time.sleep(0.1)
+                    await asyncio.sleep(0.1)
 
                 # GPS
                 try:
@@ -658,11 +664,11 @@ def main(
                             # wait two seconds for any vibration from
                             # pressing the button to pass.
                             menu_manager.message("Debug: 2", 1)
-                            time.sleep(1)
+                            await asyncio.sleep(1)
                             menu_manager.message("Debug: 1", 1)
-                            time.sleep(1)
+                            await asyncio.sleep(1)
                             menu_manager.message("Debug: Saving", 1)
-                            time.sleep(1)
+                            await asyncio.sleep(1)
                             debug_image = camera_image.copy()
                             debug_solution = shared_state.solution()
                             debug_location = shared_state.location()
@@ -736,6 +742,7 @@ def main(
 
                 menu_manager.update()
                 power_manager.update()
+                await asyncio.sleep(0.01)
 
         except KeyboardInterrupt:
             logger.info("KeyboardInterrupt received: shutting down.")
@@ -777,6 +784,30 @@ def main(
 
             log_helper.join()
             exit()
+
+
+async def start_main(rlogger, log_helper, keyboard_script, fps: bool, verbose):
+    main_loop_task = asyncio.create_task(
+        main(log_helper, keyboard_script, fps, verbose)
+    )
+    try:
+        done, _pending = await asyncio.wait(
+            [main_loop_task], return_when=asyncio.FIRST_COMPLETED
+        )
+        for task in done:
+            if (e := task.exception()) is not None:
+                raise e
+
+    except Exception as e:
+        rlogger.exception("Exception in main(). Aborting program.")
+        os._exit(1)
+
+    finally:
+        for task in main_loop_task:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+        os._exit(0)
 
 
 if __name__ == "__main__":
@@ -924,8 +955,4 @@ if __name__ == "__main__":
         else:
             config.Config().set_option("language", args.lang)
 
-    try:
-        main(log_helper, args.script, args.fps, args.verbose)
-    except Exception:
-        rlogger.exception("Exception in main(). Aborting program.")
-        os._exit(1)
+    asyncio.run(start_main(rlogger, log_helper, args.script, args.fps, args.verbose))

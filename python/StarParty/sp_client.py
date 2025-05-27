@@ -34,7 +34,7 @@ class SPClient:
         self.writer: Union[StreamWriter, None] = None
         self._group_observers: list[ClientObserver] = []
         self.connected: bool = False
-        self._current_group = Union[ClientGroup, None] = None
+        self._current_group: Union[ClientGroup, None] = None
         self.username: Union[str, None] = None
 
         self._reader_task: Union[asyncio.Task, None] = None

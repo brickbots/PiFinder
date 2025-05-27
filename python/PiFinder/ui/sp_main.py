@@ -110,8 +110,6 @@ class UISPMain(UIModule):
             ],
         }
 
-        self.reset_config()
-
     def update(self, force=True):
         # Clear Screen
         self.clear_screen()
@@ -139,8 +137,6 @@ class UISPMain(UIModule):
         if self.menu_index == 1:
             self.draw_menu_pointer(horiz_pos)
         horiz_pos += 14
-        self.draw_stars(horiz_pos, self.log_observability)
-        horiz_pos += 11
 
     def draw_menu_pointer(self, horiz_position: int):
         self.draw.text(
