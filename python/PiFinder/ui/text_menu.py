@@ -70,7 +70,7 @@ class UITextMenu(UIModule):
                     if _item["value"] == self._selected_values[0]:
                         self._current_item_index = i
 
-    def update(self, force=False):
+    async def update(self, force=False):
         # clear screen
         self.clear_screen()
         # Draw current selection hint
@@ -157,7 +157,7 @@ class UITextMenu(UIModule):
     def get_nr_of_menu_items(self):
         return len(self._menu_items)
 
-    def key_right(self):
+    async def key_right(self):
         """
         This is the main selection function responsible
         for either adjusting configurations, or
@@ -252,8 +252,8 @@ class UITextMenu(UIModule):
             # as an argument, so call it with self here
             return self.item_definition["post_callback"](self)
 
-    def key_up(self):
+    async def key_up(self):
         self.menu_scroll(-1)
 
-    def key_down(self):
+    async def key_down(self):
         self.menu_scroll(1)

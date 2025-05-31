@@ -303,7 +303,7 @@ class UIStatus(UIModule):
             else:
                 self.status_dict["SSID"] = self.net.get_connected_ssid()
 
-    def update(self, force=False):
+    async def update(self, force=False):
         time.sleep(1 / 30)
         self.update_status_dict()
         self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
@@ -321,10 +321,10 @@ class UIStatus(UIModule):
         self.text_layout.draw(pos=self._draw_pos)
         return self.screen_update()
 
-    def key_up(self):
+    async def key_up(self):
         self.text_layout.previous()
 
-    def key_down(self):
+    async def key_down(self):
         self.text_layout.next()
 
     def active(self):

@@ -92,7 +92,7 @@ class UISoftware(UIModule):
         else:
             self.message(_("Error on Upd"), 3)
 
-    def update(self, force=False):
+    async def update(self, force=False):
         time.sleep(1 / 30)
         self.clear_screen()
         draw_pos = self.display_class.titlebar_height + 2
@@ -226,13 +226,13 @@ class UISoftware(UIModule):
         else:
             self._option_select = "Update"
 
-    def key_up(self):
+    async def key_up(self):
         self.toggle_option()
 
-    def key_down(self):
+    async def key_down(self):
         self.toggle_option()
 
-    def key_right(self):
+    async def key_right(self):
         if self._option_select == "Cancel":
             self.remove_from_stack()
         else:

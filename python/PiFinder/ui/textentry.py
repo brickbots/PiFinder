@@ -222,7 +222,7 @@ class UITextEntry(UIModule):
         self.current_text = self.current_text[:-1]
         self.update_search_results()
 
-    def key_left(self):
+    async def key_left(self):
         """Handle left key based on mode"""
         if self.text_entry_mode:
             # Pure text entry mode - confirm and return
@@ -238,26 +238,26 @@ class UITextEntry(UIModule):
             else:
                 return True
 
-    def key_right(self):
+    async def key_right(self):
         """Handle right key based on mode"""
         if not self.text_entry_mode:
             # Search mode - show results
             self.draw_results()
 
-    def key_square(self):
+    async def key_square(self):
         self.keys.switch_keys()
 
-    def key_plus(self):
+    async def key_plus(self):
         self.add_char(" ")
 
-    def key_minus(self):
+    async def key_minus(self):
         self.delete_last_char()
 
-    def key_long_minus(self):
+    async def key_long_minus(self):
         self.current_text = ""
         self.update_search_results()
 
-    def key_number(self, number):
+    async def key_number(self, number):
         current_time = time.time()
         number_key = str(number)
         # Check if the same key is pressed within a short time
@@ -281,7 +281,7 @@ class UITextEntry(UIModule):
         else:
             print("didn't find key", number_key)
 
-    def update(self, force=False):
+    async def update(self, force=False):
         self.draw.rectangle((0, 0, 128, 128), fill=self.colors.get(0))
 
         # Draw appropriate header based on mode

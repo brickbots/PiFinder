@@ -141,7 +141,7 @@ class UIChart(UIModule):
         self.fov = current_fov
         self.starfield.set_fov(current_fov)
 
-    def update(self, force=False):
+    async def update(self, force=False):
         if force:
             self.last_update = 0
 
@@ -235,13 +235,13 @@ class UIChart(UIModule):
         self.set_fov(self.fov_list[self.fov_index])
         self.update(force=True)
 
-    def key_plus(self):
+    async def key_plus(self):
         self.change_fov(-1)
 
-    def key_minus(self):
+    async def key_minus(self):
         self.change_fov(1)
 
-    def key_square(self):
+    async def key_square(self):
         # Set back to 10.2 to match the camera view
         self.fov_index = 1
         self.set_fov(self.fov_list[self.fov_index])

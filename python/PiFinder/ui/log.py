@@ -150,7 +150,7 @@ class UILog(UIModule):
         self.log_observability = 0
         self.log_appeal = 0
 
-    def update(self, force=True):
+    async def update(self, force=True):
         # Clear Screen
         self.clear_screen()
 
@@ -284,7 +284,7 @@ class UILog(UIModule):
         )
         self.reset_config()
 
-    def key_number(self, number: int):
+    async def key_number(self, number: int):
         """
         Shortcut for stars
         """
@@ -295,7 +295,7 @@ class UILog(UIModule):
             if self.menu_index == 2:
                 self.log_appeal = number
 
-    def key_right(self):
+    async def key_right(self):
         """
         Log the logging
         """
@@ -329,12 +329,12 @@ class UILog(UIModule):
         """
         pass
 
-    def key_down(self):
+    async def key_down(self):
         self.menu_index += 1
         if self.menu_index > 4:
             self.menu_index = 4
 
-    def key_up(self):
+    async def key_up(self):
         self.menu_index -= 1
         if self.menu_index < 0:
             self.menu_index = 0

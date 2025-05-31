@@ -355,7 +355,7 @@ class UIObjectDetails(UIModule):
                 fill=self.colors.get(indicator_color),
             )
 
-    def update(self, force=True):
+    async def update(self, force=True):
         # Clear Screen
         self.clear_screen()
 
@@ -473,19 +473,19 @@ class UIObjectDetails(UIModule):
 
         return True
 
-    def key_down(self):
+    async def key_down(self):
         self.maybe_add_to_recents()
         self.scroll_object(1)
 
-    def key_up(self):
+    async def key_up(self):
         self.maybe_add_to_recents()
         self.scroll_object(-1)
 
-    def key_left(self):
+    async def key_left(self):
         self.maybe_add_to_recents()
         return True
 
-    def key_right(self):
+    async def key_right(self):
         """
         When right is pressed, move to
         logging screen
@@ -505,7 +505,7 @@ class UIObjectDetails(UIModule):
         self.update_object_info()
         self.update()
 
-    def key_plus(self):
+    async def key_plus(self):
         if self.object_display_mode == DM_DESC:
             self.descTextLayout.next()
             typeconst = self.texts.get("type-const")
@@ -514,7 +514,7 @@ class UIObjectDetails(UIModule):
         else:
             self.change_fov(1)
 
-    def key_minus(self):
+    async def key_minus(self):
         if self.object_display_mode == DM_DESC:
             self.descTextLayout.next()
             typeconst = self.texts.get("type-const")

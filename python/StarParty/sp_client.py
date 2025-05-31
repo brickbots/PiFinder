@@ -39,7 +39,7 @@ class SPClient:
 
         self._reader_task: Union[asyncio.Task, None] = None
 
-    async def connect(self, host: str, port: int, username: str):
+    async def connect(self, username: str, host: str, port: int = 8728) -> bool:
         # Create A queue of Futures for awaiting responses and a lock
         self._pending_responses: asyncio.Queue[asyncio.Future[str]] = asyncio.Queue()
         self._state_lock = asyncio.Lock()
@@ -51,6 +51,10 @@ class SPClient:
         print("Connected to server")
         resp = await self.send_command(f"name|{username}")
         print(resp)
+        if resp == "ack":
+            return True
+        else:
+            return False
 
     async def disconnect(self):
         if self.writer:

@@ -60,6 +60,7 @@ class UIModule:
         add_to_stack=None,
         remove_from_stack=None,
         jump_to_label=None,
+        sp_client_object=None,
     ):
         assert shared_state is not None
         self.title = self.__title__
@@ -74,6 +75,7 @@ class UIModule:
         self.add_to_stack = add_to_stack
         self.remove_from_stack = remove_from_stack
         self.jump_to_label = jump_to_label
+        self.sp_client_object = sp_client_object
 
         # mode stuff
         self._display_mode_cycle = cycle(self._display_mode_list)
@@ -139,7 +141,7 @@ class UIModule:
             return None
         return help_image_list
 
-    def update(self, force=False) -> None:
+    async def update(self, force=False) -> None:
         """
         Called to trigger UI Updates
         to be overloaded by subclases and shoud
@@ -293,38 +295,38 @@ class UIModule:
         """
         self.display_mode = next(self._display_mode_cycle)
 
-    def key_number(self, number):
+    async def key_number(self, number):
         pass
 
-    def key_plus(self):
+    async def key_plus(self):
         pass
 
-    def key_minus(self):
+    async def key_minus(self):
         pass
 
-    def key_square(self):
+    async def key_square(self):
         self.cycle_display_mode()
-        self.update()
+        await self.update()
 
-    def key_long_up(self):
+    async def key_long_up(self):
         pass
 
-    def key_long_down(self):
+    async def key_long_down(self):
         pass
 
-    def key_long_right(self):
+    async def key_long_right(self):
         pass
 
-    def key_up(self):
+    async def key_up(self):
         pass
 
-    def key_down(self):
+    async def key_down(self):
         pass
 
-    def key_right(self):
+    async def key_right(self):
         pass
 
-    def key_left(self) -> bool:
+    async def key_left(self) -> bool:
         """
         This is passed through from menu_manager
         and normally results in the module being

@@ -146,7 +146,7 @@ class UITimeEntry(UIModule):
         except ValueError:
             return False
 
-    def key_number(self, number):
+    async def key_number(self, number):
         current = self.boxes[self.current_box]
         new_value = current + str(number)
 
@@ -161,7 +161,7 @@ class UITimeEntry(UIModule):
             if len(new_value) == 2:
                 self.current_box = (self.current_box + 1) % 3
 
-    def key_minus(self):
+    async def key_minus(self):
         """Delete last digit in current box or move to previous box if empty"""
         if self.boxes[self.current_box]:
             # Delete the last digit
@@ -170,7 +170,7 @@ class UITimeEntry(UIModule):
             # If current box is empty, move to previous box
             self.current_box = (self.current_box - 1) % 3
 
-    def key_right(self):
+    async def key_right(self):
         """Move to next box"""
         self.current_box = (self.current_box + 1) % 3
         return False
@@ -181,7 +181,7 @@ class UITimeEntry(UIModule):
             time_str = f"{self.boxes[0] or '00'}:{self.boxes[1] or '00'}:{self.boxes[2] or '00'}"
             self.custom_callback(self, time_str)
 
-    def update(self, force=False):
+    async def update(self, force=False):
         self.draw.rectangle((0, 0, 128, 128), fill=self.black)
 
         # Draw title

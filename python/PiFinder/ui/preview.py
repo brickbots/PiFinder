@@ -183,7 +183,7 @@ class UIPreview(UIModule):
                     fill=self.colors.get(128),
                 )
 
-    def update(self, force=False):
+    async def update(self, force=False):
         if force:
             self.last_update = 0
         # display an image
@@ -234,12 +234,12 @@ class UIPreview(UIModule):
 
         return self.screen_update()
 
-    def key_plus(self):
+    async def key_plus(self):
         self.zoom_level += 1
         if self.zoom_level > 2:
             self.zoom_level = 2
 
-    def key_minus(self):
+    async def key_minus(self):
         self.zoom_level -= 1
         if self.zoom_level < 0:
             self.zoom_level = 0

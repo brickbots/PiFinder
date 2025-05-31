@@ -199,7 +199,7 @@ class UIAlign(UIModule):
         self.fov = current_fov
         self.starfield.set_fov(current_fov)
 
-    def update(self, force=False):
+    async def update(self, force=False):
         if force:
             self.last_update = 0
 
@@ -381,15 +381,15 @@ class UIAlign(UIModule):
 
         return
 
-    def key_plus(self):
+    async def key_plus(self):
         # if not self.align_mode:
         self.change_fov(-1)
 
-    def key_minus(self):
+    async def key_minus(self):
         # if not self.align_mode:
         self.change_fov(1)
 
-    def key_square(self):
+    async def key_square(self):
         if self.align_mode:
             self.align_mode = False
 
@@ -409,25 +409,25 @@ class UIAlign(UIModule):
             self.align_mode = True
         self.update(force=True)
 
-    def key_up(self):
+    async def key_up(self):
         if self.align_mode:
             self.switch_align_star("up")
 
-    def key_down(self):
+    async def key_down(self):
         if self.align_mode:
             self.switch_align_star("down")
 
-    def key_right(self):
+    async def key_right(self):
         if self.align_mode:
             self.switch_align_star("right")
 
-    def key_left(self):
+    async def key_left(self):
         if self.align_mode:
             self.switch_align_star("left")
             return False
         return True
 
-    def key_number(self, number):
+    async def key_number(self, number):
         if self.align_mode:
             if number == 1:
                 # reset reticle to center

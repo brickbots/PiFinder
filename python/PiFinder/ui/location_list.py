@@ -141,19 +141,19 @@ class UILocationList(UITextMenu):
         self.action_menu_active = False  # Return to location list view
         return True  # Return to location list
 
-    def key_up(self):
+    async def key_up(self):
         if self.action_menu_active:
             self.action_index = (self.action_index - 1) % len(self.actions)
         else:
             super().key_up()
 
-    def key_down(self):
+    async def key_down(self):
         if self.action_menu_active:
             self.action_index = (self.action_index + 1) % len(self.actions)
         else:
             super().key_down()
 
-    def key_right(self):
+    async def key_right(self):
         if not self.action_menu_active and self._current_item_index < len(
             self._menu_items
         ):
@@ -164,13 +164,13 @@ class UILocationList(UITextMenu):
             return self.perform_action()
         return False
 
-    def key_left(self):
+    async def key_left(self):
         if self.action_menu_active:
             self.action_menu_active = False
             return False
         return True
 
-    def update(self, force=False):
+    async def update(self, force=False):
         if self.action_menu_active:
             self.draw_action_menu()
         else:

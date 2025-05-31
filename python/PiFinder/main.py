@@ -63,7 +63,7 @@ display_hardware = "SSD1351"
 display_device: DisplayBase = DisplayBase()
 keypad_pwm = None
 
-sp_client_class = sp_client.SPClient()
+sp_client_object = sp_client.SPClient()
 
 
 def init_keypad_pwm():
@@ -245,7 +245,7 @@ async def main(
     """
     Get this show on the road!
     """
-    global display_device, display_hardware
+    global display_device, display_hardware, sp_client_object
 
     display_device = get_display(display_hardware)
     init_keypad_pwm()
@@ -319,12 +319,12 @@ async def main(
             display_device, None, shared_state, command_queues, cfg, Catalogs([])
         )
         console.write("Starting....")
-        console.update()
+        await console.update()
         logger.info("Starting ....")
 
         # spawn gps service....
         console.write("   GPS")
-        console.update()
+        await console.update()
         logger.info("   GPS")
         gps_process = Process(
             name="GPS",
@@ -341,7 +341,7 @@ async def main(
         # spawn keyboard service....
         console.write("   Keyboard")
         logger.info("   Keyboard")
-        console.update()
+        await console.update()
         keyboard_process = Process(
             name="Keyboard",
             target=keyboard.run_keyboard,
@@ -360,7 +360,7 @@ async def main(
         # Web server
         console.write("   Webserver")
         logger.info("   Webserver")
-        console.update()
+        await console.update()
 
         server_process = Process(
             name="Webserver",
@@ -378,7 +378,7 @@ async def main(
 
         console.write("   Camera")
         logger.info("   Camera")
-        console.update()
+        await console.update()
         camera_image = manager.NewImage("RGB", (512, 512))  # type: ignore[attr-defined]
         image_process = Process(
             name="Camera",
@@ -397,7 +397,7 @@ async def main(
         # IMU
         console.write("   IMU")
         logger.info("   IMU")
-        console.update()
+        await console.update()
         imu_process = Process(
             name="IMU",
             target=imu.imu_monitor,
@@ -408,7 +408,7 @@ async def main(
         # Solver
         console.write("   Solver")
         logger.info("   Solver")
-        console.update()
+        await console.update()
         solver_process = Process(
             name="Solver",
             target=solver.solver,
@@ -428,7 +428,7 @@ async def main(
         # Integrator
         console.write("   Integrator")
         logger.info("   Integrator")
-        console.update()
+        await console.update()
         integrator_process = Process(
             name="Integrator",
             target=integrator.integrator,
@@ -445,7 +445,7 @@ async def main(
         # Server
         console.write("  POS Server")
         logger.info("  POS Server")
-        console.update()
+        await console.update()
         posserver_process = Process(
             name="SkySafariServer",
             target=pos_server.run_server,
@@ -456,7 +456,7 @@ async def main(
         # Initialize Catalogs
         console.write("   Catalogs")
         logger.info("   Catalogs")
-        console.update()
+        await console.update()
 
         # Initialize Catalogs
         catalogs: Catalogs = CatalogBuilder().build(shared_state)
@@ -466,7 +466,7 @@ async def main(
         _new_filter.load_from_config(cfg)
         catalogs.set_catalog_filter(_new_filter)
         console.write("   Menus")
-        console.update()
+        await console.update()
 
         # Initialize menu manager
         menu_manager = MenuManager(
@@ -476,6 +476,7 @@ async def main(
             command_queues,
             cfg,
             catalogs,
+            sp_client_object,
         )
 
         # Initialize power manager
@@ -484,7 +485,7 @@ async def main(
         # Start main event loop
         console.write("   Event Loop")
         logger.info("   Event Loop")
-        console.update()
+        await console.update()
 
         log_time = True
         # Start of main except handler / loop
@@ -611,15 +612,15 @@ async def main(
                     if keycode > 99:
                         # Long left is return to top
                         if keycode == keyboard_base.LNG_LEFT:
-                            menu_manager.key_long_left()
+                            await menu_manager.key_long_left()
 
                         # Long right is return to last observed object
                         if keycode == keyboard_base.LNG_RIGHT:
-                            menu_manager.key_long_right()
+                            await menu_manager.key_long_right()
 
                         # Long square is marking menu
                         if keycode == keyboard_base.LNG_SQUARE:
-                            menu_manager.key_long_square()
+                            await menu_manager.key_long_square()
 
                         # Special codes....
                         if (
@@ -717,30 +718,30 @@ async def main(
 
                     else:
                         if keycode < 10:
-                            menu_manager.key_number(keycode)
+                            await menu_manager.key_number(keycode)
 
                         elif keycode == keyboard_base.PLUS:
-                            menu_manager.key_plus()
+                            await menu_manager.key_plus()
 
                         elif keycode == keyboard_base.MINUS:
-                            menu_manager.key_minus()
+                            await menu_manager.key_minus()
 
                         elif keycode == keyboard_base.SQUARE:
-                            menu_manager.key_square()
+                            await menu_manager.key_square()
 
                         elif keycode == keyboard_base.LEFT:
-                            menu_manager.key_left()
+                            await menu_manager.key_left()
 
                         elif keycode == keyboard_base.UP:
-                            menu_manager.key_up()
+                            await menu_manager.key_up()
 
                         elif keycode == keyboard_base.DOWN:
-                            menu_manager.key_down()
+                            await menu_manager.key_down()
 
                         elif keycode == keyboard_base.RIGHT:
-                            menu_manager.key_right()
+                            await menu_manager.key_right()
 
-                menu_manager.update()
+                await menu_manager.update()
                 power_manager.update()
                 await asyncio.sleep(0.01)
 

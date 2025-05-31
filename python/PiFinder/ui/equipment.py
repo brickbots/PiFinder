@@ -25,7 +25,7 @@ class UIEquipment(UIModule):
             down=MarkingMenuOption(),
         )
 
-    def update(self, force=False):
+    async def update(self, force=False):
         sleep_for_framerate(self.shared_state)
         self.clear_screen()
 
@@ -112,17 +112,17 @@ class UIEquipment(UIModule):
 
         return self.screen_update()
 
-    def key_down(self):
+    async def key_down(self):
         self.menu_index += 1
         if self.menu_index > 1:
             self.menu_index = 1
 
-    def key_up(self):
+    async def key_up(self):
         self.menu_index -= 1
         if self.menu_index < 0:
             self.menu_index = 0
 
-    def key_right(self):
+    async def key_right(self):
         if self.menu_index == 0:
             self.jump_to_label("select_telescope")
         if self.menu_index == 1:

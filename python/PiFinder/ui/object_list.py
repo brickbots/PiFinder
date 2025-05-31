@@ -6,6 +6,7 @@ This module contains all the UI Module classes
 """
 
 import copy
+import asyncio
 from enum import Enum
 from typing import Union
 from pathlib import Path
@@ -186,6 +187,7 @@ class UIObjectList(UITextMenu):
 
         self.catalog_info_1 = str(self.get_nr_of_menu_items())
         self._menu_items_sorted = self._menu_items
+
         self.sort()
 
     def sort(self) -> None:
@@ -199,7 +201,8 @@ class UIObjectList(UITextMenu):
             )
         )
         self.message(message, 0.1)
-        self.update()
+        async_loop = asyncio.get_running_loop()
+        async_loop.create_task(self.update())
 
         if self.current_sort == SortOrder.NEAREST:
             if self.shared_state.solution() is None:
@@ -217,7 +220,8 @@ class UIObjectList(UITextMenu):
         if self.current_sort == SortOrder.CATALOG_SEQUENCE:
             self._menu_items_sorted = self._menu_items
             self._current_item_index = 0
-        self.update()
+
+        async_loop.create_task(self.update())
 
     def nearby_refresh(self):
         self._menu_items_sorted = self.nearby.refresh()
@@ -398,7 +402,7 @@ class UIObjectList(UITextMenu):
         else:
             self.refresh_object_list()
 
-    def update(self, force: bool = False) -> None:
+    async def update(self, force: bool = False) -> None:
         self.clear_screen()
         begin_x = 12
 
@@ -579,21 +583,21 @@ class UIObjectList(UITextMenu):
     def refresh(self):
         self.last_item_index = -1
 
-    def key_up(self):
+    async def key_up(self):
         if self.jump_input_display:
             self.scroll_to_sequence(
                 self.jump_to_number.object_number, start_at_top=False, direction="up"
             )
         else:
-            super().key_up()
+            await super().key_up()
 
-    def key_down(self):
+    async def key_down(self):
         if self.jump_input_display:
             self.scroll_to_sequence(
                 self.jump_to_number.object_number, start_at_top=False, direction="down"
             )
         else:
-            super().key_down()
+            await super().key_down()
 
     def cycle_display_mode(self):
         """
@@ -622,7 +626,7 @@ class UIObjectList(UITextMenu):
         }
         self.add_to_stack(object_item_definition)
 
-    def key_right(self):
+    async def key_right(self):
         """
         When right is pressed, move to
         object info screen
@@ -638,7 +642,7 @@ class UIObjectList(UITextMenu):
 
         self.show_object_details(self._current_item_index)
 
-    def key_number(self, number):
+    async def key_number(self, number):
         self.jump_to_number.append_number(number)
         if str(self.jump_to_number) == "----":
             self.jump_input_display = False
@@ -649,12 +653,12 @@ class UIObjectList(UITextMenu):
         # Check for match
         self.scroll_to_sequence(self.jump_to_number.object_number)
 
-        self.update()
+        await self.update()
 
-    def key_long_up(self):
+    async def key_long_up(self):
         self.menu_scroll(-1)
 
-    def key_long_down(self):
+    async def key_long_down(self):
         self.menu_scroll(999999999999999999999999999)
 
     def mm_change_sort(self, marking_menu, menu_item):

@@ -51,7 +51,7 @@ class UIConsole(UIModule):
     def set_shared_state(self, shared_state):
         self.shared_state = shared_state
 
-    def key_number(self, number):
+    async def key_number(self, number):
         if number == 0:
             self.command_queues["camera"].put("debug")
             if self.debug_mode:
@@ -62,16 +62,16 @@ class UIConsole(UIModule):
         dt = datetime.datetime(2022, 11, 15, 2, 0, 0)
         self.shared_state.set_datetime(dt)
 
-    def key_enter(self):
+    async def key_enter(self):
         # reset scroll offset
         self.scroll_offset = 0
         self.dirty = True
 
-    def key_up(self):
+    async def key_up(self):
         self.scroll_offset += 1
         self.dirty = True
 
-    def key_down(self):
+    async def key_down(self):
         self.scroll_offset -= 1
         if self.scroll_offset < 0:
             self.scroll_offset = 0
@@ -92,7 +92,7 @@ class UIConsole(UIModule):
         self.dirty = True
         self.update()
 
-    def update(self, force=False):
+    async def update(self, force=False):
         if self.dirty:
             if self.welcome:
                 # Clear / write just top line

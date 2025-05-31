@@ -139,7 +139,7 @@ class UIGPSStatus(UIModule):
     def inactive(self):
         self.command_queues["camera"].put("start")
 
-    def update(self, force=False):
+    async def update(self, force=False):
         state_utils.sleep_for_framerate(self.shared_state)
         self.clear_screen()
         draw_pos = self.display_class.titlebar_height + 1

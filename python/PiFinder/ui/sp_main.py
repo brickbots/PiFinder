@@ -33,7 +33,7 @@ class UISPMain(UIModule):
             down=MarkingMenuOption(),
         )
 
-        self.menu_index = 1  # Observability
+        self.menu_index = 0  # Observability
 
         # conditions and eyepiece menus
         self.conditions_menu = {
@@ -110,33 +110,26 @@ class UISPMain(UIModule):
             ],
         }
 
-    def update(self, force=True):
+    async def update(self, force=True):
         # Clear Screen
         self.clear_screen()
 
         horiz_pos = self.display_class.titlebar_height
 
-        #
+        if self.sp_client_object.connected:
+            menu_text = _("Disconnect")
+        else:
+            menu_text = _("Connect")
+
         self.draw.text(
             (10, horiz_pos),
-            _("StarParty"),
+            menu_text,
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )
         if self.menu_index == 0:
             self.draw_menu_pointer(horiz_pos)
         horiz_pos += 18
-
-        # Observability
-        self.draw.text(
-            (10, horiz_pos),
-            _("Observability"),
-            font=self.fonts.large.font,
-            fill=self.colors.get(192),
-        )
-        if self.menu_index == 1:
-            self.draw_menu_pointer(horiz_pos)
-        horiz_pos += 14
 
     def draw_menu_pointer(self, horiz_position: int):
         self.draw.text(
@@ -146,28 +139,17 @@ class UISPMain(UIModule):
             fill=self.colors.get(255),
         )
 
-    def key_right(self):
+    async def key_right(self):
         if self.menu_index == 0:
-            self.record_object()
-            self.message(_("Logged!"))
-            self.remove_from_stack()
+            if self.sp_client_object.connected:
+                await self.sp_client_object.disconnect()
+            else:
+                print("SP - CONNECTING")
+                await self.sp_client_object.connect(
+                    host="spserver.local", username="brickbots"
+                )
+                print("SP - CONNECTED")
             return
-
-        if self.menu_index == 1:
-            self.log_observability += 1
-            if self.log_observability > 5:
-                self.log_observability = 0
-
-        if self.menu_index == 2:
-            self.log_appeal += 1
-            if self.log_appeal > 5:
-                self.log_appeal = 0
-
-        if self.menu_index == 3:
-            self.add_to_stack(self.conditions_menu)
-
-        if self.menu_index == 4:
-            self.jump_to_label("select_eyepiece")
 
     def cycle_display_mode(self):
         """
@@ -177,12 +159,12 @@ class UISPMain(UIModule):
         """
         pass
 
-    def key_down(self):
+    async def key_down(self):
         self.menu_index += 1
         if self.menu_index > 4:
             self.menu_index = 4
 
-    def key_up(self):
+    async def key_up(self):
         self.menu_index -= 1
         if self.menu_index < 0:
             self.menu_index = 0

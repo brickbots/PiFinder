@@ -113,6 +113,7 @@ class MenuManager:
         command_queues,
         config_object,
         catalogs,
+        sp_client_object,
     ):
         self.display_class = display_class
         self.shared_state = shared_state
@@ -121,6 +122,7 @@ class MenuManager:
         self.command_queues = command_queues
         self.config_object = config_object
         self.catalogs = catalogs
+        self.sp_client_object = sp_client_object
 
         # stack switch anim stuff
         self._stack_anim_counter: float = 0
@@ -182,6 +184,7 @@ class MenuManager:
                 add_to_stack=self.add_to_stack,
                 remove_from_stack=self.remove_from_stack,
                 jump_to_label=self.jump_to_label,
+                sp_client_object=self.sp_client_object,
             )
 
     def add_to_stack(self, item: dict) -> None:
@@ -207,6 +210,7 @@ class MenuManager:
                     add_to_stack=self.add_to_stack,
                     remove_from_stack=self.remove_from_stack,
                     jump_to_label=self.jump_to_label,
+                    sp_client_object=self.sp_client_object,
                 )
             )
             if item.get("stateful", False):
@@ -277,7 +281,7 @@ class MenuManager:
         self.update_screen(marking_menu_image)
         time.sleep(0.15)
 
-    def update(self) -> None:
+    async def update(self) -> None:
         if self.help_images is not None:
             # We are in help mode, just chill...
             return
@@ -287,7 +291,7 @@ class MenuManager:
             return
 
         # Business as usual, update the module at the top of the stack
-        self.stack[-1].update()  # type: ignore[call-arg]
+        await self.stack[-1].update()  # type: ignore[call-arg]
 
         # are we animating?
         if self._stack_anim_counter > time.time():
@@ -334,26 +338,26 @@ class MenuManager:
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
 
-    def key_number(self, number):
+    async def key_number(self, number):
         if self.help_images is not None:
             # Exit help
             self.help_images = None
-            self.update()
+            await self.update()
             return
 
-        self.stack[-1].key_number(number)
+        await self.stack[-1].key_number(number)
 
-    def key_plus(self):
-        self.stack[-1].key_plus()
+    async def key_plus(self):
+        await self.stack[-1].key_plus()
 
-    def key_minus(self):
-        self.stack[-1].key_minus()
+    async def key_minus(self):
+        await self.stack[-1].key_minus()
 
-    def key_long_square(self):
+    async def key_long_square(self):
         if self.help_images is not None:
             # Exit help
             self.help_images = None
-            self.update()
+            await self.update()
             return
 
         if self.marking_menu_stack == []:
@@ -365,11 +369,11 @@ class MenuManager:
         if self.marking_menu_stack != []:
             self.display_marking_menu()
 
-    def key_square(self):
+    async def key_square(self):
         if self.help_images is not None:
             # Exit help
             self.help_images = None
-            self.update()
+            await self.update()
             return
 
         if self.marking_menu_stack != []:
@@ -377,18 +381,18 @@ class MenuManager:
             if self.marking_menu_stack == []:
                 # Make sure we clean up
                 self.exit_marking_menu()
-            self.update()
+            await self.update()
             return
 
-        self.stack[-1].key_square()
+        await self.stack[-1].key_square()
 
-    def key_long_up(self):
+    async def key_long_up(self):
         pass
 
-    def key_long_down(self):
+    async def key_long_down(self):
         pass
 
-    def key_long_right(self):
+    async def key_long_right(self):
         # jump to recent objects
         if self.stack[-1].item_definition.get("label") != "object_details":
             recent_list = self.ui_state.recent_list()
@@ -402,38 +406,38 @@ class MenuManager:
                 }
                 self.add_to_stack(object_item_definition)
 
-    def key_long_left(self):
+    async def key_long_left(self):
         """
         Return to top of menu
         """
         if self.help_images is not None:
             # Exit help
             self.help_images = None
-            self.update()
+            await self.update()
 
         self.stack[-1].inactive()
         self.stack = self.stack[:1]
         self.stack[0].active()
 
-    def key_left(self):
+    async def key_left(self):
         if self.help_images is not None:
             # Exit help
             self.help_images = None
-            self.update()
+            await self.update()
             return
 
         if self.marking_menu_stack != []:
-            self.mm_select(self.marking_menu_stack[-1].left)
+            await self.mm_select(self.marking_menu_stack[-1].left)
         else:
             # always send through to currently active UIModule
             # default handler just returns True, can be
             # overrided by UIModule to perform some action before
             # being unloaded, or return False to prevent unload
-            if self.stack[-1].key_left():
+            if await self.stack[-1].key_left():
                 self.stack[-1].inactive()
                 self.remove_from_stack()
 
-    def key_up(self):
+    async def key_up(self):
         if self.help_images is not None:
             self.help_image_index = (
                 self.help_image_index - 1 if self.help_image_index > 0 else 0
@@ -442,12 +446,12 @@ class MenuManager:
             return
 
         if self.marking_menu_stack != []:
-            self.mm_select(self.marking_menu_stack[-1].up)
+            await self.mm_select(self.marking_menu_stack[-1].up)
             return
 
-        self.stack[-1].key_up()
+        await self.stack[-1].key_up()
 
-    def key_down(self):
+    async def key_down(self):
         if self.help_images is not None:
             self.help_image_index = (
                 self.help_image_index + 1
@@ -457,22 +461,22 @@ class MenuManager:
             self.update_screen(self.help_images[self.help_image_index])
             return
         if self.marking_menu_stack != []:
-            self.mm_select(self.marking_menu_stack[-1].down)
+            await self.mm_select(self.marking_menu_stack[-1].down)
         else:
-            self.stack[-1].key_down()
+            await self.stack[-1].key_down()
 
-    def key_right(self):
+    async def key_right(self):
         if self.help_images is not None:
             # Exit help
             self.help_images = None
-            self.update()
+            await self.update()
             return
         if self.marking_menu_stack != []:
-            self.mm_select(self.marking_menu_stack[-1].right)
+            await self.mm_select(self.marking_menu_stack[-1].right)
         else:
-            self.stack[-1].key_right()
+            await self.stack[-1].key_right()
 
-    def mm_select(self, selected_item):
+    async def mm_select(self, selected_item):
         if selected_item.label == "" or not selected_item.enabled:
             # Just bail out for non active menu items
             return
@@ -499,7 +503,7 @@ class MenuManager:
                 ):
                     # Exit marking menu
                     self.exit_marking_menu()
-                    self.update()
+                    await self.update()
             except BaseException:
                 print(selected_item)
                 print(selected_item.callback)
