@@ -11,6 +11,8 @@ import queue
 import time
 import copy
 import logging
+import numpy as np
+import quaternion  # numpy-quaternion
 
 from PiFinder import config
 from PiFinder import state_utils
@@ -67,6 +69,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             },
             "Roll_offset": 0,  # May/may not be needed - for experimentation
             "imu_pos": None,
+            "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first)
             "Alt": None,  # Alt of scope
             "Az": None,
             "solve_source": None,
@@ -179,7 +182,16 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                         # calc new alt/az
                         lis_imu = last_image_solve["imu_pos"]
                         imu_pos = imu["pos"]
+                        # Current IMU pointing relative to horizontal frame,
+                        # converted from scalar-last to a scalar-first Numpy 
+                        # quaternion data type
+                        q_hor2imu = np.quaternion(imu["quat"][3], 
+                            imu["quat"][0], imu["quat"][1], imu["quat"][2])
+
                         if imu_moved(lis_imu, imu_pos):
+                            # Estimate scope pointing using IMU dead-reckoning
+                            q_hor2scope = q_hor2imu * q_drift * q_imu2scope
+
                             alt_offset = imu_pos[IMU_ALT] - lis_imu[IMU_ALT]
                             if flip_alt_offset:
                                 alt_offset = ((alt_offset + 180) % 360 - 180) * -1
