@@ -89,6 +89,12 @@ pifinder_menu = {
                             "value": "PL",
                         },
                         {
+                            "name": "Comets",
+                            "class": UIObjectList,
+                            "objects": "catalog",
+                            "value": "CM",
+                        },
+                        {
                             "name": "NGC",
                             "class": UIObjectList,
                             "objects": "catalog",
