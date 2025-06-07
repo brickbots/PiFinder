@@ -38,6 +38,17 @@ pifinder_menu = {
             "name": _("StarParty"),
             "class": UISPMain,
             "stateful": True,
+            "select": "single",
+            "items": [
+                {
+                    "name": _("Connect"),
+                    "value": "connect",
+                },
+                {
+                    "name": _("Username"),
+                    "value": "username",
+                },
+            ],
         },
         {
             "name": _("Start"),

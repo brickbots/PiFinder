@@ -12,6 +12,10 @@ from enum import Enum
 import zlib
 
 
+def calc_avatar_bits(username: str) -> int:
+    return zlib.crc32(username.encode("utf-8"))
+
+
 class EventType(Enum):
     POSITION = "POS"
     MARK = "MRK"
@@ -91,7 +95,7 @@ class Observer:
 
     def __post_init__(self):
         # compute the avatar_bits
-        self.avatar_bits = zlib.crc32(self.name.encode("utf-8"))
+        self.avatar_bits = calc_avatar_bits(self.name)
 
     def __str__(self) -> str:
         return self.name

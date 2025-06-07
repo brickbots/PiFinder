@@ -9,12 +9,13 @@ or
 Create/Join
 """
 
+from random import choice
+from StarParty.sp_usernames import sp_usernames
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
-from PiFinder.ui.base import UIModule
 from PiFinder.ui.text_menu import UITextMenu
 
 
-class UISPMain(UIModule):
+class UISPMain(UITextMenu):
     """
     Star Party Main menu
     """
@@ -26,6 +27,8 @@ class UISPMain(UIModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self._menu_vertical_offset = 20
+
         # Marking Menu - Just default help for now
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(),
@@ -33,138 +36,88 @@ class UISPMain(UIModule):
             down=MarkingMenuOption(),
         )
 
-        self.menu_index = 0  # Observability
+        self.sp_username = self.config_object.get_option(
+            "sp_username", choice(sp_usernames)
+        )
 
-        # conditions and eyepiece menus
-        self.conditions_menu = {
-            "name": _("Conditions"),
-            "class": UITextMenu,
-            "select": "single",
-            "items": [
-                {
-                    "name": _("Transparency"),
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "session.log_transparency",
-                    "items": [
-                        {
-                            # TRANSLATORS: Transparency not available
-                            "name": _("NA"),
-                            "value": "NA",
-                        },
-                        {
-                            "name": _("Excellent"),
-                            "value": "Excellent",
-                        },
-                        {
-                            "name": _("Very Good"),
-                            "value": "Very Good",
-                        },
-                        {
-                            "name": _("Good"),
-                            "value": "Good",
-                        },
-                        {
-                            "name": _("Fair"),
-                            "value": "Fair",
-                        },
-                        {
-                            "name": _("Poor"),
-                            "value": "Poor",
-                        },
-                    ],
-                },
-                {
-                    "name": _("Seeing"),
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "session.log_seeing",
-                    "items": [
-                        {
-                            # TRANSLATORS: Seeing not available
-                            "name": _("NA"),
-                            "value": "NA",
-                        },
-                        {
-                            "name": _("Excellent"),
-                            "value": "Excellent",
-                        },
-                        {
-                            "name": _("Very Good"),
-                            "value": "Very Good",
-                        },
-                        {
-                            "name": _("Good"),
-                            "value": "Good",
-                        },
-                        {
-                            "name": _("Fair"),
-                            "value": "Fair",
-                        },
-                        {
-                            "name": _("Poor"),
-                            "value": "Poor",
-                        },
-                    ],
-                },
-            ],
-        }
-
-    async def update(self, force=True):
-        # Clear Screen
-        self.clear_screen()
-
-        horiz_pos = self.display_class.titlebar_height
-
-        if self.sp_client_object.connected:
-            menu_text = _("Disconnect")
-        else:
-            menu_text = _("Connect")
-
+    async def update_custom(self) -> None:
         self.draw.text(
-            (10, horiz_pos),
-            menu_text,
+            (0, 20),
+            f"{self.sp_username:^15}",
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )
-        if self.menu_index == 0:
-            self.draw_menu_pointer(horiz_pos)
-        horiz_pos += 18
+        return
 
-    def draw_menu_pointer(self, horiz_position: int):
-        self.draw.text(
-            (2, horiz_position),
-            self._RIGHT_ARROW,
-            font=self.fonts.large.font,
-            fill=self.colors.get(255),
+    def set_menu(
+        self, menu_items: dict, current_index: int = 0, menu_type: str = "single"
+    ) -> None:
+        """
+        Reset menu items
+        """
+        self._current_item_index = current_index
+        self.item_definition["items"] = menu_items
+        self._menu_items = [x["name"] for x in self.item_definition["items"]]
+        self._menu_type = menu_type
+
+    def mode_disconnected(self) -> None:
+        """
+        Set mode to disconnected
+        """
+
+        self.set_menu(
+            [
+                {
+                    "name": _("Connect"),
+                    "value": "connect",
+                },
+                {
+                    "name": _("Username"),
+                    "value": "username",
+                },
+            ]
+        )
+
+    def mode_connected(self) -> None:
+        """
+        Set mode to connected
+        Change menu items
+        """
+
+        self.set_menu(
+            [
+                {
+                    "name": _("Join Group"),
+                    "value": "join_groups",
+                },
+                {
+                    "name": _("Add Group"),
+                    "value": "add_group",
+                },
+                {
+                    "name": _("Disconnect"),
+                    "value": "disconnect",
+                },
+            ]
         )
 
     async def key_right(self):
-        if self.menu_index == 0:
+        selected_item = self._menu_items[self._current_item_index]
+        selected_item_definition = self.get_item(selected_item)
+
+        if selected_item_definition["value"] == "disconnect":
             if self.sp_client_object.connected:
                 await self.sp_client_object.disconnect()
+                self.mode_disconnected()
             else:
-                print("SP - CONNECTING")
-                await self.sp_client_object.connect(
-                    host="spserver.local", username="brickbots"
-                )
-                print("SP - CONNECTED")
+                print("Not connected")
             return
 
-    def cycle_display_mode(self):
-        """
-        Cycle through available display modes
-        for a module.  Invoked when the square
-        key is pressed
-        """
-        pass
-
-    async def key_down(self):
-        self.menu_index += 1
-        if self.menu_index > 4:
-            self.menu_index = 4
-
-    async def key_up(self):
-        self.menu_index -= 1
-        if self.menu_index < 0:
-            self.menu_index = 0
+        if selected_item_definition["value"] == "connect":
+            print("SP - CONNECTING")
+            await self.sp_client_object.connect(
+                host="spserver.local", username=self.sp_username
+            )
+            print("SP - CONNECTED")
+            self.mode_connected()
+            return

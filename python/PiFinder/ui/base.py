@@ -206,13 +206,22 @@ class UIModule:
                 [0, 0, self.display_class.resX, self.display_class.titlebar_height],
                 fill=bg,
             )
+
+            title_margin = 6
+            if self.sp_client_object.connected:
+                title_margin = 14
+                self.draw.rectangle(
+                    [0, 0, 10, self.display_class.titlebar_height],
+                    fill=fg,
+                )
+                self.screen.paste(self.sp_client_object.avatar_image, (2, 1))
             if self.ui_state.show_fps():
                 self.draw.text(
-                    (6, 1), str(self.fps), font=self.fonts.bold.font, fill=fg
+                    (title_margin, 1), str(self.fps), font=self.fonts.bold.font, fill=fg
                 )
             else:
                 self.draw.text(
-                    (6, 1), _(self.title), font=self.fonts.bold.font, fill=fg
+                    (title_margin, 1), _(self.title), font=self.fonts.bold.font, fill=fg
                 )
             imu = self.shared_state.imu()
             moving = True if imu and imu["pos"] and imu["moving"] else False

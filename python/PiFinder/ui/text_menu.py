@@ -25,6 +25,10 @@ class UITextMenu(UIModule):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+
+        # offset of menu portion to leave room above/below for secondary UI
+        # items
+        self._menu_vertical_offset = 0
         self._current_item_index = self.item_definition.get("start_index", 0)
         self._menu_items = [x["name"] for x in self.item_definition["items"]]
         self._menu_type = self.item_definition["select"]
@@ -74,7 +78,16 @@ class UITextMenu(UIModule):
         # clear screen
         self.clear_screen()
         # Draw current selection hint
-        self.draw.rectangle((-1, 60, 129, 80), outline=self.colors.get(128), width=1)
+        self.draw.rectangle(
+            (
+                -1,
+                40 + self.display_class.titlebar_height + self._menu_vertical_offset,
+                129,
+                60 + self.display_class.titlebar_height + self._menu_vertical_offset,
+            ),
+            outline=self.colors.get(128),
+            width=1,
+        )
 
         line_number = 0
         line_horiz_pos = 13
@@ -108,8 +121,10 @@ class UITextMenu(UIModule):
                     line_color = 96
                     line_pos = 89
 
-                # Offset for title
-                line_pos += 20
+                # Offset for title + offset
+                line_pos += (
+                    self.display_class.titlebar_height + self._menu_vertical_offset
+                )
 
                 # figure out line text
                 item_text = str(self._menu_items[i])
@@ -134,7 +149,13 @@ class UITextMenu(UIModule):
 
             line_number += 1
 
+            # call custom UI render
+            await self.update_custom()
+
         return self.screen_update()
+
+    async def update_custom(self) -> None:
+        return
 
     def menu_scroll(self, direction: int):
         self._current_item_index += direction

@@ -9,7 +9,29 @@ import asyncio
 from asyncio import StreamReader, StreamWriter
 from typing import Union
 import contextlib
-from StarParty.sps_data import Position, GroupActivities
+
+from PIL import Image, ImageDraw, ImageOps, ImageChops
+
+from StarParty.sps_data import Position, GroupActivities, calc_avatar_bits
+
+
+def generate_avatar_image(avatar_bytes: int) -> Image.Image:
+    """
+    Returns an 8x8 image for the provided avatar_bytes
+    """
+    work_image = Image.new("RGB", (8, 8))
+    drawer = ImageDraw.Draw(work_image)
+    bit_string = bin(avatar_bytes)[2:].zfill(32)
+    for line in range(8):
+        for bit in range(4):
+            if bit_string[line * 4 + bit] == "1":
+                drawer.point((bit + 1, line + 1), fill=(255, 255, 255))
+
+    # mirror
+    mirror_image = ImageOps.mirror(work_image)
+
+    # add
+    return ImageChops.add(work_image, mirror_image)
 
 
 @dataclass
@@ -29,7 +51,7 @@ class ClientGroup:
 
 
 class SPClient:
-    def __init__(self):
+    def __init__(self) -> None:
         self.reader: Union[StreamReader, None] = None
         self.writer: Union[StreamWriter, None] = None
         self._group_observers: list[ClientObserver] = []
@@ -45,6 +67,8 @@ class SPClient:
         self._state_lock = asyncio.Lock()
 
         self.username = username
+        self.avatar_bits = calc_avatar_bits(username)
+        self.avatar_image = generate_avatar_image(self.avatar_bits)
         self.reader, self.writer = await asyncio.open_connection(host, port)
         self._reader_task = asyncio.create_task(self._listen_for_messages())
         self.connected = True
@@ -56,7 +80,7 @@ class SPClient:
         else:
             return False
 
-    async def disconnect(self):
+    async def disconnect(self) -> None:
         if self.writer:
             self.writer.close()
             await self.writer.wait_closed()
@@ -66,7 +90,7 @@ class SPClient:
                 await self._reader_task
         self.connected = False
 
-    async def join_group(self, group_name):
+    async def join_group(self, group_name) -> bool:
         resp = await self.send_command(f"join|{group_name}")
         if resp == "err":
             return False
@@ -77,20 +101,21 @@ class SPClient:
         # split and drop the ack from the response
         resp_line = resp.split("\n")[:-1]
         print(resp_line)
+        return True
 
-    async def _listen_for_messages(self):
+    async def _listen_for_messages(self) -> None:
         assert self.reader is not None
         current_response_lines: list[str] = []
         current_future: Union[asyncio.Future[str], None] = None
 
         try:
             while True:
-                line = await self.reader.readline()
-                if not line:
+                raw_line = await self.reader.readline()
+                if not raw_line:
                     print("Server closed connection")
                     break
 
-                line = line.decode().rstrip("\n")
+                line = raw_line.decode().rstrip("\n")
 
                 if line.startswith("\t"):
                     # strip tab
