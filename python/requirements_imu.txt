@@ -1,1 +1,1 @@
-quaternion
+numpy-quaternion
