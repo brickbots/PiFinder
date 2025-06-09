@@ -172,9 +172,9 @@ def imu_monitor(shared_state, console_queue, log_queue):
         "moving": False,
         "move_start": None,
         "move_end": None,
-        "pos": [0, 0, 0],  # Corresponds to [Az, related_to_roll, Alt] --> **TO REMOVE LATER
+        #"pos": [0, 0, 0],  # Corresponds to [Az, related_to_roll, Alt] --> **TO REMOVE LATER
         "quat": [0, 0, 0, 0],  # Scalar-first quaternion (w, x, y, z)
-        "start_pos": [0, 0, 0],
+        #"start_pos": [0, 0, 0],
         "status": 0,
     }
 
@@ -185,9 +185,9 @@ def imu_monitor(shared_state, console_queue, log_queue):
             if not imu_data["moving"]:
                 logger.debug("IMU: move start")
                 imu_data["moving"] = True
-                imu_data["start_pos"] = imu_data["pos"]
+                #imu_data["start_pos"] = imu_data["pos"]
                 imu_data["move_start"] = time.time()
-            imu_data["pos"] = None  # Remove this later. Was used to store Euler angles
+            #imu_data["pos"] = None  # Remove this later. Was used to store Euler angles
             imu_data["quat"] = imu.avg_quat
 
         else:
@@ -195,7 +195,7 @@ def imu_monitor(shared_state, console_queue, log_queue):
                 # If we were moving and we now stopped
                 logger.debug("IMU: move end")
                 imu_data["moving"] = False
-                imu_data["pos"] = None
+                #imu_data["pos"] = None
                 imu_data["quat"] = imu.avg_quat
                 imu_data["move_end"] = time.time()
 
