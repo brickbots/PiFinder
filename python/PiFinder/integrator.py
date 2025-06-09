@@ -19,8 +19,8 @@ from PiFinder import state_utils
 import PiFinder.calc_utils as calc_utils
 from PiFinder.multiproclogging import MultiprocLogging
 
-IMU_ALT = 2
-IMU_AZ = 0
+#IMU_ALT = 2
+#IMU_AZ = 0
 
 logger = logging.getLogger("IMU.Integrator")
 
@@ -29,6 +29,8 @@ def imu_moved(imu_a, imu_b):
     """
     Compares two IMU states to determine if they are the 'same'
     if either is none, returns False
+    
+    **TODO: This imu_a and imu_b used to be pos. They are now quaternions**
     """
     if imu_a is None:
         return False
@@ -68,7 +70,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 "Roll": None,
             },
             "Roll_offset": 0,  # May/may not be needed - for experimentation
-            "imu_pos": None,
+            #"imu_pos": None,
             "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first)
             "Alt": None,  # Alt of scope
             "Az": None,
@@ -78,6 +80,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             "constellation": None,
         }
         cfg = config.Config()
+        """  Disable dependence of IMU on PiFinder type
         if (
             cfg.get_option("screen_direction") == "left"
             or cfg.get_option("screen_direction") == "flat"
@@ -87,7 +90,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             flip_alt_offset = True
         else:
             flip_alt_offset = False
-
+        """
+            
         # This holds the last image solve position info
         # so we can delta for IMU updates
         last_image_solve = None
@@ -180,18 +184,30 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                         # If we have alt, then we have a position/time
 
                         # calc new alt/az
-                        lis_imu = last_image_solve["imu_pos"]
-                        imu_pos = imu["pos"]
+                        #lis_imu = last_image_solve["imu_pos"]
+                        lis_imu_quat = last_image_solve["imu_quat"]
+                        imu_quat = imu["quat"]
+                        #imu_pos = imu["pos"]
                         # Current IMU pointing relative to horizontal frame,
                         # converted from scalar-last to a scalar-first Numpy 
                         # quaternion data type
-                        q_hor2imu = np.quaternion(imu["quat"][3], 
-                            imu["quat"][0], imu["quat"][1], imu["quat"][2])
+                        #q_hor2imu = np.quaternion(imu["quat"][3], 
+                        #    imu["quat"][0], imu["quat"][1], imu["quat"][2])
 
-                        if imu_moved(lis_imu, imu_pos):
+                        if imu_moved(lis_imu_quat, imu_quat):
                             # Estimate scope pointing using IMU dead-reckoning
-                            q_hor2scope = q_hor2imu * q_drift * q_imu2scope
+                            #q_hor2scope = q_hor2imu * q_drift * q_imu2scope
 
+                            # Using pseudo code here:
+                            lis_q_camera = altaz_to_quat(last_image_solve["camera_center"]["Az"],
+                                                         last_image_solve["camera_center"]["Alt"])
+                            q_imu2camera = lis_imu_quat.conj() * lis_q_camera  # For intrinsic rotations
+
+                            q_camera = imu_quat * q_imu2camera  # Estimate current camera center using IMU
+                            solved["Az"], solved["Alt"] = q_horiz2altaz(q_camera)
+                            # Calculate for scope center
+
+                            """ DISABLE - Use quaternions
                             alt_offset = imu_pos[IMU_ALT] - lis_imu[IMU_ALT]
                             if flip_alt_offset:
                                 alt_offset = ((alt_offset + 180) % 360 - 180) * -1
@@ -208,6 +224,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                             solved["camera_center"]["Az"] = (
                                 last_image_solve["camera_center"]["Az"] + az_offset
                             ) % 360
+                            """
 
                             # N.B. Assumes that location hasn't changed since last solve
                             # Turn this into RA/DEC
