@@ -10,8 +10,9 @@ from PiFinder.multiproclogging import MultiprocLogging
 import board
 import adafruit_bno055
 import logging
-
-from scipy.spatial.transform import Rotation
+import numpy as np
+import quaternion  # Numpy quaternion
+#from scipy.spatial.transform import Rotation
 
 from PiFinder import config
 
@@ -65,7 +66,7 @@ class Imu:
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
         self._flip_count = 0
         self.calibration = 0
-        self.avg_quat = (0, 0, 0, 0)
+        self.avg_quat = np.quaternion(0, 0, 0, 0)  # Init to invalid quaternion
         self.__moving = False
 
         self.last_sample_time = time.time()
@@ -137,7 +138,7 @@ class Imu:
             # no flip
             self._flip_count = 0
 
-        self.avg_quat = quat
+        self.avg_quat = np.quaternion(quat[0], quat[1], quat[2], quat[3])
         if len(self.quat_history) == QUEUE_LEN:
             self.quat_history = self.quat_history[1:]
         self.quat_history.append(quat)
@@ -173,7 +174,7 @@ def imu_monitor(shared_state, console_queue, log_queue):
         "move_start": None,
         "move_end": None,
         #"pos": [0, 0, 0],  # Corresponds to [Az, related_to_roll, Alt] --> **TO REMOVE LATER
-        "quat": [0, 0, 0, 0],  # Scalar-first quaternion (w, x, y, z)
+        "quat": np.quaternion(0, 0, 0, 0),  # Scalar-first quaternion (w, x, y, z) - Init to invalid quaternion
         #"start_pos": [0, 0, 0],
         "status": 0,
     }
