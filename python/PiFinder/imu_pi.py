@@ -78,24 +78,6 @@ class Imu:
         # to stop moving.
         self.__moving_threshold = (0.0005, 0.0003)
 
-    def quat_to_euler(self, quat):
-        """ 
-        INPUTS:
-        quat: Scalar last quaternion (x, y, z, w)
-
-        OUTPUTS:
-        rot_euler: [Az, related_to_roll, Alt]
-        """
-        if quat[0] + quat[1] + quat[2] + quat[3] == 0:
-            return 0, 0, 0
-        rot = Rotation.from_quat(quat)  # Expects scalar-last quaternion
-        # Lowercase 'xyz' indicate extrinsic rotation:
-        rot_euler = rot.as_euler("xyz", degrees=True)
-        # convert from -180/180 to 0/360
-        rot_euler[0] += 180
-        rot_euler[1] += 180
-        rot_euler[2] += 180
-        return rot_euler
 
     def moving(self):
         """
@@ -167,9 +149,6 @@ class Imu:
             if self.__reading_diff > self.__moving_threshold[0]:
                 self.__moving = True
 
-    def get_euler(self):
-        return list(self.quat_to_euler(self.avg_quat))  # !! Expect scalar-last but avg_quat is scalar-first??
-
     def __str__(self):
         return (
             f"IMU Information:\n"
@@ -193,7 +172,7 @@ def imu_monitor(shared_state, console_queue, log_queue):
         "moving": False,
         "move_start": None,
         "move_end": None,
-        "pos": [0, 0, 0],  # Corresponds to [Az, related_to_roll, Alt]
+        "pos": [0, 0, 0],  # Corresponds to [Az, related_to_roll, Alt] --> **TO REMOVE LATER
         "quat": [0, 0, 0, 0],  # Scalar-first quaternion (w, x, y, z)
         "start_pos": [0, 0, 0],
         "status": 0,
@@ -208,7 +187,7 @@ def imu_monitor(shared_state, console_queue, log_queue):
                 imu_data["moving"] = True
                 imu_data["start_pos"] = imu_data["pos"]
                 imu_data["move_start"] = time.time()
-            imu_data["pos"] = imu.get_euler()
+            imu_data["pos"] = None  # Remove this later. Was used to store Euler angles
             imu_data["quat"] = imu.avg_quat
 
         else:
@@ -216,7 +195,7 @@ def imu_monitor(shared_state, console_queue, log_queue):
                 # If we were moving and we now stopped
                 logger.debug("IMU: move end")
                 imu_data["moving"] = False
-                imu_data["pos"] = imu.get_euler()
+                imu_data["pos"] = None
                 imu_data["quat"] = imu.avg_quat
                 imu_data["move_end"] = time.time()
 
