@@ -25,6 +25,7 @@ class Imu:
     def __init__(self):
         i2c = board.I2C()
         self.sensor = adafruit_bno055.BNO055_I2C(i2c)
+        # IMPLUS mode: Accelerometer + Gyro + Fusion data
         self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
         # self.sensor.mode = adafruit_bno055.NDOF_MODE
         cfg = config.Config()

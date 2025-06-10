@@ -20,13 +20,14 @@ QUEUE_LEN = 10
 MOVE_CHECK_LEN = 2
 
 
-class Imu:
+class ImuSimple:
     def __init__(self):
         i2c = board.I2C()
         self.sensor = adafruit_bno055.BNO055_I2C(i2c)
         self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
         # self.sensor.mode = adafruit_bno055.NDOF_MODE
         
+        # Unlike Imu(), we use the IMU's native orientation
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
         self._flip_count = 0
         self.calibration = 0
@@ -81,7 +82,7 @@ class Imu:
         if self.calibration == 0:
             #logger.warning("NOIMU CAL")
             return True
-        # adafruit_bno055 gives quaternion convention (w, x, y,)
+        # adafruit_bno055 gives quaternion convention (w, x, y, z)
         quat = self.sensor.quaternion
         if quat[0] is None:
             #logger.warning("IMU: Failed to get sensor values")
@@ -138,7 +139,7 @@ class Imu:
 
 def imu_monitor():
     #MultiprocLogging.configurer(log_queue)
-    imu = Imu()
+    imu = ImuSimple()
     imu_calibrated = False
     imu_data = {
         "moving": False,
