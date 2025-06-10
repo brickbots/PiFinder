@@ -40,7 +40,7 @@ def get_display_image(
         if burn_in:
             ri_draw.text(
                 (30, 50),
-                "No Image",
+                _("No Image"),
                 font=display_class.fonts.large.font,
                 fill=display_class.colors.get(128),
             )

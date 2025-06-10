@@ -76,6 +76,22 @@ You can then use the supplied ``Makefile`` to build a html tree using ``make htm
     cd build/html; python -m http.server
 
 
+Internationalization
+-----------------------
+
+PiFinder uses ``gettext`` and ``pybabel`` for internationalization.
+You can find the information in folder ``python/locale`` in the repository. 
+This means that strings that need translation must be 
+enclosed in a call to ``_()`` such als ``_("string that needs translation")``. 
+
+As we would like to allow users to switch the language of the user interface from the menu, and with-out restarting PiFinder,
+care must be taken, that translations are performed dynamically, i.e. not at load time of python files. 
+If you have a variable at package level that needs to be translated, you still need to mark the strings with ``_()``, but make sure 
+it is not translated by overriding the ``_()``-function with a local one, that returns the string and then ``del`` that from the context, when you're done.
+You can find an example of this in ``menu_structure.py`` at the top and bottom of the file. 
+
+Please also check your unit tests, that these take care of installing ``_()`` into the local context. (We have not had that case yet.)
+
 Setup the development environment
 ---------------------------------
 
@@ -189,6 +205,13 @@ The defined sessions are:
   should exercise more functionality and make take a bit more time.  This Nox
   session is not run by default, but is executed on code check in to the PiFinder
   repository.
+
+- babel -> Runs the complete toolchain for internationalization (based on `pybabel`).
+  That means extracts strings to translate and updates the `.po`-files in `python/locale/**`
+  Then these are compiled into `.mo`-files. Unfortuntely, this changes the `.mo`-files in any case,
+  even if the there have been no changes to strings or their translation. As this will show up 
+  as changes to checked-in, this is not run by default. 
+  
 
 CI/CD
 .......

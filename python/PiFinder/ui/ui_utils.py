@@ -283,7 +283,9 @@ def shadow(ri_draw, xy, text, align, font, fill, shadowcolor):
 
 def normalize(name):
     """Helper function to normalize names"""
-    return name.lower().replace(" ", "").replace("the ", "", 1).replace("-", "")
+    return (
+        name.lower().replace(" ", "").replace("the ", "", 1).replace("-", "")
+    )  # TODO I18N If we get local names, we need to change this, too.
 
 
 def name_deduplicate(names: List[str], exclude: List[str]):

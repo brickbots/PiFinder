@@ -10,6 +10,8 @@ This module is the main entry point for PiFinder it:
 
 """
 
+import gettext
+
 import os
 
 # skyfield performance fix, see: https://rhodesmill.org/skyfield/accuracy-efficiency.html
@@ -23,12 +25,12 @@ import uuid
 import logging
 import argparse
 import pickle
-import shutil
 from pathlib import Path
 from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
 
+import PiFinder.i18n  # noqa: F401
 from PiFinder import solver
 from PiFinder import integrator
 from PiFinder import config
@@ -287,6 +289,13 @@ def main(
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness, cfg)
 
+    # Set user interface language
+    lang = cfg.get_option("language", "en")
+    langXX = gettext.translation(
+        "messages", "locale", languages=[lang], fallback=(lang == "en")
+    )
+    langXX.install()
+
     import PiFinder.manager_patch as patch
 
     patch.apply()
@@ -486,19 +495,24 @@ def main(
                 try:
                     gps_msg, gps_content = gps_queue.get(block=False)
                     if gps_msg == "fix":
-                        logger.debug("GPS fix msg: %s", gps_content)
                         if gps_content["lat"] + gps_content["lon"] != 0:
                             location = shared_state.location()
 
                             # Only update GPS fixes, as soon as it's loaded or comes from the WEB it's untouchable
-                            if not location.source == "WEB" and not location.source.startswith("CONFIG:") and (
-                                location.error_in_m == 0
-                                or float(gps_content["error_in_m"])
-                                < float(
-                                    location.error_in_m
-                                )  # Only if new error is smaller
+                            if (
+                                not location.source == "WEB"
+                                and not location.source.startswith("CONFIG:")
+                                and (
+                                    location.error_in_m == 0
+                                    or float(gps_content["error_in_m"])
+                                    < float(
+                                        location.error_in_m
+                                    )  # Only if new error is smaller
+                                )
                             ):
-                                logger.info(f"Updating GPS location: new content: {gps_content}, old content: {location}")
+                                logger.info(
+                                    f"Updating GPS location: new content: {gps_content}, old content: {location}"
+                                )
                                 location.lat = gps_content["lat"]
                                 location.lon = gps_content["lon"]
                                 location.altitude = gps_content["altitude"]
@@ -765,38 +779,12 @@ def main(
             exit()
 
 
-def rotate_logs() -> Path:
-    """
-    Rotates log files, returns the log file to use
-    """
-    log_index = list(range(5))
-    log_index.reverse()
-    for i in log_index:
-        try:
-            shutil.copyfile(
-                utils.data_dir / f"pifinder.{i}.log",
-                utils.data_dir / f"pifinder.{i+1}.log",
-            )
-        except FileNotFoundError:
-            pass
-
-    try:
-        shutil.move(
-            utils.data_dir / "pifinder.log",
-            utils.data_dir / "pifinder.0.log",
-        )
-    except FileNotFoundError:
-        pass
-
-    return utils.data_dir / "pifinder.log"
-
-
 if __name__ == "__main__":
     print("Bootstrap logging configuration ...")
     logging.basicConfig(format="%(asctime)s BASIC %(name)s: %(levelname)s %(message)s")
     rlogger = logging.getLogger()
     rlogger.setLevel(logging.INFO)
-    log_path = rotate_logs()
+    log_path = utils.data_dir / "pifinder.log"
     try:
         log_helper = MultiprocLogging(
             Path("pifinder_logconf.json"),
@@ -872,6 +860,11 @@ if __name__ == "__main__":
         "-x", "--verbose", help="Set logging to debug mode", action="store_true"
     )
     parser.add_argument("-l", "--log", help="Log to file", action="store_true")
+    parser.add_argument(
+        "--lang",
+        help="Force user interface language (iso2 code). Changes configuration",
+        type=str,
+    )
     args = parser.parse_args()
     # add the handlers to the logger
     if args.verbose:
@@ -923,7 +916,13 @@ if __name__ == "__main__":
     elif args.keyboard.lower() == "none":
         from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
-        rlogger.warn("using no keyboard")
+        rlogger.warning("using no keyboard")
+
+    if args.lang:
+        if args.lang.lower() not in ["en", "de", "fr", "es"]:
+            raise Exception(f"Unknown language '{args.lang}' passed via command line.")
+        else:
+            config.Config().set_option("language", args.lang)
 
     try:
         main(log_helper, args.script, args.fps, args.verbose)

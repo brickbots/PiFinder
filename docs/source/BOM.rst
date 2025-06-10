@@ -113,14 +113,10 @@ In addition to the 3d printed parts detailed in the :doc:`Build Guide<build_guid
      - M2.5x20mm standoffs
      - 
      - Between Pi and Hat Depending on your heatsink and such you may need longer or shorter amounts here and you'll probably need to screw a couple together to get this length
-   * - 4
-     - M2.5x5mm standoffs
-     - 
-     - Between the Camera and the 3d printed back piece
-   * - 5
+   * - 7
      - M2.5x12mm bolt
      - 
-     - 2 for the adjustable dovetail mount and 3 for the shroud/top plate attachment
+     - 2 for the adjustable dovetail mount, 2 for the camera attachment and 3 for the shroud/top plate attachment
 
 
 Power
