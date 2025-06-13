@@ -7,6 +7,7 @@ and adds keys to the provided queue
 """
 
 from time import sleep
+import libinput
 from PiFinder.keyboard_interface import KeyboardInterface
 import RPi.GPIO as GPIO
 import logging
@@ -45,6 +46,41 @@ class KeyboardPi(KeyboardInterface):
         ]
         # fmt: on
 
+        # keyboard support init
+        self.li_kb = libinput.LibInput(context_type=libinput.ContextType.UDEV)
+        self.li_kb.assign_seat("seat0")
+
+    def get_keyboard_key(self) -> int:
+        """
+        Checks libinput keyboard, if keyrelesed
+        map to our keycode and return
+
+        Returns 0 for no key registered
+        """
+        key_mapping: dict[int, int] = {
+            103: self.UP,
+            108: self.DOWN,
+            105: self.LEFT,
+            106: self.RIGHT,
+            28: self.SQUARE,
+            78: self.MINUS,
+            74: self.PLUS,
+        }
+
+        while True:
+            self.li_kb._selector.select()
+            while True:
+                self.li_kb._libinput.libinput_dispatch(self.li_kb._li)
+                hevent = self.li_kb._libinput.libinput_get_event(self.li_kb._li)
+                if not hevent:
+                    return 0
+                type_ = self.li_kb._libinput.libinput_event_get_type(hevent)
+
+                if type_.is_keyboard():
+                    kbev = libinput.KeyboardEvent(hevent, self.li_kb._libinput)
+                    if kbev.key_state == libinput.constant.KeyState.RELEASED:
+                        return key_mapping.get(kbev.key, 0)
+
     def run_keyboard(self, log_queue):
         """
         scans keyboard matrix, puts release events in queue
@@ -60,6 +96,10 @@ class KeyboardPi(KeyboardInterface):
         hold_sent = False
         scan_freq = 60
         while True:
+            # Check physical keyboard
+            if keyboard_key := self.get_keyboard_key():
+                self.q.put(keyboard_key)
+
             sleep(1 / scan_freq)
             if len(pressed) > 0:
                 hold_counter += 1
