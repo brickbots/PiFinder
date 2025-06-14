@@ -23,6 +23,14 @@ then
     touch /home/pifinder/PiFinder_data/migrations/v2.1.0
 fi
 
+# v2.1.0
+# Install libinput
+if ! [ -f "/home/pifinder/PiFinder_data/migrations/v2.2.1" ]
+then
+    source /home/pifinder/PiFinder/migration_source/v2.2.1.sh
+    touch /home/pifinder/PiFinder_data/migrations/v2.2.1
+fi
+
 # DONE
 echo "Post Update Complete"
 
