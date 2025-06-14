@@ -68,7 +68,6 @@ class KeyboardPi(KeyboardInterface):
         }
 
         while True:
-            self.li_kb._selector.select()
             while True:
                 self.li_kb._libinput.libinput_dispatch(self.li_kb._li)
                 hevent = self.li_kb._libinput.libinput_get_event(self.li_kb._li)
