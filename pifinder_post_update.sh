@@ -31,6 +31,14 @@ then
     touch /home/pifinder/PiFinder_data/migrations/v2.2.1
 fi
 
+# v2.1.2
+# Enable host usb on usb-c port
+if ! [ -f "/home/pifinder/PiFinder_data/migrations/v2.2.2" ]
+then
+    source /home/pifinder/PiFinder/migration_source/v2.2.2.sh
+    touch /home/pifinder/PiFinder_data/migrations/v2.2.2
+fi
+
 # DONE
 echo "Post Update Complete"
 
