@@ -23,7 +23,7 @@ then
     touch /home/pifinder/PiFinder_data/migrations/v2.1.0
 fi
 
-# v2.1.0
+# v2.1.1
 # Install libinput
 if ! [ -f "/home/pifinder/PiFinder_data/migrations/v2.2.1" ]
 then
