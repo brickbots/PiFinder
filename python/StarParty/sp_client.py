@@ -15,13 +15,13 @@ from PIL import Image, ImageDraw, ImageOps, ImageChops
 from StarParty.sps_data import Position, GroupActivity, calc_avatar_bits
 
 
-def generate_avatar_image(avatar_bytes: int) -> Image.Image:
+def generate_avatar_image(avatar_bits: int) -> Image.Image:
     """
-    Returns an 8x8 image for the provided avatar_bytes
+    Returns an 8x8 image for the provided avatar_bits
     """
     work_image = Image.new("RGB", (8, 8))
     drawer = ImageDraw.Draw(work_image)
-    bit_string = bin(avatar_bytes)[2:].zfill(32)
+    bit_string = bin(avatar_bits)[2:].zfill(32)
     for line in range(8):
         for bit in range(4):
             if bit_string[line * 4 + bit] == "1":
@@ -37,11 +37,27 @@ def generate_avatar_image(avatar_bytes: int) -> Image.Image:
 @dataclass
 class ClientObserver:
     name: str
+    avatar_bits: int
+    avatar_image: Union[Image.Image, None] = None
     group: Union[str, None] = None
     position: Position = field(default_factory=Position)
 
     def __str__(self):
         return self.name
+
+    def __post_init__(self):
+        # compute the avatar image
+        self.avatar_image = generate_avatar_image(self.avatar_bits)
+
+    @classmethod
+    def deserialize(cls, observer_raw: str) -> "ClientObserver":
+        _observer_split = observer_raw.split("|")
+        return cls(
+            name=_observer_split[0],
+            avatar_bits=int(_observer_split[1]),
+            group=_observer_split[2],
+            position=Position.deserialize(_observer_split[3]),
+        )
 
 
 @dataclass
@@ -64,53 +80,76 @@ class SPClient:
     def __init__(self) -> None:
         self.reader: Union[StreamReader, None] = None
         self.writer: Union[StreamWriter, None] = None
-        self._group_observers: list[ClientObserver] = []
+        self.group_observers: list[ClientObserver] = []
         self.connected: bool = False
         self.current_group: Union[ClientGroup, None] = None
         self.username: Union[str, None] = None
 
         self._reader_task: Union[asyncio.Task, None] = None
-
-    async def connect(self, username: str, host: str, port: int = 8728) -> bool:
-        # Create A queue of Futures for awaiting responses and a lock
-        self._pending_responses: asyncio.Queue[asyncio.Future[str]] = asyncio.Queue()
         self._state_lock = asyncio.Lock()
 
-        self.username = username
-        self.avatar_bits = calc_avatar_bits(username)
-        self.avatar_image = generate_avatar_image(self.avatar_bits)
-        self.reader, self.writer = await asyncio.open_connection(host, port)
-        self._reader_task = asyncio.create_task(self._listen_for_messages())
-        self.connected = True
-        print("Connected to server")
-        resp = await self.send_command(f"name|{username}")
-        if resp == "ack":
-            return True
-        else:
-            return False
+    async def connect(self, username: str, host: str, port: int = 8728) -> bool:
+        async with self._state_lock:
+            # Create A queue of Futures for awaiting responses and a lock
+            self._pending_responses: asyncio.Queue[asyncio.Future[str]] = (
+                asyncio.Queue()
+            )
+
+            self.username = username
+            self.avatar_bits = calc_avatar_bits(username)
+            self.avatar_image = generate_avatar_image(self.avatar_bits)
+            self.reader, self.writer = await asyncio.open_connection(host, port)
+            self._reader_task = asyncio.create_task(self._listen_for_messages())
+            self.connected = True
+            print("Connected to server")
+            resp = await self.send_command(f"name|{username}")
+            if resp == "ack":
+                return True
+            else:
+                return False
 
     async def disconnect(self) -> None:
-        if self.writer:
-            self.writer.close()
-            await self.writer.wait_closed()
-        if self._reader_task:
-            self._reader_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await self._reader_task
-        self.connected = False
+        async with self._state_lock:
+            if self.writer:
+                self.writer.close()
+                await self.writer.wait_closed()
+            if self._reader_task:
+                self._reader_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self._reader_task
+            self.connected = False
 
     async def join_group(self, group_name) -> bool:
-        resp = await self.send_command(f"join|{group_name}")
-        if resp == "err":
-            return False
+        async with self._state_lock:
+            resp = await self.send_command(f"join|{group_name}")
+            if resp == "err":
+                return False
 
-        # if we get here, the first line of the response will be
-        # the group info, then observers in the group
+            # if we get here, the first line of the response will be
+            # the group info, then observers in the group
 
-        # split and drop the ack from the response
-        resp_lines = resp.split("\n")[:-1]
-        self.current_group = ClientGroup.deserialize(resp_lines[0])
-        return True
+            # split and drop the ack from the response
+            print(f"Joined group\n{resp}=====")
+            resp_lines = resp.split("\n")[:-1]
+            self.current_group = ClientGroup.deserialize(resp_lines[0])
+
+            # populate observers
+            self.group_observers = [
+                ClientObserver.deserialize(x) for x in resp_lines[1:]
+            ]
+            print(self.group_observers)
+
+            return True
+
+    async def leave_group(self) -> bool:
+        async with self._state_lock:
+            resp = await self.send_command("leave")
+            if resp == "err":
+                return False
+
+            self.current_group = None
+            self.group_observers = []
+            return True
 
     async def list_groups(self) -> list[ClientGroup]:
         resp = await self.send_command("groups")
@@ -125,6 +164,7 @@ class SPClient:
 
     async def _listen_for_messages(self) -> None:
         assert self.reader is not None
+
         current_response_lines: list[str] = []
         current_future: Union[asyncio.Future[str], None] = None
 

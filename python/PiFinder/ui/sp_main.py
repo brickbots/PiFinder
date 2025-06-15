@@ -9,11 +9,13 @@ or
 Create/Join
 """
 
+from copy import copy
 from random import choice
 from StarParty.sp_usernames import sp_usernames
 from StarParty.sps_data import GroupActivity
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.ui.text_menu import UITextMenu
+from PiFinder.calc_utils import sf_utils
 
 
 class UISPMain(UITextMenu):
@@ -71,6 +73,12 @@ class UISPMain(UITextMenu):
                 f"{self.sp_client_object.current_group.name:^14}",
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
+            )
+            self.draw.text(
+                (2, 35),
+                f"{self.sp_client_object.current_group.activity.value:^18}",
+                font=self.fonts.bold.font,
+                fill=self.colors.get(128),
             )
             return
 
@@ -138,7 +146,7 @@ class UISPMain(UITextMenu):
                 },
                 {
                     "name": _("Leave Group"),
-                    "value": "add_group",
+                    "value": "leave_group",
                 },
                 {
                     "name": _("Disconnect"),
@@ -173,6 +181,30 @@ class UISPMain(UITextMenu):
             ]
         )
 
+    def mode_observers(self) -> None:
+        """
+        Set mode to list observers in group
+        Connected, but no groups
+        Change menu items
+        """
+
+        self._menu_vertical_offset = 0
+        self.ui_mode = "observers"
+
+        group_menu = []
+
+        observers = copy(self.sp_client_object.group_observers)
+        for observer in observers:
+            observer_const = sf_utils.radec_to_constellation(
+                observer.position.ra, observer.position.dec
+            )
+            observer_name = f"{observer_const} {observer.name}"
+            group_menu.append(
+                {"name": observer_name, "value": "", "icon": observer.avatar_image}
+            )
+
+        self.set_menu(group_menu)
+
     async def mode_joingroup(self) -> None:
         """
         Set mode to Join Group
@@ -200,6 +232,10 @@ class UISPMain(UITextMenu):
             self.mode_home()
             return
 
+        if self.ui_mode == "observers":
+            self.mode_joined()
+            return
+
         # Return true is the default behavior here
         # This will pop this menu item off the stack
         return True
@@ -216,6 +252,16 @@ class UISPMain(UITextMenu):
             group_to_join = selected_item_definition["value"]
             await self.sp_client_object.join_group(group_to_join)
             self.mode_joined()
+
+        if self.ui_mode == "joined":
+            if selected_item_definition["value"] == "leave_group":
+                await self.sp_client_object.leave_group()
+                self.mode_home()
+                return
+
+            if selected_item_definition["value"] == "list_observers":
+                self.mode_observers()
+                return
 
         if selected_item_definition["value"] == "disconnect":
             if self.sp_client_object.connected:

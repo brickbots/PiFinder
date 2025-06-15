@@ -84,6 +84,11 @@ class Position:
     ra: float = 0
     dec: float = 0
 
+    @classmethod
+    def deserialize(cls, position_raw: str) -> "Position":
+        _pos_split = position_raw.split(",")
+        return cls(ra=float(_pos_split[0]), dec=float(_pos_split[1]))
+
 
 @dataclass
 class Observer:
@@ -149,7 +154,7 @@ class ServerState:
         self.leave_group(observer)
         _group.observers.append(observer)
         observer.group = _group
-        _group.add_event(EventType.MESSAGE, (observer.name, "has joined"))
+        _group.add_event(EventType.MESSAGE, (observer.name, "joined"))
 
         return _group
 
@@ -173,7 +178,7 @@ class ServerState:
             return False
 
         group = observer.group
-        group.add_event(EventType.MESSAGE, (observer.name, "has left"))
+        group.add_event(EventType.MESSAGE, (observer.name, "left"))
 
         group.observers.remove(observer)
         observer.group = None
