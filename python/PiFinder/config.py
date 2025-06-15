@@ -46,6 +46,33 @@ class Config:
         if eq_config is None:
             self.equipment = equipment.Equipment(telescopes=[], eyepieces=[])
         else:
+            # do a little bit of validation here
+
+            # get default equipment
+            default_eq = self._default_config_dict.get("equipment")
+            if not default_eq:
+                # if we don't have defaults, something is very wrong
+                self.equipment = equipment.Equipment(telescopes=[], eyepieces=[])
+                return
+
+            if not eq_config.get("telescopes", []):
+                # use default valuES
+                eq_config["telescopes"] = default_eq["telescopes"]
+
+            if not eq_config.get("eyepieces", []):
+                # use default valuES
+                eq_config["eyepieces"] = default_eq["eyepieces"]
+
+            if eq_config.get("active_telescope_index", 1000) >= len(
+                eq_config["telescopes"]
+            ):
+                eq_config["active_telescope_index"] = 0
+
+            if eq_config.get("active_eyepiece_index", 1000) >= len(
+                eq_config["eyepieces"]
+            ):
+                eq_config["active_eyepiece_index"] = 0
+
             self.equipment = equipment.Equipment.from_dict(eq_config)
 
         # Load the locations config
