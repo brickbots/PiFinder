@@ -137,6 +137,7 @@ class UISPMain(UITextMenu):
         """
 
         self._menu_vertical_offset = 20
+        self._menu_horiz_offset = 12
         self.ui_mode = "joined"
         self.set_menu(
             [

@@ -5,6 +5,7 @@ This module contains all the UI Module classes
 
 """
 
+from PIL import Image, ImageChops
 from typing import Union
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
@@ -146,6 +147,17 @@ class UITextMenu(UIModule):
                         font=line_font.font,
                         fill=self.colors.get(line_color),
                     )
+
+                # Icon?
+                if icon := self.get_item(item_text).get("icon"):
+                    _red_icon = ImageChops.multiply(
+                        icon,
+                        Image.new(
+                            "RGB", icon.size, color=self.display_class.colors.get(line_color)
+                        ),
+                    )
+                    _offset = int((line_font.height - icon.height)/2)
+                    self.screen.paste(_red_icon, (2, line_pos + 2 + _offset))
 
             line_number += 1
 
