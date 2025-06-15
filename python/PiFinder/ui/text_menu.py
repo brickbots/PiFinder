@@ -29,6 +29,7 @@ class UITextMenu(UIModule):
         # offset of menu portion to leave room above/below for secondary UI
         # items
         self._menu_vertical_offset = 0
+        self._menu_horiz_offset = 13
         self._current_item_index = self.item_definition.get("start_index", 0)
         self._menu_items = [x["name"] for x in self.item_definition["items"]]
         self._menu_type = self.item_definition["select"]
@@ -90,7 +91,6 @@ class UITextMenu(UIModule):
         )
 
         line_number = 0
-        line_horiz_pos = 13
 
         for i in range(self._current_item_index - 3, self._current_item_index + 4):
             if i >= 0 and i < self.get_nr_of_menu_items():
@@ -130,7 +130,7 @@ class UITextMenu(UIModule):
                 item_text = str(self._menu_items[i])
 
                 self.draw.text(
-                    (line_horiz_pos, line_pos),
+                    (self._menu_horiz_offset, line_pos),
                     _(item_text),  # I18N: translate item for display.
                     font=line_font.font,
                     fill=self.colors.get(line_color),

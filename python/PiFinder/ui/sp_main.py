@@ -11,6 +11,7 @@ Create/Join
 
 from random import choice
 from StarParty.sp_usernames import sp_usernames
+from StarParty.sps_data import GroupActivity
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.ui.text_menu import UITextMenu
 
@@ -23,11 +24,13 @@ class UISPMain(UITextMenu):
     __help_name__ = "starparty"
     __title__ = "StarParty"
     _STAR = ""
+    _GROUP_ACTIVITY_ICONS = {GroupActivity.HANG: "H", GroupActivity.RACE: "R"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self._menu_vertical_offset = 20
+        self._menu_horiz_offset = 3
 
         # Marking Menu - Just default help for now
         self.marking_menu = MarkingMenu(
@@ -50,7 +53,26 @@ class UISPMain(UITextMenu):
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
-        return
+            return
+
+        if self.ui_mode == "join_group":
+            if not self._menu_items:
+                self.draw.text(
+                    (2, 20),
+                    f"{'No Groups':^14}",
+                    font=self.fonts.large.font,
+                    fill=self.colors.get(255),
+                )
+            return
+
+        if self.ui_mode == "joined":
+            self.draw.text(
+                (2, 20),
+                f"{self.sp_client_object.current_group.name:^14}",
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
+            return
 
     def set_menu(
         self, menu_items: dict, current_index: int = 0, menu_type: str = "single"
@@ -99,6 +121,32 @@ class UISPMain(UITextMenu):
             ]
         )
 
+    def mode_joined(self) -> None:
+        """
+        Set mode to joined
+        In a group
+        Change menu items
+        """
+
+        self._menu_vertical_offset = 20
+        self.ui_mode = "joined"
+        self.set_menu(
+            [
+                {
+                    "name": _("Observers"),
+                    "value": "list_observers",
+                },
+                {
+                    "name": _("Leave Group"),
+                    "value": "add_group",
+                },
+                {
+                    "name": _("Disconnect"),
+                    "value": "disconnect",
+                },
+            ]
+        )
+
     def mode_home(self) -> None:
         """
         Set mode to home
@@ -138,7 +186,8 @@ class UISPMain(UITextMenu):
         groups = await self.sp_client_object.list_groups()
 
         for group in groups:
-            group_menu.append({"name": group, "value": group})
+            group_display = f"{self._GROUP_ACTIVITY_ICONS[group.activity]} {group.name} {group.observer_count}"
+            group_menu.append({"name": group_display, "value": group.name})
 
         self.set_menu(group_menu)
 
@@ -151,7 +200,9 @@ class UISPMain(UITextMenu):
             self.mode_home()
             return
 
-        super().key_left()
+        # Return true is the default behavior here
+        # This will pop this menu item off the stack
+        return True
 
     async def key_right(self):
         selected_item = self._menu_items[self._current_item_index]
@@ -160,6 +211,11 @@ class UISPMain(UITextMenu):
             self.sp_username = selected_item
             self.mode_disconnected()
             return
+
+        if self.ui_mode == "join_group":
+            group_to_join = selected_item_definition["value"]
+            await self.sp_client_object.join_group(group_to_join)
+            self.mode_joined()
 
         if selected_item_definition["value"] == "disconnect":
             if self.sp_client_object.connected:

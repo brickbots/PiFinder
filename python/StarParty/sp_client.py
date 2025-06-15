@@ -48,6 +48,16 @@ class ClientObserver:
 class ClientGroup:
     name: str
     activity: GroupActivity
+    observer_count: int
+
+    @classmethod
+    def deserialize(cls, group_raw: str) -> "ClientGroup":
+        _group_split = group_raw.split("|")
+        return cls(
+            name=_group_split[0],
+            activity=GroupActivity(_group_split[1]),
+            observer_count=int(_group_split[2]),
+        )
 
 
 class SPClient:
@@ -56,7 +66,7 @@ class SPClient:
         self.writer: Union[StreamWriter, None] = None
         self._group_observers: list[ClientObserver] = []
         self.connected: bool = False
-        self._current_group: Union[ClientGroup, None] = None
+        self.current_group: Union[ClientGroup, None] = None
         self.username: Union[str, None] = None
 
         self._reader_task: Union[asyncio.Task, None] = None
@@ -74,7 +84,6 @@ class SPClient:
         self.connected = True
         print("Connected to server")
         resp = await self.send_command(f"name|{username}")
-        print(resp)
         if resp == "ack":
             return True
         else:
@@ -99,18 +108,20 @@ class SPClient:
         # the group info, then observers in the group
 
         # split and drop the ack from the response
-        resp_line = resp.split("\n")[:-1]
-        print(resp_line)
+        resp_lines = resp.split("\n")[:-1]
+        self.current_group = ClientGroup.deserialize(resp_lines[0])
         return True
 
-    async def list_groups(self) -> list[str]:
+    async def list_groups(self) -> list[ClientGroup]:
         resp = await self.send_command("groups")
         if resp == "err":
             return []
 
-        groups = resp.split("\n")
-        print(groups)
-        return groups
+        if not resp:
+            return []
+
+        groups_raw = resp.split("\n")
+        return [ClientGroup.deserialize(x) for x in groups_raw]
 
     async def _listen_for_messages(self) -> None:
         assert self.reader is not None
@@ -128,7 +139,7 @@ class SPClient:
 
                 if line.startswith("\t"):
                     # strip tab
-                    line = line[1:]
+                    line = line.strip()
                     if current_future is None:
                         current_future = await self._pending_responses.get()
 

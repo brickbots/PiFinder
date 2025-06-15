@@ -139,9 +139,7 @@ async def handle_command(
 
             if result_group:
                 # write group info
-                await writeline(
-                    writer, f"\t{result_group.name}|{result_group.activity.value}"
-                )
+                await writeline(writer, f"\t{result_group.serialize()}")
 
                 # write out observers in the group
                 for observer in result_group.observers:
