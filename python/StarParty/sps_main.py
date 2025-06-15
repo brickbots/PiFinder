@@ -10,7 +10,7 @@ import contextlib
 from random import choice
 from time import time
 
-from StarParty.sps_data import Observer, ServerState, EventType
+from StarParty.sps_data import Observer, ServerState, EventType, GroupActivity
 
 state_lock = asyncio.Lock()
 server_state = ServerState()
@@ -120,8 +120,16 @@ async def handle_command(
 
         elif command[0] == "add_group":  # Add new group
             new_group_name = make_group_name([x[0] for x in server_state.list_groups()])
+            try:
+                new_activity = GroupActivity(command[1])
+            except ValueError:
+                await writeline(writer, "\terr")
+                return
+
             async with state_lock:
-                new_group = server_state.add_group(observer, new_group_name)
+                new_group = server_state.add_group(
+                    observer, new_group_name, new_activity
+                )
             await writeline(writer, f"\t{new_group.name}\n\tack")
 
         elif command[0] == "join":  # join group

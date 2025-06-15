@@ -10,7 +10,7 @@ import uuid
 from itertools import cycle
 from typing import Type, Union
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageChops
 from PiFinder import utils
 from PiFinder.image_util import make_red
 from PiFinder.displays import DisplayBase
@@ -84,6 +84,9 @@ class UIModule:
         self.screen = Image.new("RGB", display_class.resolution)
         self.draw = ImageDraw.Draw(self.screen, mode="RGBA")
         self.fonts = self.display_class.fonts
+        self.red_avatar_image = Image.new(
+            "RGB", (8, 8), color=display_class.colors.get(128)
+        )
 
         # UI Module definition
         self.item_definition = item_definition
@@ -208,13 +211,20 @@ class UIModule:
             )
 
             title_margin = 6
+
+            # SP Avatar?
             if self.sp_client_object.connected:
-                title_margin = 14
+                title_margin = 15
                 self.draw.rectangle(
-                    [0, 0, 10, self.display_class.titlebar_height],
+                    [2, 3, 13, self.display_class.titlebar_height - 3],
                     fill=fg,
                 )
-                self.screen.paste(self.sp_client_object.avatar_image, (2, 1))
+                _red_avatar = ImageChops.multiply(
+                    self.sp_client_object.avatar_image, self.red_avatar_image
+                )
+
+                self.screen.paste(_red_avatar, (4, 5))
+
             if self.ui_state.show_fps():
                 self.draw.text(
                     (title_margin, 1), str(self.fps), font=self.fonts.bold.font, fill=fg

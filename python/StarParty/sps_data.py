@@ -22,9 +22,9 @@ class EventType(Enum):
     MESSAGE = "MSG"
 
 
-class GroupActivities(Enum):
-    IDLE = "Hang"
-    HUNT = "Timed Hunt"
+class GroupActivity(Enum):
+    HANG = "Hang"
+    RACE = "Race"
 
 
 @dataclass
@@ -48,7 +48,7 @@ class GroupEvent:
 @dataclass
 class Group:
     name: str
-    activity: GroupActivities = GroupActivities.IDLE
+    activity: GroupActivity = GroupActivity.HANG
     marks: list["Mark"] = field(default_factory=list)
     observers: list["Observer"] = field(default_factory=list)
     events: deque[GroupEvent] = field(default_factory=lambda: deque(maxlen=20))
@@ -119,7 +119,9 @@ class ServerState:
         """
         return len(group.observers)
 
-    def add_group(self, observer: Observer, group_name: str) -> Group:
+    def add_group(
+        self, observer: Observer, group_name: str, activity: GroupActivity
+    ) -> Group:
         """
         Adds a new group, then adds the observer
         to it
@@ -127,7 +129,7 @@ class ServerState:
         if observer.group:
             self.leave_group(observer)
 
-        new_group = Group(name=group_name, observers=[])
+        new_group = Group(name=group_name, observers=[], activity=activity)
         self.groups.append(new_group)
         self.join_group(observer, group_name)
         return new_group

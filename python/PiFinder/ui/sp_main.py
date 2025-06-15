@@ -40,13 +40,16 @@ class UISPMain(UITextMenu):
             "sp_username", choice(sp_usernames)
         )
 
+        self.ui_mode = "disconnected"
+
     async def update_custom(self) -> None:
-        self.draw.text(
-            (0, 20),
-            f"{self.sp_username:^15}",
-            font=self.fonts.large.font,
-            fill=self.colors.get(255),
-        )
+        if self.ui_mode in ["disconnected", "home"]:
+            self.draw.text(
+                (2, 20),
+                f"{self.sp_username:^14}",
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
         return
 
     def set_menu(
@@ -60,11 +63,29 @@ class UISPMain(UITextMenu):
         self._menu_items = [x["name"] for x in self.item_definition["items"]]
         self._menu_type = menu_type
 
+    def mode_username(self) -> None:
+        self._menu_vertical_offset = 0
+        self.ui_mode = "username"
+        self.set_menu(
+            [
+                {
+                    "name": self.config_object.get_option(
+                        "sp_username", choice(sp_usernames)
+                    )
+                },
+                {"name": choice(sp_usernames)},
+                {"name": choice(sp_usernames)},
+                {"name": choice(sp_usernames)},
+            ]
+        )
+
     def mode_disconnected(self) -> None:
         """
         Set mode to disconnected
         """
 
+        self._menu_vertical_offset = 20
+        self.ui_mode = "disconnected"
         self.set_menu(
             [
                 {
@@ -78,20 +99,23 @@ class UISPMain(UITextMenu):
             ]
         )
 
-    def mode_connected(self) -> None:
+    def mode_home(self) -> None:
         """
-        Set mode to connected
+        Set mode to home
+        Connected, but no groups
         Change menu items
         """
 
+        self._menu_vertical_offset = 20
+        self.ui_mode = "home"
         self.set_menu(
             [
                 {
                     "name": _("Join Group"),
-                    "value": "join_groups",
+                    "value": "join_group",
                 },
                 {
-                    "name": _("Add Group"),
+                    "name": _("Create Group"),
                     "value": "add_group",
                 },
                 {
@@ -101,9 +125,41 @@ class UISPMain(UITextMenu):
             ]
         )
 
+    async def mode_joingroup(self) -> None:
+        """
+        Set mode to Join Group
+        Change menu items
+        """
+
+        self._menu_vertical_offset = 0
+        self.ui_mode = "join_group"
+
+        group_menu = []
+        groups = await self.sp_client_object.list_groups()
+
+        for group in groups:
+            group_menu.append({"name": group, "value": group})
+
+        self.set_menu(group_menu)
+
+    async def key_left(self):
+        if self.ui_mode == "username":
+            self.mode_disconnected()
+            return
+
+        if self.ui_mode == "join_group":
+            self.mode_home()
+            return
+
+        super().key_left()
+
     async def key_right(self):
         selected_item = self._menu_items[self._current_item_index]
         selected_item_definition = self.get_item(selected_item)
+        if self.ui_mode == "username":
+            self.sp_username = selected_item
+            self.mode_disconnected()
+            return
 
         if selected_item_definition["value"] == "disconnect":
             if self.sp_client_object.connected:
@@ -119,5 +175,13 @@ class UISPMain(UITextMenu):
                 host="spserver.local", username=self.sp_username
             )
             print("SP - CONNECTED")
-            self.mode_connected()
+            self.mode_home()
+            return
+
+        if selected_item_definition["value"] == "username":
+            self.mode_username()
+            return
+
+        if selected_item_definition["value"] == "join_group":
+            await self.mode_joingroup()
             return

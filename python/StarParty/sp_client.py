@@ -12,7 +12,7 @@ import contextlib
 
 from PIL import Image, ImageDraw, ImageOps, ImageChops
 
-from StarParty.sps_data import Position, GroupActivities, calc_avatar_bits
+from StarParty.sps_data import Position, GroupActivity, calc_avatar_bits
 
 
 def generate_avatar_image(avatar_bytes: int) -> Image.Image:
@@ -25,7 +25,7 @@ def generate_avatar_image(avatar_bytes: int) -> Image.Image:
     for line in range(8):
         for bit in range(4):
             if bit_string[line * 4 + bit] == "1":
-                drawer.point((bit + 1, line + 1), fill=(255, 255, 255))
+                drawer.point((bit, line), fill=(255, 255, 255))
 
     # mirror
     mirror_image = ImageOps.mirror(work_image)
@@ -47,7 +47,7 @@ class ClientObserver:
 @dataclass
 class ClientGroup:
     name: str
-    activity: GroupActivities = GroupActivities.IDLE
+    activity: GroupActivity
 
 
 class SPClient:
@@ -102,6 +102,15 @@ class SPClient:
         resp_line = resp.split("\n")[:-1]
         print(resp_line)
         return True
+
+    async def list_groups(self) -> list[str]:
+        resp = await self.send_command("groups")
+        if resp == "err":
+            return []
+
+        groups = resp.split("\n")
+        print(groups)
+        return groups
 
     async def _listen_for_messages(self) -> None:
         assert self.reader is not None
