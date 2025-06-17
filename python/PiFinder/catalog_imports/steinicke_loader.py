@@ -9,7 +9,6 @@ import re
 import logging
 import zipfile
 import tempfile
-import os
 import sys
 from pathlib import Path
 from tqdm import tqdm
@@ -150,7 +149,7 @@ STEINICKE_TYPE_MAPPING = {
     "III2p": "Gb", # Globular cluster, concentration class III, pop. 2, peculiar
     "II2m": "Gb",  # Globular cluster, concentration class II, pop. 2, metal-rich
     "III2m": "Gb", # Globular cluster, concentration class III, pop. 2, metal-rich
-    "I": "Gb",     # Globular cluster, concentration class I
+    # "I": "Gb",     # Globular cluster, concentration class I
     "II": "Gb",    # Globular cluster, concentration class II
     "III": "Gb",   # Globular cluster, concentration class III
     "IV": "Gb",    # Globular cluster, concentration class IV
@@ -175,7 +174,7 @@ STEINICKE_TYPE_MAPPING = {
     "3S": "OC",    # Small cluster
     "4S": "OC",    # Small cluster
     "5C": "OC",    # Compact cluster
-    "C": "OC",     # Cluster
+    # "C": "OC",     # Cluster
     "C  M": "OC",  # Multiple cluster
     "C+*?": "OC",  # Cluster with stars
     "C+C": "OC",   # Multiple cluster
@@ -189,7 +188,6 @@ STEINICKE_TYPE_MAPPING = {
     "PN": "PN",    # Planetary nebula
     "SNR": "Nb",   # Supernova remnant
     "DN": "DN",    # Dark nebula
-    "NF": "?",     # Not found
     "HH": "Nb",    # Herbig-Haro object
     "Neb": "Nb",   # General nebula
     

@@ -70,7 +70,7 @@ def main():
     
     # Initialize shared databases
     logging.info("Creating DB")
-    objects_db, observations_db = init_shared_database()
+    objects_db, _ = init_shared_database()
     
     logging.info("creating catalog tables")
     objects_db.destroy_tables()

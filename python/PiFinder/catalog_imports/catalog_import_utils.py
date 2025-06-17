@@ -4,25 +4,14 @@ Shared utilities for catalog import operations.
 This module contains common classes and functions used by all catalog loaders.
 """
 
-import csv
-import json
 import logging
 import re
-import sqlite3
-from pathlib import Path
-from typing import Dict, Union, Optional
+from typing import Dict, Optional
 from dataclasses import dataclass, field
-from collections import namedtuple, defaultdict
 from tqdm import tqdm
 
 from PiFinder.composite_object import MagnitudeObject
-import PiFinder.utils as utils
 from PiFinder.ui.ui_utils import normalize
-from PiFinder.calc_utils import (
-    ra_to_deg,
-    dec_to_deg,
-    b1950_to_j2000,
-)
 from PiFinder import calc_utils
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase

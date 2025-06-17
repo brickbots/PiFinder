@@ -7,40 +7,7 @@ This file maintains backward compatibility for existing code.
 
 # Re-export main functions from the new package structure
 from PiFinder.catalog_imports.main import main
-from PiFinder.catalog_imports.steinicke_loader import load_ngc_catalog
-from PiFinder.catalog_imports.caldwell_loader import load_caldwell
-from PiFinder.catalog_imports.bright_stars_loader import load_bright_stars
-from PiFinder.catalog_imports.herschel_loader import load_herschel400
-from PiFinder.catalog_imports.sac_loaders import (
-    load_sac_asterisms,
-    load_sac_multistars,
-    load_sac_redstars,
-)
-from PiFinder.catalog_imports.specialized_loaders import (
-    load_egc,
-    load_collinder,
-    load_taas200,
-    load_rasc_double_Stars,
-    load_barnard,
-    load_sharpless,
-    load_arp,
-    load_tlk_90_vars,
-    load_abell,
-)
-from PiFinder.catalog_imports.post_processing import fix_object_types, add_missing_messier_objects
 from PiFinder.catalog_imports.catalog_import_utils import (
-    NewCatalogObject,
-    ObjectFinder,
-    safe_convert_to_float,
-    add_space_after_prefix,
-    trim_string,
-    delete_catalog_from_database,
-    insert_catalog,
-    insert_catalog_max_sequence,
-    get_catalog_counts,
-    print_database,
-    resolve_object_images,
-    dedup_names,
     init_databases,
 )
 

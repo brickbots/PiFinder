@@ -1,5 +1,4 @@
 import pytest
-import math
 from PiFinder.db import objects_db
 
 
@@ -33,7 +32,6 @@ def test_object_counts():
     }
 
     # catalog count
-    num_catalogs = len(list(db.get_catalogs()))
     actual_catalogs = [row['catalog_code'] for row in db.get_catalogs()]
     expected_catalogs = list(catalog_counts.keys())
     missing_catalogs = set(expected_catalogs) - set(actual_catalogs)
