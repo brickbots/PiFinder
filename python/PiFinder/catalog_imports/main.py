@@ -67,22 +67,22 @@ def main():
         logger.addHandler(fh)
 
     logging.info("Starting")
-    
+
     # Initialize shared databases
     logging.info("Creating DB")
     objects_db, _ = init_shared_database()
-    
+
     logging.info("creating catalog tables")
     objects_db.destroy_tables()
     objects_db.create_tables()
-    
+
     logging.info("loading catalogs")
-    
+
     # These load functions must be kept in this order
     # to keep some of the object referencing working
     # particularly starting with the NGC as the base
     load_ngc_catalog()
-    
+
     # Load additional catalogs
     load_caldwell()
     load_collinder()

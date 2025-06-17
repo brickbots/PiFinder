@@ -34,15 +34,15 @@ class NewCatalogObject:
     description: str = ""
     aka_names: list[str] = field(default_factory=list)
     surface_brightness: float = 0.0
-    
+
     # Class-level shared finder for performance optimization
-    _shared_finder: Optional['ObjectFinder'] = None
-    
+    _shared_finder: Optional["ObjectFinder"] = None
+
     @classmethod
-    def set_shared_finder(cls, finder: 'ObjectFinder') -> None:
+    def set_shared_finder(cls, finder: "ObjectFinder") -> None:
         """Set a shared ObjectFinder instance for all objects to use during bulk operations"""
         cls._shared_finder = finder
-    
+
     @classmethod
     def clear_shared_finder(cls) -> None:
         """Clear the shared ObjectFinder instance"""
@@ -269,7 +269,7 @@ def print_database():
 def resolve_object_images():
     """Resolve object images based on catalog priority - Optimized version"""
     conn, db_c = objects_db.get_conn_cursor()
-    
+
     # Get catalog priority order
     resolution_priority = db_c.execute(
         """
@@ -278,18 +278,18 @@ def resolve_object_images():
             ORDER BY rowid
         """
     ).fetchall()
-    
+
     # Build priority order list for easier processing
     catalog_priority = [entry["catalog_code"] for entry in resolution_priority]
-    
+
     # Use a single complex query to get all catalog mappings at once
     # This creates a priority-ordered result set
     priority_cases = []
     for i, catalog_code in enumerate(catalog_priority):
         priority_cases.append(f"WHEN catalog_code = '{catalog_code}' THEN {i}")
-    
+
     priority_case_sql = "CASE " + " ".join(priority_cases) + " ELSE 999 END"
-    
+
     # Single query to get the highest priority catalog entry for each object
     query = f"""
         WITH ranked_catalogs AS (
@@ -312,38 +312,40 @@ def resolve_object_images():
         LEFT JOIN ranked_catalogs rc ON o.id = rc.object_id AND rc.priority_rank = 1
         ORDER BY o.id
     """
-    
+
     # Execute with catalog codes as parameters
     results = db_c.execute(query, catalog_priority).fetchall()
-    
+
     # Prepare bulk insert data
     image_objects_to_insert = []
     unresolved_objects = []
-    
+
     for row in tqdm(results, desc="Resolving object images"):
         object_id = row["object_id"]
         catalog_code = row["catalog_code"]
         sequence = row["sequence"]
-        
+
         if catalog_code and sequence is not None:
             resolved_name = f"{catalog_code}{sequence}"
             image_objects_to_insert.append((object_id, resolved_name))
         else:
             unresolved_objects.append(object_id)
-    
+
     # Bulk insert image objects
     if image_objects_to_insert:
         # Use executemany for bulk insert into the correct table
         db_c.executemany(
             "INSERT INTO object_images (object_id, image_name) VALUES (?, ?)",
-            image_objects_to_insert
+            image_objects_to_insert,
         )
         conn.commit()
         logging.info(f"Resolved {len(image_objects_to_insert)} object images")
-    
+
     # Log unresolved objects
     if unresolved_objects:
-        logging.warning(f"No catalog entries for {len(unresolved_objects)} objects: {unresolved_objects[:10]}{'...' if len(unresolved_objects) > 10 else ''}")
+        logging.warning(
+            f"No catalog entries for {len(unresolved_objects)} objects: {unresolved_objects[:10]}{'...' if len(unresolved_objects) > 10 else ''}"
+        )
 
 
 def dedup_names():
@@ -373,7 +375,7 @@ def init_databases():
     global objects_db, observations_db
     objects_db = ObjectsDatabase()
     observations_db = ObservationsDatabase()
-    
+
     # Also initialize the module-level globals in all loader modules
     import PiFinder.catalog_imports.steinicke_loader as steinicke_mod
     import PiFinder.catalog_imports.caldwell_loader as caldwell_mod
@@ -382,7 +384,7 @@ def init_databases():
     import PiFinder.catalog_imports.bright_stars_loader as bright_stars_mod
     import PiFinder.catalog_imports.herschel_loader as herschel_mod
     import PiFinder.catalog_imports.sac_loaders as sac_mod
-    
+
     steinicke_mod.objects_db = objects_db
     caldwell_mod.objects_db = objects_db
     postproc_mod.objects_db = objects_db
@@ -390,5 +392,5 @@ def init_databases():
     bright_stars_mod.objects_db = objects_db
     herschel_mod.objects_db = objects_db
     sac_mod.objects_db = objects_db
-    
+
     return objects_db, observations_db

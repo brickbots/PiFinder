@@ -22,7 +22,7 @@ from .database import objects_db
 def load_herschel400():
     """
     Load the Herschel 400 catalog.
-    
+
     This TSV is from a web scrape of the
     Saguaro Astro Club h400 list as noted in their
     master DB
@@ -35,7 +35,7 @@ def load_herschel400():
 
     hcat = Path(utils.astro_data_dir, "herschel400.tsv")
     sequence = 0
-    
+
     # Enable bulk mode for batch processing
     objects_db.bulk_mode = True
     try:
@@ -50,15 +50,17 @@ def load_herschel400():
                 h_desc = dfs[8]
                 sequence += 1
 
-                logging.debug(f"---------------> Herschel 400 {sequence=} <---------------")
+                logging.debug(
+                    f"---------------> Herschel 400 {sequence=} <---------------"
+                )
 
-                object_id = objects_db.get_catalog_object_by_sequence("NGC", NGC_sequence)[
-                    "id"
-                ]
+                object_id = objects_db.get_catalog_object_by_sequence(
+                    "NGC", NGC_sequence
+                )["id"]
                 objects_db.insert_name(object_id, h_name, catalog)
                 objects_db.insert_catalog_object(object_id, catalog, sequence, h_desc)
         conn.commit()
     finally:
         objects_db.bulk_mode = False
-        
+
     insert_catalog_max_sequence(catalog)

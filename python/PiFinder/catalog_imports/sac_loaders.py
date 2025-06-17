@@ -33,13 +33,14 @@ def load_sac_asterisms():
 
     saca = Path(utils.astro_data_dir, "SAC_Asterisms_Ver32_Fence.txt")
     sequence = 0
-    
+
     # Prepare objects for batch insertion
     objects_to_insert = []
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
+
     shared_finder = ObjectFinder()
-    
+
     with open(saca, "r") as df:
         df.readline()
         obj_type = "Ast"
@@ -100,13 +101,15 @@ def load_sac_asterisms():
     # Set up shared finder for performance
     NewCatalogObject.set_shared_finder(shared_finder)
     try:
-        for obj in tqdm(objects_to_insert, desc="Inserting SAC Asterisms objects", leave=False):
+        for obj in tqdm(
+            objects_to_insert, desc="Inserting SAC Asterisms objects", leave=False
+        ):
             obj.insert()
         conn.commit()
     finally:
         objects_db.bulk_mode = False
         NewCatalogObject.clear_shared_finder()
-        
+
     insert_catalog_max_sequence(catalog)
 
 
@@ -120,13 +123,14 @@ def load_sac_multistars():
     insert_catalog(catalog, sam_path / "sacm.desc")
     saca = sam_path / "SAC_DBL40_Fence.txt"
     sequence = 0
-    
+
     # Prepare objects for batch insertion
     objects_to_insert = []
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
+
     shared_finder = ObjectFinder()
-    
+
     with open(saca, "r") as df:
         df.readline()
         obj_type = "D*"
@@ -135,7 +139,7 @@ def load_sac_multistars():
             # Early skip for empty records
             if len(dfs) < 12:
                 continue
-                
+
             # Only process the name field we need
             name = [dfs[2].strip()]
             other_names = dfs[6].strip().split(";")
@@ -150,7 +154,7 @@ def load_sac_multistars():
             ra = dfs[3].strip()
             dec = dfs[4].strip()
             components = dfs[5].strip()
-            
+
             # Optimize magnitude processing
             mag1, mag2 = dfs[7].strip(), dfs[8].strip()
             mag_list = []
@@ -196,13 +200,15 @@ def load_sac_multistars():
     # Set up shared finder for performance
     NewCatalogObject.set_shared_finder(shared_finder)
     try:
-        for obj in tqdm(objects_to_insert, desc="Inserting SAC Multistars objects", leave=False):
+        for obj in tqdm(
+            objects_to_insert, desc="Inserting SAC Multistars objects", leave=False
+        ):
             obj.insert()
         conn.commit()
     finally:
         objects_db.bulk_mode = False
         NewCatalogObject.clear_shared_finder()
-        
+
     insert_catalog_max_sequence(catalog)
 
 
@@ -217,13 +223,14 @@ def load_sac_redstars():
     insert_catalog(catalog, sam_path / "sacr.desc")
     sac = sam_path / "SAC_RedStars_ver20_FENCE.TXT"
     sequence = 0
-    
+
     # Prepare objects for batch insertion
     objects_to_insert = []
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
+
     shared_finder = ObjectFinder()
-    
+
     with open(sac, "r") as df:
         df.readline()
         obj_type = "D*"
@@ -286,11 +293,13 @@ def load_sac_redstars():
     # Set up shared finder for performance
     NewCatalogObject.set_shared_finder(shared_finder)
     try:
-        for obj in tqdm(objects_to_insert, desc="Inserting SAC RedStars objects", leave=False):
+        for obj in tqdm(
+            objects_to_insert, desc="Inserting SAC RedStars objects", leave=False
+        ):
             obj.insert()
         conn.commit()
     finally:
         objects_db.bulk_mode = False
         NewCatalogObject.clear_shared_finder()
-        
+
     insert_catalog_max_sequence(catalog)

@@ -17,6 +17,6 @@ def init_shared_database():
     if objects_db is None:
         objects_db, observations_db = init_databases()
         # Update this module's globals as well
-        globals()['objects_db'] = objects_db
-        globals()['observations_db'] = observations_db
+        globals()["objects_db"] = objects_db
+        globals()["observations_db"] = observations_db
     return objects_db, observations_db

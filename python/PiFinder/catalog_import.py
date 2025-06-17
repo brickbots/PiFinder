@@ -15,11 +15,13 @@ from PiFinder.catalog_imports.catalog_import_utils import (
 objects_db = None
 observations_db = None
 
+
 def _init_globals():
     """Initialize global database objects"""
     global objects_db, observations_db
     if objects_db is None:
         objects_db, observations_db = init_databases()
+
 
 # Ensure globals are initialized when module is imported
 _init_globals()

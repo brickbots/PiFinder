@@ -31,7 +31,7 @@ def load_caldwell():
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, Path(utils.astro_data_dir, "caldwell.desc"))
     data = Path(utils.astro_data_dir, "caldwell.dat")
-    
+
     # Prepare objects for batch insertion
     objects_to_insert = []
     with open(data, "r") as df:
@@ -73,18 +73,21 @@ def load_caldwell():
 
     # Batch insert all objects with shared finder
     objects_db.bulk_mode = True
-    
+
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
+
     shared_finder = ObjectFinder()
     NewCatalogObject.set_shared_finder(shared_finder)
-    
+
     try:
-        for obj in tqdm(objects_to_insert, desc="Inserting Caldwell objects", leave=False):
+        for obj in tqdm(
+            objects_to_insert, desc="Inserting Caldwell objects", leave=False
+        ):
             obj.insert()
         conn.commit()
     finally:
         objects_db.bulk_mode = False
         NewCatalogObject.clear_shared_finder()
-        
+
     insert_catalog_max_sequence(catalog)

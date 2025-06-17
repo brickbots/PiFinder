@@ -11,4 +11,9 @@ from .caldwell_loader import load_caldwell
 from .post_processing import fix_object_types, add_missing_messier_objects
 
 __version__ = "1.0.0"
-__all__ = ["load_ngc_catalog", "load_caldwell", "fix_object_types", "add_missing_messier_objects"]
+__all__ = [
+    "load_ngc_catalog",
+    "load_caldwell",
+    "fix_object_types",
+    "add_missing_messier_objects",
+]

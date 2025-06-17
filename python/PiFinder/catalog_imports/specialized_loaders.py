@@ -32,7 +32,7 @@ from .database import objects_db
 def load_egc():
     """
     Load the EGC (Extragalactic Globular Clusters) catalog.
-    
+
     Loads the PiFinder specific catalog of
     extragalactic globulars. Brightest
     of M31 + extras
@@ -44,12 +44,13 @@ def load_egc():
 
     insert_catalog(catalog, Path(utils.astro_data_dir, "EGC.desc"))
     egc = Path(utils.astro_data_dir, "egc.tsv")
-    
+
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
+
     shared_finder = ObjectFinder()
     NewCatalogObject.set_shared_finder(shared_finder)
-    
+
     try:
         with open(egc, "r") as df:
             # skip title line
@@ -176,8 +177,9 @@ def load_collinder():
 
             # Collect all valid names more efficiently
             aka_names = []
-            if (c_tuple.other_names and 
-                not c_tuple.other_names.startswith(("[note", "Tr.", "Harv.", "Mel."))):
+            if c_tuple.other_names and not c_tuple.other_names.startswith(
+                ("[note", "Tr.", "Harv.", "Mel.")
+            ):
                 aka_names.append(c_tuple.other_names)
 
             if other_names and not other_names.startswith("[note"):
@@ -198,14 +200,17 @@ def load_collinder():
 
     # Batch insert all objects with shared finder
     objects_db.bulk_mode = True
-    
+
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
+
     shared_finder = ObjectFinder()
     NewCatalogObject.set_shared_finder(shared_finder)
-    
+
     try:
-        for obj in tqdm(objects_to_insert, desc="Inserting Collinder objects", leave=False):
+        for obj in tqdm(
+            objects_to_insert, desc="Inserting Collinder objects", leave=False
+        ):
             obj.insert()
         conn.commit()
     finally:
@@ -225,11 +230,12 @@ def load_taas200():
     insert_catalog(catalog, Path(utils.astro_data_dir, "taas200.desc"))
     data = Path(utils.astro_data_dir, "TAAS_200.csv")
     sequence = 0
-    
+
     # Prepare objects for batch insertion
     objects_to_insert = []
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
+
     shared_finder = ObjectFinder()
 
     typedict = {
@@ -314,13 +320,15 @@ def load_taas200():
         # Set up shared finder for performance
         NewCatalogObject.set_shared_finder(shared_finder)
         try:
-            for obj in tqdm(objects_to_insert, desc="Inserting TAAS200 objects", leave=False):
+            for obj in tqdm(
+                objects_to_insert, desc="Inserting TAAS200 objects", leave=False
+            ):
                 obj.insert()
             conn.commit()
         finally:
             objects_db.bulk_mode = False
             NewCatalogObject.clear_shared_finder()
-            
+
         insert_catalog_max_sequence(catalog)
 
 
@@ -333,12 +341,13 @@ def load_rasc_double_Stars():
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, path / "rasc_ds.desc")
     data = path / "rasc_double_stars.csv"
-    
+
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
+
     shared_finder = ObjectFinder()
     NewCatalogObject.set_shared_finder(shared_finder)
-    
+
     try:
         # Sequence Target	AlternateID	WDS	Con	RA2000	Dec2000	Mag MaxSep Notes
         with open(data, "r") as df:
@@ -347,7 +356,9 @@ def load_rasc_double_Stars():
             for row in tqdm(list(df), leave=False):
                 dfs = row.split("\t")
                 sequence = dfs[0].strip()
-                logging.debug(f"<----------------- Rasc DS {sequence=} ----------------->")
+                logging.debug(
+                    f"<----------------- Rasc DS {sequence=} ----------------->"
+                )
                 target = dfs[1]
                 alternate_ids = dfs[2].split(",")
                 wds = dfs[3]
@@ -408,9 +419,10 @@ def load_barnard():
 
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
+
     shared_finder = ObjectFinder()
     NewCatalogObject.set_shared_finder(shared_finder)
-    
+
     try:
         # build catalog
         with open(data, "r") as df:
@@ -522,12 +534,13 @@ def load_sharpless():
             }
             # Append the extracted record to the list of records
             records.append(record)
-    
+
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
+
     shared_finder = ObjectFinder()
     NewCatalogObject.set_shared_finder(shared_finder)
-    
+
     try:
         for record in tqdm(records, leave=False):
             sh2 = int(record["Sh2"])
@@ -564,7 +577,7 @@ def load_sharpless():
             new_object.insert()
     finally:
         NewCatalogObject.clear_shared_finder()
-        
+
     insert_catalog_max_sequence(catalog)
     conn.commit()
 
@@ -624,12 +637,13 @@ def load_arp():
     aka_names = []
     new_object = None
     conn, _ = objects_db.get_conn_cursor()
-    
+
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
+
     shared_finder = ObjectFinder()
     NewCatalogObject.set_shared_finder(shared_finder)
-    
+
     try:
         for row in tqdm(arp_cur.fetchall()):
             if last_id != row["catalog_identifier"]:
@@ -644,7 +658,9 @@ def load_arp():
                 if utils.is_number(mag):
                     mag = MagnitudeObject([float(mag)])
                 else:
-                    logging.warning(f"Invalid magnitude for Arp {row['catalog_identifier']}")
+                    logging.warning(
+                        f"Invalid magnitude for Arp {row['catalog_identifier']}"
+                    )
                     mag = MagnitudeObject([])
                 new_object = NewCatalogObject(
                     object_type="Gx",
@@ -658,7 +674,7 @@ def load_arp():
             else:
                 # Collect additional names for the same object
                 aka_names.append(row["name"])
-        
+
         # Don't forget to save the last object
         if new_object is not None:
             new_object.aka_names = aka_names
@@ -683,9 +699,10 @@ def load_tlk_90_vars():
 
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
+
     shared_finder = ObjectFinder()
     NewCatalogObject.set_shared_finder(shared_finder)
-    
+
     try:
         # Open the file for reading
         with open(data, "r") as file:
@@ -745,9 +762,10 @@ def load_abell():
 
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
+
     shared_finder = ObjectFinder()
     NewCatalogObject.set_shared_finder(shared_finder)
-    
+
     try:
         # Open the file for reading
         with open(data, "r") as file:

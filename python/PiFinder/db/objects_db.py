@@ -96,7 +96,9 @@ class ObjectsDatabase(Database):
 
     # ---- OBJECTS methods ----
 
-    def insert_object(self, obj_type, ra, dec, const, size, mag, surface_brightness=None):
+    def insert_object(
+        self, obj_type, ra, dec, const, size, mag, surface_brightness=None
+    ):
         logging.debug(
             f"Inserting object {obj_type}, {ra}, {dec}, {const}, {size}, {mag}, {surface_brightness}"
         )

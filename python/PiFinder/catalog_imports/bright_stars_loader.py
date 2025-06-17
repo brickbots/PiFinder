@@ -31,7 +31,7 @@ def load_bright_stars():
     insert_catalog(catalog, Path(utils.astro_data_dir, "Str.desc"))
 
     bstr = Path(utils.astro_data_dir, "bright_stars.csv")
-    
+
     # Prepare objects for batch insertion
     objects_to_insert = []
     with open(bstr, "r") as df:
@@ -75,18 +75,21 @@ def load_bright_stars():
 
     # Batch insert all objects with shared finder
     objects_db.bulk_mode = True
-    
+
     # Create shared ObjectFinder to avoid recreating for each object
     from .catalog_import_utils import ObjectFinder
+
     shared_finder = ObjectFinder()
     NewCatalogObject.set_shared_finder(shared_finder)
-    
+
     try:
-        for obj in tqdm(objects_to_insert, desc="Inserting Bright Stars objects", leave=False):
+        for obj in tqdm(
+            objects_to_insert, desc="Inserting Bright Stars objects", leave=False
+        ):
             obj.insert()
         conn.commit()
     finally:
         objects_db.bulk_mode = False
         NewCatalogObject.clear_shared_finder()
-        
+
     insert_catalog_max_sequence(catalog)
