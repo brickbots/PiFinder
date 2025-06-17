@@ -2,9 +2,13 @@ Quick Start
 ================
 
 .. note::
-   This documentation is for v3 and v2.5 PiFinders running software 2.0.0 or above.
-   If you need docs for a previous version please `Click here <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
+   This documentation is for v3 and v2.5 PiFinders running software 2.2.0 or above.
+   You can see what version of software is running by lookin in the upper right of
+   the welcome screen. 
 
+   If you need docs for a previous version please choose `1.x.x <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
+   , `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_
+   or `2.1.x <https://pifinder.readthedocs.io/en/v2.1.1/index.html>`_
 
 Congratulations on getting your hands on a PiFinder™! Whether you’ve built it from scratch, or ordered a completed model 
 from BBLabs, you’re on your way to a whole new level of accuracy and ease while observing the night sky.
@@ -217,6 +221,10 @@ where it's pointing (see :ref:`quick_start:setting focus & first solve`)
    This delay is longer after the PiFinder has been off for a long period or moved a distance
    while it's turned off.  Subsequent start ups at the same location should be quicker.
 
+   Leaving the PiFinder on the GPS Status screen will result in a faster lock time as 
+   this screen disables the camera, reducing the overall EM noise and helping the GPS
+   reciever see more satellites.
+
 
 
 Adjusting Brightness
@@ -234,6 +242,25 @@ site, you can turn the brightness down to preserve your dark-adapted vision.
 
    Pressing any button, or moving the PFinder will wake it from power save mode.
 
+Start with the Start menu
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+At the start of each session, you may need to do three things:
+
+- Check and adjust camera focus
+- Align the PiFinder by telling it where your scope is pointing
+- Check the status of the GPS lock
+
+We've organized these three items into the 'Start' menu listed at the top of the PiFinder main menu.
+
+.. image:: images/quick_start/pifinder_main_menu.png
+
+You may not need to do all of these things at the start of every session.  The focus should generally remain 
+the same from night to night and if you leave your PiFinder on your scope you may not need to adjust the 
+alignment each time.  To perform most functions the PiFinder will require a GPS signal, and this should
+happen automatically, but the GPS Status screen can be used to monitor progress towards a lock and also 
+boosts the GPS signal.  This can help in marginal situations or to speed things along.
+
 
 Setting Focus & First Solve
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -245,11 +272,11 @@ some adjustment to see the dimmest stars.
 
 Screw the lens in and out in the holder to adjust focus if needed.
 
-Use the menu system to select the 'Camera' option
+Use the menu system to select the 'Focus' option under the 'Start' menu
 
-.. image:: images/quick_start/main_menu_02_docs.png
+.. image:: images/quick_start/start_menu.png
 
-The camera screen shows a live preview of what the camera is seeing.  It uses special image processing to 
+The Focus screen shows a live preview of what the camera is seeing.  It uses special image processing to 
 highlight stars and remove background skyglow so that you can easily focus your PiFinder camera.
 
 If there are no stars visible or the image is too defocused he screen may seem too bright or dark or 
@@ -296,11 +323,15 @@ that patch of sky.  By pointing your telescope at a star, and then selecting tha
 on the PiFinder's alignment chart, you are telling the PiFinder where to put DSO's so they
 are in the middle of your eyepiece each time.
 
+.. note::
+   The instructions below are for the new alignment system in PiFinders running software
+   version 2.1.0 and above.  For the previous alignment instructions, please 
+   `click here <https://pifinder.readthedocs.io/en/v2.0.4/quick_start.html#alignment>`_
 
 
-To being, select the 'Align' option from the main menu 
+To being, select the 'Align' option from the 'Start' menu 
 
-.. image:: images/quick_start/align_menu.png
+.. image:: images/quick_start/start_align_selected.png
 
 You'll see a rendered star chart with constellation lines showing the area of the sky the
 PiFinder is seeing.  If you instead see a message about not having a solve, return to the 
@@ -354,6 +385,40 @@ unless you remove and re-attach your PiFinder to your telescope.
    This is not the same as adding alignment points to a standard DSC to improve accuracy, this is 
    simply telling the PiFinder where in your eyepiece you'd like objects to be put if your initial
    alignment was not quite to your liking.
+
+
+GPS Status
+^^^^^^^^^^^
+
+There is a GPS status indicator in the PiFinder title bar which will flash while the PiFinder is 
+searching for it's position and time.  This indicator will turn solid once the PiFinder knows where
+it's at and what time it is.  You can monitor this process and activate a special signal boost mode
+via the 'GPS Status' menu item in the 'Start' menu.
+
+.. image:: images/quick_start/start_gps_selected.png
+
+This screen has two modes, one with basic details in larger text and a full details mode.  You can 
+switch between them using the SQUARE button.
+
+.. list-table::
+
+   * - .. figure:: images/quick_start/GPS_Status.png
+
+          Easy to read summary 
+
+     - .. figure:: images/quick_start/GPS_Status_details.png
+
+          Full details view
+
+
+If you are using the PiFinder under partially obstructed skies, or locking is just taking longer than
+you like, you can leave this screen active to enhance the GPS signal by temporarily stopping the camera.
+Like most electronics, the camera system generates electromagnetic noise that can make it more difficult
+for the subtle GPS satellite signals.
+
+Once a lock is indicated, you can press the LEFT arrow to return to the menu, re-activate the camera, 
+and continue on to find your first object!
+
 
 
 Find Your First Object

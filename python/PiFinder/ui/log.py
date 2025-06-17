@@ -55,70 +55,72 @@ class UILog(UIModule):
 
         # conditions and eyepiece menus
         self.conditions_menu = {
-            "name": "Conditions",
+            "name": _("Conditions"),
             "class": UITextMenu,
             "select": "single",
             "items": [
                 {
-                    "name": "Transparency",
+                    "name": _("Transparency"),
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "session.log_transparency",
                     "items": [
                         {
-                            "name": "NA",
+                            # TRANSLATORS: Transparency not available
+                            "name": _("NA"),
                             "value": "NA",
                         },
                         {
-                            "name": "Excellent",
+                            "name": _("Excellent"),
                             "value": "Excellent",
                         },
                         {
-                            "name": "Very Good",
+                            "name": _("Very Good"),
                             "value": "Very Good",
                         },
                         {
-                            "name": "Good",
+                            "name": _("Good"),
                             "value": "Good",
                         },
                         {
-                            "name": "Fair",
+                            "name": _("Fair"),
                             "value": "Fair",
                         },
                         {
-                            "name": "Poor",
+                            "name": _("Poor"),
                             "value": "Poor",
                         },
                     ],
                 },
                 {
-                    "name": "Seeing",
+                    "name": _("Seeing"),
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "session.log_seeing",
                     "items": [
                         {
-                            "name": "NA",
+                            # TRANSLATORS: Seeing not available
+                            "name": _("NA"),
                             "value": "NA",
                         },
                         {
-                            "name": "Excellent",
+                            "name": _("Excellent"),
                             "value": "Excellent",
                         },
                         {
-                            "name": "Very Good",
+                            "name": _("Very Good"),
                             "value": "Very Good",
                         },
                         {
-                            "name": "Good",
+                            "name": _("Good"),
                             "value": "Good",
                         },
                         {
-                            "name": "Fair",
+                            "name": _("Fair"),
                             "value": "Fair",
                         },
                         {
-                            "name": "Poor",
+                            "name": _("Poor"),
                             "value": "Poor",
                         },
                     ],
@@ -169,7 +171,7 @@ class UILog(UIModule):
         if not self.shared_state.solve_state():
             self.draw.text(
                 (0, 20),
-                "No Solve Yet",
+                _("No Solve Yet"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -180,7 +182,7 @@ class UILog(UIModule):
         # Target Name
         self.draw.text(
             (10, horiz_pos),
-            "SAVE Log",
+            _("SAVE Log"),
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )
@@ -191,7 +193,7 @@ class UILog(UIModule):
         # Observability
         self.draw.text(
             (10, horiz_pos),
-            "Observability",
+            _("Observability"),
             font=self.fonts.large.font,
             fill=self.colors.get(192),
         )
@@ -204,7 +206,7 @@ class UILog(UIModule):
         # Appeal
         self.draw.text(
             (10, horiz_pos),
-            "Appeal",
+            _("Appeal"),
             font=self.fonts.large.font,
             fill=self.colors.get(192),
         )
@@ -216,7 +218,7 @@ class UILog(UIModule):
 
         self.draw.text(
             (10, horiz_pos),
-            "Conditions...",
+            _("Conditions..."),
             font=self.fonts.large.font,
             fill=self.colors.get(192),
         )
@@ -226,7 +228,7 @@ class UILog(UIModule):
 
         self.draw.text(
             (10, horiz_pos),
-            "Eyepiece...",
+            _("Eyepiece..."),
             font=self.fonts.large.font,
             fill=self.colors.get(192),
         )
@@ -255,7 +257,8 @@ class UILog(UIModule):
         # build notes
         log_eyepiece = self.config_object.equipment.active_eyepiece
         if log_eyepiece is None:
-            log_eyepiece = "NA"
+            # TRANSLATORS: eyepiece info not available
+            log_eyepiece = _("NA")
         else:
             log_eyepiece = f"{log_eyepiece.focal_length_mm}mm {log_eyepiece.name}"
 
@@ -298,7 +301,7 @@ class UILog(UIModule):
         """
         if self.menu_index == 0:
             self.record_object()
-            self.message("Logged!")
+            self.message(_("Logged!"))
             self.remove_from_stack()
             return
 

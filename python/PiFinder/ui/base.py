@@ -17,6 +17,12 @@ from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
 from PiFinder.ui.marking_menus import MarkingMenu
 from PiFinder.catalogs import Catalogs
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
 
 
 class UIModule:
@@ -39,7 +45,7 @@ class UIModule:
     _PLUSMINUS_ = "󰐕/󰍴"
     _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
-    _display_mode_list = [None]  # List of display modes
+    _display_mode_list: Union[list[None], list[str]] = [None]  # List of display modes
     marking_menu: Union[None, MarkingMenu] = None
 
     def __init__(
@@ -203,7 +209,9 @@ class UIModule:
                     (6, 1), str(self.fps), font=self.fonts.bold.font, fill=fg
                 )
             else:
-                self.draw.text((6, 1), self.title, font=self.fonts.bold.font, fill=fg)
+                self.draw.text(
+                    (6, 1), _(self.title), font=self.fonts.bold.font, fill=fg
+                )
             imu = self.shared_state.imu()
             moving = True if imu and imu["pos"] and imu["moving"] else False
 

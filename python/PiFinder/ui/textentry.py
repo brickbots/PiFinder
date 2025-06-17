@@ -4,6 +4,12 @@ from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.ui_utils import format_number
 import time
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
 
 # class CompositeObjectBuilder:
 #
@@ -75,12 +81,12 @@ class KeyPad:
 class UITextEntry(UIModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
         # Get mode from item_definition
-        self.text_entry_mode = self.item_definition.get('mode') == 'text_entry'
-        self.current_text = self.item_definition.get('initial_text', '')
-        self.callback = self.item_definition.get('callback')
-        
+        self.text_entry_mode = self.item_definition.get("mode") == "text_entry"
+        self.current_text = self.item_definition.get("initial_text", "")
+        self.callback = self.item_definition.get("callback")
+
         self.width = 128
         self.height = 128
         self.red = self.colors.get(255)
@@ -89,11 +95,11 @@ class UITextEntry(UIModule):
         self.screen = Image.new("RGB", (self.width, self.height), "black")
         self.draw = ImageDraw.Draw(self.screen)
         self.bold = self.fonts.bold
-        
+
         # Only initialize database if we're in search mode
         if not self.text_entry_mode:
             self.db: ObjectsDatabase = ObjectsDatabase()
-        
+
         self.last_key = None
         self.KEYPRESS_TIMEOUT = 1
         self.last_key_press_time = 0
@@ -177,7 +183,7 @@ class UITextEntry(UIModule):
 
     def draw_results(self):
         item_definition = {
-            "name": "Results",
+            "name": _("Results"),
             "class": UIObjectList,
             "objects": "custom",
             "object_list": self.search_results,
@@ -231,6 +237,7 @@ class UITextEntry(UIModule):
                 return False
             else:
                 return True
+
     def key_right(self):
         """Handle right key based on mode"""
         if not self.text_entry_mode:
@@ -276,13 +283,13 @@ class UITextEntry(UIModule):
 
     def update(self, force=False):
         self.draw.rectangle((0, 0, 128, 128), fill=self.colors.get(0))
-        
+
         # Draw appropriate header based on mode
         if self.text_entry_mode:
             # Pure text entry mode
             self.draw.text(
                 (7, 0),
-                "Enter Location Name:",
+                _("Enter Location Name:"),
                 font=self.fonts.base.font,
                 fill=self.half_red,
             )
@@ -290,21 +297,21 @@ class UITextEntry(UIModule):
             # Search mode
             self.draw.text(
                 (7, 0),
-                "Search:",
+                _("Search:"),
                 font=self.fonts.base.font,
                 fill=self.half_red,
             )
             self.draw_search_result_len()
-        
+
         self.draw_text_entry()
-        
+
         # Always show keypad in pure text entry mode
         # In search mode, toggle between keypad and results
         if self.text_entry_mode or self.show_keypad:
             self.draw_keypad()
         else:
             self.draw_results()
-        
+
         if self.shared_state:
             self.shared_state.set_screen(self.screen)
         return self.screen_update()

@@ -74,7 +74,7 @@ def dyn_menu_equipment(cfg):
         )
 
     eyepiece_menu = {
-        "name": "Eyepiece",
+        "name": _("Eyepiece"),
         "class": UITextMenu,
         "select": "single",
         "label": "select_eyepiece",
@@ -93,7 +93,7 @@ def dyn_menu_equipment(cfg):
         )
 
     telescope_menu = {
-        "name": "Telescope",
+        "name": _("Telescope"),
         "class": UITextMenu,
         "select": "single",
         "label": "select_telescope",
@@ -482,7 +482,7 @@ class MenuManager:
         if type(selected_item.callback) is MarkingMenu:
             self.marking_menu_stack.append(selected_item.callback)
             self.display_marking_menu()
-        elif selected_item.label == "HELP":
+        elif selected_item.label == "HELP":  # TODO: This needs to be changed for I18N
             self.exit_marking_menu()
             self.help_images = self.stack[-1].help()
             if self.help_images is not None:
@@ -492,10 +492,16 @@ class MenuManager:
             self.exit_marking_menu()
             self.jump_to_label(selected_item.menu_jump)
         else:
-            if (
-                selected_item.callback(self.marking_menu_stack[-1], selected_item)
-                is True
-            ):
-                # Exit marking menu
-                self.exit_marking_menu()
-                self.update()
+            try:
+                if (
+                    selected_item.callback(self.marking_menu_stack[-1], selected_item)
+                    is True
+                ):
+                    # Exit marking menu
+                    self.exit_marking_menu()
+                    self.update()
+            except BaseException:
+                print(selected_item)
+                print(selected_item.callback)
+                print(self.marking_menu_stack)
+                raise

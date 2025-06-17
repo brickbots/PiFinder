@@ -47,10 +47,16 @@ class CameraDebug(CameraInterface):
         self.images = [self.image1, self.image2, self.image3]
         self.image_cycle = cycle(self.images)
         self.last_image_time: float = 0
-        self.last_image = self.image1
+        self.last_image = self.image2
 
     def initialize(self) -> None:
-        pass
+        self._camera_started = True
+
+    def start_camera(self) -> None:
+        self._camera_started = True
+
+    def stop_camera(self) -> None:
+        self._camera_started = False
 
     def capture(self) -> Image.Image:
         sleep_time = self.exposure_time / 1000000
