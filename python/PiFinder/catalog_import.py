@@ -27,7 +27,7 @@ from PiFinder.catalog_imports.specialized_loaders import (
     load_tlk_90_vars,
     load_abell,
 )
-from PiFinder.catalog_imports.post_processing import fix_object_types, fix_m45
+from PiFinder.catalog_imports.post_processing import fix_object_types, add_missing_messier_objects
 from PiFinder.catalog_imports.catalog_import_utils import (
     NewCatalogObject,
     ObjectFinder,

@@ -27,7 +27,7 @@ from .specialized_loaders import (
     load_tlk_90_vars,
     load_abell,
 )
-from .post_processing import fix_object_types, fix_m45
+from .post_processing import fix_object_types, add_missing_messier_objects
 
 
 def main():
@@ -100,9 +100,9 @@ def main():
     load_arp()
     load_tlk_90_vars()
 
-    # Fix data issues
+    # Fix data issues and add missing objects
     fix_object_types()
-    fix_m45()
+    add_missing_messier_objects()
 
     # Populate the images table
     logging.info("Resolving object images...")
