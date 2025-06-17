@@ -33,7 +33,11 @@ def test_object_counts():
 
     # catalog count
     num_catalogs = len(list(db.get_catalogs()))
-    assert num_catalogs == 18
+    actual_catalogs = [row['catalog_code'] for row in db.get_catalogs()]
+    expected_catalogs = list(catalog_counts.keys())
+    missing_catalogs = set(expected_catalogs) - set(actual_catalogs)
+    extra_catalogs = set(actual_catalogs) - set(expected_catalogs)
+    assert not missing_catalogs and not extra_catalogs, f"Catalog mismatch. Missing catalogs: {sorted(missing_catalogs)}. Extra catalogs: {sorted(extra_catalogs)}"
 
     # Catalog Counts
     for catalog_code, count in catalog_counts.items():

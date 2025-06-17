@@ -9,7 +9,7 @@ import importlib
 home_dir = Path.home()
 cwd_dir = Path.cwd()
 pifinder_dir = Path("..")
-astro_data_dir = pifinder_dir / "astro_data"
+astro_data_dir = cwd_dir / pifinder_dir / "astro_data"
 tetra3_dir = pifinder_dir / "python/PiFinder/tetra3/tetra3"
 data_dir = Path(Path.home(), "PiFinder_data")
 pifinder_db = astro_data_dir / "pifinder_objects.db"

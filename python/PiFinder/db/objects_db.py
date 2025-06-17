@@ -12,6 +12,7 @@ class ObjectsDatabase(Database):
         super().__init__(conn, cursor, db_path)
         self.cursor.execute("PRAGMA foreign_keys = ON;")
         self.conn.commit()
+        self.bulk_mode = False  # Flag to disable commits during bulk operations
 
     def create_tables(self):
         # Create objects table
@@ -24,7 +25,8 @@ class ObjectsDatabase(Database):
                 dec NUMERIC,
                 const TEXT,
                 size TEXT,
-                mag NUMERIC
+                mag NUMERIC,
+                surface_brightness NUMERIC
             );
         """
         )
@@ -94,18 +96,19 @@ class ObjectsDatabase(Database):
 
     # ---- OBJECTS methods ----
 
-    def insert_object(self, obj_type, ra, dec, const, size, mag):
+    def insert_object(self, obj_type, ra, dec, const, size, mag, surface_brightness=None):
         logging.debug(
-            f"Inserting object {obj_type}, {ra}, {dec}, {const}, {size}, {mag}"
+            f"Inserting object {obj_type}, {ra}, {dec}, {const}, {size}, {mag}, {surface_brightness}"
         )
         self.cursor.execute(
             """
-            INSERT INTO objects (obj_type, ra, dec, const, size, mag)
-            VALUES (?, ?, ?, ?, ?, ?);
+            INSERT INTO objects (obj_type, ra, dec, const, size, mag, surface_brightness)
+            VALUES (?, ?, ?, ?, ?, ?, ?);
         """,
-            (obj_type, ra, dec, const, size, mag),
+            (obj_type, ra, dec, const, size, mag, surface_brightness),
         )
-        self.conn.commit()
+        if not self.bulk_mode:
+            self.conn.commit()
         return self.cursor.lastrowid
 
     def get_objects(self):
@@ -144,7 +147,8 @@ class ObjectsDatabase(Database):
         """,
             (object_id, common_name, origin),
         )
-        self.conn.commit()
+        if not self.bulk_mode:
+            self.conn.commit()
 
     def get_name_by_object_id(self, object_id):
         self.cursor.execute("SELECT * FROM names WHERE object_id = ?;", (object_id,))
@@ -219,7 +223,7 @@ class ObjectsDatabase(Database):
 
     def insert_catalog_object(self, object_id, catalog_code, sequence, description):
         logging.debug(
-            f"Inserting catalog object '{object_id}' into '{catalog_code}-{sequence}', {description=}"
+            f"Inserting catalog object '{object_id=}' into '{catalog_code=}-{sequence=}', {description=}"
         )
         self.cursor.execute(
             """
@@ -228,7 +232,8 @@ class ObjectsDatabase(Database):
         """,
             (object_id, catalog_code, sequence, description),
         )
-        self.conn.commit()
+        if not self.bulk_mode:
+            self.conn.commit()
 
     def get_catalog_objects_by_object_id(self, object_id):
         self.cursor.execute(

@@ -33,7 +33,6 @@ def get_display_image(
 
     object_image_path = resolve_image_name(catalog_object, source="POSS")
     logger.debug("object_image_path = %s", object_image_path)
-    print("object_image_path = %s", object_image_path)
     if not os.path.exists(object_image_path):
         return_image = Image.new("RGB", display_class.resolution)
         ri_draw = ImageDraw.Draw(return_image)
