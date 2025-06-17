@@ -5,25 +5,45 @@ PiFinder™ User Manual
 
 .. note::
    This documentation is for v3 and v2.5 PiFinders running software 2.2.0 or above.
-   You can see what version of software is running by lookin in the upper right of
+   You can see what version of software is running by looking in the upper right of
    the welcome screen. 
 
    If you need docs for a previous version please choose `1.x.x <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
    , `2.0.x <https://pifinder.readthedocs.io/en/v2.0.4/index.html>`_
    or `2.1.x <https://pifinder.readthedocs.io/en/v2.1.1/index.html>`_
 
-Thanks for your interest in the PiFinder!  This guide describes how to use a PiFinder but if you want information on building one, please see the :doc:`Build Guide <build_guide>` and the :doc:`Bill of Materials <BOM>`.
+Thanks for your interest in the PiFinder!  This guide describes how to use a 
+PiFinder but if you want information on building one, please see the :doc
+:`Build Guide <build_guide>` and the :doc:`Bill of Materials <BOM>`.
 
-This user manual is divided into several sections which you can access using the links to the left.  Now, let's dig deeper into the various functions of the PiFinder!
+This user manual is divided into several sections which you can access using the links 
+to the left.  Now, let's dig deeper into the various functions of the PiFinder!
 
 How It Works
 ===============
 
-The PiFinder is a self-contained telescope positioning device.  It will let you know where your telescope is pointed, provide the ability to choose a particular target (like a Galaxy or other DSO) and direct you on how to move your telescope to find that object.  There are some other nice features along with these core functions, but the PiFinder is designed primarily as a way to get interesting objects into your eyepiece so you can take a look at them.
+The PiFinder is a self-contained telescope positioning device.  It will let you 
+know where your telescope is pointed, provide the ability to choose a particular target 
+(like a Galaxy or other DSO) and direct you on how to move 
+your telescope to find that object.  There are some other nice features along with 
+these core functions, but the PiFinder is designed primarily as a way to get 
+interesting objects into your eyepiece so you can take a look at them.
 
-In order to direct you to wonders of the night sky, the PiFinder needs to know where your telescope is currently pointed.  The primary way it does this is directly, but taking photos of the night sky and examining the star patterns to determine what section of the sky it's seeing.  It can do this incredibly fast (up to two times per second!) and very accurately.  This only works well if your telescope is not moving, so it couples this very accurate system with an accelerometer to provide an estimate of how far your telescope has moved from the last known position.  This estimate will contain some error, but as soon as you stop moving the scope a new photo will be taken and any inaccuracty will be corrected.
+In order to direct you to wonders of the night sky, the PiFinder needs 
+to know where your telescope is currently pointed.  The primary way it does this 
+is directly, by taking photos of the night sky and examining the star patterns 
+to determine what section of the sky it's seeing.  It can do 
+this incredibly fast (up to two times per second!) and very accurately.  
+This only works well if your telescope is not moving, so it couples this 
+very accurate system with an accelerometer to provide an estimate of how far your telescope 
+has moved from the last known position.  This estimate will contain some error, 
+but as soon as you stop moving the scope a new photo will be taken and any inaccuracy will be corrected.
 
-Along with knowing where your telescope is pointing, the PiFinder knows where thousands of interesting objects are located. It can use these two pieces of information to indicate how you should move your telescope to bring any of those thousands of objects into your eyepiece.  Since it's directly observing where your telescope is pointing, you can be assured you are on target!
+Along with knowing where your telescope is pointing, the PiFinder knows where thousands of 
+interesting objects are located. It can use these two pieces of information to indicate 
+how you should move your telescope to bring any of those thousands of objects into 
+your eyepiece.  Since it's directly observing where your telescope is pointing, 
+you can be assured you are on target!
 
 .. note::
    If you would like a general overview of how to use the PiFinder, please give the 
@@ -49,12 +69,12 @@ site, you can turn the brightness down to preserve your dark-adapted vision.
 The Menu System
 =====================================
 
-All the functions of the PiFinder can be accessed via it's menu system:
+All the functions of the PiFinder can be accessed via its menu system:
 
 .. image:: images/quick_start/main_menu_01_docs.png
 
 
-Each menu is a list of items that represent a sub menu, screen, or a set of options you can choose from.  You can scroll
+Each menu is a list of items that represent a submenu, screen, or a set of options you can choose from.  You can scroll
 though each menu and make selections using these keys:
 
 - The **UP** and **DOWN** arrows will scroll the current menu
@@ -68,14 +88,14 @@ Screens
 --------
 
 When you choose some menu items, like Camera, these will lead you to a specific screen such as showing the 
-camera preview, a start chart or details about a particular catalog object.  Each one of the screens are
+camera preview, a start chart or details about a particular catalog object.  Each one of the screens is
 covered in more detail below.
 
 Options
 --------
 
 Some menus present a list of options where you can choose one or more items to control how
-the PiFinder operates.  For instance the Filter menu items takes you to a sub-menu of different
+the PiFinder operates.  For instance, the Filter menu items take you to a sub-menu of different
 ways you can filter your object lists:
 
 
@@ -153,12 +173,12 @@ pressing UP or DOWN will scroll through them
 Settings Menu
 ==============
 
-All of the user configuable items for the PiFinder can be found in the Settings Menu which is near the
+All of the user configurable items for the PiFinder can be found in the Settings Menu which is near the
 bottom of the main PiFinder menu
 
 .. image:: images/user_guide/settings_01.png
 
-The top items collect several options together under User Preferences and Chart Screen.   The elipsis (...) indicates
+The top items collect several options together under User Preferences and Chart Screen.   The ellipsis (...) indicates
 that there are more options below.
 
 .. image:: images/user_guide/settings_02.png
@@ -179,7 +199,7 @@ When using the PiFinder under the stars to explore the universe, you'll be doing
 * Pushing the scope to bring them into your eyepiece
 * Logging your observations
   
-Everyone has their own unique way to observe, so the PiFinder offers differnet ways to use (or not use!) these features
+Everyone has their own unique way to observe, so the PiFinder offers different ways to use (or not use!) these features
 to facilitate a great night of observing.
 
 Object List
@@ -200,7 +220,7 @@ from one of four options:
   and looking for the nearest objects in a particular catalog.
 - **Recent**: This list starts empty and will contain a history of all the objects you've checked out during your current
   observing session
-- **Name Search**: Using the number keypad and T9 style text entry, you can search for objects by name.  The snowball planetery?
+- **Name Search**: Using the number keypad and T9 style text entry, you can search for objects by name.  The snowball planetary?
   Cats-Eye?  This is the way to find them!
 
 No matter how you get objects onto the list, it always displays 
@@ -210,7 +230,7 @@ the same information and allows you to sort and select the same way.
 
 Along the left side is a symbol showing what sort of object each line represents.  Next to that is the designation of the
 object, usually the catalog abbreviation and index number, then the distance from your current telescope position to this
-object. The brightness of each entry in the list gives a little hint about it's magnitude.
+object. The brightness of each entry in the list gives a little hint about its magnitude.
 
 Pressing the **SQUARE** key will cycle through additional information for the objects on the list.
 
@@ -220,8 +240,8 @@ You can see a scrolling list of common names for each object.
 
 .. image:: images/user_guide/object_list_03_docs.png
 
-And the magnitude and size of each object along with a little check mark to indicate if you've observed this 
-object before.
+And the magnitude and size of each object along with a little check mark to indicate if you've observed and logged
+this object previously.
 
 Holding down the **SQUARE** key will bring up the Quick Menu which allows you to sort and filter this list
 
@@ -233,7 +253,7 @@ Pressing **LEFT** will select SORT
 
 By default, lists are sorted in STANDARD order... usually the order they appear in catalogs.  You can choose
 another sort order such as NEAREST by pressing the arrow key indicated.  Sorting by NEAREST puts the object 
-which is closest to your current telescope position at the top of the list.
+that is closest to your current telescope position at the top of the list.
 
 .. image:: images/user_guide/object_list_04_docs.png
 
@@ -250,7 +270,7 @@ Pressing the **RIGHT** key from the Object list will bring you to the Object Det
 for the highlighted object. This screen shows large Push-To instructions, :ref:`object images<user_guide:object images>` and 
 catalog details for objects.
 
-Pressing **SQUARE** will cycle through the differnt information for the object and **UP/DOWN** will move to the next
+Pressing **SQUARE** will cycle through the different information for the object and **UP/DOWN** will move to the next
 or previous object in the list.  **LEFT** will bring you back to the full list and **RIGHT** brings 
 up the :ref:`Logging<user_guide:logging observations>` interface for the current object.
 
@@ -258,7 +278,7 @@ up the :ref:`Logging<user_guide:logging observations>` interface for the current
 
 The Push-To info shows which way, and how far, to move your telescope to put the selected object in your 
 eyepiece.  As you move the scope the numbers will dim a bit to indicate that the PiFinder is using the
-accelerometer to provide and estimate of where the telescope is currently pointing.  When you stop, or 
+accelerometer to provide an estimate of where the telescope is currently pointing.  When you stop, or 
 move slowly enough, the camera will be able to plate solve and provide an absolute position which will
 cause the numbers to brighten again.
 
@@ -271,7 +291,7 @@ the center of field and consulting the object image can really make a difference
 
 .. image:: images/user_guide/object_details_02.png
 
-The PiFinder can display images of all the objects in it's catalog!  
+The PiFinder can display images of all the objects in its catalog!  
 See the section on :ref:`object images<user_guide:object images>`
 below for more information
 
@@ -312,7 +332,7 @@ options, like Object type.  Here's a brief explanation of each:
   see all of the different globular clusters across multiple catalogs.
 - **Type**: Limits by object type.  You can select multiple types of objects to include in your lists.
 - **Altitude**: The current apparent altitude of this object from your observing location.  
-- **Maganitude**: Limit objects displayed to those at least as bright as the selected magnitude.
+- **Magnitude**: Limit objects displayed to those at least as bright as the selected magnitude.
 - **Observed**: Only include objects you've logged already, never logged, or any logged state.
 
 Catalogs Filter
@@ -323,7 +343,7 @@ The PiFinder has many different catalogs so this menu groups them by categories.
 .. image:: images/user_guide/filter_catalogs.png
 
 Some common catalogs are listed on the top level for quick reference and less 
-common catalogs are listed in their sub-categories indicated with an elipsis (...)
+common catalogs are listed in their sub-categories indicated with an ellipsis (...)
 
 Here's the DSO... category as an example:
 
@@ -337,19 +357,19 @@ Name Search
 ------------
 
 A powerful way to search the large database of objects included with the PiFinder is by name.  
-This lets you find objects by their common description, like the Cats Eye nebula.  To access 
+This lets you find objects by their common description, like the Cat's Eye nebula.  To access 
 the Name Search screen select it from the Objects menu:
 
 .. image:: images/user_guide/name_search_01.png
 
-It uses a T9 style text input, like some popular celluar phones at the dawn of text messages!  
+It uses a T9 style text input, like some popular cellular phones at the dawn of text messages!  
 The on-screen keypad shows the letters that are available by pressing each number key multiple
 times in a row.  
 
 .. image:: images/user_guide/name_search_02.png
 
-Each number key will generate it's number, then the three letters displayed
-in turn.  If you pause long enough between key-presses, or press a differnt key, the cursor
+Each number key will generate its number, then the three or four letters displayed
+in turn.  If you pause long enough between key-presses, or press a different key, the cursor
 will move to the next position.
 
 .. image:: images/user_guide/name_search_cat_01.png
@@ -377,7 +397,7 @@ These images will display in the background of the :ref:`user_guide:object detai
 can see them in full detail by pressing the **SQUARE** key to cycle through various pages of 
 information about each object. 
 
-The images will be rotated and orient as they will appear through
+The images will be rotated and oriented as they will appear through
 the eyepiece at the position and time you are observing them to help you identify the faintest of 
 targets.
 
@@ -397,7 +417,10 @@ As an example, here are the images available for M57
    :alt: Catalog Image
 
 
-These images are oriented as they would be through the eyepiece in a newtonian reflector pointing at a specific area of the sky from your current location.   You can use the **+** and **-** keys to switch between several eyepiece field of view: 1, 0.5, 0.25, 0.12 degrees
+These images are oriented as they would be through the eyepiece in a Newtonian reflector 
+pointing at a specific area of the sky from your current location.   You can 
+use the **+** and **-** keys to switch between the field of view provided by the different
+eyepieces you configured via the :ref:`user_guide:Web Interface` 
 
 The bottom left of the screen shows the source of the current image and the left side shows the current FOV information.
 
@@ -421,7 +444,7 @@ or pressing the **RIGHT** arrow to cycle through the stars.
 
 - **Conditions**...
 
-  - **Transparency**: A relative measure of contast. 
+  - **Transparency**: A relative measure of contrast. 
 
   - **Seeing**: The stillness of the atmosphere. 
 
@@ -445,7 +468,7 @@ Tools
 ==========================
 
 Near the bottom of the main PiFinder menu is an option that brings you to a set of tools.  These are screens
-that are not observing related but provide useful information about the PiFidner or let you perform actions.
+that are not observing related but provide useful information about the PiFinder or let you perform actions.
 
 .. image:: images/user_guide/tools_menu_docs.png
 
@@ -466,7 +489,7 @@ state and operation of the PiFinder.
 Some of the key bits of information displayed:
 
 - The current solver state displayed as LST SLV on the top line.  It shows the
-  number of second since the last plate solve, the current solve state (i for IMU 
+  number of seconds since the last plate solve, the current solve state (i for IMU 
   or C for camera) and the number of stars matched if the current solve is a camera solve
 - WiFi information is displayed a bit further down including the current WiFi mode, 
   network name and IP address.
@@ -494,7 +517,7 @@ To easily shut down the PiFinder:
 
 .. image:: images/quick_start/shutdown_confirm.png
 
-When you confrim the screen and keypad will turn off after a few seconds and it's then safe to
+When you confirm the screen and keypad will turn off after a few seconds and it's then safe to
 turn off the unit using the power switch or unplugging the battery.
 
 WiFi
@@ -503,7 +526,7 @@ WiFi
 Access Point and Client Mode
 ----------------------------------
 
-The PiFinder can either connect to an existing network via the Client mode, or serve as an 
+The PiFinder can either connect to an existing network via the Client mode, or serve as a 
 wireless access point for other devices to connect to via the Access Point (AP) mode.  Use the 
 :ref:`user_guide:Web Interface` or the :ref:`user_guide:status screen` to switch between these two modes 
 and to see which mode is currently active.
@@ -518,13 +541,13 @@ PiFinder address
 -----------------
 
 In most cases, you can use the name ``pifinder.local`` to connect to the PiFinder.  On older computers 
-or those that don't support zeroconf networking, you can use the IP address provides on the :ref:`Global 
+or those that don't support zeroconf networking, you can use the IP address provided on the :ref:`Global 
 Options<user_guide:settings menu>` screen to connect.  You can connect to the PiFinder via:
 
 
 * A web browser to use the :ref:`user_guide:Web Interface` for remote control, setting up access to other WiFi networks and for configuration changes
 * SSH to get shell access for advanced users
-* SMB (Samba) to access saved images, logs an observing lists
+* SMB (Samba) to access saved images, logs and observing lists
 * LX200 protocol to allow updating of a planetarium app, such as :doc:`skysafari` , with the position of the telescope
 
 Web Interface
@@ -565,7 +588,7 @@ the Tools option in the web interface.
 Connecting to a new WiFi network
 ---------------------------------
 
-The default behavior of the PiFinder is to generate it's own WiFi network call ``PiFinderAP`` that you can connect to 
+The default behavior of the PiFinder is to generate its own WiFi network called ``PiFinderAP`` that you can connect to 
 and configure additional networks. To get the PiFinder to connect to an existing WiFi network with Internet access you
 can follow the steps below:
 
