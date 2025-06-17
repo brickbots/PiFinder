@@ -98,7 +98,7 @@ class UISoftware(UIModule):
         draw_pos = self.display_class.titlebar_height + 2
         self.draw.text(
             (0, draw_pos),
-            _("Wifi Mode: {wifi_mode}").format(self._wifi_mode),
+            _("Wifi Mode: {}").format(self._wifi_mode),
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
