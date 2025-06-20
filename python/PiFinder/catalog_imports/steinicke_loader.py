@@ -29,209 +29,162 @@ from .database import objects_db
 
 
 
-# Map Steinicke object types to PiFinder types
-STEINICKE_TYPE_MAPPING = {
+# Basic object type mappings for exact matches
+BASIC_TYPE_MAPPING = {
     # Stars and asterisms
-    "*": "*",  # Single star
-    "*2": "D*",  # Double star
-    "*3": "***",  # Triple star
-    "*4": "***",  # Multiple star
-    "*Cloud": "Nb",  # Star cloud
-    "*Grp": "Ast",  # Star group/asterism
-    # Galaxies - Basic Types
-    "C": "Gx",  # Compact galaxy
-    "D": "Gx",  # Dwarf galaxy
-    "E": "Gx",  # Elliptical galaxy
-    "I": "Gx",  # Irregular galaxy
-    "P": "Gx",  # Peculiar galaxy
-    "S": "Gx",  # Spiral galaxy
-    # Galaxies - Detailed Types
-    "E0": "Gx",  # E0 elliptical
-    "E1": "Gx",  # E1 elliptical
-    "E2": "Gx",  # E2 elliptical
-    "E3": "Gx",  # E3 elliptical
-    "E4": "Gx",  # E4 elliptical
-    "E5": "Gx",  # E5 elliptical
-    "E6": "Gx",  # E6 elliptical
-    "E-S0": "Gx",  # E-S0 transition
-    "S0": "Gx",  # S0 lenticular
-    "Sa": "Gx",  # Sa spiral
-    "Sab": "Gx",  # Sab spiral
-    "Sb": "Gx",  # Sb spiral
-    "Sbc": "Gx",  # Sbc spiral
-    "Sc": "Gx",  # Sc spiral
-    "Scd": "Gx",  # Scd spiral
-    "Sd": "Gx",  # Sd spiral
-    "Sdm": "Gx",  # Sdm spiral
-    "Sm": "Gx",  # Sm spiral
-    "SB": "Gx",  # Barred spiral
-    "SBa": "Gx",  # SBa barred spiral
-    "SBab": "Gx",  # SBab barred spiral
-    "SBb": "Gx",  # SBb barred spiral
-    "SBbc": "Gx",  # SBbc barred spiral
-    "SBc": "Gx",  # SBc barred spiral
-    "SBcd": "Gx",  # SBcd barred spiral
-    "SBd": "Gx",  # SBd barred spiral
-    "SBdm": "Gx",  # SBdm barred spiral
-    "SBm": "Gx",  # SBm barred spiral
-    "dE": "Gx",  # Dwarf elliptical
-    "dI": "Gx",  # Dwarf irregular
-    "cD": "Gx",  # cD galaxy
-    # Special Galaxy Types
-    "R": "Gx",  # Ring galaxy
-    "PRG": "Gx",  # Polar ring galaxy
-    "GxyP": "Gx",  # Part of galaxy (e.g. bright HII region)
-    "Ring": "Gx",  # Ring galaxy
-    "Ring A": "Gx",  # Ring galaxy type A
-    "Ring B": "Gx",  # Ring galaxy type B
-    "S R": "Gx",  # Ring spiral galaxy
-    # Lenticular Galaxy Variants (Most Common Missing)
-    "S0-a": "Gx",  # Lenticular galaxy subtype
-    "SB0": "Gx",  # Barred lenticular galaxy
-    "SB0-a": "Gx",  # Barred lenticular galaxy subtype
-    "S0+": "Gx",  # Lenticular galaxy variant
-    "SB0+": "Gx",  # Barred lenticular galaxy variant
-    "S0?": "Gx",  # Uncertain lenticular galaxy
-    "SB0?": "Gx",  # Uncertain barred lenticular galaxy
-    "S0/P": "Gx",  # Peculiar lenticular galaxy
-    "SB0/P": "Gx",  # Peculiar barred lenticular galaxy
-    # Galaxy Types with Uncertainty Markers
-    "S?": "Gx",  # Uncertain spiral galaxy
-    "E?": "Gx",  # Uncertain elliptical galaxy
-    "SB?": "Gx",  # Uncertain barred spiral
-    "Sa?": "Gx",  # Uncertain Sa spiral
-    "Sb?": "Gx",  # Uncertain Sb spiral
-    "Sc?": "Gx",  # Uncertain Sc spiral
-    "Sd?": "Gx",  # Uncertain Sd spiral
-    "SBa?": "Gx",  # Uncertain SBa barred spiral
-    "SBb?": "Gx",  # Uncertain SBb barred spiral
-    "SBc?": "Gx",  # Uncertain SBc barred spiral
-    "Irr?": "Gx",  # Uncertain irregular galaxy
-    "I?": "Gx",  # Uncertain irregular galaxy
-    # Transition Galaxy Types
-    "E/SB0": "Gx",  # Transition between elliptical and barred lenticular
-    "E/S0": "Gx",  # Transition between elliptical and lenticular
-    "S0/Sa": "Gx",  # Transition between S0 and Sa
-    "SB0/SBa": "Gx",  # Transition between SB0 and SBa
-    # Irregular Galaxy Subtypes
-    "IBm": "Gx",  # Irregular galaxy, Magellanic type
-    "Im": "Gx",  # Irregular galaxy, Magellanic type (compact)
-    "IAB": "Gx",  # Irregular galaxy type AB
-    "IB": "Gx",  # Irregular galaxy type B
-    "I0": "Gx",  # Irregular galaxy type 0
-    # Peculiar Galaxy Designations
-    "Sa/P": "Gx",  # Peculiar Sa spiral
-    "Sb/P": "Gx",  # Peculiar Sb spiral
-    "Sc/P": "Gx",  # Peculiar Sc spiral
-    "SBa/P": "Gx",  # Peculiar SBa barred spiral
-    "SBb/P": "Gx",  # Peculiar SBb barred spiral
-    "SBc/P": "Gx",  # Peculiar SBc barred spiral
-    "S/P": "Gx",  # Peculiar spiral galaxy
-    "E/P": "Gx",  # Peculiar elliptical galaxy
-    "I/P": "Gx",  # Peculiar irregular galaxy
-    # Additional Galaxy Types
-    "S ": "Gx",  # Spiral galaxy (with space)
-    "Sc ": "Gx",  # Sc spiral (with trailing space)
-    "dSph": "Gx",  # Dwarf spheroidal galaxy
-    "BCD": "Gx",  # Blue compact dwarf galaxy
-    "cG": "Gx",  # Compact galaxy
-    "HII": "Gx",  # HII galaxy/region
-    # Globular Cluster Classifications (Shapley-Sawyer)
-    "II2p": "Gb",  # Globular cluster, concentration class II, pop. 2, peculiar
-    "III2p": "Gb",  # Globular cluster, concentration class III, pop. 2, peculiar
-    "II2m": "Gb",  # Globular cluster, concentration class II, pop. 2, metal-rich
-    "III2m": "Gb",  # Globular cluster, concentration class III, pop. 2, metal-rich
-    # "I": "Gb",     # Globular cluster, concentration class I
-    "II": "Gb",  # Globular cluster, concentration class II
-    "III": "Gb",  # Globular cluster, concentration class III
-    "IV": "Gb",  # Globular cluster, concentration class IV
-    "V": "Gb",  # Globular cluster, concentration class V
-    "VI": "Gb",  # Globular cluster, concentration class VI
-    "VII": "Gb",  # Globular cluster, concentration class VII
-    "VIII": "Gb",  # Globular cluster, concentration class VIII
-    "IX": "Gb",  # Globular cluster, concentration class IX
-    "X": "Gb",  # Globular cluster, concentration class X
-    "XI": "Gb",  # Globular cluster, concentration class XI
-    "XII": "Gb",  # Globular cluster, concentration class XII
-    "I2": "Gb",  # Globular cluster, concentration class I, pop. 2
-    "II2": "Gb",  # Globular cluster, concentration class II, pop. 2
-    "III2": "Gb",  # Globular cluster, concentration class III, pop. 2
-    "IV2": "Gb",  # Globular cluster, concentration class IV, pop. 2
-    "V2": "Gb",  # Globular cluster, concentration class V, pop. 2
-    "VI2": "Gb",  # Globular cluster, concentration class VI, pop. 2
-    # Clusters
-    "OCL": "OC",  # Open cluster (no Trümpler class)
-    "GCL": "Gb",  # Globular cluster (no concentration class)
-    "3S": "OC",  # Small cluster
-    "4S": "OC",  # Small cluster
-    "5C": "OC",  # Compact cluster
-    # "C": "OC",     # Cluster
-    "C  M": "OC",  # Multiple cluster
-    "C+*?": "OC",  # Cluster with stars
-    "C+C": "OC",  # Multiple cluster
-    "C+C+C": "OC",  # Multiple cluster
-    "C/P": "OC",  # Cluster with nebulosity
-    "CorG": "OC",  # Corona or Group
+    "*": "*",
+    "*2": "D*",
+    "*3": "***",
+    "*4": "***",
+    "**": "D*",
+    "*Cloud": "Nb",
+    "*Grp": "Ast",
+    # Basic clusters
+    "OCL": "OC",
+    "GCL": "Gb",
     # Nebulae
-    "EN": "Nb",  # Emission nebula
-    "RN": "Nb",  # Reflection nebula
-    "PN": "PN",  # Planetary nebula
-    "SNR": "Nb",  # Supernova remnant
-    "DN": "DN",  # Dark nebula
-    "HH": "Nb",  # Herbig-Haro object
-    "Neb": "Nb",  # General nebula
-    # Star Types
-    "**": "D*",  # Double star (alternative notation)
-    "WR": "*",  # Wolf-Rayet star
-    "C*": "*",  # Carbon star
-    "WD": "*",  # White dwarf
-    "N*": "*",  # Nova
+    "EN": "Nb",
+    "RN": "Nb",
+    "PN": "PN",
+    "SNR": "Nb",
+    "DN": "DN",
+    # Special objects
+    "Nova": "*",
+    "NF": "?",
+    "GxyP": "Gx",
+    "PRG": "Gx",
     # Combinations
-    "C+N": "C+N",  # Cluster + Nebula
-    "OCL+EN": "C+N",  # Open cluster + Emission nebula
-    "PN+OCL": "C+N",  # Planetary nebula + Open cluster
-    "RN+EN": "C+N",  # Reflection nebula + Emission nebula
-    "RN+OCL": "C+N",  # Reflection nebula + Open cluster
-    "EN+OCL": "C+N",  # Emission nebula + Open cluster
-    "EN+RN": "C+N",  # Emission nebula + Reflection nebula
-    "RN+*": "C+N",  # Reflection nebula + Star
-    "EN+*": "C+N",  # Emission nebula + Star
-    # Uncertain/Unknown
-    "?": "?",  # Unknown object type
-    "Unknown": "?",  # Unknown object type
-    "NF": "?",  # Not found (301 objects)
-    "P?": "?",  # Uncertain peculiar object
-    "Nova": "*",  # Nova star
-    "Ring/P": "Gx",  # Peculiar ring galaxy
-    "D R": "Gx",  # Dwarf ring galaxy
-    "RN4": "Nb",  # Reflection nebula type 4
-    "RN2": "Nb",  # Reflection nebula type 2
-    "*3+C": "***",  # Triple star + cluster
+    "OCL+EN": "C+N",
+    "EN+OCL": "C+N",
+    "PN+OCL": "C+N",
+    "RN+EN": "C+N",
+    "RN+OCL": "C+N",
+    "EN+RN": "C+N",
+    "RN+*": "C+N",
+    "EN+*": "C+N",
 }
 
 
-def preprocess_steinicke_type(obj_type):
+def preprocess_steinicke_type(obj_type, remarks=""):
     """
-    Preprocess object type with regex to handle common patterns
+    Map Steinicke object types to PiFinder types using pattern matching
     """
     if not obj_type:
         return "?"
 
+    # Clean the type string
+    cleaned = obj_type.strip()
+
     # Try exact match first
-    if obj_type in STEINICKE_TYPE_MAPPING:
-        return STEINICKE_TYPE_MAPPING[obj_type]
+    if cleaned in BASIC_TYPE_MAPPING:
+        return BASIC_TYPE_MAPPING[cleaned]
 
-    # Only strip trailing spaces and + for unmapped types
-    cleaned = re.sub(r"[+\s]+$", "", obj_type)  # Remove +, trailing spaces
+    # Handle combinations with + or multiple object indicators
+    if "+" in cleaned:
+        # Split and check individual components
+        parts = [p.strip() for p in cleaned.split("+")]
+        if len(parts) == 2:
+            # Check for common combinations
+            if any(p in ["OCL", "EN", "RN", "PN"] for p in parts):
+                return "C+N"
+            # Multiple galaxies or stars
+            if all(is_galaxy_type(p) for p in parts):
+                return "Gx"
+            if all(is_star_type(p) for p in parts):
+                return "***"
 
-    if cleaned in STEINICKE_TYPE_MAPPING:
-        return STEINICKE_TYPE_MAPPING[cleaned]
-
-    # For galaxy-like patterns not in mapping, default to Gx
-    if re.match(r"^(S|E|I|dE|cD|BCD)", cleaned) and cleaned not in ["*", "SNR", "EN"]:
+    # Galaxy type patterns (most common in Steinicke)
+    if is_galaxy_type(cleaned):
         return "Gx"
 
+    # Check for globular cluster indicators in remarks before Trumpler class check
+    remarks_str = ""
+    if isinstance(remarks, list):
+        remarks_str = " ".join(str(r) for r in remarks if r)
+    elif remarks:
+        remarks_str = str(remarks)
+
+    if remarks_str and ("GCL" in remarks_str or "globular" in remarks_str.lower()):
+        if is_trumpler_class(cleaned):  # Roman numerals that could be globular concentration classes
+            return "Gb"
+
+    # Trumpler class patterns for open clusters
+    if is_trumpler_class(cleaned):
+        return "OC"
+
+    # Star patterns
+    if is_star_type(cleaned):
+        return "*"
+
+    # Handle special suffixes and extra whitespace
+    base_type = re.sub(r"[\s?/]+[PRMB]*[\s]*$", "", cleaned)  # Remove suffixes and trailing whitespace
+    if base_type != cleaned:
+        return preprocess_steinicke_type(base_type, remarks)
+
     return "?"
+
+
+def is_galaxy_type(obj_type):
+    """Check if object type represents a galaxy"""
+    if not obj_type:
+        return False
+
+    # Basic galaxy types
+    if obj_type in ["C", "D", "E", "I", "P", "S", "Irr", "dE", "dI", "cD", "Ring"]:
+        return True
+
+    # Hubble classification patterns
+    patterns = [
+        r"^E[0-6]?$",                    # E, E0-E6
+        r"^E-S0$",                       # E-S0 transition
+        r"^E/S[B0]+$",                   # E/S0, E/SB0 transitions
+        r"^S0(-a)?$",                    # S0, S0-a
+        r"^S[abc]?[bcd]?[dm]?$",         # Sa, Sb, Sc, Sab, Sbc, Scd, Sd, Sdm, Sm
+        r"^SB[0abc]?[bcd]?[dm]?(-a)?$",  # SB0, SBa, SBb, SBc, SBab, SBbc, SBcd, SBd, SBdm, SBm, SB0-a
+        r"^I[AB]?[bm]?$",                # I, IA, IB, IBm, Im
+        r"^dE[0-6]?$",                   # dE, dE0-dE6 (dwarf elliptical)
+        r"^Ring\s*[AB]?$",               # Ring, Ring A, Ring B
+        r"^[SE].*\s+[RM]$",             # Types with R (ring) or M suffix
+        r"^.*\s+R$",                     # Any type with R suffix (ring)
+        r"^[ESI].*\s+pec$",             # Peculiar galaxies (Sa pec, etc.)
+    ]
+
+    for pattern in patterns:
+        if re.match(pattern, obj_type):
+            return True
+
+    return False
+
+
+def is_trumpler_class(obj_type):
+    """Check if object type represents a Trumpler open cluster classification"""
+    if not obj_type:
+        return False
+
+    # Trumpler classes: I, II, III, IV followed by 1-3, then p/m/r, then n
+    # Examples: II1p, III2m, IV3pn, I2r, etc.
+    pattern = r"^[IVX]+[1-3]?[pmr]?n?$"
+    return bool(re.match(pattern, obj_type))
+
+
+def is_star_type(obj_type):
+    """Check if object type represents a star"""
+    if not obj_type:
+        return False
+
+    # Various star type patterns
+    star_patterns = [
+        r"^\*[2-9]?$",        # *, *2, *3, etc.
+        r"^\d+S$",            # 3S, 4S, 5S (small star groups)
+        r"^[NWDC]\*?$",       # N*, W*, D*, C*
+        r"^Nova$",            # Nova
+    ]
+
+    for pattern in star_patterns:
+        if re.match(pattern, obj_type):
+            return True
+
+    return False
 
 
 def _check_required_files() -> bool:
@@ -461,7 +414,8 @@ def load_ngc_catalog():
 
         # Extract object type and preprocess for mapping
         steinicke_type = obj.get("object_type", "").strip()
-        obj_type = preprocess_steinicke_type(steinicke_type)
+        remarks = obj.get("remarks", "")
+        obj_type = preprocess_steinicke_type(steinicke_type, remarks)
 
         # Convert coordinates to decimal degrees
         ra, dec = 0.0, 0.0
