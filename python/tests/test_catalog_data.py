@@ -128,11 +128,83 @@ def check_messier_objects():
 
 def check_ngc_objects():
     """
-    Validate specific NGC objects have correct data.
-    Placeholder for future NGC-specific validations.
+    Validate specific NGC objects have correct coordinates and object types.
+    Tests 5 well-known NGC objects with known coordinates and classifications.
     """
-    # TODO: Add NGC-specific validations
-    pass
+    db = objects_db.ObjectsDatabase()
+
+    # Test 5 well-known NGC objects with their expected data
+    test_objects = [
+        {
+            "ngc": 104,
+            "name": "47 Tucanae",
+            "ra": 6.023,      # RA = 00h 24m 05.2s
+            "dec": -72.081,   # Dec = -72° 04' 51"
+            "obj_type": "Gb", # Globular cluster
+            "const": "Tuc"    # Tucana
+        },
+        {
+            "ngc": 224,
+            "name": "Andromeda Galaxy",
+            "ra": 10.685,     # RA = 00h 42m 44.3s
+            "dec": 41.269,    # Dec = +41° 16' 09"
+            "obj_type": "Gx", # Galaxy
+            "const": "And"    # Andromeda
+        },
+        {
+            "ngc": 1976,
+            "name": "Orion Nebula",
+            "ra": 83.822,     # RA = 05h 35m 17.3s
+            "dec": -5.391,    # Dec = -05° 23' 27"
+            "obj_type": "Nb", # Nebula
+            "const": "Ori"    # Orion
+        },
+        {
+            "ngc": 2168,
+            "name": "M35",
+            "ra": 92.275,     # RA = 06h 09m 06s
+            "dec": 24.350,    # Dec = +24° 21' 00"
+            "obj_type": "OC", # Open cluster
+            "const": "Gem"    # Gemini
+        },
+        {
+            "ngc": 7009,
+            "name": "Saturn Nebula",
+            "ra": 316.0417,    # RA = 21h 04m 10.8s
+            "dec": -11.3631,   # Dec = -11° 22' 18"
+            "obj_type": "PN", # Planetary nebula
+            "const": "Aqr"    # Aquarius
+        }
+    ]
+
+    for test_obj in test_objects:
+        ngc_num = test_obj["ngc"]
+        name = test_obj["name"]
+
+        # Get object from database
+        catalog_obj = db.get_catalog_object_by_sequence("NGC", ngc_num)
+        assert catalog_obj is not None, f"NGC {ngc_num} ({name}) should exist in catalog"
+
+        obj = db.get_object_by_id(catalog_obj["object_id"])
+        assert obj is not None, f"NGC {ngc_num} ({name}) object should exist"
+
+        # Check coordinates (allow 0.1 degree tolerance for coordinate precision)
+        assert coords_are_close(obj["ra"], test_obj["ra"], tolerance=0.1), \
+            f"NGC {ngc_num} ({name}) RA should be ~{test_obj['ra']}°, got {obj['ra']}°"
+
+        assert coords_are_close(obj["dec"], test_obj["dec"], tolerance=0.1), \
+            f"NGC {ngc_num} ({name}) Dec should be ~{test_obj['dec']}°, got {obj['dec']}°"
+
+        # Check object type
+        assert obj["obj_type"] == test_obj["obj_type"], \
+            f"NGC {ngc_num} ({name}) should be type '{test_obj['obj_type']}', got '{obj['obj_type']}'"
+
+        # Check constellation (if provided)
+        if test_obj["const"]:
+            assert obj["const"] == test_obj["const"], \
+                f"NGC {ngc_num} ({name}) should be in {test_obj['const']}, got '{obj['const']}'"
+
+        print(f"✓ NGC {ngc_num} ({name}): RA={obj['ra']:.3f}°, Dec={obj['dec']:.3f}°, Type={obj['obj_type']}, Const={obj['const']}")
 
 
 def check_ic_objects():
@@ -152,4 +224,5 @@ def test_catalog_data_validation():
     and that coordinates match expected astronomical values.
     """
     check_messier_objects()
-    # Future: check_ngc_objects(), check_ic_objects(), etc.
+    check_ngc_objects()
+    # Future: check_ic_objects(), etc.

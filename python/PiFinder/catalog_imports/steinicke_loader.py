@@ -57,9 +57,9 @@ BASIC_TYPE_MAPPING = {
     "OCL+EN": "C+N",
     "EN+OCL": "C+N",
     "PN+OCL": "C+N",
-    "RN+EN": "C+N",
+    "RN+EN": "Nb",
     "RN+OCL": "C+N",
-    "EN+RN": "C+N",
+    "EN+RN": "Nb",
     "RN+*": "C+N",
     "EN+*": "C+N",
 }
