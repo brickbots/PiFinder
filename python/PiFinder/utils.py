@@ -9,7 +9,7 @@ import importlib
 home_dir = Path.home()
 cwd_dir = Path.cwd()
 pifinder_dir = Path("..")
-astro_data_dir = pifinder_dir / "astro_data"
+astro_data_dir = cwd_dir / pifinder_dir / "astro_data"
 tetra3_dir = pifinder_dir / "python/PiFinder/tetra3/tetra3"
 data_dir = Path(Path.home(), "PiFinder_data")
 pifinder_db = astro_data_dir / "pifinder_objects.db"
@@ -111,3 +111,27 @@ def is_number(s):
         return True
     except (ValueError, TypeError):
         return False
+
+
+def format_size_value(value):
+    """
+    Format a size value, removing unnecessary .0 decimals but preserving meaningful decimals.
+    
+    Examples:
+        17.0 -> "17"
+        17.5 -> "17.5" 
+        17.25 -> "17.3" (rounded to 1 decimal)
+    """
+    if value is None or value == "":
+        return ""
+    
+    try:
+        num_val = float(value)
+        # If it's a whole number, return as integer
+        if num_val == int(num_val):
+            return str(int(num_val))
+        # Otherwise, round to 1 decimal and remove trailing zeros
+        formatted = f"{num_val:.1f}"
+        return formatted.rstrip('0').rstrip('.')
+    except (ValueError, TypeError):
+        return str(value)  # Return as-is if not a number
