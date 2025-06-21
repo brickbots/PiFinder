@@ -62,6 +62,12 @@ run from the command line as usual:
 python3 -m PiFinder.main
 ```
 
+For testing, running the following command will dump the raw IMU measurements to the terminal:
+
+```bash
+python PiFinder/imu_print_measurements.py
+```
+
 # Approach: Improved IMU support for quaternions for Altaz
 
 During normal operation, we want to find the pointing of the scope, expressed using $q_{hor2scope}$, which is the quaternion that rotates the scope axis in the horizontal frame from the *home* pointing to the current pointing.

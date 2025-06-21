@@ -1,8 +1,8 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-For testing: Not for use by PiFinder main loop.
-Simple test with IMU based on imu_pi.py
+For testing the IMU: Not for use by PiFinder main loop.
+Prints the IMU measurements (based on imu_pi.py)
 """
 
 import time
