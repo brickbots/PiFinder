@@ -54,6 +54,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             logger.setLevel(logging.DEBUG)
         logger.debug("Starting Integrator")
 
+        # TODO: This dict is duplicated in solver.py - Refactor?
         solved = {
             "RA": None,  # RA of scope
             "Dec": None,
@@ -65,7 +66,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 "Alt": None,
                 "Az": None,
             },
-            "camera_solve": {
+            "camera_solve": {  # camera_solve is NOT updated by IMU dead-reckoning  
                 "RA": None,
                 "Dec": None,
                 "Roll": None,
