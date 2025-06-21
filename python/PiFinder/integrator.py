@@ -315,7 +315,7 @@ def estimate_roll_offset(solved, dt):
     return roll_offset
 
 
-def get_imu_reference_frame(solved, shared_state)
+def get_imu_reference_frame(solved, shared_state):
     """
     The IMU quaternion measurements, q_x2imu, are relative to some arbitrary
     drifting frame X. This uses the latest plate solved coordinate with the
