@@ -153,10 +153,12 @@ class UITextMenu(UIModule):
                     _red_icon = ImageChops.multiply(
                         icon,
                         Image.new(
-                            "RGB", icon.size, color=self.display_class.colors.get(line_color)
+                            "RGB",
+                            icon.size,
+                            color=self.display_class.colors.get(line_color),
                         ),
                     )
-                    _offset = int((line_font.height - icon.height)/2)
+                    _offset = int((line_font.height - icon.height) / 2)
                     self.screen.paste(_red_icon, (2, line_pos + 2 + _offset))
 
             line_number += 1

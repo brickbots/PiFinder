@@ -9,7 +9,6 @@ or
 Create/Join
 """
 
-from copy import copy
 from random import choice
 from StarParty.sp_usernames import sp_usernames
 from StarParty.sps_data import GroupActivity
@@ -194,7 +193,7 @@ class UISPMain(UITextMenu):
 
         group_menu = []
 
-        observers = copy(self.sp_client_object.group_observers)
+        observers = self.sp_client_object.group_observers.as_list()
         for observer in observers:
             observer_const = sf_utils.radec_to_constellation(
                 observer.position.ra, observer.position.dec
@@ -274,11 +273,16 @@ class UISPMain(UITextMenu):
 
         if selected_item_definition["value"] == "connect":
             print("SP - CONNECTING")
-            await self.sp_client_object.connect(
-                host="spserver.local", username=self.sp_username
+            _res = await self.sp_client_object.connect(
+                host=self.config_object.get_option("sp_server", "spserver.local"),
+                username=self.sp_username,
             )
-            print("SP - CONNECTED")
-            self.mode_home()
+            if _res:
+                print("SP - CONNECTED")
+                self.mode_home()
+            else:
+                print("SP - Connect Failed")
+                self.message("Failed to connect")
             return
 
         if selected_item_definition["value"] == "username":

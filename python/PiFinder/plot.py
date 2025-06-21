@@ -162,6 +162,86 @@ class Starfield:
 
         return markers["x_pos"][0], markers["y_pos"][0]
 
+    def plot_observers(self, observer_list):
+        """
+        Returns an image to add to another image
+        Observerj  list should be a list of
+        obsrvers
+        """
+        ret_image = Image.new("RGB", self.render_size)
+
+        marker_list = []
+        for list_index, observer in enumerate(observer_list):
+            # need to convert decimal ra/dec to hour/degree
+            marker_list.append(
+                [
+                    Angle(degrees=observer.position.ra)._hours,
+                    observer.position.dec,
+                    list_index,
+                ]
+            )
+
+        markers = pandas.DataFrame(
+            marker_list, columns=["ra_hours", "dec_degrees", "observer_index"]
+        )
+
+        # required, use the same epoch as stars
+        markers["epoch_year"] = 1991.25
+        marker_positions = self.earth.observe(Star.from_dataframe(markers))
+
+        markers["x"], markers["y"] = self.projection(marker_positions)
+
+        # prep rotate by roll....
+        roll_rad = (self.roll) * (np.pi / 180)
+        roll_sin = np.sin(roll_rad)
+        roll_cos = np.cos(roll_rad)
+
+        # Rotate them
+        markers = markers.assign(
+            xr=((markers["x"]) * roll_cos - (markers["y"]) * roll_sin),
+            yr=((markers["y"]) * roll_cos + (markers["x"]) * roll_sin),
+        )
+
+        # Rasterize marker positions
+        markers = markers.assign(
+            x_pos=markers["xr"] * self.pixel_scale + self.render_center[0],
+            y_pos=markers["yr"] * -1 * self.pixel_scale + self.render_center[1],
+        )
+        # now filter by visiblity
+        markers = markers[
+            (
+                (markers["x_pos"] > 0)
+                & (markers["x_pos"] < self.render_size[0])
+                & (markers["y_pos"] > 0)
+                & (markers["y_pos"] < self.render_size[1])
+            )
+        ]
+
+        for x_pos, y_pos, observer_index in zip(
+            markers["x_pos"], markers["y_pos"], markers["observer_index"]
+        ):
+            print(f"VisObs:{observer_index}")
+            observer_image = observer_list[observer_index].avatar_image
+            """
+            observer_image = ImageChops.multiply(
+                observer_image,
+                Image.new(
+                    "RGB",
+                    observer_image.size,
+                    color=self.display_class.colors.get(255),
+                ),
+            )
+            """
+            ret_image.paste(
+                observer_image,
+                (
+                    int(x_pos - observer_image.height / 2),
+                    int(y_pos - observer_image.width / 2),
+                ),
+            )
+
+        return ret_image
+
     def plot_markers(self, marker_list):
         """
         Returns an image to add to another image

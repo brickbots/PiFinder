@@ -63,8 +63,6 @@ display_hardware = "SSD1351"
 display_device: DisplayBase = DisplayBase()
 keypad_pwm = None
 
-sp_client_object = sp_client.SPClient()
-
 
 def init_keypad_pwm():
     # TODO: Keypad pwm class that can be faked maybe?
@@ -236,8 +234,36 @@ class PowerManager:
         self.display_device.device.show()
 
 
+async def sp_update_pos(
+    sp_client_object: sp_client.SPClient, shared_state: SharedStateObj
+) -> None:
+    """
+    Checks for large enough changes in position
+    reports them back to the server if connected
+    """
+    last_update_pos = (0, 0)
+    while True:
+        if not sp_client_object.connected:
+            await asyncio.sleep(1)
+        else:
+            solution = shared_state.solution()
+            if not solution:
+                await asyncio.sleep(1)
+            else:
+                if (
+                    abs(solution["RA"] - last_update_pos[0])
+                    + abs(solution["Dec"] - last_update_pos[1])
+                    > 0.1
+                ):
+                    await sp_client_object.update_pos(solution["RA"], solution["Dec"])
+                    last_update_pos = (solution["RA"], solution["Dec"])
+
+            await asyncio.sleep(0.1)
+
+
 async def main(
     log_helper: MultiprocLogging,
+    sp_client_object: sp_client.SPClient,
     script_name=None,
     show_fps=False,
     verbose=False,
@@ -245,7 +271,7 @@ async def main(
     """
     Get this show on the road!
     """
-    global display_device, display_hardware, sp_client_object
+    global display_device, display_hardware
 
     display_device = get_display(display_hardware)
     init_keypad_pwm()
@@ -481,6 +507,9 @@ async def main(
 
         # Initialize power manager
         power_manager = PowerManager(cfg, shared_state, display_device)
+
+        # Initialize position monitor/updator for SP
+        asyncio.create_task(sp_update_pos(sp_client_object, shared_state))
 
         # Start main event loop
         console.write("   Event Loop")
@@ -788,8 +817,11 @@ async def main(
 
 
 async def start_main(rlogger, log_helper, keyboard_script, fps: bool, verbose):
+    # create star_party client
+    sp_client_object = sp_client.SPClient()
+
     main_loop_task = asyncio.create_task(
-        main(log_helper, keyboard_script, fps, verbose)
+        main(log_helper, sp_client_object, keyboard_script, fps, verbose)
     )
     try:
         done, _pending = await asyncio.wait(

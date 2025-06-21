@@ -98,7 +98,7 @@ async def handle_command(
         if command[0] == "echo":  # echo
             await writeline(writer, command[1])
 
-        elif command[0] == "pos":  # set position
+        elif command[0] == EventType.POSITION.value:  # set position
             async with state_lock:
                 observer.position.ra = float(command[1])
                 observer.position.dec = float(command[2])
@@ -130,7 +130,17 @@ async def handle_command(
                 new_group = server_state.add_group(
                     observer, new_group_name, new_activity
                 )
-            await writeline(writer, f"\t{new_group.name}\n\tack")
+            if new_group:
+                # write group info
+                await writeline(writer, f"\t{new_group.serialize()}")
+
+                # write out observers in the group
+                for observer in new_group.observers:
+                    await writeline(writer, f"\t{observer.serialize()}")
+
+                await writeline(writer, "\tack")
+            else:
+                await writeline(writer, "\terr")
 
         elif command[0] == "join":  # join group
             group_name = command[1]
@@ -205,7 +215,7 @@ async def client_connected(reader: asyncio.StreamReader, writer: asyncio.StreamW
 
     in_data = in_data_raw.decode()
     command = in_data.split("|")
-    if len(command) != 2 or command[0] != "name":
+    if len(command) != 2 or command[0] != "name" or command[1].strip() == "":
         await writeline(writer, "\terr")
         print(f"{connection_id_short}: Bad Connection Attempt")
         writer.close()

@@ -43,6 +43,33 @@ class UIChart(UIModule):
             right=MarkingMenuOption(),
         )
 
+    def plot_sp_observers(self):
+        """
+        Plot all the star party observers
+        in the current groups
+        """
+        if not self.solution:
+            return
+
+        observer_list = self.sp_client_object.group_observers.as_list()
+
+        marker_brightness = self.config_object.get_option("chart_dso", 128)
+        if marker_brightness == 0:
+            return
+
+        if observer_list != []:
+            observer_image = self.starfield.plot_observers(observer_list)
+
+            observer_image = ImageChops.multiply(
+                observer_image,
+                Image.new(
+                    "RGB",
+                    self.display_class.resolution,
+                    self.colors.get(marker_brightness),
+                ),
+            )
+            self.screen.paste(ImageChops.add(self.screen, observer_image))
+
     def plot_markers(self):
         """
         Plot the contents of the observing list
@@ -172,6 +199,8 @@ class UIChart(UIModule):
 
                 self.plot_markers()
 
+                self.plot_sp_observers()
+
                 # Display RA/DEC in selected format if enabled
                 if self.config_object.get_option("chart_radec") == "HH:MM":
                     ra_h, ra_m, ra_s = calc_utils.ra_to_hms(self.solution["RA"])
@@ -226,23 +255,23 @@ class UIChart(UIModule):
 
         return self.screen_update()
 
-    def change_fov(self, direction):
+    async def change_fov(self, direction):
         self.fov_index += direction
         if self.fov_index < 0:
             self.fov_index = 0
         if self.fov_index >= len(self.fov_list):
             self.fov_index = len(self.fov_list) - 1
         self.set_fov(self.fov_list[self.fov_index])
-        self.update(force=True)
+        await self.update(force=True)
 
     async def key_plus(self):
-        self.change_fov(-1)
+        await self.change_fov(-1)
 
     async def key_minus(self):
-        self.change_fov(1)
+        await self.change_fov(1)
 
     async def key_square(self):
         # Set back to 10.2 to match the camera view
         self.fov_index = 1
         self.set_fov(self.fov_list[self.fov_index])
-        self.update()
+        await self.update()
