@@ -1,6 +1,12 @@
 """
 Pointing model functions.
 
+The quaternions use the notation in the form `q_a2b` for a quaternion that
+rotates frame `a` to frame `b` using intrinsic rotation (by post-multiplying the
+quaternions). For example:
+
+q_a2c = q_a2b * q_a2c
+
 NOTE: 
 
 * All angles are in radians.
