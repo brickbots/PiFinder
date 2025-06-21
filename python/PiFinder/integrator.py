@@ -342,7 +342,7 @@ def get_imu_reference_frame(solved, shared_state):
 
     if solved["Alt"]:
         # Successfully plate solved & camera pointing exists
-        #imu = shared_state.imu() # TODO: Usage above. Remove? 
+        #imu = shared_state.imu() # TODO: Usage above. Remove? Also remove shared_state as input?
         imu_meas = solved["imu_quat"]  # Should be the IMU measurement at the time of plate solving
         if imu_meas:
             # We have both the plate solved camera pointing and an IMU 
