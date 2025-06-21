@@ -22,7 +22,7 @@ import numpy as np
 import quaternion
 
 
-def get_q_horiz2scope(az, alt):
+def get_q_hor2scope(az, alt):
     """ 
     Returns the quaternion to rotate from the horizontal frame to the scope frame
     at coordinates (az, alt) for an ideal AltAz mount.
