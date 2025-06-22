@@ -6,7 +6,6 @@ from PiFinder.ui.status import UIStatus
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.software import UISoftware
 from PiFinder.ui.gpsstatus import UIGPSStatus
-from PiFinder.ui.gpsstatus import UIGPSStatus
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
 from PiFinder.ui.textentry import UITextEntry

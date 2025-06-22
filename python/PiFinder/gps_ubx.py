@@ -117,9 +117,9 @@ async def process_messages(
                 logger.debug("GPS fix: %s", msg)
 
         # Wait a bit more on processing, if messages pile up in the queue
-        if gps_queue.qsize() > 50: 
+        if gps_queue.qsize() > 50:
             await asyncio.sleep(0.7)
-        elif gps_queue.qsize() > 10: 
+        elif gps_queue.qsize() > 10:
             await asyncio.sleep(0.1)
         await asyncio.sleep(wait)
 

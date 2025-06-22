@@ -493,7 +493,7 @@ def main(
 
                 # GPS
                 try:
-                    while True: # Consume from gps_queue until empty
+                    while True:  # Consume from gps_queue until empty
                         gps_msg, gps_content = gps_queue.get(block=False)
                         if gps_msg == "fix":
                             if gps_content["lat"] + gps_content["lon"] != 0:
@@ -529,7 +529,9 @@ def main(
                                     if dt is None:
                                         location.last_gps_lock = "--"
                                     else:
-                                        location.last_gps_lock = dt.time().isoformat()[:8]
+                                        location.last_gps_lock = dt.time().isoformat()[
+                                            :8
+                                        ]
                                     console.write(
                                         f"GPS: Location {location.lat} {location.lon} {location.altitude} {location.error_in_m}"
                                     )

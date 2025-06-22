@@ -30,7 +30,7 @@ error_stop = 200  # 10s meters
 
 async def emit(f_path: str, gps_queue: Queue, console_queue: Queue, filename: str):
     parser = None
-    try: 
+    try:
         parser = await UBXParser.from_file(file_path=f_path)
         error_info = {"error_2d": 123_456, "error_3d": 123_456}
         await process_messages(
@@ -47,6 +47,7 @@ async def emit(f_path: str, gps_queue: Queue, console_queue: Queue, filename: st
     finally:
         if parser is not None:
             await parser.close()
+
 
 # Have a linear count-down in error, simulating a bad fix, that gets better
 
@@ -124,4 +125,4 @@ def gps_monitor(gps_queue, console_queue, log_queue, file_name="test.ubx"):
                 logger.debug("GPD fake: %s", tm)
     except BaseException:
         logger.exception("GPS.fake: gps_monitor() aborted.")
-        time.sleep(1) # Give time for log to be written
+        time.sleep(1)  # Give time for log to be written

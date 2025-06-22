@@ -102,13 +102,7 @@ class UBXParser:
             return
 
         watch_json = json.dumps(
-            {
-            "enable": True,
-            "raw": 2,
-            "json": False,
-            "binary": True,
-            "nmea": False
-            },
+            {"enable": True, "raw": 2, "json": False, "binary": True, "nmea": False},
             separators=(",", ":"),
         )
         watch_command = f"?WATCH={watch_json}\r\n"
@@ -156,14 +150,16 @@ class UBXParser:
             except (ConnectionRefusedError, ConnectionResetError) as e:
                 attempt += 1
                 if attempt >= max_attempts:
-                    logger.error(f"Failed to connect after {max_attempts} attempts: {e}")
+                    logger.error(
+                        f"Failed to connect after {max_attempts} attempts: {e}"
+                    )
                     raise
 
     @classmethod
     async def from_file(cls, file_path: str):
         """Create a UBXParser instance from a file."""
         f = await aiofiles.open(file_path, "rb")
-        return cls(log_queue=None, reader=f, file_path=file_path) # type:ignore[arg-type]
+        return cls(log_queue=None, reader=f, file_path=file_path)  # type:ignore[arg-type]
 
     async def close(self):
         """Clean up resources and close the connection."""
@@ -193,7 +189,7 @@ class UBXParser:
                 if not self.reader:
                     logger.error("Reader not available")
                     break
-                
+
                 data = await self.reader.read(1024)
                 if not data:
                     logger.warning("Read failed. Connection closed by server")
@@ -235,7 +231,7 @@ class UBXParser:
                 break
 
             await asyncio.sleep(0.1)  # Prevent tight loop
-        
+
         # Ensure cleanup when loop ends
         await self.close()
 
@@ -285,7 +281,9 @@ class UBXParser:
         numSV = data[47]
         result = {}
         if ecefX == 0 or ecefY == 0 or ecefZ == 0:
-            logging.debug(f"nav_sol zeroes: ecefX: {ecefX}, ecefY: {ecefY}, ecefZ: {ecefZ}, pAcc: {pAcc}, numSV: {numSV}")
+            logging.debug(
+                f"nav_sol zeroes: ecefX: {ecefX}, ecefY: {ecefY}, ecefZ: {ecefZ}, pAcc: {pAcc}, numSV: {numSV}"
+            )
         else:
             lla = self._ecef_to_lla(ecefX, ecefY, ecefZ)
             result = {
@@ -316,9 +314,11 @@ class UBXParser:
             cno = data[offset + 2]
             elev = data[offset + 3]
             azim = int.from_bytes(data[offset + 4 : offset + 6], "little")
-            flags = data[offset + 8] # Warning this is a 4 byte field of flags, we're only using the first byte
+            flags = data[
+                offset + 8
+            ]  # Warning this is a 4 byte field of flags, we're only using the first byte
             # lowest 3 bits are a quality indicator and according to
-            # https://portal.u-blox.com/s/question/0D52p000097B0bFCAS/interpretation-of-signal-quality-indicator-in-ubxnavsat 
+            # https://portal.u-blox.com/s/question/0D52p000097B0bFCAS/interpretation-of-signal-quality-indicator-in-ubxnavsat
             # the 0-7 values from an ordered scale. So taking 3 as the threshold below.q
             satellites.append(
                 {
@@ -327,7 +327,7 @@ class UBXParser:
                     "signal": cno,
                     "elevation": elev,
                     "azimuth": azim,
-                    "used": (flags & 0x07) > 3, # lowest 3 bits are used for the status
+                    "used": (flags & 0x07) > 3,  # lowest 3 bits are used for the status
                     "flags": flags & 0x07,
                 }
             )
@@ -446,7 +446,9 @@ class UBXParser:
         ecefZ = int.from_bytes(data[12:16], "little", signed=True) / 100.0
         result = {}
         if ecefX == 0 or ecefY == 0 or ecefZ == 0:
-            logging.debug(f"nav_posecef zeroes: ecefX: {ecefX}, ecefY: {ecefY}, ecefZ: {ecefZ}")
+            logging.debug(
+                f"nav_posecef zeroes: ecefX: {ecefX}, ecefY: {ecefY}, ecefZ: {ecefZ}"
+            )
         else:
             lla = self._ecef_to_lla(ecefX, ecefY, ecefZ)
             result = {
@@ -544,7 +546,7 @@ if __name__ == "__main__":
                     if msg_type != "":
                         msg_types[msg_type] = msg_types.get(msg_type, 0) + 1
                     i += 1
-                    if i % 1000 == 0: 
+                    if i % 1000 == 0:
                         print(".", end="", flush=True)
             finally:
                 await parser.close()
