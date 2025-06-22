@@ -102,7 +102,13 @@ class UBXParser:
             return
 
         watch_json = json.dumps(
-            {"enable": True, "raw": 2, "json": False, "binary": True, "nmea": False},
+            {
+            "enable": True,
+            "raw": 2,
+            "json": False,
+            "binary": True,
+            "nmea": False
+            },
             separators=(",", ":"),
         )
         watch_command = f"?WATCH={watch_json}\r\n"
@@ -150,9 +156,7 @@ class UBXParser:
             except (ConnectionRefusedError, ConnectionResetError) as e:
                 attempt += 1
                 if attempt >= max_attempts:
-                    logger.error(
-                        f"Failed to connect after {max_attempts} attempts: {e}"
-                    )
+                    logger.error(f"Failed to connect after {max_attempts} attempts: {e}")
                     raise
 
     @classmethod
@@ -231,7 +235,7 @@ class UBXParser:
                 break
 
             await asyncio.sleep(0.1)  # Prevent tight loop
-
+        
         # Ensure cleanup when loop ends
         await self.close()
 
@@ -281,9 +285,7 @@ class UBXParser:
         numSV = data[47]
         result = {}
         if ecefX == 0 or ecefY == 0 or ecefZ == 0:
-            logging.debug(
-                f"nav_sol zeroes: ecefX: {ecefX}, ecefY: {ecefY}, ecefZ: {ecefZ}, pAcc: {pAcc}, numSV: {numSV}"
-            )
+            logging.debug(f"nav_sol zeroes: ecefX: {ecefX}, ecefY: {ecefY}, ecefZ: {ecefZ}, pAcc: {pAcc}, numSV: {numSV}")
         else:
             lla = self._ecef_to_lla(ecefX, ecefY, ecefZ)
             result = {
@@ -444,9 +446,7 @@ class UBXParser:
         ecefZ = int.from_bytes(data[12:16], "little", signed=True) / 100.0
         result = {}
         if ecefX == 0 or ecefY == 0 or ecefZ == 0:
-            logging.debug(
-                f"nav_posecef zeroes: ecefX: {ecefX}, ecefY: {ecefY}, ecefZ: {ecefZ}"
-            )
+            logging.debug(f"nav_posecef zeroes: ecefX: {ecefX}, ecefY: {ecefY}, ecefZ: {ecefZ}")
         else:
             lla = self._ecef_to_lla(ecefX, ecefY, ecefZ)
             result = {
