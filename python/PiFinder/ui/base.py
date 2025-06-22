@@ -17,6 +17,12 @@ from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
 from PiFinder.ui.marking_menus import MarkingMenu
 from PiFinder.catalogs import Catalogs
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
 
 
 class UIModule:
@@ -203,7 +209,9 @@ class UIModule:
                     (6, 1), str(self.fps), font=self.fonts.bold.font, fill=fg
                 )
             else:
-                self.draw.text((6, 1), self.title, font=self.fonts.bold.font, fill=fg)
+                self.draw.text(
+                    (6, 1), _(self.title), font=self.fonts.bold.font, fill=fg
+                )
             imu = self.shared_state.imu()
             moving = True if imu and imu["pos"] and imu["moving"] else False
 

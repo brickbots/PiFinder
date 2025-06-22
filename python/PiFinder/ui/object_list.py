@@ -30,6 +30,12 @@ from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     name_deduplicate,
 )
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
 
 
 class DisplayModes(Enum):
@@ -114,20 +120,20 @@ class UIObjectList(UITextMenu):
 
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
-                label="Sort",
+                label=_("Sort"),
                 callback=MarkingMenu(
                     up=MarkingMenuOption(),
                     left=MarkingMenuOption(
-                        label="Nearest", callback=self.mm_change_sort
+                        label=_("Nearest"), callback=self.mm_change_sort
                     ),
                     down=MarkingMenuOption(),
                     right=MarkingMenuOption(
-                        label="Standard", callback=self.mm_change_sort
+                        label=_("Standard"), callback=self.mm_change_sort
                     ),
                 ),
             ),
             down=MarkingMenuOption(),
-            right=MarkingMenuOption(label="Filter", menu_jump="filter_options"),
+            right=MarkingMenuOption(label=_("Filter"), menu_jump="filter_options"),
         )
 
         if self.current_sort == SortOrder.CATALOG_SEQUENCE:
@@ -183,13 +189,21 @@ class UIObjectList(UITextMenu):
         self.sort()
 
     def sort(self) -> None:
-        message = f"Sorting by\n{'number' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'nearby'}"
+        message = _(
+            _("Sorting by\n{sort_order}").format(
+                sort_order=_("RA")
+                if self.current_sort == SortOrder.RA
+                else _("Catalog")
+                if self.current_sort == SortOrder.CATALOG_SEQUENCE
+                else _("Nearby")
+            )
+        )
         self.message(message, 0.1)
         self.update()
 
         if self.current_sort == SortOrder.NEAREST:
             if self.shared_state.solution() is None:
-                self.message("No Solve Yet", 1)
+                self.message(_("No Solve Yet"), 1)
                 self.current_sort = SortOrder.CATALOG_SEQUENCE
             else:
                 if self.catalogs.catalog_filter:
@@ -209,7 +223,7 @@ class UIObjectList(UITextMenu):
         self._menu_items_sorted = self.nearby.refresh()
         if self._menu_items_sorted is None:
             self._menu_items_sorted = self._menu_items
-            self.message("No Solve Yet", 1)
+            self.message(_("No Solve Yet"), 1)
 
     def format_az_alt(self, point_az, point_alt):
         if point_az >= 0:
@@ -392,13 +406,13 @@ class UIObjectList(UITextMenu):
         if self.get_nr_of_menu_items() == 0:
             self.draw.text(
                 (begin_x, self.line_position(2)),
-                "No objects",
+                _("No objects"),  # TRANSLATORS: no objects in object list (1/2)
                 font=self.fonts.bold.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (begin_x, self.line_position(3)),
-                "match filter",
+                _("match filter"),  # TRANSLATORS: no objects in object list (2/2)
                 font=self.fonts.bold.font,
                 fill=self.colors.get(255),
             )
@@ -414,13 +428,24 @@ class UIObjectList(UITextMenu):
             intensity: int = int(64 + ((2.0 - self._current_item_index) * 32.0))
             self.draw.text(
                 (begin_x, self.line_position(0)),
-                f"{self.catalog_info_1} obj{f', {self.catalog_info_2}d old' if self.catalog_info_2 else ''}",
+                _("{catalog_info_1} obj").format(
+                    catalog_info_1=self.catalog_info_1
+                )  # TRANSLATORS: number of objects in object list
+                + _(", {catalog_info_2}d old").format(
+                    catalog_info_2=self.catalog_info_2
+                )
+                if self.catalog_info_2
+                else "",  # TRANSLATORS: suffix to number of objects in object list (indicating age of catalog data)
                 font=self.fonts.bold.font,
                 fill=self.colors.get(intensity),
             )
             self.draw.text(
                 (begin_x, self.line_position(1)),
-                f"Sort: {'Catalog' if self.current_sort == SortOrder.CATALOG_SEQUENCE else 'Nearby'}",
+                _("Sort: {sort_order}").format(
+                    sort_order=_("Catalog")
+                    if self.current_sort == SortOrder.CATALOG_SEQUENCE
+                    else _("Nearby")
+                ),
                 font=self.fonts.bold.font,
                 fill=self.colors.get(intensity),
             )
@@ -460,7 +485,7 @@ class UIObjectList(UITextMenu):
                 # draw first text
                 self.draw.text(
                     (begin_x, line_pos),
-                    item_name,
+                    item_name,  # TODO I18N: Does this need to be translated?
                     font=line_font.font,
                     fill=self.colors.get(line_color),
                 )
@@ -473,7 +498,7 @@ class UIObjectList(UITextMenu):
                     ):
                         self.last_item_index = self._current_item_index
                         self.item_text_scroll = self.ScrollTextLayout(
-                            item_text,
+                            item_text,  # TODO I18N: Does this need to be translated?
                             font=self.fonts.bold,
                             width=math.floor(
                                 (self.display.width - begin_x2) / line_font.width
@@ -486,7 +511,7 @@ class UIObjectList(UITextMenu):
                     # draw non-scrolling second text
                     self.draw.text(
                         (begin_x2, line_pos),
-                        item_text,
+                        item_text,  # TODO I18N: Does this need to be translated?
                         font=line_font.font,
                         fill=self.colors.get(line_color),
                     )
@@ -639,18 +664,18 @@ class UIObjectList(UITextMenu):
         marking_menu.select_none()
         menu_item.selected = True
 
-        if menu_item.label == "Nearest":
+        if menu_item.label == _("Nearest"):
             self.current_sort = SortOrder.NEAREST
             self.nearby_refresh()
             self.sort()
             return True
 
-        if menu_item.label == "Standard":
+        if menu_item.label == _("Standard"):
             self.current_sort = SortOrder.CATALOG_SEQUENCE
             self.sort()
             return True
 
-        if menu_item.label == "RA":
+        if menu_item.label == _("RA"):
             self.current_sort = SortOrder.RA
             self.sort()
             return True

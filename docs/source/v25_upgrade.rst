@@ -141,7 +141,8 @@ may need to write a new SD card.
 
 Once you have the new software running, you'll need to switch camera types to one of the
 sensors used in the v3.  PiFinder upgrade kits currently shipping will include the Sony
-StarSense imx462 sensor. From the main PiFinder menu:
+imx462 or imx296 sensor. The box your camera module came in should indicate the 
+type.  From the main PiFinder menu:
 
 * Scroll down and choose Settings
 

@@ -109,8 +109,8 @@ class CameraPI(CameraInterface):
             raw_capture = raw_capture.copy().view(np.uint16)[:, 256:-256]
 
         raw_capture = raw_capture.astype(np.float32)
-        #max_pixel = np.max(raw_capture)
-        max_pixel = pow(2,self.bit_depth) - 1
+        # max_pixel = np.max(raw_capture)
+        max_pixel = pow(2, self.bit_depth) - 1
 
         # if the whitepoint is already below 255, just cast it
         # as we don't want to create fake in-between values

@@ -12,6 +12,7 @@ class UIEquipment(UIModule):
     """
 
     __title__ = "Equipment"
+    # TODO __help__ for Equipment!
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -31,7 +32,7 @@ class UIEquipment(UIModule):
         if self.config_object.equipment.active_telescope is None:
             self.draw.text(
                 (10, 20),
-                "No telescope selected",
+                _("No telescope selected"),
                 font=self.fonts.small.font,
                 fill=self.colors.get(128),
             )
@@ -46,7 +47,7 @@ class UIEquipment(UIModule):
         if self.config_object.equipment.active_eyepiece is None:
             self.draw.text(
                 (10, 35),
-                "No eyepiece selected",
+                _("No eyepiece selected"),
                 font=self.fonts.small.font,
                 fill=self.colors.get(128),
             )
@@ -66,7 +67,9 @@ class UIEquipment(UIModule):
             if mag > 0:
                 self.draw.text(
                     (10, 50),
-                    f"Mag: {mag:.0f}x",
+                    _("Mag: {mag:.0f}x").format(
+                        mag=mag
+                    ),  # TRANSLATORS: Magnification e.g. 200x
                     font=self.fonts.base.font,
                     fill=self.colors.get(128),
                 )
@@ -76,7 +79,11 @@ class UIEquipment(UIModule):
                 tfov_minutes = int((tfov - tfov_degrees) * 60)
                 self.draw.text(
                     (10, 70),
-                    f"TFOV: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'",
+                    _(
+                        "TFOV: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
+                    ).format(  # TRANSLATORS: True field of View in degree and minutes
+                        tfov_degrees=tfov_degrees, tfov_minutes=tfov_minutes
+                    ),
                     font=self.fonts.base.font,
                     fill=self.colors.get(128),
                 )
@@ -85,7 +92,7 @@ class UIEquipment(UIModule):
 
         self.draw.text(
             (10, horiz_pos),
-            "Telescope...",
+            _("Telescope..."),
             font=self.fonts.large.font,
             fill=self.colors.get(192),
         )
@@ -96,7 +103,7 @@ class UIEquipment(UIModule):
 
         self.draw.text(
             (10, horiz_pos),
-            "Eyepiece...",
+            _("Eyepiece..."),
             font=self.fonts.large.font,
             fill=self.colors.get(192),
         )

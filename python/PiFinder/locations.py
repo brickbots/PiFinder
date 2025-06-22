@@ -48,7 +48,7 @@ class Locations:
         if location in self.locations:
             was_default = location.is_default
             self.locations.remove(location)
-            
+
             # Update default if needed
             if was_default and self.locations:
-                self.locations[0].is_default = True 
+                self.locations[0].is_default = True
