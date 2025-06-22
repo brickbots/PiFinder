@@ -52,7 +52,6 @@ Ensure that you're in new virtual environment and install the Python packages us
 cd PiFinder/python
 pip install -r requirements.txt
 pip install -r requirements_dev.txt
-pip install -r requirements_imu.txt
 ```
 
 The last line installs the additional packages required (just `numpy-quaternion`). PiFinder can be
