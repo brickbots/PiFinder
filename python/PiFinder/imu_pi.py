@@ -66,7 +66,7 @@ class Imu:
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
         self._flip_count = 0
         self.calibration = 0
-        self.avg_quat = np.quaternion(0, 0, 0, 0)  # Init to invalid quaternion
+        self.avg_quat = None  # Data type: np.quaternion(w, x, y, z)
         self.__moving = False
 
         self.last_sample_time = time.time()
@@ -174,7 +174,7 @@ def imu_monitor(shared_state, console_queue, log_queue):
         "move_start": None,
         "move_end": None,
         #"pos": [0, 0, 0],  # Corresponds to [Az, related_to_roll, Alt] --> **TO REMOVE LATER
-        "quat": np.quaternion(0, 0, 0, 0),  # Scalar-first quaternion (w, x, y, z) - Init to invalid quaternion
+        "quat": None,  # Scalar-first np.quaternion(w, x, y, z) - Init to invalid quaternion
         #"start_pos": [0, 0, 0],
         "status": 0,
     }
