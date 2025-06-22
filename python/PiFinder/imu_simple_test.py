@@ -134,7 +134,7 @@ class ImuSimple:
                 self.__moving = True
 
     def get_euler(self):
-        return list(self.quat_to_euler(self.avg_quat))
+        return list(self.quat_to_euler(self.avg_quat))  # !! Expect scalar-last but avg_quat is scalar-first??
 
 
 def imu_monitor():
@@ -146,7 +146,7 @@ def imu_monitor():
         "move_start": None,
         "move_end": None,
         "pos": [0, 0, 0],  # Corresponds to [Az, related_to_roll, Alt]
-        "quat": [0, 0, 0, 0],  # Scalar last quaternion (x, y, z, w)
+        "quat": [0, 0, 0, 0],  # Scalar-first quaternion (w, x, y, z)
         "start_pos": [0, 0, 0],
         "status": 0,
     }
