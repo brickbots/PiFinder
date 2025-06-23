@@ -56,11 +56,20 @@ class UISPMain(UITextMenu):
             )
             return
 
+        if self.ui_mode == "add_group":
+            self.draw.text(
+                (2, 20),
+                f"{_('Select Type'):^14}",
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
+            return
+
         if self.ui_mode == "join_group":
             if not self._menu_items:
                 self.draw.text(
                     (2, 20),
-                    f"{'No Groups':^14}",
+                    f"{_('No Groups'):^14}",
                     font=self.fonts.large.font,
                     fill=self.colors.get(255),
                 )
@@ -155,6 +164,29 @@ class UISPMain(UITextMenu):
             ]
         )
 
+    async def mode_add_group(self) -> None:
+        """
+        Set mode to add group
+        Connected, not in a group
+        Ask for new group type and create
+        Change menu items
+        """
+
+        self._menu_vertical_offset = 20
+        self.ui_mode = "add_group"
+        self.set_menu(
+            [
+                {
+                    "name": _("Hang"),
+                    "value": "Hang",
+                },
+                {
+                    "name": _("Race"),
+                    "value": "Race",
+                },
+            ]
+        )
+
     def mode_home(self) -> None:
         """
         Set mode to home
@@ -228,6 +260,10 @@ class UISPMain(UITextMenu):
             self.mode_disconnected()
             return
 
+        if self.ui_mode == "add_group":
+            self.mode_home()
+            return
+
         if self.ui_mode == "join_group":
             self.mode_home()
             return
@@ -247,6 +283,11 @@ class UISPMain(UITextMenu):
             self.sp_username = selected_item
             self.mode_disconnected()
             return
+
+        if self.ui_mode == "add_group":
+            group_type = selected_item_definition["value"]
+            await self.sp_client_object.add_group(GroupActivity(group_type))
+            self.mode_joined()
 
         if self.ui_mode == "join_group":
             group_to_join = selected_item_definition["value"]
@@ -287,6 +328,10 @@ class UISPMain(UITextMenu):
 
         if selected_item_definition["value"] == "username":
             self.mode_username()
+            return
+
+        if selected_item_definition["value"] == "add_group":
+            await self.mode_add_group()
             return
 
         if selected_item_definition["value"] == "join_group":

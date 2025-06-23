@@ -20,6 +20,8 @@ class EventType(Enum):
     POSITION = "POS"
     MARK = "MRK"
     MESSAGE = "MSG"
+    JOIN = "JOIN"
+    LEAVE = "LEAVE"
 
 
 class GroupActivity(Enum):
@@ -154,7 +156,7 @@ class ServerState:
         self.leave_group(observer)
         _group.observers.append(observer)
         observer.group = _group
-        _group.add_event(EventType.MESSAGE, (observer.name, "joined"))
+        _group.add_event(EventType.JOIN, (observer.name,))
 
         return _group
 
@@ -178,7 +180,7 @@ class ServerState:
             return False
 
         group = observer.group
-        group.add_event(EventType.MESSAGE, (observer.name, "left"))
+        group.add_event(EventType.LEAVE, (observer.name,))
 
         group.observers.remove(observer)
         observer.group = None

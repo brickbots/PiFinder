@@ -9,6 +9,7 @@ import asyncio
 import socket  # for exception
 from asyncio import StreamReader, StreamWriter
 from typing import Union
+from collections import deque
 import contextlib
 
 from PIL import Image, ImageDraw, ImageOps, ImageChops
@@ -45,6 +46,12 @@ class CommandResponse:
             return True
         else:
             return False
+
+
+@dataclass
+class ClientEvent:
+    event_type: EventType
+    payload: tuple[str, ...]
 
 
 @dataclass
@@ -135,6 +142,24 @@ class SPClient:
 
         self._reader_task: Union[asyncio.Task, None] = None
         self._state_lock = asyncio.Lock()
+
+        self._public_events: deque[ClientEvent] = field(
+            default_factory=lambda: deque(maxlen=2)
+        )
+
+    def publish_event(self, event: ClientEvent) -> None:
+        self._public_events.append(event)
+
+    def get_next_event(self) -> Union[ClientEvent, None]:
+        """
+        Returns the next oldest event after event_time
+        or None if no event is older than the requested
+        time
+        """
+        try:
+            return self._public_events.pop()
+        except IndexError:
+            return None
 
     async def connect(self, username: str, host: str, port: int = 8728) -> bool:
         async with self._state_lock:
@@ -236,6 +261,21 @@ class SPClient:
 
         return [ClientGroup.deserialize(x) for x in resp.payload]
 
+    async def sync_observers(self) -> bool:
+        """
+        Refresh internal list of observers from
+        server
+        """
+        resp = await self.send_command("observers")
+        if not resp:
+            self.group_observers = ClientObserverList()
+            return False
+
+        self.group_observers = ClientObserverList.from_list(
+            list([ClientObserver.deserialize(x) for x in resp.payload])
+        )
+        return True
+
     async def update_pos(self, ra: float, dec: float):
         await self.send_event(EventType.POSITION, [str(ra), str(dec)])
 
@@ -285,28 +325,37 @@ class SPClient:
 
     async def _handle_event(self, message: str):
         print(f"[Event] {message}")
-        event = message.split("|")
-        if len(event) < 2:
+        event_parts = message.split("|")
+        if len(event_parts) < 2:
             return
 
         try:
-            event_type = EventType(event[0])
+            event_type = EventType(event_parts[0])
         except ValueError:
             # unknown event
             return
 
-        if event_type == EventType.POSITION:
-            if len(event) != 4:
+        event = ClientEvent(event_type=event_type, payload=tuple(event_parts[1:]))
+
+        if event.event_type == EventType.POSITION:
+            if len(event.payload) != 3:
                 return
-            observer_name = event[1]
+            observer_name = event.payload[0]
             try:
-                ra = float(event[2])
-                dec = float(event[3])
+                ra = float(event.payload[1])
+                dec = float(event.payload[2])
             except ValueError:
                 # bad float
                 return
 
             self.group_observers.update_pos(observer_name, ra, dec)
+
+        if event.event_type in [EventType.JOIN, EventType.LEAVE]:
+            if len(event.payload) != 1:
+                return
+            observer_name = event.payload[0]
+            self.publish_event(event)
+            await self.sync_observers()
 
     async def send_event(self, event_type: EventType, payload: list[str]):
         if not self.writer:
@@ -332,7 +381,3 @@ class SPClient:
             return await asyncio.wait_for(future, timeout)
         except asyncio.TimeoutError:
             raise TimeoutError(f"No response received for command: {cmd!r}")
-
-    async def get_state(self):
-        async with self._state_lock:
-            return dict(self._state)

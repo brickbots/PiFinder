@@ -220,7 +220,6 @@ class Starfield:
         for x_pos, y_pos, observer_index in zip(
             markers["x_pos"], markers["y_pos"], markers["observer_index"]
         ):
-            print(f"VisObs:{observer_index}")
             observer_image = observer_list[observer_index].avatar_image
             """
             observer_image = ImageChops.multiply(

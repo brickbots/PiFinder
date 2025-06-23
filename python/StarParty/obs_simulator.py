@@ -13,7 +13,7 @@ from StarParty.sps_data import GroupActivity
 
 
 class SimulatedUser:
-    def __init__(self, host: str = "localhost", port: int = 8728):
+    def __init__(self, host: str = "spserver.local", port: int = 8728):
         self.client = SPClient()
         self.username = random.choice(sp_usernames)
 
@@ -81,7 +81,7 @@ class SimulatedUser:
         await self.client.update_pos(self.ra, self.dec)
 
 
-async def simulate_users(num_users: int, host: str = "localhost", port: int = 8728):
+async def simulate_users(num_users: int, host: str = "spserver.local", port: int = 8728):
     users = [SimulatedUser(host, port) for _ in range(num_users)]
     await asyncio.gather(*(user.start() for user in users))
 
@@ -93,7 +93,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num-users", type=int, default=10, help="Number of simulated users"
     )
-    parser.add_argument("--host", type=str, default="localhost", help="Server host")
+    parser.add_argument("--host", type=str, default="spserver.local", help="Server host")
     parser.add_argument("--port", type=int, default=8728, help="Server port")
     args = parser.parse_args()
 
