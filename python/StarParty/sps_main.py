@@ -114,7 +114,12 @@ async def handle_command(
             await writeline(writer, "\tack")
 
         elif command[0] == "observers":  # list observers with groups
-            for observer_string in server_state.list_observers():
+            group_name = None
+            if len(command) == 2:
+                # List observers for a specific group
+                group_name = command[1]
+
+            for observer_string in server_state.list_observers(group_name):
                 await writeline(writer, f"\t{observer_string}")
             await writeline(writer, "\tack")
 

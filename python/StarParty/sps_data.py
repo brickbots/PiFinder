@@ -200,14 +200,23 @@ class ServerState:
 
         return _ret_list
 
-    def list_observers(self):
+    def list_observers(self, group_name: Union[str, None] = None):
         """
-        Returns a list of tuples with observers
-        and group names
+        Returns a list of serialized observers
+
+        if group_name is not none, list only the specific group
         """
         _ret_list = []
-        for observer in self.observers:
-            _ret_list.append(observer.serialize())
+        if not group_name:
+            for observer in self.observers:
+                _ret_list.append(observer.serialize())
+        else:
+            group = next(
+                (group for group in self.groups if group.name == group_name), None
+            )
+            if group:
+                for observer in group.observers:
+                    _ret_list.append(observer.serialize())
 
         return _ret_list
 

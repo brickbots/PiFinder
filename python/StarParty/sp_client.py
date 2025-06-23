@@ -143,9 +143,7 @@ class SPClient:
         self._reader_task: Union[asyncio.Task, None] = None
         self._state_lock = asyncio.Lock()
 
-        self._public_events: deque[ClientEvent] = field(
-            default_factory=lambda: deque(maxlen=2)
-        )
+        self._public_events: deque[ClientEvent] = deque(maxlen=2)
 
     def publish_event(self, event: ClientEvent) -> None:
         self._public_events.append(event)
@@ -266,6 +264,7 @@ class SPClient:
         Refresh internal list of observers from
         server
         """
+        print("SYNC OBS")
         resp = await self.send_command("observers")
         if not resp:
             self.group_observers = ClientObserverList()
