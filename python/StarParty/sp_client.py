@@ -264,8 +264,10 @@ class SPClient:
         Refresh internal list of observers from
         server
         """
-        print("SYNC OBS")
-        resp = await self.send_command("observers")
+        if not self.current_group:
+            return True
+
+        resp = await self.send_command(f"observers|{self.current_group.name}")
         if not resp:
             self.group_observers = ClientObserverList()
             return False
@@ -314,7 +316,7 @@ class SPClient:
                     else:
                         current_response_lines.append(line)
                 else:
-                    await self._handle_event(line)
+                    asyncio.create_task(self._handle_event(line))
 
         except Exception as e:
             print(f"Reader error: {e}")
@@ -379,4 +381,6 @@ class SPClient:
         try:
             return await asyncio.wait_for(future, timeout)
         except asyncio.TimeoutError:
-            raise TimeoutError(f"No response received for command: {cmd!r}")
+            # raise TimeoutError(f"No response received for command: {cmd!r}")
+            print(f"No response received for command: {cmd!r}")
+            return CommandResponse("err", [])
