@@ -51,3 +51,19 @@ def get_altaz_from_q_hor2scope(q_hor2scope):
     az = np.pi - np.arctan2(scope_axis.y, scope_axis.x)
 
     return az, alt
+
+
+def get_quat_angular_diff(q1, q2):
+    """
+    Calculates the relative rotation between quaternions `q1` and `q2`.
+    Accounts for the double-cover property of quaternions so that if q1 and q2
+    are close, you get small angle d_theta rather than something around 2 * np.pi.
+    """
+    dq = q1.conj() * q2
+    d_theta = 2 * np.atan2(np.linalg.norm(dq.vec), dq.w)  # atan2 is more robust than using acos
+
+    # Account for double cover where q2 = -q1 gives d_theta = 2 * pi
+    if d_theta > np.pi:
+        d_theta = 2 * np.pi - d_theta
+    
+    return d_theta  # In radians
