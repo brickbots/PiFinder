@@ -14,6 +14,7 @@ import queue
 import time
 from PIL import Image
 from PiFinder import state_utils, utils
+from PiFinder.pointing_model import pointing_model 
 from typing import Tuple
 import logging
 
@@ -109,13 +110,13 @@ class CameraInterface:
                     imu_end = shared_state.imu()
 
                     # see if we moved during exposure
-                    reading_diff = 0
+                    pointing_diff = 0
                     if imu_start and imu_end:
-                        reading_diff = (
-                            abs(imu_start["pos"][0] - imu_end["pos"][0])
-                            + abs(imu_start["pos"][1] - imu_end["pos"][1])
-                            + abs(imu_start["pos"][2] - imu_end["pos"][2])
-                        )
+                        # Returns the pointing difference between successive IMU quaternions as
+                        # an angle (radians). Note that this also accounts for rotation around the 
+                        # scope axis.
+                        pointing_diff = pointing.get_quat_angular_diff(
+                            imu_start["quat"], imu_end["quat"])
 
                     camera_image.paste(base_image)
                     shared_state.set_last_image_metadata(
@@ -123,7 +124,7 @@ class CameraInterface:
                             "exposure_start": image_start_time,
                             "exposure_end": image_end_time,
                             "imu": imu_end,
-                            "imu_delta": reading_diff,
+                            "imu_delta": pointing_diff,  # Angle in radians
                         }
                     )
 
