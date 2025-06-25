@@ -60,7 +60,7 @@ def get_quat_angular_diff(q1, q2):
     are close, you get small angle d_theta rather than something around 2 * np.pi.
     """
     dq = q1.conj() * q2
-    d_theta = 2 * np.atan2(np.linalg.norm(dq.vec), dq.w)  # atan2 is more robust than using acos
+    d_theta = 2 * np.arctan2(np.linalg.norm(dq.vec), dq.w)  # atan2 is more robust than using acos
 
     # Account for double cover where q2 = -q1 gives d_theta = 2 * pi
     if d_theta > np.pi:
