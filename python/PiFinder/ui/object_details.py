@@ -217,6 +217,7 @@ class UIObjectDetails(UIModule):
         if solution:
             roll = solution["Roll"]
 
+        magnification = self.config_object.equipment.calc_magnification()
         self.object_image = cat_images.get_display_image(
             self.object,
             str(self.config_object.equipment.active_eyepiece),
@@ -224,6 +225,7 @@ class UIObjectDetails(UIModule):
             roll,
             self.display_class,
             burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
+            magnification=magnification,
         )
 
     def active(self):
