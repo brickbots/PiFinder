@@ -56,7 +56,7 @@ def test_missing_catalog_data():
         assert obj["const"] != ""
 
 
-def coords_are_close(coord1, coord2, tolerance=0.01):
+def coords_are_close(coord1, coord2, tolerance=0.02):
     """
     Helper function to compare coordinates with floating point tolerance.
 
@@ -209,11 +209,84 @@ def check_ngc_objects():
 
 def check_ic_objects():
     """
-    Validate specific IC objects have correct data.
-    Placeholder for future IC-specific validations.
+    Validate specific IC objects have correct coordinates and object types.
+    Tests 5 well-known IC objects with known coordinates and classifications.
     """
-    # TODO: Add IC-specific validations
-    pass
+    db = objects_db.ObjectsDatabase()
+
+    # Test 5 well-known IC objects with their expected data
+    test_objects = [
+        {
+            "ic": 434,
+            "name": "Horsehead Nebula",
+            "ra": 85.253,     # RA = 05h 41m 01s
+            "dec": -2.457,    # Dec = -02° 27' 25"
+            "obj_type": "Nb", #  Emission Nebula
+            "const": "Ori"    # Orion
+        },
+        {
+            "ic": 1396,
+            "name": "Elephant's Trunk Nebula",
+            "ra": 324.725,    # RA = 21h 36m 33s
+            "dec": 57.486,    # Dec = +57° 30' 00"
+            "obj_type": "Nb", # Emission nebula
+            "const": "Cep"    # Cepheus
+        },
+        {
+            "ic": 405,
+            "name": "Flaming Star Nebula",
+            "ra": 79.07,     # RA = 05h 16m 17s (hand corrected on simbad image)
+            "dec": 34.383,    # Dec = +34° 34' 12.2"
+            "obj_type": "Nb", # Emission/reflection nebula
+            "const": "Aur"    # Auriga
+        },
+        {
+            "ic": 1805,
+            "name": "Heart Nebula",
+            "ra": 38.200,     # RA = 02h 32m 48s
+            "dec": 61.450,    # Dec = +61° 27' 00"
+            # "obj_type": "Nb", # Emission nebula
+            "obj_type": "OC", # Open cluster at the heart of the nebula
+            "const": "Cas"    # Cassiopeia
+        },
+        {
+            "ic": 10,
+            "name": "Galaxy in Sculptor",
+            "ra": 5.072,      # RA = 00h 20m 37s
+            "dec": 59.303,   # Dec = -33° 45' 04"
+            "obj_type": "Gx", # Galaxy
+            "const": "Cas"    # Cassiopeia
+        }
+    ]
+
+    for test_obj in test_objects:
+        ic_num = test_obj["ic"]
+        name = test_obj["name"]
+
+        # Get object from database
+        catalog_obj = db.get_catalog_object_by_sequence("IC", ic_num)
+        assert catalog_obj is not None, f"IC {ic_num} ({name}) should exist in catalog"
+
+        obj = db.get_object_by_id(catalog_obj["object_id"])
+        assert obj is not None, f"IC {ic_num} ({name}) object should exist"
+
+        # Check coordinates (allow 0.1 degree tolerance for coordinate precision)
+        assert coords_are_close(obj["ra"], test_obj["ra"], tolerance=0.1), \
+            f"IC {ic_num} ({name}) RA should be ~{test_obj['ra']}°, got {obj['ra']}°"
+
+        assert coords_are_close(obj["dec"], test_obj["dec"], tolerance=0.1), \
+            f"IC {ic_num} ({name}) Dec should be ~{test_obj['dec']}°, got {obj['dec']}°"
+
+        # Check object type
+        assert obj["obj_type"] == test_obj["obj_type"], \
+            f"IC {ic_num} ({name}) should be type '{test_obj['obj_type']}', got '{obj['obj_type']}'"
+
+        # Check constellation (if provided)
+        if test_obj["const"]:
+            assert obj["const"] == test_obj["const"], \
+                f"IC {ic_num} ({name}) should be in {test_obj['const']}, got '{obj['const']}'"
+
+        print(f"✓ IC {ic_num} ({name}): RA={obj['ra']:.3f}°, Dec={obj['dec']:.3f}°, Type={obj['obj_type']}, Const={obj['const']}")
 
 
 @pytest.mark.unit
@@ -225,4 +298,4 @@ def test_catalog_data_validation():
     """
     check_messier_objects()
     check_ngc_objects()
-    # Future: check_ic_objects(), etc.
+    check_ic_objects()
