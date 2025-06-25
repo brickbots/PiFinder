@@ -13,10 +13,12 @@ import os
 import queue
 import time
 from PIL import Image
-from PiFinder import state_utils, utils
-from PiFinder.pointing_model import pointing_model 
+import numpy as np
 from typing import Tuple
 import logging
+
+from PiFinder import state_utils, utils
+import PiFinder.pointing_model.pointing_model as pointing
 
 logger = logging.getLogger("Camera.Interface")
 

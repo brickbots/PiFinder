@@ -18,7 +18,7 @@ from PiFinder import config
 from PiFinder import state_utils
 import PiFinder.calc_utils as calc_utils
 from PiFinder.multiproclogging import MultiprocLogging
-from PiFinder.pointing_model import pointing_model 
+import PiFinder.pointing_model.pointing_model as pointing
 
 #IMU_ALT = 2
 #IMU_AZ = 0
