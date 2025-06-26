@@ -11,7 +11,6 @@ from itertools import cycle
 from typing import Type, Union
 
 from PIL import Image, ImageDraw
-from PiFinder import utils
 from PiFinder.image_util import make_red
 from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
