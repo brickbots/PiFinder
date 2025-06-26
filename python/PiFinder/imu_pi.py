@@ -19,7 +19,7 @@ from PiFinder import config
 logger = logging.getLogger("IMU.pi")
 
 QUEUE_LEN = 10
-MOVE_CHECK_LEN = 2
+MOVE_CHECK_LEN = 2  # TODO: Doesn't seem to be used?
 
 
 class Imu:
@@ -66,7 +66,7 @@ class Imu:
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
         self._flip_count = 0
         self.calibration = 0
-        self.avg_quat = (0, 0, 0, 0)  # Data type: np.quaternion(w, x, y, z)
+        self.avg_quat = (0, 0, 0, 0)  # Scalar-first quaternion: (w, x, y, z)
         self.__moving = False
 
         self.last_sample_time = time.time()
@@ -132,6 +132,9 @@ class Imu:
         # Sometimes the quat output will 'flip' and change by 2.0+
         # from one reading to another.  This is clearly noise or an
         # artifact, so filter them out
+        #
+        # NOTE: This is probably due to the double-cover property of quaternions
+        # where +q and -q describe the same rotation?
         if self.__reading_diff > 1.5:
             self._flip_count += 1
             if self._flip_count > 10:
@@ -148,7 +151,9 @@ class Imu:
             # no flip
             self._flip_count = 0
 
-        self.avg_quat = quat  #np.quaternion(quat[0], quat[1], quat[2], quat[3])
+        # avg_quat is the latest quaternion measurement, not the average
+        self.avg_quat = quat
+        # Write over the quat_hisotry queue FIFO:
         if len(self.quat_history) == QUEUE_LEN:
             self.quat_history = self.quat_history[1:]
         self.quat_history.append(quat)
@@ -195,23 +200,24 @@ def imu_monitor(shared_state, console_queue, log_queue):
     while True:
         imu.update()
         imu_data["status"] = imu.calibration
+
+        # TODO: move_start and move_end don't seem to be used?
         if imu.moving():
             if not imu_data["moving"]:
                 logger.debug("IMU: move start")
                 imu_data["moving"] = True
                 imu_data["start_pos"] = imu_data["pos"]
                 imu_data["move_start"] = time.time()
-            imu_data["pos"] = imu.get_euler()  # Remove this later. Was used to store Euler angles
-            imu_data["quat"] = imu.avg_quat
-
+            imu_data["pos"] = imu.get_euler()  # TODO: Remove this later. Was used to store Euler angles
+            imu_data["quat"] = quaternion.from_float_array(imu.avg_quat)  # Scalar-first (w, x, y, z) 
         else:
             if imu_data["moving"]:
                 # If we were moving and we now stopped
                 logger.debug("IMU: move end")
                 imu_data["moving"] = False
-                imu_data["pos"] = imu.get_euler()
-                imu_data["quat"] = imu.avg_quat
                 imu_data["move_end"] = time.time()
+                imu_data["pos"] = imu.get_euler()
+                imu_data["quat"] = quaternion.from_float_array(imu.avg_quat)  # Scalar-first (w, x, y, z) 
 
         if not imu_calibrated:
             if imu_data["status"] == 3:

@@ -129,7 +129,7 @@ class CameraInterface:
                         # an angle (radians). Note that this also accounts for rotation around the 
                         # scope axis. Returns an angle in radians.
                         pointing_diff = pointing.get_quat_angular_diff(
-                            quaternion.from_float_array(imu_start["quat"]), quaternion.from_float_array(imu_end["quat"]))
+                            imu_start["quat"], imu_end["quat"])
 
                     camera_image.paste(base_image)
                     shared_state.set_last_image_metadata(
