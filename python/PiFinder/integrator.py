@@ -20,8 +20,8 @@ import PiFinder.calc_utils as calc_utils
 from PiFinder.multiproclogging import MultiprocLogging
 import PiFinder.pointing_model.pointing_model as pointing
 
-#IMU_ALT = 2
-#IMU_AZ = 0
+IMU_ALT = 2
+IMU_AZ = 0
 
 logger = logging.getLogger("IMU.Integrator")
 
@@ -75,7 +75,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 "q_hor2x": None,
             },
             "Roll_offset": 0,  # May/may not be needed - for experimentation
-            #"imu_pos": None,
+            "imu_pos": None,
             "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first) - TODO: Move to "imu"
             "Alt": None,  # Alt of scope
             "Az": None,
@@ -85,7 +85,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             "constellation": None,
         }
         cfg = config.Config()
-        """  Disable dependence of IMU on PiFinder type
+        #"""  Disable dependence of IMU on PiFinder type
         if (
             cfg.get_option("screen_direction") == "left"
             or cfg.get_option("screen_direction") == "flat"
@@ -95,7 +95,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             flip_alt_offset = True
         else:
             flip_alt_offset = False
-        """
+        #"""
             
         # This holds the last image solve position info
         # so we can delta for IMU updates
@@ -198,6 +198,10 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     if last_image_solve and last_image_solve["Alt"]:
                         # If we have alt, then we have a position/time
 
+                        # calc new alt/az - OLD method
+                        lis_imu = last_image_solve["imu_pos"]
+                        imu_pos = imu["pos"]
+
                         # calc new alt/az
                         #lis_imu = last_image_solve["imu_pos"]
                         lis_imu_quat = last_image_solve["imu_quat"]
@@ -206,7 +210,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                         q_x2imu = imu["quat"] 
                         #imu_pos = imu["pos"]
 
-                        if imu_moved(lis_imu_quat, q_x2imu):
+                        if imu_moved(lis_imu, imu_pos):
+                        #if imu_moved(lis_imu_quat, q_x2imu):
                             # Estimate camera pointing using IMU dead-reckoning
                             q_hor2x = last_image_solve["imu"]["q_hor2x"]
                             q_imu2cam = np.quaternion(1, 0, 0, 0)  # Identity so this could be removed later (TODO)
@@ -225,7 +230,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                             #q_hor2scope = q_hor2cam * q_cam2scope
                       
 
-                            """ DISABLE - Use quaternions
+                            #""" DISABLE - Use quaternions
                             alt_offset = imu_pos[IMU_ALT] - lis_imu[IMU_ALT]
                             if flip_alt_offset:
                                 alt_offset = ((alt_offset + 180) % 360 - 180) * -1
@@ -242,7 +247,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                             solved["camera_center"]["Az"] = (
                                 last_image_solve["camera_center"]["Az"] + az_offset
                             ) % 360
-                            """
+                            #"""
 
                             # N.B. Assumes that location hasn't changed since last solve
                             # Turn this into RA/DEC

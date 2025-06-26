@@ -68,7 +68,7 @@ def solver(
         "RA": None,
         "Dec": None,
         "Roll": None,
-        #"imu_pos": None,
+        "imu_pos": None,
         "solve_time": None,
         "cam_solve_time": 0,
     }
@@ -203,10 +203,10 @@ def solver(
                         solved["RA"] = solved["RA_target"]
                         solved["Dec"] = solved["Dec_target"]
                         if last_image_metadata["imu"]:
-                            #solved["imu_pos"] = last_image_metadata["imu"]["pos"]
+                            solved["imu_pos"] = last_image_metadata["imu"]["pos"]
                             solved["imu_quat"] = last_image_metadata["imu"]["quat"]
                         else:
-                            #solved["imu_pos"] = None
+                            solved["imu_pos"] = None
                             solved["imu_quat"] = None
                         solved["solve_time"] = time.time()
                         solved["cam_solve_time"] = solved["solve_time"]

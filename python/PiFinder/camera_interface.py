@@ -114,11 +114,18 @@ class CameraInterface:
                     # see if we moved during exposure
                     pointing_diff = 0.0
                     if imu_start and imu_end:
-                        # Returns the pointing difference between successive IMU quaternions as
-                        # an angle (radians). Note that this also accounts for rotation around the 
-                        # scope axis. Returns an angle in radians.
-                        pointing_diff = pointing.get_quat_angular_diff(
-                            imu_start["quat"], imu_end["quat"])
+                        pointing_diff = (
+                            abs(imu_start["pos"][0] - imu_end["pos"][0])
+                            + abs(imu_start["pos"][1] - imu_end["pos"][1])
+                            + abs(imu_start["pos"][2] - imu_end["pos"][2])
+                        )
+                    # # Quaternion version
+                    # if imu_start and imu_end:
+                    #     # Returns the pointing difference between successive IMU quaternions as
+                    #     # an angle (radians). Note that this also accounts for rotation around the 
+                    #     # scope axis. Returns an angle in radians.
+                    #     pointing_diff = pointing.get_quat_angular_diff(
+                    #         imu_start["quat"], imu_end["quat"])
 
                     camera_image.paste(base_image)
                     shared_state.set_last_image_metadata(
