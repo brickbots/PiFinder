@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-06-26 09:42+0200\n"
+"POT-Creation-Date: 2025-06-26 10:02+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: xxxxxx <xxxxx@xxxxx.com>\n"
 "Language: fr_FR\n"
@@ -191,139 +191,139 @@ msgstr "Telescope..."
 msgid "Eyepiece..."
 msgstr "Oculaire"
 
-#: PiFinder/ui/gpsstatus.py:31
+#: PiFinder/ui/gpsstatus.py:32
 msgid "Limited"
 msgstr "Limité"
 
 #. TRANSLATORS: there's no GPS lock but we accept the position due to low
 #. enough error value
-#: PiFinder/ui/gpsstatus.py:34
+#: PiFinder/ui/gpsstatus.py:35
 msgid "Basic"
 msgstr "Basique"
 
 #. TRANSLATORS: coarse GPS fix, does this happen?
-#: PiFinder/ui/gpsstatus.py:35
+#: PiFinder/ui/gpsstatus.py:36
 msgid "Accurate"
 msgstr "Fin"
 
 #. TRANSLATORS: GPS 2D Fix
-#: PiFinder/ui/gpsstatus.py:36
+#: PiFinder/ui/gpsstatus.py:37
 #, fuzzy
 msgid "Precise"
 msgstr "Récent"
 
-#: PiFinder/ui/gpsstatus.py:46
+#: PiFinder/ui/gpsstatus.py:47 PiFinder/ui/help/content.py:224
 #, fuzzy
 msgid "Save"
 msgstr "Sauvegarde Log"
 
-#: PiFinder/ui/gpsstatus.py:49
+#: PiFinder/ui/gpsstatus.py:50 PiFinder/ui/help/content.py:228
 msgid "Lock"
 msgstr "Vérouillé"
 
-#: PiFinder/ui/gpsstatus.py:80
+#: PiFinder/ui/gpsstatus.py:81
 #, fuzzy
 msgid "Location Name"
 msgstr "Localisation"
 
-#: PiFinder/ui/gpsstatus.py:83
+#: PiFinder/ui/gpsstatus.py:84
 msgid "Loc {number}"
 msgstr "Loc {number}"
 
-#: PiFinder/ui/gpsstatus.py:113
+#: PiFinder/ui/gpsstatus.py:114
 #, fuzzy
 msgid "Location saved"
 msgstr "Sauveg. Loc"
 
-#: PiFinder/ui/gpsstatus.py:123
+#: PiFinder/ui/gpsstatus.py:124
 msgid "Location locked"
 msgstr "Loc. vérouillée"
 
-#: PiFinder/ui/gpsstatus.py:128
+#: PiFinder/ui/gpsstatus.py:129
 msgid "{error:.1f} km"
 msgstr "{error:.1f} km"
 
-#: PiFinder/ui/gpsstatus.py:132
+#: PiFinder/ui/gpsstatus.py:133
 msgid "{error:.0f} m"
 msgstr "{error:.0f} m"
 
-#: PiFinder/ui/gpsstatus.py:155
+#: PiFinder/ui/gpsstatus.py:156
 msgid "GPS Locked"
 msgstr "GPS vérouillé"
 
-#: PiFinder/ui/gpsstatus.py:162
+#: PiFinder/ui/gpsstatus.py:163
 msgid "Lock boost on"
 msgstr "Boust du vérouillage"
 
-#: PiFinder/ui/gpsstatus.py:171
+#: PiFinder/ui/gpsstatus.py:172
 msgid "You are ready"
 msgstr "Vous êtes prêt"
 
-#: PiFinder/ui/gpsstatus.py:178
+#: PiFinder/ui/gpsstatus.py:179
 #, fuzzy
 msgid "to observe!"
 msgstr "A observé"
 
-#: PiFinder/ui/gpsstatus.py:186
+#: PiFinder/ui/gpsstatus.py:187
 msgid "Stay on this screen"
 msgstr "Rester sur cet écran"
 
-#: PiFinder/ui/gpsstatus.py:195
+#: PiFinder/ui/gpsstatus.py:196
 msgid "for quicker lock"
 msgstr ""
 
-#: PiFinder/ui/gpsstatus.py:206
+#: PiFinder/ui/gpsstatus.py:207
 #, fuzzy
 msgid "Lock Type:"
 msgstr "Type de Monture"
 
-#: PiFinder/ui/gpsstatus.py:213 PiFinder/ui/menu_structure.py:432
+#: PiFinder/ui/gpsstatus.py:214 PiFinder/ui/menu_structure.py:432
 #: PiFinder/ui/menu_structure.py:464
 msgid "None"
 msgstr "Aucun"
 
-#: PiFinder/ui/gpsstatus.py:226
+#: PiFinder/ui/gpsstatus.py:227
 msgid "Sats seen/used:"
 msgstr "Sats vus/utilisés:"
 
-#: PiFinder/ui/gpsstatus.py:242
+#: PiFinder/ui/gpsstatus.py:243
 msgid "{square} Toggle Details"
 msgstr "{square} Détails basculés"
 
-#: PiFinder/ui/gpsstatus.py:251
+#: PiFinder/ui/gpsstatus.py:252
 msgid "Sats seen/used: {sats_seen}/{sats_used}"
 msgstr "Sats vus/utilisés: {sats_seen}/{sats_used}"
 
-#: PiFinder/ui/gpsstatus.py:262
+#: PiFinder/ui/gpsstatus.py:263
 msgid "Error: {error}"
 msgstr "Erreur: {error}"
 
-#: PiFinder/ui/gpsstatus.py:273
+#: PiFinder/ui/gpsstatus.py:274
 msgid "Lock:  {locktype}"
 msgstr "Vérouiullage:  {locktype}"
 
-#: PiFinder/ui/gpsstatus.py:274
+#: PiFinder/ui/gpsstatus.py:275
 #, fuzzy
 msgid "No"
 msgstr "Aucun"
 
-#: PiFinder/ui/gpsstatus.py:286
+#: PiFinder/ui/gpsstatus.py:287
 msgid "Lat:   {latitude:.5f}"
 msgstr "Lat:   {latitude:.5f}"
 
-#: PiFinder/ui/gpsstatus.py:294
+#: PiFinder/ui/gpsstatus.py:295
 msgid "Lon:   {longitude:.5f}"
 msgstr "Lon:   {longitude:.5f}"
 
-#: PiFinder/ui/gpsstatus.py:302
+#: PiFinder/ui/gpsstatus.py:303
 msgid "Alt:   {altitude:.1f} m"
 msgstr "Alt:   {altitude:.1f} m"
 
-#: PiFinder/ui/gpsstatus.py:311
+#: PiFinder/ui/gpsstatus.py:312
 msgid "Time:  {time}"
 msgstr "Temps:  {time}"
 
-#: PiFinder/ui/gpsstatus.py:320
+#: PiFinder/ui/gpsstatus.py:321
 msgid "From:  {location_source}"
 msgstr "Depuis:  {location_source}"
 
@@ -431,7 +431,7 @@ msgstr "Etoile"
 msgid "Focus"
 msgstr "Mise au point"
 
-#: PiFinder/ui/help/content.py:27 PiFinder/ui/help/content.py:52
+#: PiFinder/ui/help/content.py:52 PiFinder/ui/help/content.py:78
 #: PiFinder/ui/menu_structure.py:46
 #, fuzzy
 msgid "Align"
@@ -869,7 +869,7 @@ msgstr "Réglages"
 msgid "Set Time"
 msgstr "Mise en Sommeil"
 
-#: PiFinder/ui/help/content.py:35 PiFinder/ui/menu_structure.py:975
+#: PiFinder/ui/help/content.py:60 PiFinder/ui/menu_structure.py:975
 msgid "Reset"
 msgstr "RàZ"
 
@@ -1154,20 +1154,20 @@ msgstr ""
 msgid "󰍴  Delete/Previous"
 msgstr ""
 
-#: PiFinder/ui/help/content.py:19
+#: PiFinder/ui/help/content.py:44
 msgid "ALIGN HELP"
 msgstr "AIDE ALIGN"
 
-#: PiFinder/ui/help/content.py:23 PiFinder/ui/help/content.py:56
-#: PiFinder/ui/help/content.py:82
+#: PiFinder/ui/help/content.py:48 PiFinder/ui/help/content.py:82
+#: PiFinder/ui/help/content.py:100
 msgid "Zoom"
 msgstr "Zoom"
 
-#: PiFinder/ui/help/content.py:31
+#: PiFinder/ui/help/content.py:56
 msgid "Abort"
 msgstr "Arrêt"
 
-#: PiFinder/ui/help/content.py:38
+#: PiFinder/ui/help/content.py:63
 msgid ""
 "The Align screen is for telling the PiFinder where in the sky your "
 "telescope is pointing so that it can make sure DSOs end up in your "
@@ -1182,100 +1182,48 @@ msgstr ""
 " pour sélectionner l'étoile visée. Appuyez à nouveau sur Carré pour "
 "valider l'alignement."
 
-#: PiFinder/ui/help/content.py:48 PiFinder/ui/help/content.py:62
+#: PiFinder/ui/help/content.py:74
 msgid "CAMERA HELP"
 msgstr "AIDE CAMERA"
 
-#: PiFinder/ui/help/content.py:59 PiFinder/ui/help/content.py:69
-#: PiFinder/ui/help/content.py:88 PiFinder/ui/help/content.py:98
-#: PiFinder/ui/help/content.py:122 PiFinder/ui/help/content.py:132
-#: PiFinder/ui/help/content.py:156 PiFinder/ui/help/content.py:166
-#: PiFinder/ui/help/content.py:190 PiFinder/ui/help/content.py:200
-#: PiFinder/ui/help/content.py:201 PiFinder/ui/help/content.py:212
-#: PiFinder/ui/help/content.py:240 PiFinder/ui/help/content.py:250
-#: PiFinder/ui/help/content.py:251 PiFinder/ui/help/content.py:262
-#: PiFinder/ui/help/content.py:263 PiFinder/ui/help/content.py:274
-#: PiFinder/ui/help/loader.py:41 PiFinder/ui/help/loader.py:45
-#: PiFinder/ui/help/loader.py:46 PiFinder/ui/help/loader.py:51
-msgid "more"
-msgstr "suite"
-
-#: PiFinder/ui/help/content.py:65
+#: PiFinder/ui/help/content.py:85
 msgid "CAMERA shows a live preview with zoom and align features"
 msgstr "CAMÉRA montre un aperçu live avec zoom et alignement"
 
-#: PiFinder/ui/help/content.py:78 PiFinder/ui/help/content.py:91
+#: PiFinder/ui/help/content.py:96
 msgid "CHART HELP"
 msgstr "AIDE CARTE"
 
-#: PiFinder/ui/help/content.py:85
+#: PiFinder/ui/help/content.py:103
 msgid "A star chart with constellation lines and DSOs plotted"
 msgstr "Carte stellaire avec constellations et DSO affichés"
 
-#: PiFinder/ui/help/content.py:94
+#: PiFinder/ui/help/content.py:106
 msgid "You can set the brightness of display elements in the settings menu"
 msgstr "Réglez la luminosité des éléments d'affichage dans les paramètres"
 
-#: PiFinder/ui/help/content.py:107 PiFinder/ui/help/content.py:125
-msgid "LOGGING HELP"
-msgstr "AIDE LOG"
-
-#: PiFinder/ui/help/content.py:111
-msgid "Choose"
-msgstr "Choisir"
-
-#: PiFinder/ui/help/content.py:115 PiFinder/ui/help/content.py:149
-#: PiFinder/ui/help/content.py:229
-msgid "Select"
-msgstr "Choisir"
-
-#: PiFinder/ui/help/content.py:119
-msgid "Stars"
-msgstr "Étoiles"
-
-#: PiFinder/ui/help/content.py:128
-msgid ""
-"Writes an entry to the log of your observing session. Set ratings and "
-"choose SAVE"
-msgstr ""
-"Écrit une entrée dans le journal de votre session d'observation. Réglez "
-"les notes et choisissez SAVE"
-
-#: PiFinder/ui/help/content.py:141 PiFinder/ui/help/content.py:159
-msgid "MENU HELP"
-msgstr "AIDE MENU"
-
-#: PiFinder/ui/help/content.py:145 PiFinder/ui/help/content.py:179
-#: PiFinder/ui/help/content.py:225
-msgid "Scroll"
-msgstr "Défiler"
-
-#: PiFinder/ui/help/content.py:153 PiFinder/ui/help/content.py:233
-msgid "Back"
-msgstr "Retour"
-
-#: PiFinder/ui/help/content.py:162
-msgid "Thank you for using a PiFinder"
-msgstr "Merci d'utiliser un PiFinder"
-
-#: PiFinder/ui/help/content.py:175 PiFinder/ui/help/content.py:193
-#: PiFinder/ui/help/content.py:205
+#: PiFinder/ui/help/content.py:121
 msgid "OBJECT DETAILS"
 msgstr "DETAIL OBJET"
 
-#: PiFinder/ui/help/content.py:183
+#: PiFinder/ui/help/content.py:125 PiFinder/ui/help/content.py:154
+#: PiFinder/ui/help/content.py:276 PiFinder/ui/help/content.py:298
+msgid "Scroll"
+msgstr "Défiler"
+
+#: PiFinder/ui/help/content.py:129
 msgid "Log"
 msgstr "Journal"
 
-#: PiFinder/ui/help/content.py:187
+#: PiFinder/ui/help/content.py:133
 msgid "Switch Info"
 msgstr "Changer"
 
-#: PiFinder/ui/help/content.py:196
+#: PiFinder/ui/help/content.py:136
 msgid "The OBJECT DETAILS page shows info on the currently selected object"
 msgstr "La page DÉTAIL OBJET montre les infos sur l'objet sélectionné"
 
-#: PiFinder/ui/help/content.py:208
+#: PiFinder/ui/help/content.py:139
 msgid ""
 "Use Square to cycle through catalog details, image and push-to "
 "instructions"
@@ -1283,26 +1231,106 @@ msgstr ""
 "Utilisez Carré pour parcourir les détails du catalogue, l'image et les "
 "instructions de pointage"
 
-#: PiFinder/ui/help/content.py:221 PiFinder/ui/help/content.py:243
-#: PiFinder/ui/help/content.py:255 PiFinder/ui/help/content.py:267
+#: PiFinder/ui/help/content.py:150
 msgid "OBJECT LIST"
 msgstr "LISTE OBJETS"
 
-#: PiFinder/ui/help/content.py:237
+#: PiFinder/ui/help/content.py:158 PiFinder/ui/help/content.py:198
+#: PiFinder/ui/help/content.py:254 PiFinder/ui/help/content.py:302
+msgid "Select"
+msgstr "Choisir"
+
+#: PiFinder/ui/help/content.py:162 PiFinder/ui/help/content.py:258
+#: PiFinder/ui/help/content.py:306
+msgid "Back"
+msgstr "Retour"
+
+#: PiFinder/ui/help/content.py:166
 msgid "Jump To"
 msgstr "Aller à"
 
-#: PiFinder/ui/help/content.py:246
+#: PiFinder/ui/help/content.py:169
 msgid "The OBJECT LIST is sortable via the Radial Menu and you can"
 msgstr "La LISTE OBJETS se trie via le Menu Radial et vous pouvez"
 
-#: PiFinder/ui/help/content.py:258
+#: PiFinder/ui/help/content.py:172
 msgid "cycle thru object info using the Square key"
 msgstr "parcourir les infos objet avec la touche Carré"
 
-#: PiFinder/ui/help/content.py:270
+#: PiFinder/ui/help/content.py:175
 msgid "Type a number to jump to a specific object or use Square to exit"
 msgstr "Tapez un numéro pour aller à un objet ou Carré pour sortir"
+
+#: PiFinder/ui/help/content.py:190
+msgid "LOGGING HELP"
+msgstr "AIDE LOG"
+
+#: PiFinder/ui/help/content.py:194 PiFinder/ui/help/content.py:250
+msgid "Choose"
+msgstr "Choisir"
+
+#: PiFinder/ui/help/content.py:202
+msgid "Stars"
+msgstr "Étoiles"
+
+#: PiFinder/ui/help/content.py:205
+msgid ""
+"Writes an entry to the log of your observing session. Set ratings and "
+"choose SAVE"
+msgstr ""
+"Écrit une entrée dans le journal de votre session d'observation. Réglez "
+"les notes et choisissez SAVE"
+
+#: PiFinder/ui/help/content.py:220
+#, fuzzy
+msgid "GPS STATUS"
+msgstr "Status du GPS"
+
+#: PiFinder/ui/help/content.py:232
+#, fuzzy
+msgid "Toggle Details"
+msgstr "{square} Détails basculés"
+
+#: PiFinder/ui/help/content.py:235
+msgid ""
+"Shows GPS satellite lock status and location accuracy. Use Save to store "
+"the current location or Lock to use manual coordinates."
+msgstr ""
+
+#: PiFinder/ui/help/content.py:246
+#, fuzzy
+msgid "EQUIPMENT"
+msgstr "Equipment"
+
+#: PiFinder/ui/help/content.py:261
+msgid ""
+"Select your telescope and eyepiece to calculate magnification and field "
+"of view. This affects object visibility and targeting accuracy."
+msgstr ""
+
+#: PiFinder/ui/help/content.py:272
+#, fuzzy
+msgid "STATUS"
+msgstr "Redémarrage"
+
+#: PiFinder/ui/help/content.py:279
+msgid ""
+"Displays system information including GPS status, sensor readings, and "
+"hardware configuration."
+msgstr ""
+
+#: PiFinder/ui/help/content.py:294
+msgid "MENU HELP"
+msgstr "AIDE MENU"
+
+#: PiFinder/ui/help/content.py:309
+msgid "Thank you for using a PiFinder"
+msgstr "Merci d'utiliser un PiFinder"
+
+#: PiFinder/ui/help/loader.py:41 PiFinder/ui/help/loader.py:45
+#: PiFinder/ui/help/loader.py:46 PiFinder/ui/help/loader.py:51
+msgid "more"
+msgstr "suite"
 
 #~ msgid "Language: Spanish"
 #~ msgstr "Langage: Espagnol"

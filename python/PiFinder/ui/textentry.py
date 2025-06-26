@@ -82,8 +82,10 @@ class UITextEntry(UIModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Get mode from item_definition
-        self.text_entry_mode = self.item_definition.get("mode") == "text_entry"
+        # Get mode from item_definition and store it explicitly
+        # This prevents any issues with item_definition being modified later
+        self._mode = self.item_definition.get("mode")
+        self.text_entry_mode = self._mode == "text_entry"
         self.current_text = self.item_definition.get("initial_text", "")
         self.callback = self.item_definition.get("callback")
 
@@ -284,12 +286,18 @@ class UITextEntry(UIModule):
     def update(self, force=False):
         self.draw.rectangle((0, 0, 128, 128), fill=self.colors.get(0))
 
+        # Use the stored mode instead of recalculating from item_definition
+        # This ensures consistency and prevents flickering
+        # The text_entry_mode is set once in __init__ and should not change
+
         # Draw appropriate header based on mode
         if self.text_entry_mode:
-            # Pure text entry mode
+            # Pure text entry mode - use the name from item_definition
+            # This ensures consistency with what the standard title bar would show
+            title_text = self.item_definition.get("name", "Text Entry")
             self.draw.text(
                 (7, 0),
-                _("Enter Location Name:"),
+                title_text,
                 font=self.fonts.base.font,
                 fill=self.half_red,
             )
