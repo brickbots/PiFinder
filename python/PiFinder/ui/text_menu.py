@@ -149,7 +149,9 @@ class UITextMenu(UIModule):
                     )
 
                 # Icon?
-                if icon := self.get_item(item_text).get("icon"):
+                if self.get_item(item_text) and (
+                    icon := self.get_item(item_text).get("icon")
+                ):
                     _red_icon = ImageChops.multiply(
                         icon,
                         Image.new(
