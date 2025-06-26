@@ -207,8 +207,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                         lis_imu_quat = last_image_solve["imu_quat"]
 
                         # Get latest IMU meas: quaternion rot. of IMU rel. to some frame X
+                        assert isinstance(imu["quat"] , quaternion.quaternion), "Expecting quaternion.quaternion type"  # TODO: Remove later
                         q_x2imu = imu["quat"] 
-                        #imu_pos = imu["pos"]
 
                         if imu_moved(lis_imu, imu_pos):
                         #if imu_moved(lis_imu_quat, q_x2imu):
