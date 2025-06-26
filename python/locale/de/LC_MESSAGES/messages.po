@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-06-26 09:07+0200\n"
+"POT-Creation-Date: 2025-06-26 09:42+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: Jens Scheidtmann\n"
 "Language: de_DE\n"
@@ -1094,19 +1094,17 @@ msgid "󰍴  Delete/Previous"
 msgstr "󰍴  Löschen/Zurück"
 
 #: PiFinder/ui/help/content.py:19
-#, fuzzy
 msgid "ALIGN HELP"
-msgstr "Justiert!"
+msgstr "HILFE ALIGN"
 
 #: PiFinder/ui/help/content.py:23 PiFinder/ui/help/content.py:56
 #: PiFinder/ui/help/content.py:82
 msgid "Zoom"
-msgstr ""
+msgstr "Zoom"
 
 #: PiFinder/ui/help/content.py:31
-#, fuzzy
 msgid "Abort"
-msgstr "Sortieren"
+msgstr "Abbruch"
 
 #: PiFinder/ui/help/content.py:38
 msgid ""
@@ -1117,11 +1115,15 @@ msgid ""
 " your telescope is pointing to. When finished press Square again to set "
 "the alignment."
 msgstr ""
+"Der Align-Bildschirm teilt dem PiFinder mit, wohin Ihr Teleskop am Himmel"
+" zeigt, damit DSOs in Ihrem Okular erscheinen. Richten Sie auf einen "
+"erkennbaren Stern, drücken Sie Quadrat zum Starten und wählen Sie mit den"
+" Pfeiltasten den Stern aus. Drücken Sie erneut Quadrat, um die "
+"Ausrichtung zu setzen."
 
 #: PiFinder/ui/help/content.py:48 PiFinder/ui/help/content.py:62
-#, fuzzy
 msgid "CAMERA HELP"
-msgstr "Belichtungsz."
+msgstr "HILFE KAMERA"
 
 #: PiFinder/ui/help/content.py:59 PiFinder/ui/help/content.py:69
 #: PiFinder/ui/help/content.py:88 PiFinder/ui/help/content.py:98
@@ -1135,117 +1137,113 @@ msgstr "Belichtungsz."
 #: PiFinder/ui/help/loader.py:41 PiFinder/ui/help/loader.py:45
 #: PiFinder/ui/help/loader.py:46 PiFinder/ui/help/loader.py:51
 msgid "more"
-msgstr ""
+msgstr "weiter"
 
 #: PiFinder/ui/help/content.py:65
 msgid "CAMERA shows a live preview with zoom and align features"
-msgstr ""
+msgstr "KAMERA zeigt Live-Vorschau mit Zoom und Ausrichtung"
 
 #: PiFinder/ui/help/content.py:78 PiFinder/ui/help/content.py:91
-#, fuzzy
 msgid "CHART HELP"
-msgstr "Karte"
+msgstr "HILFE KARTE"
 
 #: PiFinder/ui/help/content.py:85
 msgid "A star chart with constellation lines and DSOs plotted"
-msgstr ""
+msgstr "Sternkarte mit Sternbildlinien und eingezeichneten DSOs"
 
 #: PiFinder/ui/help/content.py:94
 msgid "You can set the brightness of display elements in the settings menu"
-msgstr ""
+msgstr "Stellen Sie die Helligkeit der Anzeige im Einstellungsmenü ein"
 
 #: PiFinder/ui/help/content.py:107 PiFinder/ui/help/content.py:125
 msgid "LOGGING HELP"
-msgstr ""
+msgstr "HILFE LOG"
 
 #: PiFinder/ui/help/content.py:111
-#, fuzzy
 msgid "Choose"
-msgstr "Konsole"
+msgstr "Wählen"
 
 #: PiFinder/ui/help/content.py:115 PiFinder/ui/help/content.py:149
 #: PiFinder/ui/help/content.py:229
-#, fuzzy
 msgid "Select"
-msgstr "Alle anwähl."
+msgstr "Wählen"
 
 #: PiFinder/ui/help/content.py:119
-#, fuzzy
 msgid "Stars"
-msgstr "Stern"
+msgstr "Sterne"
 
 #: PiFinder/ui/help/content.py:128
 msgid ""
 "Writes an entry to the log of your observing session. Set ratings and "
 "choose SAVE"
 msgstr ""
+"Schreibt einen Eintrag in das Log Ihrer Beobachtungssitzung. Bewertungen "
+"setzen und SAVE wählen"
 
 #: PiFinder/ui/help/content.py:141 PiFinder/ui/help/content.py:159
 msgid "MENU HELP"
-msgstr ""
+msgstr "HILFE MENÜ"
 
 #: PiFinder/ui/help/content.py:145 PiFinder/ui/help/content.py:179
 #: PiFinder/ui/help/content.py:225
-#, fuzzy
 msgid "Scroll"
-msgstr "Scrollgeschwindigkeit"
+msgstr "Scrollen"
 
 #: PiFinder/ui/help/content.py:153 PiFinder/ui/help/content.py:233
-#, fuzzy
 msgid "Back"
-msgstr "Geht so"
+msgstr "Zurück"
 
 #: PiFinder/ui/help/content.py:162
 msgid "Thank you for using a PiFinder"
-msgstr ""
+msgstr "Danke, dass Sie einen PiFinder verwenden"
 
 #: PiFinder/ui/help/content.py:175 PiFinder/ui/help/content.py:193
 #: PiFinder/ui/help/content.py:205
-#, fuzzy
 msgid "OBJECT DETAILS"
-msgstr "Objekte"
+msgstr "OBJEKT DETAIL"
 
 #: PiFinder/ui/help/content.py:183
-#, fuzzy
 msgid "Log"
-msgstr "Loggen"
+msgstr "Log"
 
 #: PiFinder/ui/help/content.py:187
-#, fuzzy
 msgid "Switch Info"
-msgstr "andere Kamera"
+msgstr "Info wechseln"
 
 #: PiFinder/ui/help/content.py:196
 msgid "The OBJECT DETAILS page shows info on the currently selected object"
-msgstr ""
+msgstr "Die OBJEKT DETAIL Seite zeigt Infos zum gewählten Objekt"
 
 #: PiFinder/ui/help/content.py:208
 msgid ""
 "Use Square to cycle through catalog details, image and push-to "
 "instructions"
 msgstr ""
+"Verwenden Sie Quadrat, um durch Katalogdetails, Bild und "
+"Einstellanweisungen zu wechseln"
 
 #: PiFinder/ui/help/content.py:221 PiFinder/ui/help/content.py:243
 #: PiFinder/ui/help/content.py:255 PiFinder/ui/help/content.py:267
-#, fuzzy
 msgid "OBJECT LIST"
-msgstr "Objekte"
+msgstr "OBJEKT LISTE"
 
 #: PiFinder/ui/help/content.py:237
 msgid "Jump To"
-msgstr ""
+msgstr "Gehe zu"
 
 #: PiFinder/ui/help/content.py:246
 msgid "The OBJECT LIST is sortable via the Radial Menu and you can"
-msgstr ""
+msgstr "Die OBJEKT LISTE ist über das Radialmenü sortierbar und Sie können"
 
 #: PiFinder/ui/help/content.py:258
 msgid "cycle thru object info using the Square key"
-msgstr ""
+msgstr "mit der Quadrat-Taste durch Objektinfos wechseln"
 
 #: PiFinder/ui/help/content.py:270
 msgid "Type a number to jump to a specific object or use Square to exit"
 msgstr ""
+"Geben Sie eine Zahl ein, um zu einem Objekt zu springen oder Quadrat zum "
+"Beenden"
 
 #~ msgid "HELP"
 #~ msgstr "HILFE"
