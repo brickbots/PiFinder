@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-05-04 15:37+0200\n"
+"POT-Creation-Date: 2025-06-26 09:07+0200\n"
 "PO-Revision-Date: 2025-01-22 17:58+0100\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es\n"
@@ -22,27 +22,27 @@ msgstr ""
 msgid "No Image"
 msgstr ""
 
-#: PiFinder/obj_types.py:7 PiFinder/ui/menu_structure.py:362
+#: PiFinder/obj_types.py:7 PiFinder/ui/menu_structure.py:368
 msgid "Galaxy"
 msgstr ""
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:8 PiFinder/ui/menu_structure.py:366
+#: PiFinder/obj_types.py:8 PiFinder/ui/menu_structure.py:372
 msgid "Open Cluster"
 msgstr ""
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:9 PiFinder/ui/menu_structure.py:374
+#: PiFinder/obj_types.py:9 PiFinder/ui/menu_structure.py:380
 msgid "Globular"
 msgstr ""
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:10 PiFinder/ui/menu_structure.py:378
+#: PiFinder/obj_types.py:10 PiFinder/ui/menu_structure.py:384
 msgid "Nebula"
 msgstr ""
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:11 PiFinder/ui/menu_structure.py:386
+#: PiFinder/obj_types.py:11 PiFinder/ui/menu_structure.py:392
 msgid "Dark Nebula"
 msgstr ""
 
@@ -57,12 +57,12 @@ msgid "Cluster + Neb"
 msgstr ""
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:14 PiFinder/ui/menu_structure.py:406
+#: PiFinder/obj_types.py:14 PiFinder/ui/menu_structure.py:412
 msgid "Asterism"
 msgstr ""
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:15 PiFinder/ui/menu_structure.py:402
+#: PiFinder/obj_types.py:15 PiFinder/ui/menu_structure.py:408
 msgid "Knot"
 msgstr ""
 
@@ -77,7 +77,7 @@ msgid "Double star"
 msgstr ""
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:18 PiFinder/ui/menu_structure.py:390
+#: PiFinder/obj_types.py:18 PiFinder/ui/menu_structure.py:396
 msgid "Star"
 msgstr ""
 
@@ -87,12 +87,12 @@ msgid "Unkn"
 msgstr ""
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:20 PiFinder/ui/menu_structure.py:410
+#: PiFinder/obj_types.py:20 PiFinder/ui/menu_structure.py:416
 msgid "Planet"
 msgstr ""
 
 #. TRANSLATORS: Object type
-#: PiFinder/obj_types.py:21 PiFinder/ui/menu_structure.py:414
+#: PiFinder/obj_types.py:21 PiFinder/ui/menu_structure.py:420
 msgid "Comet"
 msgstr ""
 
@@ -113,11 +113,11 @@ msgstr ""
 msgid "No Solve Yet"
 msgstr ""
 
-#: PiFinder/ui/align.py:397 PiFinder/ui/object_details.py:461
+#: PiFinder/ui/align.py:397 PiFinder/ui/object_details.py:462
 msgid "Aligning..."
 msgstr ""
 
-#: PiFinder/ui/align.py:405 PiFinder/ui/object_details.py:469
+#: PiFinder/ui/align.py:405 PiFinder/ui/object_details.py:470
 msgid "Aligned!"
 msgstr ""
 
@@ -129,7 +129,7 @@ msgstr ""
 msgid "Filters Reset"
 msgstr ""
 
-#: PiFinder/ui/callbacks.py:63 PiFinder/ui/menu_structure.py:949
+#: PiFinder/ui/callbacks.py:63 PiFinder/ui/menu_structure.py:980
 msgid "Test Mode"
 msgstr ""
 
@@ -158,7 +158,7 @@ msgstr ""
 msgid "Time: {time}"
 msgstr ""
 
-#: PiFinder/ui/chart.py:40 PiFinder/ui/menu_structure.py:526
+#: PiFinder/ui/chart.py:40 PiFinder/ui/menu_structure.py:532
 msgid "Settings"
 msgstr ""
 
@@ -266,8 +266,8 @@ msgstr ""
 msgid "Lock Type:"
 msgstr ""
 
-#: PiFinder/ui/gpsstatus.py:213 PiFinder/ui/menu_structure.py:426
-#: PiFinder/ui/menu_structure.py:458
+#: PiFinder/ui/gpsstatus.py:213 PiFinder/ui/menu_structure.py:432
+#: PiFinder/ui/menu_structure.py:464
 msgid "None"
 msgstr ""
 
@@ -406,11 +406,12 @@ msgstr ""
 msgid "Focus"
 msgstr ""
 
+#: PiFinder/ui/help/content.py:27 PiFinder/ui/help/content.py:52
 #: PiFinder/ui/menu_structure.py:46
 msgid "Align"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:52 PiFinder/ui/menu_structure.py:932
+#: PiFinder/ui/menu_structure.py:52 PiFinder/ui/menu_structure.py:963
 msgid "GPS Status"
 msgstr ""
 
@@ -430,431 +431,431 @@ msgstr ""
 msgid "By Catalog"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:79 PiFinder/ui/menu_structure.py:254
+#: PiFinder/ui/menu_structure.py:79 PiFinder/ui/menu_structure.py:260
 msgid "Planets"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:85 PiFinder/ui/menu_structure.py:156
-#: PiFinder/ui/menu_structure.py:258 PiFinder/ui/menu_structure.py:308
+#: PiFinder/ui/menu_structure.py:91 PiFinder/ui/menu_structure.py:162
+#: PiFinder/ui/menu_structure.py:264 PiFinder/ui/menu_structure.py:314
 msgid "NGC"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:91 PiFinder/ui/menu_structure.py:150
-#: PiFinder/ui/menu_structure.py:262 PiFinder/ui/menu_structure.py:304
+#: PiFinder/ui/menu_structure.py:97 PiFinder/ui/menu_structure.py:156
+#: PiFinder/ui/menu_structure.py:268 PiFinder/ui/menu_structure.py:310
 msgid "Messier"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:97 PiFinder/ui/menu_structure.py:266
+#: PiFinder/ui/menu_structure.py:103 PiFinder/ui/menu_structure.py:272
 msgid "DSO..."
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:102 PiFinder/ui/menu_structure.py:272
+#: PiFinder/ui/menu_structure.py:108 PiFinder/ui/menu_structure.py:278
 msgid "Abell Pn"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:108 PiFinder/ui/menu_structure.py:276
+#: PiFinder/ui/menu_structure.py:114 PiFinder/ui/menu_structure.py:282
 msgid "Arp Galaxies"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:114 PiFinder/ui/menu_structure.py:280
+#: PiFinder/ui/menu_structure.py:120 PiFinder/ui/menu_structure.py:286
 msgid "Barnard"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:120 PiFinder/ui/menu_structure.py:284
+#: PiFinder/ui/menu_structure.py:126 PiFinder/ui/menu_structure.py:290
 msgid "Caldwell"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:126 PiFinder/ui/menu_structure.py:288
+#: PiFinder/ui/menu_structure.py:132 PiFinder/ui/menu_structure.py:294
 msgid "Collinder"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:132 PiFinder/ui/menu_structure.py:292
+#: PiFinder/ui/menu_structure.py:138 PiFinder/ui/menu_structure.py:298
 msgid "E.G. Globs"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:138 PiFinder/ui/menu_structure.py:296
+#: PiFinder/ui/menu_structure.py:144 PiFinder/ui/menu_structure.py:302
 msgid "Herschel 400"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:144 PiFinder/ui/menu_structure.py:300
+#: PiFinder/ui/menu_structure.py:150 PiFinder/ui/menu_structure.py:306
 msgid "IC"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:162 PiFinder/ui/menu_structure.py:312
+#: PiFinder/ui/menu_structure.py:168 PiFinder/ui/menu_structure.py:318
 msgid "Sharpless"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:168 PiFinder/ui/menu_structure.py:316
+#: PiFinder/ui/menu_structure.py:174 PiFinder/ui/menu_structure.py:322
 msgid "TAAS 200"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:176 PiFinder/ui/menu_structure.py:322
+#: PiFinder/ui/menu_structure.py:182 PiFinder/ui/menu_structure.py:328
 msgid "Stars..."
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:181 PiFinder/ui/menu_structure.py:328
+#: PiFinder/ui/menu_structure.py:187 PiFinder/ui/menu_structure.py:334
 msgid "Bright Named"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:187 PiFinder/ui/menu_structure.py:332
+#: PiFinder/ui/menu_structure.py:193 PiFinder/ui/menu_structure.py:338
 msgid "SAC Doubles"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:193 PiFinder/ui/menu_structure.py:336
+#: PiFinder/ui/menu_structure.py:199 PiFinder/ui/menu_structure.py:342
 msgid "SAC Asterisms"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:199 PiFinder/ui/menu_structure.py:340
+#: PiFinder/ui/menu_structure.py:205 PiFinder/ui/menu_structure.py:346
 msgid "SAC Red Stars"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:205 PiFinder/ui/menu_structure.py:344
+#: PiFinder/ui/menu_structure.py:211 PiFinder/ui/menu_structure.py:350
 msgid "RASC Doubles"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:211 PiFinder/ui/menu_structure.py:348
+#: PiFinder/ui/menu_structure.py:217 PiFinder/ui/menu_structure.py:354
 msgid "TLK 90 Variables"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:221
+#: PiFinder/ui/menu_structure.py:227
 msgid "Recent"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:227
+#: PiFinder/ui/menu_structure.py:233
 msgid "Name Search"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:233 PiFinder/ui/object_list.py:136
+#: PiFinder/ui/menu_structure.py:239 PiFinder/ui/object_list.py:136
 msgid "Filter"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:239
+#: PiFinder/ui/menu_structure.py:245
 msgid "Reset All"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:243 PiFinder/ui/menu_structure.py:973
+#: PiFinder/ui/menu_structure.py:249 PiFinder/ui/menu_structure.py:1004
 msgid "Confirm"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:244 PiFinder/ui/menu_structure.py:976
+#: PiFinder/ui/menu_structure.py:250 PiFinder/ui/menu_structure.py:1007
 #: PiFinder/ui/software.py:204
 msgid "Cancel"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:248
+#: PiFinder/ui/menu_structure.py:254
 msgid "Catalogs"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:356
+#: PiFinder/ui/menu_structure.py:362
 msgid "Type"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:370
+#: PiFinder/ui/menu_structure.py:376
 msgid "Cluster/Neb"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:382
+#: PiFinder/ui/menu_structure.py:388
 msgid "P. Nebula"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:394
+#: PiFinder/ui/menu_structure.py:400
 msgid "Double Str"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:398
+#: PiFinder/ui/menu_structure.py:404
 msgid "Triple Str"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:420
+#: PiFinder/ui/menu_structure.py:426
 msgid "Altitude"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:452
+#: PiFinder/ui/menu_structure.py:458
 msgid "Magnitude"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:504 PiFinder/ui/menu_structure.py:514
+#: PiFinder/ui/menu_structure.py:510 PiFinder/ui/menu_structure.py:520
 msgid "Observed"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:510
+#: PiFinder/ui/menu_structure.py:516
 msgid "Any"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:518
+#: PiFinder/ui/menu_structure.py:524
 msgid "Not Observed"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:531
+#: PiFinder/ui/menu_structure.py:537
 msgid "User Pref..."
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:536
+#: PiFinder/ui/menu_structure.py:542
 msgid "Key Bright"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:576
+#: PiFinder/ui/menu_structure.py:582
 msgid "Sleep Time"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:582 PiFinder/ui/menu_structure.py:614
-#: PiFinder/ui/menu_structure.py:638 PiFinder/ui/menu_structure.py:687
-#: PiFinder/ui/menu_structure.py:711 PiFinder/ui/menu_structure.py:735
-#: PiFinder/ui/menu_structure.py:759 PiFinder/ui/preview.py:62
+#: PiFinder/ui/menu_structure.py:588 PiFinder/ui/menu_structure.py:620
+#: PiFinder/ui/menu_structure.py:644 PiFinder/ui/menu_structure.py:718
+#: PiFinder/ui/menu_structure.py:742 PiFinder/ui/menu_structure.py:766
+#: PiFinder/ui/menu_structure.py:790 PiFinder/ui/preview.py:62
 #: PiFinder/ui/preview.py:79
 msgid "Off"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:608
+#: PiFinder/ui/menu_structure.py:614
 msgid "Menu Anim"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:618 PiFinder/ui/menu_structure.py:642
+#: PiFinder/ui/menu_structure.py:624 PiFinder/ui/menu_structure.py:648
 msgid "Fast"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:622 PiFinder/ui/menu_structure.py:646
-#: PiFinder/ui/menu_structure.py:695 PiFinder/ui/menu_structure.py:719
-#: PiFinder/ui/menu_structure.py:743 PiFinder/ui/preview.py:67
+#: PiFinder/ui/menu_structure.py:628 PiFinder/ui/menu_structure.py:652
+#: PiFinder/ui/menu_structure.py:726 PiFinder/ui/menu_structure.py:750
+#: PiFinder/ui/menu_structure.py:774 PiFinder/ui/preview.py:67
 msgid "Medium"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:626 PiFinder/ui/menu_structure.py:650
+#: PiFinder/ui/menu_structure.py:632 PiFinder/ui/menu_structure.py:656
 msgid "Slow"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:632
+#: PiFinder/ui/menu_structure.py:638
 msgid "Scroll Speed"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:656
+#: PiFinder/ui/menu_structure.py:662
 msgid "Az Arrows"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:663
+#: PiFinder/ui/menu_structure.py:669
 msgid "Default"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:667
+#: PiFinder/ui/menu_structure.py:673
 msgid "Reverse"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:675
-msgid "Chart..."
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:681
-msgid "Reticle"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:691 PiFinder/ui/menu_structure.py:715
-#: PiFinder/ui/menu_structure.py:739 PiFinder/ui/preview.py:72
-msgid "Low"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:699 PiFinder/ui/menu_structure.py:723
-#: PiFinder/ui/menu_structure.py:747 PiFinder/ui/preview.py:64
-msgid "High"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:705
-msgid "Constellation"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:729
-msgid "DSO Display"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:753
-msgid "RA/DEC Disp."
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:763
-msgid "HH:MM"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:767
-msgid "Degrees"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:775
-msgid "Camera Exp"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:783
-msgid "0.025s"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:787
-msgid "0.05s"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:791
-msgid "0.1s"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:795
-msgid "0.2s"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:799
-msgid "0.4s"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:803
-msgid "0.8s"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:807
-msgid "1s"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:813
-msgid "WiFi Mode"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:819
-msgid "Client Mode"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:824
-msgid "AP Mode"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:831
-msgid "PiFinder Type"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:838
-msgid "Left"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:842
-msgid "Right"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:846
-msgid "Straight"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:850
-msgid "Flat v3"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:854
-msgid "Flat v2"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:860
-msgid "Mount Type"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:867
-msgid "Alt/Az"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:871
-msgid "Equitorial"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:877
-msgid "Camera Type"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:883
-msgid "v2 - imx477"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:888
-msgid "v3 - imx296"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:893
-msgid "v3 - imx462"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:900
-msgid "GPS Type"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:908
-msgid "UBlox"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:912
-msgid "GPSD (generic)"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:920
-msgid "Tools"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:924
-msgid "Status"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:925
-msgid "Equipment"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:927
-msgid "Place & Time"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:936
-msgid "Set Location"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:940
-msgid "Set Time"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:944
-msgid "Reset"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:947
-msgid "Console"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:948
-msgid "Software Upd"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:951
-msgid "Power"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:957
-msgid "Shutdown"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:967
-msgid "Restart"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:982
-msgid "Experimental"
-msgstr ""
-
-#: PiFinder/ui/menu_structure.py:987
+#: PiFinder/ui/menu_structure.py:679
 msgid "Language"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:994
+#: PiFinder/ui/menu_structure.py:686
 msgid "English"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:998
+#: PiFinder/ui/menu_structure.py:690
 msgid "German"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:1002
+#: PiFinder/ui/menu_structure.py:694
 msgid "French"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:1006
+#: PiFinder/ui/menu_structure.py:698
 msgid "Spanish"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:706
+msgid "Chart..."
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:712
+msgid "Reticle"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:722 PiFinder/ui/menu_structure.py:746
+#: PiFinder/ui/menu_structure.py:770 PiFinder/ui/preview.py:72
+msgid "Low"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:730 PiFinder/ui/menu_structure.py:754
+#: PiFinder/ui/menu_structure.py:778 PiFinder/ui/preview.py:64
+msgid "High"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:736
+msgid "Constellation"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:760
+msgid "DSO Display"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:784
+msgid "RA/DEC Disp."
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:794
+msgid "HH:MM"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:798
+msgid "Degrees"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:806
+msgid "Camera Exp"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:814
+msgid "0.025s"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:818
+msgid "0.05s"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:822
+msgid "0.1s"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:826
+msgid "0.2s"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:830
+msgid "0.4s"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:834
+msgid "0.8s"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:838
+msgid "1s"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:844
+msgid "WiFi Mode"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:850
+msgid "Client Mode"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:855
+msgid "AP Mode"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:862
+msgid "PiFinder Type"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:869
+msgid "Left"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:873
+msgid "Right"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:877
+msgid "Straight"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:881
+msgid "Flat v3"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:885
+msgid "Flat v2"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:891
+msgid "Mount Type"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:898
+msgid "Alt/Az"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:902
+msgid "Equitorial"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:908
+msgid "Camera Type"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:914
+msgid "v2 - imx477"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:919
+msgid "v3 - imx296"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:924
+msgid "v3 - imx462"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:931
+msgid "GPS Type"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:939
+msgid "UBlox"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:943
+msgid "GPSD (generic)"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:951
+msgid "Tools"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:955
+msgid "Status"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:956
+msgid "Equipment"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:958
+msgid "Place & Time"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:967
+msgid "Set Location"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:971
+msgid "Set Time"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:35 PiFinder/ui/menu_structure.py:975
+msgid "Reset"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:978
+msgid "Console"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:979
+msgid "Software Upd"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:982
+msgid "Power"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:988
+msgid "Shutdown"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:998
+msgid "Restart"
+msgstr ""
+
+#: PiFinder/ui/menu_structure.py:1013
+msgid "Experimental"
 msgstr ""
 
 #: PiFinder/ui/object_details.py:61 PiFinder/ui/object_details.py:66
@@ -878,39 +879,39 @@ msgstr ""
 msgid "Sz:{size}"
 msgstr ""
 
-#: PiFinder/ui/object_details.py:207
+#: PiFinder/ui/object_details.py:208
 msgid "  Not Logged"
 msgstr ""
 
-#: PiFinder/ui/object_details.py:209
+#: PiFinder/ui/object_details.py:210
 msgid "  {logs} Logs"
 msgstr ""
 
-#: PiFinder/ui/object_details.py:244
+#: PiFinder/ui/object_details.py:245
 msgid "No solve"
 msgstr ""
 
-#: PiFinder/ui/object_details.py:250
+#: PiFinder/ui/object_details.py:251
 msgid "yet{elipsis}"
 msgstr ""
 
-#: PiFinder/ui/object_details.py:264
+#: PiFinder/ui/object_details.py:265
 msgid "Searching"
 msgstr ""
 
-#: PiFinder/ui/object_details.py:270
+#: PiFinder/ui/object_details.py:271
 msgid "for GPS{elipsis}"
 msgstr ""
 
-#: PiFinder/ui/object_details.py:284
+#: PiFinder/ui/object_details.py:285
 msgid "Calculating"
 msgstr ""
 
-#: PiFinder/ui/object_details.py:471
+#: PiFinder/ui/object_details.py:472
 msgid "Too Far"
 msgstr ""
 
-#: PiFinder/ui/object_details.py:496
+#: PiFinder/ui/object_details.py:497
 msgid "LOG"
 msgstr ""
 
@@ -1002,7 +1003,7 @@ msgid "Error on Upd"
 msgstr ""
 
 #: PiFinder/ui/software.py:101
-msgid "Wifi Mode: {wifi_mode}"
+msgid "Wifi Mode: {}"
 msgstr ""
 
 #: PiFinder/ui/software.py:109
@@ -1087,6 +1088,147 @@ msgstr ""
 
 #: PiFinder/ui/timeentry.py:131
 msgid "󰍴  Delete/Previous"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:19
+msgid "ALIGN HELP"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:23 PiFinder/ui/help/content.py:56
+#: PiFinder/ui/help/content.py:82
+msgid "Zoom"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:31
+msgid "Abort"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:38
+msgid ""
+"The Align screen is for telling the PiFinder where in the sky your "
+"telescope is pointing so that it can make sure DSOs end up in your "
+"eyepiece. Point your scope at a star that is recognizable to start and "
+"press Square to start alignment and use the arrow keys to select the star"
+" your telescope is pointing to. When finished press Square again to set "
+"the alignment."
+msgstr ""
+
+#: PiFinder/ui/help/content.py:48 PiFinder/ui/help/content.py:62
+msgid "CAMERA HELP"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:59 PiFinder/ui/help/content.py:69
+#: PiFinder/ui/help/content.py:88 PiFinder/ui/help/content.py:98
+#: PiFinder/ui/help/content.py:122 PiFinder/ui/help/content.py:132
+#: PiFinder/ui/help/content.py:156 PiFinder/ui/help/content.py:166
+#: PiFinder/ui/help/content.py:190 PiFinder/ui/help/content.py:200
+#: PiFinder/ui/help/content.py:201 PiFinder/ui/help/content.py:212
+#: PiFinder/ui/help/content.py:240 PiFinder/ui/help/content.py:250
+#: PiFinder/ui/help/content.py:251 PiFinder/ui/help/content.py:262
+#: PiFinder/ui/help/content.py:263 PiFinder/ui/help/content.py:274
+#: PiFinder/ui/help/loader.py:41 PiFinder/ui/help/loader.py:45
+#: PiFinder/ui/help/loader.py:46 PiFinder/ui/help/loader.py:51
+msgid "more"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:65
+msgid "CAMERA shows a live preview with zoom and align features"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:78 PiFinder/ui/help/content.py:91
+msgid "CHART HELP"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:85
+msgid "A star chart with constellation lines and DSOs plotted"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:94
+msgid "You can set the brightness of display elements in the settings menu"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:107 PiFinder/ui/help/content.py:125
+msgid "LOGGING HELP"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:111
+msgid "Choose"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:115 PiFinder/ui/help/content.py:149
+#: PiFinder/ui/help/content.py:229
+msgid "Select"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:119
+msgid "Stars"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:128
+msgid ""
+"Writes an entry to the log of your observing session. Set ratings and "
+"choose SAVE"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:141 PiFinder/ui/help/content.py:159
+msgid "MENU HELP"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:145 PiFinder/ui/help/content.py:179
+#: PiFinder/ui/help/content.py:225
+msgid "Scroll"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:153 PiFinder/ui/help/content.py:233
+msgid "Back"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:162
+msgid "Thank you for using a PiFinder"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:175 PiFinder/ui/help/content.py:193
+#: PiFinder/ui/help/content.py:205
+msgid "OBJECT DETAILS"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:183
+msgid "Log"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:187
+msgid "Switch Info"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:196
+msgid "The OBJECT DETAILS page shows info on the currently selected object"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:208
+msgid ""
+"Use Square to cycle through catalog details, image and push-to "
+"instructions"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:221 PiFinder/ui/help/content.py:243
+#: PiFinder/ui/help/content.py:255 PiFinder/ui/help/content.py:267
+msgid "OBJECT LIST"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:237
+msgid "Jump To"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:246
+msgid "The OBJECT LIST is sortable via the Radial Menu and you can"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:258
+msgid "cycle thru object info using the Square key"
+msgstr ""
+
+#: PiFinder/ui/help/content.py:270
+msgid "Type a number to jump to a specific object or use Square to exit"
 msgstr ""
 
 #~ msgid "Language: englisch"
@@ -1468,5 +1610,8 @@ msgstr ""
 #~ msgstr ""
 
 #~ msgid "HELP"
+#~ msgstr ""
+
+#~ msgid "Wifi Mode: {wifi_mode}"
 #~ msgstr ""
 
