@@ -19,7 +19,13 @@ logger = logging.getLogger("Catalog.Images")
 
 
 def get_display_image(
-    catalog_object, eyepiece_text, fov, roll, display_class, burn_in=True, magnification=None
+    catalog_object,
+    eyepiece_text,
+    fov,
+    roll,
+    display_class,
+    burn_in=True,
+    magnification=None,
 ):
     """
     Returns a 128x128 image buffer for
@@ -128,11 +134,16 @@ def get_display_image(
             shadow_color=display_class.colors.get(0),
             outline=2,
         )
-        
-        magnification_text = f"{magnification:.0f}x" if magnification and magnification > 0 else "?x"
+
+        magnification_text = (
+            f"{magnification:.0f}x" if magnification and magnification > 0 else "?x"
+        )
         ui_utils.shadow_outline_text(
             ri_draw,
-            (display_class.resX - (display_class.fonts.base.width * 4), display_class.titlebar_height - 1),
+            (
+                display_class.resX - (display_class.fonts.base.width * 4),
+                display_class.titlebar_height - 1,
+            ),
             magnification_text,
             font=display_class.fonts.base,
             align="right",
