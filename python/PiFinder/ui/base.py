@@ -121,23 +121,19 @@ class UIModule:
         if self.__help_name__ == "":
             return None
 
-        help_image_list = []
-        help_image_path = utils.pifinder_dir / "help" / self.__help_name__
-        for i in range(1, 10):
-            try:
-                help_image = Image.open(help_image_path / f"{i}.png")
-            except FileNotFoundError:
-                break
-
-            # help_image_list.append(
-            #    convert_image_to_mode(help_image, self.colors.mode)
-            # )
-
-            help_image_list.append(make_red(help_image, self.colors))
-
-        if help_image_list == []:
-            return None
-        return help_image_list
+        # Use new text-based help system
+        from .help.loader import HelpLoader
+        loader = HelpLoader(self.display_class)
+        help_images = loader.get_help_images(self.__help_name__)
+        
+        if help_images:
+            # Apply red-light filter to maintain night vision compatibility
+            help_image_list = []
+            for image in help_images:
+                help_image_list.append(make_red(image, self.colors))
+            return help_image_list
+            
+        return None
 
     def update(self, force=False) -> None:
         """
