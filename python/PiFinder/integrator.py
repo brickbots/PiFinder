@@ -214,7 +214,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                             q_hor2x = last_image_solve["imu"]["q_hor2x"]
                             q_imu2cam = np.quaternion(1, 0, 0, 0)  # Identity so this could be removed later (TODO)
                             q_hor2cam = q_hor2x * q_x2imu * q_imu2cam
-                            q_hor2cam = q_hor2com.normalized()
+                            q_hor2cam = q_hor2cam.normalized()
                             # Store estimate:
                             az_rad, alt_rad = pointing.get_altaz_from_q_hor2scope(q_hor2cam)
                             solved["camera_center"]["Az"] = np.rad2deg(az_rad)
