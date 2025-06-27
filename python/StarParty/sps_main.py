@@ -10,7 +10,14 @@ import contextlib
 from random import choice
 from time import time
 
-from StarParty.sps_data import Observer, ServerState, EventType, GroupActivity
+from StarParty.sps_data import (
+    Observer,
+    ServerState,
+    EventType,
+    GroupActivity,
+    Mark,
+    Position,
+)
 
 state_lock = asyncio.Lock()
 server_state = ServerState()
@@ -108,6 +115,19 @@ async def handle_command(
                         (observer, float(command[1]), float(command[2])),
                     )
 
+        elif command[0] == EventType.MARK.value:  # set mark
+            if len(command) == 4 and observer.group is not None:
+                async with state_lock:
+                    object_id = int(command[2])
+                    object_name = command[3]
+                    new_mark = Mark(
+                        Position.deserialize(command[1]),
+                        object_id,
+                        object_name,
+                        observer.name,
+                    )
+                    observer.group.add_mark(new_mark)
+
         elif command[0] == "groups":  # list groups
             for group_string in server_state.list_groups():
                 await writeline(writer, f"\t{group_string}")
@@ -121,6 +141,15 @@ async def handle_command(
 
             for observer_string in server_state.list_observers(group_name):
                 await writeline(writer, f"\t{observer_string}")
+            await writeline(writer, "\tack")
+
+        elif command[0] == "marks":  # List marks for current group
+            if not observer.group:
+                await writeline(writer, "\terr")
+                return
+
+            for mark in observer.group.marks:
+                await writeline(writer, f"\t{mark.serialize()}")
             await writeline(writer, "\tack")
 
         elif command[0] == "add_group":  # Add new group

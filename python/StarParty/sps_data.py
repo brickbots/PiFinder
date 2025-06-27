@@ -80,6 +80,19 @@ class Group:
     def serialize(self) -> str:
         return f"{self.name}|{self.activity.value}|{len(self.observers)}"
 
+    def add_mark(self, mark: "Mark") -> None:
+        """
+        Add a mark for this group
+        also adds an event to the queue
+        """
+        self.marks.append(mark)
+
+        # send out event
+        self.add_event(
+            EventType.MARK,
+            (mark.position.serialize(), mark.object_id, mark.name, mark.observer_name),
+        )
+
 
 @dataclass
 class Position:
@@ -90,6 +103,9 @@ class Position:
     def deserialize(cls, position_raw: str) -> "Position":
         _pos_split = position_raw.split(",")
         return cls(ra=float(_pos_split[0]), dec=float(_pos_split[1]))
+
+    def serialize(self) -> str:
+        return f"{self.ra},{self.dec}"
 
 
 @dataclass
@@ -231,6 +247,19 @@ class ServerState:
 @dataclass
 class Mark:
     position: Position
-    obj_id: int
+    object_id: int
     name: str
-    observer: Observer
+    observer_name: str
+
+    @classmethod
+    def deserialize(cls, mark_raw: str) -> "Mark":
+        _mark_split = mark_raw.split("|")
+        return cls(
+            Position.deserialize(_mark_split[0]),
+            int(_mark_split[1]),
+            _mark_split[2],
+            _mark_split[3],
+        )
+
+    def serialize(self) -> str:
+        return f"{self.position.serialize()}|{self.object_id}|{self.name}|{self.observer_name}"

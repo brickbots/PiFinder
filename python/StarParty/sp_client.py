@@ -107,8 +107,16 @@ class ClientObserverList:
         except KeyError:
             pass
 
-    def as_list(self) -> list[ClientObserver]:
-        return list(self.observers.values())
+    def as_list(self, exclude_name: str = "") -> list[ClientObserver]:
+        """
+        Returns a list of observers, excluding
+        a particualr observer by name if provided
+        """
+        return_list: list[ClientObserver] = []
+        for observer in self.observers.values():
+            if observer.name != exclude_name:
+                return_list.append(observer)
+        return return_list
 
     @classmethod
     def from_list(cls, observer_list: list[ClientObserver]) -> "ClientObserverList":

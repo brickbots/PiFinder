@@ -51,7 +51,9 @@ class UIChart(UIModule):
         if not self.solution:
             return
 
-        observer_list = self.sp_client_object.group_observers.as_list()
+        observer_list = self.sp_client_object.group_observers.as_list(
+            exclude=self.sp_client_object.username
+        )
 
         marker_brightness = self.config_object.get_option("chart_dso", 128)
         if marker_brightness == 0:

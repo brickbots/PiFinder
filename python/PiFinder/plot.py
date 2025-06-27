@@ -165,8 +165,8 @@ class Starfield:
     def plot_observers(self, observer_list):
         """
         Returns an image to add to another image
-        Observerj  list should be a list of
-        obsrvers
+        observer_list should be a list of
+        observers
         """
         ret_image = Image.new("RGB", self.render_size)
 
