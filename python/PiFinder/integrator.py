@@ -225,7 +225,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                             #q_hor2scope = q_hor2cam * q_cam2scope
                       
 
-                            #""" DISABLE - Use quaternions
+                            """ DISABLE - Use quaternions
                             # calc new alt/az - OLD method
                             lis_imu = last_image_solve["imu_pos"]
                             imu_pos = imu["pos"]
@@ -245,7 +245,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                             solved["camera_center"]["Az"] = (
                                 last_image_solve["camera_center"]["Az"] + az_offset
                             ) % 360
-                            #"""
+                            """
 
                             # N.B. Assumes that location hasn't changed since last solve
                             # Turn this into RA/DEC
