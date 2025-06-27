@@ -201,21 +201,13 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     if last_image_solve and last_image_solve["Alt"]:
                         # If we have alt, then we have a position/time
 
-                        # calc new alt/az - OLD method
-                        lis_imu = last_image_solve["imu_pos"]
-                        imu_pos = imu["pos"]
-
                         # calc new alt/az
-                        lis_imu_quat = last_image_solve["imu_quat"]
-
-                        # Get latest IMU meas: quaternion rot. of IMU rel. to some frame X
-                        assert isinstance(imu["quat"] , quaternion.quaternion), "Expecting quaternion.quaternion type"  # TODO: Remove later
-                        q_x2imu = imu["quat"] 
-
                         # When moving, switch to tracking using the IMU
                         #if imu_moved(lis_imu, imu_pos):
-                        if get_quat_angular_diff((lis_imu_quat, q_x2imu)) > imu_moved_ang_threshold:
+                        assert isinstance(imu["quat"] , quaternion.quaternion), "Expecting quaternion.quaternion type"  # TODO: Remove later
+                        if get_quat_angular_diff((last_image_solve["imu_quat"], imu["quat"])) > imu_moved_ang_threshold:
                             # Estimate camera pointing using IMU dead-reckoning
+                            q_x2imu = imu["quat"]  # Latest IMU meas: quaternion rot. of IMU rel. to some frame X 
                             q_hor2x = last_image_solve["imu"]["q_hor2x"]
                             q_imu2cam = np.quaternion(1, 0, 0, 0)  # Identity so this could be removed later (TODO)
                             q_hor2cam = q_hor2x * q_x2imu * q_imu2cam
@@ -234,6 +226,9 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                       
 
                             #""" DISABLE - Use quaternions
+                            # calc new alt/az - OLD method
+                            lis_imu = last_image_solve["imu_pos"]
+                            imu_pos = imu["pos"]
                             alt_offset = imu_pos[IMU_ALT] - lis_imu[IMU_ALT]
                             if flip_alt_offset:
                                 alt_offset = ((alt_offset + 180) % 360 - 180) * -1
