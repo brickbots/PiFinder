@@ -26,6 +26,7 @@ IMU_AZ = 0
 logger = logging.getLogger("IMU.Integrator")
 
 
+# TODO: Remove this after migrating to quaternion
 def imu_moved(imu_a, imu_b):
     """
     Compares two IMU states to determine if they are the 'same'
@@ -96,6 +97,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
         else:
             flip_alt_offset = False
         #"""
+
+        imu_moved_ang_threshold = np.deg2rad(0.01)  # Use IMU tracking if the angle moved is above this 
             
         # This holds the last image solve position info
         # so we can delta for IMU updates
@@ -203,15 +206,15 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                         imu_pos = imu["pos"]
 
                         # calc new alt/az
-                        #lis_imu = last_image_solve["imu_pos"]
                         lis_imu_quat = last_image_solve["imu_quat"]
 
                         # Get latest IMU meas: quaternion rot. of IMU rel. to some frame X
                         assert isinstance(imu["quat"] , quaternion.quaternion), "Expecting quaternion.quaternion type"  # TODO: Remove later
                         q_x2imu = imu["quat"] 
 
-                        if imu_moved(lis_imu, imu_pos):
-                        #if imu_moved(lis_imu_quat, q_x2imu):
+                        # When moving, switch to tracking using the IMU
+                        #if imu_moved(lis_imu, imu_pos):
+                        if get_quat_angular_diff((lis_imu_quat, q_x2imu)) > imu_moved_ang_threshold:
                             # Estimate camera pointing using IMU dead-reckoning
                             q_hor2x = last_image_solve["imu"]["q_hor2x"]
                             q_imu2cam = np.quaternion(1, 0, 0, 0)  # Identity so this could be removed later (TODO)
