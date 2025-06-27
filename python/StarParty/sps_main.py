@@ -106,14 +106,14 @@ async def handle_command(
             await writeline(writer, command[1])
 
         elif command[0] == EventType.POSITION.value:  # set position
-            async with state_lock:
-                observer.position.ra = float(command[1])
-                observer.position.dec = float(command[2])
-                if observer.group is not None:
-                    observer.group.add_event(
-                        EventType.POSITION,
-                        (observer, float(command[1]), float(command[2])),
-                    )
+            if len(command) == 2:
+                async with state_lock:
+                    observer.position = Position.deserialize(command[1])
+                    if observer.group is not None:
+                        observer.group.add_event(
+                            EventType.POSITION,
+                            (observer, observer.position.ra, observer.position.dec),
+                        )
 
         elif command[0] == EventType.MARK.value:  # set mark
             if len(command) == 4 and observer.group is not None:

@@ -52,7 +52,7 @@ class UIChart(UIModule):
             return
 
         observer_list = self.sp_client_object.group_observers.as_list(
-            exclude=self.sp_client_object.username
+            exclude_name=self.sp_client_object.username
         )
 
         marker_brightness = self.config_object.get_option("chart_dso", 128)

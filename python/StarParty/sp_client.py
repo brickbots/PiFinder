@@ -210,6 +210,7 @@ class SPClient:
                 with contextlib.suppress(asyncio.CancelledError):
                     await self._reader_task
             self.connected = False
+            self.group_observers = ClientObserverList()
 
     async def add_group(self, activity: GroupActivity) -> bool:
         async with self._state_lock:
@@ -286,7 +287,13 @@ class SPClient:
         return True
 
     async def update_pos(self, ra: float, dec: float):
-        await self.send_event(EventType.POSITION, [str(ra), str(dec)])
+        await self.send_event(EventType.POSITION, [Position(ra, dec).serialize()])
+
+    async def send_mark(self, ra: float, dec: float, object_id: int, name: str):
+        await self.send_event(
+            EventType.MARK,
+            [Position(ra, dec).serialize(), str(object_id), name, str(self.username)],
+        )
 
     async def _listen_for_messages(self) -> None:
         assert self.reader is not None
