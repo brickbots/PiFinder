@@ -209,7 +209,7 @@ class SharedStateObj:
             "exposure_start": 0,
             "exposure_end": 0,
             "imu": None,
-            "imu_delta": 0.0,  # Angle between quaternion at start and end of exposure
+            "imu_delta": 0.0,  # Angle between quaternion at start and end of exposure [deg]
         }
         self.__solution = None
         self.__sats = None
