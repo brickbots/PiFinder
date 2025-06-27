@@ -30,7 +30,7 @@ class Imu:
         self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
         # self.sensor.mode = adafruit_bno055.NDOF_MODE
         cfg = config.Config()
-        #""" Disable rotating the IMU axes. Use its native form
+        """ Disable rotating the IMU axes. Use its native form
         if (
             cfg.get_option("screen_direction") == "flat"
             or cfg.get_option("screen_direction") == "straight"
@@ -62,7 +62,7 @@ class Imu:
                 adafruit_bno055.AXIS_REMAP_POSITIVE,
                 adafruit_bno055.AXIS_REMAP_POSITIVE,
             )
-        #"""
+        """
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
         self._flip_count = 0
         self.calibration = 0
