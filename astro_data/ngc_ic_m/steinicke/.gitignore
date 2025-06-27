@@ -1,0 +1,9 @@
+# Generated JSON files - these are created automatically from the source ZIP
+*.json
+
+# Temporary extracted XLS files (extracted from ZIP during processing)
+*.xls
+
+# Test outputs and temporary files
+test_output.*
+test_extraction.py
