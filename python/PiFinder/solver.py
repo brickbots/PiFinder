@@ -47,6 +47,7 @@ def solver(
     last_solve_time = 0
     align_ra = 0
     align_dec = 0
+    # TODO: This dictionary is duplicated in integrator.py. Need to rationalize?
     solved = {
         # RA, Dec, Roll solved at the center of the camera FoV
         # update by integrator
@@ -63,6 +64,9 @@ def solver(
             "RA": None,
             "Dec": None,
             "Roll": None,
+        },
+        "imu": {
+            "q_hor2x": None,
         },
         # RA, Dec, Roll at the target pixel
         "RA": None,

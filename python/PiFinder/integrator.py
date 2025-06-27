@@ -48,7 +48,7 @@ def imu_moved(imu_a, imu_b):
     return False
 
 
-def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=False):
+def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=True):  # TODO: Change back is_debug=False
     MultiprocLogging.configurer(log_queue)
     try:
         if is_debug:
@@ -198,7 +198,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 imu = shared_state.imu()
                 if imu:
                     dt = shared_state.datetime()
-                    if last_image_solve and last_image_solve["Alt"]:
+                    if last_image_solve and last_image_solve["Alt"] and last_image_solve["imu"]["q_hor2x"]:
                         # If we have alt, then we have a position/time
 
                         # calc new alt/az
