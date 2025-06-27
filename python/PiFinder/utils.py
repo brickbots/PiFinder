@@ -116,15 +116,15 @@ def is_number(s):
 def format_size_value(value):
     """
     Format a size value, removing unnecessary .0 decimals but preserving meaningful decimals.
-    
+
     Examples:
         17.0 -> "17"
-        17.5 -> "17.5" 
+        17.5 -> "17.5"
         17.25 -> "17.3" (rounded to 1 decimal)
     """
     if value is None or value == "":
         return ""
-    
+
     try:
         num_val = float(value)
         # If it's a whole number, return as integer
@@ -132,6 +132,6 @@ def format_size_value(value):
             return str(int(num_val))
         # Otherwise, round to 1 decimal and remove trailing zeros
         formatted = f"{num_val:.1f}"
-        return formatted.rstrip('0').rstrip('.')
+        return formatted.rstrip("0").rstrip(".")
     except (ValueError, TypeError):
         return str(value)  # Return as-is if not a number

@@ -92,7 +92,6 @@ class CameraInterface:
                                 "right",
                                 "straight",
                                 "flat3",
-                                "as_dream",
                             ]:
                                 rotate_amount = 90
                             else:

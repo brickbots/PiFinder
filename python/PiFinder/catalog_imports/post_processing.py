@@ -152,7 +152,7 @@ def add_missing_messier_objects():
     # M24 - Sagittarius Star Cloud (no NGC equivalent, it's a dense star field)
     # RA: 18h 18m 24s = 274.6°, Dec: -18° 24′ 00″ = -18.4°
     m24_aka_names = ["Sagittarius Star Cloud"]
-    # Add common names from messier_names.dat if available  
+    # Add common names from messier_names.dat if available
     if 24 in messier_names_map:
         m24_aka_names.extend(messier_names_map[24])
 
@@ -189,4 +189,6 @@ def add_missing_messier_objects():
     )
     m102.insert()
 
-    logging.info("ADDED: M24 (Sagittarius Star Cloud), M40 (Winnecke 4), M45 (Pleiades), and M102 (NGC 5866)")
+    logging.info(
+        "ADDED: M24 (Sagittarius Star Cloud), M40 (Winnecke 4), M45 (Pleiades), and M102 (NGC 5866)"
+    )

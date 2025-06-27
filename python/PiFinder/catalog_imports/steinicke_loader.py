@@ -28,7 +28,6 @@ from .catalog_import_utils import (
 from .database import objects_db
 
 
-
 # Basic object type mappings for exact matches
 BASIC_TYPE_MAPPING = {
     # Stars and asterisms
@@ -105,7 +104,9 @@ def preprocess_steinicke_type(obj_type, remarks=""):
         remarks_str = str(remarks)
 
     if remarks_str and ("GCL" in remarks_str or "globular" in remarks_str.lower()):
-        if is_trumpler_class(cleaned):  # Roman numerals that could be globular concentration classes
+        if is_trumpler_class(
+            cleaned
+        ):  # Roman numerals that could be globular concentration classes
             return "Gb"
 
     # Trumpler class patterns for open clusters
@@ -117,7 +118,9 @@ def preprocess_steinicke_type(obj_type, remarks=""):
         return "*"
 
     # Handle special suffixes and extra whitespace
-    base_type = re.sub(r"[\s?/]+[PRMB]*[\s]*$", "", cleaned)  # Remove suffixes and trailing whitespace
+    base_type = re.sub(
+        r"[\s?/]+[PRMB]*[\s]*$", "", cleaned
+    )  # Remove suffixes and trailing whitespace
     if base_type != cleaned:
         return preprocess_steinicke_type(base_type, remarks)
 
@@ -135,18 +138,18 @@ def is_galaxy_type(obj_type):
 
     # Hubble classification patterns
     patterns = [
-        r"^E[0-6]?$",                    # E, E0-E6
-        r"^E-S0$",                       # E-S0 transition
-        r"^E/S[B0]+$",                   # E/S0, E/SB0 transitions
-        r"^S0(-a)?$",                    # S0, S0-a
-        r"^S[abc]?[bcd]?[dm]?$",         # Sa, Sb, Sc, Sab, Sbc, Scd, Sd, Sdm, Sm
+        r"^E[0-6]?$",  # E, E0-E6
+        r"^E-S0$",  # E-S0 transition
+        r"^E/S[B0]+$",  # E/S0, E/SB0 transitions
+        r"^S0(-a)?$",  # S0, S0-a
+        r"^S[abc]?[bcd]?[dm]?$",  # Sa, Sb, Sc, Sab, Sbc, Scd, Sd, Sdm, Sm
         r"^SB[0abc]?[bcd]?[dm]?(-a)?$",  # SB0, SBa, SBb, SBc, SBab, SBbc, SBcd, SBd, SBdm, SBm, SB0-a
-        r"^I[AB]?[bm]?$",                # I, IA, IB, IBm, Im
-        r"^dE[0-6]?$",                   # dE, dE0-dE6 (dwarf elliptical)
-        r"^Ring\s*[AB]?$",               # Ring, Ring A, Ring B
-        r"^[SE].*\s+[RM]$",             # Types with R (ring) or M suffix
-        r"^.*\s+R$",                     # Any type with R suffix (ring)
-        r"^[ESI].*\s+pec$",             # Peculiar galaxies (Sa pec, etc.)
+        r"^I[AB]?[bm]?$",  # I, IA, IB, IBm, Im
+        r"^dE[0-6]?$",  # dE, dE0-dE6 (dwarf elliptical)
+        r"^Ring\s*[AB]?$",  # Ring, Ring A, Ring B
+        r"^[SE].*\s+[RM]$",  # Types with R (ring) or M suffix
+        r"^.*\s+R$",  # Any type with R suffix (ring)
+        r"^[ESI].*\s+pec$",  # Peculiar galaxies (Sa pec, etc.)
     ]
 
     for pattern in patterns:
@@ -174,10 +177,10 @@ def is_star_type(obj_type):
 
     # Various star type patterns
     star_patterns = [
-        r"^\*[2-9]?$",        # *, *2, *3, etc.
-        r"^\d+S$",            # 3S, 4S, 5S (small star groups)
-        r"^[NWDC]\*?$",       # N*, W*, D*, C*
-        r"^Nova$",            # Nova
+        r"^\*[2-9]?$",  # *, *2, *3, etc.
+        r"^\d+S$",  # 3S, 4S, 5S (small star groups)
+        r"^[NWDC]\*?$",  # N*, W*, D*, C*
+        r"^Nova$",  # Nova
     ]
 
     for pattern in star_patterns:
@@ -240,14 +243,15 @@ def _extract_and_process_data():
         xls_file = xls_files[0]
         logging.info(f"Found XLS file: {xls_file}")
 
-        # Step 2: Process XLS to JSON 
+        # Step 2: Process XLS to JSON
         logging.info("Processing XLS file to extract catalog data...")
         output_json = steinicke_dir / "steinicke_catalog.json"
-        
+
         # Extract data from Excel file
         import pandas as pd
+
         df = pd.read_excel(xls_file)
-        
+
         # Process and save to JSON (assuming process_xls_to_json functionality)
         # This would need the actual processing logic from steinicke_extractor
         logging.info(f"Extracted Excel data with {len(df)} rows to {output_json}")
@@ -449,7 +453,7 @@ def load_ngc_catalog():
         # Format size information
         size = ""
         if obj.get("diameter_larger"):
-            size = format_size_value(obj['diameter_larger'])
+            size = format_size_value(obj["diameter_larger"])
             if obj.get("diameter_smaller"):
                 size += f"x{format_size_value(obj['diameter_smaller'])}"
 
@@ -537,14 +541,18 @@ def load_ngc_catalog():
                         object_id = obj["object_id"]
                         objects_db.insert_name(object_id, common_name, catalog)
                         if m_sequence != "" and m_sequence not in seen:
-                            desc = object_id_desc_dict.get(f"{catalog}{ngc_ic_sequence}", "")
+                            desc = object_id_desc_dict.get(
+                                f"{catalog}{ngc_ic_sequence}", ""
+                            )
                             # logging.info(f"DEBUG: M{m_sequence} ({catalog}{ngc_ic_sequence}) description: '{desc[:50]}{'...' if len(desc) > 50 else ''}'")
                             objects_db.insert_catalog_object(
                                 object_id, "M", m_sequence, desc
                             )
                             seen.add(m_sequence)
                     else:
-                        logging.error(f"Can't find object id {catalog=}, {ngc_ic_sequence=}")
+                        logging.error(
+                            f"Can't find object id {catalog=}, {ngc_ic_sequence=}"
+                        )
 
     # Commit changes and update sequence counters
     conn.commit()
