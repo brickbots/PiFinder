@@ -137,7 +137,7 @@ class CameraInterface:
                             "exposure_start": image_start_time,
                             "exposure_end": image_end_time,
                             "imu": imu_end,
-                            "imu_delta": np.rad2deg(pointing_diff),
+                            "imu_delta": np.rad2deg(pointing_diff),  # TODO: Rename this
                         }
                     )
 
