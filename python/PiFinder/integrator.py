@@ -98,7 +98,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
             flip_alt_offset = False
         #"""
 
-        imu_moved_ang_threshold = np.deg2rad(0.01)  # Use IMU tracking if the angle moved is above this 
+        imu_moved_ang_threshold = np.deg2rad(0.1)  # Use IMU tracking if the angle moved is above this 
             
         # This holds the last image solve position info
         # so we can delta for IMU updates
