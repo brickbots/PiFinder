@@ -182,20 +182,19 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                     cam2scope_offset_az = solved["Az"] - solved["camera_center"]["Az"]
                     cam2scope_offset_alt = solved["Alt"] - solved["camera_center"]["Alt"]
                     # TODO: Do something similar for EQ mounts here
-                    logger.debug("Coordinates stored from plate solve.")
 
                 last_image_solve = copy.deepcopy(solved)
                 solved["solve_source"] = "CAM"
 
-            # Use IMU dead-reckoning from the last camera solve:
-            # 1) Check we have an alt/az solve, otherwise we can't use the IMU
-            # If Alt exists:
-            # 2) Calculate the difference in the IMU measurements since the
-            # last plage solve. IMU "pos" is stored as Alt/Az.
-            # 3) Add the relative Alt/Az difference from the IMU to the plate
-            # -solved Alt/Az to give a dead-reckoning estimate of the current
-            # position.
             elif solved["Alt"]:
+                # Use IMU dead-reckoning from the last camera solve:
+                # 1) Check we have an alt/az solve, otherwise we can't use the IMU
+                # If Alt exists:
+                # 2) Calculate the difference in the IMU measurements since the
+                # last plage solve. IMU "pos" is stored as Alt/Az.
+                # 3) Add the relative Alt/Az difference from the IMU to the plate
+                # -solved Alt/Az to give a dead-reckoning estimate of the current
+                # position.
                 imu = shared_state.imu()
                 if imu:
                     dt = shared_state.datetime()
@@ -207,9 +206,10 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                         #if imu_moved(lis_imu, imu_pos):
                         assert isinstance(imu["quat"] , quaternion.quaternion), "Expecting quaternion.quaternion type"  # TODO: Remove later
                         angle_moved = pointing.get_quat_angular_diff(last_image_solve["imu_quat"], imu["quat"])
-                        logger.debug("Track using IMU. Angle moved = {:}".format(np.rad2deg(angle_moved)))
                         if  angle_moved > imu_moved_ang_threshold:
                             # Estimate camera pointing using IMU dead-reckoning
+                            logger.debug("Track using IMU. Angle moved since last_image_solve = {:} (> threshold = {:})".format(np.rad2deg(angle_moved), np.rad2deg(imu_moved_ang_threshold)))
+
                             q_x2imu = imu["quat"]  # Latest IMU meas: quaternion rot. of IMU rel. to some frame X
                             #q_x2imu = np.quaternion(q_x2imu.w, -q_x2imu.x, -q_x2imu.y, -q_x2imu.z)  # HACK: Reverse the angle part of quaternion
                             q_hor2x = last_image_solve["imu"]["q_hor2x"]
@@ -227,7 +227,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
 
                             # TODO: need to define q_cam2scope
                             #q_hor2scope = q_hor2cam * q_cam2scope
-                      
+                            logger.debug("  IMU quat = ({:}, {:}, {:}, {:}".format(q_x2imu.w, q_x2imu.x, q_x2imu.y, q_x2imu.z))
+
 
                             """ DISABLE - Use quaternions
                             # calc new alt/az - OLD method
