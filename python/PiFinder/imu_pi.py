@@ -209,7 +209,8 @@ def imu_monitor(shared_state, console_queue, log_queue):
                 imu_data["moving"] = True
                 imu_data["start_pos"] = imu_data["pos"]
                 imu_data["move_start"] = time.time()
-            imu_data["pos"] = imu.get_euler()  # TODO: Remove this later. Was used to store Euler angles
+            # DISABLE old method
+            #imu_data["pos"] = imu.get_euler()  # TODO: Remove this later. Was used to store Euler angles
             imu_data["quat"] = quaternion.from_float_array(imu.avg_quat)  # Scalar-first (w, x, y, z) 
         else:
             if imu_data["moving"]:
@@ -217,7 +218,8 @@ def imu_monitor(shared_state, console_queue, log_queue):
                 logger.debug("IMU: move end")
                 imu_data["moving"] = False
                 imu_data["move_end"] = time.time()
-                imu_data["pos"] = imu.get_euler()
+                # DISABLE old method
+                #imu_data["pos"] = imu.get_euler()
                 imu_data["quat"] = quaternion.from_float_array(imu.avg_quat)  # Scalar-first (w, x, y, z) 
 
         if not imu_calibrated:
