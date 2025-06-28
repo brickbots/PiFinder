@@ -210,7 +210,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                         logger.debug("Track using IMU. Angle moved = {:}".format(np.rad2deg(angle_moved)))
                         if  angle_moved > imu_moved_ang_threshold:
                             # Estimate camera pointing using IMU dead-reckoning
-                            q_x2imu = imu["quat"]  # Latest IMU meas: quaternion rot. of IMU rel. to some frame X 
+                            q_x2imu = imu["quat"]  # Latest IMU meas: quaternion rot. of IMU rel. to some frame X
+                            #q_x2imu = np.quaternion(q_x2imu.w, -q_x2imu.x, -q_x2imu.y, -q_x2imu.z)  # HACK: Reverse the angle part of quaternion
                             q_hor2x = last_image_solve["imu"]["q_hor2x"]
                             q_imu2cam = np.quaternion(1, 0, 0, 0)  # Identity so this could be removed later (TODO)
                             q_hor2cam = q_hor2x * q_x2imu * q_imu2cam
