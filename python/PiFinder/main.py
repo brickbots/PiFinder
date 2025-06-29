@@ -648,7 +648,10 @@ def main(
                             console.write("Screenshot saved")
                             logger.info("Screenshot saved")
 
-                        if keycode == keyboard_base.ALT_LEFT or keycode == keyboard_base.ALT_RIGHT:
+                        if (
+                            keycode == keyboard_base.ALT_LEFT
+                            or keycode == keyboard_base.ALT_RIGHT
+                        ):
                             # Image snapshot (ALT_LEFT) or Debug snapshot (ALT_RIGHT)
                             uid = str(uuid.uuid1()).split("-")[0]
 
@@ -697,9 +700,9 @@ def main(
                                         json.dump(debug_dt.isoformat(), f, indent=4)
 
                                 # Dump shared state
-                                #shared_state.serialize(
+                                # shared_state.serialize(
                                 #    f"{utils.debug_dump_dir}/{uid}_sharedstate.pkl"
-                                #)
+                                # )
 
                                 # Dump UI State
                                 with open(
