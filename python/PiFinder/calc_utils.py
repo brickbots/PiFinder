@@ -249,6 +249,7 @@ def hadec_to_roll(ha_deg, dec_deg, lat_deg):
     else:
         roll_deg = -pa_deg + np.sign(ha_deg) * 180
 
+    roll_deg = -pa_deg
     return roll_deg
 
 
