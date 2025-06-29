@@ -12,7 +12,7 @@ class UIEquipment(UIModule):
     """
 
     __title__ = "Equipment"
-    # TODO __help__ for Equipment!
+    __help_name__ = "equipment"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
