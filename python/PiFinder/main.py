@@ -680,14 +680,14 @@ def main(
                                 ss.save(f"{utils.debug_dump_dir}/{uid}_screenshot.png")
 
                                 with open(
-                                    f"{utils.debug_dump_dir}/{uid}_solution.json", "w"
+                                    f"{utils.debug_dump_dir}/{uid}_solution.dbg", "w"
                                 ) as f:
-                                    json.dump(debug_solution, f, indent=4)
+                                    f.write(str(debug_solution))
 
                                 with open(
-                                    f"{utils.debug_dump_dir}/{uid}_location.json", "w"
+                                    f"{utils.debug_dump_dir}/{uid}_location.dgb", "w"
                                 ) as f:
-                                    json.dump(debug_location, f, indent=4)
+                                    f.write(str(debug_location))
 
                                 if debug_dt is not None:
                                     with open(
@@ -697,13 +697,13 @@ def main(
                                         json.dump(debug_dt.isoformat(), f, indent=4)
 
                                 # Dump shared state
-                                shared_state.serialize(
-                                    f"{utils.debug_dump_dir}/{uid}_sharedstate.pkl"
-                                )
+                                #shared_state.serialize(
+                                #    f"{utils.debug_dump_dir}/{uid}_sharedstate.pkl"
+                                #)
 
                                 # Dump UI State
                                 with open(
-                                    f"{utils.debug_dump_dir}/{uid}_uistate.json", "wb"
+                                    f"{utils.debug_dump_dir}/{uid}_uistate.pkl", "wb"
                                 ) as f:
                                     pickle.dump(ui_state, f)
 
