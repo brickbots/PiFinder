@@ -577,11 +577,11 @@ def main(
                 elif ui_command == "reload_config":
                     cfg.load_config()
                 elif ui_command == "test_mode":
-                    dt = datetime.datetime(2024, 6, 1, 2, 0, 0)
+                    dt = datetime.datetime(2025, 6, 28, 11, 0, 0)
                     shared_state.set_datetime(dt)
-                    location.lat = 35.00
-                    location.lon = -118.00
-                    location.altitude = 10
+                    location.lat = 41.13
+                    location.lon = -120.97
+                    location.altitude = 1315
                     location.source = "test"
                     location.error_in_m = 5
                     location.lock = True
