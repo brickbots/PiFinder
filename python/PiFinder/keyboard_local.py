@@ -35,15 +35,25 @@ class KeyboardLocal(KeyboardInterface):
             keyboard.set_magickey_on_release("8", self.callback, 8)
             keyboard.set_magickey_on_release("9", self.callback, 9)
             # ALT_* single key mappings
+
+            # On english keyboard, w and s are next to q and a (see above)
             keyboard.set_magickey_on_release("w", self.callback, self.ALT_PLUS)
             keyboard.set_magickey_on_release("s", self.callback, self.ALT_MINUS)
 
+            # On english keyboard:
+            #  e  r
+            #   d  f  g
             keyboard.set_magickey_on_release("d", self.callback, self.ALT_LEFT)
             keyboard.set_magickey_on_release("r", self.callback, self.ALT_UP)
             keyboard.set_magickey_on_release("f", self.callback, self.ALT_DOWN)
             keyboard.set_magickey_on_release("g", self.callback, self.ALT_RIGHT)
             keyboard.set_magickey_on_release("e", self.callback, self.ALT_0)
+
             # LNG_* single key mappings
+
+            # On english keyboard:
+            #    i
+            #  j  k  l
             keyboard.set_magickey_on_release("j", self.callback, self.LNG_LEFT)
             keyboard.set_magickey_on_release("i", self.callback, self.LNG_UP)
             keyboard.set_magickey_on_release("k", self.callback, self.LNG_DOWN)
