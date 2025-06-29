@@ -15,6 +15,7 @@ class KeyboardLocal(KeyboardInterface):
             return
         try:
             self.q = q
+            # Configure unmodified keys
             keyboard.set_magickey_on_release(Key.left, self.callback, self.LEFT)
             keyboard.set_magickey_on_release(Key.up, self.callback, self.UP)
             keyboard.set_magickey_on_release(Key.down, self.callback, self.DOWN)
@@ -33,44 +34,20 @@ class KeyboardLocal(KeyboardInterface):
             keyboard.set_magickey_on_release("7", self.callback, 7)
             keyboard.set_magickey_on_release("8", self.callback, 8)
             keyboard.set_magickey_on_release("9", self.callback, 9)
-            keyboard.set_magickey_on_release(
-                [Key.ctrl, "q"], None, self.callback, self.ALT_PLUS
-            )
-            keyboard.set_magickey_on_release(
-                [Key.ctrl, "a"], None, self.callback, self.ALT_MINUS
-            )
-            keyboard.set_magickey_on_release(
-                [Key.ctrl, Key.left], None, self.callback, self.ALT_LEFT
-            )
-            keyboard.set_magickey_on_release(
-                [Key.ctrl, Key.up], None, self.callback, self.ALT_UP
-            )
-            keyboard.set_magickey_on_release(
-                [Key.ctrl, Key.down], None, self.callback, self.ALT_DOWN
-            )
-            keyboard.set_magickey_on_release(
-                [Key.ctrl, Key.right], None, self.callback, self.ALT_RIGHT
-            )
-            keyboard.set_magickey_on_release(
-                [Key.ctrl, "0"], None, self.callback, self.ALT_0
-            )
-            keyboard.set_magickey_on_release(
-                [Key.shift, Key.left], None, self.callback, self.LNG_LEFT
-            )
-            keyboard.set_magickey_on_release(
-                [Key.shift, Key.up], None, self.callback, self.LNG_RIGHT
-            )
-            keyboard.set_magickey_on_release(
-                [Key.shift, Key.down], None, self.callback, self.LNG_DOWN
-            )
-            keyboard.set_magickey_on_release(
-                [Key.shift, Key.right], None, self.callback, self.LNG_RIGHT
-            )
-            keyboard.set_magickey_on_release(
-                [Key.shift, "z"], None, self.callback, self.LNG_SQUARE
-            )
-            keyboard.set_magickey_on_release("m", self.callback, self.LNG_SQUARE)
-            keyboard.set_magickey_on_release("r", self.callback, self.LNG_RIGHT)
+            # ALT_* single key mappings
+            keyboard.set_magickey_on_release("w", self.callback, self.ALT_PLUS)
+            keyboard.set_magickey_on_release("s", self.callback, self.ALT_MINUS)
+
+            keyboard.set_magickey_on_release("d", self.callback, self.ALT_LEFT)
+            keyboard.set_magickey_on_release("r", self.callback, self.ALT_UP)
+            keyboard.set_magickey_on_release("f", self.callback, self.ALT_DOWN)
+            keyboard.set_magickey_on_release("g", self.callback, self.ALT_RIGHT)
+            keyboard.set_magickey_on_release("e", self.callback, self.ALT_0)
+            # LNG_* single key mappings
+            keyboard.set_magickey_on_release("j", self.callback, self.LNG_LEFT)
+            keyboard.set_magickey_on_release("i", self.callback, self.LNG_UP)
+            keyboard.set_magickey_on_release("k", self.callback, self.LNG_DOWN)
+            keyboard.set_magickey_on_release("l", self.callback, self.LNG_RIGHT)
         except Exception as e:
             logger.error("KeyboardLocal.__init__: {}".format(e))
         # keyboard.logger = True
@@ -86,5 +63,5 @@ def run_keyboard(q, shared_state, log_queue):
 
     while True:
         # the KeyboardLocal class has callbacks to handle
-        # keypresss.  We just need to not terminate here
+        # keypresses.  We just need to not terminate here
         time.sleep(1)
