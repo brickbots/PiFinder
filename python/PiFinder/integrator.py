@@ -86,7 +86,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
             "constellation": None,
         }
         cfg = config.Config()
-        #"""  Disable dependence of IMU on PiFinder type
+        # TODO: Capture flip_alt_offset by q_imu2camera
         if (
             cfg.get_option("screen_direction") == "left"
             or cfg.get_option("screen_direction") == "flat"
@@ -96,10 +96,13 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
             flip_alt_offset = True
         else:
             flip_alt_offset = False
-        #"""
 
         imu_moved_ang_threshold = np.deg2rad(0.1)  # Use IMU tracking if the angle moved is above this 
-            
+        
+        # Set up dead-reckoning tracking by the IMU:
+        pointing_tracker = ImuDeadReckoning(cfg.get_option("screen_direction"))
+        #pointing_tracker.set_alignment(q_scope2cam)  # TODO: Enable when q_scope2cam is available
+
         # This holds the last image solve position info
         # so we can delta for IMU updates
         last_image_solve = None
@@ -174,9 +177,9 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                         roll_target_calculated + solved["Roll_offset"]
                     )
 
-                    # Use plate-solved pointing and IMU measurement to set up 
-                    # IMU dead reckoning:
-                    solved["imu"]["q_hor2x"] = get_imu_reference_frame(solved, shared_state)
+                    # Update with plate solved coordinates of camera center & IMU measurement
+                    update_plate_solve_and_imu__degrees(pointing_tracker, solved)  
+
                     # From the alignment. Add this offset to the camera center to get
                     # the scope altaz coordinates. TODO: This could be calculated once
                     # at alignment?
@@ -215,26 +218,21 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                         if  angle_moved > imu_moved_ang_threshold:
                             # Estimate camera pointing using IMU dead-reckoning
                             logger.debug("Track using IMU. Angle moved since last_image_solve = {:} (> threshold = {:})".format(np.rad2deg(angle_moved), np.rad2deg(imu_moved_ang_threshold)))
-
-                            q_x2imu = imu["quat"]  # Latest IMU meas: quaternion rot. of IMU rel. to some frame X
-                            #q_x2imu = np.quaternion(q_x2imu.w, -q_x2imu.x, -q_x2imu.y, -q_x2imu.z)  # HACK: Reverse the angle part of quaternion
-                            q_hor2x = last_image_solve["imu"]["q_hor2x"]
-                            q_imu2cam = np.quaternion(1, 0, 0, 0)  # Identity so this could be removed later (TODO)
-                            q_hor2cam = q_hor2x * q_x2imu * q_imu2cam
-                            q_hor2cam = q_hor2cam.normalized()
+                               
+                            # Dead-reckoning using IMU
+                            pointing_tracker.update_imu(imu["quat"])  # Latest IMU meas
+                            
                             # Store estimate:
-                            az_rad, alt_rad = pointing.get_altaz_from_q_hor2scope(q_hor2cam)
-                            solved["camera_center"]["Az"] = np.rad2deg(az_rad)
-                            solved["camera_center"]["Alt"] = np.rad2deg(alt_rad)
+                            az_cam, alt_cam, dead_reckoning_flag = pointing_tracker.get_cam_azalt()
+                            solved["camera_center"]["Az"] = np.rad2deg(az_cam)
+                            solved["camera_center"]["Alt"] = np.rad2deg(alt_cam)
 
                             # Transform to scope center
+                            # TODO: need to define q_cam2scope
                             solved["Az"] = solved["camera_center"]["Az"] + cam2scope_offset_az
                             solved["Alt"] = solved["camera_center"]["Alt"] + cam2scope_offset_alt
 
-                            # TODO: need to define q_cam2scope
-                            #q_hor2scope = q_hor2cam * q_cam2scope
                             logger.debug("  IMU quat = ({:}, {:}, {:}, {:}".format(q_x2imu.w, q_x2imu.x, q_x2imu.y, q_x2imu.z))
-
 
                             """ DISABLE - Use quaternions
                             # calc new alt/az - OLD method
@@ -329,55 +327,19 @@ def estimate_roll_offset(solved, dt):
     return roll_offset
 
 
-def get_imu_reference_frame(solved, shared_state):
+def update_plate_solve_and_imu__degrees(pointing_tracker, solved):
     """
-    The IMU quaternion measurements, q_x2imu, are relative to some arbitrary
-    drifting frame X. This uses the latest plate solved coordinate with the
-    latest IMU measurement to solve for the IMU's reference frame X. The frame
-    X is expressed by the quaternion rotation q_hor2x from the Horizontal frame
-    to X. Once we know q_hor2x, we can infer the camera pointing using the IMU
-    data by dead reckoning: q_hor2cam = q_hor2x * q_x2imu * q_imu2cam
-
-    This assumes that plate solving was successful and camera coordinates are
-    available. It also assumes that the IMU measurement is available. If these
-    conditions are not met, this function will return None. We also assume that
-    the plate solve and IMU measurements availalbe are simultaneous. Note that
-    q_hor2x will drift over time.
-
-    INPUT: 
-    solved: Dictionary of the latest plate-solved data
-
-    RETURNS: 
-    q_hor2x: [numpy.quaternion] Quaternion of the IMU's drifting reference 
-             frame X relative to the Horizontal frame. Returns None if the
-             plate-solved pointing or IMU data aren't available.
+    Wrapper for ImuDeadReckoning.update_plate_solve_and_imu() to interface
+    degrees to radians.
     """
-    q_hor2x = None
-
-    if solved["Alt"]:
+    if (solved["Az"] is None) or (solved["Alt"] is None):
+        return  # No update
+    else: 
         # Successfully plate solved & camera pointing exists
-        #imu = shared_state.imu() # TODO: Usage above. Remove? Also remove shared_state as input?
-        imu_meas = solved["imu_quat"]  # Should be the IMU measurement at the time of plate solving
-        if imu_meas:
-            # We have both the plate solved camera pointing and an IMU 
-            # measurement (we'll assume that they are at the same timestamp).
-
-            # Get plate-solved pointing from the camera as quaternion:
-            # Assumes that the PiFinder camera is on a perfect altaz mount
-            q_hor2cam = pointing.get_q_hor2scope(
-                np.deg2rad(solved["camera_center"]["Az"]), 
-                np.deg2rad(solved["camera_center"]["Alt"]))
-
-            # Get latest IMU data: quaternion rot. of IMU rel. to some drifting 
-            # reference frame X that the IMU uses as its reference
-            q_x2imu = imu_meas # Rename to make the transformation expilicit
-            q_x2imu = q_x2imu.normalized()
-
-            # Solve for the arbitrary drifting reference frame X using the 
-            # camera pointing. This will be used during dead reckoning with 
-            # the IMU until the next plate solve.
-            q_cam2imu = np.quaternion(1, 0, 0, 0)  # Identity so this could be removed later (TODO)
-            q_hor2x = q_hor2cam * q_cam2imu * q_x2imu.conj()
-            q_hor2x = q_hor2x.normalized()
-
-    return q_hor2x
+        q_x2imu = solved["imu_quat"]  # IMU measurement at the time of plate solving
+        # Convert to radians:
+        solved_cam_az = np.deg2rad(solved["camera_center"]["Az"]) 
+        solved_cam_alt = np.deg2rad(solved["camera_center"]["Alt"])
+        # Update:
+        pointing_tracker.update_plate_solve_and_imu(
+            solved_cam_az, solved_cam_alt, q_x2imu)
