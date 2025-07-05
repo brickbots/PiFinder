@@ -17,7 +17,7 @@ trigonometric functions.
 computational overhead. Normalization should be done manually as and when 
 necessary.
 """
-
+from typing import Union  # When updated to Python 3.10+, remove and use new type hints
 import numpy as np
 import quaternion
 
@@ -134,9 +134,9 @@ class ImuDeadReckoning():
         self.q_cam2scope = self.q_scope2cam.conj()  
 
     def update_plate_solve_and_imu(self, 
-                           solved_cam_az: float | None, 
-                           solved_cam_alt: float | None, 
-                           q_x2imu: quaternion.quaternion | None):
+                           solved_cam_az: Union[float, None], 
+                           solved_cam_alt: Union[float, None], 
+                           q_x2imu: Union[quaternion.quaternion, None]):
         """ 
         Update the state with the az/alt measurements from plate solving in the
         camera frame. If the IMU measurement (which should be taken at the same 

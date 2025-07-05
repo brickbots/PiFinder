@@ -72,9 +72,6 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                 "Dec": None,
                 "Roll": None,
             },
-            "imu": {
-                "q_hor2x": None,
-            },
             "Roll_offset": 0,  # May/may not be needed - for experimentation
             "imu_pos": None,
             "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first) - TODO: Move to "imu"
@@ -100,7 +97,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
         imu_moved_ang_threshold = np.deg2rad(0.1)  # Use IMU tracking if the angle moved is above this 
         
         # Set up dead-reckoning tracking by the IMU:
-        pointing_tracker = ImuDeadReckoning(cfg.get_option("screen_direction"))
+        pointing_tracker = pointing.ImuDeadReckoning(cfg.get_option("screen_direction"))
         #pointing_tracker.set_alignment(q_scope2cam)  # TODO: Enable when q_scope2cam is available
 
         # This holds the last image solve position info
@@ -202,7 +199,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                 imu = shared_state.imu()
                 if imu:
                     dt = shared_state.datetime()
-                    if last_image_solve and last_image_solve["Alt"] and last_image_solve["imu"]["q_hor2x"]:
+                    if last_image_solve and last_image_solve["Alt"]:
                         # If we have alt, then we have a position/time
 
                         # TODO: For debugging -- remove later
@@ -232,6 +229,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                             solved["Az"] = solved["camera_center"]["Az"] + cam2scope_offset_az
                             solved["Alt"] = solved["camera_center"]["Alt"] + cam2scope_offset_alt
 
+                            q_x2imu = imu["quat"]
                             logger.debug("  IMU quat = ({:}, {:}, {:}, {:}".format(q_x2imu.w, q_x2imu.x, q_x2imu.y, q_x2imu.z))
 
                             """ DISABLE - Use quaternions
