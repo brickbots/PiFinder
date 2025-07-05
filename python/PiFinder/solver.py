@@ -65,9 +65,6 @@ def solver(
             "Dec": None,
             "Roll": None,
         },
-        "imu": {
-            "q_hor2x": None,
-        },
         # RA, Dec, Roll at the target pixel
         "RA": None,
         "Dec": None,
