@@ -78,19 +78,27 @@ class ImuDeadReckoning():
 
     All angles are in radians.
 
+    HOW IT WORKS:
+    The IMU quaternion measurements, q_x2imu, are relative to some arbitrary
+    drifting frame X. This uses the latest plate solved coordinate with the
+    latest IMU measurement to solve for the IMU's reference frame X. The frame
+    X is expressed by the quaternion rotation q_hor2x from the Horizontal frame
+    to X. Once we know q_hor2x, we can infer the camera pointing using the IMU
+    data by dead reckoning: q_hor2cam = q_hor2x * q_x2imu * q_imu2cam
+
     EXAMPLE:
     # Set up:
     pointing_tracker = ImuDeadReckoning('flat')
     pointing_tracker.set_alignment(q_scope2cam)
     
     # Update with plate solved and IMU data:
-    pointing_tracker.update_plate_solve_and_imu(az_solved, alt_solve, q_x2imu)
+    pointing_tracker.update_plate_solve_and_imu(solved_cam_az, solved_cam_alt, q_x2imu)
     q_hor2scope = pointing_tracker.get_q_hor2scope()
     
     # Dead-reckoning using IMU
     pointing_tracker.update_imu(q_x2imu)
     q_hor2scope = pointing_tracker.get_q_hor2scope()
-    az, alt = get_azalt_of_q_hor2frame(q_hor2frame)
+    az, alt = get_azalt_of_q_hor2frame(q_hor2scope)
     """
 
     def __init__(self, screen_direction):
@@ -126,9 +134,9 @@ class ImuDeadReckoning():
         self.q_cam2scope = self.q_scope2cam.conj()  
 
     def update_plate_solve_and_imu(self, 
-                           solved_az: float, 
-                           solved_alt: float, 
-                           q_x2imu: quaternion.quaternion):
+                           solved_cam_az: float | None, 
+                           solved_cam_alt: float | None, 
+                           q_x2imu: quaternion.quaternion | None):
         """ 
         Update the state with the az/alt measurements from plate solving in the
         camera frame. If the IMU measurement (which should be taken at the same 
@@ -136,15 +144,18 @@ class ImuDeadReckoning():
         be solved for. 
 
         INPUTS:
-        solved_az: [rad] Azimuth of the camera pointing from plate solving.
-        solved_alt: [rad] Alt of the camera pointing from plate solving.
+        solved_cam_az: [rad] Azimuth of the camera pointing from plate solving.
+        solved_cam_alt: [rad] Alt of the camera pointing from plate solving.
         q_x2imu: [quaternion] Raw IMU measurement quaternions. This is the IMU 
             frame orientation wrt unknown drifting reference frame X.
         """
         # Currently assumes that the camera is right way up on a perfect
         # altaz mount. TODO: Generalize to rotated camera
-        self.q_hor2cam = get_q_hor2frame(solved_az, solved_alt).normalized()
-        self.dead_reckoning = False
+        if (solved_cam_az is None) or (solved_cam_alt is None):
+            return  # No update
+        else:
+            self.q_hor2cam = get_q_hor2frame(solved_cam_az, solved_cam_alt).normalized()
+            self.dead_reckoning = False
 
         # Calculate the IMU's unknown reference frame X using the plate solved 
         # coordinates and IMU measurements taken from the same time. If the IMU
@@ -181,9 +192,13 @@ class ImuDeadReckoning():
             None
 
     def get_cam_azalt(self):
-        """ """
-        az_rad, alt_rad = get_azalt_of_q_hor2frame(self.q_hor2cam)
-        return az_rad, alt_rad, self.dead_reckoning
+        """ 
+        Returns the (az, alt) of the camera and a Boolean dead_reckoning to
+        indicate if the estimate is from dead-reckoning (True) or from plate
+        solving (False).
+        """
+        az_cam, alt_cam = get_azalt_of_q_hor2frame(self.q_hor2cam)
+        return az_cam, alt_cam, self.dead_reckoning  # Angles are in radians
 
     def get_scope_azalt(self):
         """ """
