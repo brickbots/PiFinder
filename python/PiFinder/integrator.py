@@ -104,6 +104,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
         # so we can delta for IMU updates
         last_image_solve = None
         last_solve_time = time.time()
+        prev_imu = None  # TODO: For debugging - remove later
         while True:
             state_utils.sleep_for_framerate(shared_state)
 
@@ -200,6 +201,11 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                     dt = shared_state.datetime()
                     if last_image_solve and last_image_solve["Alt"] and last_image_solve["imu"]["q_hor2x"]:
                         # If we have alt, then we have a position/time
+
+                        # TODO: For debugging -- remove later
+                        if prev_imu is None or pointing.get_quat_angular_diff(prev_imu, imu["quat"]) > 1E-4:
+                            print("Quat: ", imu["quat"])
+                        prev_imu = imu["quat"].copy()
 
                         # calc new alt/az
                         # When moving, switch to tracking using the IMU
