@@ -191,3 +191,92 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
 
     ui_module.command_queues["gps"].put(("time", {"time": dt_with_timezone}))
     ui_module.message(_("Time: {time}").format(time=time_str), 2)
+
+
+def handle_radec_entry(ui_module: UIModule, ra_deg: float, dec_deg: float) -> None:
+    """
+    Handles RA/DEC coordinate entry from the coordinate input UI
+    Creates a CompositeObject and adds it to recent list for navigation
+    """
+    logger.info(f"Received coordinates: RA={ra_deg:.6f}°, DEC={dec_deg:.6f}°")
+
+    # Create a CompositeObject from the coordinates
+    custom_object = create_custom_object_from_coords(ra_deg, dec_deg, ui_module)
+
+    # Add to recent objects list for immediate navigation
+    ui_module.shared_state.ui_state().add_recent(custom_object)
+
+    # Convert coordinates to display format for confirmation
+    from PiFinder import calc_utils
+    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(ra_deg)
+    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(dec_deg)
+
+    # Show confirmation message with object name and coordinates
+    coord_msg = f"Added: {custom_object.display_name}\nRA: {ra_h:02.0f}h{ra_m:02.0f}m{ra_s:02.0f}s\nDEC: {dec_d:+03.0f}°{dec_m:02.0f}'{dec_s:02.0f}\""
+    ui_module.message(coord_msg, 3)
+
+    logger.info(f"Created custom object: {custom_object.display_name} at RA={ra_deg:.6f}°, DEC={dec_deg:.6f}°")
+
+
+def create_custom_object_from_coords(ra_deg: float, dec_deg: float, ui_module: UIModule):
+    """
+    Create a CompositeObject from RA/DEC coordinates
+    """
+    from PiFinder.composite_object import CompositeObject, MagnitudeObject
+    from PiFinder import calc_utils
+    import time
+
+    # Generate unique sequence number for custom objects
+    # Use negative numbers to distinguish from regular catalog objects
+    current_time_ms = int(time.time() * 1000)
+    unique_id = -(current_time_ms % 1000000)  # Negative ID for custom objects
+
+    # Generate automatic name
+    custom_name = generate_custom_object_name(ui_module)
+
+    # Determine constellation
+    constellation = calc_utils.sf_utils.radec_to_constellation(ra_deg, dec_deg)
+
+    # Create the CompositeObject following the pattern from pos_server.py
+    custom_object = CompositeObject.from_dict({
+        "id": -1,
+        "object_id": unique_id,
+        "obj_type": "Custom",
+        "ra": ra_deg,
+        "dec": dec_deg,
+        "const": constellation,
+        "size": "",
+        "mag": MagnitudeObject([]),
+        "mag_str": "",
+        "catalog_code": "USER",
+        "sequence": abs(unique_id),
+        "description": f"User-defined coordinates",
+        "names": [custom_name],
+        "image_name": "",
+        "logged": False
+    })
+
+    return custom_object
+
+
+def generate_custom_object_name(ui_module: UIModule) -> str:
+    """
+    Generate a unique name for custom objects (CUSTOM 1, CUSTOM 2, etc.)
+    """
+    # Get current recent list to check for existing custom objects
+    recent_list = ui_module.shared_state.ui_state().recent_list()
+
+    # Find highest existing CUSTOM number
+    max_num = 0
+    for obj in recent_list:
+        if hasattr(obj, 'catalog_code') and obj.catalog_code == "USER":
+            for name in obj.names:
+                if name.startswith("CUSTOM "):
+                    try:
+                        num = int(name.split(" ")[1])
+                        max_num = max(max_num, num)
+                    except (IndexError, ValueError):
+                        pass
+
+    # Return next available number
+    return f"CUSTOM {max_num + 1}"
