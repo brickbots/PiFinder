@@ -169,7 +169,7 @@ class ImuDeadReckoning():
                    q_x2imu: quaternion.quaternion):
         """
         Update the state with the raw IMU measurement. Does a dead-reckoning
-        estiamte of the camera and scope pointing.
+        estimate of the camera and scope pointing.
 
         INPUTS:
         q_x2imu: Quaternion of the IMU orientation w.r.t. an unknown and drifting
