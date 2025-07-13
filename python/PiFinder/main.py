@@ -36,7 +36,7 @@ from PiFinder import integrator
 from PiFinder import config
 from PiFinder import pos_server
 from PiFinder import utils
-from PiFinder import server
+from PiFinder import server2
 from PiFinder import keyboard_interface
 
 from PiFinder.multiproclogging import MultiprocLogging
@@ -364,7 +364,7 @@ def main(
 
         server_process = Process(
             name="Webserver",
-            target=server.run_server,
+            target=server2.run_server,
             args=(
                 keyboard_queue,
                 ui_queue,
