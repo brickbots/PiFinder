@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row valign-wrapper" style="margin: 0;">
+    <div class="col s12">
+        <h3 class="grey-text">{{ _('Equipment') }}</h3>
+    </div>
+</div>
+
+{% if error_message %}
+<div class="row">
+    <div class="col s12">
+        <p class="red-text">{{ error_message }}</p>
+    </div>
+</div>
+{% endif %}
+
+{% if success_message %}
+<div class="row">
+    <div class="col s12">
+        <p class="green-text">{{ success_message }}</p>
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col s3 center-align grey-text">
+        <h6 class="grey-text text-lighten-1">{{ _('Instruments') }}</h6>
+            {{ equipment.telescopes|length }}
+    </div>
+    <div class="col s3 center-align grey-text">
+        <h6 class="grey-text text-lighten-1">{{ _('Eyepieces') }}</h6>
+            {{ equipment.eyepieces|length }}
+    </div>
+    <div class="col s3 center-align grey-text">
+        <h6 class="grey-text text-lighten-1">{{ _('Import from DeepskyLog') }}</h6>
+        <a href="#modal_import_from_deepskylog" class="modal-trigger"><i
+                    class="material-icons small">download</i></a>
+    </div>
+</div>
+
+<div id="modal_import_from_deepskylog" class="modal">
+    <div class="modal-content">
+        <h4>{{ _('Download instruments from DeepskyLog') }}</h4>
+        <p>{{ _('This will delete all instruments and eyepieces from your PiFinder and replace them with the instruments and eyepieces from DeepskyLog. Are you really sure?') }}</p>
+        <form action="/equipment/import_from_deepskylog" method="post" id="deepskylog_form" class="col s12">
+            <div class="row">
+                <div class="input-field col s12">
+                    <input value="" id="dsl_name" type="text" name="dsl_name">
+                    <label for="dsl_name">{{ _('DeepskyLog User Name') }}</label>
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <a href="#" onClick="document.getElementById('deepskylog_form').submit();"
+           class="modal-close btn-flat">{{ _('Import!') }}</a>
+        <a href="#!" class="modal-close btn-flat">{{ _('Cancel') }}</a>
+    </div>
+</div>
+
+<a href="/equipment/edit_instrument/-1" class="btn modal-trigger">{{ _('Add new instrument') }}</a>
+<a href="/equipment/edit_eyepiece/-1" class="btn modal-trigger">{{ _('Add new eyepiece') }}</a>
+
+<h5 class="grey-text">{{ _('Instruments') }}</h5>
+<table class="grey darken-2 grey-text z-depth-1">
+    <tr>
+        <th>{{ _('Make') }}</th>
+        <th>{{ _('Name') }}</th>
+        <th>{{ _('Aperture') }}</th>
+        <th>{{ _('Focal Length (mm)') }}</th>
+        <th>{{ _('Obstruction %') }}</th>
+        <th>{{ _('Mount Type') }}</th>
+        <th>{{ _('Flip') }}</th>
+        <th>{{ _('Flop') }}</th>
+        <th>{{ _('Reverse Arrow A') }}</th>
+        <th>{{ _('Reverse Arrow B') }}</th>
+        <th>{{ _('Active') }}</th>
+        <th>{{ _('Actions') }}</th>
+    </tr>
+    {% for instrument in equipment.telescopes %}
+    <tr>
+        <td>{{ instrument.make }}</td>
+        <td>{{ instrument.name }}</td>
+        <td>{{ instrument.aperture_mm }}</td>
+        <td>{{ instrument.focal_length_mm }}</td>
+        <td>{{ instrument.obstruction_perc }}</td>
+        <td>{{ instrument.mount_type }}</td>
+        <td>{{ instrument.flip_image }}</td>
+        <td>{{ instrument.flop_image }}</td>
+        <td>{{ instrument.reverse_arrow_a }}</td>
+        <td>{{ instrument.reverse_arrow_b }}</td>
+        <td>
+                <label>
+                    <a href="/equipment/set_active_instrument/{{ loop.index0 }}">
+                        <input type="radio"
+                        {% if equipment.active_telescope == instrument %}
+                            checked
+                        {% endif %}
+                        />
+                        <span></span>
+                    </a>
+                </label>
+        </td>
+        <td>
+            <a href="/equipment/edit_instrument/{{ loop.index0 }}"><i class="material-icons">edit</i></a>
+            <a href="/equipment/delete_instrument/{{ loop.index0 }}"><i class="material-icons">delete</i></a>
+       </td>
+    </tr>
+    {% endfor %}
+</table>
+
+<h5 class="grey-text">{{ _('Eyepieces') }}</h5>
+<table class="grey darken-2 grey-text z-depth-1">
+    <tr>
+        <th>{{ _('Make') }}</th>
+        <th>{{ _('Name') }}</th>
+        <th>{{ _('Focal Length (mm)') }}</th>
+        <th>{{ _('Apparent FOV') }}</th>
+        <th>{{ _('Field Stop') }}</th>
+        <th>{{ _('Active') }}</th>
+        <th>{{ _('Actions') }}</th>
+    </tr>
+
+    {% for eyepiece in equipment.eyepieces %}
+    <tr>
+        <td>{{ eyepiece.make }}</td>
+        <td>{{ eyepiece.name }}</td>
+        <td>{{ eyepiece.focal_length_mm }}</td>
+        <td>{{ eyepiece.afov }}</td>
+        <td>{{ eyepiece.field_stop }}</td>
+        <td>
+                <label>
+                    <a href="/equipment/set_active_eyepiece/{{ loop.index0 }}">
+                        <input type="radio"
+                        {% if equipment.active_eyepiece == eyepiece %}
+                            checked
+                        {% endif %}
+                        />
+                        <span></span>
+                    </a>
+                </label>
+        </td>
+        <td>
+            <a href="/equipment/edit_eyepiece/{{ loop.index0 }}"><i class="material-icons">edit</i></a>
+            <a href="/equipment/delete_eyepiece/{{ loop.index0 }}"><i class="material-icons">delete</i></a>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+<br/>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        let elems = document.querySelectorAll('select');
+        let instances = M.FormSelect.init(elems);
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        let elems = document.querySelectorAll('.modal');
+        let instances = M.Modal.init(elems);
+    });
+
+    function set_instrument_id(id) {
+        let instrument_id = id;
+    }
+</script>
+{% endblock %}

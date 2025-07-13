@@ -1,0 +1,52 @@
+body {
+     display: flex;
+     min-height: 100vh;
+     flex-direction: column;
+}
+
+main {
+ flex: 1 0 auto;
+}
+
+.icon-block {
+  padding: 0 15px;
+}
+
+.icon-block .material-icons {
+  font-size: inherit;
+}
+
+.pf-logo {
+  height: 50px;   
+}
+
+.pifinder-screen {
+  width: 100%;
+  max-width: 256px;
+  margin: 1rem;
+ 
+}
+
+.remote-button {
+  height: 3rem;
+}
+
+.pressed {
+  background-color: #000 !important;
+}
+
+.btn, .btn:focus {
+  background-color: #555;
+}
+
+@media (hover: hover) {
+  .btn:hover {
+    background-color: #777;
+  }
+}
+
+@media (hover: none) {
+  .btn:hover {
+    background-color: #555;
+  }
+}

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row valign-wrapper" style="margin: 0px;">
+  <div class="col s12">
+        <h5 class="grey-text">{{ _('Network Settings') }}</h5>
+  </div>
+</div>
+<div class="card grey darken-2">
+  <div class="card-content">
+    <form action="/network/update" method="post" id="network_form" class="col s12">
+        <div class="row">
+            <div class="input-field col s12">
+                <select name="wifi_mode">
+                    <option value="AP" {% if net.wifi_mode() == "AP" %}selected{% endif %}>
+                        {{ _('Access Point') }}
+                    </option>
+                    <option value="Client" {% if net.wifi_mode() == "Client" %}selected{% endif %}>
+                        {{ _('Client') }}
+                    </option>
+                </select>
+                <label>{{ _('Wifi Mode') }}</label>
+            </div>
+        </div>
+        <div class="row">
+            <div class="input-field col s12">
+                <input value="{{ net.get_ap_name() }}" id="ap_name" type="text" name="ap_name">
+                <label for="ap_name">{{ _('AP Network Name') }}</label>
+            </div>
+        </div>
+        <div class="row">
+            <div class="input-field col s12">
+                <input value="{{ net.get_host_name() }}" id="host_name" type="text" name="host_name">
+                <label for="host_name">{{ _('Host Name') }}</label>
+            </div>
+        </div>
+    </form>
+  </div>
+  <div class="card-action">
+    <a href="#modal_restart" class="btn modal-trigger">{{ _('Update and Restart') }}</a>
+  </div>
+</div>
+<div id="modal_restart" class="modal">
+  <div class="modal-content">
+    <h4>{{ _('Save and Restart') }}</h4>
+    <p>{{ _('This will update the network settings and restart the PiFinder. You may have to adjust your network settings to re-connect. Are you sure?') }}</p>
+  </div>
+  <div class="modal-footer">
+    <a href="#" onClick="document.getElementById('network_form').submit();" class="modal-close btn-flat">{{ _('Do It') }}</a>
+    <a href="#!" class="modal-close btn-flat">{{ _('Cancel') }}</a>
+  </div>
+</div>
+<div class="row valign-wrapper" style="margin: 0px;">
+  <div class="col s10">
+        <h5 class="grey-text">{{ _('Wifi Networks') }}</h5>
+  </div>
+  <div class="col s2">
+{% if not show_new_form %}
+    <a class="btn-floating btn-small grey" href="/network?add_new=1"><i class="material-icons">add</i></a>
+{% endif %}
+  </div>
+</div>
+<div class="card grey darken-2">
+  <div class="card-content">
+    <table class="grey-text">
+{% if show_new_form %}
+      <tr class="grey-text text-lighten-1">
+        <td> 
+        <form class="col s12" action="/network/add" method="post" id="new_network_form">
+          <div class="row">
+            <div class="input-field col s12">
+              <input placeholder="SSID" id="ssid" type="text" name="ssid">
+              <label for="ssid">{{ _('Name') }}</label>
+            </div>
+          </div>
+          <div class="row">
+            <div class="input-field col s12">
+              <input placeholder="{{ _('None') }}" id="password" type="text" name="psk" class="validate" pattern=".{8,}">
+              <label for="password">{{ _('Password') }}</label>
+              <span class="helper-text" data-error="{{ _('Too Short') }}" data-success="">{{ _('Min 8 Characters or leave None') }}</span>
+            </div>
+          </div>
+          <div class="row">
+            <div class="input-field col s12">
+              <a href="#" class="btn modal-trigger" onClick="document.getElementById('new_network_form').submit();">{{ _('Save') }}</a>
+              &nbsp;
+              <a href="/network" class="btn modal-trigger">{{ _('Cancel') }}</a>
+            </div>
+          </div>
+        </form>
+        </td>
+      </tr>
+{% endif %}
+{% for network in net.get_wifi_networks() %}
+  {% include 'network_item.html' %}
+{% endfor %}
+   </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+      var elems = document.querySelectorAll('select');
+          var instances = M.FormSelect.init(elems);
+            });
+
+document.addEventListener('DOMContentLoaded', function() {
+    var elems = document.querySelectorAll('.modal');
+        var instances = M.Modal.init(elems);
+          });
+</script>
+{% endblock %}

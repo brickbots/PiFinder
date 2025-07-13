@@ -1,0 +1,443 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  .input-field {
+    position: relative;
+    margin-bottom: 20px;
+  }
+  .input-field input.invalid {
+    border-bottom: 1px solid #F44336 !important;
+    box-shadow: 0 1px 0 0 #F44336 !important;
+  }
+  .input-field input.invalid + label {
+    color: #F44336 !important;
+  }
+  .helper-text {
+    color: #F44336;
+    font-size: 12px;
+    position: absolute;
+    bottom: -18px;
+    left: 0;
+    width: 100%;
+    min-height: 12px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+</style>
+<div class="row valign-wrapper" style="margin: 0px;">
+  <div class="col s12">
+    <h5 class="grey-text">{{ _('Location Management') }}</h5>
+  </div>
+</div>
+
+<div class="card grey darken-2">
+  <div class="card-content">
+    {% if error_message %}
+    <div class="row">
+        <div class="col s12">
+            <span class="red-text">{{ error_message }}</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+      <div class="col s12">
+        <a href="/locations?add_new=1" class="waves-effect waves-light btn">
+          <i class="material-icons left">add</i>{{ _('Add New Location') }}
+        </a>
+      </div>
+    </div>
+
+    {% if show_new_form %}
+    {% include 'location_form.html' %}
+    {% endif %}
+
+    <div class="row">
+      <div class="col s12">
+        <table class="striped">
+          <thead>
+            <tr>
+              <th>{{ _('Name') }}</th>
+              <th>{{ _('Latitude') }}</th>
+              <th>{{ _('Longitude') }}</th>
+              <th>{{ _('Altitude') }}</th>
+              <th>{{ _('Error') }}</th>
+              <th>{{ _('Source') }}</th>
+              <th>{{ _('Actions') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for location in locations %}
+            <tr>
+              <td>
+                {% if location.is_default %}
+                <i class="material-icons tiny">star</i>
+                {% endif %}
+                {{ location.name }}
+              </td>
+              <td>{{ "%.6f"|format(location.latitude) }}</td>
+              <td>{{ "%.6f"|format(location.longitude) }}</td>
+              <td>{{ "%.1f"|format(location.height) }}m</td>
+              <td>{{ "%.1f"|format(location.error_in_m) }}m</td>
+              <td>{{ location.source }}</td>
+              <td>
+                <a href="/locations/load/{{ loop.index0 }}" class="waves-effect waves-light btn-small" title="{{ _('Load Location') }}">
+                  <i class="material-icons">location_on</i>
+                </a>
+                <a href="/locations/set_default/{{ loop.index0 }}" class="waves-effect waves-light btn-small" title="{{ _('Set as Default') }}">
+                  <i class="material-icons">star</i>
+                </a>
+                <a href="#rename-modal-{{ loop.index0 }}" class="waves-effect waves-light btn-small modal-trigger" title="{{ _('Edit') }}">
+                  <i class="material-icons">edit</i>
+                </a>
+                <a href="#delete-modal-{{ loop.index0 }}" class="waves-effect waves-light btn-small red modal-trigger" title="{{ _('Delete') }}">
+                  <i class="material-icons">delete</i>
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% for location in locations %}
+<div id="rename-modal-{{ loop.index0 }}" class="modal">
+  <div class="modal-content">
+    <h4>{{ _('Edit Location') }}</h4>
+    <div class="row">
+      <form action="/locations/rename/{{ loop.index0 }}" method="post" class="col s12" id="edit_form_{{ loop.index0 }}">
+        <div class="row">
+          <div class="input-field col s12">
+            <input id="name-edit_form_{{ loop.index0 }}" type="text" name="name" value="{{ location.name }}" required/>
+            <label for="name-edit_form_{{ loop.index0 }}">{{ _('Location Name') }}</label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="input-field col s12">
+            <label>
+              <input type="checkbox" id="formatSwitch-edit_form_{{ loop.index0 }}" onclick="toggleFormat('edit_form_{{ loop.index0 }}')"/>
+              <span>{{ _('Use DMS Format') }}</span>
+            </label>
+          </div>
+        </div>
+        <div class="row" id="decimalFormat-edit_form_{{ loop.index0 }}">
+          <div class="input-field col s4">
+            <input id="latitude-edit_form_{{ loop.index0 }}" type="number" step="any" name="latitude" value="{{ location.latitude }}" required/>
+            <label for="latitude-edit_form_{{ loop.index0 }}">{{ _('Latitude (Decimal)') }}</label>
+            <span class="helper-text"></span>
+          </div>
+          <div class="input-field col s4">
+            <input id="longitude-edit_form_{{ loop.index0 }}" type="number" step="any" name="longitude" value="{{ location.longitude }}" required/>
+            <label for="longitude-edit_form_{{ loop.index0 }}">{{ _('Longitude (Decimal)') }}</label>
+            <span class="helper-text"></span>
+          </div>
+          <div class="input-field col s4">
+            <input id="altitude-edit_form_{{ loop.index0 }}" type="number" step="any" name="altitude" value="{{ location.height }}" required/>
+            <label for="altitude-edit_form_{{ loop.index0 }}">{{ _('Altitude (meters)') }}</label>
+            <span class="helper-text"></span>
+          </div>
+        </div>
+        <div class="row" id="dmsFormat-edit_form_{{ loop.index0 }}" style="display:none;">
+          <div class="input-field col s4">
+            <input id="latitudeD-edit_form_{{ loop.index0 }}" type="number" name="latitudeD"/>
+            <label for="latitudeD-edit_form_{{ loop.index0 }}">{{ _('Latitude Degrees') }}</label>
+          </div>
+          <div class="input-field col s4">
+            <input id="latitudeM-edit_form_{{ loop.index0 }}" type="number" name="latitudeM"/>
+            <label for="latitudeM-edit_form_{{ loop.index0 }}">{{ _('Latitude Minutes') }}</label>
+          </div>
+          <div class="input-field col s4">
+            <input id="latitudeS-edit_form_{{ loop.index0 }}" type="number" name="latitudeS"/>
+            <label for="latitudeS-edit_form_{{ loop.index0 }}">{{ _('Latitude Seconds') }}</label>
+          </div>
+          <div class="input-field col s4">
+            <input id="longitudeD-edit_form_{{ loop.index0 }}" type="number" name="longitudeD"/>
+            <label for="longitudeD-edit_form_{{ loop.index0 }}">{{ _('Longitude Degrees') }}</label>
+          </div>
+          <div class="input-field col s4">
+            <input id="longitudeM-edit_form_{{ loop.index0 }}" type="number" name="longitudeM"/>
+            <label for="longitudeM-edit_form_{{ loop.index0 }}">{{ _('Longitude Minutes') }}</label>
+          </div>
+          <div class="input-field col s4">
+            <input id="longitudeS-edit_form_{{ loop.index0 }}" type="number" name="longitudeS"/>
+            <label for="longitudeS-edit_form_{{ loop.index0 }}">{{ _('Longitude Seconds') }}</label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="input-field col s6">
+            <input id="error_in_m-edit_form_{{ loop.index0 }}" type="number" step="any" name="error_in_m" value="{{ location.error_in_m }}"/>
+            <label for="error_in_m-edit_form_{{ loop.index0 }}">{{ _('Error (meters)') }}</label>
+            <span class="helper-text"></span>
+          </div>
+          <div class="input-field col s6">
+            <input id="source-edit_form_{{ loop.index0 }}" type="text" name="source" value="{{ location.source }}"/>
+            <label for="source-edit_form_{{ loop.index0 }}">{{ _('Source') }}</label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col s12">
+            <button type="submit" id="saveButton-edit_form_{{ loop.index0 }}" class="waves-effect waves-light btn">{{ _('Save Changes') }}</button>
+            <a href="#!" class="waves-effect waves-light btn grey modal-close">{{ _('Cancel') }}</a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<div id="delete-modal-{{ loop.index0 }}" class="modal">
+  <div class="modal-content">
+    <h4>{{ _('Confirm Delete') }}</h4>
+    <p>{{ _('Are you sure you want to delete the location') }} "<strong>{{ location.name }}</strong>"? {{ _('This action cannot be undone.') }}</p>
+  </div>
+  <div class="modal-footer">
+    <a href="#!" class="modal-close waves-effect waves-light btn grey">{{ _('Cancel') }}</a>
+    <a href="/locations/delete/{{ loop.index0 }}" class="modal-close waves-effect waves-light btn red">{{ _('Delete') }}</a>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Conversion from Decimal to DMS
+function decimalToDMS(decimal) {
+    var degrees = Math.floor(decimal);
+    var minutes = Math.floor((Math.abs(decimal) * 3600) / 60) % 60;
+    var seconds = Math.abs(decimal * 3600) % 60;
+    seconds = Math.round(seconds * 100) / 100;
+    if (seconds === 60) {
+        seconds = 0;
+        minutes += 1;
+    }
+    if (minutes === 60) {
+        minutes = 0;
+        degrees += (decimal >= 0 ? 1 : -1);
+    }
+    return [degrees, minutes, seconds];
+}
+
+// Conversion from DMS to Decimal
+function DMSToDecimal(degrees, minutes, seconds) {
+    var sign = degrees < 0 ? -1 : 1;
+    return sign * (Math.abs(degrees) + (minutes / 60) + (seconds / 3600));
+}
+
+function validateDMSFields(id = '') {
+    var latD = document.getElementById("latitudeD-" + id);
+    var latM = document.getElementById("latitudeM-" + id);
+    var latS = document.getElementById("latitudeS-" + id);
+    var longD = document.getElementById("longitudeD-" + id);
+    var longM = document.getElementById("longitudeM-" + id);
+    var longS = document.getElementById("longitudeS-" + id);
+    
+    if (!latD || !latM || !latS || !longD || !longM || !longS) return false;
+    
+    var lat = DMSToDecimal(parseFloat(latD.value), parseFloat(latM.value), parseFloat(latS.value));
+    var lon = DMSToDecimal(parseFloat(longD.value), parseFloat(longM.value), parseFloat(longS.value));
+    
+    return validateField(lat, 'latitude') && validateField(lon, 'longitude');
+}
+
+function updateDMSFields(decimalLatitude, decimalLongitude, id = '') {
+    if (decimalLatitude) {
+        var dmsLat = decimalToDMS(parseFloat(decimalLatitude));
+        document.getElementById("latitudeD-" + id).value = dmsLat[0];
+        document.getElementById("latitudeM-" + id).value = dmsLat[1];
+        document.getElementById("latitudeS-" + id).value = dmsLat[2];
+    }
+    if (decimalLongitude) {
+        var dmsLong = decimalToDMS(parseFloat(decimalLongitude));
+        document.getElementById("longitudeD-" + id).value = dmsLong[0];
+        document.getElementById("longitudeM-" + id).value = dmsLong[1];
+        document.getElementById("longitudeS-" + id).value = dmsLong[2];
+    }
+    checkFields(id);
+}
+
+function toggleFormat(id = '') {
+    var checkBox = document.getElementById("formatSwitch-" + id);
+    var decimalFormat = document.getElementById("decimalFormat-" + id);
+    var dmsFormat = document.getElementById("dmsFormat-" + id);
+    if (checkBox.checked) {
+        decimalFormat.style.display = "none";
+        dmsFormat.style.display = "block";
+        focusFirstDMSField(id);
+        setupDMSValidation(id);
+    } else {
+        decimalFormat.style.display = "block";
+        dmsFormat.style.display = "none";
+    }
+    checkFields(id);
+}
+
+function setupDMSValidation(id = '') {
+    var dmsFields = ["latitudeD", "latitudeM", "latitudeS", "longitudeD", "longitudeM", "longitudeS"];
+    dmsFields.forEach(function(field) {
+        var element = document.getElementById(field + "-" + id);
+        if (element) {
+            element.addEventListener('input', function() {
+                checkFields(id);
+            });
+        }
+    });
+}
+
+function focusFirstDMSField(id = '') {
+    var latS = document.getElementById("latitudeS-" + id);
+    if (latS.offsetParent !== null) {
+        ["latitudeS", "latitudeM", "latitudeD", "longitudeS", "longitudeM", "longitudeD"].forEach(field => {
+            document.getElementById(field + "-" + id).focus();
+        });
+    } else {
+        setTimeout(function() { focusFirstDMSField(id); }, 50);
+    }
+}
+
+function validateField(value, fieldName) {
+    if (value === '' || value === null) return false;
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return false;
+    
+    switch(fieldName) {
+        case 'latitude':
+            return numValue >= -90 && numValue <= 90;
+        case 'longitude':
+            return numValue >= -180 && numValue <= 180;
+        case 'altitude':
+            return numValue >= -1000 && numValue <= 10000;
+        case 'error_in_m':
+            return numValue >= 0 && numValue <= 10000;
+        default:
+            return true;
+    }
+}
+
+function updateFieldValidation(field, fieldName, id = '', forceShowError = false) {
+    const helperText = field.parentElement.querySelector('.helper-text');
+    const value = field.value.trim();
+    const isValid = validateField(value, fieldName);
+    const showError = forceShowError || field.dataset.hasInteracted === 'true';
+    
+    field.classList.remove('invalid');
+    helperText.classList.remove('red-text');
+    helperText.textContent = '';
+    
+    if (showError && !isValid) {
+        field.classList.add('invalid');
+        helperText.classList.add('red-text');
+        if (value === '') {
+            helperText.textContent = "{{ _('This field is required') }}";
+        } else if (isNaN(parseFloat(value))) {
+            helperText.textContent = "{{ _('Must be a valid number') }}";
+        } else {
+            switch(fieldName) {
+                case 'latitude':
+                    helperText.textContent = "{{ _('Must be between -90 and 90') }}";
+                    break;
+                case 'longitude':
+                    helperText.textContent = "{{ _('Must be between -180 and 180') }}";
+                    break;
+                case 'altitude':
+                    helperText.textContent = "{{ _('Must be between -1000 and 10000 meters') }}";
+                    break;
+                case 'error_in_m':
+                    helperText.textContent = "{{ _('Must be between 0 and 10000 meters') }}";
+                    break;
+            }
+        }
+    }
+    return isValid;
+}
+
+function checkFields(id = '') {
+    const checkBox = document.getElementById("formatSwitch-" + id);
+    const saveButton = document.getElementById("saveButton-" + id);
+    const nameField = document.getElementById("name-" + id);
+    
+    let isValid = nameField && nameField.value.trim() !== '';
+    
+    if (checkBox && checkBox.checked) {
+        isValid = isValid && validateDMSFields(id);
+    } else {
+        const fields = {
+            latitude: document.getElementById("latitude-" + id),
+            longitude: document.getElementById("longitude-" + id),
+            altitude: document.getElementById("altitude-" + id),
+            error_in_m: document.getElementById("error_in_m-" + id)
+        };
+        
+        isValid = isValid && Object.entries(fields).every(([fieldName, field]) => 
+            field && validateField(field.value, fieldName)
+        );
+    }
+    
+    if (saveButton) {
+        saveButton.disabled = !isValid;
+    }
+    return isValid;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var elems = document.querySelectorAll('.modal');
+    var instances = M.Modal.init(elems);
+
+    var forms = document.querySelectorAll('form[id^="edit_form_"], #location_form');
+    forms.forEach(function(form) {
+        const id = form.id;
+        
+        const fields = {
+            latitude: document.getElementById("latitude-" + id),
+            longitude: document.getElementById("longitude-" + id),
+            altitude: document.getElementById("altitude-" + id),
+            error_in_m: document.getElementById("error_in_m-" + id),
+            name: document.getElementById("name-" + id)
+        };
+
+        Object.entries(fields).forEach(([fieldName, field]) => {
+            if (field) {
+                field.dataset.hasInteracted = 'false';
+                
+                field.addEventListener('input', function() {
+                    this.dataset.hasInteracted = 'true';
+                    if (fieldName !== 'name') {
+                        updateDMSFields(
+                            fieldName === 'latitude' ? this.value : null,
+                            fieldName === 'longitude' ? this.value : null,
+                            id
+                        );
+                        updateFieldValidation(this, fieldName, id);
+                    }
+                    checkFields(id);
+                });
+
+                field.addEventListener('focus', function() {
+                    this.dataset.hasInteracted = 'true';
+                });
+            }
+        });
+
+        form.addEventListener('submit', function(e) {
+            const allValid = checkFields(id);
+            
+            if (!allValid) {
+                e.preventDefault();
+                M.toast({html: "{{ _('Please fix the validation errors before saving') }}", classes: 'red'});
+                
+                Object.entries(fields).forEach(([fieldName, field]) => {
+                    if (field && fieldName !== 'name') {
+                        updateFieldValidation(field, fieldName, id, true);
+                    }
+                });
+            }
+        });
+
+        checkFields(id);
+    });
+});
+</script>
+{% endblock %}
