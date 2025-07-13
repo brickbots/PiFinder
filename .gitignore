@@ -144,4 +144,6 @@ astro_data/hip_main.dat
 *.3mf
 *.gcode
 case/my_printer
-
+.devenv/
+astro_data/comets.txt
+python/tetra3

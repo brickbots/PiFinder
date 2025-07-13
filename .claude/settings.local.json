@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(jj log:*)",
+      "Bash(jj status:*)",
+      "Bash(jj show:*)",
+      "Bash(jj file list:*)",
+      "Bash(ls:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(jj branch:*)",
+      "Bash(jj git fetch:*)",
+      "Bash(jj help:*)",
+      "Bash(jj bookmark:*)",
+      "Bash(jj describe:*)",
+      "Bash(jj rebase:*)"
+    ],
+    "deny": []
+  }
+}
