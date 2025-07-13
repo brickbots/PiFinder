@@ -657,66 +657,76 @@ def main(
                             console.write("Screenshot saved")
                             logger.info("Screenshot saved")
 
-                        if keycode == keyboard_base.ALT_RIGHT:
-                            # Debug snapshot
+                        if (
+                            keycode == keyboard_base.ALT_LEFT
+                            or keycode == keyboard_base.ALT_RIGHT
+                        ):
+                            # Image snapshot (ALT_LEFT) or Debug snapshot (ALT_RIGHT)
                             uid = str(uuid.uuid1()).split("-")[0]
-
-                            # current screen
-                            ss = menu_manager.stack[-1].screen.copy()
 
                             # wait two seconds for any vibration from
                             # pressing the button to pass.
-                            menu_manager.message("Debug: 2", 1)
+                            menu_manager.message("Saving: 2", 1)
                             time.sleep(1)
-                            menu_manager.message("Debug: 1", 1)
+                            menu_manager.message("Saving: 1", 1)
                             time.sleep(1)
-                            menu_manager.message("Debug: Saving", 1)
+                            menu_manager.message("Saving...", 1)
                             time.sleep(1)
                             debug_image = camera_image.copy()
-                            debug_solution = shared_state.solution()
-                            debug_location = shared_state.location()
-                            debug_dt = shared_state.datetime()
 
-                            # write images
+                            # Always save images for both ALT_LEFT and ALT_RIGHT
                             debug_image.save(f"{utils.debug_dump_dir}/{uid}_raw.png")
                             debug_image = subtract_background(debug_image)
                             debug_image = debug_image.convert("RGB")
                             debug_image = ImageOps.autocontrast(debug_image)
                             debug_image.save(f"{utils.debug_dump_dir}/{uid}_sub.png")
 
-                            ss.save(f"{utils.debug_dump_dir}/{uid}_screenshot.png")
+                            if keycode == keyboard_base.ALT_RIGHT:
+                                # Additional debug information only for ALT_RIGHT
+                                # current screen
+                                ss = menu_manager.stack[-1].screen.copy()
+                                debug_solution = shared_state.solution()
+                                debug_location = shared_state.location()
+                                debug_dt = shared_state.datetime()
 
-                            with open(
-                                f"{utils.debug_dump_dir}/{uid}_solution.json", "w"
-                            ) as f:
-                                json.dump(debug_solution, f, indent=4)
+                                ss.save(f"{utils.debug_dump_dir}/{uid}_screenshot.png")
 
-                            with open(
-                                f"{utils.debug_dump_dir}/{uid}_location.json", "w"
-                            ) as f:
-                                json.dump(debug_location, f, indent=4)
-
-                            if debug_dt is not None:
                                 with open(
-                                    f"{utils.debug_dump_dir}/{uid}_datetime.json",
-                                    "w",
+                                    f"{utils.debug_dump_dir}/{uid}_solution.dbg", "w"
                                 ) as f:
-                                    json.dump(debug_dt.isoformat(), f, indent=4)
+                                    f.write(str(debug_solution))
 
-                            # Dump shared state
-                            shared_state.serialize(
-                                f"{utils.debug_dump_dir}/{uid}_sharedstate.pkl"
-                            )
+                                with open(
+                                    f"{utils.debug_dump_dir}/{uid}_location.dgb", "w"
+                                ) as f:
+                                    f.write(str(debug_location))
 
-                            # Dump UI State
-                            with open(
-                                f"{utils.debug_dump_dir}/{uid}_uistate.json", "wb"
-                            ) as f:
-                                pickle.dump(ui_state, f)
+                                if debug_dt is not None:
+                                    with open(
+                                        f"{utils.debug_dump_dir}/{uid}_datetime.json",
+                                        "w",
+                                    ) as f:
+                                        json.dump(debug_dt.isoformat(), f, indent=4)
 
-                            console.write(f"Debug dump: {uid}")
-                            logger.info(f"Debug dump: {uid}")
-                            menu_manager.message("Debug Info Saved", timeout=1)
+                                # Dump shared state
+                                # shared_state.serialize(
+                                #    f"{utils.debug_dump_dir}/{uid}_sharedstate.pkl"
+                                # )
+
+                                # Dump UI State
+                                with open(
+                                    f"{utils.debug_dump_dir}/{uid}_uistate.pkl", "wb"
+                                ) as f:
+                                    pickle.dump(ui_state, f)
+
+                                console.write(f"Debug dump: {uid}")
+                                logger.info(f"Debug dump: {uid}")
+                                menu_manager.message("Debug Info Saved", timeout=1)
+                            else:
+                                # ALT_LEFT - just image saved
+                                console.write(f"Image saved: {uid}")
+                                logger.info(f"Image saved: {uid}")
+                                menu_manager.message("Image Saved", timeout=1)
 
                     else:
                         if keycode < 10:
