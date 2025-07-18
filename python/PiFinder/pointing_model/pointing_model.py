@@ -31,7 +31,8 @@ def axis_angle2quat(axis, theta):
     angle: Angle of rotation [rad]
     """
     assert(len(axis) == 3, 'axis should be a list or numpy array of length 3.')
-    v = np.linalg.norm(axis) * np.sin(theta / 2)
+    # Define the vector part of the quaternion
+    v = np.array(axis) / np.linalg.norm(axis) * np.sin(theta / 2)
 
     return np.quaternion(np.cos(theta / 2), v[0], v[1], v[2])
 
