@@ -161,6 +161,22 @@ We define the following reference frames:
 * $+z$ is the boresight of the camera, $+y$ and $+x$ are respectively the
   vertical and horizontal (to the left) directions of the camera.
 
+## Roll
+
+The roll (as given by Tetra3) is defined as the rotation of the north pole
+relative to the camera image's "up" direction ($+y$). A positive roll angle
+means that the pole is counter-clockwise from image "up". The roll offset is
+defined as
+
+```
+roll_offset = camera_roll - expected_camera_roll
+```
+
+The `expected_camera_roll` is the roll at the camera center given its
+plate-solved RA and Dec for a camera on a perfect horizontal mount (i.e. the
+"up" $+y$ direction of the camera always points to the zenith). The camera pose
+is rotated by the angle `roll_offset` around its boresight.
+
 ## Telescope coordinate transformations
 
 **TO EDIT...**
@@ -201,6 +217,11 @@ $$q_{hor2scope}(k) = q_{hor2cam}(k) \; q_{cam2scope}$$
 
 We will use the PiFinder's camera frame as the reference because plate solving
 is done relative to the camera frame.
+
+The quaternion $q_{hor2cam}$ represents the orientation of the PiFinder camera
+relative to the Horizontal frame. Using the axis-angle interpretation, the axis
+points along the altaz of the camera center and rotated by the roll offset
+(explained above).
 
 ### Alignment
 
