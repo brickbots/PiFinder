@@ -22,6 +22,21 @@ import numpy as np
 import quaternion
 
 
+def axis_angle2quat(axis, theta):
+    """
+    Convert from axis-angle representation to a quaternion
+
+    INPUTS:
+    axis: (3,) Axis of rotation (doesn't need to be a unit vector)
+    angle: Angle of rotation [rad]
+    """
+    assert(len(axis) == 3, 'axis should be a list or numpy array of length 3.')
+    v = np.linalg.norm(axis) * np.sin(theta / 2)
+
+    return np.quaternion(np.cos(theta / 2), v[0], v[1], v[2])
+
+
+
 def get_q_hor2frame(az, alt):
     """ 
     Returns the quaternion to rotate from the horizontal frame to the frame
@@ -31,8 +46,9 @@ def get_q_hor2frame(az, alt):
     az: [rad] Azimuth of scope axis
     alt: [rad] Alt of scope axis
     """
-    return np.quaternion(np.cos(-(az + np.pi/2) / 2), 0, 0, np.sin(-(az + np.pi/2) / 2)) \
-        * np.quaternion(np.cos((np.pi / 2 - alt) / 2), np.sin((np.pi / 2 - alt) / 2), 0, 0)
+    q_az = axis_angle2quat([0, 0, 1], -(az + np.pi / 2))
+    q_alt = axis_angle2quat([1, 0, 0], (np.pi / 2 - alt))
+    return q_az * q_alt
 
 
 def get_azalt_of_q_hor2frame(q_hor2frame):
