@@ -338,6 +338,7 @@ def update_plate_solve_and_imu__degrees(pointing_tracker, solved):
         # Convert to radians:
         solved_cam_az = np.deg2rad(solved["camera_center"]["Az"]) 
         solved_cam_alt = np.deg2rad(solved["camera_center"]["Alt"])
+        solved_cam_roll_offset = np.deg2rad(solved["Roll_offset"])
         # Update:
         pointing_tracker.update_plate_solve_and_imu(
-            solved_cam_az, solved_cam_alt, q_x2imu)
+            solved_cam_az, solved_cam_alt, solved_cam_roll_offset, q_x2imu)

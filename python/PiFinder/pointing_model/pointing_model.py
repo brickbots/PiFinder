@@ -152,6 +152,7 @@ class ImuDeadReckoning():
     def update_plate_solve_and_imu(self, 
                            solved_cam_az: Union[float, None], 
                            solved_cam_alt: Union[float, None], 
+                           solved_cam_roll_offset: Union[float, None],
                            q_x2imu: Union[quaternion.quaternion, None]):
         """ 
         Update the state with the az/alt measurements from plate solving in the
@@ -162,15 +163,22 @@ class ImuDeadReckoning():
         INPUTS:
         solved_cam_az: [rad] Azimuth of the camera pointing from plate solving.
         solved_cam_alt: [rad] Alt of the camera pointing from plate solving.
+        solved_cam_roll_offset: [rad] Roll offset of the camera frame +y ("up")
+            relative to the pole.
         q_x2imu: [quaternion] Raw IMU measurement quaternions. This is the IMU 
             frame orientation wrt unknown drifting reference frame X.
         """
-        # Currently assumes that the camera is right way up on a perfect
-        # altaz mount. TODO: Generalize to rotated camera
         if (solved_cam_az is None) or (solved_cam_alt is None):
             return  # No update
         else:
-            self.q_hor2cam = get_q_hor2frame(solved_cam_az, solved_cam_alt).normalized()
+            # Camera frame relative to the horizontal frame where the +y camera
+            # frame (i.e. "up") points to zenith:
+            q_hor2cam_up = get_q_hor2frame(solved_cam_az, solved_cam_alt)
+            # Account for camera rotation around the +z camera frame 
+            q_cam_rot_z = np.quaternion(np.cos(solved_cam_roll_offset / 2), 
+                                        0, 0, np.sin(solved_cam_roll_offset / 2))
+            # Combine (intrinsic rotation)
+            self.q_hor2cam = (q_hor2cam_up * q_cam_rot_z).normalized()
             self.dead_reckoning = False
 
         # Calculate the IMU's unknown reference frame X using the plate solved 
