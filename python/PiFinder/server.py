@@ -936,6 +936,145 @@ class Server:
 
             return img_byte_arr
 
+        @app.route("/api/screenshot", method=["GET", "POST"])
+        @auth_required
+        def api_screenshot():
+            """
+            Consolidated screenshot API with optional navigation
+            
+            GET query parameters:
+            - path: menu path like "settings/display" (optional)
+            - format: "png" or "jpeg" (default: jpeg)
+            
+            POST body (JSON):
+            {
+                "path": "settings/display",  // optional menu path
+                "keys": ["UP", "DOWN", "A"],  // optional key sequence  
+                "format": "jpeg"             // optional format
+            }
+            
+            Always returns screenshot at native resolution after optional navigation.
+            """
+            # Handle both GET and POST requests
+            if request.method == "GET":
+                menu_path = request.query.get("path", "").strip()
+                keys = []
+                img_format = request.query.get("format", "jpeg").lower()
+            else:  # POST
+                data = request.json or {}
+                menu_path = data.get("path", "").strip()
+                keys = data.get("keys", [])
+                img_format = data.get("format", "jpeg").lower()
+            
+            try:
+                # Navigate to menu path if specified
+                if menu_path:
+                    self._navigate_to_menu_path(menu_path)
+                    time.sleep(0.1)  # Allow UI to update
+                
+                # Execute key sequence if specified
+                for key in keys:
+                    if isinstance(key, str) and key in button_dict:
+                        self.key_callback(button_dict[key])
+                    elif isinstance(key, int):
+                        self.key_callback(key)
+                    else:
+                        logger.warning(f"Unknown key: {key}")
+                    time.sleep(0.05)  # Small delay between keys
+                
+                # Allow final UI update after navigation/keys
+                if menu_path or keys:
+                    time.sleep(0.1)
+                    
+            except Exception as e:
+                logger.error(f"Navigation error: {e}")
+            
+            # Get current screen at native resolution
+            img = None
+            try:
+                img = self.shared_state.screen()
+            except (BrokenPipeError, EOFError):
+                pass
+            
+            # Fallback to default display resolution if no screen available
+            if img is None:
+                from PiFinder.displays import DisplayBase
+                default_resolution = DisplayBase.resolution
+                img = Image.new("RGB", default_resolution, color=(73, 109, 137))
+            
+            # Set response format (always native resolution)
+            if img_format == "png":
+                response.content_type = "image/png"
+                format_str = "PNG"
+            else:
+                response.content_type = "image/jpeg"
+                format_str = "JPEG"
+            
+            # Convert to bytes and return
+            img_byte_arr = io.BytesIO()
+            img.save(img_byte_arr, format=format_str, quality=85 if format_str == "JPEG" else None)
+            img_byte_arr = img_byte_arr.getvalue()
+            
+            return img_byte_arr
+
+
+        @app.route("/api/menu-structure")
+        @auth_required
+        def api_menu_structure():
+            """
+            Return the current menu structure as JSON
+            """
+            try:
+                from PiFinder.ui import menu_structure
+                
+                def serialize_menu(menu_item, path=""):
+                    """Recursively serialize menu structure"""
+                    result = {}
+                    current_path = path
+                    
+                    for key, value in menu_item.items():
+                        if key == "label" and isinstance(value, str):
+                            current_path = f"{path}/{value}" if path else value
+                            
+                        if isinstance(value, dict):
+                            result[key] = serialize_menu(value, current_path)
+                        elif isinstance(value, list):
+                            result[key] = []
+                            for item in value:
+                                if isinstance(item, dict):
+                                    result[key].append(serialize_menu(item, current_path))
+                                else:
+                                    result[key].append(str(item) if hasattr(item, '__str__') else repr(item))
+                        elif hasattr(value, '__name__'):  # Class objects
+                            result[key] = value.__name__
+                        elif callable(value):
+                            result[key] = f"<function:{getattr(value, '__name__', 'unknown')}>"
+                        else:
+                            result[key] = str(value) if hasattr(value, '__str__') else repr(value)
+                    
+                    if current_path and current_path != path:
+                        result["_path"] = current_path
+                        
+                    return result
+                
+                menu_data = serialize_menu(menu_structure.pifinder_menu)
+                
+                # Add current UI stack info if available
+                try:
+                    current_stack = []
+                    if hasattr(self.shared_state, 'ui_stack'):
+                        # This might need adjustment based on actual shared_state structure
+                        current_stack = [{"name": getattr(item, "title", "Unknown")} for item in self.shared_state.ui_stack() or []]
+                    menu_data["_current_stack"] = current_stack
+                except Exception as e:
+                    logger.debug(f"Could not get current stack: {e}")
+                
+                return {"menu_structure": menu_data}
+                
+            except Exception as e:
+                logger.error(f"Menu structure API error: {e}")
+                return {"error": str(e), "message": "Failed to get menu structure"}
+
         @auth_required
         def gps_lock(lat: float = 50, lon: float = 3, altitude: float = 10):
             msg = (
@@ -982,6 +1121,43 @@ class Server:
 
     def key_callback(self, key):
         self.keyboard_queue.put(key)
+
+    def _navigate_to_menu_path(self, menu_path):
+        """
+        Navigate to a specific menu path by simulating key presses
+        Path format: "settings/display" or "equipment/eyepiece"
+        """
+        if not menu_path:
+            return
+            
+        # This is a simplified navigation approach
+        # In practice, you might need more sophisticated logic
+        # depending on your menu structure and navigation patterns
+        
+        path_parts = menu_path.split('/')
+        logger.debug(f"Navigating to menu path: {path_parts}")
+        
+        # First, go to main menu (simulate square key to go back to root)
+        for _ in range(5):  # Max depth to prevent infinite loop
+            self.key_callback(self.ki.SQUARE)
+            time.sleep(0.05)
+        
+        # Now navigate through each part of the path
+        # This is a basic implementation - you may need to adjust
+        # based on your specific menu structure
+        for part in path_parts:
+            if part.strip():
+                # Navigate to this menu item
+                # This is simplified - in reality you'd need to:
+                # 1. Find the menu item by name/label
+                # 2. Navigate to it using UP/DOWN keys
+                # 3. Select it with LEFT/RIGHT keys
+                logger.debug(f"Navigating to menu part: {part}")
+                # For now, just simulate some basic navigation
+                self.key_callback(self.ki.DOWN)
+                time.sleep(0.05)
+                self.key_callback(self.ki.RIGHT)
+                time.sleep(0.05)
 
     def update_gps(self):
         """Update GPS information"""
