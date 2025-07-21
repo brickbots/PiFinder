@@ -206,14 +206,19 @@ def handle_radec_entry(ui_module: UIModule, ra_deg: float, dec_deg: float) -> No
     # Add to recent objects list for immediate navigation
     ui_module.shared_state.ui_state().add_recent(custom_object)
 
-    # Convert coordinates to display format for confirmation
-    from PiFinder import calc_utils
-    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(ra_deg)
-    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(dec_deg)
+    # Show popup notification that user object was created
+    ui_module.message(f"User object created\n{custom_object.display_name}", timeout=2)
 
-    # Show confirmation message with object name and coordinates
-    coord_msg = f"Added: {custom_object.display_name}\nRA: {ra_h:02.0f}h{ra_m:02.0f}m{ra_s:02.0f}s\nDEC: {dec_d:+03.0f}°{dec_m:02.0f}'{dec_s:02.0f}\""
-    ui_module.message(coord_msg, 3)
+    # Navigate to object details for the created object
+    from PiFinder.ui.object_details import UIObjectDetails
+    object_item_definition = {
+        "name": custom_object.display_name,
+        "class": UIObjectDetails,
+        "object": custom_object,
+        "object_list": [custom_object],  # Single object list
+        "label": "object_details",
+    }
+    ui_module.add_to_stack(object_item_definition)
 
     logger.info(f"Created custom object: {custom_object.display_name} at RA={ra_deg:.6f}°, DEC={dec_deg:.6f}°")
 
