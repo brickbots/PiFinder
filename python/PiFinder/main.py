@@ -517,7 +517,7 @@ def main(
                                     )  # Only if new error is smaller
                                 )
                             ):
-                                logger.info(
+                                logger.debug(
                                     f"Updating GPS location: new content: {gps_content}, old content: {location}"
                                 )
                                 location.lat = gps_content["lat"]
