@@ -13,24 +13,24 @@ if TYPE_CHECKING:
 
 class BlinkingCursor:
     """Reusable blinking cursor component for input fields"""
-    
+
     def __init__(self, blink_interval=0.5):
         self.start_time = time.time()
         self.blink_interval = blink_interval
-    
+
     def is_visible(self):
         """Check if cursor should be visible based on blink timing"""
         elapsed = time.time() - self.start_time
         return (elapsed % (self.blink_interval * 2)) < self.blink_interval
-    
+
     def draw(self, screen, x, y, width, height):
         """Draw semi-transparent cursor at specified position"""
         if not self.is_visible():
             return
-            
+
         cursor_width = 2
         cursor_height = height - 4
-        
+
         # Create a simple blended cursor by drawing with half_red color
         for cy in range(cursor_height):
             for cx in range(cursor_width):
@@ -49,7 +49,7 @@ class BlinkingCursor:
 
 class CoordinateConverter:
     """Handles coordinate format conversion and epoch transformations"""
-    
+
     @staticmethod
     def hms_dms_to_degrees(fields, dec_sign):
         """Convert HMS/DMS format to decimal degrees"""
@@ -66,9 +66,9 @@ class CoordinateConverter:
         dec_deg = calc_utils.dec_to_deg(dec_d, dec_m, dec_s)
         if dec_sign == "-":
             dec_deg = -dec_deg
-            
+
         return ra_deg, dec_deg
-    
+
     @staticmethod
     def mixed_to_degrees(fields, dec_sign):
         """Convert Mixed format (hours/degrees) to decimal degrees"""
@@ -79,9 +79,9 @@ class CoordinateConverter:
         dec_deg = float(fields[1]) if fields[1] else 0
         if dec_sign == "-":
             dec_deg = -dec_deg
-            
+
         return ra_deg, dec_deg
-    
+
     @staticmethod
     def decimal_to_degrees(fields, dec_sign):
         """Convert Decimal format to decimal degrees"""
@@ -90,17 +90,17 @@ class CoordinateConverter:
         dec_deg = float(fields[1]) if fields[1] else 0
         if dec_sign == "-":
             dec_deg = -dec_deg
-            
+
         return ra_deg, dec_deg
-    
+
     @staticmethod
     def convert_epoch(ra_deg, dec_deg, current_epoch):
         """Convert coordinates from current epoch to J2000"""
         if current_epoch == 0:  # Already J2000
             return ra_deg, dec_deg
-            
+
         from skyfield.constants import T0 as J2000, B1950
-        
+
         if current_epoch == 1:  # JNOW
             # Convert from current epoch to J2000
             from datetime import datetime
@@ -122,9 +122,9 @@ class CoordinateConverter:
             ra_hours = ra_deg / 15.0
             ra_h_j2000, dec_deg_j2000 = calc_utils.b1950_to_j2000(ra_hours, dec_deg)
             return ra_h_j2000._degrees, dec_deg_j2000._degrees
-            
+
         return ra_deg, dec_deg
-    
+
     @classmethod
     def convert_coordinates(cls, coord_format, fields, dec_sign, current_epoch):
         """Convert coordinates based on format and epoch"""
@@ -135,10 +135,10 @@ class CoordinateConverter:
                 ra_deg, dec_deg = cls.mixed_to_degrees(fields, dec_sign)
             else:  # Decimal
                 ra_deg, dec_deg = cls.decimal_to_degrees(fields, dec_sign)
-            
+
             # Convert to J2000 if needed
             ra_deg, dec_deg = cls.convert_epoch(ra_deg, dec_deg, current_epoch)
-            
+
             return ra_deg, dec_deg
         except ValueError:
             return None, None
@@ -146,7 +146,7 @@ class CoordinateConverter:
 
 class FormatConfig:
     """Configuration for coordinate input formats"""
-    
+
     def __init__(self, name, field_labels, placeholders, coord_field_count, validators):
         self.name = name
         self.field_labels = field_labels
@@ -154,12 +154,12 @@ class FormatConfig:
         self.coord_field_count = coord_field_count
         self.field_count = coord_field_count + 1  # +1 for epoch
         self.validators = validators
-    
+
     def validate_field(self, field_index, value):
         """Validate field value according to format rules"""
         if not value or field_index >= self.coord_field_count:
             return True
-        
+
         try:
             validator = self.validators.get(field_index)
             if validator:
@@ -172,7 +172,7 @@ class FormatConfig:
 
 class CoordinateFormats:
     """Central configuration for all coordinate formats"""
-    
+
     @staticmethod
     def get_formats():
         return {
@@ -211,7 +211,7 @@ class CoordinateFormats:
                 }
             )
         }
-    
+
     @staticmethod
     def get_default_fields(coord_format):
         """Get default field values for a format"""
@@ -224,12 +224,12 @@ class CoordinateFormats:
 
 class LayoutConfig:
     """Layout configuration constants for the coordinate entry UI"""
-    
+
     # Field dimensions
     FIELD_HEIGHT = 16
     FIELD_WIDTH = 24
     FIELD_GAP = 30
-    
+
     # Positioning
     LABEL_X = 5
     FIELD_START_X = 32
@@ -239,11 +239,11 @@ class LayoutConfig:
     DEC_Y = 56
     EPOCH_LABEL_Y = 74
     EPOCH_Y = 84
-    
+
     # UI elements
     BOTTOM_BAR_HEIGHT = 24
     CURSOR_WIDTH = 2
-    
+
     # Mixed/Decimal field width
     MIXED_DECIMAL_FIELD_WIDTH = 50
     FORMAT_INDICATOR_OFFSET = 52
@@ -317,7 +317,7 @@ class UIRADecEntry(UIModule):
 
         # Track DEC sign separately to avoid conflict with minus key
         self.dec_sign = "+"
-        
+
 
     def load_format_state(self):
         """Load the saved state for current coordinate format"""
@@ -357,7 +357,7 @@ class UIRADecEntry(UIModule):
             return self._get_hms_dms_positions()
         else:  # Mixed or Decimal
             return self._get_mixed_decimal_positions()
-    
+
     def _get_hms_dms_positions(self):
         """Get field positions for HMS/DMS format (6 coordinate fields + epoch)"""
         positions = []
@@ -365,40 +365,40 @@ class UIRADecEntry(UIModule):
         positions.append((self.field_start_x, self.ra_y, self.field_width))  # RA_H
         positions.append((self.field_start_x + self.field_gap, self.ra_y, self.field_width))  # RA_M
         positions.append((self.field_start_x + self.field_gap * 2, self.ra_y, self.field_width))  # RA_S
-        
+
         # DEC fields - aligned with RA fields
         positions.append((self.field_start_x, self.dec_y, self.field_width))  # DEC_D
         positions.append((self.field_start_x + self.field_gap, self.dec_y, self.field_width))  # DEC_M
         positions.append((self.field_start_x + self.field_gap * 2, self.dec_y, self.field_width))  # DEC_S
-        
+
         # Epoch field - spans from field2 to field3 position
         epoch_x = self.field_start_x + self.field_gap
         epoch_width = self.field_start_x + self.field_gap * 2 + self.field_width - epoch_x
         positions.append((epoch_x, self.epoch_y, epoch_width))
-        
+
         return positions
-    
+
     def _get_mixed_decimal_positions(self):
         """Get field positions for Mixed/Decimal formats (2 coordinate fields + epoch)"""
         positions = []
         field_width = self.layout.MIXED_DECIMAL_FIELD_WIDTH
-        
+
         # RA and DEC fields
         positions.append((self.field_start_x, self.ra_y, field_width))
         positions.append((self.field_start_x, self.dec_y, field_width))
-        
+
         # Epoch field - positioned to align with HMS/DMS layout
         epoch_x = self.field_start_x + self.field_gap
         epoch_width = self.field_start_x + self.field_gap * 2 + self.field_width - epoch_x
         positions.append((epoch_x, self.epoch_y, epoch_width))
-        
+
         return positions
 
     def get_cursor_position(self, field_index):
         """Get cursor position within a field"""
         if field_index >= self.coord_field_count:  # Epoch field has no cursor
             return -1
-            
+
         if self.coord_format == 0:  # HMS/DMS
             # Simple cursor at end of field content
             return len(self.fields[field_index])
@@ -417,59 +417,59 @@ class UIRADecEntry(UIModule):
     def draw_coordinate_fields(self):
         """Draw the coordinate input fields"""
         positions = self.get_field_positions()
-        
+
         # Draw all field outlines and content
         for i in range(self.field_count):
             self._draw_single_field(i, positions[i])
-        
+
         # Draw labels and format-specific elements
         self._draw_field_labels()
         self._draw_format_separators()
         self._draw_format_indicators()
-    
+
     def _draw_single_field(self, field_index, position):
         """Draw a single input field with outline, text, and cursor"""
         x, y, width = position
-        
+
         # Draw field outline
         self._draw_field_outline(x, y, width, field_index == self.current_field)
-        
+
         # Get field text and color
         text, color = self._get_field_text_and_color(field_index)
-        
+
         # Draw text centered in field
         text_width = self._draw_field_text(x, y, width, text, color)
-        
+
         # Draw cursor if this is the current field (not for epoch field)
         if field_index == self.current_field and field_index != self.field_count - 1:
             self._draw_field_cursor(x, y, width, text, text_width, field_index)
-    
+
     def _draw_field_outline(self, x, y, width, is_current):
         """Draw the outline rectangle for a field"""
         outline_color = self.red if is_current else self.half_red
         outline_width = 2 if is_current else 1
-        
+
         self.draw.rectangle(
             [x, y, x + width, y + self.field_height],
             outline=outline_color,
             width=outline_width,
         )
-    
+
     def _get_field_text_and_color(self, field_index):
         """Get the display text and color for a field"""
         if field_index == self.field_count - 1:  # Epoch field
             return self.epoch_names[self.current_epoch], self.red
-        
+
         # Regular coordinate field
         text = self.fields[field_index]
-        
+
         # Handle DEC sign for HMS/DMS format
         if field_index == 3 and self.coord_format == 0:  # DEC degrees in HMS/DMS
             if text:
                 text = f"{self.dec_sign}{text}"
             else:
                 text = f"{self.dec_sign}dd" if field_index != self.current_field else ""
-        
+
         # Determine color based on content
         if not text and field_index != self.current_field:
             # Show placeholder if field is empty and not selected
@@ -477,9 +477,9 @@ class UIRADecEntry(UIModule):
             color = self.dim_red
         else:
             color = self.red
-        
+
         return text, color
-    
+
     def _draw_field_text(self, x, y, width, text, color):
         """Draw text centered in field and return text width"""
         text_width = 0
@@ -490,7 +490,7 @@ class UIRADecEntry(UIModule):
             text_y = y + (self.field_height - 12) // 2
             self.draw.text((text_x, text_y), text, font=self.base.font, fill=color)
         return text_width
-    
+
     def _draw_field_cursor(self, x, y, width, text, text_width, field_index):
         """Draw the blinking cursor for the current field"""
         cursor_pos = self.get_cursor_position(field_index)
@@ -506,36 +506,36 @@ class UIRADecEntry(UIModule):
             else:
                 # Cursor at end of text
                 cursor_x = x + (width - text_width) // 2 + text_width
-            
+
             # Draw the cursor using the extracted component
             self.cursor.draw(self.screen, cursor_x, y, self.layout.CURSOR_WIDTH, self.field_height)
-    
+
     def _draw_field_labels(self):
         """Draw coordinate labels (RA:, DEC:, EPOCH:)"""
         label_offset = (self.field_height - 12) // 2
         self.draw.text((self.label_x, self.ra_y + label_offset), _("RA:"), font=self.base.font, fill=self.red)
         self.draw.text((self.label_x, self.dec_y + label_offset), _("DEC:"), font=self.base.font, fill=self.red)
         self.draw.text((self.label_x, self.epoch_y + label_offset), _("EPOCH:"), font=self.base.font, fill=self.red)
-    
+
     def _draw_format_separators(self):
         """Draw colons for HMS/DMS format"""
         if self.coord_format == 0:  # HMS/DMS format
             gap_center1 = self.field_start_x + self.field_width
             gap_center2 = gap_center1 + self.field_gap
-            
+
             # Draw colons for RA
             self.draw.text((gap_center1, self.ra_y), ":", font=self.base.font, fill=self.red)
             self.draw.text((gap_center2, self.ra_y), ":", font=self.base.font, fill=self.red)
-            
+
             # Draw colons for DEC
             self.draw.text((gap_center1, self.dec_y), ":", font=self.base.font, fill=self.red)
             self.draw.text((gap_center2, self.dec_y), ":", font=self.base.font, fill=self.red)
-    
+
     def _draw_format_indicators(self):
         """Draw unit indicators (h, °) for Mixed and Decimal formats"""
         if self.coord_format in [1, 2]:  # Mixed or Decimal
             indicator_x = self.field_start_x + self.layout.FORMAT_INDICATOR_OFFSET
-            
+
             if self.coord_format == 1:  # Mixed format
                 self.draw.text((indicator_x, self.ra_y + 4), "h", font=self.base.font, fill=self.half_red)
                 self.draw.text((indicator_x, self.dec_y + 4), "°", font=self.base.font, fill=self.half_red)
@@ -557,9 +557,9 @@ class UIRADecEntry(UIModule):
         enter_icon = ""
         exit_icon = ""
 
-        # Build translatable instruction lines
-        line1_translated = f"{square_icon} {_('Format')}  {arrow_icons}{_('Nav')} +{_('Sign/Epoch')} -{_('Del')}"
-        line2_translated = f"{enter_icon}{_('Enter')}  {exit_icon}{_('Exit')}"
+        # Build more readable instruction lines by grouping logically
+        line1_translated = f"{square_icon}{_('Format')} {arrow_icons}{_('Nav')} +{_('Switch')}"
+        line2_translated = f"{enter_icon}{_('Enter')} {exit_icon}{_('Exit')} -{_('Del')}"
         self.draw.text((2, bar_y + 2), line1_translated, font=self.base.font, fill=self.red)
         self.draw.text((2, bar_y + 12), line2_translated, font=self.base.font, fill=self.red)
 
@@ -572,46 +572,46 @@ class UIRADecEntry(UIModule):
         # Don't allow numeric input on epoch field
         if self.current_field == self.field_count - 1:
             return
-        
+
         if self.coord_format == 0:  # HMS/DMS format
             self._handle_hms_dms_input(number)
         else:  # Mixed/Decimal formats
             self._handle_decimal_input(number)
-    
+
     def _handle_hms_dms_input(self, number):
         """Handle numeric input for HMS/DMS format (simple append)"""
         current = self.fields[self.current_field]
         new_value = current + str(number)
-        
+
         # Limit field length
         if len(new_value) > 2:
             return
-        
+
         # Validate and set
         if self.validate_field(self.current_field, new_value):
             self.fields[self.current_field] = new_value
-            
+
             # Auto-advance when field is full
             if len(new_value) == 2:
                 next_field = (self.current_field + 1) % self.field_count
                 if next_field != self.field_count - 1:  # Not epoch field
                     self.current_field = next_field
-    
+
     def _handle_decimal_input(self, number):
         """Handle numeric input for Mixed/Decimal formats (cursor-based)"""
         current = self.fields[self.current_field]
         cursor_pos = self.cursor_positions[self.coord_format][self.current_field]
         new_value = list(current)
-        
+
         # Skip over decimal point if cursor is at that position
         if cursor_pos < len(new_value) and new_value[cursor_pos] == '.':
             cursor_pos += 1
-        
+
         # Replace character at cursor position
         if cursor_pos < len(new_value):
             new_value[cursor_pos] = str(number)
             new_value = ''.join(new_value)
-            
+
             # Validate and set
             if self.validate_field(self.current_field, new_value):
                 self.fields[self.current_field] = new_value
@@ -624,12 +624,12 @@ class UIRADecEntry(UIModule):
         if self.current_field == self.field_count - 1:
             self.current_field = (self.current_field - 1) % self.field_count
             return
-        
+
         if self.coord_format == 0:  # HMS/DMS format
             self._handle_hms_dms_deletion()
         else:  # Mixed/Decimal formats
             self._handle_decimal_deletion()
-    
+
     def _handle_hms_dms_deletion(self):
         """Handle deletion for HMS/DMS format (simple backspace)"""
         if self.fields[self.current_field]:
@@ -638,19 +638,19 @@ class UIRADecEntry(UIModule):
         else:
             # Move to previous field if current is empty
             self.current_field = (self.current_field - 1) % self.field_count
-    
+
     def _handle_decimal_deletion(self):
         """Handle deletion for Mixed/Decimal formats (cursor-based)"""
         cursor_pos = self.cursor_positions[self.coord_format][self.current_field]
         if cursor_pos > 0:
             current = self.fields[self.current_field]
             new_value = list(current)
-            
+
             # Move cursor back (skip over decimal point)
             cursor_pos -= 1
             if cursor_pos >= 0 and new_value[cursor_pos] == '.':
                 cursor_pos -= 1
-            
+
             # Replace character at cursor position with zero
             if cursor_pos >= 0:
                 new_value[cursor_pos] = '0'
