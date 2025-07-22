@@ -126,19 +126,14 @@
           </div>
         </div>
         <div class="row" id="decimalFormat-edit_form_{{ loop.index0 }}">
-          <div class="input-field col s4">
+          <div class="input-field col s6">
             <input id="latitude-edit_form_{{ loop.index0 }}" type="number" step="any" name="latitude" value="{{ location.latitude }}" required/>
             <label for="latitude-edit_form_{{ loop.index0 }}">{{ _('Latitude (Decimal)') }}</label>
             <span class="helper-text"></span>
           </div>
-          <div class="input-field col s4">
+          <div class="input-field col s6">
             <input id="longitude-edit_form_{{ loop.index0 }}" type="number" step="any" name="longitude" value="{{ location.longitude }}" required/>
             <label for="longitude-edit_form_{{ loop.index0 }}">{{ _('Longitude (Decimal)') }}</label>
-            <span class="helper-text"></span>
-          </div>
-          <div class="input-field col s4">
-            <input id="altitude-edit_form_{{ loop.index0 }}" type="number" step="any" name="altitude" value="{{ location.height }}" required/>
-            <label for="altitude-edit_form_{{ loop.index0 }}">{{ _('Altitude (meters)') }}</label>
             <span class="helper-text"></span>
           </div>
         </div>
@@ -166,6 +161,13 @@
           <div class="input-field col s4">
             <input id="longitudeS-edit_form_{{ loop.index0 }}" type="number" name="longitudeS"/>
             <label for="longitudeS-edit_form_{{ loop.index0 }}">{{ _('Longitude Seconds') }}</label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="input-field col s12">
+            <input id="altitude-edit_form_{{ loop.index0 }}" type="number" step="any" name="altitude" value="{{ location.height }}" required/>
+            <label for="altitude-edit_form_{{ loop.index0 }}">{{ _('Altitude (meters)') }}</label>
+            <span class="helper-text"></span>
           </div>
         </div>
         <div class="row">
@@ -259,43 +261,87 @@ function validateDMSFields(id = '') {
     var lat = DMSToDecimal(latD.value, latM.value, latS.value);
     var lon = DMSToDecimal(longD.value, longM.value, longS.value);
     
-    // Update the decimal fields with the calculated values for real-time feedback
-    var decimalLatField = document.getElementById("latitude-" + id);
-    var decimalLonField = document.getElementById("longitude-" + id);
-    if (decimalLatField) decimalLatField.value = lat.toFixed(6);
-    if (decimalLonField) decimalLonField.value = lon.toFixed(6);
-    
     return validateField(lat, 'latitude') && validateField(lon, 'longitude');
 }
 
 function updateDMSFields(decimalLatitude, decimalLongitude, id = '') {
-    if (decimalLatitude) {
+    const latDField = document.getElementById("latitudeD-" + id);
+    const latMField = document.getElementById("latitudeM-" + id);
+    const latSField = document.getElementById("latitudeS-" + id);
+    const lonDField = document.getElementById("longitudeD-" + id);
+    const lonMField = document.getElementById("longitudeM-" + id);
+    const lonSField = document.getElementById("longitudeS-" + id);
+    
+    if (decimalLatitude && latDField && latMField && latSField) {
         var dmsLat = decimalToDMS(parseFloat(decimalLatitude));
-        document.getElementById("latitudeD-" + id).value = dmsLat[0];
-        document.getElementById("latitudeM-" + id).value = dmsLat[1];
-        document.getElementById("latitudeS-" + id).value = dmsLat[2];
+        latDField.value = dmsLat[0];
+        latMField.value = dmsLat[1];
+        latSField.value = dmsLat[2];
     }
-    if (decimalLongitude) {
+    if (decimalLongitude && lonDField && lonMField && lonSField) {
         var dmsLong = decimalToDMS(parseFloat(decimalLongitude));
-        document.getElementById("longitudeD-" + id).value = dmsLong[0];
-        document.getElementById("longitudeM-" + id).value = dmsLong[1];
-        document.getElementById("longitudeS-" + id).value = dmsLong[2];
+        lonDField.value = dmsLong[0];
+        lonMField.value = dmsLong[1];
+        lonSField.value = dmsLong[2];
     }
     checkFields(id);
+}
+
+function updateDecimalFields(id = '') {
+    const latDField = document.getElementById("latitudeD-" + id);
+    const latMField = document.getElementById("latitudeM-" + id);
+    const latSField = document.getElementById("latitudeS-" + id);
+    const lonDField = document.getElementById("longitudeD-" + id);
+    const lonMField = document.getElementById("longitudeM-" + id);
+    const lonSField = document.getElementById("longitudeS-" + id);
+    const decimalLatField = document.getElementById("latitude-" + id);
+    const decimalLonField = document.getElementById("longitude-" + id);
+    
+    if (latDField && latMField && latSField && decimalLatField) {
+        const lat = DMSToDecimal(latDField.value, latMField.value, latSField.value);
+        if (!isNaN(lat)) {
+            decimalLatField.value = lat.toFixed(6);
+        }
+    }
+    
+    if (lonDField && lonMField && lonSField && decimalLonField) {
+        const lon = DMSToDecimal(lonDField.value, lonMField.value, lonSField.value);
+        if (!isNaN(lon)) {
+            decimalLonField.value = lon.toFixed(6);
+        }
+    }
 }
 
 function toggleFormat(id = '') {
     var checkBox = document.getElementById("formatSwitch-" + id);
     var decimalFormat = document.getElementById("decimalFormat-" + id);
     var dmsFormat = document.getElementById("dmsFormat-" + id);
+    
     if (checkBox.checked) {
+        // Switching to DMS mode
         decimalFormat.style.display = "none";
         dmsFormat.style.display = "block";
+        
+        // Convert current decimal values to DMS
+        const latField = document.getElementById("latitude-" + id);
+        const lonField = document.getElementById("longitude-" + id);
+        if (latField && latField.value) {
+            updateDMSFields(latField.value, null, id);
+        }
+        if (lonField && lonField.value) {
+            updateDMSFields(null, lonField.value, id);
+        }
+        
         focusFirstDMSField(id);
         setupDMSValidation(id);
     } else {
+        // Switching to decimal mode  
         decimalFormat.style.display = "block";
         dmsFormat.style.display = "none";
+        
+        // Convert current DMS values to decimal
+        updateDecimalFields(id);
+        setupDecimalValidation(id);
     }
     checkFields(id);
 }
@@ -307,11 +353,32 @@ function setupDMSValidation(id = '') {
         if (element) {
             element.addEventListener('input', function() {
                 // Update decimal fields when DMS values change
-                validateDMSFields(id);
+                updateDecimalFields(id);
                 checkFields(id);
             });
         }
     });
+}
+
+function setupDecimalValidation(id = '') {
+    const latField = document.getElementById("latitude-" + id);
+    const lonField = document.getElementById("longitude-" + id);
+    
+    if (latField) {
+        latField.addEventListener('input', function() {
+            // Update DMS fields when decimal latitude changes
+            updateDMSFields(this.value, null, id);
+            checkFields(id);
+        });
+    }
+    
+    if (lonField) {
+        lonField.addEventListener('input', function() {
+            // Update DMS fields when decimal longitude changes  
+            updateDMSFields(null, this.value, id);
+            checkFields(id);
+        });
+    }
 }
 
 function focusFirstDMSField(id = '') {
@@ -432,11 +499,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 field.addEventListener('input', function() {
                     this.dataset.hasInteracted = 'true';
                     if (fieldName !== 'name') {
-                        updateDMSFields(
-                            fieldName === 'latitude' ? this.value : null,
-                            fieldName === 'longitude' ? this.value : null,
-                            id
-                        );
                         updateFieldValidation(this, fieldName, id);
                     }
                     checkFields(id);
@@ -463,6 +525,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
+        // Set up decimal field validation by default
+        setupDecimalValidation(id);
         checkFields(id);
     });
 });
