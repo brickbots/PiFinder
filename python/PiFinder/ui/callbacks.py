@@ -10,11 +10,13 @@ Each one takes the current ui module as an argument
 
 import logging
 import gettext
+import time
 
 from typing import Any, TYPE_CHECKING
-from PiFinder import utils
+from PiFinder import utils, calc_utils
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
+from PiFinder.composite_object import CompositeObject, MagnitudeObject
 
 if TYPE_CHECKING:
 
@@ -171,9 +173,10 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
     """
     Sets the time from the time entry UI
     """
-    logger.info(f"Setting time to: {time_str}")
     from datetime import datetime
     import pytz
+    
+    logger.info(f"Setting time to: {time_str}")
 
     timezone_str = ui_module.shared_state.location().timezone
 
@@ -198,6 +201,8 @@ def handle_radec_entry(ui_module: UIModule, ra_deg: float, dec_deg: float) -> No
     Handles RA/DEC coordinate entry from the coordinate input UI
     Creates a CompositeObject and adds it to recent list for navigation
     """
+    from PiFinder.ui.object_details import UIObjectDetails
+    
     logger.info(f"Received coordinates: RA={ra_deg:.6f}°, DEC={dec_deg:.6f}°")
 
     # Create a CompositeObject from the coordinates
@@ -210,7 +215,6 @@ def handle_radec_entry(ui_module: UIModule, ra_deg: float, dec_deg: float) -> No
     ui_module.message(f"User object created\n{custom_object.display_name}", timeout=2)
 
     # Navigate to object details for the created object
-    from PiFinder.ui.object_details import UIObjectDetails
     object_item_definition = {
         "name": custom_object.display_name,
         "class": UIObjectDetails,
@@ -227,20 +231,20 @@ def create_custom_object_from_coords(ra_deg: float, dec_deg: float, ui_module: U
     """
     Create a CompositeObject from RA/DEC coordinates
     """
-    from PiFinder.composite_object import CompositeObject, MagnitudeObject
-    from PiFinder import calc_utils
-    import time
-
     # Generate unique sequence number for custom objects
     # Use negative numbers to distinguish from regular catalog objects
     current_time_ms = int(time.time() * 1000)
     unique_id = -(current_time_ms % 1000000)  # Negative ID for custom objects
 
-    # Generate automatic name
+    # Generate automatic name and get the sequence number from it
     custom_name = generate_custom_object_name(ui_module)
+    sequence_num = int(custom_name.split(" ")[1])  # Extract number from "CUSTOM X"
 
     # Determine constellation
     constellation = calc_utils.sf_utils.radec_to_constellation(ra_deg, dec_deg)
+
+    # Generate description with coordinates in all supported formats
+    description = generate_coordinate_description(ra_deg, dec_deg)
 
     # Create the CompositeObject following the pattern from pos_server.py
     custom_object = CompositeObject.from_dict({
@@ -254,14 +258,36 @@ def create_custom_object_from_coords(ra_deg: float, dec_deg: float, ui_module: U
         "mag": MagnitudeObject([]),
         "mag_str": "",
         "catalog_code": "USER",
-        "sequence": abs(unique_id),
-        "description": f"User-defined coordinates",
+        "sequence": sequence_num,
+        "description": description,
         "names": [custom_name],
         "image_name": "",
         "logged": False
     })
 
     return custom_object
+
+
+def generate_coordinate_description(ra_deg: float, dec_deg: float) -> str:
+    """
+    Generate a description with coordinates in all supported formats
+    """
+    # Convert RA from degrees to hours for HMS format
+    ra_hours = ra_deg / 15.0
+    
+    # Format 1: HMS/DMS (Full format)
+    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(ra_deg)
+    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(dec_deg)
+    dec_sign = "+" if dec_deg >= 0 else "-"
+    hms_dms = f"RA: {ra_h:02d}:{ra_m:02d}:{ra_s:02d} DEC: {dec_sign}{abs(dec_d):02d}:{dec_m:02d}:{dec_s:02d}"
+    
+    # Format 2: Mixed (Hours/Degrees)
+    mixed = f"RA: {ra_hours:.4f}h DEC: {dec_deg:+.4f}°"
+    
+    # Format 3: Decimal degrees
+    decimal = f"RA: {ra_deg:.4f}° DEC: {dec_deg:+.4f}°"
+    
+    return f"User-defined coordinates\n\nHMS/DMS:\n{hms_dms}\n\nMixed:\n{mixed}\n\nDecimal:\n{decimal}"
 
 
 def generate_custom_object_name(ui_module: UIModule) -> str:

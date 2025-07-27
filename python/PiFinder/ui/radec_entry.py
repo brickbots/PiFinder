@@ -1,9 +1,8 @@
-from PIL import Image, ImageDraw
 from PiFinder.ui.base import UIModule
 from PiFinder import calc_utils
-from PiFinder import i18n  # This installs the global _() function
 import time
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, List, Dict
+from dataclasses import dataclass, replace
 
 if TYPE_CHECKING:
 
@@ -11,20 +10,51 @@ if TYPE_CHECKING:
         return a
 
 
-class BlinkingCursor:
-    """Reusable blinking cursor component for input fields"""
+@dataclass(frozen=True)
+class CoordinateState:
+    """Immutable state representation for coordinate entry"""
+    coord_format: int
+    fields: List[str]
+    current_field: int
+    current_epoch: int
+    dec_sign: str
+    cursor_positions: Dict[int, List[int]]
 
-    def __init__(self, blink_interval=0.5):
-        self.start_time = time.time()
+    def with_field_updated(self, field_index: int, value: str) -> 'CoordinateState':
+        new_fields = self.fields.copy()
+        new_fields[field_index] = value
+        return replace(self, fields=new_fields, cursor_positions=self.cursor_positions.copy())
+
+    def with_current_field_changed(self, new_field: int) -> 'CoordinateState':
+        return replace(self, current_field=new_field, fields=self.fields.copy(), cursor_positions=self.cursor_positions.copy())
+
+    def with_format_changed(self, new_format: int, new_fields: List[str], new_cursor_positions: Dict[int, List[int]]) -> 'CoordinateState':
+        return replace(self, coord_format=new_format, fields=new_fields, current_field=0, cursor_positions=new_cursor_positions)
+
+    def with_epoch_changed(self, new_epoch: int) -> 'CoordinateState':
+        return replace(self, current_epoch=new_epoch, fields=self.fields.copy(), cursor_positions=self.cursor_positions.copy())
+
+    def with_dec_sign_toggled(self) -> 'CoordinateState':
+        return replace(self, dec_sign="-" if self.dec_sign == "+" else "+", fields=self.fields.copy(), cursor_positions=self.cursor_positions.copy())
+
+    def with_cursor_updated(self, field_index: int, new_position: int) -> 'CoordinateState':
+        new_cursor_positions = {fmt: pos.copy() for fmt, pos in self.cursor_positions.items()}
+        if self.coord_format in new_cursor_positions:
+            new_cursor_positions[self.coord_format][field_index] = new_position
+        return replace(self, fields=self.fields.copy(), cursor_positions=new_cursor_positions)
+
+
+class BlinkingCursor:
+    def __init__(self, blink_interval=0.5, time_provider=None):
+        self.time_provider = time_provider or time.time
+        self.start_time = self.time_provider()
         self.blink_interval = blink_interval
 
     def is_visible(self):
-        """Check if cursor should be visible based on blink timing"""
-        elapsed = time.time() - self.start_time
+        elapsed = self.time_provider() - self.start_time
         return (elapsed % (self.blink_interval * 2)) < self.blink_interval
 
     def draw(self, screen, x, y, width, height):
-        """Draw semi-transparent cursor at specified position"""
         if not self.is_visible():
             return
 
@@ -50,20 +80,22 @@ class BlinkingCursor:
 class CoordinateConverter:
     """Handles coordinate format conversion and epoch transformations"""
 
-    @staticmethod
-    def hms_dms_to_degrees(fields, dec_sign):
+    def __init__(self, calc_utils_provider=None):
+        self.calc_utils = calc_utils_provider or calc_utils
+
+    def hms_dms_to_degrees(self, fields, dec_sign):
         """Convert HMS/DMS format to decimal degrees"""
         # Convert RA from HMS to degrees
         ra_h = int(fields[0]) if fields[0] else 0
         ra_m = int(fields[1]) if fields[1] else 0
         ra_s = int(fields[2]) if fields[2] else 0
-        ra_deg = calc_utils.ra_to_deg(ra_h, ra_m, ra_s)
+        ra_deg = self.calc_utils.ra_to_deg(ra_h, ra_m, ra_s)
 
         # Convert DEC from DMS to degrees
         dec_d = int(fields[3]) if fields[3] else 0
         dec_m = int(fields[4]) if fields[4] else 0
         dec_s = int(fields[5]) if fields[5] else 0
-        dec_deg = calc_utils.dec_to_deg(dec_d, dec_m, dec_s)
+        dec_deg = self.calc_utils.dec_to_deg(dec_d, dec_m, dec_s)
         if dec_sign == "-":
             dec_deg = -dec_deg
 
@@ -93,13 +125,12 @@ class CoordinateConverter:
 
         return ra_deg, dec_deg
 
-    @staticmethod
-    def convert_epoch(ra_deg, dec_deg, current_epoch):
+    def convert_epoch(self, ra_deg, dec_deg, current_epoch):
         """Convert coordinates from current epoch to J2000"""
         if current_epoch == 0:  # Already J2000
             return ra_deg, dec_deg
 
-        from skyfield.constants import T0 as J2000, B1950
+        from skyfield.constants import T0 as J2000
 
         if current_epoch == 1:  # JNOW
             # Convert from current epoch to J2000
@@ -108,11 +139,11 @@ class CoordinateConverter:
 
             # Get current Julian Date
             now = datetime.now(pytz.UTC)
-            jd_now = calc_utils.sf_utils.ts.from_datetime(now).tt
+            jd_now = self.calc_utils.sf_utils.ts.from_datetime(now).tt
 
             # Convert JNOW coordinates to J2000
             ra_hours = ra_deg / 15.0
-            ra_h_j2000, dec_deg_j2000 = calc_utils.epoch_to_epoch(
+            ra_h_j2000, dec_deg_j2000 = self.calc_utils.epoch_to_epoch(
                 jd_now, J2000, ra_hours, dec_deg
             )
             return ra_h_j2000._degrees, dec_deg_j2000._degrees
@@ -120,28 +151,248 @@ class CoordinateConverter:
         elif current_epoch == 2:  # B1950
             # Convert from B1950 to J2000
             ra_hours = ra_deg / 15.0
-            ra_h_j2000, dec_deg_j2000 = calc_utils.b1950_to_j2000(ra_hours, dec_deg)
+            ra_h_j2000, dec_deg_j2000 = self.calc_utils.b1950_to_j2000(ra_hours, dec_deg)
             return ra_h_j2000._degrees, dec_deg_j2000._degrees
 
         return ra_deg, dec_deg
 
-    @classmethod
-    def convert_coordinates(cls, coord_format, fields, dec_sign, current_epoch):
+    def convert_coordinates(self, coord_format, fields, dec_sign, current_epoch):
         """Convert coordinates based on format and epoch"""
         try:
             if coord_format == 0:  # HMS/DMS
-                ra_deg, dec_deg = cls.hms_dms_to_degrees(fields, dec_sign)
+                ra_deg, dec_deg = self.hms_dms_to_degrees(fields, dec_sign)
             elif coord_format == 1:  # Mixed
-                ra_deg, dec_deg = cls.mixed_to_degrees(fields, dec_sign)
+                ra_deg, dec_deg = self.mixed_to_degrees(fields, dec_sign)
             else:  # Decimal
-                ra_deg, dec_deg = cls.decimal_to_degrees(fields, dec_sign)
+                ra_deg, dec_deg = self.decimal_to_degrees(fields, dec_sign)
 
             # Convert to J2000 if needed
-            ra_deg, dec_deg = cls.convert_epoch(ra_deg, dec_deg, current_epoch)
+            ra_deg, dec_deg = self.convert_epoch(ra_deg, dec_deg, current_epoch)
 
             return ra_deg, dec_deg
         except ValueError:
             return None, None
+
+
+class CoordinateEntryLogic:
+    """business logic for coordinate entry, separate from UI concerns"""
+
+    def __init__(self, time_provider=None, calc_utils_provider=None):
+        self.time_provider = time_provider or time.time
+        self.calc_utils = calc_utils_provider or calc_utils
+
+        # Initialize formats
+        self.formats = CoordinateFormats.get_formats()
+        self.epoch_names = ["J2000", "JNOW", "B1950"]
+
+        # Initialize state
+        self._state = self._create_initial_state()
+
+    def _create_initial_state(self) -> CoordinateState:
+        """Create initial coordinate state"""
+        # Initialize format states for all formats
+        cursor_positions = {
+            0: [0, 0, 0, 0, 0, 0],  # HMS/DMS
+            1: [0, 0],              # Mixed
+            2: [0, 0]               # Decimal
+        }
+
+        return CoordinateState(
+            coord_format=0,
+            fields=CoordinateFormats.get_default_fields(0),
+            current_field=0,
+            current_epoch=0,
+            dec_sign="+",
+            cursor_positions=cursor_positions
+        )
+
+    def get_current_state(self) -> CoordinateState:
+        """Get current immutable state"""
+        return self._state
+
+    def get_current_format_config(self) -> 'FormatConfig':
+        """Get configuration for current format"""
+        return self.formats[self._state.coord_format]
+
+    def validate_field(self, field_index: int, value: str) -> bool:
+        """Validate field input without UI dependencies"""
+        format_config = self.get_current_format_config()
+        return format_config.validate_field(field_index, value)
+
+    def handle_numeric_input(self, number: int) -> CoordinateState:
+        """Process numeric input based on current format"""
+        if self._state.current_field >= self.get_current_format_config().coord_field_count:
+            return self._state  # Don't allow numeric input on epoch field
+
+        if self._state.coord_format == 0:  # HMS/DMS format
+            new_state = self._handle_hms_dms_input(number)
+        else:  # Mixed/Decimal formats
+            new_state = self._handle_decimal_input(number)
+
+        self._state = new_state
+        return self._state
+
+    def _validate_and_update(self, new_value: str, tentative_state: CoordinateState) -> CoordinateState:
+        """Common validation and update logic"""
+        if not self.validate_field(self._state.current_field, new_value):
+            return self._state
+        if not self.get_current_format_config().validate_dms_combination(tentative_state.fields, tentative_state.dec_sign, self._state.current_field):
+            return self._state
+        return tentative_state
+
+    def _handle_hms_dms_input(self, number: int) -> CoordinateState:
+        """Handle numeric input for HMS/DMS format"""
+        current_value = self._state.fields[self._state.current_field]
+        new_value = current_value + str(number)
+        if len(new_value) > 2:
+            return self._state
+        
+        tentative_state = self._state.with_field_updated(self._state.current_field, new_value)
+        new_state = self._validate_and_update(new_value, tentative_state)
+        if new_state == self._state:
+            return self._state
+
+        # Auto-advance when field is full
+        if len(new_value) == 2:
+            format_config = self.get_current_format_config()
+            next_field = (self._state.current_field + 1) % format_config.field_count
+            if next_field != format_config.field_count - 1:  # Not epoch field
+                new_state = new_state.with_current_field_changed(next_field)
+        return new_state
+
+    def _handle_decimal_input(self, number: int) -> CoordinateState:
+        """Handle numeric input for Mixed/Decimal formats"""
+        current_value = self._state.fields[self._state.current_field]
+        cursor_pos = self._state.cursor_positions[self._state.coord_format][self._state.current_field]
+        new_value_list = list(current_value)
+
+        # Skip over decimal point if cursor is at that position
+        if cursor_pos < len(new_value_list) and new_value_list[cursor_pos] == '.':
+            cursor_pos += 1
+
+        # Replace character at cursor position
+        if cursor_pos < len(new_value_list):
+            new_value_list[cursor_pos] = str(number)
+            new_value = ''.join(new_value_list)
+            tentative_state = self._state.with_field_updated(self._state.current_field, new_value).with_cursor_updated(self._state.current_field, cursor_pos + 1)
+            return self._validate_and_update(new_value, tentative_state)
+        return self._state
+
+    def handle_deletion(self) -> CoordinateState:
+        """Handle deletion logic"""
+        # Don't allow deletion on epoch field - just move to previous field
+        format_config = self.get_current_format_config()
+        if self._state.current_field == format_config.field_count - 1:
+            new_field = (self._state.current_field - 1) % format_config.field_count
+            new_state = self._state.with_current_field_changed(new_field)
+            self._state = new_state
+            return self._state
+
+        if self._state.coord_format == 0:  # HMS/DMS format
+            new_state = self._handle_hms_dms_deletion()
+        else:  # Mixed/Decimal formats
+            new_state = self._handle_decimal_deletion()
+
+        self._state = new_state
+        return self._state
+
+    def _handle_hms_dms_deletion(self) -> CoordinateState:
+        """Handle deletion for HMS/DMS format"""
+        if self._state.fields[self._state.current_field]:
+            # Delete the last digit
+            current_value = self._state.fields[self._state.current_field]
+            new_value = current_value[:-1]
+            return self._state.with_field_updated(self._state.current_field, new_value)
+        else:
+            # Move to previous field if current is empty
+            format_config = self.get_current_format_config()
+            new_field = (self._state.current_field - 1) % format_config.field_count
+            return self._state.with_current_field_changed(new_field)
+
+    def _handle_decimal_deletion(self) -> CoordinateState:
+        """Handle deletion for Mixed/Decimal formats"""
+        cursor_pos = self._state.cursor_positions[self._state.coord_format][self._state.current_field]
+        if cursor_pos > 0:
+            current_value = self._state.fields[self._state.current_field]
+            new_value_list = list(current_value)
+
+            # Move cursor back (skip over decimal point)
+            cursor_pos -= 1
+            if cursor_pos >= 0 and new_value_list[cursor_pos] == '.':
+                cursor_pos -= 1
+
+            # Replace character at cursor position with zero
+            if cursor_pos >= 0:
+                new_value_list[cursor_pos] = '0'
+                new_value = ''.join(new_value_list)
+                new_state = self._state.with_field_updated(self._state.current_field, new_value)
+                return new_state.with_cursor_updated(self._state.current_field, cursor_pos)
+
+        return self._state
+
+    def toggle_dec_sign(self) -> CoordinateState:
+        """Toggle DEC sign when on appropriate field"""
+        # Check if we're on DEC degree field
+        if ((self._state.coord_format == 0 and self._state.current_field == 3) or
+            (self._state.coord_format > 0 and self._state.current_field == 1)):
+            new_state = self._state.with_dec_sign_toggled()
+            self._state = new_state
+            return self._state
+        return self._state
+
+    def cycle_epoch(self) -> CoordinateState:
+        """Cycle through epochs when on epoch field"""
+        format_config = self.get_current_format_config()
+        if self._state.current_field == format_config.field_count - 1:  # On epoch field
+            new_epoch = (self._state.current_epoch + 1) % 3
+            new_state = self._state.with_epoch_changed(new_epoch)
+            self._state = new_state
+            return self._state
+        return self._state
+
+    def move_to_previous_field(self) -> CoordinateState:
+        """Move to previous field"""
+        format_config = self.get_current_format_config()
+        new_field = (self._state.current_field - 1) % format_config.field_count
+        new_state = self._state.with_current_field_changed(new_field)
+        self._state = new_state
+        return self._state
+
+    def move_to_next_field(self) -> CoordinateState:
+        """Move to next field"""
+        format_config = self.get_current_format_config()
+        new_field = (self._state.current_field + 1) % format_config.field_count
+        new_state = self._state.with_current_field_changed(new_field)
+        self._state = new_state
+        return self._state
+
+    def switch_format(self) -> CoordinateState:
+        """Switch coordinate format and preserve appropriate state"""
+        next_format = (self._state.coord_format + 1) % len(self.formats)
+        new_fields = CoordinateFormats.get_default_fields(next_format)
+
+        # Initialize cursor positions for new format
+        new_cursor_positions = self._state.cursor_positions.copy()
+        if next_format not in new_cursor_positions:
+            if next_format == 0:
+                new_cursor_positions[next_format] = [0, 0, 0, 0, 0, 0]
+            else:
+                new_cursor_positions[next_format] = [0, 0]
+
+        new_state = self._state.with_format_changed(next_format, new_fields, new_cursor_positions)
+        self._state = new_state
+        return self._state
+
+    def get_coordinates(self) -> tuple:
+        """Convert current state to decimal degrees"""
+        converter = CoordinateConverter(self.calc_utils)
+
+        return converter.convert_coordinates(
+            self._state.coord_format,
+            self._state.fields,
+            self._state.dec_sign,
+            self._state.current_epoch
+        )
 
 
 class FormatConfig:
@@ -168,58 +419,62 @@ class FormatConfig:
         except ValueError:
             return False
         return True
+    
+    def validate_dms_combination(self, fields, dec_sign, field_index):
+        """Validate that combined DMS values don't exceed ±90° for declination
+        
+        Args:
+            fields: List of field values
+            dec_sign: "+" or "-" 
+            field_index: The field being updated (3=deg, 4=min, 5=sec for HMS/DMS)
+            
+        Returns:
+            bool: True if the combined DMS value is valid (≤ ±90°)
+        """
+        # Only validate DEC fields in HMS/DMS format (check coord_field_count=6 instead of name)
+        if self.coord_field_count != 6 or field_index not in [3, 4, 5]:
+            return True
+            
+        try:
+            # Get DEC components, using empty strings as 0
+            deg_str = fields[3] if len(fields) > 3 else ""
+            min_str = fields[4] if len(fields) > 4 else ""
+            sec_str = fields[5] if len(fields) > 5 else ""
+            
+            deg = int(deg_str) if deg_str else 0
+            minutes = int(min_str) if min_str else 0
+            seconds = int(sec_str) if sec_str else 0
+            
+            # Calculate total decimal degrees
+            total_deg = abs(deg) + (minutes / 60.0) + (seconds / 3600.0)
+            
+            # Must not exceed 90 degrees
+            return total_deg <= 90.0
+            
+        except (ValueError, IndexError):
+            # If we can't parse the values, allow the input
+            # Individual field validation will catch format errors
+            return True
 
 
 class CoordinateFormats:
-    """Central configuration for all coordinate formats"""
-
     @staticmethod
     def get_formats():
         return {
-            0: FormatConfig(  # HMS/DMS
-                name=_("Full"),
-                field_labels=["RA_H", "RA_M", "RA_S", "DEC_D", "DEC_M", "DEC_S", "EPOCH"],
-                placeholders=["hh", "mm", "ss", "dd", "mm", "ss", "epoch"],
-                coord_field_count=6,
-                validators={
-                    0: {'type': int, 'min': 0, 'max': 23},    # RA hours
-                    1: {'type': int, 'min': 0, 'max': 59},    # RA minutes
-                    2: {'type': int, 'min': 0, 'max': 59},    # RA seconds
-                    3: {'type': int, 'min': -90, 'max': 90},  # DEC degrees
-                    4: {'type': int, 'min': 0, 'max': 59},    # DEC minutes
-                    5: {'type': int, 'min': 0, 'max': 59},    # DEC seconds
-                }
-            ),
-            1: FormatConfig(  # Mixed
-                name=_("H/D"),
-                field_labels=["RA_H", "DEC_D", "EPOCH"],
-                placeholders=["00.00", "00.00", "epoch"],
-                coord_field_count=2,
-                validators={
-                    0: {'type': float, 'min': 0, 'max': 24},   # RA hours
-                    1: {'type': float, 'min': -90, 'max': 90}, # DEC degrees
-                }
-            ),
-            2: FormatConfig(  # Decimal
-                name=_("D/D"),
-                field_labels=["RA_D", "DEC_D", "EPOCH"],
-                placeholders=["000.00", "00.00", "epoch"],
-                coord_field_count=2,
-                validators={
-                    0: {'type': float, 'min': 0, 'max': 360},  # RA degrees
-                    1: {'type': float, 'min': -90, 'max': 90}, # DEC degrees
-                }
-            )
+            0: FormatConfig(_("Full"), ["RA_H", "RA_M", "RA_S", "DEC_D", "DEC_M", "DEC_S", "EPOCH"], 
+                           ["hh", "mm", "ss", "dd", "mm", "ss", "epoch"], 6,
+                           {0: {'type': int, 'min': 0, 'max': 23}, 1: {'type': int, 'min': 0, 'max': 59}, 
+                            2: {'type': int, 'min': 0, 'max': 59}, 3: {'type': int, 'min': -90, 'max': 90}, 
+                            4: {'type': int, 'min': 0, 'max': 59}, 5: {'type': int, 'min': 0, 'max': 59}}),
+            1: FormatConfig(_("H/D"), ["RA_H", "DEC_D", "EPOCH"], ["00.00", "00.00", "epoch"], 2,
+                           {0: {'type': float, 'min': 0, 'max': 24}, 1: {'type': float, 'min': -90, 'max': 90}}),
+            2: FormatConfig(_("D/D"), ["RA_D", "DEC_D", "EPOCH"], ["000.00", "00.00", "epoch"], 2,
+                           {0: {'type': float, 'min': 0, 'max': 360}, 1: {'type': float, 'min': -90, 'max': 90}})
         }
 
     @staticmethod
     def get_default_fields(coord_format):
-        """Get default field values for a format"""
-        if coord_format == 0:  # HMS/DMS
-            return ["", "", "", "", "", ""]
-        else:  # Mixed or Decimal
-            formats = CoordinateFormats.get_formats()
-            return list(formats[coord_format].placeholders[:-1])  # Exclude epoch
+        return ["", "", "", "", "", ""] if coord_format == 0 else list(CoordinateFormats.get_formats()[coord_format].placeholders[:-1])
 
 
 class LayoutConfig:
@@ -258,37 +513,14 @@ class UIRADecEntry(UIModule):
         self.callback = self.item_definition.get("callback")
         self.custom_callback = self.item_definition.get("custom_callback")
 
-        # Coordinate formats and configuration
-        self.coord_format = 0
-        self.formats = CoordinateFormats.get_formats()
-        self.current_format_config = self.formats[self.coord_format]
+        # Create business logic instance
+        self.logic = CoordinateEntryLogic()
 
-        # Epoch support: 0=J2000, 1=JNOW, 2=B1950
-        self.current_epoch = 0
-        self.epoch_names = ["J2000", "JNOW", "B1950"]
-
-        # Cursor for blinking effect
+        # Create cursor for blinking effect
         self.cursor = BlinkingCursor()
-        self.cursor_positions = {
-            0: [0, 0, 0, 0, 0, 0],  # HMS/DMS cursor positions per field
-            1: [0, 0],              # Mixed cursor positions
-            2: [0, 0]               # Decimal cursor positions
-        }
 
-        # State memory for each format - preserve entries when switching
-        self.format_states = {}
-        for fmt_id, fmt_config in self.formats.items():
-            self.format_states[fmt_id] = {
-                "fields": CoordinateFormats.get_default_fields(fmt_id),
-                "current_field": 0,
-                "epoch": 0
-            }
-
-        # Initialize input fields based on format
-        self.load_format_state()
-
-        # Current field index
-        self.current_field = 0
+        # Get initial state from logic
+        self._sync_from_logic()
 
         # Screen setup - use inherited properties from base class
         self.width = self.display_class.resX
@@ -315,41 +547,18 @@ class UIRADecEntry(UIModule):
         self.field_width = self.layout.FIELD_WIDTH
         self.field_gap = self.layout.FIELD_GAP
 
-        # Track DEC sign separately to avoid conflict with minus key
-        self.dec_sign = "+"
+    def _sync_from_logic(self):
+        state = self.logic.get_current_state()
+        format_config = self.logic.get_current_format_config()
+        # Bulk update UI state
+        self.__dict__.update({
+            'coord_format': state.coord_format, 'fields': state.fields, 'current_field': state.current_field,
+            'current_epoch': state.current_epoch, 'dec_sign': state.dec_sign, 'cursor_positions': state.cursor_positions,
+            'current_format_config': format_config, 'field_labels': format_config.field_labels,
+            'placeholders': format_config.placeholders, 'coord_field_count': format_config.coord_field_count,
+            'field_count': format_config.field_count, 'epoch_names': self.logic.epoch_names
+        })
 
-
-    def load_format_state(self):
-        """Load the saved state for current coordinate format"""
-        state = self.format_states[self.coord_format]
-        self.fields = state["fields"][:]  # Copy the list
-        self.current_field = state["current_field"]
-        self.current_epoch = state["epoch"]
-        # Load cursor positions for this format
-        if "cursor_positions" in state:
-            self.cursor_positions[self.coord_format] = state["cursor_positions"][:]
-        else:
-            # Initialize cursor positions for this format
-            if self.coord_format == 0:
-                self.cursor_positions[self.coord_format] = [0, 0, 0, 0, 0, 0]
-            else:
-                self.cursor_positions[self.coord_format] = [0, 0]
-
-        # Set field configuration based on current format
-        self.current_format_config = self.formats[self.coord_format]
-        self.field_labels = self.current_format_config.field_labels
-        self.placeholders = self.current_format_config.placeholders
-        self.coord_field_count = self.current_format_config.coord_field_count
-        self.field_count = self.current_format_config.field_count
-
-    def save_format_state(self):
-        """Save the current state before switching formats"""
-        self.format_states[self.coord_format] = {
-            "fields": self.fields[:],  # Copy the list
-            "current_field": self.current_field,
-            "epoch": self.current_epoch,
-            "cursor_positions": self.cursor_positions[self.coord_format][:]
-        }
 
     def get_field_positions(self):
         """Get screen positions for input fields based on current format"""
@@ -424,8 +633,7 @@ class UIRADecEntry(UIModule):
 
         # Draw labels and format-specific elements
         self._draw_field_labels()
-        self._draw_format_separators()
-        self._draw_format_indicators()
+        self._draw_format_decorations()
 
     def _draw_single_field(self, field_index, position):
         """Draw a single input field with outline, text, and cursor"""
@@ -436,13 +644,11 @@ class UIRADecEntry(UIModule):
 
         # Get field text and color
         text, color = self._get_field_text_and_color(field_index)
-
-        # Draw text centered in field
-        text_width = self._draw_field_text(x, y, width, text, color)
-
-        # Draw cursor if this is the current field (not for epoch field)
+        # Draw text and cursor if this is the current field (not for epoch field)
         if field_index == self.current_field and field_index != self.field_count - 1:
-            self._draw_field_cursor(x, y, width, text, text_width, field_index)
+            self._draw_field_complete(x, y, width, text, color, field_index)
+        else:
+            self._draw_field_complete(x, y, width, text, color, -1)  # No cursor
 
     def _draw_field_outline(self, x, y, width, is_current):
         """Draw the outline rectangle for a field"""
@@ -480,8 +686,8 @@ class UIRADecEntry(UIModule):
 
         return text, color
 
-    def _draw_field_text(self, x, y, width, text, color):
-        """Draw text centered in field and return text width"""
+    def _draw_field_complete(self, x, y, width, text, color, field_index):
+        """Draw field text and cursor in one method"""
         text_width = 0
         if text:
             text_bbox = self.base.font.getbbox(text)
@@ -489,25 +695,16 @@ class UIRADecEntry(UIModule):
             text_x = x + (width - text_width) // 2
             text_y = y + (self.field_height - 12) // 2
             self.draw.text((text_x, text_y), text, font=self.base.font, fill=color)
-        return text_width
-
-    def _draw_field_cursor(self, x, y, width, text, text_width, field_index):
-        """Draw the blinking cursor for the current field"""
+        
+        # Draw cursor if this is the current field
         cursor_pos = self.get_cursor_position(field_index)
-        if cursor_pos >= 0:
-            # Calculate cursor x position based on character position
+        if cursor_pos >= 0 and field_index == self.current_field:
             if text and cursor_pos < len(text):
                 text_before_cursor = text[:cursor_pos]
-                if text_before_cursor:
-                    cursor_text_width = self.base.font.getbbox(text_before_cursor)[2]
-                    cursor_x = x + (width - text_width) // 2 + cursor_text_width
-                else:
-                    cursor_x = x + (width - text_width) // 2
+                cursor_text_width = self.base.font.getbbox(text_before_cursor)[2] if text_before_cursor else 0
+                cursor_x = x + (width - text_width) // 2 + cursor_text_width
             else:
-                # Cursor at end of text
                 cursor_x = x + (width - text_width) // 2 + text_width
-
-            # Draw the cursor using the extracted component
             self.cursor.draw(self.screen, cursor_x, y, self.layout.CURSOR_WIDTH, self.field_height)
 
     def _draw_field_labels(self):
@@ -517,31 +714,18 @@ class UIRADecEntry(UIModule):
         self.draw.text((self.label_x, self.dec_y + label_offset), _("DEC:"), font=self.base.font, fill=self.red)
         self.draw.text((self.label_x, self.epoch_y + label_offset), _("EPOCH:"), font=self.base.font, fill=self.red)
 
-    def _draw_format_separators(self):
-        """Draw colons for HMS/DMS format"""
-        if self.coord_format == 0:  # HMS/DMS format
-            gap_center1 = self.field_start_x + self.field_width
-            gap_center2 = gap_center1 + self.field_gap
-
-            # Draw colons for RA
-            self.draw.text((gap_center1, self.ra_y), ":", font=self.base.font, fill=self.red)
-            self.draw.text((gap_center2, self.ra_y), ":", font=self.base.font, fill=self.red)
-
-            # Draw colons for DEC
-            self.draw.text((gap_center1, self.dec_y), ":", font=self.base.font, fill=self.red)
-            self.draw.text((gap_center2, self.dec_y), ":", font=self.base.font, fill=self.red)
-
-    def _draw_format_indicators(self):
-        """Draw unit indicators (h, °) for Mixed and Decimal formats"""
-        if self.coord_format in [1, 2]:  # Mixed or Decimal
+    def _draw_format_decorations(self):
+        """Draw format-specific separators and indicators"""
+        if self.coord_format == 0:  # HMS/DMS format - draw colons
+            gap_center1, gap_center2 = self.field_start_x + self.field_width, self.field_start_x + self.field_width + self.field_gap
+            for y in [self.ra_y, self.dec_y]:
+                self.draw.text((gap_center1, y), ":", font=self.base.font, fill=self.red)
+                self.draw.text((gap_center2, y), ":", font=self.base.font, fill=self.red)
+        elif self.coord_format in [1, 2]:  # Mixed/Decimal - draw unit indicators
             indicator_x = self.field_start_x + self.layout.FORMAT_INDICATOR_OFFSET
-
-            if self.coord_format == 1:  # Mixed format
-                self.draw.text((indicator_x, self.ra_y + 4), "h", font=self.base.font, fill=self.half_red)
-                self.draw.text((indicator_x, self.dec_y + 4), "°", font=self.base.font, fill=self.half_red)
-            else:  # Decimal format
-                self.draw.text((indicator_x, self.ra_y + 4), "°", font=self.base.font, fill=self.half_red)
-                self.draw.text((indicator_x, self.dec_y + 4), "°", font=self.base.font, fill=self.half_red)
+            ra_unit, dec_unit = ("h", "°") if self.coord_format == 1 else ("°", "°")
+            self.draw.text((indicator_x, self.ra_y + 4), ra_unit, font=self.base.font, fill=self.half_red)
+            self.draw.text((indicator_x, self.dec_y + 4), dec_unit, font=self.base.font, fill=self.half_red)
 
 
     def draw_bottom_bar(self):
@@ -569,112 +753,30 @@ class UIRADecEntry(UIModule):
 
     def key_number(self, number):
         """Handle numeric input"""
-        # Don't allow numeric input on epoch field
-        if self.current_field == self.field_count - 1:
-            return
-
-        if self.coord_format == 0:  # HMS/DMS format
-            self._handle_hms_dms_input(number)
-        else:  # Mixed/Decimal formats
-            self._handle_decimal_input(number)
-
-    def _handle_hms_dms_input(self, number):
-        """Handle numeric input for HMS/DMS format (simple append)"""
-        current = self.fields[self.current_field]
-        new_value = current + str(number)
-
-        # Limit field length
-        if len(new_value) > 2:
-            return
-
-        # Validate and set
-        if self.validate_field(self.current_field, new_value):
-            self.fields[self.current_field] = new_value
-
-            # Auto-advance when field is full
-            if len(new_value) == 2:
-                next_field = (self.current_field + 1) % self.field_count
-                if next_field != self.field_count - 1:  # Not epoch field
-                    self.current_field = next_field
-
-    def _handle_decimal_input(self, number):
-        """Handle numeric input for Mixed/Decimal formats (cursor-based)"""
-        current = self.fields[self.current_field]
-        cursor_pos = self.cursor_positions[self.coord_format][self.current_field]
-        new_value = list(current)
-
-        # Skip over decimal point if cursor is at that position
-        if cursor_pos < len(new_value) and new_value[cursor_pos] == '.':
-            cursor_pos += 1
-
-        # Replace character at cursor position
-        if cursor_pos < len(new_value):
-            new_value[cursor_pos] = str(number)
-            new_value = ''.join(new_value)
-
-            # Validate and set
-            if self.validate_field(self.current_field, new_value):
-                self.fields[self.current_field] = new_value
-                # Advance cursor position
-                self.cursor_positions[self.coord_format][self.current_field] = cursor_pos + 1
+        self.logic.handle_numeric_input(number)
+        self._sync_from_logic()
 
     def key_minus(self):
         """Delete last digit in current field or move to previous field"""
-        # Don't allow deletion on epoch field - just move to previous field
-        if self.current_field == self.field_count - 1:
-            self.current_field = (self.current_field - 1) % self.field_count
-            return
-
-        if self.coord_format == 0:  # HMS/DMS format
-            self._handle_hms_dms_deletion()
-        else:  # Mixed/Decimal formats
-            self._handle_decimal_deletion()
-
-    def _handle_hms_dms_deletion(self):
-        """Handle deletion for HMS/DMS format (simple backspace)"""
-        if self.fields[self.current_field]:
-            # Delete the last digit
-            self.fields[self.current_field] = self.fields[self.current_field][:-1]
-        else:
-            # Move to previous field if current is empty
-            self.current_field = (self.current_field - 1) % self.field_count
-
-    def _handle_decimal_deletion(self):
-        """Handle deletion for Mixed/Decimal formats (cursor-based)"""
-        cursor_pos = self.cursor_positions[self.coord_format][self.current_field]
-        if cursor_pos > 0:
-            current = self.fields[self.current_field]
-            new_value = list(current)
-
-            # Move cursor back (skip over decimal point)
-            cursor_pos -= 1
-            if cursor_pos >= 0 and new_value[cursor_pos] == '.':
-                cursor_pos -= 1
-
-            # Replace character at cursor position with zero
-            if cursor_pos >= 0:
-                new_value[cursor_pos] = '0'
-                self.fields[self.current_field] = ''.join(new_value)
-                self.cursor_positions[self.coord_format][self.current_field] = cursor_pos
+        self.logic.handle_deletion()
+        self._sync_from_logic()
 
     def key_plus(self):
         """Toggle DEC sign when on DEC degree field, or cycle epoch when on epoch field"""
-        # Check if we're on DEC degree field
-        if (self.coord_format == 0 and self.current_field == 3) or \
-           (self.coord_format > 0 and self.current_field == 1):
-            # Toggle DEC sign
-            self.dec_sign = "-" if self.dec_sign == "+" else "+"
-        elif self.current_field == self.field_count - 1:  # On epoch field
-            # Cycle through epochs: J2000 -> JNOW -> B1950 -> J2000
-            self.current_epoch = (self.current_epoch + 1) % 3
+        # Try both operations - only one will actually modify state
+        self.logic.toggle_dec_sign()
+        self.logic.cycle_epoch()
+        self._sync_from_logic()
 
     def key_up(self):
         """Move to previous field"""
-        self.current_field = (self.current_field - 1) % self.field_count
+        self.logic.move_to_previous_field()
+        self._sync_from_logic()
 
     def key_down(self):
         """Move to next field"""
-        self.current_field = (self.current_field + 1) % self.field_count
+        self.logic.move_to_next_field()
+        self._sync_from_logic()
 
     def key_right(self):
         """Confirm entry and exit"""
@@ -695,21 +797,12 @@ class UIRADecEntry(UIModule):
 
     def key_square(self):
         """Switch coordinate format"""
-        # Save current state before switching
-        self.save_format_state()
-
-        # Switch to next format
-        self.coord_format = (self.coord_format + 1) % len(self.formats)
-        self.current_format_config = self.formats[self.coord_format]
-
-        # Load the saved state for the new format
-        self.load_format_state()
+        self.logic.switch_format()
+        self._sync_from_logic()
 
     def get_coordinates(self):
         """Convert current input to decimal degrees"""
-        return CoordinateConverter.convert_coordinates(
-            self.coord_format, self.fields, self.dec_sign, self.current_epoch
-        )
+        return self.logic.get_coordinates()
 
     def inactive(self):
         """Called when the module is no longer active"""

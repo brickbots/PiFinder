@@ -1020,11 +1020,6 @@ pifinder_menu = {
                     "class": UITextMenu,
                     "select": "Single",
                     "items": [
-                        {
-                            "name": _("RA/DEC Entry"),
-                            "class": UIRADecEntry,
-                            "custom_callback": callbacks.handle_radec_entry,
-                        },
                     ],
                 },
             ],
