@@ -177,7 +177,6 @@ class UIObjectDetails(UIModule):
                 ),  # TRANSLATORS: object info magnitude
                 _("Sz:{size}").format(size=size),  # TRANSLATORS: object info size
             )
-            print("there")
             if spaces == -1:
                 spaces, magsize = self.space_calculator.calculate_spaces(
                     _("Mag:{obj_mag}").format(obj_mag=obj_mag), size
@@ -200,10 +199,11 @@ class UIObjectDetails(UIModule):
 
         # NGC description....
         logs = self.observations_db.get_logs_for_object(self.object)
-        desc = (
-            self.object.description.replace("\t", " ")
-            + "\n"  # I18N: Descriptions are not translated
-        )
+        desc = ""
+        if self.object.description:
+            desc = (
+                self.object.description.replace("\t", " ") + "\n"
+            )  # I18N: Descriptions are not translated
         if len(logs) == 0:
             desc = desc + _("  Not Logged")
         else:
@@ -217,6 +217,7 @@ class UIObjectDetails(UIModule):
         if solution:
             roll = solution["Roll"]
 
+        magnification = self.config_object.equipment.calc_magnification()
         self.object_image = cat_images.get_display_image(
             self.object,
             str(self.config_object.equipment.active_eyepiece),
@@ -224,6 +225,7 @@ class UIObjectDetails(UIModule):
             roll,
             self.display_class,
             burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
+            magnification=magnification,
         )
 
     def active(self):

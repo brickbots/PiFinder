@@ -80,7 +80,7 @@ class KeyboardLocal(KeyboardInterface):
         self.q.put(key)
 
 
-def run_keyboard(q, shared_state, log_queue):
+def run_keyboard(q, shared_state, log_queue, dream_remap=False):
     MultiprocLogging.configurer(log_queue)
     KeyboardLocal(q)
 
