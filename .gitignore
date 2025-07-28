@@ -145,6 +145,9 @@ comets.txt
 *.3mf
 *.gcode
 case/my_printer
+.devenv/
+astro_data/comets.txt
+python/tetra3
 
 # users GPS data
 test_ubx
