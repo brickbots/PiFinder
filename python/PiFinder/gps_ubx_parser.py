@@ -156,8 +156,10 @@ class UBXParser:
                     raise
 
     @classmethod
-    def from_file(cls, file_path: str):
-        return cls(log_queue=None, file_path=file_path)
+    async def from_file(cls, file_path: str):
+        """Create a UBXParser instance from a file."""
+        f = await aiofiles.open(file_path, "rb")
+        return cls(log_queue=None, reader=f, file_path=file_path)  # type:ignore[arg-type]
 
     async def close(self):
         """Clean up resources and close the connection."""
@@ -180,63 +182,53 @@ class UBXParser:
         self.reader = None
         self.buffer.clear()  # Clear any remaining data
 
-    async def parse_from_file(self):
-        async with aiofiles.open(self.file_path, "rb") as f:
-            self.reader = f
-            async for msg in self.parse_messages():
-                yield msg
-
     async def parse_messages(self):
         """Parse messages from the GPS device."""
         while self._running:
-            if self.file_path:
-                async for msg in self.parse_from_file():
-                    yield msg
-            else:
-                try:
-                    if not self.reader:
-                        logger.error("Reader not available")
-                        break
-
-                    data = await self.reader.read(1024)
-                    if not data:
-                        logger.warning("Connection closed by server")
-                        break
-
-                    self.buffer.extend(data)
-                    while len(self.buffer) >= 6:  # Minimum UBX header size
-                        start = self.buffer.find(b"\xb5\x62")  # UBX sync chars
-                        if start == -1:
-                            logger.debug("No UBX header found, clearing buffer")
-                            self.buffer.clear()
-                            break
-                        if start > 0:
-                            self.buffer = self.buffer[start:]
-                        length = int.from_bytes(self.buffer[4:6], "little")
-                        total_length = 8 + length  # Header (6) + checksum (2) + payload
-                        if len(self.buffer) < total_length:
-                            break
-                        msg_data = self.buffer[:total_length]
-                        ck_a = ck_b = 0
-                        for b in msg_data[2:-2]:  # Skip sync and checksum
-                            ck_a = (ck_a + b) & 0xFF
-                            ck_b = (ck_b + ck_a) & 0xFF
-                        if msg_data[-2] == ck_a and msg_data[-1] == ck_b:
-                            parsed = self._parse_ubx(bytes(msg_data))
-                            if "class" in parsed:
-                                logger.debug(f"Parsed UBX message: {parsed}")
-                                yield parsed
-                        else:
-                            logger.warning(
-                                f"Checksum mismatch: expected {ck_a:02x}{ck_b:02x}, got {msg_data[-2]:02x}{msg_data[-1]:02x}"
-                            )
-                        self.buffer = self.buffer[total_length:]
-                except (ConnectionResetError, BrokenPipeError) as e:
-                    logger.error(f"Connection error: {e}")
+            try:
+                if not self.reader:
+                    logger.error("Reader not available")
                     break
-                except Exception as e:
-                    logger.error(f"Error reading data: {e}")
+
+                data = await self.reader.read(1024)
+                if not data:
+                    logger.warning("Read failed. Connection closed by server")
                     break
+
+                self.buffer.extend(data)
+                while len(self.buffer) >= 6:  # Minimum UBX header size
+                    start = self.buffer.find(b"\xb5\x62")  # UBX sync chars
+                    if start == -1:
+                        logger.debug("No UBX header found, clearing buffer")
+                        self.buffer.clear()
+                        break
+                    if start > 0:
+                        self.buffer = self.buffer[start:]
+                    length = int.from_bytes(self.buffer[4:6], "little")
+                    total_length = 8 + length  # Header (6) + checksum (2) + payload
+                    if len(self.buffer) < total_length:
+                        break
+                    msg_data = self.buffer[:total_length]
+                    ck_a = ck_b = 0
+                    for b in msg_data[2:-2]:  # Skip sync and checksum
+                        ck_a = (ck_a + b) & 0xFF
+                        ck_b = (ck_b + ck_a) & 0xFF
+                    if msg_data[-2] == ck_a and msg_data[-1] == ck_b:
+                        parsed = self._parse_ubx(bytes(msg_data))
+                        if "class" in parsed:
+                            logger.debug(f"Parsed UBX message: {parsed}")
+                            yield parsed
+                    else:
+                        logger.warning(
+                            f"Checksum mismatch: expected {ck_a:02x}{ck_b:02x}, got {msg_data[-2]:02x}{msg_data[-1]:02x}"
+                        )
+                    self.buffer = self.buffer[total_length:]
+            except (ConnectionResetError, BrokenPipeError):
+                logger.exception("Connection error")
+                break
+            except Exception:
+                logger.exception("Error reading data.")
+                break
 
             await asyncio.sleep(0.1)  # Prevent tight loop
 
@@ -309,6 +301,7 @@ class UBXParser:
     def _parse_nav_sat(self, data: bytes) -> dict:
         logger.debug("Parsing nav-sat")
         if len(data) < 8:
+            logger.error("NAV-SAT: Message too short")
             return {"error": "Invalid payload length for nav-sat"}
         numSvs = data[5]
         satellites = []
@@ -321,7 +314,12 @@ class UBXParser:
             cno = data[offset + 2]
             elev = data[offset + 3]
             azim = int.from_bytes(data[offset + 4 : offset + 6], "little")
-            flags = data[offset + 11]
+            flags = data[
+                offset + 8
+            ]  # Warning this is a 4 byte field of flags, we're only using the first byte
+            # lowest 3 bits are a quality indicator and according to
+            # https://portal.u-blox.com/s/question/0D52p000097B0bFCAS/interpretation-of-signal-quality-indicator-in-ubxnavsat
+            # the 0-7 values from an ordered scale. So taking 3 as the threshold below.q
             satellites.append(
                 {
                     "id": svId,
@@ -329,7 +327,8 @@ class UBXParser:
                     "signal": cno,
                     "elevation": elev,
                     "azimuth": azim,
-                    "used": bool(flags & 0x08),
+                    "used": (flags & 0x07) > 3,  # lowest 3 bits are used for the status
+                    "flags": flags & 0x07,
                 }
             )
         result = {
@@ -343,7 +342,7 @@ class UBXParser:
     def _parse_nav_svinfo(self, data: bytes) -> dict:
         logger.debug("Parsing nav-svinfo")
         if len(data) < 8:
-            logger.debug(f"SVINFO: Message too short ({len(data)} bytes)")
+            logger.warning(f"SVINFO: Message too short ({len(data)} bytes)")
             return {"error": "Invalid payload length for nav-svinfo"}
 
         numCh = data[4]
@@ -427,6 +426,7 @@ class UBXParser:
     def _parse_nav_dop(self, data: bytes) -> dict:
         logger.debug("Parsing nav-dop")
         if len(data) < 18:
+            logger.error("NAV-DOP: Message too short")
             return {"error": "Invalid payload length for nav-dop"}
         result = {
             "class": "NAV-DOP",
@@ -537,20 +537,32 @@ if __name__ == "__main__":
 
     async def test(f_path: str = ""):
         if f_path:
-            parser = UBXParser.from_file(file_path=f_path)
-            async for msg in parser.parse_from_file():
-                print(msg)
-                msg_type = msg.get("class", "")
-                if msg_type != "":
-                    msg_types[msg_type] = msg_types.get(msg_type, 0) + 1
-        else:
-            parser = await UBXParser.connect(log_queue=None)
+            parser = await UBXParser.from_file(file_path=f_path)
+            i = 0
             try:
                 async for msg in parser.parse_messages():
                     print(msg)
                     msg_type = msg.get("class", "")
                     if msg_type != "":
                         msg_types[msg_type] = msg_types.get(msg_type, 0) + 1
+                    i += 1
+                    if i % 1000 == 0:
+                        print(".", end="", flush=True)
+            finally:
+                await parser.close()
+                print(f"\nTotal messages processed: {i}")
+        else:
+            parser = await UBXParser.connect(log_queue=None)
+            try:
+                async for msg in parser.parse_messages():
+                    # print(msg)
+                    if "error" in msg:
+                        error_msg = msg.get("error")
+                        msg_types[error_msg] = msg_types.get(error_msg, 0) + 1
+                    else:
+                        msg_type = msg.get("class", "")
+                        if msg_type != "":
+                            msg_types[msg_type] = msg_types.get(msg_type, 0) + 1
             finally:
                 await parser.close()
 

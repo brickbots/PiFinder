@@ -88,11 +88,11 @@ class CameraInterface:
                         base_image = base_image.convert("L")
                         rotate_amount = 0
                         if camera_rotation is None:
-                            if (
-                                screen_direction == "right"
-                                or screen_direction == "straight"
-                                or screen_direction == "flat3"
-                            ):
+                            if screen_direction in [
+                                "right",
+                                "straight",
+                                "flat3",
+                            ]:
                                 rotate_amount = 90
                             else:
                                 rotate_amount = 270

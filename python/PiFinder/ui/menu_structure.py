@@ -891,6 +891,10 @@ pifinder_menu = {
                             "name": _("Flat v2"),
                             "value": "flat",
                         },
+                        {
+                            "name": _("AS Dream"),
+                            "value": "as_dream",
+                        },
                     ],
                 },
                 {
