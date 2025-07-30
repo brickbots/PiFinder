@@ -29,7 +29,7 @@ class CameraPI(CameraInterface):
         self.camera = Picamera2()
         # Figure out camera type, hq or imx296 (global shutter)
         self.camera_type = "hq"
-        self.gain = 20
+        self.gain = 22
         self.exposure_time = exposure_time
         self.bit_depth = 12
         if "imx296" in self.camera.camera.id:
@@ -108,16 +108,21 @@ class CameraPI(CameraInterface):
             # crop to square and resample to 16 bit from 2 8 bit entries
             raw_capture = raw_capture.copy().view(np.uint16)[:, 256:-256]
 
-        raw_capture = raw_capture.astype(np.float32)
-        # max_pixel = np.max(raw_capture)
-        max_pixel = pow(2, self.bit_depth) - 1
-
-        # if the whitepoint is already below 255, just cast it
-        # as we don't want to create fake in-between values
-        if max_pixel < 255:
-            raw_capture = raw_capture.astype(np.uint8)
+        if self.camera_type == "hq":
+            # don't throw away the lower 4 bits, we need all the light we can get
+            raw_capture = raw_capture.astype(np.int16) - 256 # subtract offset ~256
+            raw_capture = np.clip(raw_capture, 0, 255).astype(np.uint8)
         else:
-            raw_capture = (raw_capture / max_pixel * 255).astype(np.uint8)
+            raw_capture = raw_capture.astype(np.float32)
+            # max_pixel = np.max(raw_capture)
+            max_pixel = pow(2, self.bit_depth) - 1
+
+            # if the whitepoint is already below 255, just cast it
+            # as we don't want to create fake in-between values
+            if max_pixel < 255:
+                raw_capture = raw_capture.astype(np.uint8)
+            else:
+                raw_capture = (raw_capture / max_pixel * 255).astype(np.uint8)
 
         raw_image = Image.fromarray(raw_capture).resize((512, 512))
         return raw_image
