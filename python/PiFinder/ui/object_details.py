@@ -6,6 +6,8 @@ This module contains all the UI code for the object details screen
 
 """
 
+from pydeepskylog.exceptions import InvalidParameterError
+
 from PiFinder import cat_images
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
@@ -25,6 +27,7 @@ import functools
 from PiFinder.db.observations_db import ObservationsDatabase
 import numpy as np
 import time
+import pydeepskylog as pds
 
 
 # Constants for display modes
@@ -46,6 +49,7 @@ class UIObjectDetails(UIModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.contrast = None
         self.screen_direction = self.config_object.get_option("screen_direction")
         self.mount_type = self.config_object.get_option("mount_type")
         self.object = self.item_definition["object"]
@@ -68,7 +72,7 @@ class UIObjectDetails(UIModule):
             ),
         )
 
-        # Used for displaying obsevation counts
+        # Used for displaying observation counts
         self.observations_db = ObservationsDatabase()
 
         self.simpleTextLayout = functools.partial(
@@ -117,8 +121,15 @@ class UIObjectDetails(UIModule):
         designator_color = 255
         if not self.object.last_filtered_result:
             designator_color = 128
+
+        # layout the name - contrast reserve line
+        space_calculator = SpaceCalculatorFixed(14)
+
+        _, typeconst = space_calculator.calculate_spaces(
+            self.object.display_name, self.contrast
+        )
         return self.simpleTextLayout(
-            self.object.display_name,
+            typeconst,
             font=self.fonts.large,
             color=self.colors.get(designator_color),
         )
@@ -227,6 +238,61 @@ class UIObjectDetails(UIModule):
             burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
             magnification=magnification,
         )
+
+        # TODO: Get the SQM from the shared state
+        # sqm = self.shared_state.get_sky_brightness()
+        sqm = 20.15
+        # Check if a telescope and eyepiece are set
+        if (
+            self.config_object.equipment.active_eyepiece is None
+            or self.config_object.equipment.active_eyepiece is None
+        ):
+            self.contrast = ""
+        else:
+            # Calculate contrast reserve. The object diameters are given in arc seconds.
+            magnification = self.config_object.equipment.calc_magnification(
+                self.config_object.equipment.active_telescope,
+                self.config_object.equipment.active_eyepiece,
+            )
+            if self.object.mag_str == "-":
+                self.contrast = ""
+            else:
+                try:
+                    if self.object.size:
+                        # Check if the size contains 'x'
+                        if "x" in self.object.size:
+                            diameter1, diameter2 = map(
+                                float, self.object.size.split("x")
+                            )
+                            diameter1 = (
+                                diameter1 * 60.0
+                            )  # Convert arc seconds to arc minutes
+                            diameter2 = diameter2 * 60.0
+                        elif "'" in self.object.size:
+                            # Convert arc minutes to arc seconds
+                            diameter1 = float(self.object.size.replace("'", "")) * 60.0
+                            diameter2 = diameter1
+                        else:
+                            diameter1 = diameter2 = float(self.object.size) * 60.0
+                    else:
+                        diameter1 = diameter2 = None
+
+                    self.contrast = pds.contrast_reserve(
+                        sqm=sqm,
+                        telescope_diameter=self.config_object.equipment.active_telescope.aperture_mm,
+                        magnification=magnification,
+                        surf_brightness=None,
+                        magnitude=float(self.object.mag_str),
+                        object_diameter1=diameter1,
+                        object_diameter2=diameter2,
+                    )
+                except InvalidParameterError as e:
+                    print(f"Error calculating contrast reserve: {e}")
+                    self.contrast = ""
+        if self.contrast is not None and self.contrast != "":
+            self.contrast = f"{self.contrast: .1f}"
+        else:
+            self.contrast = ""
 
     def active(self):
         self.activation_time = time.time()
