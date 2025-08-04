@@ -14,7 +14,13 @@ import contextlib
 
 from PIL import Image, ImageDraw, ImageOps, ImageChops
 
-from StarParty.sps_data import Position, GroupActivity, calc_avatar_bits, EventType
+from StarParty.sps_data import (
+    Position,
+    GroupActivity,
+    calc_avatar_bits,
+    EventType,
+    Mark,
+)
 
 
 def generate_avatar_image(avatar_bits: int) -> Image.Image:
@@ -268,6 +274,13 @@ class SPClient:
 
         return [ClientGroup.deserialize(x) for x in resp.payload]
 
+    async def list_marks(self) -> list[Mark]:
+        resp = await self.send_command("marks")
+        if not resp:
+            return []
+
+        return [Mark.deserialize(x) for x in resp.payload]
+
     async def sync_observers(self) -> bool:
         """
         Refresh internal list of observers from
@@ -292,7 +305,7 @@ class SPClient:
     async def send_mark(self, ra: float, dec: float, object_id: int, name: str):
         await self.send_event(
             EventType.MARK,
-            [Position(ra, dec).serialize(), str(object_id), name, str(self.username)],
+            [Position(ra, dec).serialize(), str(object_id), name],
         )
 
     async def _listen_for_messages(self) -> None:

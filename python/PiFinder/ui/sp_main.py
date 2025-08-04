@@ -14,7 +14,9 @@ from StarParty.sp_usernames import sp_usernames
 from StarParty.sps_data import GroupActivity
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.ui.text_menu import UITextMenu
+from PiFinder.ui.object_list import UIObjectList
 from PiFinder.calc_utils import sf_utils
+from PiFinder.composite_object import CompositeObject
 
 
 class UISPMain(UITextMenu):
@@ -150,6 +152,10 @@ class UISPMain(UITextMenu):
         self.set_menu(
             [
                 {
+                    "name": _("Marks"),
+                    "value": "list_marks",
+                },
+                {
                     "name": _("Observers"),
                     "value": "list_observers",
                 },
@@ -213,10 +219,36 @@ class UISPMain(UITextMenu):
             ]
         )
 
+    async def go_marks(self) -> None:
+        """
+        Get the current marks, hand off to object
+        list ui module
+        """
+        marks = await self.sp_client_object.list_marks()
+
+        object_list = []
+        for mark in marks:
+            if mark.object_id == 0:
+                object_id = -1
+            object_list.append(
+                CompositeObject(
+                    object_id=object_id,
+                )
+            )
+
+            print(mark)
+
+        item_definition = {
+            "name": _("SP MARKS"),
+            "class": UIObjectList,
+            "objects": "custom",
+            "object_list": object_list,
+        }
+        self.add_to_stack(item_definition)
+
     def mode_observers(self) -> None:
         """
         Set mode to list observers in group
-        Connected, but no groups
         Change menu items
         """
 
@@ -302,6 +334,10 @@ class UISPMain(UITextMenu):
 
             if selected_item_definition["value"] == "list_observers":
                 self.mode_observers()
+                return
+
+            if selected_item_definition["value"] == "list_marks":
+                await self.go_marks()
                 return
 
         if selected_item_definition["value"] == "disconnect":

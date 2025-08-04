@@ -32,6 +32,7 @@ class SimulatedUser:
 
         await self._join_or_create_group()
 
+        mark_count = 0
         while True:
             # Wait some period for 'observing'
             await asyncio.sleep(random.uniform(5, 100))
@@ -40,6 +41,12 @@ class SimulatedUser:
             for i in range(int(random.uniform(10, 50))):
                 await self._send_pos_update()
                 await asyncio.sleep(random.uniform(0.1, 0.8))
+
+            # Add a mark
+            mark_count += 1
+            await self.client.send_mark(
+                self.ra, self.dec, 0, f"{self.username[:3]}{mark_count}"
+            )
 
         # finally:
         #    await self.client.disconnect()
