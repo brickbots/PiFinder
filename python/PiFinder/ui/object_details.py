@@ -208,37 +208,6 @@ class UIObjectDetails(UIModule):
                 scrollspeed=self._get_scrollspeed_config(),
             )
 
-        # NGC description....
-        logs = self.observations_db.get_logs_for_object(self.object)
-        desc = ""
-        if self.object.description:
-            desc = (
-                self.object.description.replace("\t", " ") + "\n"
-            )  # I18N: Descriptions are not translated
-        if len(logs) == 0:
-            desc = desc + _("  Not Logged")
-        else:
-            desc = desc + _("  {logs} Logs").format(logs=len(logs))
-
-        self.descTextLayout.set_text(desc)
-        self.texts["desc"] = self.descTextLayout
-
-        solution = self.shared_state.solution()
-        roll = 0
-        if solution:
-            roll = solution["Roll"]
-
-        magnification = self.config_object.equipment.calc_magnification()
-        self.object_image = cat_images.get_display_image(
-            self.object,
-            str(self.config_object.equipment.active_eyepiece),
-            self.config_object.equipment.calc_tfov(),
-            roll,
-            self.display_class,
-            burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
-            magnification=magnification,
-        )
-
         # Get the SQM from the shared state
         sqm = self.shared_state.get_sky_brightness()
 
@@ -293,6 +262,59 @@ class UIObjectDetails(UIModule):
             self.contrast = f"{self.contrast: .1f}"
         else:
             self.contrast = ""
+
+        # Add contrast reserve line to details with interpretation
+        if self.contrast:
+            contrast_val = float(self.contrast)
+            if contrast_val < -0.2:
+                contrast_str = f"Object is not visible"
+            elif -0.2 <= contrast_val < 0.1:
+                contrast_str = f"Questionable detection"
+            elif 0.1 <= contrast_val < 0.35:
+                contrast_str = f"Difficult to see"
+            elif 0.35 <= contrast_val < 0.5:
+                contrast_str = f"Quite difficult to see"
+            elif 0.5 <= contrast_val < 1.0:
+                contrast_str = f"Easy to see"
+            elif contrast_val >= 1.0:
+                contrast_str = f"Very easy to see"
+            else:
+                contrast_str = f""
+            self.texts["contrast_reserve"] = self.ScrollTextLayout(
+                contrast_str, font=self.fonts.base, color=self.colors.get(255), scrollspeed=self._get_scrollspeed_config(),
+            )
+
+        # NGC description....
+        logs = self.observations_db.get_logs_for_object(self.object)
+        desc = ""
+        if self.object.description:
+            desc = (
+                self.object.description.replace("\t", " ") + "\n"
+            )  # I18N: Descriptions are not translated
+        if len(logs) == 0:
+            desc = desc + _("  Not Logged")
+        else:
+            desc = desc + _("  {logs} Logs").format(logs=len(logs))
+
+        self.descTextLayout.set_text(desc)
+        self.texts["desc"] = self.descTextLayout
+
+        solution = self.shared_state.solution()
+        roll = 0
+        if solution:
+            roll = solution["Roll"]
+
+        magnification = self.config_object.equipment.calc_magnification()
+        self.object_image = cat_images.get_display_image(
+            self.object,
+            str(self.config_object.equipment.active_eyepiece),
+            self.config_object.equipment.calc_tfov(),
+            roll,
+            self.display_class,
+            burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
+            magnification=magnification,
+        )
+
 
     def active(self):
         self.activation_time = time.time()
@@ -434,7 +456,7 @@ class UIObjectDetails(UIModule):
         if self.object_display_mode == DM_DESC or self.object_display_mode == DM_LOCATE:
             # catalog and entry field i.e. NGC-311
             self.refresh_designator()
-            desc_available_lines = 4
+            desc_available_lines = 3
             desig = self.texts["designator"]
             desig.draw((0, 20))
 
@@ -474,6 +496,14 @@ class UIObjectDetails(UIModule):
                 posy += 11
             else:
                 desc_available_lines += 1  # extra lines for description
+
+            contrast = self.texts.get("contrast_reserve")
+
+            if contrast and contrast.text.strip():
+                contrast.draw((0, posy))
+                posy += 11
+            else:
+                desc_available_lines +=1
 
             # Remaining lines with object description
             desc = self.texts.get("desc")
