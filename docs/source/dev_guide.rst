@@ -3,14 +3,18 @@
 Contributors Guide
 ===================
 
-If you'd like to help with developing PiFinder, this is the place to start. You don't need to be a developer to help out, as there are many ways to contribute to the project. Whether it's improving documentation, testing new features, or suggesting ideas, your contribution is valuable.
+If you'd like to help with developing PiFinder, this is the place 
+to start. You don't need to be a developer to help out, as there 
+are many ways to contribute to the project. Whether it's improving 
+documentation, testing new features, or suggesting ideas, your 
+contribution is valuable.
 
 Here are some ways you can get involved:
 
 - **Report Bugs**: If you encounter any issues, report them with detailed steps to reproduce the problem. This helps developers identify and fix bugs quickly.
 - **Suggest Enhancements**: Share your ideas for new features or improvements. Your suggestions can help shape the future of PiFinder.
 - **Improve Documentation**: Help make the documentation clearer and more comprehensive. If you find something confusing or incomplete, feel free to update it or suggest changes.
-- **Translate the user interface**: Since v2.3.0 PiFinder is available in multiple languages. If you want to help with translations, please check the `translation guide`_ section below.
+- **Translate the user interface**: Since v2.3.0 PiFinder is available in multiple languages. If you want to help with translations, please check the `internationalization`_ section below.
 - **Beta Testing**: Try out new features and provide feedback. Testing helps ensure the software is stable and works as expected.
 - **Contribute Code**: If you're a developer, you can contribute code by fixing bugs, adding features, or improving existing functionality.
 

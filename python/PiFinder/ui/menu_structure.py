@@ -1023,8 +1023,7 @@ pifinder_menu = {
                     "name": _("Experimental"),
                     "class": UITextMenu,
                     "select": "Single",
-                    "items": [
-                    ],
+                    "items": [],
                 },
             ],
         },

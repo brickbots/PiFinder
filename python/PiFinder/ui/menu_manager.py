@@ -326,12 +326,12 @@ class MenuManager:
         Put an image on the display
         """
         screen_to_display = screen_image.convert(self.display_class.device.mode)
-        
+
         if time.time() < self.ui_state.message_timeout():
             return None
 
         self.display_class.device.display(screen_to_display)
-        
+
         # Only update shared state when not in message timeout
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
