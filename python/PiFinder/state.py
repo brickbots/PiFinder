@@ -355,6 +355,15 @@ class SharedStateObj:
     def set_ui_state(self, v):
         self.__ui_state = v
 
+    def get_sky_brightness(self):
+        """
+        Returns the current sky brightness (SQM) value from the shared state.
+        Replace this stub with actual logic if available.
+        """
+        # Example: If you have a sensor or calculation, use it here
+        # For now, return a placeholder value
+        return 20.15
+
     def __repr__(self):
         # A simple representation showing key attributes (adjust as needed)
         return (

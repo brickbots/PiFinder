@@ -239,9 +239,9 @@ class UIObjectDetails(UIModule):
             magnification=magnification,
         )
 
-        # TODO: Get the SQM from the shared state
-        # sqm = self.shared_state.get_sky_brightness()
-        sqm = 20.15
+        # Get the SQM from the shared state
+        sqm = self.shared_state.get_sky_brightness()
+
         # Check if a telescope and eyepiece are set
         if (
             self.config_object.equipment.active_eyepiece is None
