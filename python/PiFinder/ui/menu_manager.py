@@ -5,6 +5,7 @@ from PIL import Image
 from PiFinder import utils
 from PiFinder.ui.base import UIModule
 from PiFinder.ui import menu_structure
+from PiFinder.ui.sqmentry import UISqmEntry
 from PiFinder.ui.object_details import UIObjectDetails
 from PiFinder.displays import DisplayBase
 from PiFinder.ui.text_menu import UITextMenu
@@ -13,6 +14,7 @@ from PiFinder.ui.marking_menus import (
     MarkingMenuOption,
     render_marking_menu,
 )
+from PiFinder.ui.textentry import UITextEntry
 
 
 def collect_preloads() -> list[dict]:
@@ -104,6 +106,19 @@ def dyn_menu_equipment(cfg):
     equipment_menu_item["items"] = [telescope_menu, eyepiece_menu]
 
 
+def dyn_menu_sqm(shared_state):
+    """
+    Adds a submenu to the SQM page to manually set the SQM value
+    """
+    sqm_menu_item = find_menu_by_label("sqm")
+    sqm_menu = {
+        "name": _("SQM Value"),
+        "class": UISqmEntry,
+        "label": "set_sqm",
+    }
+    sqm_menu_item["items"] = [sqm_menu]
+
+
 class MenuManager:
     def __init__(
         self,
@@ -142,6 +157,7 @@ class MenuManager:
         self.ss_count = 0
 
         dyn_menu_equipment(self.config_object)
+        dyn_menu_sqm(shared_state)
         self.preload_modules()
 
     def screengrab(self):
@@ -326,12 +342,12 @@ class MenuManager:
         Put an image on the display
         """
         screen_to_display = screen_image.convert(self.display_class.device.mode)
-        
+
         if time.time() < self.ui_state.message_timeout():
             return None
 
         self.display_class.device.display(screen_to_display)
-        
+
         # Only update shared state when not in message timeout
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
