@@ -127,10 +127,12 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                 location = shared_state.location()
                 dt = shared_state.datetime()
 
-                if EQ_DEAD_RECKONING:
-                    update_solve_eq(solved, location, dt, pointing_tracker)
-                else:
-                    update_solve_altaz(solved, location, dt, pointing_tracker)  # TODO: Remove later
+                if location and dt:
+                    # We have position and time/date!
+                    if EQ_DEAD_RECKONING:
+                        update_solve_eq(solved, location, dt, pointing_tracker)
+                    else:
+                        update_solve_altaz(solved, location, dt, pointing_tracker)  # TODO: Remove later
 
                 last_image_solve = copy.deepcopy(solved)
                 solved["solve_source"] = "CAM"
@@ -188,60 +190,60 @@ def update_solve_eq(solved, location, dt, pointing_tracker):
     altaz coordinates and horizontal frame for IMU tracking. Moved from the
     loop inside integrator integrator
     """
-    # see if we can calc alt-az
+    assert location and dt, "Need location and time"
+    
     solved["Alt"] = None
     solved["Az"] = None
-    if location and dt:
-        # We have position and time/date!
-        calc_utils.sf_utils.set_location(
-            location.lat,
-            location.lon,
-            location.altitude,
-        )
-        alt, az = calc_utils.sf_utils.radec_to_altaz(
-            solved["RA"],
-            solved["Dec"],
-            dt,
-        )
-        solved["Alt"] = alt
-        solved["Az"] = az
 
-        alt, az = calc_utils.sf_utils.radec_to_altaz(
-            solved["camera_center"]["RA"],
-            solved["camera_center"]["Dec"],
-            dt,
-        )
-        solved["camera_center"]["Alt"] = alt
-        solved["camera_center"]["Az"] = az
+    calc_utils.sf_utils.set_location(
+        location.lat,
+        location.lon,
+        location.altitude,
+    )
+    alt, az = calc_utils.sf_utils.radec_to_altaz(
+        solved["RA"],
+        solved["Dec"],
+        dt,
+    )
+    solved["Alt"] = alt
+    solved["Az"] = az
 
-        # Experimental: For monitoring roll offset
-        # Estimate the roll offset due misalignment of the
-        # camera sensor with the Pole-to-Source great circle.
-        solved["Roll_offset"] = estimate_roll_offset(solved, dt)
-        # Find the roll at the target RA/Dec. Note that this doesn't include the
-        # roll offset so it's not the roll that the PiFinder cameara sees but the
-        # roll relative to the celestial pole given the RA and Dec.
-        roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
-            solved["RA"], solved["Dec"], dt
-        )
-        # Compensate for the roll offset. This gives the roll at the target
-        # as seen by the camera.
-        solved["Roll"] = roll_target_calculated + solved["Roll_offset"]
+    alt, az = calc_utils.sf_utils.radec_to_altaz(
+        solved["camera_center"]["RA"],
+        solved["camera_center"]["Dec"],
+        dt,
+    )
+    solved["camera_center"]["Alt"] = alt
+    solved["camera_center"]["Az"] = az
 
-        # calculate roll for camera center
-        roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
-            solved["camera_center"]["RA"],
-            solved["camera_center"]["Dec"],
-            dt,
-        )
-        # Compensate for the roll offset. This gives the roll at the target
-        # as seen by the camera.
-        solved["camera_center"]["Roll"] = (
-            roll_target_calculated + solved["Roll_offset"]
-        )
+    # Experimental: For monitoring roll offset
+    # Estimate the roll offset due misalignment of the
+    # camera sensor with the Pole-to-Source great circle.
+    solved["Roll_offset"] = estimate_roll_offset(solved, dt)
+    # Find the roll at the target RA/Dec. Note that this doesn't include the
+    # roll offset so it's not the roll that the PiFinder cameara sees but the
+    # roll relative to the celestial pole given the RA and Dec.
+    roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
+        solved["RA"], solved["Dec"], dt
+    )
+    # Compensate for the roll offset. This gives the roll at the target
+    # as seen by the camera.
+    solved["Roll"] = roll_target_calculated + solved["Roll_offset"]
 
-        # Update with plate solved coordinates of camera center & IMU measurement
-        update_plate_solve_and_imu_altaz__degrees(pointing_tracker, solved)  
+    # calculate roll for camera center
+    roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
+        solved["camera_center"]["RA"],
+        solved["camera_center"]["Dec"],
+        dt,
+    )
+    # Compensate for the roll offset. This gives the roll at the target
+    # as seen by the camera.
+    solved["camera_center"]["Roll"] = (
+        roll_target_calculated + solved["Roll_offset"]
+    )
+
+    # Update with plate solved coordinates of camera center & IMU measurement
+    update_plate_solve_and_imu_altaz__degrees(pointing_tracker, solved)  
 
 
 def update_imu_eq(solved, last_image_solve, imu, dt, pointing_tracker):
@@ -384,60 +386,59 @@ def update_solve_altaz(solved, location, dt, pointing_tracker):
     altaz coordinates and horizontal frame for IMU tracking. Moved from the
     loop inside integrator integrator
     """
-    # see if we can calc alt-az
+    assert location and dt, "Need location and time"
+
     solved["Alt"] = None
     solved["Az"] = None
-    if location and dt:
-        # We have position and time/date!
-        calc_utils.sf_utils.set_location(
-            location.lat,
-            location.lon,
-            location.altitude,
-        )
-        alt, az = calc_utils.sf_utils.radec_to_altaz(
-            solved["RA"],
-            solved["Dec"],
-            dt,
-        )
-        solved["Alt"] = alt
-        solved["Az"] = az
+    calc_utils.sf_utils.set_location(
+        location.lat,
+        location.lon,
+        location.altitude,
+    )
+    alt, az = calc_utils.sf_utils.radec_to_altaz(
+        solved["RA"],
+        solved["Dec"],
+        dt,
+    )
+    solved["Alt"] = alt
+    solved["Az"] = az
 
-        alt, az = calc_utils.sf_utils.radec_to_altaz(
-            solved["camera_center"]["RA"],
-            solved["camera_center"]["Dec"],
-            dt,
-        )
-        solved["camera_center"]["Alt"] = alt
-        solved["camera_center"]["Az"] = az
+    alt, az = calc_utils.sf_utils.radec_to_altaz(
+        solved["camera_center"]["RA"],
+        solved["camera_center"]["Dec"],
+        dt,
+    )
+    solved["camera_center"]["Alt"] = alt
+    solved["camera_center"]["Az"] = az
 
-        # Experimental: For monitoring roll offset
-        # Estimate the roll offset due misalignment of the
-        # camera sensor with the Pole-to-Source great circle.
-        solved["Roll_offset"] = estimate_roll_offset(solved, dt)
-        # Find the roll at the target RA/Dec. Note that this doesn't include the
-        # roll offset so it's not the roll that the PiFinder cameara sees but the
-        # roll relative to the celestial pole given the RA and Dec.
-        roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
-            solved["RA"], solved["Dec"], dt
-        )
-        # Compensate for the roll offset. This gives the roll at the target
-        # as seen by the camera.
-        solved["Roll"] = roll_target_calculated + solved["Roll_offset"]
+    # Experimental: For monitoring roll offset
+    # Estimate the roll offset due misalignment of the
+    # camera sensor with the Pole-to-Source great circle.
+    solved["Roll_offset"] = estimate_roll_offset(solved, dt)
+    # Find the roll at the target RA/Dec. Note that this doesn't include the
+    # roll offset so it's not the roll that the PiFinder cameara sees but the
+    # roll relative to the celestial pole given the RA and Dec.
+    roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
+        solved["RA"], solved["Dec"], dt
+    )
+    # Compensate for the roll offset. This gives the roll at the target
+    # as seen by the camera.
+    solved["Roll"] = roll_target_calculated + solved["Roll_offset"]
 
-        # calculate roll for camera center
-        roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
-            solved["camera_center"]["RA"],
-            solved["camera_center"]["Dec"],
-            dt,
-        )
-        # Compensate for the roll offset. This gives the roll at the target
-        # as seen by the camera.
-        solved["camera_center"]["Roll"] = (
-            roll_target_calculated + solved["Roll_offset"]
-        )
+    # calculate roll for camera center
+    roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
+        solved["camera_center"]["RA"],
+        solved["camera_center"]["Dec"],
+        dt,
+    )
+    # Compensate for the roll offset. This gives the roll at the target
+    # as seen by the camera.
+    solved["camera_center"]["Roll"] = (
+        roll_target_calculated + solved["Roll_offset"]
+    )
 
-        # Update with plate solved coordinates of camera center & IMU measurement
-        update_plate_solve_and_imu_altaz__degrees(pointing_tracker, solved)  
+    # Update with plate solved coordinates of camera center & IMU measurement
+    update_plate_solve_and_imu_altaz__degrees(pointing_tracker, solved)  
 
 
 def update_imu_altaz(solved, last_image_solve, imu, dt, pointing_tracker):
