@@ -1,21 +1,21 @@
 """
 Pointing model functions.
 
-See `quaternion_transforms.py` for explanations and conventions for
-quaternions.
+See quaternion_transforms.py for conventions used for quaternions.
 
 NOTE: All angles are in radians.
 """
-
+from typing import Union  # When updated to Python 3.10+, remove and use new type hints
 import numpy as np
 import quaternion
-from typing import Union  # When updated to Python 3.10+, remove and use new type hints
 
 import quaternion_transforms as qt
 
 
-class ImuDeadReckoning():
+class ImuDeadReckoningHoriz():
     """
+    Dead reckoning tracking using the IMU - wrt Horizontal frame
+
     Use the plate-solved coordinates and IMU measurements to estimate the
     pointing using plate solving when available or dead-reckoning using the IMU
     when plate solving isn't available (e.g. when the scope is moving or 

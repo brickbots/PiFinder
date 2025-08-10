@@ -18,7 +18,7 @@ from PiFinder import config
 from PiFinder import state_utils
 import PiFinder.calc_utils as calc_utils
 from PiFinder.multiproclogging import MultiprocLogging
-import PiFinder.pointing_model.pointing_model as pointing
+from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoningHoriz
 import PiFinder.pointing_model.quaternion_transforms as qt
 
 
@@ -99,7 +99,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
         imu_moved_ang_threshold = np.deg2rad(0.1)  # Use IMU tracking if the angle moved is above this 
         
         # Set up dead-reckoning tracking by the IMU:
-        pointing_tracker = pointing.ImuDeadReckoning(cfg.get_option("screen_direction"))
+        pointing_tracker = ImuDeadReckoningHoriz(cfg.get_option("screen_direction"))
         #pointing_tracker.set_alignment(q_scope2cam)  # TODO: Enable when q_scope2cam is available
 
         # This holds the last image solve position info
