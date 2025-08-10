@@ -121,6 +121,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                 pass
 
             if type(next_image_solve) is dict:
+                # We have a new image solve: Use this for RA/Dec
                 solved = next_image_solve
 
                 # see if we can generate alt/az
@@ -137,14 +138,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                 solved["solve_source"] = "CAM"
 
             elif solved["Alt"]:
-                # Use IMU dead-reckoning from the last camera solve:
-                # 1) Check we have an alt/az solve, otherwise we can't use the IMU
-                # If Alt exists:
-                # 2) Calculate the difference in the IMU measurements since the
-                # last plage solve. IMU "pos" is stored as Alt/Az.
-                # 3) Add the relative Alt/Az difference from the IMU to the plate
-                # -solved Alt/Az to give a dead-reckoning estimate of the current
-                # position.
+                # Previous plate-solve exists so use IMU dead-reckoning from
+                # the last plate solved coordinates.
                 imu = shared_state.imu()
                 if imu:
                     dt = shared_state.datetime()
@@ -257,6 +252,14 @@ def update_imu_altaz(solved, last_image_solve, imu, dt, pointing_tracker):
     Updates the solved dictionary using IMU dead-reckoning from the last
     solved pointing. 
     """
+    # Use IMU dead-reckoning from the last camera solve:
+    # 1) Check we have an alt/az solve, otherwise we can't use the IMU
+    # If Alt exists:
+    # 2) Calculate the difference in the IMU measurements since the
+    # last plage solve. IMU "pos" is stored as Alt/Az.
+    # 3) Add the relative Alt/Az difference from the IMU to the plate
+    # -solved Alt/Az to give a dead-reckoning estimate of the current
+    # position.
     if last_image_solve and last_image_solve["Alt"]:
         # If we have alt, then we have a position/time
 
