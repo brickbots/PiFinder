@@ -18,12 +18,13 @@ from PiFinder import config
 from PiFinder import state_utils
 import PiFinder.calc_utils as calc_utils
 from PiFinder.multiproclogging import MultiprocLogging
-from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoningHoriz
+from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoningHoriz, ImuDeadReckoningEqFrame
 import PiFinder.pointing_model.quaternion_transforms as qt
 
-
-IMU_ALT = 2
-IMU_AZ = 0
+# *** Unused --> Remove later
+#IMU_ALT = 2
+#IMU_AZ = 0
+EQ_DEAD_RECKONING = False  # Use the Equatorial frame dead-reckoning
 
 logger = logging.getLogger("IMU.Integrator")
 
@@ -58,6 +59,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
         logger.debug("Starting Integrator")
 
         # TODO: This dict is duplicated in solver.py - Refactor?
+        # "Alt" and "Az" could be removed once we move to Eq-based dead-reckoning
         solved = {
             "RA": None,  # RA of scope
             "Dec": None,
@@ -124,67 +126,16 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                 location = shared_state.location()
                 dt = shared_state.datetime()
 
-                # see if we can calc alt-az
-                solved["Alt"] = None
-                solved["Az"] = None
-                if location and dt:
-                    # We have position and time/date!
-                    calc_utils.sf_utils.set_location(
-                        location.lat,
-                        location.lon,
-                        location.altitude,
-                    )
-                    alt, az = calc_utils.sf_utils.radec_to_altaz(
-                        solved["RA"],
-                        solved["Dec"],
-                        dt,
-                    )
-                    solved["Alt"] = alt
-                    solved["Az"] = az
-
-                    alt, az = calc_utils.sf_utils.radec_to_altaz(
-                        solved["camera_center"]["RA"],
-                        solved["camera_center"]["Dec"],
-                        dt,
-                    )
-                    solved["camera_center"]["Alt"] = alt
-                    solved["camera_center"]["Az"] = az
-
-                    # Experimental: For monitoring roll offset
-                    # Estimate the roll offset due misalignment of the
-                    # camera sensor with the Pole-to-Source great circle.
-                    solved["Roll_offset"] = estimate_roll_offset(solved, dt)
-                    # Find the roll at the target RA/Dec. Note that this doesn't include the
-                    # roll offset so it's not the roll that the PiFinder cameara sees but the
-                    # roll relative to the celestial pole given the RA and Dec.
-                    roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
-                        solved["RA"], solved["Dec"], dt
-                    )
-                    # Compensate for the roll offset. This gives the roll at the target
-                    # as seen by the camera.
-                    solved["Roll"] = roll_target_calculated + solved["Roll_offset"]
-
-                    # calculate roll for camera center
-                    roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
-                        solved["camera_center"]["RA"],
-                        solved["camera_center"]["Dec"],
-                        dt,
-                    )
-                    # Compensate for the roll offset. This gives the roll at the target
-                    # as seen by the camera.
-                    solved["camera_center"]["Roll"] = (
-                        roll_target_calculated + solved["Roll_offset"]
-                    )
-
-                    # Update with plate solved coordinates of camera center & IMU measurement
-                    update_plate_solve_and_imu__degrees(pointing_tracker, solved)  
-
+                if EQ_DEAD_RECKONING:
+                    # TODO: Do something similar for EQ mounts here
+                    raise NotImplementedError
+                else:
+                    update_solve_altaz(solved, location, dt, pointing_tracker)
                     # From the alignment. Add this offset to the camera center to get
                     # the scope altaz coordinates. TODO: This could be calculated once
                     # at alignment?
                     cam2scope_offset_az = solved["Az"] - solved["camera_center"]["Az"]
                     cam2scope_offset_alt = solved["Alt"] - solved["camera_center"]["Alt"]
-                    # TODO: Do something similar for EQ mounts here
 
                 last_image_solve = copy.deepcopy(solved)
                 solved["solve_source"] = "CAM"
@@ -205,8 +156,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                         # If we have alt, then we have a position/time
 
                         # TODO: For debugging -- remove later
-                        if prev_imu is None or qt.get_quat_angular_diff(prev_imu, imu["quat"]) > 1E-4:
-                            print("Quat: ", imu["quat"])
+                        #if prev_imu is None or qt.get_quat_angular_diff(prev_imu, imu["quat"]) > 1E-4:
+                        #    print("Quat: ", imu["quat"])
                         prev_imu = imu["quat"].copy()
 
                         # calc new alt/az
@@ -344,3 +295,65 @@ def update_plate_solve_and_imu__degrees(pointing_tracker, solved):
         # Update:
         pointing_tracker.update_plate_solve_and_imu(
             solved_cam_az, solved_cam_alt, solved_cam_roll_offset, q_x2imu)
+
+
+def update_solve_altaz(solved, location, dt, pointing_tracker):
+    """
+    Updates the solved dic based on the plate-solved coordinates. Uses the
+    altaz coordinates and horizontal frame for IMU tracking. Moved from the
+    loop inside integrator integrator
+    """
+    # see if we can calc alt-az
+    solved["Alt"] = None
+    solved["Az"] = None
+    if location and dt:
+        # We have position and time/date!
+        calc_utils.sf_utils.set_location(
+            location.lat,
+            location.lon,
+            location.altitude,
+        )
+        alt, az = calc_utils.sf_utils.radec_to_altaz(
+            solved["RA"],
+            solved["Dec"],
+            dt,
+        )
+        solved["Alt"] = alt
+        solved["Az"] = az
+
+        alt, az = calc_utils.sf_utils.radec_to_altaz(
+            solved["camera_center"]["RA"],
+            solved["camera_center"]["Dec"],
+            dt,
+        )
+        solved["camera_center"]["Alt"] = alt
+        solved["camera_center"]["Az"] = az
+
+        # Experimental: For monitoring roll offset
+        # Estimate the roll offset due misalignment of the
+        # camera sensor with the Pole-to-Source great circle.
+        solved["Roll_offset"] = estimate_roll_offset(solved, dt)
+        # Find the roll at the target RA/Dec. Note that this doesn't include the
+        # roll offset so it's not the roll that the PiFinder cameara sees but the
+        # roll relative to the celestial pole given the RA and Dec.
+        roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
+            solved["RA"], solved["Dec"], dt
+        )
+        # Compensate for the roll offset. This gives the roll at the target
+        # as seen by the camera.
+        solved["Roll"] = roll_target_calculated + solved["Roll_offset"]
+
+        # calculate roll for camera center
+        roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
+            solved["camera_center"]["RA"],
+            solved["camera_center"]["Dec"],
+            dt,
+        )
+        # Compensate for the roll offset. This gives the roll at the target
+        # as seen by the camera.
+        solved["camera_center"]["Roll"] = (
+            roll_target_calculated + solved["Roll_offset"]
+        )
+
+        # Update with plate solved coordinates of camera center & IMU measurement
+        update_plate_solve_and_imu__degrees(pointing_tracker, solved)  
