@@ -130,6 +130,12 @@ corresponds to the axis of the scope in the *home* position in the ideal case.
 
 We define the following reference frames:
 
+
+#### Equatorial coordinate system
+* Centered around the center of the Earth with the $xy$ plane running through
+  the Earths' equator. $+z$ points to the north pole and $+x$ to the Vernal
+  equinox.
+
 #### Horizontal coordinate system
 * Centred around the observer. We will use the convention:
 * $x$ points South, $y$ to East and $z$ to the zenith.
@@ -165,8 +171,8 @@ We define the following reference frames:
 
 The roll (as given by Tetra3) is defined as the rotation of the north pole
 relative to the camera image's "up" direction ($+y$). A positive roll angle
-means that the pole is counter-clockwise from image "up". The roll offset is
-defined as
+means that the pole is counter-clockwise from image "up" (i.e. towards West).
+The roll offset is defined as
 
 ```
 roll_offset = camera_roll - expected_camera_roll
@@ -177,13 +183,11 @@ plate-solved RA and Dec for a camera on a perfect horizontal mount (i.e. the
 "up" $+y$ direction of the camera always points to the zenith). The camera pose
 is rotated by the angle `roll_offset` around its boresight.
 
-## Telescope coordinate transformations
-
-**TO EDIT...**
+## Telescope coordinate transformations and dead-reckoning using the IMU
 
 We will use quaternions to rotate between the coordinate frames. For example,
 the quaternion `q_horiz2mnt` rotates the Horizontal frame to the Mount frame.
-The quaternions can be multiplied to apply successive intrinsic rotation from
+The quaternions can be multiplied to apply successive *intrinsic* rotation from
 the Horizontal frame to the Camera;
 
 ```python
@@ -193,7 +197,7 @@ q_horiz2camera = q_horiz2mnt * q_mnt2gimb * q_gimb2scope * q_scope2camera
 `q_mnt2gimb` depends on the gimbal angles, which is what we can control to move
 the scope. 
 
-## Coordinate frame transformation for altaz mounts
+## Coordinate frame transformation for altaz mounts *(remove functionality?)*
 
 During normal operation, we want to find the pointing of the scope, expressed
 using $q_{hor2scope}$, which is the quaternion that rotates the scope axis in
@@ -287,6 +291,37 @@ of the scope pointing;
 
 $$q_{hor2scope}(k + l) = \hat{q}_{hor2cam}(k + l) \; q_{cam2scope}$$
 
+## Coordinate frame transformation using equatorial coordinates
+
+We can also use the equatorial frame as the reference, using (RA, Dec, Roll)
+from the PiFinder camera as the inputs without the need to convert to altaz
+coordinates.
+
+The pointing of the scope at time step `k` using IMU dead-reckoning is given by
+
+```python
+q_eq2scope(k) = q_eq2cam(k-m) * q_cam2imu * q_x2imu(k-m).conj() * q_x2imu(k) * q_imu2cam * q_cam2scope
+```
+
+Where
+1. `k` represents the current time step and `k-m` represents the time step
+   where we had a last solve. 
+2. `q_x2imu(k)` is the current IMU measurement quaternion w.r.t its own
+   drifting reference frame `x`.
+3. Note that the quaternion `q_x2imu(k-m).conj() * q_x2imu(k)` rotates the IMU
+   body from the orientation in the last solve (at time step `k-m`) to to the
+   current orientation (at time step `k`).
+4. `q_cam2imu = q_imu2cam.conj()` is the alignment of the IMU to the camera and
+depends on the PiFinder configuration. There will be some error in this which
+will propagate to the pointing error when using the IMU.
+
+We can pre-compute the first three terms after plate solving at time step
+`k-m`, which corresponds to the quaternion rotation from the `eq` frame to the
+IMU's reference frame `x`.
+
+```python
+q_eq2x(k-m) = q_eq2cam(k-m) * q_cam2imu * q_x2imu(k-m).conj()
+```
 
 ## Next steps in the development
 
