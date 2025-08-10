@@ -190,25 +190,6 @@ def estimate_roll_offset(solved, dt):
 
 # ======== Altaz version - TODO remove and use the EQ version ======
 
-def update_plate_solve_and_imu__degrees(pointing_tracker, solved):
-    """
-    Wrapper for ImuDeadReckoning.update_plate_solve_and_imu() to interface
-    degrees to radians.
-    """
-    if (solved["Az"] is None) or (solved["Alt"] is None):
-        return  # No update
-    else: 
-        # Successfully plate solved & camera pointing exists
-        q_x2imu = solved["imu_quat"]  # IMU measurement at the time of plate solving
-        # Convert to radians:
-        solved_cam_az = np.deg2rad(solved["camera_center"]["Az"]) 
-        solved_cam_alt = np.deg2rad(solved["camera_center"]["Alt"])
-        solved_cam_roll_offset = np.deg2rad(solved["Roll_offset"])
-        # Update:
-        pointing_tracker.update_plate_solve_and_imu(
-            solved_cam_az, solved_cam_alt, solved_cam_roll_offset, q_x2imu)
-
-
 def update_solve_altaz(solved, location, dt, pointing_tracker):
     """
     Updates the solved dic based on the plate-solved coordinates. Uses the
@@ -374,3 +355,23 @@ def update_imu_altaz(solved, last_image_solve, imu, dt, pointing_tracker):
 
             solved["solve_time"] = time.time()
             solved["solve_source"] = "IMU"
+
+
+def update_plate_solve_and_imu__degrees(pointing_tracker, solved):
+    """
+    Wrapper for ImuDeadReckoning.update_plate_solve_and_imu() to interface
+    degrees to radians.
+    """
+    if (solved["Az"] is None) or (solved["Alt"] is None):
+        return  # No update
+    else: 
+        # Successfully plate solved & camera pointing exists
+        q_x2imu = solved["imu_quat"]  # IMU measurement at the time of plate solving
+        # Convert to radians:
+        solved_cam_az = np.deg2rad(solved["camera_center"]["Az"]) 
+        solved_cam_alt = np.deg2rad(solved["camera_center"]["Alt"])
+        solved_cam_roll_offset = np.deg2rad(solved["Roll_offset"])
+        # Update:
+        pointing_tracker.update_plate_solve_and_imu(
+            solved_cam_az, solved_cam_alt, solved_cam_roll_offset, q_x2imu)
+
