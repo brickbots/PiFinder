@@ -19,6 +19,8 @@ from PiFinder import state_utils
 import PiFinder.calc_utils as calc_utils
 from PiFinder.multiproclogging import MultiprocLogging
 import PiFinder.pointing_model.pointing_model as pointing
+import PiFinder.pointing_model.quaternion_transforms as qt
+
 
 IMU_ALT = 2
 IMU_AZ = 0
@@ -203,7 +205,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                         # If we have alt, then we have a position/time
 
                         # TODO: For debugging -- remove later
-                        if prev_imu is None or pointing.get_quat_angular_diff(prev_imu, imu["quat"]) > 1E-4:
+                        if prev_imu is None or qt.get_quat_angular_diff(prev_imu, imu["quat"]) > 1E-4:
                             print("Quat: ", imu["quat"])
                         prev_imu = imu["quat"].copy()
 
@@ -211,7 +213,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                         # When moving, switch to tracking using the IMU
                         #if imu_moved(lis_imu, imu_pos):
                         assert isinstance(imu["quat"] , quaternion.quaternion), "Expecting quaternion.quaternion type"  # TODO: Remove later
-                        angle_moved = pointing.get_quat_angular_diff(last_image_solve["imu_quat"], imu["quat"])
+                        angle_moved = qt.get_quat_angular_diff(last_image_solve["imu_quat"], imu["quat"])
                         if  angle_moved > imu_moved_ang_threshold:
                             # Estimate camera pointing using IMU dead-reckoning
                             logger.debug("Track using IMU. Angle moved since last_image_solve = {:} (> threshold = {:})".format(np.rad2deg(angle_moved), np.rad2deg(imu_moved_ang_threshold)))

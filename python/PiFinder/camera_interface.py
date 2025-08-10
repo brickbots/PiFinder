@@ -19,7 +19,7 @@ from typing import Tuple
 import logging
 
 from PiFinder import state_utils, utils
-import PiFinder.pointing_model.pointing_model as pointing
+import PiFinder.pointing_model.quaternion_transforms as qt
 
 logger = logging.getLogger("Camera.Interface")
 
@@ -128,7 +128,7 @@ class CameraInterface:
                         # Returns the pointing difference between successive IMU quaternions as
                         # an angle (radians). Note that this also accounts for rotation around the 
                         # scope axis. Returns an angle in radians.
-                        pointing_diff = pointing.get_quat_angular_diff(
+                        pointing_diff = qt.get_quat_angular_diff(
                             imu_start["quat"], imu_end["quat"])
 
                     camera_image.paste(base_image)
