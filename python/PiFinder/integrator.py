@@ -137,7 +137,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                 last_image_solve = copy.deepcopy(solved)
                 solved["solve_source"] = "CAM"
 
-            elif solved["Alt"]:
+            elif pointing_tracker.tracking:
                 # Previous plate-solve exists so use IMU dead-reckoning from
                 # the last plate solved coordinates.
                 imu = shared_state.imu()

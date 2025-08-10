@@ -58,9 +58,11 @@ class ImuDeadReckoningHoriz():
         # The poinging of the camera and scope frames wrt the horizontal frame.
         # These get updated by plate solving and IMU dead-reckoning.
         self.q_hor2cam = None
+
         # True when q_hor2cam is estimated by IMU dead-reckoning. 
         # False when set by plate solving
-        self.dead_reckoning = False  
+        self.dead_reckoning = False 
+        self.tracking = False  # True when previous plate solve exists and tracking
 
         # The IMU's unkonwn drifting reference frame X. This is solved for 
         # every time we have a simultaneous plate solve and IMU measurement.
@@ -117,6 +119,7 @@ class ImuDeadReckoningHoriz():
         if q_x2imu:
             self.q_hor2x = self.q_hor2cam * self.q_cam2imu * q_x2imu.conj()
             self.q_hor2x = self.q_hor2x.normalized()
+            self.tracking = True  # We have a plate solve and IMU measurement
 
     def update_imu(self, 
                    q_x2imu: quaternion.quaternion):
@@ -162,6 +165,7 @@ class ImuDeadReckoningHoriz():
         Resets the internal state.
         """
         self.q_hor2x = None
+        self.tracking = False
 
     def _set_screen_direction(self, screen_direction: str):
         """
@@ -230,6 +234,7 @@ class ImuDeadReckoningEqFrame():
         # True when q_eq2cam is estimated by IMU dead-reckoning. 
         # False when set by plate solving
         self.dead_reckoning = False  
+        self.tracking = False  # True when previous plate solve exists and tracking
 
         # The IMU's unkonwn drifting reference frame X. This is solved for 
         # every time we have a simultaneous plate solve and IMU measurement.
@@ -285,6 +290,7 @@ class ImuDeadReckoningEqFrame():
         if q_x2imu:
             self.q_eq2x = self.q_eq2cam * self.q_cam2imu * q_x2imu.conj()
             self.q_eq2x = self.q_eq2x.normalized()
+            self.tracking = True  # We have a plate solve and IMU measurement
 
     def update_imu(self, 
                    q_x2imu: quaternion.quaternion):
@@ -338,6 +344,7 @@ class ImuDeadReckoningEqFrame():
         Resets the internal state.
         """
         self.q_eq2x = None
+        self.tracking = False
 
     def _set_screen_direction(self, screen_direction: str):
         """
