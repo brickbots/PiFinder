@@ -132,11 +132,6 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                     raise NotImplementedError
                 else:
                     update_solve_altaz(solved, location, dt, pointing_tracker)
-                    # From the alignment. Add this offset to the camera center to get
-                    # the scope altaz coordinates. TODO: This could be calculated once
-                    # at alignment?
-                    cam2scope_offset_az = solved["Az"] - solved["camera_center"]["Az"]
-                    cam2scope_offset_alt = solved["Alt"] - solved["camera_center"]["Alt"]
 
                 last_image_solve = copy.deepcopy(solved)
                 solved["solve_source"] = "CAM"
@@ -192,6 +187,8 @@ def estimate_roll_offset(solved, dt):
 
     return roll_offset
 
+
+# ======== Altaz version - TODO remove and use the EQ version ======
 
 def update_plate_solve_and_imu__degrees(pointing_tracker, solved):
     """
@@ -305,7 +302,12 @@ def update_imu_altaz(solved, last_image_solve, imu, dt, pointing_tracker):
             az_cam, alt_cam, dead_reckoning_flag = pointing_tracker.get_cam_azalt()
             solved["camera_center"]["Az"] = np.rad2deg(az_cam)
             solved["camera_center"]["Alt"] = np.rad2deg(alt_cam)
-
+            
+            # From the alignment. Add this offset to the camera center to get
+            # the scope altaz coordinates. TODO: This could be calculated once
+            # at alignment? Or when last solved
+            cam2scope_offset_az = last_image_solve["Az"] - last_image_solve["camera_center"]["Az"]
+            cam2scope_offset_alt = last_image_solve["Alt"] - last_image_solve["camera_center"]["Alt"]
             # Transform to scope center TODO: need to define q_cam2scope
             solved["Az"] = solved["camera_center"]["Az"] + cam2scope_offset_az
             solved["Alt"] = solved["camera_center"]["Alt"] + cam2scope_offset_alt
