@@ -9,7 +9,7 @@ from typing import Union  # When updated to Python 3.10+, remove and use new typ
 import numpy as np
 import quaternion
 
-import quaternion_transforms as qt
+import PiFinder.pointing_model.quaternion_transforms as qt
 
 
 class ImuDeadReckoningHoriz():
