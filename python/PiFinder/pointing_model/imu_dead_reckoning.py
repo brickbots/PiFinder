@@ -249,6 +249,7 @@ class ImuDeadReckoningEqFrame():
         INPUTS:
         q_scope2cam: Quaternion that rotates the scope frame to the camera frame.
         """
+        # TODO: Use qt.get_q_scope2cam(target_eq, cam_eq)
         self.q_scope2cam = q_scope2cam.normalized()
         self.q_cam2scope = self.q_scope2cam.conj()
         self.q_imu2scope = self.q_imu2cam * self.q_cam2scope

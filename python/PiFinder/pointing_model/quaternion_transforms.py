@@ -24,6 +24,8 @@ from typing import Union  # When updated to Python 3.10+, remove and use new typ
 import numpy as np
 import quaternion
 
+from PiFinder.pointing_model.astro_coords import RaDecRoll
+
 
 def axis_angle2quat(axis, theta):
     """
@@ -97,6 +99,18 @@ def get_radec_of_q_eq2cam(q_eq2cam):
     roll = -np.arctan2(np.dot(py_cam.vec, vec_east), np.dot(py_cam.vec, vec_north))
 
     return ra, dec, roll
+
+
+def get_q_scope2cam(target_eq: RaDecRoll, cam_eq: RaDecRoll):
+    """
+    Returns the quaternion that rotates from the scope frame to the camera frame.
+    """
+    q_eq2cam = get_q_eq2cam(cam_eq.ra, cam_eq.dec, cam_eq.roll)
+    q_eq2scope = get_q_eq2cam(target_eq.ra, target_eq.dec, target_eq.roll)  # This assumes an EQ mount - We don't know the roll of the scope frame
+    q_scope2cam = q_eq2scope.conj() * q_eq2cam
+    NotImplementedError  # Needs more workk
+
+    return q_scope2cam
 
 
 # ========== Horizontal (altaz) frame functions ============================
