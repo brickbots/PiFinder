@@ -241,7 +241,7 @@ class ImuDeadReckoningEqFrame():
         self.q_eq2x = None
     
     def set_alignment(self, 
-                      q_scope2cam: quaternion.quaternion):
+                      q_scope2cam: quaternion.quaternion):  # TODO: Setting cam2scope might be more natural?
         """
         Set the alignment between the PiFinder camera center and the scope
         pointing.

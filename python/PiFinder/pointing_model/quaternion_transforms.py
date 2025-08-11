@@ -60,7 +60,7 @@ def get_quat_angular_diff(q1, q2):
 
 # ========== Equatorial frame functions ============================
 
-def get_q_eq2cam(ra_rad, dec_rad, roll_rad):
+def get_q_eq2cam(ra_rad, dec_rad, roll_rad):  # TODO: Rename to q_eq2frame?
     """ 
     Express the coordinates of a camera pointing at RA, Dec, Roll (in radians) 
     in the relative to the Equatorial frame.
