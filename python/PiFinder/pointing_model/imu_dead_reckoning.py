@@ -337,7 +337,8 @@ class ImuDeadReckoningEqFrame():
         to indicate if the estimate is from dead-reckoning (True) or from plate
         solving (False).
         """
-        ra, dec, roll = qt.get_radec_of_q_eq2cam(self.q_eq2cam)
+        q_eq2scope = self.get_q_eq2scope()
+        ra, dec, roll = qt.get_radec_of_q_eq2cam(self.q_eq2scope)
         return ra, dec, roll, self.dead_reckoning  # Angles are in radians
 
     def reset(self):
