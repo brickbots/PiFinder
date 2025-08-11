@@ -219,7 +219,6 @@ def update_solve_eq(solved, location, dt, pointing_tracker):
     )
     solved["camera_center"]["Alt"] = alt
     solved["camera_center"]["Az"] = az
-    """
 
     # Experimental: For monitoring roll offset
     # Estimate the roll offset due misalignment of the
@@ -246,6 +245,7 @@ def update_solve_eq(solved, location, dt, pointing_tracker):
     solved["camera_center"]["Roll"] = (
         roll_target_calculated + solved["Roll_offset"]
     )
+    """
 
     # Update with plate solved coordinates of camera center & IMU measurement
     update_plate_solve_and_imu_eq__degrees(pointing_tracker, solved)  
@@ -261,13 +261,26 @@ def update_plate_solve_and_imu_eq__degrees(pointing_tracker, solved):
     else: 
         # Successfully plate solved & camera pointing exists
         q_x2imu = solved["imu_quat"]  # IMU measurement at the time of plate solving
+        
         # Convert to radians:
         solved_cam_ra = np.deg2rad(solved["camera_center"]["RA"]) 
         solved_cam_dec = np.deg2rad(solved["camera_center"]["Dec"])
         solved_cam_roll = np.deg2rad(solved["camera_center"]["Roll"])
+        # Convert to radians:
+        target_ra = np.deg2rad(solved["RA"]) 
+        target_dec = np.deg2rad(solved["Dec"])
+        solved["Roll"] = 0  # TODO: Target roll isn't calculated by Tetra3. Set to zero here
+        target_roll = np.deg2rad(solved["Roll"])
+
         # Update:
         pointing_tracker.update_plate_solve_and_imu(
             solved_cam_ra, solved_cam_dec, solved_cam_roll, q_x2imu)
+
+        # Set alignment: TODO: Do this once at alignment
+        q_eq2cam = qt.get_q_eq2cam(solved_cam_ra, solved_cam_dec, solved_cam_roll)
+        q_eq2scope = qt.get_q_eq2cam(rtarget_ra, target_dec, target_roll)
+        q_scope2cam = q_eq2scope.conjugate() * q_eq2cam
+        pointing_tracker.set_alignment(q_scope2cam)
 
 
 def update_imu_eq(solved, last_image_solve, imu, dt, pointing_tracker):
@@ -296,12 +309,19 @@ def update_imu_eq(solved, last_image_solve, imu, dt, pointing_tracker):
         # Dead-reckoning using IMU
         pointing_tracker.update_imu(imu["quat"])  # Latest IMU meas
         
-        # Store estimate:
+        # Store current camera pointing estimate:
         ra_cam, dec_cam, roll_cam, dead_reckoning_flag = pointing_tracker.get_cam_radec()
         solved["camera_center"]["RA"] = np.rad2deg(ra_cam)
         solved["camera_center"]["Dec"] = np.rad2deg(dec_cam)
         solved["camera_center"]["Roll"] = np.rad2deg(roll_cam)
         
+        # Store the current scope pointing estimate
+        ra_target, dec_target, roll_target, dead_reckoning_flag = pointing_tracker.get_scope_radec()
+        solved["RA"] = np.rad2deg(ra_target)
+        solved["Dec"] = np.rad2deg(dec_target)
+        solved["Roll"] = np.rad2deg(roll_target)  
+
+        """
         # TODO: This part for cam2scope will probably be an issue for Altaz mounts 
         # From the alignment. Add this offset to the camera center to get
         # the scope altaz coordinates. TODO: This could be calculated once
@@ -311,6 +331,7 @@ def update_imu_eq(solved, last_image_solve, imu, dt, pointing_tracker):
         # Transform to scope center TODO: need to define q_cam2scope
         solved["Az"] = solved["camera_center"]["Az"] + cam2scope_offset_az
         solved["Alt"] = solved["camera_center"]["Alt"] + cam2scope_offset_alt
+        """
 
         q_x2imu = imu["quat"]
         logger.debug("  IMU quat = ({:}, {:}, {:}, {:}".format(q_x2imu.w, q_x2imu.x, q_x2imu.y, q_x2imu.z))
