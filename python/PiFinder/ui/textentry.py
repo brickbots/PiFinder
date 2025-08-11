@@ -114,7 +114,7 @@ class UITextEntry(UIModule):
         self.cursor_height = self.fonts.bold.height
         self.text_x = 7
         self.text_x_end = 128 - self.text_x
-        self.text_y = 15
+        self.text_y = 18  # Position below title bar to avoid flickering
 
     def draw_text_entry(self):
         line_text_y = self.text_y + 15
@@ -197,8 +197,10 @@ class UITextEntry(UIModule):
         self.text_x_end = (
             128 - 2 - self.text_x - self.bold.font.getbbox(formatted_len)[2]
         )
+        # Position below title bar to avoid flickering with base class title
+        result_count_y = 18  # Below title bar area (16px)
         self.draw.text(
-            (self.text_x_end + 2, self.text_y),
+            (self.text_x_end + 2, result_count_y),
             formatted_len,
             font=self.bold.font,
             fill=self.half_red,
@@ -284,31 +286,17 @@ class UITextEntry(UIModule):
             print("didn't find key", number_key)
 
     def update(self, force=False):
-        self.draw.rectangle((0, 0, 128, 128), fill=self.colors.get(0))
+        # Clear screen below title bar area to preserve base class title bar
+        self.draw.rectangle((0, 16, 128, 128), fill=self.colors.get(0))
 
         # Use the stored mode instead of recalculating from item_definition
         # This ensures consistency and prevents flickering
         # The text_entry_mode is set once in __init__ and should not change
 
-        # Draw appropriate header based on mode
-        if self.text_entry_mode:
-            # Pure text entry mode - use the name from item_definition
-            # This ensures consistency with what the standard title bar would show
-            title_text = self.item_definition.get("name", "Text Entry")
-            self.draw.text(
-                (7, 0),
-                title_text,
-                font=self.fonts.base.font,
-                fill=self.half_red,
-            )
-        else:
-            # Search mode
-            self.draw.text(
-                (7, 0),
-                _("Search:"),
-                font=self.fonts.base.font,
-                fill=self.half_red,
-            )
+        # Let the base class draw the title bar instead of custom headers
+        # This prevents flickering between custom headers and the standard title bar
+        if not self.text_entry_mode:
+            # Draw search result count, but below title bar to avoid conflict
             self.draw_search_result_len()
 
         self.draw_text_entry()
