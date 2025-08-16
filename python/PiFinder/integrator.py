@@ -62,7 +62,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
             if type(next_image_solve) is dict:
                 # We have a new image solve: Use plate-solving for RA/Dec
                 solved = next_image_solve
-                update_plate_solve_and_imu_eq(pointing_tracker, solved)
+                update_plate_solve_and_imu(pointing_tracker, solved)
 
                 last_image_solve = copy.deepcopy(solved)
                 solved["solve_source"] = "CAM"
@@ -72,7 +72,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                 # the last plate solved coordinates.
                 imu = shared_state.imu()
                 if imu:
-                    update_imu_eq(solved, last_image_solve, imu, pointing_tracker)
+                    update_imu(solved, last_image_solve, imu, pointing_tracker)
 
             # Is the solution new?
             if solved["RA"] and solved["solve_time"] > last_solve_time:
@@ -111,7 +111,7 @@ def estimate_roll_offset(solved, dt):
     return roll_offset
 
 
-def update_plate_solve_and_imu_eq(pointing_tracker, solved):
+def update_plate_solve_and_imu(pointing_tracker, solved):
     """
     Wrapper for ImuDeadReckoningEqFrame.update_plate_solve_and_imu() to
     interface angles in degrees to radians.
@@ -146,7 +146,7 @@ def update_plate_solve_and_imu_eq(pointing_tracker, solved):
         pointing_tracker.set_alignment(q_scope2cam)
 
 
-def update_imu_eq(solved, last_image_solve, imu, pointing_tracker):
+def update_imu(solved, last_image_solve, imu, pointing_tracker):
     """
     Updates the solved dictionary using IMU dead-reckoning from the last
     solved pointing. 
