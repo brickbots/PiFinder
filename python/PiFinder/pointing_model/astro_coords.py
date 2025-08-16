@@ -6,6 +6,46 @@ import numpy as np
 from typing import Union  # When updated to Python 3.10+, remove and use new type hints
 
 
+def get_initialized_solved_dict():
+    """
+    Returns an initialized 'solved' dictionary with cooridnate and other 
+    information.
+
+    TODO: The solved dict is used by other components. Move this func
+    and use this elsewhere (e.g. solver.py) to enforce consistency.
+    """
+    # TODO: This dict is duplicated in solver.py - Refactor?
+    # "Alt" and "Az" could be removed once we move to Eq-based dead-reckoning
+    solved = {
+        "RA": None,  # RA of scope
+        "Dec": None,
+        "Roll": None,
+        "camera_center": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+            "Alt": None,  # TODO: Remove Alt, Az keys later?
+            "Az": None,
+        },
+        "camera_solve": {  # camera_solve is NOT updated by IMU dead-reckoning  
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+        },
+        "Roll_offset": 0,  # May/may not be needed - for experimentation
+        "imu_pos": None,
+        "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first) - TODO: Move to "imu"
+        "Alt": None,  # Alt of scope
+        "Az": None,
+        "solve_source": None,
+        "solve_time": None,
+        "cam_solve_time": 0,
+        "constellation": None,
+    }
+    
+    return solved
+
+
 class RaDecRoll():
     """
     Data class for equatorial coordinates defined by (RA, Dec, Roll).

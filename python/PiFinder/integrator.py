@@ -18,6 +18,7 @@ from PiFinder import config
 from PiFinder import state_utils
 import PiFinder.calc_utils as calc_utils
 from PiFinder.multiproclogging import MultiprocLogging
+from PiFinder.pointing_model.astro_coords import get_initialized_solved_dict
 from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoningEqFrame
 import PiFinder.pointing_model.quaternion_transforms as qt
 
@@ -36,34 +37,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
     logger.debug("Starting Integrator")
 
     try:
-        # TODO: This dict is duplicated in solver.py - Refactor?
-        # "Alt" and "Az" could be removed once we move to Eq-based dead-reckoning
-        solved = {
-            "RA": None,  # RA of scope
-            "Dec": None,
-            "Roll": None,
-            "camera_center": {
-                "RA": None,
-                "Dec": None,
-                "Roll": None,
-                "Alt": None,  # TODO: Remove Alt, Az keys later?
-                "Az": None,
-            },
-            "camera_solve": {  # camera_solve is NOT updated by IMU dead-reckoning  
-                "RA": None,
-                "Dec": None,
-                "Roll": None,
-            },
-            "Roll_offset": 0,  # May/may not be needed - for experimentation
-            "imu_pos": None,
-            "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first) - TODO: Move to "imu"
-            "Alt": None,  # Alt of scope
-            "Az": None,
-            "solve_source": None,
-            "solve_time": None,
-            "cam_solve_time": 0,
-            "constellation": None,
-        }
+        solved = get_initialized_solved_dict()  # Dict of RA, Dec, etc. initialized to None.
+
         cfg = config.Config()
         # TODO: Capture flip_alt_offset by q_imu2camera
         if (
