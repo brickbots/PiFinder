@@ -12,7 +12,7 @@ import quaternion
 import PiFinder.pointing_model.quaternion_transforms as qt
 
 
-class ImuDeadReckoningEqFrame():
+class ImuDeadReckoning():
     """
     Use the plate-solved coordinates and IMU measurements to estimate the
     pointing using plate solving when available or dead-reckoning using the IMU
@@ -28,7 +28,7 @@ class ImuDeadReckoningEqFrame():
 
     EXAMPLE:
     # Set up:
-    pointing_tracker = ImuDeadReckoningEqFrame('flat')
+    pointing_tracker = ImuDeadReckoning('flat')
     pointing_tracker.set_alignment(q_scope2cam)
     
     # Update with plate solved and IMU data:

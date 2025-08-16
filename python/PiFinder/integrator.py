@@ -19,7 +19,7 @@ from PiFinder import state_utils
 import PiFinder.calc_utils as calc_utils
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.pointing_model.astro_coords import get_initialized_solved_dict
-from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoningEqFrame
+from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
 import PiFinder.pointing_model.quaternion_transforms as qt
 
 
@@ -41,7 +41,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
         cfg = config.Config()
         
         # Set up dead-reckoning tracking by the IMU:
-        pointing_tracker = ImuDeadReckoningEqFrame(cfg.get_option("screen_direction"))
+        pointing_tracker = ImuDeadReckoning(cfg.get_option("screen_direction"))
         #pointing_tracker.set_alignment(q_scope2cam)  # TODO: Enable when q_scope2cam is available
 
         # This holds the last image solve position info
@@ -113,7 +113,7 @@ def estimate_roll_offset(solved, dt):
 
 def update_plate_solve_and_imu(pointing_tracker, solved):
     """
-    Wrapper for ImuDeadReckoningEqFrame.update_plate_solve_and_imu() to
+    Wrapper for ImuDeadReckoning.update_plate_solve_and_imu() to
     interface angles in degrees to radians.
 
     This updates the pointing model with the plate-solved coordinates and the
