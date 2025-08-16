@@ -72,8 +72,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                 # the last plate solved coordinates.
                 imu = shared_state.imu()
                 if imu:
-                    dt = shared_state.datetime()
-                    update_imu_eq(solved, last_image_solve, imu, dt, pointing_tracker)
+                    update_imu_eq(solved, last_image_solve, imu, pointing_tracker)
 
             # Is the solution new?
             if solved["RA"] and solved["solve_time"] > last_solve_time:
@@ -147,12 +146,12 @@ def update_plate_solve_and_imu_eq(pointing_tracker, solved):
         pointing_tracker.set_alignment(q_scope2cam)
 
 
-def update_imu_eq(solved, last_image_solve, imu, dt, pointing_tracker):
+def update_imu_eq(solved, last_image_solve, imu, pointing_tracker):
     """
     Updates the solved dictionary using IMU dead-reckoning from the last
     solved pointing. 
     """
-    if not(last_image_solve and pointing_tracker.tracking and dt):
+    if not(last_image_solve and pointing_tracker.tracking):
         return  # Need all of these to do IMU dead-reckoning
 
     # When moving, switch to tracking using the IMU
