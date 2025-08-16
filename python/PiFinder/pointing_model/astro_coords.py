@@ -49,6 +49,7 @@ def get_initialized_solved_dict():
 class RaDecRoll():
     """
     Data class for equatorial coordinates defined by (RA, Dec, Roll).
+    TODO: Migrate to something like this from the current "solved" dict?
     
     NOTE: All angles are in radians.
     """
