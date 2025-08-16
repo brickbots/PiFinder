@@ -38,18 +38,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
 
     try:
         solved = get_initialized_solved_dict()  # Dict of RA, Dec, etc. initialized to None.
-
         cfg = config.Config()
-        # TODO: Capture flip_alt_offset by q_imu2camera
-        if (
-            cfg.get_option("screen_direction") == "left"
-            or cfg.get_option("screen_direction") == "flat"
-            or cfg.get_option("screen_direction") == "flat3"
-            or cfg.get_option("screen_direction") == "straight"
-        ):
-            flip_alt_offset = True
-        else:
-            flip_alt_offset = False
         
         # Set up dead-reckoning tracking by the IMU:
         pointing_tracker = ImuDeadReckoningEqFrame(cfg.get_option("screen_direction"))
