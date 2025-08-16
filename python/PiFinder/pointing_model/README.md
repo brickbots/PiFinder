@@ -3,6 +3,19 @@ README: IMU support prototyping
 
 > This README is temporary during the prototyping phase of the IMU support.
 
+# TODO
+
+>Remove this before release!
+
+* Support other PiFinder types
+* Use RaDecRoll class 
+* Type hints for integrator.py
+* Lint using Nox
+* Roll offset
+* Alignment
+* Go through TODOs
+* Discuss requirements.txt with Richard
+
 # Installation & set up
 
 ## Set up a virtual environment to test the PiFinder
