@@ -138,12 +138,33 @@ def update_plate_solve_and_imu(pointing_tracker, solved):
         # Update:
         pointing_tracker.update_plate_solve_and_imu(
             solved_cam_ra, solved_cam_dec, solved_cam_roll, q_x2imu)
+        
+        # Set alignment. TODO: Do this once at alignment
+        set_alignment(pointing_tracker, solved)
 
-        # Set alignment: TODO: Do this once at alignment
-        q_eq2cam = qt.get_q_eq2cam(solved_cam_ra, solved_cam_dec, solved_cam_roll)
-        q_eq2scope = qt.get_q_eq2cam(target_ra, target_dec, target_roll)
-        q_scope2cam = q_eq2scope.conjugate() * q_eq2cam
-        pointing_tracker.set_alignment(q_scope2cam)
+
+def set_alignment(pointing_tracker, solved):
+    """
+    Set alignment. 
+    TODO: Do this once at alignment
+    """
+    # Convert to radians:
+    solved_cam_ra = np.deg2rad(solved["camera_center"]["RA"]) 
+    solved_cam_dec = np.deg2rad(solved["camera_center"]["Dec"])
+    solved_cam_roll = np.deg2rad(solved["camera_center"]["Roll"])
+    # Convert to radians:
+    target_ra = np.deg2rad(solved["RA"]) 
+    target_dec = np.deg2rad(solved["Dec"])
+    solved["Roll"] = 0  # TODO: Target roll isn't calculated by Tetra3. Set to zero here
+    target_roll = np.deg2rad(solved["Roll"])
+
+    # Calculate q_scope2cam (alignment)
+    q_eq2cam = qt.get_q_eq2cam(solved_cam_ra, solved_cam_dec, solved_cam_roll)
+    q_eq2scope = qt.get_q_eq2cam(target_ra, target_dec, target_roll)
+    q_scope2cam = q_eq2scope.conjugate() * q_eq2cam
+
+    # Set alignment in pointing_tracker
+    pointing_tracker.set_alignment(q_scope2cam)
 
 
 def update_imu(solved, last_image_solve, imu, pointing_tracker):
@@ -155,7 +176,7 @@ def update_imu(solved, last_image_solve, imu, pointing_tracker):
         return  # Need all of these to do IMU dead-reckoning
 
     # When moving, switch to tracking using the IMU
-    assert isinstance(imu["quat"] , quaternion.quaternion), "Expecting quaternion.quaternion type"  # TODO: Remove later
+    assert isinstance(imu["quat"] , quaternion.quaternion), "Expecting quaternion.quaternion type"  # TODO: Can be removed later
     angle_moved = qt.get_quat_angular_diff(last_image_solve["imu_quat"], imu["quat"])
     if  angle_moved > IMU_MOVED_ANG_THRESHOLD:
         # Estimate camera pointing using IMU dead-reckoning
