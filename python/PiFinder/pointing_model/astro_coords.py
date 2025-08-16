@@ -6,7 +6,7 @@ import numpy as np
 from typing import Union  # When updated to Python 3.10+, remove and use new type hints
 
 
-def get_initialized_solved_dict():
+def get_initialized_solved_dict() -> dict:
     """
     Returns an initialized 'solved' dictionary with cooridnate and other 
     information.
@@ -48,7 +48,7 @@ def get_initialized_solved_dict():
 
 class RaDecRoll():
     """
-    Data class for equatorial coordinates defined by (RA, Dec, Roll).
+    Concept data class for equatorial coordinates defined by (RA, Dec, Roll).
     TODO: Migrate to something like this from the current "solved" dict?
     
     NOTE: All angles are in radians.
@@ -60,13 +60,13 @@ class RaDecRoll():
         self.dec = None
         self.roll = None
 
-    def set(self, ra: float, dec:float, roll: Union[float, None]):
+    def set(self, ra:float, dec:float, roll:Union[float, None]):
         """ """
         self.ra = ra
         self.dec = dec
         self.roll = roll
 
-    def set_from_deg(self, ra_deg, dec_deg, roll_deg):
+    def set_from_deg(self, ra_deg:float, dec_deg:float, roll_deg:float):
         """ """
         if roll_deg is None:
             roll = None
@@ -75,4 +75,10 @@ class RaDecRoll():
 
         self.set(np.deg2rad(ra_deg), np.deg2rad(dec_deg), roll)
         
+    def get(self) -> (foat, float, float):
+        """ """
+        return self.ra, self.dec, self.roll
 
+    def get_deg(self) -> (float, float, float):
+        """ """
+        return np.rad2deg(self.ra), np.rad2deg(self.dec), np.rad2deg(self.roll)
