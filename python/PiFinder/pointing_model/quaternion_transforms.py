@@ -27,7 +27,7 @@ import quaternion
 from PiFinder.pointing_model.astro_coords import RaDecRoll
 
 
-def axis_angle2quat(axis, theta):
+def axis_angle2quat(axis, theta:float) -> np.quaternion:
     """
     Convert from axis-angle representation to a quaternion
 
@@ -42,7 +42,7 @@ def axis_angle2quat(axis, theta):
     return np.quaternion(np.cos(theta / 2), v[0], v[1], v[2])
 
 
-def get_quat_angular_diff(q1, q2):
+def get_quat_angular_diff(q1:np.quaternion, q2:np.quaternion) -> float:
     """
     Calculates the relative rotation between quaternions `q1` and `q2`.
     Accounts for the double-cover property of quaternions so that if q1 and q2
@@ -60,7 +60,7 @@ def get_quat_angular_diff(q1, q2):
 
 # ========== Equatorial frame functions ============================
 
-def get_q_eq2cam(ra_rad, dec_rad, roll_rad):  # TODO: Rename to q_eq2frame?
+def get_q_eq2cam(ra_rad:float, dec_rad:float, roll_rad:float) -> np.quaternion:  # TODO: Rename to q_eq2frame?
     """ 
     Express the coordinates of a camera pointing at RA, Dec, Roll (in radians) 
     in the relative to the Equatorial frame.
@@ -82,7 +82,7 @@ def get_q_eq2cam(ra_rad, dec_rad, roll_rad):  # TODO: Rename to q_eq2frame?
     return q_eq2cam
 
 
-def get_radec_of_q_eq2cam(q_eq2cam):
+def get_radec_of_q_eq2cam(q_eq2cam:np.quaternion) -> (float, float, float):
     """
     """
     # Pure quaternion along camera boresight

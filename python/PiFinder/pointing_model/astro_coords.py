@@ -75,7 +75,7 @@ class RaDecRoll():
 
         self.set(np.deg2rad(ra_deg), np.deg2rad(dec_deg), roll)
         
-    def get(self) -> (foat, float, float):
+    def get(self) -> (float, float, float):
         """ """
         return self.ra, self.dec, self.roll
 
