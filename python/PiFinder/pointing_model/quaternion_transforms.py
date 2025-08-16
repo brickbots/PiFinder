@@ -111,37 +111,3 @@ def get_q_scope2cam(target_eq: RaDecRoll, cam_eq: RaDecRoll):
     NotImplementedError  # Needs more workk
 
     return q_scope2cam
-
-
-# ========== Horizontal (altaz) frame functions ============================
-
-def get_q_hor2frame(az, alt):
-    """ 
-    Returns the quaternion to rotate from the horizontal frame to the frame
-    (typically scope) at coordinates (az, alt) for an ideal AltAz mount.
-
-    INPUTS:
-    az: [rad] Azimuth of scope axis
-    alt: [rad] Alt of scope axis
-    """
-    q_az = axis_angle2quat([0, 0, 1], -(az + np.pi / 2))
-    q_alt = axis_angle2quat([1, 0, 0], (np.pi / 2 - alt))
-    return q_az * q_alt
-
-
-def get_azalt_of_q_hor2frame(q_hor2frame):
-    """
-    Returns the (az, alt) pointing of the frame which is defined by the z axis
-    of the q_hor2frame quaternion.
-
-    RETURNS:
-    az: [rad]
-    alt: [rad]
-    """
-    pz = np.quaternion(0, 0, 0, 1)  # Vector z represented as a pure quaternion
-    frame_axis = q_hor2frame * pz * q_hor2frame.conj()  # Returns a pure quaternion along scope axis
-
-    alt = np.pi / 2 - np.arccos(frame_axis.z)
-    az = np.pi - np.arctan2(frame_axis.y, frame_axis.x)
-
-    return az, alt
