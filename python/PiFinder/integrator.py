@@ -48,7 +48,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
         # so we can delta for IMU updates
         last_image_solve = None
         last_solve_time = time.time()
-        #prev_imu = None  # TODO: For debugging - remove later
+
         while True:
             state_utils.sleep_for_framerate(shared_state)
 
@@ -60,15 +60,9 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                 pass
 
             if type(next_image_solve) is dict:
-                # We have a new image solve: Use this for RA/Dec
+                # We have a new image solve: Use plate-solving for RA/Dec
                 solved = next_image_solve
-
-                location = shared_state.location()
-                dt = shared_state.datetime()
-
-                if location and dt:
-                    # We have position and time/date! TODO: Check if this dt is needed
-                    update_plate_solve_and_imu_eq(pointing_tracker, solved)
+                update_plate_solve_and_imu_eq(pointing_tracker, solved)
 
                 last_image_solve = copy.deepcopy(solved)
                 solved["solve_source"] = "CAM"
