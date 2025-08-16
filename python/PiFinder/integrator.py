@@ -28,28 +28,6 @@ logger = logging.getLogger("IMU.Integrator")
 IMU_MOVED_ANG_THRESHOLD = np.deg2rad(0.1)  # Use IMU tracking if the angle moved is above this 
 
 
-# TODO: Remove this after migrating to quaternion
-def imu_moved(imu_a, imu_b):
-    """
-    Compares two IMU states to determine if they are the 'same'
-    if either is none, returns False
-    
-    **TODO: This imu_a and imu_b used to be pos. They are now quaternions**
-    """
-    if imu_a is None:
-        return False
-    if imu_b is None:
-        return False
-
-    # figure out the abs difference
-    diff = (
-        abs(imu_a[0] - imu_b[0]) + abs(imu_a[1] - imu_b[1]) + abs(imu_a[2] - imu_b[2])
-    )
-    if diff > 0.001:
-        return True
-    return False
-
-
 def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=True):  # TODO: Change back is_debug=False
     MultiprocLogging.configurer(log_queue)
     try:
@@ -125,7 +103,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
 
                 if location and dt:
                     # We have position and time/date! TODO: Check if this dt is needed
-                    update_solve_eq(solved, location, dt, pointing_tracker)
+                    update_plate_solve_and_imu_eq(pointing_tracker, solved)
 
                 last_image_solve = copy.deepcopy(solved)
                 solved["solve_source"] = "CAM"
@@ -171,76 +149,9 @@ def estimate_roll_offset(solved, dt):
     return roll_offset
 
 
-# ======== EQ version ===============================
+# ======== Wrapper and helper functions ===============================
 
-def update_solve_eq(solved, location, dt, pointing_tracker):
-    """
-    Updates the solved dic based on the plate-solved coordinates. Uses the
-    altaz coordinates and horizontal frame for IMU tracking. Moved from the
-    loop inside integrator integrator
-    """
-    assert location and dt, "Need location and time"
-    
-    # Commented out Altaz coords which are not needed TODO: Remove these later 
-    """
-    solved["Alt"] = None
-    solved["Az"] = None
-    """
-    # TODO: May be able to remove this later
-    calc_utils.sf_utils.set_location(
-        location.lat,
-        location.lon,
-        location.altitude,
-    )
-    """
-    alt, az = calc_utils.sf_utils.radec_to_altaz(
-        solved["RA"],
-        solved["Dec"],
-        dt,
-    )
-    solved["Alt"] = alt
-    solved["Az"] = az
-
-    alt, az = calc_utils.sf_utils.radec_to_altaz(
-        solved["camera_center"]["RA"],
-        solved["camera_center"]["Dec"],
-        dt,
-    )
-    solved["camera_center"]["Alt"] = alt
-    solved["camera_center"]["Az"] = az
-
-    # Experimental: For monitoring roll offset
-    # Estimate the roll offset due misalignment of the
-    # camera sensor with the Pole-to-Source great circle.
-    solved["Roll_offset"] = estimate_roll_offset(solved, dt)  # TODO: Remove later?
-    # Find the roll at the target RA/Dec. Note that this doesn't include the
-    # roll offset so it's not the roll that the PiFinder cameara sees but the
-    # roll relative to the celestial pole given the RA and Dec.
-    roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
-        solved["RA"], solved["Dec"], dt
-    )
-    # Compensate for the roll offset. This gives the roll at the target
-    # as seen by the camera.
-    solved["Roll"] = roll_target_calculated + solved["Roll_offset"]
-
-    # calculate roll for camera center
-    roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
-        solved["camera_center"]["RA"],
-        solved["camera_center"]["Dec"],
-        dt,
-    )
-    # Compensate for the roll offset. This gives the roll at the target
-    # as seen by the camera.
-    solved["camera_center"]["Roll"] = (
-        roll_target_calculated + solved["Roll_offset"]
-    )
-    """
-
-    # Update with plate solved coordinates of camera center & IMU measurement
-    update_plate_solve_and_imu_eq__degrees(pointing_tracker, solved)  
-
-
-def update_plate_solve_and_imu_eq__degrees(pointing_tracker, solved):
+def update_plate_solve_and_imu_eq(pointing_tracker, solved):
     """
     Wrapper for ImuDeadReckoningEqFrame.update_plate_solve_and_imu() to
     interface angles in degrees to radians.
@@ -283,13 +194,7 @@ def update_imu_eq(solved, last_image_solve, imu, dt, pointing_tracker):
     if not(last_image_solve and pointing_tracker.tracking and dt):
         return  # Need all of these to do IMU dead-reckoning
 
-    # TODO: For debugging -- remove later
-    #if prev_imu is None or qt.get_quat_angular_diff(prev_imu, imu["quat"]) > 1E-4:
-    #    print("Quat: ", imu["quat"])
-    #prev_imu = imu["quat"].copy()
-
     # When moving, switch to tracking using the IMU
-    #if imu_moved(lis_imu, imu_pos):
     assert isinstance(imu["quat"] , quaternion.quaternion), "Expecting quaternion.quaternion type"  # TODO: Remove later
     angle_moved = qt.get_quat_angular_diff(last_image_solve["imu_quat"], imu["quat"])
     if  angle_moved > IMU_MOVED_ANG_THRESHOLD:
