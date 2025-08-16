@@ -1,5 +1,6 @@
 """
-Pointing model functions.
+IMU dead-reckoning extrapolates the scope pointing from the last plate-solved
+coordinate using the IMU measurements.
 
 See quaternion_transforms.py for conventions used for quaternions.
 
@@ -19,12 +20,13 @@ class ImuDeadReckoning():
     when plate solving isn't available (e.g. when the scope is moving or 
     between frames).
     
-    This class uses the Equatorial frame as the reference and expect plate-solved
-    coordinates in (ra, dec).
+    For an explanation of the theory and conventions used, see 
+    PiFinder/pointing_model/README.md.
+
+    This class uses the Equatorial frame as the reference and expects 
+    plate-solved coordinates in (ra, dec).
 
     All angles are in radians.
-
-    HOW IT WORKS:
 
     EXAMPLE:
     # Set up:
