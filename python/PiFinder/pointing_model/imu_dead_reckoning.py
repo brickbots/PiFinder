@@ -40,7 +40,7 @@ class ImuDeadReckoning():
     pointing_tracker.update_imu(q_x2imu)
     """
 
-    def __init__(self, screen_direction):
+    def __init__(self, screen_direction:str):
         """ """
         # Alignment:
         self.q_scope2cam = None  # ****Do we need this??
@@ -67,10 +67,12 @@ class ImuDeadReckoning():
         self.q_eq2x = None
     
     def set_alignment(self, 
-                      q_scope2cam: quaternion.quaternion):  # TODO: Setting cam2scope might be more natural?
+                      q_scope2cam: np.quaternion): 
         """
         Set the alignment between the PiFinder camera center and the scope
         pointing.
+
+        TODO: Setting cam2scope might be more natural?
 
         INPUTS:
         q_scope2cam: Quaternion that rotates the scope frame to the camera frame.
@@ -84,7 +86,7 @@ class ImuDeadReckoning():
                            solved_cam_ra: Union[float, None], 
                            solved_cam_dec: Union[float, None], 
                            solved_cam_roll: Union[float, None],
-                           q_x2imu: Union[quaternion.quaternion, None]):
+                           q_x2imu: Union[np.quaternion, None]):
         """ 
         Update the state with the az/alt measurements from plate solving in the
         camera frame. If the IMU measurement (which should be taken at the same 
@@ -120,7 +122,7 @@ class ImuDeadReckoning():
             self.tracking = True  # We have a plate solve and IMU measurement
 
     def update_imu(self, 
-                   q_x2imu: quaternion.quaternion):
+                   q_x2imu: np.quaternion):
         """
         Update the state with the raw IMU measurement. Does a dead-reckoning
         estimate of the camera and scope pointing.
@@ -140,7 +142,7 @@ class ImuDeadReckoning():
 
             self.dead_reckoning = True
 
-    def get_q_eq2scope(self):
+    def get_q_eq2scope(self) -> Union[np.quaternion, None]:
         """ """
         if self.q_eq2cam and self.q_cam2scope:
             q_eq2scope = self.q_eq2cam * self.q_cam2scope
@@ -148,7 +150,7 @@ class ImuDeadReckoning():
         else:
             None
 
-    def get_cam_radec(self):
+    def get_cam_radec(self) -> (float, float, float, bool):
         """ 
         Returns the (ra, dec, roll) of the camera and a Boolean dead_reckoning
         to indicate if the estimate is from dead-reckoning (True) or from plate
@@ -157,7 +159,7 @@ class ImuDeadReckoning():
         ra, dec, roll = qt.get_radec_of_q_eq2cam(self.q_eq2cam)
         return ra, dec, roll, self.dead_reckoning  # Angles are in radians
 
-    def get_scope_radec(self):
+    def get_scope_radec(self) -> (float, float, float, bool):
         """ 
         Returns the (ra, dec, roll) of the scope and a Boolean dead_reckoning
         to indicate if the estimate is from dead-reckoning (True) or from plate
