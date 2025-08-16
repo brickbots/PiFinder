@@ -18,7 +18,7 @@ from PiFinder import config
 from PiFinder import state_utils
 import PiFinder.calc_utils as calc_utils
 from PiFinder.multiproclogging import MultiprocLogging
-from PiFinder.pointing_model.astro_coords import get_initialized_solved_dict
+from PiFinder.pointing_model.astro_coords import RaDecRoll, get_initialized_solved_dict
 from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
 import PiFinder.pointing_model.quaternion_transforms as qt
 

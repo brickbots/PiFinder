@@ -10,6 +10,7 @@ from typing import Union  # When updated to Python 3.10+, remove and use new typ
 import numpy as np
 import quaternion
 
+from PiFinder.pointing_model.astro_coords import RaDecRoll
 import PiFinder.pointing_model.quaternion_transforms as qt
 
 
