@@ -30,11 +30,12 @@ IMU_MOVED_ANG_THRESHOLD = np.deg2rad(0.1)  # Use IMU tracking if the angle moved
 
 def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=True):  # TODO: Change back is_debug=False
     MultiprocLogging.configurer(log_queue)
-    try:
-        if is_debug:
-            logger.setLevel(logging.DEBUG)
-        logger.debug("Starting Integrator")
+    """ """
+    if is_debug:
+        logger.setLevel(logging.DEBUG)
+    logger.debug("Starting Integrator")
 
+    try:
         # TODO: This dict is duplicated in solver.py - Refactor?
         # "Alt" and "Az" could be removed once we move to Eq-based dead-reckoning
         solved = {
@@ -131,6 +132,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
         logger.error("Main no longer running for integrator")
 
 
+# ======== Wrapper and helper functions ===============================
+
 def estimate_roll_offset(solved, dt):
     """
     Estimate the roll offset due to misalignment of the camera sensor with
@@ -138,6 +141,8 @@ def estimate_roll_offset(solved, dt):
     center of the camera's FoV.
 
     To calculate the roll with offset: roll = calculated_roll + roll_offset
+
+    TODO: This is currently not being used!
     """
     # Calculate the expected roll at the camera center given the RA/Dec of
     # of the camera center.
@@ -148,8 +153,6 @@ def estimate_roll_offset(solved, dt):
 
     return roll_offset
 
-
-# ======== Wrapper and helper functions ===============================
 
 def update_plate_solve_and_imu_eq(pointing_tracker, solved):
     """
