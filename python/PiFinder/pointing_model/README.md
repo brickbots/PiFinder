@@ -16,6 +16,21 @@ README: IMU support prototyping
 * Go through TODOs
 * Discuss requirements.txt with Richard
 
+# Sky test log
+
+>Remove this before release!
+
+* 20250817: 5cf8aae
+  * Tested on altaz and eq mounts
+  * **altaz:** Tracked fine. When the PiFinder was non-upright, I got the
+    feeling it tended to jump after an IMU track and got a plate-solve. This
+    wasn't seen when the PiFinder was upright. When non-upright, the crosshair
+    moved diagonally when the scope was moved in az or alt. The rotated
+    constellations in the chart were hard to make out.
+  * **EQ:** Seemed to work fine but I'm not experienced with EQ. The display on
+    SkySafari showed RA movement along the horizontal direction and Dec along
+    the vertical. This seemed to make sense.
+
 # Installation & set up
 
 ## Set up a virtual environment to test the PiFinder
