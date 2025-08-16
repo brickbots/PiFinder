@@ -248,7 +248,7 @@ def update_plate_solve_and_imu_eq__degrees(pointing_tracker, solved):
     This updates the pointing model with the plate-solved coordinates and the
     IMU measurements which are assumed to have been taken at the same time.
     """
-    if (solved["Az"] is None) or (solved["Alt"] is None):
+    if (solved["RA"] is None) or (solved["Dec"] is None):
         return  # No update
     else: 
         # Successfully plate solved & camera pointing exists
@@ -270,7 +270,7 @@ def update_plate_solve_and_imu_eq__degrees(pointing_tracker, solved):
 
         # Set alignment: TODO: Do this once at alignment
         q_eq2cam = qt.get_q_eq2cam(solved_cam_ra, solved_cam_dec, solved_cam_roll)
-        q_eq2scope = qt.get_q_eq2cam(rtarget_ra, target_dec, target_roll)
+        q_eq2scope = qt.get_q_eq2cam(target_ra, target_dec, target_roll)
         q_scope2cam = q_eq2scope.conjugate() * q_eq2cam
         pointing_tracker.set_alignment(q_scope2cam)
 
