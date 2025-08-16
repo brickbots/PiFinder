@@ -81,10 +81,10 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                 solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(
                     solved["RA"], solved["Dec"]
                 )
-
                 # add solution
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
+
     except EOFError:
         logger.error("Main no longer running for integrator")
 
@@ -139,7 +139,7 @@ def update_plate_solve_and_imu(pointing_tracker, solved):
         pointing_tracker.update_plate_solve_and_imu(
             solved_cam_ra, solved_cam_dec, solved_cam_roll, q_x2imu)
         
-        # Set alignment. TODO: Do this once at alignment
+        # Set alignment. TODO: Do this once at alignment. Move out of here.
         set_alignment(pointing_tracker, solved)
 
 
@@ -198,18 +198,6 @@ def update_imu(solved, last_image_solve, imu, pointing_tracker):
         solved["RA"] = np.rad2deg(ra_target)
         solved["Dec"] = np.rad2deg(dec_target)
         solved["Roll"] = np.rad2deg(roll_target)  
-
-        """
-        # TODO: This part for cam2scope will probably be an issue for Altaz mounts 
-        # From the alignment. Add this offset to the camera center to get
-        # the scope altaz coordinates. TODO: This could be calculated once
-        # at alignment? Or when last solved
-        cam2scope_offset_az = last_image_solve["Az"] - last_image_solve["camera_center"]["Az"]
-        cam2scope_offset_alt = last_image_solve["Alt"] - last_image_solve["camera_center"]["Alt"]
-        # Transform to scope center TODO: need to define q_cam2scope
-        solved["Az"] = solved["camera_center"]["Az"] + cam2scope_offset_az
-        solved["Alt"] = solved["camera_center"]["Alt"] + cam2scope_offset_alt
-        """
 
         q_x2imu = imu["quat"]
         logger.debug("  IMU quat = ({:}, {:}, {:}, {:}".format(q_x2imu.w, q_x2imu.x, q_x2imu.y, q_x2imu.z))
