@@ -104,6 +104,7 @@ def get_radec_of_q_eq2cam(q_eq2cam:np.quaternion) -> (float, float, float):
 def get_q_scope2cam(target_eq: RaDecRoll, cam_eq: RaDecRoll):
     """
     Returns the quaternion that rotates from the scope frame to the camera frame.
+    TODO: Update?
     """
     q_eq2cam = get_q_eq2cam(cam_eq.ra, cam_eq.dec, cam_eq.roll)
     q_eq2scope = get_q_eq2cam(target_eq.ra, target_eq.dec, target_eq.roll)  # This assumes an EQ mount - We don't know the roll of the scope frame
