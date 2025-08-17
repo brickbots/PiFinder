@@ -23,6 +23,12 @@ MOVE_CHECK_LEN = 2  # TODO: Doesn't seem to be used?
 
 
 class Imu:
+    """
+    Previous version modified the IMU axes but the IMU now outputs the 
+    measurements using its native axes and the transformation from the IMU
+    axes to the camera frame is done by the IMU dead-reckonig functionality.  
+    """
+    
     def __init__(self):
         i2c = board.I2C()
         self.sensor = adafruit_bno055.BNO055_I2C(i2c)
@@ -30,39 +36,7 @@ class Imu:
         self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
         # self.sensor.mode = adafruit_bno055.NDOF_MODE
         cfg = config.Config()
-        """ Disable rotating the IMU axes. Use its native form
-        if (
-            cfg.get_option("screen_direction") == "flat"
-            or cfg.get_option("screen_direction") == "straight"
-            or cfg.get_option("screen_direction") == "flat3"
-        ):
-            self.sensor.axis_remap = (
-                adafruit_bno055.AXIS_REMAP_Y,
-                adafruit_bno055.AXIS_REMAP_X,
-                adafruit_bno055.AXIS_REMAP_Z,
-                adafruit_bno055.AXIS_REMAP_POSITIVE,
-                adafruit_bno055.AXIS_REMAP_POSITIVE,
-                adafruit_bno055.AXIS_REMAP_NEGATIVE,
-            )
-        elif cfg.get_option("screen_direction") == "as_dream":
-            self.sensor.axis_remap = (
-                adafruit_bno055.AXIS_REMAP_X,
-                adafruit_bno055.AXIS_REMAP_Z,
-                adafruit_bno055.AXIS_REMAP_Y,
-                adafruit_bno055.AXIS_REMAP_POSITIVE,
-                adafruit_bno055.AXIS_REMAP_POSITIVE,
-                adafruit_bno055.AXIS_REMAP_POSITIVE,
-            )
-        else:
-            self.sensor.axis_remap = (
-                adafruit_bno055.AXIS_REMAP_Z,
-                adafruit_bno055.AXIS_REMAP_Y,
-                adafruit_bno055.AXIS_REMAP_X,
-                adafruit_bno055.AXIS_REMAP_POSITIVE,
-                adafruit_bno055.AXIS_REMAP_POSITIVE,
-                adafruit_bno055.AXIS_REMAP_POSITIVE,
-            )
-        """
+        
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
         self._flip_count = 0
         self.calibration = 0
