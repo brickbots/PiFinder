@@ -40,34 +40,33 @@ class ImuDeadReckoning():
     # Dead-reckoning using IMU
     imu_dead_reckoning.update_imu(q_x2imu)
     """
+    # Alignment:
+    q_scope2cam: np.quaternion  # ****Do we need this??
+    q_cam2scope: np.quaternion
+    # IMU orientation:
+    q_imu2cam: np.quaternion
+    q_cam2imu: np.quaternion
+    # Putting them together:
+    q_imu2scope: np.quaternion
 
-    # TODO: Declare attributes here
+    # The poinging of the camera and scope frames wrt the Equatorial frame.
+    # These get updated by plate solving and IMU dead-reckoning.
+    q_eq2cam: np.quaternion  # ***Do we need to keep q_eq2cam?
+
+    # True when q_eq2cam is estimated by IMU dead-reckoning. 
+    # False when set by plate solving
+    dead_reckoning: bool = False  
+    tracking: bool = False  # True when previous plate solve exists and tracking
+
+    # The IMU's unkonwn drifting reference frame X. This is solved for 
+    # every time we have a simultaneous plate solve and IMU measurement.
+    q_eq2x: np.quaternion = np.quaternion(np.nan)  # nan means not set
+
 
     def __init__(self, screen_direction:str):
         """ """
-        # Alignment:
-        self.q_scope2cam = None  # ****Do we need this??
-        self.q_cam2scope = None
-        # IMU orientation:
-        self.q_imu2cam = None
-        self.q_cam2imu = None
         # IMU-to-camera orientation. Fixed by PiFinder type
         self._set_screen_direction(screen_direction)
-        # Putting them together:
-        self.q_imu2scope = None
-
-        # The poinging of the camera and scope frames wrt the Equatorial frame.
-        # These get updated by plate solving and IMU dead-reckoning.
-        self.q_eq2cam = None  # ***Do we need to keep q_eq2cam?
-
-        # True when q_eq2cam is estimated by IMU dead-reckoning. 
-        # False when set by plate solving
-        self.dead_reckoning = False  
-        self.tracking = False  # True when previous plate solve exists and tracking
-
-        # The IMU's unkonwn drifting reference frame X. This is solved for 
-        # every time we have a simultaneous plate solve and IMU measurement.
-        self.q_eq2x = None
     
     def set_alignment(self, 
                       q_scope2cam: np.quaternion): 
@@ -132,7 +131,7 @@ class ImuDeadReckoning():
         q_x2imu: Quaternion of the IMU orientation w.r.t. an unknown and drifting
             reference frame X used by the IMU.
         """
-        if self.q_eq2x is not None:
+        if not np.isnan(self.q_eq2x):
             # Dead reckoning estimate by IMU if q_hor2x has been estimated by a 
             # previous plate solve.
             self.q_eq2cam = self.q_eq2x * q_x2imu * self.q_imu2cam
@@ -144,7 +143,7 @@ class ImuDeadReckoning():
             self.dead_reckoning = True
 
     def get_q_eq2scope(self) -> Union[np.quaternion, None]:
-        """ """
+        """ TODO: REMOVE """
         if self.q_eq2cam and self.q_cam2scope:
             q_eq2scope = self.q_eq2cam * self.q_cam2scope
             return q_eq2scope
@@ -166,8 +165,8 @@ class ImuDeadReckoning():
         to indicate if the estimate is from dead-reckoning (True) or from plate
         solving (False).
         """
-        q_eq2scope = self.get_q_eq2scope()
-        ra, dec, roll = qt.get_radec_of_q_eq2cam(self.q_eq2scope)
+        q_eq2scope = self.get_q_eq2scope()  # TODO REMOVE
+        ra, dec, roll = qt.get_radec_of_q_eq2cam(self.q_eq2scope)  # TODO: Rename this qt func
         return ra, dec, roll  # Angles are in radians
 
     def reset(self):
