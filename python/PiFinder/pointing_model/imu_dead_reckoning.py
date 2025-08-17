@@ -29,7 +29,7 @@ class ImuDeadReckoning():
 
     All angles are in radians. None is not allowed as inputs (use np.nan).
 
-    EXAMPLE:
+    EXAMPLE: TODO: Update
     # Set up:
     imu_dead_reckoning = ImuDeadReckoning('flat')
     imu_dead_reckoning.set_alignment(q_scope2cam)
