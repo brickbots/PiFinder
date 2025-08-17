@@ -195,6 +195,18 @@ We define the following reference frames:
 * $+z$ is the boresight of the camera, $+y$ and $+x$ are respectively the
   vertical and horizontal (to the left) directions of the camera.
 
+## IMU and camera coordinate frames
+
+To use the IMU for dead-reckoning, we need to know the transformation between
+the IMU's own coordinate frame and the PiFinder's camera coordinate frame
+(which we use as the PiFinder's reference coordinate frame).
+
+The picture below illustrate the IMU and camera coordinates for the v2 flat
+version of the PiFinder. For each type, we need to work out the quaternion
+rotation `q_imu2cam` that rotates the IMU frame to the camera frame.
+
+![Image](docs/PiFinder_Flat_bare_PCB_camera_coords.jpg)
+
 ## Roll
 
 The roll (as given by Tetra3) is defined as the rotation of the north pole
