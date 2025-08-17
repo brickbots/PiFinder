@@ -188,13 +188,13 @@ def update_imu(solved, last_image_solve, imu, imu_dead_reckoning):
         imu_dead_reckoning.update_imu(imu["quat"])  # Latest IMU meas
         
         # Store current camera pointing estimate:
-        ra_cam, dec_cam, roll_cam, dead_reckoning_flag = imu_dead_reckoning.get_cam_radec()
+        ra_cam, dec_cam, roll_cam = imu_dead_reckoning.get_cam_radec()
         solved["camera_center"]["RA"] = np.rad2deg(ra_cam)
         solved["camera_center"]["Dec"] = np.rad2deg(dec_cam)
         solved["camera_center"]["Roll"] = np.rad2deg(roll_cam)
         
         # Store the current scope pointing estimate
-        ra_target, dec_target, roll_target, dead_reckoning_flag = imu_dead_reckoning.get_scope_radec()
+        ra_target, dec_target, roll_target = imu_dead_reckoning.get_scope_radec()
         solved["RA"] = np.rad2deg(ra_target)
         solved["Dec"] = np.rad2deg(dec_target)
         solved["Roll"] = np.rad2deg(roll_target)  

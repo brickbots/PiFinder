@@ -159,7 +159,7 @@ class ImuDeadReckoning():
         solving (False).
         """
         ra, dec, roll = qt.get_radec_of_q_eq2cam(self.q_eq2cam)
-        return ra, dec, roll, self.dead_reckoning  # Angles are in radians
+        return ra, dec, roll  # Angles are in radians
 
     def get_scope_radec(self) -> tuple[float, float, float, bool]:
         """ 
@@ -169,7 +169,7 @@ class ImuDeadReckoning():
         """
         q_eq2scope = self.get_q_eq2scope()
         ra, dec, roll = qt.get_radec_of_q_eq2cam(self.q_eq2scope)
-        return ra, dec, roll, self.dead_reckoning  # Angles are in radians
+        return ra, dec, roll  # Angles are in radians
 
     def reset(self):
         """
