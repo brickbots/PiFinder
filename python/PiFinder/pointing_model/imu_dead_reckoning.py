@@ -172,14 +172,28 @@ class ImuDeadReckoning():
         Sets the screen direction which determines the fixed orientation between
         the IMU and camera (q_imu2cam).
         """
-        if screen_direction == "flat":
-            # Rotate -90° around y_imu so that z_imu' points along z_camera
-            q1 = np.quaternion(np.cos(-np.pi / 4), 0, np.sin(-np.pi / 4), 0)  
-            # Rotate -90° around z_imu' to align with the camera cooridnates
-            q2 = np.quaternion(np.cos(-np.pi / 4), 0, 0, np.sin(-np.pi / 4)) 
-            self.q_imu2cam = q1 * q2  # Intrinsic rotation: q1 followed by q2
-        else:
-            raise ValueError('Unsupported screen_direction')
-
-        self.q_imu2cam = self.q_imu2cam.normalized()
+        self.q_imu2cam = get_screen_direction_q_imu2cam(screen_direction)
         self.q_cam2imu = self.q_imu2cam.conj()
+
+
+def get_screen_direction_q_imu2cam(screen_direction: str) -> np.quaternion:
+    """
+    Returns the quaternion that rotates the IMU frame to the camera frame
+    based on the screen direction.
+
+    INPUTS:
+    screen_direction: "flat" or "upright"
+
+    RETURNS:
+    q_imu2cam: Quaternion that rotates the IMU frame to the camera frame.
+    """
+    if screen_direction == "flat":
+        # Rotate -90° around y_imu so that z_imu' points along z_camera
+        q1 = np.quaternion(np.cos(-np.pi / 4), 0, np.sin(-np.pi / 4), 0)  
+        # Rotate -90° around z_imu' to align with the camera cooridnates
+        q2 = np.quaternion(np.cos(-np.pi / 4), 0, 0, np.sin(-np.pi / 4)) 
+        q_imu2cam = (q1 * q2).normalized()
+    else:
+        raise ValueError('Unsupported screen_direction')
+    
+    return q_imu2cam
