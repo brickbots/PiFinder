@@ -73,7 +73,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
                 # the last plate solved coordinates.
                 imu = shared_state.imu()
                 if imu:
-                    update_imu(solved, last_image_solve, imu, imu_dead_reckoning)
+                    update_imu(imu_dead_reckoning, solved, last_image_solve, imu)
 
             # Is the solution new?
             if solved["RA"] and solved["solve_time"] > last_solve_time:
@@ -169,7 +169,7 @@ def set_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     imu_dead_reckoning.set_alignment(q_scope2cam)
 
 
-def update_imu(solved: dict, last_image_solve: dict, imu: np.quaternion, imu_dead_reckoning: ImuDeadReckoning):
+def update_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dict, last_image_solve: dict, imu: np.quaternion):
     """
     Updates the solved dictionary using IMU dead-reckoning from the last
     solved pointing. 
