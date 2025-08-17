@@ -139,11 +139,11 @@ The inverse (or conjugate) is given by `q.conj()`.
 
 Intrinsic rotation of $q_0$ followed by $q_1$
 
-$$q_{new} = q_0 q_1$$  
+$$q_{new} = q_0 q_1$$
 
 For an extrinsic rotation of $q_0$ followed by $q_1$, left multiply
 
-$$q_{new} =  q_1 q_0$$  
+$$q_{new} =  q_1 q_0$$
 
 
 ## Coordinate frames
