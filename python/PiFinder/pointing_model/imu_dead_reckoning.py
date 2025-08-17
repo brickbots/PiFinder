@@ -41,7 +41,7 @@ class ImuDeadReckoning():
     imu_dead_reckoning.update_imu(q_x2imu)
     """
     # Alignment:
-    q_scope2cam: np.quaternion  # ****Do we need this??
+    q_scope2cam: np.quaternion  # TODO: Do we need this??
     q_cam2scope: np.quaternion
     # IMU orientation:
     q_imu2cam: np.quaternion
@@ -51,7 +51,7 @@ class ImuDeadReckoning():
 
     # The poinging of the camera and scope frames wrt the Equatorial frame.
     # These get updated by plate solving and IMU dead-reckoning.
-    q_eq2cam: np.quaternion  # ***Do we need to keep q_eq2cam?
+    q_eq2cam: np.quaternion
 
     # True when q_eq2cam is estimated by IMU dead-reckoning. 
     # False when set by plate solving
