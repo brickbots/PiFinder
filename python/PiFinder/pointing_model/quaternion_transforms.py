@@ -82,7 +82,7 @@ def get_q_eq2cam(ra_rad:float, dec_rad:float, roll_rad:float) -> np.quaternion: 
     return q_eq2cam
 
 
-def get_radec_of_q_eq2cam(q_eq2cam:np.quaternion) -> (float, float, float):
+def get_radec_of_q_eq2cam(q_eq2cam:np.quaternion) -> tuple[float, float, float]:
     """
     """
     # Pure quaternion along camera boresight

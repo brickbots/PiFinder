@@ -35,11 +35,11 @@ class RaDecRoll():
 
         self.set(np.deg2rad(ra_deg), np.deg2rad(dec_deg), roll)
         
-    def get(self) -> (float, float, float):
+    def get(self) -> tuple[float, float, float]:
         """ """
         return self.ra, self.dec, self.roll
 
-    def get_deg(self) -> (float, float, float):
+    def get_deg(self) -> tuple[float, float, float]:
         """ """
         return np.rad2deg(self.ra), np.rad2deg(self.dec), np.rad2deg(self.roll)
 
