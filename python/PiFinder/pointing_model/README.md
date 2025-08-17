@@ -207,6 +207,10 @@ rotation `q_imu2cam` that rotates the IMU frame to the camera frame.
 
 ![Image](docs/PiFinder_Flat_bare_PCB_camera_coords.jpg)
 
+The transformations will be approximate and there will be small errors in 
+`q_imu2cam` due to mechanical tolerances. These errors will contribute to the 
+tracking error between the plate solved coordinates and the IMU dead-reckoning.
+
 ## Roll
 
 The roll (as given by Tetra3) is defined as the rotation of the north pole
