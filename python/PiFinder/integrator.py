@@ -132,11 +132,9 @@ def update_plate_solve_and_imu(imu_dead_reckoning, solved):
         solved_cam_ra = np.deg2rad(solved["camera_center"]["RA"]) 
         solved_cam_dec = np.deg2rad(solved["camera_center"]["Dec"])
         solved_cam_roll = np.deg2rad(solved["camera_center"]["Roll"])
-        # Convert to radians:  # TODO: This doesn't seem to be used?
-        target_ra = np.deg2rad(solved["RA"]) 
-        target_dec = np.deg2rad(solved["Dec"])
-        solved["Roll"] = 0  # TODO: Target roll isn't calculated by Tetra3. Set to zero here
-        target_roll = np.deg2rad(solved["Roll"])
+
+        # TODO: Target roll isn't calculated by Tetra3. Set to zero here
+        solved["Roll"] = 0
 
         # Update:
         imu_dead_reckoning.update_plate_solve_and_imu(
