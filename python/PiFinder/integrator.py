@@ -129,7 +129,7 @@ def update_plate_solve_and_imu(pointing_tracker, solved):
         solved_cam_ra = np.deg2rad(solved["camera_center"]["RA"]) 
         solved_cam_dec = np.deg2rad(solved["camera_center"]["Dec"])
         solved_cam_roll = np.deg2rad(solved["camera_center"]["Roll"])
-        # Convert to radians:
+        # Convert to radians:  # TODO: This doesn't seem to be used?
         target_ra = np.deg2rad(solved["RA"]) 
         target_dec = np.deg2rad(solved["Dec"])
         solved["Roll"] = 0  # TODO: Target roll isn't calculated by Tetra3. Set to zero here
