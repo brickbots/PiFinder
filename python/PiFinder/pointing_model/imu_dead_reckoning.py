@@ -104,13 +104,13 @@ class ImuDeadReckoning():
         """
         if (solved_cam_ra is None) or (solved_cam_dec is None):
             return  # No update
-        else:
-            # Update plate-solved coord:
-            # Camera frame relative to the Equatorial frame where the +y camera
-            # frame (i.e. "up") points to the North Celestial Pole (NCP) -- i.e. 
-            # zero roll offset:
-            self.q_eq2cam  = qt.get_q_eq2cam(solved_cam_ra, solved_cam_dec, solved_cam_roll)
-            self.dead_reckoning = False
+        
+        # Update plate-solved coord: Camera frame relative to the Equatorial
+        # frame where the +y camera frame (i.e. "up") points to the North
+        # Celestial Pole (NCP) -- i.e. zero roll offset:
+        self.q_eq2cam  = qt.get_q_eq2cam(solved_cam_ra, solved_cam_dec, 
+                                         solved_cam_roll)
+        self.dead_reckoning = False
 
         # Update IMU:
         # Calculate the IMU's unknown reference frame X using the plate solved 
