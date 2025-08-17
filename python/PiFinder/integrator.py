@@ -175,9 +175,10 @@ def update_imu(solved, last_image_solve, imu, imu_dead_reckoning):
     """
     if not(last_image_solve and imu_dead_reckoning.tracking):
         return  # Need all of these to do IMU dead-reckoning
+    
+    assert isinstance(imu["quat"] , quaternion.quaternion), "Expecting quaternion.quaternion type"  # TODO: Can be removed later
 
     # When moving, switch to tracking using the IMU
-    assert isinstance(imu["quat"] , quaternion.quaternion), "Expecting quaternion.quaternion type"  # TODO: Can be removed later
     angle_moved = qt.get_quat_angular_diff(last_image_solve["imu_quat"], imu["quat"])
     if  angle_moved > IMU_MOVED_ANG_THRESHOLD:
         # Estimate camera pointing using IMU dead-reckoning
