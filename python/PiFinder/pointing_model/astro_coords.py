@@ -1,7 +1,7 @@
 """
 Various astronomical coordinates functions
 """
-
+from dataclasses import dataclass
 import numpy as np
 from typing import Union  # When updated to Python 3.10+, remove and use new type hints
 
