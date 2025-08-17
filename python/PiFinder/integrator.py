@@ -123,7 +123,10 @@ def update_plate_solve_and_imu(imu_dead_reckoning, solved):
         return  # No update
     else: 
         # Successfully plate solved & camera pointing exists
-        q_x2imu = solved["imu_quat"]  # IMU measurement at the time of plate solving
+        if solved["imu_quat"] is None:
+            q_x2imu = np.quaternion(np.nan)
+        else:
+            q_x2imu = solved["imu_quat"]  # IMU measurement at the time of plate solving
         
         # Convert to radians:
         solved_cam_ra = np.deg2rad(solved["camera_center"]["RA"]) 

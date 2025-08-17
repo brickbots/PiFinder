@@ -27,7 +27,7 @@ class ImuDeadReckoning():
     This class uses the Equatorial frame as the reference and expects 
     plate-solved coordinates in (ra, dec).
 
-    All angles are in radians.
+    All angles are in radians. None is not allowed as inputs (use np.nan).
 
     EXAMPLE:
     # Set up:
@@ -113,12 +113,11 @@ class ImuDeadReckoning():
                                          solved_cam_roll)
         self.dead_reckoning = False
 
-        # Update IMU:
-        # Calculate the IMU's unknown reference frame X using the plate solved 
-        # coordinates and IMU measurements taken from the same time. If the IMU
-        # measurement isn't provided (e.g. None or zeros), the existing q_hor2x
-        # will continue to be used.
-        if q_x2imu:
+        # Update IMU: Calculate the IMU's unknown reference frame X using the
+        # plate solved coordinates and IMU measurements taken from the same
+        # time. If the IMU measurement isn't provided (i.e. None), the existing
+        # q_hor2x will continue to be used.
+        if not np.isnan(q_x2imu):
             self.q_eq2x = self.q_eq2cam * self.q_cam2imu * q_x2imu.conj()
             self.q_eq2x = self.q_eq2x.normalized()
             self.tracking = True  # We have a plate solve and IMU measurement
