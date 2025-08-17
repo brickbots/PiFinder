@@ -31,14 +31,14 @@ class ImuDeadReckoning():
 
     EXAMPLE:
     # Set up:
-    pointing_tracker = ImuDeadReckoning('flat')
-    pointing_tracker.set_alignment(q_scope2cam)
+    imu_dead_reckoning = ImuDeadReckoning('flat')
+    imu_dead_reckoning.set_alignment(q_scope2cam)
     
     # Update with plate solved and IMU data:
-    pointing_tracker.update_plate_solve_and_imu(solved_cam_ra, solved_cam_dec, solved_cam_roll, q_x2imu)
+    imu_dead_reckoning.update_plate_solve_and_imu(solved_cam_ra, solved_cam_dec, solved_cam_roll, q_x2imu)
     
     # Dead-reckoning using IMU
-    pointing_tracker.update_imu(q_x2imu)
+    imu_dead_reckoning.update_imu(q_x2imu)
     """
 
     # TODO: Declare attributes here
