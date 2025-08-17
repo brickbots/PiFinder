@@ -188,14 +188,34 @@ def get_screen_direction_q_imu2cam(screen_direction: str) -> np.quaternion:
     q_imu2cam: Quaternion that rotates the IMU frame to the camera frame.
     """
     if screen_direction == "left":
-        raise ValueError('Unsupported screen_direction: left')
+        # Left:
+        # Rotate 90° around x_imu so that z_imu' points along z_camera
+        q1 = qt.axis_angle2quat([1, 0, 0], np.pi / 2) 
+        # Rotate 90° around z_imu' to align with the camera cooridnates
+        q2 = qt.axis_angle2quat([0, 0, 1], np.pi / 2)
+        q_imu2cam = (q1 * q2).normalized()  
     elif screen_direction == "right":
-        raise ValueError('Unsupported screen_direction: right')
+        # Right:
+        # Rotate -90° around y_imu so that z_imu' points along z_camera
+        q1 = qt.axis_angle2quat([0, 1, 0], np.pi / 2) 
+        # Rotate 90° around z_imu' to align with the camera cooridnates
+        q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
+        q_imu2cam = (q1 * q2).normalized()  
     elif screen_direction == "straight":
-        raise ValueError('Unsupported screen_direction: straight')
+         # Straight:
+        # Rotate 180° around y_imu so that z_imu' points along z_camera
+        q1 = qt.axis_angle2quat([0, 1, 0], np.pi / 2) 
+        # Rotate -90° around z_imu' to align with the camera cooridnates
+        q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
+        q_imu2cam = (q1 * q2).normalized()       
     elif screen_direction == "flat3":
         # Flat v3:
-        raise ValueError('Unsupported screen_direction: flat3')
+        # Rotate -XX° around y_imu so that z_imu' points along z_camera
+        q1 = qt.axis_angle2quat([0, 1, 0], -np.pi / 2) 
+        # Rotate -90° around z_imu' to align with the camera cooridnates
+        q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
+        q_imu2cam = (q1 * q2).normalized()
+        raise ValueError('Unsupported screen_direction: flat3')  # TODO: Update the unknown tilt and remove this
     elif screen_direction == "flat":
         # Flat v2:
         # Rotate -90° around y_imu so that z_imu' points along z_camera
