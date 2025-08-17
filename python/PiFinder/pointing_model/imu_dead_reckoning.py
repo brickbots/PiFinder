@@ -41,6 +41,8 @@ class ImuDeadReckoning():
     pointing_tracker.update_imu(q_x2imu)
     """
 
+    # TODO: Declare attributes here
+
     def __init__(self, screen_direction:str):
         """ """
         # Alignment:
@@ -83,11 +85,10 @@ class ImuDeadReckoning():
         self.q_cam2scope = self.q_scope2cam.conj()
         self.q_imu2scope = self.q_imu2cam * self.q_cam2scope
 
-    def update_plate_solve_and_imu(self, 
-                           solved_cam_ra: Union[float, None], 
-                           solved_cam_dec: Union[float, None], 
-                           solved_cam_roll: Union[float, None],
-                           q_x2imu: Union[np.quaternion, None]):
+    def update_plate_solve_and_imu(self, solved_cam_ra: float, 
+                                   solved_cam_dec: float, 
+                                   solved_cam_roll: float, 
+                                   q_x2imu: np.quaternion):
         """ 
         Update the state with the az/alt measurements from plate solving in the
         camera frame. If the IMU measurement (which should be taken at the same 
@@ -102,7 +103,7 @@ class ImuDeadReckoning():
         q_x2imu: [quaternion] Raw IMU measurement quaternions. This is the IMU 
             frame orientation wrt unknown drifting reference frame X.
         """
-        if (solved_cam_ra is None) or (solved_cam_dec is None):
+        if np.isnan(solved_cam_ra) or np.isnan(solved_cam_dec):
             return  # No update
         
         # Update plate-solved coord: Camera frame relative to the Equatorial
