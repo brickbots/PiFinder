@@ -7,6 +7,7 @@ This module is the solver
 
 """
 
+import datetime
 import queue
 import time
 import copy
@@ -91,7 +92,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
 
 # ======== Wrapper and helper functions ===============================
 
-def estimate_roll_offset(solved, dt):
+def estimate_roll_offset(solved: dict, dt: datetime.datetime) -> float:
     """
     Estimate the roll offset due to misalignment of the camera sensor with
     the mount/scope's coordinate system. The offset is calculated at the
@@ -111,7 +112,7 @@ def estimate_roll_offset(solved, dt):
     return roll_offset
 
 
-def update_plate_solve_and_imu(imu_dead_reckoning, solved):
+def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     """
     Wrapper for ImuDeadReckoning.update_plate_solve_and_imu() to
     interface angles in degrees to radians.
@@ -144,7 +145,7 @@ def update_plate_solve_and_imu(imu_dead_reckoning, solved):
         set_alignment(imu_dead_reckoning, solved)
 
 
-def set_alignment(imu_dead_reckoning, solved):
+def set_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     """
     Set alignment. 
     TODO: Do this once at alignment
@@ -168,7 +169,7 @@ def set_alignment(imu_dead_reckoning, solved):
     imu_dead_reckoning.set_alignment(q_scope2cam)
 
 
-def update_imu(solved, last_image_solve, imu, imu_dead_reckoning):
+def update_imu(solved: dict, last_image_solve: dict, imu: np.quaternion, imu_dead_reckoning: ImuDeadReckoning):
     """
     Updates the solved dictionary using IMU dead-reckoning from the last
     solved pointing. 
@@ -176,7 +177,7 @@ def update_imu(solved, last_image_solve, imu, imu_dead_reckoning):
     if not(last_image_solve and imu_dead_reckoning.tracking):
         return  # Need all of these to do IMU dead-reckoning
     
-    assert isinstance(imu["quat"] , quaternion.quaternion), "Expecting quaternion.quaternion type"  # TODO: Can be removed later
+    assert isinstance(imu["quat"] , np.quaternion), "Expecting np.quaternion type"  # TODO: Can be removed later
 
     # When moving, switch to tracking using the IMU
     angle_moved = qt.get_quat_angular_diff(last_image_solve["imu_quat"], imu["quat"])
