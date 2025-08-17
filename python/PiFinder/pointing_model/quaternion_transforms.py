@@ -82,23 +82,25 @@ def get_q_eq2cam(ra_rad:float, dec_rad:float, roll_rad:float) -> np.quaternion: 
     return q_eq2cam
 
 
-def get_radec_of_q_eq2cam(q_eq2cam:np.quaternion) -> tuple[float, float, float]:
+def get_radec_of_q_eq(q_eq2frame:np.quaternion) -> tuple[float, float, float]:
     """
+    Returns the (ra, dec, roll) angles of the quaterion rotation relative to
+    the equatorial frame. 
     """
     # Pure quaternion along camera boresight
-    pz_cam = q_eq2cam * np.quaternion(0, 0, 0, 1)  * q_eq2cam.conj()
+    pz_frame = q_eq2frame * np.quaternion(0, 0, 0, 1)  * q_eq2frame.conj()
     # Calculate RA, Dec from the camera boresight:
-    dec = np.arcsin(pz_cam.z)
-    ra = np.arctan2(pz_cam.y, pz_cam.x)
+    dec = np.arcsin(pz_frame.z)
+    ra = np.arctan2(pz_frame.y, pz_frame.x)
 
     # Pure quaternion along y_cam which points to NCP when roll = 0
-    py_cam = q_eq2cam * np.quaternion(0, 0, 1, 0)  * q_eq2cam.conj()
+    py_cam = q_eq2frame * np.quaternion(0, 0, 1, 0)  * q_eq2frame.conj()
     # Local East and North vectors (roll is the angle between py_cam and the north vector)
     vec_east = np.array([-np.sin(ra), np.cos(ra), 0])
     vec_north = np.array([-np.sin(dec) * np.cos(ra), -np.sin(dec) * np.sin(ra), np.cos(dec)])
     roll = -np.arctan2(np.dot(py_cam.vec, vec_east), np.dot(py_cam.vec, vec_north))
 
-    return ra, dec, roll
+    return ra, dec, roll  # In radians
 
 
 def get_q_scope2cam(target_eq: RaDecRoll, cam_eq: RaDecRoll) -> np.quaternion:

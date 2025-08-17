@@ -142,21 +142,13 @@ class ImuDeadReckoning():
 
             self.dead_reckoning = True
 
-    def get_q_eq2scope(self) -> Union[np.quaternion, None]:
-        """ TODO: REMOVE """
-        if self.q_eq2cam and self.q_cam2scope:
-            q_eq2scope = self.q_eq2cam * self.q_cam2scope
-            return q_eq2scope
-        else:
-            None
-
     def get_cam_radec(self) -> tuple[float, float, float, bool]:
         """ 
         Returns the (ra, dec, roll) of the camera and a Boolean dead_reckoning
         to indicate if the estimate is from dead-reckoning (True) or from plate
         solving (False).
         """
-        ra, dec, roll = qt.get_radec_of_q_eq2cam(self.q_eq2cam)
+        ra, dec, roll = qt.get_radec_of_q_eq(self.q_eq2cam)
         return ra, dec, roll  # Angles are in radians
 
     def get_scope_radec(self) -> tuple[float, float, float, bool]:
@@ -165,8 +157,7 @@ class ImuDeadReckoning():
         to indicate if the estimate is from dead-reckoning (True) or from plate
         solving (False).
         """
-        q_eq2scope = self.get_q_eq2scope()  # TODO REMOVE
-        ra, dec, roll = qt.get_radec_of_q_eq2cam(self.q_eq2scope)  # TODO: Rename this qt func
+        ra, dec, roll = qt.get_radec_of_q_eq(self.q_eq2scope)
         return ra, dec, roll  # Angles are in radians
 
     def reset(self):
