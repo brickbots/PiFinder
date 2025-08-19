@@ -7,12 +7,12 @@ README: IMU support prototyping
 
 >Remove this before release!
 
-* Support other PiFinder types
+* Done: Support other PiFinder types
 * Use RaDecRoll class 
 * Type hints for integrator.py
 * Lint using Nox
-* Roll offset
-* Alignment
+* Done: Adjust Roll depending on mount_type for charts
+* Use alignment rather than calculating every loop
 * Go through TODOs
 * Discuss requirements.txt with Richard
 
