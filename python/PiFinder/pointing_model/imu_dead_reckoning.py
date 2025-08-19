@@ -94,7 +94,7 @@ class ImuDeadReckoning():
         time) is available, q_x2imu (the unknown drifting reference frame) will
         be solved for. 
 
-        INPUTS:
+        INPUTS: TODO: Update these
         solved_cam_az: [rad] Azimuth of the camera pointing from plate solving.
         solved_cam_alt: [rad] Alt of the camera pointing from plate solving.
         solved_cam_roll_offset: [rad] Roll offset of the camera frame +y ("up")
