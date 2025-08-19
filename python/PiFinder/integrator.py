@@ -92,7 +92,15 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(
                     solved["RA"], solved["Dec"]
                 )
-
+                
+                # Set Alt/Az because it's needed for the catalogs for the
+                # Alt/Az mount type:
+                dt = shared_state.datetime()  
+                if dt:
+                    # TODO: Is it ok to not set location? Check. Pass dt to get_roll_by_mount_type?
+                    solved["Alt"], solved["Az"] \
+                        = calc_utils.sf_utils.radec_to_altaz(solved["RA"], solved["Dec"], dt)
+                
                 # add solution
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
@@ -218,7 +226,7 @@ def get_roll_by_mount_type(shared_state, ra_deg: float, dec_deg:float,
         dt = shared_state.datetime()
 
         if location and dt:
-            # We have location and time/date
+            # We have location and time/date TODO: Is it necessary to set location?
             calc_utils.sf_utils.set_location(
                 location.lat,
                 location.lon,
