@@ -30,9 +30,10 @@ logger = logging.getLogger("IMU.Integrator")
 IMU_MOVED_ANG_THRESHOLD = np.deg2rad(0.1)  # Use IMU tracking if the angle moved is above this 
 
 
-def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=True):  # TODO: Change back is_debug=False
+def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=False):
     MultiprocLogging.configurer(log_queue)
     """ """
+    is_debug = True  # TODO: For development. Remove later.
     if is_debug:
         logger.setLevel(logging.DEBUG)
     logger.debug("Starting Integrator")
@@ -40,6 +41,9 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
     try:
         solved = get_initialized_solved_dict()  # Dict of RA, Dec, etc. initialized to None.
         cfg = config.Config()
+
+        mount_type = cfg.get_option("mount_type")
+        logger.debug(f"mount_type = {mount_type}")
         
         # Set up dead-reckoning tracking by the IMU:
         imu_dead_reckoning = ImuDeadReckoning(cfg.get_option("screen_direction"))
@@ -78,10 +82,17 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
             # Is the solution new?
             if solved["RA"] and solved["solve_time"] > last_solve_time:
                 last_solve_time = time.time()
+
+                # Set the roll so that the chart is displayed appropriately for the mount type
+                solved["Roll"] \
+                    = get_roll_by_mount_type(shared_state, solved["RA"], 
+                                             solved["Dec"], mount_type)
+
                 # Update remaining solved keys
                 solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(
                     solved["RA"], solved["Dec"]
                 )
+
                 # add solution
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
@@ -92,27 +103,9 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Tr
 
 # ======== Wrapper and helper functions ===============================
 
-def estimate_roll_offset(solved: dict, dt: datetime.datetime) -> float:
-    """
-    Estimate the roll offset due to misalignment of the camera sensor with
-    the mount/scope's coordinate system. The offset is calculated at the
-    center of the camera's FoV.
 
-    To calculate the roll with offset: roll = calculated_roll + roll_offset
-
-    TODO: This is currently not being used!
-    """
-    # Calculate the expected roll at the camera center given the RA/Dec of
-    # of the camera center.
-    roll_camera_calculated = calc_utils.sf_utils.radec_to_roll(
-        solved["camera_center"]["RA"], solved["camera_center"]["Dec"], dt
-    )
-    roll_offset = solved["camera_center"]["Roll"] - roll_camera_calculated
-
-    return roll_offset
-
-
-def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
+def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, 
+                               solved: dict):
     """
     Wrapper for ImuDeadReckoning.update_plate_solve_and_imu() to
     interface angles in degrees to radians.
@@ -125,6 +118,7 @@ def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dic
     else: 
         # Successfully plate solved & camera pointing exists
         if solved["imu_quat"] is None:
+            # TODO: This Do not run the rest of the code?
             q_x2imu = np.quaternion(np.nan)
         else:
             q_x2imu = solved["imu_quat"]  # IMU measurement at the time of plate solving
@@ -133,9 +127,6 @@ def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dic
         solved_cam_ra = np.deg2rad(solved["camera_center"]["RA"]) 
         solved_cam_dec = np.deg2rad(solved["camera_center"]["Dec"])
         solved_cam_roll = np.deg2rad(solved["camera_center"]["Roll"])
-
-        # TODO: Target roll isn't calculated by Tetra3. Set to zero here
-        solved["Roll"] = 0
 
         # Update:
         imu_dead_reckoning.update_plate_solve_and_imu(
@@ -207,3 +198,43 @@ def update_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dict, last_image_so
 
         solved["solve_time"] = time.time()
         solved["solve_source"] = "IMU"
+
+
+def get_roll_by_mount_type(shared_state, ra_deg: float, dec_deg:float, 
+                           mount_type: str) -> float:
+    """ 
+    Returns the roll (in degrees) depending on the mount type so that the chart
+    is displayed appropriately for the mount type. The RA and Dec of the target
+    should be provided (in degrees).
+
+    * Alt/Az mount: Display the chart in the horizontal coordinate so the 
+    * EQ mount: Display the chart in the equatorial coordinate system with the
+      NCP up so roll = 0.
+    """
+    if mount_type == "Alt/Az":
+        # Altaz mounts: Display chart in horizontal coordinates
+        # Try to set date and time
+        location = shared_state.location()
+        dt = shared_state.datetime()
+
+        if location and dt:
+            # We have location and time/date
+            calc_utils.sf_utils.set_location(
+                location.lat,
+                location.lon,
+                location.altitude,
+            )
+             # Find the roll at the target RA/Dec in the horizontal frame
+            roll_deg = calc_utils.sf_utils.radec_to_roll(ra_deg, dec_deg, dt)
+        else:
+            # No position or time/date available, so set roll to 0
+            roll_deg = 0
+
+    elif mount_type == "EQ":
+        # EQ-mounts: Display chart with NCP up so roll = 0
+        roll_deg = 0
+    else:
+        logger.error(f"Unknown mount type: {mount_type}. Cannot set roll.")
+        roll_deg = 0
+
+    return roll_deg
