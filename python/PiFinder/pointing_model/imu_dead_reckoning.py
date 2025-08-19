@@ -210,12 +210,12 @@ def get_screen_direction_q_imu2cam(screen_direction: str) -> np.quaternion:
         q_imu2cam = (q1 * q2).normalized()       
     elif screen_direction == "flat3":
         # Flat v3:
-        # Rotate -XX° around y_imu so that z_imu' points along z_camera
-        q1 = qt.axis_angle2quat([0, 1, 0], -np.pi / 2) 
+        # Camera is tilted a further 30° compared to Flat v2
+        # Rotate -120° around y_imu so that z_imu' points along z_camera
+        q1 = qt.axis_angle2quat([0, 1, 0], -np.pi * 2 / 3) 
         # Rotate -90° around z_imu' to align with the camera cooridnates
         q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
         q_imu2cam = (q1 * q2).normalized()
-        raise ValueError('Unsupported screen_direction: flat3')  # TODO: Update the unknown tilt and remove this
     elif screen_direction == "flat":
         # Flat v2:
         # Rotate -90° around y_imu so that z_imu' points along z_camera
@@ -224,7 +224,13 @@ def get_screen_direction_q_imu2cam(screen_direction: str) -> np.quaternion:
         q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
         q_imu2cam = (q1 * q2).normalized()
     elif screen_direction == "as_dream":
-        raise ValueError('Unsupported screen_direction: as_dream')
+        # As Dream:
+        # Camera points back up from the screen
+        # NOTE: Need to check if the orientation of the camera is correct
+        # Rotate +90° around z_imu to align with the camera cooridnates
+        # (+y_cam is along -x_imu)
+        q2 = qt.axis_angle2quat([0, 0, 1], +np.pi / 2)
+        q_imu2cam = (q1 * q2).normalized() 
     else:
         raise ValueError(f'Unsupported screen_direction: {screen_direction}')
     
