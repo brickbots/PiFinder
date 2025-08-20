@@ -1,47 +1,53 @@
 """
 Various astronomical coordinates functions
 """
+
 from dataclasses import dataclass
 import numpy as np
 from typing import Union  # When updated to Python 3.10+, remove and use new type hints
 
 
 @dataclass
-class RaDecRoll():
+class RaDecRoll:
     """
-    Data class for equatorial coordinates defined by (RA, Dec, Roll). 
-    
+    Data class for equatorial coordinates defined by (RA, Dec, Roll).
+
     The set methods allow values to be float or None but internally, None will
     be stored as np.nan so that the type is consistent. the get methods will
     return None if the value is np.nan.
 
     TODO: Migrate to something like this from the current "solved" dict?
-    
+
     NOTE: All angles are in radians.
     """
+
     ra: float = np.nan
     dec: float = np.nan
     roll: float = np.nan
 
-    def set(self, ra:Union[float, None], dec:Union[float, None], 
-            roll:Union[float, None]):
+    def set(
+        self, ra: Union[float, None], dec: Union[float, None], roll: Union[float, None]
+    ):
         """ """
         self.ra = ra if ra is not None else np.nan
         self.dec = dec if dec is not None else np.nan
         self.roll = roll if roll is not None else np.nan
 
-    def set_from_deg(self, ra_deg:Union[float, None], 
-                     dec_deg:Union[float, None], roll_deg:Union[float, None]):
+    def set_from_deg(
+        self,
+        ra_deg: Union[float, None],
+        dec_deg: Union[float, None],
+        roll_deg: Union[float, None],
+    ):
         """ """
         ra = np.deg2rad(ra_deg) if ra_deg is not None else np.nan
         dec = np.deg2rad(dec_deg) if dec_deg is not None else np.nan
         roll = np.deg2rad(roll_deg) if roll_deg is not None else np.nan
 
         self.set(ra, dec, roll)
-        
-    def get(self) -> tuple[Union[float, None], Union[float, None], 
-                           Union[float, None]]:
-        """ Returns (ra, dec, roll) in radians """
+
+    def get(self) -> tuple[Union[float, None], Union[float, None], Union[float, None]]:
+        """Returns (ra, dec, roll) in radians"""
         ra = self.ra if not np.isnan(self.ra) else None
         dec = self.dec if not np.isnan(self.dec) else None
         roll = self.roll if not np.isnan(self.roll) else None
@@ -55,7 +61,7 @@ class RaDecRoll():
 
 def get_initialized_solved_dict() -> dict:
     """
-    Returns an initialized 'solved' dictionary with cooridnate and other 
+    Returns an initialized 'solved' dictionary with cooridnate and other
     information.
 
     TODO: The solved dict is used by other components. Move this func
@@ -74,7 +80,7 @@ def get_initialized_solved_dict() -> dict:
             "Alt": None,  # NOTE: Altaz needed by catalogs for altaz mounts
             "Az": None,
         },
-        "camera_solve": {  # camera_solve is NOT updated by IMU dead-reckoning  
+        "camera_solve": {  # camera_solve is NOT updated by IMU dead-reckoning
             "RA": None,
             "Dec": None,
             "Roll": None,
@@ -89,5 +95,5 @@ def get_initialized_solved_dict() -> dict:
         "cam_solve_time": 0,
         "constellation": None,
     }
-    
+
     return solved
