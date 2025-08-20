@@ -41,7 +41,10 @@ def axis_angle2quat(axis, theta: float) -> quaternion.quaternion:
     return quaternion.quaternion(np.cos(theta / 2), v[0], v[1], v[2])
 
 
-def get_quat_angular_diff(q1: quaternion.quaternion, q2: quaternion.quaternion) -> float:
+def get_quat_angular_diff(
+    q1: quaternion.quaternion,
+    q2: quaternion.quaternion
+) -> float:
     """
     Calculates the relative rotation between quaternions `q1` and `q2`.
     Accounts for the double-cover property of quaternions so that if q1 and q2

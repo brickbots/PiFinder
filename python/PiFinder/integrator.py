@@ -28,7 +28,7 @@ logger = logging.getLogger("IMU.Integrator")
 
 # Constants:
 # Use IMU tracking if the angle moved is above this
-IMU_MOVED_ANG_THRESHOLD = np.deg2rad(0.1)  
+IMU_MOVED_ANG_THRESHOLD = np.deg2rad(0.1)
 
 
 def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=False):
@@ -41,7 +41,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
 
     try:
         # Dict of RA, Dec, etc. initialized to None:
-        solved = (get_initialized_solved_dict())  
+        solved = get_initialized_solved_dict()
         cfg = config.Config()
 
         mount_type = cfg.get_option("mount_type")
@@ -233,11 +233,7 @@ def update_imu(
 
 
 def get_roll_by_mount_type(
-    ra_deg: float, 
-    dec_deg: float, 
-    location, 
-    dt: datetime.datetime, 
-    mount_type: str
+    ra_deg: float, dec_deg: float, location, dt: datetime.datetime, mount_type: str
 ) -> float:
     """
     Returns the roll (in degrees) depending on the mount type so that the chart
