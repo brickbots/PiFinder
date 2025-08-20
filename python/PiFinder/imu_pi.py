@@ -24,11 +24,11 @@ MOVE_CHECK_LEN = 2  # TODO: Doesn't seem to be used?
 
 class Imu:
     """
-    Previous version modified the IMU axes but the IMU now outputs the 
+    Previous version modified the IMU axes but the IMU now outputs the
     measurements using its native axes and the transformation from the IMU
-    axes to the camera frame is done by the IMU dead-reckonig functionality.  
+    axes to the camera frame is done by the IMU dead-reckonig functionality.
     """
-    
+
     def __init__(self):
         i2c = board.I2C()
         self.sensor = adafruit_bno055.BNO055_I2C(i2c)
@@ -36,7 +36,7 @@ class Imu:
         self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
         # self.sensor.mode = adafruit_bno055.NDOF_MODE
         cfg = config.Config()
-        
+
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
         self._flip_count = 0
         self.calibration = 0
@@ -166,8 +166,14 @@ def imu_monitor(shared_state, console_queue, log_queue):
         "moving": False,
         "move_start": None,
         "move_end": None,
-        "pos": [0, 0, 0],  # Corresponds to [Az, related_to_roll, Alt] --> **TO REMOVE LATER
-        "quat": np.quaternion(0, 0, 0, 0),  # Scalar-first numpy quaternion(w, x, y, z) - Init to invalid quaternion
+        "pos": [
+            0,
+            0,
+            0,
+        ],  # Corresponds to [Az, related_to_roll, Alt] --> **TO REMOVE LATER
+        "quat": np.quaternion(
+            0, 0, 0, 0
+        ),  # Scalar-first numpy quaternion(w, x, y, z) - Init to invalid quaternion
         "start_pos": [0, 0, 0],
         "status": 0,
     }
@@ -184,8 +190,10 @@ def imu_monitor(shared_state, console_queue, log_queue):
                 imu_data["start_pos"] = imu_data["pos"]
                 imu_data["move_start"] = time.time()
             # DISABLE old method
-            #imu_data["pos"] = imu.get_euler()  # TODO: Remove this later. Was used to store Euler angles
-            imu_data["quat"] = quaternion.from_float_array(imu.avg_quat)  # Scalar-first (w, x, y, z) 
+            # imu_data["pos"] = imu.get_euler()  # TODO: Remove this later. Was used to store Euler angles
+            imu_data["quat"] = quaternion.from_float_array(
+                imu.avg_quat
+            )  # Scalar-first (w, x, y, z)
         else:
             if imu_data["moving"]:
                 # If we were moving and we now stopped
@@ -193,8 +201,10 @@ def imu_monitor(shared_state, console_queue, log_queue):
                 imu_data["moving"] = False
                 imu_data["move_end"] = time.time()
                 # DISABLE old method
-                #imu_data["pos"] = imu.get_euler()
-                imu_data["quat"] = quaternion.from_float_array(imu.avg_quat)  # Scalar-first (w, x, y, z) 
+                # imu_data["pos"] = imu.get_euler()
+                imu_data["quat"] = quaternion.from_float_array(
+                    imu.avg_quat
+                )  # Scalar-first (w, x, y, z)
 
         if not imu_calibrated:
             if imu_data["status"] == 3:
