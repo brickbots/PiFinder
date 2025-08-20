@@ -48,13 +48,17 @@ Later:
 
 # Installation & set up
 
-## Set up a virtual environment to test the PiFinder
+## Install additional packages
 
-We need to install additional Python packages for the changes by creating a conda environment.
+This branch needs the `numpy.quaternion` package. For desktop-testing, you
+could install it in a virtual environment. For field-testing, it's more
+practical to install it as default.
 
-## Create a virtual environment
+### Create a virtual environment
 
-The first step is to create a virtual environment using `venv`. Connect to the PiFinder using `ssh` and install venv to create a virtual environment:
+Skip this section if you want to install the packages as default.
+
+This step creates a virtual environment using `venv`. Connect to the PiFinder using `ssh` and install venv to create a virtual environment:
 
 ```bash
 sudo apt-get install python3-venv
@@ -74,6 +78,8 @@ Type this to activate the environment:
 ```bash
 source .venv_imu/bin/activate
 ```
+
+Follow the next step to install the packages in the virtual environmnet.
 
 At the end, it can be de-activated by typing:
 
@@ -198,8 +204,9 @@ We define the following reference frames:
   $\theta_{az}$ followed by a rotation around the mount's altitude axis by
   $\theta_{alt}$.
 
-#### Scope frame (altaz)
-* +z is boresight, +y is the vertical direction of the scope and +x is the
+#### Scope frame
+* +z is boresight. 
+* On an altaz mount, we define +y as the vertical direction of the scope and +x as the
   horizontal direction to the left when looking along the boresight.
 * In the ideal case, the Scope frame is assumed to be the same as the Gimbal
   frame. In reality, there may be errors due to mounting or gravity.
@@ -210,7 +217,11 @@ We define the following reference frames:
 * $+z$ is the boresight of the camera, $+y$ and $+x$ are respectively the
   vertical and horizontal (to the left) directions of the camera.
 
-## IMU and camera coordinate frames
+#### IMU frame
+* The IMU frame is the local coordinates that the IMU outputs the data in.
+* The diagram below illustrates the IMU coordinate frame for the v2 PiFinder with the Adafruit BNO055 IMU. 
+
+### IMU and camera coordinate frames
 
 To use the IMU for dead-reckoning, we need to know the transformation between
 the IMU's own coordinate frame and the PiFinder's camera coordinate frame
@@ -226,7 +237,7 @@ The transformations will be approximate and there will be small errors in
 `q_imu2cam` due to mechanical tolerances. These errors will contribute to the 
 tracking error between the plate solved coordinates and the IMU dead-reckoning.
 
-## Roll
+### Roll
 
 The roll (as given by Tetra3) is defined as the rotation of the north pole
 relative to the camera image's "up" direction ($+y$). A positive roll angle
@@ -242,121 +253,62 @@ plate-solved RA and Dec for a camera on a perfect horizontal mount (i.e. the
 "up" $+y$ direction of the camera always points to the zenith). The camera pose
 is rotated by the angle `roll_offset` around its boresight.
 
-## Telescope coordinate transformations and dead-reckoning using the IMU
+### Telescope coordinate transformations
 
-We will use quaternions to rotate between the coordinate frames. For example,
-the quaternion `q_horiz2mnt` rotates the Horizontal frame to the Mount frame.
-The quaternions can be multiplied to apply successive *intrinsic* rotation from
-the Horizontal frame to the Camera;
+We can use quaternions to rotate between the coordinate frames.
+For example, the quaternion `q_horiz2mnt` rotates the Horizontal frame to the
+Mount frame. The quaternions can be multiplied to apply successive *intrinsic*
+rotation from the Horizontal frame to the Camera frame;
 
 ```python
 q_horiz2camera = q_horiz2mnt * q_mnt2gimb * q_gimb2scope * q_scope2camera
 ```
 
-`q_mnt2gimb` depends on the gimbal angles, which is what we can control to move
-the scope. 
+Note that this convention makes it clear when applying intrinsic rotations (right-multiply).
 
-## Coordinate frame transformation for altaz mounts *(remove functionality?)*
+The Mount and Gimbal frames are not used in the current implementation but this
+framework could be used to extend the implementation to control the mount. For
+example, `q_mnt2gimb` depends on the gimbal angles, which is what we can
+control to move the scope. 
 
-During normal operation, we want to find the pointing of the scope, expressed
-using $q_{hor2scope}$, which is the quaternion that rotates the scope axis in
-the horizontal frame from the *home* position to the current pointing.
+## Coordinate frame transformation
+
+We will use the equatorial frame as the reference frame. The goal is determine the scope pointing in RA and Dec. The pointing of the scope relative to the equatorial frame can be described by quaternion $q_{eq2scope}$.
+
+The PiFinder uses the coordinates from plate-solving but this is at a low rate and plate-solving may not succeed when the scope is moving so the IMU measurements can be used to infer the pointing between plate-solving by dead-reckoning.
 
 ### Plate solving 
 
-Plate solving returns the pointing of the PiFinder camera in RA/Dec/Roll
-coordinates which can be converted to the quaternion rotation $q_{hor2cam}$. 
-
-Plate solving also returns the roll but this is probably less accurate. For
-this reason, we will will initially assume a perfect altaz mount with the
-PiFinder mounted upright.
-
-The alignment offset $q_{cam2scope}$ between the PiFinder camera frame and the
-scope frame is determined during alignment of the PiFinder with the scope.
-Assuming that this offset is constant, we can infer the pointing of the scope
-at time step $k$:
+Plate-solving returns the pointing of the PiFinder camera in (RA, Dec, Roll) coordinates. The quaternion rotation of the camera pointing relative to the equatorial frame for time step $k$ is given by $q_{eq2cam}(k)$ and the scope pointing is give by,
 
 $$q_{hor2scope}(k) = q_{hor2cam}(k) \; q_{cam2scope}$$
 
-We will use the PiFinder's camera frame as the reference because plate solving
-is done relative to the camera frame.
-
-The quaternion $q_{hor2cam}$ represents the orientation of the PiFinder camera
-relative to the Horizontal frame. Using the axis-angle interpretation, the axis
-points along the altaz of the camera center and rotated by the roll offset
-(explained above).
+We use the PiFinder's camera frame as the reference because plate solving is done relative to the
+camera frame. $q_{cam2scope}$ is the quaternion that represents the alignment offset between the
+PiFinder camera frame and the scope frame
 
 ### Alignment
 
-As already mentioned, the alignment of the PiFinder determines $q_{cam2scope}$
-and we assume that this is fixed.
+The alignment offset between the PiFinder camera frame and the
+scope frame is determined during alignment of the PiFinder with the scope and is assumed to be fixed. The goal of alignment is to determine the quaternion $q_{cam2scope}$.
 
-During alignment, plate solving gives the RA/Dec of the the camera frame
-pointing which can be used to estimate $q_{hor2cam}$ assuming a perfect altaz
-mount. The roll measurement by the camera could be used to determine the
-rotation of the camera frame around its $z_{cam}$ axis if the roll measurement
-is accurate enough. Otherwise the roll will need to be inferred assuming that
-the PiFinder is mounted upright.
+During alignment, the user user selects the target seen in the center the scope, which gives the (RA, Dec) of the scope pointing but not the roll. We can assume some arbitrary roll value (say roll = 0) and get $q_{eq2scope}$. At the same time, plate solving measures the (RA, Dec, Roll) at the camera center or $q_{eq2cam}$. We can express the relation by,
 
-At the same time, the user selects the target seen by the scope, which gives
-the RA/Dec of the scope pointing. We can use this to get a fix on
-$q_{hor2scope}$ (assuming a perfect altaz mount);
-
-$$q_{hor2scope}(k) = q_{hor2cam}(k) \; q_{cam2scope}$$
+$$q_{eq2scope} = q_{eq2cam} \; q_{cam2scope}$$
 
 Rearranging this gives,
 
-$$q_{cam2scope} = q_{hor2cam}^{-1}(k) \; q_{hor2scope}(k)$$
+$$q_{cam2scope} = q_{hor2cam}^{-1} \; q_{hor2scope}$$
 
 Note that for unit quaternions, we can also use the conjugate $q^*$ instead of
 $q^{-1}$, because the conjugate is slightly faster to compute.
 
-Some scopes and focusers can be rotated around its axis which also rotates the
-PiFinder with it. This would currently require a re-alignment.
+Roll returned by plate-solving is not relevant for pointing and it can be arbitrary but it is needed for full three degrees-of-freedom dead-reckoning by the IMU.
 
 ### Dead-reckoning
 
-Between plate solving, the IMU extrapolates the scope orientation by dead
-reckoning. Suppose that at the $k$ th time step, plate solves finds the camera
-pointing, $q_{hor2cam}(k)$. It can be related to the IMU measurement
-$q_{x2imu}(k)$ by,
-
-$$q_{hor2cam}(k) = q_{hor2x}(k) \; q_{x2imu}(k) \; q_{imu2cam}$$
-
-The IMU outputs its orientation $q_{x2imu}$ relative to a frame $X$ which is
-similar to the horizontal frame but drifts over time; in particular, it will
-predominantly drift by rotating around the $z_{hor}$ axis because the IMU with
-just accelerometer/gyro fusion has no means to determine the bearing.
-$q_{imu2cam}$ rotates the IMU frame to the scope frame. It depends on the
-PiFinder type and is assumed to be fixed. Because of small errors in the
-alignmet of the IMU relative to the camera, there will be errors that will not
-be captured by the preset $q_{imu2cam}$. This will introduce errors in the
-dead-reckoning.
-
-The drift $q_{hor2x}$ is unknown but it drifts slowly enough that we can assume
-that it will be constant between successive plate solves.
-
-$$q_{hor2x}(k) = q_{hor2cam}(k) \; q_{imu2cam}^{-1} \; q_{x2imu}^{-1}(k)$$
-
-In subsequent time steps, the drift, $q_{hor2x}(k)$, estimated in the last
-plate solve can be used. At time step $k+l$ without plate solving, the the
-camera pointing can be esimated by:
-
-$$\hat{q}_{hor2cam}(k+l) = q_{hor2x}(k) \; q_{x2imu}(k+l) \; q_{imu2cam}$$
-
-Where $\hat{q}_{hor2cam}$ represents an estimate of the camera pointing using
-dead-reckoning from the IMU. From this, we can make a dead-reckoning estimate
-of the scope pointing;
-
-$$q_{hor2scope}(k + l) = \hat{q}_{hor2cam}(k + l) \; q_{cam2scope}$$
-
-## Coordinate frame transformation using equatorial coordinates
-
-We can also use the equatorial frame as the reference, using (RA, Dec, Roll)
-from the PiFinder camera as the inputs without the need to convert to altaz
-coordinates.
-
-The pointing of the scope at time step `k` using IMU dead-reckoning is given by
+Between plate solving, the IMU extrapolates the scope orientation by dead reckoning. Suppose that we
+want to use the IMU measurement at time step $k$ to estimate the scope pointing;
 
 ```python
 q_eq2scope(k) = q_eq2cam(k-m) * q_cam2imu * q_x2imu(k-m).conj() * q_x2imu(k) * q_imu2cam * q_cam2scope
@@ -370,9 +322,9 @@ Where
 3. Note that the quaternion `q_x2imu(k-m).conj() * q_x2imu(k)` rotates the IMU
    body from the orientation in the last solve (at time step `k-m`) to to the
    current orientation (at time step `k`).
-4. `q_cam2imu = q_imu2cam.conj()` is the alignment of the IMU to the camera and
-depends on the PiFinder configuration. There will be some error in this which
-will propagate to the pointing error when using the IMU.
+4. `q_cam2imu = q_imu2cam.conj()` is the alignment of the IMU to the camera and depends on the
+PiFinder configuration. There will be some error due to mechanical tolerances which will propagate
+to the pointing error when using the IMU.
 
 We can pre-compute the first three terms after plate solving at time step
 `k-m`, which corresponds to the quaternion rotation from the `eq` frame to the
@@ -382,56 +334,26 @@ IMU's reference frame `x`.
 q_eq2x(k-m) = q_eq2cam(k-m) * q_cam2imu * q_x2imu(k-m).conj()
 ```
 
-## Next steps in the development
+## Potential future improvements
 
-The current implementation reproduces the existing functionality of the
-PiFinder. The phase are:
-
-1. Reproduce PiFinder functionality using quaternion transformaitons for altaz
-   mounts. [Done]
-2. Enable PiFinder to be mounted at any angle, not just upright.
-3. Extend to equatorial mount.
-4. Enable scopes to be rotated (i.e. rotate the PiFinder around the axis of the
-   scope).
-
-### Approach to support general PiFinder mounting angle 
-
-Currently, we do not use the roll measurement in the alignment of the PiFinder
-with the scope; $q_{cam2scope}$ only rotates in the alt/az directions. By using
-the roll measurement, we will also account for rotation of the PiFinder around
-the scope axis. This should (probably) enable the PiFinder to be mounted at any
-angle rotated around the scope axis.
-
-
-### Approach for equatorial mounts
-
-It should be possible to take a similar approach for an equatorial mounts.  
-
-One issue is that it's common to rotate EQ-mounteed scopes (particularly
-Newtoninans) around its axis so that the eyepiece is at a comfortable position.
-As mentioned in the alignment section, this would require a re-alignment. That
-would need to be resolved in a future step.
-
-#### Future improvements
-
-The next step would be to use a Kalman filter framework to estimate the
-pointing. Some of the benefits are:
+A potential next step could be to use a Kalman filter framework to estimate the pointing. Some of
+the benefits are:
 
 * Smoother, filtered pointing estimate. 
-* Improve the accuracy of the pointing estimate (possibly more beneficial when
-  using the PiFinder estimate to control driven mounts). 
+* Improves the accuracy of the pointing estimate. Accuracy may be more beneficial when using the
+  PiFinder estimate to control driven mounts. 
 * Potentially enable any generic IMU (with gyro and accelerometer) to be used
   without internal fusion FW, which tends to add to the BOM cost.
-* If required, could take fewer plate-solving frames by only triggering a plate
-solve when the uncertainty of the Kalman filter estimate based on IMU
-dead-reckoning exceeds some limit.
+* If required, could take fewer plate-solving frames by only triggering a plate solve when the
+uncertainty of the Kalman filter estimate based on IMU dead-reckoning exceeds some limit. This can
+reduce power consumption and allow for a cheaper, less powerful computing platform to be used.
 
-The accuracy improvement will come from the following sources:
+The accuracy improvement will likely come from the following sources:
 
 * Filtering benefits from the averaging effects of using multiple measurements. 
 * The Kalman filter will estimate the accelerometer and gyro bias online. The
 calibration will be done in conjunction with the plate-solved measurements so
 it will be better than an IMU-only calibration.
 * The orientation of the IMU to the camera frame, $q_{imu2cam}$, has errors
-because of alignment errors. The Kalman filter will calibrate for this online.
+because of mechanical tolerances. The Kalman filter will calibrate for this online.
 This will improve the accuracy and enable other non-standard form-factors.
