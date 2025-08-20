@@ -14,8 +14,6 @@ import numpy as np
 import quaternion  # Numpy quaternion
 from scipy.spatial.transform import Rotation
 
-from PiFinder import config
-
 logger = logging.getLogger("IMU.pi")
 
 QUEUE_LEN = 10
@@ -35,7 +33,6 @@ class Imu:
         # IMPLUS mode: Accelerometer + Gyro + Fusion data
         self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
         # self.sensor.mode = adafruit_bno055.NDOF_MODE
-        cfg = config.Config()
 
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
         self._flip_count = 0
