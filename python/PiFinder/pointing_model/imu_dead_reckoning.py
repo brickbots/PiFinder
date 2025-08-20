@@ -228,8 +228,7 @@ def get_screen_direction_q_imu2cam(screen_direction: str) -> np.quaternion:
         # NOTE: Need to check if the orientation of the camera is correct
         # Rotate +90° around z_imu to align with the camera cooridnates
         # (+y_cam is along -x_imu)
-        q2 = qt.axis_angle2quat([0, 0, 1], +np.pi / 2)
-        q_imu2cam = (q1 * q2).normalized()
+        q_imu2cam = qt.axis_angle2quat([0, 0, 1], +np.pi / 2)
     else:
         raise ValueError(f"Unsupported screen_direction: {screen_direction}")
 
