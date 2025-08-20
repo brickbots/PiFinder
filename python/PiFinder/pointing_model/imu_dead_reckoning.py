@@ -141,7 +141,7 @@ class ImuDeadReckoning:
 
             self.dead_reckoning = True
 
-    def get_cam_radec(self) -> tuple[float, float, float, bool]:
+    def get_cam_radec(self) -> tuple[float, float, float]:
         """
         Returns the (ra, dec, roll) of the camera and a Boolean dead_reckoning
         to indicate if the estimate is from dead-reckoning (True) or from plate
@@ -150,7 +150,7 @@ class ImuDeadReckoning:
         ra, dec, roll = qt.get_radec_of_q_eq(self.q_eq2cam)
         return ra, dec, roll  # Angles are in radians
 
-    def get_scope_radec(self) -> tuple[float, float, float, bool]:
+    def get_scope_radec(self) -> tuple[float, float, float]:
         """
         Returns the (ra, dec, roll) of the scope and a Boolean dead_reckoning
         to indicate if the estimate is from dead-reckoning (True) or from plate
