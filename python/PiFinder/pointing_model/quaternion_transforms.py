@@ -26,7 +26,7 @@ import quaternion
 from PiFinder.pointing_model.astro_coords import RaDecRoll
 
 
-def axis_angle2quat(axis, theta: float) -> np.quaternion:
+def axis_angle2quat(axis, theta: float) -> quaternion.quaternion:
     """
     Convert from axis-angle representation to a quaternion
 
@@ -38,10 +38,10 @@ def axis_angle2quat(axis, theta: float) -> np.quaternion:
     # Define the vector part of the quaternion
     v = np.array(axis) / np.linalg.norm(axis) * np.sin(theta / 2)
 
-    return np.quaternion(np.cos(theta / 2), v[0], v[1], v[2])
+    return quaternion.quaternion(np.cos(theta / 2), v[0], v[1], v[2])
 
 
-def get_quat_angular_diff(q1: np.quaternion, q2: np.quaternion) -> float:
+def get_quat_angular_diff(q1: quaternion.quaternion, q2: quaternion.quaternion) -> float:
     """
     Calculates the relative rotation between quaternions `q1` and `q2`.
     Accounts for the double-cover property of quaternions so that if q1 and q2
@@ -64,7 +64,7 @@ def get_quat_angular_diff(q1: np.quaternion, q2: np.quaternion) -> float:
 
 def get_q_eq2cam(
     ra_rad: float, dec_rad: float, roll_rad: float
-) -> np.quaternion:  # TODO: Rename to q_eq2frame?
+) -> quaternion.quaternion:  # TODO: Rename to q_eq2frame?
     """
     Express the coordinates of a camera pointing at RA, Dec, Roll (in radians)
     in the relative to the Equatorial frame.
@@ -86,19 +86,19 @@ def get_q_eq2cam(
     return q_eq2cam
 
 
-def get_radec_of_q_eq(q_eq2frame: np.quaternion) -> tuple[float, float, float]:
+def get_radec_of_q_eq(q_eq2frame: quaternion.quaternion) -> tuple[float, float, float]:
     """
     Returns the (ra, dec, roll) angles of the quaterion rotation relative to
     the equatorial frame.
     """
     # Pure quaternion along camera boresight
-    pz_frame = q_eq2frame * np.quaternion(0, 0, 0, 1) * q_eq2frame.conj()
+    pz_frame = q_eq2frame * quaternion.quaternion(0, 0, 0, 1) * q_eq2frame.conj()
     # Calculate RA, Dec from the camera boresight:
     dec = np.arcsin(pz_frame.z)
     ra = np.arctan2(pz_frame.y, pz_frame.x)
 
     # Pure quaternion along y_cam which points to NCP when roll = 0
-    py_cam = q_eq2frame * np.quaternion(0, 0, 1, 0) * q_eq2frame.conj()
+    py_cam = q_eq2frame * quaternion.quaternion(0, 0, 1, 0) * q_eq2frame.conj()
     # Local East and North vectors (roll is the angle between py_cam and the north vector)
     vec_east = np.array([-np.sin(ra), np.cos(ra), 0])
     vec_north = np.array(
@@ -109,7 +109,7 @@ def get_radec_of_q_eq(q_eq2frame: np.quaternion) -> tuple[float, float, float]:
     return ra, dec, roll  # In radians
 
 
-def get_q_scope2cam(target_eq: RaDecRoll, cam_eq: RaDecRoll) -> np.quaternion:
+def get_q_scope2cam(target_eq: RaDecRoll, cam_eq: RaDecRoll) -> quaternion.quaternion:
     """
     Returns the quaternion that rotates from the scope frame to the camera frame.
     TODO: Update?

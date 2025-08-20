@@ -41,17 +41,17 @@ class ImuDeadReckoning:
     """
 
     # Alignment:
-    q_scope2cam: np.quaternion  # TODO: Do we need this??
-    q_cam2scope: np.quaternion
+    q_scope2cam: quaternion.quaternion  # TODO: Do we need this??
+    q_cam2scope: quaternion.quaternion
     # IMU orientation:
-    q_imu2cam: np.quaternion
-    q_cam2imu: np.quaternion
+    q_imu2cam: quaternion.quaternion
+    q_cam2imu: quaternion.quaternion
     # Putting them together:
-    q_imu2scope: np.quaternion
+    q_imu2scope: quaternion.quaternion
 
     # The poinging of the camera and scope frames wrt the Equatorial frame.
     # These get updated by plate solving and IMU dead-reckoning.
-    q_eq2cam: np.quaternion
+    q_eq2cam: quaternion.quaternion
 
     # True when q_eq2cam is estimated by IMU dead-reckoning.
     # False when set by plate solving
@@ -60,14 +60,14 @@ class ImuDeadReckoning:
 
     # The IMU's unkonwn drifting reference frame X. This is solved for
     # every time we have a simultaneous plate solve and IMU measurement.
-    q_eq2x: np.quaternion = np.quaternion(np.nan)  # nan means not set
+    q_eq2x: quaternion.quaternion = quaternion.quaternion(np.nan)  # nan means not set
 
     def __init__(self, screen_direction: str):
         """ """
         # IMU-to-camera orientation. Fixed by PiFinder type
         self._set_screen_direction(screen_direction)
 
-    def set_alignment(self, q_scope2cam: np.quaternion):
+    def set_alignment(self, q_scope2cam: quaternion.quaternion):
         """
         Set the alignment between the PiFinder camera center and the scope
         pointing.
@@ -87,7 +87,7 @@ class ImuDeadReckoning:
         solved_cam_ra: float,
         solved_cam_dec: float,
         solved_cam_roll: float,
-        q_x2imu: np.quaternion,
+        q_x2imu: quaternion.quaternion,
     ):
         """
         Update the state with the az/alt measurements from plate solving in the
@@ -121,7 +121,7 @@ class ImuDeadReckoning:
             self.q_eq2x = self.q_eq2x.normalized()
             self.tracking = True  # We have a plate solve and IMU measurement
 
-    def update_imu(self, q_x2imu: np.quaternion):
+    def update_imu(self, q_x2imu: quaternion.quaternion):
         """
         Update the state with the raw IMU measurement. Does a dead-reckoning
         estimate of the camera and scope pointing.
@@ -175,7 +175,7 @@ class ImuDeadReckoning:
         self.q_cam2imu = self.q_imu2cam.conj()
 
 
-def get_screen_direction_q_imu2cam(screen_direction: str) -> np.quaternion:
+def get_screen_direction_q_imu2cam(screen_direction: str) -> quaternion.quaternion:
     """
     Returns the quaternion that rotates the IMU frame to the camera frame
     based on the screen direction.

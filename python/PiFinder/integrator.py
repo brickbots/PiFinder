@@ -27,9 +27,8 @@ import PiFinder.pointing_model.quaternion_transforms as qt
 logger = logging.getLogger("IMU.Integrator")
 
 # Constants:
-IMU_MOVED_ANG_THRESHOLD = np.deg2rad(
-    0.1
-)  # Use IMU tracking if the angle moved is above this
+# Use IMU tracking if the angle moved is above this
+IMU_MOVED_ANG_THRESHOLD = np.deg2rad(0.1)  
 
 
 def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=False):
@@ -41,9 +40,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
     logger.debug("Starting Integrator")
 
     try:
-        solved = (
-            get_initialized_solved_dict()
-        )  # Dict of RA, Dec, etc. initialized to None.
+        # Dict of RA, Dec, etc. initialized to None:
+        solved = (get_initialized_solved_dict())  
         cfg = config.Config()
 
         mount_type = cfg.get_option("mount_type")
@@ -138,7 +136,7 @@ def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dic
         # Successfully plate solved & camera pointing exists
         if solved["imu_quat"] is None:
             # TODO: This Do not run the rest of the code?
-            q_x2imu = np.quaternion(np.nan)
+            q_x2imu = quaternion.quaternion(np.nan)
         else:
             q_x2imu = solved["imu_quat"]  # IMU measurement at the time of plate solving
 
@@ -184,7 +182,7 @@ def update_imu(
     imu_dead_reckoning: ImuDeadReckoning,
     solved: dict,
     last_image_solve: dict,
-    imu: np.quaternion,
+    imu: quaternion.quaternion,
 ):
     """
     Updates the solved dictionary using IMU dead-reckoning from the last
@@ -194,8 +192,8 @@ def update_imu(
         return  # Need all of these to do IMU dead-reckoning
 
     assert isinstance(
-        imu["quat"], np.quaternion
-    ), "Expecting np.quaternion type"  # TODO: Can be removed later
+        imu["quat"], quaternion.quaternion
+    ), "Expecting quaternion.quaternion type"  # TODO: Can be removed later
 
     # When moving, switch to tracking using the IMU
     angle_moved = qt.get_quat_angular_diff(last_image_solve["imu_quat"], imu["quat"])
@@ -235,7 +233,11 @@ def update_imu(
 
 
 def get_roll_by_mount_type(
-    ra_deg: float, dec_deg: float, location, dt: datetime.datetime, mount_type: str
+    ra_deg: float, 
+    dec_deg: float, 
+    location, 
+    dt: datetime.datetime, 
+    mount_type: str
 ) -> float:
     """
     Returns the roll (in degrees) depending on the mount type so that the chart
