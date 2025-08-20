@@ -3,18 +3,20 @@
 """
 For testing the IMU: Not for use by PiFinder main loop.
 Prints the IMU measurements (based on imu_pi.py)
+
+TODO: Remove this in the future.
 """
 
 import time
 import board
 import adafruit_bno055
-#import logging
+# import logging
 
 from scipy.spatial.transform import Rotation
 
-#from PiFinder import config
+# from PiFinder import config
 
-#logger = logging.getLogger("IMU.pi")
+# logger = logging.getLogger("IMU.pi")
 
 QUEUE_LEN = 10
 MOVE_CHECK_LEN = 2
@@ -26,7 +28,7 @@ class ImuSimple:
         self.sensor = adafruit_bno055.BNO055_I2C(i2c)
         self.sensor.mode = adafruit_bno055.IMUPLUS_MODE
         # self.sensor.mode = adafruit_bno055.NDOF_MODE
-        
+
         # Unlike Imu(), we use the IMU's native orientation
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
         self._flip_count = 0
@@ -45,7 +47,7 @@ class ImuSimple:
         self.__moving_threshold = (0.0005, 0.0003)
 
     def quat_to_euler(self, quat):
-        """ 
+        """
         INPUTS:
         quat: Scalar last quaternion (x, y, z, w)
 
@@ -80,12 +82,12 @@ class ImuSimple:
         # Throw out non-calibrated data
         self.calibration = self.sensor.calibration_status[1]
         if self.calibration == 0:
-            #logger.warning("NOIMU CAL")
+            # logger.warning("NOIMU CAL")
             return True
         # adafruit_bno055 gives quaternion convention (w, x, y, z)
         quat = self.sensor.quaternion
         if quat[0] is None:
-            #logger.warning("IMU: Failed to get sensor values")
+            # logger.warning("IMU: Failed to get sensor values")
             return
 
         _quat_diff = []
@@ -134,11 +136,13 @@ class ImuSimple:
                 self.__moving = True
 
     def get_euler(self):
-        return list(self.quat_to_euler(self.avg_quat))  # !! Expect scalar-last but avg_quat is scalar-first??
+        return list(
+            self.quat_to_euler(self.avg_quat)
+        )  # !! Expect scalar-last but avg_quat is scalar-first??
 
 
 def imu_monitor():
-    #MultiprocLogging.configurer(log_queue)
+    # MultiprocLogging.configurer(log_queue)
     imu = ImuSimple()
     imu_calibrated = False
     imu_data = {
@@ -156,7 +160,7 @@ def imu_monitor():
         imu_data["status"] = imu.calibration
         if imu.moving():
             if not imu_data["moving"]:
-                #logger.debug("IMU: move start")
+                # logger.debug("IMU: move start")
                 imu_data["moving"] = True
                 imu_data["start_pos"] = imu_data["pos"]
                 imu_data["move_start"] = time.time()
@@ -168,7 +172,7 @@ def imu_monitor():
         else:
             if imu_data["moving"]:
                 # If we were moving and we now stopped
-                #logger.debug("IMU: move end")
+                # logger.debug("IMU: move end")
                 imu_data["moving"] = False
                 imu_data["pos"] = imu.get_euler()
                 imu_data["quat"] = imu.avg_quat
@@ -177,7 +181,7 @@ def imu_monitor():
         if not imu_calibrated:
             if imu_data["status"] == 3:
                 imu_calibrated = True
-                #console_queue.put("IMU: NDOF Calibrated!")
+                # console_queue.put("IMU: NDOF Calibrated!")
 
 
 if __name__ == "__main__":
