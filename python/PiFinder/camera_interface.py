@@ -13,9 +13,12 @@ import os
 import queue
 import time
 from PIL import Image
-from PiFinder import state_utils, utils
+import numpy as np
 from typing import Tuple
 import logging
+
+from PiFinder import state_utils, utils
+import PiFinder.pointing_model.quaternion_transforms as qt
 
 logger = logging.getLogger("Camera.Interface")
 
@@ -109,12 +112,23 @@ class CameraInterface:
                     imu_end = shared_state.imu()
 
                     # see if we moved during exposure
-                    reading_diff = 0
+                    pointing_diff = 0.0
+
+                    # TODO: REMOVE
+                    # if imu_start and imu_end:
+                    #    pointing_diff = (
+                    #        abs(imu_start["pos"][0] - imu_end["pos"][0])
+                    #        + abs(imu_start["pos"][1] - imu_end["pos"][1])
+                    #        + abs(imu_start["pos"][2] - imu_end["pos"][2])
+                    #    )
+
+                    # # Quaternion version
                     if imu_start and imu_end:
-                        reading_diff = (
-                            abs(imu_start["pos"][0] - imu_end["pos"][0])
-                            + abs(imu_start["pos"][1] - imu_end["pos"][1])
-                            + abs(imu_start["pos"][2] - imu_end["pos"][2])
+                        # Returns the pointing difference between successive IMU quaternions as
+                        # an angle (radians). Note that this also accounts for rotation around the
+                        # scope axis. Returns an angle in radians.
+                        pointing_diff = qt.get_quat_angular_diff(
+                            imu_start["quat"], imu_end["quat"]
                         )
 
                     camera_image.paste(base_image)
@@ -123,7 +137,7 @@ class CameraInterface:
                             "exposure_start": image_start_time,
                             "exposure_end": image_end_time,
                             "imu": imu_end,
-                            "imu_delta": reading_diff,
+                            "imu_delta": np.rad2deg(pointing_diff),  # TODO: Rename this
                         }
                     )
 
