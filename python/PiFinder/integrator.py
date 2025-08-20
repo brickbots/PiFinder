@@ -83,10 +83,16 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             if solved["RA"] and solved["solve_time"] > last_solve_time:
                 last_solve_time = time.time()
 
+                # Try to set date and time
+                location = shared_state.location()
+                dt = shared_state.datetime()
+                # Set location for roll and altaz calculations. TODO: Is it necessary to set location?
+                calc_utils.sf_utils.set_location(location.lat, location.lon, 
+                                                 location.altitude)
+
                 # Set the roll so that the chart is displayed appropriately for the mount type
-                solved["Roll"] \
-                    = get_roll_by_mount_type(shared_state, solved["RA"], 
-                                             solved["Dec"], mount_type)
+                solved["Roll"] = get_roll_by_mount_type(solved["RA"], solved["Dec"], 
+                                                        location, dt, mount_type)
 
                 # Update remaining solved keys
                 solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(
@@ -94,10 +100,9 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 )
                 
                 # Set Alt/Az because it's needed for the catalogs for the
-                # Alt/Az mount type:
+                # Alt/Az mount type. TODO: Can this be moved to the catalog?
                 dt = shared_state.datetime()  
-                if dt:
-                    # TODO: Is it ok to not set location? Check. Pass dt to get_roll_by_mount_type?
+                if location and dt:
                     solved["Alt"], solved["Az"] \
                         = calc_utils.sf_utils.radec_to_altaz(solved["RA"], solved["Dec"], dt)
                 
@@ -208,8 +213,8 @@ def update_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dict, last_image_so
         solved["solve_source"] = "IMU"
 
 
-def get_roll_by_mount_type(shared_state, ra_deg: float, dec_deg:float, 
-                           mount_type: str) -> float:
+def get_roll_by_mount_type(ra_deg: float, dec_deg:float, location, 
+                           dt: datetime.datetime, mount_type: str) -> float:
     """ 
     Returns the roll (in degrees) depending on the mount type so that the chart
     is displayed appropriately for the mount type. The RA and Dec of the target
@@ -218,21 +223,14 @@ def get_roll_by_mount_type(shared_state, ra_deg: float, dec_deg:float,
     * Alt/Az mount: Display the chart in the horizontal coordinate so the 
     * EQ mount: Display the chart in the equatorial coordinate system with the
       NCP up so roll = 0.
+
+    Assumes that location has already been set in calc_utils.sf_utils.
     """
     if mount_type == "Alt/Az":
-        # Altaz mounts: Display chart in horizontal coordinates
-        # Try to set date and time
-        location = shared_state.location()
-        dt = shared_state.datetime()
-
+        # Altaz mounts: Display chart in horizontal coordinates    
         if location and dt:
-            # We have location and time/date TODO: Is it necessary to set location?
-            calc_utils.sf_utils.set_location(
-                location.lat,
-                location.lon,
-                location.altitude,
-            )
-             # Find the roll at the target RA/Dec in the horizontal frame
+            # We have location and time/date (and assume that location has been set)
+            # Roll at the target RA/Dec in the horizontal frame
             roll_deg = calc_utils.sf_utils.radec_to_roll(ra_deg, dec_deg, dt)
         else:
             # No position or time/date available, so set roll to 0
