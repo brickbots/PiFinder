@@ -71,7 +71,7 @@ def get_initialized_solved_dict() -> dict:
             "RA": None,
             "Dec": None,
             "Roll": None,
-            "Alt": None,  # TODO: Remove Alt, Az keys later?
+            "Alt": None,  # NOTE: Altaz needed by catalogs for altaz mounts
             "Az": None,
         },
         "camera_solve": {  # camera_solve is NOT updated by IMU dead-reckoning  
