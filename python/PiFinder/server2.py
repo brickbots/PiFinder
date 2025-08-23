@@ -23,7 +23,8 @@ from flask import Flask, request, jsonify, send_file, redirect, session, make_re
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from babel import Locale
 from flask_babel import Babel, gettext, lazy_gettext, get_locale
-# import gettext
+
+from PiFinder import i18n 
 
 sys_utils = utils.get_sys_utils()
 
@@ -137,6 +138,10 @@ class Server2:
         
         # Configure Jinja2 environment for i18n
         app.jinja_env.add_extension('jinja2.ext.i18n')
+        
+        # Use PiFinder's global gettext function in templates
+        import builtins
+        app.jinja_env.globals['_'] = builtins._
         
         # # Create a simple gettext function for templates that works without translation files
         # def simple_gettext(text):
@@ -879,7 +884,7 @@ class Server2:
         def stream_logs():
             try:
                 position = int(request.args.get('position', 0))
-                log_file = "/home/pifinder/PiFinder_data/pifinder.log"
+                log_file = os.path.expanduser("~/PiFinder_data/pifinder.log")
 
                 try:
                     file_size = os.path.getsize(log_file)
@@ -958,7 +963,7 @@ class Server2:
                     
                 with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
                     # Add all log files
-                    log_dir = "/home/pifinder/PiFinder_data"
+                    log_dir = os.path.expanduser("~/PiFinder_data")
                     for filename in os.listdir(log_dir):
                         if filename.startswith("pifinder") and filename.endswith(
                             ".log"
@@ -994,7 +999,7 @@ class Server2:
             _backup_file = sys_utils.backup_userdata()
 
             # Assumes the standard backup location
-            return send_file("/home/pifinder/PiFinder_data/PiFinder_backup.zip", as_attachment=True)
+            return send_file(os.path.expanduser("~/PiFinder_data/PiFinder_backup.zip"), as_attachment=True)
 
         @app.route('/tools/restore', methods=['POST'])
         @auth_required
@@ -1002,10 +1007,10 @@ class Server2:
             sys_utils.remove_backup()
             backup_file = request.files.get('backup_file')
             if backup_file:
-                backup_file.save("/home/pifinder/PiFinder_data/PiFinder_backup.zip")
+                backup_file.save(os.path.expanduser("~/PiFinder_data/PiFinder_backup.zip"))
 
                 sys_utils.restore_userdata(
-                    "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
+                    os.path.expanduser("~/PiFinder_data/PiFinder_backup.zip")
                 )
 
             return app.jinja_env.get_template('restart_pifinder.html').render(

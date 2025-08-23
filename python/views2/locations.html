@@ -527,6 +527,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Set up decimal field validation by default
         setupDecimalValidation(id);
+        
+        // Trigger initial validation for all fields to show required field hints
+        Object.entries(fields).forEach(([fieldName, field]) => {
+            if (field) {
+                field.dataset.hasInteracted = 'true';
+                updateFieldValidation(field, fieldName, id);
+            }
+        });
+        
         checkFields(id);
     });
 });
