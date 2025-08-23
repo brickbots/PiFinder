@@ -19,8 +19,17 @@ from PiFinder.equipment import Telescope, Eyepiece
 from PiFinder.keyboard_interface import KeyboardInterface
 
 from flask import Flask, request, jsonify, send_file, redirect, session, make_response
-from flask_babel import gettext
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+from babel import Locale
+from flask_babel import Babel, gettext, lazy_gettext, get_locale
 
+from PiFinder import i18n  # noqa: F401
+
+
+from flask import Flask, request, jsonify, send_file, redirect, session, make_response
+from flask_babel import Babel, gettext
+
+        
 
 sys_utils = utils.get_sys_utils()
 
@@ -129,6 +138,9 @@ class Server2:
         logger.info(f"Flask app created successfully: {app}")
         logger.info(f"Template folder: {app.template_folder}")
         
+        # Setup Babel for i18n
+        babel = Babel(app, locale_selector=server2_locale) # noqa: F401
+
         # Configure Jinja2 environment for i18n
         app.jinja_env.add_extension('jinja2.ext.i18n')
         
