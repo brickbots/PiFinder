@@ -233,7 +233,11 @@ def update_imu(
 
 
 def get_roll_by_mount_type(
-    ra_deg: float, dec_deg: float, location, dt: datetime.datetime, mount_type: str
+    ra_deg: float, 
+    dec_deg: float, 
+    location, 
+    dt: datetime.datetime, 
+    mount_type: str
 ) -> float:
     """
     Returns the roll (in degrees) depending on the mount type so that the chart

@@ -20,13 +20,15 @@ class RaDecRoll:
 
     NOTE: All angles are in radians.
     """
-
     ra: float = np.nan
     dec: float = np.nan
     roll: float = np.nan
 
     def set(
-        self, ra: Union[float, None], dec: Union[float, None], roll: Union[float, None]
+        self, 
+        ra: Union[float, None], 
+        dec: Union[float, None], 
+        roll: Union[float, None]
     ):
         """ """
         self.ra = ra if ra is not None else np.nan
