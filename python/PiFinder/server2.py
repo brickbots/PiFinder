@@ -17,14 +17,10 @@ from PiFinder.db.observations_db import (
 )
 from PiFinder.equipment import Telescope, Eyepiece
 from PiFinder.keyboard_interface import KeyboardInterface
-from PiFinder.multiproclogging import MultiprocLogging
 
 from flask import Flask, request, jsonify, send_file, redirect, session, make_response
-from jinja2 import Environment, FileSystemLoader, select_autoescape
-from babel import Locale
-from flask_babel import Babel, gettext, lazy_gettext, get_locale
+from flask_babel import gettext
 
-from PiFinder import i18n 
 
 sys_utils = utils.get_sys_utils()
 
@@ -132,9 +128,6 @@ class Server2:
         app.config['DEBUG'] = True
         logger.info(f"Flask app created successfully: {app}")
         logger.info(f"Template folder: {app.template_folder}")
-        
-        # Setup Babel for i18n
-        babel = Babel(app, locale_selector=server2_locale)
         
         # Configure Jinja2 environment for i18n
         app.jinja_env.add_extension('jinja2.ext.i18n')
@@ -1146,7 +1139,7 @@ if __name__ == "__main__":
     
     # Override the default port behavior for command line usage
     try:
-        logger.info(f"Starting web server.")
+        logger.info("Starting web server.")
         server.run()
     except KeyboardInterrupt:
         logger.info("Server stopped by user")
