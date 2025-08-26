@@ -7,17 +7,27 @@ README: IMU support prototyping
 
 >Remove this before release!
 
-* Done: Support other PiFinder types
-* Use RaDecRoll class 
-* Type hints for integrator.py
-* Lint using Nox
-* Done: Adjust Roll depending on mount_type for charts
+Issues:
+* Doesn't run wih v3 Flat. Issue in main branch?
+* Issue in requirements? Can't get it to work in a new env.
+* Doesn't pass Nox
+* In EQ mode flickers between 0° and 359°. This is also in the main branch.
+
+TODO:
+* Use RaDecRoll class --> Done. Need to test.
 * Use alignment rather than calculating every loop
-* Go through TODOs
+* Go through TODOs in code
 * Discuss requirements.txt with Richard
 
 Later:
 * Update imu_pi.py
+
+Done:
+* Support other PiFinder types
+* Adjust Roll depending on mount_type for charts
+* Lint
+* Type hints for integrator.py
+
 
 # Sky test log
 
