@@ -23,6 +23,7 @@ necessary.
 import numpy as np
 import quaternion
 
+
 def axis_angle2quat(axis, theta: float) -> quaternion.quaternion:
     """
     Convert from axis-angle representation to a quaternion
@@ -39,8 +40,7 @@ def axis_angle2quat(axis, theta: float) -> quaternion.quaternion:
 
 
 def get_quat_angular_diff(
-    q1: quaternion.quaternion,
-    q2: quaternion.quaternion
+    q1: quaternion.quaternion, q2: quaternion.quaternion
 ) -> float:
     """
     Calculates the relative rotation between quaternions `q1` and `q2`.
@@ -60,6 +60,7 @@ def get_quat_angular_diff(
 
 
 # ========== Equatorial frame functions ============================
+
 
 # TODO: Rename to get_q_eq2frame?
 def get_q_eq2cam(
@@ -107,6 +108,7 @@ def get_radec_of_q_eq(q_eq2frame: quaternion.quaternion) -> tuple[float, float, 
     roll = -np.arctan2(np.dot(py_cam.vec, vec_east), np.dot(py_cam.vec, vec_north))
 
     return ra, dec, roll  # In radians
+
 
 """
 def get_q_scope2cam(target_eq: RaDecRoll, cam_eq: RaDecRoll) -> quaternion.quaternion:

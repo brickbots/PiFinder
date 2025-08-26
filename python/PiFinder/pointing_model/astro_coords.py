@@ -15,7 +15,7 @@ class RaDecRoll:
     """
     Data class for equatorial coordinates defined by (RA, Dec, Roll). This
     makes it easier to convert between radians and degrees.
-    
+
     The set methods allow values to be float or None but internally, None will
     be stored as np.nan so that the type is consistent. the get methods will
     return None if the value is np.nan.
@@ -24,25 +24,23 @@ class RaDecRoll:
 
     NOTE: All angles are in radians.
     """
+
     ra: float = np.nan
     dec: float = np.nan
     roll: float = np.nan
     is_set = False
 
     def reset(self):
-        """ Reset to unset state """
+        """Reset to unset state"""
         self.ra = np.nan
         self.dec = np.nan
         self.roll = np.nan
-        self.is_set = False       
+        self.is_set = False
 
     def set(
-        self, 
-        ra: Union[float, None], 
-        dec: Union[float, None], 
-        roll: Union[float, None]
+        self, ra: Union[float, None], dec: Union[float, None], roll: Union[float, None]
     ):
-        """ Set using radians """
+        """Set using radians"""
         self.ra = ra if ra is not None else np.nan
         self.dec = dec if dec is not None else np.nan
         self.roll = roll if roll is not None else np.nan
@@ -54,7 +52,7 @@ class RaDecRoll:
         dec_deg: Union[float, None],
         roll_deg: Union[float, None],
     ):
-        """ Set using degrees """
+        """Set using degrees"""
         ra = np.deg2rad(ra_deg) if ra_deg is not None else np.nan
         dec = np.deg2rad(dec_deg) if dec_deg is not None else np.nan
         roll = np.deg2rad(roll_deg) if roll_deg is not None else np.nan
@@ -62,12 +60,14 @@ class RaDecRoll:
         self.set(ra, dec, roll)
 
     def set_from_quaternion(self, q_eq: quaternion.quaternion):
-        """ Set from a quaternion rotation relative to the Equatorial frame """
+        """Set from a quaternion rotation relative to the Equatorial frame"""
         ra, dec, roll = qt.get_radec_of_q_eq(q_eq)
-        self.set(ra, dec, roll) 
+        self.set(ra, dec, roll)
 
-    def get(self, use_none=False) -> tuple[Union[float, None], Union[float, None], Union[float, None]]:
-        """ 
+    def get(
+        self, use_none=False
+    ) -> tuple[Union[float, None], Union[float, None], Union[float, None]]:
+        """
         Returns (ra, dec, roll) in radians.  If use_none is True, returns None
         for any unset (nan) values.
         """
@@ -80,8 +80,10 @@ class RaDecRoll:
 
         return ra, dec, roll
 
-    def get_deg(self, use_none=False) -> tuple[Union[float, None], Union[float, None], Union[float, None]]:
-        """ 
+    def get_deg(
+        self, use_none=False
+    ) -> tuple[Union[float, None], Union[float, None], Union[float, None]]:
+        """
         Returns (ra, dec, roll) in degrees. If use_none is True, returns None
         for any unset (nan) values.
         """
@@ -89,8 +91,12 @@ class RaDecRoll:
             ra = np.rad2deg(self.ra) if not np.isnan(self.ra) else None
             dec = np.rad2deg(self.dec) if not np.isnan(self.dec) else None
             roll = np.rad2deg(self.roll) if not np.isnan(self.roll) else None
-        else:     
-            ra, dec, roll = np.rad2deg(self.ra), np.rad2deg(self.dec), np.rad2deg(self.roll)
+        else:
+            ra, dec, roll = (
+                np.rad2deg(self.ra),
+                np.rad2deg(self.dec),
+                np.rad2deg(self.roll),
+            )
 
         return ra, dec, roll
 

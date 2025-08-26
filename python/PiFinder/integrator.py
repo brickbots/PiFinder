@@ -143,9 +143,11 @@ def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dic
 
         # Update:
         solved_cam = RaDecRoll()
-        solved_cam.set_from_deg(solved["camera_center"]["RA"], 
-                                solved["camera_center"]["Dec"], 
-                                solved["camera_center"]["Roll"])
+        solved_cam.set_from_deg(
+            solved["camera_center"]["RA"],
+            solved["camera_center"]["Dec"],
+            solved["camera_center"]["Roll"],
+        )
         imu_dead_reckoning.update_plate_solve_and_imu(solved_cam, q_x2imu)
 
         # Set alignment. TODO: Do this once at alignment. Move out of here.
@@ -159,9 +161,11 @@ def set_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     """
     # RA, Dec of camera center::
     solved_cam = RaDecRoll()
-    solved_cam.set_from_deg(solved["camera_center"]["RA"], 
-                            solved["camera_center"]["Dec"], 
-                            solved["camera_center"]["Roll"])    
+    solved_cam.set_from_deg(
+        solved["camera_center"]["RA"],
+        solved["camera_center"]["Dec"],
+        solved["camera_center"]["Roll"],
+    )
 
     # RA, Dec of target (where scope is pointing):
     solved["Roll"] = 0  # TODO: Target roll isn't calculated by Tetra3. Set to zero here
@@ -210,8 +214,8 @@ def update_imu(
 
         # Store current camera pointing estimate:
         cam_eq = imu_dead_reckoning.get_cam_radec()
-        solved["camera_center"]["RA"], 
-        solved["camera_center"]["Dec"], 
+        (solved["camera_center"]["RA"],)
+        (solved["camera_center"]["Dec"],)
         solved["camera_center"]["Roll"] = cam_eq.get_deg(use_none=True)
 
         # Store the current scope pointing estimate
@@ -230,11 +234,7 @@ def update_imu(
 
 
 def get_roll_by_mount_type(
-    ra_deg: float, 
-    dec_deg: float, 
-    location, 
-    dt: datetime.datetime, 
-    mount_type: str
+    ra_deg: float, dec_deg: float, location, dt: datetime.datetime, mount_type: str
 ) -> float:
     """
     Returns the roll (in degrees) depending on the mount type so that the chart
