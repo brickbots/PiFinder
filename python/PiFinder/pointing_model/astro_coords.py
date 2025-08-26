@@ -26,8 +26,8 @@ class RaDecRoll:
     roll: float = np.nan
     is_set = False
 
-    def initialize(self):
-        """ Initializes to unset state """
+    def reset(self):
+        """ Reset to unset state """
         self.ra = np.nan
         self.dec = np.nan
         self.roll = np.nan
@@ -72,12 +72,12 @@ class RaDecRoll:
 
         return ra, dec, roll
 
-    def get_deg(self, reurn_none=False) -> tuple[Union[float, None], Union[float, None], Union[float, None]]:
+    def get_deg(self, use_none=False) -> tuple[Union[float, None], Union[float, None], Union[float, None]]:
         """ 
         Returns (ra, dec, roll) in degrees. If use_none is True, returns None
         for any unset (nan) values.
         """
-        if reurn_none:
+        if use_none:
             ra = np.rad2deg(self.ra) if not np.isnan(self.ra) else None
             dec = np.rad2deg(self.dec) if not np.isnan(self.dec) else None
             roll = np.rad2deg(self.roll) if not np.isnan(self.roll) else None
