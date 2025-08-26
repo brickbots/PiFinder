@@ -64,7 +64,7 @@ def get_quat_angular_diff(
 
 # ========== Equatorial frame functions ============================
 
-
+# TODO: Rename to get_q_eq2frame?
 def get_q_eq2cam(
     ra_rad: float, dec_rad: float, roll_rad: float
 ) -> quaternion.quaternion:  # TODO: Rename to q_eq2frame?
@@ -122,6 +122,6 @@ def get_q_scope2cam(target_eq: RaDecRoll, cam_eq: RaDecRoll) -> quaternion.quate
         target_eq.ra, target_eq.dec, target_eq.roll
     )  # This assumes an EQ mount - We don't know the roll of the scope frame
     q_scope2cam = q_eq2scope.conj() * q_eq2cam
-    NotImplementedError  # Needs more workk
+    NotImplementedError  # TODO: Needs more work
 
     return q_scope2cam
