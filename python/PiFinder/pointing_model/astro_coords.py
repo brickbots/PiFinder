@@ -4,7 +4,10 @@ Various astronomical coordinates functions
 
 from dataclasses import dataclass
 import numpy as np
+import quaternion
 from typing import Union  # When updated to Python 3.10+, remove and use new type hints
+
+import PiFinder.pointing_model.quaternion_transforms as qt
 
 
 @dataclass
@@ -57,6 +60,11 @@ class RaDecRoll:
         roll = np.deg2rad(roll_deg) if roll_deg is not None else np.nan
 
         self.set(ra, dec, roll)
+
+    def set_from_quaternion(self, q_eq: quaternion.quaternion):
+        """ Set from a quaternion rotation relative to the Equatorial frame """
+        ra, dec, roll = qt.get_radec_of_q_eq(q_eq)
+        self.set(ra, dec, roll) 
 
     def get(self, use_none=False) -> tuple[Union[float, None], Union[float, None], Union[float, None]]:
         """ 
