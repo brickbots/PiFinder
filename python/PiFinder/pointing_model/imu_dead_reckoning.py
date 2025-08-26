@@ -10,6 +10,7 @@ NOTE: All angles are in radians.
 import numpy as np
 import quaternion
 
+from PiFinder.pointing_model.astro_coords import RaDecRoll
 import PiFinder.pointing_model.quaternion_transforms as qt
 
 
@@ -56,7 +57,7 @@ class ImuDeadReckoning:
     # True when q_eq2cam is estimated by IMU dead-reckoning.
     # False when set by plate solving
     dead_reckoning: bool = False
-    tracking: bool = False  # True when previous plate solve exists and tracking
+    tracking: bool = False  # True when previous plate solve exists and is tracking
 
     # The IMU's unkonwn drifting reference frame X. This is solved for
     # every time we have a simultaneous plate solve and IMU measurement.
@@ -84,9 +85,7 @@ class ImuDeadReckoning:
 
     def update_plate_solve_and_imu(
         self,
-        solved_cam_ra: float,
-        solved_cam_dec: float,
-        solved_cam_roll: float,
+        solved_cam: RaDecRoll,
         q_x2imu: quaternion.quaternion,
     ):
         """
@@ -95,22 +94,19 @@ class ImuDeadReckoning:
         time) is available, q_x2imu (the unknown drifting reference frame) will
         be solved for.
 
-        INPUTS: TODO: Update these
-        solved_cam_az: [rad] Azimuth of the camera pointing from plate solving.
-        solved_cam_alt: [rad] Alt of the camera pointing from plate solving.
-        solved_cam_roll_offset: [rad] Roll offset of the camera frame +y ("up")
-            relative to the pole.
+        INPUTS:
+        solved_cam: RA/Dec/Roll of the camera pointing from plate solving.
         q_x2imu: [quaternion] Raw IMU measurement quaternions. This is the IMU
             frame orientation wrt unknown drifting reference frame X.
         """
-        if np.isnan(solved_cam_ra) or np.isnan(solved_cam_dec):
+        if not solved_cam.is_set:
             return  # No update
 
         # Update plate-solved coord: Camera frame relative to the Equatorial
         # frame where the +y camera frame (i.e. "up") points to the North
         # Celestial Pole (NCP) -- i.e. zero roll offset:
-        self.q_eq2cam = qt.get_q_eq2cam(solved_cam_ra, solved_cam_dec, solved_cam_roll)
-        self.dead_reckoning = False
+        self.q_eq2cam = qt.get_q_eq2cam(solved_cam.ra, solved_cam.dec, solved_cam.roll)
+        self.dead_reckoning = False  # Using plate solve, no dead_reckoning
 
         # Update IMU: Calculate the IMU's unknown reference frame X using the
         # plate solved coordinates and IMU measurements taken from the same
@@ -141,23 +137,27 @@ class ImuDeadReckoning:
 
             self.dead_reckoning = True
 
-    def get_cam_radec(self) -> tuple[float, float, float]:
+    def get_cam_radec(self) -> RaDecRoll:
         """
-        Returns the (ra, dec, roll) of the camera and a Boolean dead_reckoning
-        to indicate if the estimate is from dead-reckoning (True) or from plate
-        solving (False).
+        Returns the (ra, dec, roll) of the camera centre and a Boolean
+        dead_reckoning to indicate if the estimate is from dead-reckoning
+        (True) or from plate solving (False).
         """
-        ra, dec, roll = qt.get_radec_of_q_eq(self.q_eq2cam)
-        return ra, dec, roll  # Angles are in radians
+        ra_dec_roll = RaDecRoll()
+        ra_dec_roll.set_from_quaternion(self.q_eq2cam)
 
-    def get_scope_radec(self) -> tuple[float, float, float]:
+        return ra_dec_roll
+
+    def get_scope_radec(self) -> RaDecRoll:
         """
         Returns the (ra, dec, roll) of the scope and a Boolean dead_reckoning
         to indicate if the estimate is from dead-reckoning (True) or from plate
         solving (False).
         """
-        ra, dec, roll = qt.get_radec_of_q_eq(self.q_eq2scope)
-        return ra, dec, roll  # Angles are in radians
+        ra_dec_roll = RaDecRoll()
+        ra_dec_roll.set_from_quaternion(self.q_eq2scope)
+
+        return ra_dec_roll
 
     def reset(self):
         """
@@ -222,7 +222,7 @@ def get_screen_direction_q_imu2cam(screen_direction: str) -> quaternion.quaterni
         # Rotate -90° around z_imu' to align with the camera cooridnates
         q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
         q_imu2cam = (q1 * q2).normalized()
-    elif screen_direction == "as_dream":
+    elif screen_direction == "as_dream":  # TODO: Propose o rename to "back"?
         # As Dream:
         # Camera points back up from the screen
         # NOTE: Need to check if the orientation of the camera is correct

@@ -19,7 +19,7 @@ from PiFinder import config
 from PiFinder import state_utils
 import PiFinder.calc_utils as calc_utils
 from PiFinder.multiproclogging import MultiprocLogging
-from PiFinder.pointing_model.astro_coords import get_initialized_solved_dict
+from PiFinder.pointing_model.astro_coords import get_initialized_solved_dict, RaDecRoll
 from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
 import PiFinder.pointing_model.quaternion_transforms as qt
 
@@ -89,6 +89,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 location = shared_state.location()
                 dt = shared_state.datetime()
                 # Set location for roll and altaz calculations. TODO: Is it necessary to set location?
+                # TODO: Altaz doesn't seem to be required for catalogs when in EQ mode? Could be disabled in future when in EQ mode?
                 calc_utils.sf_utils.set_location(
                     location.lat, location.lon, location.altitude
                 )
@@ -140,15 +141,12 @@ def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dic
         else:
             q_x2imu = solved["imu_quat"]  # IMU measurement at the time of plate solving
 
-        # Convert to radians:
-        solved_cam_ra = np.deg2rad(solved["camera_center"]["RA"])
-        solved_cam_dec = np.deg2rad(solved["camera_center"]["Dec"])
-        solved_cam_roll = np.deg2rad(solved["camera_center"]["Roll"])
-
         # Update:
-        imu_dead_reckoning.update_plate_solve_and_imu(
-            solved_cam_ra, solved_cam_dec, solved_cam_roll, q_x2imu
-        )
+        solved_cam = RaDecRoll()
+        solved_cam.set_from_deg(solved["camera_center"]["RA"], 
+                                solved["camera_center"]["Dec"], 
+                                solved["camera_center"]["Roll"])
+        imu_dead_reckoning.update_plate_solve_and_imu(solved_cam, q_x2imu)
 
         # Set alignment. TODO: Do this once at alignment. Move out of here.
         set_alignment(imu_dead_reckoning, solved)
@@ -159,19 +157,20 @@ def set_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     Set alignment.
     TODO: Do this once at alignment
     """
-    # Convert to radians:
-    solved_cam_ra = np.deg2rad(solved["camera_center"]["RA"])
-    solved_cam_dec = np.deg2rad(solved["camera_center"]["Dec"])
-    solved_cam_roll = np.deg2rad(solved["camera_center"]["Roll"])
-    # Convert to radians:
-    target_ra = np.deg2rad(solved["RA"])
-    target_dec = np.deg2rad(solved["Dec"])
+    # RA, Dec of camera center::
+    solved_cam = RaDecRoll()
+    solved_cam.set_from_deg(solved["camera_center"]["RA"], 
+                            solved["camera_center"]["Dec"], 
+                            solved["camera_center"]["Roll"])    
+
+    # RA, Dec of target (where scope is pointing):
     solved["Roll"] = 0  # TODO: Target roll isn't calculated by Tetra3. Set to zero here
-    target_roll = np.deg2rad(solved["Roll"])
+    solved_scope = RaDecRoll()
+    solved_scope.set_from_deg(solved["RA"], solved["Dec"], solved["Roll"])
 
     # Calculate q_scope2cam (alignment)
-    q_eq2cam = qt.get_q_eq2cam(solved_cam_ra, solved_cam_dec, solved_cam_roll)
-    q_eq2scope = qt.get_q_eq2cam(target_ra, target_dec, target_roll)
+    q_eq2cam = qt.get_q_eq2cam(solved_cam.ra, solved_cam.dec, solved_cam.roll)
+    q_eq2scope = qt.get_q_eq2cam(solved_scope.ra, solved_scope.dec, solved_scope.roll)
     q_scope2cam = q_eq2scope.conjugate() * q_eq2cam
 
     # Set alignment in imu_dead_reckoning
@@ -210,16 +209,14 @@ def update_imu(
         imu_dead_reckoning.update_imu(imu["quat"])  # Latest IMU meas
 
         # Store current camera pointing estimate:
-        ra_cam, dec_cam, roll_cam = imu_dead_reckoning.get_cam_radec()
-        solved["camera_center"]["RA"] = np.rad2deg(ra_cam)
-        solved["camera_center"]["Dec"] = np.rad2deg(dec_cam)
-        solved["camera_center"]["Roll"] = np.rad2deg(roll_cam)
+        cam_eq = imu_dead_reckoning.get_cam_radec()
+        solved["camera_center"]["RA"], 
+        solved["camera_center"]["Dec"], 
+        solved["camera_center"]["Roll"] = cam_eq.get_deg(use_none=True)
 
         # Store the current scope pointing estimate
-        ra_target, dec_target, roll_target = imu_dead_reckoning.get_scope_radec()
-        solved["RA"] = np.rad2deg(ra_target)
-        solved["Dec"] = np.rad2deg(dec_target)
-        solved["Roll"] = np.rad2deg(roll_target)
+        target_eq = imu_dead_reckoning.get_scope_radec()
+        solved["RA"], solved["Dec"], solved["Roll"] = target_eq.get_deg(use_none=True)
 
         q_x2imu = imu["quat"]
         logger.debug(
