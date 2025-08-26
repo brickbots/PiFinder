@@ -23,9 +23,6 @@ necessary.
 import numpy as np
 import quaternion
 
-from PiFinder.pointing_model.astro_coords import RaDecRoll
-
-
 def axis_angle2quat(axis, theta: float) -> quaternion.quaternion:
     """
     Convert from axis-angle representation to a quaternion
@@ -111,12 +108,12 @@ def get_radec_of_q_eq(q_eq2frame: quaternion.quaternion) -> tuple[float, float, 
 
     return ra, dec, roll  # In radians
 
-
+"""
 def get_q_scope2cam(target_eq: RaDecRoll, cam_eq: RaDecRoll) -> quaternion.quaternion:
-    """
-    Returns the quaternion that rotates from the scope frame to the camera frame.
-    TODO: Update?
-    """
+    #Returns the quaternion that rotates from the scope frame to the camera frame.
+    #TODO: Update?
+    # TODO: Cannot use RaDecRoll here because it'll cause a circular import
+    
     q_eq2cam = get_q_eq2cam(cam_eq.ra, cam_eq.dec, cam_eq.roll)
     q_eq2scope = get_q_eq2cam(
         target_eq.ra, target_eq.dec, target_eq.roll
@@ -125,3 +122,4 @@ def get_q_scope2cam(target_eq: RaDecRoll, cam_eq: RaDecRoll) -> quaternion.quate
     NotImplementedError  # TODO: Needs more work
 
     return q_scope2cam
+"""
