@@ -288,6 +288,8 @@ def main(
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness, cfg)
+    if cfg.get_option("screen_direction") == "as_dream":
+        display_device.device.rotate = 3
 
     # Set user interface language
     lang = cfg.get_option("language", "en")
@@ -336,10 +338,14 @@ def main(
         console.write("   Keyboard")
         logger.info("   Keyboard")
         console.update()
+        if cfg.get_option("screen_direction") == "as_dream":
+            dream_key_remap = True
+        else:
+            dream_key_remap = False
         keyboard_process = Process(
             name="Keyboard",
             target=keyboard.run_keyboard,
-            args=(keyboard_queue, shared_state, keyboard_logqueue),
+            args=(keyboard_queue, shared_state, keyboard_logqueue, dream_key_remap),
         )
         keyboard_process.start()
         if script_name:
@@ -493,10 +499,11 @@ def main(
 
                 # GPS
                 try:
-                    gps_msg, gps_content = gps_queue.get(block=False)
-                    if gps_msg == "fix":
-                        if gps_content["lat"] + gps_content["lon"] != 0:
-                            location = shared_state.location()
+                    while True:  # Consume from gps_queue until empty
+                        gps_msg, gps_content = gps_queue.get(block=False)
+                        if gps_msg == "fix":
+                            if gps_content["lat"] + gps_content["lon"] != 0:
+                                location = shared_state.location()
 
                             # Only update GPS fixes, as soon as it's loaded or comes from the WEB it's untouchable
                             if (
@@ -524,35 +531,37 @@ def main(
                                 if "lock_type" in gps_content:
                                     location.lock_type = gps_content["lock_type"]
 
-                                dt = shared_state.datetime()
-                                if dt is None:
-                                    location.last_gps_lock = "--"
-                                else:
-                                    location.last_gps_lock = dt.time().isoformat()[:8]
-                                console.write(
-                                    f"GPS: Location {location.lat} {location.lon} {location.altitude} {location.error_in_m}"
-                                )
-                                shared_state.set_location(location)
-                                sf_utils.set_location(
-                                    location.lat,
-                                    location.lon,
-                                    location.altitude,
-                                )
-                    if gps_msg == "time":
-                        if isinstance(gps_content, datetime.datetime):
-                            gps_dt = gps_content
-                        else:
-                            gps_dt = gps_content["time"]
-                        shared_state.set_datetime(gps_dt)
-                        if log_time:
-                            logger.info("GPS Time (logged only once): %s", gps_dt)
-                            log_time = False
-                    if gps_msg == "reset":
-                        location.reset()
-                        shared_state.set_location(location)
-                    if gps_msg == "satellites":
-                        logger.debug("Main: GPS nr sats seen: %s", gps_content)
-                        shared_state.set_sats(gps_content)
+                                    dt = shared_state.datetime()
+                                    if dt is None:
+                                        location.last_gps_lock = "--"
+                                    else:
+                                        location.last_gps_lock = dt.time().isoformat()[
+                                            :8
+                                        ]
+                                    console.write(
+                                        f"GPS: Location {location.lat} {location.lon} {location.altitude} {location.error_in_m}"
+                                    )
+                                    shared_state.set_location(location)
+                                    sf_utils.set_location(
+                                        location.lat,
+                                        location.lon,
+                                        location.altitude,
+                                    )
+                        if gps_msg == "time":
+                            if isinstance(gps_content, datetime.datetime):
+                                gps_dt = gps_content
+                            else:
+                                gps_dt = gps_content["time"]
+                            shared_state.set_datetime(gps_dt)
+                            if log_time:
+                                logger.info("GPS Time (logged only once): %s", gps_dt)
+                                log_time = False
+                        if gps_msg == "reset":
+                            location.reset()
+                            shared_state.set_location(location)
+                        if gps_msg == "satellites":
+                            # logger.debug("Main: GPS nr sats seen: %s", gps_content)
+                            shared_state.set_sats(gps_content)
                 except queue.Empty:
                     pass
 
@@ -568,11 +577,11 @@ def main(
                 elif ui_command == "reload_config":
                     cfg.load_config()
                 elif ui_command == "test_mode":
-                    dt = datetime.datetime(2024, 6, 1, 2, 0, 0)
+                    dt = datetime.datetime(2025, 6, 28, 11, 0, 0)
                     shared_state.set_datetime(dt)
-                    location.lat = 35.00
-                    location.lon = -118.00
-                    location.altitude = 10
+                    location.lat = 41.13
+                    location.lon = -120.97
+                    location.altitude = 1315
                     location.source = "test"
                     location.error_in_m = 5
                     location.lock = True

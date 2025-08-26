@@ -212,7 +212,7 @@ class UIObjectList(UITextMenu):
                     )
                 self.nearby.set_items(self._menu_items)
                 self.nearby_refresh()
-                self._current_item_index = 3
+                self._current_item_index = 0
 
         if self.current_sort == SortOrder.CATALOG_SEQUENCE:
             self._menu_items_sorted = self._menu_items
