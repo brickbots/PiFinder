@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-08-23 16:05+0200\n"
+"POT-Creation-Date: 2025-08-28 08:30+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: Jens Scheidtmann\n"
 "Language: de_DE\n"
@@ -104,11 +104,11 @@ msgstr "Gesperrt"
 msgid "Not Locked"
 msgstr "Nicht gesperrt"
 
-#: PiFinder/server2.py:227
+#: PiFinder/server2.py:227 views2/base.html:17 views2/base.html:28
 msgid "Home"
 msgstr "Home"
 
-#: PiFinder/server2.py:252 PiFinder/server2.py:259
+#: PiFinder/server2.py:252 PiFinder/server2.py:259 views2/login.html:31
 msgid "Login"
 msgstr "Einloggen"
 
@@ -116,7 +116,7 @@ msgstr "Einloggen"
 msgid "Invalid Password"
 msgstr "Falsches Passwort"
 
-#: PiFinder/server2.py:267
+#: PiFinder/server2.py:267 views2/base.html:18 views2/base.html:29
 msgid "Remote"
 msgstr "Fernsteuerung"
 
@@ -133,6 +133,7 @@ msgid "GPS"
 msgstr "GPS"
 
 #: PiFinder/server2.py:335 PiFinder/server2.py:384 PiFinder/server2.py:433
+#: views2/base.html:21 views2/base.html:32
 msgid "Locations"
 msgstr "Orte"
 
@@ -162,7 +163,8 @@ msgstr "Neu starten"
 
 #: PiFinder/server2.py:517 PiFinder/server2.py:526 PiFinder/server2.py:531
 #: PiFinder/server2.py:536 PiFinder/server2.py:873
-#: PiFinder/ui/menu_structure.py:955
+#: PiFinder/ui/menu_structure.py:955 views2/base.html:23 views2/base.html:34
+#: views2/tools.html:6
 msgid "Tools"
 msgstr "Werkzeuge"
 
@@ -185,7 +187,8 @@ msgstr "Neue Passwörter sind unterschiedlich"
 #: PiFinder/server2.py:562 PiFinder/server2.py:574 PiFinder/server2.py:590
 #: PiFinder/server2.py:671 PiFinder/server2.py:721 PiFinder/server2.py:734
 #: PiFinder/server2.py:796 PiFinder/server2.py:809
-#: PiFinder/ui/menu_structure.py:960
+#: PiFinder/ui/menu_structure.py:960 views2/base.html:22 views2/base.html:33
+#: views2/equipment.html:6
 msgid "Equipment"
 msgstr "Ausrüstung"
 
@@ -225,7 +228,7 @@ msgstr "Instrument hinzugefügt, bitte PiFinder neustarten"
 msgid "Instrument Deleted, restart your PiFinder to remove from menu"
 msgstr "Instrument gelöscht, bitte PiFinder neustarten"
 
-#: PiFinder/server2.py:835
+#: PiFinder/server2.py:835 views2/base.html:20 views2/base.html:31
 msgid "Observations"
 msgstr "Beobachtungen"
 
@@ -233,7 +236,8 @@ msgstr "Beobachtungen"
 msgid "Session Log"
 msgstr "Log speichern"
 
-#: PiFinder/server2.py:883 PiFinder/server2.py:997
+#: PiFinder/server2.py:883 PiFinder/server2.py:997 views2/base.html:24
+#: views2/base.html:35
 msgid "Logs"
 msgstr "Logs"
 
@@ -355,7 +359,7 @@ msgstr "akkurat"
 msgid "Precise"
 msgstr "präzise"
 
-#: PiFinder/ui/gpsstatus.py:46
+#: PiFinder/ui/gpsstatus.py:46 views2/gps.html:77 views2/network.html:85
 msgid "Save"
 msgstr "Log speichern"
 
@@ -363,7 +367,8 @@ msgstr "Log speichern"
 msgid "Lock"
 msgstr "Sperren"
 
-#: PiFinder/ui/gpsstatus.py:80
+#: PiFinder/ui/gpsstatus.py:80 views2/location_form.html:6
+#: views2/locations.html:117
 msgid "Location Name"
 msgstr "Ort setzen"
 
@@ -416,7 +421,7 @@ msgid "Lock Type:"
 msgstr "Fix-Typ:"
 
 #: PiFinder/ui/gpsstatus.py:213 PiFinder/ui/menu_structure.py:432
-#: PiFinder/ui/menu_structure.py:464
+#: PiFinder/ui/menu_structure.py:464 views2/network.html:78
 msgid "None"
 msgstr "Nix"
 
@@ -567,7 +572,8 @@ msgstr "GPS Status"
 msgid "Chart"
 msgstr "Karte"
 
-#: PiFinder/ui/menu_structure.py:64
+#: PiFinder/ui/menu_structure.py:64 views2/obs_sessions.html:11
+#: views2/obs_sessions.html:25
 msgid "Objects"
 msgstr "Objekte"
 
@@ -686,7 +692,11 @@ msgid "Confirm"
 msgstr "Bestätigen"
 
 #: PiFinder/ui/menu_structure.py:250 PiFinder/ui/menu_structure.py:1011
-#: PiFinder/ui/software.py:204
+#: PiFinder/ui/software.py:204 views2/edit_eyepiece.html:54
+#: views2/edit_instrument.html:108 views2/equipment.html:58
+#: views2/location_form.html:77 views2/locations.html:187
+#: views2/locations.html:200 views2/network.html:50 views2/network.html:87
+#: views2/network_item.html:19 views2/tools.html:97
 msgid "Cancel"
 msgstr "Abbrechen"
 
@@ -714,7 +724,7 @@ msgstr "Dp. Stern"
 msgid "Triple Str"
 msgstr "Dreif. Strn"
 
-#: PiFinder/ui/menu_structure.py:426
+#: PiFinder/ui/menu_structure.py:426 views2/locations.html:65
 msgid "Altitude"
 msgstr "Höhe"
 
@@ -918,11 +928,12 @@ msgstr "Flach v2"
 msgid "AS Dream"
 msgstr ""
 
-#: PiFinder/ui/menu_structure.py:895
+#: PiFinder/ui/menu_structure.py:895 views2/edit_instrument.html:61
+#: views2/equipment.html:73
 msgid "Mount Type"
 msgstr "Montierungsart"
 
-#: PiFinder/ui/menu_structure.py:902
+#: PiFinder/ui/menu_structure.py:902 views2/edit_instrument.html:57
 msgid "Alt/Az"
 msgstr "Azimutal"
 
@@ -1232,9 +1243,618 @@ msgstr "  Fertig"
 msgid "󰍴  Delete/Previous"
 msgstr "󰍴  Löschen/Zurück"
 
-#~ msgid "HELP"
-#~ msgstr "HILFE"
+#: views2/advanced.html:7
+msgid "GPS location lock"
+msgstr "GPS Ort gesetzt"
 
-#~ msgid "Wifi Mode: {wifi_mode}"
-#~ msgstr "WLAN Mode: {wifi_mode}"
+#: views2/advanced.html:8
+msgid "GPS time lock"
+msgstr "GPS Zeit gesetzt"
+
+#: views2/base.html:19 views2/base.html:30
+msgid "Network Setup"
+msgstr "Netzwerk"
+
+#: views2/base.html:50
+msgid "PiFinder User Guide"
+msgstr "PiFinder Handbuch"
+
+#: views2/base.html:51
+msgid "PiFinder Support Page"
+msgstr "PiFinder Support Seite"
+
+#: views2/edit_eyepiece.html:7
+msgid "Add a new eyepiece"
+msgstr "Okular hinzufügen"
+
+#: views2/edit_eyepiece.html:9
+msgid "Edit eyepiece"
+msgstr "Okular editieren"
+
+#: views2/edit_eyepiece.html:18 views2/edit_instrument.html:27
+#: views2/equipment.html:68 views2/equipment.html:116
+msgid "Make"
+msgstr "Make(?)"
+
+#: views2/edit_eyepiece.html:24 views2/equipment.html:69
+#: views2/equipment.html:117 views2/locations.html:62 views2/network.html:73
+msgid "Name"
+msgstr "Name"
+
+#: views2/edit_eyepiece.html:30 views2/edit_instrument.html:45
+msgid "Focal Length (in mm)"
+msgstr "Brennweite (in mm)"
+
+#: views2/edit_eyepiece.html:36
+msgid "Apparent Field of View (in °)"
+msgstr "Scheinbares Gesichtsfeld (in °)"
+
+#: views2/edit_eyepiece.html:42
+msgid "Field stop (in mm)"
+msgstr "Feldblende (in mm)"
+
+#: views2/edit_eyepiece.html:49
+msgid "Add eyepiece!"
+msgstr "Okular hinzufügen!"
+
+#: views2/edit_eyepiece.html:51
+msgid "Update eyepiece!"
+msgstr "Okular editieren!"
+
+#: views2/edit_instrument.html:7
+msgid "Add a new instrument"
+msgstr "Instrument hinzufügen"
+
+#: views2/edit_instrument.html:9
+msgid "Edit instrument"
+msgstr "Instrument editieren"
+
+#: views2/edit_instrument.html:33
+msgid "Instrument Name"
+msgstr "Instrument Name"
+
+#: views2/edit_instrument.html:39
+msgid "Aperture (in mm)"
+msgstr "Öffnung (in mm)"
+
+#: views2/edit_instrument.html:51 views2/equipment.html:72
+msgid "Obstruction %"
+msgstr "Obstruktion %"
+
+#: views2/edit_instrument.html:58
+msgid "Equatorial"
+msgstr "Parallaktisch"
+
+#: views2/edit_instrument.html:69
+msgid "Flip image (upside down)"
+msgstr "Bild flip (hoch runter)"
+
+#: views2/edit_instrument.html:77
+msgid "Flop image (left right)"
+msgstr "Bild flop (links rechts)"
+
+#: views2/edit_instrument.html:85 views2/equipment.html:76
+msgid "Reverse Arrow A"
+msgstr "Reverse Arrow A"
+
+#: views2/edit_instrument.html:93 views2/equipment.html:77
+msgid "Reverse Arrow B"
+msgstr "Reverse Arrow B"
+
+#: views2/edit_instrument.html:103
+msgid "Add instrument!"
+msgstr "Instrument hinzufügen!"
+
+#: views2/edit_instrument.html:105
+msgid "Update instrument!"
+msgstr "Instrument editieren!"
+
+#: views2/equipment.html:28 views2/equipment.html:65
+msgid "Instruments"
+msgstr "Instrumente"
+
+#: views2/equipment.html:32 views2/equipment.html:113
+msgid "Eyepieces"
+msgstr "Okulare"
+
+#: views2/equipment.html:36
+msgid "Import from DeepskyLog"
+msgstr "Importieren von DeepskyLog"
+
+#: views2/equipment.html:44
+msgid "Download instruments from DeepskyLog"
+msgstr "Instrumente von DeepskyLog herunterladen"
+
+#: views2/equipment.html:45
+msgid ""
+"This will delete all instruments and eyepieces from your PiFinder and "
+"replace them with the instruments and eyepieces from DeepskyLog. Are you "
+"really sure?"
+msgstr ""
+"Alle existierenden Instrumente und Okulare werden gelöscht und durch die "
+"Instrumente und Okulare von DeekskyLog ersetzt. Sind sie sicher?"
+
+#: views2/equipment.html:50
+msgid "DeepskyLog User Name"
+msgstr "Benutzername von DeepskyLog"
+
+#: views2/equipment.html:57
+msgid "Import!"
+msgstr "Importieren!"
+
+#: views2/equipment.html:62
+msgid "Add new instrument"
+msgstr "Instrument hinzufügen"
+
+#: views2/equipment.html:63
+msgid "Add new eyepiece"
+msgstr "Okular hinzufügen"
+
+#: views2/equipment.html:70
+msgid "Aperture"
+msgstr "Öffnung"
+
+#: views2/equipment.html:71 views2/equipment.html:118
+msgid "Focal Length (mm)"
+msgstr "Brennweite (mm)"
+
+#: views2/equipment.html:74
+msgid "Flip"
+msgstr "Flip"
+
+#: views2/equipment.html:75
+msgid "Flop"
+msgstr "Flop"
+
+#: views2/equipment.html:78 views2/equipment.html:121
+msgid "Active"
+msgstr "Aktiv"
+
+#: views2/equipment.html:79 views2/equipment.html:122 views2/locations.html:68
+msgid "Actions"
+msgstr "Aktionen"
+
+#: views2/equipment.html:119
+msgid "Apparent FOV"
+msgstr "Scheinbares Feld"
+
+#: views2/equipment.html:120
+msgid "Field Stop"
+msgstr "Feldblende"
+
+#: views2/gps.html:6
+msgid "GPS Settings"
+msgstr "GPS Einstellungen"
+
+#: views2/gps.html:16 views2/location_form.html:14 views2/locations.html:124
+msgid "Use DMS Format"
+msgstr "Benutze GMS Format"
+
+#: views2/gps.html:23 views2/location_form.html:21 views2/locations.html:131
+msgid "Latitude (Decimal)"
+msgstr "Höhe (Dezimal)"
+
+#: views2/gps.html:27 views2/location_form.html:26 views2/locations.html:136
+msgid "Longitude (Decimal)"
+msgstr "Länge (Dezimal)"
+
+#: views2/gps.html:33 views2/location_form.html:33 views2/locations.html:143
+msgid "Latitude Degrees"
+msgstr "Höhe Grad"
+
+#: views2/gps.html:37 views2/location_form.html:37 views2/locations.html:147
+msgid "Latitude Minutes"
+msgstr "Höhe Minuten"
+
+#: views2/gps.html:41 views2/location_form.html:41 views2/locations.html:151
+msgid "Latitude Seconds"
+msgstr "Höhe Sekunden"
+
+#: views2/gps.html:45 views2/location_form.html:45 views2/locations.html:155
+msgid "Longitude Degrees"
+msgstr "Breite Grad"
+
+#: views2/gps.html:49 views2/location_form.html:49 views2/locations.html:159
+msgid "Longitude Minutes"
+msgstr "Breite Minuten"
+
+#: views2/gps.html:53 views2/location_form.html:53 views2/locations.html:163
+msgid "Longitude Seconds"
+msgstr "Breite Sekunden"
+
+#: views2/gps.html:59
+msgid "Altitude in meter"
+msgstr "Höhe in Meter"
+
+#: views2/gps.html:65 views2/obs_sessions.html:25
+msgid "Date"
+msgstr "Datum"
+
+#: views2/gps.html:69
+msgid "UTC Time (h:m:s)"
+msgstr "UTC Zeit (H:M:S)"
+
+#: views2/gps.html:72
+msgid "Set to Browser Date/Time"
+msgstr "Benutze Browser Datum und Zeit"
+
+#: views2/index.html:6 views2/remote.html:6
+msgid "PiFinder Screen"
+msgstr "PiFinder Bildschirm"
+
+#: views2/index.html:14
+msgid "Mode"
+msgstr "Modus"
+
+#: views2/index.html:21
+msgid "lat"
+msgstr "Lat"
+
+#: views2/index.html:21
+msgid "lon"
+msgstr "Lon"
+
+#: views2/index.html:29
+msgid "Sky Position"
+msgstr "Sky Position"
+
+#: views2/index.html:36
+msgid "Software Version"
+msgstr "Software Version"
+
+#: views2/index.html:63 views2/remote.html:55
+msgid "PiFinder server is currently unavailable. Please try again later."
+msgstr ""
+"Der Pifinder server ist nicht erreichbar. Bitte später noch einmal "
+"probieren."
+
+#: views2/location_form.html:59 views2/locations.html:169
+msgid "Altitude (meters)"
+msgstr "Höhe (Meter)"
+
+#: views2/location_form.html:66 views2/locations.html:176
+msgid "Error (meters)"
+msgstr "Fehler (Meter)"
+
+#: views2/location_form.html:71 views2/locations.html:67
+#: views2/locations.html:181
+msgid "Source"
+msgstr "Quelle"
+
+#: views2/location_form.html:76
+msgid "Save Location"
+msgstr "Ort speichern"
+
+#: views2/locations.html:31
+msgid "Location Management"
+msgstr "Orte bearbeiten"
+
+#: views2/locations.html:48
+msgid "Add New Location"
+msgstr "Neuen Ort hinzufügen"
+
+#: views2/locations.html:63
+msgid "Latitude"
+msgstr "Höhe"
+
+#: views2/locations.html:64
+msgid "Longitude"
+msgstr "Höhe"
+
+#: views2/locations.html:66 views2/logs.html:148
+msgid "Error"
+msgstr "Fehler"
+
+#: views2/locations.html:86
+msgid "Load Location"
+msgstr "Lade Ort(e)"
+
+#: views2/locations.html:89
+msgid "Set as Default"
+msgstr "Als Standard"
+
+#: views2/locations.html:92
+msgid "Edit"
+msgstr "Ändern"
+
+#: views2/locations.html:95 views2/locations.html:201
+#: views2/network_item.html:14 views2/network_item.html:18
+msgid "Delete"
+msgstr "Löschen"
+
+#: views2/locations.html:111
+msgid "Edit Location"
+msgstr "Ort setzen"
+
+#: views2/locations.html:186
+msgid "Save Changes"
+msgstr "Änderungen speichern"
+
+#: views2/locations.html:196
+msgid "Confirm Delete"
+msgstr "Löschen bestätigen"
+
+#: views2/locations.html:197
+msgid "Are you sure you want to delete the location"
+msgstr "Sind sie sicher, dass sie diesen Ort löschen wollen?"
+
+#: views2/locations.html:197
+msgid "This action cannot be undone."
+msgstr "Diese Aktion ist endgültig."
+
+#: views2/locations.html:428
+msgid "This field is required"
+msgstr "Feld muss angegeben werden"
+
+#: views2/locations.html:430
+msgid "Must be a valid number"
+msgstr "Muss eine valide Zahl sein"
+
+#: views2/locations.html:434
+msgid "Must be between -90 and 90"
+msgstr "Muss zwischen -90 und 90 sein"
+
+#: views2/locations.html:437
+msgid "Must be between -180 and 180"
+msgstr "muss zwischen -180 und 180 sein"
+
+#: views2/locations.html:440
+msgid "Must be between -1000 and 10000 meters"
+msgstr "muss zwischen -1000 und 10000 Metern sein"
+
+#: views2/locations.html:443
+msgid "Must be between 0 and 10000 meters"
+msgstr "muss zwichen 0 und 10000 Metern liegen"
+
+#: views2/locations.html:518
+msgid "Please fix the validation errors before saving"
+msgstr "Bitte "
+
+#: views2/login.html:6
+msgid "Login Required"
+msgstr "Einloggen erforderlich"
+
+#: views2/login.html:23 views2/network.html:79
+msgid "Password"
+msgstr "Passwort"
+
+#: views2/login.html:25
+msgid "Note: The default password is"
+msgstr "Das Standardpasswort ist"
+
+#: views2/login.html:25
+msgid "You can change this using the Tool menu option"
+msgstr "Dies kann über das Werkzeugmenü geändert werden"
+
+#: views2/logs.html:103
+msgid "PiFinder Logs"
+msgstr "PiFinder Logs"
+
+#: views2/logs.html:121
+msgid "Download All Logs"
+msgstr "Alle Logs herunterladen"
+
+#: views2/logs.html:124 views2/logs.html:245 views2/logs.html:257
+msgid "Pause"
+msgstr "Pause"
+
+#: views2/logs.html:127
+msgid "Resume from Current"
+msgstr "Weiter ab Jetzt"
+
+#: views2/logs.html:130
+msgid "Restart from End"
+msgstr "Neu Starten vom Ende"
+
+#: views2/logs.html:133
+msgid "Copy to Clipboard"
+msgstr "Kopieren"
+
+#: views2/logs.html:136
+msgid "Global: Debug"
+msgstr "Global: Debug"
+
+#: views2/logs.html:137
+msgid "Global: Info"
+msgstr "Global: Info"
+
+#: views2/logs.html:138
+msgid "Global: Warning"
+msgstr "Global: Warnungen"
+
+#: views2/logs.html:139
+msgid "Global: Error"
+msgstr "Global: Fehler"
+
+#: views2/logs.html:142 views2/logs.html:323
+msgid "Select Component"
+msgstr "Komponenten auswählen"
+
+#: views2/logs.html:145
+msgid "Debug"
+msgstr "Debug"
+
+#: views2/logs.html:146
+msgid "Info"
+msgstr "Info"
+
+#: views2/logs.html:147
+msgid "Warning"
+msgstr "Warnung"
+
+#: views2/logs.html:152
+msgid "Total lines:"
+msgstr "Anzahl Zeilen:"
+
+#: views2/logs.html:160
+msgid "Loading log files..."
+msgstr "Lade Log Dateien..."
+
+#: views2/logs.html:245
+msgid "Resume"
+msgstr "Weiter"
+
+#: views2/logs.html:302
+msgid "Copied!"
+msgstr "Kopiert!"
+
+#: views2/logs.html:310
+msgid "Failed to copy"
+msgstr "Fehler beim Kopieren"
+
+#: views2/network.html:6
+msgid "Network Settings"
+msgstr "Netzwerkeinstellungen"
+
+#: views2/network.html:16
+msgid "Access Point"
+msgstr "Access Point"
+
+#: views2/network.html:19
+msgid "Client"
+msgstr "Client"
+
+#: views2/network.html:22
+msgid "Wifi Mode"
+msgstr "WLAN Modus"
+
+#: views2/network.html:28
+msgid "AP Network Name"
+msgstr "AP Netzwerk Name"
+
+#: views2/network.html:34
+msgid "Host Name"
+msgstr "Computer Name"
+
+#: views2/network.html:40
+msgid "Update and Restart"
+msgstr "Update und Neustart"
+
+#: views2/network.html:45
+msgid "Save and Restart"
+msgstr "Speichern und Neustart"
+
+#: views2/network.html:46
+msgid ""
+"This will update the network settings and restart the PiFinder. You may "
+"have to adjust your network settings to re-connect. Are you sure?"
+msgstr ""
+"Dies wird die Netzwerkeinstellungen aktualisieren und den PiFinder neu "
+"starten.Sie müssen nach dem Neustart die Netzwerkeinstellungen "
+"überprüfen. Sind sie sicher"
+
+#: views2/network.html:49 views2/tools.html:96
+msgid "Do It"
+msgstr "Ja, mach's"
+
+#: views2/network.html:55
+msgid "Wifi Networks"
+msgstr "WLAN Netzwerke"
+
+#: views2/network.html:80
+msgid "Too Short"
+msgstr "zu kurz"
+
+#: views2/network.html:80
+msgid "Min 8 Characters or leave None"
+msgstr "Min 8 Buchstaben oder leer lassen"
+
+#: views2/network_item.html:4
+msgid "Security"
+msgstr "Sicherheit"
+
+#: views2/network_item.html:15
+msgid "This will take effect immediately and can not be undone. Are you sure?"
+msgstr ""
+"Dies wird sofort wirksam und kann nicht zurückgenommen werden. Sind sie "
+"sicher?"
+
+#: views2/obs_sessions.html:4
+msgid "Observing Sessions"
+msgstr "Beobachtungssitzungen"
+
+#: views2/obs_sessions.html:7
+msgid "Sessions"
+msgstr "Sitzungen"
+
+#: views2/obs_sessions.html:15
+msgid "Total Hours"
+msgstr "Gesamtstunden"
+
+#: views2/obs_sessions.html:25
+msgid "Location"
+msgstr "Ort"
+
+#: views2/obs_sessions.html:25
+msgid "Hours"
+msgstr "Stunden"
+
+#: views2/tools.html:28 views2/tools.html:49
+msgid "Change Password"
+msgstr "Passwort ändern"
+
+#: views2/tools.html:30
+msgid ""
+"This will change the password for this web interface and the user account"
+" pifinder for ssh and other tools"
+msgstr ""
+"Dies ändert das Passwort für dieses Webinterface und den Nutzeraccount "
+"pifinder für SSH und andere Werkzeuge"
+
+#: views2/tools.html:36
+msgid "Current Password"
+msgstr "aktuelles Passwort"
+
+#: views2/tools.html:40
+msgid "New Password"
+msgstr "neues Passwort"
+
+#: views2/tools.html:44
+msgid "Re-Enter New Password"
+msgstr "Wdh. neues Passwort"
+
+#: views2/tools.html:58
+msgid "User Data and Settings"
+msgstr "Nutzer Daten und Einstellungen"
+
+#: views2/tools.html:60
+msgid ""
+"You can download a zip file of all your personal settings, observations "
+"and observing lists for safe keeping."
+msgstr ""
+"Sie können eine ZIP-Datei aller persönlichen Einstellungen, Beobachtungen"
+" and Beobachtungslisten zur sicheren Verwahrung herunterladen."
+
+#: views2/tools.html:63
+msgid "Download Backup File"
+msgstr "Backup-Datei herunterladen"
+
+#: views2/tools.html:69
+msgid "To restore a previously downloaded backup, upload it below"
+msgstr "Um ein zuvor heruntergeladenes Backp einzuspielen, lade es hier hoch"
+
+#: views2/tools.html:73
+msgid "Choose file"
+msgstr "Datei auswählen"
+
+#: views2/tools.html:78
+msgid "Select backup file to restore"
+msgstr "Backup-Datei zum Wiederherstellen auswählen"
+
+#: views2/tools.html:85
+msgid "Upload and Restore"
+msgstr "Hochladen und Wiederherstellen"
+
+#: views2/tools.html:92
+msgid "Restore User Data"
+msgstr "Wiederherstellen von Nutzerdaten"
+
+#: views2/tools.html:93
+msgid ""
+"This will use the provided file to restore your user data. This will "
+"overwrite any existing preference and observations. Are you sure?"
+msgstr ""
+"This nutzt die angegebene Datei um Nutzerdaten wieder "
+"herzustellen.Existierende Einstellungen und Beobachtungen werden "
+"überschrieben. Sind sie sicher?"
 
