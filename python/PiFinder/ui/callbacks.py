@@ -10,11 +10,13 @@ Each one takes the current ui module as an argument
 
 import logging
 import gettext
+import time
 
 from typing import Any, TYPE_CHECKING
-from PiFinder import utils
+from PiFinder import utils, calc_utils
 from PiFinder.ui.base import UIModule
 from PiFinder.catalogs import CatalogFilter
+from PiFinder.composite_object import CompositeObject, MagnitudeObject
 
 if TYPE_CHECKING:
 
@@ -171,9 +173,10 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
     """
     Sets the time from the time entry UI
     """
-    logger.info(f"Setting time to: {time_str}")
     from datetime import datetime
     import pytz
+
+    logger.info(f"Setting time to: {time_str}")
 
     timezone_str = ui_module.shared_state.location().timezone
 
@@ -191,3 +194,126 @@ def set_time(ui_module: UIModule, time_str: str) -> None:
 
     ui_module.command_queues["gps"].put(("time", {"time": dt_with_timezone}))
     ui_module.message(_("Time: {time}").format(time=time_str), 2)
+
+
+def handle_radec_entry(ui_module: UIModule, ra_deg: float, dec_deg: float) -> None:
+    """
+    Handles RA/DEC coordinate entry from the coordinate input UI
+    Creates a CompositeObject and adds it to recent list for navigation
+    """
+    from PiFinder.ui.object_details import UIObjectDetails
+
+    logger.info(f"Received coordinates: RA={ra_deg:.6f}°, DEC={dec_deg:.6f}°")
+
+    # Create a CompositeObject from the coordinates
+    custom_object = create_custom_object_from_coords(ra_deg, dec_deg, ui_module)
+
+    # Add to recent objects list for immediate navigation
+    ui_module.shared_state.ui_state().add_recent(custom_object)
+
+    # Show popup notification that user object was created
+    ui_module.message(f"User object created\n{custom_object.display_name}", timeout=2)
+
+    # Navigate to object details for the created object
+    object_item_definition = {
+        "name": custom_object.display_name,
+        "class": UIObjectDetails,
+        "object": custom_object,
+        "object_list": [custom_object],  # Single object list
+        "label": "object_details",
+    }
+    ui_module.add_to_stack(object_item_definition)
+
+    logger.info(
+        f"Created custom object: {custom_object.display_name} at RA={ra_deg:.6f}°, DEC={dec_deg:.6f}°"
+    )
+
+
+def create_custom_object_from_coords(
+    ra_deg: float, dec_deg: float, ui_module: UIModule
+):
+    """
+    Create a CompositeObject from RA/DEC coordinates
+    """
+    # Generate unique sequence number for custom objects
+    # Use negative numbers to distinguish from regular catalog objects
+    current_time_ms = int(time.time() * 1000)
+    unique_id = -(current_time_ms % 1000000)  # Negative ID for custom objects
+
+    # Generate automatic name and get the sequence number from it
+    custom_name = generate_custom_object_name(ui_module)
+    sequence_num = int(custom_name.split(" ")[1])  # Extract number from "CUSTOM X"
+
+    # Determine constellation
+    constellation = calc_utils.sf_utils.radec_to_constellation(ra_deg, dec_deg)
+
+    # Generate description with coordinates in all supported formats
+    description = generate_coordinate_description(ra_deg, dec_deg)
+
+    # Create the CompositeObject following the pattern from pos_server.py
+    custom_object = CompositeObject.from_dict(
+        {
+            "id": -1,
+            "object_id": unique_id,
+            "obj_type": "Custom",
+            "ra": ra_deg,
+            "dec": dec_deg,
+            "const": constellation,
+            "size": "",
+            "mag": MagnitudeObject([]),
+            "mag_str": "",
+            "catalog_code": "USER",
+            "sequence": sequence_num,
+            "description": description,
+            "names": [custom_name],
+            "image_name": "",
+            "logged": False,
+        }
+    )
+
+    return custom_object
+
+
+def generate_coordinate_description(ra_deg: float, dec_deg: float) -> str:
+    """
+    Generate a description with coordinates in all supported formats
+    """
+    # Convert RA from degrees to hours for HMS format
+    ra_hours = ra_deg / 15.0
+
+    # Format 1: HMS/DMS (Full format)
+    ra_h, ra_m, ra_s = calc_utils.ra_to_hms(ra_deg)
+    dec_d, dec_m, dec_s = calc_utils.dec_to_dms(dec_deg)
+    dec_sign = "+" if dec_deg >= 0 else "-"
+    hms_dms = f"RA: {ra_h:02d}:{ra_m:02d}:{ra_s:02d} DEC: {dec_sign}{abs(dec_d):02d}:{dec_m:02d}:{dec_s:02d}"
+
+    # Format 2: Mixed (Hours/Degrees)
+    mixed = f"RA: {ra_hours:.4f}h DEC: {dec_deg:+.4f}°"
+
+    # Format 3: Decimal degrees
+    decimal = f"RA: {ra_deg:.4f}° DEC: {dec_deg:+.4f}°"
+
+    return f"User-defined coordinates\n\nHMS/DMS:\n{hms_dms}\n\nMixed:\n{mixed}\n\nDecimal:\n{decimal}"
+
+
+def generate_custom_object_name(ui_module: UIModule) -> str:
+    """
+    Generate a unique name for custom objects (CUSTOM 1, CUSTOM 2, etc.)
+    """
+    # Get current recent list to check for existing custom objects
+    recent_list = ui_module.shared_state.ui_state().recent_list()
+
+    # Find highest existing CUSTOM number
+    max_num = 0
+    for obj in recent_list:
+        if hasattr(obj, "catalog_code") and obj.catalog_code == "USER":
+            for name in obj.names:
+                if name.startswith("CUSTOM "):
+                    try:
+                        num = int(name.split(" ")[1])
+                        max_num = max(max_num, num)
+                    except (IndexError, ValueError):
+                        pass
+
+    # Return next available number
+    return f"CUSTOM {max_num + 1}"
