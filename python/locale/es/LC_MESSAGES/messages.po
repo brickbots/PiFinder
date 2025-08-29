@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-08-29 07:54+0200\n"
+"POT-Creation-Date: 2025-08-29 08:47+0200\n"
 "PO-Revision-Date: 2025-01-22 17:58+0100\n"
 "Last-Translator: Claude Code\n"
 "Language: es\n"
@@ -1371,8 +1371,8 @@ msgid ""
 "replace them with the instruments and eyepieces from DeepskyLog. Are you "
 "really sure?"
 msgstr ""
-"Esto eliminará todos los instrumentos y oculares de tu PiFinder y "
-"los reemplazará con los instrumentos y oculares de DeepskyLog. ¿Estás "
+"Esto eliminará todos los instrumentos y oculares de tu PiFinder y los "
+"reemplazará con los instrumentos y oculares de DeepskyLog. ¿Estás "
 "realmente seguro?"
 
 #: views2/equipment.html:50
@@ -1505,7 +1505,9 @@ msgstr "Versión de Software"
 
 #: views2/index.html:63 views2/remote.html:55
 msgid "PiFinder server is currently unavailable. Please try again later."
-msgstr "El servidor PiFinder no está disponible actualmente. Por favor intente más tarde."
+msgstr ""
+"El servidor PiFinder no está disponible actualmente. Por favor intente "
+"más tarde."
 
 #: views2/location_form.html:59 views2/locations.html:169
 msgid "Altitude (meters)"
@@ -1738,8 +1740,9 @@ msgid ""
 "This will update the network settings and restart the PiFinder. You may "
 "have to adjust your network settings to re-connect. Are you sure?"
 msgstr ""
-"Esto actualizará la configuración de red y reiniciará el PiFinder. Es posible "
-"que tenga que ajustar su configuración de red para volver a conectarse. ¿Está seguro?"
+"Esto actualizará la configuración de red y reiniciará el PiFinder. Es "
+"posible que tenga que ajustar su configuración de red para volver a "
+"conectarse. ¿Está seguro?"
 
 #: views2/network.html:49 views2/tools.html:96
 msgid "Do It"
@@ -1794,8 +1797,8 @@ msgid ""
 "This will change the password for this web interface and the user account"
 " pifinder for ssh and other tools"
 msgstr ""
-"Esto cambiará la contraseña para esta interfaz web y la cuenta de usuario "
-"pifinder para ssh y otras herramientas"
+"Esto cambiará la contraseña para esta interfaz web y la cuenta de usuario"
+" pifinder para ssh y otras herramientas"
 
 #: views2/tools.html:36
 msgid "Current Password"
@@ -1818,8 +1821,8 @@ msgid ""
 "You can download a zip file of all your personal settings, observations "
 "and observing lists for safe keeping."
 msgstr ""
-"Puede descargar un archivo zip con toda su configuración personal, observaciones "
-"y listas de observación para mantenerlas seguras."
+"Puede descargar un archivo zip con toda su configuración personal, "
+"observaciones y listas de observación para mantenerlas seguras."
 
 #: views2/tools.html:63
 msgid "Download Backup File"
@@ -1827,7 +1830,9 @@ msgstr "Descargar Archivo de Respaldo"
 
 #: views2/tools.html:69
 msgid "To restore a previously downloaded backup, upload it below"
-msgstr "Para restaurar una copia de seguridad descargada previamente, súbala a continuación"
+msgstr ""
+"Para restaurar una copia de seguridad descargada previamente, súbala a "
+"continuación"
 
 #: views2/tools.html:73
 msgid "Choose file"
@@ -1850,8 +1855,9 @@ msgid ""
 "This will use the provided file to restore your user data. This will "
 "overwrite any existing preference and observations. Are you sure?"
 msgstr ""
-"Esto usará el archivo proporcionado para restaurar sus datos de usuario. Esto "
-"sobrescribirá cualquier preferencia y observación existente. ¿Está seguro?"
+"Esto usará el archivo proporcionado para restaurar sus datos de usuario. "
+"Esto sobrescribirá cualquier preferencia y observación existente. ¿Está "
+"seguro?"
 
 #~ msgid "Language: englisch"
 #~ msgstr "Idioma: inglés"
