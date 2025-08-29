@@ -19,17 +19,10 @@ from PiFinder.equipment import Telescope, Eyepiece
 from PiFinder.keyboard_interface import KeyboardInterface
 
 from flask import Flask, request, jsonify, send_file, redirect, session, make_response
-from jinja2 import Environment, FileSystemLoader, select_autoescape
-from babel import Locale
-from flask_babel import Babel, gettext, lazy_gettext, get_locale
+from flask_babel import Babel, gettext
 
 from PiFinder import i18n  # noqa: F401
 
-
-from flask import Flask, request, jsonify, send_file, redirect, session, make_response
-from flask_babel import Babel, gettext
-
-        
 
 sys_utils = utils.get_sys_utils()
 
@@ -42,12 +35,12 @@ SESSION_SECRET = str(uuid.uuid4())
 def auth_required(func):
     def auth_wrapper(*args, **kwargs):
         # check for and validate session
-        if 'authenticated' in session and session['authenticated']:
+        if "authenticated" in session and session["authenticated"]:
             return func(*args, **kwargs)
-        
+
         # Store the original URL for redirect after login
-        session['origin_url'] = request.url
-        return redirect('/login')
+        session["origin_url"] = request.url
+        return redirect("/login")
 
     auth_wrapper.__name__ = func.__name__
     return auth_wrapper
@@ -55,23 +48,24 @@ def auth_required(func):
 
 class MockSharedState:
     """Mock shared state for standalone testing"""
+
     def __init__(self):
-        self._location = type('Location', (), {
-            'lock': False, 'lat': None, 'lon': None, 'altitude': None
-        })()
+        self._location = type(
+            "Location", (), {"lock": False, "lat": None, "lon": None, "altitude": None}
+        )()
         self._screen_img = None
         self._solve_state = False
         self._solution = None
-    
+
     def location(self):
         return self._location
-    
+
     def screen(self):
         return self._screen_img
-    
+
     def solve_state(self):
         return self._solve_state
-    
+
     def solution(self):
         return self._solution
 
@@ -79,7 +73,7 @@ class MockSharedState:
 def server2_locale():
     # Try to get from user preferences, session, or accept languages
     # For now, default to English
-    return request.accept_languages.best_match(['en', 'fr', 'de', 'es']) or 'en'
+    return request.accept_languages.best_match(["en", "fr", "de", "es"]) or "en"
 
 
 class Server2:
@@ -93,7 +87,7 @@ class Server2:
     ):
         self.version_txt = f"{utils.pifinder_dir}/version.txt"
         self.keyboard_queue = keyboard_queue or multiprocessing.Queue()
-        self.ui_queue = ui_queue or multiprocessing.Queue() 
+        self.ui_queue = ui_queue or multiprocessing.Queue()
         self.gps_queue = gps_queue or multiprocessing.Queue()
         self.shared_state = shared_state or MockSharedState()
         self.ki = KeyboardInterface()
@@ -128,35 +122,36 @@ class Server2:
         self.network = sys_utils.Network()
 
         # Initialize Flask app with absolute template path
-        views2_path = os.path.join(os.path.dirname(__file__), '..', 'views2')
+        views2_path = os.path.join(os.path.dirname(__file__), "..", "views2")
         views2_path = os.path.abspath(views2_path)
         logger.debug(f"Template folder path: {views2_path}")
-        
+
         app = Flask(__name__, template_folder=views2_path)
         app.secret_key = SESSION_SECRET
-        app.config['DEBUG'] = True
+        app.config["DEBUG"] = True
         logger.info(f"Flask app created successfully: {app}")
         logger.info(f"Template folder: {app.template_folder}")
-        
+
         # Setup Babel for i18n
-        babel = Babel(app, locale_selector=server2_locale) # noqa: F401
+        Babel(app, locale_selector=server2_locale)  # Picked up by app variable
 
         # Configure Jinja2 environment for i18n
-        app.jinja_env.add_extension('jinja2.ext.i18n')
-        
+        app.jinja_env.add_extension("jinja2.ext.i18n")
+
         # Use PiFinder's global gettext function in templates
         import builtins
-        app.jinja_env.globals['_'] = builtins._
-        
+
+        app.jinja_env.globals["_"] = builtins._
+
         # # Create a simple gettext function for templates that works without translation files
         # def simple_gettext(text):
         #     return text
-        
+
         # def simple_ngettext(singular, plural, n):
         #     return singular if n == 1 else plural
-            
+
         # app.jinja_env.install_gettext_callables(simple_gettext, simple_ngettext, newstyle=True)
-        
+
         # # Create a context-safe translation function
         # def translate(text):
         #     try:
@@ -164,25 +159,24 @@ class Server2:
         #         return gettext(text)
         #     except:
         #         return text
-        
+
         # # Make translation function available to routes
         # app.jinja_env.globals['_'] = translate
-        
 
         # Static files routes
-        @app.route('/images/<path:filename>')
+        @app.route("/images/<path:filename>")
         def send_image(filename):
-            return send_file(f'../views2/images/{filename}', mimetype='image/png')
+            return send_file(f"../views2/images/{filename}", mimetype="image/png")
 
-        @app.route('/js/<path:filename>')
+        @app.route("/js/<path:filename>")
         def send_js(filename):
-            return send_file(f'../views2/js/{filename}')
+            return send_file(f"../views2/js/{filename}")
 
-        @app.route('/css/<path:filename>')
+        @app.route("/css/<path:filename>")
         def send_css(filename):
-            return send_file(f'../views2/css/{filename}')
+            return send_file(f"../views2/css/{filename}")
 
-        @app.route('/')
+        @app.route("/")
         def home():
             logger.debug("/ called")
             # Get version info
@@ -223,7 +217,7 @@ class Server2:
                 logger.error(f"Failed to get solution data: {str(e)}")
 
             # Render the template with available data
-            return app.jinja_env.get_template('index.html').render(
+            return app.jinja_env.get_template("index.html").render(
                 title=gettext("Home"),
                 software_version=software_version,
                 wifi_mode=self.network.wifi_mode(),
@@ -238,58 +232,55 @@ class Server2:
                 dec_text=dec_text,
             )
 
-        @app.route('/login', methods=['GET', 'POST'])
+        @app.route("/login", methods=["GET", "POST"])
         def login():
-            if request.method == 'POST':
-                password = request.form.get('password')
-                origin_url = session.get('origin_url', '/')
+            if request.method == "POST":
+                password = request.form.get("password")
+                origin_url = session.get("origin_url", "/")
                 if sys_utils.verify_password("pifinder", password):
-                    session['authenticated'] = True
-                    session.pop('origin_url', None)
+                    session["authenticated"] = True
+                    session.pop("origin_url", None)
                     return redirect(origin_url)
                 else:
-                    return app.jinja_env.get_template('login.html').render(
+                    return app.jinja_env.get_template("login.html").render(
                         title=gettext("Login"),
-                        origin_url=origin_url, 
-                        error_message=gettext("Invalid Password")
+                        origin_url=origin_url,
+                        error_message=gettext("Invalid Password"),
                     )
             else:
-                origin_url = session.get('origin_url', '/')
-                return app.jinja_env.get_template('login.html').render(
-                    title=gettext("Login"),
-                    origin_url=origin_url
+                origin_url = session.get("origin_url", "/")
+                return app.jinja_env.get_template("login.html").render(
+                    title=gettext("Login"), origin_url=origin_url
                 )
 
-        @app.route('/remote')
+        @app.route("/remote")
         @auth_required
         def remote():
-            return app.jinja_env.get_template('remote.html').render(
-                title=_("Remote")
-            )
+            return app.jinja_env.get_template("remote.html").render(title=_("Remote"))
 
-        @app.route('/advanced')
+        @app.route("/advanced")
         @auth_required
         def advanced():
-            return app.jinja_env.get_template('advanced.html').render(
+            return app.jinja_env.get_template("advanced.html").render(
                 title=_("Advanced")
             )
 
-        @app.route('/network')
+        @app.route("/network")
         @auth_required
         def network_page():
-            show_new_form = request.args.get('add_new', 0)
+            show_new_form = request.args.get("add_new", 0)
 
-            return app.jinja_env.get_template('network.html').render(
+            return app.jinja_env.get_template("network.html").render(
                 title=_("Network"),
                 net=self.network,
                 show_new_form=show_new_form,
             )
 
-        @app.route('/gps')
+        @app.route("/gps")
         @auth_required
         def gps_page():
             self.update_gps()
-            show_new_form = request.args.get('add_new', 0)
+            show_new_form = request.args.get("add_new", 0)
             logger.debug(
                 "/gps: %f, %f, %f ",
                 self.lat or 0.0,
@@ -297,7 +288,7 @@ class Server2:
                 self.altitude or 0.0,
             )
 
-            return app.jinja_env.get_template('gps.html').render(
+            return app.jinja_env.get_template("gps.html").render(
                 title=_("GPS"),
                 show_new_form=show_new_form,
                 lat=self.lat,
@@ -305,14 +296,14 @@ class Server2:
                 altitude=self.altitude,
             )
 
-        @app.route('/gps/update', methods=['POST'])
+        @app.route("/gps/update", methods=["POST"])
         @auth_required
         def gps_update():
-            lat = request.form.get('latitudeDecimal')
-            lon = request.form.get('longitudeDecimal')
-            altitude = request.form.get('altitude')
-            date_req = request.form.get('date')
-            time_req = request.form.get('time')
+            lat = request.form.get("latitudeDecimal")
+            lon = request.form.get("longitudeDecimal")
+            altitude = request.form.get("altitude")
+            date_req = request.form.get("date")
+            time_req = request.form.get("time")
             gps_lock(float(lat), float(lon), float(altitude))
             if time_req and date_req:
                 datetime_str = f"{date_req} {time_req}"
@@ -323,30 +314,30 @@ class Server2:
                 "GPS update: %s, %s, %s, %s, %s", lat, lon, altitude, date_req, time_req
             )
             time.sleep(1)  # give the gps thread a chance to update
-            return redirect('/')
+            return redirect("/")
 
-        @app.route('/locations')
+        @app.route("/locations")
         @auth_required
         def locations_page():
-            show_new_form = request.args.get('add_new', 0)
+            show_new_form = request.args.get("add_new", 0)
             cfg = config.Config()
             cfg.load_config()  # Ensure config is loaded
-            return app.jinja_env.get_template('locations.html').render(
+            return app.jinja_env.get_template("locations.html").render(
                 title=_("Locations"),
                 locations=cfg.locations.locations,
                 show_new_form=show_new_form,
             )
 
-        @app.route('/locations/add', methods=['POST'])
+        @app.route("/locations/add", methods=["POST"])
         @auth_required
         def location_add():
             try:
-                name = request.form.get('name').strip()
-                lat = float(request.form.get('latitude'))
-                lon = float(request.form.get('longitude'))
-                altitude = float(request.form.get('altitude'))
-                error_in_m = float(request.form.get('error_in_m', '0'))
-                source = request.form.get('source', 'Manual Entry')
+                name = request.form.get("name").strip()
+                lat = float(request.form.get("latitude"))
+                lon = float(request.form.get("longitude"))
+                altitude = float(request.form.get("altitude"))
+                error_in_m = float(request.form.get("error_in_m", "0"))
+                source = request.form.get("source", "Manual Entry")
 
                 # Server-side validation
                 if not name:
@@ -356,7 +347,9 @@ class Server2:
                 if not (-180 <= lon <= 180):
                     raise ValueError(_("Longitude must be between -180 and 180"))
                 if not (-1000 <= altitude <= 10000):
-                    raise ValueError(_("Altitude must be between -1000 and 10000 meters"))
+                    raise ValueError(
+                        _("Altitude must be between -1000 and 10000 meters")
+                    )
                 if not (0 <= error_in_m <= 10000):
                     raise ValueError(_("Error must be between 0 and 10000 meters"))
 
@@ -377,17 +370,17 @@ class Server2:
                 cfg.save_locations()
 
                 self.ui_queue.put("reload_config")
-                return redirect('/locations')
+                return redirect("/locations")
 
             except ValueError as e:
-                return app.jinja_env.get_template('locations.html').render(
+                return app.jinja_env.get_template("locations.html").render(
                     title=_("Locations"),
                     locations=config.Config().locations.locations,
                     show_new_form=1,
                     error_message=str(e),
                 )
 
-        @app.route('/locations/rename/<int:location_id>', methods=['POST'])
+        @app.route("/locations/rename/<int:location_id>", methods=["POST"])
         @auth_required
         def location_rename(location_id):
             try:
@@ -397,12 +390,12 @@ class Server2:
                 if not (0 <= location_id < len(cfg.locations.locations)):
                     raise ValueError("Invalid location ID")
 
-                name = request.form.get('name').strip()
-                lat = float(request.form.get('latitude'))
-                lon = float(request.form.get('longitude'))
-                altitude = float(request.form.get('altitude'))
-                error_in_m = float(request.form.get('error_in_m', '0'))
-                source = request.form.get('source', 'Manual Entry')
+                name = request.form.get("name").strip()
+                lat = float(request.form.get("latitude"))
+                lon = float(request.form.get("longitude"))
+                altitude = float(request.form.get("altitude"))
+                error_in_m = float(request.form.get("error_in_m", "0"))
+                source = request.form.get("source", "Manual Entry")
 
                 # Server-side validation
                 if not name:
@@ -412,7 +405,9 @@ class Server2:
                 if not (-180 <= lon <= 180):
                     raise ValueError(_("Longitude must be between -180 and 180"))
                 if not (-1000 <= altitude <= 10000):
-                    raise ValueError(_("Altitude must be between -1000 and 10000 meters"))
+                    raise ValueError(
+                        _("Altitude must be between -1000 and 10000 meters")
+                    )
                 if not (0 <= error_in_m <= 10000):
                     raise ValueError(_("Error must be between 0 and 10000 meters"))
 
@@ -426,17 +421,17 @@ class Server2:
 
                 cfg.save_locations()
                 self.ui_queue.put("reload_config")
-                return redirect('/locations')
+                return redirect("/locations")
 
             except ValueError as e:
-                return app.jinja_env.get_template('locations.html').render(
+                return app.jinja_env.get_template("locations.html").render(
                     title=_("Locations"),
                     locations=config.Config().locations.locations,
                     show_new_form=0,
                     error_message=str(e),
                 )
 
-        @app.route('/locations/delete/<int:location_id>')
+        @app.route("/locations/delete/<int:location_id>")
         @auth_required
         def location_delete(location_id):
             cfg = config.Config()
@@ -447,9 +442,9 @@ class Server2:
                 cfg.save_locations()
                 # Notify main process to reload config
                 self.ui_queue.put("reload_config")
-            return redirect('/locations')
+            return redirect("/locations")
 
-        @app.route('/locations/set_default/<int:location_id>')
+        @app.route("/locations/set_default/<int:location_id>")
         @auth_required
         def location_set_default(location_id):
             cfg = config.Config()
@@ -460,9 +455,9 @@ class Server2:
                 cfg.save_locations()
                 # Notify main process to reload config
                 self.ui_queue.put("reload_config")
-            return redirect('/locations')
+            return redirect("/locations")
 
-        @app.route('/locations/load/<int:location_id>')
+        @app.route("/locations/load/<int:location_id>")
         @auth_required
         def location_load(location_id):
             cfg = config.Config()
@@ -470,74 +465,69 @@ class Server2:
             if 0 <= location_id < len(cfg.locations.locations):
                 location = cfg.locations.locations[location_id]
                 gps_lock(location.latitude, location.longitude, location.height)
-            return redirect('/locations')
+            return redirect("/locations")
 
-        @app.route('/network/add', methods=['POST'])
+        @app.route("/network/add", methods=["POST"])
         @auth_required
         def network_add():
-            ssid = request.form.get('ssid')
-            psk = request.form.get('psk')
+            ssid = request.form.get("ssid")
+            psk = request.form.get("psk")
             if len(psk) < 8:
                 key_mgmt = "NONE"
             else:
                 key_mgmt = "WPA-PSK"
 
             self.network.add_wifi_network(ssid, key_mgmt, psk)
-            return redirect('/network')
+            return redirect("/network")
 
-        @app.route('/network/delete/<int:network_id>')
+        @app.route("/network/delete/<int:network_id>")
         @auth_required
         def network_delete(network_id):
             self.network.delete_wifi_network(network_id)
-            return redirect('/network')
+            return redirect("/network")
 
-        @app.route('/network/update', methods=['POST'])
+        @app.route("/network/update", methods=["POST"])
         @auth_required
         def network_update():
-            wifi_mode = request.form.get('wifi_mode')
-            ap_name = request.form.get('ap_name')
-            host_name = request.form.get('host_name')
+            wifi_mode = request.form.get("wifi_mode")
+            ap_name = request.form.get("ap_name")
+            host_name = request.form.get("host_name")
 
             self.network.set_wifi_mode(wifi_mode)
             self.network.set_ap_name(ap_name)
             self.network.set_host_name(host_name)
-            return app.jinja_env.get_template('restart.html').render(
-                title=_("Restart")
-            )
+            return app.jinja_env.get_template("restart.html").render(title=_("Restart"))
 
-        @app.route('/tools/pwchange', methods=['POST'])
+        @app.route("/tools/pwchange", methods=["POST"])
         @auth_required
         def password_change():
-            current_password = request.form.get('current_password')
-            new_passworda = request.form.get('new_passworda')
-            new_passwordb = request.form.get('new_passwordb')
+            current_password = request.form.get("current_password")
+            new_passworda = request.form.get("new_passworda")
+            new_passwordb = request.form.get("new_passwordb")
 
             if new_passworda == "" or current_password == "" or new_passwordb == "":
-                return app.jinja_env.get_template('tools.html').render(
+                return app.jinja_env.get_template("tools.html").render(
                     title=_("Tools"),
-                    error_message=_("You must fill in all password fields")
+                    error_message=_("You must fill in all password fields"),
                 )
 
             if new_passworda == new_passwordb:
                 if sys_utils.change_password(
                     "pifinder", current_password, new_passworda
                 ):
-                    return app.jinja_env.get_template('tools.html').render(
-                        title=_("Tools"),
-                        status_message=_("Password Changed")
+                    return app.jinja_env.get_template("tools.html").render(
+                        title=_("Tools"), status_message=_("Password Changed")
                     )
                 else:
-                    return app.jinja_env.get_template('tools.html').render(
-                        title=_("Tools"),
-                        error_message=_("Incorrect current password")
+                    return app.jinja_env.get_template("tools.html").render(
+                        title=_("Tools"), error_message=_("Incorrect current password")
                     )
             else:
-                return app.jinja_env.get_template('tools.html').render(
-                    title=_("Tools"),
-                    error_message=_("New passwords do not match")
+                return app.jinja_env.get_template("tools.html").render(
+                    title=_("Tools"), error_message=_("New passwords do not match")
                 )
 
-        @app.route('/system/restart')
+        @app.route("/system/restart")
         @auth_required
         def system_restart():
             """
@@ -546,7 +536,7 @@ class Server2:
             sys_utils.restart_system()
             return "restarting"
 
-        @app.route('/system/restart_pifinder')
+        @app.route("/system/restart_pifinder")
         @auth_required
         def pifinder_restart():
             """
@@ -555,50 +545,51 @@ class Server2:
             sys_utils.restart_pifinder()
             return "restarting"
 
-        @app.route('/equipment')
+        @app.route("/equipment")
         @auth_required
         def equipment():
-            return app.jinja_env.get_template('equipment.html').render(
-                title=_("Equipment"),
-                equipment=config.Config().equipment
+            return app.jinja_env.get_template("equipment.html").render(
+                title=_("Equipment"), equipment=config.Config().equipment
             )
 
-        @app.route('/equipment/set_active_instrument/<int:instrument_id>')
+        @app.route("/equipment/set_active_instrument/<int:instrument_id>")
         @auth_required
         def set_active_instrument(instrument_id: int):
             cfg = config.Config()
             cfg.equipment.set_active_telescope(cfg.equipment.telescopes[instrument_id])
             cfg.save_equipment()
             self.ui_queue.put("reload_config")
-            return app.jinja_env.get_template('equipment.html').render(
+            return app.jinja_env.get_template("equipment.html").render(
                 title=_("Equipment"),
                 equipment=cfg.equipment,
                 success_message=cfg.equipment.active_telescope.make
                 + " "
                 + cfg.equipment.active_telescope.name
-                + " " + _("set as active instrument."),
+                + " "
+                + _("set as active instrument."),
             )
 
-        @app.route('/equipment/set_active_eyepiece/<int:eyepiece_id>')
+        @app.route("/equipment/set_active_eyepiece/<int:eyepiece_id>")
         @auth_required
         def set_active_eyepiece(eyepiece_id: int):
             cfg = config.Config()
             cfg.equipment.set_active_eyepiece(cfg.equipment.eyepieces[eyepiece_id])
             cfg.save_equipment()
             self.ui_queue.put("reload_config")
-            return app.jinja_env.get_template('equipment.html').render(
+            return app.jinja_env.get_template("equipment.html").render(
                 title=_("Equipment"),
                 equipment=cfg.equipment,
                 success_message=cfg.equipment.active_eyepiece.make
                 + " "
                 + cfg.equipment.active_eyepiece.name
-                + " " + _("set as active eyepiece."),
+                + " "
+                + _("set as active eyepiece."),
             )
 
-        @app.route('/equipment/import_from_deepskylog', methods=['POST'])
+        @app.route("/equipment/import_from_deepskylog", methods=["POST"])
         @auth_required
         def equipment_import():
-            username = request.form.get('dsl_name')
+            username = request.form.get("dsl_name")
             cfg = config.Config()
             if username:
                 instruments = pds.dsl_instruments(username)
@@ -667,13 +658,15 @@ class Server2:
 
                 cfg.save_equipment()
                 self.ui_queue.put("reload_config")
-            return app.jinja_env.get_template('equipment.html').render(
+            return app.jinja_env.get_template("equipment.html").render(
                 title=_("Equipment"),
                 equipment=config.Config().equipment,
-                success_message=_("Equipment Imported, restart your PiFinder to use this new data"),
+                success_message=_(
+                    "Equipment Imported, restart your PiFinder to use this new data"
+                ),
             )
 
-        @app.route('/equipment/edit_eyepiece/<int:eyepiece_id>')
+        @app.route("/equipment/edit_eyepiece/<int:eyepiece_id>")
         @auth_required
         def edit_eyepiece(eyepiece_id: int):
             if eyepiece_id >= 0:
@@ -683,24 +676,22 @@ class Server2:
                     make="", name="", focal_length_mm=0, afov=0, field_stop=0
                 )
 
-            return app.jinja_env.get_template('edit_eyepiece.html').render(
-                title=_("Edit Eyepiece"),
-                eyepiece=eyepiece, 
-                eyepiece_id=eyepiece_id
+            return app.jinja_env.get_template("edit_eyepiece.html").render(
+                title=_("Edit Eyepiece"), eyepiece=eyepiece, eyepiece_id=eyepiece_id
             )
 
-        @app.route('/equipment/add_eyepiece/<int:eyepiece_id>', methods=['POST'])
+        @app.route("/equipment/add_eyepiece/<int:eyepiece_id>", methods=["POST"])
         @auth_required
         def equipment_add_eyepiece(eyepiece_id: int):
             cfg = config.Config()
 
             try:
                 eyepiece = Eyepiece(
-                    make=request.form.get('make'),
-                    name=request.form.get('name'),
-                    focal_length_mm=float(request.form.get('focal_length_mm')),
-                    afov=int(request.form.get('afov')),
-                    field_stop=float(request.form.get('field_stop')),
+                    make=request.form.get("make"),
+                    name=request.form.get("name"),
+                    focal_length_mm=float(request.form.get("focal_length_mm")),
+                    afov=int(request.form.get("afov")),
+                    field_stop=float(request.form.get("field_stop")),
                 )
 
                 if eyepiece_id >= 0:
@@ -717,26 +708,28 @@ class Server2:
             except Exception as e:
                 logger.error(f"Error adding eyepiece: {e}")
 
-            return app.jinja_env.get_template('equipment.html').render(
+            return app.jinja_env.get_template("equipment.html").render(
                 title=_("Equipment"),
                 equipment=config.Config().equipment,
                 success_message=_("Eyepiece added, restart your PiFinder to use"),
             )
 
-        @app.route('/equipment/delete_eyepiece/<int:eyepiece_id>')
+        @app.route("/equipment/delete_eyepiece/<int:eyepiece_id>")
         @auth_required
         def equipment_delete_eyepiece(eyepiece_id: int):
             cfg = config.Config()
             cfg.equipment.eyepieces.pop(eyepiece_id)
             cfg.save_equipment()
             self.ui_queue.put("reload_config")
-            return app.jinja_env.get_template('equipment.html').render(
+            return app.jinja_env.get_template("equipment.html").render(
                 title=_("Equipment"),
                 equipment=config.Config().equipment,
-                success_message=_("Eyepiece Deleted, restart your PiFinder to remove from menu"),
+                success_message=_(
+                    "Eyepiece Deleted, restart your PiFinder to remove from menu"
+                ),
             )
 
-        @app.route('/equipment/edit_instrument/<int:instrument_id>')
+        @app.route("/equipment/edit_instrument/<int:instrument_id>")
         @auth_required
         def edit_instrument(instrument_id: int):
             if instrument_id >= 0:
@@ -755,29 +748,29 @@ class Server2:
                     reverse_arrow_b=False,
                 )
 
-            return app.jinja_env.get_template('edit_instrument.html').render(
+            return app.jinja_env.get_template("edit_instrument.html").render(
                 title=_("Edit Instrument"),
-                telescope=telescope, 
-                instrument_id=instrument_id
+                telescope=telescope,
+                instrument_id=instrument_id,
             )
 
-        @app.route('/equipment/add_instrument/<int:instrument_id>', methods=['POST'])
+        @app.route("/equipment/add_instrument/<int:instrument_id>", methods=["POST"])
         @auth_required
         def equipment_add_instrument(instrument_id: int):
             cfg = config.Config()
 
             try:
                 instrument = Telescope(
-                    make=request.form.get('make'),
-                    name=request.form.get('name'),
-                    aperture_mm=int(request.form.get('aperture')),
-                    focal_length_mm=int(request.form.get('focal_length_mm')),
-                    obstruction_perc=float(request.form.get('obstruction_perc')),
-                    mount_type=request.form.get('mount_type'),
-                    flip_image=bool(request.form.get('flip')),
-                    flop_image=bool(request.form.get('flop')),
-                    reverse_arrow_a=bool(request.form.get('reverse_arrow_a')),
-                    reverse_arrow_b=bool(request.form.get('reverse_arrow_b')),
+                    make=request.form.get("make"),
+                    name=request.form.get("name"),
+                    aperture_mm=int(request.form.get("aperture")),
+                    focal_length_mm=int(request.form.get("focal_length_mm")),
+                    obstruction_perc=float(request.form.get("obstruction_perc")),
+                    mount_type=request.form.get("mount_type"),
+                    flip_image=bool(request.form.get("flip")),
+                    flop_image=bool(request.form.get("flop")),
+                    reverse_arrow_a=bool(request.form.get("reverse_arrow_a")),
+                    reverse_arrow_b=bool(request.form.get("reverse_arrow_b")),
                 )
                 if instrument_id >= 0:
                     cfg.equipment.telescopes[instrument_id] = instrument
@@ -792,36 +785,40 @@ class Server2:
                 self.ui_queue.put("reload_config")
             except Exception as e:
                 logger.error(f"Error adding instrument: {e}")
-            return app.jinja_env.get_template('equipment.html').render(
+            return app.jinja_env.get_template("equipment.html").render(
                 title=_("Equipment"),
                 equipment=config.Config().equipment,
                 success_message=_("Instrument Added, restart your PiFinder to use"),
             )
 
-        @app.route('/equipment/delete_instrument/<int:instrument_id>')
+        @app.route("/equipment/delete_instrument/<int:instrument_id>")
         @auth_required
         def equipment_delete_instrument(instrument_id: int):
             cfg = config.Config()
             cfg.equipment.telescopes.pop(instrument_id)
             cfg.save_equipment()
             self.ui_queue.put("reload_config")
-            return app.jinja_env.get_template('equipment.html').render(
+            return app.jinja_env.get_template("equipment.html").render(
                 title=_("Equipment"),
                 equipment=config.Config().equipment,
-                success_message=_("Instrument Deleted, restart your PiFinder to remove from menu"),
+                success_message=_(
+                    "Instrument Deleted, restart your PiFinder to remove from menu"
+                ),
             )
 
-        @app.route('/observations')
+        @app.route("/observations")
         @auth_required
         def obs_sessions():
             obs_db = ObservationsDatabase()
-            if request.args.get('download', 0) == '1':
+            if request.args.get("download", 0) == "1":
                 # Download all as TSV
                 observations = obs_db.observations_as_tsv()
 
                 response = make_response(observations)
-                response.headers['Content-Disposition'] = 'attachment; filename=observations.tsv'
-                response.headers['Content-Type'] = 'text/tsv'
+                response.headers["Content-Disposition"] = (
+                    "attachment; filename=observations.tsv"
+                )
+                response.headers["Content-Type"] = "text/tsv"
                 return response
 
             # regular html page of sessions
@@ -831,23 +828,23 @@ class Server2:
                 "object_count": sum(x["observations"] for x in sessions),
                 "total_duration": sum(x["duration"] for x in sessions),
             }
-            return app.jinja_env.get_template('obs_sessions.html').render(
-                title=_("Observations"),
-                sessions=sessions, 
-                metadata=metadata
+            return app.jinja_env.get_template("obs_sessions.html").render(
+                title=_("Observations"), sessions=sessions, metadata=metadata
             )
 
-        @app.route('/observations/<session_id>')
+        @app.route("/observations/<session_id>")
         @auth_required
         def obs_session(session_id):
             obs_db = ObservationsDatabase()
-            if request.args.get('download', 0) == '1':
+            if request.args.get("download", 0) == "1":
                 # Download all as TSV
                 observations = obs_db.observations_as_tsv(session_id)
 
                 response = make_response(observations)
-                response.headers['Content-Disposition'] = f'attachment; filename=observations_{session_id}.tsv'
-                response.headers['Content-Type'] = 'text/tsv'
+                response.headers["Content-Disposition"] = (
+                    f"attachment; filename=observations_{session_id}.tsv"
+                )
+                response.headers["Content-Type"] = "text/tsv"
                 return response
 
             session = obs_db.get_sessions(session_id)[0]
@@ -860,35 +857,30 @@ class Server2:
                     [f"{key}: {value}" for key, value in obj_notes.items()]
                 )
                 ret_objects.append(obj_)
-            return app.jinja_env.get_template('obs_session_log.html').render(
-                title=_("Session Log"),
-                session=session, 
-                objects=ret_objects
+            return app.jinja_env.get_template("obs_session_log.html").render(
+                title=_("Session Log"), session=session, objects=ret_objects
             )
 
-        @app.route('/tools')
+        @app.route("/tools")
         @auth_required
         def tools():
-            return app.jinja_env.get_template('tools.html').render(
-                title=_("Tools")
-            )
+            return app.jinja_env.get_template("tools.html").render(title=_("Tools"))
 
-        @app.route('/logs')
+        @app.route("/logs")
         @auth_required
         def logs_page():
             # Get current log level
             root_logger = logging.getLogger()
             current_level = logging.getLevelName(root_logger.getEffectiveLevel())
-            return app.jinja_env.get_template('logs.html').render(
-                title=_("Logs"),
-                current_level=current_level
+            return app.jinja_env.get_template("logs.html").render(
+                title=_("Logs"), current_level=current_level
             )
 
-        @app.route('/logs/stream')
+        @app.route("/logs/stream")
         @auth_required
         def stream_logs():
             try:
-                position = int(request.args.get('position', 0))
+                position = int(request.args.get("position", 0))
                 log_file = os.path.expanduser("~/PiFinder_data/pifinder.log")
 
                 try:
@@ -897,7 +889,7 @@ class Server2:
                     if position >= file_size or position == 0:
                         position = 0
 
-                    with open(log_file, 'r') as f:
+                    with open(log_file, "r") as f:
                         if position > 0:
                             f.seek(position)
                         new_lines = f.readlines()
@@ -917,20 +909,20 @@ class Server2:
                 logger.error(f"Error streaming logs: {e}")
                 return jsonify({"logs": [], "position": position})
 
-        @app.route('/logs/current_level')
+        @app.route("/logs/current_level")
         @auth_required
         def get_current_log_level():
             root_logger = logging.getLogger()
             current_level = logging.getLevelName(root_logger.getEffectiveLevel())
             return jsonify({"level": current_level})
 
-        @app.route('/logs/components')
+        @app.route("/logs/components")
         @auth_required
         def get_component_levels():
             try:
                 import json5
 
-                with open("pifinder_logconf.json", 'r') as f:
+                with open("pifinder_logconf.json", "r") as f:
                     config = json5.load(f)
                 # Get all loggers from the config
                 loggers = config.get("loggers", {})
@@ -952,7 +944,7 @@ class Server2:
                 logging.error(f"Error reading log configuration: {e}")
                 return jsonify({"status": "error", "message": str(e)})
 
-        @app.route('/logs/download')
+        @app.route("/logs/download")
         @auth_required
         def download_logs():
             import zipfile
@@ -962,11 +954,13 @@ class Server2:
             try:
                 # Create a temporary zip file
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_file:
+
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=".zip"
+                ) as temp_file:
                     zip_path = temp_file.name
-                    
-                with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+
+                with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
                     # Add all log files
                     log_dir = os.path.expanduser("~/PiFinder_data")
                     for filename in os.listdir(log_dir):
@@ -987,52 +981,56 @@ class Server2:
                 return send_file(
                     zip_path,
                     as_attachment=True,
-                    download_name=f'logs_{timestamp}.zip',
-                    mimetype='application/zip'
+                    download_name=f"logs_{timestamp}.zip",
+                    mimetype="application/zip",
                 )
 
             except Exception as e:
                 logger.error(f"Error creating log zip: {e}")
-                return app.jinja_env.get_template('logs.html').render(
-                    title=_("Logs"),
-                    error_message=_("Error creating log archive")
+                return app.jinja_env.get_template("logs.html").render(
+                    title=_("Logs"), error_message=_("Error creating log archive")
                 )
 
-        @app.route('/tools/backup')
+        @app.route("/tools/backup")
         @auth_required
         def tools_backup():
             _backup_file = sys_utils.backup_userdata()
 
             # Assumes the standard backup location
-            return send_file(os.path.expanduser("~/PiFinder_data/PiFinder_backup.zip"), as_attachment=True)
+            return send_file(
+                os.path.expanduser("~/PiFinder_data/PiFinder_backup.zip"),
+                as_attachment=True,
+            )
 
-        @app.route('/tools/restore', methods=['POST'])
+        @app.route("/tools/restore", methods=["POST"])
         @auth_required
         def tools_restore():
             sys_utils.remove_backup()
-            backup_file = request.files.get('backup_file')
+            backup_file = request.files.get("backup_file")
             if backup_file:
-                backup_file.save(os.path.expanduser("~/PiFinder_data/PiFinder_backup.zip"))
+                backup_file.save(
+                    os.path.expanduser("~/PiFinder_data/PiFinder_backup.zip")
+                )
 
                 sys_utils.restore_userdata(
                     os.path.expanduser("~/PiFinder_data/PiFinder_backup.zip")
                 )
 
-            return app.jinja_env.get_template('restart_pifinder.html').render(
+            return app.jinja_env.get_template("restart_pifinder.html").render(
                 title=_("Restart PiFinder")
             )
 
-        @app.route('/key_callback', methods=['POST'])
+        @app.route("/key_callback", methods=["POST"])
         @auth_required
         def key_callback():
-            button = request.json.get('button')
+            button = request.json.get("button")
             if button in button_dict:
                 self.key_callback(button_dict[button])
             else:
                 self.key_callback(int(button))
             return jsonify({"message": "success"})
 
-        @app.route('/image')
+        @app.route("/image")
         def serve_pil_image():
             empty_img = Image.new(
                 "RGB", (60, 30), color=(73, 109, 137)
@@ -1049,7 +1047,7 @@ class Server2:
             img.save(img_byte_arr, format="PNG")  # adjust for your image format
             img_byte_arr.seek(0)
 
-            return send_file(img_byte_arr, mimetype='image/png')
+            return send_file(img_byte_arr, mimetype="image/png")
 
         def gps_lock(lat: float = 50, lon: float = 3, altitude: float = 10):
             msg = (
@@ -1078,12 +1076,24 @@ class Server2:
         # If the PiFinder software is running as a service
         # it can grab port 80.  If not, it needs to use 8080
         try:
-            self.app.run(host="0.0.0.0", port=80, debug=True, use_reloader=False, passthrough_errors=False)
+            self.app.run(
+                host="0.0.0.0",
+                port=80,
+                debug=True,
+                use_reloader=False,
+                passthrough_errors=False,
+            )
             logger.info("Webserver started on port 80")
         except (PermissionError, OSError, SystemExit) as e:
             logger.debug(f"Permission denied on port 80, trying 8080. {e}")
             try:
-                self.app.run(host="0.0.0.0", port=8080, debug=True, use_reloader=False, passthrough_errors=False)
+                self.app.run(
+                    host="0.0.0.0",
+                    port=8080,
+                    debug=True,
+                    use_reloader=False,
+                    passthrough_errors=False,
+                )
                 logger.info("Webserver started on port 8080")
             except (Exception, SystemExit) as e2:
                 logger.exception(f"Failed to start server on port 8080. {e2}")
@@ -1114,41 +1124,46 @@ def run_server(
 ):
     # MultiprocLogging.configurer(log_queue)
     logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s %(name)s:%(levelname)s:%(message)s'
+        level=logging.DEBUG, format="%(asctime)s %(name)s:%(levelname)s:%(message)s"
     )
     server = Server2(keyboard_queue, ui_queue, gps_queue, shared_state, verbose)
     server.run()
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="PiFinder Flask Web Server with i18n support")
+    parser = argparse.ArgumentParser(
+        description="PiFinder Flask Web Server with i18n support"
+    )
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
-    parser.add_argument("--port", type=int, default=8080, help="Port to run server on (default: 8080)")
-    parser.add_argument("--host", default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)")
-    
+    parser.add_argument(
+        "--port", type=int, default=8080, help="Port to run server on (default: 8080)"
+    )
+    parser.add_argument(
+        "--host", default="0.0.0.0", help="Host to bind to (default: 0.0.0.0)"
+    )
+
     args = parser.parse_args()
-    
+
     # Setup basic logging for standalone mode
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO,
-        format='%(asctime)s %(name)s:%(levelname)s:%(message)s'
+        format="%(asctime)s %(name)s:%(levelname)s:%(message)s",
     )
-    
+
     logger.info("Starting PiFinder Server2 in standalone mode")
-    
+
     # Create a single queue for command line testing
     test_queue = multiprocessing.Queue()
-    
+
     # Create server with mock components
     server = Server2(
         keyboard_queue=test_queue,
-        ui_queue=test_queue, 
+        ui_queue=test_queue,
         gps_queue=test_queue,
         shared_state=MockSharedState(),
-        is_debug=args.debug
+        is_debug=args.debug,
     )
-    
+
     # Override the default port behavior for command line usage
     try:
         logger.info("Starting web server.")
