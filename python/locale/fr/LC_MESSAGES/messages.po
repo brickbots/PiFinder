@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-08-28 08:30+0200\n"
+"POT-Creation-Date: 2025-08-29 07:54+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: xxxxxx <xxxxx@xxxxx.com>\n"
 "Language: fr_FR\n"
@@ -215,7 +215,9 @@ msgstr "choisi comme oculaire actif"
 
 #: PiFinder/server2.py:673
 msgid "Equipment Imported, restart your PiFinder to use this new data"
-msgstr "Equipement importé, redemerage du PiFinder pour utilisation de ces nouvelles données"
+msgstr ""
+"Equipement importé, redemerage du PiFinder pour utilisation de ces "
+"nouvelles données"
 
 #: PiFinder/server2.py:687
 #, fuzzy
@@ -1150,7 +1152,9 @@ msgstr "Standard"
 msgid ""
 "Sorting by\n"
 "{sort_order}"
-msgstr "Classement par\n""{sort_order}"
+msgstr ""
+"Classement par\n"
+"\"\"{sort_order}"
 
 #: PiFinder/ui/object_list.py:194 PiFinder/ui/object_list.py:678
 msgid "RA"
@@ -1433,7 +1437,7 @@ msgstr "Retourner la fleche A"
 #: views2/edit_instrument.html:93 views2/equipment.html:77
 #, fuzzy
 msgid "Reverse Arrow B"
-msgstr ""Retourner la fleche B"
+msgstr "\"Retourner la fleche B"
 
 #: views2/edit_instrument.html:103
 msgid "Add instrument!"
@@ -1465,9 +1469,10 @@ msgid ""
 "This will delete all instruments and eyepieces from your PiFinder and "
 "replace them with the instruments and eyepieces from DeepskyLog. Are you "
 "really sure?"
-msgstr "Cela ve supprimé tous les instruments et oculaires du Pifinder et"
-"remplacer ceux-ci par les instrulents et oculaires de Deepskylog"
-"êtes vous sûr ?"
+msgstr ""
+"Cela ve supprimé tous les instruments et oculaires du Pifinder "
+"etremplacer ceux-ci par les instrulents et oculaires de Deepskylogêtes "
+"vous sûr ?"
 
 #: views2/equipment.html:50
 msgid "DeepskyLog User Name"
@@ -1778,8 +1783,9 @@ msgid "Global: Debug"
 msgstr "Global: Debug"
 
 #: views2/logs.html:137
-msgid "Global: Debug"
-msgstr "Global: Debug"
+#, fuzzy
+msgid "Global: Info"
+msgstr "Global: attention"
 
 #: views2/logs.html:138
 #, fuzzy
@@ -1871,8 +1877,9 @@ msgstr "Sauvegarder et redémarrer"
 msgid ""
 "This will update the network settings and restart the PiFinder. You may "
 "have to adjust your network settings to re-connect. Are you sure?"
-msgstr "Cela va mettre à jour les réglages reseaux et redemmarer le Pifinder"
-"vous devez ajuster votre réglages réseau pour reconnecter. Etes vous sûr ?"
+msgstr ""
+"Cela va mettre à jour les réglages reseaux et redemmarer le Pifindervous "
+"devez ajuster votre réglages réseau pour reconnecter. Etes vous sûr ?"
 
 #: views2/network.html:49 views2/tools.html:96
 msgid "Do It"
@@ -1932,7 +1939,9 @@ msgstr "Changé le mot de passe"
 msgid ""
 "This will change the password for this web interface and the user account"
 " pifinder for ssh and other tools"
-msgstr "Cela va changé le mot de passe de l'interface web et de l'utilisateur courant PiFinder pour le SSH et les autres outils"
+msgstr ""
+"Cela va changé le mot de passe de l'interface web et de l'utilisateur "
+"courant PiFinder pour le SSH et les autres outils"
 
 #: views2/tools.html:36
 msgid "Current Password"
@@ -1954,7 +1963,9 @@ msgstr "données et reglages de l'utilisateur"
 msgid ""
 "You can download a zip file of all your personal settings, observations "
 "and observing lists for safe keeping."
-msgstr "vous pouvez telecharger un fichier zip avec tous vos reglages personnels, observations et liste d'observation pour sauvegarde"
+msgstr ""
+"vous pouvez telecharger un fichier zip avec tous vos reglages personnels,"
+" observations et liste d'observation pour sauvegarde"
 
 #: views2/tools.html:63
 msgid "Download Backup File"
@@ -1986,8 +1997,8 @@ msgid ""
 "This will use the provided file to restore your user data. This will "
 "overwrite any existing preference and observations. Are you sure?"
 msgstr ""
-"Cela va provoquer une restauration des données utilisateur."
-"Cela va ecraser les preferences et observations . etes vous sûr?"
+"Cela va provoquer une restauration des données utilisateur.Cela va "
+"ecraser les preferences et observations . etes vous sûr?"
 
 #~ msgid "Language: Spanish"
 #~ msgstr "Langage: Espagnol"
