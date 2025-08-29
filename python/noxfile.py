@@ -64,6 +64,19 @@ def unit_tests(session: nox.Session) -> None:
     session.install("-r", "requirements_dev.txt")
     session.run("pytest", "-m", "unit")
 
+@nox.session(reuse_venv=True, python="3.9")
+def web_tests(session: nox.Session) -> None:
+    """
+    Run the project's test suite on the web interface.
+
+    This session installs the necessary dependencies and tests the web interface using Selenium.
+
+    Args:
+        session (nox.Session): The Nox session being run, providing context and methods for session actions.
+    """
+    session.install("-r", "requirements.txt")
+    session.install("-r", "requirements_dev.txt")
+    session.run("pytest", "-m", "web")
 
 @nox.session(reuse_venv=True, python="3.9")
 def smoke_tests(session: nox.Session) -> None:
