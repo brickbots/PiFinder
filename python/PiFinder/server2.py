@@ -19,9 +19,13 @@ from PiFinder.equipment import Telescope, Eyepiece
 from PiFinder.keyboard_interface import KeyboardInterface
 
 from flask import Flask, request, jsonify, send_file, redirect, session, make_response
-from flask_babel import Babel, gettext
+from flask_babel import Babel, gettext  # type: ignore[import-untyped]
 
 from PiFinder import i18n  # noqa: F401
+
+# Type annotation for the global _ function installed by gettext.install()
+import builtins
+_ = builtins._  # type: ignore[attr-defined]
 
 
 sys_utils = utils.get_sys_utils()
@@ -686,12 +690,18 @@ class Server2:
             cfg = config.Config()
 
             try:
+                make = request.form.get("make") or ""
+                name = request.form.get("name") or ""
+                focal_length_str = request.form.get("focal_length_mm") or "0"
+                afov_str = request.form.get("afov") or "0"
+                field_stop_str = request.form.get("field_stop") or "0"
+                
                 eyepiece = Eyepiece(
-                    make=request.form.get("make"),
-                    name=request.form.get("name"),
-                    focal_length_mm=float(request.form.get("focal_length_mm")),
-                    afov=int(request.form.get("afov")),
-                    field_stop=float(request.form.get("field_stop")),
+                    make=make,
+                    name=name,
+                    focal_length_mm=float(focal_length_str),
+                    afov=int(afov_str),
+                    field_stop=float(field_stop_str),
                 )
 
                 if eyepiece_id >= 0:
@@ -760,13 +770,20 @@ class Server2:
             cfg = config.Config()
 
             try:
+                make = request.form.get("make") or ""
+                name = request.form.get("name") or ""
+                aperture_str = request.form.get("aperture") or "0"
+                focal_length_str = request.form.get("focal_length_mm") or "0"
+                obstruction_str = request.form.get("obstruction_perc") or "0"
+                mount_type = request.form.get("mount_type") or ""
+                
                 instrument = Telescope(
-                    make=request.form.get("make"),
-                    name=request.form.get("name"),
-                    aperture_mm=int(request.form.get("aperture")),
-                    focal_length_mm=int(request.form.get("focal_length_mm")),
-                    obstruction_perc=float(request.form.get("obstruction_perc")),
-                    mount_type=request.form.get("mount_type"),
+                    make=make,
+                    name=name,
+                    aperture_mm=int(aperture_str),
+                    focal_length_mm=int(focal_length_str),
+                    obstruction_perc=float(obstruction_str),
+                    mount_type=mount_type,
                     flip_image=bool(request.form.get("flip")),
                     flop_image=bool(request.form.get("flop")),
                     reverse_arrow_a=bool(request.form.get("reverse_arrow_a")),
@@ -1153,7 +1170,7 @@ if __name__ == "__main__":
     logger.info("Starting PiFinder Server2 in standalone mode")
 
     # Create a single queue for command line testing
-    test_queue = multiprocessing.Queue()
+    test_queue: multiprocessing.Queue = multiprocessing.Queue()
 
     # Create server with mock components
     server = Server2(

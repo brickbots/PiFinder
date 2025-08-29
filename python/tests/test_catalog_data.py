@@ -138,43 +138,43 @@ def check_ngc_objects():
         {
             "ngc": 104,
             "name": "47 Tucanae",
-            "ra": 6.023,      # RA = 00h 24m 05.2s
-            "dec": -72.081,   # Dec = -72° 04' 51"
-            "obj_type": "Gb", # Globular cluster
-            "const": "Tuc"    # Tucana
+            "ra": 6.023,  # RA = 00h 24m 05.2s
+            "dec": -72.081,  # Dec = -72° 04' 51"
+            "obj_type": "Gb",  # Globular cluster
+            "const": "Tuc",  # Tucana
         },
         {
             "ngc": 224,
             "name": "Andromeda Galaxy",
-            "ra": 10.685,     # RA = 00h 42m 44.3s
-            "dec": 41.269,    # Dec = +41° 16' 09"
-            "obj_type": "Gx", # Galaxy
-            "const": "And"    # Andromeda
+            "ra": 10.685,  # RA = 00h 42m 44.3s
+            "dec": 41.269,  # Dec = +41° 16' 09"
+            "obj_type": "Gx",  # Galaxy
+            "const": "And",  # Andromeda
         },
         {
             "ngc": 1976,
             "name": "Orion Nebula",
-            "ra": 83.822,     # RA = 05h 35m 17.3s
-            "dec": -5.391,    # Dec = -05° 23' 27"
-            "obj_type": "Nb", # Nebula
-            "const": "Ori"    # Orion
+            "ra": 83.822,  # RA = 05h 35m 17.3s
+            "dec": -5.391,  # Dec = -05° 23' 27"
+            "obj_type": "Nb",  # Nebula
+            "const": "Ori",  # Orion
         },
         {
             "ngc": 2168,
             "name": "M35",
-            "ra": 92.275,     # RA = 06h 09m 06s
-            "dec": 24.350,    # Dec = +24° 21' 00"
-            "obj_type": "OC", # Open cluster
-            "const": "Gem"    # Gemini
+            "ra": 92.275,  # RA = 06h 09m 06s
+            "dec": 24.350,  # Dec = +24° 21' 00"
+            "obj_type": "OC",  # Open cluster
+            "const": "Gem",  # Gemini
         },
         {
             "ngc": 7009,
             "name": "Saturn Nebula",
-            "ra": 316.0417,    # RA = 21h 04m 10.8s
-            "dec": -11.3631,   # Dec = -11° 22' 18"
-            "obj_type": "PN", # Planetary nebula
-            "const": "Aqr"    # Aquarius
-        }
+            "ra": 316.0417,  # RA = 21h 04m 10.8s
+            "dec": -11.3631,  # Dec = -11° 22' 18"
+            "obj_type": "PN",  # Planetary nebula
+            "const": "Aqr",  # Aquarius
+        },
     ]
 
     for test_obj in test_objects:
@@ -183,28 +183,36 @@ def check_ngc_objects():
 
         # Get object from database
         catalog_obj = db.get_catalog_object_by_sequence("NGC", ngc_num)
-        assert catalog_obj is not None, f"NGC {ngc_num} ({name}) should exist in catalog"
+        assert (
+            catalog_obj is not None
+        ), f"NGC {ngc_num} ({name}) should exist in catalog"
 
         obj = db.get_object_by_id(catalog_obj["object_id"])
         assert obj is not None, f"NGC {ngc_num} ({name}) object should exist"
 
         # Check coordinates (allow 0.1 degree tolerance for coordinate precision)
-        assert coords_are_close(obj["ra"], test_obj["ra"], tolerance=0.1), \
-            f"NGC {ngc_num} ({name}) RA should be ~{test_obj['ra']}°, got {obj['ra']}°"
+        assert coords_are_close(
+            obj["ra"], test_obj["ra"], tolerance=0.1
+        ), f"NGC {ngc_num} ({name}) RA should be ~{test_obj['ra']}°, got {obj['ra']}°"
 
-        assert coords_are_close(obj["dec"], test_obj["dec"], tolerance=0.1), \
-            f"NGC {ngc_num} ({name}) Dec should be ~{test_obj['dec']}°, got {obj['dec']}°"
+        assert coords_are_close(
+            obj["dec"], test_obj["dec"], tolerance=0.1
+        ), f"NGC {ngc_num} ({name}) Dec should be ~{test_obj['dec']}°, got {obj['dec']}°"
 
         # Check object type
-        assert obj["obj_type"] == test_obj["obj_type"], \
-            f"NGC {ngc_num} ({name}) should be type '{test_obj['obj_type']}', got '{obj['obj_type']}'"
+        assert (
+            obj["obj_type"] == test_obj["obj_type"]
+        ), f"NGC {ngc_num} ({name}) should be type '{test_obj['obj_type']}', got '{obj['obj_type']}'"
 
         # Check constellation (if provided)
         if test_obj["const"]:
-            assert obj["const"] == test_obj["const"], \
-                f"NGC {ngc_num} ({name}) should be in {test_obj['const']}, got '{obj['const']}'"
+            assert (
+                obj["const"] == test_obj["const"]
+            ), f"NGC {ngc_num} ({name}) should be in {test_obj['const']}, got '{obj['const']}'"
 
-        print(f"✓ NGC {ngc_num} ({name}): RA={obj['ra']:.3f}°, Dec={obj['dec']:.3f}°, Type={obj['obj_type']}, Const={obj['const']}")
+        print(
+            f"✓ NGC {ngc_num} ({name}): RA={obj['ra']:.3f}°, Dec={obj['dec']:.3f}°, Type={obj['obj_type']}, Const={obj['const']}"
+        )
 
 
 def check_ic_objects():
@@ -219,44 +227,44 @@ def check_ic_objects():
         {
             "ic": 434,
             "name": "Horsehead Nebula",
-            "ra": 85.253,     # RA = 05h 41m 01s
-            "dec": -2.457,    # Dec = -02° 27' 25"
-            "obj_type": "Nb", #  Emission Nebula
-            "const": "Ori"    # Orion
+            "ra": 85.253,  # RA = 05h 41m 01s
+            "dec": -2.457,  # Dec = -02° 27' 25"
+            "obj_type": "Nb",  #  Emission Nebula
+            "const": "Ori",  # Orion
         },
         {
             "ic": 1396,
             "name": "Elephant's Trunk Nebula",
-            "ra": 324.725,    # RA = 21h 36m 33s
-            "dec": 57.486,    # Dec = +57° 30' 00"
-            "obj_type": "Nb", # Emission nebula
-            "const": "Cep"    # Cepheus
+            "ra": 324.725,  # RA = 21h 36m 33s
+            "dec": 57.486,  # Dec = +57° 30' 00"
+            "obj_type": "Nb",  # Emission nebula
+            "const": "Cep",  # Cepheus
         },
         {
             "ic": 405,
             "name": "Flaming Star Nebula",
-            "ra": 79.07,     # RA = 05h 16m 17s (hand corrected on simbad image)
-            "dec": 34.383,    # Dec = +34° 34' 12.2"
-            "obj_type": "Nb", # Emission/reflection nebula
-            "const": "Aur"    # Auriga
+            "ra": 79.07,  # RA = 05h 16m 17s (hand corrected on simbad image)
+            "dec": 34.383,  # Dec = +34° 34' 12.2"
+            "obj_type": "Nb",  # Emission/reflection nebula
+            "const": "Aur",  # Auriga
         },
         {
             "ic": 1805,
             "name": "Heart Nebula",
-            "ra": 38.200,     # RA = 02h 32m 48s
-            "dec": 61.450,    # Dec = +61° 27' 00"
+            "ra": 38.200,  # RA = 02h 32m 48s
+            "dec": 61.450,  # Dec = +61° 27' 00"
             # "obj_type": "Nb", # Emission nebula
-            "obj_type": "OC", # Open cluster at the heart of the nebula
-            "const": "Cas"    # Cassiopeia
+            "obj_type": "OC",  # Open cluster at the heart of the nebula
+            "const": "Cas",  # Cassiopeia
         },
         {
             "ic": 10,
             "name": "Galaxy in Sculptor",
-            "ra": 5.072,      # RA = 00h 20m 37s
-            "dec": 59.303,   # Dec = -33° 45' 04"
-            "obj_type": "Gx", # Galaxy
-            "const": "Cas"    # Cassiopeia
-        }
+            "ra": 5.072,  # RA = 00h 20m 37s
+            "dec": 59.303,  # Dec = -33° 45' 04"
+            "obj_type": "Gx",  # Galaxy
+            "const": "Cas",  # Cassiopeia
+        },
     ]
 
     for test_obj in test_objects:
@@ -271,22 +279,28 @@ def check_ic_objects():
         assert obj is not None, f"IC {ic_num} ({name}) object should exist"
 
         # Check coordinates (allow 0.1 degree tolerance for coordinate precision)
-        assert coords_are_close(obj["ra"], test_obj["ra"], tolerance=0.1), \
-            f"IC {ic_num} ({name}) RA should be ~{test_obj['ra']}°, got {obj['ra']}°"
+        assert coords_are_close(
+            obj["ra"], test_obj["ra"], tolerance=0.1
+        ), f"IC {ic_num} ({name}) RA should be ~{test_obj['ra']}°, got {obj['ra']}°"
 
-        assert coords_are_close(obj["dec"], test_obj["dec"], tolerance=0.1), \
-            f"IC {ic_num} ({name}) Dec should be ~{test_obj['dec']}°, got {obj['dec']}°"
+        assert coords_are_close(
+            obj["dec"], test_obj["dec"], tolerance=0.1
+        ), f"IC {ic_num} ({name}) Dec should be ~{test_obj['dec']}°, got {obj['dec']}°"
 
         # Check object type
-        assert obj["obj_type"] == test_obj["obj_type"], \
-            f"IC {ic_num} ({name}) should be type '{test_obj['obj_type']}', got '{obj['obj_type']}'"
+        assert (
+            obj["obj_type"] == test_obj["obj_type"]
+        ), f"IC {ic_num} ({name}) should be type '{test_obj['obj_type']}', got '{obj['obj_type']}'"
 
         # Check constellation (if provided)
         if test_obj["const"]:
-            assert obj["const"] == test_obj["const"], \
-                f"IC {ic_num} ({name}) should be in {test_obj['const']}, got '{obj['const']}'"
+            assert (
+                obj["const"] == test_obj["const"]
+            ), f"IC {ic_num} ({name}) should be in {test_obj['const']}, got '{obj['const']}'"
 
-        print(f"✓ IC {ic_num} ({name}): RA={obj['ra']:.3f}°, Dec={obj['dec']:.3f}°, Type={obj['obj_type']}, Const={obj['const']}")
+        print(
+            f"✓ IC {ic_num} ({name}): RA={obj['ra']:.3f}°, Dec={obj['dec']:.3f}°, Type={obj['obj_type']}, Const={obj['const']}"
+        )
 
 
 @pytest.mark.unit
