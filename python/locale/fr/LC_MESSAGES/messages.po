@@ -124,7 +124,7 @@ msgstr "Bas"
 
 #: PiFinder/server2.py:254
 msgid "Invalid Password"
-msgstr ""
+msgstr "Mot de passe invalide"
 
 #: PiFinder/server2.py:267 views2/base.html:18 views2/base.html:29
 #, fuzzy
@@ -141,7 +141,7 @@ msgstr "Réseau"
 
 #: PiFinder/server2.py:301
 msgid "GPS"
-msgstr "GP"
+msgstr "GPS"
 
 #: PiFinder/server2.py:335 PiFinder/server2.py:384 PiFinder/server2.py:433
 #: views2/base.html:21 views2/base.html:32
@@ -156,11 +156,11 @@ msgstr "Nom de localisation requis"
 
 #: PiFinder/server2.py:355 PiFinder/server2.py:411
 msgid "Latitude must be between -90 and 90"
-msgstr "Latitude doit être entre -90 et+90"
+msgstr "Latitude doit être entre -90 et 90"
 
 #: PiFinder/server2.py:357 PiFinder/server2.py:413
 msgid "Longitude must be between -180 and 180"
-msgstr "Longitude doit être entre -180 et+180"
+msgstr "Longitude doit être entre -180 et 180"
 
 #: PiFinder/server2.py:359 PiFinder/server2.py:415
 msgid "Altitude must be between -1000 and 10000 meters"
@@ -195,7 +195,7 @@ msgstr "Mot de passe actuel incorrect"
 
 #: PiFinder/server2.py:537
 msgid "New passwords do not match"
-msgstr "les nouveaux mot de passe ne sont pas identiques"
+msgstr "les nouveaux mots de passe ne sont pas identiques"
 
 #: PiFinder/server2.py:562 PiFinder/server2.py:574 PiFinder/server2.py:590
 #: PiFinder/server2.py:671 PiFinder/server2.py:721 PiFinder/server2.py:734
@@ -215,9 +215,7 @@ msgstr "choisi comme oculaire actif"
 
 #: PiFinder/server2.py:673
 msgid "Equipment Imported, restart your PiFinder to use this new data"
-msgstr ""
-"Equipement importé, redemerage du PiFinder pour utilisation de ces "
-"nouvelles données"
+msgstr "Equipement importé, redemerage du PiFinder pour utilisation de ces nouvelles données"
 
 #: PiFinder/server2.py:687
 #, fuzzy
@@ -1109,7 +1107,7 @@ msgstr "Pas d'astrometrie"
 
 #: PiFinder/ui/object_details.py:253
 msgid "yet{elipsis}"
-msgstr "maintenant{elipsis} "
+msgstr "maintenant{elipsis}"
 
 #: PiFinder/ui/object_details.py:267
 #, fuzzy
@@ -1470,9 +1468,9 @@ msgid ""
 "replace them with the instruments and eyepieces from DeepskyLog. Are you "
 "really sure?"
 msgstr ""
-"Cela ve supprimé tous les instruments et oculaires du Pifinder "
-"etremplacer ceux-ci par les instrulents et oculaires de Deepskylogêtes "
-"vous sûr ?"
+"Cela ve supprimer tous les instruments et oculaires du Pifinder "
+"et remplacer ceux-ci par les instruments et oculaires de Deepskylog "
+"vous êtes sûr ?"
 
 #: views2/equipment.html:50
 msgid "DeepskyLog User Name"
@@ -1617,7 +1615,7 @@ msgstr "Version du logiciel"
 
 #: views2/index.html:63 views2/remote.html:55
 msgid "PiFinder server is currently unavailable. Please try again later."
-msgstr "Serveur du Pifinder indisponible: essayer plus tard."
+msgstr "Serveur du Pifinder actuellement indisponible: essayer plus tard."
 
 #: views2/location_form.html:59 views2/locations.html:169
 #, fuzzy
