@@ -1,7 +1,7 @@
-# Spanish translations for PROJECT.
+# Spanish translations for PiFinder.
 # Copyright (C) 2025 ORGANIZATION
-# This file is distributed under the same license as the PROJECT project.
-# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+# This file is distributed under the same license as the PiFinder project.
+# Claude Code, 2025.
 #
 msgid ""
 msgstr ""
@@ -9,7 +9,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2025-08-29 07:54+0200\n"
 "PO-Revision-Date: 2025-01-22 17:58+0100\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Last-Translator: Claude Code\n"
 "Language: es\n"
 "Language-Team: es <LL@li.org>\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
@@ -20,169 +20,169 @@ msgstr ""
 
 #: PiFinder/cat_images.py:48
 msgid "No Image"
-msgstr ""
+msgstr "Sin Imagen"
 
 #: PiFinder/obj_types.py:7 PiFinder/ui/menu_structure.py:368
 msgid "Galaxy"
-msgstr ""
+msgstr "Galaxia"
 
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:8 PiFinder/ui/menu_structure.py:372
 msgid "Open Cluster"
-msgstr ""
+msgstr "Cúmulo Abierto"
 
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:9 PiFinder/ui/menu_structure.py:380
 msgid "Globular"
-msgstr ""
+msgstr "Globular"
 
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:10 PiFinder/ui/menu_structure.py:384
 msgid "Nebula"
-msgstr ""
+msgstr "Nebulosa"
 
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:11 PiFinder/ui/menu_structure.py:392
 msgid "Dark Nebula"
-msgstr ""
+msgstr "Nebulosa Oscura"
 
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:12
 msgid "Planetary"
-msgstr ""
+msgstr "Planetaria"
 
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:13
 msgid "Cluster + Neb"
-msgstr ""
+msgstr "Cúmulo + Neb"
 
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:14 PiFinder/ui/menu_structure.py:412
 msgid "Asterism"
-msgstr ""
+msgstr "Asterismo"
 
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:15 PiFinder/ui/menu_structure.py:408
 msgid "Knot"
-msgstr ""
+msgstr "Nudo"
 
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:16
 msgid "Triple star"
-msgstr ""
+msgstr "Estrella Triple"
 
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:17
 msgid "Double star"
-msgstr ""
+msgstr "Estrella Doble"
 
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:18 PiFinder/ui/menu_structure.py:396
 msgid "Star"
-msgstr ""
+msgstr "Estrella"
 
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:19
 msgid "Unkn"
-msgstr ""
+msgstr "Desc"
 
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:20 PiFinder/ui/menu_structure.py:416
 msgid "Planet"
-msgstr ""
+msgstr "Planeta"
 
 #. TRANSLATORS: Object type
 #: PiFinder/obj_types.py:21 PiFinder/ui/menu_structure.py:420
 msgid "Comet"
-msgstr ""
+msgstr "Cometa"
 
 #: PiFinder/server2.py:206
 msgid "Locked"
-msgstr ""
+msgstr "Bloqueado"
 
 #: PiFinder/server2.py:206
 msgid "Not Locked"
-msgstr ""
+msgstr "No Bloqueado"
 
 #: PiFinder/server2.py:227 views2/base.html:17 views2/base.html:28
 msgid "Home"
-msgstr ""
+msgstr "Inicio"
 
 #: PiFinder/server2.py:252 PiFinder/server2.py:259 views2/login.html:31
 msgid "Login"
-msgstr ""
+msgstr "Iniciar Sesión"
 
 #: PiFinder/server2.py:254
 msgid "Invalid Password"
-msgstr ""
+msgstr "Contraseña Inválida"
 
 #: PiFinder/server2.py:267 views2/base.html:18 views2/base.html:29
 msgid "Remote"
-msgstr ""
+msgstr "Remoto"
 
 #: PiFinder/server2.py:274
 msgid "Advanced"
-msgstr ""
+msgstr "Avanzado"
 
 #: PiFinder/server2.py:283
 msgid "Network"
-msgstr ""
+msgstr "Red"
 
 #: PiFinder/server2.py:301
 msgid "GPS"
-msgstr ""
+msgstr "GPS"
 
 #: PiFinder/server2.py:335 PiFinder/server2.py:384 PiFinder/server2.py:433
 #: views2/base.html:21 views2/base.html:32
 msgid "Locations"
-msgstr ""
+msgstr "Ubicaciones"
 
 #: PiFinder/server2.py:353 PiFinder/server2.py:409
 msgid "Location name is required"
-msgstr ""
+msgstr "El nombre de ubicación es requerido"
 
 #: PiFinder/server2.py:355 PiFinder/server2.py:411
 msgid "Latitude must be between -90 and 90"
-msgstr ""
+msgstr "La latitud debe estar entre -90 y 90"
 
 #: PiFinder/server2.py:357 PiFinder/server2.py:413
 msgid "Longitude must be between -180 and 180"
-msgstr ""
+msgstr "La longitud debe estar entre -180 y 180"
 
 #: PiFinder/server2.py:359 PiFinder/server2.py:415
 msgid "Altitude must be between -1000 and 10000 meters"
-msgstr ""
+msgstr "La altitud debe estar entre -1000 y 10000 metros"
 
 #: PiFinder/server2.py:361 PiFinder/server2.py:417
 msgid "Error must be between 0 and 10000 meters"
-msgstr ""
+msgstr "El error debe estar entre 0 y 10000 metros"
 
 #: PiFinder/server2.py:505 PiFinder/ui/menu_structure.py:1002
 msgid "Restart"
-msgstr ""
+msgstr "Reiniciar"
 
 #: PiFinder/server2.py:517 PiFinder/server2.py:526 PiFinder/server2.py:531
 #: PiFinder/server2.py:536 PiFinder/server2.py:873
 #: PiFinder/ui/menu_structure.py:955 views2/base.html:23 views2/base.html:34
 #: views2/tools.html:6
 msgid "Tools"
-msgstr ""
+msgstr "Herramientas"
 
 #: PiFinder/server2.py:518
 msgid "You must fill in all password fields"
-msgstr ""
+msgstr "Debe rellenar todos los campos de contraseña"
 
 #: PiFinder/server2.py:527
 msgid "Password Changed"
-msgstr ""
+msgstr "Contraseña Cambiada"
 
 #: PiFinder/server2.py:532
 msgid "Incorrect current password"
-msgstr ""
+msgstr "Contraseña actual incorrecta"
 
 #: PiFinder/server2.py:537
 msgid "New passwords do not match"
-msgstr ""
+msgstr "Las nuevas contraseñas no coinciden"
 
 #: PiFinder/server2.py:562 PiFinder/server2.py:574 PiFinder/server2.py:590
 #: PiFinder/server2.py:671 PiFinder/server2.py:721 PiFinder/server2.py:734
@@ -190,506 +190,506 @@ msgstr ""
 #: PiFinder/ui/menu_structure.py:960 views2/base.html:22 views2/base.html:33
 #: views2/equipment.html:6
 msgid "Equipment"
-msgstr ""
+msgstr "Equipo"
 
 #: PiFinder/server2.py:579
 msgid "set as active instrument."
-msgstr ""
+msgstr "establecido como instrumento activo."
 
 #: PiFinder/server2.py:595
 msgid "set as active eyepiece."
-msgstr ""
+msgstr "establecido como ocular activo."
 
 #: PiFinder/server2.py:673
 msgid "Equipment Imported, restart your PiFinder to use this new data"
-msgstr ""
+msgstr "Equipo Importado, reinicia tu PiFinder para usar estos nuevos datos"
 
 #: PiFinder/server2.py:687
 msgid "Edit Eyepiece"
-msgstr ""
+msgstr "Editar Ocular"
 
 #: PiFinder/server2.py:723
 msgid "Eyepiece added, restart your PiFinder to use"
-msgstr ""
+msgstr "Ocular añadido, reinicia tu PiFinder para usar"
 
 #: PiFinder/server2.py:736
 msgid "Eyepiece Deleted, restart your PiFinder to remove from menu"
-msgstr ""
+msgstr "Ocular Eliminado, reinicia tu PiFinder para quitar del menú"
 
 #: PiFinder/server2.py:759
 msgid "Edit Instrument"
-msgstr ""
+msgstr "Editar Instrumento"
 
 #: PiFinder/server2.py:798
 msgid "Instrument Added, restart your PiFinder to use"
-msgstr ""
+msgstr "Instrumento Añadido, reinicia tu PiFinder para usar"
 
 #: PiFinder/server2.py:811
 msgid "Instrument Deleted, restart your PiFinder to remove from menu"
-msgstr ""
+msgstr "Instrumento Eliminado, reinicia tu PiFinder para quitar del menú"
 
 #: PiFinder/server2.py:835 views2/base.html:20 views2/base.html:31
 msgid "Observations"
-msgstr ""
+msgstr "Observaciones"
 
 #: PiFinder/server2.py:864
 msgid "Session Log"
-msgstr ""
+msgstr "Registro de Sesión"
 
 #: PiFinder/server2.py:883 PiFinder/server2.py:997 views2/base.html:24
 #: views2/base.html:35
 msgid "Logs"
-msgstr ""
+msgstr "Registros"
 
 #: PiFinder/server2.py:998
 msgid "Error creating log archive"
-msgstr ""
+msgstr "Error creando archivo de registros"
 
 #: PiFinder/server2.py:1022
 msgid "Restart PiFinder"
-msgstr ""
+msgstr "Reiniciar PiFinder"
 
 #: PiFinder/ui/align.py:56
 msgid "Align Timeout"
-msgstr ""
+msgstr "Tiempo Agotado de Alineación"
 
 #: PiFinder/ui/align.py:74
 msgid "Alignment Set"
-msgstr ""
+msgstr "Alineación Establecida"
 
 #: PiFinder/ui/align.py:272 PiFinder/ui/chart.py:210
 msgid "Can't plot"
-msgstr ""
+msgstr "No se puede trazar"
 
 #: PiFinder/ui/align.py:284 PiFinder/ui/chart.py:222 PiFinder/ui/log.py:174
 #: PiFinder/ui/object_list.py:206 PiFinder/ui/object_list.py:226
 msgid "No Solve Yet"
-msgstr ""
+msgstr "Aún Sin Resolver"
 
 #: PiFinder/ui/align.py:397 PiFinder/ui/object_details.py:464
 msgid "Aligning..."
-msgstr ""
+msgstr "Alineando..."
 
 #: PiFinder/ui/align.py:405 PiFinder/ui/object_details.py:472
 msgid "Aligned!"
-msgstr ""
+msgstr "¡Alineado!"
 
 #: PiFinder/ui/align.py:407
 msgid "Alignment failed"
-msgstr ""
+msgstr "Alineación fallida"
 
 #: PiFinder/ui/callbacks.py:50
 msgid "Filters Reset"
-msgstr ""
+msgstr "Filtros Restablecidos"
 
 #: PiFinder/ui/callbacks.py:63 PiFinder/ui/menu_structure.py:984
 msgid "Test Mode"
-msgstr ""
+msgstr "Modo de Prueba"
 
 #: PiFinder/ui/callbacks.py:79
 msgid "Shutting Down"
-msgstr ""
+msgstr "Apagando"
 
 #: PiFinder/ui/callbacks.py:88 PiFinder/ui/callbacks.py:96
 msgid "Restarting..."
-msgstr ""
+msgstr "Reiniciando..."
 
 #: PiFinder/ui/callbacks.py:101 PiFinder/ui/callbacks.py:107
 #: PiFinder/ui/callbacks.py:113
 msgid "Switching cam"
-msgstr ""
+msgstr "Cambiando cámara"
 
 #: PiFinder/ui/callbacks.py:148
 msgid "WiFi to AP"
-msgstr ""
+msgstr "WiFi a Punto de Acceso"
 
 #: PiFinder/ui/callbacks.py:154
 msgid "WiFi to Client"
-msgstr ""
+msgstr "WiFi a Cliente"
 
 #: PiFinder/ui/callbacks.py:193
 msgid "Time: {time}"
-msgstr ""
+msgstr "Hora: {time}"
 
 #: PiFinder/ui/chart.py:40 PiFinder/ui/menu_structure.py:532
 msgid "Settings"
-msgstr ""
+msgstr "Configuración"
 
 #: PiFinder/ui/equipment.py:35
 msgid "No telescope selected"
-msgstr ""
+msgstr "Ningún telescopio seleccionado"
 
 #: PiFinder/ui/equipment.py:50
 msgid "No eyepiece selected"
-msgstr ""
+msgstr "Ningún ocular seleccionado"
 
 #: PiFinder/ui/equipment.py:70
 msgid "Mag: {mag:.0f}x"
-msgstr ""
+msgstr "Mag: {mag:.0f}x"
 
 #: PiFinder/ui/equipment.py:82
 msgid "TFOV: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
-msgstr ""
+msgstr "CVC: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
 
 #: PiFinder/ui/equipment.py:95
 msgid "Telescope..."
-msgstr ""
+msgstr "Telescopio..."
 
 #: PiFinder/ui/equipment.py:106 PiFinder/ui/log.py:231
 msgid "Eyepiece..."
-msgstr ""
+msgstr "Ocular..."
 
 #: PiFinder/ui/gpsstatus.py:31
 msgid "Limited"
-msgstr ""
+msgstr "Limitado"
 
 #. TRANSLATORS: there's no GPS lock but we accept the position due to low
 #. enough error value
 #: PiFinder/ui/gpsstatus.py:34
 msgid "Basic"
-msgstr ""
+msgstr "Básico"
 
 #. TRANSLATORS: coarse GPS fix, does this happen?
 #: PiFinder/ui/gpsstatus.py:35
 msgid "Accurate"
-msgstr ""
+msgstr "Preciso"
 
 #. TRANSLATORS: GPS 2D Fix
 #: PiFinder/ui/gpsstatus.py:36
 msgid "Precise"
-msgstr ""
+msgstr "Exacto"
 
 #: PiFinder/ui/gpsstatus.py:46 views2/gps.html:77 views2/network.html:85
 msgid "Save"
-msgstr ""
+msgstr "Guardar"
 
 #: PiFinder/ui/gpsstatus.py:49
 msgid "Lock"
-msgstr ""
+msgstr "Bloquear"
 
 #: PiFinder/ui/gpsstatus.py:80 views2/location_form.html:6
 #: views2/locations.html:117
 msgid "Location Name"
-msgstr ""
+msgstr "Nombre de Ubicación"
 
 #: PiFinder/ui/gpsstatus.py:83
 msgid "Loc {number}"
-msgstr ""
+msgstr "Ubi {number}"
 
 #: PiFinder/ui/gpsstatus.py:113
 msgid "Location saved"
-msgstr ""
+msgstr "Ubicación guardada"
 
 #: PiFinder/ui/gpsstatus.py:123
 msgid "Location locked"
-msgstr ""
+msgstr "Ubicación bloqueada"
 
 #: PiFinder/ui/gpsstatus.py:128
 msgid "{error:.1f} km"
-msgstr ""
+msgstr "{error:.1f} km"
 
 #: PiFinder/ui/gpsstatus.py:132
 msgid "{error:.0f} m"
-msgstr ""
+msgstr "{error:.0f} m"
 
 #: PiFinder/ui/gpsstatus.py:155
 msgid "GPS Locked"
-msgstr ""
+msgstr "GPS Bloqueado"
 
 #: PiFinder/ui/gpsstatus.py:162
 msgid "Lock boost on"
-msgstr ""
+msgstr "Refuerzo de bloqueo activado"
 
 #: PiFinder/ui/gpsstatus.py:171
 msgid "You are ready"
-msgstr ""
+msgstr "Estás listo"
 
 #: PiFinder/ui/gpsstatus.py:178
 msgid "to observe!"
-msgstr ""
+msgstr "para observar!"
 
 #: PiFinder/ui/gpsstatus.py:186
 msgid "Stay on this screen"
-msgstr ""
+msgstr "Permanece en esta pantalla"
 
 #: PiFinder/ui/gpsstatus.py:195
 msgid "for quicker lock"
-msgstr ""
+msgstr "para bloqueo más rápido"
 
 #: PiFinder/ui/gpsstatus.py:206
 msgid "Lock Type:"
-msgstr ""
+msgstr "Tipo de Bloqueo:"
 
 #: PiFinder/ui/gpsstatus.py:213 PiFinder/ui/menu_structure.py:432
 #: PiFinder/ui/menu_structure.py:464 views2/network.html:78
 msgid "None"
-msgstr ""
+msgstr "Ninguno"
 
 #: PiFinder/ui/gpsstatus.py:226
 msgid "Sats seen/used:"
-msgstr ""
+msgstr "Sats vistos/usados:"
 
 #: PiFinder/ui/gpsstatus.py:242
 msgid "{square} Toggle Details"
-msgstr ""
+msgstr "{square} Alternar Detalles"
 
 #: PiFinder/ui/gpsstatus.py:251
 msgid "Sats seen/used: {sats_seen}/{sats_used}"
-msgstr ""
+msgstr "Sats vistos/usados: {sats_seen}/{sats_used}"
 
 #: PiFinder/ui/gpsstatus.py:262
 msgid "Error: {error}"
-msgstr ""
+msgstr "Error: {error}"
 
 #: PiFinder/ui/gpsstatus.py:273
 msgid "Lock:  {locktype}"
-msgstr ""
+msgstr "Bloqueo:  {locktype}"
 
 #: PiFinder/ui/gpsstatus.py:274
 msgid "No"
-msgstr ""
+msgstr "No"
 
 #: PiFinder/ui/gpsstatus.py:286
 msgid "Lat:   {latitude:.5f}"
-msgstr ""
+msgstr "Lat:   {latitude:.5f}"
 
 #: PiFinder/ui/gpsstatus.py:294
 msgid "Lon:   {longitude:.5f}"
-msgstr ""
+msgstr "Lon:   {longitude:.5f}"
 
 #: PiFinder/ui/gpsstatus.py:302
 msgid "Alt:   {altitude:.1f} m"
-msgstr ""
+msgstr "Alt:   {altitude:.1f} m"
 
 #: PiFinder/ui/gpsstatus.py:311
 msgid "Time:  {time}"
-msgstr ""
+msgstr "Hora:  {time}"
 
 #: PiFinder/ui/gpsstatus.py:320
 msgid "From:  {location_source}"
-msgstr ""
+msgstr "De:  {location_source}"
 
 #: PiFinder/ui/log.py:58
 msgid "Conditions"
-msgstr ""
+msgstr "Condiciones"
 
 #: PiFinder/ui/log.py:63
 msgid "Transparency"
-msgstr ""
+msgstr "Transparencia"
 
 #. TRANSLATORS: Transparency not available
 #. TRANSLATORS: Seeing not available
 #. TRANSLATORS: eyepiece info not available
 #: PiFinder/ui/log.py:70 PiFinder/ui/log.py:103 PiFinder/ui/log.py:261
 msgid "NA"
-msgstr ""
+msgstr "N/A"
 
 #: PiFinder/ui/log.py:74 PiFinder/ui/log.py:107
 msgid "Excellent"
-msgstr ""
+msgstr "Excelente"
 
 #: PiFinder/ui/log.py:78 PiFinder/ui/log.py:111
 msgid "Very Good"
-msgstr ""
+msgstr "Muy Bueno"
 
 #: PiFinder/ui/log.py:82 PiFinder/ui/log.py:115
 msgid "Good"
-msgstr ""
+msgstr "Bueno"
 
 #: PiFinder/ui/log.py:86 PiFinder/ui/log.py:119
 msgid "Fair"
-msgstr ""
+msgstr "Regular"
 
 #: PiFinder/ui/log.py:90 PiFinder/ui/log.py:123
 msgid "Poor"
-msgstr ""
+msgstr "Malo"
 
 #: PiFinder/ui/log.py:96
 msgid "Seeing"
-msgstr ""
+msgstr "Seeing"
 
 #: PiFinder/ui/log.py:185
 msgid "SAVE Log"
-msgstr ""
+msgstr "GUARDAR Registro"
 
 #: PiFinder/ui/log.py:196
 msgid "Observability"
-msgstr ""
+msgstr "Observabilidad"
 
 #: PiFinder/ui/log.py:209
 msgid "Appeal"
-msgstr ""
+msgstr "Atractivo"
 
 #: PiFinder/ui/log.py:221
 msgid "Conditions..."
-msgstr ""
+msgstr "Condiciones..."
 
 #: PiFinder/ui/log.py:304
 msgid "Logged!"
-msgstr ""
+msgstr "¡Registrado!"
 
 #: PiFinder/ui/menu_manager.py:77
 msgid "Eyepiece"
-msgstr ""
+msgstr "Ocular"
 
 #: PiFinder/ui/menu_manager.py:96
 msgid "Telescope"
-msgstr ""
+msgstr "Telescopio"
 
 #: PiFinder/ui/menu_structure.py:23
 msgid "Language: de"
-msgstr ""
+msgstr "Idioma: Alemán"
 
 #: PiFinder/ui/menu_structure.py:24
 msgid "Language: en"
-msgstr ""
+msgstr "Idioma: Inglés"
 
 #: PiFinder/ui/menu_structure.py:25
 msgid "Language: es"
-msgstr ""
+msgstr "Idioma: Español"
 
 #: PiFinder/ui/menu_structure.py:26
 msgid "Language: fr"
-msgstr ""
+msgstr "Idioma: Francés"
 
 #: PiFinder/ui/menu_structure.py:37
 msgid "Start"
-msgstr ""
+msgstr "Inicio"
 
 #: PiFinder/ui/menu_structure.py:42
 msgid "Focus"
-msgstr ""
+msgstr "Enfoque"
 
 #: PiFinder/ui/menu_structure.py:46
 msgid "Align"
-msgstr ""
+msgstr "Alinear"
 
 #: PiFinder/ui/menu_structure.py:52 PiFinder/ui/menu_structure.py:967
 msgid "GPS Status"
-msgstr ""
+msgstr "Estado GPS"
 
 #: PiFinder/ui/menu_structure.py:58
 msgid "Chart"
-msgstr ""
+msgstr "Carta"
 
 #: PiFinder/ui/menu_structure.py:64 views2/obs_sessions.html:11
 #: views2/obs_sessions.html:25
 msgid "Objects"
-msgstr ""
+msgstr "Objetos"
 
 #: PiFinder/ui/menu_structure.py:69
 msgid "All Filtered"
-msgstr ""
+msgstr "Todos Filtrados"
 
 #: PiFinder/ui/menu_structure.py:74
 msgid "By Catalog"
-msgstr ""
+msgstr "Por Catálogo"
 
 #: PiFinder/ui/menu_structure.py:79 PiFinder/ui/menu_structure.py:260
 msgid "Planets"
-msgstr ""
+msgstr "Planetas"
 
 #: PiFinder/ui/menu_structure.py:91 PiFinder/ui/menu_structure.py:162
 #: PiFinder/ui/menu_structure.py:264 PiFinder/ui/menu_structure.py:314
 msgid "NGC"
-msgstr ""
+msgstr "NGC"
 
 #: PiFinder/ui/menu_structure.py:97 PiFinder/ui/menu_structure.py:156
 #: PiFinder/ui/menu_structure.py:268 PiFinder/ui/menu_structure.py:310
 msgid "Messier"
-msgstr ""
+msgstr "Messier"
 
 #: PiFinder/ui/menu_structure.py:103 PiFinder/ui/menu_structure.py:272
 msgid "DSO..."
-msgstr ""
+msgstr "OCP..."
 
 #: PiFinder/ui/menu_structure.py:108 PiFinder/ui/menu_structure.py:278
 msgid "Abell Pn"
-msgstr ""
+msgstr "Abell Pn"
 
 #: PiFinder/ui/menu_structure.py:114 PiFinder/ui/menu_structure.py:282
 msgid "Arp Galaxies"
-msgstr ""
+msgstr "Galaxias Arp"
 
 #: PiFinder/ui/menu_structure.py:120 PiFinder/ui/menu_structure.py:286
 msgid "Barnard"
-msgstr ""
+msgstr "Barnard"
 
 #: PiFinder/ui/menu_structure.py:126 PiFinder/ui/menu_structure.py:290
 msgid "Caldwell"
-msgstr ""
+msgstr "Caldwell"
 
 #: PiFinder/ui/menu_structure.py:132 PiFinder/ui/menu_structure.py:294
 msgid "Collinder"
-msgstr ""
+msgstr "Collinder"
 
 #: PiFinder/ui/menu_structure.py:138 PiFinder/ui/menu_structure.py:298
 msgid "E.G. Globs"
-msgstr ""
+msgstr "E.G. Globs"
 
 #: PiFinder/ui/menu_structure.py:144 PiFinder/ui/menu_structure.py:302
 msgid "Herschel 400"
-msgstr ""
+msgstr "Herschel 400"
 
 #: PiFinder/ui/menu_structure.py:150 PiFinder/ui/menu_structure.py:306
 msgid "IC"
-msgstr ""
+msgstr "IC"
 
 #: PiFinder/ui/menu_structure.py:168 PiFinder/ui/menu_structure.py:318
 msgid "Sharpless"
-msgstr ""
+msgstr "Sharpless"
 
 #: PiFinder/ui/menu_structure.py:174 PiFinder/ui/menu_structure.py:322
 msgid "TAAS 200"
-msgstr ""
+msgstr "TAAS 200"
 
 #: PiFinder/ui/menu_structure.py:182 PiFinder/ui/menu_structure.py:328
 msgid "Stars..."
-msgstr ""
+msgstr "Estrellas..."
 
 #: PiFinder/ui/menu_structure.py:187 PiFinder/ui/menu_structure.py:334
 msgid "Bright Named"
-msgstr ""
+msgstr "Brillantes con Nombre"
 
 #: PiFinder/ui/menu_structure.py:193 PiFinder/ui/menu_structure.py:338
 msgid "SAC Doubles"
-msgstr ""
+msgstr "SAC Dobles"
 
 #: PiFinder/ui/menu_structure.py:199 PiFinder/ui/menu_structure.py:342
 msgid "SAC Asterisms"
-msgstr ""
+msgstr "SAC Asterismos"
 
 #: PiFinder/ui/menu_structure.py:205 PiFinder/ui/menu_structure.py:346
 msgid "SAC Red Stars"
-msgstr ""
+msgstr "SAC Estrellas Rojas"
 
 #: PiFinder/ui/menu_structure.py:211 PiFinder/ui/menu_structure.py:350
 msgid "RASC Doubles"
-msgstr ""
+msgstr "RASC Dobles"
 
 #: PiFinder/ui/menu_structure.py:217 PiFinder/ui/menu_structure.py:354
 msgid "TLK 90 Variables"
-msgstr ""
+msgstr "TLK 90 Variables"
 
 #: PiFinder/ui/menu_structure.py:227
 msgid "Recent"
-msgstr ""
+msgstr "Recientes"
 
 #: PiFinder/ui/menu_structure.py:233
 msgid "Name Search"
-msgstr ""
+msgstr "Búsqueda por Nombre"
 
 #: PiFinder/ui/menu_structure.py:239 PiFinder/ui/object_list.py:136
 msgid "Filter"
-msgstr ""
+msgstr "Filtro"
 
 #: PiFinder/ui/menu_structure.py:245
 msgid "Reset All"
-msgstr ""
+msgstr "Restablecer Todo"
 
 #: PiFinder/ui/menu_structure.py:249 PiFinder/ui/menu_structure.py:1008
 msgid "Confirm"
-msgstr ""
+msgstr "Confirmar"
 
 #: PiFinder/ui/menu_structure.py:250 PiFinder/ui/menu_structure.py:1011
 #: PiFinder/ui/software.py:204 views2/edit_eyepiece.html:54
@@ -698,63 +698,63 @@ msgstr ""
 #: views2/locations.html:200 views2/network.html:50 views2/network.html:87
 #: views2/network_item.html:19 views2/tools.html:97
 msgid "Cancel"
-msgstr ""
+msgstr "Cancelar"
 
 #: PiFinder/ui/menu_structure.py:254
 msgid "Catalogs"
-msgstr ""
+msgstr "Catálogos"
 
 #: PiFinder/ui/menu_structure.py:362
 msgid "Type"
-msgstr ""
+msgstr "Tipo"
 
 #: PiFinder/ui/menu_structure.py:376
 msgid "Cluster/Neb"
-msgstr ""
+msgstr "Cúmulo/Neb"
 
 #: PiFinder/ui/menu_structure.py:388
 msgid "P. Nebula"
-msgstr ""
+msgstr "N. Planetaria"
 
 #: PiFinder/ui/menu_structure.py:400
 msgid "Double Str"
-msgstr ""
+msgstr "Str Doble"
 
 #: PiFinder/ui/menu_structure.py:404
 msgid "Triple Str"
-msgstr ""
+msgstr "Str Triple"
 
 #: PiFinder/ui/menu_structure.py:426 views2/locations.html:65
 msgid "Altitude"
-msgstr ""
+msgstr "Altitud"
 
 #: PiFinder/ui/menu_structure.py:458
 msgid "Magnitude"
-msgstr ""
+msgstr "Magnitud"
 
 #: PiFinder/ui/menu_structure.py:510 PiFinder/ui/menu_structure.py:520
 msgid "Observed"
-msgstr ""
+msgstr "Observado"
 
 #: PiFinder/ui/menu_structure.py:516
 msgid "Any"
-msgstr ""
+msgstr "Cualquiera"
 
 #: PiFinder/ui/menu_structure.py:524
 msgid "Not Observed"
-msgstr ""
+msgstr "No Observado"
 
 #: PiFinder/ui/menu_structure.py:537
 msgid "User Pref..."
-msgstr ""
+msgstr "Pref. Usuario..."
 
 #: PiFinder/ui/menu_structure.py:542
 msgid "Key Bright"
-msgstr ""
+msgstr "Brillo Teclas"
 
 #: PiFinder/ui/menu_structure.py:582
 msgid "Sleep Time"
-msgstr ""
+msgstr "Tiempo de Suspensión"
 
 #: PiFinder/ui/menu_structure.py:588 PiFinder/ui/menu_structure.py:620
 #: PiFinder/ui/menu_structure.py:644 PiFinder/ui/menu_structure.py:718
@@ -762,606 +762,608 @@ msgstr ""
 #: PiFinder/ui/menu_structure.py:790 PiFinder/ui/preview.py:62
 #: PiFinder/ui/preview.py:79
 msgid "Off"
-msgstr ""
+msgstr "Apagado"
 
 #: PiFinder/ui/menu_structure.py:614
 msgid "Menu Anim"
-msgstr ""
+msgstr "Animación Menú"
 
 #: PiFinder/ui/menu_structure.py:624 PiFinder/ui/menu_structure.py:648
 msgid "Fast"
-msgstr ""
+msgstr "Rápido"
 
 #: PiFinder/ui/menu_structure.py:628 PiFinder/ui/menu_structure.py:652
 #: PiFinder/ui/menu_structure.py:726 PiFinder/ui/menu_structure.py:750
 #: PiFinder/ui/menu_structure.py:774 PiFinder/ui/preview.py:67
 msgid "Medium"
-msgstr ""
+msgstr "Medio"
 
 #: PiFinder/ui/menu_structure.py:632 PiFinder/ui/menu_structure.py:656
 msgid "Slow"
-msgstr ""
+msgstr "Lento"
 
 #: PiFinder/ui/menu_structure.py:638
 msgid "Scroll Speed"
-msgstr ""
+msgstr "Velocidad de Desplazamiento"
 
 #: PiFinder/ui/menu_structure.py:662
 msgid "Az Arrows"
-msgstr ""
+msgstr "Flechas Az"
 
 #: PiFinder/ui/menu_structure.py:669
 msgid "Default"
-msgstr ""
+msgstr "Predeterminado"
 
 #: PiFinder/ui/menu_structure.py:673
 msgid "Reverse"
-msgstr ""
+msgstr "Invertido"
 
 #: PiFinder/ui/menu_structure.py:679
 msgid "Language"
-msgstr ""
+msgstr "Idioma"
 
 #: PiFinder/ui/menu_structure.py:686
 msgid "English"
-msgstr ""
+msgstr "Inglés"
 
 #: PiFinder/ui/menu_structure.py:690
 msgid "German"
-msgstr ""
+msgstr "Alemán"
 
 #: PiFinder/ui/menu_structure.py:694
 msgid "French"
-msgstr ""
+msgstr "Francés"
 
 #: PiFinder/ui/menu_structure.py:698
 msgid "Spanish"
-msgstr ""
+msgstr "Español"
 
 #: PiFinder/ui/menu_structure.py:706
 msgid "Chart..."
-msgstr ""
+msgstr "Carta..."
 
 #: PiFinder/ui/menu_structure.py:712
 msgid "Reticle"
-msgstr ""
+msgstr "Retícula"
 
 #: PiFinder/ui/menu_structure.py:722 PiFinder/ui/menu_structure.py:746
 #: PiFinder/ui/menu_structure.py:770 PiFinder/ui/preview.py:72
 msgid "Low"
-msgstr ""
+msgstr "Bajo"
 
 #: PiFinder/ui/menu_structure.py:730 PiFinder/ui/menu_structure.py:754
 #: PiFinder/ui/menu_structure.py:778 PiFinder/ui/preview.py:64
 msgid "High"
-msgstr ""
+msgstr "Alto"
 
 #: PiFinder/ui/menu_structure.py:736
 msgid "Constellation"
-msgstr ""
+msgstr "Constelación"
 
 #: PiFinder/ui/menu_structure.py:760
 msgid "DSO Display"
-msgstr ""
+msgstr "Visualización OCP"
 
 #: PiFinder/ui/menu_structure.py:784
 msgid "RA/DEC Disp."
-msgstr ""
+msgstr "Visual. AR/DEC"
 
 #: PiFinder/ui/menu_structure.py:794
 msgid "HH:MM"
-msgstr ""
+msgstr "HH:MM"
 
 #: PiFinder/ui/menu_structure.py:798
 msgid "Degrees"
-msgstr ""
+msgstr "Grados"
 
 #: PiFinder/ui/menu_structure.py:806
 msgid "Camera Exp"
-msgstr ""
+msgstr "Exp. Cámara"
 
 #: PiFinder/ui/menu_structure.py:814
 msgid "0.025s"
-msgstr ""
+msgstr "0,025s"
 
 #: PiFinder/ui/menu_structure.py:818
 msgid "0.05s"
-msgstr ""
+msgstr "0,05s"
 
 #: PiFinder/ui/menu_structure.py:822
 msgid "0.1s"
-msgstr ""
+msgstr "0,1s"
 
 #: PiFinder/ui/menu_structure.py:826
 msgid "0.2s"
-msgstr ""
+msgstr "0,2s"
 
 #: PiFinder/ui/menu_structure.py:830
 msgid "0.4s"
-msgstr ""
+msgstr "0,4s"
 
 #: PiFinder/ui/menu_structure.py:834
 msgid "0.8s"
-msgstr ""
+msgstr "0,8s"
 
 #: PiFinder/ui/menu_structure.py:838
 msgid "1s"
-msgstr ""
+msgstr "1s"
 
 #: PiFinder/ui/menu_structure.py:844
 msgid "WiFi Mode"
-msgstr ""
+msgstr "Modo WiFi"
 
 #: PiFinder/ui/menu_structure.py:850
 msgid "Client Mode"
-msgstr ""
+msgstr "Modo Cliente"
 
 #: PiFinder/ui/menu_structure.py:855
 msgid "AP Mode"
-msgstr ""
+msgstr "Modo PA"
 
 #: PiFinder/ui/menu_structure.py:862
 msgid "PiFinder Type"
-msgstr ""
+msgstr "Tipo PiFinder"
 
 #: PiFinder/ui/menu_structure.py:869
 msgid "Left"
-msgstr ""
+msgstr "Izquierda"
 
 #: PiFinder/ui/menu_structure.py:873
 msgid "Right"
-msgstr ""
+msgstr "Derecha"
 
 #: PiFinder/ui/menu_structure.py:877
 msgid "Straight"
-msgstr ""
+msgstr "Recto"
 
 #: PiFinder/ui/menu_structure.py:881
 msgid "Flat v3"
-msgstr ""
+msgstr "Plano v3"
 
 #: PiFinder/ui/menu_structure.py:885
 msgid "Flat v2"
-msgstr ""
+msgstr "Plano v2"
 
 #: PiFinder/ui/menu_structure.py:889
 msgid "AS Dream"
-msgstr ""
+msgstr "AS Dream"
 
 #: PiFinder/ui/menu_structure.py:895 views2/edit_instrument.html:61
 #: views2/equipment.html:73
 msgid "Mount Type"
-msgstr ""
+msgstr "Tipo de Montura"
 
 #: PiFinder/ui/menu_structure.py:902 views2/edit_instrument.html:57
 msgid "Alt/Az"
-msgstr ""
+msgstr "Alt/Az"
 
 #: PiFinder/ui/menu_structure.py:906
 msgid "Equitorial"
-msgstr ""
+msgstr "Ecuatorial"
 
 #: PiFinder/ui/menu_structure.py:912
 msgid "Camera Type"
-msgstr ""
+msgstr "Tipo de Cámara"
 
 #: PiFinder/ui/menu_structure.py:918
 msgid "v2 - imx477"
-msgstr ""
+msgstr "v2 - imx477"
 
 #: PiFinder/ui/menu_structure.py:923
 msgid "v3 - imx296"
-msgstr ""
+msgstr "v3 - imx296"
 
 #: PiFinder/ui/menu_structure.py:928
 msgid "v3 - imx462"
-msgstr ""
+msgstr "v3 - imx462"
 
 #: PiFinder/ui/menu_structure.py:935
 msgid "GPS Type"
-msgstr ""
+msgstr "Tipo de GPS"
 
 #: PiFinder/ui/menu_structure.py:943
 msgid "UBlox"
-msgstr ""
+msgstr "UBlox"
 
 #: PiFinder/ui/menu_structure.py:947
 msgid "GPSD (generic)"
-msgstr ""
+msgstr "GPSD (genérico)"
 
 #: PiFinder/ui/menu_structure.py:959
 msgid "Status"
-msgstr ""
+msgstr "Estado"
 
 #: PiFinder/ui/menu_structure.py:962
 msgid "Place & Time"
-msgstr ""
+msgstr "Lugar y Hora"
 
 #: PiFinder/ui/menu_structure.py:971
 msgid "Set Location"
-msgstr ""
+msgstr "Establecer Ubicación"
 
 #: PiFinder/ui/menu_structure.py:975
 msgid "Set Time"
-msgstr ""
+msgstr "Establecer Hora"
 
 #: PiFinder/ui/menu_structure.py:979
 msgid "Reset"
-msgstr ""
+msgstr "Restablecer"
 
 #: PiFinder/ui/menu_structure.py:982
 msgid "Console"
-msgstr ""
+msgstr "Consola"
 
 #: PiFinder/ui/menu_structure.py:983
 msgid "Software Upd"
-msgstr ""
+msgstr "Act. Software"
 
 #: PiFinder/ui/menu_structure.py:986
 msgid "Power"
-msgstr ""
+msgstr "Energía"
 
 #: PiFinder/ui/menu_structure.py:992
 msgid "Shutdown"
-msgstr ""
+msgstr "Apagar"
 
 #: PiFinder/ui/menu_structure.py:1017
 msgid "Experimental"
-msgstr ""
+msgstr "Experimental"
 
 #: PiFinder/ui/object_details.py:61 PiFinder/ui/object_details.py:66
 msgid "ALIGN"
-msgstr ""
+msgstr "ALINEAR"
 
 #: PiFinder/ui/object_details.py:64
 msgid "CANCEL"
-msgstr ""
+msgstr "CANCELAR"
 
 #: PiFinder/ui/object_details.py:96
 msgid "No Object Found"
-msgstr ""
+msgstr "Ningún Objeto Encontrado"
 
 #: PiFinder/ui/object_details.py:175 PiFinder/ui/object_details.py:182
 msgid "Mag:{obj_mag}"
-msgstr ""
+msgstr "Mag:{obj_mag}"
 
 #. TRANSLATORS: object info magnitude
 #: PiFinder/ui/object_details.py:178
 msgid "Sz:{size}"
-msgstr ""
+msgstr "Tam:{size}"
 
 #: PiFinder/ui/object_details.py:208
 msgid "  Not Logged"
-msgstr ""
+msgstr "  No Registrado"
 
 #: PiFinder/ui/object_details.py:210
 msgid "  {logs} Logs"
-msgstr ""
+msgstr "  {logs} Registros"
 
 #: PiFinder/ui/object_details.py:247
 msgid "No solve"
-msgstr ""
+msgstr "Sin resolver"
 
 #: PiFinder/ui/object_details.py:253
 msgid "yet{elipsis}"
-msgstr ""
+msgstr "aún{elipsis}"
 
 #: PiFinder/ui/object_details.py:267
 msgid "Searching"
-msgstr ""
+msgstr "Buscando"
 
 #: PiFinder/ui/object_details.py:273
 msgid "for GPS{elipsis}"
-msgstr ""
+msgstr "GPS{elipsis}"
 
 #: PiFinder/ui/object_details.py:287
 msgid "Calculating"
-msgstr ""
+msgstr "Calculando"
 
 #: PiFinder/ui/object_details.py:474
 msgid "Too Far"
-msgstr ""
+msgstr "Muy Lejos"
 
 #: PiFinder/ui/object_details.py:499
 msgid "LOG"
-msgstr ""
+msgstr "REGISTRO"
 
 #: PiFinder/ui/object_list.py:123
 msgid "Sort"
-msgstr ""
+msgstr "Ordenar"
 
 #: PiFinder/ui/object_list.py:127 PiFinder/ui/object_list.py:667
 msgid "Nearest"
-msgstr ""
+msgstr "Más Cercano"
 
 #: PiFinder/ui/object_list.py:131 PiFinder/ui/object_list.py:673
 msgid "Standard"
-msgstr ""
+msgstr "Estándar"
 
 #: PiFinder/ui/object_list.py:193
 msgid ""
 "Sorting by\n"
 "{sort_order}"
 msgstr ""
+"Ordenando por\n"
+"{sort_order}"
 
 #: PiFinder/ui/object_list.py:194 PiFinder/ui/object_list.py:678
 msgid "RA"
-msgstr ""
+msgstr "AR"
 
 #: PiFinder/ui/object_list.py:196 PiFinder/ui/object_list.py:445
 msgid "Catalog"
-msgstr ""
+msgstr "Catálogo"
 
 #: PiFinder/ui/object_list.py:198 PiFinder/ui/object_list.py:447
 msgid "Nearby"
-msgstr ""
+msgstr "Cercano"
 
 #: PiFinder/ui/object_list.py:409
 msgid "No objects"
-msgstr ""
+msgstr "Sin objetos"
 
 #: PiFinder/ui/object_list.py:415
 msgid "match filter"
-msgstr ""
+msgstr "coincidir con filtro"
 
 #: PiFinder/ui/object_list.py:431
 msgid "{catalog_info_1} obj"
-msgstr ""
+msgstr "{catalog_info_1} obj"
 
 #. TRANSLATORS: number of objects in object list
 #: PiFinder/ui/object_list.py:434
 msgid ", {catalog_info_2}d old"
-msgstr ""
+msgstr ", {catalog_info_2}d ant."
 
 #: PiFinder/ui/object_list.py:444
 msgid "Sort: {sort_order}"
-msgstr ""
+msgstr "Orden: {sort_order}"
 
 #: PiFinder/ui/preview.py:56
 msgid "Exposure"
-msgstr ""
+msgstr "Exposición"
 
 #: PiFinder/ui/preview.py:60
 msgid "Gamma"
-msgstr ""
+msgstr "Gamma"
 
 #: PiFinder/ui/preview.py:77
 msgid "BG Sub"
-msgstr ""
+msgstr "Sustr. Fondo"
 
 #: PiFinder/ui/preview.py:81
 msgid "Full"
-msgstr ""
+msgstr "Completo"
 
 #: PiFinder/ui/preview.py:85
 msgid "Half"
-msgstr ""
+msgstr "Mitad"
 
 #: PiFinder/ui/preview.py:228
 msgid "Zoom x{zoom_number}"
-msgstr ""
+msgstr "Zoom x{zoom_number}"
 
 #: PiFinder/ui/software.py:88
 msgid "Updating..."
-msgstr ""
+msgstr "Actualizando..."
 
 #: PiFinder/ui/software.py:90
 msgid "Ok! Restarting"
-msgstr ""
+msgstr "¡Ok! Reiniciando"
 
 #: PiFinder/ui/software.py:93
 msgid "Error on Upd"
-msgstr ""
+msgstr "Error en Act."
 
 #: PiFinder/ui/software.py:101
 msgid "Wifi Mode: {}"
-msgstr ""
+msgstr "Modo WiFi: {}"
 
 #: PiFinder/ui/software.py:109
 msgid "Current Version"
-msgstr ""
+msgstr "Versión Actual"
 
 #: PiFinder/ui/software.py:125
 msgid "Release Version"
-msgstr ""
+msgstr "Versión de Lanzamiento"
 
 #: PiFinder/ui/software.py:141
 msgid "WiFi must be"
-msgstr ""
+msgstr "WiFi debe estar"
 
 #: PiFinder/ui/software.py:147
 msgid "client mode"
-msgstr ""
+msgstr "en modo cliente"
 
 #: PiFinder/ui/software.py:160
 msgid "Checking for"
-msgstr ""
+msgstr "Verificando"
 
 #: PiFinder/ui/software.py:166
 msgid "updates{elipsis}"
-msgstr ""
+msgstr "actualizaciones{elipsis}"
 
 #: PiFinder/ui/software.py:182
 msgid "No Update"
-msgstr ""
+msgstr "Sin Actualización"
 
 #: PiFinder/ui/software.py:188
 msgid "needed"
-msgstr ""
+msgstr "necesaria"
 
 #: PiFinder/ui/software.py:198
 msgid "Update Now"
-msgstr ""
+msgstr "Actualizar Ahora"
 
 #: PiFinder/ui/text_menu.py:60
 msgid "Select None"
-msgstr ""
+msgstr "No Seleccionar"
 
 #: PiFinder/ui/text_menu.py:221
 msgid "Select All"
-msgstr ""
+msgstr "Seleccionar Todo"
 
 #: PiFinder/ui/textentry.py:186
 msgid "Results"
-msgstr ""
+msgstr "Resultados"
 
 #: PiFinder/ui/textentry.py:292
 msgid "Enter Location Name:"
-msgstr ""
+msgstr "Ingrese Nombre de Ubicación:"
 
 #: PiFinder/ui/textentry.py:300
 msgid "Search:"
-msgstr ""
+msgstr "Buscar:"
 
 #: PiFinder/ui/timeentry.py:15
 msgid "hh"
-msgstr ""
+msgstr "hh"
 
 #: PiFinder/ui/timeentry.py:16
 msgid "mm"
-msgstr ""
+msgstr "mm"
 
 #: PiFinder/ui/timeentry.py:17
 msgid "ss"
-msgstr ""
+msgstr "ss"
 
 #: PiFinder/ui/timeentry.py:97
 msgid "Enter Local Time"
-msgstr ""
+msgstr "Ingresar Hora Local"
 
 #: PiFinder/ui/timeentry.py:117
 msgid "  Next box"
-msgstr ""
+msgstr "  Siguiente casilla"
 
 #: PiFinder/ui/timeentry.py:124
 msgid "  Done"
-msgstr ""
+msgstr "  Listo"
 
 #: PiFinder/ui/timeentry.py:131
 msgid "󰍴  Delete/Previous"
-msgstr ""
+msgstr "󰍴  Eliminar/Anterior"
 
 #: views2/advanced.html:7
 msgid "GPS location lock"
-msgstr ""
+msgstr "Bloqueo de ubicación GPS"
 
 #: views2/advanced.html:8
 msgid "GPS time lock"
-msgstr ""
+msgstr "Bloqueo de hora GPS"
 
 #: views2/base.html:19 views2/base.html:30
 msgid "Network Setup"
-msgstr ""
+msgstr "Configuración de Red"
 
 #: views2/base.html:50
 msgid "PiFinder User Guide"
-msgstr ""
+msgstr "Guía de Usuario PiFinder"
 
 #: views2/base.html:51
 msgid "PiFinder Support Page"
-msgstr ""
+msgstr "Página de Soporte PiFinder"
 
 #: views2/edit_eyepiece.html:7
 msgid "Add a new eyepiece"
-msgstr ""
+msgstr "Añadir un nuevo ocular"
 
 #: views2/edit_eyepiece.html:9
 msgid "Edit eyepiece"
-msgstr ""
+msgstr "Editar ocular"
 
 #: views2/edit_eyepiece.html:18 views2/edit_instrument.html:27
 #: views2/equipment.html:68 views2/equipment.html:116
 msgid "Make"
-msgstr ""
+msgstr "Marca"
 
 #: views2/edit_eyepiece.html:24 views2/equipment.html:69
 #: views2/equipment.html:117 views2/locations.html:62 views2/network.html:73
 msgid "Name"
-msgstr ""
+msgstr "Nombre"
 
 #: views2/edit_eyepiece.html:30 views2/edit_instrument.html:45
 msgid "Focal Length (in mm)"
-msgstr ""
+msgstr "Distancia Focal (en mm)"
 
 #: views2/edit_eyepiece.html:36
 msgid "Apparent Field of View (in °)"
-msgstr ""
+msgstr "Campo de Visión Aparente (en °)"
 
 #: views2/edit_eyepiece.html:42
 msgid "Field stop (in mm)"
-msgstr ""
+msgstr "Diafragma de campo (en mm)"
 
 #: views2/edit_eyepiece.html:49
 msgid "Add eyepiece!"
-msgstr ""
+msgstr "¡Añadir ocular!"
 
 #: views2/edit_eyepiece.html:51
 msgid "Update eyepiece!"
-msgstr ""
+msgstr "¡Actualizar ocular!"
 
 #: views2/edit_instrument.html:7
 msgid "Add a new instrument"
-msgstr ""
+msgstr "Añadir un nuevo instrumento"
 
 #: views2/edit_instrument.html:9
 msgid "Edit instrument"
-msgstr ""
+msgstr "Editar instrumento"
 
 #: views2/edit_instrument.html:33
 msgid "Instrument Name"
-msgstr ""
+msgstr "Nombre del Instrumento"
 
 #: views2/edit_instrument.html:39
 msgid "Aperture (in mm)"
-msgstr ""
+msgstr "Apertura (en mm)"
 
 #: views2/edit_instrument.html:51 views2/equipment.html:72
 msgid "Obstruction %"
-msgstr ""
+msgstr "Obstrucción %"
 
 #: views2/edit_instrument.html:58
 msgid "Equatorial"
-msgstr ""
+msgstr "Ecuatorial"
 
 #: views2/edit_instrument.html:69
 msgid "Flip image (upside down)"
-msgstr ""
+msgstr "Voltear imagen (arriba abajo)"
 
 #: views2/edit_instrument.html:77
 msgid "Flop image (left right)"
-msgstr ""
+msgstr "Invertir imagen (izquierda derecha)"
 
 #: views2/edit_instrument.html:85 views2/equipment.html:76
 msgid "Reverse Arrow A"
-msgstr ""
+msgstr "Invertir Flecha A"
 
 #: views2/edit_instrument.html:93 views2/equipment.html:77
 msgid "Reverse Arrow B"
-msgstr ""
+msgstr "Invertir Flecha B"
 
 #: views2/edit_instrument.html:103
 msgid "Add instrument!"
-msgstr ""
+msgstr "¡Añadir instrumento!"
 
 #: views2/edit_instrument.html:105
 msgid "Update instrument!"
-msgstr ""
+msgstr "¡Actualizar instrumento!"
 
 #: views2/equipment.html:28 views2/equipment.html:65
 msgid "Instruments"
-msgstr ""
+msgstr "Instrumentos"
 
 #: views2/equipment.html:32 views2/equipment.html:113
 msgid "Eyepieces"
-msgstr ""
+msgstr "Oculares"
 
 #: views2/equipment.html:36
 msgid "Import from DeepskyLog"
-msgstr ""
+msgstr "Importar de DeepskyLog"
 
 #: views2/equipment.html:44
 msgid "Download instruments from DeepskyLog"
-msgstr ""
+msgstr "Descargar instrumentos de DeepskyLog"
 
 #: views2/equipment.html:45
 msgid ""
@@ -1369,858 +1371,869 @@ msgid ""
 "replace them with the instruments and eyepieces from DeepskyLog. Are you "
 "really sure?"
 msgstr ""
+"Esto eliminará todos los instrumentos y oculares de tu PiFinder y "
+"los reemplazará con los instrumentos y oculares de DeepskyLog. ¿Estás "
+"realmente seguro?"
 
 #: views2/equipment.html:50
 msgid "DeepskyLog User Name"
-msgstr ""
+msgstr "Nombre de Usuario DeepskyLog"
 
 #: views2/equipment.html:57
 msgid "Import!"
-msgstr ""
+msgstr "¡Importar!"
 
 #: views2/equipment.html:62
 msgid "Add new instrument"
-msgstr ""
+msgstr "Añadir nuevo instrumento"
 
 #: views2/equipment.html:63
 msgid "Add new eyepiece"
-msgstr ""
+msgstr "Añadir nuevo ocular"
 
 #: views2/equipment.html:70
 msgid "Aperture"
-msgstr ""
+msgstr "Apertura"
 
 #: views2/equipment.html:71 views2/equipment.html:118
 msgid "Focal Length (mm)"
-msgstr ""
+msgstr "Distancia Focal (mm)"
 
 #: views2/equipment.html:74
 msgid "Flip"
-msgstr ""
+msgstr "Voltear"
 
 #: views2/equipment.html:75
 msgid "Flop"
-msgstr ""
+msgstr "Invertir"
 
 #: views2/equipment.html:78 views2/equipment.html:121
 msgid "Active"
-msgstr ""
+msgstr "Activo"
 
 #: views2/equipment.html:79 views2/equipment.html:122 views2/locations.html:68
 msgid "Actions"
-msgstr ""
+msgstr "Acciones"
 
 #: views2/equipment.html:119
 msgid "Apparent FOV"
-msgstr ""
+msgstr "CDV Aparente"
 
 #: views2/equipment.html:120
 msgid "Field Stop"
-msgstr ""
+msgstr "Diafragma de Campo"
 
 #: views2/gps.html:6
 msgid "GPS Settings"
-msgstr ""
+msgstr "Configuración GPS"
 
 #: views2/gps.html:16 views2/location_form.html:14 views2/locations.html:124
 msgid "Use DMS Format"
-msgstr ""
+msgstr "Usar Formato GMS"
 
 #: views2/gps.html:23 views2/location_form.html:21 views2/locations.html:131
 msgid "Latitude (Decimal)"
-msgstr ""
+msgstr "Latitud (Decimal)"
 
 #: views2/gps.html:27 views2/location_form.html:26 views2/locations.html:136
 msgid "Longitude (Decimal)"
-msgstr ""
+msgstr "Longitud (Decimal)"
 
 #: views2/gps.html:33 views2/location_form.html:33 views2/locations.html:143
 msgid "Latitude Degrees"
-msgstr ""
+msgstr "Grados de Latitud"
 
 #: views2/gps.html:37 views2/location_form.html:37 views2/locations.html:147
 msgid "Latitude Minutes"
-msgstr ""
+msgstr "Minutos de Latitud"
 
 #: views2/gps.html:41 views2/location_form.html:41 views2/locations.html:151
 msgid "Latitude Seconds"
-msgstr ""
+msgstr "Segundos de Latitud"
 
 #: views2/gps.html:45 views2/location_form.html:45 views2/locations.html:155
 msgid "Longitude Degrees"
-msgstr ""
+msgstr "Grados de Longitud"
 
 #: views2/gps.html:49 views2/location_form.html:49 views2/locations.html:159
 msgid "Longitude Minutes"
-msgstr ""
+msgstr "Minutos de Longitud"
 
 #: views2/gps.html:53 views2/location_form.html:53 views2/locations.html:163
 msgid "Longitude Seconds"
-msgstr ""
+msgstr "Segundos de Longitud"
 
 #: views2/gps.html:59
 msgid "Altitude in meter"
-msgstr ""
+msgstr "Altitud en metros"
 
 #: views2/gps.html:65 views2/obs_sessions.html:25
 msgid "Date"
-msgstr ""
+msgstr "Fecha"
 
 #: views2/gps.html:69
 msgid "UTC Time (h:m:s)"
-msgstr ""
+msgstr "Hora UTC (h:m:s)"
 
 #: views2/gps.html:72
 msgid "Set to Browser Date/Time"
-msgstr ""
+msgstr "Establecer a Fecha/Hora del Navegador"
 
 #: views2/index.html:6 views2/remote.html:6
 msgid "PiFinder Screen"
-msgstr ""
+msgstr "Pantalla PiFinder"
 
 #: views2/index.html:14
 msgid "Mode"
-msgstr ""
+msgstr "Modo"
 
 #: views2/index.html:21
 msgid "lat"
-msgstr ""
+msgstr "lat"
 
 #: views2/index.html:21
 msgid "lon"
-msgstr ""
+msgstr "lon"
 
 #: views2/index.html:29
 msgid "Sky Position"
-msgstr ""
+msgstr "Posición del Cielo"
 
 #: views2/index.html:36
 msgid "Software Version"
-msgstr ""
+msgstr "Versión de Software"
 
 #: views2/index.html:63 views2/remote.html:55
 msgid "PiFinder server is currently unavailable. Please try again later."
-msgstr ""
+msgstr "El servidor PiFinder no está disponible actualmente. Por favor intente más tarde."
 
 #: views2/location_form.html:59 views2/locations.html:169
 msgid "Altitude (meters)"
-msgstr ""
+msgstr "Altitud (metros)"
 
 #: views2/location_form.html:66 views2/locations.html:176
 msgid "Error (meters)"
-msgstr ""
+msgstr "Error (metros)"
 
 #: views2/location_form.html:71 views2/locations.html:67
 #: views2/locations.html:181
 msgid "Source"
-msgstr ""
+msgstr "Fuente"
 
 #: views2/location_form.html:76
 msgid "Save Location"
-msgstr ""
+msgstr "Guardar Ubicación"
 
 #: views2/locations.html:31
 msgid "Location Management"
-msgstr ""
+msgstr "Gestión de Ubicaciones"
 
 #: views2/locations.html:48
 msgid "Add New Location"
-msgstr ""
+msgstr "Añadir Nueva Ubicación"
 
 #: views2/locations.html:63
 msgid "Latitude"
-msgstr ""
+msgstr "Latitud"
 
 #: views2/locations.html:64
 msgid "Longitude"
-msgstr ""
+msgstr "Longitud"
 
 #: views2/locations.html:66 views2/logs.html:148
 msgid "Error"
-msgstr ""
+msgstr "Error"
 
 #: views2/locations.html:86
 msgid "Load Location"
-msgstr ""
+msgstr "Cargar Ubicación"
 
 #: views2/locations.html:89
 msgid "Set as Default"
-msgstr ""
+msgstr "Establecer como Predeterminado"
 
 #: views2/locations.html:92
 msgid "Edit"
-msgstr ""
+msgstr "Editar"
 
 #: views2/locations.html:95 views2/locations.html:201
 #: views2/network_item.html:14 views2/network_item.html:18
 msgid "Delete"
-msgstr ""
+msgstr "Eliminar"
 
 #: views2/locations.html:111
 msgid "Edit Location"
-msgstr ""
+msgstr "Editar Ubicación"
 
 #: views2/locations.html:186
 msgid "Save Changes"
-msgstr ""
+msgstr "Guardar Cambios"
 
 #: views2/locations.html:196
 msgid "Confirm Delete"
-msgstr ""
+msgstr "Confirmar Eliminación"
 
 #: views2/locations.html:197
 msgid "Are you sure you want to delete the location"
-msgstr ""
+msgstr "¿Está seguro de que desea eliminar la ubicación"
 
 #: views2/locations.html:197
 msgid "This action cannot be undone."
-msgstr ""
+msgstr "Esta acción no se puede deshacer."
 
 #: views2/locations.html:428
 msgid "This field is required"
-msgstr ""
+msgstr "Este campo es requerido"
 
 #: views2/locations.html:430
 msgid "Must be a valid number"
-msgstr ""
+msgstr "Debe ser un número válido"
 
 #: views2/locations.html:434
 msgid "Must be between -90 and 90"
-msgstr ""
+msgstr "Debe estar entre -90 y 90"
 
 #: views2/locations.html:437
 msgid "Must be between -180 and 180"
-msgstr ""
+msgstr "Debe estar entre -180 y 180"
 
 #: views2/locations.html:440
 msgid "Must be between -1000 and 10000 meters"
-msgstr ""
+msgstr "Debe estar entre -1000 y 10000 metros"
 
 #: views2/locations.html:443
 msgid "Must be between 0 and 10000 meters"
-msgstr ""
+msgstr "Debe estar entre 0 y 10000 metros"
 
 #: views2/locations.html:518
 msgid "Please fix the validation errors before saving"
-msgstr ""
+msgstr "Por favor corrija los errores de validación antes de guardar"
 
 #: views2/login.html:6
 msgid "Login Required"
-msgstr ""
+msgstr "Inicio de Sesión Requerido"
 
 #: views2/login.html:23 views2/network.html:79
 msgid "Password"
-msgstr ""
+msgstr "Contraseña"
 
 #: views2/login.html:25
 msgid "Note: The default password is"
-msgstr ""
+msgstr "Nota: La contraseña predeterminada es"
 
 #: views2/login.html:25
 msgid "You can change this using the Tool menu option"
-msgstr ""
+msgstr "Puede cambiarla usando la opción de menú Herramientas"
 
 #: views2/logs.html:103
 msgid "PiFinder Logs"
-msgstr ""
+msgstr "Registros de PiFinder"
 
 #: views2/logs.html:121
 msgid "Download All Logs"
-msgstr ""
+msgstr "Descargar Todos los Registros"
 
 #: views2/logs.html:124 views2/logs.html:245 views2/logs.html:257
 msgid "Pause"
-msgstr ""
+msgstr "Pausa"
 
 #: views2/logs.html:127
 msgid "Resume from Current"
-msgstr ""
+msgstr "Reanudar desde Actual"
 
 #: views2/logs.html:130
 msgid "Restart from End"
-msgstr ""
+msgstr "Reiniciar desde Final"
 
 #: views2/logs.html:133
 msgid "Copy to Clipboard"
-msgstr ""
+msgstr "Copiar al Portapapeles"
 
 #: views2/logs.html:136
 msgid "Global: Debug"
-msgstr ""
+msgstr "Global: Depuración"
 
 #: views2/logs.html:137
 msgid "Global: Info"
-msgstr ""
+msgstr "Global: Información"
 
 #: views2/logs.html:138
 msgid "Global: Warning"
-msgstr ""
+msgstr "Global: Advertencia"
 
 #: views2/logs.html:139
 msgid "Global: Error"
-msgstr ""
+msgstr "Global: Error"
 
 #: views2/logs.html:142 views2/logs.html:323
 msgid "Select Component"
-msgstr ""
+msgstr "Seleccionar Componente"
 
 #: views2/logs.html:145
 msgid "Debug"
-msgstr ""
+msgstr "Depuración"
 
 #: views2/logs.html:146
 msgid "Info"
-msgstr ""
+msgstr "Información"
 
 #: views2/logs.html:147
 msgid "Warning"
-msgstr ""
+msgstr "Advertencia"
 
 #: views2/logs.html:152
 msgid "Total lines:"
-msgstr ""
+msgstr "Líneas totales:"
 
 #: views2/logs.html:160
 msgid "Loading log files..."
-msgstr ""
+msgstr "Cargando archivos de registro..."
 
 #: views2/logs.html:245
 msgid "Resume"
-msgstr ""
+msgstr "Reanudar"
 
 #: views2/logs.html:302
 msgid "Copied!"
-msgstr ""
+msgstr "¡Copiado!"
 
 #: views2/logs.html:310
 msgid "Failed to copy"
-msgstr ""
+msgstr "Error al copiar"
 
 #: views2/network.html:6
 msgid "Network Settings"
-msgstr ""
+msgstr "Configuración de Red"
 
 #: views2/network.html:16
 msgid "Access Point"
-msgstr ""
+msgstr "Punto de Acceso"
 
 #: views2/network.html:19
 msgid "Client"
-msgstr ""
+msgstr "Cliente"
 
 #: views2/network.html:22
 msgid "Wifi Mode"
-msgstr ""
+msgstr "Modo WiFi"
 
 #: views2/network.html:28
 msgid "AP Network Name"
-msgstr ""
+msgstr "Nombre de Red PA"
 
 #: views2/network.html:34
 msgid "Host Name"
-msgstr ""
+msgstr "Nombre de Host"
 
 #: views2/network.html:40
 msgid "Update and Restart"
-msgstr ""
+msgstr "Actualizar y Reiniciar"
 
 #: views2/network.html:45
 msgid "Save and Restart"
-msgstr ""
+msgstr "Guardar y Reiniciar"
 
 #: views2/network.html:46
 msgid ""
 "This will update the network settings and restart the PiFinder. You may "
 "have to adjust your network settings to re-connect. Are you sure?"
 msgstr ""
+"Esto actualizará la configuración de red y reiniciará el PiFinder. Es posible "
+"que tenga que ajustar su configuración de red para volver a conectarse. ¿Está seguro?"
 
 #: views2/network.html:49 views2/tools.html:96
 msgid "Do It"
-msgstr ""
+msgstr "Hacerlo"
 
 #: views2/network.html:55
 msgid "Wifi Networks"
-msgstr ""
+msgstr "Redes WiFi"
 
 #: views2/network.html:80
 msgid "Too Short"
-msgstr ""
+msgstr "Muy Corto"
 
 #: views2/network.html:80
 msgid "Min 8 Characters or leave None"
-msgstr ""
+msgstr "Mínimo 8 Caracteres o dejar Ninguno"
 
 #: views2/network_item.html:4
 msgid "Security"
-msgstr ""
+msgstr "Seguridad"
 
 #: views2/network_item.html:15
 msgid "This will take effect immediately and can not be undone. Are you sure?"
-msgstr ""
+msgstr "Esto tendrá efecto inmediato y no se puede deshacer. ¿Está seguro?"
 
 #: views2/obs_sessions.html:4
 msgid "Observing Sessions"
-msgstr ""
+msgstr "Sesiones de Observación"
 
 #: views2/obs_sessions.html:7
 msgid "Sessions"
-msgstr ""
+msgstr "Sesiones"
 
 #: views2/obs_sessions.html:15
 msgid "Total Hours"
-msgstr ""
+msgstr "Horas Totales"
 
 #: views2/obs_sessions.html:25
 msgid "Location"
-msgstr ""
+msgstr "Ubicación"
 
 #: views2/obs_sessions.html:25
 msgid "Hours"
-msgstr ""
+msgstr "Horas"
 
 #: views2/tools.html:28 views2/tools.html:49
 msgid "Change Password"
-msgstr ""
+msgstr "Cambiar Contraseña"
 
 #: views2/tools.html:30
 msgid ""
 "This will change the password for this web interface and the user account"
 " pifinder for ssh and other tools"
 msgstr ""
+"Esto cambiará la contraseña para esta interfaz web y la cuenta de usuario "
+"pifinder para ssh y otras herramientas"
 
 #: views2/tools.html:36
 msgid "Current Password"
-msgstr ""
+msgstr "Contraseña Actual"
 
 #: views2/tools.html:40
 msgid "New Password"
-msgstr ""
+msgstr "Nueva Contraseña"
 
 #: views2/tools.html:44
 msgid "Re-Enter New Password"
-msgstr ""
+msgstr "Reingrese Nueva Contraseña"
 
 #: views2/tools.html:58
 msgid "User Data and Settings"
-msgstr ""
+msgstr "Datos de Usuario y Configuración"
 
 #: views2/tools.html:60
 msgid ""
 "You can download a zip file of all your personal settings, observations "
 "and observing lists for safe keeping."
 msgstr ""
+"Puede descargar un archivo zip con toda su configuración personal, observaciones "
+"y listas de observación para mantenerlas seguras."
 
 #: views2/tools.html:63
 msgid "Download Backup File"
-msgstr ""
+msgstr "Descargar Archivo de Respaldo"
 
 #: views2/tools.html:69
 msgid "To restore a previously downloaded backup, upload it below"
-msgstr ""
+msgstr "Para restaurar una copia de seguridad descargada previamente, súbala a continuación"
 
 #: views2/tools.html:73
 msgid "Choose file"
-msgstr ""
+msgstr "Elegir archivo"
 
 #: views2/tools.html:78
 msgid "Select backup file to restore"
-msgstr ""
+msgstr "Seleccionar archivo de respaldo para restaurar"
 
 #: views2/tools.html:85
 msgid "Upload and Restore"
-msgstr ""
+msgstr "Subir y Restaurar"
 
 #: views2/tools.html:92
 msgid "Restore User Data"
-msgstr ""
+msgstr "Restaurar Datos de Usuario"
 
 #: views2/tools.html:93
 msgid ""
 "This will use the provided file to restore your user data. This will "
 "overwrite any existing preference and observations. Are you sure?"
 msgstr ""
+"Esto usará el archivo proporcionado para restaurar sus datos de usuario. Esto "
+"sobrescribirá cualquier preferencia y observación existente. ¿Está seguro?"
 
 #~ msgid "Language: englisch"
-#~ msgstr ""
+#~ msgstr "Idioma: inglés"
 
 #~ msgid "language"
-#~ msgstr ""
+#~ msgstr "idioma"
 
 #~ msgid "Language: Englisch"
-#~ msgstr ""
+#~ msgstr "Idioma: Inglés"
 
 #~ msgid "Language: German"
-#~ msgstr ""
+#~ msgstr "Idioma: Alemán"
 
 #~ msgid "Language: French"
-#~ msgstr ""
+#~ msgstr "Idioma: Francés"
 
 #~ msgid "Language: Spanish)"
-#~ msgstr ""
+#~ msgstr "Idioma: Español)"
 
 #~ msgid "english"
-#~ msgstr ""
+#~ msgstr "inglés"
 
 #~ msgid "german"
-#~ msgstr ""
+#~ msgstr "alemán"
 
 #~ msgid "french"
-#~ msgstr ""
+#~ msgstr "francés"
 
 #~ msgid "spanish"
-#~ msgstr ""
+#~ msgstr "español"
 
 #~ msgid "Nearest"
-#~ msgstr ""
+#~ msgstr "Más Cercano"
 
 #~ msgid "Standard"
-#~ msgstr ""
+#~ msgstr "Estándar"
 
 #~ msgid "Can't plot"
-#~ msgstr ""
+#~ msgstr "No se puede trazar"
 
 #~ msgid "Debug: Activated"
-#~ msgstr ""
+#~ msgstr "Depuración: Activada"
 
 #~ msgid "Test Mode"
-#~ msgstr ""
+#~ msgstr "Modo de Prueba"
 
 #~ msgid "Camera"
-#~ msgstr ""
+#~ msgstr "Cámara"
 
 #~ msgid "Align"
-#~ msgstr ""
+#~ msgstr "Alinear"
 
 #~ msgid "Comets"
-#~ msgstr ""
+#~ msgstr "Cometas"
 
 #~ msgid "Status"
-#~ msgstr ""
+#~ msgstr "Estado"
 
 #~ msgid "Equipment"
-#~ msgstr ""
+#~ msgstr "Equipo"
 
 #~ msgid "Console"
-#~ msgstr ""
+#~ msgstr "Consola"
 
 #~ msgid "Software Upd"
-#~ msgstr ""
+#~ msgstr "Act. Software"
 
 #~ msgid "Searching"
-#~ msgstr ""
+#~ msgstr "Buscando"
 
 #~ msgid "yet{ellipsis}"
-#~ msgstr ""
+#~ msgstr "aún{ellipsis}"
 
 #~ msgid "for GPS{ellipsis}"
-#~ msgstr ""
+#~ msgstr "GPS{ellipsis}"
 
 #~ msgid "Sz:{size}"
-#~ msgstr ""
+#~ msgstr "Tam:{size}"
 
 #~ msgid "Time: {0}"
-#~ msgstr ""
+#~ msgstr "Hora: {0}"
 
 #~ msgid "Mag:{obj_magn}"
-#~ msgstr ""
+#~ msgstr "Mag:{obj_magn}"
 
 #~ msgid "Sz:{sz}"
-#~ msgstr ""
+#~ msgstr "Tam:{sz}"
 
 #~ msgid "galaxy"
-#~ msgstr ""
+#~ msgstr "galaxia"
 
 #~ msgid "oc"
-#~ msgstr ""
+#~ msgstr "ca"
 
 #~ msgid "gc"
-#~ msgstr ""
+#~ msgstr "cg"
 
 #~ msgid "neb"
-#~ msgstr ""
+#~ msgstr "neb"
 
 #~ msgid "pneb"
-#~ msgstr ""
+#~ msgstr "npla"
 
 #~ msgid "dstar"
-#~ msgstr ""
+#~ msgstr "edoble"
 
 #~ msgid "ast"
-#~ msgstr ""
+#~ msgstr "ast"
 
 #~ msgid "planet"
-#~ msgstr ""
+#~ msgstr "planeta"
 
 #~ msgid "about"
-#~ msgstr ""
+#~ msgstr "acerca de"
 
 #~ msgid "almost"
-#~ msgstr ""
+#~ msgstr "casi"
 
 #~ msgid "among"
-#~ msgstr ""
+#~ msgstr "entre"
 
 #~ msgid "annular or ring nebula"
-#~ msgstr ""
+#~ msgstr "nebulosa anular o de anillo"
 
 #~ msgid "attached"
-#~ msgstr ""
+#~ msgstr "adjunto"
 
 #~ msgid "brighter"
-#~ msgstr ""
+#~ msgstr "más brillante"
 
 #~ msgid "between"
-#~ msgstr ""
+#~ msgstr "entre"
 
 #~ msgid "binuclear"
-#~ msgstr ""
+#~ msgstr "binuclear"
 
 #~ msgid "brightest to n side"
-#~ msgstr ""
+#~ msgstr "más brillante al lado norte"
 
 #~ msgid "brightest to s side"
-#~ msgstr ""
+#~ msgstr "más brillante al lado sur"
 
 #~ msgid "brightest to p side"
-#~ msgstr ""
+#~ msgstr "más brillante al lado precedente"
 
 #~ msgid "brightest to f side"
-#~ msgstr ""
+#~ msgstr "más brillante al lado siguiente"
 
 #~ msgid "bright"
-#~ msgstr ""
+#~ msgstr "brillante"
 
 #~ msgid "considerably"
-#~ msgstr ""
+#~ msgstr "considerablemente"
 
 #~ msgid "chevelure"
-#~ msgstr ""
+#~ msgstr "cabellera"
 
 #~ msgid "coarse, coarsely"
-#~ msgstr ""
+#~ msgstr "grueso, toscamente"
 
 #~ msgid "cometic (cometary form)"
-#~ msgstr ""
+#~ msgstr "comético (forma cometaria)"
 
 #~ msgid "companion"
-#~ msgstr ""
+#~ msgstr "compañera"
 
 #~ msgid "connected"
-#~ msgstr ""
+#~ msgstr "conectado"
 
 #~ msgid "in contact"
-#~ msgstr ""
+#~ msgstr "en contacto"
 
 #~ msgid "compressed"
-#~ msgstr ""
+#~ msgstr "comprimido"
 
 #~ msgid "cluster"
-#~ msgstr ""
+#~ msgstr "cúmulo"
 
 #~ msgid "diameter"
-#~ msgstr ""
+#~ msgstr "diámetro"
 
 #~ msgid "defined"
-#~ msgstr ""
+#~ msgstr "definido"
 
 #~ msgid "diffused"
-#~ msgstr ""
+#~ msgstr "difuso"
 
 #~ msgid "difficult"
-#~ msgstr ""
+#~ msgstr "difícil"
 
 #~ msgid "distance, or distant"
-#~ msgstr ""
+#~ msgstr "distancia, o distante"
 
 #~ msgid "double"
-#~ msgstr ""
+#~ msgstr "doble"
 
 #~ msgid "extremely, excessively"
-#~ msgstr ""
+#~ msgstr "extremadamente, excesivamente"
 
 #~ msgid "most extremely"
-#~ msgstr ""
+#~ msgstr "muy extremadamente"
 
 #~ msgid "easily resolvable"
-#~ msgstr ""
+#~ msgstr "fácilmente resoluble"
 
 #~ msgid "excentric"
-#~ msgstr ""
+#~ msgstr "excéntrico"
 
 #~ msgid "extended"
-#~ msgstr ""
+#~ msgstr "extendido"
 
 #~ msgid "following (eastward)"
-#~ msgstr ""
+#~ msgstr "siguiente (hacia el este)"
 
 #~ msgid "faint"
-#~ msgstr ""
+#~ msgstr "débil"
 
 #~ msgid "gradually"
-#~ msgstr ""
+#~ msgstr "gradualmente"
 
 #~ msgid "globular"
-#~ msgstr ""
+#~ msgstr "globular"
 
 #~ msgid "group"
-#~ msgstr ""
+#~ msgstr "grupo"
 
 #~ msgid "irregular"
-#~ msgstr ""
+#~ msgstr "irregular"
 
 #~ msgid "irregular figure"
-#~ msgstr ""
+#~ msgstr "figura irregular"
 
 #~ msgid "involved, involving"
-#~ msgstr ""
+#~ msgstr "involucrado, involucrando"
 
 #~ msgid "little (adv.); long (adj.)"
-#~ msgstr ""
+#~ msgstr "poco (adv.); largo (adj.)"
 
 #~ msgid "large"
-#~ msgstr ""
+#~ msgstr "grande"
 
 #~ msgid "magnitude"
-#~ msgstr ""
+#~ msgstr "magnitud"
 
 #~ msgid "middle, or in the middle"
-#~ msgstr ""
+#~ msgstr "medio, o en el medio"
 
 #~ msgid "north"
-#~ msgstr ""
+#~ msgstr "norte"
 
 #~ msgid "nebula"
-#~ msgstr ""
+#~ msgstr "nebulosa"
 
 #~ msgid "nebulous"
-#~ msgstr ""
+#~ msgstr "nebuloso"
 
 #~ msgid "nebulosity"
-#~ msgstr ""
+#~ msgstr "nebulosidad"
 
 #~ msgid "north following"
-#~ msgstr ""
+#~ msgstr "norte siguiente"
 
 #~ msgid "north preceding"
-#~ msgstr ""
+#~ msgstr "norte precedente"
 
 #~ msgid "north-south"
-#~ msgstr ""
+#~ msgstr "norte-sur"
 
 #~ msgid "near"
-#~ msgstr ""
+#~ msgstr "cerca"
 
 #~ msgid "nucleus, or to a nucleus"
-#~ msgstr ""
+#~ msgstr "núcleo, o hacia un núcleo"
 
 #~ msgid "preceding-following"
-#~ msgstr ""
+#~ msgstr "precedente-siguiente"
 
 #~ msgid "pretty (adv., before F. B. L, S)"
-#~ msgstr ""
+#~ msgstr "bastante (adv., antes de F. B. L, S)"
 
 #~ msgid "pretty gradually"
-#~ msgstr ""
+#~ msgstr "bastante gradualmente"
 
 #~ msgid "pretty much"
-#~ msgstr ""
+#~ msgstr "bastante"
 
 #~ msgid "pretty suddenly"
-#~ msgstr ""
+#~ msgstr "bastante repentinamente"
 
 #~ msgid "planetary nebula (same as PN)"
-#~ msgstr ""
+#~ msgstr "nebulosa planetaria (igual que PN)"
 
 #~ msgid "probably"
-#~ msgstr ""
+#~ msgstr "probablemente"
 
 #~ msgid "poor (sparse) in stars"
-#~ msgstr ""
+#~ msgstr "pobre (escaso) en estrellas"
 
 #~ msgid "planetary nebula"
-#~ msgstr ""
+#~ msgstr "nebulosa planetaria"
 
 #~ msgid "resolvable (mottled, not resolved)"
-#~ msgstr ""
+#~ msgstr "resoluble (moteado, no resuelto)"
 
 #~ msgid "partially resolved, some stars seen"
-#~ msgstr ""
+#~ msgstr "parcialmente resuelto, algunas estrellas visibles"
 
 #~ msgid "well resolved, clearly consisting of stars"
-#~ msgstr ""
+#~ msgstr "bien resuelto, claramente compuesto de estrellas"
 
 #~ msgid "round"
-#~ msgstr ""
+#~ msgstr "redondo"
 
 #~ msgid "exactly round"
-#~ msgstr ""
+#~ msgstr "exactamente redondo"
 
 #~ msgid "rich in stars"
-#~ msgstr ""
+#~ msgstr "rico en estrellas"
 
 #~ msgid "south"
-#~ msgstr ""
+#~ msgstr "sur"
 
 #~ msgid "south following"
-#~ msgstr ""
+#~ msgstr "sur siguiente"
 
 #~ msgid "south preceding"
-#~ msgstr ""
+#~ msgstr "sur precedente"
 
 #~ msgid "scattered"
-#~ msgstr ""
+#~ msgstr "disperso"
 
 #~ msgid "several"
-#~ msgstr ""
+#~ msgstr "varios"
 
 #~ msgid "stars (pl.)"
-#~ msgstr ""
+#~ msgstr "estrellas (pl.)"
 
 #~ msgid "stars of 9th magnitude and fainter"
-#~ msgstr ""
+#~ msgstr "estrellas de magnitud 9 y más débiles"
 
 #~ msgid "stars of mag. 9 to 13"
-#~ msgstr ""
+#~ msgstr "estrellas de mag. 9 a 13"
 
 #~ msgid "stellar, pointlike"
-#~ msgstr ""
+#~ msgstr "estelar, puntual"
 
 #~ msgid "suspected"
-#~ msgstr ""
+#~ msgstr "sospechado"
 
 #~ msgid "small in angular size"
-#~ msgstr ""
+#~ msgstr "pequeño en tamaño angular"
 
 #~ msgid "trapezium"
-#~ msgstr ""
+#~ msgstr "trapecio"
 
 #~ msgid "triangle, forms a triangle with"
-#~ msgstr ""
+#~ msgstr "triángulo, forma un triángulo con"
 
 #~ msgid "trinuclear"
-#~ msgstr ""
+#~ msgstr "trinuclear"
 
 #~ msgid "very"
-#~ msgstr ""
+#~ msgstr "muy"
 
 #~ msgid "_very_"
-#~ msgstr ""
+#~ msgstr "_muy_"
 
 #~ msgid "variable"
-#~ msgstr ""
+#~ msgstr "variable"
 
 #~ msgid "remarkable"
-#~ msgstr ""
+#~ msgstr "notable"
 
 #~ msgid "very much so"
-#~ msgstr ""
+#~ msgstr "muchísimo"
 
 #~ msgid "a magnificent or otherwise interesting object"
-#~ msgstr ""
+#~ msgstr "un objeto magnífico o de otro modo interesante"
 
 #~ msgid "HELP"
-#~ msgstr ""
+#~ msgstr "AYUDA"
 
 #~ msgid "Wifi Mode: {wifi_mode}"
-#~ msgstr ""
+#~ msgstr "Modo WiFi: {wifi_mode}"
 
