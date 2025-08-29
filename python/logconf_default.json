@@ -10,7 +10,7 @@
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "level": "INFO",
+            "level": "ERROR",
             "formatter": "default",
             "stream": "ext://sys.stdout"
         },
@@ -21,62 +21,44 @@
     },
     "loggers": {
 
-
         /////////////////////////////////////////////////////////////////
         ////// root logger
         //
         // This is the main logging configuration
         //
         "": {
-            "level": "INFO",
+            "level": "ERROR",
             "handlers": ["console"]
             // The file handler is added automatically by code
         },
 
         /////////////////////////////////////////////////////////////////
-        ////// State shared between Subsystems
-        //
-        // "SharedState": {
-        //     "level": "DEBUG"
-        // }
-
-        /////////////////////////////////////////////////////////////////
-        ////// User Interface loggging configuration
-        //
-        // Supporte logger hierarchy:
-        //   UI
-        //   UI.Callbacks
-        //
-        // "UI": {
-        //     "level": "DEBUG"
-        // }
-
-        /////////////////////////////////////////////////////////////////
-        ////// Camera Subsystem
-        //
-        // The camera subsystem supports the following hierarchy of loggers:
-        //   Camera
-        //   Camera.Interface
-        //   Camera.Pi
-        //   Camera.Debug
-        //   Camera.None
-        //
-        "Camera": {
-            "level": "INFO"
-        },
-        // You can set different configurations for child loggers like this:
-        // "Camera.Debug": {
-        //    "level": "DEBUG"
-        // },
-
-        /////////////////////////////////////////////////////////////////
-        ////// Platesolver Subsystem
+        ////// Web Server2 Subsystem (Flask with Jinja2 i18n)
         //
         // Supported logger hierarchy:
-        //   Solver
+        //   Server2
         //
-        "Solver": {
-            "level": "INFO"
+        "Server": {
+            "level": "DEBUG",
+            "handlers": ["console"]
+        },
+
+        /////////////////////////////////////////////////////////////////
+        ////// Flask Framework
+        //
+        // Flask and related component logging
+        //
+        "werkzeug": {
+            "level": "DEBUG",
+            "handlers": ["console"]           
+        },
+        "flask": {
+            "level": "DEBUG",
+            "handlers": ["console"]           
+        },
+        "flask.app": {
+            "level": "DEBUG",
+            "handlers": ["console"]           
         },
 
         /////////////////////////////////////////////////////////////////
@@ -87,100 +69,12 @@
         "GPS.parser": {
             "level": "WARNING" // Set this to DEBUG, to see results parsed from the GPS
         },
-        // "GPS.fake": {
-        //     "level": "WARNING"
-        // }
-
-        /////////////////////////////////////////////////////////////////
-        ////// Catalog Subsystem
-        //
-        // The Catalog subsystem supports the following loggers:
-        //   Catalog
-        //   Catalog.Utils
-        //   Catalog.Images
-        //   Catalog.Nearby
-        //
-        "Catalog": {
-           "level": "INFO"
+        "GPS.fake": {
+            "level": "WARNING"
         },
 
         /////////////////////////////////////////////////////////////////
-        ////// Database
-        //
-        // Supports only:
-        //   Database
-        //
-        // "Database": {
-        //   "level": "WARNING"
-        // }
-
-        /////////////////////////////////////////////////////////////////
-        // IMU Subsystem
-        //
-        //   IMU
-        //   IMU.Integrator
-        //
-        // "IMU": {
-        //    "level": "WARNING"
-        // },
-
-        /////////////////////////////////////////////////////////////////
-        //////  Keyboard Subsystem
-        //
-        // Supported logger hierarchy:
-        //   Keyboard
-        //   Keyboard.Local
-        //   Keyboard.Interface
-        //   Keybaord.None
-
-        "Keyboard": {
-            "level": "INFO"
-        },
-
-        /////////////////////////////////////////////////////////////////
-        ////// Observations Subsystem
-        //
-        // Supported logger hierarchy:
-        //   Observation
-        //   Observation.List
-        //   Observation.Log
-        //
-        // "Observation": {
-        //    "level": "WARNING"
-        // },
-
-        /////////////////////////////////////////////////////////////////
-        ////// Web Server Subsystem
-        //
-        // Supported logger hierarchy:
-        //   Server
-        //
-        // "Server": {
-        //    "level": "DEBUG"
-        //}
-
-        /////////////////////////////////////////////////////////////////
-        ////// Pos Server Subsystem (SkySafari LX200 Interface)
-        //
-        // Supported logger hierarchy:
-        //   PosServer
-        //
-        // "PosServer": {
-        //    "level": "DEBUG"
-        //}
-
-        /////////////////////////////////////////////////////////////////
-        ////// Utils Libraries
-        //
-        // Supported Logger hierarchies:
-        //   SysUtils
-        //   SysUtils.Fake
-        //   Utils
-        //   Utils.Timer
-
-
-        /////////////////////////////////////////////////////////////////
-        ////// Third party  Libraries
+        ////// Third party Libraries
         //
         // Silence logging of libraries that we use.
         //

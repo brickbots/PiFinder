@@ -1,6 +1,7 @@
 [tool.babel]
 mapping = [
-    { "*.py" = "python" }          # Scan all Python files
+    { "*.py" = "python" },         # Scan all Python files
+    { "views2/*.html" = "jinja2" } # Scan HTML templates in views2
 ]
 
 [tool.ruff]
