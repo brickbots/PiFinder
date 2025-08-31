@@ -214,9 +214,8 @@ def update_imu(
 
         # Store current camera pointing estimate:
         cam_eq = imu_dead_reckoning.get_cam_radec()
-        (solved["camera_center"]["RA"],)
-        (solved["camera_center"]["Dec"],)
-        solved["camera_center"]["Roll"] = cam_eq.get_deg(use_none=True)
+        (solved["camera_center"]["RA"], solved["camera_center"]["Dec"], 
+            solved["camera_center"]["Roll"]) = cam_eq.get_deg(use_none=True)
 
         # Store the current scope pointing estimate
         target_eq = imu_dead_reckoning.get_scope_radec()
