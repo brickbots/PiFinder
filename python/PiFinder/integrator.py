@@ -185,7 +185,7 @@ def update_imu(
     imu_dead_reckoning: ImuDeadReckoning,
     solved: dict,
     last_image_solve: dict,
-    imu: quaternion.quaternion,
+    imu: dict,
 ):
     """
     Updates the solved dictionary using IMU dead-reckoning from the last
@@ -197,20 +197,21 @@ def update_imu(
     assert isinstance(
         imu["quat"], quaternion.quaternion
     ), "Expecting quaternion.quaternion type"  # TODO: Can be removed later
+    q_x2imu = imu["quat"]  # Current IMU measurement (quaternion)
 
     # When moving, switch to tracking using the IMU
-    angle_moved = qt.get_quat_angular_diff(last_image_solve["imu_quat"], imu["quat"])
+    angle_moved = qt.get_quat_angular_diff(last_image_solve["imu_quat"], q_x2imu)
     if angle_moved > IMU_MOVED_ANG_THRESHOLD:
         # Estimate camera pointing using IMU dead-reckoning
         logger.debug(
-            "Track using IMU. Angle moved since last_image_solve = "
-            "{:}(> threshold = {:})".format(
-                np.rad2deg(angle_moved), np.rad2deg(IMU_MOVED_ANG_THRESHOLD)
+            "Track using IMU: Angle moved since last_image_solve = "
+            "{:}(> threshold = {:}) | IMU quat = ({:}, {:}, {:}, {:})".format(
+                np.rad2deg(angle_moved), np.rad2deg(IMU_MOVED_ANG_THRESHOLD), 
+                q_x2imu.w, q_x2imu.x, q_x2imu.y, q_x2imu.z)
             )
-        )
 
         # Dead-reckoning using IMU
-        imu_dead_reckoning.update_imu(imu["quat"])  # Latest IMU meas
+        imu_dead_reckoning.update_imu(q_x2imu)  # Latest IMU measurement
 
         # Store current camera pointing estimate:
         cam_eq = imu_dead_reckoning.get_cam_radec()
@@ -218,19 +219,18 @@ def update_imu(
             solved["camera_center"]["Roll"]) = cam_eq.get_deg(use_none=True)
 
         # Store the current scope pointing estimate
-        target_eq = imu_dead_reckoning.get_scope_radec()
-        solved["RA"], solved["Dec"], solved["Roll"] = target_eq.get_deg(use_none=True)
-
-        q_x2imu = imu["quat"]
-        logger.debug(
-            "  IMU quat = ({:}, {:}, {:}, {:}".format(
-                q_x2imu.w, q_x2imu.x, q_x2imu.y, q_x2imu.z
-            )
-        )
+        scope_eq = imu_dead_reckoning.get_scope_radec()
+        solved["RA"], solved["Dec"], solved["Roll"] = scope_eq.get_deg(use_none=True)
 
         solved["solve_time"] = time.time()
         solved["solve_source"] = "IMU"
 
+        # Logging for states updated in solved:
+        logger.debug("scope: RA: {:}, Dec: {:}, Roll: {:}".format(
+                     solved["RA"], solved["Dec"], solved["Roll"]))
+        logger.debug("camera_center: RA: {:}, Dec: {:}, Roll: {:}".format(
+            solved["camera_center"]["RA"], solved["camera_center"]["Dec"], 
+            solved["camera_center"]["Roll"]))
 
 def get_roll_by_mount_type(
     ra_deg: float, dec_deg: float, location, dt: datetime.datetime, mount_type: str
