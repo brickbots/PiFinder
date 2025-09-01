@@ -916,6 +916,25 @@ class Server:
                 self.key_callback(int(button))
             return {"message": "success"}
 
+        @app.route("/api/current-selection")
+        @auth_required
+        def current_selection():
+            """
+            Returns information about the currently active UI item for testing purposes
+            """
+            try:
+                ui_state_data = self.shared_state.current_ui_state()
+                if ui_state_data is None:
+                    return {"error": "UI state not available"}
+                
+                response.content_type = "application/json"
+                return ui_state_data
+                
+            except Exception as e:
+                logger.error(f"Error getting current UI state: {e}")
+                response.content_type = "application/json"
+                return {"error": str(e)}
+
         @app.route("/image")
         def serve_pil_image():
             empty_img = Image.new(

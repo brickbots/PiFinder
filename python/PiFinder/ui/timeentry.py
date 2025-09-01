@@ -202,3 +202,21 @@ class UITimeEntry(UIModule):
         if self.shared_state:
             self.shared_state.set_screen(self.screen)
         return self.screen_update()
+
+    def serialize_ui_state(self) -> dict:
+        """
+        Serialize the current state of the time entry for inter-process communication
+        """
+        try:
+            # Format the current time value as HH:MM:SS
+            time_str = f"{self.boxes[0] or '00'}:{self.boxes[1] or '00'}:{self.boxes[2] or '00'}"
+            
+            return {
+                "current_box": self.current_box,
+                "time_values": self.boxes,
+                "total_boxes": len(self.boxes),
+                "placeholders": self.placeholders,
+                "value": time_str
+            }
+        except Exception as e:
+            return {"error": f"Failed to serialize time entry state: {str(e)}"}

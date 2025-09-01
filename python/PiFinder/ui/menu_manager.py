@@ -333,6 +333,8 @@ class MenuManager:
 
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
+            # Update current UI state for webserver access
+            self.shared_state.set_current_ui_state(self.serialize_current_ui_state())
 
     def key_number(self, number):
         if self.help_images is not None:
@@ -505,3 +507,28 @@ class MenuManager:
                 print(selected_item.callback)
                 print(self.marking_menu_stack)
                 raise
+
+    def serialize_current_ui_state(self) -> dict:
+        """
+        Serializes the current UI state for inter-process communication
+        """
+        if not self.stack:
+            return {"error": "No active UI items"}
+        
+        try:
+            # Get the currently active UI item (top of stack)
+            current_ui = self.stack[-1]
+            ui_type = type(current_ui).__name__
+            
+            response = {
+                "ui_type": ui_type,
+                "title": getattr(current_ui, 'title', 'Unknown')
+            }
+            
+            # Get type-specific state using the UI module's serialization method
+            if hasattr(current_ui, 'serialize_ui_state'):
+                response.update(current_ui.serialize_ui_state())
+            
+            return response
+        except Exception as e:
+            return {"error": f"Failed to serialize UI state: {str(e)}"}

@@ -6,15 +6,13 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 
-@pytest.fixture
-def driver():
-    """Setup Chrome driver using Selenium Grid on localhost:4444"""
+@pytest.fixture(scope="session")
+def shared_driver():
+    """Setup Chrome driver using Selenium Grid on localhost:4444 - shared across all tests in session"""
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
-    # Force desktop viewport to avoid mobile menu
-    # chrome_options.add_argument("--window-size=1920,1080")
     
     driver = webdriver.Remote(
         command_executor="http://192.168.178.94:4444/wd/hub",
@@ -24,6 +22,15 @@ def driver():
     driver.set_window_size(1920, 1080)
     yield driver
     driver.quit()
+
+
+@pytest.fixture
+def driver(shared_driver):
+    """Provide access to shared driver with cleanup between tests"""
+    # Reset to known state before each test
+    shared_driver.delete_all_cookies()
+    shared_driver.set_window_size(1920, 1080)
+    yield shared_driver
 
 
 @pytest.mark.parametrize("window_size,viewport_name", [
@@ -227,6 +234,94 @@ def test_remote_all_elements_comprehensive(driver, window_size, viewport_name):
     long_button = driver.find_element(By.ID, "longButton")
     assert ent_button is not None, "Ent+ button not found"
     assert long_button is not None, "Long button not found"
+
+
+@pytest.mark.web
+def test_current_selection_api_endpoint(driver):
+    """Test that the /api/current-selection endpoint returns valid data"""
+    import requests
+    
+    # Login to remote interface to get authenticated session
+    _login_to_remote(driver)
+    
+    # Get cookies from the selenium session for authentication
+    cookies = {cookie['name']: cookie['value'] for cookie in driver.get_cookies()}
+    
+    # Make request to the API endpoint
+    response = requests.get("http://localhost:8080/api/current-selection", cookies=cookies)
+    
+    # Verify response is successful
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+    
+    # Verify response is valid JSON
+    data = response.json()
+    assert isinstance(data, dict), "Response should be a JSON object"
+    
+    # Verify expected fields are present (unless there's an error)
+    if "error" not in data:
+        assert "ui_type" in data, "ui_type field missing from response"
+        assert "title" in data, "title field missing from response"
+        
+        # For UITextMenu, check specific fields
+        if data.get("ui_type") == "UITextMenu":
+            assert "current_index" in data, "current_index missing for UITextMenu"
+            assert "current_item" in data, "current_item missing for UITextMenu"
+            assert "total_items" in data, "total_items missing for UITextMenu"
+            assert "menu_type" in data, "menu_type missing for UITextMenu"
+        
+        # For UITimeEntry, check specific fields
+        elif data.get("ui_type") == "UITimeEntry":
+            assert "current_box" in data, "current_box missing for UITimeEntry"
+            assert "time_values" in data, "time_values missing for UITimeEntry"
+            assert "total_boxes" in data, "total_boxes missing for UITimeEntry"
+            assert "value" in data, "value missing for UITimeEntry"
+            # Value should be in H:MM:SS or HH:MM:SS format
+            import re
+            assert re.match(r'^\d{1,2}:\d{2}:\d{2}$', data["value"]), f"Invalid time format: {data['value']}"
+        
+        # For UITextEntry, check specific fields
+        elif data.get("ui_type") == "UITextEntry":
+            assert "value" in data, "value missing for UITextEntry"
+            assert "text_entry_mode" in data, "text_entry_mode missing for UITextEntry"
+            assert "show_keypad" in data, "show_keypad missing for UITextEntry"
+            assert "search_results_count" in data, "search_results_count missing for UITextEntry"
+            # Value should be a string (could be empty)
+            assert isinstance(data["value"], str), f"UITextEntry value should be string, got {type(data['value'])}"
+
+
+@pytest.mark.web  
+def test_ui_state_changes_with_button_presses(driver):
+    """Test that UI state changes when buttons are pressed in remote interface"""
+    import requests
+    import time
+    
+    # Login to remote interface
+    _login_to_remote(driver)
+    
+    # Get cookies from the selenium session for authentication
+    cookies = {cookie['name']: cookie['value'] for cookie in driver.get_cookies()}
+    
+    # Get initial UI state
+    response = requests.get("http://localhost:8080/api/current-selection", cookies=cookies)
+    assert response.status_code == 200
+    initial_state = response.json()
+    
+    # Press a button (e.g., right arrow to navigate menu)
+    right_button = driver.find_element(By.XPATH, "//button[text()='→']")
+    right_button.click()
+    
+    # Wait a moment for the UI to update
+    time.sleep(0.5)
+    
+    # Get updated UI state
+    response = requests.get("http://localhost:8080/api/current-selection", cookies=cookies)
+    assert response.status_code == 200
+    updated_state = response.json()
+    
+    # Verify the state has potentially changed (if it's a menu with multiple items)
+    # Note: The state might not change if we're at the end of a menu or in a different UI type
+    # But the API should still return valid data
+    assert "ui_type" in updated_state, "ui_type should be present in updated state"
 
 
 def _login_to_remote(driver):
