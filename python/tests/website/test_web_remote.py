@@ -55,9 +55,9 @@ def test_remote_login_and_interface(driver, window_size, viewport_name):
         remote_link = WebDriverWait(driver, 5).until(
             EC.element_to_be_clickable(
                 (By.CSS_SELECTOR, ".hide-on-med-and-down a[href='/remote']")
-            )no
+            )
         )
-    except e:
+    except Exception:
         # Mobile menu - need to click hamburger first
         hamburger = WebDriverWait(driver, 5).until(
             EC.element_to_be_clickable((By.CLASS_NAME, "sidenav-trigger"))
@@ -271,7 +271,6 @@ def test_ui_state_changes_with_button_presses(driver):
         "http://localhost:8080/api/current-selection", cookies=cookies
     )
     assert response.status_code == 200
-    initial_state = response.json()
 
     # Press a button (e.g., right arrow to navigate menu)
     right_button = driver.find_element(By.ID, "D")
@@ -660,7 +659,7 @@ def _login_to_remote(driver):
                 (By.CSS_SELECTOR, ".hide-on-med-and-down a[href='/remote']")
             )
         )
-    except:
+    except Exception:
         # Mobile menu - need to click hamburger first
         hamburger = WebDriverWait(driver, 5).until(
             EC.element_to_be_clickable((By.CLASS_NAME, "sidenav-trigger"))
