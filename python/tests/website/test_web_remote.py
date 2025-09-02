@@ -210,23 +210,23 @@ def test_remote_all_elements_comprehensive(driver, window_size, viewport_name):
     
     # Check all number buttons (0-9)
     for num in range(10):
-        button = driver.find_element(By.XPATH, f"//button[text()='{num}']")
+        button = driver.find_element(By.ID, str(num))
         assert button is not None, f"Number button {num} not found"
     
     # Check arrow buttons
-    arrow_buttons = ["←", "↑", "↓", "→"]
-    for arrow in arrow_buttons:
-        button = driver.find_element(By.XPATH, f"//button[text()='{arrow}']")
-        assert button is not None, f"Arrow button {arrow} not found"
+    arrow_buttons = [("←", "A"), ("↑", "B"), ("↓", "C"), ("→", "D")]
+    for arrow_text, button_id in arrow_buttons:
+        button = driver.find_element(By.ID, button_id)
+        assert button is not None, f"Arrow button {arrow_text} not found"
     
     # Check plus/minus buttons
-    plus_button = driver.find_element(By.XPATH, "//button[text()='+']")
-    minus_button = driver.find_element(By.XPATH, "//button[text()='-']")
+    plus_button = driver.find_element(By.ID, "UP")
+    minus_button = driver.find_element(By.ID, "DN")
     assert plus_button is not None, "Plus button not found"
     assert minus_button is not None, "Minus button not found"
     
     # Check square button
-    square_button = driver.find_element(By.XPATH, "//button[text()='■']")
+    square_button = driver.find_element(By.ID, "SQ")
     assert square_button is not None, "Square button not found"
     
     # Check special buttons
@@ -250,6 +250,236 @@ def test_current_selection_api_endpoint(driver):
     # Make request to the API endpoint
     response = requests.get("http://localhost:8080/api/current-selection", cookies=cookies)
     
+    # Validate response
+    _check_response_validity(response)
+
+
+@pytest.mark.web  
+def test_ui_state_changes_with_button_presses(driver):
+    """Test that UI state changes when buttons are pressed in remote interface"""
+    import requests
+    import time
+    
+    # Login to remote interface
+    _login_to_remote(driver)
+    
+    # Get cookies from the selenium session for authentication
+    cookies = {cookie['name']: cookie['value'] for cookie in driver.get_cookies()}
+    
+    # Get initial UI state
+    response = requests.get("http://localhost:8080/api/current-selection", cookies=cookies)
+    assert response.status_code == 200
+    initial_state = response.json()
+    
+    # Press a button (e.g., right arrow to navigate menu)
+    right_button = driver.find_element(By.ID, "D")
+    right_button.click()
+    
+    # Wait a moment for the UI to update
+    time.sleep(0.5)
+    
+    # Get updated UI state
+    response = requests.get("http://localhost:8080/api/current-selection", cookies=cookies)
+    assert response.status_code == 200
+    updated_state = response.json()
+    
+    # Verify the state has potentially changed (if it's a menu with multiple items)
+    # Note: The state might not change if we're at the end of a menu or in a different UI type
+    # But the API should still return valid data
+    assert "ui_type" in updated_state, "ui_type should be present in updated state"
+
+@pytest.mark.web
+def test_remote_nav_wakeup(driver):
+    _login_to_remote(driver)
+    
+    expected_values = {
+        "ui_type": "UITextMenu",
+        "title": "PiFinder",
+        "current_item": "Objects",
+    }
+    _press_keys_and_validate(driver, "LLLLLLUUUUUUDD", expected_values) # One extra to wake up from sleep.
+
+@pytest.mark.web  
+def test_remote_nav_up(driver):
+
+    test_remote_nav_wakeup(driver) # Also logs in.
+    
+    expected_values = {
+        "ui_type": "UITextMenu",
+        "title": "PiFinder",
+        "current_item": "Start",
+    }
+    _press_keys_and_validate(driver, "UU", expected_values) # One extra to wake up from sleep.
+
+@pytest.mark.web  
+def test_remote_nav_down(driver):
+
+    test_remote_nav_up(driver) # Also logs in.
+    
+    expected_values = {
+        "ui_type": "UITextMenu",
+        "title": "PiFinder",
+        "current_item": "Objects",
+    }
+    _press_keys_and_validate(driver, "DD", expected_values)
+
+
+@pytest.mark.web  
+def test_remote_nav_right(driver):
+
+    test_remote_nav_down(driver) # Also logs in.
+    
+    expected_values = {
+        "ui_type": "UITextMenu",
+        "title": "Objects",
+        "current_item": "By Catalog",
+    }
+    _press_keys_and_validate(driver, "RD", expected_values)
+
+    expected_values = {
+        "ui_type": "UITextMenu",
+        "title": "By Catalog",
+        "current_item": "Messier",
+    }
+    _press_keys_and_validate(driver, "RDDD", expected_values)
+
+    expected_values = {
+        "ui_type": "UIObjectList",
+        "title": "Messier",
+        "current_item": "M 1",
+    }
+    _press_keys_and_validate(driver, "R", expected_values)
+
+    expected_values = {
+        "ui_type": "UITextMenu",
+        "title": "PiFinder",
+        "current_item": "Objects",
+    }
+    _press_keys_and_validate(driver, "LLLL", expected_values)
+
+@pytest.mark.web  
+def test_remote_entry(driver):
+    test_remote_nav_wakeup(driver) # Also logs in.
+
+    expected_values = {
+        "ui_type": "UITextEntry",
+        "title": "Name Search",
+        "value": "",
+    }
+    _press_keys_and_validate(driver, "RDDDR", expected_values)
+
+    _press_keys(driver, "LLL")
+
+@pytest.mark.web  
+def test_remote_entry_digits(driver):
+    test_remote_nav_wakeup(driver) # Also logs in.   
+
+    expected_values = {
+        "ui_type": "UITextEntry",
+        "title": "Name Search",
+        "value": "0123456789",
+    }
+    _press_keys_and_validate(driver, "RDDDR0123456789", expected_values)
+
+    # Go back to main menu
+    _press_keys(driver, "LLL")
+
+
+
+def _press_keys(driver, keys):
+    """
+    Helper function to press keys on remote UI
+    
+    Args:
+        driver: Selenium WebDriver instance
+        keys: String of keys to press (e.g., "123→" for keys 1, 2, 3, right arrow)
+    """
+    import time
+    
+    # Press each key in sequence
+    for key_char in keys:
+        # Map key characters to button IDs
+        key_mapping = {
+            '0': '0', '1': '1', '2': '2', '3': '3', '4': '4',
+            '5': '5', '6': '6', '7': '7', '8': '8', '9': '9',
+            'L': 'A', 'R': 'D', 'U': 'B', 'D': 'C',
+            '←': 'A', '→': 'D', '↑': 'B', '↓': 'C',
+            '+': 'UP', '-': 'DN', 'S': 'SQ'
+        }
+        
+        if key_char in key_mapping:
+            button = driver.find_element(By.ID, key_mapping[key_char])
+            button.click()
+            # Small delay to allow UI to update
+            time.sleep(0.2)
+
+        time.sleep(1)
+
+
+def _press_keys_and_validate(driver, keys, expected_values):
+    """
+    Helper function to press keys on remote UI and validate response against expected values
+    
+    Args:
+        driver: Selenium WebDriver instance
+        keys: String of keys to press (e.g., "123→" for keys 1, 2, 3, right arrow)
+        expected_values: Dict of expected key-value pairs to match in response
+    """
+    import requests
+    
+    # Get cookies from the selenium session for authentication
+    cookies = {cookie['name']: cookie['value'] for cookie in driver.get_cookies()}
+    
+    # Press the keys
+    _press_keys(driver, keys)
+    
+    # Get the API response after pressing keys
+    response = requests.get("http://localhost:8080/api/current-selection", cookies=cookies)
+    
+    # Validate basic response structure
+    _check_response_validity(response)
+    
+    # Get response data for detailed comparison
+    data = response.json()
+    
+    # Recursively compare expected values with actual response
+    _recursive_dict_compare(data, expected_values)
+
+
+def _recursive_dict_compare(actual, expected):
+    """
+    Recursively compare expected dict values with actual response data
+    
+    Args:
+        actual: Actual response data (dict)
+        expected: Expected values to match (dict)
+    """
+    for key, expected_value in expected.items():
+        # Check that key exists in actual response
+        assert key in actual, f"Expected key '{key}' not found in response. Available keys: {list(actual.keys())}"
+        
+        actual_value = actual[key]
+        
+        if isinstance(expected_value, dict):
+            # If expected value is a dict, recursively compare
+            assert isinstance(actual_value, dict), f"Expected '{key}' to be a dict, but got {type(actual_value)}"
+            _recursive_dict_compare(actual_value, expected_value)
+        elif isinstance(expected_value, list):
+            # If expected value is a list, compare each element
+            assert isinstance(actual_value, list), f"Expected '{key}' to be a list, but got {type(actual_value)}"
+            assert len(actual_value) == len(expected_value), f"Expected '{key}' list length {len(expected_value)}, got {len(actual_value)}"
+            for i, (actual_item, expected_item) in enumerate(zip(actual_value, expected_value)):
+                if isinstance(expected_item, dict):
+                    _recursive_dict_compare(actual_item, expected_item)
+                else:
+                    assert actual_item == expected_item, f"Expected '{key}[{i}]' to be {expected_item}, got {actual_item}"
+        else:
+            # Direct value comparison
+            assert actual_value == expected_value, f"Expected '{key}' to be {expected_value}, got {actual_value}"
+
+
+def _check_response_validity(response):
+    """Helper function to validate API response structure and content"""
     # Verify response is successful
     assert response.status_code == 200, f"Expected 200, got {response.status_code}"
     
@@ -258,7 +488,9 @@ def test_current_selection_api_endpoint(driver):
     assert isinstance(data, dict), "Response should be a JSON object"
     
     # Verify expected fields are present (unless there's an error)
-    if "error" not in data:
+    if "error" in data:
+        assert False, "There's an error in the API response: " + data["error"]
+    else:
         assert "ui_type" in data, "ui_type field missing from response"
         assert "title" in data, "title field missing from response"
         
@@ -287,41 +519,55 @@ def test_current_selection_api_endpoint(driver):
             assert "search_results_count" in data, "search_results_count missing for UITextEntry"
             # Value should be a string (could be empty)
             assert isinstance(data["value"], str), f"UITextEntry value should be string, got {type(data['value'])}"
-
-
-@pytest.mark.web  
-def test_ui_state_changes_with_button_presses(driver):
-    """Test that UI state changes when buttons are pressed in remote interface"""
-    import requests
-    import time
-    
-    # Login to remote interface
-    _login_to_remote(driver)
-    
-    # Get cookies from the selenium session for authentication
-    cookies = {cookie['name']: cookie['value'] for cookie in driver.get_cookies()}
-    
-    # Get initial UI state
-    response = requests.get("http://localhost:8080/api/current-selection", cookies=cookies)
-    assert response.status_code == 200
-    initial_state = response.json()
-    
-    # Press a button (e.g., right arrow to navigate menu)
-    right_button = driver.find_element(By.XPATH, "//button[text()='→']")
-    right_button.click()
-    
-    # Wait a moment for the UI to update
-    time.sleep(0.5)
-    
-    # Get updated UI state
-    response = requests.get("http://localhost:8080/api/current-selection", cookies=cookies)
-    assert response.status_code == 200
-    updated_state = response.json()
-    
-    # Verify the state has potentially changed (if it's a menu with multiple items)
-    # Note: The state might not change if we're at the end of a menu or in a different UI type
-    # But the API should still return valid data
-    assert "ui_type" in updated_state, "ui_type should be present in updated state"
+        
+        # For UIObjectList, check specific fields
+        elif data.get("ui_type") == "UIObjectList":
+            assert "current_index" in data, "current_index missing for UIObjectList"
+            assert "current_item" in data, "current_item missing for UIObjectList"
+            assert "total_items" in data, "total_items missing for UIObjectList"
+            assert "display_mode" in data, "display_mode missing for UIObjectList"
+            assert "sort_order" in data, "sort_order missing for UIObjectList"
+            # Current item should be a string representation
+            if data["current_item"] is not None:
+                assert isinstance(data["current_item"], str), f"UIObjectList current_item should be string, got {type(data['current_item'])}"
+        
+        # For UIObjectDetails, check specific fields
+        elif data.get("ui_type") == "UIObjectDetails":
+            assert "object" in data, "object missing for UIObjectDetails"
+            assert "display_mode" in data, "display_mode missing for UIObjectDetails"
+            assert "object_list_length" in data, "object_list_length missing for UIObjectDetails"
+            assert "observation_count" in data, "observation_count missing for UIObjectDetails"
+            assert "has_image" in data, "has_image missing for UIObjectDetails"
+            assert "pointing" in data, "pointing missing for UIObjectDetails"
+            
+            # Validate object information structure
+            if data["object"]:
+                obj = data["object"]
+                assert "display_name" in obj, "display_name missing in object info"
+                assert "object_type" in obj, "object_type missing in object info"
+                assert "catalog" in obj, "catalog missing in object info"
+                assert isinstance(obj["display_name"], str), "display_name should be string"
+            
+            # Display mode should be one of the expected values
+            expected_modes = ["description", "locate", "poss_image", "sdss_image", "unknown"]
+            assert data["display_mode"] in expected_modes, f"Invalid display_mode: {data['display_mode']}"
+            
+            # Validate pointing information
+            pointing = data["pointing"]
+            if "error" not in pointing:
+                # Should have mount type information
+                assert "mount_type" in pointing, "mount_type missing in pointing info"
+                
+                if pointing["mount_type"] == "Alt/Az":
+                    assert "point_az" in pointing, "point_az missing for Alt/Az mount"
+                    assert "point_alt" in pointing, "point_alt missing for Alt/Az mount"
+                    assert isinstance(pointing["point_az"], (int, float)), "point_az should be numeric"
+                    assert isinstance(pointing["point_alt"], (int, float)), "point_alt should be numeric"
+                elif pointing["mount_type"] == "EQ":
+                    assert "point_ra" in pointing, "point_ra missing for EQ mount"
+                    assert "point_dec" in pointing, "point_dec missing for EQ mount"
+                    assert isinstance(pointing["point_ra"], (int, float)), "point_ra should be numeric"
+                    assert isinstance(pointing["point_dec"], (int, float)), "point_dec should be numeric"
 
 
 def _login_to_remote(driver):
