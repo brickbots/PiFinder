@@ -692,16 +692,22 @@ class UIObjectList(UITextMenu):
             if 0 <= self._current_item_index < len(self._menu_items):
                 obj = self._menu_items[self._current_item_index]
                 # For CompositeObject, use display_name which is JSON serializable
-                current_item = obj.display_name if hasattr(obj, 'display_name') else str(obj)
-            
+                current_item = (
+                    obj.display_name if hasattr(obj, "display_name") else str(obj)
+                )
+
             return {
                 "current_index": self._current_item_index,
                 "current_item": current_item,
                 "total_items": len(self._menu_items),
-                "display_mode": self.current_mode.name if hasattr(self.current_mode, 'name') else str(self.current_mode),
-                "sort_order": self.current_sort.name if hasattr(self.current_sort, 'name') else str(self.current_sort),
+                "display_mode": self.current_mode.name
+                if hasattr(self.current_mode, "name")
+                else str(self.current_mode),
+                "sort_order": self.current_sort.name
+                if hasattr(self.current_sort, "name")
+                else str(self.current_sort),
                 "catalog_info_1": self.catalog_info_1,
-                "catalog_info_2": self.catalog_info_2
+                "catalog_info_2": self.catalog_info_2,
             }
         except Exception as e:
             return {"error": f"Failed to serialize object list state: {str(e)}"}

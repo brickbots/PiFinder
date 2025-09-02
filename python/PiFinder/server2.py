@@ -25,6 +25,7 @@ from PiFinder import i18n  # noqa: F401
 
 # Type annotation for the global _ function installed by gettext.install()
 import builtins
+
 _ = builtins._  # type: ignore[attr-defined]
 
 
@@ -695,7 +696,7 @@ class Server2:
                 focal_length_str = request.form.get("focal_length_mm") or "0"
                 afov_str = request.form.get("afov") or "0"
                 field_stop_str = request.form.get("field_stop") or "0"
-                
+
                 eyepiece = Eyepiece(
                     make=make,
                     name=name,
@@ -776,7 +777,7 @@ class Server2:
                 focal_length_str = request.form.get("focal_length_mm") or "0"
                 obstruction_str = request.form.get("obstruction_perc") or "0"
                 mount_type = request.form.get("mount_type") or ""
-                
+
                 instrument = Telescope(
                     make=make,
                     name=name,
@@ -1057,9 +1058,9 @@ class Server2:
                 ui_state_data = self.shared_state.current_ui_state()
                 if ui_state_data is None:
                     return jsonify({"error": "UI state not available"})
-                
+
                 return jsonify(ui_state_data)
-                
+
             except Exception as e:
                 logger.error(f"Error getting current UI state: {e}")
                 return jsonify({"error": str(e)})

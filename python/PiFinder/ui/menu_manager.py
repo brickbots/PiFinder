@@ -514,21 +514,21 @@ class MenuManager:
         """
         if not self.stack:
             return {"error": "No active UI items"}
-        
+
         try:
             # Get the currently active UI item (top of stack)
             current_ui = self.stack[-1]
             ui_type = type(current_ui).__name__
-            
+
             response = {
                 "ui_type": ui_type,
-                "title": getattr(current_ui, 'title', 'Unknown')
+                "title": getattr(current_ui, "title", "Unknown"),
             }
-            
+
             # Get type-specific state using the UI module's serialization method
-            if hasattr(current_ui, 'serialize_ui_state'):
+            if hasattr(current_ui, "serialize_ui_state"):
                 response.update(current_ui.serialize_ui_state())
-            
+
             return response
         except Exception as e:
             return {"error": f"Failed to serialize UI state: {str(e)}"}
