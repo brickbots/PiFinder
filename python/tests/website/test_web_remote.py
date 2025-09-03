@@ -1,23 +1,104 @@
 import pytest
 import time
+import os
+import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+"""
+The test_web_remote.py file contains comprehensive end-to-end tests for PiFinder's web-based remote control
+interface. Here's what the test suite covers:
+
+  Test Overview
+
+  The test suite validates PiFinder's web interface functionality through automated browser testing using Selenium
+  WebDriver. All tests authenticate with the default password "solveit" and interact with the remote control
+  interface at localhost:8080.
+
+  Core Interface Tests
+
+  Basic Interface Validation: Tests verify that all essential UI elements are present and correctly configured,
+  including the PiFinder screen image, navigation buttons (arrows, numbers 0-9, plus/minus), the square button, and
+  special modifier buttons ("■ +" for ALT functions and "LONG" for long-press combinations).
+
+  Authentication Flow: Tests confirm the login process works correctly with the default password and that users are
+  properly redirected to the remote control interface after successful authentication.
+
+  Navigation and UI State Tests
+
+  Menu Navigation: The suite extensively tests navigation through PiFinder's menu system, including moving between
+  the main menu, Objects submenu, catalog selection (like Messier), and object lists. Each navigation action is
+  validated using the /api/current-selection endpoint to ensure the UI state changes correctly.
+
+  Text Entry: Tests verify that text input works properly, including typing digits and navigating to search
+  interfaces like "Name Search".
+
+  Object Selection: Tests navigate to specific astronomical objects (like M31 - Andromeda Galaxy).
+
+  Advanced Functionality Tests
+
+  Marking Menus: Tests validate the marking menu system that appears when using LONG+SQUARE combinations. This
+  includes verifying that marking menus display with correct options (like "Sort"), that menu selections work
+  properly (changing sort order to "Nearest"), and that the /api/current-selection endpoint correctly reports
+  marking menu state with underlying UI information.
+
+  Long-Press Combinations: Tests verify special key combinations like:
+  - LONG+LEFT (ZL): Returns to the top-level menu from anywhere in the interface
+  - LONG+RIGHT (ZR): Jumps to the most recently viewed object
+
+  Recent Objects: Tests the recent objects functionality by viewing M31 for longer than the 10-second activation
+  timeout, ensuring it gets added to the recent list, then using LONG+RIGHT to verify quick access to recently
+  viewed objects.
+
+  Technical Implementation
+
+  API Integration: All tests extensively use the /api/current-selection endpoint to validate UI state changes,
+  ensuring the web interface accurately reflects PiFinder's internal state. The tests validate complex response
+  structures including object metadata, menu states, and marking menu configurations.
+
+  Cross-Platform Testing: Tests run on both desktop (1920x1080) and mobile (375x667) viewports to ensure responsive
+  design works correctly.
+
+  Infrastructure Resilience: The test suite automatically detects if Selenium Grid is unavailable and gracefully
+  skips tests rather than failing, making it suitable for various development and CI environments.
+
+  Test Architecture
+
+  The test suite uses a shared WebDriver session for performance, implements helper functions for key press
+  simulation and state validation, and provides comprehensive error checking for all UI interactions. The tests are
+  designed to be deterministic and can run reliably in automated environments while providing detailed feedback
+  about PiFinder's web interface functionality."""
 
 @pytest.fixture(scope="session")
 def shared_driver():
-    """Setup Chrome driver using Selenium Grid on localhost:4444 - shared across all tests in session"""
+    """Setup Chrome driver using Selenium Grid - configurable via environment with auto-skip if unavailable"""
+    # Get Selenium Grid URL from environment variable with fallback
+    selenium_grid_url = os.environ.get("SELENIUM_GRID_URL", "http://localhost:4444/wd/hub")
+    
+    # Test if Selenium Grid is available
+    try:
+        status_url = selenium_grid_url.replace("/wd/hub", "/status")
+        response = requests.get(status_url, timeout=5)
+        if response.status_code != 200:
+            pytest.skip("Selenium Grid not available - tests require running Selenium Grid")
+    except requests.RequestException:
+        pytest.skip("Selenium Grid not available - tests require running Selenium Grid")
+    
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
 
-    driver = webdriver.Remote(
-        command_executor="http://192.168.178.94:4444/wd/hub", options=chrome_options
-    )
+    try:
+        driver = webdriver.Remote(
+            command_executor=selenium_grid_url, options=chrome_options
+        )
+    except Exception as e:
+        pytest.skip(f"Failed to connect to Selenium Grid at {selenium_grid_url}: {e}")
+    
     # Ensure desktop viewport
     driver.set_window_size(1920, 1080)
     yield driver
@@ -298,13 +379,12 @@ def test_ui_state_changes_with_button_presses(driver):
 def test_remote_nav_wakeup(driver):
     _login_to_remote(driver)
 
-    expected_values = {
-        "ui_type": "UITextMenu",
-        "title": "PiFinder",
-        "current_item": "Objects",
-    }
     _press_keys_and_validate(
-        driver, "LLLLLLUUUUUUDD", expected_values
+        driver, "LLLLLLUUUUUUDD", expected_values={
+            "ui_type": "UITextMenu",
+            "title": "PiFinder",
+            "current_item": "Objects",
+        }
     )  # One extra to wake up from sleep.
 
 
@@ -312,13 +392,12 @@ def test_remote_nav_wakeup(driver):
 def test_remote_nav_up(driver):
     test_remote_nav_wakeup(driver)  # Also logs in.
 
-    expected_values = {
-        "ui_type": "UITextMenu",
-        "title": "PiFinder",
-        "current_item": "Start",
-    }
     _press_keys_and_validate(
-        driver, "UU", expected_values
+        driver, "UU", expected_values={
+            "ui_type": "UITextMenu",
+            "title": "PiFinder",
+            "current_item": "Start",
+        }
     )  # One extra to wake up from sleep.
 
 
@@ -326,57 +405,51 @@ def test_remote_nav_up(driver):
 def test_remote_nav_down(driver):
     test_remote_nav_up(driver)  # Also logs in.
 
-    expected_values = {
+    _press_keys_and_validate(driver, "DD", expected_values={
         "ui_type": "UITextMenu",
         "title": "PiFinder",
         "current_item": "Objects",
-    }
-    _press_keys_and_validate(driver, "DD", expected_values)
+    })
 
 
 @pytest.mark.web
 def test_remote_nav_right(driver):
     test_remote_nav_down(driver)  # Also logs in.
 
-    expected_values = {
+    _press_keys_and_validate(driver, "RD", expected_values={
         "ui_type": "UITextMenu",
         "title": "Objects",
         "current_item": "By Catalog",
-    }
-    _press_keys_and_validate(driver, "RD", expected_values)
+    })
 
-    expected_values = {
+    _press_keys_and_validate(driver, "RDDD", expected_values={
         "ui_type": "UITextMenu",
         "title": "By Catalog",
         "current_item": "Messier",
-    }
-    _press_keys_and_validate(driver, "RDDD", expected_values)
+    })
 
-    expected_values = {
+    _press_keys_and_validate(driver, "R", expected_values={
         "ui_type": "UIObjectList",
         "title": "Messier",
         "current_item": "M 1",
-    }
-    _press_keys_and_validate(driver, "R", expected_values)
+    })
 
-    expected_values = {
+    _press_keys_and_validate(driver, "LLLL", expected_values={
         "ui_type": "UITextMenu",
         "title": "PiFinder",
         "current_item": "Objects",
-    }
-    _press_keys_and_validate(driver, "LLLL", expected_values)
+    })
 
 
 @pytest.mark.web
 def test_remote_entry(driver):
     test_remote_nav_wakeup(driver)  # Also logs in.
 
-    expected_values = {
+    _press_keys_and_validate(driver, "RDDDR", expected_values={
         "ui_type": "UITextEntry",
         "title": "Name Search",
         "value": "",
-    }
-    _press_keys_and_validate(driver, "RDDDR", expected_values)
+    })
 
     _press_keys(driver, "LLL")
 
@@ -385,12 +458,11 @@ def test_remote_entry(driver):
 def test_remote_entry_digits(driver):
     test_remote_nav_wakeup(driver)  # Also logs in.
 
-    expected_values = {
+    _press_keys_and_validate(driver, "RDDDR0123456789", expected_values={
         "ui_type": "UITextEntry",
         "title": "Name Search",
         "value": "0123456789",
-    }
-    _press_keys_and_validate(driver, "RDDDR0123456789", expected_values)
+    })
 
     # Go back to main menu
     _press_keys(driver, "LLL")
@@ -400,37 +472,35 @@ def test_remote_entry_digits(driver):
 def test_remote_backtotop(driver):
     test_remote_nav_wakeup(driver)  # Also logs in.
 
-    expected_values = {
+    _press_keys_and_validate(driver, "RDRDDDR31R", expected_values={
         "ui_type": "UIObjectDetails",
         "object": {
             "display_name": "M 31"
         }
-    }
-    _press_keys_and_validate(driver, "RDRDDDR31R", expected_values)
+    })
 
-    expected_values = {
+    # LNG_LEFT
+    _press_keys_and_validate(driver, "ZL", expected_values={
         "ui_type": "UITextMenu",
         "title": "PiFinder", 
         "current_item": "Objects",
-    }
-    _press_keys_and_validate(driver, "ZL", expected_values)  # LNG_LEFT
+    })  
 
 
 @pytest.mark.web
 def test_remote_markingmenu(driver):
     test_remote_nav_wakeup(driver)  # Also logs in.
 
-    expected_values = {
+    _press_keys_and_validate(driver, "RDRDDDR31RL", expected_values={
         "current_item": "M 31",
         "display_mode": "LOCATE",
         "marking_menu_active": False,
         "sort_order": "CATALOG_SEQUENCE",
         "title": "Messier",
         "ui_type": "UIObjectList"
-    }
-    _press_keys_and_validate(driver, "RDRDDDR31RL", expected_values)
+    })
 
-    expected_values = {
+    _press_keys_and_validate(driver, "ZS", expected_values={
         "ui_type": "UIMarkingMenu",
         "marking_menu_active": True,
         "underlying_ui_type": "UIObjectList",
@@ -441,10 +511,9 @@ def test_remote_markingmenu(driver):
                 "label": "Sort",
             }
         }
-    }
-    _press_keys_and_validate(driver, "ZS", expected_values) 
+    }) 
 
-    expected_values = {
+    _press_keys_and_validate(driver, "L", expected_values={
         "ui_type": "UIMarkingMenu",
         "marking_menu_active": True,
         "underlying_ui_type": "UIObjectList",
@@ -455,17 +524,15 @@ def test_remote_markingmenu(driver):
                 "label": "Nearest",
             }
         }
-    }
-    _press_keys_and_validate(driver, "L", expected_values) 
+    }) 
     time.sleep(0.5)  # Wait a bit for UI to update
 
-    expected_values = {
+    _press_keys_and_validate(driver, "L", expected_values={
         "marking_menu_active": False,
         "sort_order": "NEAREST",
         "title": "Messier",
         "ui_type": "UIObjectList",
-    }
-    _press_keys_and_validate(driver, "L", expected_values)
+    })
 
     _press_keys(driver, "ZL")  # LNG_LEFT to go back to main menu
 
@@ -475,33 +542,33 @@ def test_remote_recent(driver):
     test_remote_nav_wakeup(driver)  # Also logs in.
 
     # Navigate to M31 object details
-    expected_values = {
+    _press_keys_and_validate(driver, "RDRDDDR31R", expected_values={
         "ui_type": "UIObjectDetails",
         "object": {
             "display_name": "M 31"
         }
-    }
-    _press_keys_and_validate(driver, "RDRDDDR31R", expected_values)
+    })
     
     # Wait longer than the activation timeout (10 seconds) to ensure M31 gets added to recents
-    time.sleep(11)
+    time.sleep(15)
     
-    # Go back to top level menu
-    expected_values = {
+    # Alter activation timeout press RL, to make sure it gets stored in recent list.
+    # Go back to top level menu (LNG_LEFT)
+    _press_keys_and_validate(driver, "RLZL", expected_values={
         "ui_type": "UITextMenu",
         "title": "PiFinder",
         "current_item": "Objects",
-    }
-    _press_keys_and_validate(driver, "ZL", expected_values)  # LNG_LEFT to go back to main menu
+    })  
     
     # Use LONG+RIGHT to go to recent item (should be M31)
-    expected_values = {
+    _press_keys_and_validate(driver, "ZRW", expected_values={
         "ui_type": "UIObjectDetails", 
         "object": {
             "display_name": "M 31"
         }
-    }
-    _press_keys_and_validate(driver, "ZR", expected_values)  # This should be LONG+RIGHT
+    })
+
+    _press_keys(driver, "ZL")  # LNG_LEFT to go back to main menu
 
 
 def _press_keys(driver, keys):
@@ -542,9 +609,14 @@ def _press_keys(driver, keys):
             "■": "SQ",
             "T": "altButton",  # ■ +
             "Z": "longButton",  # Long
+            "W": "extra WAIT"
         }
 
         if key_char in key_mapping:
+            if key_char == "W":
+                time.sleep(1)
+                continue
+
             button = driver.find_element(By.ID, key_mapping[key_char])
             button.click()
             # Small delay to allow UI to update
