@@ -70,7 +70,7 @@ interface. Here's what the test suite covers:
   The test suite uses a shared WebDriver session for performance, implements helper functions for key press
   simulation and state validation, and provides comprehensive error checking for all UI interactions. The tests are
   designed to be deterministic and can run reliably in automated environments while providing detailed feedback
-  about PiFinder's web interface functionality."""
+  about PiFinder's web interface functionality. (Summary created by Claude Code)"""
 
 @pytest.fixture(scope="session")
 def shared_driver():
