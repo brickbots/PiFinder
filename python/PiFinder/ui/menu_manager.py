@@ -525,9 +525,47 @@ class MenuManager:
                 "title": getattr(current_ui, "title", "Unknown"),
             }
 
-            # Get type-specific state using the UI module's serialization method
-            if hasattr(current_ui, "serialize_ui_state"):
-                response.update(current_ui.serialize_ui_state())
+            # Check if marking menu is active
+            if self.marking_menu_stack:
+                response["ui_type"] = "UIMarkingMenu"
+                response["marking_menu_active"] = True
+                
+                # Get current marking menu options
+                current_marking_menu = self.marking_menu_stack[-1]
+                response["marking_menu_options"] = {
+                    "up": {
+                        "label": current_marking_menu.up.label,
+                        "enabled": current_marking_menu.up.enabled,
+                        "selected": current_marking_menu.up.selected,
+                    },
+                    "down": {
+                        "label": current_marking_menu.down.label,
+                        "enabled": current_marking_menu.down.enabled,
+                        "selected": current_marking_menu.down.selected,
+                    },
+                    "left": {
+                        "label": current_marking_menu.left.label,
+                        "enabled": current_marking_menu.left.enabled,
+                        "selected": current_marking_menu.left.selected,
+                    },
+                    "right": {
+                        "label": current_marking_menu.right.label,
+                        "enabled": current_marking_menu.right.enabled,
+                        "selected": current_marking_menu.right.selected,
+                    }
+                }
+                
+                # Include the underlying UI state as well
+                response["underlying_ui_type"] = ui_type
+                response["underlying_title"] = getattr(current_ui, "title", "Unknown")
+                if hasattr(current_ui, "serialize_ui_state"):
+                    underlying_state = current_ui.serialize_ui_state()
+                    response["underlying_ui_state"] = underlying_state
+            else:
+                response["marking_menu_active"] = False
+                # Get type-specific state using the UI module's serialization method
+                if hasattr(current_ui, "serialize_ui_state"):
+                    response.update(current_ui.serialize_ui_state())
 
             return response
         except Exception as e:

@@ -1,4 +1,5 @@
 import pytest
+import time
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -149,6 +150,7 @@ def test_remote_keyboard_elements_present(driver, window_size, viewport_name):
         "-": "DN",
         # Square
         "■": "SQUARE",
+        # ENT
     }
 
     # Find all remote buttons
@@ -181,7 +183,7 @@ def test_remote_special_buttons_present(driver, window_size, viewport_name):
 
     # Check for special buttons
     ent_button = driver.find_element(By.ID, "altButton")
-    assert ent_button.text == "ENT+", "ENT+ button not found or incorrect text"
+    assert ent_button.text == "■ +", "'■ +' button not found or incorrect text"
 
     long_button = driver.find_element(By.ID, "longButton")
     assert long_button.text == "LONG", "LONG button not found or incorrect text"
@@ -394,6 +396,114 @@ def test_remote_entry_digits(driver):
     _press_keys(driver, "LLL")
 
 
+@pytest.mark.web
+def test_remote_backtotop(driver):
+    test_remote_nav_wakeup(driver)  # Also logs in.
+
+    expected_values = {
+        "ui_type": "UIObjectDetails",
+        "object": {
+            "display_name": "M 31"
+        }
+    }
+    _press_keys_and_validate(driver, "RDRDDDR31R", expected_values)
+
+    expected_values = {
+        "ui_type": "UITextMenu",
+        "title": "PiFinder", 
+        "current_item": "Objects",
+    }
+    _press_keys_and_validate(driver, "ZL", expected_values)  # LNG_LEFT
+
+
+@pytest.mark.web
+def test_remote_markingmenu(driver):
+    test_remote_nav_wakeup(driver)  # Also logs in.
+
+    expected_values = {
+        "current_item": "M 31",
+        "display_mode": "LOCATE",
+        "marking_menu_active": False,
+        "sort_order": "CATALOG_SEQUENCE",
+        "title": "Messier",
+        "ui_type": "UIObjectList"
+    }
+    _press_keys_and_validate(driver, "RDRDDDR31RL", expected_values)
+
+    expected_values = {
+        "ui_type": "UIMarkingMenu",
+        "marking_menu_active": True,
+        "underlying_ui_type": "UIObjectList",
+        "underlying_title": "Messier",
+        "marking_menu_options": {
+            "left": {
+                "enabled": True,
+                "label": "Sort",
+            }
+        }
+    }
+    _press_keys_and_validate(driver, "ZS", expected_values) 
+
+    expected_values = {
+        "ui_type": "UIMarkingMenu",
+        "marking_menu_active": True,
+        "underlying_ui_type": "UIObjectList",
+        "underlying_title": "Messier",
+        "marking_menu_options": {
+            "left": {
+                "enabled": True,
+                "label": "Nearest",
+            }
+        }
+    }
+    _press_keys_and_validate(driver, "L", expected_values) 
+    time.sleep(0.5)  # Wait a bit for UI to update
+
+    expected_values = {
+        "marking_menu_active": False,
+        "sort_order": "NEAREST",
+        "title": "Messier",
+        "ui_type": "UIObjectList",
+    }
+    _press_keys_and_validate(driver, "L", expected_values)
+
+    _press_keys(driver, "ZL")  # LNG_LEFT to go back to main menu
+
+
+@pytest.mark.web
+def test_remote_recent(driver):
+    test_remote_nav_wakeup(driver)  # Also logs in.
+
+    # Navigate to M31 object details
+    expected_values = {
+        "ui_type": "UIObjectDetails",
+        "object": {
+            "display_name": "M 31"
+        }
+    }
+    _press_keys_and_validate(driver, "RDRDDDR31R", expected_values)
+    
+    # Wait longer than the activation timeout (10 seconds) to ensure M31 gets added to recents
+    time.sleep(11)
+    
+    # Go back to top level menu
+    expected_values = {
+        "ui_type": "UITextMenu",
+        "title": "PiFinder",
+        "current_item": "Objects",
+    }
+    _press_keys_and_validate(driver, "ZL", expected_values)  # LNG_LEFT to go back to main menu
+    
+    # Use LONG+RIGHT to go to recent item (should be M31)
+    expected_values = {
+        "ui_type": "UIObjectDetails", 
+        "object": {
+            "display_name": "M 31"
+        }
+    }
+    _press_keys_and_validate(driver, "ZR", expected_values)  # This should be LONG+RIGHT
+
+
 def _press_keys(driver, keys):
     """
     Helper function to press keys on remote UI
@@ -429,6 +539,9 @@ def _press_keys(driver, keys):
             "+": "UP",
             "-": "DN",
             "S": "SQ",
+            "■": "SQ",
+            "T": "altButton",  # ■ +
+            "Z": "longButton",  # Long
         }
 
         if key_char in key_mapping:
@@ -436,8 +549,15 @@ def _press_keys(driver, keys):
             button.click()
             # Small delay to allow UI to update
             time.sleep(0.2)
+            
+            # Extra delay after special button presses to ensure state is maintained
+            if key_char in ["T", "Z"]:  # altButton or longButton
+                # Wait for the button to get the "pressed" class
+                WebDriverWait(driver, 1).until(
+                    lambda d: "pressed" in button.get_attribute("class")
+                )
 
-        time.sleep(1)
+        time.sleep(0.5)  # Wait a bit after a sequence of keys (to give UI time to update)
 
 
 def _press_keys_and_validate(driver, keys, expected_values):
@@ -639,6 +759,28 @@ def _check_response_validity(response):
                     assert isinstance(
                         pointing["point_dec"], (int, float)
                     ), "point_dec should be numeric"
+
+        # For UIMarkingMenu, check specific fields
+        elif data.get("ui_type") == "UIMarkingMenu":
+            assert "marking_menu_active" in data, "marking_menu_active missing for UIMarkingMenu"
+            assert data["marking_menu_active"] is True, "marking_menu_active should be True for UIMarkingMenu"
+            assert "marking_menu_options" in data, "marking_menu_options missing for UIMarkingMenu"
+            
+            # Check that all four directions are present
+            menu_options = data["marking_menu_options"]
+            for direction in ["up", "down", "left", "right"]:
+                assert direction in menu_options, f"Direction {direction} missing from marking_menu_options"
+                option = menu_options[direction]
+                assert "label" in option, f"label missing for {direction} option"
+                assert "enabled" in option, f"enabled missing for {direction} option"
+                assert "selected" in option, f"selected missing for {direction} option"
+                assert isinstance(option["label"], str), f"{direction} label should be string"
+                assert isinstance(option["enabled"], bool), f"{direction} enabled should be boolean"
+                assert isinstance(option["selected"], bool), f"{direction} selected should be boolean"
+            
+            # Check for underlying UI state
+            assert "underlying_ui_type" in data, "underlying_ui_type missing for UIMarkingMenu"
+            assert "underlying_title" in data, "underlying_title missing for UIMarkingMenu"
 
 
 def _login_to_remote(driver):
