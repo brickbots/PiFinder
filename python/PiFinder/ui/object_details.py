@@ -524,3 +524,88 @@ class UIObjectDetails(UIModule):
                 typeconst.next()
         else:
             self.change_fov(-1)
+
+    def serialize_ui_state(self) -> dict:
+        """
+        Serialize the current state of the object details for inter-process communication
+        """
+        try:
+            # Get display mode name
+            display_modes = {
+                DM_DESC: "description",
+                DM_LOCATE: "locate",
+                DM_POSS: "poss_image",
+                DM_SDSS: "sdss_image",
+            }
+
+            # Serialize the object information safely
+            object_info = {}
+            if self.object:
+                object_info = {
+                    "display_name": getattr(
+                        self.object, "display_name", str(self.object)
+                    ),
+                    "object_type": getattr(self.object, "obj_type", "Unknown"),
+                    "catalog": getattr(self.object, "catalog", "Unknown"),
+                    "sequence": getattr(self.object, "sequence", ""),
+                    "ra": getattr(self.object, "ra", None),
+                    "dec": getattr(self.object, "dec", None),
+                    "magnitude": str(getattr(self.object, "magnitude", "Unknown")),
+                    "size": str(getattr(self.object, "size", "Unknown")),
+                    "const": getattr(self.object, "const", "Unknown"),
+                }
+
+            # Get observation count safely
+            observation_count = 0
+            try:
+                if hasattr(self, "observations_db") and self.object:
+                    observation_count = (
+                        self.observations_db.get_observation_count(
+                            self.object.catalog, self.object.sequence
+                        )
+                        if hasattr(self.object, "catalog")
+                        and hasattr(self.object, "sequence")
+                        else 0
+                    )
+            except Exception:
+                observation_count = 0
+
+            # Get pointing instructions based on mount type
+            pointing_info = {}
+            try:
+                if self.object:
+                    point_val1, point_val2 = calc_utils.aim_degrees(
+                        self.shared_state,
+                        self.mount_type,
+                        self.screen_direction,
+                        self.object,
+                    )
+
+                    if point_val1 is not None and point_val2 is not None:
+                        if self.mount_type == "Alt/Az":
+                            pointing_info = {
+                                "point_az": round(point_val1, 2),
+                                "point_alt": round(point_val2, 2),
+                                "mount_type": "Alt/Az",
+                            }
+                        else:  # EQ Mount
+                            pointing_info = {
+                                "point_ra": round(point_val1, 2),
+                                "point_dec": round(point_val2, 2),
+                                "mount_type": "EQ",
+                            }
+            except Exception:
+                pointing_info = {"error": "Could not calculate pointing instructions"}
+
+            return {
+                "object": object_info,
+                "display_mode": display_modes.get(self.object_display_mode, "unknown"),
+                "object_list_length": len(self.object_list) if self.object_list else 0,
+                "observation_count": observation_count,
+                "has_image": self.object_image is not None,
+                "screen_direction": self.screen_direction,
+                "mount_type": self.mount_type,
+                "pointing": pointing_info,
+            }
+        except Exception as e:
+            return {"error": f"Failed to serialize object details state: {str(e)}"}

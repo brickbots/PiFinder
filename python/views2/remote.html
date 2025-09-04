@@ -1,8 +1,9 @@
-% include("header.tpl", title="Remote")
+{% extends "base.html" %}
 
+{% block content %}
 <div id="error" class="error-message"></div>
 <div class="center-align">
-    <img id="image" src="" alt="PiFinder Screen" class="pifinder-screen z-depth-2">
+    <img id="image" src="" alt="{{ _('PiFinder Screen') }}" class="pifinder-screen z-depth-2">
 </div>
 <center>
     <div style="display: grid; grid-template-columns: repeat(4, 1fr); margin: 0.5rem; justify-content: center; gap: 0.5rem;">
@@ -22,13 +23,16 @@
         <button class="btn remote-button" id="2" onclick="buttonClicked(this, '2')">2</button>
         <button class="btn remote-button" id="3" onclick="buttonClicked(this, '3')">3</button>
         <button class="btn remote-button" id="SQ" onclick="buttonClicked(this, 'SQUARE')">■</button>
-        <button class="btn remote-button" id="altButton" onclick="buttonPressed(this)">Ent+</button>
+        <button class="btn remote-button" id="altButton" onclick="buttonPressed(this)">■ +</button>
         <button class="btn remote-button" id="0" onclick="buttonClicked(this, '0')">0</button>
         <button class="btn remote-button" id="longButton" onclick="buttonPressed(this)">Long</button>
     </div>
     <div style="display: flex; flex-direction: row; margin: 0px 5px 0px 5px; gap: 1rem; justify-content: center;">
     </div>
 </center>
+{% endblock %}
+
+{% block scripts %}
 <script>
 function fetchImage() {
     const imageElement = document.getElementById('image');
@@ -48,7 +52,7 @@ function fetchImage() {
             console.log(error);
             // When the image can't be fetched, display a static message
             const errorElement = document.getElementById('error');
-            errorElement.innerHTML = "PiFinder server is currently unavailable. Please try again later.";
+            errorElement.innerHTML = "{{ _('PiFinder server is currently unavailable. Please try again later.') }}";
         })
         .finally(() => {
             // Schedule the next fetch operation after 100 milliseconds, whether this operation was successful or not
@@ -105,6 +109,4 @@ function buttonClicked(btn, code) {
     });
 }
 </script>
-
-% include("footer.tpl", title="PiFinder UI")
-
+{% endblock %}
