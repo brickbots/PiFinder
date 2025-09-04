@@ -411,7 +411,7 @@ function validateField(value, fieldName) {
     }
 }
 
-function updateFieldValidation(field, fieldName, id = '', forceShowError = false) {
+function updateNumericFieldValidation(field, fieldName, id = '', forceShowError = false) {
     const helperText = field.parentElement.querySelector('.helper-text');
     const value = field.value.trim();
     const isValid = validateField(value, fieldName);
@@ -499,7 +499,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 field.addEventListener('input', function() {
                     this.dataset.hasInteracted = 'true';
                     if (fieldName !== 'name') {
-                        updateFieldValidation(this, fieldName, id);
+                        updateNumericFieldValidation(this, fieldName, id);
+                    } else {
+                        // Handle name field validation (text field)
+                        const helperText = this.parentElement.querySelector('.helper-text');
+                        const value = this.value.trim();
+                        const isValid = value !== '';
+                        
+                        this.classList.remove('invalid');
+                        helperText.classList.remove('red-text');
+                        helperText.textContent = '';
+                        
+                        if (!isValid && this.dataset.hasInteracted === 'true') {
+                            this.classList.add('invalid');
+                            helperText.classList.add('red-text');
+                            helperText.textContent = "{{ _('This field is required') }}";
+                        }
                     }
                     checkFields(id);
                 });
@@ -519,7 +534,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 Object.entries(fields).forEach(([fieldName, field]) => {
                     if (field && fieldName !== 'name') {
-                        updateFieldValidation(field, fieldName, id, true);
+                        updateNumericFieldValidation(field, fieldName, id, true);
                     }
                 });
             }
@@ -532,7 +547,24 @@ document.addEventListener('DOMContentLoaded', function() {
         Object.entries(fields).forEach(([fieldName, field]) => {
             if (field) {
                 field.dataset.hasInteracted = 'true';
-                updateFieldValidation(field, fieldName, id);
+                if (fieldName !== 'name') {
+                    updateNumericFieldValidation(field, fieldName, id);
+                } else {
+                    // Initial validation for name field
+                    const helperText = field.parentElement.querySelector('.helper-text');
+                    const value = field.value.trim();
+                    const isValid = value !== '';
+                    
+                    field.classList.remove('invalid');
+                    helperText.classList.remove('red-text');
+                    helperText.textContent = '';
+                    
+                    if (!isValid) {
+                        field.classList.add('invalid');
+                        helperText.classList.add('red-text');
+                        helperText.textContent = "{{ _('This field is required') }}";
+                    }
+                }
             }
         });
         
