@@ -28,6 +28,8 @@ pip install -r requirements.txt
 pip install -r requirements_dev.txt
 ```
 
+Watch out for .venv directories containing virtual environments, that you need to activate first. 
+
 **Running the application:**
 ```bash
 cd python/
@@ -44,13 +46,12 @@ python -m PiFinder.main [options]
 - **GPS Process** - Location/time via GPSD or UBlox direct interface
 - **IMU Process** - Motion tracking with BNO055 sensor
 - **Integrator Process** - Combines solver + IMU data for real-time positioning
-- **Web Server Process** - Web interface and SkySafari telescope control integration
+- **Web Server Process** - Web interface and SkySafari integration as a telescope 
 - **Position Server Process** - External protocol support
 
 **State Management:** 
 - `SharedStateObj` - Process-shared state using multiprocessing managers
 - `UIState` - UI-specific state management
-- Real-time synchronization of telescope position, GPS coordinates, and solved sky coordinates
 
 **Database Layer:**
 - SQLite backend (`astro_data/pifinder_objects.db`)
@@ -60,7 +61,7 @@ python -m PiFinder.main [options]
 
 **Hardware Abstraction:**
 - Camera interface supporting IMX296 (global shutter), IMX290/462, HQ cameras
-- Display system for SSD1351 OLED and ST7789 LCD with red-light preservation
+- Display system for SSD1351 OLED and ST7789 LCD with night vision preservation using red channel only
 - Hardware keypad with PWM brightness control
 - GPS integration via GPSD or direct UBlox protocol
 - IMU sensor integration for motion detection and telescope orientation
@@ -99,6 +100,30 @@ Tests use pytest with custom markers for different test types. The smoke tests p
 - Menu structure and navigation logic
 - Multi-process logging and communication
 - Hardware interface abstractions
+- Website testing
+
+### Website testing setup
+
+**Testing Framework:** Uses Selenium WebDriver with Pytest for automated browser testing of the web interface
+
+**Infrastructure Requirements:**
+- Selenium Grid server at localhost:4444 (configurable via SELENIUM_GRID_URL environment variable)
+- Chrome browser in headless mode for test execution
+- Tests automatically skip if Selenium Grid is unavailable
+
+**Test Coverage Areas:**
+- **Web Interface** (`test_web_interface.py`): Basic page loading, image display, status table elements (Mode, coordinates, software version)
+- **Location Management** (`test_web_locations.py`): Location CRUD operations, DMS coordinate entry, default switching, GPS integration via remote interface
+- **Network Configuration** (`test_web_network.py`): WiFi settings form validation, network management, restart flows, modal dialogs
+- **Remote Control** (`test_web_remote.py`): Authentication, virtual keypad, menu navigation, marking menus, API endpoint validation
+
+**Authentication:** All protected pages use default password "solveit"
+
+**Responsive Testing:** Tests run on both desktop (1920x1080) and mobile (375x667) viewports
+
+**API Integration:** Extensive use of `/api/current-selection` endpoint to validate UI state changes and ensure web interface accurately reflects PiFinder's internal state
+
+**Helper Utilities:** Shared utilities in `web_test_utils.py` for login flows, key simulation, and state validation with recursive dictionary comparison
 
 ## Code Quality
 
