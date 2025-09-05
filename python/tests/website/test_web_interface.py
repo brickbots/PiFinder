@@ -17,7 +17,10 @@ def driver():
         command_executor="http://192.168.178.94:4444/wd/hub", options=chrome_options
     )
     yield driver
-    driver.quit()
+    try: 
+        driver.quit()
+    except Exception:
+        pass # Ignore errors on shutdown
 
 
 @pytest.mark.web

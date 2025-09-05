@@ -76,7 +76,10 @@ def shared_driver():
     # Ensure desktop viewport
     driver.set_window_size(1920, 1080)
     yield driver
-    driver.quit()
+    try: 
+        driver.quit()
+    except Exception:
+        pass # Ignore errors on shutdown
 
 
 @pytest.fixture
