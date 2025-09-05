@@ -1,6 +1,7 @@
 """
 Shared utilities for web interface testing
 """
+
 import time
 import requests
 from selenium.webdriver.common.by import By
@@ -64,12 +65,31 @@ def press_keys(driver, keys):
     for key_char in keys:
         # Map key characters to button IDs
         key_mapping = {
-            "0": "0", "1": "1", "2": "2", "3": "3", "4": "4",
-            "5": "5", "6": "6", "7": "7", "8": "8", "9": "9",
-            "L": "A", "R": "D", "U": "B", "D": "C",
-            "←": "A", "→": "D", "↑": "B", "↓": "C",
-            "+": "UP", "-": "DN", "S": "SQ", "■": "SQ",
-            "T": "altButton", "Z": "longButton", "W": "extra WAIT"
+            "0": "0",
+            "1": "1",
+            "2": "2",
+            "3": "3",
+            "4": "4",
+            "5": "5",
+            "6": "6",
+            "7": "7",
+            "8": "8",
+            "9": "9",
+            "L": "A",
+            "R": "D",
+            "U": "B",
+            "D": "C",
+            "←": "A",
+            "→": "D",
+            "↑": "B",
+            "↓": "C",
+            "+": "UP",
+            "-": "DN",
+            "S": "SQ",
+            "■": "SQ",
+            "T": "altButton",
+            "Z": "longButton",
+            "W": "extra WAIT",
         }
 
         if key_char in key_mapping:
@@ -80,7 +100,7 @@ def press_keys(driver, keys):
             button = driver.find_element(By.ID, key_mapping[key_char])
             button.click()
             time.sleep(0.2)
-            
+
             # Extra delay after special button presses
             if key_char in ["T", "Z"]:
                 WebDriverWait(driver, 1).until(
@@ -107,7 +127,7 @@ def press_keys_and_validate(driver, keys, expected_values):
 
     # Validate basic response structure
     assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-    
+
     data = response.json()
     assert isinstance(data, dict), "Response should be a JSON object"
 

@@ -119,7 +119,7 @@ class Server2:
             "ALT_0": self.ki.ALT_0,
             # "ALT_SQUARE": self.ki.ALT_SQUARE,
             "LNG_A": self.ki.LNG_LEFT,
-            "LNG_B": self.ki.LNG_UP,  
+            "LNG_B": self.ki.LNG_UP,
             "LNG_C": self.ki.LNG_DOWN,
             "LNG_D": self.ki.LNG_RIGHT,
             "LNG_SQUARE": self.ki.LNG_SQUARE,
@@ -163,7 +163,7 @@ class Server2:
         #     try:
         #         from flask_babel import gettext
         #         return gettext(text)
-        #     except:
+        #     except Exception:
         #         return text
 
         # # Make translation function available to routes

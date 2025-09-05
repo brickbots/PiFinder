@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from web_test_utils import login_to_remote, press_keys, press_keys_and_validate, recursive_dict_compare
+from web_test_utils import login_to_remote, press_keys, press_keys_and_validate
 
 """
 The test_web_remote.py file contains comprehensive end-to-end tests for PiFinder's web-based remote control
@@ -73,21 +73,26 @@ interface. Here's what the test suite covers:
   designed to be deterministic and can run reliably in automated environments while providing detailed feedback
   about PiFinder's web interface functionality. (Summary created by Claude Code)"""
 
+
 @pytest.fixture(scope="session")
 def shared_driver():
     """Setup Chrome driver using Selenium Grid - configurable via environment with auto-skip if unavailable"""
     # Get Selenium Grid URL from environment variable with fallback
-    selenium_grid_url = os.environ.get("SELENIUM_GRID_URL", "http://localhost:4444/wd/hub")
-    
+    selenium_grid_url = os.environ.get(
+        "SELENIUM_GRID_URL", "http://localhost:4444/wd/hub"
+    )
+
     # Test if Selenium Grid is available
     try:
         status_url = selenium_grid_url.replace("/wd/hub", "/status")
         response = requests.get(status_url, timeout=5)
         if response.status_code != 200:
-            pytest.skip("Selenium Grid not available - tests require running Selenium Grid")
+            pytest.skip(
+                "Selenium Grid not available - tests require running Selenium Grid"
+            )
     except requests.RequestException:
         pytest.skip("Selenium Grid not available - tests require running Selenium Grid")
-    
+
     chrome_options = Options()
     chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
@@ -99,14 +104,14 @@ def shared_driver():
         )
     except Exception as e:
         pytest.skip(f"Failed to connect to Selenium Grid at {selenium_grid_url}: {e}")
-    
+
     # Ensure desktop viewport
     driver.set_window_size(1920, 1080)
-    yield driver 
-    try: 
+    yield driver
+    try:
         driver.quit()
     except Exception:
-        pass # Ignore errors on shutdown
+        pass  # Ignore errors on shutdown
 
 
 @pytest.fixture
@@ -386,11 +391,13 @@ def test_remote_nav_wakeup(driver):
     login_to_remote(driver)
 
     press_keys_and_validate(
-        driver, "LLLLLLUUUUUUDD", expected_values={
+        driver,
+        "LLLLLLUUUUUUDD",
+        expected_values={
             "ui_type": "UITextMenu",
             "title": "PiFinder",
             "current_item": "Objects",
-        }
+        },
     )  # One extra to wake up from sleep.
 
 
@@ -399,11 +406,13 @@ def test_remote_nav_up(driver):
     test_remote_nav_wakeup(driver)  # Also logs in.
 
     press_keys_and_validate(
-        driver, "UU", expected_values={
+        driver,
+        "UU",
+        expected_values={
             "ui_type": "UITextMenu",
             "title": "PiFinder",
             "current_item": "Start",
-        }
+        },
     )  # One extra to wake up from sleep.
 
 
@@ -411,51 +420,75 @@ def test_remote_nav_up(driver):
 def test_remote_nav_down(driver):
     test_remote_nav_up(driver)  # Also logs in.
 
-    press_keys_and_validate(driver, "DD", expected_values={
-        "ui_type": "UITextMenu",
-        "title": "PiFinder",
-        "current_item": "Objects",
-    })
+    press_keys_and_validate(
+        driver,
+        "DD",
+        expected_values={
+            "ui_type": "UITextMenu",
+            "title": "PiFinder",
+            "current_item": "Objects",
+        },
+    )
 
 
 @pytest.mark.web
 def test_remote_nav_right(driver):
     test_remote_nav_down(driver)  # Also logs in.
 
-    press_keys_and_validate(driver, "RD", expected_values={
-        "ui_type": "UITextMenu",
-        "title": "Objects",
-        "current_item": "By Catalog",
-    })
+    press_keys_and_validate(
+        driver,
+        "RD",
+        expected_values={
+            "ui_type": "UITextMenu",
+            "title": "Objects",
+            "current_item": "By Catalog",
+        },
+    )
 
-    press_keys_and_validate(driver, "RDDD", expected_values={
-        "ui_type": "UITextMenu",
-        "title": "By Catalog",
-        "current_item": "Messier",
-    })
+    press_keys_and_validate(
+        driver,
+        "RDDD",
+        expected_values={
+            "ui_type": "UITextMenu",
+            "title": "By Catalog",
+            "current_item": "Messier",
+        },
+    )
 
-    press_keys_and_validate(driver, "R", expected_values={
-        "ui_type": "UIObjectList",
-        "title": "Messier",
-        "current_item": "M 1",
-    })
+    press_keys_and_validate(
+        driver,
+        "R",
+        expected_values={
+            "ui_type": "UIObjectList",
+            "title": "Messier",
+            "current_item": "M 1",
+        },
+    )
 
-    press_keys_and_validate(driver, "LLLL", expected_values={
-        "ui_type": "UITextMenu",
-        "title": "PiFinder",
-        "current_item": "Objects",
-    })
+    press_keys_and_validate(
+        driver,
+        "LLLL",
+        expected_values={
+            "ui_type": "UITextMenu",
+            "title": "PiFinder",
+            "current_item": "Objects",
+        },
+    )
 
 
 @pytest.mark.web
 def test_remote_entry(driver):
     test_remote_nav_wakeup(driver)  # Also logs in.
 
-    press_keys_and_validate(driver, "RDDDR", expected_values={
-        "ui_type": "UITextEntry",
-        "title": "Name Search",
-        "value": "",
-    })
+    press_keys_and_validate(
+        driver,
+        "RDDDR",
+        expected_values={
+            "ui_type": "UITextEntry",
+            "title": "Name Search",
+            "value": "",
+        },
+    )
 
     press_keys(driver, "LLL")
 
@@ -464,11 +497,15 @@ def test_remote_entry(driver):
 def test_remote_entry_digits(driver):
     test_remote_nav_wakeup(driver)  # Also logs in.
 
-    press_keys_and_validate(driver, "RDDDR0123456789", expected_values={
-        "ui_type": "UITextEntry",
-        "title": "Name Search",
-        "value": "0123456789",
-    })
+    press_keys_and_validate(
+        driver,
+        "RDDDR0123456789",
+        expected_values={
+            "ui_type": "UITextEntry",
+            "title": "Name Search",
+            "value": "0123456789",
+        },
+    )
 
     # Go back to main menu
     press_keys(driver, "LLL")
@@ -478,67 +515,89 @@ def test_remote_entry_digits(driver):
 def test_remote_backtotop(driver):
     test_remote_nav_wakeup(driver)  # Also logs in.
 
-    press_keys_and_validate(driver, "RDRDDDR31R", expected_values={
-        "ui_type": "UIObjectDetails",
-        "object": {
-            "display_name": "M 31"
-        }
-    })
+    press_keys_and_validate(
+        driver,
+        "RDRDDDR31R",
+        expected_values={
+            "ui_type": "UIObjectDetails",
+            "object": {"display_name": "M 31"},
+        },
+    )
 
     # LNG_LEFT
-    press_keys_and_validate(driver, "ZL", expected_values={
-        "ui_type": "UITextMenu",
-        "title": "PiFinder", 
-        "current_item": "Objects",
-    })  
+    press_keys_and_validate(
+        driver,
+        "ZL",
+        expected_values={
+            "ui_type": "UITextMenu",
+            "title": "PiFinder",
+            "current_item": "Objects",
+        },
+    )
 
 
 @pytest.mark.web
 def test_remote_markingmenu(driver):
     test_remote_nav_wakeup(driver)  # Also logs in.
 
-    press_keys_and_validate(driver, "RDRDDDR31RL", expected_values={
-        "current_item": "M 31",
-        "display_mode": "LOCATE",
-        "marking_menu_active": False,
-        "sort_order": "CATALOG_SEQUENCE",
-        "title": "Messier",
-        "ui_type": "UIObjectList"
-    })
+    press_keys_and_validate(
+        driver,
+        "RDRDDDR31RL",
+        expected_values={
+            "current_item": "M 31",
+            "display_mode": "LOCATE",
+            "marking_menu_active": False,
+            "sort_order": "CATALOG_SEQUENCE",
+            "title": "Messier",
+            "ui_type": "UIObjectList",
+        },
+    )
 
-    press_keys_and_validate(driver, "ZS", expected_values={
-        "ui_type": "UIMarkingMenu",
-        "marking_menu_active": True,
-        "underlying_ui_type": "UIObjectList",
-        "underlying_title": "Messier",
-        "marking_menu_options": {
-            "left": {
-                "enabled": True,
-                "label": "Sort",
-            }
-        }
-    }) 
+    press_keys_and_validate(
+        driver,
+        "ZS",
+        expected_values={
+            "ui_type": "UIMarkingMenu",
+            "marking_menu_active": True,
+            "underlying_ui_type": "UIObjectList",
+            "underlying_title": "Messier",
+            "marking_menu_options": {
+                "left": {
+                    "enabled": True,
+                    "label": "Sort",
+                }
+            },
+        },
+    )
 
-    press_keys_and_validate(driver, "L", expected_values={
-        "ui_type": "UIMarkingMenu",
-        "marking_menu_active": True,
-        "underlying_ui_type": "UIObjectList",
-        "underlying_title": "Messier",
-        "marking_menu_options": {
-            "left": {
-                "enabled": True,
-                "label": "Nearest",
-            }
-        }
-    }) 
+    press_keys_and_validate(
+        driver,
+        "L",
+        expected_values={
+            "ui_type": "UIMarkingMenu",
+            "marking_menu_active": True,
+            "underlying_ui_type": "UIObjectList",
+            "underlying_title": "Messier",
+            "marking_menu_options": {
+                "left": {
+                    "enabled": True,
+                    "label": "Nearest",
+                }
+            },
+        },
+    )
     time.sleep(0.5)  # Wait a bit for UI to update
 
-    press_keys_and_validate(driver, "L", expected_values={
-        "marking_menu_active": False,
-        "sort_order": "NEAREST",
-        "title": "Messier",
-        "ui_type": "UIObjectList",
-    })
+    press_keys_and_validate(
+        driver,
+        "L",
+        expected_values={
+            "marking_menu_active": False,
+            "sort_order": "NEAREST",
+            "title": "Messier",
+            "ui_type": "UIObjectList",
+        },
+    )
 
     press_keys(driver, "ZL")  # LNG_LEFT to go back to main menu
 
@@ -548,31 +607,38 @@ def test_remote_recent(driver):
     test_remote_nav_wakeup(driver)  # Also logs in.
 
     # Navigate to M31 object details
-    press_keys_and_validate(driver, "RDRDDDR31R", expected_values={
-        "ui_type": "UIObjectDetails",
-        "object": {
-            "display_name": "M 31"
-        }
-    })
-    
+    press_keys_and_validate(
+        driver,
+        "RDRDDDR31R",
+        expected_values={
+            "ui_type": "UIObjectDetails",
+            "object": {"display_name": "M 31"},
+        },
+    )
+
     # Wait longer than the activation timeout (10 seconds) to ensure M31 gets added to recents
     time.sleep(15)
-    
+
     # Alter activation timeout press RL, to make sure it gets stored in recent list.
     # Go back to top level menu (LNG_LEFT)
-    press_keys_and_validate(driver, "RLZL", expected_values={
-        "ui_type": "UITextMenu",
-        "title": "PiFinder",
-        "current_item": "Objects",
-    })  
-    
+    press_keys_and_validate(
+        driver,
+        "RLZL",
+        expected_values={
+            "ui_type": "UITextMenu",
+            "title": "PiFinder",
+            "current_item": "Objects",
+        },
+    )
+
     # Use LONG+RIGHT to go to recent item (should be M31)
-    press_keys_and_validate(driver, "ZRW", expected_values={
-        "ui_type": "UIObjectDetails", 
-        "object": {
-            "display_name": "M 31"
-        }
-    })
+    press_keys_and_validate(
+        driver,
+        "ZRW",
+        expected_values={
+            "ui_type": "UIObjectDetails",
+            "object": {"display_name": "M 31"},
+        },
+    )
 
     press_keys(driver, "ZL")  # LNG_LEFT to go back to main menu
-
