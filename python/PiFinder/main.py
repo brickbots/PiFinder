@@ -288,7 +288,7 @@ def main(
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness, cfg)
-    if cfg.get_option("screen_direction") == "as_dream":
+    if cfg.get_option("screen_direction") == "as_bloom":
         display_device.device.rotate = 3
 
     # Set user interface language
@@ -338,14 +338,14 @@ def main(
         console.write("   Keyboard")
         logger.info("   Keyboard")
         console.update()
-        if cfg.get_option("screen_direction") == "as_dream":
-            dream_key_remap = True
+        if cfg.get_option("screen_direction") == "as_bloom":
+            bloom_key_remap = True
         else:
-            dream_key_remap = False
+            bloom_key_remap = False
         keyboard_process = Process(
             name="Keyboard",
             target=keyboard.run_keyboard,
-            args=(keyboard_queue, shared_state, keyboard_logqueue, dream_key_remap),
+            args=(keyboard_queue, shared_state, keyboard_logqueue, bloom_key_remap),
         )
         keyboard_process.start()
         if script_name:

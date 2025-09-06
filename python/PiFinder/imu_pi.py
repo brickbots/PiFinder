@@ -41,7 +41,7 @@ class Imu:
                 adafruit_bno055.AXIS_REMAP_POSITIVE,
                 adafruit_bno055.AXIS_REMAP_NEGATIVE,
             )
-        elif cfg.get_option("screen_direction") == "as_dream":
+        elif cfg.get_option("screen_direction") == "as_bloom":
             self.sensor.axis_remap = (
                 adafruit_bno055.AXIS_REMAP_X,
                 adafruit_bno055.AXIS_REMAP_Z,
