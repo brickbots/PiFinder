@@ -172,13 +172,8 @@ def set_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     solved_scope = RaDecRoll()
     solved_scope.set_from_deg(solved["RA"], solved["Dec"], solved["Roll"])
 
-    # Calculate q_scope2cam (alignment)
-    q_eq2cam = qt.get_q_eq2cam(solved_cam.ra, solved_cam.dec, solved_cam.roll)
-    q_eq2scope = qt.get_q_eq2cam(solved_scope.ra, solved_scope.dec, solved_scope.roll)
-    q_scope2cam = q_eq2scope.conjugate() * q_eq2cam
-
     # Set alignment in imu_dead_reckoning
-    imu_dead_reckoning.set_alignment(q_scope2cam)
+    imu_dead_reckoning.set_alignment(solved_cam, solved_scope)
 
 
 def update_imu(
@@ -226,11 +221,12 @@ def update_imu(
         solved["solve_source"] = "IMU"
 
         # Logging for states updated in solved:
-        logger.debug("scope: RA: {:}, Dec: {:}, Roll: {:}".format(
+        logger.debug("IMU update: scope: RA: {:}, Dec: {:}, Roll: {:}".format(
                      solved["RA"], solved["Dec"], solved["Roll"]))
-        logger.debug("camera_center: RA: {:}, Dec: {:}, Roll: {:}".format(
+        logger.debug("IMU update: camera_center: RA: {:}, Dec: {:}, Roll: {:}".format(
             solved["camera_center"]["RA"], solved["camera_center"]["Dec"], 
             solved["camera_center"]["Roll"]))
+
 
 def get_roll_by_mount_type(
     ra_deg: float, dec_deg: float, location, dt: datetime.datetime, mount_type: str

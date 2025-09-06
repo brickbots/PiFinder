@@ -68,7 +68,10 @@ class ImuDeadReckoning:
         # IMU-to-camera orientation. Fixed by PiFinder type
         self._set_screen_direction(screen_direction)
 
-    def set_alignment(self, q_scope2cam: quaternion.quaternion):
+    def set_alignment(
+            self, 
+            solved_cam: RaDecRoll, 
+            solved_scope: RaDecRoll):
         """
         Set the alignment between the PiFinder camera center and the scope
         pointing.
@@ -78,6 +81,11 @@ class ImuDeadReckoning:
         INPUTS:
         q_scope2cam: Quaternion that rotates the scope frame to the camera frame.
         """
+        # Calculate q_scope2cam (alignment)
+        q_eq2cam = qt.get_q_eq2cam(solved_cam.ra, solved_cam.dec, solved_cam.roll)
+        q_eq2scope = qt.get_q_eq2cam(solved_scope.ra, solved_scope.dec, solved_scope.roll)
+        q_scope2cam = q_eq2scope.conjugate() * q_eq2cam
+
         # TODO: Use qt.get_q_scope2cam(target_eq, cam_eq)
         self.q_scope2cam = q_scope2cam.normalized()
         self.q_cam2scope = self.q_scope2cam.conj()
