@@ -135,7 +135,7 @@ class UIConsole(UIModule):
             )
             self.draw.text((6, 1), self.title, font=self.fonts.bold.font, fill=fg)
             imu = self.shared_state.imu()
-            moving = True if imu and imu["pos"] and imu["moving"] else False
+            moving = True if imu and imu["quat"] and imu["moving"] else False
 
             # GPS status
             if self.shared_state.altaz_ready():
