@@ -7,14 +7,14 @@ import numpy as np
 import quaternion
 from typing import Union  # When updated to Python 3.10+, remove and use new type hints
 
-import PiFinder.pointing_model.quaternion_transforms as qt
+import PiFinder.pointing_model.quaternion_transforms as qt  # TODO: Remove dependence on qt
 
 
 @dataclass
 class RaDecRoll:
     """
     Data class for equatorial coordinates defined by (RA, Dec, Roll). This
-    makes it easier to convert between radians and degrees.
+    makes it easier for interfacing and convert between radians and degrees.
 
     The set methods allow values to be float or None but internally, None will
     be stored as np.nan so that the type is consistent. the get methods will

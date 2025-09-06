@@ -1,7 +1,7 @@
 README: IMU support prototyping
 ===============================
 
-> This README is temporary during the prototyping phase of the IMU support.
+> The first part of this README is temporary for the prototyping phase of the IMU support.
 
 # TODO
 
@@ -32,6 +32,12 @@ Done:
 # Sky test log
 
 >Remove this before release!
+
+## 20250831: af358e (tested 5/6 Aug)
+
+* Tested on altaz mount in altaz mode.
+* Seemed ok. Didn't check chart display.
+* Changes have mainly been refactoring & linting.
 
 ## 20250819: 700f77c (tested 19/20 Aug)
 
