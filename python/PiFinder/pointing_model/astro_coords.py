@@ -7,8 +7,6 @@ import numpy as np
 import quaternion
 from typing import Union  # When updated to Python 3.10+, remove and use new type hints
 
-import PiFinder.pointing_model.quaternion_transforms as qt  # TODO: Remove dependence on qt
-
 
 @dataclass
 class RaDecRoll:
@@ -60,8 +58,27 @@ class RaDecRoll:
         self.set(ra, dec, roll)
 
     def set_from_quaternion(self, q_eq: quaternion.quaternion):
-        """Set from a quaternion rotation relative to the Equatorial frame"""
-        ra, dec, roll = qt.get_radec_of_q_eq(q_eq)
+        """
+        Set from a quaternion rotation relative to the Equatorial frame.
+        Re-using code from quaternion_transforms.get_radec_of_q_eq.
+        """
+        # Pure quaternion along camera boresight
+        pz_frame = q_eq * quaternion.quaternion(0, 0, 0, 1) * q_eq.conj()
+        
+        # Calculate RA, Dec from the camera boresight:
+        dec = np.arcsin(pz_frame.z)
+        ra = np.arctan2(pz_frame.y, pz_frame.x)
+
+        # Calcualte Roll:
+        # Pure quaternion along y_cam which points to NCP when roll = 0
+        py_cam = q_eq * quaternion.quaternion(0, 0, 1, 0) * q_eq.conj()
+        # Local East and North vectors (roll is the angle between py_cam and the north vector)
+        vec_east = np.array([-np.sin(ra), np.cos(ra), 0])
+        vec_north = np.array(
+            [-np.sin(dec) * np.cos(ra), -np.sin(dec) * np.sin(ra), np.cos(dec)]
+        )
+        roll = -np.arctan2(np.dot(py_cam.vec, vec_east), np.dot(py_cam.vec, vec_north))
+
         self.set(ra, dec, roll)
 
     def get(
