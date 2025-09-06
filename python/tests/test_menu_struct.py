@@ -1,4 +1,6 @@
 import pytest
+
+import PiFinder.i18n  # noqa: F401
 from PiFinder.ui import menu_structure
 
 

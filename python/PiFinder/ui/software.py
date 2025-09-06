@@ -14,6 +14,36 @@ from PiFinder.ui.base import UIModule
 sys_utils = utils.get_sys_utils()
 
 
+def update_needed(current_version: str, repo_version: str) -> bool:
+    """
+    Returns true if an update is available
+
+    Update is available if semvar of repo_version is > current_version
+    Also returns True on error to allow be biased towards allowing
+    updates if issues
+    """
+    try:
+        _tmp_split = current_version.split(".")
+        current_version_compare = (
+            int(_tmp_split[0]),
+            int(_tmp_split[1]),
+            int(_tmp_split[2]),
+        )
+
+        _tmp_split = repo_version.split(".")
+        repo_version_compare = (
+            int(_tmp_split[0]),
+            int(_tmp_split[1]),
+            int(_tmp_split[2]),
+        )
+
+        # tuples compare in significance from first to last element
+        return repo_version_compare > current_version_compare
+
+    except Exception:
+        return True
+
+
 class UISoftware(UIModule):
     """
     UI for updating software versions
@@ -40,7 +70,6 @@ class UISoftware(UIModule):
         Fetches current release version from
         github, sets class variable if found
         """
-
         try:
             res = requests.get(
                 "https://raw.githubusercontent.com/brickbots/PiFinder/release/version.txt"
@@ -56,25 +85,20 @@ class UISoftware(UIModule):
             self._release_version = "Unknown"
 
     def update_software(self):
-        self.message("Updating...", 10)
+        self.message(_("Updating..."), 10)
         if sys_utils.update_software():
-            self.message("Ok! Restarting", 10)
+            self.message(_("Ok! Restarting"), 10)
             sys_utils.restart_system()
         else:
-            self.message("Error on Upd", 3)
+            self.message(_("Error on Upd"), 3)
 
     def update(self, force=False):
-        # check elipsis count here... if we are at >30 check for
-        # release versions
-        if self._elipsis_count > 30:
-            self.get_release_version()
-
         time.sleep(1 / 30)
         self.clear_screen()
         draw_pos = self.display_class.titlebar_height + 2
         self.draw.text(
             (0, draw_pos),
-            f"Wifi Mode: {self._wifi_mode}",
+            _("Wifi Mode: {}").format(self._wifi_mode),
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
@@ -82,7 +106,7 @@ class UISoftware(UIModule):
 
         self.draw.text(
             (0, draw_pos),
-            "Current Version",
+            _("Current Version"),
             font=self.fonts.bold.font,
             fill=self.colors.get(128),
         )
@@ -98,7 +122,7 @@ class UISoftware(UIModule):
 
         self.draw.text(
             (0, draw_pos),
-            "Release Version",
+            _("Release Version"),
             font=self.fonts.bold.font,
             fill=self.colors.get(128),
         )
@@ -114,28 +138,34 @@ class UISoftware(UIModule):
         if self._wifi_mode != "Client":
             self.draw.text(
                 (10, 90),
-                "WiFi must be",
+                _("WiFi must be"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 105),
-                "client mode",
+                _("client mode"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             return self.screen_update()
 
         if self._release_version == "-.-.-":
+            # check elipsis count here... if we are at >30 check for
+            # release versions
+            if self._elipsis_count > 30:
+                self.get_release_version()
             self.draw.text(
                 (10, 90),
-                "Checking for",
+                _("Checking for"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 105),
-                f"updates{'.' * int(self._elipsis_count / 10)}",
+                _("updates{elipsis}").format(
+                    elipsis="." * int(self._elipsis_count / 10)
+                ),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -144,16 +174,18 @@ class UISoftware(UIModule):
                 self._elipsis_count = 0
             return self.screen_update()
 
-        if self._release_version.strip() == self._software_version.strip():
+        if not update_needed(
+            self._software_version.strip(), self._release_version.strip()
+        ):
             self.draw.text(
                 (10, 90),
-                "No Update",
+                _("No Update"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, 105),
-                "needed",
+                _("needed"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -163,13 +195,13 @@ class UISoftware(UIModule):
         self._go_for_update = True
         self.draw.text(
             (10, 90),
-            "Update Now",
+            _("Update Now"),
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )
         self.draw.text(
             (10, 105),
-            "Cancel",
+            _("Cancel"),
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )

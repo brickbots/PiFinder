@@ -15,6 +15,8 @@ import time
 import logging
 import sys
 from time import perf_counter as precision_timestamp
+import os
+import threading
 
 from PiFinder import state_utils
 from PiFinder import utils
@@ -45,10 +47,22 @@ def solver(
     align_ra = 0
     align_dec = 0
     solved = {
-        # RA, Dec, Roll solved at the center of the camera FoV:
-        "RA_camera": None,
-        "Dec_camera": None,
-        "Roll_camera": None,
+        # RA, Dec, Roll solved at the center of the camera FoV
+        # update by integrator
+        "camera_center": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+            "Alt": None,
+            "Az": None,
+        },
+        # RA, Dec, Roll from the camera, not
+        # affected by IMU in integrator
+        "camera_solve": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+        },
         # RA, Dec, Roll at the target pixel
         "RA": None,
         "Dec": None,
@@ -59,6 +73,7 @@ def solver(
     }
 
     centroids = []
+    log_no_stars_found = True
 
     while True:
         logger.info("Starting Solver Loop")
@@ -69,10 +84,13 @@ def solver(
                 + shared_state.arch()
             )
         except FileNotFoundError as e:
-            logger.warn(
+            logger.warning(
                 "Not using cedar_detect, as corresponding file '%s' could not be found",
                 e.filename,
             )
+            cedar_detect = None
+        except ValueError:
+            logger.exception("Not using cedar_detect")
             cedar_detect = None
 
         try:
@@ -83,6 +101,7 @@ def solver(
                 while command:
                     try:
                         command = align_command_queue.get(block=False)
+                        print(f"the command is {command}")
                     except queue.Empty:
                         command = False
 
@@ -103,7 +122,10 @@ def solver(
                 # use the time the exposure started here to
                 # reject images started before the last solve
                 # which might be from the IMU
-                last_image_metadata = shared_state.last_image_metadata()
+                try:
+                    last_image_metadata = shared_state.last_image_metadata()
+                except (BrokenPipeError, ConnectionResetError) as e:
+                    logger.error(f"Lost connection to shared state manager: {e}")
                 if (
                     last_image_metadata["exposure_end"] > (last_solve_time)
                     and last_image_metadata["imu_delta"] < 1
@@ -127,9 +149,12 @@ def solver(
                     )
 
                     if len(centroids) == 0:
-                        logger.warn("No stars found, skipping")
+                        if log_no_stars_found:
+                            logger.info("No stars found, skipping (Logged only once)")
+                            log_no_stars_found = False
                         continue
                     else:
+                        log_no_stars_found = True
                         _solver_args = {}
                         if align_ra != 0 and align_dec != 0:
                             _solver_args["target_sky_coord"] = [[align_ra, align_dec]]
@@ -161,13 +186,18 @@ def solver(
                     total_tetra_time = t_extract + solved["T_solve"]
                     if total_tetra_time > 1000:
                         console_queue.put(f"SLV: Long: {total_tetra_time}")
-                        logger.warn("Long solver time: %i", total_tetra_time)
+                        logger.warning("Long solver time: %i", total_tetra_time)
 
                     if solved["RA"] is not None:
                         # RA, Dec, Roll at the center of the camera's FoV:
-                        solved["RA_camera"] = solved["RA"]
-                        solved["Dec_camera"] = solved["Dec"]
-                        solved["Roll_camera"] = solved["Roll"]
+                        solved["camera_center"]["RA"] = solved["RA"]
+                        solved["camera_center"]["Dec"] = solved["Dec"]
+                        solved["camera_center"]["Roll"] = solved["Roll"]
+
+                        # RA, Dec, Roll at the center of the camera's not imu:
+                        solved["camera_solve"]["RA"] = solved["RA"]
+                        solved["camera_solve"]["Dec"] = solved["Dec"]
+                        solved["camera_solve"]["Roll"] = solved["Roll"]
                         # RA, Dec, Roll at the target pixel:
                         solved["RA"] = solved["RA_target"]
                         solved["Dec"] = solved["Dec_target"]
@@ -196,8 +226,20 @@ def solver(
                                 solved["y_target"] = None
 
                     last_solve_time = last_image_metadata["exposure_end"]
-        except EOFError:
-            logger.error("Main no longer running for solver")
+        except EOFError as eof:
+            logger.error(f"Main process no longer running for solver: {eof}")
+            logger.exception(eof)  # This logs the full stack trace
+            # Optionally log additional context
+            logger.error(f"Current solver state: {solved}")  # If you have state info
         except Exception as e:
-            logger.error("Exception in Solver")
-            logger.exception(e)
+            logger.error(f"Exception in Solver: {e.__class__.__name__}: {str(e)}")
+            logger.exception(e)  # Logs the full stack trace
+            # Log additional context that might be helpful
+            logger.error(f"Current process ID: {os.getpid()}")
+            logger.error(f"Current thread: {threading.current_thread().name}")
+            try:
+                logger.error(
+                    f"Active threads: {[t.name for t in threading.enumerate()]}"
+                )
+            except Exception as e:
+                pass  # Don't let diagnostic logging fail

@@ -41,6 +41,15 @@ class Imu:
                 adafruit_bno055.AXIS_REMAP_POSITIVE,
                 adafruit_bno055.AXIS_REMAP_NEGATIVE,
             )
+        elif cfg.get_option("screen_direction") == "as_dream":
+            self.sensor.axis_remap = (
+                adafruit_bno055.AXIS_REMAP_X,
+                adafruit_bno055.AXIS_REMAP_Z,
+                adafruit_bno055.AXIS_REMAP_Y,
+                adafruit_bno055.AXIS_REMAP_POSITIVE,
+                adafruit_bno055.AXIS_REMAP_POSITIVE,
+                adafruit_bno055.AXIS_REMAP_POSITIVE,
+            )
         else:
             self.sensor.axis_remap = (
                 adafruit_bno055.AXIS_REMAP_Z,
@@ -149,6 +158,20 @@ class Imu:
     def get_euler(self):
         return list(self.quat_to_euler(self.avg_quat))
 
+    def __str__(self):
+        return (
+            f"IMU Information:\n"
+            f"Calibration Status: {self.calibration}\n"
+            f"Quaternion History: {self.quat_history}\n"
+            f"Average Quaternion: {self.avg_quat}\n"
+            f"Moving: {self.moving()}\n"
+            f"Reading Difference: {self.__reading_diff}\n"
+            f"Flip Count: {self._flip_count}\n"
+            f"Last Sample Time: {self.last_sample_time}\n"
+            f"IMU Sample Frequency: {self.imu_sample_frequency}\n"
+            f"Moving Threshold: {self.__moving_threshold}\n"
+        )
+
 
 def imu_monitor(shared_state, console_queue, log_queue):
     MultiprocLogging.configurer(log_queue)
@@ -191,3 +214,12 @@ def imu_monitor(shared_state, console_queue, log_queue):
 
         if shared_state is not None and imu_calibrated:
             shared_state.set_imu(imu_data)
+
+
+if __name__ == "__main__":
+    print("Trying to read state from IMU")
+    imu = Imu()
+    for i in range(10):
+        imu.update()
+        time.sleep(0.5)
+    print(imu)

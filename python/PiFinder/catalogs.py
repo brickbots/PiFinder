@@ -16,6 +16,7 @@ from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 import PiFinder.comets as comets
 from PiFinder.utils import Timer, comet_file
+from PiFinder.config import Config
 
 logger = logging.getLogger("Catalog")
 
@@ -94,6 +95,7 @@ class CatalogFilter:
         object_types: Union[list[str], None] = None,
         altitude: int = -1,
         observed: str = "Any",
+        constellations: list[str] = [],
         selected_catalogs: list[str] = [],
     ):
         self.shared_state = shared_state
@@ -104,7 +106,20 @@ class CatalogFilter:
         self._object_types = object_types
         self._altitude = altitude
         self._observed = observed
+        self._constellations = constellations
         self._selected_catalogs = set(selected_catalogs)
+        self.last_filtered_time = 0
+
+    def load_from_config(self, config_object: Config):
+        """
+        Loads filter values from configuration object
+        """
+        self._magnitude = config_object.get_option("filter.magnitude")
+        self._object_types = config_object.get_option("filter.object_types", [])
+        self._altitude = config_object.get_option("filter.altitude", -1)
+        self._observed = config_object.get_option("filter.observed", "Any")
+        self._constellations = config_object.get_option("filter.constellations", [])
+        self._selected_catalogs = config_object.get_option("filter.selected_catalogs")
         self.last_filtered_time = 0
 
     @property
@@ -144,6 +159,15 @@ class CatalogFilter:
         self.dirty_time = time.time()
 
     @property
+    def constellations(self):
+        return self._constellations
+
+    @constellations.setter
+    def constellations(self, constellations: list[str]):
+        self._constellations = constellations
+        self.dirty_time = time.time()
+
+    @property
     def selected_catalogs(self):
         return self._selected_catalogs
 
@@ -153,18 +177,17 @@ class CatalogFilter:
         self.dirty_time = time.time()
 
     def calc_fast_aa(self, shared_state):
-        solution = shared_state.solution()
         location = shared_state.location()
         dt = shared_state.datetime()
-        if location and dt and solution:
+        if shared_state.altaz_ready():
             self.fast_aa = calc_utils.FastAltAz(
-                location["lat"],
-                location["lon"],
+                location.lat,
+                location.lon,
                 dt,
             )
         else:
             logger.warning(
-                f"Calc_fast_aa: {'solution' if not solution else 'location' if not location else 'datetime' if not dt else 'nothing'} not set"
+                f"Calc_fast_aa: {'location' if not location else 'datetime' if not dt else 'nothing'} not set"
             )
 
     def is_dirty(self) -> bool:
@@ -183,6 +206,16 @@ class CatalogFilter:
 
         obj.last_filtered_time = time.time()
         self.last_filtered_time = time.time()
+
+        # check constellation
+        if self._constellations:
+            if obj.const not in self._constellations:
+                obj.last_filtered_result = False
+                return False
+        else:
+            obj.last_filtered_result = False
+            return False
+
         # check altitude
         if self._altitude != -1 and self.fast_aa:
             obj_altitude, _ = self.fast_aa.radec_to_altaz(
@@ -202,7 +235,11 @@ class CatalogFilter:
             return False
 
         # check type
-        if self._object_types is not None and obj.obj_type not in self._object_types:
+        if self._object_types:
+            if obj.obj_type not in self._object_types:
+                obj.last_filtered_result = False
+                return False
+        else:
             obj.last_filtered_result = False
             return False
 
@@ -331,7 +368,7 @@ class Catalog(CatalogBase):
         self.filtered_objects: List[CompositeObject] = self.get_objects()
         self.filtered_objects_seq: List[int] = self._filtered_objects_to_seq()
         self.last_filtered = 0
-        self.initialised = True
+        self.initialized = True
 
     def is_selected(self):
         """
@@ -538,7 +575,7 @@ class TimerCatalog(VirtualCatalog):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.initialised = False
+        self.initialized = False
         logger.debug("in init of timercatalog")
         self.timer: Optional[threading.Timer] = None
         self.is_running: bool = False
@@ -590,67 +627,102 @@ class TimerCatalog(VirtualCatalog):
 
 
 class PlanetCatalog(TimerCatalog):
-    """Creates a catalog of planets"""
+    """Creates a catalog of planets with adaptive update frequency based on GPS lock status"""
+
+    # Default time delay when we have GPS lock
+    DEFAULT_DELAY = 307
+    # Shorter time delay when waiting for GPS lock
+    WAITING_FOR_GPS_DELAY = 10
+    short_delay = True
 
     def __init__(self, dt: datetime.datetime, shared_state: SharedStateObj):
         super().__init__("PL", "Planets")
         self.shared_state = shared_state
-        self.init_planets(dt)
 
     @property
     def time_delay_seconds(self) -> int:
-        return 307
+        if self.initialized:
+            # We've calculated at least once....
+            return 307
+        else:
+            # Check for a lock/time every 10 seconds
+            return 10
 
     def init_planets(self, dt):
         planet_dict = sf_utils.calc_planets(dt)
+        logger.debug(f"starting planet dict {planet_dict}")
+
+        if not planet_dict:
+            logger.debug("No GPS lock during initialization - will retry soon")
+            self.initialised = True  # Still mark as initialized so timer starts
+            return
+
         sequence = 0
         for name in sf_utils.planet_names:
-            if name.lower() != "sun":
-                self.add_planet(sequence, name, planet_dict[name])
+            planet_data = planet_dict.get(name)
+            if name.lower() != "sun" and planet_data:
+                self.add_planet(sequence, name, planet_data)
                 sequence += 1
+
         with self.virtual_id_lock:
             new_low = self.assign_virtual_object_ids(self, self.virtual_id_low)
             self.virtual_id_low = new_low
-        self.initialised = True
+        self.initialized = True
 
     def add_planet(self, sequence: int, name: str, planet: Dict[str, Dict[str, float]]):
-        ra, dec = planet["radec"]
-        constellation = sf_utils.radec_to_constellation(ra, dec)
+        try:
+            ra, dec = planet["radec"]
+            constellation = sf_utils.radec_to_constellation(ra, dec)
 
-        obj = CompositeObject.from_dict(
-            {
-                "id": 0,
-                "obj_type": "Pla",
-                "ra": ra,
-                "dec": dec,
-                "const": constellation,
-                "size": "",
-                "mag": MagnitudeObject([planet["mag"]]),
-                "names": [name.capitalize()],
-                "catalog_code": "PL",
-                "sequence": sequence + 1,
-                "description": "",
-            }
-        )
-        self.add_object(obj)
+            obj = CompositeObject.from_dict(
+                {
+                    "id": 0,
+                    "obj_type": "Pla",
+                    "ra": ra,
+                    "dec": dec,
+                    "const": constellation,
+                    "size": "",
+                    "mag": MagnitudeObject([planet["mag"]]),
+                    "names": [name.capitalize()],
+                    "catalog_code": "PL",
+                    "sequence": sequence + 1,
+                    "description": "",
+                }
+            )
+            self.add_object(obj)
+        except (KeyError, ValueError) as e:
+            logger.error(f"Error adding planet {name}: {e}")
 
     def do_timed_task(self):
-        if not self.initialised:
-            return
         with Timer("Planet Catalog periodic update"):
             """ updating planet catalog data """
-            dt = self.shared_state.datetime()
-            if not dt or not sf_utils.observer_loc:
+            if not self.shared_state.altaz_ready():
                 return
+
+            dt = self.shared_state.datetime()
+            if not self.initialized:
+                self.init_planets(dt)
+
             planet_dict = sf_utils.calc_planets(dt)
+
+            # If we just got GPS lock and previously had no planets, do a full reinit
+            if not self.get_objects():
+                logger.info("GPS lock acquired - reinitializing planet catalog")
+                self.init_planets(dt)
+                return
+
+            # Regular update if we have GPS lock
             for obj in self._get_objects():
-                name = obj.names[0]
-                if name in planet_dict:
-                    planet = planet_dict[name]
-                    obj.ra, obj.dec = planet["radec"]
-                    obj.mag = MagnitudeObject([planet["mag"]])
-                    obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
-                    obj.mag_str = obj.mag.calc_two_mag_representation()
+                try:
+                    name = obj.names[0]
+                    if name in planet_dict:
+                        planet = planet_dict[name]
+                        obj.ra, obj.dec = planet["radec"]
+                        obj.mag = MagnitudeObject([planet["mag"]])
+                        obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
+                        obj.mag_str = obj.mag.calc_two_mag_representation()
+                except (KeyError, ValueError) as e:
+                    logger.error(f"Error updating planet {name}: {e}")
 
 
 class CometCatalog(TimerCatalog):
@@ -673,7 +745,7 @@ class CometCatalog(TimerCatalog):
                 success, self.age = comets.comet_data_download(comet_file)
                 if success:
                     with self._init_lock:
-                        self.initialised = self.calc_comet_first_time(dt)
+                        self.initialized = self.calc_comet_first_time(dt)
                     with self.virtual_id_lock:
                         new_low = self.assign_virtual_object_ids(
                             self, self.virtual_id_low
@@ -727,8 +799,8 @@ class CometCatalog(TimerCatalog):
         """updating comet catalog data"""
         with Timer("Comet Catalog periodic update"):
             with self._init_lock:
-                if not self.initialised:
-                    logging.debug("Comets not yet initialised, skip periodic update...")
+                if not self.initialized:
+                    logging.debug("Comets not yet initialized, skip periodic update...")
                     return
             dt = self.shared_state.datetime()
             comet_dict = comets.calc_comets(
@@ -738,9 +810,13 @@ class CometCatalog(TimerCatalog):
                 return
             for obj in self._get_objects():
                 name = obj.names[0]
-                logger.debug("Processing %s")
+                logger.debug("Processing %s" % name)
                 comet = comet_dict.get(name, {})
-                obj.ra, obj.dec = comet["radec"]
+                try:
+                    obj.ra, obj.dec = comet["radec"]
+                except KeyError:
+                    logger.error("No radec for comet " + name)
+                    continue
                 obj.mag = MagnitudeObject([comet["mag"]])
                 obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
                 obj.mag_str = obj.mag.calc_two_mag_representation()

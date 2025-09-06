@@ -17,6 +17,12 @@ from PiFinder.displays import DisplayBase
 from PiFinder.config import Config
 from PiFinder.ui.marking_menus import MarkingMenu
 from PiFinder.catalogs import Catalogs
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
 
 
 class UIModule:
@@ -32,9 +38,14 @@ class UIModule:
     _UP_ARROW = ""
     _DOWN_ARROW = ""
     _CHECKMARK = ""
+    _SQUARE_ = "󰝤"
+    _ARROWS_ = ""
+    _PLUS_ = "󰐕"
+    _MINUS_ = "󰍴"
+    _PLUSMINUS_ = "󰐕/󰍴"
     _gps_brightness = 0
     _unmoved = False  # has the telescope moved since the last cam solve?
-    _display_mode_list = [None]  # List of display modes
+    _display_mode_list: Union[list[None], list[str]] = [None]  # List of display modes
     marking_menu: Union[None, MarkingMenu] = None
 
     def __init__(
@@ -48,6 +59,7 @@ class UIModule:
         item_definition={},
         add_to_stack=None,
         remove_from_stack=None,
+        jump_to_label=None,
     ):
         assert shared_state is not None
         self.title = self.__title__
@@ -61,6 +73,7 @@ class UIModule:
         self.command_queues = command_queues
         self.add_to_stack = add_to_stack
         self.remove_from_stack = remove_from_stack
+        self.jump_to_label = jump_to_label
 
         # mode stuff
         self._display_mode_cycle = cycle(self._display_mode_list)
@@ -88,6 +101,13 @@ class UIModule:
         """
         Called when a module becomes active
         i.e. foreground controlling display
+        """
+        pass
+
+    def inactive(self):
+        """
+        Called when a module becomes inactive
+        i.e. leaving a UI screen
         """
         pass
 
@@ -167,7 +187,13 @@ class UIModule:
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
-        self.display.display(self.screen.convert(self.display.mode))
+        screen_to_display = self.screen.convert(self.display.mode)
+        self.display.display(screen_to_display)
+
+        # Update shared state so web interface shows the popup message
+        if self.shared_state:
+            self.shared_state.set_screen(screen_to_display)
+
         self.ui_state.set_message_timeout(timeout + time.time())
 
     def screen_update(self, title_bar=True, button_hints=True) -> None:
@@ -176,6 +202,10 @@ class UIModule:
         takes self.screen adds title bar and
         writes to display
         """
+
+        # Don't redraw screen if message popup is active
+        if time.time() < self.ui_state.message_timeout():
+            return None
 
         if title_bar:
             fg = self.colors.get(0)
@@ -189,12 +219,14 @@ class UIModule:
                     (6, 1), str(self.fps), font=self.fonts.bold.font, fill=fg
                 )
             else:
-                self.draw.text((6, 1), self.title, font=self.fonts.bold.font, fill=fg)
+                self.draw.text(
+                    (6, 1), _(self.title), font=self.fonts.bold.font, fill=fg
+                )
             imu = self.shared_state.imu()
             moving = True if imu and imu["pos"] and imu["moving"] else False
 
             # GPS status
-            if self.shared_state.location()["gps_lock"]:
+            if self.shared_state.altaz_ready():
                 self._gps_brightness = 0
             else:
                 gps_anim = int(128 * (time.time() - self.last_update_time)) + 1

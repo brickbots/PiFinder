@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-This module contains all the UI Module classes
+This module contains the UI Status class
 
 """
 
@@ -94,7 +94,7 @@ class UIStatus(UIModule):
             "RA/DEC": "--",
             "AZ/ALT": "--",
             "WIFI": "--",
-            "IP ADDR": "--",
+            "IP": "--",
             "SSID": "--",
             "IMU": "--",
             "IMU PS": "--",
@@ -270,11 +270,11 @@ class UIStatus(UIModule):
         sats = self.shared_state.sats()
         self.status_dict["GPS"] = [
             f"GPS {sats[0]}/{sats[1]}" if sats else "GPS 0/0",
-            f"{location['lat']:.2f}/{location['lon']:.2f}",
+            f"{location.lat:.2f}/{location.lon:.2f}",
         ]
 
-        self.status_dict["GPS ALT"] = f"{location['altitude']:.1f}m"
-        last_lock = location["last_gps_lock"]
+        self.status_dict["GPS ALT"] = f"{location.altitude:.1f}m"
+        last_lock = location.last_gps_lock
         self.status_dict["GPS LST"] = last_lock if last_lock else "--"
 
         dt = self.shared_state.datetime()
@@ -297,7 +297,7 @@ class UIStatus(UIModule):
         if time.time() - self.last_IP_time > 20:
             self.last_IP_time = time.time()
             # IP address
-            self.status_dict["IP ADDR"] = self.net.local_ip()
+            self.status_dict["IP"] = self.net.local_ip()
             if self.net.wifi_mode() == "AP":
                 self.status_dict["SSID"] = self.net.get_ap_name()
             else:

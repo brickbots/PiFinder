@@ -11,7 +11,6 @@ from PiFinder import obslog
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.text_menu import UITextMenu
-from PiFinder import config
 
 from PiFinder.db.observations_db import ObservationsDatabase
 
@@ -56,102 +55,77 @@ class UILog(UIModule):
 
         # conditions and eyepiece menus
         self.conditions_menu = {
-            "name": "Conditions",
+            "name": _("Conditions"),
             "class": UITextMenu,
             "select": "single",
             "items": [
                 {
-                    "name": "Transparency",
+                    "name": _("Transparency"),
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "session.log_transparency",
                     "items": [
                         {
-                            "name": "NA",
+                            # TRANSLATORS: Transparency not available
+                            "name": _("NA"),
                             "value": "NA",
                         },
                         {
-                            "name": "Excellent",
+                            "name": _("Excellent"),
                             "value": "Excellent",
                         },
                         {
-                            "name": "Very Good",
+                            "name": _("Very Good"),
                             "value": "Very Good",
                         },
                         {
-                            "name": "Good",
+                            "name": _("Good"),
                             "value": "Good",
                         },
                         {
-                            "name": "Fair",
+                            "name": _("Fair"),
                             "value": "Fair",
                         },
                         {
-                            "name": "Poor",
+                            "name": _("Poor"),
                             "value": "Poor",
                         },
                     ],
                 },
                 {
-                    "name": "Seeing",
+                    "name": _("Seeing"),
                     "class": UITextMenu,
                     "select": "single",
                     "config_option": "session.log_seeing",
                     "items": [
                         {
-                            "name": "NA",
+                            # TRANSLATORS: Seeing not available
+                            "name": _("NA"),
                             "value": "NA",
                         },
                         {
-                            "name": "Excellent",
+                            "name": _("Excellent"),
                             "value": "Excellent",
                         },
                         {
-                            "name": "Very Good",
+                            "name": _("Very Good"),
                             "value": "Very Good",
                         },
                         {
-                            "name": "Good",
+                            "name": _("Good"),
                             "value": "Good",
                         },
                         {
-                            "name": "Fair",
+                            "name": _("Fair"),
                             "value": "Fair",
                         },
                         {
-                            "name": "Poor",
+                            "name": _("Poor"),
                             "value": "Poor",
                         },
                     ],
                 },
             ],
-        }
-
-        cfg = config.Config()
-
-        eyepieces_list = cfg.equipment.eyepieces
-
-        # Loop over eyepieces and add to menu
-        eyepiece_items = [
-            {
-                "name": "NA",
-                "value": "NA",
-            },
-        ]
-        for eyepiece in eyepieces_list:
-            eyepiece_items.append(
-                {
-                    "name": eyepiece.name,
-                    "value": (eyepiece.make + " " + eyepiece.name).lstrip(),
-                }
-            )
-
-        self.eyepiece_menu = {
-            "name": "Eyepiece",
-            "class": UITextMenu,
-            "select": "single",
-            "config_option": "session.log_eyepiece",
-            "items": eyepiece_items,
         }
 
         self.reset_config()
@@ -197,7 +171,7 @@ class UILog(UIModule):
         if not self.shared_state.solve_state():
             self.draw.text(
                 (0, 20),
-                "No Solve Yet",
+                _("No Solve Yet"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
@@ -208,7 +182,7 @@ class UILog(UIModule):
         # Target Name
         self.draw.text(
             (10, horiz_pos),
-            "SAVE Log",
+            _("SAVE Log"),
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )
@@ -219,7 +193,7 @@ class UILog(UIModule):
         # Observability
         self.draw.text(
             (10, horiz_pos),
-            "Observability",
+            _("Observability"),
             font=self.fonts.large.font,
             fill=self.colors.get(192),
         )
@@ -232,7 +206,7 @@ class UILog(UIModule):
         # Appeal
         self.draw.text(
             (10, horiz_pos),
-            "Appeal",
+            _("Appeal"),
             font=self.fonts.large.font,
             fill=self.colors.get(192),
         )
@@ -244,7 +218,7 @@ class UILog(UIModule):
 
         self.draw.text(
             (10, horiz_pos),
-            "Conditions...",
+            _("Conditions..."),
             font=self.fonts.large.font,
             fill=self.colors.get(192),
         )
@@ -254,7 +228,7 @@ class UILog(UIModule):
 
         self.draw.text(
             (10, horiz_pos),
-            "Eyepiece...",
+            _("Eyepiece..."),
             font=self.fonts.large.font,
             fill=self.colors.get(192),
         )
@@ -281,13 +255,20 @@ class UILog(UIModule):
         These will be jsonified when logging
         """
         # build notes
+        log_eyepiece = self.config_object.equipment.active_eyepiece
+        if log_eyepiece is None:
+            # TRANSLATORS: eyepiece info not available
+            log_eyepiece = _("NA")
+        else:
+            log_eyepiece = f"{log_eyepiece.focal_length_mm}mm {log_eyepiece.name}"
+
         notes = {
             "schema_ver": 2,
             "transparency": self.config_object.get_option(
                 "session.log_transparency", "NA"
             ),
             "seeing": self.config_object.get_option("session.log_seeing", "NA"),
-            "eyepiece": self.config_object.get_option("session.log_eyepiece", "NA"),
+            "eyepiece": log_eyepiece,
             "observability": self.log_observability,
             "appeal": self.log_appeal,
         }
@@ -320,7 +301,7 @@ class UILog(UIModule):
         """
         if self.menu_index == 0:
             self.record_object()
-            self.message("Logged!")
+            self.message(_("Logged!"))
             self.remove_from_stack()
             return
 
@@ -338,7 +319,7 @@ class UILog(UIModule):
             self.add_to_stack(self.conditions_menu)
 
         if self.menu_index == 4:
-            self.add_to_stack(self.eyepiece_menu)
+            self.jump_to_label("select_eyepiece")
 
     def cycle_display_mode(self):
         """

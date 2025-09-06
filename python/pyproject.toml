@@ -1,3 +1,8 @@
+[tool.babel]
+mapping = [
+    { "*.py" = "python" }          # Scan all Python files
+]
+
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
@@ -129,6 +134,7 @@ module = [
     'RPi.*',
     'picamera2',
     'bottle',
+    'libinput',
 ]
 ignore_missing_imports = true
 ignore_errors = true

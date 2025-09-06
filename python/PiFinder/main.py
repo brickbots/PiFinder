@@ -10,6 +10,8 @@ This module is the main entry point for PiFinder it:
 
 """
 
+import gettext
+
 import os
 
 # skyfield performance fix, see: https://rhodesmill.org/skyfield/accuracy-efficiency.html
@@ -23,13 +25,12 @@ import uuid
 import logging
 import argparse
 import pickle
-import shutil
 from pathlib import Path
 from PIL import Image, ImageOps
 from multiprocessing import Process, Queue
 from multiprocessing.managers import BaseManager
-from timezonefinder import TimezoneFinder
 
+import PiFinder.i18n  # noqa: F401
 from PiFinder import solver
 from PiFinder import integrator
 from PiFinder import config
@@ -40,6 +41,7 @@ from PiFinder import keyboard_interface
 
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
+from PiFinder.calc_utils import sf_utils
 
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.menu_manager import MenuManager
@@ -48,7 +50,6 @@ from PiFinder.state import SharedStateObj, UIState
 
 from PiFinder.image_util import subtract_background
 
-from PiFinder.calc_utils import sf_utils
 from PiFinder.displays import DisplayBase, get_display
 
 logger = logging.getLogger("main")
@@ -280,12 +281,22 @@ def main(
         "ui_queue": ui_queue,
         "align_command": alignment_command_queue,
         "align_response": alignment_response_queue,
+        "gps": gps_queue,
     }
     cfg = config.Config()
 
     # init screen
     screen_brightness = cfg.get_option("display_brightness")
     set_brightness(screen_brightness, cfg)
+    if cfg.get_option("screen_direction") == "as_dream":
+        display_device.device.rotate = 3
+
+    # Set user interface language
+    lang = cfg.get_option("language", "en")
+    langXX = gettext.translation(
+        "messages", "locale", languages=[lang], fallback=(lang == "en")
+    )
+    langXX.install()
 
     import PiFinder.manager_patch as patch
 
@@ -293,6 +304,7 @@ def main(
 
     with StateManager() as manager:
         shared_state = manager.SharedState()  # type: ignore[attr-defined]
+        location = shared_state.location()
         ui_state = manager.UIState()  # type: ignore[attr-defined]
         ui_state.set_show_fps(show_fps)
         ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
@@ -304,10 +316,12 @@ def main(
         )
         console.write("Starting....")
         console.update()
+        logger.info("Starting ....")
 
         # spawn gps service....
         console.write("   GPS")
         console.update()
+        logger.info("   GPS")
         gps_process = Process(
             name="GPS",
             target=gps_monitor.gps_monitor,
@@ -322,11 +336,16 @@ def main(
 
         # spawn keyboard service....
         console.write("   Keyboard")
+        logger.info("   Keyboard")
         console.update()
+        if cfg.get_option("screen_direction") == "as_dream":
+            dream_key_remap = True
+        else:
+            dream_key_remap = False
         keyboard_process = Process(
             name="Keyboard",
             target=keyboard.run_keyboard,
-            args=(keyboard_queue, shared_state, keyboard_logqueue),
+            args=(keyboard_queue, shared_state, keyboard_logqueue, dream_key_remap),
         )
         keyboard_process.start()
         if script_name:
@@ -338,29 +357,27 @@ def main(
             )
             p.start()
 
+        # Web server
+        console.write("   Webserver")
+        logger.info("   Webserver")
+        console.update()
+
         server_process = Process(
             name="Webserver",
             target=server.run_server,
-            args=(keyboard_queue, gps_queue, shared_state, server_logqueue, verbose),
+            args=(
+                keyboard_queue,
+                ui_queue,
+                gps_queue,
+                shared_state,
+                server_logqueue,
+                verbose,
+            ),
         )
         server_process.start()
 
-        # Load last location, set lock to false
-        tz_finder = TimezoneFinder()
-        initial_location = cfg.get_option("last_location")
-        initial_location["timezone"] = tz_finder.timezone_at(
-            lat=initial_location["lat"], lng=initial_location["lon"]
-        )
-        initial_location["gps_lock"] = False
-        initial_location["last_gps_lock"] = None
-        shared_state.set_location(initial_location)
-        sf_utils.set_location(
-            initial_location["lat"],
-            initial_location["lon"],
-            initial_location["altitude"],
-        )
-
         console.write("   Camera")
+        logger.info("   Camera")
         console.update()
         camera_image = manager.NewImage("RGB", (512, 512))  # type: ignore[attr-defined]
         image_process = Process(
@@ -379,6 +396,7 @@ def main(
 
         # IMU
         console.write("   IMU")
+        logger.info("   IMU")
         console.update()
         imu_process = Process(
             name="IMU",
@@ -389,6 +407,7 @@ def main(
 
         # Solver
         console.write("   Solver")
+        logger.info("   Solver")
         console.update()
         solver_process = Process(
             name="Solver",
@@ -408,6 +427,7 @@ def main(
 
         # Integrator
         console.write("   Integrator")
+        logger.info("   Integrator")
         console.update()
         integrator_process = Process(
             name="Integrator",
@@ -423,7 +443,8 @@ def main(
         integrator_process.start()
 
         # Server
-        console.write("   Server")
+        console.write("  POS Server")
+        logger.info("  POS Server")
         console.update()
         posserver_process = Process(
             name="SkySafariServer",
@@ -434,22 +455,16 @@ def main(
 
         # Initialize Catalogs
         console.write("   Catalogs")
+        logger.info("   Catalogs")
         console.update()
 
         # Initialize Catalogs
         catalogs: Catalogs = CatalogBuilder().build(shared_state)
 
         # Establish the common catalog filter object
-        catalogs.set_catalog_filter(
-            CatalogFilter(
-                shared_state=shared_state,
-                magnitude=cfg.get_option("filter.magnitude"),
-                object_types=cfg.get_option("filter.object_types"),
-                altitude=cfg.get_option("filter.altitude", -1),
-                observed=cfg.get_option("filter.observed", "Any"),
-                selected_catalogs=cfg.get_option("active_catalogs"),
-            )
-        )
+        _new_filter = CatalogFilter(shared_state=shared_state)
+        _new_filter.load_from_config(cfg)
+        catalogs.set_catalog_filter(_new_filter)
         console.write("   Menus")
         console.update()
 
@@ -468,8 +483,10 @@ def main(
 
         # Start main event loop
         console.write("   Event Loop")
+        logger.info("   Event Loop")
         console.update()
 
+        log_time = True
         # Start of main except handler / loop
         try:
             while True:
@@ -478,40 +495,73 @@ def main(
                     console_msg = console_queue.get(block=False)
                     console.write(console_msg)
                 except queue.Empty:
-                    pass
+                    time.sleep(0.1)
 
                 # GPS
                 try:
-                    gps_msg, gps_content = gps_queue.get(block=False)
-                    if gps_msg == "fix":
-                        # logger.debug("GPS fix msg: %s", gps_content)
-                        if gps_content["lat"] + gps_content["lon"] != 0:
-                            location = shared_state.location()
-                            location["lat"] = gps_content["lat"]
-                            location["lon"] = gps_content["lon"]
-                            location["altitude"] = gps_content["altitude"]
-                            location["last_gps_lock"] = (
-                                datetime.datetime.now().time().isoformat()[:8]
-                            )
-                            if location["gps_lock"] is False:
-                                # Write to config if we just got a lock
-                                location["timezone"] = tz_finder.timezone_at(
-                                    lat=location["lat"], lng=location["lon"]
-                                )
-                                cfg.set_option("last_location", location)
-                                console.write(
-                                    f'GPS: Location {location["lat"]} {location["lon"]} {location["altitude"]}'
-                                )
-                                location["gps_lock"] = True
+                    while True:  # Consume from gps_queue until empty
+                        gps_msg, gps_content = gps_queue.get(block=False)
+                        if gps_msg == "fix":
+                            if gps_content["lat"] + gps_content["lon"] != 0:
+                                location = shared_state.location()
 
+                            # Only update GPS fixes, as soon as it's loaded or comes from the WEB it's untouchable
+                            if (
+                                not location.source == "WEB"
+                                and not location.source.startswith("CONFIG:")
+                                and (
+                                    location.error_in_m == 0
+                                    or float(gps_content["error_in_m"])
+                                    < float(
+                                        location.error_in_m
+                                    )  # Only if new error is smaller
+                                )
+                            ):
+                                logger.info(
+                                    f"Updating GPS location: new content: {gps_content}, old content: {location}"
+                                )
+                                location.lat = gps_content["lat"]
+                                location.lon = gps_content["lon"]
+                                location.altitude = gps_content["altitude"]
+                                location.source = gps_content["source"]
+                                if "error_in_m" in gps_content:
+                                    location.error_in_m = gps_content["error_in_m"]
+                                if "lock" in gps_content:
+                                    location.lock = gps_content["lock"]
+                                if "lock_type" in gps_content:
+                                    location.lock_type = gps_content["lock_type"]
+
+                                    dt = shared_state.datetime()
+                                    if dt is None:
+                                        location.last_gps_lock = "--"
+                                    else:
+                                        location.last_gps_lock = dt.time().isoformat()[
+                                            :8
+                                        ]
+                                    console.write(
+                                        f"GPS: Location {location.lat} {location.lon} {location.altitude} {location.error_in_m}"
+                                    )
+                                    shared_state.set_location(location)
+                                    sf_utils.set_location(
+                                        location.lat,
+                                        location.lon,
+                                        location.altitude,
+                                    )
+                        if gps_msg == "time":
+                            if isinstance(gps_content, datetime.datetime):
+                                gps_dt = gps_content
+                            else:
+                                gps_dt = gps_content["time"]
+                            shared_state.set_datetime(gps_dt)
+                            if log_time:
+                                logger.info("GPS Time (logged only once): %s", gps_dt)
+                                log_time = False
+                        if gps_msg == "reset":
+                            location.reset()
                             shared_state.set_location(location)
-                    if gps_msg == "time":
-                        # logger.debug("GPS time msg: %s", gps_content)
-                        gps_dt = gps_content
-                        shared_state.set_datetime(gps_dt)
-                    if gps_msg == "satellites":
-                        logger.debug("Main: GPS nr sats seen: %s", gps_content)
-                        shared_state.set_sats(gps_content)
+                        if gps_msg == "satellites":
+                            # logger.debug("Main: GPS nr sats seen: %s", gps_content)
+                            shared_state.set_sats(gps_content)
                 except queue.Empty:
                     pass
 
@@ -524,6 +574,30 @@ def main(
                     set_brightness(screen_brightness, cfg)
                 elif ui_command == "push_object":
                     menu_manager.jump_to_label("recent")
+                elif ui_command == "reload_config":
+                    cfg.load_config()
+                elif ui_command == "test_mode":
+                    dt = datetime.datetime(2025, 6, 28, 11, 0, 0)
+                    shared_state.set_datetime(dt)
+                    location.lat = 41.13
+                    location.lon = -120.97
+                    location.altitude = 1315
+                    location.source = "test"
+                    location.error_in_m = 5
+                    location.lock = True
+                    location.lock_type = 3
+                    location.last_gps_lock = (
+                        datetime.datetime.now().time().isoformat()[:8]
+                    )
+                    console.write(
+                        f"GPS: Location {location.lat} {location.lon} {location.altitude}"
+                    )
+                    shared_state.set_location(location)
+                    sf_utils.set_location(
+                        location.lat,
+                        location.lon,
+                        location.altitude,
+                    )
 
                 # Keyboard
                 keycode = None
@@ -556,22 +630,32 @@ def main(
                             or keycode == keyboard_base.ALT_MINUS
                         ):
                             if keycode == keyboard_base.ALT_PLUS:
-                                screen_brightness = screen_brightness + 10
+                                screen_adjust = int(screen_brightness * 0.2)
+                                if screen_adjust < 2:
+                                    screen_adjust = 2
+
+                                screen_brightness += screen_adjust
                                 if screen_brightness > 255:
                                     screen_brightness = 255
                             else:
-                                screen_brightness = screen_brightness - 10
+                                screen_adjust = int(screen_brightness * 0.1)
+                                if screen_adjust < 1:
+                                    screen_adjust = 1
+
+                                screen_brightness -= screen_adjust
                                 if screen_brightness < 0:
                                     screen_brightness = 0
 
                             set_brightness(screen_brightness, cfg)
                             cfg.set_option("display_brightness", screen_brightness)
                             console.write("Brightness: " + str(screen_brightness))
+                            logger.info("Brightness: %s", screen_brightness)
 
                         if keycode == keyboard_base.ALT_0:
                             # screenshot
                             menu_manager.screengrab()
                             console.write("Screenshot saved")
+                            logger.info("Screenshot saved")
 
                         if keycode == keyboard_base.ALT_RIGHT:
                             # Debug snapshot
@@ -631,6 +715,7 @@ def main(
                                 pickle.dump(ui_state, f)
 
                             console.write(f"Debug dump: {uid}")
+                            logger.info(f"Debug dump: {uid}")
                             menu_manager.message("Debug Info Saved", timeout=1)
 
                     else:
@@ -703,38 +788,12 @@ def main(
             exit()
 
 
-def rotate_logs() -> Path:
-    """
-    Rotates log files, returns the log file to use
-    """
-    log_index = list(range(5))
-    log_index.reverse()
-    for i in log_index:
-        try:
-            shutil.copyfile(
-                utils.data_dir / f"pifinder.{i}.log",
-                utils.data_dir / f"pifinder.{i+1}.log",
-            )
-        except FileNotFoundError:
-            pass
-
-    try:
-        shutil.move(
-            utils.data_dir / "pifinder.log",
-            utils.data_dir / "pifinder.0.log",
-        )
-    except FileNotFoundError:
-        pass
-
-    return utils.data_dir / "pifinder.log"
-
-
 if __name__ == "__main__":
     print("Bootstrap logging configuration ...")
     logging.basicConfig(format="%(asctime)s BASIC %(name)s: %(levelname)s %(message)s")
     rlogger = logging.getLogger()
     rlogger.setLevel(logging.INFO)
-    log_path = rotate_logs()
+    log_path = utils.data_dir / "pifinder.log"
     try:
         log_helper = MultiprocLogging(
             Path("pifinder_logconf.json"),
@@ -810,6 +869,11 @@ if __name__ == "__main__":
         "-x", "--verbose", help="Set logging to debug mode", action="store_true"
     )
     parser.add_argument("-l", "--log", help="Log to file", action="store_true")
+    parser.add_argument(
+        "--lang",
+        help="Force user interface language (iso2 code). Changes configuration",
+        type=str,
+    )
     args = parser.parse_args()
     # add the handlers to the logger
     if args.verbose:
@@ -822,14 +886,18 @@ if __name__ == "__main__":
         display_hardware = "pg_128"
         imu = importlib.import_module("PiFinder.imu_fake")
         gps_monitor = importlib.import_module("PiFinder.gps_fake")
-        # gps_monitor = importlib.import_module("PiFinder.gps_pi")
     else:
         hardware_platform = "Pi"
         display_hardware = "ssd1351"
         from rpi_hardware_pwm import HardwarePWM
 
         imu = importlib.import_module("PiFinder.imu_pi")
-        gps_monitor = importlib.import_module("PiFinder.gps_pi")
+        cfg = config.Config()
+        gps_type = cfg.get_option("gps_type")
+        if gps_type == "ublox":
+            gps_monitor = importlib.import_module("PiFinder.gps_ubx")
+        else:
+            gps_monitor = importlib.import_module("PiFinder.gps_gpsd")
 
     if args.display is not None:
         display_hardware = args.display.lower()
@@ -857,14 +925,13 @@ if __name__ == "__main__":
     elif args.keyboard.lower() == "none":
         from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
-        rlogger.warn("using no keyboard")
+        rlogger.warning("using no keyboard")
 
-    # if args.log:
-    #    datenow = datetime.datetime.now()
-    #    filehandler = f"PiFinder-{datenow:%Y%m%d-%H_%M_%S}.log"
-    #    fh = logging.FileHandler(filehandler)
-    #    fh.setLevel(logger.level)
-    #    rlogger.addHandler(fh)
+    if args.lang:
+        if args.lang.lower() not in ["en", "de", "fr", "es"]:
+            raise Exception(f"Unknown language '{args.lang}' passed via command line.")
+        else:
+            config.Config().set_option("language", args.lang)
 
     try:
         main(log_helper, args.script, args.fps, args.verbose)

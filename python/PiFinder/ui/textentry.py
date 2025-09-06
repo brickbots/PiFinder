@@ -4,6 +4,12 @@ from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.ui_utils import format_number
 import time
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
 
 # class CompositeObjectBuilder:
 #
@@ -75,7 +81,12 @@ class KeyPad:
 class UITextEntry(UIModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.db: ObjectsDatabase = ObjectsDatabase()
+
+        # Get mode from item_definition
+        self.text_entry_mode = self.item_definition.get("mode") == "text_entry"
+        self.current_text = self.item_definition.get("initial_text", "")
+        self.callback = self.item_definition.get("callback")
+
         self.width = 128
         self.height = 128
         self.red = self.colors.get(255)
@@ -84,7 +95,11 @@ class UITextEntry(UIModule):
         self.screen = Image.new("RGB", (self.width, self.height), "black")
         self.draw = ImageDraw.Draw(self.screen)
         self.bold = self.fonts.bold
-        self.current_text = ""
+
+        # Only initialize database if we're in search mode
+        if not self.text_entry_mode:
+            self.db: ObjectsDatabase = ObjectsDatabase()
+
         self.last_key = None
         self.KEYPRESS_TIMEOUT = 1
         self.last_key_press_time = 0
@@ -95,9 +110,9 @@ class UITextEntry(UIModule):
         self.keys = KeyPad()
         self.cursor_width = self.fonts.bold.width
         self.cursor_height = self.fonts.bold.height
-        self.text_x = 7  # x value of the search text
+        self.text_x = 7
         self.text_x_end = 128 - self.text_x
-        self.text_y = 15  # y value of the search text
+        self.text_y = 15
 
     def draw_text_entry(self):
         line_text_y = self.text_y + 15
@@ -168,7 +183,7 @@ class UITextEntry(UIModule):
 
     def draw_results(self):
         item_definition = {
-            "name": "Results",
+            "name": _("Results"),
             "class": UIObjectList,
             "objects": "custom",
             "object_list": self.search_results,
@@ -192,8 +207,10 @@ class UITextEntry(UIModule):
         return result and self.keys.get_nr_entries(str(self.last_key)) > 1
 
     def update_search_results(self):
-        results = self.catalogs.search_by_text(self.current_text)
-        self.search_results = results
+        """Only update search results in search mode"""
+        if not self.text_entry_mode:
+            results = self.catalogs.search_by_text(self.current_text)
+            self.search_results = results
 
     def add_char(self, char):
         if len(self.current_text) >= 12:
@@ -205,14 +222,27 @@ class UITextEntry(UIModule):
         self.current_text = self.current_text[:-1]
         self.update_search_results()
 
-    # def key_up(self):
-    #     self.show_keypad = not self.show_keypad
-    #
-    # def key_down(self):
-    #     self.key_up()
+    def key_left(self):
+        """Handle left key based on mode"""
+        if self.text_entry_mode:
+            # Pure text entry mode - confirm and return
+            if self.callback:
+                self.callback(self.current_text)
+                return True
+        else:
+            # Search mode - if showing results, return to keypad view
+            # Otherwise pop from stack
+            if not self.show_keypad:
+                self.show_keypad = True
+                return False
+            else:
+                return True
 
     def key_right(self):
-        self.draw_results()
+        """Handle right key based on mode"""
+        if not self.text_entry_mode:
+            # Search mode - show results
+            self.draw_results()
 
     def key_square(self):
         self.keys.switch_keys()
@@ -252,21 +282,36 @@ class UITextEntry(UIModule):
             print("didn't find key", number_key)
 
     def update(self, force=False):
-        """
-        Called to trigger UI Updates
-        to be overloaded by subclases and shoud
-        end up calling self.screen_update to
-        to the actual screen draw
-        retun the results of the screen_update to
-        pass any signals back to main
-        """
         self.draw.rectangle((0, 0, 128, 128), fill=self.colors.get(0))
+
+        # Draw appropriate header based on mode
+        if self.text_entry_mode:
+            # Pure text entry mode
+            self.draw.text(
+                (7, 0),
+                _("Enter Location Name:"),
+                font=self.fonts.base.font,
+                fill=self.half_red,
+            )
+        else:
+            # Search mode
+            self.draw.text(
+                (7, 0),
+                _("Search:"),
+                font=self.fonts.base.font,
+                fill=self.half_red,
+            )
+            self.draw_search_result_len()
+
         self.draw_text_entry()
-        self.draw_search_result_len()
-        if self.show_keypad:
+
+        # Always show keypad in pure text entry mode
+        # In search mode, toggle between keypad and results
+        if self.text_entry_mode or self.show_keypad:
             self.draw_keypad()
         else:
             self.draw_results()
+
         if self.shared_state:
             self.shared_state.set_screen(self.screen)
         return self.screen_update()

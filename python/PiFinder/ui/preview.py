@@ -1,8 +1,11 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-This module contains all the UI Module classes
+This module contains the UIPreview class, a UI module for displaying and interacting with camera images.
 
+It handles image processing, including background subtraction and gamma correction, and provides zoom
+functionality. It also manages a marking menu for adjusting camera settings and draws reticles and star
+selectors on the images.
 """
 
 import sys
@@ -42,8 +45,6 @@ class UIPreview(UIModule):
         self.capture_prefix = f"{self.__uuid__}_diag"
         self.capture_count = 0
 
-        self.align_mode = False
-
         # the centroiding returns an ndarray
         # so we're initialiazing one here
         self.star_list = np.empty((0, 2))
@@ -52,30 +53,38 @@ class UIPreview(UIModule):
         # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
-                label="Exposure",
+                label=_("Exposure"),
                 menu_jump="camera_exposure",
             ),
             down=MarkingMenuOption(
-                label="Gamma",
+                label=_("Gamma"),
                 callback=MarkingMenu(
-                    up=MarkingMenuOption(label="Off", callback=self.mm_change_gamma),
-                    left=MarkingMenuOption(label="High", callback=self.mm_change_gamma),
-                    down=MarkingMenuOption(
-                        label="Medium",
-                        callback=self.mm_change_gamma,
-                        selected=True,
+                    up=MarkingMenuOption(label=_("Off"), callback=self.mm_change_gamma),
+                    left=MarkingMenuOption(
+                        label=_("High"), callback=self.mm_change_gamma
                     ),
-                    right=MarkingMenuOption(label="Low", callback=self.mm_change_gamma),
+                    down=MarkingMenuOption(
+                        label=_("Medium"),
+                        callback=self.mm_change_gamma,
+                        selected=True,  # TODO Selected item should be read from config.
+                    ),
+                    right=MarkingMenuOption(
+                        label=_("Low"), callback=self.mm_change_gamma
+                    ),
                 ),
             ),
             right=MarkingMenuOption(
-                label="BG Sub",
+                label=_("BG Sub"),  # TRANSLATE: Background Subtraction context menu
                 callback=MarkingMenu(
-                    up=MarkingMenuOption(label="Off", callback=self.mm_change_bgsub),
-                    left=MarkingMenuOption(label="Full", callback=self.mm_change_bgsub),
+                    up=MarkingMenuOption(label=_("Off"), callback=self.mm_change_bgsub),
+                    left=MarkingMenuOption(
+                        label=_("Full"), callback=self.mm_change_bgsub
+                    ),
                     down=MarkingMenuOption(),
                     right=MarkingMenuOption(
-                        label="Half", callback=self.mm_change_bgsub, selected=True
+                        label=_("Half"),
+                        callback=self.mm_change_bgsub,
+                        selected=True,  # TODO Selected item should be read from config.
                     ),
                 ),
             ),
@@ -88,7 +97,9 @@ class UIPreview(UIModule):
         marking_menu.select_none()
         menu_item.selected = True
 
-        self.config_object.set_option("session.camera_gamma", menu_item.label)
+        self.config_object.set_option(
+            "session.camera_gamma", menu_item.label
+        )  # TODO I18N: context menu need display names
         return True
 
     def mm_change_bgsub(self, marking_menu, menu_item):
@@ -180,15 +191,8 @@ class UIPreview(UIModule):
         if last_image_time > self.last_update:
             image_obj = self.camera_image.copy()
 
-            # Fetch Centroids before image is altered
-            # Do this at least once to get a numpy array in
-            # star_list
-            if self.align_mode and self.shared_state and self.shared_state.solution():
-                matched_centroids = self.shared_state.solution()["matched_centroids"]
-                self.star_list = np.array(matched_centroids)
-
             # Resize
-            if self.zoom_level == 0 or self.align_mode:
+            if self.zoom_level == 0:
                 image_obj = image_obj.resize((128, 128))
             elif self.zoom_level == 1:
                 image_obj = image_obj.resize((256, 256))
@@ -217,23 +221,18 @@ class UIPreview(UIModule):
             self.screen.paste(image_obj)
             self.last_update = last_image_time
 
-            if self.align_mode:
-                self.draw_star_selectors()
+            if self.zoom_level > 0:
+                zoom_number = self.zoom_level * 2
+                self.draw.text(
+                    (75, 112),
+                    _("Zoom x{zoom_number}").format(zoom_number=zoom_number),
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(128),
+                )
             else:
-                if self.zoom_level > 0:
-                    zoom_number = self.zoom_level * 2
-                    self.draw.text(
-                        (75, 112),
-                        f"Zoom x{zoom_number}",
-                        font=self.fonts.bold.font,
-                        fill=self.colors.get(128),
-                    )
-                else:
-                    self.draw_reticle()
+                self.draw_reticle()
 
-        return self.screen_update(
-            title_bar=not self.align_mode, button_hints=not self.align_mode
-        )
+        return self.screen_update()
 
     def key_plus(self):
         self.zoom_level += 1
@@ -244,36 +243,3 @@ class UIPreview(UIModule):
         self.zoom_level -= 1
         if self.zoom_level < 0:
             self.zoom_level = 0
-
-    def key_square(self):
-        if self.align_mode:
-            self.align_mode = False
-            self.shared_state.set_camera_align(self.align_mode)
-            self.update(force=True)
-        else:
-            self.align_mode = True
-            self.shared_state.set_camera_align(self.align_mode)
-            self.update(force=True)
-
-    def key_number(self, number):
-        if self.align_mode:
-            if number == 0:
-                # reset reticle
-                self.shared_state.set_solve_pixel((256, 256))
-                self.config_object.set_option("solve_pixel", (256, 256))
-                self.align_mode = False
-            if number in list(range(1, self.highlight_count + 1)):
-                # They picked a star to align....
-                star_index = number - 1
-                if self.star_list.shape[0] > star_index:
-                    star_cam_x = self.star_list[star_index][0]
-                    star_cam_y = self.star_list[star_index][1]
-                    self.shared_state.set_solve_pixel((star_cam_x, star_cam_y))
-                    self.config_object.set_option(
-                        "solve_pixel",
-                        (star_cam_x, star_cam_y),
-                    )
-                self.align_mode = False
-
-            self.shared_state.set_camera_align(self.align_mode)
-            self.update(force=True)
