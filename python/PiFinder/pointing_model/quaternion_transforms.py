@@ -62,13 +62,12 @@ def get_quat_angular_diff(
 # ========== Equatorial frame functions ============================
 
 
-# TODO: Rename to get_q_eq2frame?
-def get_q_eq2cam(
+def get_q_eq(
     ra_rad: float, dec_rad: float, roll_rad: float
 ) -> quaternion.quaternion:  # TODO: Rename to q_eq2frame?
     """
-    Express the coordinates of a camera pointing at RA, Dec, Roll (in radians)
-    in the relative to the Equatorial frame.
+    Express the equatorial coordinates (RA, Dec, Roll) in radians
+    in a quaternion rotation the relative to the Equatorial frame.
     """
     # Intrinsic rotation of q_ra followed by q_dec gives a quaternion rotation
     # that points +z towards the boresight of the camera. +y to the left and
@@ -83,8 +82,8 @@ def get_q_eq2cam(
     q_roll = axis_angle2quat([0, 0, 1], np.pi / 2 + roll_rad)
 
     # Intrinsic rotation:
-    q_eq2cam = (q_ra * q_dec * q_roll).normalized()
-    return q_eq2cam
+    q_eq = (q_ra * q_dec * q_roll).normalized()
+    return q_eq
 
 
 def get_radec_of_q_eq(q_eq2frame: quaternion.quaternion) -> tuple[float, float, float]:
@@ -116,8 +115,8 @@ def get_q_scope2cam(target_eq: RaDecRoll, cam_eq: RaDecRoll) -> quaternion.quate
     #TODO: Update?
     # TODO: Cannot use RaDecRoll here because it'll cause a circular import
     
-    q_eq2cam = get_q_eq2cam(cam_eq.ra, cam_eq.dec, cam_eq.roll)
-    q_eq2scope = get_q_eq2cam(
+    q_eq2cam = get_q_eq(cam_eq.ra, cam_eq.dec, cam_eq.roll)
+    q_eq2scope = get_q_eq(
         target_eq.ra, target_eq.dec, target_eq.roll
     )  # This assumes an EQ mount - We don't know the roll of the scope frame
     q_scope2cam = q_eq2scope.conj() * q_eq2cam

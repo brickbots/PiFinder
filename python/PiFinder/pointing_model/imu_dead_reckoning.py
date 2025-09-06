@@ -82,8 +82,8 @@ class ImuDeadReckoning:
         q_scope2cam: Quaternion that rotates the scope frame to the camera frame.
         """
         # Calculate q_scope2cam (alignment)
-        q_eq2cam = qt.get_q_eq2cam(solved_cam.ra, solved_cam.dec, solved_cam.roll)
-        q_eq2scope = qt.get_q_eq2cam(solved_scope.ra, solved_scope.dec, solved_scope.roll)
+        q_eq2cam = qt.get_q_eq(solved_cam.ra, solved_cam.dec, solved_cam.roll)
+        q_eq2scope = qt.get_q_eq(solved_scope.ra, solved_scope.dec, solved_scope.roll)
         q_scope2cam = q_eq2scope.conjugate() * q_eq2cam
 
         # TODO: Use qt.get_q_scope2cam(target_eq, cam_eq)
@@ -113,7 +113,7 @@ class ImuDeadReckoning:
         # Update plate-solved coord: Camera frame relative to the Equatorial
         # frame where the +y camera frame (i.e. "up") points to the North
         # Celestial Pole (NCP) -- i.e. zero roll offset:
-        self.q_eq2cam = qt.get_q_eq2cam(solved_cam.ra, solved_cam.dec, solved_cam.roll)
+        self.q_eq2cam = qt.get_q_eq(solved_cam.ra, solved_cam.dec, solved_cam.roll)
         self.dead_reckoning = False  # Using plate solve, no dead_reckoning
 
         # Update IMU: Calculate the IMU's unknown reference frame X using the
