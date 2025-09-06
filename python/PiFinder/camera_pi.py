@@ -27,20 +27,36 @@ class CameraPI(CameraInterface):
         from picamera2 import Picamera2
 
         self.camera = Picamera2()
-        # Figure out camera type, hq or imx296 (global shutter)
-        self.camera_type = "hq"
-        self.gain = 20
+
         self.exposure_time = exposure_time
+        self.format = "SRGGB12"
         self.bit_depth = 12
+        self.digital_gain = 1.0 # TODO: find optimum value for imx296 and imx290
+        self.offset = 0 # TODO: measure offset for imx296 and imx290
+
+        # Figure out camera type, hq or imx296 (global shutter)
         if "imx296" in self.camera.camera.id:
             self.camera_type = "imx296"
+            # The auto selected 728x544 sensor mode returns black frames if the
+            # exposure is too high
+            self.raw_size = (1456, 1088)
+            self.format = "R10"
+            self.bit_depth = 10
             # maximum analog gain for this sensor
             self.gain = 15
-            self.bit_depth = 10
-
-        if "imx290" in self.camera.camera.id:
+        elif "imx290" in self.camera.camera.id:
             self.camera_type = "imx462"
+            self.raw_size = (1920, 1080)
             self.gain = 30
+        elif "imx477" in self.camera.camera.id:
+            self.camera_type = "hq"
+            # using this smaller scale auto-selects binning on the sensor
+            self.raw_size = (2028, 1520)
+            self.gain = 22 # cedar uses this value
+            self.digital_gain = 13.0 # initial tests show that higher values don't help much
+            self.offset = 256 # measured with lens cap on, matches what the internet says
+        else:
+            raise Exception(f"Unknown camera type: {self.camera.camera.id}")
 
         self.camType = f"PI {self.camera_type}"
         self.initialize()
@@ -48,29 +64,15 @@ class CameraPI(CameraInterface):
     def initialize(self) -> None:
         """Initializes the camera and set the needed control parameters"""
         self.stop_camera()
-        if self.camera_type == "imx296":
-            # The auto selected 728x544 sensor mode returns black frames if the
-            # exposure is too high.  So we need to force a specific sensor
-            # mode by specifying a raw stream we won't use
-            cam_config = self.camera.create_still_configuration(
-                {
-                    "size": (512, 512),
-                },
-                raw={"size": (1456, 1088), "format": "R10"},
-            )
-        elif self.camera_type == "imx462":
-            cam_config = self.camera.create_still_configuration(
-                {
-                    "size": (512, 512),
-                },
-                raw={"size": (1920, 1080), "format": "SRGGB12"},
-            )
-        else:
-            # using this smaller scale auto-selects binning on the sensor...
-            # cam_config = self.camera.create_still_configuration({"size": (512, 512)})
-            cam_config = self.camera.create_still_configuration(
-                {"size": (512, 512)}, raw={"size": (2028, 1520), "format": "SRGGB12"}
-            )
+        cam_config = self.camera.create_still_configuration(
+            {
+                "size": (512, 512)
+            },
+            raw={
+                "size": self.raw_size,
+                "format": self.format
+            },
+        )
         self.camera.configure(cam_config)
         self.camera.set_controls({"AeEnable": False})
         self.camera.set_controls({"AnalogueGain": self.gain})
@@ -92,34 +94,38 @@ class CameraPI(CameraInterface):
         amount of the 255 level space.
         """
         _request = self.camera.capture_request()
-        raw_capture = _request.make_array("raw")
+        # raw is actually 16 bit
+        raw_capture = _request.make_array("raw").copy().view(np.uint16)
         # tmp_image = _request.make_image("main")
         _request.release()
+        # crop to square 
         if self.camera_type == "imx296":
-            # crop to square and resample to 16 bit from 2 8 bit entries
-            raw_capture = raw_capture.copy().view(np.uint16)[:, 184:-184]
+            raw_capture = raw_capture[:, 184:-184]
             # Sensor orientation is different
             raw_capture = np.rot90(raw_capture, 2)
         elif self.camera_type == "imx462":
-            # crop to square and resample to 16 bit from 2 8 bit entries
-            # to get the right FOV, we want a 980 square....
-            raw_capture = raw_capture.copy().view(np.uint16)[50:-50, 470:-470]
-        else:
-            # crop to square and resample to 16 bit from 2 8 bit entries
-            raw_capture = raw_capture.copy().view(np.uint16)[:, 256:-256]
+            raw_capture = raw_capture[50:-50, 470:-470]
+        elif self.camera_type == "hq":
+            raw_capture = raw_capture[:, 256:-256]
 
+        # covert to 32 bit int to avoid overflow
         raw_capture = raw_capture.astype(np.float32)
-        # max_pixel = np.max(raw_capture)
-        max_pixel = pow(2, self.bit_depth) - 1
 
-        # if the whitepoint is already below 255, just cast it
-        # as we don't want to create fake in-between values
-        if max_pixel < 255:
-            raw_capture = raw_capture.astype(np.uint8)
-        else:
-            raw_capture = (raw_capture / max_pixel * 255).astype(np.uint8)
+        # sensor offset, measured as average value when lens cap is on
+        raw_capture -= self.offset
 
+        # apply digital gain
+        raw_capture *= self.digital_gain
+
+        # rescale to 8 bit
+        raw_capture = raw_capture * 255 / (2**self.bit_depth - self.offset - 1)
+
+        # clip to avoid <0 or >255 values
+        raw_capture = np.clip(raw_capture.astype(np.int32), 0, 255).astype(np.uint8)
+
+        # convert to PIL image and resize to 512x512
         raw_image = Image.fromarray(raw_capture).resize((512, 512))
+
         return raw_image
 
     def capture_file(self, filename) -> None:

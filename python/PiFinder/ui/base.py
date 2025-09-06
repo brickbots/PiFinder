@@ -192,7 +192,13 @@ class UIModule:
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
-        self.display.display(self.screen.convert(self.display.mode))
+        screen_to_display = self.screen.convert(self.display.mode)
+        self.display.display(screen_to_display)
+
+        # Update shared state so web interface shows the popup message
+        if self.shared_state:
+            self.shared_state.set_screen(screen_to_display)
+
         self.ui_state.set_message_timeout(timeout + time.time())
 
     def screen_update(self, title_bar=True, button_hints=True) -> None:
@@ -201,6 +207,10 @@ class UIModule:
         takes self.screen adds title bar and
         writes to display
         """
+
+        # Don't redraw screen if message popup is active
+        if time.time() < self.ui_state.message_timeout():
+            return None
 
         if title_bar:
             fg = self.colors.get(0)
