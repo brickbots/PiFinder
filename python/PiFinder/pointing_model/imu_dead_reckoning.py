@@ -86,7 +86,7 @@ class ImuDeadReckoning:
         q_eq2scope = qt.get_q_eq(solved_scope.ra, solved_scope.dec, solved_scope.roll)
         q_scope2cam = q_eq2scope.conjugate() * q_eq2cam
 
-        # TODO: Use qt.get_q_scope2cam(target_eq, cam_eq)
+        # Set the alignmen attributes:
         self.q_scope2cam = q_scope2cam.normalized()
         self.q_cam2scope = self.q_scope2cam.conj()
         self.q_imu2scope = self.q_imu2cam * self.q_cam2scope

@@ -107,20 +107,3 @@ def get_radec_of_q_eq(q_eq2frame: quaternion.quaternion) -> tuple[float, float, 
     roll = -np.arctan2(np.dot(py_cam.vec, vec_east), np.dot(py_cam.vec, vec_north))
 
     return ra, dec, roll  # In radians
-
-
-"""
-def get_q_scope2cam(target_eq: RaDecRoll, cam_eq: RaDecRoll) -> quaternion.quaternion:
-    #Returns the quaternion that rotates from the scope frame to the camera frame.
-    #TODO: Update?
-    # TODO: Cannot use RaDecRoll here because it'll cause a circular import
-    
-    q_eq2cam = get_q_eq(cam_eq.ra, cam_eq.dec, cam_eq.roll)
-    q_eq2scope = get_q_eq(
-        target_eq.ra, target_eq.dec, target_eq.roll
-    )  # This assumes an EQ mount - We don't know the roll of the scope frame
-    q_scope2cam = q_eq2scope.conj() * q_eq2cam
-    NotImplementedError  # TODO: Needs more work
-
-    return q_scope2cam
-"""
