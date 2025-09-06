@@ -257,14 +257,15 @@ class UIStatus(UIModule):
 
         imu = self.shared_state.imu()
         if imu:
-            if imu["pos"] is not None:
+            if imu["quat"] is not None:
                 if imu["moving"]:
                     mtext = "Moving"
                 else:
                     mtext = "Static"
                 self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu["status"])
                 self.status_dict["IMU PS"] = (
-                    f"{imu['pos'][0] : >6.1f}/{imu['pos'][2] : >6.1f}"
+                    "imu NA"
+                    # f"{imu['quat'][0] : >6.1f}/{imu['quat'][2] : >6.1f}"  # TODO: Quick hack for now. This was changed from imu["pos"] and should be changed.
                 )
         location = self.shared_state.location()
         sats = self.shared_state.sats()

@@ -78,6 +78,7 @@ class CompositeObject:
     description: str = field(default="")
     names: list = field(default_factory=list)
     image_name: str = field(default="")
+    surface_brightness: float = field(default=0.0)
     logged: bool = field(default=False)
     last_filtered_time: float = 0
     last_filtered_result: bool = True
