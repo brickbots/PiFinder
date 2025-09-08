@@ -955,6 +955,24 @@ pifinder_menu = {
                         },
                     ],
                 },
+                {
+                    "name": _("GPS Baud Rate"),
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "gps_baud_rate",
+                    "label": "gps_baud_rate",
+                    "post_callback": callbacks.update_gpsd_baud_rate,
+                    "items": [
+                        {
+                            "name": _("9600 (standard)"),
+                            "value": 9600,
+                        },
+                        {
+                            "name": _("115200 (UBlox-10)"),
+                            "value": 115200,
+                        },
+                    ],
+                },
             ],
         },
         {
