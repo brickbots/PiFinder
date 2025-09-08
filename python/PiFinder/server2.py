@@ -20,6 +20,7 @@ from PiFinder.keyboard_interface import KeyboardInterface
 
 from flask import Flask, request, jsonify, send_file, redirect, session, make_response
 from flask_babel import Babel, gettext  # type: ignore[import-untyped]
+from werkzeug.routing import IntegerConverter
 
 from PiFinder import i18n  # noqa: F401
 
@@ -27,6 +28,11 @@ from PiFinder import i18n  # noqa: F401
 import builtins
 
 _ = builtins._  # type: ignore[attr-defined]
+
+
+# Custom converter to handle negative integers in Flask routes
+class SignedIntConverter(IntegerConverter):
+    regex = r'-?\d+'
 
 
 sys_utils = utils.get_sys_utils()
@@ -135,6 +141,10 @@ class Server2:
         app = Flask(__name__, template_folder=views2_path)
         app.secret_key = SESSION_SECRET
         app.config["DEBUG"] = True
+        
+        # Register the custom signed integer converter
+        app.url_map.converters['signed_int'] = SignedIntConverter
+        
         logger.info(f"Flask app created successfully: {app}")
         logger.info(f"Template folder: {app.template_folder}")
 
@@ -672,7 +682,7 @@ class Server2:
                 ),
             )
 
-        @app.route("/equipment/edit_eyepiece/<int:eyepiece_id>")
+        @app.route("/equipment/edit_eyepiece/<signed_int:eyepiece_id>")
         @auth_required
         def edit_eyepiece(eyepiece_id: int):
             if eyepiece_id >= 0:
@@ -686,7 +696,7 @@ class Server2:
                 title=_("Edit Eyepiece"), eyepiece=eyepiece, eyepiece_id=eyepiece_id
             )
 
-        @app.route("/equipment/add_eyepiece/<int:eyepiece_id>", methods=["POST"])
+        @app.route("/equipment/add_eyepiece/<signed_int:eyepiece_id>", methods=["POST"])
         @auth_required
         def equipment_add_eyepiece(eyepiece_id: int):
             cfg = config.Config()
@@ -741,7 +751,7 @@ class Server2:
                 ),
             )
 
-        @app.route("/equipment/edit_instrument/<int:instrument_id>")
+        @app.route("/equipment/edit_instrument/<signed_int:instrument_id>")
         @auth_required
         def edit_instrument(instrument_id: int):
             if instrument_id >= 0:
@@ -766,7 +776,7 @@ class Server2:
                 instrument_id=instrument_id,
             )
 
-        @app.route("/equipment/add_instrument/<int:instrument_id>", methods=["POST"])
+        @app.route("/equipment/add_instrument/<signed_int:instrument_id>", methods=["POST"])
         @auth_required
         def equipment_add_instrument(instrument_id: int):
             cfg = config.Config()
