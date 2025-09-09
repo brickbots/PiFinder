@@ -321,22 +321,20 @@ def generate_custom_object_name(ui_module: UIModule) -> str:
 
 def update_gpsd_baud_rate(ui_module: UIModule) -> None:
     """
-    Updates the GPSD configuration with the current baud rate setting
-    and restarts the GPSD service. Only applies when GPS type is GPSD.
+    Updates the GPSD configuration with the current baud rate setting.
+    Always updates GPSD config regardless of current GPS type.
     """
-    gps_type = ui_module.config_object.get_option("gps_type")
     baud_rate = ui_module.config_object.get_option("gps_baud_rate")
-    
-    # Only update GPSD config if we're using GPSD mode
-    if gps_type == "gpsd":
-        ui_module.message(_("Updating GPS config..."), 3)
-        logger.info(f"Updating GPSD baud rate to {baud_rate}")
-        try:
-            sys_utils.update_gpsd_config(baud_rate)
+
+    ui_module.message(_("Checking GPS config..."), 2)
+    logger.info(f"Checking GPSD baud rate {baud_rate}")
+
+    try:
+        if sys_utils.check_and_sync_gpsd_config(baud_rate):
             ui_module.message(_("GPS config updated"), 2)
-        except Exception as e:
-            logger.error(f"Failed to update GPSD config: {e}")
-            ui_module.message(_("GPS config update failed"), 3)
-    else:
-        # For UBlox mode, baud rate setting doesn't apply
-        ui_module.message(_("Baud rate only applies to GPSD mode"), 3)
+        else:
+            ui_module.message(_("GPS config already correct"), 2)
+    except Exception as e:
+        logger.error(f"Failed to update GPSD config: {e}")
+        ui_module.message(_("GPS config update failed"), 3)
+

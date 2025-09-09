@@ -903,6 +903,16 @@ if __name__ == "__main__":
 
         imu = importlib.import_module("PiFinder.imu_pi")
         cfg = config.Config()
+
+        # Always sync GPSD configuration at startup
+        try:
+            from PiFinder import sys_utils
+            baud_rate = cfg.get_option("gps_baud_rate", 9600)  # Default to 9600 if not set
+            if sys_utils.check_and_sync_gpsd_config(baud_rate):
+                logger.info(f"GPSD configuration updated to {baud_rate} baud")
+        except Exception as e:
+            logger.warning(f"Could not check/sync GPSD configuration: {e}")
+
         gps_type = cfg.get_option("gps_type")
         if gps_type == "ublox":
             gps_monitor = importlib.import_module("PiFinder.gps_ubx")
