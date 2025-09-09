@@ -326,15 +326,15 @@ def update_gpsd_baud_rate(ui_module: UIModule) -> None:
     """
     baud_rate = ui_module.config_object.get_option("gps_baud_rate")
 
-    ui_module.message(_("Checking GPS config..."), 2)
+    ui_module.message(_("Checking GPS\nconfig..."), 2)
     logger.info(f"Checking GPSD baud rate {baud_rate}")
 
     try:
         if sys_utils.check_and_sync_gpsd_config(baud_rate):
-            ui_module.message(_("GPS config updated"), 2)
+            ui_module.message(_("GPS config\nupdated"), 2)
         else:
-            ui_module.message(_("GPS config already correct"), 2)
+            ui_module.message(_("GPS config\nOK"), 2)
     except Exception as e:
         logger.error(f"Failed to update GPSD config: {e}")
-        ui_module.message(_("GPS config update failed"), 3)
+        ui_module.message(_("GPS config\nfailed"), 3)
 
