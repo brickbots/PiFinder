@@ -904,7 +904,7 @@ if __name__ == "__main__":
         imu = importlib.import_module("PiFinder.imu_pi")
         cfg = config.Config()
 
-        # Always sync GPSD configuration at startup
+        # verify and sync GPSD baud rate
         try:
             from PiFinder import sys_utils
             baud_rate = cfg.get_option("gps_baud_rate", 9600)  # Default to 9600 if not set

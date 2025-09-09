@@ -344,6 +344,7 @@ def check_and_sync_gpsd_config(baud_rate: int) -> bool:
 
         # Determine expected GPSD_OPTIONS
         if baud_rate == 115200:
+            # NOTE: the space before -s in the next line is really needed
             expected_options = 'GPSD_OPTIONS=" -s 115200"'
         else:
             expected_options = 'GPSD_OPTIONS=""'
@@ -386,6 +387,7 @@ def update_gpsd_config(baud_rate: int) -> None:
         for line in lines:
             if line.startswith("GPSD_OPTIONS="):
                 if baud_rate == 115200:
+                    # NOTE: the space before -s in the next line is really needed
                     updated_lines.append('GPSD_OPTIONS=" -s 115200"\n')
                 else:
                     updated_lines.append('GPSD_OPTIONS=""\n')
