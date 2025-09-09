@@ -938,38 +938,45 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": _("GPS Type"),
+                    "name": _("GPS Settings"),
                     "class": UITextMenu,
                     "select": "single",
-                    "config_option": "gps_type",
-                    "label": "gps_type",
-                    "post_callback": callbacks.restart_pifinder,
                     "items": [
                         {
-                            "name": _("UBlox"),
-                            "value": "ublox",
+                            "name": _("GPS Type"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "gps_type",
+                            "label": "gps_type",
+                            "post_callback": callbacks.restart_pifinder,
+                            "items": [
+                                {
+                                    "name": _("UBlox"),
+                                    "value": "ublox",
+                                },
+                                {
+                                    "name": _("GPSD (generic)"),
+                                    "value": "gpsd",
+                                },
+                            ],
                         },
                         {
-                            "name": _("GPSD (generic)"),
-                            "value": "gpsd",
-                        },
-                    ],
-                },
-                {
-                    "name": _("GPS Baud Rate"),
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "gps_baud_rate",
-                    "label": "gps_baud_rate",
-                    "post_callback": callbacks.update_gpsd_baud_rate,
-                    "items": [
-                        {
-                            "name": _("9600 (standard)"),
-                            "value": 9600,
-                        },
-                        {
-                            "name": _("115200 (UBlox-10)"),
-                            "value": 115200,
+                            "name": _("GPS Baud Rate"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "gps_baud_rate",
+                            "label": "gps_baud_rate",
+                            "post_callback": callbacks.update_gpsd_baud_rate,
+                            "items": [
+                                {
+                                    "name": _("9600 (standard)"),
+                                    "value": 9600,
+                                },
+                                {
+                                    "name": _("115200 (UBlox-10)"),
+                                    "value": 115200,
+                                },
+                            ],
                         },
                     ],
                 },
