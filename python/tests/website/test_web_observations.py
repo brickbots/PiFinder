@@ -168,7 +168,7 @@ def test_observations_table_headers(driver):
     
     # Wait for table to load
     wait = WebDriverWait(driver, 10)
-    table = wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
+    wait.until(EC.presence_of_element_located((By.TAG_NAME, "table")))
     
     # Check for required headers
     required_headers = ["Date", "Location", "Hours", "objects"]

@@ -329,7 +329,7 @@ def test_download_user_data_functionality(driver):
     if response.status_code == 500:
         # Server error - might be due to path mismatch in test environment
         # This is acceptable for testing since the UI elements are working
-        print(f"Server returned 500 error for backup download - likely path configuration issue in test environment")
+        print("Server returned 500 error for backup download - likely path configuration issue in test environment")
         import pytest
         pytest.skip("Server error during backup download - path configuration issue in test environment")
     else:
@@ -367,7 +367,6 @@ def test_upload_and_restore_section_elements(driver):
 @pytest.mark.web
 def test_complete_download_and_upload_workflow(driver):
     """Test complete workflow: download user data, then upload and restore it"""
-    import tempfile
     import requests
     
     # Navigate and login to tools page
@@ -393,7 +392,7 @@ def test_complete_download_and_upload_workflow(driver):
     # Verify download was successful - handle path configuration issues in test environment
     if response.status_code == 500:
         # Server error - might be due to path mismatch in test environment
-        print(f"Server returned 500 error for backup download - likely path configuration issue in test environment")
+        print("Server returned 500 error for backup download - likely path configuration issue in test environment")
         import pytest
         pytest.skip("Server error during backup download - path configuration issue in test environment")
     

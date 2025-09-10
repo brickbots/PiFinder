@@ -6,7 +6,6 @@ import os
 import zipfile
 import tempfile
 import json
-from unittest.mock import patch
 from PiFinder.sys_utils_fake import backup_userdata, restore_userdata, BACKUP_PATH
 
 

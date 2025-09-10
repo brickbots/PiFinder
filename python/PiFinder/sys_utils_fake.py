@@ -3,7 +3,6 @@ import logging
 import os
 import zipfile
 import tempfile
-import json
 
 # For testing, use a directory structure that mimics the production setup
 # but in a writable location. The server serves from /home/pifinder/PiFinder_data
