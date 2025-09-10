@@ -32,7 +32,7 @@ def shared_driver():
         pytest.skip("Selenium Grid not available - tests require running Selenium Grid")
 
     chrome_options = Options()
-    # chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--headless")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
 
