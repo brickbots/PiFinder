@@ -4,6 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
+**Running Python**
+Developers may have created virtual environments in directories like ".venv" or "venv". Make sure these virtual
+environments are activated before any of the python based tools below.
+
 **Development workflow uses Nox for task automation:**
 ```bash
 nox -s lint          # Code linting with Ruff (auto-fixes issues)
@@ -12,6 +16,7 @@ nox -s type_hints    # Type checking with MyPy
 nox -s smoke_tests   # Quick functionality validation
 nox -s unit_tests    # Full unit test suite
 nox -s babel         # I18n message extraction and compilation
+nox -s web_tests     # Testing the webserver, see below
 ```
 
 **Direct testing with pytest:**
@@ -107,7 +112,8 @@ Tests use pytest with custom markers for different test types. The smoke tests p
 **Testing Framework:** Uses Selenium WebDriver with Pytest for automated browser testing of the web interface
 
 **Infrastructure Requirements:**
-- Selenium Grid server at localhost:4444 (configurable via SELENIUM_GRID_URL environment variable)
+- Selenium Grid server at localhost:4444 (configurable via SELENIUM_GRID_URL environment variable). 
+  This server is started outside of the test code, for maximum flexibility
 - Chrome browser in headless mode for test execution
 - Tests automatically skip if Selenium Grid is unavailable
 
@@ -116,6 +122,8 @@ Tests use pytest with custom markers for different test types. The smoke tests p
 - **Location Management** (`test_web_locations.py`): Location CRUD operations, DMS coordinate entry, default switching, GPS integration via remote interface
 - **Network Configuration** (`test_web_network.py`): WiFi settings form validation, network management, restart flows, modal dialogs
 - **Remote Control** (`test_web_remote.py`): Authentication, virtual keypad, menu navigation, marking menus, API endpoint validation
+- **Equipment Management** (`test_web_equipment.py`): Telescope and eyepiece CRUD operations, active equipment selection, form validation
+- **Observation Tracking** (`test_web_observations.py`): Session list display, observation counters, detail pages, TSV export functionality
 
 **Authentication:** All protected pages use default password "solveit"
 
