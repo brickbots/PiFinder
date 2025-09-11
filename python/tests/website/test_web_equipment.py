@@ -300,7 +300,12 @@ def test_equipment_add_instrument_functionality(driver):
     # Submit the form using case-insensitive search for button text
     # The template shows "Add instrument!" but CSS might make it uppercase
     save_button = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'add instrument')]"))
+        EC.element_to_be_clickable(
+            (
+                By.XPATH,
+                "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'add instrument')]",
+            )
+        )
     )
     save_button.click()
 
@@ -311,11 +316,11 @@ def test_equipment_add_instrument_functionality(driver):
     instruments_table = driver.find_element(
         By.XPATH, "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]"
     )
-    
+
     # Look for the test instrument in the table
     test_instrument_found = False
     rows = instruments_table.find_elements(By.TAG_NAME, "tr")[1:]  # Skip header row
-    
+
     test_instrument_row_index = None
     for i, row in enumerate(rows):
         cells = row.find_elements(By.TAG_NAME, "td")
@@ -328,7 +333,9 @@ def test_equipment_add_instrument_functionality(driver):
                 test_instrument_row_index = i
                 break
 
-    assert test_instrument_found, f"Test instrument '{test_instrument['name']}' not found in instruments table"
+    assert (
+        test_instrument_found
+    ), f"Test instrument '{test_instrument['name']}' not found in instruments table"
 
     # Now delete the test instrument to clean up
     delete_button = rows[test_instrument_row_index].find_element(
@@ -343,9 +350,11 @@ def test_equipment_add_instrument_functionality(driver):
     instruments_table = driver.find_element(
         By.XPATH, "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]"
     )
-    
-    updated_rows = instruments_table.find_elements(By.TAG_NAME, "tr")[1:]  # Skip header row
-    
+
+    updated_rows = instruments_table.find_elements(By.TAG_NAME, "tr")[
+        1:
+    ]  # Skip header row
+
     test_instrument_still_found = False
     for row in updated_rows:
         cells = row.find_elements(By.TAG_NAME, "td")
@@ -394,7 +403,12 @@ def test_equipment_add_eyepiece_functionality(driver):
     # Submit the form using case-insensitive search for button text
     # The template shows "Add eyepiece!" but CSS might make it uppercase
     save_button = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'add eyepiece')]"))
+        EC.element_to_be_clickable(
+            (
+                By.XPATH,
+                "//a[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'add eyepiece')]",
+            )
+        )
     )
     save_button.click()
 
@@ -405,11 +419,11 @@ def test_equipment_add_eyepiece_functionality(driver):
     eyepieces_table = driver.find_element(
         By.XPATH, "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]"
     )
-    
+
     # Look for the test eyepiece in the table
     test_eyepiece_found = False
     rows = eyepieces_table.find_elements(By.TAG_NAME, "tr")[1:]  # Skip header row
-    
+
     test_eyepiece_row_index = None
     for i, row in enumerate(rows):
         cells = row.find_elements(By.TAG_NAME, "td")
@@ -422,7 +436,9 @@ def test_equipment_add_eyepiece_functionality(driver):
                 test_eyepiece_row_index = i
                 break
 
-    assert test_eyepiece_found, f"Test eyepiece '{test_eyepiece['name']}' not found in eyepieces table"
+    assert (
+        test_eyepiece_found
+    ), f"Test eyepiece '{test_eyepiece['name']}' not found in eyepieces table"
 
     # Now delete the test eyepiece to clean up
     delete_button = rows[test_eyepiece_row_index].find_element(
@@ -437,9 +453,11 @@ def test_equipment_add_eyepiece_functionality(driver):
     eyepieces_table = driver.find_element(
         By.XPATH, "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]"
     )
-    
-    updated_rows = eyepieces_table.find_elements(By.TAG_NAME, "tr")[1:]  # Skip header row
-    
+
+    updated_rows = eyepieces_table.find_elements(By.TAG_NAME, "tr")[
+        1:
+    ]  # Skip header row
+
     test_eyepiece_still_found = False
     for row in updated_rows:
         cells = row.find_elements(By.TAG_NAME, "td")
@@ -451,7 +469,9 @@ def test_equipment_add_eyepiece_functionality(driver):
                 test_eyepiece_still_found = True
                 break
 
-    assert not test_eyepiece_still_found, f"Test eyepiece '{test_eyepiece['name']}' still found in table after deletion"
+    assert (
+        not test_eyepiece_still_found
+    ), f"Test eyepiece '{test_eyepiece['name']}' still found in table after deletion"
 
 
 @pytest.mark.web
@@ -462,14 +482,17 @@ def test_equipment_select_active_instrument(driver):
 
     # Wait for instruments table to load
     instruments_table = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((
-            By.XPATH, "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]"
-        ))
+        EC.presence_of_element_located(
+            (
+                By.XPATH,
+                "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]",
+            )
+        )
     )
 
     # Get all instrument rows (skip header)
     instrument_rows = instruments_table.find_elements(By.TAG_NAME, "tr")[1:]
-    
+
     if len(instrument_rows) == 0:
         pytest.skip("No instruments available to test active selection")
 
@@ -483,18 +506,20 @@ def test_equipment_select_active_instrument(driver):
 
     # Select a different instrument (or the first one if none is active)
     target_row_index = 0 if currently_active_row != 0 else 1
-    
+
     if target_row_index >= len(instrument_rows):
         pytest.skip("Need at least 2 instruments to test active selection switching")
 
     target_row = instrument_rows[target_row_index]
-    
+
     # Get the instrument name for verification
     cells = target_row.find_elements(By.TAG_NAME, "td")
     target_instrument_name = cells[1].text if len(cells) > 1 else "Unknown"
 
     # Click the radio button link to set this instrument as active
-    radio_link = target_row.find_element(By.CSS_SELECTOR, "a[href*='set_active_instrument']")
+    radio_link = target_row.find_element(
+        By.CSS_SELECTOR, "a[href*='set_active_instrument']"
+    )
     radio_link.click()
 
     # Wait for page to reload (allow for parameters or redirects)
@@ -507,9 +532,9 @@ def test_equipment_select_active_instrument(driver):
     instruments_table = driver.find_element(
         By.XPATH, "//h5[contains(text(), 'Instruments')]/following-sibling::table[1]"
     )
-    
+
     updated_rows = instruments_table.find_elements(By.TAG_NAME, "tr")[1:]
-    
+
     # Check that the target instrument is now marked as active
     target_is_active = False
     for row in updated_rows:
@@ -531,14 +556,17 @@ def test_equipment_select_active_eyepiece(driver):
 
     # Wait for eyepieces table to load
     eyepieces_table = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((
-            By.XPATH, "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]"
-        ))
+        EC.presence_of_element_located(
+            (
+                By.XPATH,
+                "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]",
+            )
+        )
     )
 
     # Get all eyepiece rows (skip header)
     eyepiece_rows = eyepieces_table.find_elements(By.TAG_NAME, "tr")[1:]
-    
+
     if len(eyepiece_rows) == 0:
         pytest.skip("No eyepieces available to test active selection")
 
@@ -552,18 +580,20 @@ def test_equipment_select_active_eyepiece(driver):
 
     # Select a different eyepiece (or the first one if none is active)
     target_row_index = 0 if currently_active_row != 0 else 1
-    
+
     if target_row_index >= len(eyepiece_rows):
         pytest.skip("Need at least 2 eyepieces to test active selection switching")
 
     target_row = eyepiece_rows[target_row_index]
-    
+
     # Get the eyepiece name for verification
     cells = target_row.find_elements(By.TAG_NAME, "td")
     target_eyepiece_name = cells[1].text if len(cells) > 1 else "Unknown"
 
     # Click the radio button link to set this eyepiece as active
-    radio_link = target_row.find_element(By.CSS_SELECTOR, "a[href*='set_active_eyepiece']")
+    radio_link = target_row.find_element(
+        By.CSS_SELECTOR, "a[href*='set_active_eyepiece']"
+    )
     radio_link.click()
 
     # Wait for page to reload (allow for parameters or redirects)
@@ -576,9 +606,9 @@ def test_equipment_select_active_eyepiece(driver):
     eyepieces_table = driver.find_element(
         By.XPATH, "//h5[contains(text(), 'Eyepieces')]/following-sibling::table[1]"
     )
-    
+
     updated_rows = eyepieces_table.find_elements(By.TAG_NAME, "tr")[1:]
-    
+
     # Check that the target eyepiece is now marked as active
     target_is_active = False
     for row in updated_rows:
@@ -589,7 +619,9 @@ def test_equipment_select_active_eyepiece(driver):
                 target_is_active = True
                 break
 
-    assert target_is_active, f"Eyepiece '{target_eyepiece_name}' should be marked as active after selection"
+    assert (
+        target_is_active
+    ), f"Eyepiece '{target_eyepiece_name}' should be marked as active after selection"
 
 
 def _login_to_equipment(driver):
@@ -653,7 +685,7 @@ def _fill_instrument_form(driver, instrument_data):
     WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((By.CSS_SELECTOR, "form"))
     )
-    
+
     # Wait for Materialize to initialize form elements
     time.sleep(2)
 
@@ -682,10 +714,12 @@ def _fill_instrument_form(driver, instrument_data):
     # Mount type dropdown - handle Materialize select
     # Click the Materialize dropdown trigger
     dropdown_trigger = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, ".select-dropdown.dropdown-trigger"))
+        EC.element_to_be_clickable(
+            (By.CSS_SELECTOR, ".select-dropdown.dropdown-trigger")
+        )
     )
     dropdown_trigger.click()
-    
+
     # Wait for dropdown options to appear and select the desired option
     option_xpath = f"//li/span[contains(text(), '{_get_mount_type_display_text(instrument_data['mount_type'])}')]"
     option_element = WebDriverWait(driver, 10).until(

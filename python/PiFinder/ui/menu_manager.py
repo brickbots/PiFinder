@@ -529,7 +529,7 @@ class MenuManager:
             if self.marking_menu_stack:
                 response["ui_type"] = "UIMarkingMenu"
                 response["marking_menu_active"] = True
-                
+
                 # Get current marking menu options
                 current_marking_menu = self.marking_menu_stack[-1]
                 response["marking_menu_options"] = {
@@ -552,9 +552,9 @@ class MenuManager:
                         "label": current_marking_menu.right.label,
                         "enabled": current_marking_menu.right.enabled,
                         "selected": current_marking_menu.right.selected,
-                    }
+                    },
                 }
-                
+
                 # Include the underlying UI state as well
                 response["underlying_ui_type"] = ui_type
                 response["underlying_title"] = getattr(current_ui, "title", "Unknown")
