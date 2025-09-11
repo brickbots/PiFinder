@@ -2,6 +2,7 @@
 Shared utilities for web interface testing
 """
 
+import os
 import time
 import requests
 from selenium.webdriver.common.by import By
@@ -11,50 +12,40 @@ from selenium.webdriver.support import expected_conditions as EC
 
 def login_to_remote(driver):
     """Helper function to login to remote interface"""
-    # Navigate to localhost:8080
-    driver.get("http://localhost:8080")
-
-    # Wait for the page to load by checking for the navigation
-    WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.TAG_NAME, "nav"))
-    )
-
-    # Try to find Remote link in desktop menu first, then mobile menu
-    try:
-        # Desktop menu (visible on larger screens)
-        remote_link = WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable(
-                (By.CSS_SELECTOR, ".hide-on-med-and-down a[href='/remote']")
-            )
-        )
-    except Exception:
-        # Mobile menu - need to click hamburger first
-        hamburger = WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable((By.CLASS_NAME, "sidenav-trigger"))
-        )
-        hamburger.click()
-
-        # Wait for mobile menu to open and find Remote link
-        remote_link = WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable(
-                (By.CSS_SELECTOR, "#nav-mobile a[href='/remote']")
-            )
-        )
-    remote_link.click()
-
-    # Wait for login page to load
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "password")))
-
-    # Enter the default password "solveit"
-    password_field = driver.find_element(By.ID, "password")
-    password_field.send_keys("solveit")
-
-    # Submit the login form
-    login_button = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
-    login_button.click()
-
+    navigate_to_page(driver, "/remote")
+    login_with_password(driver)
     # Wait for remote page to load after successful login
     WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "image")))
+
+
+def login_to_logs(driver):
+    """Helper function to login and navigate to logs page"""
+    navigate_to_page(driver, "/logs")
+
+
+def login_to_tools(driver):
+    """Helper function to login and navigate to tools page"""
+    navigate_to_page(driver, "/tools")
+
+
+def login_to_locations(driver):
+    """Helper function to login and navigate to locations page"""
+    navigate_to_page(driver, "/locations")
+
+
+def login_to_equipment(driver):
+    """Helper function to login and navigate to equipment page"""
+    navigate_to_page(driver, "/equipment")
+
+
+def login_to_network(driver):
+    """Helper function to login and navigate to network page"""
+    navigate_to_page(driver, "/network")
+
+
+def login_to_observations(driver):
+    """Helper function to login and navigate to observations page"""
+    navigate_to_page(driver, "/observations")
 
 
 def press_keys(driver, keys):
@@ -133,6 +124,61 @@ def press_keys_and_validate(driver, keys, expected_values):
 
     # Recursively compare expected values with actual response
     recursive_dict_compare(data, expected_values)
+
+
+def navigate_to_page(driver, page_path):
+    """
+    Generic helper function to navigate to any page on the web interface
+    Handles both desktop and mobile navigation patterns
+    Uses PIFINDER_HOMEPAGE environment variable or defaults to localhost:8080
+    """
+    # Get homepage URL from environment variable or use default
+    homepage_url = os.environ.get("PIFINDER_HOMEPAGE", "http://localhost:8080")
+    driver.get(homepage_url)
+
+    # Wait for the page to load by checking for the navigation
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.TAG_NAME, "nav"))
+    )
+
+    # Try to find link in desktop menu first, then mobile menu
+    try:
+        # Desktop menu (visible on larger screens)
+        page_link = WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable(
+                (By.CSS_SELECTOR, f".hide-on-med-and-down a[href='{page_path}']")
+            )
+        )
+    except Exception:
+        # Mobile menu - need to click hamburger first
+        hamburger = WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable((By.CLASS_NAME, "sidenav-trigger"))
+        )
+        hamburger.click()
+
+        # Wait for mobile menu to open and find page link
+        page_link = WebDriverWait(driver, 5).until(
+            EC.element_to_be_clickable(
+                (By.CSS_SELECTOR, f"#nav-mobile a[href='{page_path}']")
+            )
+        )
+    page_link.click()
+
+
+def login_with_password(driver, password="solveit"):
+    """
+    Helper function to handle password authentication
+    """
+    # Wait for login page to load
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "password")))
+
+    # Enter the password
+    password_field = driver.find_element(By.ID, "password")
+    password_field.send_keys(password)
+
+    # Submit the login form
+    login_button = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
+    login_button.click()
 
 
 def recursive_dict_compare(actual, expected):

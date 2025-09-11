@@ -7,6 +7,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from web_test_utils import login_to_equipment, login_with_password
 
 """
 The test_web_equipment.py file contains comprehensive tests for PiFinder's equipment management web interface.
@@ -626,52 +627,16 @@ def test_equipment_select_active_eyepiece(driver):
 
 def _login_to_equipment(driver):
     """Helper function to login and navigate to equipment interface"""
-    # Navigate to localhost:8080
-    driver.get("http://localhost:8080")
-
-    # Wait for the page to load by checking for the navigation
-    WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.TAG_NAME, "nav"))
-    )
-
-    # Try to find Equipment link in desktop menu first, then mobile menu
-    try:
-        # Desktop menu (visible on larger screens)
-        equipment_link = WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable(
-                (By.CSS_SELECTOR, ".hide-on-med-and-down a[href='/equipment']")
-            )
-        )
-    except Exception:
-        # Mobile menu - need to click hamburger first
-        hamburger = WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable((By.CLASS_NAME, "sidenav-trigger"))
-        )
-        hamburger.click()
-
-        # Wait for mobile menu to open and find Equipment link
-        equipment_link = WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable(
-                (By.CSS_SELECTOR, "#nav-mobile a[href='/equipment']")
-            )
-        )
-    equipment_link.click()
-
+    login_to_equipment(driver)
+    
     # Check if we need to login (redirected to login page)
     try:
         # Wait briefly to see if login form appears
         WebDriverWait(driver, 2).until(
             EC.presence_of_element_located((By.ID, "password"))
         )
-
-        # We're on the login page, enter the default password "solveit"
-        password_field = driver.find_element(By.ID, "password")
-        password_field.send_keys("solveit")
-
-        # Submit the login form
-        login_button = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
-        login_button.click()
-
+        # We're on the login page, use centralized login function
+        login_with_password(driver)
         # Wait for redirect back to equipment page after successful login
         WebDriverWait(driver, 10).until(lambda d: "/equipment" in d.current_url)
     except Exception:

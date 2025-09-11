@@ -8,50 +8,13 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
+from web_test_utils import login_to_logs as util_login_to_logs, login_with_password
 
 
 def login_to_logs(driver):
     """Helper function to login and navigate to logs page"""
-    # Navigate to localhost:8080
-    driver.get("http://localhost:8080")
-
-    # Wait for the page to load by checking for the navigation
-    WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.TAG_NAME, "nav"))
-    )
-
-    # Try to find Logs link in desktop menu first, then mobile menu
-    try:
-        # Desktop menu (visible on larger screens)
-        logs_link = WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable(
-                (By.CSS_SELECTOR, ".hide-on-med-and-down a[href='/logs']")
-            )
-        )
-    except Exception:
-        # Mobile menu - need to click hamburger first
-        hamburger = WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable((By.CLASS_NAME, "sidenav-trigger"))
-        )
-        hamburger.click()
-
-        # Wait for mobile menu to open and find Logs link
-        logs_link = WebDriverWait(driver, 5).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, "#nav-mobile a[href='/logs']"))
-        )
-    logs_link.click()
-
-    # Wait for login page to load
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "password")))
-
-    # Enter the default password "solveit"
-    password_field = driver.find_element(By.ID, "password")
-    password_field.send_keys("solveit")
-
-    # Submit the login form
-    login_button = driver.find_element(By.CSS_SELECTOR, "button[type='submit']")
-    login_button.click()
-
+    util_login_to_logs(driver)
+    login_with_password(driver)
     # Wait for logs page to load after successful login
     WebDriverWait(driver, 10).until(
         EC.presence_of_element_located((By.ID, "logViewer"))
