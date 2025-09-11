@@ -342,6 +342,9 @@ The PiFinder web interface can be tested using automated browser tests powered b
 These tests verify functionality across different viewports (desktop and mobile) and ensure
 the web interface works correctly.
 
+The tests exercise the remote control features of PiFinder, changing **the state of the PiFinder** and
+therefore should **not be run** against a PiFinder you are actively using for observing.
+
 Running Website Tests
 ______________________________
 
