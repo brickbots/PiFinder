@@ -315,3 +315,24 @@ class UITextEntry(UIModule):
         if self.shared_state:
             self.shared_state.set_screen(self.screen)
         return self.screen_update()
+
+    def serialize_ui_state(self) -> dict:
+        """
+        Serialize the current state of the text entry for inter-process communication
+        """
+        try:
+            return {
+                "value": self.current_text,
+                "text_entry_mode": self.text_entry_mode,
+                "show_keypad": self.show_keypad,
+                "search_results_count": len(self.search_results)
+                if hasattr(self, "search_results")
+                else 0,
+                "last_key": self.last_key,
+                "char_index": self.char_index,
+                "within_keypress_window": self.within_keypress_window(time.time())
+                if self.last_key
+                else False,
+            }
+        except Exception as e:
+            return {"error": f"Failed to serialize text entry state: {str(e)}"}

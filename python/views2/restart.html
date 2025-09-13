@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row valign-wrapper" style="margin: 0px;">
+  <div class="col s12 center-align">
+        <h5 class="grey-text text-lighten-1">{{ _('Restarting System') }}</h5>
+        <p class="grey-text">{{ _('This will take approximately 45 seconds and you should be redirected to the home page.') }}</p>
+
+        <p class="grey-text text-lighten-1">{{ _('You may need to change the URL above or connect to a different wifi network on your phone/tablet/computer depending on the changes you made to the PiFinder configuration.') }}</p>
+
+        <p class="grey-text">{{ _('If you are not automatically redirected') }} <a href="/">{{ _('Click Here') }}</a></p>
+  </div>
+</div>
+<div class="progress">
+  <div class="indeterminate"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+setTimeout(function(){
+    location.href="/";
+    }, 40000); // 40000 milliseconds = 40 seconds
+
+fetch("/system/restart?" + new Date().getTime())
+</script>
+{% endblock %}

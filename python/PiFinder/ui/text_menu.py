@@ -257,3 +257,33 @@ class UITextMenu(UIModule):
 
     def key_down(self):
         self.menu_scroll(1)
+
+    def serialize_ui_state(self) -> dict:
+        """
+        Serialize the current state of the text menu for inter-process communication
+        """
+        try:
+            current_item = None
+            if 0 <= self._current_item_index < len(self._menu_items):
+                current_item = self._menu_items[self._current_item_index]
+
+            # Convert selected_values to serializable format
+            serializable_selected_values = []
+            for value in self._selected_values:
+                if hasattr(value, "display_name"):
+                    # This is likely a CompositeObject or similar
+                    serializable_selected_values.append(str(value.display_name))
+                elif hasattr(value, "__str__"):
+                    serializable_selected_values.append(str(value))
+                else:
+                    serializable_selected_values.append(repr(value))
+
+            return {
+                "current_index": self._current_item_index,
+                "current_item": current_item,
+                "total_items": len(self._menu_items),
+                "menu_type": self._menu_type,
+                "selected_values": serializable_selected_values,
+            }
+        except Exception as e:
+            return {"error": f"Failed to serialize text menu state: {str(e)}"}
