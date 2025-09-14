@@ -1,0 +1,15 @@
+WDS double star catalog
+
+For systems with more than 2 stars:
+
+Top-level info:
+- all distinct discovery numbers are listed.
+- Magnitudes are used of the first pair (assumed to be AB) to indicate the
+achievability of at least the first pair.
+- Positions are taken from the first pair, arcsecond positions are used when available.
+- First/last year of discovery is consolidated as the lowest first and the highest last.
+
+Per pair info:
+- Components
+- Position Angle, Separation, Magnitudes and primary proper motion
+- Notes are copied verbatim

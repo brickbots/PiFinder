@@ -215,6 +215,12 @@ pifinder_menu = {
                                     "value": "RDS",
                                 },
                                 {
+                                    "name": _("WDS Doubles"),
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "WDS",
+                                },
+                                {
                                     "name": _("TLK 90 Variables"),
                                     "class": UIObjectList,
                                     "objects": "catalog",

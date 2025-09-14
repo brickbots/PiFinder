@@ -12,6 +12,7 @@ def test_object_counts():
 
     catalog_counts = {
         "NGC": 7840,
+        "WDS": 131303,
         "IC": 5386,
         "M": 110,  # 106 from names.dat + 4 added by post-processing (M24, M40, M45, M102)
         "C": 109,
@@ -32,6 +33,8 @@ def test_object_counts():
     }
 
     # catalog count
+    num_catalogs = len(list(db.get_catalogs()))
+    assert num_catalogs == 19
     actual_catalogs = [row["catalog_code"] for row in db.get_catalogs()]
     expected_catalogs = list(catalog_counts.keys())
     missing_catalogs = set(expected_catalogs) - set(actual_catalogs)

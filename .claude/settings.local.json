@@ -33,7 +33,8 @@
       "Bash(# Navigate to python dir and set up venv\nPYTHON_DIR=\"\"/Users/mike/dev/amateur_astro/myPiFinder/wt-radec/python\"\"\ncd \"\"$PYTHON_DIR\"\"\npython3.9 -m venv .venv\nsource .venv/bin/activate\npip install -r requirements.txt\npip install -r requirements_dev.txt)",
       "Bash(PYTHON_DIR=\"/Users/mike/dev/amateur_astro/myPiFinder/wt-radec/python\")",
       "Bash(pytest:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Read(//Users/mike/dev/amateur_astro/myPiFinder/wt-steinicke/**)"
     ],
     "deny": []
   }
