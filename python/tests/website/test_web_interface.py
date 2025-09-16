@@ -1,26 +1,6 @@
 import pytest
-from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
-
-
-@pytest.fixture
-def driver():
-    """Setup Chrome driver using Selenium Grid on localhost:4444"""
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-
-    driver = webdriver.Remote(
-        command_executor="http://192.168.178.94:4444/wd/hub", options=chrome_options
-    )
-    yield driver
-    try:
-        driver.quit()
-    except Exception:
-        pass  # Ignore errors on shutdown
 
 
 @pytest.mark.web

@@ -10,55 +10,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from web_test_utils import login_to_remote, press_keys, press_keys_and_validate, login_to_locations, login_with_password
 
 
-@pytest.fixture(scope="session")
-def shared_driver():
-    """Setup Chrome driver using Selenium Grid - configurable via environment with auto-skip if unavailable"""
-    # Get Selenium Grid URL from environment variable with fallback
-    selenium_grid_url = os.environ.get(
-        "SELENIUM_GRID_URL", "http://localhost:4444/wd/hub"
-    )
-
-    # Test if Selenium Grid is available
-    try:
-        status_url = selenium_grid_url.replace("/wd/hub", "/status")
-        response = requests.get(status_url, timeout=5)
-        if response.status_code != 200:
-            pytest.skip(
-                "Selenium Grid not available - tests require running Selenium Grid"
-            )
-    except requests.RequestException:
-        pytest.skip("Selenium Grid not available - tests require running Selenium Grid")
-
-    chrome_options = Options()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-
-    try:
-        driver = webdriver.Remote(
-            command_executor=selenium_grid_url, options=chrome_options
-        )
-    except Exception as e:
-        pytest.skip(f"Failed to connect to Selenium Grid at {selenium_grid_url}: {e}")
-
-    # Ensure desktop viewport
-    driver.set_window_size(1920, 1080)
-    yield driver
-    try:
-        driver.quit()
-    except Exception:
-        pass  # Ignore errors on shutdown
-
-
-@pytest.fixture
-def driver(shared_driver):
-    """Provide access to shared driver with cleanup between tests"""
-    # Reset to known state before each test
-    shared_driver.delete_all_cookies()
-    shared_driver.set_window_size(1920, 1080)
-    yield shared_driver
-
-
 @pytest.mark.web
 def test_locations_page_load(driver):
     """Test that the locations page loads successfully using navigation menu"""
@@ -654,6 +605,7 @@ def test_locations_add_remote(driver):
         EC.element_to_be_clickable((By.CSS_SELECTOR, confirm_delete_selector))
     )
     confirm_delete_button.click()
+    time.sleep(1)
 
     # Wait for page to refresh and load the updated table
     WebDriverWait(driver, 10).until(
