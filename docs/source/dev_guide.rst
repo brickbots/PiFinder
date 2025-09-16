@@ -373,6 +373,10 @@ If you want to test against a real PiFinder, set the ``PIFINDER_HOMEPAGE`` envir
 If you run the tests with-out a working Selenium Grid instance, the tests will all be skipped. 
 You can also run individual tests with PyTest directly, use ``SELENIUM_GRID_URL=... PIFINDER_HOMEPAGE=... pytest tests/webstite/test_file.py``.
 
+Note that due to the tests depending on the response times of the PiFinder web server and the Selenium Grid server, there may be occasional timeouts or failures.
+If you encounter such issues, simply re-run the tests. We need to strike a balance between test speed and reliability, and this may require some tuning in the future.
+Note that the tests run approximately 10 minutes.
+
 Setting up Selenium Grid
 ___________________________
 
