@@ -6,7 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from web_test_utils import login_to_network, login_with_password
+from web_test_utils import login_to_network, login_with_password, get_homepage_url
 
 """
 The test_web_network.py file contains comprehensive tests for PiFinder's network configuration web interface.
@@ -163,7 +163,7 @@ def test_network_add_form_elements(driver, window_size, viewport_name):
     _login_to_network(driver)
 
     # Navigate to add new network form
-    driver.get("http://localhost:8080/network?add_new=1")
+    driver.get(f"{get_homepage_url()}/network?add_new=1")
 
     # Check for add network form
     add_form = driver.find_element(By.ID, "new_network_form")

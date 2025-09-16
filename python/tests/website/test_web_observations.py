@@ -10,7 +10,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from web_test_utils import login_to_observations, login_with_password
+from web_test_utils import login_to_observations, login_with_password, get_homepage_url
 
 
 def _login_to_observations(driver):
@@ -162,12 +162,12 @@ def test_session_detail_navigation(driver):
         # Wait for navigation to detail page
         wait.until(
             lambda d: "/observations/" in d.current_url
-            and d.current_url != "http://localhost:8080/observations"
+            and d.current_url != f"{get_homepage_url()}/observations"
         )
 
         # Verify we're on a detail page
         assert "/observations/" in driver.current_url
-        assert driver.current_url != "http://localhost:8080/observations"
+        assert driver.current_url != f"{get_homepage_url()}/observations"
     else:
         # No data rows to click - this is acceptable for empty database
         pytest.skip("No observation sessions available to test detail navigation")
@@ -193,7 +193,7 @@ def test_session_detail_page_content(driver):
         # Wait for navigation to detail page
         wait.until(
             lambda d: "/observations/" in d.current_url
-            and d.current_url != "http://localhost:8080/observations"
+            and d.current_url != f"{get_homepage_url()}/observations"
         )
 
         # Test session detail page content
@@ -249,7 +249,7 @@ def test_session_detail_table_structure(driver):
         # Wait for navigation to detail page
         wait.until(
             lambda d: "/observations/" in d.current_url
-            and d.current_url != "http://localhost:8080/observations"
+            and d.current_url != f"{get_homepage_url()}/observations"
         )
 
         # Test detail table structure
@@ -293,7 +293,7 @@ def test_observations_list_download(driver):
     # Verify the download link has the correct href
     assert (
         download_link.get_attribute("href")
-        == "http://localhost:8080/observations?download=1"
+        == f"{get_homepage_url()}/observations?download=1"
     )
 
     # Check that the download icon is present (material-icons)
@@ -305,7 +305,7 @@ def test_observations_list_download(driver):
 
     # Make a direct request to download the file
     response = requests.get(
-        "http://localhost:8080/observations?download=1", cookies=cookies
+        f"{get_homepage_url()}/observations?download=1", cookies=cookies
     )
 
     # Verify the response
@@ -359,7 +359,7 @@ def test_observation_detail_download(driver):
         # Wait for navigation to detail page
         wait.until(
             lambda d: "/observations/" in d.current_url
-            and d.current_url != "http://localhost:8080/observations"
+            and d.current_url != f"{get_homepage_url()}/observations"
         )
 
         # Find the download link on the detail page

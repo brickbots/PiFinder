@@ -3,7 +3,7 @@ import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from web_test_utils import login_to_remote, press_keys, press_keys_and_validate
+from web_test_utils import login_to_remote, press_keys, press_keys_and_validate, get_homepage_url
 
 """
 The test_web_remote.py file contains comprehensive end-to-end tests for PiFinder's web-based remote control
@@ -80,7 +80,7 @@ def test_remote_login_and_interface(driver, window_size, viewport_name):
     driver.set_window_size(*window_size)
 
     # Navigate to localhost:8080
-    driver.get("http://localhost:8080")
+    driver.get(get_homepage_url())
 
     # Wait for the page to load by checking for the navigation
     WebDriverWait(driver, 10).until(
@@ -286,7 +286,7 @@ def test_current_selection_api_endpoint(driver):
 
     # Make request to the API endpoint
     response = requests.get(
-        "http://localhost:8080/api/current-selection", cookies=cookies
+        f"{get_homepage_url()}/api/current-selection", cookies=cookies
     )
 
     # Validate response
@@ -309,7 +309,7 @@ def test_ui_state_changes_with_button_presses(driver):
 
     # Get initial UI state
     response = requests.get(
-        "http://localhost:8080/api/current-selection", cookies=cookies
+        f"{get_homepage_url()}/api/current-selection", cookies=cookies
     )
     assert response.status_code == 200
 
@@ -322,7 +322,7 @@ def test_ui_state_changes_with_button_presses(driver):
 
     # Get updated UI state
     response = requests.get(
-        "http://localhost:8080/api/current-selection", cookies=cookies
+        f"{get_homepage_url()}/api/current-selection", cookies=cookies
     )
     assert response.status_code == 200
     updated_state = response.json()

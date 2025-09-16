@@ -7,14 +7,14 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from web_test_utils import login_to_remote, press_keys, press_keys_and_validate, login_to_locations, login_with_password
+from web_test_utils import login_to_remote, press_keys, press_keys_and_validate, login_to_locations, login_with_password, get_homepage_url
 
 
 @pytest.mark.web
 def test_locations_page_load(driver):
     """Test that the locations page loads successfully using navigation menu"""
     # Navigate to home page
-    driver.get("http://localhost:8080")
+    driver.get(get_homepage_url())
 
     # Wait for the page to load by checking for the navigation
     WebDriverWait(driver, 10).until(
@@ -78,7 +78,7 @@ def test_locations_table_present(driver):
     """Test that the locations table is present and has expected structure"""
     # Login and load locations page
     _login_to_interface(driver)
-    driver.get("http://localhost:8080/locations")
+    driver.get(f"{get_homepage_url()}/locations")
 
     # Wait for table to load
     WebDriverWait(driver, 10).until(
@@ -117,7 +117,7 @@ def test_locations_testloc_present(driver):
     """Test that checks if test locations are present in the table"""
     # Login and navigate to locations page
     _login_to_interface(driver)
-    driver.get("http://localhost:8080/locations")
+    driver.get(f"{get_homepage_url()}/locations")
 
     # Wait for table to load
     WebDriverWait(driver, 10).until(
@@ -147,7 +147,7 @@ def test_locations_add_test_locations(driver):
     """Test adding new test locations if they don't already exist"""
     # Login and navigate to locations page
     _login_to_interface(driver)
-    driver.get("http://localhost:8080/locations")
+    driver.get(f"{get_homepage_url()}/locations")
 
     # Wait for table to load
     WebDriverWait(driver, 10).until(
@@ -285,7 +285,7 @@ def test_locations_add_dms_location(driver):
     """Test adding a location using DMS (Degrees, Minutes, Seconds) format"""
     # Login and navigate to locations page
     _login_to_interface(driver)
-    driver.get("http://localhost:8080/locations")
+    driver.get(f"{get_homepage_url()}/locations")
 
     # Wait for table to load
     WebDriverWait(driver, 10).until(
@@ -379,7 +379,7 @@ def test_locations_add_dms_location(driver):
         time.sleep(2.0)
 
         # Navigate back to locations page
-        driver.get("http://localhost:8080/locations")
+        driver.get(f"{get_homepage_url()}/locations")
 
     # Verify the location was created with correct values
     WebDriverWait(driver, 10).until(
@@ -470,7 +470,7 @@ def test_locations_add_remote(driver):
     # Navigate to Save option (assuming it's available - may need to check actual menu structure)
     # Let's first check what marking menu options are available
     response = requests.get(
-        "http://localhost:8080/api/current-selection", cookies=cookies
+        f"{get_homepage_url()}/api/current-selection", cookies=cookies
     )
     assert response.status_code == 200
     data = response.json()
@@ -511,7 +511,7 @@ def test_locations_add_remote(driver):
 
     # Read the location name from current-selection API
     response = requests.get(
-        "http://localhost:8080/api/current-selection", cookies=cookies
+        f"{get_homepage_url()}/api/current-selection", cookies=cookies
     )
     assert response.status_code == 200
     data = response.json()
@@ -525,7 +525,7 @@ def test_locations_add_remote(driver):
     press_keys(driver, "LZLWDD")  # LONG+LEFT to go to main menu
 
     # Now navigate to locations page
-    driver.get("http://localhost:8080/locations")
+    driver.get(f"{get_homepage_url()}/locations")
 
     # Wait for locations table to load
     WebDriverWait(driver, 10).until(
@@ -637,7 +637,7 @@ def test_locations_default_switching(driver):
     """Test switching default locations and verifying star indicators"""
     # Login and navigate to locations page
     _login_to_interface(driver)
-    driver.get("http://localhost:8080/locations")
+    driver.get(f"{get_homepage_url()}/locations")
 
     # Wait for table to load
     WebDriverWait(driver, 10).until(
@@ -985,7 +985,7 @@ def _add_new_location(driver, location_data):
             pass
 
     # Navigate back to locations page to ensure we're in the right state
-    driver.get("http://localhost:8080/locations")
+    driver.get(f"{get_homepage_url()}/locations")
 
     # Wait for the table to be present in final state
     WebDriverWait(driver, 10).until(

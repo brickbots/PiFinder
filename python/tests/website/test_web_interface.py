@@ -1,13 +1,14 @@
 import pytest
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
+from web_test_utils import get_homepage_url
 
 
 @pytest.mark.web
 def test_webpage_loads_and_displays_image(driver):
     """Test that the PiFinder web interface loads and displays an image"""
     # Navigate to localhost:8080
-    driver.get("http://localhost:8080")
+    driver.get(get_homepage_url())
 
     # Wait for the page to load and check title
     WebDriverWait(driver, 10).until(lambda d: d.title != "")
@@ -40,7 +41,7 @@ def test_webpage_loads_and_displays_image(driver):
 @pytest.mark.web
 def test_mode_element_present(driver):
     """Test that Mode information is displayed on the page"""
-    driver.get("http://localhost:8080")
+    driver.get(get_homepage_url())
 
     # Wait for page to load
     WebDriverWait(driver, 10).until(lambda d: d.title != "")
@@ -53,7 +54,7 @@ def test_mode_element_present(driver):
 @pytest.mark.web
 def test_lat_lon_elements_present(driver):
     """Test that Latitude and Longitude information is displayed on the page"""
-    driver.get("http://localhost:8080")
+    driver.get(get_homepage_url())
 
     # Wait for page to load
     WebDriverWait(driver, 10).until(lambda d: d.title != "")
@@ -67,7 +68,7 @@ def test_lat_lon_elements_present(driver):
 @pytest.mark.web
 def test_sky_position_element_present(driver):
     """Test that Sky Position information is displayed on the page"""
-    driver.get("http://localhost:8080")
+    driver.get(get_homepage_url())
 
     # Wait for page to load
     WebDriverWait(driver, 10).until(lambda d: d.title != "")
@@ -84,7 +85,7 @@ def test_sky_position_element_present(driver):
 @pytest.mark.web
 def test_software_version_element_present(driver):
     """Test that Software Version information is displayed on the page"""
-    driver.get("http://localhost:8080")
+    driver.get(get_homepage_url())
 
     # Wait for page to load
     WebDriverWait(driver, 10).until(lambda d: d.title != "")
@@ -99,7 +100,7 @@ def test_software_version_element_present(driver):
 @pytest.mark.web
 def test_all_main_elements_present(driver):
     """Test that all main UI elements are present in the status table"""
-    driver.get("http://localhost:8080")
+    driver.get(get_homepage_url())
 
     # Wait for page to load
     WebDriverWait(driver, 10).until(lambda d: d.title != "")

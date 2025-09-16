@@ -4,7 +4,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from web_test_utils import login_to_equipment, login_with_password
+from web_test_utils import login_to_equipment, login_with_password, get_homepage_url
 
 """
 The test_web_equipment.py file contains comprehensive tests for PiFinder's equipment management web interface.
@@ -62,7 +62,7 @@ def test_equipment_navigation_from_home(driver, window_size, viewport_name):
     driver.set_window_size(*window_size)
 
     # Navigate to home page
-    driver.get("http://localhost:8080")
+    driver.get(get_homepage_url())
 
     # Wait for the page to load by checking for the navigation
     WebDriverWait(driver, 10).until(

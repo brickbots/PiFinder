@@ -3,7 +3,7 @@ import os
 import requests
 from selenium.webdriver.chrome.options import Options
 from selenium import webdriver
-
+from .web_test_utils import get_homepage_url
 
 @pytest.fixture(scope="session")
 def shared_driver():

@@ -9,7 +9,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from web_test_utils import login_to_tools, login_with_password
+from web_test_utils import login_to_tools, login_with_password, get_homepage_url
 
 
 def _login_to_tools(driver):
@@ -41,7 +41,7 @@ def test_tools_navigation_from_home(driver, window_size, viewport_name):
     driver.set_window_size(*window_size)
 
     # Navigate to home page
-    driver.get("http://localhost:8080")
+    driver.get(get_homepage_url())
 
     # Wait for the page to load by checking for the navigation
     WebDriverWait(driver, 10).until(
@@ -222,7 +222,7 @@ def test_download_user_data_section_elements(driver):
         By.XPATH, "//a[contains(text(), 'Download Backup File')]"
     )
     assert download_button is not None, "Download backup file button not found"
-    assert download_button.get_attribute("href") == "http://localhost:8080/tools/backup"
+    assert download_button.get_attribute("href") == f"{get_homepage_url()}/tools/backup"
 
 
 @pytest.mark.web
