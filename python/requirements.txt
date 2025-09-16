@@ -1,6 +1,5 @@
 adafruit-blinka==8.12.0
 adafruit-circuitpython-bno055
-bottle==0.12.25
 cheroot==10.0.0
 Flask==3.0.3
 flask-babel==4.0.0
