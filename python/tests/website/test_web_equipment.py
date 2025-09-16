@@ -1,7 +1,6 @@
 import pytest
 import time
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from web_test_utils import login_to_equipment, login_with_password, get_homepage_url
@@ -576,7 +575,7 @@ def test_equipment_select_active_eyepiece(driver):
 def _login_to_equipment(driver):
     """Helper function to login and navigate to equipment interface"""
     login_to_equipment(driver)
-    
+
     # Check if we need to login (redirected to login page)
     try:
         # Wait briefly to see if login form appears

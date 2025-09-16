@@ -9,11 +9,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+
 def get_homepage_url():
     """
     Helper function to get the homepage URL from environment variable or default
     """
     return os.environ.get("PIFINDER_HOMEPAGE", "http://localhost:8080")
+
 
 def login_to_remote(driver):
     """Helper function to login to remote interface"""
@@ -129,6 +131,7 @@ def press_keys_and_validate(driver, keys, expected_values):
 
     # Recursively compare expected values with actual response
     recursive_dict_compare(data, expected_values)
+
 
 def navigate_to_page(driver, page_path):
     """

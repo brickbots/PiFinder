@@ -3,7 +3,12 @@ import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from web_test_utils import login_to_remote, press_keys, press_keys_and_validate, get_homepage_url
+from web_test_utils import (
+    login_to_remote,
+    press_keys,
+    press_keys_and_validate,
+    get_homepage_url,
+)
 
 """
 The test_web_remote.py file contains comprehensive end-to-end tests for PiFinder's web-based remote control

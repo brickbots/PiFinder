@@ -3,7 +3,7 @@ import os
 import requests
 from selenium.webdriver.chrome.options import Options
 from selenium import webdriver
-from web_test_utils import get_homepage_url
+
 
 @pytest.fixture(scope="session")
 def shared_driver():
@@ -52,4 +52,3 @@ def driver(shared_driver):
     shared_driver.delete_all_cookies()
     shared_driver.set_window_size(1920, 1080)
     yield shared_driver
-

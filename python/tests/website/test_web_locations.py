@@ -1,13 +1,17 @@
 import pytest
 import time
-import os
 import requests
-from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from web_test_utils import login_to_remote, press_keys, press_keys_and_validate, login_to_locations, login_with_password, get_homepage_url
+from web_test_utils import (
+    login_to_remote,
+    press_keys,
+    press_keys_and_validate,
+    login_to_locations,
+    login_with_password,
+    get_homepage_url,
+)
 
 
 @pytest.mark.web
@@ -434,7 +438,6 @@ def test_locations_add_dms_location(driver):
 @pytest.mark.web
 def test_locations_add_remote(driver):
     """Test adding a location through remote interface using GPS Status marking menu"""
-    import requests
 
     # Login to remote interface
     login_to_remote(driver)
@@ -862,7 +865,7 @@ def test_locations_default_switching(driver):
 def _login_to_interface(driver):
     """Helper function to login to web interface"""
     login_to_locations(driver)
-    
+
     # Check if we need to login (redirected to login page)
     try:
         # Wait briefly to see if login form appears

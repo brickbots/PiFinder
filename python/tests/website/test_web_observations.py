@@ -3,11 +3,8 @@ Test the observations page functionality.
 """
 
 import pytest
-import os
 import requests
-from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from web_test_utils import login_to_observations, login_with_password, get_homepage_url
@@ -16,14 +13,14 @@ from web_test_utils import login_to_observations, login_with_password, get_homep
 def _login_to_observations(driver):
     """Helper function to login and navigate to observations page"""
     login_to_observations(driver)
-    
+
     # Check if we need to login (redirected to login page)
     try:
         # Wait briefly to see if login form appears
         WebDriverWait(driver, 2).until(
             EC.presence_of_element_located((By.ID, "password"))
         )
-        # We're on the login page, use centralized login function  
+        # We're on the login page, use centralized login function
         login_with_password(driver)
         # Wait for redirect back to observations page after successful login
         WebDriverWait(driver, 10).until(lambda d: "/observations" in d.current_url)
@@ -276,7 +273,6 @@ def test_session_detail_table_structure(driver):
 @pytest.mark.web
 def test_observations_list_download(driver):
     """Test that clicking download button on observations list page downloads a valid TSV file."""
-    import requests
 
     _login_to_observations(driver)
 
@@ -340,7 +336,6 @@ def test_observations_list_download(driver):
 @pytest.mark.web
 def test_observation_detail_download(driver):
     """Test that clicking download button on observation detail page downloads a valid session TSV file."""
-    import requests
 
     _login_to_observations(driver)
 

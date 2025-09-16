@@ -1,14 +1,15 @@
 import pytest
 import requests
 import time
-import os
-from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
-from web_test_utils import login_to_logs as util_login_to_logs, login_with_password, get_homepage_url
+from web_test_utils import (
+    login_to_logs as util_login_to_logs,
+    login_with_password,
+    get_homepage_url,
+)
 
 
 def login_to_logs(driver):
@@ -401,7 +402,7 @@ def test_component_level_selection(driver):
     # Select a component (skip the first option which is "Select Component")
     options = component_select.options
     if len(options) > 1:
-        component_select.select_by_index(2) # First one might be empty
+        component_select.select_by_index(2)  # First one might be empty
 
         # Component level select should now be visible
         WebDriverWait(driver, 5).until(
@@ -409,7 +410,7 @@ def test_component_level_selection(driver):
                 "display"
             )
             != "none"
-        ) # If this wait fails, the selection box to set the components log level did not appear
+        )  # If this wait fails, the selection box to set the components log level did not appear
 
 
 @pytest.mark.web

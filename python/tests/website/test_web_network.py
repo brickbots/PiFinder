@@ -1,9 +1,5 @@
 import pytest
-import os
-import requests
-from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from web_test_utils import login_to_network, login_with_password, get_homepage_url
@@ -420,12 +416,12 @@ def test_network_update_and_restart_flow(driver):
 def _login_to_network(driver):
     """Helper function to login and navigate to network interface"""
     login_to_network(driver)
-    
+
     # Wait for login page to load
     WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "password")))
-    
+
     # Use centralized login function
     login_with_password(driver)
-    
+
     # Wait for network page to load after successful login
     WebDriverWait(driver, 10).until(lambda driver: "/network" in driver.current_url)
