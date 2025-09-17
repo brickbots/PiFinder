@@ -172,10 +172,10 @@ def test_remote_keyboard_elements_present(driver, window_size, viewport_name):
     # Expected keyboard elements based on remote.html
     expected_buttons = {
         # Arrow keys
-        "←": "A",
-        "↑": "B",
-        "↓": "C",
-        "→": "D",
+        "←": "LEFT",
+        "↑": "UP",
+        "↓": "DOWN",
+        "→": "RIGHT",
         # Numbers 0-9
         "0": "0",
         "1": "1",
@@ -188,8 +188,8 @@ def test_remote_keyboard_elements_present(driver, window_size, viewport_name):
         "8": "8",
         "9": "9",
         # Plus and minus
-        "+": "UP",
-        "-": "DN",
+        "+": "PLUS",
+        "-": "MINUS",
         # Square
         "■": "SQUARE",
         # ENT
@@ -256,19 +256,19 @@ def test_remote_all_elements_comprehensive(driver, window_size, viewport_name):
         assert button is not None, f"Number button {num} not found"
 
     # Check arrow buttons
-    arrow_buttons = [("←", "A"), ("↑", "B"), ("↓", "C"), ("→", "D")]
+    arrow_buttons = [("←", "LEFT"), ("↑", "UP"), ("↓", "DOWN"), ("→", "RIGHT")]
     for arrow_text, button_id in arrow_buttons:
         button = driver.find_element(By.ID, button_id)
         assert button is not None, f"Arrow button {arrow_text} not found"
 
     # Check plus/minus buttons
-    plus_button = driver.find_element(By.ID, "UP")
-    minus_button = driver.find_element(By.ID, "DN")
+    plus_button = driver.find_element(By.ID, "PLUS")
+    minus_button = driver.find_element(By.ID, "MINUS")
     assert plus_button is not None, "Plus button not found"
     assert minus_button is not None, "Minus button not found"
 
     # Check square button
-    square_button = driver.find_element(By.ID, "SQ")
+    square_button = driver.find_element(By.ID, "SQUARE")
     assert square_button is not None, "Square button not found"
 
     # Check special buttons
@@ -319,7 +319,7 @@ def test_ui_state_changes_with_button_presses(driver):
     assert response.status_code == 200
 
     # Press a button (e.g., right arrow to navigate menu)
-    right_button = driver.find_element(By.ID, "D")
+    right_button = driver.find_element(By.ID, "RIGHT")
     right_button.click()
 
     # Wait a moment for the UI to update

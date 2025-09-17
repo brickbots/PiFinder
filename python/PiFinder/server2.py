@@ -108,26 +108,26 @@ class Server2:
         self.altitude = None
         self.gps_locked = False
 
-        button_dict = {
-            "UP": self.ki.PLUS,
-            "DN": self.ki.MINUS,
+        self.button_dict = {
+            "PLUS": self.ki.PLUS,
+            "MINUS": self.ki.MINUS,
             "SQUARE": self.ki.SQUARE,
-            "A": self.ki.LEFT,
-            "B": self.ki.UP,
-            "C": self.ki.DOWN,
-            "D": self.ki.RIGHT,
-            "ALT_UP": self.ki.ALT_PLUS,
-            "ALT_DN": self.ki.ALT_MINUS,
-            "ALT_A": self.ki.ALT_LEFT,
-            "ALT_B": self.ki.ALT_UP,
-            "ALT_C": self.ki.ALT_DOWN,
-            "ALT_D": self.ki.ALT_RIGHT,
+            "LEFT": self.ki.LEFT,
+            "UP": self.ki.UP,
+            "DOWN": self.ki.DOWN,
+            "RIGHT": self.ki.RIGHT,
+            "ALT_PLUS": self.ki.ALT_PLUS,
+            "ALT_MINUS": self.ki.ALT_MINUS,
+            "ALT_LEFT": self.ki.ALT_LEFT,
+            "ALT_UP": self.ki.ALT_UP,
+            "ALT_DOWN": self.ki.ALT_DOWN,
+            "ALT_RIGHT": self.ki.ALT_RIGHT,
             "ALT_0": self.ki.ALT_0,
             # "ALT_SQUARE": self.ki.ALT_SQUARE,
-            "LNG_A": self.ki.LNG_LEFT,
-            "LNG_B": self.ki.LNG_UP,
-            "LNG_C": self.ki.LNG_DOWN,
-            "LNG_D": self.ki.LNG_RIGHT,
+            "LNG_LEFT": self.ki.LNG_LEFT,
+            "LNG_UP": self.ki.LNG_UP,
+            "LNG_DOWN": self.ki.LNG_DOWN,
+            "LNG_RIGHT": self.ki.LNG_RIGHT,
             "LNG_SQUARE": self.ki.LNG_SQUARE,
         }
 
@@ -1055,8 +1055,8 @@ class Server2:
         @auth_required
         def key_callback():
             button = request.json.get("button")
-            if button in button_dict:
-                self.key_callback(button_dict[button])
+            if button in self.button_dict:
+                self.key_callback(self.button_dict[button])
             else:
                 self.key_callback(int(button))
             return jsonify({"message": "success"})
