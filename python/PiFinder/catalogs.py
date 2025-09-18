@@ -342,8 +342,18 @@ class CatalogBase:
     def check_sequences(self):
         sequences = [x.sequence for x in self.get_objects()]
         if not len(sequences) == len(set(sequences)):
-            logger.error("Duplicate sequence catalog %s!", self.catalog_code)
+            #duplicate sequence numbers found in a catalog, print out the duplicate sequence numbers
+            seen = set()
+            duplicates = []
+            for i in sequences:
+                if i in seen:
+                    duplicates.append(i)
+                else:
+                    seen.add(i)
+            logger.error("Duplicate sequence catalog %s - duplicate sequence numbers %s", self.catalog_code, duplicates)
             return False
+        return True
+
         return True
 
     def _update_id_to_pos(self):

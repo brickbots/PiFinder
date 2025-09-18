@@ -4,6 +4,7 @@ and importers used during catalog setup
 
 """
 
+
 import csv
 import json
 import argparse
@@ -357,7 +358,7 @@ def load_egc():
     delete_catalog_from_database(catalog)
 
     insert_catalog(catalog, Path(utils.astro_data_dir, "EGC.desc"))
-    egc = Path(utils.astro_data_dir, "egc.tsv")
+    egc = Path(utils.astro_data_dir, "EGC.tsv")
     with open(egc, "r") as df:
         # skip title line
         df.readline()
@@ -1334,6 +1335,39 @@ def load_abell():
     insert_catalog_max_sequence(catalog)
     conn.commit()
 
+def load_hartung():
+    logging.info("Loading Hartung")
+    catalog = "Har"
+
+    conn, _ = objects_db.get_conn_cursor()
+    data = Path(utils.astro_data_dir, "hartung.tsv")
+    delete_catalog_from_database(catalog)
+    insert_catalog(catalog, Path(utils.astro_data_dir) / "hartung.desc")
+
+    # Open the file for reading
+    with open(data, "r") as file:
+        # Iterate over each line in the file
+        for line in tqdm(list(file)[1:]):
+            split_line = line.split("\t")
+            # Extract the relevant parts of each line based on byte positions
+            aka_names = [f"{split_line[2].strip()}"]
+
+            new_object = NewCatalogObject(
+                object_type=(split_line[7].strip()),
+                catalog_code=catalog,
+                sequence=int(split_line[0].strip()),
+                ra=float(split_line[3].strip()),
+                dec=float(split_line[4].strip()),
+                mag=MagnitudeObject([float(split_line[5].strip())]),
+                size=split_line[6].strip(),
+                aka_names=aka_names,
+            )
+
+            new_object.insert()
+
+    insert_catalog_max_sequence(catalog)
+    conn.commit()
+
 
 def load_ngc_catalog():
     logging.info("Loading NGC catalog")
@@ -1547,6 +1581,7 @@ if __name__ == "__main__":
     load_abell()
     load_arp()
     load_tlk_90_vars()
+    load_hartung()
 
     # Fix data issues
     fix_object_types()
