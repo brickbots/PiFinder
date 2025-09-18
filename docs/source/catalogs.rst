@@ -77,3 +77,8 @@ Arp
 ----
 Atlas of Peculiar Galaxies    (Arp 1966)
 Select galaxies with interest morhphology.  See `Wikipedia - Atlas of Peculiar Galaxies <https://en.wikipedia.org/wiki/Atlas_of_Peculiar_Galaxies>`_
+
+Hartung
+----------
+Hartung Astronomical objects for Southern Telescopes
+
