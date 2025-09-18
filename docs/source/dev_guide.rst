@@ -143,13 +143,25 @@ For this install sphinx using pip:
 
 .. code-block::
 
-    pip install -r sphinx sphinx_rtd_theme
+    pip install sphinx sphinx_rtd_theme
 
-You can then use the supplied ``Makefile`` to build a html tree using ``make html`` and running a http server in the directory with the files: 
+You can then use ``python conf.py`` to set environment variables and the ``sphinx-build`` command to build a html tree: 
 
 .. code-block::
 
-    cd build/html; python -m http.server
+    cd docs/source
+    python conf.py
+    sphinx-build -M html . build
+
+
+Once completed you can run a http server in the directory with the files: 
+
+.. code-block::
+
+    cd build/html
+    python -m http.server
+
+You can now browse the webserver and review the documentation locally.
 
 
 Internationalization
@@ -234,6 +246,9 @@ be fully integrated into your windows desktop.
 
 To get started, fork the repo and set up your virtual environment system of choice
 using Python 3.9.  Then follow some of the steps below!
+
+**Remember to install both Python 3.9 and the Python 3.9 dev packages!**
+
 
 Install python dependencies
 ...........................
