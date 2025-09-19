@@ -494,7 +494,7 @@ def main(
                 try:
                     console_msg = console_queue.get(block=False)
                     if console_msg.startswith("DEGRADED_OPS"):
-                        menu_manager.message("Degraded Operation.\nCheck Status", 5)
+                        menu_manager.message(_("Degraded\nCheck Status"), 5)
                         time.sleep(5)
                     else:
                         console.write(console_msg)
