@@ -81,17 +81,18 @@ class Server:
             "B": self.ki.UP,
             "C": self.ki.DOWN,
             "D": self.ki.RIGHT,
-            "ALT_PLUS": self.ki.ALT_PLUS,
-            "ALT_MINUS": self.ki.ALT_MINUS,
-            "ALT_LEFT": self.ki.ALT_LEFT,
-            "ALT_UP": self.ki.ALT_UP,
-            "ALT_DOWN": self.ki.ALT_DOWN,
-            "ALT_RIGHT": self.ki.ALT_RIGHT,
+            "ALT_UP": self.ki.ALT_PLUS,
+            "ALT_DN": self.ki.ALT_MINUS,
+            "ALT_A": self.ki.ALT_LEFT,
+            "ALT_B": self.ki.ALT_UP,
+            "ALT_C": self.ki.ALT_DOWN,
+            "ALT_D": self.ki.ALT_RIGHT,
             "ALT_0": self.ki.ALT_0,
-            "LNG_LEFT": self.ki.LNG_LEFT,
-            "LNG_UP": self.ki.LNG_UP,
-            "LNG_DOWN": self.ki.LNG_DOWN,
-            "LNG_RIGHT": self.ki.LNG_RIGHT,
+            "ALT_SQUARE": self.ki.ALT_SQUARE,
+            "LNG_A": self.ki.LNG_LEFT,
+            "LNG_B": self.ki.LNG_UP,
+            "LNG_C": self.ki.LNG_DOWN,
+            "LNG_D": self.ki.LNG_RIGHT,
             "LNG_SQUARE": self.ki.LNG_SQUARE,
         }
 
@@ -915,6 +916,25 @@ class Server:
             else:
                 self.key_callback(int(button))
             return {"message": "success"}
+
+        @app.route("/api/current-selection")
+        @auth_required
+        def current_selection():
+            """
+            Returns information about the currently active UI item for testing purposes
+            """
+            try:
+                ui_state_data = self.shared_state.current_ui_state()
+                if ui_state_data is None:
+                    return {"error": "UI state not available"}
+
+                response.content_type = "application/json"
+                return ui_state_data
+
+            except Exception as e:
+                logger.error(f"Error getting current UI state: {e}")
+                response.content_type = "application/json"
+                return {"error": str(e)}
 
         @app.route("/image")
         def serve_pil_image():

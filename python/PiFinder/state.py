@@ -224,6 +224,7 @@ class SharedStateObj:
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
         self.__tz_finder = TimezoneFinder()
+        self.__current_ui_state = None
 
     def serialize(self, output_file):
         with open(output_file, "wb") as f:
@@ -354,6 +355,12 @@ class SharedStateObj:
 
     def set_ui_state(self, v):
         self.__ui_state = v
+
+    def current_ui_state(self):
+        return self.__current_ui_state
+
+    def set_current_ui_state(self, v):
+        self.__current_ui_state = v
 
     def __repr__(self):
         # A simple representation showing key attributes (adjust as needed)
