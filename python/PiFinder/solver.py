@@ -37,6 +37,7 @@ def solver(
     align_command_queue,
     align_result_queue,
     is_debug=False,
+    max_imu_ang_during_exposure=1.0,  # Max allowed turn during exp [degrees]
 ):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting Solver")
@@ -46,6 +47,7 @@ def solver(
     last_solve_time = 0
     align_ra = 0
     align_dec = 0
+    # TODO: This dictionary is duplicated in integrator.py. Need to rationalize?
     solved = {
         # RA, Dec, Roll solved at the center of the camera FoV
         # update by integrator
@@ -128,7 +130,7 @@ def solver(
                     logger.error(f"Lost connection to shared state manager: {e}")
                 if (
                     last_image_metadata["exposure_end"] > (last_solve_time)
-                    and last_image_metadata["imu_delta"] < 1
+                    and last_image_metadata["imu_delta"] < max_imu_ang_during_exposure
                 ):
                     img = camera_image.copy()
                     img = img.convert(mode="L")
