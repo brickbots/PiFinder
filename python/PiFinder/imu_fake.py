@@ -16,10 +16,11 @@ MOVE_CHECK_LEN = 10
 
 
 class Imu:
-    """ A fake IMU class for testing without hardware
+    """A fake IMU class for testing without hardware
     This class mimics the interface of the real IMU class, but does not read from actual hardware.
     It _is_ used in the real IMU class, in case the physical IMU is not available.
     """
+
     def __init__(self):
         self._moving = False
         self._flip = False

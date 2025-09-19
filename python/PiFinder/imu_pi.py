@@ -177,7 +177,7 @@ def imu_monitor(shared_state, console_queue, log_queue):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting IMU")
     imu = None
-    try: 
+    try:
         imu = Imu()
     except Exception as e:
         logger.error(f"Error starting phyiscal IMU : {e}")
@@ -185,6 +185,7 @@ def imu_monitor(shared_state, console_queue, log_queue):
         console_queue.put("IMU: Error starting physical IMU, using fake IMU")
         console_queue.put("DEGRADED_OPS IMU")
         from PiFinder.imu_fake import Imu as ImuFake
+
         imu = ImuFake()
 
     imu = Imu()
@@ -232,11 +233,10 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     logger.info("Trying to read state from IMU")
     imu = None
-    try: 
+    try:
         imu = Imu()
         for i in range(10):
             imu.update()
             time.sleep(0.5)
     except Exception as e:
-        logger.exception(f"Error starting phyiscal IMU", e)
-
+        logger.exception("Error starting phyiscal IMU", e)
