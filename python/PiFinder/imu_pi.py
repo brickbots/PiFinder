@@ -182,6 +182,8 @@ def imu_monitor(shared_state, console_queue, log_queue):
     except Exception as e:
         logger.error(f"Error starting phyiscal IMU : {e}")
         logger.error("Falling back to fake IMU")
+        console_queue.put("IMU: Error starting physical IMU, using fake IMU")
+        console_queue.put("DEGRADED_OPS IMU")
         from PiFinder.imu_fake import Imu as ImuFake
         imu = ImuFake()
 
