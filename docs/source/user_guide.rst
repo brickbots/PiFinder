@@ -33,7 +33,7 @@ In order to direct you to wonders of the night sky, the PiFinder needs
 to know where your telescope is currently pointed.  The primary way it does this 
 is directly, by taking photos of the night sky and examining the star patterns 
 to determine what section of the sky it's seeing.  It can do 
-this incredibly fast (up to two times per second!) and very accurately.  
+this incredibly fast (up to 20 times per second!) and very accurately.  
 This only works well if your telescope is not moving, so it couples this 
 very accurate system with an accelerometer to provide an estimate of how far your telescope 
 has moved from the last known position.  This estimate will contain some error, 
