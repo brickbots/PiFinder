@@ -432,6 +432,10 @@ pifinder_menu = {
                             "name": _("Comet"),
                             "value": "CM",
                         },
+                        {
+                            "name": _("Unknown"),
+                            "value": "?",
+                        },
                     ],
                 },
                 {
