@@ -7,17 +7,18 @@ README: IMU support prototyping
 
 >Remove this before release!
 
+See Discord thread: https://discord.com/channels/1087556380724052059/1406599296002035895
+
 Issues:
-* Doesn't run wih v3 Flat. Issue in main branch?
-* Issue in requirements? Can't get it to work in a new env.
+* Doesn't run wih v3 Flat. Issue in main branch? (reported by grimaldi: 20 Aug 2025 https://discord.com/channels/1087556380724052059/1406599296002035895/1407813498163167345)
+* Issue in the default requirements? Error (not related to the IMU changes) when I try to create a new env using requirements.txt. Maybe I can't just create a new environment using pip?
 * Doesn't pass Nox
 * In EQ mode flickers between 0° and 359°. This is also in the main branch.
 
 TODO:
-* Use RaDecRoll class --> Done. Need to test.
 * Use alignment rather than calculating every loop
 * Go through TODOs in code
-* Discuss requirements.txt with Richard
+* Discuss requirements.txt with Richard: It needs numpy quaternion. Can this just be added to the requirements.txt?
 
 Later:
 * Update imu_pi.py
@@ -27,6 +28,7 @@ Done:
 * Adjust Roll depending on mount_type for charts
 * Lint
 * Type hints for integrator.py
+* Use RaDecRoll class --> Done. Need to test.
 
 
 # Sky test log
