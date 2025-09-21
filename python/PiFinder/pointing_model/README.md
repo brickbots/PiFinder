@@ -16,9 +16,13 @@ Issues:
 * In EQ mode flickers between 0° and 359°. This is also in the main branch.
 
 TODO:
-* Use alignment rather than calculating every loop
+* Set alignment once at alignment rather than calculating it every loop
+    * Alignment is currently done in `integrator.py` where `set_alignment()` is
+    called every iteration of the loop. Would like to set the alignment onece
+    to pre-compute the `q_scope2cam` quaternion, etc.
 * Go through TODOs in code
-* Discuss requirements.txt with Richard: It needs numpy quaternion. Can this just be added to the requirements.txt?
+* Discuss requirements.txt with Richard
+  * It needs numpy quaternion. Can this just be added to the requirements.txt?
 
 Later:
 * Update imu_pi.py
@@ -29,7 +33,6 @@ Done:
 * Lint
 * Type hints for integrator.py
 * Use RaDecRoll class --> Done. Need to test.
-
 
 # Sky test log
 
