@@ -214,6 +214,12 @@ pifinder_menu = {
                                     "objects": "catalog",
                                     "value": "RDS",
                                 },
+                                # {
+                                #    "name": _("WDS Doubles"),
+                                #    "class": UIObjectList,
+                                #    "objects": "catalog",
+                                #    "value": "WDS",
+                                # },
                                 {
                                     "name": _("WDS Doubles"),
                                     "class": UIObjectList,
@@ -431,6 +437,10 @@ pifinder_menu = {
                         {
                             "name": _("Comet"),
                             "value": "CM",
+                        },
+                        {
+                            "name": _("Unknown"),
+                            "value": "?",
                         },
                     ],
                 },
@@ -898,8 +908,8 @@ pifinder_menu = {
                             "value": "flat",
                         },
                         {
-                            "name": _("AS Dream"),
-                            "value": "as_dream",
+                            "name": _("AS Bloom"),
+                            "value": "as_bloom",
                         },
                     ],
                 },

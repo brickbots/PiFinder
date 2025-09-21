@@ -57,6 +57,8 @@ def test_missing_catalog_data():
         assert obj["ra"] != 0
         assert obj["dec"] != 0
         assert obj["const"] != ""
+        assert obj["ra"] is not None
+        assert obj["dec"] is not None
 
 
 def coords_are_close(coord1, coord2, tolerance=0.02):
