@@ -67,10 +67,7 @@ class ImuDeadReckoning:
         # IMU-to-camera orientation. Fixed by PiFinder type
         self._set_screen_direction(screen_direction)
 
-    def set_alignment(
-            self, 
-            solved_cam: RaDecRoll, 
-            solved_scope: RaDecRoll):
+    def set_alignment(self, solved_cam: RaDecRoll, solved_scope: RaDecRoll):
         """
         Set the alignment between the PiFinder camera center and the scope
         pointing.
