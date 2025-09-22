@@ -163,11 +163,6 @@ def imu_monitor(shared_state, console_queue, log_queue):
         "moving": False,
         "move_start": None,
         "move_end": None,
-        "pos": [
-            0,
-            0,
-            0,
-        ],  # Corresponds to [Az, related_to_roll, Alt] --> **TO REMOVE LATER
         "quat": np.quaternion(
             0, 0, 0, 0
         ),  # Scalar-first numpy quaternion(w, x, y, z) - Init to invalid quaternion
@@ -184,10 +179,8 @@ def imu_monitor(shared_state, console_queue, log_queue):
             if not imu_data["moving"]:
                 logger.debug("IMU: move start")
                 imu_data["moving"] = True
-                imu_data["start_pos"] = imu_data["pos"]
                 imu_data["move_start"] = time.time()
             # DISABLE old method
-            # imu_data["pos"] = imu.get_euler()  # TODO: Remove this later. Was used to store Euler angles
             imu_data["quat"] = quaternion.from_float_array(
                 imu.avg_quat
             )  # Scalar-first (w, x, y, z)
@@ -197,8 +190,6 @@ def imu_monitor(shared_state, console_queue, log_queue):
                 logger.debug("IMU: move end")
                 imu_data["moving"] = False
                 imu_data["move_end"] = time.time()
-                # DISABLE old method
-                # imu_data["pos"] = imu.get_euler()
                 imu_data["quat"] = quaternion.from_float_array(
                     imu.avg_quat
                 )  # Scalar-first (w, x, y, z)

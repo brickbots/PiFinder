@@ -145,7 +145,6 @@ def initialized_solved_dict() -> dict:
             "Roll": None,
         },
         "Roll_offset": 0,  # May/may not be needed - for experimentation
-        "imu_pos": None,
         "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first) - TODO: Move to "imu"
         "Alt": None,  # Alt of scope
         "Az": None,
