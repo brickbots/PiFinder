@@ -12,7 +12,6 @@ import adafruit_bno055
 import logging
 import numpy as np
 import quaternion  # Numpy quaternion
-from scipy.spatial.transform import Rotation
 
 logger = logging.getLogger("IMU.pi")
 
