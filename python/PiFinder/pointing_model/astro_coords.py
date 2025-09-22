@@ -118,7 +118,7 @@ class RaDecRoll:
         return ra, dec, roll
 
 
-def get_initialized_solved_dict() -> dict:
+def initialized_solved_dict() -> dict:
     """
     Returns an initialized 'solved' dictionary with cooridnate and other
     information.
