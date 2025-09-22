@@ -128,9 +128,12 @@ def initialized_solved_dict() -> dict:
     # TODO: This dict is duplicated in solver.py - Refactor?
     # "Alt" and "Az" could be removed once we move to Eq-based dead-reckoning
     solved = {
-        "RA": None,  # RA of scope
+        # RA, Dec, Roll of the scope at the target pixel
+        "RA": None,  
         "Dec": None,
         "Roll": None,
+        # RA, Dec, Roll solved at the center of the camera FoV
+        # update by the IMU in the integrator
         "camera_center": {
             "RA": None,
             "Dec": None,
@@ -138,7 +141,8 @@ def initialized_solved_dict() -> dict:
             "Alt": None,  # NOTE: Altaz needed by catalogs for altaz mounts
             "Az": None,
         },
-        "camera_solve": {  # camera_solve is NOT updated by IMU dead-reckoning
+        # RA, Dec, Roll from the camera, not updated by IMU in integrator
+        "camera_solve": {  
             "RA": None,
             "Dec": None,
             "Roll": None,

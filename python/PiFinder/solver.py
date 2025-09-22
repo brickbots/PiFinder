@@ -20,6 +20,7 @@ import threading
 
 from PiFinder import state_utils
 from PiFinder import utils
+from PiFinder.pointing_model.astro_coords import initialized_solved_dict
 
 sys.path.append(str(utils.tetra3_dir))
 import tetra3
@@ -47,30 +48,8 @@ def solver(
     last_solve_time = 0
     align_ra = 0
     align_dec = 0
-    # TODO: This dictionary is duplicated in integrator.py. Need to rationalize?
-    solved = {
-        # RA, Dec, Roll solved at the center of the camera FoV
-        # update by the IMU in the integrator
-        "camera_center": {
-            "RA": None,
-            "Dec": None,
-            "Roll": None,
-            "Alt": None,
-            "Az": None,
-        },
-        # RA, Dec, Roll from the camera, not affected by IMU in integrator
-        "camera_solve": {
-            "RA": None,
-            "Dec": None,
-            "Roll": None,
-        },
-        # RA, Dec, Roll at the target pixel
-        "RA": None,
-        "Dec": None,
-        "Roll": None,
-        "solve_time": None,
-        "cam_solve_time": 0,
-    }
+    # Dict of RA, Dec, etc. initialized to None:
+    solved = initialized_solved_dict()
 
     centroids = []
     log_no_stars_found = True
