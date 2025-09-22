@@ -20,7 +20,6 @@ TODO:
     * Alignment is currently done in `integrator.py` where `set_alignment()` is
     called every iteration of the loop. Would like to set the alignment onece
     to pre-compute the `q_scope2cam` quaternion, etc.
-* Go through TODOs in code
 * Discuss requirements.txt with Richard
   * It needs numpy quaternion. Can this just be added to the requirements.txt?
 
@@ -33,6 +32,7 @@ Done:
 * Lint
 * Type hints for integrator.py
 * Use RaDecRoll class --> Done. Need to test.
+* Go through TODOs in code
 
 # Sky test log
 
