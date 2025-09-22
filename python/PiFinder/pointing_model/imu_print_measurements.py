@@ -135,11 +135,6 @@ class ImuSimple:
             if self.__reading_diff > self.__moving_threshold[0]:
                 self.__moving = True
 
-    def get_euler(self):
-        return list(
-            self.quat_to_euler(self.avg_quat)
-        )  # !! Expect scalar-last but avg_quat is scalar-first??
-
 
 def imu_monitor():
     # MultiprocLogging.configurer(log_queue)

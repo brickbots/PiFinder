@@ -50,17 +50,6 @@ class Imu:
         # to stop moving.
         self.__moving_threshold = (0.0005, 0.0003)
 
-    def quat_to_euler(self, quat):
-        if quat[0] + quat[1] + quat[2] + quat[3] == 0:
-            return 0, 0, 0
-        rot = Rotation.from_quat(quat)
-        rot_euler = rot.as_euler("xyz", degrees=True)
-        # convert from -180/180 to 0/360
-        rot_euler[0] += 180
-        rot_euler[1] += 180
-        rot_euler[2] += 180
-        return rot_euler
-
     def moving(self):
         """
         Compares most recent reading
@@ -135,9 +124,6 @@ class Imu:
         else:
             if self.__reading_diff > self.__moving_threshold[0]:
                 self.__moving = True
-
-    def get_euler(self):
-        return list(self.quat_to_euler(self.avg_quat))
 
     def __str__(self):
         return (
