@@ -42,7 +42,6 @@ class ImuDeadReckoning:
     """
 
     # Alignment:
-    q_scope2cam: quaternion.quaternion  # TODO: Do we need this??
     q_cam2scope: quaternion.quaternion
     # IMU orientation:
     q_imu2cam: quaternion.quaternion
@@ -77,7 +76,8 @@ class ImuDeadReckoning:
         pointing.
 
         INPUTS:
-        q_scope2cam: Quaternion that rotates the scope frame to the camera frame.
+        solved_cam: Equatorial coordinate of the camera center at alignment.
+        solved_scope: Equatorial coordinate of the scope center at alignement.
         """
         # Calculate q_scope2cam (alignment)
         q_eq2cam = qt.get_q_eq(solved_cam.ra, solved_cam.dec, solved_cam.roll)
@@ -85,8 +85,7 @@ class ImuDeadReckoning:
         q_scope2cam = q_eq2scope.conjugate() * q_eq2cam
 
         # Set the alignmen attributes:
-        self.q_scope2cam = q_scope2cam.normalized()
-        self.q_cam2scope = self.q_scope2cam.conj()
+        self.q_cam2scope = q_scope2cam.normalized().conj()
         self.q_imu2scope = self.q_imu2cam * self.q_cam2scope
 
     def update_plate_solve_and_imu(
