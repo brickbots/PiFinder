@@ -62,9 +62,7 @@ def get_quat_angular_diff(
 # ========== Equatorial frame functions ============================
 
 
-def get_q_eq(
-    ra_rad: float, dec_rad: float, roll_rad: float
-) -> quaternion.quaternion:  # TODO: Rename to q_eq2frame?
+def get_q_eq(ra_rad: float, dec_rad: float, roll_rad: float) -> quaternion.quaternion:
     """
     Express the equatorial coordinates (RA, Dec, Roll) in radians
     in a quaternion rotation the relative to the Equatorial frame.

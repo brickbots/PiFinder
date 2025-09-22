@@ -29,13 +29,13 @@ class ImuDeadReckoning:
 
     All angles are in radians. None is not allowed as inputs (use np.nan).
 
-    EXAMPLE: TODO: Update
+    EXAMPLE:
     # Set up:
     imu_dead_reckoning = ImuDeadReckoning('flat')
-    imu_dead_reckoning.set_alignment(q_scope2cam)
+    imu_dead_reckoning.set_alignment(solved_cam, solved_scope)
 
     # Update with plate solved and IMU data:
-    imu_dead_reckoning.update_plate_solve_and_imu(solved_cam_ra, solved_cam_dec, solved_cam_roll, q_x2imu)
+    imu_dead_reckoning.update_plate_solve_and_imu(solved_cam, q_x2imu)
 
     # Dead-reckoning using IMU
     imu_dead_reckoning.update_imu(q_x2imu)
@@ -75,8 +75,6 @@ class ImuDeadReckoning:
         """
         Set the alignment between the PiFinder camera center and the scope
         pointing.
-
-        TODO: Setting cam2scope might be more natural?
 
         INPUTS:
         q_scope2cam: Quaternion that rotates the scope frame to the camera frame.
@@ -230,7 +228,7 @@ def get_screen_direction_q_imu2cam(screen_direction: str) -> quaternion.quaterni
         # Rotate -90° around z_imu' to align with the camera cooridnates
         q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
         q_imu2cam = (q1 * q2).normalized()
-    elif screen_direction == "as_dream":  # TODO: Propose o rename to "back"?
+    elif screen_direction == "as_dream":  # TODO: Propose to rename to "back"?
         # As Dream:
         # Camera points back up from the screen
         # NOTE: Need to check if the orientation of the camera is correct

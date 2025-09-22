@@ -17,7 +17,6 @@ from scipy.spatial.transform import Rotation
 logger = logging.getLogger("IMU.pi")
 
 QUEUE_LEN = 10
-MOVE_CHECK_LEN = 2  # TODO: Doesn't seem to be used?
 
 
 class Imu:

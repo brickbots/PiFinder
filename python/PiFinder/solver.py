@@ -50,7 +50,7 @@ def solver(
     # TODO: This dictionary is duplicated in integrator.py. Need to rationalize?
     solved = {
         # RA, Dec, Roll solved at the center of the camera FoV
-        # update by integrator
+        # update by the IMU in the integrator
         "camera_center": {
             "RA": None,
             "Dec": None,
@@ -58,8 +58,7 @@ def solver(
             "Alt": None,
             "Az": None,
         },
-        # RA, Dec, Roll from the camera, not
-        # affected by IMU in integrator
+        # RA, Dec, Roll from the camera, not affected by IMU in integrator
         "camera_solve": {
             "RA": None,
             "Dec": None,

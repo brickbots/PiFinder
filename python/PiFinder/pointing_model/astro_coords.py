@@ -18,8 +18,6 @@ class RaDecRoll:
     be stored as np.nan so that the type is consistent. the get methods will
     return None if the value is np.nan.
 
-    TODO: Migrate to something like this from the current "solved" dict?
-
     NOTE: All angles are in radians.
     """
 
@@ -125,6 +123,7 @@ def initialized_solved_dict() -> dict:
 
     TODO: The solved dict is used by other components. Move this func
     and use this elsewhere (e.g. solver.py) to enforce consistency.
+    TODO: use RaDecRoll class for the RA, Dec, Roll coordinates here?
     """
     # TODO: This dict is duplicated in solver.py - Refactor?
     # "Alt" and "Az" could be removed once we move to Eq-based dead-reckoning

@@ -34,7 +34,6 @@ IMU_MOVED_ANG_THRESHOLD = np.deg2rad(0.1)
 def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=False):
     MultiprocLogging.configurer(log_queue)
     """ """
-    is_debug = True  # TODO: For development. Remove later.
     if is_debug:
         logger.setLevel(logging.DEBUG)
     logger.debug("Starting Integrator")
@@ -49,7 +48,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
 
         # Set up dead-reckoning tracking by the IMU:
         imu_dead_reckoning = ImuDeadReckoning(cfg.get_option("screen_direction"))
-        # imu_dead_reckoning.set_alignment(q_scope2cam)  # TODO: Enable when q_scope2cam is available
+        # imu_dead_reckoning.set_alignment(q_scope2cam)  # TODO: Enable when q_scope2cam is available from alignment
 
         # This holds the last image solve position info
         # so we can delta for IMU updates
@@ -88,8 +87,10 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 # Try to set date and time
                 location = shared_state.location()
                 dt = shared_state.datetime()
-                # Set location for roll and altaz calculations. TODO: Is it necessary to set location?
-                # TODO: Altaz doesn't seem to be required for catalogs when in EQ mode? Could be disabled in future when in EQ mode?
+                # Set location for roll and altaz calculations. 
+                # TODO: Is itnecessary to set location? 
+                # TODO: Altaz doesn't seem to be required for catalogs when in 
+                # EQ mode? Could be disabled in future when in EQ mode?
                 calc_utils.sf_utils.set_location(
                     location.lat, location.lon, location.altitude
                 )
@@ -136,7 +137,6 @@ def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dic
     else:
         # Successfully plate solved & camera pointing exists
         if solved["imu_quat"] is None:
-            # TODO: This Do not run the rest of the code?
             q_x2imu = quaternion.quaternion(np.nan)
         else:
             q_x2imu = solved["imu_quat"]  # IMU measurement at the time of plate solving
@@ -168,7 +168,7 @@ def set_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     )
 
     # RA, Dec of target (where scope is pointing):
-    solved["Roll"] = 0  # TODO: Target roll isn't calculated by Tetra3. Set to zero here
+    solved["Roll"] = 0  # Target roll isn't calculated by Tetra3. Set to zero here
     solved_scope = RaDecRoll()
     solved_scope.set_from_deg(solved["RA"], solved["Dec"], solved["Roll"])
 
