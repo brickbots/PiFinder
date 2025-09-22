@@ -87,9 +87,9 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 # Try to set date and time
                 location = shared_state.location()
                 dt = shared_state.datetime()
-                # Set location for roll and altaz calculations. 
-                # TODO: Is itnecessary to set location? 
-                # TODO: Altaz doesn't seem to be required for catalogs when in 
+                # Set location for roll and altaz calculations.
+                # TODO: Is itnecessary to set location?
+                # TODO: Altaz doesn't seem to be required for catalogs when in
                 # EQ mode? Could be disabled in future when in EQ mode?
                 calc_utils.sf_utils.set_location(
                     location.lat, location.lon, location.altitude
@@ -201,17 +201,25 @@ def update_imu(
         logger.debug(
             "Track using IMU: Angle moved since last_image_solve = "
             "{:}(> threshold = {:}) | IMU quat = ({:}, {:}, {:}, {:})".format(
-                np.rad2deg(angle_moved), np.rad2deg(IMU_MOVED_ANG_THRESHOLD), 
-                q_x2imu.w, q_x2imu.x, q_x2imu.y, q_x2imu.z)
+                np.rad2deg(angle_moved),
+                np.rad2deg(IMU_MOVED_ANG_THRESHOLD),
+                q_x2imu.w,
+                q_x2imu.x,
+                q_x2imu.y,
+                q_x2imu.z,
             )
+        )
 
         # Dead-reckoning using IMU
         imu_dead_reckoning.update_imu(q_x2imu)  # Latest IMU measurement
 
         # Store current camera pointing estimate:
         cam_eq = imu_dead_reckoning.get_cam_radec()
-        (solved["camera_center"]["RA"], solved["camera_center"]["Dec"], 
-            solved["camera_center"]["Roll"]) = cam_eq.get_deg(use_none=True)
+        (
+            solved["camera_center"]["RA"],
+            solved["camera_center"]["Dec"],
+            solved["camera_center"]["Roll"],
+        ) = cam_eq.get_deg(use_none=True)
 
         # Store the current scope pointing estimate
         scope_eq = imu_dead_reckoning.get_scope_radec()
@@ -221,11 +229,18 @@ def update_imu(
         solved["solve_source"] = "IMU"
 
         # Logging for states updated in solved:
-        logger.debug("IMU update: scope: RA: {:}, Dec: {:}, Roll: {:}".format(
-                     solved["RA"], solved["Dec"], solved["Roll"]))
-        logger.debug("IMU update: camera_center: RA: {:}, Dec: {:}, Roll: {:}".format(
-            solved["camera_center"]["RA"], solved["camera_center"]["Dec"], 
-            solved["camera_center"]["Roll"]))
+        logger.debug(
+            "IMU update: scope: RA: {:}, Dec: {:}, Roll: {:}".format(
+                solved["RA"], solved["Dec"], solved["Roll"]
+            )
+        )
+        logger.debug(
+            "IMU update: camera_center: RA: {:}, Dec: {:}, Roll: {:}".format(
+                solved["camera_center"]["RA"],
+                solved["camera_center"]["Dec"],
+                solved["camera_center"]["Roll"],
+            )
+        )
 
 
 def get_roll_by_mount_type(

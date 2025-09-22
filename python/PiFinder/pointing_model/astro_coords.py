@@ -62,7 +62,7 @@ class RaDecRoll:
         """
         # Pure quaternion along camera boresight
         pz_frame = q_eq * quaternion.quaternion(0, 0, 0, 1) * q_eq.conj()
-        
+
         # Calculate RA, Dec from the camera boresight:
         dec = np.arcsin(pz_frame.z)
         ra = np.arctan2(pz_frame.y, pz_frame.x)
@@ -129,7 +129,7 @@ def initialized_solved_dict() -> dict:
     # "Alt" and "Az" could be removed once we move to Eq-based dead-reckoning
     solved = {
         # RA, Dec, Roll of the scope at the target pixel
-        "RA": None,  
+        "RA": None,
         "Dec": None,
         "Roll": None,
         # RA, Dec, Roll solved at the center of the camera FoV
@@ -142,7 +142,7 @@ def initialized_solved_dict() -> dict:
             "Az": None,
         },
         # RA, Dec, Roll from the camera, not updated by IMU in integrator
-        "camera_solve": {  
+        "camera_solve": {
             "RA": None,
             "Dec": None,
             "Roll": None,

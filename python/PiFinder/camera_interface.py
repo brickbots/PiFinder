@@ -128,7 +128,9 @@ class CameraInterface:
                             "exposure_start": image_start_time,
                             "exposure_end": image_end_time,
                             "imu": imu_end,
-                            "imu_delta": np.rad2deg(pointing_diff),  # Pointing chiange during exposure in degrees
+                            "imu_delta": np.rad2deg(
+                                pointing_diff
+                            ),  # Pointing chiange during exposure in degrees
                         }
                     )
 
