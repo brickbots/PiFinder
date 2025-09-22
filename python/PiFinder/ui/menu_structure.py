@@ -12,6 +12,7 @@ from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
 from PiFinder.ui.equipment import UIEquipment
 from PiFinder.ui.location_list import UILocationList
+from PiFinder.ui.radec_entry import UIRADecEntry
 import PiFinder.ui.callbacks as callbacks
 
 
@@ -213,6 +214,12 @@ pifinder_menu = {
                                     "objects": "catalog",
                                     "value": "RDS",
                                 },
+                                # {
+                                #    "name": _("WDS Doubles"),
+                                #    "class": UIObjectList,
+                                #    "objects": "catalog",
+                                #    "value": "WDS",
+                                # },
                                 {
                                     "name": _("TLK 90 Variables"),
                                     "class": UIObjectList,
@@ -228,6 +235,11 @@ pifinder_menu = {
                     "class": UIObjectList,
                     "objects": "recent",
                     "label": "recent",
+                },
+                {
+                    "name": _("Add Custom..."),
+                    "class": UIRADecEntry,
+                    "custom_callback": callbacks.handle_radec_entry,
                 },
                 {
                     "name": _("Name Search"),
@@ -419,6 +431,10 @@ pifinder_menu = {
                         {
                             "name": _("Comet"),
                             "value": "CM",
+                        },
+                        {
+                            "name": _("Unknown"),
+                            "value": "?",
                         },
                     ],
                 },
@@ -886,8 +902,8 @@ pifinder_menu = {
                             "value": "flat",
                         },
                         {
-                            "name": _("AS Dream"),
-                            "value": "as_dream",
+                            "name": _("AS Bloom"),
+                            "value": "as_bloom",
                         },
                     ],
                 },

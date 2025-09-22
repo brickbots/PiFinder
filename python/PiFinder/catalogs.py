@@ -218,9 +218,18 @@ class CatalogFilter:
 
         # check altitude
         if self._altitude != -1 and self.fast_aa:
+            # quick sanity check of object coords
+            try:
+                ra = float(obj.ra)
+                dec = float(obj.dec)
+            except TypeError:
+                print("Object coordinates error")
+                print(f"{pformat(obj)}")
+                return False
+
             obj_altitude, _ = self.fast_aa.radec_to_altaz(
-                obj.ra,
-                obj.dec,
+                ra,
+                dec,
                 alt_only=True,
             )
             if obj_altitude < self._altitude:
@@ -838,6 +847,11 @@ class CatalogBuilder:
         objects = db.get_objects()
         common_names = Names()
         catalogs_info = db.get_catalogs_dict()
+
+        # Disable WDS for now to work on
+        # performance and sort/nearest bug
+        catalogs_info.pop("WDS")
+
         objects = {row["id"]: dict(row) for row in objects}
         composite_objects: List[CompositeObject] = self._build_composite(
             catalog_objects, objects, common_names, obs_db
