@@ -10,10 +10,8 @@ README: IMU support prototyping
 See Discord thread: https://discord.com/channels/1087556380724052059/1406599296002035895
 
 Issues:
-* Doesn't run wih v3 Flat. Issue in main branch? (reported by grimaldi: 20 Aug 2025 https://discord.com/channels/1087556380724052059/1406599296002035895/1407813498163167345)
 * Issue in the default requirements? Error (not related to the IMU changes) when I try to create a new env using requirements.txt. Maybe I can't just create a new environment using pip?
-* Doesn't pass Nox
-* In EQ mode flickers between 0° and 359°. This is also in the main branch.
+* In EQ mode flickers between 0° and 359°. This is also in the main branch. --> Test implementation
 
 TODO:
 * Set alignment once at alignment rather than calculating it every loop
@@ -33,6 +31,8 @@ Done:
 * Type hints for integrator.py
 * Use RaDecRoll class --> Done. Need to test.
 * Go through TODOs in code
+* Doesn't pass Nox
+* Doesn't run wih v3 Flat. Issue in main branch? (reported by grimaldi: 20 Aug 2025 https://discord.com/channels/1087556380724052059/1406599296002035895/1407813498163167345)
 
 # Sky test log
 
