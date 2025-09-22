@@ -158,7 +158,7 @@ def imu_monitor(shared_state, console_queue, log_queue):
     MultiprocLogging.configurer(log_queue)
     imu = Imu()
     imu_calibrated = False
-    # TODO: Remove start_pos, move_start, move_end
+    # TODO: Remove move_start, move_end
     imu_data = {
         "moving": False,
         "move_start": None,
@@ -166,7 +166,6 @@ def imu_monitor(shared_state, console_queue, log_queue):
         "quat": np.quaternion(
             0, 0, 0, 0
         ),  # Scalar-first numpy quaternion(w, x, y, z) - Init to invalid quaternion
-        "start_pos": [0, 0, 0],
         "status": 0,
     }
 

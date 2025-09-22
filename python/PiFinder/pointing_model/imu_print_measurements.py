@@ -150,7 +150,6 @@ def imu_monitor():
         "move_start": None,
         "move_end": None,
         "quat": [0, 0, 0, 0],  # Scalar-first quaternion (w, x, y, z)
-        "start_pos": [0, 0, 0],
         "status": 0,
     }
 
