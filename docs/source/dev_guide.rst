@@ -322,7 +322,12 @@ The defined sessions are:
   That means extracts strings to translate and updates the `.po`-files in `python/locale/**`
   Then these are compiled into `.mo`-files. Unfortuntely, this changes the `.mo`-files in any case,
   even if the there have been no changes to strings or their translation. As this will show up 
-  as changes to checked-in, this is not run by default. 
+  as changes to checked-in, this is not run by default.
+
+- web_tests -> Runs PyTest and executes all tests marked as WEB. Web tests use Selenium 
+  to automate browser testing of the PiFinder web interface. These tests require a 
+  running Selenium Grid server and a running PiFinder web server. You can test against a real PiFinder 
+  or a locally running instance. See the sections below for setup instructions. 
   
 
 CI/CD
@@ -333,6 +338,61 @@ for PR's will need to be triggered by a maintainer, but you can (and should!) se
 your fork to run the existing automation to validate your code as you develop.
 
 If you need help, reach out via email or discord.  We are happy to help :-)
+
+Website Tests
+.............
+
+The PiFinder web interface can be tested using automated browser tests powered by Selenium.
+These tests verify functionality across different viewports (desktop and mobile) and ensure
+the web interface works correctly.
+
+The tests exercise the remote control features of PiFinder, changing **the state of the PiFinder** and
+therefore should **not be run** against a PiFinder you are actively using for observing.
+
+Running Website Tests
+______________________________
+
+To run the website tests needs a running Selenium Grid server and a running PiFinder web server. 
+You can test against a real PiFinder or a locally running instance. 
+
+Running against a locally running instance at localhost:8080:
+
+.. code-block:: bash
+
+    cd ~/PiFinder/python
+    . .venv/bin/activate # Optionally active your virtual environment
+    export SELENIUM_GRID_URL=<your selenium grid url which ends in /wd/hub> # Optional, default is http://localhost:4444/wd/hub
+    nox -s web_tests
+
+If you want to test against a real PiFinder, set the ``PIFINDER_HOMEPAGE`` environment variable to the URL of your PiFinder instance:
+
+.. code-block:: bash
+
+    cd ~/PiFinder/python
+    . .venv/bin/activate # Optionally active your virtual environment
+    export SELENIUM_GRID_URL=<your selenium grid url which ends in /wd/hub> # Optional, default is http://localhost:4444/wd/hub
+    export PIFINDER_HOMEPAGE=http://pifinder.local # Change to the URL of your PiFinder, which needs to be in the same WiFi
+    nox -s web_tests
+
+If you run the tests with-out a working Selenium Grid instance, the tests will all be skipped. 
+You can also run individual tests with PyTest directly, use ``SELENIUM_GRID_URL=... PIFINDER_HOMEPAGE=... pytest tests/webstite/test_file.py``.
+
+Note that due to the tests depending on the response times of the PiFinder web server and the Selenium Grid server, there may be occasional timeouts or failures.
+If you encounter such issues, simply re-run the tests. We need to strike a balance between test speed and reliability, and this may require some tuning in the future.
+Note that the tests run approximately 10 minutes.
+
+Setting up Selenium Grid
+___________________________
+
+The website tests require a Selenium Grid server to run browser automation. The easiest way is to download the Selenum Grid server jar 
+from the selenium website, see https://www.selenium.dev/downloads/ and run it with Java:
+
+.. code-block:: bash
+  
+    java -jar selenium-server-<version>.jar standalone
+
+The Selenium Grid server needs to run on the same machine where you have the browser installed, which you want to use for testing.
+At the moment the tests will use Chrome.
 
 
 Running/Debugging from the command line

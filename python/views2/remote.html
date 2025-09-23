@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div id="error" class="error-message"></div>
+<div class="center-align">
+    <img id="image" src="" alt="{{ _('PiFinder Screen') }}" class="pifinder-screen z-depth-2">
+</div>
+<center>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); margin: 0.5rem; justify-content: center; gap: 0.5rem;">
+        <button class="btn remote-button" id="LEFT" onclick="buttonClicked(this, 'LEFT')">←</button>
+        <button class="btn remote-button" id="UP" onclick="buttonClicked(this, 'UP')">↑</button>
+        <button class="btn remote-button" id="DOWN" onclick="buttonClicked(this, 'DOWN')">↓</button>
+        <button class="btn remote-button" id="RIGHT" onclick="buttonClicked(this, 'RIGHT')">→</button>
+        <button class="btn remote-button" id="7" onclick="buttonClicked(this, '7')">7</button>
+        <button class="btn remote-button" id="8" onclick="buttonClicked(this, '8')">8</button>
+        <button class="btn remote-button" id="9" onclick="buttonClicked(this, '9')">9</button>
+        <button class="btn remote-button" id="PLUS" onclick="buttonClicked(this, 'PLUS')">+</button>
+        <button class="btn remote-button" id="4" onclick="buttonClicked(this, '4')">4</button>
+        <button class="btn remote-button" id="5" onclick="buttonClicked(this, '5')">5</button>
+        <button class="btn remote-button" id="6" onclick="buttonClicked(this, '6')">6</button>
+        <button class="btn remote-button" id="MINUS" onclick="buttonClicked(this, 'MINUS')">-</button>
+        <button class="btn remote-button" id="1" onclick="buttonClicked(this, '1')">1</button>
+        <button class="btn remote-button" id="2" onclick="buttonClicked(this, '2')">2</button>
+        <button class="btn remote-button" id="3" onclick="buttonClicked(this, '3')">3</button>
+        <button class="btn remote-button" id="SQUARE" onclick="buttonClicked(this, 'SQUARE')">■</button>
+        <button class="btn remote-button" id="altButton" onclick="buttonPressed(this)">■ +</button>
+        <button class="btn remote-button" id="0" onclick="buttonClicked(this, '0')">0</button>
+        <button class="btn remote-button" id="longButton" onclick="buttonPressed(this)">Long</button>
+    </div>
+    <div style="display: flex; flex-direction: row; margin: 0px 5px 0px 5px; gap: 1rem; justify-content: center;">
+    </div>
+</center>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function fetchImage() {
+    const imageElement = document.getElementById('image');
+    fetch("/image?t=" + new Date().getTime())
+        .then(response => {
+            if (!response.ok) { throw Error(response.statusText); }
+            return response.blob();
+        })
+        .then(imageBlob => {
+            let imageObjectURL = URL.createObjectURL(imageBlob);
+            imageElement.src = imageObjectURL;
+            // When the image can't be fetched, display a static message
+            const errorElement = document.getElementById('error');
+            errorElement.innerHTML = "";
+        })
+        .catch(error => {
+            console.log(error);
+            // When the image can't be fetched, display a static message
+            const errorElement = document.getElementById('error');
+            errorElement.innerHTML = "{{ _('PiFinder server is currently unavailable. Please try again later.') }}";
+        })
+        .finally(() => {
+            // Schedule the next fetch operation after 100 milliseconds, whether this operation was successful or not
+            setTimeout(fetchImage, 100);
+        });
+}
+
+// Start the first fetch operation
+fetchImage();
+
+function buttonPressed(btn) {
+    const altButton = document.getElementById("altButton");
+    const longButton = document.getElementById("longButton");
+
+    // If the other button is pressed, unpress it
+    if (btn === altButton && longButton.classList.contains('pressed')) {
+        longButton.classList.remove('pressed');
+    } else if (btn === longButton && altButton.classList.contains('pressed')) {
+        altButton.classList.remove('pressed');
+    }
+
+    // If this button is already pressed, unpress it; otherwise, press it
+    if (btn.classList.contains('pressed')) {
+        btn.classList.remove('pressed');
+    } else {
+        btn.classList.add('pressed');
+    }
+}
+
+function buttonClicked(btn, code) {
+    const button = btn.innerHTML;
+    const altButton = document.getElementById("altButton");
+    const longButton = document.getElementById("longButton");
+
+    if (altButton.classList.contains('pressed')) {
+        code = `ALT_${code}`;
+        altButton.classList.remove('pressed');
+    } else if (longButton.classList.contains('pressed')) {
+        code = `LNG_${code}`;
+        longButton.classList.remove('pressed');
+    }
+
+    fetch('/key_callback', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ button: code }),
+    })
+    .then(response => response.json())
+    .then(data => console.log(data))
+    .catch((error) => {
+        console.error('Error:', error);
+    });
+}
+</script>
+{% endblock %}

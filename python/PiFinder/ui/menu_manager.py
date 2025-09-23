@@ -335,6 +335,8 @@ class MenuManager:
         # Only update shared state when not in message timeout
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
+            # Update current UI state for webserver access
+            self.shared_state.set_current_ui_state(self.serialize_current_ui_state())
 
     def key_number(self, number):
         if self.help_images is not None:
@@ -507,3 +509,66 @@ class MenuManager:
                 print(selected_item.callback)
                 print(self.marking_menu_stack)
                 raise
+
+    def serialize_current_ui_state(self) -> dict:
+        """
+        Serializes the current UI state for inter-process communication
+        """
+        if not self.stack:
+            return {"error": "No active UI items"}
+
+        try:
+            # Get the currently active UI item (top of stack)
+            current_ui = self.stack[-1]
+            ui_type = type(current_ui).__name__
+
+            response = {
+                "ui_type": ui_type,
+                "title": getattr(current_ui, "title", "Unknown"),
+            }
+
+            # Check if marking menu is active
+            if self.marking_menu_stack:
+                response["ui_type"] = "UIMarkingMenu"
+                response["marking_menu_active"] = True
+
+                # Get current marking menu options
+                current_marking_menu = self.marking_menu_stack[-1]
+                response["marking_menu_options"] = {
+                    "up": {
+                        "label": current_marking_menu.up.label,
+                        "enabled": current_marking_menu.up.enabled,
+                        "selected": current_marking_menu.up.selected,
+                    },
+                    "down": {
+                        "label": current_marking_menu.down.label,
+                        "enabled": current_marking_menu.down.enabled,
+                        "selected": current_marking_menu.down.selected,
+                    },
+                    "left": {
+                        "label": current_marking_menu.left.label,
+                        "enabled": current_marking_menu.left.enabled,
+                        "selected": current_marking_menu.left.selected,
+                    },
+                    "right": {
+                        "label": current_marking_menu.right.label,
+                        "enabled": current_marking_menu.right.enabled,
+                        "selected": current_marking_menu.right.selected,
+                    },
+                }
+
+                # Include the underlying UI state as well
+                response["underlying_ui_type"] = ui_type
+                response["underlying_title"] = getattr(current_ui, "title", "Unknown")
+                if hasattr(current_ui, "serialize_ui_state"):
+                    underlying_state = current_ui.serialize_ui_state()
+                    response["underlying_ui_state"] = underlying_state
+            else:
+                response["marking_menu_active"] = False
+                # Get type-specific state using the UI module's serialization method
+                if hasattr(current_ui, "serialize_ui_state"):
+                    response.update(current_ui.serialize_ui_state())
+
+            return response
+        except Exception as e:
+            return {"error": f"Failed to serialize UI state: {str(e)}"}

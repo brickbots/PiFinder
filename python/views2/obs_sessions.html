@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h5 class="grey-text">{{ _('Observing Sessions') }}</h5>
+<div class="row">
+  <div class="col s3 center-align grey-text">
+    <h6 class="grey-text text-lighten-1">{{ _('Sessions') }}</h6>
+    {{ metadata["sess_count"] }}
+  </div>
+  <div class="col s3 center-align grey-text">
+    <h6 class="grey-text text-lighten-1">{{ _('Objects') }}</h6>
+    {{ metadata["object_count"] }}
+  </div>
+  <div class="col s3 center-align grey-text">
+    <h6 class="grey-text text-lighten-1">{{ _('Total Hours') }}</h6>
+    {{ metadata["total_duration"] | round(1) }}
+  </div>
+  <div class="col s3">
+    <a href="/observations?download=1" class="grey-text"><i class="material-icons medium">download</i></a>
+  </div>
+</div>
+<center>
+<table class="grey darken-2 grey-text z-depth-1">
+<tr>
+<th>{{ _('Date') }}</th><th>{{ _('Location') }}</th><th>{{ _('Hours') }}</th><th>{{ _('Objects') }}</th>
+</tr>
+{% for session in sessions %}
+<tr style="cursor: pointer;" onClick="window.location.href='/observations/{{ session["UID"] }}';">
+  <td>{{ session["start_time_local"] }}</td>
+  <td>{{ session["timezone"] }}<br>{{ session["lat"] | round(2) }} / {{ session["lon"] | round(2) }}</td>
+  <td>{{ session["duration"] | round(1) }}</td>
+  <td>{{ session["observations"] }}</td>
+</tr>
+{% endfor %}
+</table>
+</center>
+{% endblock %}
