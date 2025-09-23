@@ -15,6 +15,7 @@ import logging
 BASE_IMAGE_PATH = f"{utils.data_dir}/catalog_images"
 CATALOG_PATH = f"{utils.astro_data_dir}/pifinder_objects.db"
 
+
 logger = logging.getLogger("Catalog.Images")
 
 
@@ -171,21 +172,28 @@ def resolve_image_name(catalog_object, source):
     returns the image path for this object
     """
     def create_image_path(image_name):
-        image = f"{BASE_IMAGE_PATH}/{str(image_name)[-1]}/{image_name}_{source}.jpg"
-        return os.path.exists(image), image
+        last_char = str(image_name)[-1]
+        image = f"{BASE_IMAGE_PATH}/{last_char}/{image_name}_{source}.jpg"
+        exists = os.path.exists(image)
+        return exists, image
 
-    if not catalog_object.image_name:
-        image_name = f"{catalog_object.catalog_code}{catalog_object.sequence}"
-        ok, image = create_image_path(image_name)
+    # Try primary name
+    image_name = f"{catalog_object.catalog_code}{catalog_object.sequence}"
+    ok, image = create_image_path(image_name)
+
+    if ok:
         catalog_object.image_name = image
-        if not ok:
-            for name in catalog_object.names:
-                image_name = f"{''.join(name.split())}"
-                ok, image = create_image_path(image_name)
-                if ok:
-                    catalog_object.image_name = image
-                    break
-    return catalog_object.image_name
+        return image
+
+    # Try alternatives
+    for name in catalog_object.names:
+        alt_image_name = f"{''.join(name.split())}"
+        ok, image = create_image_path(alt_image_name)
+        if ok:
+            catalog_object.image_name = image
+            return image
+
+    return ""
 
 
 def create_catalog_image_dirs():
