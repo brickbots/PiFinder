@@ -80,13 +80,12 @@ class CoordinateState:
 
 
 class BlinkingCursor:
-    def __init__(self, blink_interval=0.5, time_provider=None):
-        self.time_provider = time_provider or time.time
-        self.start_time = self.time_provider()
+    def __init__(self, blink_interval=0.5):
+        self.start_time = time.time()
         self.blink_interval = blink_interval
 
     def is_visible(self):
-        elapsed = self.time_provider() - self.start_time
+        elapsed = time.time() - self.start_time
         return (elapsed % (self.blink_interval * 2)) < self.blink_interval
 
     def draw(self, screen, x, y, width, height):
@@ -115,22 +114,19 @@ class BlinkingCursor:
 class CoordinateConverter:
     """Handles coordinate format conversion and epoch transformations"""
 
-    def __init__(self, calc_utils_provider=None):
-        self.calc_utils = calc_utils_provider or calc_utils
-
     def hms_dms_to_degrees(self, fields, dec_sign):
         """Convert HMS/DMS format to decimal degrees"""
         # Convert RA from HMS to degrees
         ra_h = int(fields[0]) if fields[0] else 0
         ra_m = int(fields[1]) if fields[1] else 0
         ra_s = int(fields[2]) if fields[2] else 0
-        ra_deg = self.calc_utils.ra_to_deg(ra_h, ra_m, ra_s)
+        ra_deg = calc_utils.ra_to_deg(ra_h, ra_m, ra_s)
 
         # Convert DEC from DMS to degrees
         dec_d = int(fields[3]) if fields[3] else 0
         dec_m = int(fields[4]) if fields[4] else 0
         dec_s = int(fields[5]) if fields[5] else 0
-        dec_deg = self.calc_utils.dec_to_deg(dec_d, dec_m, dec_s)
+        dec_deg = calc_utils.dec_to_deg(dec_d, dec_m, dec_s)
         if dec_sign == "-":
             dec_deg = -dec_deg
 
@@ -174,11 +170,11 @@ class CoordinateConverter:
 
             # Get current Julian Date
             now = datetime.now(pytz.UTC)
-            jd_now = self.calc_utils.sf_utils.ts.from_datetime(now).tt
+            jd_now = calc_utils.sf_utils.ts.from_datetime(now).tt
 
             # Convert JNOW coordinates to J2000
             ra_hours = ra_deg / 15.0
-            ra_h_j2000, dec_deg_j2000 = self.calc_utils.epoch_to_epoch(
+            ra_h_j2000, dec_deg_j2000 = calc_utils.epoch_to_epoch(
                 jd_now, J2000, ra_hours, dec_deg
             )
             return ra_h_j2000._degrees, dec_deg_j2000._degrees
@@ -186,9 +182,7 @@ class CoordinateConverter:
         elif current_epoch == 2:  # B1950
             # Convert from B1950 to J2000
             ra_hours = ra_deg / 15.0
-            ra_h_j2000, dec_deg_j2000 = self.calc_utils.b1950_to_j2000(
-                ra_hours, dec_deg
-            )
+            ra_h_j2000, dec_deg_j2000 = calc_utils.b1950_to_j2000(ra_hours, dec_deg)
             return ra_h_j2000._degrees, dec_deg_j2000._degrees
 
         return ra_deg, dec_deg
@@ -214,10 +208,7 @@ class CoordinateConverter:
 class CoordinateEntryLogic:
     """business logic for coordinate entry, separate from UI concerns"""
 
-    def __init__(self, time_provider=None, calc_utils_provider=None):
-        self.time_provider = time_provider or time.time
-        self.calc_utils = calc_utils_provider or calc_utils
-
+    def __init__(self):
         # Initialize formats
         self.formats = CoordinateFormats.get_formats()
         self.epoch_names = ["J2000", "JNOW", "B1950"]
@@ -444,7 +435,7 @@ class CoordinateEntryLogic:
 
     def get_coordinates(self) -> tuple:
         """Convert current state to decimal degrees"""
-        converter = CoordinateConverter(self.calc_utils)
+        converter = CoordinateConverter()
 
         return converter.convert_coordinates(
             self._state.coord_format,
@@ -607,6 +598,9 @@ class UIRADecEntry(UIModule):
         # Create cursor for blinking effect
         self.cursor = BlinkingCursor()
 
+        # set up class data elements
+        self.coord_format: int = 0
+
         # Get initial state from logic
         self._sync_from_logic()
 
@@ -752,11 +746,8 @@ class UIRADecEntry(UIModule):
 
         # Get field text and color
         text, color = self._get_field_text_and_color(field_index)
-        # Draw text and cursor if this is the current field (not for epoch field)
-        if field_index == self.current_field and field_index != self.field_count - 1:
-            self._draw_field_complete(x, y, width, text, color, field_index)
-        else:
-            self._draw_field_complete(x, y, width, text, color, -1)  # No cursor
+
+        self._draw_field_complete(x, y, width, text, color, field_index)
 
     def _draw_field_outline(self, x, y, width, is_current):
         """Draw the outline rectangle for a field"""
@@ -777,13 +768,6 @@ class UIRADecEntry(UIModule):
         # Regular coordinate field
         text = self.fields[field_index]
 
-        # Handle DEC sign for HMS/DMS format
-        if field_index == 3 and self.coord_format == 0:  # DEC degrees in HMS/DMS
-            if text:
-                text = f"{self.dec_sign}{text}"
-            else:
-                text = f"{self.dec_sign}dd" if field_index != self.current_field else ""
-
         # Determine color based on content
         if not text and field_index != self.current_field:
             # Show placeholder if field is empty and not selected
@@ -797,11 +781,22 @@ class UIRADecEntry(UIModule):
     def _draw_field_complete(self, x, y, width, text, color, field_index):
         """Draw field text and cursor in one method"""
         text_width = 0
+        text_y = y + (self.field_height - 12) // 2
+        base_text_x = x
+
+        # draw DEC sign if dec field
+        if self._is_dec_field(field_index):
+            self.draw.text(
+                (base_text_x + 3, text_y),
+                self.dec_sign,
+                font=self.base.font,
+                fill=color,
+            )
+            base_text_x += 2  # offset text position for sign
         if text:
             text_bbox = self.base.font.getbbox(text)
             text_width = text_bbox[2] - text_bbox[0]
-            text_x = x + (width - text_width) // 2
-            text_y = y + (self.field_height - 12) // 2
+            text_x = base_text_x + (width - text_width) // 2
             self.draw.text((text_x, text_y), text, font=self.base.font, fill=color)
 
         # Draw cursor if this is the current field
@@ -814,9 +809,9 @@ class UIRADecEntry(UIModule):
                     if text_before_cursor
                     else 0
                 )
-                cursor_x = x + (width - text_width) // 2 + cursor_text_width
+                cursor_x = base_text_x + (width - text_width) // 2 + cursor_text_width
             else:
-                cursor_x = x + (width - text_width) // 2 + text_width
+                cursor_x = base_text_x + (width - text_width) // 2 + text_width
             self.cursor.draw(
                 self.screen, cursor_x, y, self.layout.CURSOR_WIDTH, self.field_height
             )
@@ -873,6 +868,15 @@ class UIRADecEntry(UIModule):
                 fill=self.half_red,
             )
 
+    def _is_dec_field(self, field_index: int) -> bool:
+        """Returns True if the provided field index is
+        referring to a DEC entry field"""
+        if (field_index == 3 and self.coord_format == 0) or (
+            field_index == 1 and self.coord_format > 0
+        ):
+            return True
+        return False
+
     def draw_bottom_bar(self):
         """Draw bottom bar with navigation instructions"""
         bar_y = self.height - self.layout.BOTTOM_BAR_HEIGHT
@@ -885,22 +889,21 @@ class UIRADecEntry(UIModule):
         # Icons separated from translatable text
         square_icon = "󰝤"
         arrow_icons = "󰹺"
-        enter_icon = ""
-        exit_icon = ""
+        back_icon = ""
+        go_icon = ""
 
         # Build more readable instruction lines by grouping logically
-        line1_translated = (
-            f"{square_icon}{_('Format')} {arrow_icons}{_('Nav')} +{_('Switch')}"
-        )
-        line2_translated = (
-            f"{enter_icon}{_('Enter')} {exit_icon}{_('Exit')} -{_('Del')}"
-        )
-        self.draw.text(
-            (2, bar_y + 2), line1_translated, font=self.base.font, fill=self.red
-        )
-        self.draw.text(
-            (2, bar_y + 12), line2_translated, font=self.base.font, fill=self.red
-        )
+
+        # Line 1 changes based on field selected
+        if self._is_dec_field(self.current_field):
+            line1 = f"{square_icon}{_('Format')} {arrow_icons}{_('Nav')} +{_('Sign')}"
+        elif self.current_field == self.field_count - 1:  # epoch
+            line1 = f"{square_icon}{_('Format')} {arrow_icons}{_('Nav')} +{_('Toggle')}"
+        else:
+            line1 = f"{square_icon}{_('Format')} {arrow_icons}{_('Nav')}"
+        line2 = f"{back_icon}{_('Cancel')} {go_icon}{_('Go ')} -{_('Del')}"
+        self.draw.text((2, bar_y + 2), line1, font=self.base.font, fill=self.red)
+        self.draw.text((2, bar_y + 12), line2, font=self.base.font, fill=self.red)
 
     def validate_field(self, field_index, value):
         """Validate the entered value for the given field"""
