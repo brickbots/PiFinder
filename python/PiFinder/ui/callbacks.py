@@ -38,6 +38,14 @@ def go_back(ui_module: UIModule) -> None:
     return
 
 
+def show_advanced_message(ui_module: UIModule) -> None:
+    """
+    Show popup message when entering Advanced settings menu
+    """
+    ui_module.message(_("Options for\nDIY PiFinders"), 2)
+    return
+
+
 def reset_filters(ui_module: UIModule) -> None:
     """
     Reset all filters to default
