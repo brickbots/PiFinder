@@ -9,6 +9,7 @@
 
 import logging
 from enum import Enum, auto
+import time
 
 logger = logging.getLogger("MountControl")
 
@@ -92,6 +93,12 @@ class MountDirectionsEquatorial(Enum):
     WEST = auto()
 
 class MountControlBase:
+    MountControlBase is an abstract base class for telescope mount control interfaces.
+    This class defines the required interface and shared logic for controlling a telescope mount.
+    Responsibilities:
+    - Provide abstract methods for mount initialization, synchronization, movement, drift rate control, spiral search, and manual movement.
+    - Provide notification methods for subclasses to report mount state changes (position updates, target reached, stopped).
+        The `run` method manages the main control loop, calling `init_mount` on startup and
     """
     Base class for mount control interfaces.
 
@@ -105,17 +112,22 @@ class MountControlBase:
     - Provide abstract methods for mount initialization, disconnection, movement, and position retrieval.
 
     Responsibilities of subclasses:
-    - Implement hardware-specific logic for `init`, `disconnect`, `move_to_position`, and `get_current_position`.
+    - Implement hardware-specific logic of mount by overwriting the below methods. 
     - Handle communication with the actual mount hardware or protocol.
-    Args:
-        target_queue: Queue for receiving target positions or commands.
-        console_queue: Queue for sending messages to the user interface or console.
-        shared_state: Shared state object for inter-process communication.
-        log_queue: Queue for logging messages.
-        verbose (bool): Enable verbose logging if True.
-    Attributes:
-        state: Current state of the mount (e.g., initialization, tracking).
-        verbose: Verbosity flag for logging and debugging.
+
+    Abstract methods to override in subclasses:
+        init_mount(): Initialize the mount hardware and prepare for operation.
+        sync_mount(current_position_radec): Synchronize the mount's pointing state.
+        move_mount_to_target(target_position_radec): Move the mount to the specified target position.
+        set_mount_drift_rates(drift_rate_ra, drift_rate_dec): Set the mount's drift rates.
+        spiral_search(center_position_radec, max_radius_deg, step_size_deg): Perform a spiral search.
+        move_mount_manual(direction, speed): Move the mount manually in a specified direction and speed.
+
+    Notification methods for subclasses to call:
+        mount_current_position(current_mount_position_radec): Report current mount position.
+        mount_target_reached(): Notify that the mount has reached the target.
+        mount_stopped(): Notify that the mount has stopped moving.
+
     Methods to override:
         init(): Initialize the mount hardware and prepare for operation.
         disconnect(): Safely disconnect from the mount hardware.
@@ -126,8 +138,20 @@ class MountControlBase:
         handling graceful shutdown on interruption.
     """
 
-    def __init__(self, target_queue, console_queue, shared_state, log_queue, verbose=False):
-        self.target_queue = target_queue
+    def __init__(self, mount_queue, console_queue, shared_state, log_queue, verbose=False):
+        """     
+        Args:
+            mount_queue: Queue for receiving target positions or commands.
+            console_queue: Queue for sending messages to the user interface or console.
+            shared_state: Shared state object for inter-process communication.
+            log_queue: Queue for logging messages.
+            verbose (bool): Enable verbose logging if True.
+
+        Attributes:
+            state: Current state of the mount (e.g., initialization, tracking).
+            verbose: Verbosity flag for logging and debugging.
+        """
+        self.mount_queue = mount_queue
         self.console_queue = console_queue
         self.shared_state = shared_state
         self.log_queue = log_queue
@@ -140,7 +164,10 @@ class MountControlBase:
     # 
 
     def init_mount(self) -> bool:
-        """ Initialize the mount, so that we receive updates and send commands.
+        """ Initialize the mount, so that we receive updates and can send commands.
+
+        The subclass needs to set up the mount and prepare it for operation. 
+        This may include connecting to the mount, setting initial parameters, un-parking, etc.
 
         The subclass needs to return a boolean indicating success or failure.
         A failure will cause the main loop to retry initialization after a delay.
@@ -182,6 +209,8 @@ class MountControlBase:
     def set_mount_drift_rates(self, drift_rate_ra, drift_rate_dec) -> bool:
         """ Set the mount's drift rates in RA and DEC.
 
+        Expectation is that the mount immediately starts applying the drift rates.
+
         The subclass needs to return a boolean indicating success or failure, 
         if the command was successfully sent.
         A failure will cause the main loop to retry setting the rates after a delay.
@@ -190,25 +219,6 @@ class MountControlBase:
 
         Returns:
             bool: True if setting drift rates was successful, False otherwise.
-        """
-        raise NotImplementedError("This method should be overridden by subclasses.")
-    
-    def spiral_search(self, center_position_radec, max_radius_deg, step_size_deg) -> bool:
-        """ Commands the mount to perform a spiral search around the center position.
-
-        The subclass needs to return a boolean indicating success or failure, 
-        if the command was successfully sent.
-        A failure will cause the main loop to retry the spiral search command after a delay.
-        If the mount cannot perform the spiral search, throw an exception to abort the process.
-        This will be used to inform the user via the console queue.
-
-        Args:
-            center_position_radec: The center position (RA, DEC) around which to perform the spiral search.
-            max_radius_deg: The maximum radius in degrees to search.
-            step_size_deg: The step size in degrees for each movement in the spiral.
-        Returns:
-            bool: True if spiral search command was successful, False otherwise.
-
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
     
@@ -268,13 +278,21 @@ class MountControlBase:
     # Main loop and shared logic
     #
 
+    def spiral_search(self, center_position_radec, max_radius_deg, step_size_deg) -> None:
+        """ Commands the mount to perform a spiral search around the center position.
+        """
+        raise NotImplementedError("This method should be overridden by subclasses.")
+    
     def run(self):
         """ Main loop to manage mount control operations."""
         self.init()
         try:
             while True:
-                
+                # TODO: Implement the main control loop logic here.
+                # This will involve checking the current state, processing commands from the mount_queue,
+                # and calling the appropriate methods based on the current phase.
                 time.sleep(1)
         except KeyboardInterrupt:
             self.disconnect()
             print("Mount control stopped.")
+            raise
