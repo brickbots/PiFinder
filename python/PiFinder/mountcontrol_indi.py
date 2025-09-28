@@ -3,6 +3,8 @@ import PyIndi
 import logging
 import time
 
+from python.PiFinder.multiproclogging import MultiprocLogging
+
 logger = logging.getLogger("IndiMountControl")
 
 # Implement or override methods as needed
@@ -65,8 +67,8 @@ class PiFinderIndiClient(PyIndi.BaseClient):
 
 
 class MountControlIndi(MountControlBase):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, target_queue, console_queue, shared_state, log_queue, verbose=False):
+        super().__init__(target_queue, console_queue, shared_state, log_queue, verbose)
 
         # Connect to the INDI server
         self.client = PiFinderIndiClient()
@@ -75,6 +77,19 @@ class MountControlIndi(MountControlBase):
             logger.error("Failed to connect to INDI server at localhost:7624")
         else:
             logger.info("Connected to INDI server at localhost:7624")
+
+
+def run(
+    target_queue, console_queue, shared_state, log_queue, verbose=False
+):
+    MultiprocLogging.configurer(log_queue)
+    mount_control = MountControlIndi(target_queue, console_queue, shared_state, log_queue, verbose)
+    try:
+        mount_control.run()
+    except KeyboardInterrupt:
+        logger.info("Shutting down MountControlIndi.")
+        raise # don't swallow this, it is used to terminate the process
+
 
 
 if __name__ == "__main__":
