@@ -8,10 +8,9 @@ including fixtures for mock clients, event data management, and assertion helper
 import json
 import os
 import sys
-import tempfile
 import time
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Callable
+from typing import Dict, List, Any
 import pytest
 import PyIndi
 
@@ -20,7 +19,6 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parent_dir)
 
 from event_replayer import IndiEventReplayer
-from event_recorder import IndiEventRecorder
 
 
 class TestIndiClient(PyIndi.BaseClient):

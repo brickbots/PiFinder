@@ -11,8 +11,6 @@ import PyIndi
 
 # Import our pytest fixtures and utilities
 from pytest_fixtures import (
-    test_client, event_data_manager, basic_telescope_scenario,
-    coordinate_scenario, event_replayer, scenario_file,
     wait_for_events, assert_event_sequence, pytest_markers
 )
 
