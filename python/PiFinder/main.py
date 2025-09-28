@@ -52,6 +52,15 @@ from PiFinder.image_util import subtract_background
 
 from PiFinder.displays import DisplayBase, get_display
 
+from typing import Any, TYPE_CHECKING
+
+# Mypy i8n fix
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
+
+
 logger = logging.getLogger("main")
 
 hardware_platform = "Pi"
