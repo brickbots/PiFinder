@@ -247,14 +247,19 @@ def _extract_and_process_data():
         logging.info("Processing XLS file to extract catalog data...")
         output_json = steinicke_dir / "steinicke_catalog.json"
 
-        # Extract data from Excel file
-        import pandas as pd
+        # Import and use the actual extractor
+        import importlib.util
 
-        df = pd.read_excel(xls_file)
+        spec = importlib.util.spec_from_file_location(
+            "steinicke_extractor", steinicke_dir / "steinicke_extractor.py"
+        )
+        steinicke_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(steinicke_module)
 
-        # Process and save to JSON (assuming process_xls_to_json functionality)
-        # This would need the actual processing logic from steinicke_extractor
-        logging.info(f"Extracted Excel data with {len(df)} rows to {output_json}")
+        num_objects = steinicke_module.process_xls_to_json(
+            str(xls_file), str(output_json)
+        )
+        logging.info(f"Extracted Excel data with {num_objects} rows to {output_json}")
 
         # Step 3: Process NGC2000 descriptions
         _process_ngc2000_descriptions()

@@ -257,7 +257,10 @@ class ObjectsDatabase(Database):
         return self.cursor.fetchall()
 
     def get_catalog_objects(self):
-        self.cursor.execute("SELECT * FROM catalog_objects;")
+        # disable WDS until we can sort out performance
+        self.cursor.execute(
+            "SELECT * FROM catalog_objects where catalog_code != 'WDS';"
+        )
         return self.cursor.fetchall()
 
     # ---- IMAGES_OBJECTS methods ----
