@@ -493,7 +493,11 @@ def main(
                 # Console
                 try:
                     console_msg = console_queue.get(block=False)
-                    console.write(console_msg)
+                    if console_msg.startswith("DEGRADED_OPS"):
+                        menu_manager.message(_("Degraded\nCheck Status"), 5)
+                        time.sleep(5)
+                    else:
+                        console.write(console_msg)
                 except queue.Empty:
                     time.sleep(0.1)
 
