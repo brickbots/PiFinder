@@ -171,6 +171,7 @@ def resolve_image_name(catalog_object, source):
     """
     returns the image path for this object
     """
+
     def create_image_path(image_name):
         last_char = str(image_name)[-1]
         image = f"{BASE_IMAGE_PATH}/{last_char}/{image_name}_{source}.jpg"

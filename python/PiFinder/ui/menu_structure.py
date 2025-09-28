@@ -243,7 +243,7 @@ pifinder_menu = {
                     "label": "recent",
                 },
                 {
-                    "name": _("Add Custom..."),
+                    "name": _("Custom"),
                     "class": UIRADecEntry,
                     "custom_callback": callbacks.handle_radec_entry,
                 },
