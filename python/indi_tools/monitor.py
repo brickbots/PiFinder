@@ -367,7 +367,7 @@ class IndiMonitor(PyIndi.BaseClient):
             connected_count = len(self.connected_devices)
             property_count = len(self.properties)
 
-        print(f"\n📊 MONITORING STATUS SUMMARY:")
+        print("\n📊 MONITORING STATUS SUMMARY:")
         print(f"   Uptime: {uptime:.1f} seconds")
         print(f"   Total Devices: {device_count} (Connected: {connected_count})")
         print(f"   Total Properties: {property_count}")
@@ -407,13 +407,13 @@ def main():
     # Connect to the INDI server
     monitor.setServer(args.host, args.port)
 
-    print(f"🚀 Starting INDI Property Monitor...")
+    print("🚀 Starting INDI Property Monitor...")
     print(f"   Server: {args.host}:{args.port}")
     if args.device:
         print(f"   Device Filter: {args.device}")
     if args.type:
         print(f"   Type Filter: {args.type}")
-    print(f"   Press Ctrl+C to stop monitoring\n")
+    print("   Press Ctrl+C to stop monitoring\n")
 
     if not monitor.connectServer():
         print(f"❌ Failed to connect to INDI server at {args.host}:{args.port}")

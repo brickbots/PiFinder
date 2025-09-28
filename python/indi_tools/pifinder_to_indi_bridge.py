@@ -31,11 +31,8 @@ Usage:
 import PyIndi
 import requests
 import time
-import sys
 import argparse
-import json
 import threading
-from datetime import datetime
 from astropy.time import Time
 from astropy.coordinates import SkyCoord, ICRS, FK5, CIRS
 from astropy import units as u
