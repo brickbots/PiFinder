@@ -33,56 +33,72 @@ import numpy as np
 def read_wds_catalog(file_path):
     # Define the column specifications
     col_specs = [
-        (0, 10),     # coords
-        (10, 17),    # discoverer
-        (17, 22),    # components
-        (23, 27),    # date_first
-        (28, 32),    # date_last
-        (33, 37),    # num_obs
-        (38, 41),    # pa_first
-        (42, 45),    # pa_last
-        (46, 51),    # sep_first
-        (52, 57),    # sep_last
-        (58, 63),    # mag_first
-        (64, 69),    # mag_second
-        (70, 79),    # spectral_type
-        (80, 84),    # pm_ra_primary
-        (84, 88),    # pm_dec_primary
-        (89, 93),    # pm_ra_secondary
-        (93, 97),    # pm_dec_secondary
-        (98, 106),   # dm_number
+        (0, 10),  # coords
+        (10, 17),  # discoverer
+        (17, 22),  # components
+        (23, 27),  # date_first
+        (28, 32),  # date_last
+        (33, 37),  # num_obs
+        (38, 41),  # pa_first
+        (42, 45),  # pa_last
+        (46, 51),  # sep_first
+        (52, 57),  # sep_last
+        (58, 63),  # mag_first
+        (64, 69),  # mag_second
+        (70, 79),  # spectral_type
+        (80, 84),  # pm_ra_primary
+        (84, 88),  # pm_dec_primary
+        (89, 93),  # pm_ra_secondary
+        (93, 97),  # pm_dec_secondary
+        (98, 106),  # dm_number
         (107, 111),  # notes
-        (112, 130)   # coords_arc
+        (112, 130),  # coords_arc
     ]
 
     # Define dtype for structured array
     dtype = [
-        ('Coordinates_2000', 'U10'), ('Discoverer_Number', 'U7'), ('Components', 'U5'),
-        ('Date_First', 'i4'), ('Date_Last', 'i4'), ('Num_Observations', 'i4'),
-        ('PA_First', 'f4'), ('PA_Last', 'f4'), ('Sep_First', 'f4'), ('Sep_Last', 'f4'),
-        ('Mag_First', 'f4'), ('Mag_Second', 'f4'), ('Spectral_Type', 'U9'),
-        ('PM_RA_Primary', 'i4'), ('PM_Dec_Primary', 'i4'), ('PM_RA_Secondary', 'i4'),
-        ('PM_Dec_Secondary', 'i4'), ('DM_Number', 'U8'), ('Notes', 'U4'),
-        ('Coordinates_Arcsec', 'U18')
+        ("Coordinates_2000", "U10"),
+        ("Discoverer_Number", "U7"),
+        ("Components", "U5"),
+        ("Date_First", "i4"),
+        ("Date_Last", "i4"),
+        ("Num_Observations", "i4"),
+        ("PA_First", "f4"),
+        ("PA_Last", "f4"),
+        ("Sep_First", "f4"),
+        ("Sep_Last", "f4"),
+        ("Mag_First", "f4"),
+        ("Mag_Second", "f4"),
+        ("Spectral_Type", "U9"),
+        ("PM_RA_Primary", "i4"),
+        ("PM_Dec_Primary", "i4"),
+        ("PM_RA_Secondary", "i4"),
+        ("PM_Dec_Secondary", "i4"),
+        ("DM_Number", "U8"),
+        ("Notes", "U4"),
+        ("Coordinates_Arcsec", "U18"),
     ]
 
     def parse_line(line):
-        return tuple(parse_field(line[start:end].strip(), dtype) for (start, end), (_, dtype) in zip(col_specs, dtype))
+        return tuple(
+            parse_field(line[start:end].strip(), dtype)
+            for (start, end), (_, dtype) in zip(col_specs, dtype)
+        )
 
     def parse_field(value, dtype):
         value = value.strip()
-        if dtype.startswith('U'):
+        if dtype.startswith("U"):
             return value
-        elif dtype == 'i4':
-            return int(value) if value and value != '.' else 0
-        elif dtype == 'f4':
+        elif dtype == "i4":
+            return int(value) if value and value != "." else 0
+        elif dtype == "f4":
             try:
-                return float(value) if value and value != '.' else 0.0
+                return float(value) if value and value != "." else 0.0
             except ValueError:
                 return 0.0
 
     data = []
-    with open(file_path, 'r') as file:
+    with open(file_path, "r") as file:
         for line in file:
             data.append(parse_line(line))
 
@@ -94,12 +110,12 @@ def load_wds():
     catalog = "WDS"
     obj_type = "D*"
     conn, _ = objects_db.get_conn_cursor()
-    
+
     # Optimize SQLite for bulk import
     conn.execute("PRAGMA synchronous = NORMAL")
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA cache_size = 10000")
-    
+
     data_path = Path(utils.astro_data_dir, "WDS/wds_precise.txt")
     delete_catalog_from_database(catalog)
     insert_catalog(catalog, Path(utils.astro_data_dir) / "WDS/wds.desc")
@@ -118,7 +134,7 @@ def load_wds():
             ra_h = float(coord[:2])
             ra_m = float(coord[2:4])
             ra_s = float(coord[4:9])
-            dec_sign = 1 if coord[9] == '+' else -1
+            dec_sign = 1 if coord[9] == "+" else -1
             dec_deg = float(coord[10:12]) * dec_sign
             dec_m = float(coord[12:14])
             dec_s = float(coord[14:])
@@ -133,38 +149,49 @@ def load_wds():
         result = {}
         descriptions = []
         for i, value in enumerate(values):
-            mag1 = round(value['Mag_First'].item(), 2)
-            mag2 = round(value['Mag_Second'].item(), 2)
+            mag1 = round(value["Mag_First"].item(), 2)
+            mag2 = round(value["Mag_Second"].item(), 2)
             if i == 0:
-                result['ra'] = value['ra']
-                result['dec'] = value['dec']
-                result['mag'] = MagnitudeObject([mag1, mag2])
-                sizemax = np.max([value['Sep_First'], value['Sep_Last']])
-                result['size'] = str(round(sizemax, 1))
-            discoverers.add(value['Discoverer_Number'])
-            notes = value['Notes'].strip()
+                result["ra"] = value["ra"]
+                result["dec"] = value["dec"]
+                result["mag"] = MagnitudeObject([mag1, mag2])
+                sizemax = np.max([value["Sep_First"], value["Sep_Last"]])
+                result["size"] = str(round(sizemax, 1))
+            discoverers.add(value["Discoverer_Number"])
+            notes = value["Notes"].strip()
             notes_str = "" if len(notes) == 0 else f" Notes: {notes}"
-            components = value['Components'].strip()
+            components = value["Components"].strip()
             components_str = "" if len(components) == 0 else f"{components}: "
-            pa = value['PA_Last']
+            pa = value["PA_Last"]
             pa_str = f", PA={pa} ({value['Date_Last']})"
-            sep = value['Sep_Last'].item()
+            sep = value["Sep_Last"].item()
             sep_str = f", Sep={sep}"
             mag_str = f"Mag={mag1}/{mag2}"
 
-            descriptions.append(f"{components_str}{mag_str}{pa_str}{sep_str}{notes_str}")
+            descriptions.append(
+                f"{components_str}{mag_str}{pa_str}{sep_str}{notes_str}"
+            )
 
-        result['discoverers'] = list(discoverers)
-        result['name'] = key
-        result['description'] = "\n".join(descriptions)
+        result["discoverers"] = list(discoverers)
+        result["name"] = key
+        result["description"] = "\n".join(descriptions)
         return result
 
     # Convert coordinates
-    ra_2000, dec_2000 = np.vectorize(parse_coordinates_2000)(data['Coordinates_2000'])
-    ra_arcsec, dec_arcsec = np.vectorize(parse_coordinates_arcsec)(data['Coordinates_Arcsec'])
+    ra_2000, dec_2000 = np.vectorize(parse_coordinates_2000)(data["Coordinates_2000"])
+    ra_arcsec, dec_arcsec = np.vectorize(parse_coordinates_arcsec)(
+        data["Coordinates_Arcsec"]
+    )
 
     # Add these new coordinates to the numpy array
-    new_dtype = data.dtype.descr + [('ra_2000', 'f8'), ('dec_2000', 'f8'), ('ra_arcsec', 'f8'), ('dec_arcsec', 'f8'), ('ra', 'f8'), ('dec', 'f8')]
+    new_dtype = data.dtype.descr + [
+        ("ra_2000", "f8"),
+        ("dec_2000", "f8"),
+        ("ra_arcsec", "f8"),
+        ("dec_arcsec", "f8"),
+        ("ra", "f8"),
+        ("dec", "f8"),
+    ]
     new_data = np.empty(data.shape, dtype=new_dtype)
 
     # Copy existing data
@@ -172,12 +199,12 @@ def load_wds():
         new_data[name] = data[name]
 
     # Add new data
-    new_data['ra_2000'] = ra_2000
-    new_data['dec_2000'] = dec_2000
-    new_data['ra_arcsec'] = ra_arcsec
-    new_data['dec_arcsec'] = dec_arcsec
-    new_data['ra'] = 0
-    new_data['dec'] = 0
+    new_data["ra_2000"] = ra_2000
+    new_data["dec_2000"] = dec_2000
+    new_data["ra_arcsec"] = ra_arcsec
+    new_data["dec_arcsec"] = dec_arcsec
+    new_data["ra"] = 0
+    new_data["dec"] = 0
 
     # Replace the old data with the new data
     data = new_data
@@ -185,23 +212,25 @@ def load_wds():
     # Append new columns to data
     for i, entry in enumerate(data):
         if ra_arcsec[i] is None or dec_arcsec[i] is None:
-            entry['ra'] = ra_2000[i]
-            entry['dec'] = dec_2000[i]
+            entry["ra"] = ra_2000[i]
+            entry["dec"] = dec_2000[i]
         else:
-            entry['ra'] = ra_arcsec[i]
-            entry['dec'] = dec_arcsec[i]
+            entry["ra"] = ra_arcsec[i]
+            entry["dec"] = dec_arcsec[i]
 
     # make a dictionary of WDS objects to group duplicates
     wds_dict = defaultdict(list)
 
     for line, entry in enumerate(tqdm(data, total=len(data))):
-        wds_dict[entry['Coordinates_2000']].append(entry)
+        wds_dict[entry["Coordinates_2000"]].append(entry)
 
     seq = 1
     for key, value in tqdm(wds_dict.items(), total=len(wds_dict.items())):
         current_result = handle_multiples(key, value)
         wds_name = f"WDS J{current_result['name']}"
-        clean_discoverers = [trim_string(name) for name in current_result["discoverers"]]
+        clean_discoverers = [
+            trim_string(name) for name in current_result["discoverers"]
+        ]
         new_object = NewCatalogObject(
             object_type=obj_type,
             catalog_code=catalog,
@@ -217,10 +246,9 @@ def load_wds():
         seq += 1
 
     insert_catalog_max_sequence(catalog)
-    
+
     # Restore SQLite settings
     conn.execute("PRAGMA synchronous = FULL")
-    conn.execute("PRAGMA journal_mode = DELETE") 
-    
-    conn.commit()
+    conn.execute("PRAGMA journal_mode = DELETE")
 
+    conn.commit()

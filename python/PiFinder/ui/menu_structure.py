@@ -214,12 +214,12 @@ pifinder_menu = {
                                     "objects": "catalog",
                                     "value": "RDS",
                                 },
-                                {
-                                    "name": _("WDS Doubles"),
-                                    "class": UIObjectList,
-                                    "objects": "catalog",
-                                    "value": "WDS",
-                                },
+                                # {
+                                #    "name": _("WDS Doubles"),
+                                #    "class": UIObjectList,
+                                #    "objects": "catalog",
+                                #    "value": "WDS",
+                                # },
                                 {
                                     "name": _("TLK 90 Variables"),
                                     "class": UIObjectList,
@@ -237,7 +237,7 @@ pifinder_menu = {
                     "label": "recent",
                 },
                 {
-                    "name": _("Add Custom..."),
+                    "name": _("Custom"),
                     "class": UIRADecEntry,
                     "custom_callback": callbacks.handle_radec_entry,
                 },
@@ -431,6 +431,10 @@ pifinder_menu = {
                         {
                             "name": _("Comet"),
                             "value": "CM",
+                        },
+                        {
+                            "name": _("Unknown"),
+                            "value": "?",
                         },
                     ],
                 },
@@ -958,6 +962,35 @@ pifinder_menu = {
                         {
                             "name": _("GPSD (generic)"),
                             "value": "gpsd",
+                        },
+                    ],
+                },
+                {
+                    "name": _("IMU Sensit."),
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "imu_threshold_scale",
+                    "post_callback": callbacks.restart_pifinder,
+                    "items": [
+                        {
+                            "name": _("Off"),
+                            "value": 100,
+                        },
+                        {
+                            "name": _("Very Low"),
+                            "value": 3,
+                        },
+                        {
+                            "name": _("Low"),
+                            "value": 2,
+                        },
+                        {
+                            "name": _("Medium"),
+                            "value": 1,
+                        },
+                        {
+                            "name": _("High"),
+                            "value": 0.5,
                         },
                     ],
                 },

@@ -52,6 +52,15 @@ from PiFinder.image_util import subtract_background
 
 from PiFinder.displays import DisplayBase, get_display
 
+from typing import Any, TYPE_CHECKING
+
+# Mypy i8n fix
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
+
+
 logger = logging.getLogger("main")
 
 hardware_platform = "Pi"
@@ -493,7 +502,11 @@ def main(
                 # Console
                 try:
                     console_msg = console_queue.get(block=False)
-                    console.write(console_msg)
+                    if console_msg.startswith("DEGRADED_OPS"):
+                        menu_manager.message(_("Degraded\nCheck Status"), 5)
+                        time.sleep(5)
+                    else:
+                        console.write(console_msg)
                 except queue.Empty:
                     time.sleep(0.1)
 
