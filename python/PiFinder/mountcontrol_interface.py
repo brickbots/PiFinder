@@ -9,7 +9,11 @@
 
 import logging
 from enum import Enum, auto
+from queue import Queue
 import time
+
+from python.PiFinder.state import SharedStateObj
+import PiFinder.i18n  # noqa: F401
 
 logger = logging.getLogger("MountControl")
 
@@ -62,7 +66,10 @@ class MountControlPhases(Enum):
     MOUNT_TRACKING = auto()
     MOUNT_SPIRAL_SEARCH = auto()
 
-class MountDirectionsAltAz(Enum):
+class MountDirections(Enum):
+    """ Base class for mount directions enumerations. """
+    pass
+class MountDirectionsAltAz(MountDirections):
     """
     Enumeration representing the possible manual movement directions for an equatorial mount.
 
@@ -77,7 +84,7 @@ class MountDirectionsAltAz(Enum):
     LEFT = auto()
     RIGHT = auto()
 
-class MountDirectionsEquatorial(Enum):
+class MountDirectionsEquatorial(MountDirections):
     """
     Enumeration representing the possible manual movement directions for an equatorial mount.
 
@@ -93,12 +100,6 @@ class MountDirectionsEquatorial(Enum):
     WEST = auto()
 
 class MountControlBase:
-    MountControlBase is an abstract base class for telescope mount control interfaces.
-    This class defines the required interface and shared logic for controlling a telescope mount.
-    Responsibilities:
-    - Provide abstract methods for mount initialization, synchronization, movement, drift rate control, spiral search, and manual movement.
-    - Provide notification methods for subclasses to report mount state changes (position updates, target reached, stopped).
-        The `run` method manages the main control loop, calling `init_mount` on startup and
     """
     Base class for mount control interfaces.
 
@@ -109,11 +110,12 @@ class MountControlBase:
     Responsibilities of MountControlBase:
     - Manage shared state, communication queues, and logging for mount control.
     - Define the main control loop (`run`) and initialization sequence.
-    - Provide abstract methods for mount initialization, disconnection, movement, and position retrieval.
+    - Provide abstract methods for mount initialization, movement, and position retrieval.
 
     Responsibilities of subclasses:
-    - Implement hardware-specific logic of mount by overwriting the below methods. 
+    - Implement hardware-specific logic of mount. 
     - Handle communication with the actual mount hardware or protocol.
+    - Call notification methods to inform the base class of mount state changes.
 
     Abstract methods to override in subclasses:
         init_mount(): Initialize the mount hardware and prepare for operation.
@@ -138,24 +140,24 @@ class MountControlBase:
         handling graceful shutdown on interruption.
     """
 
-    def __init__(self, mount_queue, console_queue, shared_state, log_queue, verbose=False):
+    def __init__(self, mount_queue: Queue, console_queue: Queue, shared_state: SharedStateObj, log_queue: Queue):
         """     
         Args:
             mount_queue: Queue for receiving target positions or commands.
             console_queue: Queue for sending messages to the user interface or console.
-            shared_state: Shared state object for inter-process communication.
+            shared_state: SharedStateObj for inter-process communication with other PiFinder components.
             log_queue: Queue for logging messages.
-            verbose (bool): Enable verbose logging if True.
 
         Attributes:
             state: Current state of the mount (e.g., initialization, tracking).
-            verbose: Verbosity flag for logging and debugging.
         """
         self.mount_queue = mount_queue
         self.console_queue = console_queue
         self.shared_state = shared_state
         self.log_queue = log_queue
-        self.verbose = verbose
+
+        self.target_ra = None # Target Right Ascension in degrees, or None
+        self.target_dec = None # Target Declination in degrees, or None
 
         self.state = MountControlPhases.MOUNT_INIT_TELESCOPE
 
@@ -192,7 +194,23 @@ class MountControlBase:
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
-    def move_mount_to_target(self, target_position_radec) -> bool:
+    def stop_mount(self) -> bool:
+        """ Stop any current movement of the mount.
+
+        The subclass needs to return a boolean indicating success or failure, 
+        if the command was successfully sent.
+        A failure will cause the main loop to retry stopping after a delay.
+        If the mount cannot be stopped, throw an exception to abort the process.
+        This will be used to inform the user via the console queue.
+
+        You need to call the mount_stopped() method once the mount has actually stopped.
+
+        Returns:
+            bool: True if commanding a stop was successful, False otherwise.
+        """
+        raise NotImplementedError("This method should be overridden by subclasses.")
+    
+    def move_mount_to_target(self, target_ra_deg, target_dec_deg) -> bool:
         """ Move the mount to the specified target position.
 
         The subclass needs to return a boolean indicating success or failure, 
@@ -200,6 +218,10 @@ class MountControlBase:
         A failure will cause the main loop to retry movement after a delay.
         If the mount cannot be moved, throw an exception to abort the process.
         This will be used to inform the user via the console queue.
+
+        Args:
+            target_ra_deg: The target right ascension in degrees.
+            target_dec_deg: The target declination in degrees.
 
         Returns:
             bool: True if movement was successful, False otherwise.
@@ -240,6 +262,23 @@ class MountControlBase:
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
+    def disconnect_mount(self) -> bool:
+        """ Safely disconnect from the mount hardware.
+
+        The subclass needs to return a boolean indicating success or failure, 
+        if the command was successfully sent.
+        A failure will cause the main loop to retry disconnection after a delay.
+        If the mount cannot be disconnected, throw an exception to abort the process.
+        This will be used to inform the user via the console queue.
+
+        This should ideally stop any ongoing movements and release any resources, including the 
+        communication channel to the mount.
+
+        Returns:
+            bool: True if disconnection command was sent successfully, False otherwise.
+        """
+        raise NotImplementedError("This method should be overridden by subclasses.")
+
     #
     # Methods to be called by subclasses to inform the base class of mount state changes
     #
@@ -270,24 +309,140 @@ class MountControlBase:
         This method needs to be called by the subclass whenever it detects that the mount has stopped and is not moving anymore. 
         Even if it has not reached the target position. The mount must not be tracking, too.
 
-        This will be used to transition to the MOUNT_STOPPED phase in the control loop.
+        This will be used to transition to the MOUNT_STOPPED phase in the control loop, regardless of the previous phase.
         """
         # TODO implement
         pass
 
-    # Main loop and shared logic
+    #
+    # Shared logic and main loop 
     #
 
     def spiral_search(self, center_position_radec, max_radius_deg, step_size_deg) -> None:
         """ Commands the mount to perform a spiral search around the center position.
         """
-        raise NotImplementedError("This method should be overridden by subclasses.")
+        raise NotImplementedError("Not yet implemented.")
     
     def run(self):
-        """ Main loop to manage mount control operations."""
-        self.init()
+        """ Main loop to manage mount control operations.
+        
+        This is called in a separate process and manages the main mount control loop.
+
+        The commands that are supported are: 
+        - Stop Movement
+        - Goto Target
+        - Manual Movement (in 4 directions)
+        - Reduce Step Size
+        - Increase Step Size
+        - Spiral Search
+
+        """
+        logger.info("Starting mount control.")
+        # Setup back-off and retry logic for initialization
+        # TODO implement back-off and retry logic
+        
         try:
             while True:
+                try:
+                    # Try to get a command from the queue (non-blocking)
+                    command = self.mount_queue.get(block=False)
+                    
+                    # Process the command based on its type
+                    if command["type"] == 'exit':
+                        # This is here for debugging and testing purposes.
+                        logger.warning("Mount control exiting on command.")
+                        self.stop_mount()
+                        self.disconnect_mount()
+                        return
+                    
+                    elif command['type'] == 'stop_movement':
+                        logger.debug("Mount: stop command received")
+                        retry_count = 3
+                        while retry_count > 0 and not self.stop_mount():
+                            time.sleep(2) # Retry after a delay
+                            retry_count -= 1
+                            if retry_count == 0:
+                                logger.error("Failed to stop mount after retrying. Re-initializing mount.")
+                                self.console_queue.put(["WARNING", _("Cannot stop mount!")])
+                                self.state = MountControlPhases.MOUNT_INIT_TELESCOPE
+                            else:
+                                logger.warning("Retrying to stop mount. Attempts left: %d", retry_count)
+
+                            ## TODO CONTINUE HERE
+
+                    elif command['type'] == 'goto_target':
+                        target_ra = command['ra']
+                        target_dec = command['dec']
+                        logger.debug(f"Mount: Goto target - RA={target_ra}, DEC={target_dec}")
+                        retry_count = 3
+                        while retry_count > 0 and not self.move_mount_to_target(target_ra, target_dec):
+                            time.sleep(2) # Retry after a delay
+                            retry_count -= 1
+                            if retry_count == 0:
+                                logger.error("Failed to command mount to move to target.")
+                                self.console_queue.put(["WARNING", _("Cannot move to target!")])
+                                self.stop_mount()
+                                self.state = MountControlPhases.MOUNT_STOPPED
+                            else:
+                                logger.warning("Retrying to move mount to target. Attempts left: %d", retry_count)
+                                # self.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
+                            
+                    elif command['type'] == 'manual_movement':
+                        direction = command['direction']
+                        speed = command.get('speed', 1.0)
+                        logger.info(f"Manual movement command: direction={direction}, speed={speed}")
+                        if self.state != MountControlPhases.MOUNT_INIT_TELESCOPE:
+                            self.move_mount_manual(direction, speed)
+                            self.state = MountControlPhases.MOUNT_TRACKING
+                            
+                    elif command['type'] == 'reduce_step_size':
+                        logger.info("Reduce step size command received")
+                        # TODO: Implement step size reduction logic
+                        
+                    elif command['type'] == 'increase_step_size':
+                        logger.info("Increase step size command received")
+                        # TODO: Implement step size increase logic
+                        
+                    elif command['type'] == 'spiral_search':
+                        center_ra = command['center_ra']
+                        center_dec = command['center_dec']
+                        max_radius = command.get('max_radius_deg', 1.0)
+                        step_size = command.get('step_size_deg', 0.1)
+                        logger.info(f"Mount: Spiral search - center=({center_ra}, {center_dec})")
+                        self.spiral_search((center_ra, center_dec), max_radius, step_size)
+                        if self.state != MountControlPhases.MOUNT_INIT_TELESCOPE:
+                            self.state = MountControlPhases.MOUNT_SPIRAL_SEARCH
+                            
+                except Queue.Empty:
+                    # No command in queue, continue with state-based processing
+                    pass
+
+                if self.state == MountControlPhases.MOUNT_INIT_TELESCOPE:
+                    success = self.init_mount()
+                    if success:
+                        self.state = MountControlPhases.MOUNT_STOPPED
+                        logger.debug("Mount initialized successfully.")
+                    else:
+                        logger.error("Mount initialization failed. Retrying...")
+                        
+                elif self.state == MountControlPhases.MOUNT_STOPPED:
+                    # Wait for user command to move to target
+                    pass
+                elif self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE:
+                    # Handle target acquisition movement
+                    pass
+                elif self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
+                    # Handle target acquisition refinement
+                    pass
+                elif self.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
+                    # Handle drift compensation
+                    pass
+                elif self.state == MountControlPhases.MOUNT_TRACKING:
+                    # Handle tracking state
+                    pass
+                elif self.state == MountControlPhases.MOUNT_SPIRAL_SEARCH:
+                    # Handle spiral search state
+                    pass
                 # TODO: Implement the main control loop logic here.
                 # This will involve checking the current state, processing commands from the mount_queue,
                 # and calling the appropriate methods based on the current phase.
