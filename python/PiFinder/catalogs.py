@@ -984,6 +984,7 @@ class CatalogBuilder:
 
         # Start background thread to populate full details
         import threading
+        import json
         def populate_details():
             logger.info("Starting background population of object details...")
             details_start = time.time()
@@ -998,8 +999,17 @@ class CatalogBuilder:
                     composite_obj.logged = (catalog_tuples[i] in logged_set)
                     composite_obj.names = common_names.id_to_names.get(composite_obj.object_id, [])
 
-                    # Skip JSON parsing for now (still disabled for testing)
-                    # composite_obj.mag_str = "N/A"
+                    # Process magnitude data
+                    if composite_obj.mag:  # Only if mag data exists
+                        try:
+                            mag = MagnitudeObject.from_json(composite_obj.mag)
+                            composite_obj.mag = mag
+                            composite_obj.mag_str = mag.calc_two_mag_representation()
+                        except (json.JSONDecodeError, KeyError, ValueError) as e:
+                            # Fallback to placeholder on JSON parsing error
+                            composite_obj.mag_str = "-"
+                    else:
+                        composite_obj.mag_str = "-"
 
                     composite_obj._details_loaded = True
 
