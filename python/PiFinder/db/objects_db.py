@@ -11,7 +11,17 @@ class ObjectsDatabase(Database):
     def __init__(self, db_path=utils.pifinder_db):
         conn, cursor = self.get_database(db_path)
         super().__init__(conn, cursor, db_path)
+
+        # Performance optimizations for Pi/SD card environments
+        logging.info("Applying database performance optimizations...")
         self.cursor.execute("PRAGMA foreign_keys = ON;")
+        self.cursor.execute("PRAGMA mmap_size = 268435456;")  # 256MB memory mapping
+        self.cursor.execute("PRAGMA cache_size = -64000;")    # 64MB cache (negative = KB)
+        self.cursor.execute("PRAGMA temp_store = MEMORY;")    # Keep temporary data in RAM
+        self.cursor.execute("PRAGMA journal_mode = WAL;")     # Write-ahead logging for better concurrency
+        self.cursor.execute("PRAGMA synchronous = NORMAL;")   # Balanced safety/performance
+        logging.info("Database optimizations applied")
+
         self.conn.commit()
         self.bulk_mode = False  # Flag to disable commits during bulk operations
 
