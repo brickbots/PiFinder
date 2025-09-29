@@ -88,12 +88,14 @@ class CameraInterface:
                         base_image = base_image.convert("L")
                         rotate_amount = 0
                         if camera_rotation is None:
-                            if (
-                                screen_direction == "right"
-                                or screen_direction == "straight"
-                                or screen_direction == "flat3"
-                            ):
+                            if screen_direction in [
+                                "right",
+                                "straight",
+                                "flat3",
+                            ]:
                                 rotate_amount = 90
+                            elif screen_direction == "as_bloom":
+                                rotate_amount = 90  # Specific rotation for AS Bloom
                             else:
                                 rotate_amount = 270
                         else:
