@@ -936,6 +936,39 @@ class CatalogBuilder:
                 return False
             return True
 
+    def _create_composite_object(self, catalog_obj: Dict, objects: Dict[int, Dict], obs_db: ObservationsDatabase) -> CompositeObject:
+        """Create a single composite object with minimal data"""
+        object_id = catalog_obj["object_id"]
+        obj_data = objects[object_id]
+
+        # Create minimal composite object with just essential data
+        composite_data = {
+            'id': catalog_obj['id'],
+            'object_id': object_id,
+            'ra': obj_data['ra'],
+            'dec': obj_data['dec'],
+            'obj_type': obj_data['obj_type'],
+            'catalog_code': catalog_obj['catalog_code'],
+            'sequence': catalog_obj['sequence'],
+            'description': catalog_obj.get('description', ''),
+            'const': obj_data.get('const', ''),
+            'size': obj_data.get('size', ''),
+            'surface_brightness': obj_data.get('surface_brightness', None)
+        }
+
+        composite_instance = CompositeObject.from_dict(composite_data)
+        # Initialize with empty MagnitudeObject, store JSON for background processing
+        composite_instance.mag = MagnitudeObject([])
+        composite_instance._mag_json = obj_data.get('mag', '')  # Store for background processing
+
+        # Set placeholder values for expensive operations
+        composite_instance.logged = False  # Default, will be updated in background
+        composite_instance.names = []      # Default, will be updated in background
+        composite_instance.mag_str = "..."  # Placeholder while loading
+        composite_instance._details_loaded = False  # Track loading status
+
+        return composite_instance
+
     def _build_composite(
         self,
         catalog_objects: List[Dict],
@@ -943,54 +976,53 @@ class CatalogBuilder:
         common_names: Names,
         obs_db: ObservationsDatabase,
     ) -> List[CompositeObject]:
-        logger.info(f"Building {len(catalog_objects)} placeholder composite objects...")
+        # Separate high-priority catalogs from low-priority ones
+        priority_catalogs = {'NGC', 'IC', 'M'}  # Most popular catalogs
 
-        # Phase 1: Create minimal placeholder objects with essential data only
+        priority_objects = []
+        deferred_objects = []
+
+        for catalog_obj in catalog_objects:
+            if catalog_obj['catalog_code'] in priority_catalogs:
+                priority_objects.append(catalog_obj)
+            else:
+                deferred_objects.append(catalog_obj)
+
+        logger.info(f"Priority catalogs: {len(priority_objects)} objects")
+        logger.info(f"Deferred catalogs: {len(deferred_objects)} objects (WDS: {sum(1 for obj in deferred_objects if obj['catalog_code'] == 'WDS')})")
+
+        # Phase 1: Create objects for priority catalogs immediately
         placeholder_start = time.time()
         composite_objects = []
 
-        for catalog_obj in catalog_objects:
-            object_id = catalog_obj["object_id"]
-            obj_data = objects[object_id]
+        logger.info(f"Creating {len(priority_objects)} priority catalog objects...")
+        for catalog_obj in priority_objects:
+            composite_objects.append(self._create_composite_object(catalog_obj, objects, obs_db))
 
-            # Create minimal composite object with just essential data
-            composite_data = {
-                'id': catalog_obj['id'],
-                'object_id': object_id,
-                'ra': obj_data['ra'],
-                'dec': obj_data['dec'],
-                'obj_type': obj_data['obj_type'],
-                'catalog_code': catalog_obj['catalog_code'],
-                'sequence': catalog_obj['sequence'],
-                'description': catalog_obj.get('description', ''),
-                'const': obj_data.get('const', ''),
-                'size': obj_data.get('size', ''),
-                'surface_brightness': obj_data.get('surface_brightness', None)
-            }
+        priority_time = time.time() - placeholder_start
+        logger.info(f"Created {len(priority_objects)} priority objects in {priority_time:.3f}s")
 
-            composite_instance = CompositeObject.from_dict(composite_data)
-            # Initialize with empty MagnitudeObject, store JSON for background processing
-            composite_instance.mag = MagnitudeObject([])
-            composite_instance._mag_json = obj_data.get('mag', '')  # Store for background processing
-
-            # Set placeholder values for expensive operations
-            composite_instance.logged = False  # Default, will be updated in background
-            composite_instance.names = []      # Default, will be updated in background
-            composite_instance.mag_str = "..."  # Placeholder while loading
-            composite_instance._details_loaded = False  # Track loading status
-
-            composite_objects.append(composite_instance)
-
-        placeholder_time = time.time() - placeholder_start
-        logger.info(f"Created {len(composite_objects)} placeholder objects in {placeholder_time:.3f}s")
-
-        # Start background thread to populate full details
+        # Start background thread to create deferred objects and populate all details
         import threading
         import json
         def populate_details():
-            logger.info("Starting background population of object details...")
+            logger.info("Starting background creation of deferred objects and detail population...")
             details_start = time.time()
 
+            # Phase 1: Create deferred objects (WDS, etc.)
+            deferred_start = time.time()
+            logger.info(f"Creating {len(deferred_objects)} deferred objects...")
+            deferred_composite_objects = []
+            for catalog_obj in deferred_objects:
+                deferred_composite_objects.append(self._create_composite_object(catalog_obj, objects, obs_db))
+
+            # Add deferred objects to main list
+            composite_objects.extend(deferred_composite_objects)
+            deferred_time = time.time() - deferred_start
+            logger.info(f"Created {len(deferred_objects)} deferred objects in {deferred_time:.3f}s")
+
+            # Phase 2: Populate details for all objects
+            logger.info(f"Populating details for {len(composite_objects)} total objects...")
             # Pre-compute logged lookup for background thread
             catalog_tuples = [(obj.catalog_code, obj.sequence) for obj in composite_objects]
             logged_set = set(obs_db.observed_objects_cache) if obs_db.observed_objects_cache else set()
