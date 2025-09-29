@@ -44,6 +44,20 @@ class ObjectsDatabase(Database):
         """
         )
 
+        # Create indexes on names table for faster lookups
+        self.cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_names_object_id
+            ON names(object_id);
+            """
+        )
+        self.cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_names_common_name
+            ON names(common_name);
+            """
+        )
+
         # Create catalogs table
         self.cursor.execute(
             """
