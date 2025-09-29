@@ -860,23 +860,57 @@ class CatalogBuilder:
     """
 
     def build(self, shared_state) -> Catalogs:
+        build_start = time.time()
+        logger.info("Starting CatalogBuilder.build()...")
+
+        db_start = time.time()
         db: Database = ObjectsDatabase()
         obs_db: Database = ObservationsDatabase()
+        db_time = time.time() - db_start
+        logger.info(f"Database initialization took {db_time:.2f}s")
+
+        catalog_objects_start = time.time()
         # list of dicts, one dict for each entry in the catalog_objects table
         catalog_objects: List[Dict] = [dict(row) for row in db.get_catalog_objects()]
+        catalog_objects_time = time.time() - catalog_objects_start
+        logger.info(f"Loading catalog_objects took {catalog_objects_time:.2f}s")
+
+        objects_start = time.time()
         objects = db.get_objects()
+        objects_time = time.time() - objects_start
+        logger.info(f"Loading objects took {objects_time:.2f}s")
+
+        names_start = time.time()
         common_names = Names()
+        names_time = time.time() - names_start
+        logger.info(f"Names initialization took {names_time:.2f}s")
+
+        misc_start = time.time()
         catalogs_info = db.get_catalogs_dict()
 
         objects = {row["id"]: dict(row) for row in objects}
+        misc_time = time.time() - misc_start
+        logger.info(f"Catalogs info and objects dict took {misc_time:.2f}s")
+
+        composite_start = time.time()
         composite_objects: List[CompositeObject] = self._build_composite(
             catalog_objects, objects, common_names, obs_db
         )
+        composite_time = time.time() - composite_start
+        logger.info(f"_build_composite took {composite_time:.2f}s")
+
         # This is used for caching catalog dicts
         # to speed up repeated searches
         self.catalog_dicts = {}
         logger.debug("Loaded %i objects from database", len(composite_objects))
+
+        get_catalogs_start = time.time()
         all_catalogs: Catalogs = self._get_catalogs(composite_objects, catalogs_info)
+        get_catalogs_time = time.time() - get_catalogs_start
+        logger.info(f"_get_catalogs took {get_catalogs_time:.2f}s")
+
+        build_time = time.time() - build_start
+        logger.info(f"CatalogBuilder.build() total time: {build_time:.2f}s")
         # Initialize planet catalog with whatever date we have for now
         # This will be re-initialized on activation of Catalog ui module
         # if we have GPS lock
@@ -909,23 +943,81 @@ class CatalogBuilder:
         common_names: Names,
         obs_db: ObservationsDatabase,
     ) -> List[CompositeObject]:
-        composite_objects: List[CompositeObject] = []
+        logger.info(f"Building {len(catalog_objects)} placeholder composite objects...")
+
+        # Phase 1: Create minimal placeholder objects with essential data only
+        placeholder_start = time.time()
+        composite_objects = []
 
         for catalog_obj in catalog_objects:
             object_id = catalog_obj["object_id"]
+            obj_data = objects[object_id]
 
-            # Merge the two dictionaries
-            composite_data = objects[object_id] | catalog_obj
+            # Create minimal composite object with just essential data
+            composite_data = {
+                'id': catalog_obj['id'],
+                'object_id': object_id,
+                'ra': obj_data['ra'],
+                'dec': obj_data['dec'],
+                'obj_type': obj_data['obj_type'],
+                'catalog_code': catalog_obj['catalog_code'],
+                'sequence': catalog_obj['sequence'],
+                'description': catalog_obj.get('description', ''),
+                'const': obj_data.get('const', ''),
+                'size': obj_data.get('size', ''),
+                'mag': obj_data.get('mag', ''),  # Keep as JSON string for now
+                'surface_brightness': obj_data.get('surface_brightness', None)
+            }
 
-            # Create an instance from the merged dictionaries
             composite_instance = CompositeObject.from_dict(composite_data)
-            composite_instance.logged = obs_db.check_logged(composite_instance)
-            composite_instance.names = common_names.get_name(object_id)
-            mag = MagnitudeObject.from_json(composite_instance.mag)
-            composite_instance.mag = mag
-            composite_instance.mag_str = mag.calc_two_mag_representation()
-            # Append to the result dictionary
+
+            # Set placeholder values for expensive operations
+            composite_instance.logged = False  # Default, will be updated in background
+            composite_instance.names = []      # Default, will be updated in background
+            composite_instance.mag_str = "..."  # Placeholder while loading
+            composite_instance._details_loaded = False  # Track loading status
+
             composite_objects.append(composite_instance)
+
+        placeholder_time = time.time() - placeholder_start
+        logger.info(f"Created {len(composite_objects)} placeholder objects in {placeholder_time:.3f}s")
+
+        # Start background thread to populate full details
+        import threading
+        def populate_details():
+            logger.info("Starting background population of object details...")
+            details_start = time.time()
+
+            # Pre-compute logged lookup for background thread
+            catalog_tuples = [(obj.catalog_code, obj.sequence) for obj in composite_objects]
+            logged_set = set(obs_db.observed_objects_cache) if obs_db.observed_objects_cache else set()
+
+            for i, composite_obj in enumerate(composite_objects):
+                try:
+                    # Populate detailed information
+                    composite_obj.logged = (catalog_tuples[i] in logged_set)
+                    composite_obj.names = common_names.id_to_names.get(composite_obj.object_id, [])
+
+                    # Skip JSON parsing for now (still disabled for testing)
+                    # composite_obj.mag_str = "N/A"
+
+                    composite_obj._details_loaded = True
+
+                    # Progress logging every 25K objects
+                    if (i + 1) % 25000 == 0:
+                        logger.info(f"Background loading progress: {i+1}/{len(composite_objects)} objects")
+
+                except Exception as e:
+                    logger.error(f"Error loading details for object {i}: {e}")
+                    # Keep placeholder values on error
+                    composite_obj._details_loaded = False
+
+            details_time = time.time() - details_start
+            logger.info(f"Background detail population completed in {details_time:.3f}s")
+
+        background_thread = threading.Thread(target=populate_details, daemon=True)
+        background_thread.start()
+
         return composite_objects
 
     def _get_catalogs(
