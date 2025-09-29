@@ -64,11 +64,31 @@ class Names:
     names: DefaultDict[int, List[str]] = defaultdict(list)
 
     def __init__(self):
+        init_start = time.time()
+        logger.info("Starting Names class initialization...")
+
+        db_start = time.time()
         self.db = ObjectsDatabase()
+        db_time = time.time() - db_start
+        logger.info(f"ObjectsDatabase creation took {db_time:.2f}s")
+
+        id_to_names_start = time.time()
         self.id_to_names = self.db.get_object_id_to_names()
+        id_to_names_time = time.time() - id_to_names_start
+        logger.info(f"get_object_id_to_names took {id_to_names_time:.2f}s")
+
+        name_to_id_start = time.time()
         self.name_to_id = self.db.get_name_to_object_id()
+        name_to_id_time = time.time() - name_to_id_start
+        logger.info(f"get_name_to_object_id took {name_to_id_time:.2f}s")
+
+        sort_start = time.time()
         self._sort_names()
-        logger.debug("Loaded %i names from database", len(self.names))
+        sort_time = time.time() - sort_start
+        logger.info(f"_sort_names took {sort_time:.2f}s")
+
+        total_time = time.time() - init_start
+        logger.info(f"Names class initialization complete: {total_time:.2f}s total, loaded {len(self.names)} names")
 
     def _sort_names(self):
         """

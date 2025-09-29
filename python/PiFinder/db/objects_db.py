@@ -4,6 +4,7 @@ from typing import Tuple, DefaultDict, List, Dict
 from PiFinder.db.db import Database
 from collections import defaultdict
 import logging
+import time
 
 
 class ObjectsDatabase(Database):
@@ -175,13 +176,26 @@ class ObjectsDatabase(Database):
         Returns a dictionary of object_id: [common_name, common_name, ...]
         duplicates are removed.
         """
+        start_time = time.time()
+        logging.info("Starting get_object_id_to_names query...")
+
+        query_start = time.time()
         self.cursor.execute("SELECT object_id, common_name FROM names;")
         results = self.cursor.fetchall()
+        query_time = time.time() - query_start
+        logging.info(f"Database query took {query_time:.2f}s, returned {len(results)} rows")
+
+        process_start = time.time()
         name_dict = defaultdict(list)
         for object_id, common_name in results:
             name_dict[object_id].append(common_name.strip())
         for object_id in name_dict:
             name_dict[object_id] = list(set(name_dict[object_id]))
+        process_time = time.time() - process_start
+        logging.info(f"Processing took {process_time:.2f}s, created {len(name_dict)} object entries")
+
+        total_time = time.time() - start_time
+        logging.info(f"get_object_id_to_names total time: {total_time:.2f}s")
         return name_dict
 
     def search_common_names(self, search_term):
@@ -271,8 +285,15 @@ class ObjectsDatabase(Database):
         return self.cursor.fetchall()
 
     def get_catalog_objects(self):
+        start_time = time.time()
+        logging.info("Starting get_catalog_objects query...")
+
         self.cursor.execute("SELECT * FROM catalog_objects;")
-        return self.cursor.fetchall()
+        results = self.cursor.fetchall()
+
+        total_time = time.time() - start_time
+        logging.info(f"get_catalog_objects took {total_time:.2f}s, returned {len(results)} rows")
+        return results
 
     # ---- IMAGES_OBJECTS methods ----
     def insert_image_object(self, object_id, image_name):
