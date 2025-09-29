@@ -965,11 +965,13 @@ class CatalogBuilder:
                 'description': catalog_obj.get('description', ''),
                 'const': obj_data.get('const', ''),
                 'size': obj_data.get('size', ''),
-                'mag': obj_data.get('mag', ''),  # Keep as JSON string for now
                 'surface_brightness': obj_data.get('surface_brightness', None)
             }
 
             composite_instance = CompositeObject.from_dict(composite_data)
+            # Initialize with empty MagnitudeObject, store JSON for background processing
+            composite_instance.mag = MagnitudeObject([])
+            composite_instance._mag_json = obj_data.get('mag', '')  # Store for background processing
 
             # Set placeholder values for expensive operations
             composite_instance.logged = False  # Default, will be updated in background
@@ -999,14 +1001,14 @@ class CatalogBuilder:
                     composite_obj.logged = (catalog_tuples[i] in logged_set)
                     composite_obj.names = common_names.id_to_names.get(composite_obj.object_id, [])
 
-                    # Process magnitude data
-                    if composite_obj.mag:  # Only if mag data exists
+                    # Process magnitude data from stored JSON
+                    if hasattr(composite_obj, '_mag_json') and composite_obj._mag_json:
                         try:
-                            mag = MagnitudeObject.from_json(composite_obj.mag)
+                            mag = MagnitudeObject.from_json(composite_obj._mag_json)
                             composite_obj.mag = mag
                             composite_obj.mag_str = mag.calc_two_mag_representation()
                         except (json.JSONDecodeError, KeyError, ValueError) as e:
-                            # Fallback to placeholder on JSON parsing error
+                            # Keep empty MagnitudeObject on JSON parsing error
                             composite_obj.mag_str = "-"
                     else:
                         composite_obj.mag_str = "-"
