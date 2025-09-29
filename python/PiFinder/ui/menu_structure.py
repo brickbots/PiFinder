@@ -965,6 +965,35 @@ pifinder_menu = {
                         },
                     ],
                 },
+                {
+                    "name": _("IMU Sensit."),
+                    "class": UITextMenu,
+                    "select": "single",
+                    "config_option": "imu_threshold_scale",
+                    "post_callback": callbacks.restart_pifinder,
+                    "items": [
+                        {
+                            "name": _("Off"),
+                            "value": 100,
+                        },
+                        {
+                            "name": _("Very Low"),
+                            "value": 3,
+                        },
+                        {
+                            "name": _("Low"),
+                            "value": 2,
+                        },
+                        {
+                            "name": _("Medium"),
+                            "value": 1,
+                        },
+                        {
+                            "name": _("High"),
+                            "value": 0.5,
+                        },
+                    ],
+                },
             ],
         },
         {
