@@ -214,12 +214,6 @@ pifinder_menu = {
                                     "objects": "catalog",
                                     "value": "RDS",
                                 },
-                                # {
-                                #    "name": _("WDS Doubles"),
-                                #    "class": UIObjectList,
-                                #    "objects": "catalog",
-                                #    "value": "WDS",
-                                # },
                                 {
                                     "name": _("WDS Doubles"),
                                     "class": UIObjectList,

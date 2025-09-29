@@ -850,7 +850,7 @@ class CatalogBuilder:
 
         # Disable WDS for now to work on
         # performance and sort/nearest bug
-        catalogs_info.pop("WDS")
+        # catalogs_info.pop("WDS")
 
         objects = {row["id"]: dict(row) for row in objects}
         composite_objects: List[CompositeObject] = self._build_composite(
