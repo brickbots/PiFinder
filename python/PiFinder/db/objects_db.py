@@ -204,11 +204,14 @@ class ObjectsDatabase(Database):
         )
         return self.cursor.fetchall()
 
-    def get_name_to_object_id(self) -> Dict[str, int]:
+    def get_name_to_object_id(self, id_to_names_dict=None) -> Dict[str, int]:
         """
         Returns a dictionary of common_name: object_id
         """
-        other_dict = self.get_object_id_to_names()
+        if id_to_names_dict is None:
+            other_dict = self.get_object_id_to_names()
+        else:
+            other_dict = id_to_names_dict
         result_dict = defaultdict(int)
         for k, v in other_dict.items():
             for name in v:

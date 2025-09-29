@@ -78,7 +78,7 @@ class Names:
         logger.info(f"get_object_id_to_names took {id_to_names_time:.2f}s")
 
         name_to_id_start = time.time()
-        self.name_to_id = self.db.get_name_to_object_id()
+        self.name_to_id = self.db.get_name_to_object_id(self.id_to_names)
         name_to_id_time = time.time() - name_to_id_start
         logger.info(f"get_name_to_object_id took {name_to_id_time:.2f}s")
 
