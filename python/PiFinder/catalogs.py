@@ -64,33 +64,10 @@ class Names:
     names: DefaultDict[int, List[str]] = defaultdict(list)
 
     def __init__(self):
-        init_start = time.time()
-        logger.info("Starting Names class initialization...")
-
-        db_start = time.time()
         self.db = ObjectsDatabase()
-        db_time = time.time() - db_start
-        logger.info(f"ObjectsDatabase creation took {db_time:.2f}s")
-
-        id_to_names_start = time.time()
         self.id_to_names = self.db.get_object_id_to_names()
-        id_to_names_time = time.time() - id_to_names_start
-        logger.info(f"get_object_id_to_names took {id_to_names_time:.2f}s")
-
-        name_to_id_start = time.time()
         self.name_to_id = self.db.get_name_to_object_id(self.id_to_names)
-        name_to_id_time = time.time() - name_to_id_start
-        logger.info(f"get_name_to_object_id took {name_to_id_time:.2f}s")
-
-        sort_start = time.time()
         self._sort_names()
-        sort_time = time.time() - sort_start
-        logger.info(f"_sort_names took {sort_time:.2f}s")
-
-        total_time = time.time() - init_start
-        logger.info(
-            f"Names class initialization complete: {total_time:.2f}s total, loaded {len(self.names)} names"
-        )
 
     def _sort_names(self):
         """
@@ -1040,54 +1017,26 @@ class CatalogBuilder:
             shared_state: Shared state object
             ui_queue: Optional queue to signal completion (for main loop integration)
         """
-        build_start = time.time()
-        logger.info("Starting CatalogBuilder.build()...")
-
-        db_start = time.time()
         db: Database = ObjectsDatabase()
         obs_db: Database = ObservationsDatabase()
-        db_time = time.time() - db_start
-        logger.info(f"Database initialization took {db_time:.2f}s")
 
-        catalog_objects_start = time.time()
         # list of dicts, one dict for each entry in the catalog_objects table
         catalog_objects: List[Dict] = [dict(row) for row in db.get_catalog_objects()]
-        catalog_objects_time = time.time() - catalog_objects_start
-        logger.info(f"Loading catalog_objects took {catalog_objects_time:.2f}s")
-
-        objects_start = time.time()
         objects = db.get_objects()
-        objects_time = time.time() - objects_start
-        logger.info(f"Loading objects took {objects_time:.2f}s")
-
-        names_start = time.time()
         common_names = Names()
-        names_time = time.time() - names_start
-        logger.info(f"Names initialization took {names_time:.2f}s")
-
-        misc_start = time.time()
         catalogs_info = db.get_catalogs_dict()
-
         objects = {row["id"]: dict(row) for row in objects}
-        misc_time = time.time() - misc_start
-        logger.info(f"Catalogs info and objects dict took {misc_time:.2f}s")
 
-        composite_start = time.time()
         composite_objects: List[CompositeObject] = self._build_composite(
             catalog_objects, objects, common_names, obs_db, ui_queue
         )
-        composite_time = time.time() - composite_start
-        logger.info(f"_build_composite took {composite_time:.2f}s")
 
         # This is used for caching catalog dicts
         # to speed up repeated searches
         self.catalog_dicts = {}
         logger.debug("Loaded %i objects from database", len(composite_objects))
 
-        get_catalogs_start = time.time()
         all_catalogs: Catalogs = self._get_catalogs(composite_objects, catalogs_info)
-        get_catalogs_time = time.time() - get_catalogs_start
-        logger.info(f"_get_catalogs took {get_catalogs_time:.2f}s")
 
         # Store catalogs reference for background loader completion
         self._pending_catalogs_ref = all_catalogs
@@ -1096,9 +1045,6 @@ class CatalogBuilder:
         # This is set in _build_composite() if there are deferred objects
         if hasattr(self, "_background_loader") and self._background_loader is not None:
             all_catalogs._background_loader = self._background_loader
-
-        build_time = time.time() - build_start
-        logger.info(f"CatalogBuilder.build() total time: {build_time:.2f}s")
         # Initialize planet catalog with whatever date we have for now
         # This will be re-initialized on activation of Catalog ui module
         # if we have GPS lock
@@ -1191,27 +1137,13 @@ class CatalogBuilder:
             else:
                 deferred_objects.append(catalog_obj)
 
-        logger.info(f"Priority catalogs: {len(priority_objects)} objects")
-        logger.info(
-            f"Deferred catalogs: {len(deferred_objects)} objects "
-            f"(WDS: {sum(1 for obj in deferred_objects if obj['catalog_code'] == 'WDS')})"
-        )
-
         # Load priority catalogs synchronously (fast - ~13K objects)
-        priority_start = time.time()
         composite_objects = []
-
-        logger.info(f"Loading {len(priority_objects)} priority catalog objects...")
         for catalog_obj in priority_objects:
             obj = self._create_full_composite_object(
                 catalog_obj, objects, common_names, obs_db
             )
             composite_objects.append(obj)
-
-        priority_time = time.time() - priority_start
-        logger.info(
-            f"Loaded {len(priority_objects)} priority objects in {priority_time:.3f}s"
-        )
 
         # Store reference for background loader completion callback
         self._pending_catalogs_ref = None
