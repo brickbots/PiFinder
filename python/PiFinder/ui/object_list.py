@@ -86,6 +86,7 @@ class UIObjectList(UITextMenu):
         self._menu_items: list[CompositeObject] = []
         self.catalog_info_1: str = ""
         self.catalog_info_2: str = ""
+        self._was_loading: bool = False  # Track loading state to detect completion
 
         # Init display mode defaults
         self.mode_cycle = cycle(DisplayModes)
@@ -401,6 +402,13 @@ class UIObjectList(UITextMenu):
     def update(self, force: bool = False) -> None:
         self.clear_screen()
         begin_x = 12
+
+        # Check if loading just completed and refresh if so
+        is_loading = self.catalogs.is_loading()
+        if self._was_loading and not is_loading:
+            # Loading just completed - force refresh to show new objects
+            self.refresh_object_list(force_update=True)
+        self._was_loading = is_loading
 
         # no objects to display
         if self.get_nr_of_menu_items() == 0:
