@@ -118,9 +118,6 @@ def calc_comets(dt, comet_names=None) -> dict:
     with Timer("calc_comets()"):
         comet_dict: Dict[str, Any] = {}
         if sf_utils.observer_loc is None or dt is None:
-            logger.debug(
-                f"calc_comets can't run: observer loc is None: {sf_utils.observer_loc is None}, dt is None: {dt is None}"
-            )
             return comet_dict
 
         with open(comet_file, "rb") as f:
@@ -140,4 +137,5 @@ def calc_comets(dt, comet_names=None) -> dict:
                 result = process_comet(comet, dt)
                 if result:
                     comet_dict[result["name"]] = result
+
         return comet_dict

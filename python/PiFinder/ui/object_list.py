@@ -7,7 +7,7 @@ This module contains all the UI Module classes
 
 import copy
 from enum import Enum
-from typing import Union
+from typing import Union, Optional
 from pathlib import Path
 import os
 import functools
@@ -26,6 +26,7 @@ from PiFinder.calc_utils import aim_degrees
 from PiFinder import utils
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.nearby import Nearby
+from PiFinder.catalogs import CatalogStatus
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     name_deduplicate,
@@ -118,6 +119,16 @@ class UIObjectList(UITextMenu):
         self.last_item_index = -1
         self.item_text_scroll: Union[None, TextLayouterScroll] = None
 
+        # Base marking menu
+        marking_menu_down = MarkingMenuOption()
+
+        # Add refresh option for comet catalog only
+        if self.item_definition.get("objects") == "catalog" and self.item_definition.get("value") == "CM":
+            marking_menu_down = MarkingMenuOption(
+                label=_("Refresh"),
+                callback=self.mm_refresh_comets
+            )
+
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
                 label=_("Sort"),
@@ -132,7 +143,7 @@ class UIObjectList(UITextMenu):
                     ),
                 ),
             ),
-            down=MarkingMenuOption(),
+            down=marking_menu_down,
             right=MarkingMenuOption(label=_("Filter"), menu_jump="filter_options"),
         )
 
@@ -187,6 +198,44 @@ class UIObjectList(UITextMenu):
         self.catalog_info_1 = str(self.get_nr_of_menu_items())
         self._menu_items_sorted = self._menu_items
         self.sort()
+
+    def _get_catalog_status_message(self) -> Optional[str]:
+        """
+        Generate status message explaining why catalog might be empty.
+        Returns None if catalog is ready (empty is due to filtering).
+        """
+        if self.item_definition.get("objects") != "catalog":
+            return None
+
+        catalog_code = self.item_definition.get("value")
+        if not catalog_code:
+            return None
+
+        for catalog in self.catalogs.get_catalogs(only_selected=False):
+            if catalog.catalog_code == catalog_code:
+                status = catalog.get_status()
+
+                # Map status enum to user-facing messages
+                if status == CatalogStatus.READY:
+                    return None
+                elif status == CatalogStatus.DOWNLOADING:
+                    return _(
+                        "Downloading..."
+                    )  # TRANSLATORS: Status when catalog data is downloading
+                elif status == CatalogStatus.NO_GPS:
+                    return _(
+                        "No GPS lock"
+                    )  # TRANSLATORS: Status when waiting for GPS position
+                elif status == CatalogStatus.CALCULATING:
+                    return _(
+                        "Calculating..."
+                    )  # TRANSLATORS: Status when computing object positions
+                elif status == CatalogStatus.ERROR:
+                    return _("Error")  # TRANSLATORS: Generic error status
+                else:
+                    return _("Loading...")  # TRANSLATORS: Generic loading status
+
+        return None
 
     def sort(self) -> None:
         message = _(
@@ -404,18 +453,30 @@ class UIObjectList(UITextMenu):
 
         # no objects to display
         if self.get_nr_of_menu_items() == 0:
-            self.draw.text(
-                (begin_x, self.line_position(2)),
-                _("No objects"),  # TRANSLATORS: no objects in object list (1/2)
-                font=self.fonts.bold.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (begin_x, self.line_position(3)),
-                _("match filter"),  # TRANSLATORS: no objects in object list (2/2)
-                font=self.fonts.bold.font,
-                fill=self.colors.get(255),
-            )
+            # Get catalog-specific status message if available
+            status_msg = self._get_catalog_status_message()
+
+            # Display status-specific or default message
+            if status_msg:
+                self.draw.text(
+                    (begin_x, self.line_position(2)),
+                    status_msg,
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+            else:
+                self.draw.text(
+                    (begin_x, self.line_position(2)),
+                    _("No objects"),  # TRANSLATORS: no objects in object list (1/2)
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (begin_x, self.line_position(3)),
+                    _("match filter"),  # TRANSLATORS: no objects in object list (2/2)
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
             self.screen_update()
             return
 
@@ -682,6 +743,17 @@ class UIObjectList(UITextMenu):
 
     def mm_jump_to_filter(self, marking_menu, menu_item):
         pass
+
+    def mm_refresh_comets(self, marking_menu, menu_item):
+        """Force refresh of comet data from the internet"""
+        catalog = self.catalogs.get_catalog_by_code("CM")
+        if catalog and hasattr(catalog, 'refresh'):
+            success = catalog.refresh()
+            if success:
+                self.message(_("Refreshing..."), 1.5)
+            else:
+                self.message(_("Refresh failed"), 2)
+        return True
 
 
 class CatalogSequence:
