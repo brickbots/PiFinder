@@ -584,6 +584,21 @@ class Catalogs:
         for catalog in self.__catalogs:
             self.catalog_filter.selected_catalogs.add(catalog.catalog_code)
 
+    def is_loading(self) -> bool:
+        """
+        Check if background catalog loading is still in progress.
+
+        Returns:
+            True if background loader thread is active, False otherwise
+        """
+        return (
+            hasattr(self, "_background_loader")
+            and self._background_loader is not None
+            and hasattr(self._background_loader, "_thread")
+            and self._background_loader._thread is not None
+            and self._background_loader._thread.is_alive()
+        )
+
     def __repr__(self):
         return f"Catalogs(\n{pformat(self.get_catalogs(only_selected=False))})"
 
@@ -1076,6 +1091,11 @@ class CatalogBuilder:
 
         # Store catalogs reference for background loader completion
         self._pending_catalogs_ref = all_catalogs
+
+        # Pass background loader reference to Catalogs instance so it can check loading status
+        # This is set in _build_composite() if there are deferred objects
+        if hasattr(self, "_background_loader") and self._background_loader is not None:
+            all_catalogs._background_loader = self._background_loader
 
         build_time = time.time() - build_start
         logger.info(f"CatalogBuilder.build() total time: {build_time:.2f}s")

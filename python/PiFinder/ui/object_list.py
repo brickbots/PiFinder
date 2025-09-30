@@ -404,18 +404,34 @@ class UIObjectList(UITextMenu):
 
         # no objects to display
         if self.get_nr_of_menu_items() == 0:
-            self.draw.text(
-                (begin_x, self.line_position(2)),
-                _("No objects"),  # TRANSLATORS: no objects in object list (1/2)
-                font=self.fonts.bold.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (begin_x, self.line_position(3)),
-                _("match filter"),  # TRANSLATORS: no objects in object list (2/2)
-                font=self.fonts.bold.font,
-                fill=self.colors.get(255),
-            )
+            if self.catalogs.is_loading():
+                # Still loading - show loading message
+                self.draw.text(
+                    (begin_x, self.line_position(2)),
+                    _("Loading..."),  # TRANSLATORS: catalogs loading message (1/2)
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (begin_x, self.line_position(3)),
+                    _("Please wait"),  # TRANSLATORS: catalogs loading message (2/2)
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+            else:
+                # Actually no objects after loading complete
+                self.draw.text(
+                    (begin_x, self.line_position(2)),
+                    _("No objects"),  # TRANSLATORS: no objects in object list (1/2)
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (begin_x, self.line_position(3)),
+                    _("match filter"),  # TRANSLATORS: no objects in object list (2/2)
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
             self.screen_update()
             return
 
