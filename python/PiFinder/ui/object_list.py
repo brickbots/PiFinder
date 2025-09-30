@@ -86,6 +86,7 @@ class UIObjectList(UITextMenu):
         self._menu_items: list[CompositeObject] = []
         self.catalog_info_1: str = ""
         self.catalog_info_2: str = ""
+        self._was_loading: bool = False  # Track loading state to detect completion
 
         # Init display mode defaults
         self.mode_cycle = cycle(DisplayModes)
@@ -402,20 +403,46 @@ class UIObjectList(UITextMenu):
         self.clear_screen()
         begin_x = 12
 
+        # Check if loading just completed and refresh if so
+        is_loading = self.catalogs.is_loading()
+        if self._was_loading and not is_loading:
+            # Loading just completed - force refresh to show new objects
+            # Update flag BEFORE calling refresh to avoid infinite loop
+            self._was_loading = False
+            self.refresh_object_list(force_update=True)
+        else:
+            self._was_loading = is_loading
+
         # no objects to display
         if self.get_nr_of_menu_items() == 0:
-            self.draw.text(
-                (begin_x, self.line_position(2)),
-                _("No objects"),  # TRANSLATORS: no objects in object list (1/2)
-                font=self.fonts.bold.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (begin_x, self.line_position(3)),
-                _("match filter"),  # TRANSLATORS: no objects in object list (2/2)
-                font=self.fonts.bold.font,
-                fill=self.colors.get(255),
-            )
+            if self.catalogs.is_loading():
+                # Still loading - show loading message
+                self.draw.text(
+                    (begin_x, self.line_position(2)),
+                    _("Loading..."),  # TRANSLATORS: catalogs loading message (1/2)
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (begin_x, self.line_position(3)),
+                    _("Please wait"),  # TRANSLATORS: catalogs loading message (2/2)
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+            else:
+                # Actually no objects after loading complete
+                self.draw.text(
+                    (begin_x, self.line_position(2)),
+                    _("No objects"),  # TRANSLATORS: no objects in object list (1/2)
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (begin_x, self.line_position(3)),
+                    _("match filter"),  # TRANSLATORS: no objects in object list (2/2)
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
             self.screen_update()
             return
 
