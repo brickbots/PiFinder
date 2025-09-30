@@ -1,5 +1,6 @@
 import time
 import os
+import threading
 from typing import Union
 from PIL import Image
 from PiFinder import utils
@@ -142,7 +143,11 @@ class MenuManager:
         self.ss_count = 0
 
         dyn_menu_equipment(self.config_object)
-        self.preload_modules()
+        # Preload modules in background to speed up startup
+        self._preload_thread = threading.Thread(
+            target=self.preload_modules, daemon=True, name="UIPreloader"
+        )
+        self._preload_complete = False
 
     def screengrab(self):
         self.ss_count += 1
@@ -165,24 +170,41 @@ class MenuManager:
             )
             self._stack_anim_direction = 1
 
+    def start_preload(self) -> None:
+        """Start preloading modules in background thread"""
+        if not self._preload_thread.is_alive():
+            self._preload_thread.start()
+
     def preload_modules(self) -> None:
         """
         Loads any modules that need a bit of extra time
         like chart, so they are ready to go
         """
+        import logging
+
+        logger = logging.getLogger("MenuManager")
+        logger.info("Starting background preload of UI modules...")
+
         for module_def in collect_preloads():
-            module_def["state"] = module_def["class"](
-                display_class=self.display_class,
-                camera_image=self.camera_image,
-                shared_state=self.shared_state,
-                command_queues=self.command_queues,
-                config_object=self.config_object,
-                catalogs=self.catalogs,
-                item_definition=module_def,
-                add_to_stack=self.add_to_stack,
-                remove_from_stack=self.remove_from_stack,
-                jump_to_label=self.jump_to_label,
-            )
+            try:
+                module_def["state"] = module_def["class"](
+                    display_class=self.display_class,
+                    camera_image=self.camera_image,
+                    shared_state=self.shared_state,
+                    command_queues=self.command_queues,
+                    config_object=self.config_object,
+                    catalogs=self.catalogs,
+                    item_definition=module_def,
+                    add_to_stack=self.add_to_stack,
+                    remove_from_stack=self.remove_from_stack,
+                    jump_to_label=self.jump_to_label,
+                )
+                logger.info(f"Preloaded {module_def.get('name', 'unknown')} module")
+            except Exception as e:
+                logger.error(f"Failed to preload module: {e}", exc_info=True)
+
+        self._preload_complete = True
+        logger.info("Background preload complete")
 
     def add_to_stack(self, item: dict) -> None:
         """

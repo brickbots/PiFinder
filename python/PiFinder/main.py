@@ -495,6 +495,9 @@ def main(
         logger.info("   Event Loop")
         console.update()
 
+        # Start preloading UI modules in background (Chart, Align, etc.)
+        menu_manager.start_preload()
+
         log_time = True
         # Start of main except handler / loop
         try:
