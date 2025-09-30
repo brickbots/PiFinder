@@ -467,8 +467,8 @@ def main(
         logger.info("   Catalogs")
         console.update()
 
-        # Initialize Catalogs
-        catalogs: Catalogs = CatalogBuilder().build(shared_state)
+        # Initialize Catalogs (pass ui_queue for background loading completion signal)
+        catalogs: Catalogs = CatalogBuilder().build(shared_state, ui_queue)
 
         # Establish the common catalog filter object
         _new_filter = CatalogFilter(shared_state=shared_state)
@@ -589,6 +589,11 @@ def main(
                     menu_manager.jump_to_label("recent")
                 elif ui_command == "reload_config":
                     cfg.load_config()
+                elif ui_command == "catalogs_fully_loaded":
+                    logger.info(
+                        "All catalogs loaded - WDS and extended catalogs available"
+                    )
+                    menu_manager.message(_("Catalogs\nFully Loaded"), 2)
                 elif ui_command == "test_mode":
                     dt = datetime.datetime(2025, 6, 28, 11, 0, 0)
                     shared_state.set_datetime(dt)
