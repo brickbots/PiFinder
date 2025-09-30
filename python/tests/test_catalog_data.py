@@ -330,7 +330,13 @@ def test_background_loader():
     """
     # Load minimal test data
     db = objects_db.ObjectsDatabase()
-    obs_db = observations_db.ObservationsDatabase()
+
+    # Create a mock observations database for testing
+    class MockObservationsDB:
+        def check_logged(self, obj):
+            return False
+
+    obs_db = MockObservationsDB()
 
     # Get small sample of WDS objects for testing
     catalog_objects = list(db.get_catalog_objects_by_catalog_code("WDS"))[:100]
