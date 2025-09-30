@@ -420,6 +420,17 @@ class Catalog(CatalogBase):
         if self.catalog_filter is None:
             return self.get_objects()
 
+        # Skip filtering if catalog is empty (deferred catalogs not loaded yet)
+        if self.get_count() == 0:
+            logger.debug(
+                "Skipping filter for empty catalog %s (deferred loading)",
+                self.catalog_code,
+            )
+            self.filtered_objects = []
+            self.filtered_objects_seq = []
+            self.last_filtered = time.time()
+            return self.filtered_objects
+
         self.filtered_objects = self.catalog_filter.apply(self.get_objects())
         logger.info(
             "FILTERED %s %d/%d",
@@ -892,8 +903,8 @@ class CatalogBackgroundLoader:
         self._stop_flag = threading.Event()
 
         # Performance tuning - load in batches with CPU yielding
-        self.batch_size = 100  # Objects per batch before yielding CPU
-        self.yield_time = 0.01  # Seconds to sleep between batches
+        self.batch_size = 500  # Objects per batch before yielding CPU
+        self.yield_time = 0.005  # Seconds to sleep between batches
 
     def start(self) -> None:
         """Start background loading in daemon thread"""
@@ -1218,11 +1229,24 @@ class CatalogBuilder:
         # Store loaded objects for catalog integration
         if self._pending_catalogs_ref:
             catalogs = self._pending_catalogs_ref
-            # Add deferred objects to appropriate catalogs
+
+            # Group objects by catalog code for batch insertion
+            objects_by_catalog = {}
             for obj in loaded_objects:
-                catalog = catalogs.get_catalog_by_code(obj.catalog_code)
+                if obj.catalog_code not in objects_by_catalog:
+                    objects_by_catalog[obj.catalog_code] = []
+                objects_by_catalog[obj.catalog_code].append(obj)
+
+            # Add objects in batches (much faster than one-by-one)
+            for catalog_code, objects in objects_by_catalog.items():
+                catalog = catalogs.get_catalog_by_code(catalog_code)
                 if catalog:
-                    catalog.add_object(obj)  # This rebuilds indexes automatically
+                    catalog.add_objects(objects)  # Batch add - rebuilds indexes once
+                    logger.info(f"Added {len(objects)} objects to {catalog_code}")
+
+                    # Re-filter this catalog now that it has objects
+                    if catalog.catalog_filter:
+                        catalog.filter_objects()
 
         # Signal main loop that catalogs are fully loaded
         if ui_queue:
