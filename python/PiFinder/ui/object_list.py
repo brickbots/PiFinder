@@ -407,8 +407,11 @@ class UIObjectList(UITextMenu):
         is_loading = self.catalogs.is_loading()
         if self._was_loading and not is_loading:
             # Loading just completed - force refresh to show new objects
+            # Update flag BEFORE calling refresh to avoid infinite loop
+            self._was_loading = False
             self.refresh_object_list(force_update=True)
-        self._was_loading = is_loading
+        else:
+            self._was_loading = is_loading
 
         # no objects to display
         if self.get_nr_of_menu_items() == 0:
