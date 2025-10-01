@@ -125,7 +125,7 @@ $\mathbf{p^\prime} = \mathbf{qpq}^{-1}$
 In Numpy Quaternion, we can create a quaternion using
 
 ```python
-q = np.quaternion(w, x, y, z)
+q = quaternion.quaternion(w, x, y, z)
 ```
 
 Quaternion multiplications are simply `q1 * q2`.

@@ -147,7 +147,7 @@ def imu_monitor(shared_state, console_queue, log_queue):
         "moving": False,
         "move_start": None,
         "move_end": None,
-        "quat": np.quaternion(
+        "quat": quaternion.quaternion(
             0, 0, 0, 0
         ),  # Scalar-first numpy quaternion(w, x, y, z) - Init to invalid quaternion
         "status": 0,
