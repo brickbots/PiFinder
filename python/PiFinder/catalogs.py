@@ -1,11 +1,13 @@
 # mypy: ignore-errors
 import logging
+import os
 import time
 import datetime
 import pytz
+from enum import Enum
 from pprint import pformat
 import threading
-from typing import List, Dict, DefaultDict, Optional, Union
+from typing import List, Dict, DefaultDict, Optional, Union, NamedTuple, Any
 from collections import defaultdict
 import PiFinder.calc_utils as calc_utils
 from PiFinder.calc_utils import sf_utils
@@ -19,6 +21,29 @@ from PiFinder.utils import Timer, comet_file
 from PiFinder.config import Config
 
 logger = logging.getLogger("Catalog")
+
+
+class CatalogState(Enum):
+    """Status codes for catalog readiness"""
+
+    READY = "ready"  # Catalog is ready, empty list is due to filtering
+    NO_GPS = "no_gps"  # Waiting for GPS lock
+    DOWNLOADING = "downloading"  # Downloading data files
+    CALCULATING = "calculating"  # Calculating/initializing
+    ERROR = "error"  # Error state
+
+
+class CatalogStatus(NamedTuple):
+    """
+    Catalog status with state transition tracking.
+
+    current: Current state of the catalog
+    previous: Previous state (for detecting transitions)
+    data: Optional dict with additional state-specific data (e.g., progress info)
+    """
+    current: CatalogState
+    previous: CatalogState
+    data: Optional[Dict[str, Any]] = None
 
 # collection of all catalog-related classes
 
@@ -122,6 +147,10 @@ class CatalogFilter:
         self._selected_catalogs = config_object.get_option("filter.selected_catalogs")
         self.last_filtered_time = 0
 
+    def mark_dirty(self):
+        """Mark the filter as dirty, triggering a re-filter on next check"""
+        self.dirty_time = time.time()
+
     @property
     def magnitude(self):
         return self._magnitude
@@ -129,7 +158,7 @@ class CatalogFilter:
     @magnitude.setter
     def magnitude(self, magnitude: Union[float, None]):
         self._magnitude = magnitude
-        self.dirty_time = time.time()
+        self.mark_dirty()
 
     @property
     def object_types(self):
@@ -138,7 +167,7 @@ class CatalogFilter:
     @object_types.setter
     def object_types(self, object_types: Union[list[str], None]):
         self._object_types = object_types
-        self.dirty_time = time.time()
+        self.mark_dirty()
 
     @property
     def altitude(self):
@@ -147,7 +176,7 @@ class CatalogFilter:
     @altitude.setter
     def altitude(self, altitude: int):
         self._altitude = altitude
-        self.dirty_time = time.time()
+        self.mark_dirty()
 
     @property
     def observed(self):
@@ -156,7 +185,7 @@ class CatalogFilter:
     @observed.setter
     def observed(self, observed: str):
         self._observed = observed
-        self.dirty_time = time.time()
+        self.mark_dirty()
 
     @property
     def constellations(self):
@@ -165,7 +194,7 @@ class CatalogFilter:
     @constellations.setter
     def constellations(self, constellations: list[str]):
         self._constellations = constellations
-        self.dirty_time = time.time()
+        self.mark_dirty()
 
     @property
     def selected_catalogs(self):
@@ -174,7 +203,7 @@ class CatalogFilter:
     @selected_catalogs.setter
     def selected_catalogs(self, catalog_codes: list[str]):
         self._selected_catalogs = set(catalog_codes)
-        self.dirty_time = time.time()
+        self.mark_dirty()
 
     def calc_fast_aa(self, shared_state):
         location = shared_state.location()
@@ -378,6 +407,7 @@ class Catalog(CatalogBase):
         self.filtered_objects_seq: List[int] = self._filtered_objects_to_seq()
         self.last_filtered = 0
         self.initialized = True
+        self._last_state: CatalogState = CatalogState.READY
 
     def is_selected(self):
         """
@@ -418,6 +448,20 @@ class Catalog(CatalogBase):
     def get_age(self) -> Optional[int]:
         """If the catalog data is time-sensitive, return age in days."""
         return None
+
+    def get_status(self) -> CatalogStatus:
+        """
+        Return the current status of the catalog with transition tracking.
+        Override this in subclasses to provide catalog-specific status.
+        Default returns READY state (catalog is always ready).
+        """
+        status = CatalogStatus(
+            current=CatalogState.READY,
+            previous=self._last_state,
+            data=None
+        )
+        self._last_state = status.current
+        return status
 
     def __repr__(self):
         super().__repr__()
@@ -657,6 +701,23 @@ class PlanetCatalog(TimerCatalog):
             # Check for a lock/time every 10 seconds
             return 10
 
+    def get_status(self) -> CatalogStatus:
+        """Return the current status of the planet catalog"""
+        if not self.shared_state.altaz_ready():
+            current_state = CatalogState.NO_GPS
+        elif not self.initialized:
+            current_state = CatalogState.CALCULATING
+        else:
+            current_state = CatalogState.READY
+
+        status = CatalogStatus(
+            current=current_state,
+            previous=self._last_state,
+            data=None
+        )
+        self._last_state = status.current
+        return status
+
     def init_planets(self, dt):
         planet_dict = sf_utils.calc_planets(dt)
         logger.debug(f"starting planet dict {planet_dict}")
@@ -735,102 +796,210 @@ class PlanetCatalog(TimerCatalog):
 
 
 class CometCatalog(TimerCatalog):
-    """Creates a catalog of comets"""
+    """Creates a catalog of comets with adaptive update frequency based on GPS lock status"""
 
     def __init__(self, dt: datetime.datetime, shared_state: SharedStateObj):
         super().__init__("CM", "Comets")
         self.age = None
         self.shared_state = shared_state
-        self._init_lock = threading.Lock()
-        self._start_background_init(dt)
+        self._task_lock = threading.Lock()
+        self._download_lock = threading.Lock()
+        self.download_progress: Optional[int] = None
+        self.calculation_progress: Optional[int] = None
+        self._is_downloading: bool = False
+        self._start_background_download()
 
     def get_age(self) -> Optional[int]:
         """Return the age of the comet data in days"""
         return self.age
 
-    def _start_background_init(self, dt):
-        def init_task():
-            while True:
-                success, self.age = comets.comet_data_download(comet_file)
-                if success:
-                    with self._init_lock:
-                        self.initialized = self.calc_comet_first_time(dt)
-                    with self.virtual_id_lock:
-                        new_low = self.assign_virtual_object_ids(
-                            self, self.virtual_id_low
-                        )
-                        self.virtual_id_low = new_low
-                    break
-                time.sleep(60)  # retry every minute to download comet data
+    def get_status(self) -> CatalogStatus:
+        """Return the current status of the comet catalog"""
+        if self._is_downloading:
+            current_state = CatalogState.DOWNLOADING
+        elif not self.shared_state.altaz_ready():
+            current_state = CatalogState.NO_GPS
+        elif not self.initialized:
+            current_state = CatalogState.CALCULATING
+        else:
+            current_state = CatalogState.READY
 
-        threading.Thread(target=init_task, daemon=True).start()
+        # Include progress data if available
+        data = None
+        if current_state == CatalogState.DOWNLOADING and self.download_progress is not None:
+            data = {"progress": self.download_progress}
+        elif current_state == CatalogState.CALCULATING and self.calculation_progress is not None:
+            data = {"progress": self.calculation_progress}
 
-    def calc_comet_first_time(self, dt):
-        with Timer("CometCatalog.__init__"):
-            comet_dict = comets.calc_comets(dt)
-            if not comet_dict:
-                return False
-            for sequence, (name, comet) in enumerate(comet_dict.items()):
-                self.add_comet(sequence, name, comet)
-            return True
+        status = CatalogStatus(
+            current=current_state,
+            previous=self._last_state,
+            data=data
+        )
+        self._last_state = status.current
+        return status
+
+    def _download_once(self):
+        """Download comet data once with progress tracking"""
+        # Prevent concurrent downloads
+        if not self._download_lock.acquire(blocking=False):
+            logger.debug("Download already in progress, skipping")
+            return False
+
+        try:
+            logger.info("Starting comet data download")
+            def progress_callback(progress: int):
+                self.download_progress = progress
+
+            self._is_downloading = True
+            self.download_progress = 0
+            success, self.age = comets.comet_data_download(comet_file, progress_callback=progress_callback)
+            self._is_downloading = False
+            self.download_progress = None
+            logger.info(f"Download completed: success={success}, age={self.age}")
+            return success
+        finally:
+            self._download_lock.release()
+
+    def refresh(self):
+        """
+        Trigger a refresh by clearing objects and deleting the data file.
+        This will cause natural download and recalculation flow via normal status checks.
+        """
+        logger.info("Refresh called - clearing objects and triggering download")
+        # Clear existing objects
+        if self.get_objects():
+            self._get_objects().clear()
+            self.max_sequence = 0
+            self.id_to_pos = {}
+            self.sequence_to_pos = {}
+        self.initialized = False
+
+        # Delete file to trigger download
+        if os.path.exists(comet_file):
+            os.remove(comet_file)
+            logger.info("Deleted comet file")
+
+        self.age = None
+
+        # Trigger immediate download in background thread
+        threading.Thread(target=self._download_once, daemon=True).start()
+
+    def _start_background_download(self):
+        """
+        Download comet data in background thread.
+        If file doesn't exist or is old (>1 day), keep trying to update.
+        """
+        def download_task():
+            success = self._download_once()
+
+            # Keep retrying if no file yet or file is old (>1 day)
+            while not success or (self.age is not None and self.age > 1):
+                time.sleep(60)
+                success = self._download_once()
+
+        threading.Thread(target=download_task, daemon=True).start()
 
     @property
     def time_delay_seconds(self) -> int:
-        return 293
+        if self.initialized:
+            return 293
+        else:
+            # Check for GPS lock/time every 1 second when uninitialized
+            return 1
+
+    def init_comets(self, dt):
+        """Initialize comet catalog - called when GPS lock is available. Idempotent."""
+        logger.info("Starting comet calculation")
+        # Clear any existing objects to make this idempotent
+        if self.get_objects():
+            self._get_objects().clear()
+            self.max_sequence = 0
+            self.id_to_pos = {}
+            self.sequence_to_pos = {}
+
+        def progress_callback(progress: int):
+            self.calculation_progress = progress
+
+        # Set progress to 0 immediately so UI shows it right away
+        self.calculation_progress = 0
+        comet_dict = comets.calc_comets(dt, progress_callback=progress_callback)
+
+        if not comet_dict:
+            self.initialized = False
+            self.calculation_progress = None
+            return
+
+        for sequence, (name, comet) in enumerate(comet_dict.items()):
+            self.add_comet(sequence, name, comet)
+
+        with self.virtual_id_lock:
+            new_low = self.assign_virtual_object_ids(self, self.virtual_id_low)
+            self.virtual_id_low = new_low
+
+        self.initialized = True
+        self.calculation_progress = None  # Clear progress after completion
 
     def add_comet(self, sequence: int, name: str, comet: Dict[str, Dict[str, float]]):
-        ra, dec = comet["radec"]
-        constellation = sf_utils.radec_to_constellation(ra, dec)
-        # desc = f"{comet['radec_pretty']}, AltAZ: {comet['altaz']}\nAltAz2: {comet['altaz2']}\nAltAz3: {comet['altaz3']}\n{comet['radec_pretty']}, Earth distance: {comet['earth_distance']} AU\n"
-        desc = f"Distance to\nEarth: {comet['earth_distance']:.2f} AU\nSun: {comet['sun_distance']:.2f} AU"
+        """Add a single comet to the catalog"""
+        try:
+            ra, dec = comet["radec"]
+            constellation = sf_utils.radec_to_constellation(ra, dec)
+            desc = f"Distance to\nEarth: {comet['earth_distance']:.2f} AU\nSun: {comet['sun_distance']:.2f} AU"
 
-        mag = MagnitudeObject([comet.get("mag", [])])
-        obj = CompositeObject.from_dict(
-            {
-                "id": -1,
-                "obj_type": "Com",
-                "ra": ra,
-                "dec": dec,
-                "const": constellation,
-                "size": "",
-                # Use '?' if magnitude is not available
-                "mag": mag,
-                "mag_str": mag.calc_two_mag_representation(),
-                "names": [name],
-                "catalog_code": "CM",
-                "sequence": sequence + 1,
-                "description": desc,
-            }
-        )
-        self.add_object(obj)
+            mag = MagnitudeObject([comet.get("mag", [])])
+            obj = CompositeObject.from_dict(
+                {
+                    "id": -1,
+                    "obj_type": "CM",
+                    "ra": ra,
+                    "dec": dec,
+                    "const": constellation,
+                    "size": "",
+                    "mag": mag,
+                    "mag_str": mag.calc_two_mag_representation(),
+                    "names": [name],
+                    "catalog_code": "CM",
+                    "sequence": sequence + 1,
+                    "description": desc,
+                }
+            )
+            self.add_object(obj)
+        except (KeyError, ValueError) as e:
+            logger.error(f"Error adding comet {name}: {e}")
 
     def do_timed_task(self):
-        """updating comet catalog data"""
-        with Timer("Comet Catalog periodic update"):
-            with self._init_lock:
-                if not self.initialized:
-                    logging.debug("Comets not yet initialized, skip periodic update...")
+        """Update comet catalog data periodically"""
+        # Prevent concurrent execution
+        with self._task_lock:
+            with Timer("Comet Catalog periodic update"):
+                if not self.shared_state.altaz_ready():
                     return
-            dt = self.shared_state.datetime()
-            comet_dict = comets.calc_comets(
-                dt, [x.names[0] for x in self._get_objects()]
-            )
-            if not comet_dict:
-                return
-            for obj in self._get_objects():
-                name = obj.names[0]
-                logger.debug("Processing %s" % name)
-                comet = comet_dict.get(name, {})
-                try:
-                    obj.ra, obj.dec = comet["radec"]
-                except KeyError:
-                    logger.error("No radec for comet " + name)
-                    continue
-                obj.mag = MagnitudeObject([comet["mag"]])
-                obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
-                obj.mag_str = obj.mag.calc_two_mag_representation()
-                obj.description = obj.description + "."
-            logger.debug("Updated comet catalog")
+
+                dt = self.shared_state.datetime()
+
+                # If catalog is empty, (re)initialize - but only if file exists
+                if not self.get_objects():
+                    if os.path.exists(comet_file):
+                        self.init_comets(dt)
+                    return
+
+                # Regular update - recalculate positions
+                comet_dict = comets.calc_comets(dt)
+                if not comet_dict:
+                    return
+
+                for obj in self._get_objects():
+                    try:
+                        name = obj.names[0]
+                        if name in comet_dict:
+                            comet = comet_dict[name]
+                            obj.ra, obj.dec = comet["radec"]
+                            obj.mag = MagnitudeObject([comet["mag"]])
+                            obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
+                            obj.mag_str = obj.mag.calc_two_mag_representation()
+                    except (KeyError, ValueError) as e:
+                        logger.error(f"Error updating comet {name}: {e}")
 
 
 class CatalogBuilder:
