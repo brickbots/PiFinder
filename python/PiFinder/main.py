@@ -852,7 +852,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-k",
         "--keyboard",
-        help="Specify which keyboard to use: pi, local or server",
+        help="Specify which keyboard to use: pi, local, menutest, or none",
         default="pi",
         required=False,
     )
@@ -945,6 +945,10 @@ if __name__ == "__main__":
         from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
 
         rlogger.info("using local keyboard")
+    elif args.keyboard.lower() == "menutest":
+        from PiFinder import keyboard_menutest as keyboard  # type: ignore[no-redef]
+
+        rlogger.info("using menu test keyboard (integration test mode)")
     elif args.keyboard.lower() == "none":
         from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
