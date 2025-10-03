@@ -200,6 +200,48 @@ class Location:
         return cls.from_dict(data)
 
 
+@dataclass
+class SQM:
+    """
+    Represents the sky brightness (SQM) value and its source.
+    """
+
+    value: float = 20.15  # Standard value set to 20.15
+    source: str = "None"
+    last_update: Optional[str] = None
+
+    def __str__(self):
+        return (
+            f"SQM(value={self.value:.2f}, "
+            f"source={self.source}, "
+            f"last_update={self.last_update})"
+        )
+
+    def reset(self):
+        self.value = 0.0
+        self.source = "None"
+        self.last_update = None
+
+    def to_dict(self):
+        """Convert the SQM object to a dictionary."""
+        return asdict(self)
+
+    def to_json(self):
+        """Convert the SQM object to a JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data):
+        """Create a SQM object from a dictionary."""
+        return cls(**data)
+
+    @classmethod
+    def from_json(cls, json_str):
+        """Create a SQM object from a JSON string."""
+        data = json.loads(json_str)
+        return cls.from_dict(data)
+
+
 class SharedStateObj:
     def __init__(self):
         self.__power_state = 1
@@ -215,6 +257,7 @@ class SharedStateObj:
         self.__sats = None
         self.__imu = None
         self.__location: Location = Location()
+        self.__sqm: SQM = SQM()
         self.__datetime = None
         self.__datetime_time = None
         self.__screen = None
@@ -298,6 +341,13 @@ class SharedStateObj:
             v.timezone = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon)
         self.__location = v
 
+    def sqm(self):
+        """Return the current SQM object"""
+        return self.__sqm
+
+    def set_sqm(self, sqm: SQM):
+        self.__sqm = sqm
+
     def last_image_metadata(self):
         return self.__last_image_metadata
 
@@ -354,6 +404,12 @@ class SharedStateObj:
 
     def set_ui_state(self, v):
         self.__ui_state = v
+
+    def get_sky_brightness(self):
+        """
+        Returns the current sky brightness (SQM) value from the shared state.
+        """
+        return self.__sqm.value
 
     def __repr__(self):
         # A simple representation showing key attributes (adjust as needed)
