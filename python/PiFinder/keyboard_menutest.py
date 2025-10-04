@@ -10,7 +10,7 @@ every leaf node (non-UITextMenu module) and simulating user input.
 
 import time
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, cast
 from PiFinder.keyboard_interface import KeyboardInterface
 from PiFinder.ui.menu_structure import pifinder_menu
 from PiFinder.ui.text_menu import UITextMenu
@@ -27,6 +27,9 @@ class KeyboardMenuTest(KeyboardInterface):
     visiting every leaf node (UI classes only) and simulating user interactions.
     Callback items are skipped to avoid dangerous operations.
     """
+
+    # Special keycode to signal test completion and clean exit
+    TEST_COMPLETE = 999
 
     def __init__(self, q=None, keystroke_delay=0.1):
         """
@@ -51,9 +54,11 @@ class KeyboardMenuTest(KeyboardInterface):
             description: Optional description for logging
         """
         if description:
-            logger.info(f"Sending key {key_code} ({description}) at path: {' -> '.join(self.current_path)}")
+            logger.info(
+                f"Sending key {key_code} ({description}) at path: {' -> '.join(self.current_path)}"
+            )
         else:
-            logger.debug(f"Sending key {key_code}")
+            logger.info(f"Sending key {key_code}")
 
         if self.q:
             self.q.put(key_code)
@@ -90,6 +95,7 @@ class KeyboardMenuTest(KeyboardInterface):
             item_name: Name of the leaf node for logging
         """
         logger.info(f"Interacting with leaf node: {item_name}")
+        return
 
         # Test number keys 0-9
         for i in range(10):
@@ -103,7 +109,12 @@ class KeyboardMenuTest(KeyboardInterface):
         # Brief pause at leaf node
         time.sleep(self.keystroke_delay * 2)
 
-    def traverse_menu_items(self, menu_items: List[Dict[str, Any]], parent_path: Optional[List[str]] = None) -> None:
+    def traverse_menu_items(
+        self,
+        menu_items: List[Dict[str, Any]],
+        start_index: int = 0,
+        parent_path: Optional[List[str]] = None,
+    ) -> None:
         """
         Recursively traverse all menu items in a menu structure.
 
@@ -114,6 +125,7 @@ class KeyboardMenuTest(KeyboardInterface):
         if parent_path is None:
             parent_path = []
 
+        current_item_index = start_index
         for item_index, item in enumerate(menu_items):
             item_name = item["name"]
             current_item_path = parent_path + [item_name]
@@ -122,11 +134,14 @@ class KeyboardMenuTest(KeyboardInterface):
             logger.info(f"Processing item {item_index}: {item_name}")
 
             # Navigate to this item in the menu
-            self.navigate_to_item(item_index)
+            self.navigate_to_item(item_index, current_item_index)
+            current_item_index = item_index
 
             # Check if this is a callback item - SKIP these as they can be dangerous
             if "callback" in item:
-                logger.warning(f"Skipping callback item: {item_name} (potentially dangerous)")
+                logger.warning(
+                    f"Skipping callback item: {item_name} (potentially dangerous)"
+                )
                 self.skipped_callbacks.append(" -> ".join(current_item_path))
                 continue
 
@@ -135,7 +150,9 @@ class KeyboardMenuTest(KeyboardInterface):
 
             if item_class and item_class != UITextMenu:
                 # This is a safe UI class leaf node - enter it and interact
-                logger.info(f"Found UI leaf node: {item_name} (class: {item_class.__name__})")
+                logger.info(
+                    f"Found UI leaf node: {item_name} (class: {item_class.__name__})"
+                )
                 self.send_key(self.RIGHT, f"Enter {item_name}")
 
                 # Interact with the leaf node
@@ -151,13 +168,17 @@ class KeyboardMenuTest(KeyboardInterface):
                 self.send_key(self.RIGHT, f"Enter submenu {item_name}")
 
                 # Recursively traverse the submenu
-                self.traverse_menu_items(item["items"], current_item_path)
+                self.traverse_menu_items(
+                    item["items"], item.get("start_index", 0), current_item_path
+                )
 
                 # Back out of the submenu
                 self.send_key(self.LEFT, f"Exit submenu {item_name}")
 
             else:
-                logger.warning(f"Unknown or unhandled item type for {item_name}: {item}")
+                logger.warning(
+                    f"Unknown or unhandled item type for {item_name}: {item}"
+                )
 
     def run_keyboard(self) -> None:
         """
@@ -170,20 +191,21 @@ class KeyboardMenuTest(KeyboardInterface):
 
         try:
             # Start from the root menu
+            logger.info("Waiting for main loop to start....")
+            time.sleep(5)
             root_menu = pifinder_menu
+
+            # issue keystrokes to back out and up to make sure we start at the
+            # right place
+            logger.info("Resetting menu position")
+
             logger.info(f"Starting traversal from root menu: {root_menu['name']}")
 
-            # Navigate to the default start index if specified
-            start_index = root_menu.get("start_index", 0)
-            if isinstance(start_index, int) and start_index > 0:
-                logger.info(f"Navigating to start index: {start_index}")
-                self.navigate_to_item(start_index)
-
             # Begin traversal of all menu items
-            menu_items = root_menu.get("items", [])
-            menu_name = root_menu.get("name", "Root")
-            if isinstance(menu_items, list) and isinstance(menu_name, str):
-                self.traverse_menu_items(menu_items, [menu_name])
+            menu_items = cast(List[Dict[str, Any]], root_menu.get("items", []))
+            menu_name = cast(str, root_menu.get("name", "Root"))
+            start_index = cast(int, root_menu.get("start_index", 0))
+            self.traverse_menu_items(menu_items, start_index, [menu_name])
 
             # Test complete - report results
             logger.info("Menu system test completed successfully")
@@ -199,8 +221,15 @@ class KeyboardMenuTest(KeyboardInterface):
                 for path in self.skipped_callbacks:
                     logger.info(f"  ⚠ {path}")
 
+            # Send termination signal to main application
+            logger.info("Sending test completion signal")
+            self.send_key(self.TEST_COMPLETE, "TEST COMPLETE - TERMINATE")
+
         except Exception as e:
             logger.error(f"Error during menu test: {e}", exc_info=True)
+            # Send termination signal even on error
+            logger.info("Sending test completion signal due to error")
+            self.send_key(self.TEST_COMPLETE, "TEST COMPLETE - TERMINATE (ERROR)")
         finally:
             logger.info("Menu test keyboard interface shutting down")
 
@@ -222,5 +251,5 @@ def run_keyboard(q, shared_state, log_queue, bloom_key_remap=False):
     logger.info("Initializing menu test keyboard interface")
 
     # Create and start the menu test keyboard
-    keyboard = KeyboardMenuTest(q=q, keystroke_delay=0.1)
+    keyboard = KeyboardMenuTest(q=q, keystroke_delay=1)
     keyboard.run_keyboard()

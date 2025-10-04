@@ -82,6 +82,23 @@ def smoke_tests(session: nox.Session) -> None:
 
 
 @nox.session(reuse_venv=True, python="3.9")
+def integration_tests(session: nox.Session) -> None:
+    """
+    Run the project's integration tests.
+
+    This session installs the necessary dependencies and runs integration tests that verify
+    the interaction between different components of the system, including end-to-end testing
+    of the full application stack.
+
+    Args:
+        session (nox.Session): The Nox session being run, providing context and methods for session actions.
+    """
+    session.install("-r", "requirements.txt")
+    session.install("-r", "requirements_dev.txt")
+    session.run("pytest", "-m", "integration", "-v", "--tb=short")
+
+
+@nox.session(reuse_venv=True, python="3.9")
 def babel(session: nox.Session) -> None:
     """
     Run the I18N toolchain

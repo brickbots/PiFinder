@@ -5,6 +5,7 @@ import numpy as np
 from PIL import Image
 
 import luma.core.device
+from luma.core.device import dummy
 from luma.core.interface.serial import spi
 from luma.oled.device import ssd1351
 from luma.lcd.device import st7789
@@ -161,6 +162,23 @@ class DisplayST7789(DisplayBase):
         super().__init__()
 
 
+class DisplayNull(DisplayBase):
+    """Null display for testing - uses luma dummy device that doesn't render."""
+
+    resolution = (128, 128)
+
+    def __init__(self):
+        # init dummy device that doesn't actually display anything
+        self.device = dummy(
+            width=self.resolution[0], height=self.resolution[1], rotate=0, mode="RGB"
+        )
+        super().__init__()
+
+    def set_brightness(self, level):
+        """No-op brightness method for dummy device."""
+        pass
+
+
 def get_display(display_hardware: str) -> DisplayBase:
     if display_hardware == "pg_128":
         return DisplayPygame_128()
@@ -173,6 +191,9 @@ def get_display(display_hardware: str) -> DisplayBase:
 
     if display_hardware == "st7789":
         return DisplayST7789()
+
+    if display_hardware == "null":
+        return DisplayNull()
 
     else:
         print("Hardware platform not recognized")

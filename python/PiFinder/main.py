@@ -620,6 +620,13 @@ def main(
                 except queue.Empty:
                     pass
 
+                # Handle test completion signal for automated testing
+                if keycode == 999:  # TEST_COMPLETE signal from keyboard_menutest
+                    logger.info(
+                        "Received test completion signal - triggering clean shutdown"
+                    )
+                    raise KeyboardInterrupt("Test completed successfully")
+
                 # Register activity here will return True if the power
                 # state changes.  If so, we DO NOT process this keystroke
                 if keycode is not None and power_manager.register_activity() is False:
