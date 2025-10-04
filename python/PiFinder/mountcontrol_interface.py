@@ -191,7 +191,7 @@ class MountControlBase:
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
-    def sync_mount(self, current_position_ra_deg, current_position_dec_deg) -> bool:
+    def sync_mount(self, current_position_ra_deg: float, current_position_dec_deg: float) -> bool:
         """ Synchronize the mount's pointing state with the current position PiFinder is looking at.
 
         The subclass needs to return a boolean indicating success or failure.
@@ -499,16 +499,17 @@ class MountControlBase:
             # Do nothing, until we receive a command to initialize the mount.
             return
         if self.state == MountControlPhases.MOUNT_INIT_TELESCOPE:
-            start_time = time.time() # Used for determining timeouts for retries.
             while retry_count > 0 and not self.init_mount():
+                start_time = time.time() # Used for determining timeouts for retries.
                 # Wait for delay before retrying
                 while time.time() - start_time <= delay:
                     yield
                 retry_count -= 1
-                if retry_count == 0:
+                if retry_count <= 0:
                     logger.error("Failed to initialize mount.")
                     self.console_queue.put(["WARNING", _("Cannot initialize mount!")])
-                    self.state = MountControlPhases.MOUNT_STOPPED
+                    self.state = MountControlPhases.MOUNT_UNKNOWN
+                    return
                 else:
                     logger.warning("Retrying mount initialization. Attempts left: %d", retry_count)
                     yield
@@ -613,6 +614,9 @@ class MountControlBase:
         elif self.state == MountControlPhases.MOUNT_SPIRAL_SEARCH:
             # Handle spiral search state
             return
+        else:
+            logger.error(f"Unknown mount state: {self.state}")
+            return
 
 
     def run(self):
@@ -672,6 +676,13 @@ class MountControlBase:
 
                 # Sleep for rate.
         except KeyboardInterrupt:
-            self.disconnect()
+            self.disconnect_mount()
             print("Mount control stopped.")
             raise
+
+
+# FAILED tests/test_mountcontrol_phases.py::TestMountControlPhases::test_mount_init_telescope_failure_with_retry - AssertionError: assert 1 == 2
+# FAILED tests/test_mountcontrol_phases.py::TestMountControlPhases::test_mount_init_telescope_total_failure - AssertionError: assert 1 == 3
+# FAILED tests/test_mountcontrol_phases.py::TestMountControlPhases::test_mount_target_acquisition_refine_sync_failure - AssertionError: assert 1 == 3
+# FAILED tests/test_mountcontrol_phases.py::TestMountControlPhases::test_mount_target_acquisition_refine_move_failure - AssertionError: assert 1 == 2
+# FAILED tests/test_mountcontrol_phases.py::TestMountControlPhases::test_phase_state_change_during_processing - assert <MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE: 4> == <MountControlPhases.MOUNT_STOPPED: 3>
