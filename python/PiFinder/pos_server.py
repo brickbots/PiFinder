@@ -248,4 +248,4 @@ def run_server(shared_state, p_ui_queue, log_queue):
             time.sleep(5)
         except KeyboardInterrupt:
             logger.info("Server shutting down...")
-            break
+            return

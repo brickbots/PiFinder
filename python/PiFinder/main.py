@@ -502,9 +502,10 @@ def main(
                 # Console
                 try:
                     console_msg = console_queue.get(block=False)
-                    if console_msg.startswith("DEGRADED_OPS"):
-                        menu_manager.message(_("Degraded\nCheck Status"), 5)
-                        time.sleep(5)
+                    if isinstance(console_msg, list) and console_msg[0] == "WARNING":
+                        menu_manager.message(_("WARNING") + "\n" + console_msg[1], 3)
+                    elif isinstance(console_msg, list) and console_msg[0] == "DEGRADED_OPS":
+                        menu_manager.message(console_msg[1], 5)
                     else:
                         console.write(console_msg)
                 except queue.Empty:
@@ -808,7 +809,7 @@ def main(
             solver_process.join()
 
             log_helper.join()
-            exit()
+            exit(0)
 
 
 if __name__ == "__main__":
