@@ -3,7 +3,7 @@ import PyIndi
 import logging
 import time
 
-from python.PiFinder.multiproclogging import MultiprocLogging
+from PiFinder.multiproclogging import MultiprocLogging
 
 logger = logging.getLogger("IndiMountControl")
 
@@ -104,5 +104,6 @@ if __name__ == "__main__":
             pass  # Keep the main thread alive
     except KeyboardInterrupt:
         logger.info("Shutting down MountControlIndi.")
+        raise
     except Exception as e:
         logger.exception(f"Exception occurred: {e}")
