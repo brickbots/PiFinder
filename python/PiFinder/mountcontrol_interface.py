@@ -257,7 +257,7 @@ class MountControlBase:
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
     
-    def move_mount_manual(self, direction) -> bool:
+    def move_mount_manual(self, direction: MountDirections, step_deg: float) -> bool:
         """ Move the mount manually in the specified direction using the mount's current step size.
 
         The subclass needs to return a boolean indicating success or failure, 
@@ -265,7 +265,8 @@ class MountControlBase:
         A failure will be reported back to the user.
 
         Args:
-            direction: The direction to move (e.g., 'up', 'down', 'left', 'right').
+            direction: The direction to move see MountDirections and its subclasses.
+            step_deg: The step size in degrees to move the mount.
         Returns:
             bool: True if manual movement command was successful, False otherwise.
 
@@ -345,14 +346,46 @@ class MountControlBase:
     # Helper methods to decorate mount control methods with state management
     # 
     def _stop_mount(self) -> bool:
-        if self.state != MountControlPhases.MOUNT_INIT_TELESCOPE:
-            self.state = MountControlPhases.MOUNT_STOPPED
+        self.mount_stopped = False # Wait for notification
         return self.stop_mount()
 
     def _move_mount_manual(self, direction) -> bool:
-        self.state = MountControlPhases.MOUNT_TRACKING
-        return self.move_mount_manual(direction, self.step_size)
-    
+        """Convert string direction to enum and move mount manually."""
+        # Convert string to enum if needed (case-insensitive)
+        if isinstance(direction, str):
+            direction_upper = direction.upper()
+            # Try equatorial directions first
+            try:
+                if direction_upper == "NORTH":
+                    direction = MountDirectionsEquatorial.NORTH
+                elif direction_upper == "SOUTH":
+                    direction = MountDirectionsEquatorial.SOUTH
+                elif direction_upper == "EAST":
+                    direction = MountDirectionsEquatorial.EAST
+                elif direction_upper == "WEST":
+                    direction = MountDirectionsEquatorial.WEST
+                # Try alt-az directions
+                elif direction_upper == "UP":
+                    direction = MountDirectionsAltAz.UP
+                elif direction_upper == "DOWN":
+                    direction = MountDirectionsAltAz.DOWN
+                elif direction_upper == "LEFT":
+                    direction = MountDirectionsAltAz.LEFT
+                elif direction_upper == "RIGHT":
+                    direction = MountDirectionsAltAz.RIGHT
+                else:
+                    logger.warning(f"Unknown direction string: {direction}")
+                    return False
+            except Exception as e:
+                logger.warning(f"Failed to convert direction string '{direction}': {e}")
+                return False
+
+        success = self.move_mount_manual(direction, self.step_size)
+        if success:
+            if self.state != MountControlPhases.MOUNT_TRACKING and self.state != MountControlPhases.MOUNT_DRIFT_COMPENSATION:
+                self.state = MountControlPhases.MOUNT_TRACKING
+        return success
+
     def _goto_target(self, target_ra, target_dec) -> bool:
         success = self.move_mount_to_target(target_ra, target_dec)
         if success:
@@ -382,8 +415,7 @@ class MountControlBase:
             # This is here for debugging and testing purposes.
             logger.warning("Mount control exiting on command.")
             self._stop_mount()
-            self._disconnect_mount()
-            return
+            raise KeyboardInterrupt("Mount control exiting on command.")
         
         elif command['type'] == 'stop_movement':
             logger.debug("Mount: stop command received")
@@ -404,6 +436,7 @@ class MountControlBase:
             target_ra = command['ra']
             target_dec = command['dec']
             logger.debug(f"Mount: Goto target - RA={target_ra}, DEC={target_dec}")
+            retry_stop = retry_count # store for later waits
             while retry_count > 0 and not self._goto_target(target_ra, target_dec):
                 # Wait for delay before retrying
                 while time.time() - start_time <= delay:
@@ -411,10 +444,14 @@ class MountControlBase:
                 retry_count -= 1
                 if retry_count == 0:
                     logger.error("Failed to command mount to move to target.")
-                    self.console_queue.put(["WARNING", _("Cannot move to target!")])
+                    self.console_queue.put(["WARNING", _("Cannot move to target!\nStopping!")])
                     # Try to stop the mount.
-                    stop_mount_cmd = self._process_command({'type': 'stop_movement'})
-                    while next(stop_mount_cmd):
+                    logger.warning(f"Stopping mount after failed goto_target. {retry_stop} retries")
+                    stop_mount_cmd = self._process_command({'type': 'stop_movement'}, retry_stop, delay)
+                    try:
+                        while next(stop_mount_cmd):
+                            pass
+                    except StopIteration:
                         pass
                 else:
                     logger.warning("Retrying to move mount to target. Attempts left: %d", retry_count)
@@ -425,7 +462,21 @@ class MountControlBase:
             logger.debug(f"Mount: Manual movement - direction={direction}")
             # Not retrying these.
             if not self._move_mount_manual(direction):
+                logger.warning("Mount: Manual movement failed")
                 self.console_queue.put(["WARNING", _("Mount did not move!")])
+                
+        elif command['type'] == 'set_step_size':
+            step_size = command['step_size']
+            if step_size < 1/3600 or step_size > 10.0:
+                self.console_queue.put(["WARNING", _("Step size must be between 1 arcsec and 10 degrees!")])
+                logger.warning("Mount: Step size out of range - %.5f degrees", step_size)
+            else:
+                logger.debug(f"Mount: Set step size - {step_size} degrees")
+                if not self.set_mount_step_size(step_size):
+                    self.console_queue.put(["WARNING", _("Cannot set step size!")])
+                else:
+                    self.step_size = step_size
+                    logger.debug("Mount: Step size set to %.5f degrees", self.step_size)
                 
         elif command['type'] == 'reduce_step_size':
             self.step_size = max(1/3600, self.step_size / 2) # Minimum step size of 1 arcsec
