@@ -11,9 +11,11 @@ See Discord thread: https://discord.com/channels/1087556380724052059/14065992960
 
 Issues:
 * Fails nox
-* When in "Chart Mode", alt/az seems to be swapped round. OK in Align mode. Is
-it the way the fake IMU is generated? Does it try to account for the IMU
-orientation which is removed in imu_pi.py?
+* Chart orientation: Under TestMode for desktop testing, When in "Chart Mode",
+alt/az seems to be swapped round. Looks OK in Align mode at first sight but
+this is because the chart is oriented 90-degrees around . Is it the way the
+fake IMU is generated? Does it try to account for the IMU orientation which is
+removed in imu_pi.py? Also check "Chart Mode" when sky testing.
 
 TODO:
 * Sky test
