@@ -43,6 +43,18 @@ Done:
 
 >Remove this before release!
 
+## 20251001: c6422 (tested 5 Oct)
+
+* v2 Flat. Exposure 0.4s.
+* Tested in altaz mode. 
+* 97% full moon. Zenity NELM 3.
+* Worked fine. When moved quickly to a target, the IMU mode got it to within
+1-2° and then it snapped to the pointing from the plate solve and stayed there.
+I didn't see any jiggling of the SkySafari cursor when zoomed in at a scale of
+5° FOV.
+* Changes since last test: Cleaning up & refactoring. EQ mode angle changed to
+  +/-. Numpy version updated.  
+
 ## 20250831: af358e (tested 5/6 Aug)
 
 * Tested on altaz mount in altaz mode.
