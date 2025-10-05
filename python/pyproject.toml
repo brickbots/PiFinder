@@ -128,7 +128,7 @@ module = [
     'sklearn.*',
     'PyHotKey.*',
     'PiFinder.tetra3.*',
-    'quaterion',
+    'quaternion',
     'tetra3.*',
     'grpc',
     'ceder_detect_pb2',
