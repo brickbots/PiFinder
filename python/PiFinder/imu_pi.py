@@ -6,6 +6,7 @@ This module is for IMU related functions
 """
 
 import time
+from PiFinder import config
 from PiFinder.multiproclogging import MultiprocLogging
 import board
 import adafruit_bno055
@@ -46,8 +47,13 @@ class Imu:
         # First value is delta to exceed between samples
         # to start moving, second is threshold to fall below
         # to stop moving.
-        self.__moving_threshold = (0.0005, 0.0003)
 
+        cfg = config.Config()
+        imu_threshold_scale = cfg.get_option("imu_threshold_scale", 1)
+        self.__moving_threshold = (
+            0.0005 * imu_threshold_scale,
+            0.0003 * imu_threshold_scale,
+        )
     def moving(self):
         """
         Compares most recent reading
