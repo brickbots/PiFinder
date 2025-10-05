@@ -11,7 +11,7 @@ from PiFinder.mountcontrol_interface import MountControlBase, MountControlPhases
 from PiFinder.state import SharedStateObj
 
 
-class TestableMountControlPhases(MountControlBase):
+class MountControlPhasesTestable(MountControlBase):
     """Testable subclass of MountControlBase for testing _process_phase method."""
 
     def __init__(self, mount_queue, console_queue, shared_state, log_queue):
@@ -55,7 +55,7 @@ class TestMountControlPhases:
         self.shared_state.solve_state.return_value = True
 
         # Create the testable mount control instance
-        self.mount_control = TestableMountControlPhases(
+        self.mount_control = MountControlPhasesTestable(
             self.mount_queue,
             self.console_queue,
             self.shared_state,
@@ -279,8 +279,6 @@ class TestMountControlPhases:
         # Verify no warning messages
         assert self.console_queue.empty()
 
-## TODO CONTINUE FROM HERE
-
     def test_mount_target_acquisition_refine_sync_and_move_success(self):
         """Test MOUNT_TARGET_ACQUISITION_REFINE phase with successful sync and move."""
         self.mount_control.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
@@ -408,6 +406,7 @@ class TestMountControlPhases:
 
         # Verify sync was called
         assert self.mount_control.sync_mount.call_count >= 1
+        assert self.mount_control.move_mount_to_target.call_count >= 1
 
         # The state machine should respect the state change and exit appropriately
         # The actual final state may vary depending on timing and state machine logic
