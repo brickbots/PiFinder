@@ -175,16 +175,24 @@ class MountControlBase:
     # Methods to be overridden by subclasses for controlling the specifics of a mount
     # 
 
-    def init_mount(self) -> bool:
+    def init_mount(self, latitude_deg: float = None, longitude_deg: float = None,
+                   elevation_m: float = None, utc_time: str = None) -> bool:
         """ Initialize the mount, so that we receive updates and can send commands.
 
-        The subclass needs to set up the mount and prepare it for operation. 
+        The subclass needs to set up the mount and prepare it for operation.
         This may include connecting to the mount, setting initial parameters, un-parking, etc.
+        It should also set the geographic coordinates and UTC time if provided.
 
         The subclass needs to return a boolean indicating success or failure.
         A failure will cause the main loop to retry initialization after a delay.
         If the mount cannot be initialized, throw an exception to abort the process.
         This will be used to inform the user via the console queue.
+
+        Args:
+            latitude_deg: Observatory latitude in degrees (positive North). Optional.
+            longitude_deg: Observatory longitude in degrees (positive East). Optional.
+            elevation_m: Observatory elevation in meters above sea level. Optional.
+            utc_time: UTC time in ISO 8601 format (YYYY-MM-DDTHH:MM:SS). Optional.
 
         Returns:
             bool: True if initialization was successful, False otherwise.
