@@ -158,7 +158,7 @@ def aim_degrees(shared_state, mount_type, screen_direction, target):
                 )
                 az_diff = target_az - solution["Az"]
                 az_diff = (az_diff + 180) % 360 - 180
-                if screen_direction in ["flat", "as_dream"]:
+                if screen_direction in ["flat", "as_bloom"]:
                     az_diff *= -1
 
                 alt_diff = target_alt - solution["Alt"]

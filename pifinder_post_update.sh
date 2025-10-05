@@ -23,7 +23,7 @@ then
     touch /home/pifinder/PiFinder_data/migrations/v2.1.0
 fi
 
-# v2.1.1
+# v2.2.1
 # Install libinput
 if ! [ -f "/home/pifinder/PiFinder_data/migrations/v2.2.1" ]
 then
@@ -31,7 +31,7 @@ then
     touch /home/pifinder/PiFinder_data/migrations/v2.2.1
 fi
 
-# v2.1.2
+# v2.2.2
 # Enable host usb on usb-c port
 if ! [ -f "/home/pifinder/PiFinder_data/migrations/v2.2.2" ]
 then

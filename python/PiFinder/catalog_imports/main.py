@@ -11,23 +11,34 @@ import datetime
 
 from .catalog_import_utils import print_database, resolve_object_images
 from .database import init_shared_database
-from .steinicke_loader import load_ngc_catalog
-from .caldwell_loader import load_caldwell
-from .bright_stars_loader import load_bright_stars
-from .herschel_loader import load_herschel400
-from .sac_loaders import load_sac_asterisms, load_sac_multistars, load_sac_redstars
-from .specialized_loaders import (
-    load_egc,
-    load_collinder,
-    load_taas200,
-    load_rasc_double_Stars,
-    load_barnard,
-    load_sharpless,
-    load_arp,
-    load_tlk_90_vars,
-    load_abell,
-)
-from .post_processing import fix_object_types, add_missing_messier_objects
+
+# Loader registry - import functions dynamically to reduce coupling
+CATALOG_LOADERS = [
+    # Core catalogs (order matters for referencing)
+    ("steinicke_loader", "load_ngc_catalog"),
+    # Additional catalogs
+    ("caldwell_loader", "load_caldwell"),
+    ("specialized_loaders", "load_collinder"),
+    ("specialized_loaders", "load_taas200"),
+    ("herschel_loader", "load_herschel400"),
+    ("sac_loaders", "load_sac_asterisms"),
+    ("sac_loaders", "load_sac_multistars"),
+    ("sac_loaders", "load_sac_redstars"),
+    ("bright_stars_loader", "load_bright_stars"),
+    ("specialized_loaders", "load_egc"),
+    ("specialized_loaders", "load_rasc_double_Stars"),
+    ("specialized_loaders", "load_barnard"),
+    ("specialized_loaders", "load_sharpless"),
+    ("specialized_loaders", "load_abell"),
+    ("specialized_loaders", "load_arp"),
+    ("specialized_loaders", "load_tlk_90_vars"),
+    ("wds_loader", "load_wds"),
+]
+
+POST_PROCESSING_FUNCTIONS = [
+    ("post_processing", "fix_object_types"),
+    ("post_processing", "add_missing_messier_objects"),
+]
 
 
 def main():
@@ -78,31 +89,31 @@ def main():
 
     logging.info("loading catalogs")
 
-    # These load functions must be kept in this order
-    # to keep some of the object referencing working
-    # particularly starting with the NGC as the base
-    load_ngc_catalog()
+    # Load catalogs using registry (order is preserved for referencing)
+    for module_name, function_name in CATALOG_LOADERS:
+        try:
+            module = __import__(
+                f"PiFinder.catalog_imports.{module_name}", fromlist=[function_name]
+            )
+            loader_func = getattr(module, function_name)
+            logging.info(f"Loading catalog: {function_name}")
+            loader_func()
+        except Exception as e:
+            logging.error(f"Failed to load {function_name} from {module_name}: {e}")
+            raise
 
-    # Load additional catalogs
-    load_caldwell()
-    load_collinder()
-    load_taas200()
-    load_herschel400()
-    load_sac_asterisms()
-    load_sac_multistars()
-    load_sac_redstars()
-    load_bright_stars()
-    load_egc()
-    load_rasc_double_Stars()
-    load_barnard()
-    load_sharpless()
-    load_abell()
-    load_arp()
-    load_tlk_90_vars()
-
-    # Fix data issues and add missing objects
-    fix_object_types()
-    add_missing_messier_objects()
+    # Run post-processing functions
+    for module_name, function_name in POST_PROCESSING_FUNCTIONS:
+        try:
+            module = __import__(
+                f"PiFinder.catalog_imports.{module_name}", fromlist=[function_name]
+            )
+            process_func = getattr(module, function_name)
+            logging.info(f"Running post-processing: {function_name}")
+            process_func()
+        except Exception as e:
+            logging.error(f"Failed to run {function_name} from {module_name}: {e}")
+            raise
 
     # Populate the images table
     logging.info("Resolving object images...")

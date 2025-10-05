@@ -17,14 +17,14 @@ logger = logging.getLogger("Keyboard.Pi")
 
 
 class KeyboardPi(KeyboardInterface):
-    def __init__(self, q, dream_remap=False):
+    def __init__(self, q, bloom_remap=False):
         self.q = q
 
         # GPIO pin numbers for the rows and columns of the keyboard matrix
         self.cols = [16, 23, 26, 27]
         self.rows = [19, 17, 18, 22, 20]
 
-        if dream_remap:
+        if bloom_remap:
             _up = self.RIGHT
             _down = self.LEFT
             _left = self.UP
@@ -172,7 +172,7 @@ class KeyboardPi(KeyboardInterface):
                 GPIO.setup(self.rows[i], GPIO.IN)
 
 
-def run_keyboard(q, shared_state, log_queue, dream_remap=False):
+def run_keyboard(q, shared_state, log_queue, bloom_remap=False):
     MultiprocLogging.configurer(log_queue)
-    keyboard = KeyboardPi(q, dream_remap=dream_remap)
+    keyboard = KeyboardPi(q, bloom_remap=bloom_remap)
     keyboard.run_keyboard(log_queue)

@@ -97,6 +97,8 @@ class CameraInterface:
                                 "flat3",
                             ]:
                                 rotate_amount = 90
+                            elif screen_direction == "as_bloom":
+                                rotate_amount = 90  # Specific rotation for AS Bloom
                             else:
                                 rotate_amount = 270
                         else:

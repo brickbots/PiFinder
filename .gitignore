@@ -145,7 +145,11 @@ astro_data/comets.txt
 *.3mf
 *.gcode
 case/my_printer
+# sqlite write-ahead log file and the shared memory file used by WAL mode.
+*.db-shm
+*.db-wal
 .devenv/
+.claude/
 astro_data/comets.txt
 python/tetra3
 
