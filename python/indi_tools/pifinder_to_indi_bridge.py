@@ -54,7 +54,7 @@ class PiFinderIndiClient(PyIndi.BaseClient):
         self.lock = threading.Lock()
 
         # Setup logging
-        self.logger = logging.getLogger('IndiClient')
+        self.logger = logging.getLogger("IndiClient")
         if verbose:
             logging.basicConfig(level=logging.DEBUG)
         else:
@@ -73,8 +73,10 @@ class PiFinderIndiClient(PyIndi.BaseClient):
         # Auto-detect telescope or match specified name
         if self.telescope_name is None:
             # Look for common telescope device patterns
-            telescope_patterns = ['Telescope', 'Mount', 'EQMod', 'Simulator']
-            if any(pattern.lower() in device_name.lower() for pattern in telescope_patterns):
+            telescope_patterns = ["Telescope", "Mount", "EQMod", "Simulator"]
+            if any(
+                pattern.lower() in device_name.lower() for pattern in telescope_patterns
+            ):
                 with self.lock:
                     self.telescope_device = device
                     self.telescope_name = device_name
@@ -155,9 +157,11 @@ class PiFinderIndiClient(PyIndi.BaseClient):
     def is_ready(self):
         """Check if client is ready to send coordinates."""
         with self.lock:
-            return (self.telescope_device is not None and
-                   self.equatorial_coord_property is not None and
-                   self.connected)
+            return (
+                self.telescope_device is not None
+                and self.equatorial_coord_property is not None
+                and self.connected
+            )
 
     def set_target_coordinates(self, ra_hours, dec_degrees):
         """Send target coordinates to telescope using proper INDI slew method."""
@@ -195,7 +199,9 @@ class PiFinderIndiClient(PyIndi.BaseClient):
 
                 # Send the new coordinates - this triggers the slew
                 self.sendNewProperty(coord_prop)
-                self.log(f"Sent slew command: RA={ra_hours:.6f}h, DEC={dec_degrees:.6f}°")
+                self.log(
+                    f"Sent slew command: RA={ra_hours:.6f}h, DEC={dec_degrees:.6f}°"
+                )
                 return True
 
         except Exception as e:
@@ -206,10 +212,17 @@ class PiFinderIndiClient(PyIndi.BaseClient):
 class PiFinderApiBridge:
     """Bridge between PiFinder API and INDI telescope control."""
 
-    def __init__(self, pifinder_host="localhost", pifinder_port=8080, password="solveit",
-                 indi_host="localhost", indi_port=7624, telescope_name=None,
-                 poll_interval=2.0, verbose=False):
-
+    def __init__(
+        self,
+        pifinder_host="localhost",
+        pifinder_port=8080,
+        password="solveit",
+        indi_host="localhost",
+        indi_port=7624,
+        telescope_name=None,
+        poll_interval=2.0,
+        verbose=False,
+    ):
         self.pifinder_host = pifinder_host
         self.pifinder_port = pifinder_port
         self.password = password
@@ -230,7 +243,7 @@ class PiFinderApiBridge:
         self.indi_client = PiFinderIndiClient(telescope_name, verbose)
 
         # Setup logging
-        self.logger = logging.getLogger('PiFinderBridge')
+        self.logger = logging.getLogger("PiFinderBridge")
         if verbose:
             logging.basicConfig(level=logging.DEBUG)
         else:
@@ -247,7 +260,10 @@ class PiFinderApiBridge:
         self.indi_client.setServer(self.indi_host, self.indi_port)
 
         if not self.indi_client.connectServer():
-            self.log(f"Failed to connect to INDI server at {self.indi_host}:{self.indi_port}", logging.ERROR)
+            self.log(
+                f"Failed to connect to INDI server at {self.indi_host}:{self.indi_port}",
+                logging.ERROR,
+            )
             return False
 
         # Wait for device discovery
@@ -270,7 +286,10 @@ class PiFinderApiBridge:
                 # The session cookies are automatically stored by requests.Session()
                 return True
             else:
-                self.log(f"Login failed: {response.status_code} {response.text}", logging.ERROR)
+                self.log(
+                    f"Login failed: {response.status_code} {response.text}",
+                    logging.ERROR,
+                )
                 return False
 
         except Exception as e:
@@ -297,7 +316,10 @@ class PiFinderApiBridge:
             if response.status_code == 200:
                 return response.json()
             else:
-                self.log(f"API request failed: {response.status_code} {response.text}", logging.ERROR)
+                self.log(
+                    f"API request failed: {response.status_code} {response.text}",
+                    logging.ERROR,
+                )
                 return None
 
         except Exception as e:
@@ -309,9 +331,7 @@ class PiFinderApiBridge:
         try:
             # Create coordinate object in J2000 (ICRS)
             coord_j2000 = SkyCoord(
-                ra=ra_j2000_hours * u.hour,
-                dec=dec_j2000_degrees * u.deg,
-                frame=ICRS
+                ra=ra_j2000_hours * u.hour, dec=dec_j2000_degrees * u.deg, frame=ICRS
             )
 
             current_time = Time.now()
@@ -323,7 +343,9 @@ class PiFinderApiBridge:
                 coord_eod = coord_j2000.transform_to(CIRS(obstime=current_time))
                 conversion_type = "CIRS"
             except Exception as cirs_error:
-                self.log(f"CIRS conversion failed, trying FK5: {cirs_error}", logging.WARNING)
+                self.log(
+                    f"CIRS conversion failed, trying FK5: {cirs_error}", logging.WARNING
+                )
                 # Fallback to FK5 with current equinox (classical approach)
                 coord_eod = coord_j2000.transform_to(FK5(equinox=current_time))
                 conversion_type = "FK5"
@@ -332,8 +354,10 @@ class PiFinderApiBridge:
             ra_eod_hours = coord_eod.ra.hour
             dec_eod_degrees = coord_eod.dec.degree
 
-            self.log(f"Coordinate conversion ({conversion_type}): J2000({ra_j2000_hours:.6f}h, {dec_j2000_degrees:.6f}°) "
-                    f"-> EOD({ra_eod_hours:.6f}h, {dec_eod_degrees:.6f}°) at {current_time.iso}")
+            self.log(
+                f"Coordinate conversion ({conversion_type}): J2000({ra_j2000_hours:.6f}h, {dec_j2000_degrees:.6f}°) "
+                f"-> EOD({ra_eod_hours:.6f}h, {dec_eod_degrees:.6f}°) at {current_time.iso}"
+            )
 
             return ra_eod_hours, dec_eod_degrees
 
@@ -346,9 +370,9 @@ class PiFinderApiBridge:
         if not selection_data:
             return
 
-        ui_type = selection_data.get('ui_type')
+        ui_type = selection_data.get("ui_type")
 
-        if ui_type != 'UIObjectDetails':
+        if ui_type != "UIObjectDetails":
             # Clear target if not an object selection
             if self.last_target is not None:
                 self.log("Selection cleared - no longer UIObjectDetails")
@@ -357,15 +381,15 @@ class PiFinderApiBridge:
             return
 
         # Extract object data
-        object_data = selection_data.get('object', {})
+        object_data = selection_data.get("object", {})
         if not object_data:
             self.log("No object data in UIObjectDetails", logging.WARNING)
             return
 
         # Get J2000 coordinates
-        ra_j2000_degrees = object_data.get('ra')  # PiFinder returns RA in degrees
-        dec_j2000_degrees = object_data.get('dec')  # DEC in degrees
-        object_name = object_data.get('name', 'Unknown')
+        ra_j2000_degrees = object_data.get("ra")  # PiFinder returns RA in degrees
+        dec_j2000_degrees = object_data.get("dec")  # DEC in degrees
+        object_name = object_data.get("name", "Unknown")
 
         if ra_j2000_degrees is None or dec_j2000_degrees is None:
             self.log(f"Missing coordinates for object {object_name}", logging.WARNING)
@@ -382,7 +406,9 @@ class PiFinderApiBridge:
             return
 
         self.log(f"New target selected: {object_name}")
-        self.log(f"  J2000 coordinates: RA={ra_j2000_hours:.6f}h ({ra_j2000_degrees:.6f}°), DEC={dec_j2000_degrees:.6f}°")
+        self.log(
+            f"  J2000 coordinates: RA={ra_j2000_hours:.6f}h ({ra_j2000_degrees:.6f}°), DEC={dec_j2000_degrees:.6f}°"
+        )
 
         # Convert to EOD using hours for RA (as expected by j2000_to_eod)
         ra_eod, dec_eod = self.j2000_to_eod(ra_j2000_hours, dec_j2000_degrees)
@@ -444,18 +470,32 @@ def main():
         description="PiFinder to INDI Bridge - Connect PiFinder object selection to telescope control"
     )
 
-    parser.add_argument("--pifinder-host", default="localhost",
-                       help="PiFinder host (default: localhost)")
-    parser.add_argument("--pifinder-port", type=int, default=8080,
-                       help="PiFinder port (default: 80)")
-    parser.add_argument("--indi-host", default="localhost",
-                       help="INDI server host (default: localhost)")
-    parser.add_argument("--indi-port", type=int, default=7624,
-                       help="INDI server port (default: 7624)")
-    parser.add_argument("--telescope", help="Telescope device name (default: auto-detect)")
-    parser.add_argument("--password", default="solveit", help="PiFinder password (default: solveit)")
-    parser.add_argument("--interval", type=float, default=2.0,
-                       help="Polling interval in seconds (default: 2.0)")
+    parser.add_argument(
+        "--pifinder-host",
+        default="localhost",
+        help="PiFinder host (default: localhost)",
+    )
+    parser.add_argument(
+        "--pifinder-port", type=int, default=8080, help="PiFinder port (default: 80)"
+    )
+    parser.add_argument(
+        "--indi-host", default="localhost", help="INDI server host (default: localhost)"
+    )
+    parser.add_argument(
+        "--indi-port", type=int, default=7624, help="INDI server port (default: 7624)"
+    )
+    parser.add_argument(
+        "--telescope", help="Telescope device name (default: auto-detect)"
+    )
+    parser.add_argument(
+        "--password", default="solveit", help="PiFinder password (default: solveit)"
+    )
+    parser.add_argument(
+        "--interval",
+        type=float,
+        default=2.0,
+        help="Polling interval in seconds (default: 2.0)",
+    )
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
 
     args = parser.parse_args()
@@ -469,7 +509,7 @@ def main():
         indi_port=args.indi_port,
         telescope_name=args.telescope,
         poll_interval=args.interval,
-        verbose=args.verbose
+        verbose=args.verbose,
     )
 
     bridge.run()

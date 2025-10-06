@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 
 import pytest
-import unittest.mock as mock
-from queue import Queue, Empty
+from queue import Queue
 import time
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock, patch
 
 # Import the classes we want to test
-from PiFinder.mountcontrol_interface import MountControlPhases, MountDirectionsEquatorial, MountControlBase
+from PiFinder.mountcontrol_interface import (
+    MountControlPhases,
+    MountDirectionsEquatorial,
+    MountControlBase,
+)
 from PiFinder.state import SharedStateObj
 
 
@@ -33,17 +36,16 @@ class TestMountControl:
         self.shared_state = Mock(spec=SharedStateObj)
 
         # Create the mount control instance with mocked INDI client
-        with patch('PiFinder.mountcontrol_interface.MountControlBase') as mock_client_class:
+        with patch(
+            "PiFinder.mountcontrol_interface.MountControlBase"
+        ) as mock_client_class:
             mock_client = Mock()
             mock_client.setServer.return_value = None
             mock_client.connectServer.return_value = True
             mock_client_class.return_value = mock_client
 
             self.mount_control = MountControlBase(
-                self.target_queue,
-                self.console_queue,
-                self.shared_state,
-                self.log_queue
+                self.target_queue, self.console_queue, self.shared_state, self.log_queue
             )
             self.mock_client = mock_client
 
@@ -81,8 +83,10 @@ class TestMountControl:
             self._execute_command_generator(command)
         except KeyboardInterrupt:
             keyboard_interrupt_thrown = True
-    
-        assert keyboard_interrupt_thrown, "KeyboardInterrupt was not raised on exit command"
+
+        assert (
+            keyboard_interrupt_thrown
+        ), "KeyboardInterrupt was not raised on exit command"
 
         # Verify that stop_mount was called
         self.mount_control.stop_mount.assert_called_once()
@@ -119,7 +123,9 @@ class TestMountControl:
         command = {"type": "stop_movement"}
 
         # Execute with shorter delay for faster testing
-        command_generator = self.mount_control._process_command(command, retry_count=2, delay=0.1)
+        command_generator = self.mount_control._process_command(
+            command, retry_count=2, delay=0.1
+        )
 
         # Execute the generator, simulating time passage
         start_time = time.time()
@@ -150,7 +156,9 @@ class TestMountControl:
         command = {"type": "stop_movement"}
 
         # Execute with 1 retry and very short delay for faster testing
-        command_generator = self.mount_control._process_command(command, retry_count=2, delay=0.01)
+        command_generator = self.mount_control._process_command(
+            command, retry_count=2, delay=0.01
+        )
 
         # Execute the generator
         start_time = time.time()
@@ -183,7 +191,7 @@ class TestMountControl:
         command = {
             "type": "goto_target",
             "ra": 15.5,  # Right Ascension in degrees
-            "dec": 45.2  # Declination in degrees
+            "dec": 45.2,  # Declination in degrees
         }
 
         # Execute the command
@@ -204,14 +212,12 @@ class TestMountControl:
         self.mount_control.move_mount_to_target.return_value = False
 
         # Create goto command
-        command = {
-            "type": "goto_target",
-            "ra": 15.5,
-            "dec": 45.2
-        }
+        command = {"type": "goto_target", "ra": 15.5, "dec": 45.2}
 
         # Execute with 1 retry and short delay
-        command_generator = self.mount_control._process_command(command, retry_count=1, delay=0.01)
+        command_generator = self.mount_control._process_command(
+            command, retry_count=1, delay=0.01
+        )
 
         start_time = time.time()
         try:
@@ -227,13 +233,16 @@ class TestMountControl:
         warning_msg = self.console_queue.get()
         assert warning_msg[0] == "WARNING"
 
-    @pytest.mark.parametrize("initial_state", [
-        MountControlPhases.MOUNT_STOPPED,
-        MountControlPhases.MOUNT_TRACKING,
-        MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE,
-        MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE,
-        MountControlPhases.MOUNT_DRIFT_COMPENSATION
-    ])
+    @pytest.mark.parametrize(
+        "initial_state",
+        [
+            MountControlPhases.MOUNT_STOPPED,
+            MountControlPhases.MOUNT_TRACKING,
+            MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE,
+            MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE,
+            MountControlPhases.MOUNT_DRIFT_COMPENSATION,
+        ],
+    )
     def test_gototarget_success_after_retry(self, initial_state):
         """Test 'goto_target' command that fails all retries."""
         # Setup initial state
@@ -243,14 +252,12 @@ class TestMountControl:
         self.mount_control.move_mount_to_target.side_effect = [False, True]
 
         # Create goto command
-        command = {
-            "type": "goto_target",
-            "ra": 15.5,
-            "dec": 45.2
-        }
+        command = {"type": "goto_target", "ra": 15.5, "dec": 45.2}
 
         # Execute with 1 retry and short delay
-        command_generator = self.mount_control._process_command(command, retry_count=3, delay=0.01)
+        command_generator = self.mount_control._process_command(
+            command, retry_count=3, delay=0.01
+        )
 
         start_time = time.time()
         try:
@@ -261,19 +268,28 @@ class TestMountControl:
         except StopIteration:
             pass
 
-        assert self.mount_control.move_mount_to_target.call_count == 2, "Expected two calls to move_mount_to_target"
-        assert self.mount_control.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE, "Mount state should be TARGET_ACQUISITION_MOVE after successful goto"
+        assert (
+            self.mount_control.move_mount_to_target.call_count == 2
+        ), "Expected two calls to move_mount_to_target"
+        assert (
+            self.mount_control.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
+        ), "Mount state should be TARGET_ACQUISITION_MOVE after successful goto"
 
         # Verify warning message
-        assert self.console_queue.empty(), "No warning should be sent if eventually successful"
+        assert (
+            self.console_queue.empty()
+        ), "No warning should be sent if eventually successful"
 
-    @pytest.mark.parametrize("initial_state", [
-        MountControlPhases.MOUNT_STOPPED,
-        MountControlPhases.MOUNT_TRACKING,
-        MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE,
-        MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE,
-        MountControlPhases.MOUNT_DRIFT_COMPENSATION
-    ])
+    @pytest.mark.parametrize(
+        "initial_state",
+        [
+            MountControlPhases.MOUNT_STOPPED,
+            MountControlPhases.MOUNT_TRACKING,
+            MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE,
+            MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE,
+            MountControlPhases.MOUNT_DRIFT_COMPENSATION,
+        ],
+    )
     def test_gototarget_failure_after_retries(self, initial_state):
         """Test 'goto_target' command that fails all retries from different initial states."""
         # Setup initial state
@@ -283,14 +299,12 @@ class TestMountControl:
         self.mount_control.move_mount_to_target.return_value = False
 
         # Create goto command
-        command = {
-            "type": "goto_target",
-            "ra": 15.5,
-            "dec": 45.2
-        }
+        command = {"type": "goto_target", "ra": 15.5, "dec": 45.2}
 
         # Execute with 2 retries and short delay
-        command_generator = self.mount_control._process_command(command, retry_count=3, delay=0.01)
+        command_generator = self.mount_control._process_command(
+            command, retry_count=3, delay=0.01
+        )
 
         start_time = time.time()
         try:
@@ -313,13 +327,16 @@ class TestMountControl:
         warning_msg = self.console_queue.get()
         assert warning_msg[0] == "WARNING"
 
-    @pytest.mark.parametrize("initial_state", [
-        MountControlPhases.MOUNT_STOPPED,
-        MountControlPhases.MOUNT_TRACKING,
-        MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE,
-        MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE,
-        MountControlPhases.MOUNT_DRIFT_COMPENSATION
-    ])
+    @pytest.mark.parametrize(
+        "initial_state",
+        [
+            MountControlPhases.MOUNT_STOPPED,
+            MountControlPhases.MOUNT_TRACKING,
+            MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE,
+            MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE,
+            MountControlPhases.MOUNT_DRIFT_COMPENSATION,
+        ],
+    )
     def test_gototarget_full_failure_after_retries(self, initial_state):
         """Test 'goto_target' command that fails all retries and stop also fails multiple times."""
         # Setup initial state
@@ -327,17 +344,15 @@ class TestMountControl:
 
         # Mock _goto_target to always fail as does stop_mount
         self.mount_control.move_mount_to_target.return_value = False
-        self.mount_control.stop_mount.return_value = False  
+        self.mount_control.stop_mount.return_value = False
 
         # Create goto command
-        command = {
-            "type": "goto_target",
-            "ra": 15.5,
-            "dec": 45.2
-        }
+        command = {"type": "goto_target", "ra": 15.5, "dec": 45.2}
 
         # Execute with 2 retries and short delay
-        command_generator = self.mount_control._process_command(command, retry_count=2, delay=0.01)
+        command_generator = self.mount_control._process_command(
+            command, retry_count=2, delay=0.01
+        )
 
         start_time = time.time()
         try:
@@ -360,7 +375,9 @@ class TestMountControl:
         warning_msg = self.console_queue.get()
         assert warning_msg[0] == "WARNING"
 
-        assert self.console_queue.empty(), "No additional warnings should be sent after initial failure" 
+        assert (
+            self.console_queue.empty()
+        ), "No additional warnings should be sent after initial failure"
 
     def test_manual_movement_command_success(self):
         """Test successful 'manual_movement' command."""
@@ -369,16 +386,15 @@ class TestMountControl:
         self.mount_control.step_size = 1.0  # 1 degree step size
 
         # Create manual movement command
-        command = {
-            "type": "manual_movement",
-            "direction": "north"
-        }
+        command = {"type": "manual_movement", "direction": "north"}
 
         # Execute the command
         self._execute_command_generator(command)
 
         # Verify that _move_mount_manual was called with correct direction
-        self.mount_control.move_mount_manual.assert_called_once_with(MountDirectionsEquatorial.NORTH, self.mount_control.step_size)
+        self.mount_control.move_mount_manual.assert_called_once_with(
+            MountDirectionsEquatorial.NORTH, self.mount_control.step_size
+        )
 
         # Verify no warning messages
         assert self.console_queue.empty()
@@ -394,7 +410,7 @@ class TestMountControl:
         # Create manual movement command
         command = {
             "type": "manual_movement",
-            "direction": MountDirectionsEquatorial.SOUTH
+            "direction": MountDirectionsEquatorial.SOUTH,
         }
 
         # Execute the command
@@ -422,11 +438,11 @@ class TestMountControl:
         assert self.mount_control.step_size == expected_step_size
 
         # Test minimum limit
-        self.mount_control.step_size = 1/3600  # 1 arcsec
+        self.mount_control.step_size = 1 / 3600  # 1 arcsec
         self._execute_command_generator(command)
 
         # Verify it doesn't go below minimum
-        assert self.mount_control.step_size == 1/3600
+        assert self.mount_control.step_size == 1 / 3600
 
     def test_increase_step_size_command(self):
         """Test 'increase_step_size' command."""
@@ -454,10 +470,7 @@ class TestMountControl:
     def test_set_step_size_command_success(self):
         """Test successful 'set_step_size' command with valid values."""
         # Test setting a valid step size
-        command = {
-            "type": "set_step_size",
-            "step_size": 2.5
-        }
+        command = {"type": "set_step_size", "step_size": 2.5}
 
         # Execute the command
         self._execute_command_generator(command)
@@ -474,11 +487,8 @@ class TestMountControl:
     def test_set_step_size_command_boundary_values(self):
         """Test 'set_step_size' command with boundary values."""
         # Test minimum valid value (1 arcsec = 1/3600 degrees)
-        min_step_size = 1/3600
-        command = {
-            "type": "set_step_size",
-            "step_size": min_step_size
-        }
+        min_step_size = 1 / 3600
+        command = {"type": "set_step_size", "step_size": min_step_size}
 
         self._execute_command_generator(command)
         self.mount_control.set_mount_step_size.assert_called_with(min_step_size)
@@ -490,10 +500,7 @@ class TestMountControl:
 
         # Test maximum valid value (10 degrees)
         max_step_size = 10.0
-        command = {
-            "type": "set_step_size",
-            "step_size": max_step_size
-        }
+        command = {"type": "set_step_size", "step_size": max_step_size}
 
         self._execute_command_generator(command)
         self.mount_control.set_mount_step_size.assert_called_with(max_step_size)
@@ -508,7 +515,7 @@ class TestMountControl:
         # Test value below minimum (less than 1 arcsec)
         command = {
             "type": "set_step_size",
-            "step_size": 1/7200  # 0.5 arcsec
+            "step_size": 1 / 7200,  # 0.5 arcsec
         }
 
         self._execute_command_generator(command)
@@ -531,10 +538,7 @@ class TestMountControl:
         original_step_size = self.mount_control.step_size
 
         # Test value above maximum (more than 10 degrees)
-        command = {
-            "type": "set_step_size",
-            "step_size": 15.0
-        }
+        command = {"type": "set_step_size", "step_size": 15.0}
 
         self._execute_command_generator(command)
 
@@ -558,10 +562,7 @@ class TestMountControl:
         # Mock set_mount_step_size to fail
         self.mount_control.set_mount_step_size.return_value = False
 
-        command = {
-            "type": "set_step_size",
-            "step_size": 3.0
-        }
+        command = {"type": "set_step_size", "step_size": 3.0}
 
         self._execute_command_generator(command)
 
@@ -577,27 +578,27 @@ class TestMountControl:
         assert warning_msg[0] == "WARNING"
         assert "Cannot set step size" in warning_msg[1]
 
-    @pytest.mark.parametrize("step_size,expected_valid", [
-        (1/3600, True),      # Minimum valid (1 arcsec)
-        (0.001, True),       # Valid small value
-        (1.0, True),         # Valid medium value
-        (5.0, True),         # Valid large value
-        (10.0, True),        # Maximum valid
-        (1/7200, False),     # Too small (0.5 arcsec)
-        (0.0, False),        # Zero
-        (-1.0, False),       # Negative
-        (15.0, False),       # Too large
-        (100.0, False),      # Way too large
-    ])
+    @pytest.mark.parametrize(
+        "step_size,expected_valid",
+        [
+            (1 / 3600, True),  # Minimum valid (1 arcsec)
+            (0.001, True),  # Valid small value
+            (1.0, True),  # Valid medium value
+            (5.0, True),  # Valid large value
+            (10.0, True),  # Maximum valid
+            (1 / 7200, False),  # Too small (0.5 arcsec)
+            (0.0, False),  # Zero
+            (-1.0, False),  # Negative
+            (15.0, False),  # Too large
+            (100.0, False),  # Way too large
+        ],
+    )
     def test_set_step_size_command_validation(self, step_size, expected_valid):
         """Test 'set_step_size' command validation with various values."""
         # Store original step size
         original_step_size = self.mount_control.step_size
 
-        command = {
-            "type": "set_step_size",
-            "step_size": step_size
-        }
+        command = {"type": "set_step_size", "step_size": step_size}
 
         self._execute_command_generator(command)
 
@@ -647,16 +648,3 @@ class TestMountControl:
         self.mount_control.disconnect_mount.assert_not_called()
 
         assert self.console_queue.empty()
-
-
-if __name__ == "__main__":
-    # Run the test for the exit command as requested
-    test_instance = TestMountControlIndi()
-    test_instance.setup_method()
-
-    print("Running test for 'exit' command...")
-    test_instance.test_exit_command()
-    print("✓ Exit command test passed!")
-
-    print("\nRunning all tests...")
-    pytest.main([__file__, "-v"])

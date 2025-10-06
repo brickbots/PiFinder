@@ -12,7 +12,6 @@ from enum import Enum, auto
 from queue import Queue
 import time
 from typing import Iterator
-from math import sqrt
 
 from PiFinder.state import SharedStateObj
 import PiFinder.i18n  # noqa: F401
@@ -30,36 +29,38 @@ The split of responsibilities between the base class and subclasses is as follow
 
 """
 
+
 class MountControlPhases(Enum):
     """
     Enumeration representing the various phases and states of controlling the telescope mount.
 
     States:
-        MOUNT_INIT_TELESCOPE: 
+        MOUNT_INIT_TELESCOPE:
             Telescope needs to be initialized, connected to, settings need to be set, encoders switched on, unparked etc.
-        MOUNT_STOPPED: 
+        MOUNT_STOPPED:
             The mount is stopped and is not tracking or moving. Basically we wait for user selection of a target.
             This is the state after initialization and before target acquisition.
-        MOUNT_TARGET_ACQUISITION_MOVE: 
+        MOUNT_TARGET_ACQUISITION_MOVE:
             The user has selected a target and the mount being commanded to move to it. The mount slews to the selected target.
             and we wait for it to finish slewing. This state may be entered from MOUNT_TARGET_ACQUISITION_REFINE multiple times.
-        MOUNT_TARGET_ACQUISITION_REFINE: 
+        MOUNT_TARGET_ACQUISITION_REFINE:
             The mount believes it has acquired the target, and now we use PiFinder's platesolved position to refine its position and put
-            the target into the center of the field of view. 
-        MOUNT_DRIFT_COMPENSATION: 
-            We have reached the target and put it in the center of the field of view. The mount is tracking and 
+            the target into the center of the field of view.
+        MOUNT_DRIFT_COMPENSATION:
+            We have reached the target and put it in the center of the field of view. The mount is tracking and
             we are compensating for drift (due to polar alignment being off).
-        MOUNT_TRACKING: 
+        MOUNT_TRACKING:
             The mount is tracking the sky but we are not doing drift compensation. This is entered, if the user moves the telescope manually.
         MOUNT_SPIRAL_SEARCH:
-            The mount has been commanded to a spiral search pattern to find a target. 
+            The mount has been commanded to a spiral search pattern to find a target.
 
     Note that a user interaction may at any time move the mount back to MOUNT_STOPPED, or put it into MOUNT_TRACKING.
     Once in drift compensation mode, the user may also select a new target, which will move the phase to MOUNT_TARGET_ACQUISITION_MOVE.
-    Any error condition should actively abort any movement and set the state to MOUNT_INIT_TELESCOPE. 
+    Any error condition should actively abort any movement and set the state to MOUNT_INIT_TELESCOPE.
 
-    This enum is used in the main control loop to decide on what action to take next. 
+    This enum is used in the main control loop to decide on what action to take next.
     """
+
     MOUNT_UNKNOWN = auto()
     MOUNT_INIT_TELESCOPE = auto()
     MOUNT_STOPPED = auto()
@@ -69,9 +70,13 @@ class MountControlPhases(Enum):
     MOUNT_TRACKING = auto()
     MOUNT_SPIRAL_SEARCH = auto()
 
+
 class MountDirections(Enum):
-    """ Base class for mount directions enumerations. """
+    """Base class for mount directions enumerations."""
+
     pass
+
+
 class MountDirectionsAltAz(MountDirections):
     """
     Enumeration representing the possible manual movement directions for an equatorial mount.
@@ -82,10 +87,12 @@ class MountDirectionsAltAz(MountDirections):
         LEFT: Move the mount left (decreasing Azimuth).
         RIGHT: Move the mount right (increasing Azimuth).
     """
+
     UP = auto()
     DOWN = auto()
     LEFT = auto()
     RIGHT = auto()
+
 
 class MountDirectionsEquatorial(MountDirections):
     """
@@ -97,10 +104,12 @@ class MountDirectionsEquatorial(MountDirections):
         EAST: Move the mount East (increasing Right Ascension).
         WEST: Move the mount West (decreasing Right Ascension).
     """
+
     NORTH = auto()
     SOUTH = auto()
     EAST = auto()
     WEST = auto()
+
 
 class MountControlBase:
     """
@@ -109,14 +118,14 @@ class MountControlBase:
     This class defines the interface and shared logic for controlling a telescope mount.
     It is intended to be subclassed by specific mount implementations, which must override
     the abstract methods to provide hardware-specific functionality.
-    
+
     Responsibilities of MountControlBase:
     - Manage shared state, communication queues, and logging for mount control.
     - Define the main control loop (`run`) and initialization sequence.
     - Provide abstract methods for mount initialization, movement, and position retrieval.
 
     Responsibilities of subclasses:
-    - Implement hardware-specific logic of mount. 
+    - Implement hardware-specific logic of mount.
     - Handle communication with the actual mount hardware or protocol.
     - Call notification methods to inform the base class of mount state changes.
 
@@ -143,8 +152,14 @@ class MountControlBase:
         handling graceful shutdown on interruption.
     """
 
-    def __init__(self, mount_queue: Queue, console_queue: Queue, shared_state: SharedStateObj, log_queue: Queue):
-        """     
+    def __init__(
+        self,
+        mount_queue: Queue,
+        console_queue: Queue,
+        shared_state: SharedStateObj,
+        log_queue: Queue,
+    ):
+        """
         Args:
             mount_queue: Queue for receiving target positions or commands.
             console_queue: Queue for sending messages to the user interface or console.
@@ -159,25 +174,32 @@ class MountControlBase:
         self.shared_state = shared_state
         self.log_queue = log_queue
 
-        self.current_ra = None # Mount current Right Ascension in degrees, or None
-        self.current_dec = None # Mount current Declination in degrees, or None
+        self.current_ra = None  # Mount current Right Ascension in degrees, or None
+        self.current_dec = None  # Mount current Declination in degrees, or None
 
-        self.target_ra = None # Target Right Ascension in degrees, or None
-        self.target_dec = None # Target Declination in degrees, or None
+        self.target_ra = None  # Target Right Ascension in degrees, or None
+        self.target_dec = None  # Target Declination in degrees, or None
 
-        self.target_reached = False # Flag indicating if the target has been reached by th mount
+        self.target_reached = (
+            False  # Flag indicating if the target has been reached by th mount
+        )
 
-        self.step_size = 1.0 # Default step size for manual movements in degrees
+        self.step_size = 1.0  # Default step size for manual movements in degrees
 
         self.state = MountControlPhases.MOUNT_INIT_TELESCOPE
 
-    # 
+    #
     # Methods to be overridden by subclasses for controlling the specifics of a mount
-    # 
+    #
 
-    def init_mount(self, latitude_deg: float = None, longitude_deg: float = None,
-                   elevation_m: float = None, utc_time: str = None) -> bool:
-        """ Initialize the mount, so that we receive updates and can send commands.
+    def init_mount(
+        self,
+        latitude_deg: float = None,
+        longitude_deg: float = None,
+        elevation_m: float = None,
+        utc_time: str = None,
+    ) -> bool:
+        """Initialize the mount, so that we receive updates and can send commands.
 
         The subclass needs to set up the mount and prepare it for operation.
         This may include connecting to the mount, setting initial parameters, un-parking, etc.
@@ -199,13 +221,15 @@ class MountControlBase:
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
-    def sync_mount(self, current_position_ra_deg: float, current_position_dec_deg: float) -> bool:
-        """ Synchronize the mount's pointing state with the current position PiFinder is looking at.
+    def sync_mount(
+        self, current_position_ra_deg: float, current_position_dec_deg: float
+    ) -> bool:
+        """Synchronize the mount's pointing state with the current position PiFinder is looking at.
 
         The subclass needs to return a boolean indicating success or failure.
         A failure will cause the main loop to retry synchronization after a delay.
         If the mount cannot be synchronized, throw an exception to abort the process.
-        This will be used to inform the user via the console queue. 
+        This will be used to inform the user via the console queue.
 
         Args:
             current_position_ra_deg: The current Right Ascension in degrees.
@@ -216,9 +240,9 @@ class MountControlBase:
         raise NotImplementedError("This method should be overridden by subclasses.")
 
     def stop_mount(self) -> bool:
-        """ Stop any current movement of the mount.
+        """Stop any current movement of the mount.
 
-        The subclass needs to return a boolean indicating success or failure, 
+        The subclass needs to return a boolean indicating success or failure,
         if the command was successfully sent.
         A failure will cause the main loop to retry stopping after a delay.
         If the mount cannot be stopped, throw an exception to abort the process.
@@ -230,11 +254,11 @@ class MountControlBase:
             bool: True if commanding a stop was successful, False otherwise.
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
-    
-    def move_mount_to_target(self, target_ra_deg, target_dec_deg) -> bool:
-        """ Move the mount to the specified target position.
 
-        The subclass needs to return a boolean indicating success or failure, 
+    def move_mount_to_target(self, target_ra_deg, target_dec_deg) -> bool:
+        """Move the mount to the specified target position.
+
+        The subclass needs to return a boolean indicating success or failure,
         if the command was successfully sent.
         A failure will cause the main loop to retry movement after a delay.
         If the mount cannot be moved, throw an exception to abort the process.
@@ -250,11 +274,11 @@ class MountControlBase:
         raise NotImplementedError("This method should be overridden by subclasses.")
 
     def set_mount_drift_rates(self, drift_rate_ra, drift_rate_dec) -> bool:
-        """ Set the mount's drift rates in RA and DEC.
+        """Set the mount's drift rates in RA and DEC.
 
         Expectation is that the mount immediately starts applying the drift rates.
 
-        The subclass needs to return a boolean indicating success or failure, 
+        The subclass needs to return a boolean indicating success or failure,
         if the command was successfully sent.
         A failure will cause the main loop to retry setting the rates after a delay.
         If the mount cannot set the drift rates, throw an exception to abort the process.
@@ -264,11 +288,13 @@ class MountControlBase:
             bool: True if setting drift rates was successful, False otherwise.
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
-    
-    def move_mount_manual(self, direction: MountDirections, slew_rate: str, duration: float) -> bool:
-        """ Move the mount manually in the specified direction using the mount's current step size.
 
-        The subclass needs to return a boolean indicating success or failure, 
+    def move_mount_manual(
+        self, direction: MountDirections, slew_rate: str, duration: float
+    ) -> bool:
+        """Move the mount manually in the specified direction using the mount's current step size.
+
+        The subclass needs to return a boolean indicating success or failure,
         if the command was successfully sent.
         A failure will be reported back to the user.
 
@@ -283,9 +309,9 @@ class MountControlBase:
         raise NotImplementedError("This method should be overridden by subclasses.")
 
     def set_mount_step_size(self, step_size_deg: float) -> bool:
-        """ Set the mount's step size for manual movements.
+        """Set the mount's step size for manual movements.
 
-        The subclass needs to return a boolean indicating success or failure, 
+        The subclass needs to return a boolean indicating success or failure,
         if the command was successfully sent.
         A failure will be reported back to the user.
 
@@ -296,17 +322,17 @@ class MountControlBase:
             bool: True if setting step size was successful, False otherwise.
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
-    
-    def disconnect_mount(self) -> bool:
-        """ Safely disconnect from the mount hardware.
 
-        The subclass needs to return a boolean indicating success or failure, 
+    def disconnect_mount(self) -> bool:
+        """Safely disconnect from the mount hardware.
+
+        The subclass needs to return a boolean indicating success or failure,
         if the command was successfully sent.
         A failure will cause the main loop to retry disconnection after a delay.
         If the mount cannot be disconnected, throw an exception to abort the process.
         This will be used to inform the user via the console queue.
 
-        This should ideally stop any ongoing movements and release any resources, including the 
+        This should ideally stop any ongoing movements and release any resources, including the
         communication channel to the mount.
 
         Returns:
@@ -319,21 +345,21 @@ class MountControlBase:
     #
 
     def mount_current_position(self, ra_deg, dec_deg) -> None:
-        """ Receive the current position of the mount from subclasses. 
-        
+        """Receive the current position of the mount from subclasses.
+
         This method needs to be called by the subclass whenever it receives an update of the position from the mount.
         This will be used to update the target UI and show the current position to the user (i.e. update the arrow display).
 
         Args:
             ra_deg: Current Right Ascension in degrees.
             dec_deg: Current Declination in degrees.
-        
+
         """
         self.current_ra = ra_deg
         self.current_dec = dec_deg
-    
+
     def mount_target_reached(self) -> None:
-        """ Notification that the mount has reached the target position and stopped slewing.
+        """Notification that the mount has reached the target position and stopped slewing.
 
         This method needs to be called by the subclass whenever it detects that the mount has reached the target position.
         This will be used to transition to the next phase in the control loop.
@@ -342,20 +368,20 @@ class MountControlBase:
         self.target_reached = True
 
     def mount_stopped(self) -> None:
-        """ Notification that the mount has stopped. 
+        """Notification that the mount has stopped.
 
-        This method needs to be called by the subclass whenever it detects that the mount has stopped and is not moving anymore. 
+        This method needs to be called by the subclass whenever it detects that the mount has stopped and is not moving anymore.
         Even if it has not reached the target position. The mount must not be tracking, too.
 
         This will be used to transition to the MOUNT_STOPPED phase in the control loop, regardless of the previous phase.
         """
         self.state = MountControlPhases.MOUNT_STOPPED
 
-    # 
+    #
     # Helper methods to decorate mount control methods with state management
-    # 
+    #
     def _stop_mount(self) -> bool:
-        self.mount_stopped = False # Wait for notification
+        self.mount_stopped = False  # Wait for notification
         return self.stop_mount()
 
     def _move_mount_manual(self, direction) -> bool:
@@ -391,7 +417,10 @@ class MountControlBase:
 
         success = self.move_mount_manual(direction, self.step_size)
         if success:
-            if self.state != MountControlPhases.MOUNT_TRACKING and self.state != MountControlPhases.MOUNT_DRIFT_COMPENSATION:
+            if (
+                self.state != MountControlPhases.MOUNT_TRACKING
+                and self.state != MountControlPhases.MOUNT_DRIFT_COMPENSATION
+            ):
                 self.state = MountControlPhases.MOUNT_TRACKING
         return success
 
@@ -403,30 +432,33 @@ class MountControlBase:
         return success
 
     #
-    # Shared logic and main loop 
+    # Shared logic and main loop
     #
 
-    def spiral_search(self, center_position_radec, max_radius_deg, step_size_deg) -> None:
-        """ Commands the mount to perform a spiral search around the center position.
-        """
+    def spiral_search(
+        self, center_position_radec, max_radius_deg, step_size_deg
+    ) -> None:
+        """Commands the mount to perform a spiral search around the center position."""
         raise NotImplementedError("Not yet implemented.")
 
-    def _process_command(self, command, retry_count: int = 3, delay: float = 2.0) -> None:
-        """ Process a command received from the mount queue.
+    def _process_command(
+        self, command, retry_count: int = 3, delay: float = 2.0
+    ) -> None:
+        """Process a command received from the mount queue.
         This is a generator function that yields control back to the main loop to allow for mount state processing and retries.
-        This function does not call mount control methods directly, but calls internal helper functions that in addition manage state. 
-        The only exception is when retrying failed and we need to change the state to MOUNT_INIT_TELESCOPE or MOUNT_STOPPED. 
+        This function does not call mount control methods directly, but calls internal helper functions that in addition manage state.
+        The only exception is when retrying failed and we need to change the state to MOUNT_INIT_TELESCOPE or MOUNT_STOPPED.
         """
 
-        start_time = time.time() # Used for determining timeouts for retries.
+        start_time = time.time()  # Used for determining timeouts for retries.
         # Process the command based on its type
-        if command["type"] == 'exit':
+        if command["type"] == "exit":
             # This is here for debugging and testing purposes.
             logger.warning("Mount control exiting on command.")
             self._stop_mount()
             raise KeyboardInterrupt("Mount control exiting on command.")
-        
-        elif command['type'] == 'stop_movement':
+
+        elif command["type"] == "stop_movement":
             logger.debug("Mount: stop command received")
             while retry_count > 0 and not self._stop_mount():
                 # Wait for delay before retrying
@@ -434,18 +466,22 @@ class MountControlBase:
                     yield
                 retry_count -= 1
                 if retry_count == 0:
-                    logger.error("Failed to stop mount after retrying. Re-initializing mount.")
+                    logger.error(
+                        "Failed to stop mount after retrying. Re-initializing mount."
+                    )
                     self.console_queue.put(["WARNING", _("Cannot stop mount!")])
                     self.state = MountControlPhases.MOUNT_INIT_TELESCOPE
                 else:
-                    logger.warning("Retrying to stop mount. Attempts left: %d", retry_count)
+                    logger.warning(
+                        "Retrying to stop mount. Attempts left: %d", retry_count
+                    )
                     yield
 
-        elif command['type'] == 'goto_target':
-            target_ra = command['ra']
-            target_dec = command['dec']
+        elif command["type"] == "goto_target":
+            target_ra = command["ra"]
+            target_dec = command["dec"]
             logger.debug(f"Mount: Goto target - RA={target_ra}, DEC={target_dec}")
-            retry_stop = retry_count # store for later waits
+            retry_stop = retry_count  # store for later waits
             while retry_count > 0 and not self._goto_target(target_ra, target_dec):
                 # Wait for delay before retrying
                 while time.time() - start_time <= delay:
@@ -453,32 +489,45 @@ class MountControlBase:
                 retry_count -= 1
                 if retry_count == 0:
                     logger.error("Failed to command mount to move to target.")
-                    self.console_queue.put(["WARNING", _("Cannot move to target!\nStopping!")])
+                    self.console_queue.put(
+                        ["WARNING", _("Cannot move to target!\nStopping!")]
+                    )
                     # Try to stop the mount.
-                    logger.warning(f"Stopping mount after failed goto_target. {retry_stop} retries")
-                    stop_mount_cmd = self._process_command({'type': 'stop_movement'}, retry_stop, delay)
+                    logger.warning(
+                        f"Stopping mount after failed goto_target. {retry_stop} retries"
+                    )
+                    stop_mount_cmd = self._process_command(
+                        {"type": "stop_movement"}, retry_stop, delay
+                    )
                     try:
                         while next(stop_mount_cmd):
                             pass
                     except StopIteration:
                         pass
                 else:
-                    logger.warning("Retrying to move mount to target. Attempts left: %d", retry_count)
+                    logger.warning(
+                        "Retrying to move mount to target. Attempts left: %d",
+                        retry_count,
+                    )
                     yield
-                
-        elif command['type'] == 'manual_movement':
-            direction = command['direction']
+
+        elif command["type"] == "manual_movement":
+            direction = command["direction"]
             logger.debug(f"Mount: Manual movement - direction={direction}")
             # Not retrying these.
             if not self._move_mount_manual(direction):
                 logger.warning("Mount: Manual movement failed")
                 self.console_queue.put(["WARNING", _("Mount did not move!")])
-                
-        elif command['type'] == 'set_step_size':
-            step_size = command['step_size']
-            if step_size < 1/3600 or step_size > 10.0:
-                self.console_queue.put(["WARNING", _("Step size must be between 1 arcsec and 10 degrees!")])
-                logger.warning("Mount: Step size out of range - %.5f degrees", step_size)
+
+        elif command["type"] == "set_step_size":
+            step_size = command["step_size"]
+            if step_size < 1 / 3600 or step_size > 10.0:
+                self.console_queue.put(
+                    ["WARNING", _("Step size must be between 1 arcsec and 10 degrees!")]
+                )
+                logger.warning(
+                    "Mount: Step size out of range - %.5f degrees", step_size
+                )
             else:
                 logger.debug(f"Mount: Set step size - {step_size} degrees")
                 if not self.set_mount_step_size(step_size):
@@ -486,20 +535,31 @@ class MountControlBase:
                 else:
                     self.step_size = step_size
                     logger.debug("Mount: Step size set to %.5f degrees", self.step_size)
-                
-        elif command['type'] == 'reduce_step_size':
-            self.step_size = max(1/3600, self.step_size / 2) # Minimum step size of 1 arcsec
-            logger.debug("Mount: Reduce step size - new step size = %.5f degrees", self.step_size)
-            
-        elif command['type'] == 'increase_step_size':
-            self.step_size = min(10.0, self.step_size * 2) # Maximum step size of 10 degrees
-            logger.debug("Mount: Increase step size - new step size = %.5f degrees", self.step_size)
 
-        elif command['type'] == 'spiral_search':
+        elif command["type"] == "reduce_step_size":
+            self.step_size = max(
+                1 / 3600, self.step_size / 2
+            )  # Minimum step size of 1 arcsec
+            logger.debug(
+                "Mount: Reduce step size - new step size = %.5f degrees", self.step_size
+            )
+
+        elif command["type"] == "increase_step_size":
+            self.step_size = min(
+                10.0, self.step_size * 2
+            )  # Maximum step size of 10 degrees
+            logger.debug(
+                "Mount: Increase step size - new step size = %.5f degrees",
+                self.step_size,
+            )
+
+        elif command["type"] == "spiral_search":
             raise NotImplementedError("Spiral search not yet implemented.")
 
-    def _process_phase(self, retry_count: int = 3, delay: float = 1.0) -> Iterator[None]:
-        """ Command the mount based on the current phase
+    def _process_phase(
+        self, retry_count: int = 3, delay: float = 1.0
+    ) -> Iterator[None]:
+        """Command the mount based on the current phase
 
         This is a generator function that yields control back to the main loop to allow for processing of UI commands
         """
@@ -509,7 +569,7 @@ class MountControlBase:
             return
         if self.state == MountControlPhases.MOUNT_INIT_TELESCOPE:
             while retry_count > 0 and not self.init_mount():
-                start_time = time.time() # Used for determining timeouts for retries.
+                start_time = time.time()  # Used for determining timeouts for retries.
                 # Wait for delay before retrying
                 while time.time() - start_time <= delay:
                     yield
@@ -520,16 +580,21 @@ class MountControlBase:
                     self.state = MountControlPhases.MOUNT_UNKNOWN
                     return
                 else:
-                    logger.warning("Retrying mount initialization. Attempts left: %d", retry_count)
+                    logger.warning(
+                        "Retrying mount initialization. Attempts left: %d", retry_count
+                    )
                     yield
-            self.state = MountControlPhases.MOUNT_STOPPED 
+            self.state = MountControlPhases.MOUNT_STOPPED
             return
-                
-        elif self.state == MountControlPhases.MOUNT_STOPPED or self.state == MountControlPhases.MOUNT_TRACKING:
+
+        elif (
+            self.state == MountControlPhases.MOUNT_STOPPED
+            or self.state == MountControlPhases.MOUNT_TRACKING
+        ):
             # Wait for user command to move to target
             # When that is received, the state will be changed to MOUNT_TARGET_ACQUISITION_MOVE
             return
-        
+
         elif self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE:
             # Wait for mount to reach target
             if self.target_reached:
@@ -537,78 +602,127 @@ class MountControlBase:
                 return
             if self.mount_stopped:
                 self.state = MountControlPhases.MOUNT_STOPPED
-                self.console_queue.put(["INFO", _("Mount stopped before reaching target.")])
+                self.console_queue.put(
+                    ["INFO", _("Mount stopped before reaching target.")]
+                )
                 return
-            
+
         elif self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
-            retry_init = retry_count # store for later waits
+            retry_init = retry_count  # store for later waits
 
             # Wait until we have a solved image
-            while retry_count > 0 and not self.shared_state.solve_state() and \
-                  self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
+            while (
+                retry_count > 0
+                and not self.shared_state.solve_state()
+                and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+            ):
                 # Wait for delay before retrying
-                start_time = time.time() # Used for determining timeouts for retries.
-                while time.time() - start_time <= delay and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
+                start_time = time.time()  # Used for determining timeouts for retries.
+                while (
+                    time.time() - start_time <= delay
+                    and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+                ):
                     yield
-                # Retries exceeded? 
+                # Retries exceeded?
                 retry_count -= 1
-                if retry_count <= 0 and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
+                if (
+                    retry_count <= 0
+                    and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+                ):
                     logger.error("Failed to solve after move (after retrying).")
                     self.console_queue.put(["WARNING", _("Solve failed!")])
                     self.state = MountControlPhases.MOUNT_TRACKING
                     return
                 elif self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
-                    logger.warning("Waiting for solve after move. Attempts left: %d", retry_count)
+                    logger.warning(
+                        "Waiting for solve after move. Attempts left: %d", retry_count
+                    )
                     yield
-                elif self.state != MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE: 
-                    return # State changed, exit
-            
-            solution = self.shared_state.solution() 
-            if abs(self.target_ra - solution.RA_target) <= 0.01 and abs(self.target_dec - solution.Dec_target) <= 0.01:
+                elif self.state != MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
+                    return  # State changed, exit
+
+            solution = self.shared_state.solution()
+            if (
+                abs(self.target_ra - solution.RA_target) <= 0.01
+                and abs(self.target_dec - solution.Dec_target) <= 0.01
+            ):
                 # Target is within 0.01 degrees (36 arcsec) of the solved position in both axes, so we are done.
                 # This is the resolution that is displayed in the UI.
-                logger.info("Target acquired within 0.01 degrees, starting drift compensation.")
+                logger.info(
+                    "Target acquired within 0.01 degrees, starting drift compensation."
+                )
                 self.state = MountControlPhases.MOUNT_DRIFT_COMPENSATION
                 return
             else:
-                retry_count = retry_init # reset retry count
+                retry_count = retry_init  # reset retry count
                 # Sync the mount to the solved position and move again.
-                while retry_count > 0 and not self.sync_mount(solution.RA_target, solution.Dec_target) \
-                      and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
+                while (
+                    retry_count > 0
+                    and not self.sync_mount(solution.RA_target, solution.Dec_target)
+                    and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+                ):
                     # Wait for delay before retrying
-                    start_time = time.time() # Used for determining timeouts for retries.
-                    while time.time() - start_time <= delay and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
+                    start_time = (
+                        time.time()
+                    )  # Used for determining timeouts for retries.
+                    while (
+                        time.time() - start_time <= delay
+                        and self.state
+                        == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+                    ):
                         yield
                     retry_count -= 1
                     if retry_count == 0:
-                        logger.error("Failed to sync mount after move (after retrying).")
+                        logger.error(
+                            "Failed to sync mount after move (after retrying)."
+                        )
                         self.console_queue.put(["WARNING", _("Cannot sync mount!")])
                         self.state = MountControlPhases.MOUNT_STOPPED
                         return
-                    elif self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
-                        logger.warning("Retrying to sync mount. Attempts left: %d", retry_count)
+                    elif (
+                        self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+                    ):
+                        logger.warning(
+                            "Retrying to sync mount. Attempts left: %d", retry_count
+                        )
                         yield
                     else:
-                        return # State changed, exit
+                        return  # State changed, exit
 
-                retry_count = retry_init # reset retry count
-                while retry_count > 0 and not self.move_mount_to_target(self.target_ra, self.target_dec) \
-                      and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
+                retry_count = retry_init  # reset retry count
+                while (
+                    retry_count > 0
+                    and not self.move_mount_to_target(self.target_ra, self.target_dec)
+                    and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+                ):
                     # Wait for delay before retrying
-                    start_time = time.time() # Used for determining timeouts for retries.
-                    while time.time() - start_time <= delay and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
+                    start_time = (
+                        time.time()
+                    )  # Used for determining timeouts for retries.
+                    while (
+                        time.time() - start_time <= delay
+                        and self.state
+                        == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+                    ):
                         yield
                     retry_count -= 1
                     if retry_count == 0:
-                        logger.error("Failed to command mount to move to target (after retrying).")
+                        logger.error(
+                            "Failed to command mount to move to target (after retrying)."
+                        )
                         self.console_queue.put(["WARNING", _("Cannot move to target!")])
                         self.state = MountControlPhases.MOUNT_TRACKING
                         return
-                    elif self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
-                        logger.warning("Retrying to move mount to target. Attempts left: %d", retry_count)
+                    elif (
+                        self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+                    ):
+                        logger.warning(
+                            "Retrying to move mount to target. Attempts left: %d",
+                            retry_count,
+                        )
                         yield
                     else:
-                        return # State changed, exit
+                        return  # State changed, exit
                 self.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
                 return
 
@@ -627,13 +741,12 @@ class MountControlBase:
             logger.error(f"Unknown mount state: {self.state}")
             return
 
-
     def run(self):
-        """ Main loop to manage mount control operations.
-        
+        """Main loop to manage mount control operations.
+
         This is called in a separate process and manages the main mount control loop.
 
-        The commands that are supported are: 
+        The commands that are supported are:
         - Stop Movement
         - Goto Target
         - Manual Movement (in 4 directions)
@@ -645,12 +758,12 @@ class MountControlBase:
         logger.info("Starting mount control.")
         # Setup back-off and retry logic for initialization
         # TODO implement back-off and retry logic
-        
+
         try:
             command_step = None
             phase_step = None
             while True:
-                # 
+                #
                 # Process commands from UI
                 #
                 try:
@@ -659,8 +772,10 @@ class MountControlBase:
                         try:
                             next(command_step)
                         except StopIteration:
-                            command_step = None  # Finished processing the current command
-                    
+                            command_step = (
+                                None  # Finished processing the current command
+                            )
+
                     # Check for new commands if not currently processing one
                     if command_step is None:
                         command = self.mount_queue.get(block=False)
@@ -679,7 +794,7 @@ class MountControlBase:
                         next(phase_step)
                     except StopIteration:
                         phase_step = None  # Finished processing the current phase step
-                
+
                 if phase_step is None:
                     phase_step = self._process_phase()
 

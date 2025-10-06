@@ -27,7 +27,7 @@ class ExampleIndiClient(PyIndi.BaseClient):
     def __init__(self, name="ExampleClient"):
         super().__init__()
         self.name = name
-        self.logger = logging.getLogger(f'ExampleClient-{name}')
+        self.logger = logging.getLogger(f"ExampleClient-{name}")
         self.connected_devices = {}
         self.telescope_device = None
         self.telescope_coord_prop = None
@@ -47,12 +47,16 @@ class ExampleIndiClient(PyIndi.BaseClient):
         """Handle new property creation."""
         device_name = prop.getDeviceName()
         prop_name = prop.getName()
-        self.logger.info(f"New property: {device_name}.{prop_name} ({prop.getTypeAsString()})")
+        self.logger.info(
+            f"New property: {device_name}.{prop_name} ({prop.getTypeAsString()})"
+        )
 
         # Look for telescope coordinate properties
-        if (self.telescope_device and
-            device_name == self.telescope_device.getDeviceName() and
-            "COORD" in prop_name.upper()):
+        if (
+            self.telescope_device
+            and device_name == self.telescope_device.getDeviceName()
+            and "COORD" in prop_name.upper()
+        ):
             self.telescope_coord_prop = prop
             self.logger.info(f"Found telescope coordinates property: {prop_name}")
 
@@ -62,8 +66,10 @@ class ExampleIndiClient(PyIndi.BaseClient):
         prop_name = prop.getName()
 
         # Log coordinate updates if this is our telescope
-        if (self.telescope_coord_prop and
-            prop.getName() == self.telescope_coord_prop.getName()):
+        if (
+            self.telescope_coord_prop
+            and prop.getName() == self.telescope_coord_prop.getName()
+        ):
             self._log_telescope_coordinates(prop)
         else:
             self.logger.debug(f"Property updated: {device_name}.{prop_name}")
@@ -76,8 +82,8 @@ class ExampleIndiClient(PyIndi.BaseClient):
             for widget in number_prop:
                 coords[widget.getName()] = widget.getValue()
 
-            ra = coords.get('RA', 0.0)
-            dec = coords.get('DEC', 0.0)
+            ra = coords.get("RA", 0.0)
+            dec = coords.get("DEC", 0.0)
             self.logger.info(f"Telescope coordinates: RA={ra:.6f}, DEC={dec:.6f}")
 
     def newMessage(self, device, message):
@@ -104,7 +110,7 @@ def demo_live_recording():
     print("  indiserver indi_simulator_telescope indi_simulator_ccd")
     print()
 
-    if input("Press Enter to continue (or 'q' to skip): ").lower() == 'q':
+    if input("Press Enter to continue (or 'q' to skip): ").lower() == "q":
         return None
 
     # Record events for 5 seconds
@@ -126,7 +132,7 @@ def demo_live_recording():
 
         # Check what we recorded
         if os.path.exists(output_file):
-            with open(output_file, 'r') as f:
+            with open(output_file, "r") as f:
                 lines = f.readlines()
             print(f"✅ Recorded {len(lines)} events")
             return output_file
@@ -149,7 +155,7 @@ def demo_replay(event_file):
     print("and show how your client receives them.")
     print()
 
-    if input("Press Enter to continue (or 'q' to skip): ").lower() == 'q':
+    if input("Press Enter to continue (or 'q' to skip): ").lower() == "q":
         return
 
     # Create our example client
@@ -198,7 +204,7 @@ def demo_editing():
             "relative_time": 0.0,
             "event_number": 0,
             "event_type": "server_connected",
-            "data": {"host": "localhost", "port": 7624}
+            "data": {"host": "localhost", "port": 7624},
         },
         {
             "timestamp": 1640995201.0,
@@ -209,8 +215,8 @@ def demo_editing():
                 "device_name": "Demo Telescope",
                 "driver_name": "demo_telescope",
                 "driver_exec": "demo_telescope",
-                "driver_version": "1.0"
-            }
+                "driver_version": "1.0",
+            },
         },
         {
             "timestamp": 1640995202.0,
@@ -219,13 +225,13 @@ def demo_editing():
             "event_type": "new_message",
             "data": {
                 "device_name": "Demo Telescope",
-                "message": "Hello from the demo telescope!"
-            }
-        }
+                "message": "Hello from the demo telescope!",
+            },
+        },
     ]
 
     # Write sample file in proper JSON Lines format
-    with open(sample_file, 'w') as f:
+    with open(sample_file, "w") as f:
         for event in sample_events:
             f.write(f"{json.dumps(event, separators=(',', ':'))}\n")
 
@@ -233,7 +239,7 @@ def demo_editing():
     print("\nFile contents (JSON Lines format - one JSON object per line):")
     print("-" * 60)
 
-    with open(sample_file, 'r') as f:
+    with open(sample_file, "r") as f:
         print(f.read())
 
     print("About JSON Lines format:")
@@ -259,8 +265,7 @@ def main():
     """Main demo function."""
     # Setup logging
     logging.basicConfig(
-        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-        level=logging.INFO
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s", level=logging.INFO
     )
 
     print("🔭 INDI Event Recording and Replay System Demo")

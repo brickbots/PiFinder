@@ -19,31 +19,30 @@ class PyIndiPropertyFactory:
             "Idle": PyIndi.IPS_IDLE,
             "Ok": PyIndi.IPS_OK,
             "Busy": PyIndi.IPS_BUSY,
-            "Alert": PyIndi.IPS_ALERT
+            "Alert": PyIndi.IPS_ALERT,
         }
 
         # Map permission strings to PyIndi constants
         self.perm_map = {
             "ReadOnly": PyIndi.IP_RO,
             "WriteOnly": PyIndi.IP_WO,
-            "ReadWrite": PyIndi.IP_RW
+            "ReadWrite": PyIndi.IP_RW,
         }
 
         # Map switch states to PyIndi constants
-        self.switch_state_map = {
-            "Off": PyIndi.ISS_OFF,
-            "On": PyIndi.ISS_ON
-        }
+        self.switch_state_map = {"Off": PyIndi.ISS_OFF, "On": PyIndi.ISS_ON}
 
         # Map light states to PyIndi constants
         self.light_state_map = {
             "Idle": PyIndi.IPS_IDLE,
             "Ok": PyIndi.IPS_OK,
             "Busy": PyIndi.IPS_BUSY,
-            "Alert": PyIndi.IPS_ALERT
+            "Alert": PyIndi.IPS_ALERT,
         }
 
-    def create_property(self, prop_data: Dict[str, Any]) -> Union[PyIndi.Property, None]:
+    def create_property(
+        self, prop_data: Dict[str, Any]
+    ) -> Union[PyIndi.Property, None]:
         """
         Create a real PyIndi property from test data.
 
@@ -71,7 +70,9 @@ class PyIndiPropertyFactory:
                 return None
 
         except Exception as e:
-            print(f"Error creating {prop_type} property '{prop_data.get('name', 'unknown')}': {e}")
+            print(
+                f"Error creating {prop_type} property '{prop_data.get('name', 'unknown')}': {e}"
+            )
             return None
 
     def _create_number_property(self, prop_data: Dict[str, Any]) -> PyIndi.Property:
@@ -85,7 +86,9 @@ class PyIndiPropertyFactory:
         nvp.group = prop_data.get("group", "Main Control")
         nvp.device = prop_data["device_name"]
         nvp.s = self.state_map.get(prop_data.get("state", "Idle"), PyIndi.IPS_IDLE)
-        nvp.p = self.perm_map.get(prop_data.get("permission", "ReadWrite"), PyIndi.IP_RW)
+        nvp.p = self.perm_map.get(
+            prop_data.get("permission", "ReadWrite"), PyIndi.IP_RW
+        )
 
         # Create number widgets
         widgets = prop_data.get("widgets", [])
@@ -118,7 +121,9 @@ class PyIndiPropertyFactory:
         tvp.group = prop_data.get("group", "Main Control")
         tvp.device = prop_data["device_name"]
         tvp.s = self.state_map.get(prop_data.get("state", "Idle"), PyIndi.IPS_IDLE)
-        tvp.p = self.perm_map.get(prop_data.get("permission", "ReadWrite"), PyIndi.IP_RW)
+        tvp.p = self.perm_map.get(
+            prop_data.get("permission", "ReadWrite"), PyIndi.IP_RW
+        )
 
         widgets = prop_data.get("widgets", [])
         if widgets:
@@ -136,7 +141,9 @@ class PyIndiPropertyFactory:
         svp.group = prop_data.get("group", "Main Control")
         svp.device = prop_data["device_name"]
         svp.s = self.state_map.get(prop_data.get("state", "Idle"), PyIndi.IPS_IDLE)
-        svp.p = self.perm_map.get(prop_data.get("permission", "ReadWrite"), PyIndi.IP_RW)
+        svp.p = self.perm_map.get(
+            prop_data.get("permission", "ReadWrite"), PyIndi.IP_RW
+        )
 
         # Set switch rule
         rule = prop_data.get("rule", "OneOfMany")
@@ -180,7 +187,9 @@ class PyIndiPropertyFactory:
         bvp.group = prop_data.get("group", "Main Control")
         bvp.device = prop_data["device_name"]
         bvp.s = self.state_map.get(prop_data.get("state", "Idle"), PyIndi.IPS_IDLE)
-        bvp.p = self.perm_map.get(prop_data.get("permission", "ReadWrite"), PyIndi.IP_RW)
+        bvp.p = self.perm_map.get(
+            prop_data.get("permission", "ReadWrite"), PyIndi.IP_RW
+        )
 
         widgets = prop_data.get("widgets", [])
         if widgets:
@@ -203,13 +212,13 @@ class AdvancedPropertyFactory:
             "Idle": PyIndi.IPS_IDLE,
             "Ok": PyIndi.IPS_OK,
             "Busy": PyIndi.IPS_BUSY,
-            "Alert": PyIndi.IPS_ALERT
+            "Alert": PyIndi.IPS_ALERT,
         }
 
         self.perm_map = {
             "ReadOnly": PyIndi.IP_RO,
             "WriteOnly": PyIndi.IP_WO,
-            "ReadWrite": PyIndi.IP_RW
+            "ReadWrite": PyIndi.IP_RW,
         }
 
     def create_mock_property_with_data(self, prop_data: Dict[str, Any]):
@@ -240,7 +249,7 @@ class AdvancedPropertyFactory:
                     "Text": PyIndi.INDI_TEXT,
                     "Switch": PyIndi.INDI_SWITCH,
                     "Light": PyIndi.INDI_LIGHT,
-                    "Blob": PyIndi.INDI_BLOB
+                    "Blob": PyIndi.INDI_BLOB,
                 }
                 return type_map.get(type_str, PyIndi.INDI_TEXT)
 
@@ -287,6 +296,7 @@ class AdvancedPropertyFactory:
 
         class MockWidget:
             """Mock widget that provides the expected interface."""
+
             def __init__(self, widget_data):
                 self.data = widget_data
 

@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
 import pytest
-import unittest.mock as mock
-from queue import Queue, Empty
+from queue import Queue
 import time
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock
 
 # Import the classes we want to test
-from PiFinder.mountcontrol_interface import MountControlBase, MountControlPhases, MountDirectionsEquatorial
+from PiFinder.mountcontrol_interface import MountControlBase, MountControlPhases
 from PiFinder.state import SharedStateObj
 
 
@@ -56,27 +55,30 @@ class TestMountControlPhases:
 
         # Create the testable mount control instance
         self.mount_control = MountControlPhasesTestable(
-            self.mount_queue,
-            self.console_queue,
-            self.shared_state,
-            self.log_queue
+            self.mount_queue, self.console_queue, self.shared_state, self.log_queue
         )
 
         # Set initial target coordinates for refine tests
         self.mount_control.target_ra = 15.5
         self.mount_control.target_dec = 45.2
 
-    def _execute_phase_generator(self, retry_count=3, delay=0.01, max_iterations=50, timeout=1.0):
+    def _execute_phase_generator(
+        self, retry_count=3, delay=0.01, max_iterations=50, timeout=1.0
+    ):
         """Helper to execute a phase generator with protection against infinite loops."""
-        phase_generator = self.mount_control._process_phase(retry_count=retry_count, delay=delay)
+        phase_generator = self.mount_control._process_phase(
+            retry_count=retry_count, delay=delay
+        )
         if phase_generator is not None:
             iterations = 0
             start_time = time.time()
             try:
-                while iterations < max_iterations and (time.time() - start_time) < timeout:
+                while (
+                    iterations < max_iterations and (time.time() - start_time) < timeout
+                ):
                     next(phase_generator)
                     iterations += 1
-                    time.sleep(delay/3)
+                    time.sleep(delay / 3)
                 if iterations >= max_iterations:
                     # This is expected for some retry scenarios, not necessarily an error
                     assert False, "Max iterations reached in phase generator"
@@ -162,10 +164,9 @@ class TestMountControlPhases:
         warning_msg = self.console_queue.get()
         assert warning_msg[0] == "WARNING"
 
-    @pytest.mark.parametrize("phase", [
-        MountControlPhases.MOUNT_STOPPED,
-        MountControlPhases.MOUNT_TRACKING
-    ])
+    @pytest.mark.parametrize(
+        "phase", [MountControlPhases.MOUNT_STOPPED, MountControlPhases.MOUNT_TRACKING]
+    )
     def test_mount_stopped_and_tracking_phases(self, phase):
         """Test MOUNT_STOPPED and MOUNT_TRACKING phases do nothing."""
         self.mount_control.state = phase
@@ -198,7 +199,10 @@ class TestMountControlPhases:
         self._execute_phase_generator()
 
         # Verify state transition to MOUNT_TARGET_ACQUISITION_REFINE
-        assert self.mount_control.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+        assert (
+            self.mount_control.state
+            == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+        )
 
         # Verify no console messages
         assert self.console_queue.empty()
@@ -230,7 +234,9 @@ class TestMountControlPhases:
         self._execute_phase_generator()
 
         # Verify state unchanged (still waiting)
-        assert self.mount_control.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
+        assert (
+            self.mount_control.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
+        )
 
         # Verify no console messages
         assert self.console_queue.empty()
@@ -299,7 +305,9 @@ class TestMountControlPhases:
         self.mount_control.move_mount_to_target.assert_called_with(15.5, 45.2)
 
         # Verify state transition to MOUNT_TARGET_ACQUISITION_MOVE
-        assert self.mount_control.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
+        assert (
+            self.mount_control.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
+        )
 
         # Verify no warning messages
         assert self.console_queue.empty()
@@ -361,10 +369,13 @@ class TestMountControlPhases:
         warning_msg = self.console_queue.get()
         assert warning_msg[0] == "WARNING"
 
-    @pytest.mark.parametrize("phase", [
-        MountControlPhases.MOUNT_DRIFT_COMPENSATION,
-        MountControlPhases.MOUNT_SPIRAL_SEARCH
-    ])
+    @pytest.mark.parametrize(
+        "phase",
+        [
+            MountControlPhases.MOUNT_DRIFT_COMPENSATION,
+            MountControlPhases.MOUNT_SPIRAL_SEARCH,
+        ],
+    )
     def test_unimplemented_phases(self, phase):
         """Test phases that are not yet implemented."""
         self.mount_control.state = phase
@@ -413,7 +424,7 @@ class TestMountControlPhases:
         # The key point is that the phase processing should handle state changes gracefully
         assert self.mount_control.state in [
             MountControlPhases.MOUNT_STOPPED,
-            MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
+            MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE,
         ]
 
 

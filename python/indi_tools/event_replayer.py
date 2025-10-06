@@ -21,6 +21,7 @@ except ImportError:
     # Fallback if imported from different context
     import sys
     import os
+
     current_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.insert(0, current_dir)
     from property_factory import advanced_factory
@@ -78,7 +79,7 @@ class MockIndiProperty:
             "Number": PyIndi.INDI_NUMBER,
             "Switch": PyIndi.INDI_SWITCH,
             "Light": PyIndi.INDI_LIGHT,
-            "Blob": PyIndi.INDI_BLOB
+            "Blob": PyIndi.INDI_BLOB,
         }
 
     def getName(self) -> str:
@@ -118,7 +119,7 @@ class IndiEventReplayer:
     """
 
     def __init__(self, event_file: str, target_client: PyIndi.BaseClient):
-        self.logger = logging.getLogger('IndiEventReplayer')
+        self.logger = logging.getLogger("IndiEventReplayer")
         self.event_file = event_file
         self.target_client = target_client
         self.events = []
@@ -134,10 +135,10 @@ class IndiEventReplayer:
     def _load_events(self) -> None:
         """Load events from the JSON Lines file."""
         try:
-            with open(self.event_file, 'r') as f:
+            with open(self.event_file, "r") as f:
                 for line_num, line in enumerate(f, 1):
                     line = line.strip()
-                    if not line or line.startswith('#'):
+                    if not line or line.startswith("#"):
                         continue
 
                     try:
@@ -147,7 +148,7 @@ class IndiEventReplayer:
                         self.logger.error(f"Invalid JSON on line {line_num}: {e}")
 
             # Sort events by relative time to ensure proper order
-            self.events.sort(key=lambda x: x.get('relative_time', 0))
+            self.events.sort(key=lambda x: x.get("relative_time", 0))
             self.logger.info(f"Loaded {len(self.events)} events from {self.event_file}")
 
         except FileNotFoundError:
@@ -165,8 +166,7 @@ class IndiEventReplayer:
     def _create_mock_device(self, device_data: Dict[str, Any]) -> MockIndiDevice:
         """Create a mock device from event data."""
         device = MockIndiDevice(
-            device_data["device_name"],
-            device_data.get("driver_name")
+            device_data["device_name"], device_data.get("driver_name")
         )
         return device
 
@@ -249,7 +249,7 @@ class IndiEventReplayer:
                 break
 
             # Calculate when this event should be played
-            event_time = event.get('relative_time', 0)
+            event_time = event.get("relative_time", 0)
             scaled_time = event_time / self.time_scale
             target_time = self.start_time + scaled_time
 
@@ -264,7 +264,9 @@ class IndiEventReplayer:
 
             # Process the event
             self._process_event(event)
-            self.logger.debug(f"Played event {event['event_number']}: {event['event_type']}")
+            self.logger.debug(
+                f"Played event {event['event_number']}: {event['event_type']}"
+            )
 
         self.logger.info("Playback completed")
 
@@ -293,7 +295,9 @@ class IndiEventReplayer:
         """Get a mock device by name."""
         return self.devices.get(device_name)
 
-    def get_property(self, device_name: str, property_name: str) -> Optional[MockIndiProperty]:
+    def get_property(
+        self, device_name: str, property_name: str
+    ) -> Optional[MockIndiProperty]:
         """Get a mock property by device and property name."""
         prop_key = f"{device_name}.{property_name}"
         return self.properties.get(prop_key)
@@ -305,8 +309,11 @@ class IndiEventReplayer:
     def list_properties(self, device_name: str = None) -> List[str]:
         """Get list of properties, optionally filtered by device."""
         if device_name:
-            return [key.split('.', 1)[1] for key in self.properties.keys()
-                    if key.startswith(f"{device_name}.")]
+            return [
+                key.split(".", 1)[1]
+                for key in self.properties.keys()
+                if key.startswith(f"{device_name}.")
+            ]
         return list(self.properties.keys())
 
 
@@ -314,27 +321,28 @@ def main():
     """Example usage of the event replayer."""
     import argparse
 
-    parser = argparse.ArgumentParser(description='Replay INDI events to a client')
-    parser.add_argument('event_file', help='JSON Lines event file to replay')
-    parser.add_argument('--speed', type=float, default=1.0, help='Playback speed multiplier')
-    parser.add_argument('--verbose', '-v', action='store_true', help='Verbose logging')
+    parser = argparse.ArgumentParser(description="Replay INDI events to a client")
+    parser.add_argument("event_file", help="JSON Lines event file to replay")
+    parser.add_argument(
+        "--speed", type=float, default=1.0, help="Playback speed multiplier"
+    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose logging")
 
     args = parser.parse_args()
 
     # Setup logging
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(
-        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-        level=log_level
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s", level=log_level
     )
 
-    logger = logging.getLogger('main')
+    logger = logging.getLogger("main")
 
     # Create a simple test client that just logs events
     class TestClient(PyIndi.BaseClient):
         def __init__(self):
             super().__init__()
-            self.logger = logging.getLogger('TestClient')
+            self.logger = logging.getLogger("TestClient")
 
         def newDevice(self, device):
             self.logger.info(f"Device: {device.getDeviceName()}")

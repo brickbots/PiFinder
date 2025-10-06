@@ -18,7 +18,7 @@ import PyIndi
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parent_dir)
 
-from event_replayer import IndiEventReplayer
+from event_replayer import IndiEventReplayer  # noqa: E402
 
 
 class TestIndiClient(PyIndi.BaseClient):
@@ -51,69 +51,77 @@ class TestIndiClient(PyIndi.BaseClient):
     def _record_event(self, event_type: str, **kwargs):
         """Record an event with timestamp."""
         event = {
-            'type': event_type,
-            'timestamp': time.time(),
-            'relative_time': time.time() - self.start_time,
-            'data': kwargs
+            "type": event_type,
+            "timestamp": time.time(),
+            "relative_time": time.time() - self.start_time,
+            "data": kwargs,
         }
         self.events.append(event)
 
     def newDevice(self, device):
         device_name = device.getDeviceName()
         self.devices[device_name] = device
-        self._record_event('new_device', device_name=device_name)
+        self._record_event("new_device", device_name=device_name)
 
     def removeDevice(self, device):
         device_name = device.getDeviceName()
         if device_name in self.devices:
             del self.devices[device_name]
-        self._record_event('remove_device', device_name=device_name)
+        self._record_event("remove_device", device_name=device_name)
 
     def newProperty(self, prop):
         prop_key = f"{prop.getDeviceName()}.{prop.getName()}"
         self.properties[prop_key] = prop
-        self._record_event('new_property',
-                          device_name=prop.getDeviceName(),
-                          property_name=prop.getName(),
-                          property_type=prop.getTypeAsString())
+        self._record_event(
+            "new_property",
+            device_name=prop.getDeviceName(),
+            property_name=prop.getName(),
+            property_type=prop.getTypeAsString(),
+        )
 
     def updateProperty(self, prop):
         prop_key = f"{prop.getDeviceName()}.{prop.getName()}"
         self.properties[prop_key] = prop
-        self._record_event('update_property',
-                          device_name=prop.getDeviceName(),
-                          property_name=prop.getName(),
-                          property_state=prop.getStateAsString())
+        self._record_event(
+            "update_property",
+            device_name=prop.getDeviceName(),
+            property_name=prop.getName(),
+            property_state=prop.getStateAsString(),
+        )
 
     def removeProperty(self, prop):
         prop_key = f"{prop.getDeviceName()}.{prop.getName()}"
         if prop_key in self.properties:
             del self.properties[prop_key]
-        self._record_event('remove_property',
-                          device_name=prop.getDeviceName(),
-                          property_name=prop.getName())
+        self._record_event(
+            "remove_property",
+            device_name=prop.getDeviceName(),
+            property_name=prop.getName(),
+        )
 
     def newMessage(self, device, message):
         msg_data = {
-            'device_name': device.getDeviceName(),
-            'message': message,
-            'timestamp': time.time()
+            "device_name": device.getDeviceName(),
+            "message": message,
+            "timestamp": time.time(),
         }
         self.messages.append(msg_data)
-        self._record_event('new_message', **msg_data)
+        self._record_event("new_message", **msg_data)
 
     def serverConnected(self):
-        self.connection_state = 'connected'
-        self._record_event('server_connected')
+        self.connection_state = "connected"
+        self._record_event("server_connected")
 
     def serverDisconnected(self, code):
-        self.connection_state = 'disconnected'
-        self._record_event('server_disconnected', exit_code=code)
+        self.connection_state = "disconnected"
+        self._record_event("server_disconnected", exit_code=code)
 
     # Assertion helpers
     def assert_device_present(self, device_name: str):
         """Assert that a device is present."""
-        assert device_name in self.devices, f"Device '{device_name}' not found. Available: {list(self.devices.keys())}"
+        assert (
+            device_name in self.devices
+        ), f"Device '{device_name}' not found. Available: {list(self.devices.keys())}"
 
     def assert_property_present(self, device_name: str, property_name: str):
         """Assert that a property is present."""
@@ -122,25 +130,33 @@ class TestIndiClient(PyIndi.BaseClient):
 
     def assert_message_received(self, device_name: str, message_content: str = None):
         """Assert that a message was received from a device."""
-        device_messages = [msg for msg in self.messages if msg['device_name'] == device_name]
+        device_messages = [
+            msg for msg in self.messages if msg["device_name"] == device_name
+        ]
         assert device_messages, f"No messages received from device '{device_name}'"
 
         if message_content:
-            matching_messages = [msg for msg in device_messages if message_content in msg['message']]
-            assert matching_messages, f"No messages from '{device_name}' containing '{message_content}'"
+            matching_messages = [
+                msg for msg in device_messages if message_content in msg["message"]
+            ]
+            assert (
+                matching_messages
+            ), f"No messages from '{device_name}' containing '{message_content}'"
 
     def assert_event_count(self, event_type: str, expected_count: int):
         """Assert the number of events of a specific type."""
-        actual_count = len([e for e in self.events if e['type'] == event_type])
-        assert actual_count == expected_count, f"Expected {expected_count} {event_type} events, got {actual_count}"
+        actual_count = len([e for e in self.events if e["type"] == event_type])
+        assert (
+            actual_count == expected_count
+        ), f"Expected {expected_count} {event_type} events, got {actual_count}"
 
     def assert_connected(self):
         """Assert that the client is connected."""
-        assert self.connection_state == 'connected', "Client is not connected"
+        assert self.connection_state == "connected", "Client is not connected"
 
     def get_events_by_type(self, event_type: str) -> List[Dict]:
         """Get all events of a specific type."""
-        return [e for e in self.events if e['type'] == event_type]
+        return [e for e in self.events if e["type"] == event_type]
 
     def get_property(self, device_name: str, property_name: str):
         """Get a property by device and property name."""
@@ -174,7 +190,7 @@ class EventDataManager:
         # Mark this as a user-defined scenario (takes precedence over files)
         self._user_scenarios[name] = scenario_file
 
-        with open(scenario_file, 'w') as f:
+        with open(scenario_file, "w") as f:
             for event in events:
                 f.write(f"{json.dumps(event)}\n")
 
@@ -198,11 +214,11 @@ class EventDataManager:
             raise FileNotFoundError(f"Scenario '{name}' not found at {scenario_file}")
 
         events = []
-        with open(scenario_file, 'r') as f:
+        with open(scenario_file, "r") as f:
             for line in f:
                 line = line.strip()
                 # Skip empty lines and comment lines (starting with #)
-                if line and not line.startswith('#'):
+                if line and not line.startswith("#"):
                     events.append(json.loads(line))
 
         return events
@@ -233,7 +249,7 @@ class EventDataManager:
                 "relative_time": 0.0,
                 "event_number": 0,
                 "event_type": "server_connected",
-                "data": {"host": "localhost", "port": 7624}
+                "data": {"host": "localhost", "port": 7624},
             },
             {
                 "timestamp": time.time() + 1,
@@ -244,8 +260,8 @@ class EventDataManager:
                     "device_name": "Test Telescope",
                     "driver_name": "test_telescope",
                     "driver_exec": "test_telescope",
-                    "driver_version": "1.0"
-                }
+                    "driver_version": "1.0",
+                },
             },
             {
                 "timestamp": time.time() + 2,
@@ -263,9 +279,9 @@ class EventDataManager:
                     "rule": "OneOfMany",
                     "widgets": [
                         {"name": "CONNECT", "label": "Connect", "state": "Off"},
-                        {"name": "DISCONNECT", "label": "Disconnect", "state": "On"}
-                    ]
-                }
+                        {"name": "DISCONNECT", "label": "Disconnect", "state": "On"},
+                    ],
+                },
             },
             {
                 "timestamp": time.time() + 3,
@@ -283,9 +299,9 @@ class EventDataManager:
                     "rule": "OneOfMany",
                     "widgets": [
                         {"name": "CONNECT", "label": "Connect", "state": "On"},
-                        {"name": "DISCONNECT", "label": "Disconnect", "state": "Off"}
-                    ]
-                }
+                        {"name": "DISCONNECT", "label": "Disconnect", "state": "Off"},
+                    ],
+                },
             },
             {
                 "timestamp": time.time() + 4,
@@ -294,9 +310,9 @@ class EventDataManager:
                 "event_type": "new_message",
                 "data": {
                     "device_name": "Test Telescope",
-                    "message": "Telescope connected successfully"
-                }
-            }
+                    "message": "Telescope connected successfully",
+                },
+            },
         ]
 
         return self.create_scenario("basic_telescope", events)
@@ -310,7 +326,7 @@ class EventDataManager:
                 "relative_time": 0.0,
                 "event_number": 0,
                 "event_type": "server_connected",
-                "data": {"host": "localhost", "port": 7624}
+                "data": {"host": "localhost", "port": 7624},
             },
             {
                 "timestamp": base_time + 1,
@@ -321,8 +337,8 @@ class EventDataManager:
                     "device_name": "Test Telescope",
                     "driver_name": "test_telescope",
                     "driver_exec": "test_telescope",
-                    "driver_version": "1.0"
-                }
+                    "driver_version": "1.0",
+                },
             },
             {
                 "timestamp": base_time + 2,
@@ -339,35 +355,69 @@ class EventDataManager:
                     "label": "Equatorial Coordinates",
                     "rule": "AtMostOne",
                     "widgets": [
-                        {"name": "RA", "label": "RA (hours)", "value": 0.0, "min": 0.0, "max": 24.0, "step": 0.0, "format": "%010.6m"},
-                        {"name": "DEC", "label": "DEC (degrees)", "value": 0.0, "min": -90.0, "max": 90.0, "step": 0.0, "format": "%010.6m"}
-                    ]
-                }
-            }
+                        {
+                            "name": "RA",
+                            "label": "RA (hours)",
+                            "value": 0.0,
+                            "min": 0.0,
+                            "max": 24.0,
+                            "step": 0.0,
+                            "format": "%010.6m",
+                        },
+                        {
+                            "name": "DEC",
+                            "label": "DEC (degrees)",
+                            "value": 0.0,
+                            "min": -90.0,
+                            "max": 90.0,
+                            "step": 0.0,
+                            "format": "%010.6m",
+                        },
+                    ],
+                },
+            },
         ]
 
         # Add coordinate updates
         for i, (ra, dec) in enumerate([(12.5, 45.0), (12.6, 45.1), (12.7, 45.2)]):
-            events.append({
-                "timestamp": base_time + 3 + i,
-                "relative_time": 3.0 + i,
-                "event_number": 3 + i,
-                "event_type": "update_property",
-                "data": {
-                    "name": "EQUATORIAL_EOD_COORD",
-                    "device_name": "Test Telescope",
-                    "type": "Number",
-                    "state": "Ok",
-                    "permission": "ReadWrite",
-                    "group": "Main Control",
-                    "label": "Equatorial Coordinates",
-                    "rule": "AtMostOne",
-                    "widgets": [
-                        {"name": "RA", "label": "RA (hours)", "value": ra, "min": 0.0, "max": 24.0, "step": 0.0, "format": "%010.6m"},
-                        {"name": "DEC", "label": "DEC (degrees)", "value": dec, "min": -90.0, "max": 90.0, "step": 0.0, "format": "%010.6m"}
-                    ]
+            events.append(
+                {
+                    "timestamp": base_time + 3 + i,
+                    "relative_time": 3.0 + i,
+                    "event_number": 3 + i,
+                    "event_type": "update_property",
+                    "data": {
+                        "name": "EQUATORIAL_EOD_COORD",
+                        "device_name": "Test Telescope",
+                        "type": "Number",
+                        "state": "Ok",
+                        "permission": "ReadWrite",
+                        "group": "Main Control",
+                        "label": "Equatorial Coordinates",
+                        "rule": "AtMostOne",
+                        "widgets": [
+                            {
+                                "name": "RA",
+                                "label": "RA (hours)",
+                                "value": ra,
+                                "min": 0.0,
+                                "max": 24.0,
+                                "step": 0.0,
+                                "format": "%010.6m",
+                            },
+                            {
+                                "name": "DEC",
+                                "label": "DEC (degrees)",
+                                "value": dec,
+                                "min": -90.0,
+                                "max": 90.0,
+                                "step": 0.0,
+                                "format": "%010.6m",
+                            },
+                        ],
+                    },
                 }
-            })
+            )
 
         return self.create_scenario("coordinate_updates", events)
 
@@ -460,7 +510,9 @@ def scenario_file(scenario_name, session_event_data):
 
 
 # Utility functions for tests
-def wait_for_events(client: TestIndiClient, event_type: str, count: int, timeout: float = 5.0) -> bool:
+def wait_for_events(
+    client: TestIndiClient, event_type: str, count: int, timeout: float = 5.0
+) -> bool:
     """Wait for a specific number of events of a given type."""
     start_time = time.time()
     while time.time() - start_time < timeout:
@@ -473,12 +525,19 @@ def wait_for_events(client: TestIndiClient, event_type: str, count: int, timeout
 
 def assert_event_sequence(client: TestIndiClient, expected_sequence: List[str]):
     """Assert that events occurred in a specific sequence."""
-    actual_sequence = [event['type'] for event in client.events]
-    assert actual_sequence == expected_sequence, f"Expected {expected_sequence}, got {actual_sequence}"
+    actual_sequence = [event["type"] for event in client.events]
+    assert (
+        actual_sequence == expected_sequence
+    ), f"Expected {expected_sequence}, got {actual_sequence}"
 
 
-def assert_property_value(client: TestIndiClient, device_name: str, property_name: str,
-                         widget_name: str, expected_value: Any):
+def assert_property_value(
+    client: TestIndiClient,
+    device_name: str,
+    property_name: str,
+    widget_name: str,
+    expected_value: Any,
+):
     """Assert that a property widget has a specific value."""
     prop = client.get_property(device_name, property_name)
     assert prop is not None, f"Property {device_name}.{property_name} not found"
@@ -491,10 +550,10 @@ def assert_property_value(client: TestIndiClient, device_name: str, property_nam
 
 # Pytest markers for categorizing tests
 pytest_markers = {
-    'integration': pytest.mark.integration,
-    'unit': pytest.mark.unit,
-    'slow': pytest.mark.slow,
-    'indi': pytest.mark.indi,
-    'replay': pytest.mark.replay,
-    'recording': pytest.mark.recording
+    "integration": pytest.mark.integration,
+    "unit": pytest.mark.unit,
+    "slow": pytest.mark.slow,
+    "indi": pytest.mark.indi,
+    "replay": pytest.mark.replay,
+    "recording": pytest.mark.recording,
 }

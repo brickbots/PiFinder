@@ -504,7 +504,10 @@ def main(
                     console_msg = console_queue.get(block=False)
                     if isinstance(console_msg, list) and console_msg[0] == "WARNING":
                         menu_manager.message(_("WARNING") + "\n" + console_msg[1], 3)
-                    elif isinstance(console_msg, list) and console_msg[0] == "DEGRADED_OPS":
+                    elif (
+                        isinstance(console_msg, list)
+                        and console_msg[0] == "DEGRADED_OPS"
+                    ):
                         menu_manager.message(console_msg[1], 5)
                     else:
                         console.write(console_msg)

@@ -10,9 +10,7 @@ import pytest
 import PyIndi
 
 # Import our pytest fixtures and utilities
-from pytest_fixtures import (
-    wait_for_events, assert_event_sequence, pytest_markers
-)
+from pytest_fixtures import wait_for_events, assert_event_sequence, pytest_markers
 
 
 class ExampleMountControl(PyIndi.BaseClient):
@@ -42,9 +40,10 @@ class ExampleMountControl(PyIndi.BaseClient):
 
     def updateProperty(self, prop):
         # Handle coordinate updates
-        if (prop.getName() == "EQUATORIAL_EOD_COORD" and
-            prop.getType() == PyIndi.INDI_NUMBER):
-
+        if (
+            prop.getName() == "EQUATORIAL_EOD_COORD"
+            and prop.getType() == PyIndi.INDI_NUMBER
+        ):
             # Iterate over property widgets using the standard interface
             for widget in prop:
                 if widget.getName() == "RA":
@@ -54,8 +53,10 @@ class ExampleMountControl(PyIndi.BaseClient):
 
     def newMessage(self, device, message):
         # Store all messages from telescope/mount devices
-        if (self.telescope_device and
-            device.getDeviceName() == self.telescope_device.getDeviceName()):
+        if (
+            self.telescope_device
+            and device.getDeviceName() == self.telescope_device.getDeviceName()
+        ):
             self.connection_messages.append(message)
 
         # Also check for connection-specific messages
@@ -80,7 +81,7 @@ class ExampleMountControl(PyIndi.BaseClient):
 
 
 # Basic functionality tests
-@pytest_markers['unit']
+@pytest_markers["unit"]
 def test_client_basic_functionality(test_client):
     """Test basic test client functionality."""
     # Initially empty
@@ -89,20 +90,20 @@ def test_client_basic_functionality(test_client):
     assert test_client.connection_state is None
 
     # Test reset
-    test_client._record_event('test_event', data='test')
+    test_client._record_event("test_event", data="test")
     assert len(test_client.events) == 1
 
     test_client.reset()
     assert len(test_client.events) == 0
 
 
-@pytest_markers['unit']
+@pytest_markers["unit"]
 def test_event_data_manager(event_data_manager):
     """Test event data manager functionality."""
     # Create a simple scenario
     events = [
         {"event_type": "test", "data": {"value": 1}},
-        {"event_type": "test", "data": {"value": 2}}
+        {"event_type": "test", "data": {"value": 2}},
     ]
 
     scenario_file = event_data_manager.create_scenario("test_scenario", events)
@@ -119,7 +120,7 @@ def test_event_data_manager(event_data_manager):
 
 
 # Replay testing
-@pytest_markers['replay']
+@pytest_markers["replay"]
 def test_basic_telescope_replay(test_client, basic_telescope_scenario, event_replayer):
     """Test replaying a basic telescope connection scenario."""
     # Create replayer and start playback
@@ -134,24 +135,26 @@ def test_basic_telescope_replay(test_client, basic_telescope_scenario, event_rep
 
     # Check event sequence
     expected_sequence = [
-        'server_connected',
-        'new_device',
-        'new_property',
-        'update_property',
-        'new_message'
+        "server_connected",
+        "new_device",
+        "new_property",
+        "update_property",
+        "new_message",
     ]
     assert_event_sequence(test_client, expected_sequence)
 
 
-@pytest_markers['replay']
+@pytest_markers["replay"]
 def test_coordinate_updates(test_client, coordinate_scenario, event_replayer):
     """Test coordinate update scenario."""
     replayer = event_replayer(coordinate_scenario, test_client, speed=5.0)
     replayer.start_playback(blocking=True)
 
     # Check that we received coordinate updates
-    coord_updates = test_client.get_events_by_type('update_property')
-    coord_updates = [e for e in coord_updates if e['data']['property_name'] == 'EQUATORIAL_EOD_COORD']
+    coord_updates = test_client.get_events_by_type("update_property")
+    coord_updates = [
+        e for e in coord_updates if e["data"]["property_name"] == "EQUATORIAL_EOD_COORD"
+    ]
 
     assert len(coord_updates) >= 3, "Should have received at least 3 coordinate updates"
 
@@ -160,7 +163,7 @@ def test_coordinate_updates(test_client, coordinate_scenario, event_replayer):
 
 
 # Integration tests with custom mount control
-@pytest_markers['integration']
+@pytest_markers["integration"]
 def test_mount_control_connection(basic_telescope_scenario, event_replayer):
     """Test mount control client with connection scenario."""
     mount = ExampleMountControl()
@@ -174,7 +177,7 @@ def test_mount_control_connection(basic_telescope_scenario, event_replayer):
     assert len(mount.connection_messages) > 0
 
 
-@pytest_markers['integration']
+@pytest_markers["integration"]
 def test_mount_control_coordinates(coordinate_scenario, event_replayer):
     """Test mount control coordinate tracking."""
     mount = ExampleMountControl()
@@ -189,7 +192,7 @@ def test_mount_control_coordinates(coordinate_scenario, event_replayer):
 
 
 # Parametrized tests
-@pytest_markers['replay']
+@pytest_markers["replay"]
 def test_multiple_scenarios(test_client, scenario_file, event_replayer):
     """Test multiple scenarios using parametrized fixtures."""
     replayer = event_replayer(scenario_file, test_client, speed=10.0)
@@ -202,7 +205,7 @@ def test_multiple_scenarios(test_client, scenario_file, event_replayer):
 
 
 # Timing and performance tests
-@pytest_markers['replay']
+@pytest_markers["replay"]
 def test_replay_timing(test_client, basic_telescope_scenario, event_replayer):
     """Test that replay timing is approximately correct."""
     replayer = event_replayer(basic_telescope_scenario, test_client, speed=2.0)
@@ -216,7 +219,7 @@ def test_replay_timing(test_client, basic_telescope_scenario, event_replayer):
     assert 1.5 <= duration <= 3.0, f"Replay took {duration}s, expected ~2s"
 
 
-@pytest_markers['slow']
+@pytest_markers["slow"]
 def test_replay_at_normal_speed(test_client, basic_telescope_scenario, event_replayer):
     """Test replay at normal speed (slower test)."""
     replayer = event_replayer(basic_telescope_scenario, test_client, speed=1.0)
@@ -230,23 +233,23 @@ def test_replay_at_normal_speed(test_client, basic_telescope_scenario, event_rep
 
 
 # Error handling tests
-@pytest_markers['unit']
+@pytest_markers["unit"]
 def test_missing_scenario_file(event_data_manager):
     """Test handling of missing scenario files."""
     with pytest.raises(FileNotFoundError):
         event_data_manager.load_scenario("nonexistent_scenario")
 
 
-@pytest_markers['replay']
+@pytest_markers["replay"]
 def test_replayer_with_invalid_file(test_client):
     """Test replayer with invalid event file."""
     from event_replayer import IndiEventReplayer
     import tempfile
 
     # Create a file with invalid JSON
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
         f.write('{"invalid": json}\n')
-        f.write('not json at all\n')
+        f.write("not json at all\n")
         invalid_file = f.name
 
     try:
@@ -256,11 +259,12 @@ def test_replayer_with_invalid_file(test_client):
         assert len(replayer.events) == 0
     finally:
         import os
+
         os.unlink(invalid_file)
 
 
 # Comment parsing tests
-@pytest_markers['unit']
+@pytest_markers["unit"]
 def test_comment_parsing(event_data_manager, test_client):
     """Test that comment lines starting with # are skipped."""
     from event_replayer import IndiEventReplayer
@@ -272,12 +276,12 @@ def test_comment_parsing(event_data_manager, test_client):
 
     # Should load exactly 2 events (comments ignored)
     assert len(replayer.events) == 2
-    assert replayer.events[0]['event_type'] == 'server_connected'
-    assert replayer.events[1]['event_type'] == 'new_device'
+    assert replayer.events[0]["event_type"] == "server_connected"
+    assert replayer.events[1]["event_type"] == "new_device"
 
 
 # Custom scenario creation tests
-@pytest_markers['unit']
+@pytest_markers["unit"]
 def test_custom_scenario_creation(event_data_manager):
     """Test creating custom test scenarios."""
     # Create a scenario with specific timing
@@ -285,15 +289,17 @@ def test_custom_scenario_creation(event_data_manager):
     base_time = time.time()
 
     for i in range(5):
-        events.append({
-            "timestamp": base_time + i * 0.5,
-            "relative_time": i * 0.5,
-            "event_number": i,
-            "event_type": "test_event",
-            "data": {"sequence": i}
-        })
+        events.append(
+            {
+                "timestamp": base_time + i * 0.5,
+                "relative_time": i * 0.5,
+                "event_number": i,
+                "event_type": "test_event",
+                "data": {"sequence": i},
+            }
+        )
 
-    scenario_file = event_data_manager.create_scenario("timing_test", events)
+    event_data_manager.create_scenario("timing_test", events)
     loaded_events = event_data_manager.load_scenario("timing_test")
 
     assert len(loaded_events) == 5
@@ -303,7 +309,7 @@ def test_custom_scenario_creation(event_data_manager):
 
 
 # Assertion helper tests
-@pytest_markers['unit']
+@pytest_markers["unit"]
 def test_assertion_helpers(test_client):
     """Test custom assertion methods."""
     # Test device assertion (should fail)
@@ -315,16 +321,16 @@ def test_assertion_helpers(test_client):
         test_client.assert_property_present("Device", "Property")
 
     # Test event count assertion
-    test_client._record_event('test_event')
-    test_client._record_event('test_event')
-    test_client.assert_event_count('test_event', 2)
+    test_client._record_event("test_event")
+    test_client._record_event("test_event")
+    test_client.assert_event_count("test_event", 2)
 
     with pytest.raises(AssertionError):
-        test_client.assert_event_count('test_event', 3)
+        test_client.assert_event_count("test_event", 3)
 
 
 # Utility function tests
-@pytest_markers['unit']
+@pytest_markers["unit"]
 def test_wait_for_events(test_client):
     """Test the wait_for_events utility function."""
     import threading
@@ -332,27 +338,27 @@ def test_wait_for_events(test_client):
 
     def delayed_events():
         time.sleep(0.5)
-        test_client._record_event('delayed_event')
+        test_client._record_event("delayed_event")
         time.sleep(0.5)
-        test_client._record_event('delayed_event')
+        test_client._record_event("delayed_event")
 
     # Start delayed event generation
     thread = threading.Thread(target=delayed_events)
     thread.start()
 
     # Wait for events
-    success = wait_for_events(test_client, 'delayed_event', 2, timeout=2.0)
+    success = wait_for_events(test_client, "delayed_event", 2, timeout=2.0)
     assert success
 
     thread.join()
 
     # Test timeout
-    success = wait_for_events(test_client, 'nonexistent_event', 1, timeout=0.1)
+    success = wait_for_events(test_client, "nonexistent_event", 1, timeout=0.1)
     assert not success
 
 
 # Real-world scenario test
-@pytest_markers['integration']
+@pytest_markers["integration"]
 def test_telescope_slew_scenario(event_data_manager, event_replayer):
     """Test a realistic telescope slewing scenario."""
     # Create a slewing scenario
@@ -364,7 +370,7 @@ def test_telescope_slew_scenario(event_data_manager, event_replayer):
             "relative_time": 0.0,
             "event_number": 0,
             "event_type": "server_connected",
-            "data": {"host": "localhost", "port": 7624}
+            "data": {"host": "localhost", "port": 7624},
         },
         {
             "timestamp": base_time + 1,
@@ -375,8 +381,8 @@ def test_telescope_slew_scenario(event_data_manager, event_replayer):
                 "device_name": "Test Mount",
                 "driver_name": "test_mount",
                 "driver_exec": "test_mount",
-                "driver_version": "1.0"
-            }
+                "driver_version": "1.0",
+            },
         },
         # Start slew
         {
@@ -386,8 +392,8 @@ def test_telescope_slew_scenario(event_data_manager, event_replayer):
             "event_type": "new_message",
             "data": {
                 "device_name": "Test Mount",
-                "message": "Slewing to target coordinates"
-            }
+                "message": "Slewing to target coordinates",
+            },
         },
         # Slew progress updates
         {
@@ -395,10 +401,7 @@ def test_telescope_slew_scenario(event_data_manager, event_replayer):
             "relative_time": 3.0,
             "event_number": 3,
             "event_type": "new_message",
-            "data": {
-                "device_name": "Test Mount",
-                "message": "Slew progress: 50%"
-            }
+            "data": {"device_name": "Test Mount", "message": "Slew progress: 50%"},
         },
         # Slew complete
         {
@@ -408,9 +411,9 @@ def test_telescope_slew_scenario(event_data_manager, event_replayer):
             "event_type": "new_message",
             "data": {
                 "device_name": "Test Mount",
-                "message": "Slew completed successfully"
-            }
-        }
+                "message": "Slew completed successfully",
+            },
+        },
     ]
 
     scenario_file = event_data_manager.create_scenario("telescope_slew", slew_events)
@@ -423,8 +426,8 @@ def test_telescope_slew_scenario(event_data_manager, event_replayer):
 
     # Verify slew scenario
     assert mount.telescope_device is not None
-    assert "Slewing" in ' '.join(mount.connection_messages)
-    assert "completed" in ' '.join(mount.connection_messages)
+    assert "Slewing" in " ".join(mount.connection_messages)
+    assert "completed" in " ".join(mount.connection_messages)
 
 
 if __name__ == "__main__":

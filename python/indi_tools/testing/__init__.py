@@ -18,7 +18,7 @@ try:
         coordinate_scenario,
         wait_for_events,
         assert_event_sequence,
-        pytest_markers
+        pytest_markers,
     )
 except ImportError:
     # Fallback to direct import (when running pytest from different directory)
@@ -33,7 +33,7 @@ except ImportError:
             coordinate_scenario,
             wait_for_events,
             assert_event_sequence,
-            pytest_markers
+            pytest_markers,
         )
     except ImportError:
         # If both fail, we're probably being imported during pytest discovery
@@ -44,7 +44,7 @@ __version__ = "1.0.0"
 
 # Only include in __all__ if imports succeeded
 __all__ = []
-if 'TestIndiClient' in locals():
+if "TestIndiClient" in locals():
     __all__ = [
         "TestIndiClient",
         "EventDataManager",
@@ -55,5 +55,5 @@ if 'TestIndiClient' in locals():
         "coordinate_scenario",
         "wait_for_events",
         "assert_event_sequence",
-        "pytest_markers"
+        "pytest_markers",
     ]

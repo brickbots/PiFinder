@@ -60,7 +60,14 @@ class IndiMonitor(PyIndi.BaseClient):
     of all current values and displaying updates in real-time.
     """
 
-    def __init__(self, device_filter=None, type_filter=None, use_color=True, verbose=False, use_curses=False):
+    def __init__(
+        self,
+        device_filter=None,
+        type_filter=None,
+        use_color=True,
+        verbose=False,
+        use_curses=False,
+    ):
         """
         Initialize the INDI monitor client.
 
@@ -93,7 +100,9 @@ class IndiMonitor(PyIndi.BaseClient):
 
         # Curses display tracking
         self.stdscr = None
-        self.update_log = deque(maxlen=100)  # Scrolling updates with (message, count, timestamp)
+        self.update_log = deque(
+            maxlen=100
+        )  # Scrolling updates with (message, count, timestamp)
         self.last_message = None  # Track last message for deduplication
         self.format_properties = {}  # Properties with %m format or MOUNT_AXES
         self.previous_format_values = {}  # For change detection
@@ -106,14 +115,14 @@ class IndiMonitor(PyIndi.BaseClient):
         # Color codes for different property types (if enabled)
         if self.use_color and not self.use_curses:
             self.colors = {
-                'Number': '\033[92m',    # Green
-                'Text': '\033[94m',      # Blue
-                'Switch': '\033[93m',    # Yellow
-                'Light': '\033[95m',     # Magenta
-                'Blob': '\033[96m',      # Cyan
-                'Device': '\033[91m',    # Red
-                'Changed': '\033[43m',   # Yellow background for changed values
-                'Reset': '\033[0m'       # Reset
+                "Number": "\033[92m",  # Green
+                "Text": "\033[94m",  # Blue
+                "Switch": "\033[93m",  # Yellow
+                "Light": "\033[95m",  # Magenta
+                "Blob": "\033[96m",  # Cyan
+                "Device": "\033[91m",  # Red
+                "Changed": "\033[43m",  # Yellow background for changed values
+                "Reset": "\033[0m",  # Reset
             }
         else:
             self.colors = defaultdict(str)  # Empty strings for no color
@@ -125,7 +134,7 @@ class IndiMonitor(PyIndi.BaseClient):
         """Initialize curses display."""
         self.stdscr = stdscr
         curses.curs_set(0)  # Hide cursor
-        stdscr.nodelay(1)   # Non-blocking input
+        stdscr.nodelay(1)  # Non-blocking input
 
         # Initialize colors if supported
         if curses.has_colors() and self.use_color:
@@ -133,22 +142,22 @@ class IndiMonitor(PyIndi.BaseClient):
             curses.use_default_colors()
 
             # Define color pairs
-            curses.init_pair(1, curses.COLOR_GREEN, -1)    # Number
-            curses.init_pair(2, curses.COLOR_BLUE, -1)     # Text
-            curses.init_pair(3, curses.COLOR_YELLOW, -1)   # Switch
+            curses.init_pair(1, curses.COLOR_GREEN, -1)  # Number
+            curses.init_pair(2, curses.COLOR_BLUE, -1)  # Text
+            curses.init_pair(3, curses.COLOR_YELLOW, -1)  # Switch
             curses.init_pair(4, curses.COLOR_MAGENTA, -1)  # Light
-            curses.init_pair(5, curses.COLOR_CYAN, -1)     # Blob
-            curses.init_pair(6, curses.COLOR_RED, -1)      # Device
+            curses.init_pair(5, curses.COLOR_CYAN, -1)  # Blob
+            curses.init_pair(6, curses.COLOR_RED, -1)  # Device
             curses.init_pair(7, curses.COLOR_BLACK, curses.COLOR_YELLOW)  # Changed
 
             self.color_pairs = {
-                'Number': curses.color_pair(1),
-                'Text': curses.color_pair(2),
-                'Switch': curses.color_pair(3),
-                'Light': curses.color_pair(4),
-                'Blob': curses.color_pair(5),
-                'Device': curses.color_pair(6),
-                'Changed': curses.color_pair(7)
+                "Number": curses.color_pair(1),
+                "Text": curses.color_pair(2),
+                "Switch": curses.color_pair(3),
+                "Light": curses.color_pair(4),
+                "Blob": curses.color_pair(5),
+                "Device": curses.color_pair(6),
+                "Changed": curses.color_pair(7),
             }
 
         self.update_screen_size()
@@ -162,7 +171,7 @@ class IndiMonitor(PyIndi.BaseClient):
         """Safely get color code for property type."""
         if self.use_curses:
             return self.color_pairs.get(prop_type, 0)
-        return self.colors.get(prop_type, self.colors.get('Reset', ''))
+        return self.colors.get(prop_type, self.colors.get("Reset", ""))
 
     def has_format_specifier(self, prop):
         """Check if property has %m format specifier or is MOUNT_AXES."""
@@ -177,7 +186,7 @@ class IndiMonitor(PyIndi.BaseClient):
             num_prop = PyIndi.PropertyNumber(prop)
             for widget in num_prop:
                 format_str = widget.getFormat()
-                if re.search(r'%\d*\.?\d*m', format_str):
+                if re.search(r"%\d*\.?\d*m", format_str):
                     return True
 
         return False
@@ -188,9 +197,11 @@ class IndiMonitor(PyIndi.BaseClient):
             current_time = time.time()
 
             # Check if this is the same as the last message
-            if (self.update_log and
-                len(self.update_log) > 0 and
-                self.update_log[-1][0] == message):
+            if (
+                self.update_log
+                and len(self.update_log) > 0
+                and self.update_log[-1][0] == message
+            ):
                 # Same message - increment count and update timestamp
                 last_msg, count, _ = self.update_log[-1]
                 self.update_log[-1] = (last_msg, count + 1, current_time)
@@ -202,15 +213,21 @@ class IndiMonitor(PyIndi.BaseClient):
         """Format coordinate values in human-readable format."""
         # Check if this is an RA/DEC coordinate property
         coord_properties = [
-            'TARGET_EOD_COORD', 'EQUATORIAL_EOD_COORD', 'EQUATORIAL_COORD',
-            'GEOGRAPHIC_COORD', 'TELESCOPE_COORD', 'HORIZONTAL_COORD'
+            "TARGET_EOD_COORD",
+            "EQUATORIAL_EOD_COORD",
+            "EQUATORIAL_COORD",
+            "GEOGRAPHIC_COORD",
+            "TELESCOPE_COORD",
+            "HORIZONTAL_COORD",
         ]
 
-        ra_widgets = ['RA', 'LONG']  # RA and longitude use hours
-        dec_widgets = ['DEC', 'LAT']  # DEC and latitude use degrees
+        ra_widgets = ["RA", "LONG"]  # RA and longitude use hours
+        dec_widgets = ["DEC", "LAT"]  # DEC and latitude use degrees
 
         # Check if this property contains coordinates
-        is_coord_property = any(coord_prop in prop_name for coord_prop in coord_properties)
+        is_coord_property = any(
+            coord_prop in prop_name for coord_prop in coord_properties
+        )
 
         if is_coord_property:
             if any(ra_widget in widget_name for ra_widget in ra_widgets):
@@ -249,10 +266,10 @@ class IndiMonitor(PyIndi.BaseClient):
 
         return f"{sign}{degrees:02d}°{minutes:02d}'{seconds:04.1f}''"
 
-    def log(self, message, level='INFO'):
+    def log(self, message, level="INFO"):
         """Log a message with timestamp."""
-        timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
-        if self.verbose or level == 'INFO':
+        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        if self.verbose or level == "INFO":
             print(f"[{timestamp}] {level}: {message}")
 
     def newDevice(self, device):
@@ -266,7 +283,9 @@ class IndiMonitor(PyIndi.BaseClient):
         with self.lock:
             self.devices[device_name] = device
 
-        print(f"{self.get_color('Device')}=== NEW DEVICE: {device_name} ==={self.get_color('Reset')}")
+        print(
+            f"{self.get_color('Device')}=== NEW DEVICE: {device_name} ==={self.get_color('Reset')}"
+        )
         self.log(f"Discovered device: {device_name}")
 
     def removeDevice(self, device):
@@ -279,7 +298,9 @@ class IndiMonitor(PyIndi.BaseClient):
             if device_name in self.connected_devices:
                 self.connected_devices.remove(device_name)
 
-        print(f"{self.get_color('Device')}=== REMOVED DEVICE: {device_name} ==={self.get_color('Reset')}")
+        print(
+            f"{self.get_color('Device')}=== REMOVED DEVICE: {device_name} ==={self.get_color('Reset')}"
+        )
         self.log(f"Removed device: {device_name}")
 
     def newProperty(self, prop):
@@ -298,15 +319,17 @@ class IndiMonitor(PyIndi.BaseClient):
 
         with self.lock:
             self.properties[prop_key] = {
-                'property': prop,
-                'type': prop_type,
-                'device': device_name,
-                'name': prop_name,
-                'last_update': time.time()
+                "property": prop,
+                "type": prop_type,
+                "device": device_name,
+                "name": prop_name,
+                "last_update": time.time(),
             }
 
         if not self.use_curses:
-            print(f"{self.get_color(prop_type)}--- NEW PROPERTY: {device_name}.{prop_name} ({prop_type}) ---{self.get_color('Reset')}")
+            print(
+                f"{self.get_color(prop_type)}--- NEW PROPERTY: {device_name}.{prop_name} ({prop_type}) ---{self.get_color('Reset')}"
+            )
             self.log(f"New property: {prop_key} ({prop_type})")
             # Display initial values
             self._display_property_values(prop, is_update=False)
@@ -337,7 +360,7 @@ class IndiMonitor(PyIndi.BaseClient):
 
         with self.lock:
             if prop_key in self.properties:
-                self.properties[prop_key]['last_update'] = time.time()
+                self.properties[prop_key]["last_update"] = time.time()
             self.update_count += 1
 
         # Track coordinate changes for the table display
@@ -364,7 +387,9 @@ class IndiMonitor(PyIndi.BaseClient):
             if prop_key in self.properties:
                 del self.properties[prop_key]
 
-        print(f"{self.get_color(prop_type)}--- REMOVED PROPERTY: {device_name}.{prop_name} ({prop_type}) ---{self.get_color('Reset')}")
+        print(
+            f"{self.get_color(prop_type)}--- REMOVED PROPERTY: {device_name}.{prop_name} ({prop_type}) ---{self.get_color('Reset')}"
+        )
         self.log(f"Removed property: {prop_key}")
 
     def newMessage(self, device, message_id):
@@ -415,12 +440,16 @@ class IndiMonitor(PyIndi.BaseClient):
                 step = widget.getStep()
 
                 # Format coordinate values in human-readable format
-                formatted_value = self.format_coordinate_value(prop_name, widget.getName(), raw_value)
+                formatted_value = self.format_coordinate_value(
+                    prop_name, widget.getName(), raw_value
+                )
 
                 print(f"{indent}     • {widget.getName()} ({widget.getLabel()})")
                 if formatted_value != raw_value:
                     # Show both formatted and raw value for coordinates
-                    print(f"{indent}       Value: {formatted_value} ({raw_value:.6f}) (format: {format_str})")
+                    print(
+                        f"{indent}       Value: {formatted_value} ({raw_value:.6f}) (format: {format_str})"
+                    )
                 else:
                     print(f"{indent}       Value: {raw_value} (format: {format_str})")
                 print(f"{indent}       Range: {min_val} - {max_val} (step: {step})")
@@ -430,7 +459,9 @@ class IndiMonitor(PyIndi.BaseClient):
             print(f"{indent}   Values:")
             for widget in text_prop:
                 text = widget.getText()
-                print(f"{indent}     • {widget.getName()} ({widget.getLabel()}): '{text}'")
+                print(
+                    f"{indent}     • {widget.getName()} ({widget.getLabel()}): '{text}'"
+                )
 
         elif prop.getType() == PyIndi.INDI_SWITCH:
             switch_prop = PyIndi.PropertySwitch(prop)
@@ -439,7 +470,9 @@ class IndiMonitor(PyIndi.BaseClient):
             for widget in switch_prop:
                 state = widget.getStateAsString()
                 symbol = "🟢" if state == "On" else "🔴"
-                print(f"{indent}     • {widget.getName()} ({widget.getLabel()}): {symbol} {state}")
+                print(
+                    f"{indent}     • {widget.getName()} ({widget.getLabel()}): {symbol} {state}"
+                )
 
         elif prop.getType() == PyIndi.INDI_LIGHT:
             light_prop = PyIndi.PropertyLight(prop)
@@ -448,7 +481,9 @@ class IndiMonitor(PyIndi.BaseClient):
                 state = widget.getStateAsString()
                 symbols = {"Idle": "⚪", "Ok": "🟢", "Busy": "🟡", "Alert": "🔴"}
                 symbol = symbols.get(state, "❓")
-                print(f"{indent}     • {widget.getName()} ({widget.getLabel()}): {symbol} {state}")
+                print(
+                    f"{indent}     • {widget.getName()} ({widget.getLabel()}): {symbol} {state}"
+                )
 
         elif prop.getType() == PyIndi.INDI_BLOB:
             blob_prop = PyIndi.PropertyBlob(prop)
@@ -468,18 +503,27 @@ class IndiMonitor(PyIndi.BaseClient):
 
         # Check if this is a coordinate property
         coord_properties = [
-            'TARGET_EOD_COORD', 'EQUATORIAL_EOD_COORD', 'EQUATORIAL_COORD',
-            'GEOGRAPHIC_COORD', 'TELESCOPE_COORD', 'HORIZONTAL_COORD'
+            "TARGET_EOD_COORD",
+            "EQUATORIAL_EOD_COORD",
+            "EQUATORIAL_COORD",
+            "GEOGRAPHIC_COORD",
+            "TELESCOPE_COORD",
+            "HORIZONTAL_COORD",
         ]
 
-        if any(coord_prop in prop_name for coord_prop in coord_properties) and prop.getType() == PyIndi.INDI_NUMBER:
+        if (
+            any(coord_prop in prop_name for coord_prop in coord_properties)
+            and prop.getType() == PyIndi.INDI_NUMBER
+        ):
             prop_key = f"{device_name}.{prop_name}"
             num_prop = PyIndi.PropertyNumber(prop)
 
             with self.lock:
                 # Store previous values
                 if prop_key in self.coordinate_values:
-                    self.previous_coordinate_values[prop_key] = self.coordinate_values[prop_key].copy()
+                    self.previous_coordinate_values[prop_key] = self.coordinate_values[
+                        prop_key
+                    ].copy()
 
                 # Update current values
                 current_values = {}
@@ -502,7 +546,9 @@ class IndiMonitor(PyIndi.BaseClient):
             with self.lock:
                 # Store previous values for change detection
                 if prop_key in self.format_properties:
-                    self.previous_format_values[prop_key] = copy.deepcopy(self.format_properties[prop_key])
+                    self.previous_format_values[prop_key] = copy.deepcopy(
+                        self.format_properties[prop_key]
+                    )
 
                 # Update current values
                 current_values = {}
@@ -511,9 +557,9 @@ class IndiMonitor(PyIndi.BaseClient):
                     value = widget.getValue()
                     format_str = widget.getFormat()
                     current_values[widget_name] = {
-                        'value': value,
-                        'format': format_str,
-                        'label': widget.getLabel()
+                        "value": value,
+                        "format": format_str,
+                        "label": widget.getLabel(),
                     }
 
                 self.format_properties[prop_key] = current_values
@@ -554,7 +600,7 @@ class IndiMonitor(PyIndi.BaseClient):
             property_count = len(self.properties)
 
         # Clear screen and move cursor to top
-        print('\033[2J\033[H', end='')
+        print("\033[2J\033[H", end="")
 
         # Single line summary
         summary = f"📊 Uptime: {uptime:.1f}s | Devices: {connected_count}/{device_count} | Properties: {property_count} | Updates: {self.update_count} | Server: {self.getHost()}:{self.getPort()}"
@@ -577,7 +623,9 @@ class IndiMonitor(PyIndi.BaseClient):
             # Calculate layout
             status_lines = 1  # Bottom status line
             format_props_count = len(self.format_properties)
-            format_area_lines = min(format_props_count + 2, self.screen_height // 3)  # +2 for headers
+            format_area_lines = min(
+                format_props_count + 2, self.screen_height // 3
+            )  # +2 for headers
             update_area_lines = self.screen_height - format_area_lines - status_lines
 
             # Draw top scrolling area (updates)
@@ -602,11 +650,11 @@ class IndiMonitor(PyIndi.BaseClient):
 
         # Header
         header = "=== Latest Updates ==="
-        self.stdscr.addstr(start_y, 0, header[:self.screen_width-1], curses.A_BOLD)
+        self.stdscr.addstr(start_y, 0, header[: self.screen_width - 1], curses.A_BOLD)
 
         # Recent updates (most recent first)
         with self.lock:
-            recent_updates = list(self.update_log)[-height+1:]
+            recent_updates = list(self.update_log)[-height + 1 :]
 
         for i, update_entry in enumerate(recent_updates):
             y = start_y + 1 + i
@@ -626,7 +674,7 @@ class IndiMonitor(PyIndi.BaseClient):
 
             # Truncate if too long
             if len(display_text) >= self.screen_width:
-                display_text = display_text[:self.screen_width-4] + "..."
+                display_text = display_text[: self.screen_width - 4] + "..."
 
             try:
                 self.stdscr.addstr(y, 0, display_text)
@@ -641,7 +689,9 @@ class IndiMonitor(PyIndi.BaseClient):
         # Header
         header = "=== Format Properties (%m and MOUNT_AXES) ==="
         try:
-            self.stdscr.addstr(start_y, 0, header[:self.screen_width-1], curses.A_BOLD)
+            self.stdscr.addstr(
+                start_y, 0, header[: self.screen_width - 1], curses.A_BOLD
+            )
         except curses.error:
             return
 
@@ -656,12 +706,16 @@ class IndiMonitor(PyIndi.BaseClient):
                 break
 
             # Property header
-            device_name, prop_name = prop_key.split('.', 1)
+            device_name, prop_name = prop_key.split(".", 1)
             prop_header = f"{device_name}.{prop_name}:"
 
             try:
-                self.stdscr.addstr(current_y, 2, prop_header[:self.screen_width-3],
-                                 self.get_color('Device'))
+                self.stdscr.addstr(
+                    current_y,
+                    2,
+                    prop_header[: self.screen_width - 3],
+                    self.get_color("Device"),
+                )
                 current_y += 1
             except curses.error:
                 break
@@ -672,22 +726,26 @@ class IndiMonitor(PyIndi.BaseClient):
                 if widget_count >= 2 or current_y >= start_y + height - 1:
                     break
 
-                value = widget_data['value']
-                format_str = widget_data['format']
-                label = widget_data['label']
+                value = widget_data["value"]
+                format_str = widget_data["format"]
+                label = widget_data["label"]
 
                 # Check if value changed
                 changed = False
-                if (prop_key in prev_data and
-                    widget_name in prev_data[prop_key] and
-                    'value' in prev_data[prop_key][widget_name]):
-                    prev_value = prev_data[prop_key][widget_name]['value']
+                if (
+                    prop_key in prev_data
+                    and widget_name in prev_data[prop_key]
+                    and "value" in prev_data[prop_key][widget_name]
+                ):
+                    prev_value = prev_data[prop_key][widget_name]["value"]
                     changed = abs(value - prev_value) > 1e-6
 
                 # Format value according to INDI format specifier
-                if re.search(r'%\d*\.?\d*m', format_str):
+                if re.search(r"%\d*\.?\d*m", format_str):
                     # Use INDI coordinate formatting
-                    formatted_value = self.format_coordinate_value(prop_name, widget_name, value)
+                    formatted_value = self.format_coordinate_value(
+                        prop_name, widget_name, value
+                    )
                 else:
                     # Use the format string directly
                     try:
@@ -697,10 +755,10 @@ class IndiMonitor(PyIndi.BaseClient):
 
                 # Create display line
                 widget_line = f"  {label}: {formatted_value}"
-                widget_line = widget_line[:self.screen_width-1]
+                widget_line = widget_line[: self.screen_width - 1]
 
                 # Apply color if changed
-                color = self.get_color('Changed') if changed else 0
+                color = self.get_color("Changed") if changed else 0
 
                 try:
                     self.stdscr.addstr(current_y, 4, widget_line, color)
@@ -723,7 +781,7 @@ class IndiMonitor(PyIndi.BaseClient):
             status += f" | Filter: {self.device_filter}"
 
         # Truncate to fit screen
-        status = status[:self.screen_width-1]
+        status = status[: self.screen_width - 1]
 
         try:
             self.stdscr.addstr(y, 0, status, curses.A_REVERSE)
@@ -748,7 +806,7 @@ class IndiMonitor(PyIndi.BaseClient):
         # Table rows
         for prop_key, values in coord_data.items():
             # Extract device and property name
-            parts = prop_key.split('.', 1)
+            parts = prop_key.split(".", 1)
             if len(parts) == 2:
                 device_name, prop_name = parts
                 display_name = f"{device_name}.{prop_name}"
@@ -772,13 +830,15 @@ class IndiMonitor(PyIndi.BaseClient):
                     changed = abs(value - prev_data[prop_key][widget_name]) > 1e-6
 
                 # Format coordinate value
-                formatted_value = self.format_coordinate_value(prop_name, widget_name, value)
+                formatted_value = self.format_coordinate_value(
+                    prop_name, widget_name, value
+                )
 
                 # Assign to RA or DEC
-                if any(ra_widget in widget_name for ra_widget in ['RA', 'LONG']):
+                if any(ra_widget in widget_name for ra_widget in ["RA", "LONG"]):
                     ra_value = formatted_value
                     ra_changed = changed
-                elif any(dec_widget in widget_name for dec_widget in ['DEC', 'LAT']):
+                elif any(dec_widget in widget_name for dec_widget in ["DEC", "LAT"]):
                     dec_value = formatted_value
                     dec_changed = changed
 
@@ -813,17 +873,34 @@ class IndiMonitor(PyIndi.BaseClient):
 
 def main():
     """Main function to run the INDI monitor."""
-    parser = argparse.ArgumentParser(description="INDI Property Monitor - Monitor all INDI devices and properties")
-    parser.add_argument("--host", default="localhost", help="INDI server host (default: localhost)")
-    parser.add_argument("--port", type=int, default=7624, help="INDI server port (default: 7624)")
+    parser = argparse.ArgumentParser(
+        description="INDI Property Monitor - Monitor all INDI devices and properties"
+    )
+    parser.add_argument(
+        "--host", default="localhost", help="INDI server host (default: localhost)"
+    )
+    parser.add_argument(
+        "--port", type=int, default=7624, help="INDI server port (default: 7624)"
+    )
     parser.add_argument("--device", help="Monitor only specific device")
-    parser.add_argument("--type", choices=["Number", "Text", "Switch", "Light", "Blob"],
-                       help="Monitor only specific property type")
-    parser.add_argument("--interval", type=float, default=2.0,
-                       help="Status summary interval in seconds (default: 2.0)")
+    parser.add_argument(
+        "--type",
+        choices=["Number", "Text", "Switch", "Light", "Blob"],
+        help="Monitor only specific property type",
+    )
+    parser.add_argument(
+        "--interval",
+        type=float,
+        default=2.0,
+        help="Status summary interval in seconds (default: 2.0)",
+    )
     parser.add_argument("--verbose", action="store_true", help="Show debug information")
-    parser.add_argument("--no-color", action="store_true", help="Disable colored output")
-    parser.add_argument("--curses", action="store_true", help="Use curses-based display interface")
+    parser.add_argument(
+        "--no-color", action="store_true", help="Disable colored output"
+    )
+    parser.add_argument(
+        "--curses", action="store_true", help="Use curses-based display interface"
+    )
 
     args = parser.parse_args()
 
@@ -833,7 +910,7 @@ def main():
         type_filter=args.type,
         use_color=not args.no_color,
         verbose=args.verbose,
-        use_curses=args.curses
+        use_curses=args.curses,
     )
 
     # Connect to the INDI server
@@ -871,7 +948,7 @@ def main():
                 if args.curses and monitor.stdscr:
                     try:
                         key = monitor.stdscr.getch()
-                        if key == ord('q') or key == ord('Q'):
+                        if key == ord("q") or key == ord("Q"):
                             break
                         elif key == curses.KEY_RESIZE:
                             monitor.update_screen_size()

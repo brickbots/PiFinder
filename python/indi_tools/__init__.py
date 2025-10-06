@@ -21,7 +21,4 @@ __author__ = "PiFinder Team"
 from .event_recorder import IndiEventRecorder
 from .event_replayer import IndiEventReplayer
 
-__all__ = [
-    "IndiEventRecorder",
-    "IndiEventReplayer"
-]
+__all__ = ["IndiEventRecorder", "IndiEventReplayer"]

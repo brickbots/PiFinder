@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
 
 import pytest
-import unittest.mock as mock
 from queue import Queue
 import time
 import datetime
-from unittest.mock import Mock, MagicMock, patch, call
-import sys
+from unittest.mock import Mock, MagicMock, patch
 
 # Check if PyIndi is available for integration tests
 try:
     import PyIndi
+
     PYINDI_AVAILABLE = True
 except ImportError:
     PYINDI_AVAILABLE = False
 
 # Import the classes we want to test
-from PiFinder.mountcontrol_indi import MountControlIndi, PiFinderIndiClient
-from PiFinder.mountcontrol_interface import MountControlPhases, MountDirectionsEquatorial
+from PiFinder.mountcontrol_indi import MountControlIndi
+from PiFinder.mountcontrol_interface import (
+    MountControlPhases,
+    MountDirectionsEquatorial,
+)
 from PiFinder.state import SharedStateObj
 
 
@@ -50,14 +52,16 @@ class TestMountControlIndiUnit:
         self.mock_telescope = MagicMock()
         self.mock_telescope.getDeviceName.return_value = "Telescope Simulator"
 
-        with patch('PiFinder.mountcontrol_indi.PyIndi', self.mock_pyindi):
-            with patch('PiFinder.mountcontrol_indi.PiFinderIndiClient') as mock_client_class:
+        with patch("PiFinder.mountcontrol_indi.PyIndi", self.mock_pyindi):
+            with patch(
+                "PiFinder.mountcontrol_indi.PiFinderIndiClient"
+            ) as mock_client_class:
                 mock_client_class.return_value = self.mock_indi_client
                 self.mount_control = MountControlIndi(
                     self.mount_queue,
                     self.console_queue,
                     self.shared_state,
-                    self.log_queue
+                    self.log_queue,
                 )
 
     def test_init_mount_success(self):
@@ -124,8 +128,9 @@ class TestMountControlIndiUnit:
         )
         # Verify set_number was called with coordinates (RA converted to hours)
         self.mock_indi_client.set_number.assert_called_with(
-            self.mock_telescope, "EQUATORIAL_EOD_COORD",
-            {"RA": 3.0, "DEC": 30.0}  # 45.0 deg / 15.0 = 3.0 hours
+            self.mock_telescope,
+            "EQUATORIAL_EOD_COORD",
+            {"RA": 3.0, "DEC": 30.0},  # 45.0 deg / 15.0 = 3.0 hours
         )
 
     def test_sync_mount_no_device(self):
@@ -178,8 +183,9 @@ class TestMountControlIndiUnit:
         )
         # Verify set_number was called with coordinates (RA converted to hours)
         self.mock_indi_client.set_number.assert_called_with(
-            self.mock_telescope, "EQUATORIAL_EOD_COORD",
-            {"RA": 8.0, "DEC": 45.0}  # 120.0 deg / 15.0 = 8.0 hours
+            self.mock_telescope,
+            "EQUATORIAL_EOD_COORD",
+            {"RA": 8.0, "DEC": 45.0},  # 120.0 deg / 15.0 = 8.0 hours
         )
 
     def test_move_mount_to_target_no_device(self):
@@ -205,12 +211,16 @@ class TestMountControlIndiUnit:
         mock_south_switch.name = "MOTION_SOUTH"
         mock_south_switch.s = PyIndi.ISS_OFF
         mock_motion_prop.__len__ = MagicMock(return_value=2)
-        mock_motion_prop.__getitem__ = MagicMock(side_effect=[mock_north_switch, mock_south_switch])
+        mock_motion_prop.__getitem__ = MagicMock(
+            side_effect=[mock_north_switch, mock_south_switch]
+        )
         self.mock_telescope.getSwitch.return_value = mock_motion_prop
 
         # Execute manual movement
-        with patch('time.sleep'):  # Mock sleep to speed up test
-            result = self.mount_control.move_mount_manual(MountDirectionsEquatorial.NORTH, 1.0)
+        with patch("time.sleep"):  # Mock sleep to speed up test
+            result = self.mount_control.move_mount_manual(
+                MountDirectionsEquatorial.NORTH, 1.0
+            )
 
         # Verify
         assert result is True
@@ -225,7 +235,9 @@ class TestMountControlIndiUnit:
         """Test manual movement when no telescope device available."""
         self.mock_indi_client.telescope_device = None
 
-        result = self.mount_control.move_mount_manual(MountDirectionsEquatorial.NORTH, 1.0)
+        result = self.mount_control.move_mount_manual(
+            MountDirectionsEquatorial.NORTH, 1.0
+        )
 
         assert result is False
 
@@ -265,7 +277,10 @@ class TestMountControlIndiUnit:
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(not PYINDI_AVAILABLE, reason="PyIndi not available - integration tests require PyIndi installed")
+@pytest.mark.skipif(
+    not PYINDI_AVAILABLE,
+    reason="PyIndi not available - integration tests require PyIndi installed",
+)
 class TestMountControlIndiIntegration:
     """Integration tests with real INDI Telescope Simulator.
 
@@ -297,12 +312,12 @@ class TestMountControlIndiIntegration:
             self.shared_state,
             self.log_queue,
             indi_host="localhost",
-            indi_port=7624
+            indi_port=7624,
         )
 
     def teardown_method(self):
         """Cleanup after each test."""
-        if hasattr(self, 'mount_control'):
+        if hasattr(self, "mount_control"):
             self.mount_control.disconnect_mount()
 
     def _init_mount(self):
@@ -310,53 +325,53 @@ class TestMountControlIndiIntegration:
             latitude_deg=51.183333,
             longitude_deg=7.083333,
             elevation_m=250.0,
-            utc_time=datetime.datetime.now(datetime.timezone.utc).isoformat()
+            utc_time=datetime.datetime.now(datetime.timezone.utc).isoformat(),
         )
         return ret
-    
+
     def test_radec_diff(self):
         """Test RA/Dec difference calculations."""
         # Test normal case (no wraparound)
         ra_diff, dec_diff = self.mount_control._radec_diff(10.0, 20.0, 15.0, 25.0)
         assert ra_diff == 5.0, f"Expected RA diff 5.0, got {ra_diff}"
         assert dec_diff == 5.0, f"Expected Dec diff 5.0, got {dec_diff}"
-        
+
         # Test negative differences
         ra_diff, dec_diff = self.mount_control._radec_diff(15.0, 25.0, 10.0, 20.0)
         assert ra_diff == -5.0, f"Expected RA diff -5.0, got {ra_diff}"
         assert dec_diff == -5.0, f"Expected Dec diff -5.0, got {dec_diff}"
-        
+
         # Test RA wraparound from 350° to 10° (should be +20°, not +380°)
         ra_diff, dec_diff = self.mount_control._radec_diff(350.0, 0.0, 10.0, 0.0)
         assert ra_diff == 20.0, f"Expected RA diff 20.0 (wraparound), got {ra_diff}"
         assert dec_diff == 0.0, f"Expected Dec diff 0.0, got {dec_diff}"
-        
+
         # Test RA wraparound from 10° to 350° (should be -20°, not -340°)
         ra_diff, dec_diff = self.mount_control._radec_diff(10.0, 0.0, 350.0, 0.0)
         assert ra_diff == -20.0, f"Expected RA diff -20.0 (wraparound), got {ra_diff}"
         assert dec_diff == 0.0, f"Expected Dec diff 0.0, got {dec_diff}"
-        
+
         # Test exactly 180° difference (should not wraparound)
         ra_diff, dec_diff = self.mount_control._radec_diff(0.0, 0.0, 180.0, 0.0)
         assert ra_diff == 180.0, f"Expected RA diff 180.0, got {ra_diff}"
-        
+
         # Test exactly -180° difference (should not wraparound)
         ra_diff, dec_diff = self.mount_control._radec_diff(180.0, 0.0, 0.0, 0.0)
         assert ra_diff == -180.0, f"Expected RA diff -180.0, got {ra_diff}"
-        
+
         # Test just over 180° (should wraparound)
         ra_diff, dec_diff = self.mount_control._radec_diff(0.0, 0.0, 181.0, 0.0)
         assert ra_diff == -179.0, f"Expected RA diff -179.0 (wraparound), got {ra_diff}"
-        
+
         # Test just under -180° (should wraparound)
         ra_diff, dec_diff = self.mount_control._radec_diff(181.0, 0.0, 0.0, 0.0)
         assert ra_diff == 179.0, f"Expected RA diff 179.0 (wraparound), got {ra_diff}"
-        
+
         # Test Dec limits (no wraparound for Dec)
         ra_diff, dec_diff = self.mount_control._radec_diff(0.0, -90.0, 0.0, 90.0)
         assert ra_diff == 0.0, f"Expected RA diff 0.0, got {ra_diff}"
         assert dec_diff == 180.0, f"Expected Dec diff 180.0, got {dec_diff}"
-        
+
         # Test same positions
         ra_diff, dec_diff = self.mount_control._radec_diff(45.0, 30.0, 45.0, 30.0)
         assert ra_diff == 0.0, f"Expected RA diff 0.0, got {ra_diff}"
@@ -370,7 +385,9 @@ class TestMountControlIndiIntegration:
         assert result is True, "Failed to initialize mount with INDI server"
         assert self.mount_control._connected is True
         assert self.mount_control._get_telescope_device() is not None
-        print(f"Connected to: {self.mount_control._get_telescope_device().getDeviceName()}")
+        print(
+            f"Connected to: {self.mount_control._get_telescope_device().getDeviceName()}"
+        )
 
     def test_sync_mount_real_indi(self):
         """Test sync with real INDI server."""
@@ -409,7 +426,9 @@ class TestMountControlIndiIntegration:
             if self.mount_control.target_reached:
                 break
             time.sleep(0.1)
-        assert self.mount_control.target_reached, "Mount did not reach target within timeout."
+        assert (
+            self.mount_control.target_reached
+        ), "Mount did not reach target within timeout."
 
     def test_stop_mount_real_indi(self):
         """Test stop command with real INDI server."""
@@ -437,11 +456,16 @@ class TestMountControlIndiIntegration:
         time.sleep(0.5)
 
         # Get initial position
-        (initial_ra, initial_dec) = (self.mount_control.current_ra, self.mount_control.current_dec)
+        (initial_ra, initial_dec) = (
+            self.mount_control.current_ra,
+            self.mount_control.current_dec,
+        )
         print(f"Initial position: RA={initial_ra}, Dec={initial_dec}")
 
         # Move north (should increase Dec)
-        result = self.mount_control.move_mount_manual(MountDirectionsEquatorial.NORTH, "4x", 1.0)
+        result = self.mount_control.move_mount_manual(
+            MountDirectionsEquatorial.NORTH, "4x", 1.0
+        )
         assert result is True, "Failed to execute manual movement"
 
         # Wait for movement to complete
@@ -454,7 +478,9 @@ class TestMountControlIndiIntegration:
 
         # Dec should have increased (north movement)
         if initial_dec is not None and final_dec is not None:
-            assert final_dec > initial_dec, "Dec should have increased after north movement"
+            assert (
+                final_dec > initial_dec
+            ), "Dec should have increased after north movement"
 
     def test_disconnect_mount_real_indi(self):
         """Test disconnection from real INDI server."""
@@ -473,9 +499,9 @@ if __name__ == "__main__":
     print("Running unit tests...")
     pytest.main([__file__, "-v", "-m", "not integration"])
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("To run integration tests, ensure INDI Telescope Simulator is running:")
     print("  indiserver -v indi_simulator_telescope")
     print("Then run:")
     print("  pytest tests/test_mountcontrol_indi.py -v -m integration")
-    print("="*80)
+    print("=" * 80)
