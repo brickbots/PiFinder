@@ -4,6 +4,7 @@ import pytest
 import unittest.mock as mock
 from queue import Queue
 import time
+import datetime
 from unittest.mock import Mock, MagicMock, patch, call
 import sys
 
@@ -109,36 +110,23 @@ class TestMountControlIndiUnit:
         # Setup
         self.mock_indi_client.telescope_device = self.mock_telescope
         self.mount_control._connected = True
-
-        # Mock properties - need to support both getProperty and getSwitch/getNumber
-        mock_coord_set_prop = MagicMock()
-        mock_sync_switch = MagicMock()
-        mock_sync_switch.name = "SYNC"
-        mock_coord_set_prop.__len__ = MagicMock(return_value=1)
-        mock_coord_set_prop.__getitem__ = MagicMock(return_value=mock_sync_switch)
-
-        mock_coord_prop = MagicMock()
-        mock_ra_num = MagicMock()
-        mock_ra_num.name = "RA"
-        mock_dec_num = MagicMock()
-        mock_dec_num.name = "DEC"
-        mock_coord_prop.__len__ = MagicMock(return_value=2)
-        mock_coord_prop.__getitem__ = MagicMock(side_effect=[mock_ra_num, mock_dec_num])
-
-        self.mock_telescope.getProperty.return_value = True  # Property exists
-        self.mock_telescope.getSwitch.return_value = mock_coord_set_prop
-        self.mock_telescope.getNumber.return_value = mock_coord_prop
+        self.mock_indi_client.set_switch.return_value = True
+        self.mock_indi_client.set_number.return_value = True
 
         # Execute sync
         result = self.mount_control.sync_mount(45.0, 30.0)
 
         # Verify
         assert result is True
-        self.mock_indi_client.sendNewSwitch.assert_called()
-        self.mock_indi_client.sendNewNumber.assert_called()
-        # RA should be converted from degrees to hours (45.0 / 15.0 = 3.0)
-        assert mock_ra_num.value == 3.0
-        assert mock_dec_num.value == 30.0
+        # Verify set_switch was called with ON_COORD_SET to SYNC
+        self.mock_indi_client.set_switch.assert_called_with(
+            self.mock_telescope, "ON_COORD_SET", "SYNC"
+        )
+        # Verify set_number was called with coordinates (RA converted to hours)
+        self.mock_indi_client.set_number.assert_called_with(
+            self.mock_telescope, "EQUATORIAL_EOD_COORD",
+            {"RA": 3.0, "DEC": 30.0}  # 45.0 deg / 15.0 = 3.0 hours
+        )
 
     def test_sync_mount_no_device(self):
         """Test sync when no telescope device available."""
@@ -152,21 +140,16 @@ class TestMountControlIndiUnit:
         """Test successful mount stop."""
         # Setup
         self.mock_indi_client.telescope_device = self.mock_telescope
-
-        # Mock ABORT property
-        mock_abort_prop = MagicMock()
-        mock_abort_switch = MagicMock()
-        mock_abort_switch.name = "ABORT"
-        mock_abort_prop.nsp = 1
-        mock_abort_prop.sp = [mock_abort_switch]
-        self.mock_telescope.getProperty.return_value = mock_abort_prop
+        self.mock_indi_client.set_switch.return_value = True
 
         # Execute stop
         result = self.mount_control.stop_mount()
 
         # Verify
         assert result is True
-        self.mock_indi_client.sendNewSwitch.assert_called_once()
+        self.mock_indi_client.set_switch.assert_called_with(
+            self.mock_telescope, "TELESCOPE_ABORT_MOTION", "ABORT"
+        )
         assert self.mount_control.state == MountControlPhases.MOUNT_STOPPED
 
     def test_stop_mount_no_device(self):
@@ -181,36 +164,23 @@ class TestMountControlIndiUnit:
         """Test successful goto command."""
         # Setup
         self.mock_indi_client.telescope_device = self.mock_telescope
-
-        # Mock properties - need to support both getProperty and getSwitch/getNumber
-        mock_coord_set_prop = MagicMock()
-        mock_track_switch = MagicMock()
-        mock_track_switch.name = "TRACK"
-        mock_coord_set_prop.__len__ = MagicMock(return_value=1)
-        mock_coord_set_prop.__getitem__ = MagicMock(return_value=mock_track_switch)
-
-        mock_coord_prop = MagicMock()
-        mock_ra_num = MagicMock()
-        mock_ra_num.name = "RA"
-        mock_dec_num = MagicMock()
-        mock_dec_num.name = "DEC"
-        mock_coord_prop.__len__ = MagicMock(return_value=2)
-        mock_coord_prop.__getitem__ = MagicMock(side_effect=[mock_ra_num, mock_dec_num])
-
-        self.mock_telescope.getProperty.return_value = True  # Property exists
-        self.mock_telescope.getSwitch.return_value = mock_coord_set_prop
-        self.mock_telescope.getNumber.return_value = mock_coord_prop
+        self.mock_indi_client.set_switch.return_value = True
+        self.mock_indi_client.set_number.return_value = True
 
         # Execute goto
         result = self.mount_control.move_mount_to_target(120.0, 45.0)
 
         # Verify
         assert result is True
-        self.mock_indi_client.sendNewSwitch.assert_called()
-        self.mock_indi_client.sendNewNumber.assert_called()
-        # RA should be converted from degrees to hours (120.0 / 15.0 = 8.0)
-        assert mock_ra_num.value == 8.0
-        assert mock_dec_num.value == 45.0
+        # Verify set_switch was called with ON_COORD_SET to TRACK
+        self.mock_indi_client.set_switch.assert_called_with(
+            self.mock_telescope, "ON_COORD_SET", "TRACK"
+        )
+        # Verify set_number was called with coordinates (RA converted to hours)
+        self.mock_indi_client.set_number.assert_called_with(
+            self.mock_telescope, "EQUATORIAL_EOD_COORD",
+            {"RA": 8.0, "DEC": 45.0}  # 120.0 deg / 15.0 = 8.0 hours
+        )
 
     def test_move_mount_to_target_no_device(self):
         """Test goto when no telescope device available."""
@@ -224,16 +194,19 @@ class TestMountControlIndiUnit:
         """Test manual movement in north direction."""
         # Setup
         self.mock_indi_client.telescope_device = self.mock_telescope
+        self.mock_indi_client.set_switch.return_value = True
 
-        # Mock motion property
+        # Mock getSwitch for turning off motion
         mock_motion_prop = MagicMock()
         mock_north_switch = MagicMock()
         mock_north_switch.name = "MOTION_NORTH"
+        mock_north_switch.s = PyIndi.ISS_OFF
         mock_south_switch = MagicMock()
         mock_south_switch.name = "MOTION_SOUTH"
-        mock_motion_prop.nsp = 2
-        mock_motion_prop.sp = [mock_north_switch, mock_south_switch]
-        self.mock_telescope.getProperty.return_value = mock_motion_prop
+        mock_south_switch.s = PyIndi.ISS_OFF
+        mock_motion_prop.__len__ = MagicMock(return_value=2)
+        mock_motion_prop.__getitem__ = MagicMock(side_effect=[mock_north_switch, mock_south_switch])
+        self.mock_telescope.getSwitch.return_value = mock_motion_prop
 
         # Execute manual movement
         with patch('time.sleep'):  # Mock sleep to speed up test
@@ -241,7 +214,12 @@ class TestMountControlIndiUnit:
 
         # Verify
         assert result is True
-        assert self.mock_indi_client.sendNewSwitch.call_count >= 2  # Start and stop motion
+        # Verify set_switch was called to start motion
+        self.mock_indi_client.set_switch.assert_called_with(
+            self.mock_telescope, "TELESCOPE_MOTION_NS", "MOTION_NORTH"
+        )
+        # Verify sendNewSwitch was called to stop motion
+        self.mock_indi_client.sendNewSwitch.assert_called_once()
 
     def test_move_mount_manual_no_device(self):
         """Test manual movement when no telescope device available."""
@@ -327,16 +305,67 @@ class TestMountControlIndiIntegration:
         if hasattr(self, 'mount_control'):
             self.mount_control.disconnect_mount()
 
+    def _init_mount(self):
+        ret = self.mount_control.init_mount(
+            latitude_deg=51.183333,
+            longitude_deg=7.083333,
+            elevation_m=250.0,
+            utc_time=datetime.datetime.now(datetime.timezone.utc).isoformat()
+        )
+        return ret
+    
+    def test_radec_diff(self):
+        """Test RA/Dec difference calculations."""
+        # Test normal case (no wraparound)
+        ra_diff, dec_diff = self.mount_control._radec_diff(10.0, 20.0, 15.0, 25.0)
+        assert ra_diff == 5.0, f"Expected RA diff 5.0, got {ra_diff}"
+        assert dec_diff == 5.0, f"Expected Dec diff 5.0, got {dec_diff}"
+        
+        # Test negative differences
+        ra_diff, dec_diff = self.mount_control._radec_diff(15.0, 25.0, 10.0, 20.0)
+        assert ra_diff == -5.0, f"Expected RA diff -5.0, got {ra_diff}"
+        assert dec_diff == -5.0, f"Expected Dec diff -5.0, got {dec_diff}"
+        
+        # Test RA wraparound from 350° to 10° (should be +20°, not +380°)
+        ra_diff, dec_diff = self.mount_control._radec_diff(350.0, 0.0, 10.0, 0.0)
+        assert ra_diff == 20.0, f"Expected RA diff 20.0 (wraparound), got {ra_diff}"
+        assert dec_diff == 0.0, f"Expected Dec diff 0.0, got {dec_diff}"
+        
+        # Test RA wraparound from 10° to 350° (should be -20°, not -340°)
+        ra_diff, dec_diff = self.mount_control._radec_diff(10.0, 0.0, 350.0, 0.0)
+        assert ra_diff == -20.0, f"Expected RA diff -20.0 (wraparound), got {ra_diff}"
+        assert dec_diff == 0.0, f"Expected Dec diff 0.0, got {dec_diff}"
+        
+        # Test exactly 180° difference (should not wraparound)
+        ra_diff, dec_diff = self.mount_control._radec_diff(0.0, 0.0, 180.0, 0.0)
+        assert ra_diff == 180.0, f"Expected RA diff 180.0, got {ra_diff}"
+        
+        # Test exactly -180° difference (should not wraparound)
+        ra_diff, dec_diff = self.mount_control._radec_diff(180.0, 0.0, 0.0, 0.0)
+        assert ra_diff == -180.0, f"Expected RA diff -180.0, got {ra_diff}"
+        
+        # Test just over 180° (should wraparound)
+        ra_diff, dec_diff = self.mount_control._radec_diff(0.0, 0.0, 181.0, 0.0)
+        assert ra_diff == -179.0, f"Expected RA diff -179.0 (wraparound), got {ra_diff}"
+        
+        # Test just under -180° (should wraparound)
+        ra_diff, dec_diff = self.mount_control._radec_diff(181.0, 0.0, 0.0, 0.0)
+        assert ra_diff == 179.0, f"Expected RA diff 179.0 (wraparound), got {ra_diff}"
+        
+        # Test Dec limits (no wraparound for Dec)
+        ra_diff, dec_diff = self.mount_control._radec_diff(0.0, -90.0, 0.0, 90.0)
+        assert ra_diff == 0.0, f"Expected RA diff 0.0, got {ra_diff}"
+        assert dec_diff == 180.0, f"Expected Dec diff 180.0, got {dec_diff}"
+        
+        # Test same positions
+        ra_diff, dec_diff = self.mount_control._radec_diff(45.0, 30.0, 45.0, 30.0)
+        assert ra_diff == 0.0, f"Expected RA diff 0.0, got {ra_diff}"
+        assert dec_diff == 0.0, f"Expected Dec diff 0.0, got {dec_diff}"
+
     def test_init_mount_real_indi(self):
         """Test initialization with real INDI server."""
         # Use test location: N51° 11m 0s E7° 5m 0s, elevation 250m
-        import datetime
-        result = self.mount_control.init_mount(
-            latitude_deg=51.183333,  # 51° 11' 0"
-            longitude_deg=7.083333,   # 7° 5' 0"
-            elevation_m=250.0,
-            utc_time=datetime.datetime.utcnow().isoformat()
-        )
+        result = self._init_mount()
 
         assert result is True, "Failed to initialize mount with INDI server"
         assert self.mount_control._connected is True
@@ -346,13 +375,7 @@ class TestMountControlIndiIntegration:
     def test_sync_mount_real_indi(self):
         """Test sync with real INDI server."""
         # First initialize
-        import datetime
-        assert self.mount_control.init_mount(
-            latitude_deg=51.183333,
-            longitude_deg=7.083333,
-            elevation_m=250.0,
-            utc_time=datetime.datetime.utcnow().isoformat()
-        ) is True
+        assert self._init_mount() is True
 
         # Give device time to fully initialize
         time.sleep(1.0)
@@ -362,21 +385,13 @@ class TestMountControlIndiIntegration:
 
         assert result is True, "Failed to sync mount"
 
-        # Verify position was updated (may take a moment)
-        time.sleep(0.5)
-        # Current position should be updated via callback
-        print(f"Mount position after sync: RA={self.mount_control.current_ra}, Dec={self.mount_control.current_dec}")
+        assert self.mount_control.current_ra == 45.0, "RA not updated to synced value"
+        assert self.mount_control.current_dec == 30.0, "Dec not updated to synced value"
 
     def test_goto_mount_real_indi(self):
         """Test goto command with real INDI server."""
         # First initialize
-        import datetime
-        assert self.mount_control.init_mount(
-            latitude_deg=51.183333,
-            longitude_deg=7.083333,
-            elevation_m=250.0,
-            utc_time=datetime.datetime.utcnow().isoformat()
-        ) is True
+        assert self._init_mount() is True
         time.sleep(1.0)
 
         # Sync to a known position first
@@ -388,22 +403,18 @@ class TestMountControlIndiIntegration:
 
         assert result is True, "Failed to send goto command"
 
-        # Wait a moment for mount to start moving
-        time.sleep(1.0)
-
-        # Verify position is updating
-        print(f"Mount position during goto: RA={self.mount_control.current_ra}, Dec={self.mount_control.current_dec}")
+        start = time.time()
+        timeout = 30.0  # seconds
+        while time.time() - start < timeout:
+            if self.mount_control.target_reached:
+                break
+            time.sleep(0.1)
+        assert self.mount_control.target_reached, "Mount did not reach target within timeout."
 
     def test_stop_mount_real_indi(self):
         """Test stop command with real INDI server."""
         # First initialize
-        import datetime
-        assert self.mount_control.init_mount(
-            latitude_deg=51.183333,
-            longitude_deg=7.083333,
-            elevation_m=250.0,
-            utc_time=datetime.datetime.utcnow().isoformat()
-        ) is True
+        assert self._init_mount() is True
         time.sleep(1.0)
 
         # Start a goto
@@ -419,27 +430,22 @@ class TestMountControlIndiIntegration:
     def test_manual_movement_real_indi(self):
         """Test manual movement with real INDI server."""
         # First initialize
-        import datetime
-        assert self.mount_control.init_mount(
-            latitude_deg=51.183333,
-            longitude_deg=7.083333,
-            elevation_m=250.0,
-            utc_time=datetime.datetime.utcnow().isoformat()
-        ) is True
+        assert self._init_mount() is True
         time.sleep(1.0)
 
+        self.mount_control.sync_mount(0.0, 0.0)
+        time.sleep(0.5)
+
         # Get initial position
-        initial_ra = self.mount_control.current_ra
-        initial_dec = self.mount_control.current_dec
+        (initial_ra, initial_dec) = (self.mount_control.current_ra, self.mount_control.current_dec)
         print(f"Initial position: RA={initial_ra}, Dec={initial_dec}")
 
         # Move north (should increase Dec)
-        result = self.mount_control.move_mount_manual(MountDirectionsEquatorial.NORTH, 0.1)
-
+        result = self.mount_control.move_mount_manual(MountDirectionsEquatorial.NORTH, "4x", 1.0)
         assert result is True, "Failed to execute manual movement"
 
         # Wait for movement to complete
-        time.sleep(1.5)
+        time.sleep(0.5)
 
         # Check position changed
         final_ra = self.mount_control.current_ra
@@ -453,13 +459,7 @@ class TestMountControlIndiIntegration:
     def test_disconnect_mount_real_indi(self):
         """Test disconnection from real INDI server."""
         # First initialize and connect
-        import datetime
-        assert self.mount_control.init_mount(
-            latitude_deg=51.183333,
-            longitude_deg=7.083333,
-            elevation_m=250.0,
-            utc_time=datetime.datetime.utcnow().isoformat()
-        ) is True
+        assert self._init_mount() is True
 
         # Disconnect
         result = self.mount_control.disconnect_mount()

@@ -6,6 +6,7 @@ import time
 from PiFinder.multiproclogging import MultiprocLogging
 
 logger = logging.getLogger("IndiMountControl")
+clientlogger = logging.getLogger("IndiMountControl.PyIndi")
 
 #
 # source .venv/bin/activate && pip uninstall -y pyindi-client && pip install --no-binary :all: pyindi-client
@@ -16,180 +17,15 @@ class PiFinderIndiClient(PyIndi.BaseClient):
     This client connects to an INDI server and manages communication with
     telescope/mount devices. It automatically detects telescope devices and
     monitors their properties for position updates and movement status.
+
+    The indi client does not keep track of the current position itself, but
+    relays updates to the MountControlIndi class to handle position updates
+    and target tracking.
     """
     def __init__(self, mount_control):
         super().__init__()
         self.telescope_device = None
         self.mount_control = mount_control
-        self._last_ra = None
-        self._last_dec = None
-        self._target_ra = None
-        self._target_dec = None
-        self._target_callback = None
-        self._target_tolerance_deg = 0.1  # Tolerance in degrees to consider target reached
-
-    def newDevice(self, device):
-        """Called when a new device is detected by the INDI server."""
-        device_name = device.getDeviceName().lower()
-        # Match telescope/mount devices, but exclude CCD and Focuser simulators
-        if self.telescope_device is None:
-            if (any(keyword in device_name for keyword in ["telescope", "mount", "eqmod", "lx200"]) or
-                device_name == "telescope simulator"):
-                self.telescope_device = device
-                logger.info(f"Telescope device detected: {device.getDeviceName()}")
-
-    def removeDevice(self, device):
-        """Called when a device is removed from the INDI server."""
-        if self.telescope_device and device.getDeviceName() == self.telescope_device.getDeviceName():
-            logger.warning(f"Telescope device removed: {device.getDeviceName()}")
-            self.telescope_device = None
-
-    def newProperty(self, property):
-        """Called when a new property is created for a device."""
-        logger.debug(f"New property: {property.getName()} on device {property.getDeviceName()}")
-
-    def removeProperty(self, property):
-        """Called when a property is deleted from a device."""
-        logger.debug(f"Property removed: {property.getName()} on device {property.getDeviceName()}")
-
-    def newBLOB(self, bp):
-        """Handle new BLOB property updates (not used for mount control)."""
-        pass
-
-    def newSwitch(self, svp):
-        """Handle new switch property value updates."""
-        # Monitor TELESCOPE_MOTION_* for tracking state changes
-        pass
-
-    def newNumber(self, nvp):
-        """Handle new number property value updates.
-
-        This is called when numeric properties change, including:
-        - EQUATORIAL_EOD_COORD or EQUATORIAL_COORD: Current RA/Dec position
-        - Target position updates
-        """
-        if nvp.name == "EQUATORIAL_EOD_COORD" or nvp.name == "EQUATORIAL_COORD":
-            # Position update - extract RA and Dec
-            ra_hours = None
-            dec_deg = None
-
-            for i in range(len(nvp)):
-                elem = nvp[i]
-                if elem.name == "RA":
-                    ra_hours = elem.value
-                elif elem.name == "DEC":
-                    dec_deg = elem.value
-
-            if ra_hours is not None and dec_deg is not None:
-                ra_deg = ra_hours * 15.0  # Convert hours to degrees
-                # Only notify if position changed significantly (avoid spam)
-                if self._last_ra is None or self._last_dec is None or \
-                   abs(ra_deg - self._last_ra) > 0.001 or abs(dec_deg - self._last_dec) > 0.001:
-                    self._last_ra = ra_deg
-                    self._last_dec = dec_deg
-                    self.mount_control.mount_current_position(ra_deg, dec_deg)
-                    logger.debug(f"Position update: RA={ra_deg:.4f}°, Dec={dec_deg:.4f}°")
-                    # Check if we've reached the target
-                    self._check_target_reached()
-
-    def newText(self, tvp):
-        """Handle new text property value updates."""
-        pass
-
-    def newLight(self, lvp):
-        """Handle new light property value updates."""
-        pass
-
-    def newMessage(self, device, message):
-        """Handle messages from INDI devices."""
-        logger.info(f"INDI message from {device.getDeviceName()}: {message}")
-
-    def serverConnected(self):
-        """Called when successfully connected to INDI server."""
-        logger.info("Connected to INDI server.")
-
-    def serverDisconnected(self, code):
-        """Called when disconnected from INDI server."""
-        logger.warning(f"Disconnected from INDI server with code {code}.")
-
-    def setCallbackForTarget(self, target_ra_deg: float, target_dec_deg: float, callback):
-        """Set a callback to be called when the mount reaches the target position.
-
-        Args:
-            target_ra_deg: Target RA in degrees
-            target_dec_deg: Target Dec in degrees
-            callback: Function to call when target is reached (no arguments)
-        """
-        self._target_ra = target_ra_deg
-        self._target_dec = target_dec_deg
-        self._target_callback = callback
-        logger.debug(f"Target callback set for RA={target_ra_deg:.4f}°, Dec={target_dec_deg:.4f}°")
-
-    def _check_target_reached(self):
-        """Check if the current position matches the target position within tolerance."""
-        if self._target_callback is None:
-            return  # No active target callback
-
-        if self._last_ra is None or self._last_dec is None:
-            return  # Don't have current position yet
-
-        if self._target_ra is None or self._target_dec is None:
-            return  # No target set
-
-        # Calculate distance from target
-        ra_diff = abs(self._last_ra - self._target_ra)
-        dec_diff = abs(self._last_dec - self._target_dec)
-
-        # Check if within tolerance
-        if ra_diff <= self._target_tolerance_deg and dec_diff <= self._target_tolerance_deg:
-            logger.info(f"Target reached: RA={self._last_ra:.4f}°, Dec={self._last_dec:.4f}° "
-                       f"(target was RA={self._target_ra:.4f}°, Dec={self._target_dec:.4f}°)")
-            # Call the callback and clear it
-            callback = self._target_callback
-            self._target_callback = None
-            self._target_ra = None
-            self._target_dec = None
-            callback()
-
-
-class MountControlIndi(MountControlBase):
-    """INDI-based telescope mount control implementation.
-
-    This class implements the MountControlBase interface using the INDI protocol
-    to communicate with telescope mounts. It connects to a local or remote INDI
-    server and controls any INDI-compatible mount.
-
-    Args:
-        mount_queue: Queue for receiving mount commands
-        console_queue: Queue for sending status messages to UI
-        shared_state: Shared state object for inter-process communication
-        log_queue: Queue for logging messages
-        indi_host: INDI server hostname (default: "localhost")
-        indi_port: INDI server port (default: 7624)
-    """
-
-    def __init__(self, mount_queue, console_queue, shared_state, log_queue,
-                 indi_host="localhost", indi_port=7624):
-        super().__init__(mount_queue, console_queue, shared_state, log_queue)
-
-        self.indi_host = indi_host
-        self.indi_port = indi_port
-
-        # Create INDI client
-        self.client = PiFinderIndiClient(self)
-        self.client.setServer(self.indi_host, self.indi_port)
-
-        # Connection will be established in init_mount()
-        self._connected = False
-        self._telescope = None
-
-    def _get_telescope_device(self):
-        """Get the telescope device from the INDI client.
-
-        Returns:
-            The telescope device if available, None otherwise.
-        """
-        return self.client.telescope_device
 
     def _wait_for_property(self, device, property_name, timeout=5.0):
         """Wait for a property to become available on a device.
@@ -208,13 +44,14 @@ class MountControlIndi(MountControlBase):
             if prop:
                 return prop
             time.sleep(0.1)
+        clientlogger.warning(f"Timeout waiting for property {property_name} on {device.getDeviceName()}")
         return None
 
-    def _set_switch(self, device_name, property_name, element_name, timeout=5.0):
-        """Set a switch property to ON.
+    def set_switch(self, device, property_name, element_name, timeout=5.0):
+        """Set a switch property element to ON.
 
         Args:
-            device_name: Name of the INDI device
+            device: The INDI device
             property_name: Name of the switch property
             element_name: Name of the switch element to turn ON
             timeout: Maximum time to wait for property
@@ -222,22 +59,18 @@ class MountControlIndi(MountControlBase):
         Returns:
             True if successful, False otherwise.
         """
-        device = self._get_telescope_device()
-        if not device:
-            logger.error(f"Device {device_name} not available")
-            return False
-
-        # Wait for property to be available, then get as properly typed switch
-        if not self._wait_for_property(device, property_name, timeout):
-            logger.error(f"Property {property_name} not available on {device_name}")
+        # Wait for property to be available
+        prop = self._wait_for_property(device, property_name, timeout)
+        if not prop:
+            clientlogger.error(f"Property {property_name} not available on {device.getDeviceName()}")
             return False
 
         switch_prop = device.getSwitch(property_name)
         if not switch_prop:
-            logger.error(f"Could not get switch property {property_name} on {device_name}")
+            clientlogger.error(f"Could not get switch property {property_name} on {device.getDeviceName()}")
             return False
 
-        # Find and activate the switch
+        # Set the switch - turn on the specified element, turn off all others
         for i in range(len(switch_prop)):
             switch = switch_prop[i]
             if switch.name == element_name:
@@ -245,14 +78,43 @@ class MountControlIndi(MountControlBase):
             else:
                 switch.s = PyIndi.ISS_OFF
 
-        self.client.sendNewSwitch(switch_prop)
+        self.sendNewSwitch(switch_prop)
         return True
 
-    def _set_number(self, device_name, property_name, values, timeout=5.0):
+    def set_switch_off(self, device, property_name, timeout=5.0):
+        """Set all elements of a switch property to OFF.
+
+        Args:
+            device: The INDI device
+            property_name: Name of the switch property
+            timeout: Maximum time to wait for property
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        # Wait for property to be available
+        prop = self._wait_for_property(device, property_name, timeout)
+        if not prop:
+            clientlogger.error(f"Property {property_name} not available on {device.getDeviceName()}")
+            return False
+
+        switch_prop = device.getSwitch(property_name)
+        if not switch_prop:
+            clientlogger.error(f"Could not get switch property {property_name} on {device.getDeviceName()}")
+            return False
+
+        # Set all switches to OFF
+        for i in range(len(switch_prop)):
+            switch_prop[i].s = PyIndi.ISS_OFF
+
+        self.sendNewSwitch(switch_prop)
+        return True
+
+    def set_number(self, device, property_name, values, timeout=5.0):
         """Set numeric property values.
 
         Args:
-            device_name: Name of the INDI device
+            device: The INDI device
             property_name: Name of the numeric property
             values: Dictionary mapping element names to values
             timeout: Maximum time to wait for property
@@ -260,19 +122,15 @@ class MountControlIndi(MountControlBase):
         Returns:
             True if successful, False otherwise.
         """
-        device = self._get_telescope_device()
-        if not device:
-            logger.error(f"Device {device_name} not available")
-            return False
-
-        # Wait for property to be available, then get as properly typed number property
-        if not self._wait_for_property(device, property_name, timeout):
-            logger.error(f"Property {property_name} not available on {device_name}")
+        # Wait for property to be available
+        prop = self._wait_for_property(device, property_name, timeout)
+        if not prop:
+            clientlogger.error(f"Property {property_name} not available on {device.getDeviceName()}")
             return False
 
         num_prop = device.getNumber(property_name)
         if not num_prop:
-            logger.error(f"Could not get number property {property_name} on {device_name}")
+            clientlogger.error(f"Could not get number property {property_name} on {device.getDeviceName()}")
             return False
 
         # Set the values
@@ -281,8 +139,242 @@ class MountControlIndi(MountControlBase):
             if num.name in values:
                 num.value = values[num.name]
 
-        self.client.sendNewNumber(num_prop)
+        self.sendNewNumber(num_prop)
         return True
+
+    def set_text(self, device, property_name, values, timeout=5.0):
+        """Set text property values.
+
+        Args:
+            device: The INDI device
+            property_name: Name of the text property
+            values: Dictionary mapping element names to string values
+            timeout: Maximum time to wait for property
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        # Wait for property to be available
+        prop = self._wait_for_property(device, property_name, timeout)
+        if not prop:
+            clientlogger.error(f"Property {property_name} not available on {device.getDeviceName()}")
+            return False
+
+        text_prop = device.getText(property_name)
+        if not text_prop:
+            clientlogger.error(f"Could not get text property {property_name} on {device.getDeviceName()}")
+            return False
+
+        # Set the values
+        for i in range(len(text_prop)):
+            text = text_prop[i]
+            if text.name in values:
+                text.text = values[text.name]
+
+        self.sendNewText(text_prop)
+        return True
+
+    def newDevice(self, device):
+        """Called when a new device is detected by the INDI server."""
+        device_name = device.getDeviceName().lower()
+        # Match telescope/mount devices, but exclude CCD and Focuser simulators
+        if self.telescope_device is None:
+            if (any(keyword in device_name for keyword in ["telescope", "mount", "eqmod", "lx200"]) or
+                device_name == "telescope simulator"):
+                self.telescope_device = device
+                clientlogger.info(f"Telescope device detected: {device.getDeviceName()}")
+
+    def removeDevice(self, device):
+        """Called when a device is removed from the INDI server."""
+        if self.telescope_device and device.getDeviceName() == self.telescope_device.getDeviceName():
+            clientlogger.warning(f"Telescope device removed: {device.getDeviceName()}")
+            self.telescope_device = None
+
+    def newProperty(self, property):
+        """Called when a new property is created for a device."""
+        clientlogger.debug(f"New property: {property.getName()} on device {property.getDeviceName()}")
+
+    def removeProperty(self, property):
+        """Called when a property is deleted from a device."""
+        clientlogger.debug(f"Property removed: {property.getName()} on device {property.getDeviceName()}")
+
+    def newBLOB(self, bp):
+        """Handle new BLOB property updates (not used for mount control)."""
+        pass
+
+    def newSwitch(self, svp):
+        """Handle new switch property value updates."""
+        # Monitor TELESCOPE_MOTION_* for tracking state changes
+        pass
+
+    def newNumber(self, nvp):
+        """Handle new number property value updates.
+
+        This is called when numeric properties change, including:
+        - EQUATORIAL_EOD_COORD or EQUATORIAL_COORD: Current RA/Dec position
+        - Target position updates
+        """
+        clientlogger.debug(f"New number property: {nvp.getName()} on device {nvp.getDeviceName()}")
+        if nvp.name == "EQUATORIAL_EOD_COORD":
+            # Position update - extract RA and Dec
+            ra_hours = None
+            dec_deg = None
+
+            for widget in nvp:
+                if widget.name == "RA":
+                    ra_hours = widget.value
+                elif widget.name == "DEC":
+                    dec_deg = widget.value
+
+            if ra_hours is not None and dec_deg is not None:
+                ra_deg = ra_hours * 15.0  # Convert hours to degrees
+                self.mount_control._mount_current_position(ra_deg, dec_deg)
+
+    def newText(self, tvp):
+        """Handle new text property value updates."""
+        pass
+
+    def newLight(self, lvp):
+        """Handle new light property value updates."""
+        pass
+
+    def newMessage(self, device, message):
+        """Handle messages from INDI devices."""
+        clientlogger.info(f"INDI message from {device.getDeviceName()}: {device.messageQueue(message)}")
+
+    def serverConnected(self):
+        """Called when successfully connected to INDI server."""
+        clientlogger.info("Connected to INDI server.")
+
+    def serverDisconnected(self, code):
+        """Called when disconnected from INDI server."""
+        clientlogger.warning(f"Disconnected from INDI server with code {code}.")
+
+    def updateProperty(self, property):
+        """Called when a property is updated."""
+        if property.getDeviceName() != (self.telescope_device.getDeviceName() if self.telescope_device else None):
+            if property.getName() not in ["MOUNT_AXES", "TARGET_EOD_COORD"]:
+                clientlogger.debug(f"Property updated: {property.getName()} on device {property.getDeviceName()} of type {property.getType()}")
+        nvp = PyIndi.PropertyNumber(property)
+        if nvp.isValid():
+            if "MOUNT_AXES" == nvp.getName():
+                for widget in nvp:
+                    if widget.name == "PRIMARY":
+                        self._axis_primary = widget.value
+                    elif widget.name == "SECONDARY":
+                        self._axis_secondary = widget.value
+            elif "TARGET_EOD_COORD" == nvp.getName():
+                current_ra = None
+                current_dec = None
+                for widget in nvp:
+                    if widget.name == "RA":
+                        current_ra = widget.value * 15.0  # Convert hours to degrees
+                    elif widget.name == "DEC":
+                        current_dec = widget.value
+                if current_ra is not None and current_dec is not None:
+                    clientlogger.debug(f"Current position updated: RA={current_ra:.4f}°, Dec={current_dec:.4f}°")
+                    self.mount_control._mount_current_position(current_ra, current_dec)
+
+class MountControlIndi(MountControlBase):
+    """INDI-based telescope mount control implementation.
+
+    This class implements the MountControlBase interface using the INDI protocol
+    to communicate with telescope mounts. It connects to a local or remote INDI
+    server and controls any INDI-compatible mount.
+
+    Args:
+        mount_queue: Queue for receiving mount commands
+        console_queue: Queue for sending status messages to UI
+        shared_state: Shared state object for inter-process communication
+        log_queue: Queue for logging messages
+        indi_host: INDI server hostname (default: "localhost")
+        indi_port: INDI server port (default: 7624)
+    """
+
+    def __init__(self, mount_queue, console_queue, shared_state, log_queue,
+                 indi_host="localhost", indi_port=7624, target_tolerance_deg=0.01):
+        super().__init__(mount_queue, console_queue, shared_state, log_queue)
+
+        self.indi_host = indi_host
+        self.indi_port = indi_port
+
+        # Create INDI client
+        self.client = PiFinderIndiClient(self)
+        self.client.setServer(self.indi_host, self.indi_port)
+
+        # Connection will be established in init_mount()
+        self._connected = False
+        self._telescope = None
+
+        self.current_ra = None
+        self.current_dec = None
+
+        self._target_ra = None
+        self._target_dec = None
+        self._target_tolerance_deg = target_tolerance_deg
+
+        # Available slew rates (will be populated during init_mount)
+        self.available_slew_rates = []
+
+    def _get_telescope_device(self):
+        """Get the telescope device from the INDI client.
+
+        Returns:
+            The telescope device if available, None otherwise.
+        """
+        return self.client.telescope_device
+
+    def _mount_current_position(self, ra_deg: float, dec_deg: float) -> None:
+        """Update the current position of the mount.
+
+        Args:
+            ra_deg: Right Ascension in degrees
+            dec_deg: Declination in degrees
+        """
+        self.current_ra = ra_deg
+        self.current_dec = dec_deg
+        self.mount_current_position(ra_deg, dec_deg)
+        if self._check_target_reached():
+            logger.info(f"Target reached: RA={self.current_ra:.4f}°, Dec={self.current_dec:.4f}° "
+                       f"(target was RA={self._target_ra:.4f}°, Dec={self._target_dec:.4f}°)")
+            # Clear target to avoid repeated notifications
+            self._target_ra = None
+            self._target_dec = None
+            self.mount_target_reached()
+
+    def _radec_diff(self, ra1: float, dec1: float, ra2: float, dec2: float) -> (float, float):
+        """Calculate the difference between two RA/Dec positions in degrees.
+
+        Args:
+            ra1: First RA in degrees
+            dec1: First Dec in degrees
+            ra2: Second RA in degrees
+            dec2: Second Dec in degrees
+        Returns:
+            Tuple of (delta_ra, delta_dec) in degrees
+        """
+        # Calculate RA difference accounting for wrap-around at 360°
+        ra_diff = ra2 - ra1
+        if ra_diff > 180:
+            ra_diff -= 360
+        elif ra_diff < -180:
+            ra_diff += 360
+        dec_diff = dec2 - dec1 # Dec -90 .. +90, no wrap-around
+        return (ra_diff, dec_diff)
+
+    def _check_target_reached(self) -> bool:
+        """Check if the current position matches the target position within tolerance."""
+
+        if self._target_ra is None or self._target_dec is None or self.current_ra is None or self.current_dec is None:
+            return False
+
+        ra_diff, dec_diff = self._radec_diff(self.current_ra, self.current_dec, self._target_ra, self._target_dec)
+
+        # Check if within tolerance
+        if abs(ra_diff) <= self._target_tolerance_deg and abs(dec_diff) <= self._target_tolerance_deg:
+            return True
+
+
 
     # Implementation of abstract methods from MountControlBase
 
@@ -327,7 +419,7 @@ class MountControlIndi(MountControlBase):
             device_name = device.getDeviceName()
 
             # Check CONNECTION property
-            if self._wait_for_property(device, "CONNECTION"):
+            if self.client._wait_for_property(device, "CONNECTION"):
                 connect_prop = device.getSwitch("CONNECTION")
                 if connect_prop:
                     # Check if already connected
@@ -337,7 +429,7 @@ class MountControlIndi(MountControlBase):
                             return True
 
                     # Connect the device
-                    if not self._set_switch(device_name, "CONNECTION", "CONNECT"):
+                    if not self.client.set_switch(device, "CONNECTION", "CONNECT"):
                         logger.error(f"Failed to connect telescope device {device_name}")
                         return False
 
@@ -351,7 +443,7 @@ class MountControlIndi(MountControlBase):
                 if elevation_m is not None:
                     values["ELEV"] = elevation_m
 
-                if self._set_number(device_name, "GEOGRAPHIC_COORD", values):
+                if self.client.set_number(device, "GEOGRAPHIC_COORD", values):
                     logger.info(f"Geographic coordinates set: Lat={latitude_deg}°, Lon={longitude_deg}°, Elev={elevation_m}m")
                 else:
                     logger.warning("Failed to set geographic coordinates")
@@ -363,19 +455,35 @@ class MountControlIndi(MountControlBase):
                     import datetime
                     dt = datetime.datetime.fromisoformat(utc_time)
 
-                    # INDI expects separate date and time values
+                    # Calculate UTC offset in hours (0 for UTC)
+                    utc_offset = 0
+
+                    # TIME_UTC is a text property with format: UTC="YYYY-MM-DDTHH:MM:SS" and OFFSET="hours"
                     utc_values = {
-                        "UTC": f"{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}",
-                        "OFFSET": "0"  # UTC offset is 0
+                        "UTC": dt.isoformat(),
+                        "OFFSET": str(utc_offset)
                     }
 
-                    # Some drivers may want UTC_TIME instead
-                    if self._set_number(device_name, "TIME_UTC", utc_values):
+                    if self.client.set_text(device, "TIME_UTC", utc_values):
                         logger.info(f"UTC time set: {utc_time}")
                     else:
                         logger.warning("Failed to set UTC time")
                 except (ValueError, AttributeError) as e:
                     logger.error(f"Invalid UTC time format '{utc_time}': {e}")
+
+            # Read available slew rates from TELESCOPE_SLEW_RATE property
+            slew_rate_prop = self.client._wait_for_property(device, "TELESCOPE_SLEW_RATE", timeout=2.0)
+            if slew_rate_prop:
+                slew_rate_switch = device.getSwitch("TELESCOPE_SLEW_RATE")
+                if slew_rate_switch:
+                    self.available_slew_rates = []
+                    for widget in slew_rate_switch:
+                        self.available_slew_rates.append(widget.name)
+                    logger.info(f"Available slew rates: {', '.join(self.available_slew_rates)}")
+                else:
+                    logger.warning("Could not get TELESCOPE_SLEW_RATE switch property")
+            else:
+                logger.warning("TELESCOPE_SLEW_RATE property not available on this mount")
 
             return True
 
@@ -385,6 +493,8 @@ class MountControlIndi(MountControlBase):
 
     def sync_mount(self, current_position_ra_deg: float, current_position_dec_deg: float) -> bool:
         """Sync the mount to the specified position.
+
+        Activates tracking after coordinates are set as next command and activates tracking.
 
         Args:
             current_position_ra_deg: Current RA in degrees
@@ -399,10 +509,8 @@ class MountControlIndi(MountControlBase):
                 logger.error("Telescope device not available for sync")
                 return False
 
-            device_name = device.getDeviceName()
-
             # First set ON_COORD_SET to SYNC mode
-            if not self._set_switch(device_name, "ON_COORD_SET", "SYNC"):
+            if not self.client.set_switch(device, "ON_COORD_SET", "SYNC"):
                 logger.error("Failed to set ON_COORD_SET to SYNC")
                 return False
 
@@ -410,12 +518,25 @@ class MountControlIndi(MountControlBase):
             ra_hours = current_position_ra_deg / 15.0
 
             # Set target coordinates
-            if not self._set_number(device_name, "EQUATORIAL_EOD_COORD",
+            if not self.client.set_number(device, "EQUATORIAL_EOD_COORD",
                                    {"RA": ra_hours, "DEC": current_position_dec_deg}):
                 logger.error("Failed to set sync coordinates")
                 return False
 
+            if not self.client.set_switch(device, "ON_COORD_SET", "TRACK"):
+                logger.error("Failed to set ON_COORD_SET to TRACK (after sync)")
+                return False
+
+            if not self.client.set_switch(device, "TELESCOPE_TRACK_STATE", "TRACK_ON"):
+                logger.error("Failed to set telescope to tracking")
+                return False
+
+
             logger.info(f"Mount synced to RA={current_position_ra_deg:.4f}°, Dec={current_position_dec_deg:.4f}°")
+            self.current_ra = current_position_ra_deg
+            self.current_dec = current_position_dec_deg
+            self._target_dec = None
+            self._target_ra = None
             return True
 
         except Exception as e:
@@ -434,10 +555,8 @@ class MountControlIndi(MountControlBase):
                 logger.error("Telescope device not available for stop")
                 return False
 
-            device_name = device.getDeviceName()
-
             # Send TELESCOPE_ABORT_MOTION command
-            if not self._set_switch(device_name, "TELESCOPE_ABORT_MOTION", "ABORT"):
+            if not self.client.set_switch(device, "TELESCOPE_ABORT_MOTION", "ABORT"):
                 logger.error("Failed to send abort motion command")
                 return False
 
@@ -467,10 +586,8 @@ class MountControlIndi(MountControlBase):
                 logger.error("Telescope device not available for goto")
                 return False
 
-            device_name = device.getDeviceName()
-
             # Set ON_COORD_SET to TRACK mode (goto and track)
-            if not self._set_switch(device_name, "ON_COORD_SET", "TRACK"):
+            if not self.client.set_switch(device, "ON_COORD_SET", "TRACK"):
                 logger.error("Failed to set ON_COORD_SET to TRACK")
                 return False
 
@@ -478,15 +595,15 @@ class MountControlIndi(MountControlBase):
             ra_hours = target_ra_deg / 15.0
 
             # Set target coordinates
-            if not self._set_number(device_name, "EQUATORIAL_EOD_COORD",
+            if not self.client.set_number(device, "EQUATORIAL_EOD_COORD",
                                    {"RA": ra_hours, "DEC": target_dec_deg}):
                 logger.error("Failed to set goto coordinates")
                 return False
 
             logger.info(f"Mount commanded to goto RA={target_ra_deg:.4f}°, Dec={target_dec_deg:.4f}°")
+            self._target_ra = target_ra_deg
+            self._target_dec = target_dec_deg
 
-            self.client.setCallbackForTarget(target_ra_deg, target_dec_deg, self.mount_target_reached)
-            
             return True
 
         except Exception as e:
@@ -508,7 +625,7 @@ class MountControlIndi(MountControlBase):
         logger.warning("Drift rate control not yet implemented for INDI")
         return False
 
-    def move_mount_manual(self, direction: MountDirections, step_deg: float) -> bool:
+    def move_mount_manual(self, direction: MountDirections, slew_rate: str, duration: float) -> bool:
         """Move the mount manually in the specified direction.
 
         Args:
@@ -523,8 +640,6 @@ class MountControlIndi(MountControlBase):
             if not device:
                 logger.error("Telescope device not available for manual movement")
                 return False
-
-            device_name = device.getDeviceName()
 
             # Map direction to INDI motion commands
             motion_map = {
@@ -548,27 +663,29 @@ class MountControlIndi(MountControlBase):
             # timed pulses or jog commands. For simplicity, we'll use motion on/off.
             # A better implementation would calculate timing based on step_deg.
 
+            (prev_ra, prev_dec) = (self.current_ra, self.current_dec)
+            logger.info(f"START manual movement {direction} by {slew_rate} at RA={prev_ra:.7f}, Dec={prev_dec:.7f}")
+
+            # Set slew rate based on passed velocity
+            if slew_rate in self.available_slew_rates:
+                if not self.client.set_switch(device, "TELESCOPE_SLEW_RATE", slew_rate):
+                    logger.warning(f"Failed to set slew rate to {slew_rate}")
+            else: 
+                logger.warning(f"Unknown slew rate setting: {slew_rate} (not in available rates: {self.available_slew_rates})")
+                return False
+            
             # Turn on motion
-            if not self._set_switch(device_name, property_name, element_name):
+            if not self.client.set_switch(device, property_name, element_name):
                 logger.error(f"Failed to start manual movement {direction}")
                 return False
 
-            # Calculate duration based on step size (rough estimate)
-            # Assume 1 degree/second slew rate for manual movements
-            duration = step_deg
-
-            # Wait for the calculated duration
+            # Wait for the passed duration
             time.sleep(duration)
 
             # Turn off motion by setting all switches to OFF
-            device = self._get_telescope_device()
-            motion_prop = device.getSwitch(property_name)
-            if motion_prop:
-                for i in range(len(motion_prop)):
-                    motion_prop[i].s = PyIndi.ISS_OFF
-                self.client.sendNewSwitch(motion_prop)
+            if not self.client.set_switch_off(device, property_name):
+                logger.warning(f"Failed to stop motion for {property_name}")
 
-            logger.info(f"Manual movement {direction} by {step_deg}° completed")
             return True
 
         except Exception as e:
@@ -598,9 +715,8 @@ class MountControlIndi(MountControlBase):
         try:
             device = self._get_telescope_device()
             if device:
-                device_name = device.getDeviceName()
-                self._set_switch(device_name, "CONNECTION", "DISCONNECT")
-                logger.info(f"Telescope {device_name} disconnected")
+                self.client.set_switch(device, "CONNECTION", "DISCONNECT")
+                logger.info(f"Telescope {device.getDeviceName()} disconnected")
 
             if self._connected:
                 self.client.disconnectServer()

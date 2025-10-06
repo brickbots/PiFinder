@@ -126,7 +126,7 @@ class MountControlBase:
         move_mount_to_target(target_position_radec): Move the mount to the specified target position.
         set_mount_drift_rates(drift_rate_ra, drift_rate_dec): Set the mount's drift rates.
         spiral_search(center_position_radec, max_radius_deg, step_size_deg): Perform a spiral search.
-        move_mount_manual(direction, speed): Move the mount manually in a specified direction and speed.
+        move_mount_manual(direction, speed, duration): Move the mount manually in a specified direction and speed.
 
     Notification methods for subclasses to call:
         mount_current_position(current_mount_position_radec): Report current mount position.
@@ -265,7 +265,7 @@ class MountControlBase:
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
     
-    def move_mount_manual(self, direction: MountDirections, step_deg: float) -> bool:
+    def move_mount_manual(self, direction: MountDirections, slew_rate: str, duration: float) -> bool:
         """ Move the mount manually in the specified direction using the mount's current step size.
 
         The subclass needs to return a boolean indicating success or failure, 
@@ -274,7 +274,8 @@ class MountControlBase:
 
         Args:
             direction: The direction to move see MountDirections and its subclasses.
-            step_deg: The step size in degrees to move the mount.
+            slew_rate: The slew rate used to move the mount.
+            duration: Duration in seconds to move the mount.
         Returns:
             bool: True if manual movement command was successful, False otherwise.
 
