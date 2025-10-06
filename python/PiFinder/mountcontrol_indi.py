@@ -848,12 +848,12 @@ class MountControlIndi(MountControlBase):
 
 
 def run(
-    mount_queue,
-    console_queue,
-    shared_state,
-    log_queue,
-    indi_host="localhost",
-    indi_port=7624,
+    mount_queue: Queue,
+    console_queue: Queue,
+    shared_state: SharedStateObj,
+    log_queue: Queue,
+    indi_host: str ="localhost",
+    indi_port: int =7624,
 ):
     """Run the INDI mount control process.
 
