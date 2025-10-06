@@ -11,10 +11,18 @@ import logging
 from enum import Enum, auto
 from queue import Queue
 import time
-from typing import Iterator
+from typing import TYPE_CHECKING, Generator, Iterator, Optional, Any
 
 from PiFinder.state import SharedStateObj
+
 import PiFinder.i18n  # noqa: F401
+
+# Mypy i8n fix
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
+
 
 logger = logging.getLogger("MountControl")
 
@@ -174,19 +182,27 @@ class MountControlBase:
         self.shared_state = shared_state
         self.log_queue = log_queue
 
-        self.current_ra = None  # Mount current Right Ascension in degrees, or None
-        self.current_dec = None  # Mount current Declination in degrees, or None
+        self.current_ra: Optional[float] = (
+            None  # Mount current Right Ascension in degrees, or None
+        )
+        self.current_dec: Optional[float] = (
+            None  # Mount current Declination in degrees, or None
+        )
 
-        self.target_ra = None  # Target Right Ascension in degrees, or None
-        self.target_dec = None  # Target Declination in degrees, or None
+        self.target_ra: Optional[float] = (
+            None  # Target Right Ascension in degrees, or None
+        )
+        self.target_dec: Optional[float] = (
+            None  # Target Declination in degrees, or None
+        )
 
         self.target_reached = (
             False  # Flag indicating if the target has been reached by th mount
         )
 
-        self.step_size = 1.0  # Default step size for manual movements in degrees
+        self.step_size: float = 1.0  # Default step size for manual movements in degrees
 
-        self.state = MountControlPhases.MOUNT_INIT_TELESCOPE
+        self.state: MountControlPhases = MountControlPhases.MOUNT_INIT_TELESCOPE
 
     #
     # Methods to be overridden by subclasses for controlling the specifics of a mount
@@ -194,10 +210,10 @@ class MountControlBase:
 
     def init_mount(
         self,
-        latitude_deg: float = None,
-        longitude_deg: float = None,
-        elevation_m: float = None,
-        utc_time: str = None,
+        latitude_deg: Optional[float] = None,
+        longitude_deg: Optional[float] = None,
+        elevation_m: Optional[float] = None,
+        utc_time: Optional[str] = None,
     ) -> bool:
         """Initialize the mount, so that we receive updates and can send commands.
 
@@ -381,10 +397,14 @@ class MountControlBase:
     # Helper methods to decorate mount control methods with state management
     #
     def _stop_mount(self) -> bool:
-        self.mount_stopped = False  # Wait for notification
-        return self.stop_mount()
+        if self.state != MountControlPhases.MOUNT_STOPPED:
+            return self.stop_mount()
+        else:
+            return True
 
-    def _move_mount_manual(self, direction) -> bool:
+    def _move_mount_manual(
+        self, direction: MountDirections, slew_rate: str, duration: float
+    ) -> bool:
         """Convert string direction to enum and move mount manually."""
         # Convert string to enum if needed (case-insensitive)
         if isinstance(direction, str):
@@ -415,7 +435,7 @@ class MountControlBase:
                 logger.warning(f"Failed to convert direction string '{direction}': {e}")
                 return False
 
-        success = self.move_mount_manual(direction, self.step_size)
+        success = self.move_mount_manual(direction, slew_rate, duration)
         if success:
             if (
                 self.state != MountControlPhases.MOUNT_TRACKING
@@ -443,7 +463,7 @@ class MountControlBase:
 
     def _process_command(
         self, command, retry_count: int = 3, delay: float = 2.0
-    ) -> None:
+    ) -> Generator:
         """Process a command received from the mount queue.
         This is a generator function that yields control back to the main loop to allow for mount state processing and retries.
         This function does not call mount control methods directly, but calls internal helper functions that in addition manage state.
@@ -513,9 +533,11 @@ class MountControlBase:
 
         elif command["type"] == "manual_movement":
             direction = command["direction"]
+            slew_rate = command["slew_rate"]
+            duration = command["duration"]
             logger.debug(f"Mount: Manual movement - direction={direction}")
             # Not retrying these.
-            if not self._move_mount_manual(direction):
+            if not self._move_mount_manual(direction, slew_rate, duration):
                 logger.warning("Mount: Manual movement failed")
                 self.console_queue.put(["WARNING", _("Mount did not move!")])
 
@@ -599,12 +621,6 @@ class MountControlBase:
             # Wait for mount to reach target
             if self.target_reached:
                 self.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
-                return
-            if self.mount_stopped:
-                self.state = MountControlPhases.MOUNT_STOPPED
-                self.console_queue.put(
-                    ["INFO", _("Mount stopped before reaching target.")]
-                )
                 return
 
         elif self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
@@ -730,9 +746,6 @@ class MountControlBase:
             # Handle drift compensation
             # TODO implement drift compensation logic
             # For now, just stay in this state.
-            return
-        elif self.state == MountControlPhases.MOUNT_TRACKING:
-            # Handle tracking state
             return
         elif self.state == MountControlPhases.MOUNT_SPIRAL_SEARCH:
             # Handle spiral search state

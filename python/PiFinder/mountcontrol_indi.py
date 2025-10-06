@@ -1,3 +1,5 @@
+from queue import Queue
+from typing import List, Optional, Tuple
 from PiFinder.mountcontrol_interface import (
     MountControlBase,
     MountDirections,
@@ -9,6 +11,7 @@ import logging
 import time
 
 from PiFinder.multiproclogging import MultiprocLogging
+from PiFinder.state import SharedStateObj
 
 logger = logging.getLogger("IndiMountControl")
 clientlogger = logging.getLogger("IndiMountControl.PyIndi")
@@ -343,13 +346,13 @@ class MountControlIndi(MountControlBase):
 
     def __init__(
         self,
-        mount_queue,
-        console_queue,
-        shared_state,
-        log_queue,
-        indi_host="localhost",
-        indi_port=7624,
-        target_tolerance_deg=0.01,
+        mount_queue: Queue,
+        console_queue: Queue,
+        shared_state: SharedStateObj,
+        log_queue: Queue,
+        indi_host: str = "localhost",
+        indi_port: int = 7624,
+        target_tolerance_deg: float = 0.01,
     ):
         super().__init__(mount_queue, console_queue, shared_state, log_queue)
 
@@ -361,18 +364,18 @@ class MountControlIndi(MountControlBase):
         self.client.setServer(self.indi_host, self.indi_port)
 
         # Connection will be established in init_mount()
-        self._connected = False
+        self._connected: bool = False
         self._telescope = None
 
-        self.current_ra = None
-        self.current_dec = None
+        self.current_ra: Optional[float] = None
+        self.current_dec: Optional[float] = None
 
-        self._target_ra = None
-        self._target_dec = None
+        self._target_ra: Optional[float] = None
+        self._target_dec: Optional[float] = None
         self._target_tolerance_deg = target_tolerance_deg
 
         # Available slew rates (will be populated during init_mount)
-        self.available_slew_rates = []
+        self.available_slew_rates: List[str] = []
 
     def _get_telescope_device(self):
         """Get the telescope device from the INDI client.
@@ -404,7 +407,7 @@ class MountControlIndi(MountControlBase):
 
     def _radec_diff(
         self, ra1: float, dec1: float, ra2: float, dec2: float
-    ) -> (float, float):
+    ) -> Tuple[float, float]:
         """Calculate the difference between two RA/Dec positions in degrees.
 
         Args:
@@ -440,20 +443,19 @@ class MountControlIndi(MountControlBase):
         )
 
         # Check if within tolerance
-        if (
+        return (
             abs(ra_diff) <= self._target_tolerance_deg
             and abs(dec_diff) <= self._target_tolerance_deg
-        ):
-            return True
+        )
 
     # Implementation of abstract methods from MountControlBase
 
     def init_mount(
         self,
-        latitude_deg: float = None,
-        longitude_deg: float = None,
-        elevation_m: float = None,
-        utc_time: str = None,
+        latitude_deg: Optional[float] = None,
+        longitude_deg: Optional[float] = None,
+        elevation_m: Optional[float] = None,
+        utc_time: Optional[str] = None,
     ) -> bool:
         """Initialize connection to the INDI mount.
 

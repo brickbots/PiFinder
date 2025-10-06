@@ -8,7 +8,8 @@ from unittest.mock import Mock, MagicMock, patch
 
 # Check if PyIndi is available for integration tests
 try:
-    import PyIndi
+    # Ignoring unused import, we want to skip the integration tests, if PyIndi is not available below.
+    import PyIndi  # noqa: F401
 
     PYINDI_AVAILABLE = True
 except ImportError:
@@ -23,6 +24,7 @@ from PiFinder.mountcontrol_interface import (
 from PiFinder.state import SharedStateObj
 
 
+@pytest.mark.smoke
 class TestMountControlIndiUnit:
     """Unit tests for MountControlIndi with mocked PyIndi."""
 
@@ -122,10 +124,18 @@ class TestMountControlIndiUnit:
 
         # Verify
         assert result is True
-        # Verify set_switch was called with ON_COORD_SET to SYNC
-        self.mock_indi_client.set_switch.assert_called_with(
-            self.mock_telescope, "ON_COORD_SET", "SYNC"
-        )
+
+        # Verify all the set_switch calls were made in order
+        calls = self.mock_indi_client.set_switch.call_args_list
+        assert len(calls) == 3, f"Expected 3 set_switch calls, got {len(calls)}"
+
+        # First call: set ON_COORD_SET to SYNC
+        assert calls[0][0] == (self.mock_telescope, "ON_COORD_SET", "SYNC")
+        # Second call: set ON_COORD_SET to TRACK
+        assert calls[1][0] == (self.mock_telescope, "ON_COORD_SET", "TRACK")
+        # Third call: set TELESCOPE_TRACK_STATE to TRACK_ON
+        assert calls[2][0] == (self.mock_telescope, "TELESCOPE_TRACK_STATE", "TRACK_ON")
+
         # Verify set_number was called with coordinates (RA converted to hours)
         self.mock_indi_client.set_number.assert_called_with(
             self.mock_telescope,
@@ -201,42 +211,49 @@ class TestMountControlIndiUnit:
         # Setup
         self.mock_indi_client.telescope_device = self.mock_telescope
         self.mock_indi_client.set_switch.return_value = True
-
-        # Mock getSwitch for turning off motion
-        mock_motion_prop = MagicMock()
-        mock_north_switch = MagicMock()
-        mock_north_switch.name = "MOTION_NORTH"
-        mock_north_switch.s = PyIndi.ISS_OFF
-        mock_south_switch = MagicMock()
-        mock_south_switch.name = "MOTION_SOUTH"
-        mock_south_switch.s = PyIndi.ISS_OFF
-        mock_motion_prop.__len__ = MagicMock(return_value=2)
-        mock_motion_prop.__getitem__ = MagicMock(
-            side_effect=[mock_north_switch, mock_south_switch]
-        )
-        self.mock_telescope.getSwitch.return_value = mock_motion_prop
+        self.mock_indi_client.set_switch_off.return_value = True
+        # Mock available slew rates
+        self.mount_control.available_slew_rates = [
+            "SLEW_GUIDE",
+            "SLEW_CENTERING",
+            "SLEW_FIND",
+            "SLEW_MAX",
+        ]
+        # Set initial position to avoid None in formatting
+        self.mount_control.current_ra = 45.0
+        self.mount_control.current_dec = 30.0
 
         # Execute manual movement
         with patch("time.sleep"):  # Mock sleep to speed up test
             result = self.mount_control.move_mount_manual(
-                MountDirectionsEquatorial.NORTH, 1.0
+                MountDirectionsEquatorial.NORTH, "SLEW_GUIDE", 1.0
             )
 
         # Verify
         assert result is True
-        # Verify set_switch was called to start motion
-        self.mock_indi_client.set_switch.assert_called_with(
-            self.mock_telescope, "TELESCOPE_MOTION_NS", "MOTION_NORTH"
+
+        # Verify set_switch calls
+        calls = self.mock_indi_client.set_switch.call_args_list
+        # Should have two calls: one for slew rate, one for motion start
+        assert len(calls) >= 2
+
+        # Check slew rate was set
+        assert any("TELESCOPE_SLEW_RATE" in str(call) for call in calls)
+        # Check motion was started
+        assert any(
+            "TELESCOPE_MOTION_NS" in str(call) and "MOTION_NORTH" in str(call)
+            for call in calls
         )
-        # Verify sendNewSwitch was called to stop motion
-        self.mock_indi_client.sendNewSwitch.assert_called_once()
+
+        # Verify set_switch_off was called to stop motion
+        self.mock_indi_client.set_switch_off.assert_called_once()
 
     def test_move_mount_manual_no_device(self):
         """Test manual movement when no telescope device available."""
         self.mock_indi_client.telescope_device = None
 
         result = self.mount_control.move_mount_manual(
-            MountDirectionsEquatorial.NORTH, 1.0
+            MountDirectionsEquatorial.NORTH, "SLEW_GUIDE", 1.0
         )
 
         assert result is False
