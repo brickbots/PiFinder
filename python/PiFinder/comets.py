@@ -33,7 +33,10 @@ def process_comet(comet_data, dt) -> Dict[str, Any]:
         + 5.0 * math.log10(earth_distance.au)
     )
     if mag > 15:
+        logger.debug(f"Filtering out {name}: mag={mag:.1f} (too dim)")
         return {}
+
+    logger.debug(f"Including {name}: mag={mag:.1f}")
 
     ra_dec = (ra._degrees, dec.degrees)
     # alt, az = sf_utils.radec_to_altaz(ra._degrees, dec.degrees, dt, atmos=False)
@@ -51,11 +54,56 @@ def process_comet(comet_data, dt) -> Dict[str, Any]:
     }
 
 
+def check_if_comet_download_needed(
+    local_filename, url=mpc.COMET_URL, timeout=5
+) -> Tuple[bool, str]:
+    """
+    Check if comet data download is needed by comparing local file with remote.
+
+    Args:
+        local_filename: Path to local file
+        url: URL to check
+        timeout: Request timeout in seconds
+
+    Returns:
+        Tuple of (need_download: bool, reason: str)
+    """
+    if not os.path.exists(local_filename):
+        return (True, "no existing file")
+
+    try:
+        # Send a HEAD request to get headers without downloading
+        response = requests.head(url, timeout=timeout)
+        response.raise_for_status()
+
+        last_modified = response.headers.get("Last-Modified")
+        if not last_modified:
+            return (False, "cannot verify remote date")
+
+        remote_date = datetime.strptime(
+            last_modified, "%a, %d %b %Y %H:%M:%S GMT"
+        ).replace(tzinfo=timezone.utc)
+
+        local_date = datetime.fromtimestamp(
+            os.path.getmtime(local_filename)
+        ).replace(tzinfo=timezone.utc)
+
+        if remote_date > local_date:
+            age_diff = (remote_date - local_date).total_seconds() / 86400
+            return (True, f"file outdated by {age_diff:.1f} days")
+        else:
+            return (False, "file is up to date")
+
+    except requests.RequestException as e:
+        logger.warning(f"Could not check remote file: {e}")
+        return (False, f"network error: {e}")
+
+
 def comet_data_download(
     local_filename, url=mpc.COMET_URL, progress_callback: Optional[Callable[[int], None]] = None
-) -> Tuple[bool, Optional[float]]:
+) -> Tuple[bool, Optional[float], Optional[float]]:
     """
-    Download the latest comet data from the Minor Planet Center.
+    Download comet data from the Minor Planet Center.
 
     Args:
         local_filename: Path to save the downloaded file
@@ -63,92 +111,52 @@ def comet_data_download(
         progress_callback: Optional callback function that receives progress percentage (0-100)
 
     Returns:
-        Tuple of (success: bool, age_in_days: Optional[float])
+        Tuple of (success: bool, age_in_days: Optional[float], file_mtime: Optional[float])
+        file_mtime is the file's modification time as a timestamp (for caching)
     """
     try:
         now = datetime.now(timezone.utc)
 
-        # Send a HEAD request to get headers without downloading the entire file
-        response = requests.head(url)
-        response.raise_for_status()  # Raise an exception for bad responses
+        logger.debug("Downloading comet data...")
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
 
-        # Try to get the Last-Modified header
+        # Get file size for progress calculation
+        total_size = int(response.headers.get('content-length', 0))
+        downloaded = 0
+
+        with open(local_filename, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+                    downloaded += len(chunk)
+
+                    # Report progress if callback provided and total size known
+                    if progress_callback and total_size > 0:
+                        progress = int((downloaded / total_size) * 100)
+                        progress_callback(progress)
+
+        # Try to get Last-Modified to set file mtime
         last_modified = response.headers.get("Last-Modified")
-
         if last_modified:
             remote_date = datetime.strptime(
                 last_modified, "%a, %d %b %Y %H:%M:%S GMT"
             ).replace(tzinfo=timezone.utc)
-            logger.debug(f"Remote Last-Modified: {remote_date}")
-
-            # Check if local file exists and its modification time
-            if os.path.exists(local_filename):
-                local_date = datetime.fromtimestamp(
-                    os.path.getmtime(local_filename)
-                ).replace(tzinfo=timezone.utc)
-                logger.debug(f"Local Last-Modified: {local_date}")
-
-                if remote_date <= local_date:
-                    logger.debug("Local file is up to date. No download needed.")
-                    if progress_callback:
-                        progress_callback(100)
-                    return True, round((now - local_date).days)
-
-            # Download the file if it's new or doesn't exist locally
-            logger.debug("Downloading new file...")
-            response = requests.get(url, stream=True)
-            response.raise_for_status()
-
-            # Get file size for progress calculation
-            total_size = int(response.headers.get('content-length', 0))
-            downloaded = 0
-
-            with open(local_filename, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-
-                        # Report progress if callback provided and total size known
-                        if progress_callback and total_size > 0:
-                            progress = int((downloaded / total_size) * 100)
-                            progress_callback(progress)
-
-            # Set the file's modification time to match the server's last-modified time
-            os.utime(local_filename, (remote_date.timestamp(), remote_date.timestamp()))
-
-            logger.debug("File downloaded successfully.")
-            if progress_callback:
-                progress_callback(100)
-            return True, round((now - remote_date).days)
+            file_mtime = remote_date.timestamp()
+            os.utime(local_filename, (file_mtime, file_mtime))
+            age_days = (now - remote_date).total_seconds() / 86400
         else:
-            logger.debug("Last-Modified header not available. Downloading file...")
-            response = requests.get(url, stream=True)
-            response.raise_for_status()
+            file_mtime = os.path.getmtime(local_filename)
+            age_days = None
 
-            # Get file size for progress calculation
-            total_size = int(response.headers.get('content-length', 0))
-            downloaded = 0
-
-            with open(local_filename, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-
-                        # Report progress if callback provided and total size known
-                        if progress_callback and total_size > 0:
-                            progress = int((downloaded / total_size) * 100)
-                            progress_callback(progress)
-
-            logger.debug("File downloaded successfully.")
-            if progress_callback:
-                progress_callback(100)
-            return True, None
+        logger.debug("File downloaded successfully.")
+        if progress_callback:
+            progress_callback(100)
+        return True, age_days, file_mtime
 
     except requests.RequestException as e:
         logger.error(f"Error downloading comet data: {e}")
-        return False, None
+        return False, None, None
 
 
 def calc_comets(dt, comet_names=None, progress_callback: Optional[Callable[[int], None]] = None) -> dict:

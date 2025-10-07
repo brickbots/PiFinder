@@ -26,7 +26,7 @@ from PiFinder.calc_utils import aim_degrees
 from PiFinder import utils
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.nearby import Nearby
-from PiFinder.catalogs import CatalogStatus, CatalogState
+from PiFinder.catalogs import CatalogState
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     name_deduplicate,

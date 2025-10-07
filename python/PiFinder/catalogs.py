@@ -1,13 +1,10 @@
 # mypy: ignore-errors
 import logging
-import os
 import time
 import datetime
 import pytz
-from enum import Enum
 from pprint import pformat
-import threading
-from typing import List, Dict, DefaultDict, Optional, Union, NamedTuple, Any
+from typing import List, Dict, DefaultDict, Optional, Union
 from collections import defaultdict
 import PiFinder.calc_utils as calc_utils
 from PiFinder.calc_utils import sf_utils
@@ -16,68 +13,26 @@ from PiFinder.db.db import Database
 from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.db.observations_db import ObservationsDatabase
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
-import PiFinder.comets as comets
-from PiFinder.utils import Timer, comet_file
+from PiFinder.utils import Timer
 from PiFinder.config import Config
+from PiFinder.catalog_base import (
+    CatalogState,
+    CatalogStatus,
+    CatalogBase,
+    TimerMixin,
+    VirtualIDManager,
+)
 
 logger = logging.getLogger("Catalog")
 
-
-class CatalogState(Enum):
-    """Status codes for catalog readiness"""
-
-    READY = "ready"  # Catalog is ready, empty list is due to filtering
-    NO_GPS = "no_gps"  # Waiting for GPS lock
-    DOWNLOADING = "downloading"  # Downloading data files
-    CALCULATING = "calculating"  # Calculating/initializing
-    ERROR = "error"  # Error state
-
-
-class CatalogStatus(NamedTuple):
-    """
-    Catalog status with state transition tracking.
-
-    current: Current state of the catalog
-    previous: Previous state (for detecting transitions)
-    data: Optional dict with additional state-specific data (e.g., progress info)
-    """
-    current: CatalogState
-    previous: CatalogState
-    data: Optional[Dict[str, Any]] = None
-
 # collection of all catalog-related classes
 
-# CatalogBase : just the CompositeObjects
+# CatalogBase : just the CompositeObjects (imported from catalog_base)
 # Catalog: extends the CatalogBase with filtering
 # CatalogIterator: TODO iterates over the composite_objects
 # CatalogFilter: can be set on catalog to filter
 # CatalogBuilder: builds catalogs from the database
 # Catalogs: holds all catalogs
-
-
-class ROArrayWrapper:
-    """Read-only array wrapper, to protect the underlying array"""
-
-    def __init__(self, composite_object_array):
-        self._array = composite_object_array
-
-    def __getitem__(self, key):
-        return self._array[key]
-
-    def __len__(self):
-        return len(self._array)
-
-    def __setitem__(self, key, value):
-        raise TypeError("This array is read-only")
-
-    def __delitem__(self, key):
-        raise TypeError("This array is read-only")
-
-    def __iter__(self):
-        return iter(self._array)
-
-    def __repr__(self):
-        return str(self._array)
 
 
 class Names:
@@ -301,102 +256,6 @@ class CatalogFilter:
         return [obj for obj in objects if self.apply_filter(obj)]
 
 
-def catalog_base_id_sort(obj: CompositeObject):
-    return obj.id
-
-
-def catalog_base_sequence_sort(obj: CompositeObject):
-    return obj.sequence
-
-
-class CatalogBase:
-    """Base class for Catalog, contains only the objects"""
-
-    def __init__(
-        self,
-        catalog_code: str,
-        desc: str,
-        max_sequence: int = 0,
-        sort=catalog_base_sequence_sort,
-    ):
-        self.catalog_code = catalog_code
-        self.max_sequence = max_sequence
-        self.desc = desc
-        self.sort = sort
-        self.__objects: List[CompositeObject] = []
-        self.id_to_pos: Dict[int, int]
-        self.sequence_to_pos: Dict[int, int]
-        self.catalog_code: str
-        self.max_sequence: int
-        self.desc: str
-        self.sort = sort
-
-    def get_objects(self) -> ROArrayWrapper:
-        return ROArrayWrapper(self.__objects)
-
-    def _get_objects(self) -> List[CompositeObject]:
-        return self.__objects
-
-    def add_object(self, obj: CompositeObject):
-        self._add_object(obj)
-        self._sort_objects()
-        self._update_id_to_pos()
-        self._update_sequence_to_pos()
-        assert self.check_sequences()
-
-    def _add_object(self, obj: CompositeObject):
-        self.__objects.append(obj)
-        if obj.sequence > self.max_sequence:
-            self.max_sequence = obj.sequence
-
-    def add_objects(self, objects: List[CompositeObject]):
-        objects_copy = objects.copy()
-        for obj in objects_copy:
-            self._add_object(obj)
-        self._sort_objects()
-        self._update_id_to_pos()
-        self._update_sequence_to_pos()
-        assert self.check_sequences()
-
-    def _sort_objects(self):
-        # print(f"Sorting {self.catalog_code} with key {self.sort}")
-        self.__objects.sort(key=self.sort)
-
-    def get_object_by_id(self, id: int) -> CompositeObject:
-        if id in self.id_to_pos:
-            return self.__objects[self.id_to_pos[id]]
-        else:
-            return None
-
-    def get_object_by_sequence(self, sequence: int) -> CompositeObject:
-        if sequence in self.sequence_to_pos:
-            return self.__objects[self.sequence_to_pos[sequence]]
-        else:
-            return None
-
-    def get_count(self) -> int:
-        return len(self.__objects)
-
-    def check_sequences(self):
-        sequences = [x.sequence for x in self.get_objects()]
-        if not len(sequences) == len(set(sequences)):
-            logger.error("Duplicate sequence catalog %s!", self.catalog_code)
-            return False
-        return True
-
-    def _update_id_to_pos(self):
-        self.id_to_pos = {obj.id: i for i, obj in enumerate(self.__objects)}
-
-    def _update_sequence_to_pos(self):
-        self.sequence_to_pos = {obj.sequence: i for i, obj in enumerate(self.__objects)}
-
-    def __repr__(self):
-        return f"Catalog({self.catalog_code=}, {self.max_sequence=}, count={self.get_count()})"
-
-    def __str__(self):
-        return self.__repr__()
-
-
 class Catalog(CatalogBase):
     """Extends the CatalogBase with filtering"""
 
@@ -605,81 +464,7 @@ class Catalogs:
         return iter(self.get_catalogs())
 
 
-class VirtualCatalog(Catalog):
-    virtual_id_lock = threading.Lock()
-    virtual_id_low = 0
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    @staticmethod
-    def assign_virtual_object_ids(catalog: Catalog, low_id: int) -> int:
-        """
-        Assigns virtual object_ids for non-DB objects. Return new low.
-        """
-        for obj in catalog.get_objects():
-            low_id -= 1
-            obj.object_id = low_id
-        return low_id
-
-
-class TimerCatalog(VirtualCatalog):
-    """Catalog that runs a task periodically"""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.initialized = False
-        logger.debug("in init of timercatalog")
-        self.timer: Optional[threading.Timer] = None
-        self.is_running: bool = False
-        logger.debug("Starting timer")
-        self.start_timer()
-
-    @property
-    def time_delay_seconds(self) -> int:
-        return 300  # 5 minutes
-
-    def start_timer(self) -> None:
-        """Start the timer if it's not already running"""
-        if not self.is_running:
-            self.is_running = True
-            self._schedule_next_run()
-
-    def _schedule_next_run(self) -> None:
-        """Schedule the next run of the timed task"""
-        self.timer = threading.Timer(self.time_delay_seconds, self._run)
-        self.timer.start()
-
-    def _run(self) -> None:
-        """Execute the timed task in a separate thread and reschedule if still running"""
-        threading.Thread(target=self._execute_task).start()
-        if self.is_running:
-            self._schedule_next_run()
-
-    def _execute_task(self) -> None:
-        """Execute the timed task"""
-        try:
-            self.do_timed_task()
-        except Exception as e:
-            logger.error(f"Error in timed task: {e}", exc_info=True)
-
-    def do_timed_task(self) -> None:
-        """Override this method in subclasses to define the timed task"""
-        logger.warning("Executing uninitialized timed task")
-
-    def stop(self) -> None:
-        """Stop the timer"""
-        self.is_running = False
-        if self.timer:
-            self.timer.cancel()
-            self.timer = None
-
-    def __del__(self) -> None:
-        """Ensure the timer is stopped when the object is deleted"""
-        self.stop()
-
-
-class PlanetCatalog(TimerCatalog):
+class PlanetCatalog(Catalog):
     """Creates a catalog of planets with adaptive update frequency based on GPS lock status"""
 
     # Default time delay when we have GPS lock
@@ -690,7 +475,19 @@ class PlanetCatalog(TimerCatalog):
 
     def __init__(self, dt: datetime.datetime, shared_state: SharedStateObj):
         super().__init__("PL", "Planets")
+        self._timer = TimerMixin()
+        self._virtual_id_manager = VirtualIDManager()
+
         self.shared_state = shared_state
+        self._last_state: CatalogState = CatalogState.READY
+
+        # Override Catalog's initialized=True since we need to wait for GPS/calculation
+        self.initialized = False
+
+        # Configure timer after initialization
+        self._timer.do_timed_task = self.do_timed_task
+        self._timer.time_delay_seconds = lambda: self.time_delay_seconds
+        self._timer.start_timer()
 
     @property
     def time_delay_seconds(self) -> int:
@@ -734,9 +531,11 @@ class PlanetCatalog(TimerCatalog):
                 self.add_planet(sequence, name, planet_data)
                 sequence += 1
 
-        with self.virtual_id_lock:
-            new_low = self.assign_virtual_object_ids(self, self.virtual_id_low)
-            self.virtual_id_low = new_low
+        with self._virtual_id_manager.virtual_id_lock:
+            new_low = self._virtual_id_manager.assign_virtual_object_ids(
+                self, self._virtual_id_manager.virtual_id_low
+            )
+            self._virtual_id_manager.virtual_id_low = new_low
         self.initialized = True
 
     def add_planet(self, sequence: int, name: str, planet: Dict[str, Dict[str, float]]):
@@ -795,211 +594,6 @@ class PlanetCatalog(TimerCatalog):
                     logger.error(f"Error updating planet {name}: {e}")
 
 
-class CometCatalog(TimerCatalog):
-    """Creates a catalog of comets with adaptive update frequency based on GPS lock status"""
-
-    def __init__(self, dt: datetime.datetime, shared_state: SharedStateObj):
-        super().__init__("CM", "Comets")
-        self.age = None
-        self.shared_state = shared_state
-        self._task_lock = threading.Lock()
-        self._download_lock = threading.Lock()
-        self.download_progress: Optional[int] = None
-        self.calculation_progress: Optional[int] = None
-        self._is_downloading: bool = False
-        self._start_background_download()
-
-    def get_age(self) -> Optional[int]:
-        """Return the age of the comet data in days"""
-        return self.age
-
-    def get_status(self) -> CatalogStatus:
-        """Return the current status of the comet catalog"""
-        if self._is_downloading:
-            current_state = CatalogState.DOWNLOADING
-        elif not self.shared_state.altaz_ready():
-            current_state = CatalogState.NO_GPS
-        elif not self.initialized:
-            current_state = CatalogState.CALCULATING
-        else:
-            current_state = CatalogState.READY
-
-        # Include progress data if available
-        data = None
-        if current_state == CatalogState.DOWNLOADING and self.download_progress is not None:
-            data = {"progress": self.download_progress}
-        elif current_state == CatalogState.CALCULATING and self.calculation_progress is not None:
-            data = {"progress": self.calculation_progress}
-
-        status = CatalogStatus(
-            current=current_state,
-            previous=self._last_state,
-            data=data
-        )
-        self._last_state = status.current
-        return status
-
-    def _download_once(self):
-        """Download comet data once with progress tracking"""
-        # Prevent concurrent downloads
-        if not self._download_lock.acquire(blocking=False):
-            logger.debug("Download already in progress, skipping")
-            return False
-
-        try:
-            logger.info("Starting comet data download")
-            def progress_callback(progress: int):
-                self.download_progress = progress
-
-            self._is_downloading = True
-            self.download_progress = 0
-            success, self.age = comets.comet_data_download(comet_file, progress_callback=progress_callback)
-            self._is_downloading = False
-            self.download_progress = None
-            logger.info(f"Download completed: success={success}, age={self.age}")
-            return success
-        finally:
-            self._download_lock.release()
-
-    def refresh(self):
-        """
-        Trigger a refresh by clearing objects and deleting the data file.
-        This will cause natural download and recalculation flow via normal status checks.
-        """
-        logger.info("Refresh called - clearing objects and triggering download")
-        # Clear existing objects
-        if self.get_objects():
-            self._get_objects().clear()
-            self.max_sequence = 0
-            self.id_to_pos = {}
-            self.sequence_to_pos = {}
-        self.initialized = False
-
-        # Delete file to trigger download
-        if os.path.exists(comet_file):
-            os.remove(comet_file)
-            logger.info("Deleted comet file")
-
-        self.age = None
-
-        # Trigger immediate download in background thread
-        threading.Thread(target=self._download_once, daemon=True).start()
-
-    def _start_background_download(self):
-        """
-        Download comet data in background thread.
-        If file doesn't exist or is old (>1 day), keep trying to update.
-        """
-        def download_task():
-            success = self._download_once()
-
-            # Keep retrying if no file yet or file is old (>1 day)
-            while not success or (self.age is not None and self.age > 1):
-                time.sleep(60)
-                success = self._download_once()
-
-        threading.Thread(target=download_task, daemon=True).start()
-
-    @property
-    def time_delay_seconds(self) -> int:
-        if self.initialized:
-            return 293
-        else:
-            # Check for GPS lock/time every 1 second when uninitialized
-            return 1
-
-    def init_comets(self, dt):
-        """Initialize comet catalog - called when GPS lock is available. Idempotent."""
-        logger.info("Starting comet calculation")
-        # Clear any existing objects to make this idempotent
-        if self.get_objects():
-            self._get_objects().clear()
-            self.max_sequence = 0
-            self.id_to_pos = {}
-            self.sequence_to_pos = {}
-
-        def progress_callback(progress: int):
-            self.calculation_progress = progress
-
-        # Set progress to 0 immediately so UI shows it right away
-        self.calculation_progress = 0
-        comet_dict = comets.calc_comets(dt, progress_callback=progress_callback)
-
-        if not comet_dict:
-            self.initialized = False
-            self.calculation_progress = None
-            return
-
-        for sequence, (name, comet) in enumerate(comet_dict.items()):
-            self.add_comet(sequence, name, comet)
-
-        with self.virtual_id_lock:
-            new_low = self.assign_virtual_object_ids(self, self.virtual_id_low)
-            self.virtual_id_low = new_low
-
-        self.initialized = True
-        self.calculation_progress = None  # Clear progress after completion
-
-    def add_comet(self, sequence: int, name: str, comet: Dict[str, Dict[str, float]]):
-        """Add a single comet to the catalog"""
-        try:
-            ra, dec = comet["radec"]
-            constellation = sf_utils.radec_to_constellation(ra, dec)
-            desc = f"Distance to\nEarth: {comet['earth_distance']:.2f} AU\nSun: {comet['sun_distance']:.2f} AU"
-
-            mag = MagnitudeObject([comet.get("mag", [])])
-            obj = CompositeObject.from_dict(
-                {
-                    "id": -1,
-                    "obj_type": "CM",
-                    "ra": ra,
-                    "dec": dec,
-                    "const": constellation,
-                    "size": "",
-                    "mag": mag,
-                    "mag_str": mag.calc_two_mag_representation(),
-                    "names": [name],
-                    "catalog_code": "CM",
-                    "sequence": sequence + 1,
-                    "description": desc,
-                }
-            )
-            self.add_object(obj)
-        except (KeyError, ValueError) as e:
-            logger.error(f"Error adding comet {name}: {e}")
-
-    def do_timed_task(self):
-        """Update comet catalog data periodically"""
-        # Prevent concurrent execution
-        with self._task_lock:
-            with Timer("Comet Catalog periodic update"):
-                if not self.shared_state.altaz_ready():
-                    return
-
-                dt = self.shared_state.datetime()
-
-                # If catalog is empty, (re)initialize - but only if file exists
-                if not self.get_objects():
-                    if os.path.exists(comet_file):
-                        self.init_comets(dt)
-                    return
-
-                # Regular update - recalculate positions
-                comet_dict = comets.calc_comets(dt)
-                if not comet_dict:
-                    return
-
-                for obj in self._get_objects():
-                    try:
-                        name = obj.names[0]
-                        if name in comet_dict:
-                            comet = comet_dict[name]
-                            obj.ra, obj.dec = comet["radec"]
-                            obj.mag = MagnitudeObject([comet["mag"]])
-                            obj.const = sf_utils.radec_to_constellation(obj.ra, obj.dec)
-                            obj.mag_str = obj.mag.calc_two_mag_representation()
-                    except (KeyError, ValueError) as e:
-                        logger.error(f"Error updating comet {name}: {e}")
 
 
 class CatalogBuilder:
@@ -1038,6 +632,10 @@ class CatalogBuilder:
             shared_state=shared_state,
         )
         all_catalogs.add(planet_catalog)
+
+        # Import CometCatalog locally to avoid circular import
+        from PiFinder.comet_catalog import CometCatalog
+
         comet_catalog: Catalog = CometCatalog(
             datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC")),
             shared_state=shared_state,
