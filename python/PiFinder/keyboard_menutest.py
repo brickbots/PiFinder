@@ -45,7 +45,7 @@ class KeyboardMenuTest(KeyboardInterface):
         self.skipped_callbacks: List[str] = []
         self.current_path: List[str] = []
 
-    def send_key(self, key_code: int, description: str = "") -> None:
+    def send_key(self, key_code: int) -> None:
         """
         Send a keystroke to the application with logging and delay.
 
@@ -53,12 +53,6 @@ class KeyboardMenuTest(KeyboardInterface):
             key_code: The keystroke code to send
             description: Optional description for logging
         """
-        if description:
-            logger.info(
-                f"Sending key {key_code} ({description}) at path: {' -> '.join(self.current_path)}"
-            )
-        else:
-            logger.info(f"Sending key {key_code}")
 
         if self.q:
             self.q.put(key_code)
@@ -78,11 +72,11 @@ class KeyboardMenuTest(KeyboardInterface):
         if target_index > current_index:
             # Navigate down
             for _ in range(target_index - current_index):
-                self.send_key(self.DOWN, "DOWN")
+                self.send_key(self.DOWN)
         else:
             # Navigate up
             for _ in range(current_index - target_index):
-                self.send_key(self.UP, "UP")
+                self.send_key(self.UP)
 
     def interact_with_leaf_node(self, item_name: str) -> None:
         """
@@ -99,12 +93,12 @@ class KeyboardMenuTest(KeyboardInterface):
 
         # Test number keys 0-9
         for i in range(10):
-            self.send_key(i, f"Number {i}")
+            self.send_key(i)
 
         # Test special keys
-        self.send_key(self.PLUS, "PLUS")
-        self.send_key(self.MINUS, "MINUS")
-        self.send_key(self.SQUARE, "SQUARE")
+        self.send_key(self.PLUS)
+        self.send_key(self.MINUS)
+        self.send_key(self.SQUARE)
 
         # Brief pause at leaf node
         time.sleep(self.keystroke_delay * 2)
@@ -153,19 +147,19 @@ class KeyboardMenuTest(KeyboardInterface):
                 logger.info(
                     f"Found UI leaf node: {item_name} (class: {item_class.__name__})"
                 )
-                self.send_key(self.RIGHT, f"Enter {item_name}")
+                self.send_key(self.RIGHT)
 
                 # Interact with the leaf node
                 self.interact_with_leaf_node(item_name)
 
                 # Back out of the leaf node
-                self.send_key(self.LEFT, f"Exit {item_name}")
+                self.send_key(self.LEFT)
                 self.visited_paths.append(" -> ".join(current_item_path))
 
             elif item_class == UITextMenu and "items" in item:
                 # This is a submenu - enter it and traverse recursively
                 logger.info(f"Entering submenu: {item_name}")
-                self.send_key(self.RIGHT, f"Enter submenu {item_name}")
+                self.send_key(self.RIGHT)
 
                 # Recursively traverse the submenu
                 self.traverse_menu_items(
@@ -173,7 +167,8 @@ class KeyboardMenuTest(KeyboardInterface):
                 )
 
                 # Back out of the submenu
-                self.send_key(self.LEFT, f"Exit submenu {item_name}")
+                logger.info(f"Leaving submenu: {item_name}")
+                self.send_key(self.LEFT)
 
             else:
                 logger.warning(
@@ -223,13 +218,13 @@ class KeyboardMenuTest(KeyboardInterface):
 
             # Send termination signal to main application
             logger.info("Sending test completion signal")
-            self.send_key(self.TEST_COMPLETE, "TEST COMPLETE - TERMINATE")
+            self.send_key(self.TEST_COMPLETE)
 
         except Exception as e:
             logger.error(f"Error during menu test: {e}", exc_info=True)
             # Send termination signal even on error
             logger.info("Sending test completion signal due to error")
-            self.send_key(self.TEST_COMPLETE, "TEST COMPLETE - TERMINATE (ERROR)")
+            self.send_key(self.TEST_COMPLETE)
         finally:
             logger.info("Menu test keyboard interface shutting down")
 
