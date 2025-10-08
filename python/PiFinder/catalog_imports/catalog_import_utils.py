@@ -89,14 +89,16 @@ class NewCatalogObject:
             # now the names
             # First, catalog name
             objects_db.insert_name(
-                self.object_id, f"{self.catalog_code} {self.sequence}", self.catalog_code
+                self.object_id,
+                f"{self.catalog_code} {self.sequence}",
+                self.catalog_code,
             )
             for aka in self.aka_names:
                 objects_db.insert_name(self.object_id, aka, self.catalog_code)
-            
+
             # Commit the transaction
             objects_db.conn.commit()
-            
+
         except Exception as e:
             objects_db.conn.rollback()
             logging.error(f"Database error inserting object: {e}")

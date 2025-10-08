@@ -142,13 +142,10 @@ class MenuManager:
         self.ss_count = 0
 
         dyn_menu_equipment(self.config_object)
-        self.preload_modules()
 
     def screengrab(self):
         self.ss_count += 1
-        filename = (
-            f"{self.stack[-1].__uuid__}_{self.ss_count :0>3}_{self.stack[-1].title}"
-        )
+        filename = f"{self.stack[-1].__uuid__}_{self.ss_count :0>3}_{self.stack[-1].title.replace('/','-')}"
         ss_imagepath = self.ss_path + f"/{filename}.png"
         ss = self.shared_state.screen().copy()
         ss.save(ss_imagepath)
