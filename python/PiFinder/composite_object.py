@@ -77,6 +77,8 @@ class CompositeObject:
     sequence: int = field(default=0)
     description: str = field(default="")
     names: list = field(default_factory=list)
+    # Background loading support
+    _details_loaded: bool = field(default=False)
     image_name: str = field(default="")
     surface_brightness: float = field(default=0.0)
     logged: bool = field(default=False)

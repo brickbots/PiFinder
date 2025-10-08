@@ -142,7 +142,6 @@ class MenuManager:
         self.ss_count = 0
 
         dyn_menu_equipment(self.config_object)
-        self.preload_modules()
 
     def screengrab(self):
         self.ss_count += 1

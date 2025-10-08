@@ -244,6 +244,7 @@ def main(
     script_name=None,
     show_fps=False,
     verbose=False,
+    profile_startup=False,
 ) -> None:
     """
     Get this show on the road!
@@ -467,8 +468,15 @@ def main(
         logger.info("   Catalogs")
         console.update()
 
-        # Initialize Catalogs
-        catalogs: Catalogs = CatalogBuilder().build(shared_state)
+        # Start profiling (automatic for performance analysis)
+        import cProfile
+        import pstats
+        profiler = cProfile.Profile()
+        profiler.enable()
+        startup_profile_start = time.time()
+
+        # Initialize Catalogs (pass ui_queue for background loading completion signal)
+        catalogs: Catalogs = CatalogBuilder().build(shared_state, ui_queue)
 
         # Establish the common catalog filter object
         _new_filter = CatalogFilter(shared_state=shared_state)
@@ -494,6 +502,34 @@ def main(
         console.write("   Event Loop")
         logger.info("   Event Loop")
         console.update()
+
+        # Stop profiling and save results
+        profiler.disable()
+        startup_profile_time = time.time() - startup_profile_start
+
+        # Save to file
+        profile_path = utils.data_dir / "startup_profile.prof"
+        profiler.dump_stats(str(profile_path))
+
+        # Print summary
+        logger.info(f"=== Startup Profiling Complete ({startup_profile_time:.2f}s) ===")
+        logger.info(f"Profile saved to: {profile_path}")
+        logger.info("To analyze, run:")
+        logger.info(f"  python -c \"import pstats; p = pstats.Stats('{profile_path}'); p.sort_stats('cumulative').print_stats(30)\"")
+
+        # Also save a text summary
+        summary_path = utils.data_dir / "startup_profile.txt"
+        with open(summary_path, 'w') as f:
+            ps = pstats.Stats(profiler, stream=f)
+            f.write(f"=== STARTUP PROFILING ({startup_profile_time:.2f}s) ===\n\n")
+            f.write("Top 30 functions by cumulative time:\n")
+            f.write("=" * 80 + "\n")
+            ps.sort_stats('cumulative').print_stats(30)
+            f.write("\n" + "=" * 80 + "\n")
+            f.write("Top 30 functions by internal time:\n")
+            f.write("=" * 80 + "\n")
+            ps.sort_stats('time').print_stats(30)
+        logger.info(f"Text summary saved to: {summary_path}")
 
         log_time = True
         # Start of main except handler / loop
@@ -589,6 +625,11 @@ def main(
                     menu_manager.jump_to_label("recent")
                 elif ui_command == "reload_config":
                     cfg.load_config()
+                elif ui_command == "catalogs_fully_loaded":
+                    logger.info(
+                        "All catalogs loaded - WDS and extended catalogs available"
+                    )
+                    menu_manager.message(_("Catalogs\nFully Loaded"), 2)
                 elif ui_command == "test_mode":
                     dt = datetime.datetime(2025, 6, 28, 11, 0, 0)
                     shared_state.set_datetime(dt)
@@ -897,6 +938,13 @@ if __name__ == "__main__":
         help="Force user interface language (iso2 code). Changes configuration",
         type=str,
     )
+    parser.add_argument(
+        "--profile-startup",
+        help="Profile startup performance (catalog/menu loading)",
+        default=False,
+        action="store_true",
+        required=False,
+    )
     args = parser.parse_args()
     # add the handlers to the logger
     if args.verbose:
@@ -967,7 +1015,7 @@ if __name__ == "__main__":
             config.Config().set_option("language", args.lang)
 
     try:
-        main(log_helper, args.script, args.fps, args.verbose)
+        main(log_helper, args.script, args.fps, args.verbose, args.profile_startup)
     except Exception:
         rlogger.exception("Exception in main(). Aborting program.")
         os._exit(1)
