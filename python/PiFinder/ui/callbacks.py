@@ -38,6 +38,14 @@ def go_back(ui_module: UIModule) -> None:
     return
 
 
+def show_advanced_message(ui_module: UIModule) -> None:
+    """
+    Show popup message when entering Advanced settings menu
+    """
+    ui_module.message(_("Options for\nDIY PiFinders"), 2)
+    return
+
+
 def reset_filters(ui_module: UIModule) -> None:
     """
     Reset all filters to default
@@ -317,3 +325,24 @@ def generate_custom_object_name(ui_module: UIModule) -> str:
 
     # Return next available number
     return f"CUSTOM {max_num + 1}"
+
+
+def update_gpsd_baud_rate(ui_module: UIModule) -> None:
+    """
+    Updates the GPSD configuration with the current baud rate setting.
+    Always updates GPSD config regardless of current GPS type.
+    """
+    baud_rate = ui_module.config_object.get_option("gps_baud_rate")
+
+    ui_module.message(_("Checking GPS\nconfig..."), 2)
+    logger.info(f"Checking GPSD baud rate {baud_rate}")
+
+    try:
+        if sys_utils.check_and_sync_gpsd_config(baud_rate):
+            ui_module.message(_("GPS config\nupdated"), 2)
+        else:
+            ui_module.message(_("GPS config\nOK"), 2)
+    except Exception as e:
+        logger.error(f"Failed to update GPSD config: {e}")
+        ui_module.message(_("GPS config\nfailed"), 3)
+
