@@ -1,79 +1,79 @@
 N,NamedStar,LatinDesignation,RA Hr,RA Min,Dec Deg,Dec Min,Magnitude,Const
-0,Acamar,Theta Eridanus,2,58.2,-40,18,3.2,Eri
-1,Achernar,Alpha Eridanus,1,37.6,-57,14,0.4,Eri
-2,Acrux,Alpha Crucis,12,26.5,-63,5,1.3,Cru
-3,Adara,Epsilon Canis Majoris,6,58.6,-28,58,1.5,CMa
-4,Albireo,Beta Cygni,19,30.6,27,57,3,Cyg
-5,Alcor,80 Ursae Majoris,13,25.2,54,59,4,UMa
-6,Alcyone,Eta Tauri,3,47.4,24,6,2.8,Tau
-7,Aldebaran,Alpha Tauri,4,35.8,16,30,0.8,Tau
-8,Alderamin,Alpha Cephei,21,18.5,62,35,2.4,Cep
-9,Algenib,Gamma Pegasi,0,13.2,15,11,2.8,Peg
-10,Algieba (Algeiba),Gamma Leonis,10,19.9,19,50,2.6,Leo
-11,Algol,Beta Persei,3,8.1,40,57,2.1,Per
-12,Alhena,Gamma Geminorum,6,37.6,16,23,1.9,Gem
-13,Alioth,Epsilon Ursae Majoris,12,54,55,57,1.7,UMa
-14,Alkaid,Eta Ursae Majoris,13,47.5,49,18,1.8,UMa
-15,Almaak (Almach),Gamma Andromedae,2,3.8,42,19,2.2,And
-16,Alnair,Alpha Gruis,22,8.2,-46,57,1.7,Gru
-17,Alnath (Elnath),Beta Tauri,5,26.2,28,36,1.6,Tau
-18,Alnilam,Epsilon Orionis,5,36.2,-1,12,1.7,Ori
-19,Alnitak,Zeta Orionis,5,40.7,-1,56,2,Ori
-20,Alphard,Alpha Hydrae,9,27.5,-8,39,1.9,Hyd
-21,Alphekka,Alpha Coronae Borealis,15,34.6,26,42,2.2,CrB
-22,Alpheratz,Alpha Andromedae,0,8.3,29,5,2,And
-23,Aishain,Beta Aquilae,19,55.2,6,24,3.7,Aql
-24,Altair,Alpha Aquilae,19,50.7,8,52,0.7,Aql
-25,Ankaa,Alpha Phoenicis,0,26.2,-42,18,2.3,Phe
-26,Antares,Alpha Scorpii,16,29.4,-26,25,1,Sco
-27,Arcturus,Alpha Bootis,14,15.6,19,10,0.1,Boo
-28,Arneb,Alpha Leporis,5,32.7,-17,49,2.5,Leo
-29,Bellatrix,Gamma Orionis,5,25.1,6,20,1.6,Ori
-30,Betelgeuse,Alpha Orionis,5,55.1,7,24,0.5,Ori
-31,Canopus,Alpha Carinae,6,23.9,-52,41,-0.6,Car
-32,Capella,Alpha Aurigae,5,16.6,45,59,0,Aur
-33,Castor,Alpha Geminorum,7,34.6,31,53,1.5,Gem
-34,CorCaroli,Alpha Canum Venaticorum,12,56,38,19,2.8,CVn
-35,Deneb,Alpha Cygni,20,41.4,45,16,1.3,Cyg
-36,Denebola,Beta Leonis,11,49,14,34,2.1,Leo
-37,Diphda,Beta Ceti,0,43.5,-17,59,2,Cet
-38,Dubhe,Alpha Ursae Majoris,11,3.7,61,45,1.8,UMa
-39,Enif,Epsilon Pegasi,21,44.1,9,52,2.3,Peg
-40,Etamin,Gamma Draconis,17,56.6,51,29,2.2,Dra
-41,Fomalhaut,Alpha Piscis Austrini,22,57.6,-29,37,1.2,Psc
-42,Hadar,Beta Centauri,14,3.8,-60,22,0.6,Cen
-43,Hamal,Alpha Arietis,2,7.1,23,27,2,Ari
-44,Izar,Epsilon Bootis,14,44.9,27,4,2.5,Boo
-45,Kaus Australis,Epsilon Sagittarii,18,24.1,-34,23,1.8,Sag
-46,Kocab (Kochab),Beta Ursae Minoris,14,50.7,74,9,2,UMi
-47,Markab,Alpha Pegasi,23,4.7,15,12,2.4,Peg
-48,Megrez,Delta Ursae Majoris,12,15.4,57,1,3.3,UMa
-49,Menkar,Alpha Ceti,3,2.2,4,5,2.5,Cet
-50,Merck,Beta Ursae Majoris,11,1.8,56,22,2.3,UMa
-51,Mintaka,Delta Orionis,5,32,0,17,2.2,Ori
-52,Mira,Omicron Ceti,2,19.3,-2,58,6.5,Cet
-53,Mirach,Beta Andromedae,1,9.7,35,37,2,And
-54,Mirphak,Alpha Persei,3,24.3,49,51,1.8,Per
-55,Mizar,Zeta Ursae Majoris,13,23.9,54,55,2.2,UMa
-56,Nihal,Beta Leporis,5,28.2,-20,45,2.8,Lep
-57,Nunki,Sigma Sagittarii,18,55.2,-26,17,2,Sag
-58,Phad,Gamma Ursae Majoris,11,53.8,53,41,2.4,UMa
-59,Polaris,Alpha Ursae Minoris,2,31.8,89,15,2,UMi
-60,Pollux,Beta Geminorum,7,45.3,28,1,1.2,Gem
-61,Procyon,Alpha Canis Minoris,7,39.3,5,13,0.4,CMi
-62,Rasalgethi,Alpha Herculis,17,14.6,14,23,3.4,Her
-63,Rasalhague,Alpha Ophiuchi,17,34.9,12,33,2,Oph
-64,Regulus,Alpha Leonis,10,8.3,11,58,1.4,Leo
-65,Rigel,Beta Orionis,5,14.5,-8,12,0.2,Ori
-66,Sadalmelik,Alpha Aquarii,22,5.7,0,19,2.9,Aql
-67,Saiph,Kappa Orionis,5,47.7,-9,40,2,Ori
-68,Scheet,Beta Pegasi,23,3.7,28,4,2.4,Peg
-69,Shaula,Lambda Scorpii,17,33.6,-37,6,1.6,Sco
-70,Shedir (Shedor),Alpha Cassiopeiae,0,40.5,56,32,2.2,Cas
-71,Sirius,Alpha Canis Majoris,6,45.1,-16,42,-1.4,CMa
-72,Spica,Alpha Viriginis,13,25.1,-11,9,1,Vir
-73,Tarazed,Gamma Aquilae,19,46.2,10,36,2.7,Aql
-74,Thuban,Alpha Draconis,14,4.3,64,22,3.6,Dra
-75,Unukalhai,Alpha Serpentis,15,44.2,6,25,2.6,Ser
-76,Vega,Alpha Lyrce,18,36.9,38,47,0,Lyr
-77,Vindemiatrix,Epsilon Virginis,13,2.1,10,57,2.8,Vir
+1,Acamar,Theta Eridanus,2,58.2,-40,18,3.2,Eri
+2,Achernar,Alpha Eridanus,1,37.6,-57,14,0.4,Eri
+3,Acrux,Alpha Crucis,12,26.5,-63,5,1.3,Cru
+4,Adara,Epsilon Canis Majoris,6,58.6,-28,58,1.5,CMa
+5,Albireo,Beta Cygni,19,30.6,27,57,3,Cyg
+6,Alcor,80 Ursae Majoris,13,25.2,54,59,4,UMa
+7,Alcyone,Eta Tauri,3,47.4,24,6,2.8,Tau
+8,Aldebaran,Alpha Tauri,4,35.8,16,30,0.8,Tau
+9,Alderamin,Alpha Cephei,21,18.5,62,35,2.4,Cep
+10,Algenib,Gamma Pegasi,0,13.2,15,11,2.8,Peg
+11,Algieba (Algeiba),Gamma Leonis,10,19.9,19,50,2.6,Leo
+12,Algol,Beta Persei,3,8.1,40,57,2.1,Per
+13,Alhena,Gamma Geminorum,6,37.6,16,23,1.9,Gem
+14,Alioth,Epsilon Ursae Majoris,12,54,55,57,1.7,UMa
+15,Alkaid,Eta Ursae Majoris,13,47.5,49,18,1.8,UMa
+16,Almaak (Almach),Gamma Andromedae,2,3.8,42,19,2.2,And
+17,Alnair,Alpha Gruis,22,8.2,-46,57,1.7,Gru
+18,Alnath (Elnath),Beta Tauri,5,26.2,28,36,1.6,Tau
+19,Alnilam,Epsilon Orionis,5,36.2,-1,12,1.7,Ori
+20,Alnitak,Zeta Orionis,5,40.7,-1,56,2,Ori
+21,Alphard,Alpha Hydrae,9,27.5,-8,39,1.9,Hyd
+22,Alphekka,Alpha Coronae Borealis,15,34.6,26,42,2.2,CrB
+23,Alpheratz,Alpha Andromedae,0,8.3,29,5,2,And
+24,Aishain,Beta Aquilae,19,55.2,6,24,3.7,Aql
+25,Altair,Alpha Aquilae,19,50.7,8,52,0.7,Aql
+26,Ankaa,Alpha Phoenicis,0,26.2,-42,18,2.3,Phe
+27,Antares,Alpha Scorpii,16,29.4,-26,25,1,Sco
+28,Arcturus,Alpha Bootis,14,15.6,19,10,0.1,Boo
+29,Arneb,Alpha Leporis,5,32.7,-17,49,2.5,Leo
+30,Bellatrix,Gamma Orionis,5,25.1,6,20,1.6,Ori
+31,Betelgeuse,Alpha Orionis,5,55.1,7,24,0.5,Ori
+32,Canopus,Alpha Carinae,6,23.9,-52,41,-0.6,Car
+33,Capella,Alpha Aurigae,5,16.6,45,59,0,Aur
+34,Castor,Alpha Geminorum,7,34.6,31,53,1.5,Gem
+35,CorCaroli,Alpha Canum Venaticorum,12,56,38,19,2.8,CVn
+36,Deneb,Alpha Cygni,20,41.4,45,16,1.3,Cyg
+37,Denebola,Beta Leonis,11,49,14,34,2.1,Leo
+38,Diphda,Beta Ceti,0,43.5,-17,59,2,Cet
+39,Dubhe,Alpha Ursae Majoris,11,3.7,61,45,1.8,UMa
+40,Enif,Epsilon Pegasi,21,44.1,9,52,2.3,Peg
+41,Etamin,Gamma Draconis,17,56.6,51,29,2.2,Dra
+42,Fomalhaut,Alpha Piscis Austrini,22,57.6,-29,37,1.2,Psc
+43,Hadar,Beta Centauri,14,3.8,-60,22,0.6,Cen
+44,Hamal,Alpha Arietis,2,7.1,23,27,2,Ari
+45,Izar,Epsilon Bootis,14,44.9,27,4,2.5,Boo
+46,Kaus Australis,Epsilon Sagittarii,18,24.1,-34,23,1.8,Sag
+47,Kocab (Kochab),Beta Ursae Minoris,14,50.7,74,9,2,UMi
+48,Markab,Alpha Pegasi,23,4.7,15,12,2.4,Peg
+49,Megrez,Delta Ursae Majoris,12,15.4,57,1,3.3,UMa
+50,Menkar,Alpha Ceti,3,2.2,4,5,2.5,Cet
+51,Merck,Beta Ursae Majoris,11,1.8,56,22,2.3,UMa
+52,Mintaka,Delta Orionis,5,32,0,17,2.2,Ori
+53,Mira,Omicron Ceti,2,19.3,-2,58,6.5,Cet
+54,Mirach,Beta Andromedae,1,9.7,35,37,2,And
+55,Mirphak,Alpha Persei,3,24.3,49,51,1.8,Per
+56,Mizar,Zeta Ursae Majoris,13,23.9,54,55,2.2,UMa
+57,Nihal,Beta Leporis,5,28.2,-20,45,2.8,Lep
+58,Nunki,Sigma Sagittarii,18,55.2,-26,17,2,Sag
+59,Phad,Gamma Ursae Majoris,11,53.8,53,41,2.4,UMa
+60,Polaris,Alpha Ursae Minoris,2,31.8,89,15,2,UMi
+61,Pollux,Beta Geminorum,7,45.3,28,1,1.2,Gem
+62,Procyon,Alpha Canis Minoris,7,39.3,5,13,0.4,CMi
+63,Rasalgethi,Alpha Herculis,17,14.6,14,23,3.4,Her
+64,Rasalhague,Alpha Ophiuchi,17,34.9,12,33,2,Oph
+65,Regulus,Alpha Leonis,10,8.3,11,58,1.4,Leo
+66,Rigel,Beta Orionis,5,14.5,-8,12,0.2,Ori
+67,Sadalmelik,Alpha Aquarii,22,5.7,0,19,2.9,Aql
+68,Saiph,Kappa Orionis,5,47.7,-9,40,2,Ori
+69,Scheet,Beta Pegasi,23,3.7,28,4,2.4,Peg
+70,Shaula,Lambda Scorpii,17,33.6,-37,6,1.6,Sco
+71,Shedir (Shedor),Alpha Cassiopeiae,0,40.5,56,32,2.2,Cas
+72,Sirius,Alpha Canis Majoris,6,45.1,-16,42,-1.4,CMa
+73,Spica,Alpha Viriginis,13,25.1,-11,9,1,Vir
+74,Tarazed,Gamma Aquilae,19,46.2,10,36,2.7,Aql
+75,Thuban,Alpha Draconis,14,4.3,64,22,3.6,Dra
+76,Unukalhai,Alpha Serpentis,15,44.2,6,25,2.6,Ser
+77,Vega,Alpha Lyrce,18,36.9,38,47,0,Lyr
+78,Vindemiatrix,Epsilon Virginis,13,2.1,10,57,2.8,Vir
