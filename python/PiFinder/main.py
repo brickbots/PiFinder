@@ -38,6 +38,7 @@ from PiFinder import pos_server
 from PiFinder import utils
 from PiFinder import server
 from PiFinder import keyboard_interface
+from PiFinder import mountcontrol_indi
 
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
@@ -266,6 +267,7 @@ def main(
     alignment_command_queue: Queue = Queue()
     alignment_response_queue: Queue = Queue()
     ui_queue: Queue = Queue()
+    mountcontrol_queue: Queue = Queue()
 
     # init queues for logging
     keyboard_logqueue: Queue = log_helper.get_queue()
@@ -276,6 +278,7 @@ def main(
     posserver_logqueue: Queue = log_helper.get_queue()
     integrator_logqueque: Queue = log_helper.get_queue()
     imu_logqueue: Queue = log_helper.get_queue()
+    mountcontrol_logqueue: Queue = log_helper.get_queue()
 
     # Start log consolidation process first.
     log_helper.start()
@@ -291,6 +294,7 @@ def main(
         "align_command": alignment_command_queue,
         "align_response": alignment_response_queue,
         "gps": gps_queue,
+        "mountcontrol": mountcontrol_queue,
     }
     cfg = config.Config()
 
@@ -461,6 +465,24 @@ def main(
             args=(shared_state, ui_queue, posserver_logqueue),
         )
         posserver_process.start()
+
+        # Mount Control
+        console.write("  Mount Control")
+        logger.info("  Mount Control")
+        console.update()
+        mountcontrol_process = Process(
+            name="MountControl",
+            target=mountcontrol_indi.run,
+            args=(
+                mountcontrol_queue,
+                console_queue,
+                shared_state,
+                mountcontrol_logqueue,
+                "localhost",
+                7624,
+            ),
+        )
+        mountcontrol_process.start()
 
         # Initialize Catalogs
         console.write("   Catalogs")
@@ -795,6 +817,9 @@ def main(
 
             logger.info("\tPos Server...")
             posserver_process.join()
+
+            logger.info("\tMount Control...")
+            mountcontrol_process.join()
 
             logger.info("\tGPS...")
             gps_process.terminate()
