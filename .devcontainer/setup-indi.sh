@@ -2,13 +2,13 @@
 set -e
 
 # Add INDI repository
-apt-get update
-apt-get install -y software-properties-common
-add-apt-repository ppa:mutlaqja/ppa -y
-apt-get update
+sudo apt update
+sudo apt install -y software-properties-common
+sudo add-apt-repository ppa:mutlaqja/ppa -y
+sudo apt update
 
 # Install INDI server and components
-apt-get install -y \
+sudo apt install -y \
     indi-bin \
     indi-telescope-simulator \
     libindi-dev \
@@ -50,11 +50,11 @@ WantedBy=multi-user.target
 EOF
 
 # Install and enable the service
-cp /tmp/indiwebmanager.service /etc/systemd/system/
-chmod 644 /etc/systemd/system/indiwebmanager.service
-systemctl daemon-reload
-systemctl enable indiwebmanager.service
-systemctl start indiwebmanager.service
+sudo cp /tmp/indiwebmanager.service /etc/systemd/system/
+sudo chmod 644 /etc/systemd/system/indiwebmanager.service
+sudo systemctl daemon-reload
+sudo systemctl enable indiwebmanager.service
+sudo systemctl start indiwebmanager.service
 
 echo ""
 echo "INDI setup complete!"
