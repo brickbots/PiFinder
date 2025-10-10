@@ -13,8 +13,8 @@ import time
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.state import SharedStateObj
 
-logger = logging.getLogger("IndiMountControl")
-clientlogger = logging.getLogger("IndiMountControl.PyIndi")
+logger = logging.getLogger("MountControl.Indi")
+clientlogger = logging.getLogger("MountControl.Indi.PyIndi")
 
 
 #
@@ -313,7 +313,7 @@ class PiFinderIndiClient(PyIndi.BaseClient):
                         self._axis_primary = widget.value
                     elif widget.name == "SECONDARY":
                         self._axis_secondary = widget.value
-            elif "TARGET_EOD_COORD" == nvp.getName():
+            elif "EQUATORIAL_EOD_COORD" == nvp.getName():
                 current_ra = None
                 current_dec = None
                 for widget in nvp:
@@ -470,6 +470,7 @@ class MountControlIndi(MountControlBase):
         Returns:
             True if initialization successful, False otherwise.
         """
+        logger.debug("Initializing mount: connect, unpark, set location/time")
         try:
             if not self._connected:
                 if not self.client.connectServer():
@@ -581,6 +582,8 @@ class MountControlIndi(MountControlBase):
                     "TELESCOPE_SLEW_RATE property not available on this mount"
                 )
 
+            # FIXME unpark mount if parked
+
             return True
 
         except Exception as e:
@@ -601,6 +604,7 @@ class MountControlIndi(MountControlBase):
         Returns:
             True if sync successful, False otherwise.
         """
+        logger.debug(f"Syncing mount to RA={current_position_ra_deg:.4f}°, Dec={current_position_dec_deg:.4f}°")
         try:
             device = self._get_telescope_device()
             if not device:
@@ -750,6 +754,11 @@ class MountControlIndi(MountControlBase):
                 logger.error("Telescope device not available for manual movement")
                 return False
 
+            if self.current_ra is None or self.current_dec is None:
+                logger.error("Current mount position unknown, cannot move manually")
+                self.console_queue.put({"WARN", "Mount position unknown, cannot move manually"})
+                return False
+            
             # Map direction to INDI motion commands
             motion_map = {
                 MountDirectionsEquatorial.NORTH: (

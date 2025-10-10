@@ -352,6 +352,7 @@ class MountControlBase:
             dec_deg: Current Declination in degrees.
 
         """
+        logger.debug(f"Mount current position: RA={ra_deg:.4f}°, Dec={dec_deg:.4f}°")
         self.current_ra = ra_deg
         self.current_dec = dec_deg
 
@@ -362,6 +363,7 @@ class MountControlBase:
         This will be used to transition to the next phase in the control loop.
 
         """
+        logger.debug("Mount target reached")
         self.target_reached = True
 
     def mount_stopped(self) -> None:
@@ -372,6 +374,7 @@ class MountControlBase:
 
         This will be used to transition to the MOUNT_STOPPED phase in the control loop, regardless of the previous phase.
         """
+        logger.debug("Mount stopped")
         self.state = MountControlPhases.MOUNT_STOPPED
 
     #
@@ -381,6 +384,7 @@ class MountControlBase:
         if self.state != MountControlPhases.MOUNT_STOPPED:
             return self.stop_mount()
         else:
+            logger.debug("Mount already stopped, not sending stop command")
             return True
 
     def _move_mount_manual(
@@ -504,6 +508,7 @@ class MountControlBase:
                     yield
 
         elif command["type"] == "sync":
+            logger.debug("Mount: sync command received")
             sync_ra = command["ra"]
             sync_dec = command["dec"]
             logger.debug(f"Mount: Syncing - RA={sync_ra}, DEC={sync_dec}")
@@ -525,6 +530,7 @@ class MountControlBase:
                     yield
 
         elif command["type"] == "goto_target":
+            logger.debug("Mount: goto_target command received")
             target_ra = command["ra"]
             target_dec = command["dec"]
             logger.debug(f"Mount: Goto target - RA={target_ra}, DEC={target_dec}")
@@ -559,6 +565,7 @@ class MountControlBase:
                     yield
 
         elif command["type"] == "manual_movement":
+            logger.debug("Mount: manual_movement command received")
             direction = command["direction"]
             slew_rate = command["slew_rate"]
             duration = command["duration"]
@@ -569,6 +576,7 @@ class MountControlBase:
                 self.console_queue.put(["WARNING", _("Mount did not move!")])
 
         elif command["type"] == "set_step_size":
+            logger.debug("Mount: set_step_size command received")
             step_size = command["step_size"]
             if step_size < 1 / 3600 or step_size > 10.0:
                 self.console_queue.put(
@@ -586,6 +594,7 @@ class MountControlBase:
                     logger.debug("Mount: Step size set to %.5f degrees", self.step_size)
 
         elif command["type"] == "reduce_step_size":
+            logger.debug("Mount: reduce_step_size command received")
             self.step_size = max(
                 1 / 3600, self.step_size / 2
             )  # Minimum step size of 1 arcsec
@@ -594,6 +603,7 @@ class MountControlBase:
             )
 
         elif command["type"] == "increase_step_size":
+            logger.debug("Mount: increase_step_size command received")
             self.step_size = min(
                 10.0, self.step_size * 2
             )  # Maximum step size of 10 degrees
@@ -603,6 +613,7 @@ class MountControlBase:
             )
 
         elif command["type"] == "spiral_search":
+            logger.debug("Mount: spiral_search command received")
             raise NotImplementedError("Spiral search not yet implemented.")
 
     def _process_phase(
@@ -652,123 +663,130 @@ class MountControlBase:
             # If mount is stopped during move, self.state will be changed to MOUNT_STOPPED by the command.
 
         elif self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
-            retry_init = retry_count  # store for later waits
+            self.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION
+            return
+        
 
-            # Wait until we have a solved image
-            while (
-                retry_count > 0
-                and not self.shared_state.solve_state()
-                and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
-            ):
-                # Wait for delay before retrying
-                start_time = time.time()  # Used for determining timeouts for retries.
-                while (
-                    time.time() - start_time <= delay
-                    and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
-                ):
-                    yield
-                # Retries exceeded?
-                retry_count -= 1
-                if (
-                    retry_count <= 0
-                    and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
-                ):
-                    logger.error("Failed to solve after move (after retrying).")
-                    self.console_queue.put(["WARNING", _("Solve failed!")])
-                    self.state = MountControlPhases.MOUNT_TRACKING
-                    return
-                elif self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
-                    logger.warning(
-                        "Waiting for solve after move. Attempts left: %d", retry_count
-                    )
-                    yield
-                elif self.state != MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
-                    return  # State changed, exit
+            # logger.debug("MOUNT_TARGET_ACQUISITION_REFINE: Refining target acquisition")
+            # retry_init = retry_count  # store for later waits
 
-            solution = self.shared_state.solution()
-            if (
-                abs(self.target_ra - solution.RA_target) <= 0.01
-                and abs(self.target_dec - solution.Dec_target) <= 0.01
-            ):
-                # Target is within 0.01 degrees (36 arcsec) of the solved position in both axes, so we are done.
-                # This is the resolution that is displayed in the UI.
-                logger.info(
-                    "Target acquired within 0.01 degrees, starting drift compensation."
-                )
-                self.state = MountControlPhases.MOUNT_DRIFT_COMPENSATION
-                return
-            else:
-                retry_count = retry_init  # reset retry count
-                # Sync the mount to the solved position and move again.
-                while (
-                    retry_count > 0
-                    and not self.sync_mount(solution.RA_target, solution.Dec_target)
-                    and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
-                ):
-                    # Wait for delay before retrying
-                    start_time = (
-                        time.time()
-                    )  # Used for determining timeouts for retries.
-                    while (
-                        time.time() - start_time <= delay
-                        and self.state
-                        == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
-                    ):
-                        yield
-                    retry_count -= 1
-                    if retry_count == 0:
-                        logger.error(
-                            "Failed to sync mount after move (after retrying)."
-                        )
-                        self.console_queue.put(["WARNING", _("Cannot sync mount!")])
-                        self.state = MountControlPhases.MOUNT_STOPPED
-                        return
-                    elif (
-                        self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
-                    ):
-                        logger.warning(
-                            "Retrying to sync mount. Attempts left: %d", retry_count
-                        )
-                        yield
-                    else:
-                        return  # State changed, exit
+            # # Wait until we have a solved image
+            # while (
+            #     retry_count > 0
+            #     and not self.shared_state.solve_state()
+            #     and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+            # ):
+            #     logger.debug("Waiting for solve after move... Attempts left: %d", retry_count)
+            #     # Wait for delay before retrying
+            #     start_time = time.time()  # Used for determining timeouts for retries.
+            #     while (
+            #         time.time() - start_time <= delay
+            #         and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+            #     ):
+            #         yield
+            #     # Retries exceeded?
+            #     retry_count -= 1
+            #     if (
+            #         retry_count <= 0
+            #         and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+            #     ):
+            #         logger.error("Failed to solve after move (after retrying).")
+            #         self.console_queue.put(["WARNING", _("Solve failed!")])
+            #         self.state = MountControlPhases.MOUNT_TRACKING
+            #         return
+            #     elif self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
+            #         logger.debug(
+            #             "Waiting for solve after move. Attempts left: %d", retry_count
+            #         )
+            #         yield
+            #     elif self.state != MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
+            #         return  # State changed, exit
 
-                retry_count = retry_init  # reset retry count
-                while (
-                    retry_count > 0
-                    and not self.move_mount_to_target(self.target_ra, self.target_dec)
-                    and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
-                ):
-                    # Wait for delay before retrying
-                    start_time = (
-                        time.time()
-                    )  # Used for determining timeouts for retries.
-                    while (
-                        time.time() - start_time <= delay
-                        and self.state
-                        == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
-                    ):
-                        yield
-                    retry_count -= 1
-                    if retry_count == 0:
-                        logger.error(
-                            "Failed to command mount to move to target (after retrying)."
-                        )
-                        self.console_queue.put(["WARNING", _("Cannot move to target!")])
-                        self.state = MountControlPhases.MOUNT_TRACKING
-                        return
-                    elif (
-                        self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
-                    ):
-                        logger.warning(
-                            "Retrying to move mount to target. Attempts left: %d",
-                            retry_count,
-                        )
-                        yield
-                    else:
-                        return  # State changed, exit
-                self.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
-                return
+            # solution = self.shared_state.solution()
+            # if solution is None:
+            #     logger.warning("Solution is None after solve_state was True, retrying...")
+            #     return
+            # if (
+            #     abs(self.target_ra - solution.RA_target) <= 0.01
+            #     and abs(self.target_dec - solution.Dec_target) <= 0.01
+            # ):
+            #     # Target is within 0.01 degrees (36 arcsec) of the solved position in both axes, so we are done.
+            #     # This is the resolution that is displayed in the UI.
+            #     logger.info(
+            #         "Target acquired within 0.01 degrees, starting drift compensation."
+            #     )
+            #     self.state = MountControlPhases.MOUNT_DRIFT_COMPENSATION
+            #     return
+            # else:
+            #     retry_count = retry_init  # reset retry count
+            #     # Sync the mount to the solved position and move again.
+            #     start_time = time.time()  # Used for determining timeouts for retries.
+            #     while (
+            #         retry_count > 0
+            #         and not self.sync_mount(solution.RA_target, solution.Dec_target)
+            #         and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+            #     ):
+            #         # Wait for delay before retrying
+            #         while (
+            #             time.time() - start_time <= delay
+            #             and self.state
+            #             == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+            #         ):
+            #             yield
+            #         start_time = time.time()  # Reset timer for next retry
+            #         retry_count -= 1
+            #         if retry_count == 0:
+            #             logger.error(
+            #                 "Failed to sync mount after move (after retrying)."
+            #             )
+            #             self.console_queue.put(["WARNING", _("Cannot sync mount!")])
+            #             self.state = MountControlPhases.MOUNT_STOPPED
+            #             return
+            #         elif (
+            #             self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+            #         ):
+            #             logger.warning(
+            #                 "Retrying to sync mount. Attempts left: %d", retry_count
+            #             )
+            #             yield
+            #         else:
+            #             return  # State changed, exit
+
+            #     retry_count = retry_init  # reset retry count
+            #     start_time = time.time()  # Used for determining timeouts for retries.
+            #     while (
+            #         retry_count > 0
+            #         and not self.move_mount_to_target(self.target_ra, self.target_dec)
+            #         and self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+            #     ):
+            #         # Wait for delay before retrying
+            #         while (
+            #             time.time() - start_time <= delay
+            #             and self.state
+            #             == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+            #         ):
+            #             yield
+            #         start_time = time.time()  # Reset timer for next retry
+            #         retry_count -= 1
+            #         if retry_count <= 0:
+            #             logger.error(
+            #                 "Failed to command mount to move to target (after retrying)."
+            #             )
+            #             self.console_queue.put(["WARNING", _("Cannot move to target!")])
+            #             self.state = MountControlPhases.MOUNT_TRACKING
+            #             return
+            #         elif (
+            #             self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
+            #         ):
+            #             logger.warning(
+            #                 "Retrying to move mount to target. Attempts left: %d",
+            #                 retry_count,
+            #             )
+            #             yield
+            #         else:
+            #             return  # State changed, exit
+            #     self.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
+            #     return
 
         elif self.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
             # Handle drift compensation
@@ -800,6 +818,8 @@ class MountControlBase:
         # Setup back-off and retry logic for initialization
         # TODO implement back-off and retry logic
 
+        cmd_steps = 0
+        phase_steps = 0
         try:
             command_step = None
             phase_step = None
@@ -812,10 +832,9 @@ class MountControlBase:
                     if command_step is not None:
                         try:
                             next(command_step)
+                            cmd_steps += 1
                         except StopIteration:
-                            command_step = (
-                                None  # Finished processing the current command
-                            )
+                            command_step = None  # Finished processing the current command
 
                     # Check for new commands if not currently processing one
                     if command_step is None:
@@ -833,6 +852,7 @@ class MountControlBase:
                 if phase_step is not None:
                     try:
                         next(phase_step)
+                        phase_steps += 1
                     except StopIteration:
                         phase_step = None  # Finished processing the current phase step
 
@@ -840,6 +860,12 @@ class MountControlBase:
                     phase_step = self._process_phase()
 
                 # Sleep for rate.
+                time.sleep(0.1)
+                # if (cmd_steps+phase_steps)%10 == 0:
+                #     logger.debug(
+                #         f"Mount control loop: {cmd_steps} command steps, {phase_steps} phase steps"
+                #     )
+                #     logger.debug(f"Mount state: {self.state}")
         except KeyboardInterrupt:
             self.disconnect_mount()
             print("Mount control stopped.")

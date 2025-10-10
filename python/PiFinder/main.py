@@ -852,6 +852,7 @@ if __name__ == "__main__":
             log_path,
         )
         MultiprocLogging.configurer(log_helper.get_queue())
+        rlogger = logging.getLogger()
     except FileNotFoundError:
         rlogger.warning(
             "Cannot find log configuration file, proceeding with basic configuration."
