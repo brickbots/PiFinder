@@ -352,9 +352,9 @@ class MountControlIndi(MountControlBase):
         log_queue: Queue,
         indi_host: str = "localhost",
         indi_port: int = 7624,
-        target_tolerance_deg: float = 0.01,
+        target_tolerance_deg: float = 0.01
     ):
-        super().__init__(mount_queue, console_queue, shared_state, log_queue)
+        super().__init__(mount_queue, console_queue, shared_state)
 
         self.indi_host = indi_host
         self.indi_port = indi_port
@@ -376,6 +376,8 @@ class MountControlIndi(MountControlBase):
 
         # Available slew rates (will be populated during init_mount)
         self.available_slew_rates: List[str] = []
+
+        self.log_queue = log_queue
 
     def _get_telescope_device(self):
         """Get the telescope device from the INDI client.
@@ -809,20 +811,6 @@ class MountControlIndi(MountControlBase):
             logger.exception(f"Error in manual movement: {e}")
             return False
 
-    def set_mount_step_size(self, step_size_deg: float) -> bool:
-        """Set the mount's step size for manual movements.
-
-        Args:
-            step_size_deg: Step size in degrees
-
-        Returns:
-            True if step size set successfully, False otherwise.
-        """
-        # Step size is managed by the base class, not the mount
-        # So we just return True
-        logger.debug(f"Step size set to {step_size_deg}°")
-        return True
-
     def disconnect_mount(self) -> bool:
         """Disconnect from the INDI mount.
 
@@ -865,9 +853,10 @@ def run(
         indi_host: INDI server hostname
         indi_port: INDI server port
     """
-    MultiprocLogging.configurer(log_queue)
+    if not log_queue is None:
+        MultiprocLogging.configurer(log_queue)
     mount_control = MountControlIndi(
-        mount_queue, console_queue, shared_state, log_queue, indi_host, indi_port
+        mount_queue, console_queue, shared_state, indi_host, indi_port
     )
     try:
         mount_control.run()

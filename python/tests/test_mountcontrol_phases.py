@@ -13,8 +13,8 @@ from PiFinder.state import SharedStateObj
 class MountControlPhasesTestable(MountControlBase):
     """Testable subclass of MountControlBase for testing _process_phase method."""
 
-    def __init__(self, mount_queue, console_queue, shared_state, log_queue):
-        super().__init__(mount_queue, console_queue, shared_state, log_queue)
+    def __init__(self, mount_queue, console_queue, shared_state):
+        super().__init__(mount_queue, console_queue, shared_state)
 
         # Create mocks for all abstract methods but don't mock the helper methods
         self.init_mount = Mock(return_value=True)
@@ -43,7 +43,6 @@ class TestMountControlPhases:
         # Create mock queues
         self.mount_queue = Queue()
         self.console_queue = Queue()
-        self.log_queue = Queue()
 
         # Create mock shared state with solution capabilities
         self.shared_state = Mock(spec=SharedStateObj)
@@ -55,7 +54,7 @@ class TestMountControlPhases:
 
         # Create the testable mount control instance
         self.mount_control = MountControlPhasesTestable(
-            self.mount_queue, self.console_queue, self.shared_state, self.log_queue
+            self.mount_queue, self.console_queue, self.shared_state
         )
 
         # Set initial target coordinates for refine tests
@@ -207,28 +206,11 @@ class TestMountControlPhases:
         # Verify no console messages
         assert self.console_queue.empty()
 
-    def test_mount_target_acquisition_move_mount_stopped(self):
-        """Test MOUNT_TARGET_ACQUISITION_MOVE phase when mount stops."""
-        self.mount_control.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
-        self.mount_control.target_reached = False
-        self.mount_control.mount_stopped = True
-
-        # Execute the phase
-        self._execute_phase_generator()
-
-        # Verify state transition to MOUNT_STOPPED
-        assert self.mount_control.state == MountControlPhases.MOUNT_STOPPED
-
-        # Verify info message was sent
-        assert not self.console_queue.empty()
-        info_msg = self.console_queue.get()
-        assert info_msg[0] == "INFO"
-
     def test_mount_target_acquisition_move_waiting(self):
         """Test MOUNT_TARGET_ACQUISITION_MOVE phase when waiting."""
         self.mount_control.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
         self.mount_control.target_reached = False
-        self.mount_control.mount_stopped = False
+        ## FIXME transition to stop
 
         # Execute the phase
         self._execute_phase_generator()

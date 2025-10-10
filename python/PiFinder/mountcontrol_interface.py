@@ -9,7 +9,9 @@
 
 import logging
 from enum import Enum, auto
-from queue import Queue
+import queue
+from multiprocessing import Queue
+import sys
 import time
 from typing import TYPE_CHECKING, Generator, Iterator, Optional, Any
 
@@ -164,15 +166,13 @@ class MountControlBase:
         self,
         mount_queue: Queue,
         console_queue: Queue,
-        shared_state: SharedStateObj,
-        log_queue: Queue,
+        shared_state: SharedStateObj
     ):
         """
         Args:
             mount_queue: Queue for receiving target positions or commands.
             console_queue: Queue for sending messages to the user interface or console.
             shared_state: SharedStateObj for inter-process communication with other PiFinder components.
-            log_queue: Queue for logging messages.
 
         Attributes:
             state: Current state of the mount (e.g., initialization, tracking).
@@ -180,7 +180,6 @@ class MountControlBase:
         self.mount_queue = mount_queue
         self.console_queue = console_queue
         self.shared_state = shared_state
-        self.log_queue = log_queue
 
         self.current_ra: Optional[float] = (
             None  # Mount current Right Ascension in degrees, or None
@@ -476,7 +475,8 @@ class MountControlBase:
             # This is here for debugging and testing purposes.
             logger.warning("Mount control exiting on command.")
             self._stop_mount()
-            raise KeyboardInterrupt("Mount control exiting on command.")
+            sys.exit(0)
+            # raise KeyboardInterrupt("Mount control exiting on command.")
 
         elif command["type"] == "stop_movement":
             logger.debug("Mount: stop command received")
@@ -497,6 +497,25 @@ class MountControlBase:
                     )
                     yield
 
+        elif command["type"] == "sync":
+            sync_ra = command["ra"]
+            sync_dec = command["dec"]
+            logger.debug(f"Mount: Syncing - RA={sync_ra}, DEC={sync_dec}")
+            while retry_count > 0 and not self.sync_mount(sync_ra, sync_dec):
+                # Wait for delay before retrying
+                while time.time() - start_time <= delay:
+                    yield
+                retry_count -= 1
+                if retry_count == 0:
+                    logger.error("Failed to sync mount after retrying. Re-initializing.")
+                    self.console_queue.put(["WARNING", _("Cannot sync mount!")])
+                    self.state = MountControlPhases.MOUNT_INIT_TELESCOPE
+                else:
+                    logger.warning(
+                        "Retrying to sync mount. Attempts left: %d", retry_count
+                    )
+                    yield
+                    
         elif command["type"] == "goto_target":
             target_ra = command["ra"]
             target_dec = command["dec"]
@@ -622,6 +641,7 @@ class MountControlBase:
             if self.target_reached:
                 self.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE
                 return
+            # If mount is stopped during move, self.state will be changed to MOUNT_STOPPED by the command.
 
         elif self.state == MountControlPhases.MOUNT_TARGET_ACQUISITION_REFINE:
             retry_init = retry_count  # store for later waits
@@ -794,7 +814,7 @@ class MountControlBase:
                         command = self.mount_queue.get(block=False)
                         command_step = self._process_command(command)
 
-                except Queue.Empty:
+                except queue.Empty:
                     # No command in queue, continue with state-based processing
                     pass
 
@@ -816,10 +836,3 @@ class MountControlBase:
             self.disconnect_mount()
             print("Mount control stopped.")
             raise
-
-
-# FAILED tests/test_mountcontrol_phases.py::TestMountControlPhases::test_mount_init_telescope_failure_with_retry - AssertionError: assert 1 == 2
-# FAILED tests/test_mountcontrol_phases.py::TestMountControlPhases::test_mount_init_telescope_total_failure - AssertionError: assert 1 == 3
-# FAILED tests/test_mountcontrol_phases.py::TestMountControlPhases::test_mount_target_acquisition_refine_sync_failure - AssertionError: assert 1 == 3
-# FAILED tests/test_mountcontrol_phases.py::TestMountControlPhases::test_mount_target_acquisition_refine_move_failure - AssertionError: assert 1 == 2
-# FAILED tests/test_mountcontrol_phases.py::TestMountControlPhases::test_phase_state_change_during_processing - assert <MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE: 4> == <MountControlPhases.MOUNT_STOPPED: 3>
