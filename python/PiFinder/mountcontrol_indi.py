@@ -1,4 +1,4 @@
-from queue import Queue
+from multiprocessing import Queue
 from typing import List, Optional, Tuple
 from PiFinder.mountcontrol_interface import (
     MountControlBase,
@@ -352,7 +352,7 @@ class MountControlIndi(MountControlBase):
         log_queue: Queue,
         indi_host: str = "localhost",
         indi_port: int = 7624,
-        target_tolerance_deg: float = 0.01
+        target_tolerance_deg: float = 0.01,
     ):
         super().__init__(mount_queue, console_queue, shared_state)
 
@@ -840,8 +840,8 @@ def run(
     console_queue: Queue,
     shared_state: SharedStateObj,
     log_queue: Queue,
-    indi_host: str ="localhost",
-    indi_port: int =7624,
+    indi_host: str = "localhost",
+    indi_port: int = 7624,
 ):
     """Run the INDI mount control process.
 
@@ -853,10 +853,10 @@ def run(
         indi_host: INDI server hostname
         indi_port: INDI server port
     """
-    if not log_queue is None:
+    if log_queue is not None:
         MultiprocLogging.configurer(log_queue)
     mount_control = MountControlIndi(
-        mount_queue, console_queue, shared_state, indi_host, indi_port
+        mount_queue, console_queue, shared_state, log_queue, indi_host, indi_port
     )
     try:
         mount_control.run()

@@ -163,10 +163,7 @@ class MountControlBase:
     """
 
     def __init__(
-        self,
-        mount_queue: Queue,
-        console_queue: Queue,
-        shared_state: SharedStateObj
+        self, mount_queue: Queue, console_queue: Queue, shared_state: SharedStateObj
     ):
         """
         Args:
@@ -323,21 +320,6 @@ class MountControlBase:
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
-    def set_mount_step_size(self, step_size_deg: float) -> bool:
-        """Set the mount's step size for manual movements.
-
-        The subclass needs to return a boolean indicating success or failure,
-        if the command was successfully sent.
-        A failure will be reported back to the user.
-
-        Args:
-            step_size_deg: The new step size to set (degrees)
-
-        Returns:
-            bool: True if setting step size was successful, False otherwise.
-        """
-        raise NotImplementedError("This method should be overridden by subclasses.")
-
     def disconnect_mount(self) -> bool:
         """Safely disconnect from the mount hardware.
 
@@ -454,6 +436,30 @@ class MountControlBase:
     # Shared logic and main loop
     #
 
+    def set_mount_step_size(self, step_size_deg: float) -> bool:
+        """Set the mount's step size for manual movements.
+
+        The subclass needs to return a boolean indicating success or failure,
+        if the command was successfully sent.
+        A failure will be reported back to the user.
+
+        Args:
+            step_size_deg: The new step size to set (degrees)
+
+        Returns:
+            bool: True if setting step size was successful, False otherwise.
+        """
+        self.step_size = step_size_deg
+        return True
+
+    def get_mount_step_size(self) -> float:
+        """Get the current mount's step size for manual movements.
+
+        Returns:
+            float: The current step size (degrees).
+        """
+        return self.step_size
+
     def spiral_search(
         self, center_position_radec, max_radius_deg, step_size_deg
     ) -> None:
@@ -507,7 +513,9 @@ class MountControlBase:
                     yield
                 retry_count -= 1
                 if retry_count == 0:
-                    logger.error("Failed to sync mount after retrying. Re-initializing.")
+                    logger.error(
+                        "Failed to sync mount after retrying. Re-initializing."
+                    )
                     self.console_queue.put(["WARNING", _("Cannot sync mount!")])
                     self.state = MountControlPhases.MOUNT_INIT_TELESCOPE
                 else:
@@ -515,7 +523,7 @@ class MountControlBase:
                         "Retrying to sync mount. Attempts left: %d", retry_count
                     )
                     yield
-                    
+
         elif command["type"] == "goto_target":
             target_ra = command["ra"]
             target_dec = command["dec"]

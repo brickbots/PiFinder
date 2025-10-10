@@ -49,7 +49,9 @@ def type_hints(session: nox.Session) -> None:
     # session.install(
     #     "git+https://github.com/indilib/pyindi-client.git@v2.1.2#egg=pyindi-client"
     # )
-    session.run("mypy", "--install-types", "--non-interactive", "--exclude", "indi_tools", ".")
+    session.run(
+        "mypy", "--install-types", "--non-interactive", "--exclude", "indi_tools", "."
+    )
 
 
 @nox.session(reuse_venv=True, python="3.9")

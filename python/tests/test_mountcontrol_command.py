@@ -83,9 +83,7 @@ class TestMountControl:
         except SystemExit:
             system_exit_thrown = True
 
-        assert (
-            system_exit_thrown
-        ), "SystemExit was not raised on exit command"
+        assert system_exit_thrown, "SystemExit was not raised on exit command"
 
         # Verify that stop_mount was called (since we started from TRACKING state)
         self.mount_control.stop_mount.assert_called_once()
@@ -181,7 +179,6 @@ class TestMountControl:
         # Verify state was set to MOUNT_INIT_TELESCOPE on total failure
         assert self.mount_control.state == MountControlPhases.MOUNT_INIT_TELESCOPE
 
-
     def test_sync_success(self):
         """Test successful 'sync' command."""
         # Setup initial state
@@ -198,7 +195,6 @@ class TestMountControl:
 
         # Verify no warning messages
         assert self.console_queue.empty()
-
 
     def test_gototarget_success(self):
         """Test successful 'goto_target' command."""

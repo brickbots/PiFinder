@@ -1,8 +1,5 @@
-import pytest
 import time
 from multiprocessing import Process, Queue
-import datetime
-from unittest.mock import Mock, MagicMock, patch
 import PiFinder.mountcontrol_indi as mountcontrol
 from PiFinder.state import SharedStateObj
 
@@ -11,7 +8,7 @@ def test_mountcontrol_exit_flow():
     mount_queue = Queue()
     console_queue = Queue()
     log_queue = Queue()
-    
+
     shared_state = SharedStateObj()
 
     mountcontrol_process = Process(
@@ -20,7 +17,7 @@ def test_mountcontrol_exit_flow():
         args=(mount_queue, console_queue, shared_state, log_queue, True),
     )
     mountcontrol_process.start()
-    time.sleep(0.5) # Wait for process startup.
+    time.sleep(0.5)  # Wait for process startup.
 
     mount_queue.put({"type": "exit"})
 
@@ -28,11 +25,12 @@ def test_mountcontrol_exit_flow():
 
     mountcontrol_process.join()
 
+
 def test_mountcontrol_flow():
     mount_queue = Queue()
     console_queue = Queue()
     log_queue = Queue()
-    
+
     shared_state = SharedStateObj()
 
     mountcontrol_process = Process(
@@ -41,7 +39,7 @@ def test_mountcontrol_flow():
         args=(mount_queue, console_queue, shared_state, log_queue, True),
     )
     mountcontrol_process.start()
-    time.sleep(0.5) # Wait for process startup.
+    time.sleep(0.5)  # Wait for process startup.
 
     mount_queue.put({"type": "sync", "ra": 0.0, "dec": 90.0})
     time.sleep(10)
