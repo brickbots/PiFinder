@@ -10,7 +10,6 @@ sudo apt update
 # Install INDI server and components
 sudo apt install -y \
     indi-bin \
-    indi-telescope-simulator \
     libindi-dev \
     swig
 
