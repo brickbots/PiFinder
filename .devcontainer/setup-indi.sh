@@ -6,12 +6,23 @@ sudo apt update
 sudo apt install -y software-properties-common
 sudo add-apt-repository ppa:mutlaqja/ppa -y
 sudo apt update
+sudo apt upgrade -y
 
 # Install INDI server and components
 sudo apt install -y \
     indi-bin \
     libindi-dev \
-    swig
+    swig \
+    libdbus-1-3 \
+    libdbus-1-dev \
+    libglib2.0-0t64 \
+    libglib2.0-bin \
+    libglib2.0-dev \
+    python-setuptools \
+    python-dev \
+    libindi-dev \
+    libcfitsio-dev \
+    libnova-dev
 
 # Install Python dependencies
 cd /workspaces/PiFinder/python
