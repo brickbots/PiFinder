@@ -7,6 +7,9 @@ This module loads the catalog of bright named stars.
 import logging
 from pathlib import Path
 from tqdm import tqdm
+import logging
+
+logger = logging.getLogger("BrightStarsLoader")
 
 import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject
@@ -44,7 +47,7 @@ def load_bright_stars():
             other_names = dfs[1:3]
             sequence = int(dfs[0]) + 1
 
-            logging.debug(f"---------------> Bright Stars {sequence=} <---------------")
+            logger.debug(f"---------------> Bright Stars {sequence=} <---------------")
             size = ""
             # const = dfs[2].strip()
             desc = ""
