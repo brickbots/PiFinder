@@ -32,7 +32,9 @@ jobs:
             libopenjp2-7-dev \
             libindi-dev \
             libopenblas-dev \
-            liblapack-dev
+            liblapack-dev \
+            libcfitsio-dev \
+            libnova-dev
 
       - uses: wntrblm/nox@2024.04.15
         with:
