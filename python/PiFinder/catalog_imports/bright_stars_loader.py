@@ -8,8 +8,6 @@ import logging
 from pathlib import Path
 from tqdm import tqdm
 
-logger = logging.getLogger("BrightStarsLoader")
-
 import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg
@@ -22,6 +20,8 @@ from .catalog_import_utils import (
 
 # Import shared database object
 from .database import objects_db
+
+logger = logging.getLogger("BrightStarsLoader")
 
 
 def load_bright_stars():
