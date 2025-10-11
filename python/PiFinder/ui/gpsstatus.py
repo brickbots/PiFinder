@@ -27,6 +27,7 @@ class UIGPSStatus(UIModule):
     """
 
     __title__ = "GPS"
+    __help_name__ = "gpsstatus"
     _lock_type_dict = {
         0: _(
             "Limited"

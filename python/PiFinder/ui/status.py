@@ -21,6 +21,7 @@ class UIStatus(UIModule):
     """
 
     __title__ = "STATUS"
+    __help_name__ = "status"
 
     _config_options = {
         "Key Brit": {
