@@ -198,6 +198,9 @@ class MountControlBase:
 
         self.step_size: float = 1.0  # Default step size for manual movements in degrees
 
+        self.init_solve_ra: Optional[float] = None  # Solved RA for mount initialization
+        self.init_solve_dec: Optional[float] = None  # Solved Dec for mount initialization
+
         self.state: MountControlPhases = MountControlPhases.MOUNT_INIT_TELESCOPE
 
     #
@@ -210,12 +213,15 @@ class MountControlBase:
         longitude_deg: Optional[float] = None,
         elevation_m: Optional[float] = None,
         utc_time: Optional[str] = None,
+        solve_ra_deg: Optional[float] = None,
+        solve_dec_deg: Optional[float] = None,
     ) -> bool:
         """Initialize the mount, so that we receive updates and can send commands.
 
         The subclass needs to set up the mount and prepare it for operation.
         This may include connecting to the mount, setting initial parameters, un-parking, etc.
         It should also set the geographic coordinates and UTC time if provided.
+        If solve_ra_deg and solve_dec_deg are provided, the mount should sync to that position.
 
         The subclass needs to return a boolean indicating success or failure.
         A failure will cause the main loop to retry initialization after a delay.
@@ -227,6 +233,8 @@ class MountControlBase:
             longitude_deg: Observatory longitude in degrees (positive East). Optional.
             elevation_m: Observatory elevation in meters above sea level. Optional.
             utc_time: UTC time in ISO 8601 format (YYYY-MM-DDTHH:MM:SS). Optional.
+            solve_ra_deg: Solved Right Ascension in degrees for initial sync. Optional.
+            solve_dec_deg: Solved Declination in degrees for initial sync. Optional.
 
         Returns:
             bool: True if initialization was successful, False otherwise.
@@ -634,6 +642,11 @@ class MountControlBase:
             logger.debug("Mount: spiral_search command received")
             raise NotImplementedError("Spiral search not yet implemented.")
 
+        elif command["type"] == "init":
+            logger.debug("Mount: init command received")
+            # Set state to MOUNT_INIT_TELESCOPE to trigger re-initialization
+            self.state = MountControlPhases.MOUNT_INIT_TELESCOPE
+
     def _process_phase(
         self, retry_count: int = 3, delay: float = 1.0
     ) -> Iterator[None]:
@@ -646,7 +659,9 @@ class MountControlBase:
             # Do nothing, until we receive a command to initialize the mount.
             return
         if self.state == MountControlPhases.MOUNT_INIT_TELESCOPE:
-            while retry_count > 0 and not self.init_mount():
+            while retry_count > 0 and not self.init_mount(
+                solve_ra_deg=self.init_solve_ra, solve_dec_deg=self.init_solve_dec
+            ):
                 start_time = time.time()  # Used for determining timeouts for retries.
                 # Wait for delay before retrying
                 while time.time() - start_time <= delay:
@@ -662,7 +677,11 @@ class MountControlBase:
                         "Retrying mount initialization. Attempts left: %d", retry_count
                     )
                     yield
-            self.state = MountControlPhases.MOUNT_STOPPED
+            # Clear the init solve coordinates after successful initialization
+            self.init_solve_ra = None
+            self.init_solve_dec = None
+            self.state = MountControlPhases.MOUNT_TRACKING
+            logger.debug("Phase: -> MOUNT_TRACKING")
             return
 
         elif (
