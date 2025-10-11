@@ -30,6 +30,7 @@ from .database import objects_db
 
 logger = logging.getLogger("SpecializedLoaders")
 
+
 def load_egc():
     """
     Load the EGC (Extragalactic Globular Clusters) catalog.

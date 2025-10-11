@@ -16,6 +16,7 @@ import PiFinder.utils as utils
 
 logger = logging.getLogger("PostProcessing")
 
+
 def _load_messier_names():
     """
     Load Messier common names from messier_names.dat file.

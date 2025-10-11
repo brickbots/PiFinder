@@ -20,6 +20,7 @@ from .database import objects_db
 
 logger = logging.getLogger("Herschel400Loader")
 
+
 def load_herschel400():
     """
     Load the Herschel 400 catalog.

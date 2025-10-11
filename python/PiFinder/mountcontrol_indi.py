@@ -369,7 +369,7 @@ class MountControlIndi(MountControlBase):
 
         self.current_ra: Optional[float] = None
         self.current_dec: Optional[float] = None
-        self.current_time: float = 0.0 # Timestamp of last position update
+        self.current_time: float = 0.0  # Timestamp of last position update
         self._current_position_update_threshold = 1.5  # seconds
 
         self._target_ra: Optional[float] = None
@@ -411,7 +411,9 @@ class MountControlIndi(MountControlBase):
 
             # Avoid is_mount_moving() returning True immediately after target reached
             # There should be no more updates coming.
-            self.current_time = self.current_time - self._current_position_update_threshold - 1.0
+            self.current_time = (
+                self.current_time - self._current_position_update_threshold - 1.0
+            )
             self.mount_target_reached()
 
     def _radec_diff(
@@ -611,7 +613,9 @@ class MountControlIndi(MountControlBase):
         Returns:
             True if sync successful, False otherwise.
         """
-        logger.debug(f"Syncing mount to RA={current_position_ra_deg:.4f}°, Dec={current_position_dec_deg:.4f}°")
+        logger.debug(
+            f"Syncing mount to RA={current_position_ra_deg:.4f}°, Dec={current_position_dec_deg:.4f}°"
+        )
         try:
             device = self._get_telescope_device()
             if not device:
@@ -731,7 +735,6 @@ class MountControlIndi(MountControlBase):
     def is_mount_moving(self) -> bool:
         # Assume moutn is moving if last position update was recently
         return time.time() - self.current_time < self._current_position_update_threshold
-    
 
     def set_mount_drift_rates(
         self, drift_rate_ra: float, drift_rate_dec: float
@@ -770,9 +773,11 @@ class MountControlIndi(MountControlBase):
 
             if self.current_ra is None or self.current_dec is None:
                 logger.error("Current mount position unknown, cannot move manually")
-                self.console_queue.put({"WARN", "Mount position unknown, cannot move manually"})
+                self.console_queue.put(
+                    {"WARN", "Mount position unknown, cannot move manually"}
+                )
                 return False
-            
+
             # Map direction to INDI motion commands
             motion_map = {
                 MountDirectionsEquatorial.NORTH: (
@@ -820,7 +825,7 @@ class MountControlIndi(MountControlBase):
             if not self.client.set_switch(device, property_name, element_name):
                 logger.error(f"Failed to start manual movement {direction}")
                 return False
-            
+
             self.current_time = time.time()  # Update timestamp to indicate movement
             # Wait for the passed duration
             time.sleep(duration)

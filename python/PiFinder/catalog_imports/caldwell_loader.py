@@ -24,6 +24,7 @@ from .database import objects_db
 
 logger = logging.getLogger("CaldwellLoader")
 
+
 def load_caldwell():
     """Load the Caldwell catalog"""
     logger.info("Loading Caldwell")

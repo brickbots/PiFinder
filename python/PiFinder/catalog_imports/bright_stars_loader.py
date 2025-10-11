@@ -7,7 +7,6 @@ This module loads the catalog of bright named stars.
 import logging
 from pathlib import Path
 from tqdm import tqdm
-import logging
 
 logger = logging.getLogger("BrightStarsLoader")
 

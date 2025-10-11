@@ -7,6 +7,7 @@ import logging
 
 logger = logging.getLogger("ObjectsDatabase")
 
+
 class ObjectsDatabase(Database):
     def __init__(self, db_path=utils.pifinder_db):
         conn, cursor = self.get_database(db_path)

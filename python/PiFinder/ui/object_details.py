@@ -36,6 +36,7 @@ DM_SDSS = 4  # Display mode for SDSS
 
 mc_logger = logging.getLogger("MountControl")
 
+
 class UIObjectDetails(UIModule):
     """
     Shows details about an object
@@ -530,7 +531,10 @@ class UIObjectDetails(UIModule):
     def key_number(self, number):
         """Handle number key presses for mount control"""
         # Send mount control commands regardless of display mode
-        print("MountControl log level: ", logging.getLevelName(mc_logger.getEffectiveLevel()))
+        print(
+            "MountControl log level: ",
+            logging.getLevelName(mc_logger.getEffectiveLevel()),
+        )
         mc_logger.debug(f"UI: MountControl number key pressed: {number}")
         mountcontrol_queue = self.command_queues.get("mountcontrol")
         if mountcontrol_queue is None:
@@ -549,65 +553,77 @@ class UIObjectDetails(UIModule):
         elif number == 2:
             mc_logger.debug("UI: Moving mount south")
             # South
-            mountcontrol_queue.put({
-                "type": "manual_movement",
-                "direction": "south",
-                "slew_rate": "4x",
-                "duration": 1.0,
-            })
+            mountcontrol_queue.put(
+                {
+                    "type": "manual_movement",
+                    "direction": "south",
+                    "slew_rate": "4x",
+                    "duration": 1.0,
+                }
+            )
         elif number == 3:
             mc_logger.debug("UI: Syncing mount")
             # Sync mount to current position if we have a solve
             solution = self.shared_state.solution()
             if solution:
-                mountcontrol_queue.put({
-                    "type": "sync",
-                    "ra": solution.get("RA_target"),
-                    "dec": solution.get("Dec_target"),
-                })
+                mountcontrol_queue.put(
+                    {
+                        "type": "sync",
+                        "ra": solution.get("RA_target"),
+                        "dec": solution.get("Dec_target"),
+                    }
+                )
             else:
                 mc_logger.warning("UI: Cannot sync mount - no solution available")
-                self.command_queues.get("console").put({
-                    "warning",
-                    "No solve"})
+                self.command_queues.get("console").put({"warning", "No solve"})
         elif number == 4:
             mc_logger.debug("UI:Moving mount west")
             # West
-            mountcontrol_queue.put({
-                "type": "manual_movement",
-                "direction": "west",
-                "slew_rate": "4x",
-                "duration": 1.0,
-            })
+            mountcontrol_queue.put(
+                {
+                    "type": "manual_movement",
+                    "direction": "west",
+                    "slew_rate": "4x",
+                    "duration": 1.0,
+                }
+            )
         elif number == 5:
-            mc_logger.debug(f"UI: GOTO target - RA: {self.object.ra} DEC: {self.object.dec}")
+            mc_logger.debug(
+                f"UI: GOTO target - RA: {self.object.ra} DEC: {self.object.dec}"
+            )
             # Goto target - use current object coordinates
-            mountcontrol_queue.put({
-                "type": "goto_target",
-                "ra": self.object.ra,
-                "dec": self.object.dec,
-            })
+            mountcontrol_queue.put(
+                {
+                    "type": "goto_target",
+                    "ra": self.object.ra,
+                    "dec": self.object.dec,
+                }
+            )
         elif number == 6:
             mc_logger.debug("UI: Moving mount east")
             # East
-            mountcontrol_queue.put({
-                "type": "manual_movement",
-                "direction": "east",
-                "slew_rate": "4x",
-                "duration": 1.0,
-            })
+            mountcontrol_queue.put(
+                {
+                    "type": "manual_movement",
+                    "direction": "east",
+                    "slew_rate": "4x",
+                    "duration": 1.0,
+                }
+            )
         elif number == 7:
             # Spiral search - TODO: determine spiral search command structure
             pass
         elif number == 8:
             mc_logger.debug("UI: Moving mount north")
             # North
-            mountcontrol_queue.put({
-                "type": "manual_movement",
-                "direction": "north",
-                "slew_rate": "4x",
-                "duration": 1.0,
-            })
+            mountcontrol_queue.put(
+                {
+                    "type": "manual_movement",
+                    "direction": "north",
+                    "slew_rate": "4x",
+                    "duration": 1.0,
+                }
+            )
         else:
             mc_logger.warning(f"UI: Unhandled MountControl number key: {number}")
             raise ValueError("Invalid number key for mount control")

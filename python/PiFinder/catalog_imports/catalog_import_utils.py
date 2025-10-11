@@ -22,6 +22,7 @@ observations_db: Optional[ObservationsDatabase] = None
 
 logger = logging.getLogger("CatalogImportUtils")
 
+
 @dataclass
 class NewCatalogObject:
     object_type: str
