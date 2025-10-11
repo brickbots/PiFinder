@@ -531,10 +531,6 @@ class UIObjectDetails(UIModule):
     def key_number(self, number):
         """Handle number key presses for mount control"""
         # Send mount control commands regardless of display mode
-        print(
-            "MountControl log level: ",
-            logging.getLevelName(mc_logger.getEffectiveLevel()),
-        )
         mc_logger.debug(f"UI: MountControl number key pressed: {number}")
         mountcontrol_queue = self.command_queues.get("mountcontrol")
         if mountcontrol_queue is None:
@@ -546,10 +542,20 @@ class UIObjectDetails(UIModule):
             mc_logger.debug("UI: Stopping mount movement")
             mountcontrol_queue.put({"type": "stop_movement"})
         elif number == 1:
-            # FIXME Add a confirmation dialog before initializing mount
-            # Initialize mount
-            mc_logger.debug("Initializing mount (not implemented yet)")
-            pass
+            # Initialize mount with current solve position if available
+            mc_logger.debug("UI: Initializing mount")
+            solution = self.shared_state.solution()
+            if solution:
+                mountcontrol_queue.put({"type": "init"})
+                mountcontrol_queue.put({"type": "sync", "ra": solution.get("RA_target"), "dec": solution.get("Dec_target")})
+                mc_logger.info(
+                    f"UI: Mount init requested with sync to RA={solution.get('RA_target'):.4f}°, "
+                    f"Dec={solution.get('Dec_target'):.4f}°"
+                )
+            else:
+                # Initialize without sync position
+                mountcontrol_queue.put({"type": "init"})
+                mc_logger.info("UI: Mount init requested without sync position")
         elif number == 2:
             mc_logger.debug("UI: Moving mount south")
             # South
