@@ -30,7 +30,7 @@ python3 -m pip install --upgrade pip
 pip install -r requirements.txt
 pip install -r requirements_dev.txt
 
-# Install PyIndi from git (same as nox sessions)
+# Install working PyIndi client from git
 pip install "git+https://github.com/indilib/pyindi-client.git@v2.1.2#egg=pyindi-client"
 
 # Install indiwebmanager from the same repo/branch as in ~/Projects/PiFinder/indiwebmanager
