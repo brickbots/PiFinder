@@ -21,6 +21,7 @@ class MountControlPhasesTestable(MountControlBase):
         self.sync_mount = Mock(return_value=True)
         self.stop_mount = Mock(return_value=True)
         self.move_mount_to_target = Mock(return_value=True)
+        self.is_mount_moving = Mock(return_value=False)
         self.set_mount_drift_rates = Mock(return_value=True)
         self.move_mount_manual = Mock(return_value=True)
         self.set_mount_step_size = Mock(return_value=True)
@@ -46,9 +47,11 @@ class TestMountControlPhases:
 
         # Create mock shared state with solution capabilities
         self.shared_state = Mock(spec=SharedStateObj)
-        self.mock_solution = Mock()
-        self.mock_solution.RA_target = 15.5  # degrees
-        self.mock_solution.Dec_target = 45.2  # degrees
+        # Create a mock solution that supports both attribute and dictionary access
+        self.mock_solution = {
+            "RA_target": 15.5,  # degrees
+            "Dec_target": 45.2,  # degrees
+        }
         self.shared_state.solution.return_value = self.mock_solution
         self.shared_state.solve_state.return_value = True
 
@@ -60,6 +63,10 @@ class TestMountControlPhases:
         # Set initial target coordinates for refine tests
         self.mount_control.target_ra = 15.5
         self.mount_control.target_dec = 45.2
+
+        # Set initial current position (what the mount reports)
+        self.mount_control.current_ra = 15.5
+        self.mount_control.current_dec = 45.2
 
     def _execute_phase_generator(
         self, retry_count=3, delay=0.01, max_iterations=50, timeout=1.0
@@ -96,6 +103,7 @@ class TestMountControlPhases:
         self.mount_control.sync_mount.assert_not_called()
         self.mount_control.stop_mount.assert_not_called()
         self.mount_control.move_mount_to_target.assert_not_called()
+        self.mount_control.is_mount_moving.assert_not_called()
         self.mount_control.set_mount_drift_rates.assert_not_called()
         self.mount_control.move_mount_manual.assert_not_called()
         self.mount_control.set_mount_step_size.assert_not_called()
@@ -178,6 +186,7 @@ class TestMountControlPhases:
         self.mount_control.sync_mount.assert_not_called()
         self.mount_control.stop_mount.assert_not_called()
         self.mount_control.move_mount_to_target.assert_not_called()
+        self.mount_control.is_mount_moving.assert_not_called()
         self.mount_control.set_mount_drift_rates.assert_not_called()
         self.mount_control.move_mount_manual.assert_not_called()
         self.mount_control.set_mount_step_size.assert_not_called()
@@ -207,10 +216,11 @@ class TestMountControlPhases:
         assert self.console_queue.empty()
 
     def test_mount_target_acquisition_move_waiting(self):
-        """Test MOUNT_TARGET_ACQUISITION_MOVE phase when waiting."""
+        """Test MOUNT_TARGET_ACQUISITION_MOVE phase when waiting (mount still moving)."""
         self.mount_control.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
         self.mount_control.target_reached = False
-        ## FIXME transition to stop
+        # Mount is still moving, so we should stay in the same state
+        self.mount_control.is_mount_moving.return_value = True
 
         # Execute the phase
         self._execute_phase_generator()
@@ -229,6 +239,8 @@ class TestMountControlPhases:
 
         # Mock solve_state to always return False (no solution)
         self.shared_state.solve_state.return_value = False
+        # Also set solution to None to simulate no solution
+        self.shared_state.solution.return_value = None
 
         # Execute the phase with 2 retries
         phase_generator = self.mount_control._process_phase(retry_count=2, delay=0.01)
@@ -255,8 +267,8 @@ class TestMountControlPhases:
         # Set target and solution to be within tolerance (0.01 degrees)
         self.mount_control.target_ra = 15.5
         self.mount_control.target_dec = 45.2
-        self.mock_solution.RA_target = 15.505  # Within 0.01 degrees
-        self.mock_solution.Dec_target = 45.205  # Within 0.01 degrees
+        self.mock_solution["RA_target"] = 15.505  # Within 0.01 degrees
+        self.mock_solution["Dec_target"] = 45.205  # Within 0.01 degrees
 
         # Execute the phase
         self._execute_phase_generator()
@@ -274,8 +286,8 @@ class TestMountControlPhases:
         # Set target and solution to be outside tolerance (> 0.01 degrees)
         self.mount_control.target_ra = 15.5
         self.mount_control.target_dec = 45.2
-        self.mock_solution.RA_target = 15.52  # Outside tolerance
-        self.mock_solution.Dec_target = 45.22  # Outside tolerance
+        self.mock_solution["RA_target"] = 15.52  # Outside tolerance
+        self.mock_solution["Dec_target"] = 45.22  # Outside tolerance
 
         # Execute the phase
         self._execute_phase_generator()
@@ -301,8 +313,8 @@ class TestMountControlPhases:
         # Set target and solution to be outside tolerance
         self.mount_control.target_ra = 15.5
         self.mount_control.target_dec = 45.2
-        self.mock_solution.RA_target = 15.52
-        self.mock_solution.Dec_target = 45.22
+        self.mock_solution["RA_target"] = 15.52
+        self.mock_solution["Dec_target"] = 15.22
 
         # Mock sync_mount to fail
         self.mount_control.sync_mount.return_value = False
@@ -328,8 +340,8 @@ class TestMountControlPhases:
         # Set target and solution to be outside tolerance
         self.mount_control.target_ra = 15.5
         self.mount_control.target_dec = 45.2
-        self.mock_solution.RA_target = 15.52
-        self.mock_solution.Dec_target = 45.22
+        self.mock_solution["RA_target"] = 15.52
+        self.mock_solution["Dec_target"] = 45.22
 
         # Mock move_mount_to_target to fail
         self.mount_control.move_mount_to_target.return_value = False
@@ -383,8 +395,8 @@ class TestMountControlPhases:
         # Set up for refine phase that would normally succeed
         self.mount_control.target_ra = 15.5
         self.mount_control.target_dec = 45.2
-        self.mock_solution.RA_target = 15.52
-        self.mock_solution.Dec_target = 45.22
+        self.mock_solution["RA_target"] = 15.52
+        self.mock_solution["Dec_target"] = 45.22
 
         # Change state during processing to simulate external state change
         def sync_side_effect(*args):
