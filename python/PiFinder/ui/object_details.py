@@ -25,13 +25,16 @@ import functools
 from PiFinder.db.observations_db import ObservationsDatabase
 import numpy as np
 import time
-
+import logging
 
 # Constants for display modes
 DM_DESC = 0  # Display mode for description
 DM_LOCATE = 1  # Display mode for LOCATE
 DM_POSS = 2  # Display mode for POSS
-DM_SDSS = 3  # Display mode for SDSS
+DM_MOUNT_CONTROL = 3  # Display mode for mount control shortcuts
+DM_SDSS = 4  # Display mode for SDSS
+
+mc_logger = logging.getLogger("MountControl")
 
 
 class UIObjectDetails(UIModule):
@@ -53,10 +56,16 @@ class UIObjectDetails(UIModule):
         self.object_display_mode = DM_LOCATE
         self.object_image = None
 
-        # Marking Menu - Just default help for now
+        # Marking Menu
         self.marking_menu = MarkingMenu(
-            left=MarkingMenuOption(),
-            right=MarkingMenuOption(),
+            left=MarkingMenuOption(
+                label=_("Telescope"),
+                callback=self.mm_select_telescope,
+            ),
+            right=MarkingMenuOption(
+                label=_("Eyepiece"),
+                callback=self.mm_select_eyepiece,
+            ),
             down=MarkingMenuOption(
                 label=_("ALIGN"),
                 callback=MarkingMenu(
@@ -230,6 +239,8 @@ class UIObjectDetails(UIModule):
 
     def active(self):
         self.activation_time = time.time()
+        self.update_object_info()  # Refresh image with new equipment selection
+        self.update()  # Redraw the screen
 
     def _check_catalog_initialized(self):
         code = self.object.catalog_code
@@ -238,6 +249,31 @@ class UIObjectDetails(UIModule):
             return True
         catalog = self.catalogs.get_catalog_by_code(code)
         return catalog and catalog.initialized
+
+    def _render_mount_control_shortcuts(self):
+        """Render mount control keyboard shortcuts"""
+        y_pos = 15
+        line_height = 10
+
+        shortcuts = [
+            ("0", _("Stop mount")),
+            ("1", _("Init Mount")),
+            ("2", _("South")),
+            ("3", _("Sync")),
+            ("4", _("West")),
+            ("5", _("Goto target")),
+            ("6", _("East")),
+            ("8", _("North")),
+        ]
+
+        for key, label in shortcuts:
+            self.draw.text(
+                (10, y_pos),
+                f"{key}) {label}",
+                font=self.fonts.small.font,
+                fill=self.colors.get(255),
+            )
+            y_pos += line_height
 
     def _render_pointing_instructions(self):
         # Pointing Instructions
@@ -380,6 +416,9 @@ class UIObjectDetails(UIModule):
         if self.object_display_mode == DM_LOCATE:
             self._render_pointing_instructions()
 
+        elif self.object_display_mode == DM_MOUNT_CONTROL:
+            self._render_mount_control_shortcuts()
+
         elif self.object_display_mode == DM_DESC:
             # Object Magnitude and size i.e. 'Mag:4.0   Sz:7"'
             magsize = self.texts.get("magsize")
@@ -424,7 +463,7 @@ class UIObjectDetails(UIModule):
         key is pressed
         """
         self.object_display_mode = (
-            self.object_display_mode + 1 if self.object_display_mode < 2 else 0
+            self.object_display_mode + 1 if self.object_display_mode < 3 else 0
         )
         self.update_object_info()
         self.update()
@@ -457,6 +496,20 @@ class UIObjectDetails(UIModule):
         """
         return True
 
+    def mm_select_telescope(self, _marking_menu, _menu_item) -> bool:
+        """
+        Called from marking menu to navigate to telescope selection
+        """
+        self.jump_to_label("select_telescope")
+        return True
+
+    def mm_select_eyepiece(self, _marking_menu, _menu_item) -> bool:
+        """
+        Called from marking menu to navigate to eyepiece selection
+        """
+        self.jump_to_label("select_eyepiece")
+        return True
+
     def mm_align(self, _marking_menu, _menu_item) -> bool:
         """
         Called from marking menu to align on curent object
@@ -474,6 +527,112 @@ class UIObjectDetails(UIModule):
             self.message(_("Too Far"), 2)
 
         return True
+
+    def key_number(self, number):
+        """Handle number key presses for mount control"""
+        # Send mount control commands regardless of display mode
+        mc_logger.debug(f"UI: MountControl number key pressed: {number}")
+        mountcontrol_queue = self.command_queues.get("mountcontrol")
+        if mountcontrol_queue is None:
+            mc_logger.error("UI: MountControl queue not available")
+            return
+
+        if number == 0:
+            # Stop mount
+            mc_logger.debug("UI: Stopping mount movement")
+            mountcontrol_queue.put({"type": "stop_movement"})
+        elif number == 1:
+            # Initialize mount with current solve position if available
+            mc_logger.debug("UI: Initializing mount")
+            solution = self.shared_state.solution()
+            if solution:
+                mountcontrol_queue.put({"type": "init"})
+                mountcontrol_queue.put({"type": "sync", "ra": solution.get("RA_target"), "dec": solution.get("Dec_target")})
+                mc_logger.info(
+                    f"UI: Mount init requested with sync to RA={solution.get('RA_target'):.4f}°, "
+                    f"Dec={solution.get('Dec_target'):.4f}°"
+                )
+            else:
+                # Initialize without sync position
+                mountcontrol_queue.put({"type": "init"})
+                mc_logger.info("UI: Mount init requested without sync position")
+        elif number == 2:
+            mc_logger.debug("UI: Moving mount south")
+            # South
+            mountcontrol_queue.put(
+                {
+                    "type": "manual_movement",
+                    "direction": "south",
+                    "slew_rate": "4x",
+                    "duration": 1.0,
+                }
+            )
+        elif number == 3:
+            mc_logger.debug("UI: Syncing mount")
+            # Sync mount to current position if we have a solve
+            solution = self.shared_state.solution()
+            if solution:
+                mountcontrol_queue.put(
+                    {
+                        "type": "sync",
+                        "ra": solution.get("RA_target"),
+                        "dec": solution.get("Dec_target"),
+                    }
+                )
+            else:
+                mc_logger.warning("UI: Cannot sync mount - no solution available")
+                self.command_queues.get("console").put({"warning", "No solve"})
+        elif number == 4:
+            mc_logger.debug("UI:Moving mount west")
+            # West
+            mountcontrol_queue.put(
+                {
+                    "type": "manual_movement",
+                    "direction": "west",
+                    "slew_rate": "4x",
+                    "duration": 1.0,
+                }
+            )
+        elif number == 5:
+            mc_logger.debug(
+                f"UI: GOTO target - RA: {self.object.ra} DEC: {self.object.dec}"
+            )
+            # Goto target - use current object coordinates
+            mountcontrol_queue.put(
+                {
+                    "type": "goto_target",
+                    "ra": self.object.ra,
+                    "dec": self.object.dec,
+                }
+            )
+        elif number == 6:
+            mc_logger.debug("UI: Moving mount east")
+            # East
+            mountcontrol_queue.put(
+                {
+                    "type": "manual_movement",
+                    "direction": "east",
+                    "slew_rate": "4x",
+                    "duration": 1.0,
+                }
+            )
+        elif number == 7:
+            # Spiral search - TODO: determine spiral search command structure
+            pass
+        elif number == 8:
+            mc_logger.debug("UI: Moving mount north")
+            # North
+            mountcontrol_queue.put(
+                {
+                    "type": "manual_movement",
+                    "direction": "north",
+                    "slew_rate": "4x",
+                    "duration": 1.0,
+                }
+            )
+        else:
+            mc_logger.warning(f"UI: Unhandled MountControl number key: {number}")
+            raise ValueError("Invalid number key for mount control")
 
     def key_down(self):
         self.maybe_add_to_recents()
@@ -508,7 +667,12 @@ class UIObjectDetails(UIModule):
         self.update()
 
     def key_plus(self):
-        if self.object_display_mode == DM_DESC:
+        if self.object_display_mode == DM_MOUNT_CONTROL:
+            # Handle mount control step size increase
+            mountcontrol_queue = self.command_queues.get("mountcontrol")
+            if mountcontrol_queue is not None:
+                mountcontrol_queue.put({"type": "increase_step_size"})
+        elif self.object_display_mode == DM_DESC:
             self.descTextLayout.next()
             typeconst = self.texts.get("type-const")
             if typeconst and isinstance(typeconst, TextLayouter):
@@ -517,7 +681,12 @@ class UIObjectDetails(UIModule):
             self.change_fov(1)
 
     def key_minus(self):
-        if self.object_display_mode == DM_DESC:
+        if self.object_display_mode == DM_MOUNT_CONTROL:
+            # Handle mount control step size decrease
+            mountcontrol_queue = self.command_queues.get("mountcontrol")
+            if mountcontrol_queue is not None:
+                mountcontrol_queue.put({"type": "reduce_step_size"})
+        elif self.object_display_mode == DM_DESC:
             self.descTextLayout.next()
             typeconst = self.texts.get("type-const")
             if typeconst and isinstance(typeconst, TextLayouter):

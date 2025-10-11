@@ -834,7 +834,7 @@ class CometCatalog(TimerCatalog):
         with Timer("Comet Catalog periodic update"):
             with self._init_lock:
                 if not self.initialized:
-                    logging.debug("Comets not yet initialized, skip periodic update...")
+                    logger.debug("Comets not yet initialized, skip periodic update...")
                     return
             dt = self.shared_state.datetime()
             comet_dict = comets.calc_comets(

@@ -46,7 +46,12 @@ def type_hints(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
-    session.run("mypy", "--install-types", "--non-interactive", ".")
+    session.install(
+        "git+https://github.com/indilib/pyindi-client.git@v2.1.2#egg=pyindi-client"
+    )
+    session.run(
+        "mypy", "--install-types", "--non-interactive", "--exclude", "indi_tools", "."
+    )
 
 
 @nox.session(reuse_venv=True, python="3.9")
@@ -62,6 +67,9 @@ def unit_tests(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
+    session.install(
+        "git+https://github.com/indilib/pyindi-client.git@v2.1.2#egg=pyindi-client"
+    )
     session.run("pytest", "-m", "unit")
 
 
@@ -78,6 +86,9 @@ def smoke_tests(session: nox.Session) -> None:
     """
     session.install("-r", "requirements.txt")
     session.install("-r", "requirements_dev.txt")
+    session.install(
+        "git+https://github.com/indilib/pyindi-client.git@v2.1.2#egg=pyindi-client"
+    )
     session.run("pytest", "-m", "smoke")
 
 
