@@ -202,6 +202,87 @@ class PiFinderIndiClient(PyIndi.BaseClient):
         self.sendNewText(text_prop)
         return True
 
+    def unpark_mount(self, device) -> bool:
+        """Unpark the mount if it is parked.
+
+        Args:
+            device: The INDI telescope device
+
+        Returns:
+            True if unparking succeeded or mount was already unparked, False on error.
+        """
+        try:
+            # Check if mount has TELESCOPE_PARK property
+            park_prop = self._wait_for_property(device, "TELESCOPE_PARK", timeout=2.0)
+            if not park_prop:
+                clientlogger.debug("Mount does not have TELESCOPE_PARK property, assuming not parked")
+                return True
+
+            # Get the park switch property
+            park_switch = device.getSwitch("TELESCOPE_PARK")
+            if not park_switch:
+                clientlogger.warning("Could not get TELESCOPE_PARK switch property")
+                return True
+
+            # Check if mount is parked
+            is_parked = False
+            for i in range(len(park_switch)):
+                if park_switch[i].name == "PARK" and park_switch[i].s == PyIndi.ISS_ON:
+                    is_parked = True
+                    break
+
+            if is_parked:
+                clientlogger.info("Mount is parked, unparking...")
+                if not self.set_switch(device, "TELESCOPE_PARK", "UNPARK"):
+                    clientlogger.error("Failed to unpark mount")
+                    return False
+                clientlogger.info("Mount unparked successfully")
+            else:
+                clientlogger.debug("Mount is not parked")
+
+            return True
+
+        except Exception as e:
+            clientlogger.exception(f"Error unparking mount: {e}")
+            return False
+
+    def enable_sidereal_tracking(self, device) -> bool:
+        """Enable sidereal tracking on the mount.
+
+        Args:
+            device: The INDI telescope device
+
+        Returns:
+            True if tracking was enabled successfully, False on error.
+        """
+        try:
+            # Set tracking mode to sidereal
+            track_mode_prop = self._wait_for_property(device, "TELESCOPE_TRACK_MODE", timeout=2.0)
+            if track_mode_prop:
+                if not self.set_switch(device, "TELESCOPE_TRACK_MODE", "TRACK_SIDEREAL"):
+                    clientlogger.warning("Failed to set tracking mode to sidereal")
+                else:
+                    clientlogger.info("Tracking mode set to sidereal")
+            else:
+                clientlogger.debug("TELESCOPE_TRACK_MODE property not available, will use default tracking mode")
+
+            # Enable tracking
+            track_state_prop = self._wait_for_property(device, "TELESCOPE_TRACK_STATE", timeout=2.0)
+            if track_state_prop:
+                if not self.set_switch(device, "TELESCOPE_TRACK_STATE", "TRACK_ON"):
+                    clientlogger.error("Failed to enable tracking")
+                    return False
+                clientlogger.info("Tracking enabled")
+            else:
+                clientlogger.warning("TELESCOPE_TRACK_STATE property not available")
+                return False
+
+            return True
+
+        except Exception as e:
+            clientlogger.exception(f"Error enabling sidereal tracking: {e}")
+            return False
+
     def newDevice(self, device):
         """Called when a new device is detected by the INDI server."""
         device_name = device.getDeviceName().lower()
@@ -467,6 +548,8 @@ class MountControlIndi(MountControlBase):
         longitude_deg: Optional[float] = None,
         elevation_m: Optional[float] = None,
         utc_time: Optional[str] = None,
+        solve_ra_deg: Optional[float] = None,
+        solve_dec_deg: Optional[float] = None,
     ) -> bool:
         """Initialize connection to the INDI mount.
 
@@ -475,20 +558,27 @@ class MountControlIndi(MountControlBase):
             longitude_deg: Observatory longitude in degrees (positive East). Optional.
             elevation_m: Observatory elevation in meters above sea level. Optional.
             utc_time: UTC time in ISO 8601 format (YYYY-MM-DDTHH:MM:SS). Optional.
+            solve_ra_deg: Solved Right Ascension in degrees for initial sync. Optional.
+            solve_dec_deg: Solved Declination in degrees for initial sync. Optional.
 
         Returns:
             True if initialization successful, False otherwise.
         """
         logger.debug("Initializing mount: connect, unpark, set location/time")
+        if solve_ra_deg is not None and solve_dec_deg is not None:
+            logger.debug(
+                f"Will sync mount to solved position: RA={solve_ra_deg:.4f}°, Dec={solve_dec_deg:.4f}°"
+            )
         try:
-            if not self._connected:
+            if self.client.isServerConnected():
+                logger.debug("init_mount: Already connected to INDI server")
+            else:
                 if not self.client.connectServer():
                     logger.error(
                         f"Failed to connect to INDI server at {self.indi_host}:{self.indi_port}"
                     )
                     return False
 
-                self._connected = True
                 logger.info(
                     f"Connected to INDI server at {self.indi_host}:{self.indi_port}"
                 )
@@ -591,7 +681,24 @@ class MountControlIndi(MountControlBase):
                     "TELESCOPE_SLEW_RATE property not available on this mount"
                 )
 
-            # FIXME unpark mount if parked
+            # Unpark mount if parked
+            if not self.client.unpark_mount(device):
+                logger.warning("Failed to unpark mount, continuing anyway")
+
+            # Set mount to sidereal tracking
+            if not self.client.enable_sidereal_tracking(device):
+                logger.warning("Failed to enable sidereal tracking, continuing anyway")
+
+            # Sync mount if solve coordinates provided
+            if solve_ra_deg is not None and solve_dec_deg is not None:
+                logger.info(
+                    f"Syncing mount to solved position: RA={solve_ra_deg:.4f}°, Dec={solve_dec_deg:.4f}°"
+                )
+                if not self.sync_mount(solve_ra_deg, solve_dec_deg):
+                    logger.warning("Failed to sync mount to solved position during initialization")
+                    # Don't fail initialization if sync fails
+                else:
+                    logger.info("Mount successfully synced to solved position")
 
             return True
 
