@@ -252,19 +252,17 @@ class UIObjectDetails(UIModule):
     def _render_mount_control_shortcuts(self):
         """Render mount control keyboard shortcuts"""
         y_pos = 15
-        line_height = 13
+        line_height = 10
 
         shortcuts = [
             ("0", _("Stop mount")),
             ("1", _("Init Mount")),
             ("2", _("South")),
+            ("3", _("Sync")),
             ("4", _("West")),
             ("5", _("Goto target")),
             ("6", _("East")),
-            ("7", _("Spiral search")),
             ("8", _("North")),
-            ("+", _("Increase step size")),
-            ("-", _("Decrease step size")),
         ]
 
         for key, label in shortcuts:
@@ -557,6 +555,21 @@ class UIObjectDetails(UIModule):
                 "slew_rate": "4x",
                 "duration": 1.0,
             })
+        elif number == 3:
+            mc_logger.debug("UI: Syncing mount")
+            # Sync mount to current position if we have a solve
+            solution = self.shared_state.solution()
+            if solution:
+                mountcontrol_queue.put({
+                    "type": "sync",
+                    "ra": solution.get("RA_target"),
+                    "dec": solution.get("Dec_target"),
+                })
+            else:
+                mc_logger.warning("UI: Cannot sync mount - no solution available")
+                self.command_queues.get("console").put({
+                    "warning",
+                    "No solve"})
         elif number == 4:
             mc_logger.debug("UI:Moving mount west")
             # West

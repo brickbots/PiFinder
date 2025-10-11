@@ -369,6 +369,8 @@ class MountControlIndi(MountControlBase):
 
         self.current_ra: Optional[float] = None
         self.current_dec: Optional[float] = None
+        self.current_time: float = 0.0 # Timestamp of last position update
+        self._current_position_update_threshold = 1.5  # seconds
 
         self._target_ra: Optional[float] = None
         self._target_dec: Optional[float] = None
@@ -396,15 +398,20 @@ class MountControlIndi(MountControlBase):
         """
         self.current_ra = ra_deg
         self.current_dec = dec_deg
+        self.current_time = time.time()
         self.mount_current_position(ra_deg, dec_deg)
         if self._check_target_reached():
             logger.info(
                 f"Target reached: RA={self.current_ra:.4f}°, Dec={self.current_dec:.4f}° "
                 f"(target was RA={self._target_ra:.4f}°, Dec={self._target_dec:.4f}°)"
             )
-            # Clear target to avoid repeated notifications
-            self._target_ra = None
-            self._target_dec = None
+            # Need these for retries in REFINE phase
+            # self._target_ra = None
+            # self._target_dec = None
+
+            # Avoid is_mount_moving() returning True immediately after target reached
+            # There should be no more updates coming.
+            self.current_time = self.current_time - self._current_position_update_threshold - 1.0
             self.mount_target_reached()
 
     def _radec_diff(
@@ -641,8 +648,9 @@ class MountControlIndi(MountControlBase):
             )
             self.current_ra = current_position_ra_deg
             self.current_dec = current_position_dec_deg
-            self._target_dec = None
-            self._target_ra = None
+            # Need these for retries in REFINE phase
+            # self._target_dec = None
+            # self._target_ra = None
             return True
 
         except Exception as e:
@@ -712,12 +720,18 @@ class MountControlIndi(MountControlBase):
             )
             self._target_ra = target_ra_deg
             self._target_dec = target_dec_deg
+            self.current_time = time.time()  # Update timestamp to indicate movement
 
             return True
 
         except Exception as e:
             logger.exception(f"Error commanding mount to target: {e}")
             return False
+
+    def is_mount_moving(self) -> bool:
+        # Assume moutn is moving if last position update was recently
+        return time.time() - self.current_time < self._current_position_update_threshold
+    
 
     def set_mount_drift_rates(
         self, drift_rate_ra: float, drift_rate_dec: float
@@ -806,7 +820,8 @@ class MountControlIndi(MountControlBase):
             if not self.client.set_switch(device, property_name, element_name):
                 logger.error(f"Failed to start manual movement {direction}")
                 return False
-
+            
+            self.current_time = time.time()  # Update timestamp to indicate movement
             # Wait for the passed duration
             time.sleep(duration)
 
