@@ -48,7 +48,7 @@ class NewCatalogObject:
         """Clear the shared ObjectFinder instance"""
         cls._shared_finder = None
 
-    def insert(self):
+    def insert(self, find_object_id=True):
         """
         Inserts object into DB
         """
@@ -57,35 +57,55 @@ class NewCatalogObject:
             raise TypeError("Aka names not list")
 
         # Check to see if this object matches one in the DB already
-        self.find_object_id()
+        # This is a costly operation, so disabled for 'source' catalogs like WDS
+        if find_object_id:
+            self.find_object_id()
 
-        if self.object_id == 0:
-            # Did not find a match, first insert object info
-            self.find_constellation()
-            assert isinstance(self.mag, MagnitudeObject)
+        try:
+            # Enable bulk mode to prevent individual commits
+            objects_db.bulk_mode = True
+            objects_db.conn.execute("BEGIN TRANSACTION")
 
-            self.object_id = objects_db.insert_object(
-                self.object_type,
-                self.ra,
-                self.dec,
-                self.constellation,
-                self.size,
-                self.mag.to_json(),
-                self.surface_brightness,
+            if self.object_id == 0:
+                # Did not find a match, first insert object info
+                self.find_constellation()
+                assert isinstance(self.mag, MagnitudeObject)
+
+                self.object_id = objects_db.insert_object(
+                    self.object_type,
+                    self.ra,
+                    self.dec,
+                    self.constellation,
+                    self.size,
+                    self.mag.to_json(),
+                    self.surface_brightness,
+                )
+
+            # By the time we get here, we have an object_id
+            objects_db.insert_catalog_object(
+                self.object_id, self.catalog_code, self.sequence, self.description
             )
 
-        # By the time we get here, we have an object_id
-        objects_db.insert_catalog_object(
-            self.object_id, self.catalog_code, self.sequence, self.description
-        )
+            # now the names
+            # First, catalog name
+            objects_db.insert_name(
+                self.object_id,
+                f"{self.catalog_code} {self.sequence}",
+                self.catalog_code,
+            )
+            for aka in self.aka_names:
+                objects_db.insert_name(self.object_id, aka, self.catalog_code)
 
-        # now the names
-        # First, catalog name
-        objects_db.insert_name(
-            self.object_id, f"{self.catalog_code} {self.sequence}", self.catalog_code
-        )
-        for aka in self.aka_names:
-            objects_db.insert_name(self.object_id, aka, self.catalog_code)
+            # Commit the transaction
+            objects_db.conn.commit()
+
+        except Exception as e:
+            objects_db.conn.rollback()
+            logging.error(f"Database error inserting object: {e}")
+            raise
+        finally:
+            # Restore bulk mode to False
+            objects_db.bulk_mode = False
 
     def find_constellation(self):
         """

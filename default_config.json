@@ -16,6 +16,7 @@
     "chart_constellations": 64,
     "solve_pixel": [256, 256],
     "gps_type": "ublox",
+    "gps_baud_rate": 9600,
     "filter.selected_catalogs": [
         "NGC",
         "M",
@@ -171,5 +172,6 @@
         ],
         "active_telescope_index": 0,
         "active_eyepiece_index": 0
-    }
+    },
+    "imu_threshold_scale": 1
 }

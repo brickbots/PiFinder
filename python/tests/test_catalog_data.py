@@ -1,5 +1,8 @@
 import pytest
+import threading
 from PiFinder.db import objects_db
+from PiFinder.db import observations_db
+from PiFinder.catalogs import CatalogBackgroundLoader, Names
 
 
 @pytest.mark.unit
@@ -12,6 +15,7 @@ def test_object_counts():
 
     catalog_counts = {
         "NGC": 7840,
+        "WDS": 131303,
         "IC": 5386,
         "M": 110,  # 106 from names.dat + 4 added by post-processing (M24, M40, M45, M102)
         "C": 109,
@@ -32,6 +36,8 @@ def test_object_counts():
     }
 
     # catalog count
+    num_catalogs = len(list(db.get_catalogs()))
+    assert num_catalogs == 19
     actual_catalogs = [row["catalog_code"] for row in db.get_catalogs()]
     expected_catalogs = list(catalog_counts.keys())
     missing_catalogs = set(expected_catalogs) - set(actual_catalogs)
@@ -54,6 +60,8 @@ def test_missing_catalog_data():
         assert obj["ra"] != 0
         assert obj["dec"] != 0
         assert obj["const"] != ""
+        assert obj["ra"] is not None
+        assert obj["dec"] is not None
 
 
 def coords_are_close(coord1, coord2, tolerance=0.02):
@@ -138,43 +146,43 @@ def check_ngc_objects():
         {
             "ngc": 104,
             "name": "47 Tucanae",
-            "ra": 6.023,      # RA = 00h 24m 05.2s
-            "dec": -72.081,   # Dec = -72° 04' 51"
-            "obj_type": "Gb", # Globular cluster
-            "const": "Tuc"    # Tucana
+            "ra": 6.023,  # RA = 00h 24m 05.2s
+            "dec": -72.081,  # Dec = -72° 04' 51"
+            "obj_type": "Gb",  # Globular cluster
+            "const": "Tuc",  # Tucana
         },
         {
             "ngc": 224,
             "name": "Andromeda Galaxy",
-            "ra": 10.685,     # RA = 00h 42m 44.3s
-            "dec": 41.269,    # Dec = +41° 16' 09"
-            "obj_type": "Gx", # Galaxy
-            "const": "And"    # Andromeda
+            "ra": 10.685,  # RA = 00h 42m 44.3s
+            "dec": 41.269,  # Dec = +41° 16' 09"
+            "obj_type": "Gx",  # Galaxy
+            "const": "And",  # Andromeda
         },
         {
             "ngc": 1976,
             "name": "Orion Nebula",
-            "ra": 83.822,     # RA = 05h 35m 17.3s
-            "dec": -5.391,    # Dec = -05° 23' 27"
-            "obj_type": "Nb", # Nebula
-            "const": "Ori"    # Orion
+            "ra": 83.822,  # RA = 05h 35m 17.3s
+            "dec": -5.391,  # Dec = -05° 23' 27"
+            "obj_type": "Nb",  # Nebula
+            "const": "Ori",  # Orion
         },
         {
             "ngc": 2168,
             "name": "M35",
-            "ra": 92.275,     # RA = 06h 09m 06s
-            "dec": 24.350,    # Dec = +24° 21' 00"
-            "obj_type": "OC", # Open cluster
-            "const": "Gem"    # Gemini
+            "ra": 92.275,  # RA = 06h 09m 06s
+            "dec": 24.350,  # Dec = +24° 21' 00"
+            "obj_type": "OC",  # Open cluster
+            "const": "Gem",  # Gemini
         },
         {
             "ngc": 7009,
             "name": "Saturn Nebula",
-            "ra": 316.0417,    # RA = 21h 04m 10.8s
-            "dec": -11.3631,   # Dec = -11° 22' 18"
-            "obj_type": "PN", # Planetary nebula
-            "const": "Aqr"    # Aquarius
-        }
+            "ra": 316.0417,  # RA = 21h 04m 10.8s
+            "dec": -11.3631,  # Dec = -11° 22' 18"
+            "obj_type": "PN",  # Planetary nebula
+            "const": "Aqr",  # Aquarius
+        },
     ]
 
     for test_obj in test_objects:
@@ -183,28 +191,36 @@ def check_ngc_objects():
 
         # Get object from database
         catalog_obj = db.get_catalog_object_by_sequence("NGC", ngc_num)
-        assert catalog_obj is not None, f"NGC {ngc_num} ({name}) should exist in catalog"
+        assert (
+            catalog_obj is not None
+        ), f"NGC {ngc_num} ({name}) should exist in catalog"
 
         obj = db.get_object_by_id(catalog_obj["object_id"])
         assert obj is not None, f"NGC {ngc_num} ({name}) object should exist"
 
         # Check coordinates (allow 0.1 degree tolerance for coordinate precision)
-        assert coords_are_close(obj["ra"], test_obj["ra"], tolerance=0.1), \
-            f"NGC {ngc_num} ({name}) RA should be ~{test_obj['ra']}°, got {obj['ra']}°"
+        assert coords_are_close(
+            obj["ra"], test_obj["ra"], tolerance=0.1
+        ), f"NGC {ngc_num} ({name}) RA should be ~{test_obj['ra']}°, got {obj['ra']}°"
 
-        assert coords_are_close(obj["dec"], test_obj["dec"], tolerance=0.1), \
-            f"NGC {ngc_num} ({name}) Dec should be ~{test_obj['dec']}°, got {obj['dec']}°"
+        assert coords_are_close(
+            obj["dec"], test_obj["dec"], tolerance=0.1
+        ), f"NGC {ngc_num} ({name}) Dec should be ~{test_obj['dec']}°, got {obj['dec']}°"
 
         # Check object type
-        assert obj["obj_type"] == test_obj["obj_type"], \
-            f"NGC {ngc_num} ({name}) should be type '{test_obj['obj_type']}', got '{obj['obj_type']}'"
+        assert (
+            obj["obj_type"] == test_obj["obj_type"]
+        ), f"NGC {ngc_num} ({name}) should be type '{test_obj['obj_type']}', got '{obj['obj_type']}'"
 
         # Check constellation (if provided)
         if test_obj["const"]:
-            assert obj["const"] == test_obj["const"], \
-                f"NGC {ngc_num} ({name}) should be in {test_obj['const']}, got '{obj['const']}'"
+            assert (
+                obj["const"] == test_obj["const"]
+            ), f"NGC {ngc_num} ({name}) should be in {test_obj['const']}, got '{obj['const']}'"
 
-        print(f"✓ NGC {ngc_num} ({name}): RA={obj['ra']:.3f}°, Dec={obj['dec']:.3f}°, Type={obj['obj_type']}, Const={obj['const']}")
+        print(
+            f"✓ NGC {ngc_num} ({name}): RA={obj['ra']:.3f}°, Dec={obj['dec']:.3f}°, Type={obj['obj_type']}, Const={obj['const']}"
+        )
 
 
 def check_ic_objects():
@@ -219,44 +235,44 @@ def check_ic_objects():
         {
             "ic": 434,
             "name": "Horsehead Nebula",
-            "ra": 85.253,     # RA = 05h 41m 01s
-            "dec": -2.457,    # Dec = -02° 27' 25"
-            "obj_type": "Nb", #  Emission Nebula
-            "const": "Ori"    # Orion
+            "ra": 85.253,  # RA = 05h 41m 01s
+            "dec": -2.457,  # Dec = -02° 27' 25"
+            "obj_type": "Nb",  #  Emission Nebula
+            "const": "Ori",  # Orion
         },
         {
             "ic": 1396,
             "name": "Elephant's Trunk Nebula",
-            "ra": 324.725,    # RA = 21h 36m 33s
-            "dec": 57.486,    # Dec = +57° 30' 00"
-            "obj_type": "Nb", # Emission nebula
-            "const": "Cep"    # Cepheus
+            "ra": 324.725,  # RA = 21h 36m 33s
+            "dec": 57.486,  # Dec = +57° 30' 00"
+            "obj_type": "Nb",  # Emission nebula
+            "const": "Cep",  # Cepheus
         },
         {
             "ic": 405,
             "name": "Flaming Star Nebula",
-            "ra": 79.07,     # RA = 05h 16m 17s (hand corrected on simbad image)
-            "dec": 34.383,    # Dec = +34° 34' 12.2"
-            "obj_type": "Nb", # Emission/reflection nebula
-            "const": "Aur"    # Auriga
+            "ra": 79.07,  # RA = 05h 16m 17s (hand corrected on simbad image)
+            "dec": 34.383,  # Dec = +34° 34' 12.2"
+            "obj_type": "Nb",  # Emission/reflection nebula
+            "const": "Aur",  # Auriga
         },
         {
             "ic": 1805,
             "name": "Heart Nebula",
-            "ra": 38.200,     # RA = 02h 32m 48s
-            "dec": 61.450,    # Dec = +61° 27' 00"
+            "ra": 38.200,  # RA = 02h 32m 48s
+            "dec": 61.450,  # Dec = +61° 27' 00"
             # "obj_type": "Nb", # Emission nebula
-            "obj_type": "OC", # Open cluster at the heart of the nebula
-            "const": "Cas"    # Cassiopeia
+            "obj_type": "OC",  # Open cluster at the heart of the nebula
+            "const": "Cas",  # Cassiopeia
         },
         {
             "ic": 10,
             "name": "Galaxy in Sculptor",
-            "ra": 5.072,      # RA = 00h 20m 37s
-            "dec": 59.303,   # Dec = -33° 45' 04"
-            "obj_type": "Gx", # Galaxy
-            "const": "Cas"    # Cassiopeia
-        }
+            "ra": 5.072,  # RA = 00h 20m 37s
+            "dec": 59.303,  # Dec = -33° 45' 04"
+            "obj_type": "Gx",  # Galaxy
+            "const": "Cas",  # Cassiopeia
+        },
     ]
 
     for test_obj in test_objects:
@@ -271,22 +287,28 @@ def check_ic_objects():
         assert obj is not None, f"IC {ic_num} ({name}) object should exist"
 
         # Check coordinates (allow 0.1 degree tolerance for coordinate precision)
-        assert coords_are_close(obj["ra"], test_obj["ra"], tolerance=0.1), \
-            f"IC {ic_num} ({name}) RA should be ~{test_obj['ra']}°, got {obj['ra']}°"
+        assert coords_are_close(
+            obj["ra"], test_obj["ra"], tolerance=0.1
+        ), f"IC {ic_num} ({name}) RA should be ~{test_obj['ra']}°, got {obj['ra']}°"
 
-        assert coords_are_close(obj["dec"], test_obj["dec"], tolerance=0.1), \
-            f"IC {ic_num} ({name}) Dec should be ~{test_obj['dec']}°, got {obj['dec']}°"
+        assert coords_are_close(
+            obj["dec"], test_obj["dec"], tolerance=0.1
+        ), f"IC {ic_num} ({name}) Dec should be ~{test_obj['dec']}°, got {obj['dec']}°"
 
         # Check object type
-        assert obj["obj_type"] == test_obj["obj_type"], \
-            f"IC {ic_num} ({name}) should be type '{test_obj['obj_type']}', got '{obj['obj_type']}'"
+        assert (
+            obj["obj_type"] == test_obj["obj_type"]
+        ), f"IC {ic_num} ({name}) should be type '{test_obj['obj_type']}', got '{obj['obj_type']}'"
 
         # Check constellation (if provided)
         if test_obj["const"]:
-            assert obj["const"] == test_obj["const"], \
-                f"IC {ic_num} ({name}) should be in {test_obj['const']}, got '{obj['const']}'"
+            assert (
+                obj["const"] == test_obj["const"]
+            ), f"IC {ic_num} ({name}) should be in {test_obj['const']}, got '{obj['const']}'"
 
-        print(f"✓ IC {ic_num} ({name}): RA={obj['ra']:.3f}°, Dec={obj['dec']:.3f}°, Type={obj['obj_type']}, Const={obj['const']}")
+        print(
+            f"✓ IC {ic_num} ({name}): RA={obj['ra']:.3f}°, Dec={obj['dec']:.3f}°, Type={obj['obj_type']}, Const={obj['const']}"
+        )
 
 
 @pytest.mark.unit
@@ -299,3 +321,73 @@ def test_catalog_data_validation():
     check_messier_objects()
     check_ngc_objects()
     check_ic_objects()
+
+
+@pytest.mark.unit
+def test_background_loader():
+    """
+    Test that CatalogBackgroundLoader correctly loads objects in background.
+    """
+    # Load minimal test data
+    db = objects_db.ObjectsDatabase()
+
+    # Create a mock observations database for testing
+    class MockObservationsDB:
+        def check_logged(self, obj):
+            return False
+
+    obs_db = MockObservationsDB()
+
+    # Get small sample of WDS objects for testing
+    catalog_objects = list(db.get_catalog_objects_by_catalog_code("WDS"))[:100]
+    catalog_objects_list = [dict(row) for row in catalog_objects]
+
+    # Get objects dict
+    objects = {row["id"]: dict(row) for row in db.get_objects()}
+
+    # Get names
+    common_names = Names()
+
+    # Track completion
+    loaded_count = 0
+    completed = threading.Event()
+    loaded_objects = []
+
+    def on_progress(loaded, total, catalog):
+        nonlocal loaded_count
+        loaded_count = loaded
+
+    def on_complete(objects):
+        nonlocal loaded_objects
+        loaded_objects = objects
+        completed.set()
+
+    # Create and start loader
+    loader = CatalogBackgroundLoader(
+        deferred_catalog_objects=catalog_objects_list,
+        objects=objects,
+        common_names=common_names,
+        obs_db=obs_db,
+        on_progress=on_progress,
+        on_complete=on_complete,
+    )
+
+    # Configure for faster testing
+    loader.batch_size = 10
+    loader.yield_time = 0.001
+
+    loader.start()
+
+    # Wait for completion (5 second timeout)
+    assert completed.wait(timeout=5.0), "Background loading did not complete in time"
+
+    # Verify results
+    assert loaded_count == 100, f"Expected 100 objects, got {loaded_count}"
+    assert len(loaded_objects) == 100, f"Expected 100 loaded objects, got {len(loaded_objects)}"
+
+    # Verify objects have details loaded
+    for obj in loaded_objects[:10]:  # Check first 10
+        assert obj._details_loaded, "Object should have details loaded"
+        assert obj.mag_str != "...", "Object should have magnitude loaded"
+        assert hasattr(obj, "names"), "Object should have names"
+        assert obj.catalog_code == "WDS", "Object should be WDS catalog"
