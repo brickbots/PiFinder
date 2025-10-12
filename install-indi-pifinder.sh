@@ -115,10 +115,21 @@ sudo systemctl enable indiwebmanager.service
 sudo systemctl start indiwebmanager.service
 
 echo "==============================================================================="
+echo "PiFinder: Install time synchronization..."
+echo "==============================================================================="
+
+sudo apt install chrony
+sudo echo "# Sync time from GPSD" >> /etc/chrony/chrony.conf
+sudo echo "refclock SHM 0 poll 3 refid gps1" >> /etc/chrony/chrony.conf
+sudo systemctl restart chrony
+
+echo "==============================================================================="
 echo "PiFinder: INDI setup complete!"
 echo "==============================================================================="
 echo ""
 echo "INDI Web Manager service has been installed and started."
 echo "Please check status with: systemctl status indiwebmanager.service"
 echo "Access at: http://localhost:8624 or http://<your-pifinder-ip>:8624"
+echo ""
+echo "Set Timezone appropriate with 'sudo raspi-config'!"
 

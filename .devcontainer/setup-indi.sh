@@ -33,12 +33,8 @@ pip install -r requirements_dev.txt
 # Install working PyIndi client from git
 pip install "git+https://github.com/indilib/pyindi-client.git@v2.1.2#egg=pyindi-client"
 
-# Install indiwebmanager from the same repo/branch as in ~/Projects/PiFinder/indiwebmanager
-cd /workspaces
-git clone https://github.com/jscheidtmann/indiwebmanager.git
-cd indiwebmanager
-git checkout control_panel
-pip install -e .
+# Install indiwebmanager from the "control_panel" branch from jscheidtmann's fork
+sudo pip install "git+https://github.com/jscheidtmann/indiwebmanager.git@control_panel#egg=indiwebmanager"
 
 # Set up indiwebmanager as a systemd service
 # Create service file with current user
