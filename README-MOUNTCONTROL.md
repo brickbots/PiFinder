@@ -234,8 +234,9 @@ Not yet implemented.
    - Ensure INDI server is running and mount driver is connected
    - Point PiFinder at a known star or object
    - Wait for plate solve to complete
-   - Select an arbitrary
    - Press **1** to initialize mount and sync to solved position
+
+Tipp: Press **1** once, to have the mount tracking.
 
 2. **Navigate to Target**
    - Browse or search for your desired object in PiFinder
