@@ -48,6 +48,7 @@ class TestMountControlIndiUnit:
         # Create mock INDI client
         self.mock_indi_client = MagicMock()
         self.mock_indi_client.connectServer.return_value = True
+        self.mock_indi_client.isServerConnected.return_value = False
         self.mock_indi_client.telescope_device = None
 
         # Create mock telescope device
@@ -71,6 +72,13 @@ class TestMountControlIndiUnit:
         # Setup mock client to simulate successful connection
         self.mock_indi_client.telescope_device = self.mock_telescope
 
+        # Mock isServerConnected to return True after connectServer is called
+        def connect_side_effect():
+            self.mock_indi_client.isServerConnected.return_value = True
+            return True
+
+        self.mock_indi_client.connectServer.side_effect = connect_side_effect
+
         # Mock CONNECTION property
         mock_connect_prop = MagicMock()
         mock_connect_switch = MagicMock()
@@ -86,7 +94,8 @@ class TestMountControlIndiUnit:
         # Verify connection was attempted
         self.mock_indi_client.connectServer.assert_called_once()
         assert result is True
-        assert self.mount_control._connected is True
+        # After successful init, server should be connected
+        assert self.mount_control.client.isServerConnected() is True
 
     def test_init_mount_connection_failure(self):
         """Test mount initialization when server connection fails."""
@@ -98,7 +107,7 @@ class TestMountControlIndiUnit:
 
         # Verify failure
         assert result is False
-        assert self.mount_control._connected is False
+        assert self.mount_control.client.isServerConnected() is False
 
     def test_init_mount_no_telescope_device(self):
         """Test mount initialization when no telescope device is found."""
@@ -115,7 +124,7 @@ class TestMountControlIndiUnit:
         """Test successful mount sync."""
         # Setup
         self.mock_indi_client.telescope_device = self.mock_telescope
-        self.mount_control._connected = True
+        self.mock_indi_client.isServerConnected.return_value = True
         self.mock_indi_client.set_switch.return_value = True
         self.mock_indi_client.set_number.return_value = True
 
@@ -268,7 +277,7 @@ class TestMountControlIndiUnit:
         """Test successful mount disconnection."""
         # Setup
         self.mock_indi_client.telescope_device = self.mock_telescope
-        self.mount_control._connected = True
+        self.mock_indi_client.isServerConnected.return_value = True
 
         # Mock DISCONNECT property
         mock_disconnect_prop = MagicMock()
@@ -278,13 +287,19 @@ class TestMountControlIndiUnit:
         mock_disconnect_prop.sp = [mock_disconnect_switch]
         self.mock_telescope.getProperty.return_value = mock_disconnect_prop
 
+        # Mock disconnectServer to update isServerConnected
+        def disconnect_side_effect():
+            self.mock_indi_client.isServerConnected.return_value = False
+
+        self.mock_indi_client.disconnectServer.side_effect = disconnect_side_effect
+
         # Execute disconnect
         result = self.mount_control.disconnect_mount()
 
         # Verify
         assert result is True
         self.mock_indi_client.disconnectServer.assert_called_once()
-        assert self.mount_control._connected is False
+        assert self.mount_control.client.isServerConnected() is False
 
     def test_set_mount_drift_rates_not_implemented(self):
         """Test that drift rates return False (not implemented)."""
@@ -400,7 +415,7 @@ class TestMountControlIndiIntegration:
         result = self._init_mount()
 
         assert result is True, "Failed to initialize mount with INDI server"
-        assert self.mount_control._connected is True
+        assert self.mount_control.client.isServerConnected() is True
         assert self.mount_control._get_telescope_device() is not None
         print(
             f"Connected to: {self.mount_control._get_telescope_device().getDeviceName()}"
@@ -508,7 +523,7 @@ class TestMountControlIndiIntegration:
         result = self.mount_control.disconnect_mount()
 
         assert result is True, "Failed to disconnect mount"
-        assert self.mount_control._connected is False
+        assert self.mount_control.client.isServerConnected() is False
 
 
 if __name__ == "__main__":

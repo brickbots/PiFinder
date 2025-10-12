@@ -445,7 +445,6 @@ class MountControlIndi(MountControlBase):
         self.client.setServer(self.indi_host, self.indi_port)
 
         # Connection will be established in init_mount()
-        self._connected: bool = False
         self._telescope = None
 
         self.current_ra: Optional[float] = None
@@ -959,9 +958,8 @@ class MountControlIndi(MountControlBase):
                 self.client.set_switch(device, "CONNECTION", "DISCONNECT")
                 logger.info(f"Telescope {device.getDeviceName()} disconnected")
 
-            if self._connected:
+            if self.client.isServerConnected():
                 self.client.disconnectServer()
-                self._connected = False
                 logger.info("Disconnected from INDI server")
 
             return True
