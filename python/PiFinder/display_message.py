@@ -19,7 +19,7 @@ from PiFinder import displays
 from PiFinder import config
 
 
-def display_message(lines, brightness=125, display_type=None):
+def display_message(lines, brightness=255, display_type=None):
     """
     Display one or more lines of text on the PiFinder screen.
 
@@ -29,13 +29,16 @@ def display_message(lines, brightness=125, display_type=None):
         display_type: Display hardware type ('ssd1351', 'st7789', 'pg_128', 'pg_320')
                      If None, defaults to 'ssd1351' (standard PiFinder OLED)
     """
-    # Default to ssd1351 if not specified (standard PiFinder hardware)
+    # Default to SSD1351 if not specified (standard PiFinder hardware)
     if display_type is None:
-        display_type = "ssd1351"
+        display_type = "SSD1351"
 
     # Initialize display
     display = displays.get_display(display_type)
     display.set_brightness(brightness)
+
+    # Get colors object from display
+    colors = display.colors
 
     # Create blank image
     screen = Image.new("RGB", display.resolution, color=(0, 0, 0))
@@ -80,13 +83,13 @@ def display_message(lines, brightness=125, display_type=None):
             else:
                 # Draw current line and start new one
                 if current_line:
-                    draw.text((5, y_pos), current_line, font=font, fill=display.colors.get(255))
+                    draw.text((5, y_pos), current_line, font=font, fill=colors.get(255))
                     y_pos += line_spacing
                 current_line = word
 
         # Draw remaining text
         if current_line:
-            draw.text((5, y_pos), current_line, font=font, fill=display.colors.get(255))
+            draw.text((5, y_pos), current_line, font=font, fill=colors.get(255))
 
     # Display the image
     display.device.display(screen.convert(display.device.mode))
@@ -122,7 +125,7 @@ Examples:
 
     parser.add_argument(
         "-d", "--display",
-        choices=["ssd1351", "st7789", "pg_128", "pg_320"],
+        choices=["SSD1351", "st7789", "pg_128", "pg_320"],
         help="Display hardware type (auto-detected from config if not specified)"
     )
 
