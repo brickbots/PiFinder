@@ -119,8 +119,7 @@ echo "PiFinder: Install time synchronization..."
 echo "==============================================================================="
 
 sudo apt install chrony
-sudo echo "# Sync time from GPSD" >> /etc/chrony/chrony.conf
-sudo echo "refclock SHM 0 poll 3 refid gps1" >> /etc/chrony/chrony.conf
+sudo echo -e "\n# Sync time from GPSD\nrefclock SHM 0 poll 3 refid gps1" >> /etc/chrony/chrony.conf
 sudo systemctl restart chrony
 
 echo "==============================================================================="
