@@ -26,18 +26,12 @@ def display_message(lines, brightness=125, display_type=None):
     Args:
         lines: List of text lines to display
         brightness: Display brightness (0-255)
-        display_type: Display hardware type ('ssd1351', 'st7789', etc.)
-                     If None, will try to detect from config
+        display_type: Display hardware type ('ssd1351', 'st7789', 'pg_128', 'pg_320')
+                     If None, defaults to 'ssd1351' (standard PiFinder OLED)
     """
-    # Try to get display type from config if not specified
+    # Default to ssd1351 if not specified (standard PiFinder hardware)
     if display_type is None:
-        try:
-            cfg = config.Config()
-            display_type = cfg.get_option("display")
-        except Exception as e:
-            # Default to OLED if config not available
-            display_type = "ssd1351"
-            print(f"Warning: Could not read config ({e}), defaulting to {display_type}")
+        display_type = "ssd1351"
 
     # Initialize display
     display = displays.get_display(display_type)
