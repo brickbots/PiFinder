@@ -115,7 +115,8 @@ sudo make install
 
 
 # Reactivate pifinder service after build phase.
-sudo systemctl start pifinder
+# sudo systemctl start pifinder
+# Let users do that. 
 
 
 #
@@ -141,8 +142,10 @@ echo "==========================================================================
 
 sudo pip install FastAPI uvicorn
 
+# This here is needed for PiFinder
 sudo pip install "git+https://github.com/indilib/pyindi-client.git@v2.1.2#egg=pyindi-client"
-sudo pip install "git+https://github.com/jscheidtmann/indiwebmanager.git@control_panel#vegg=indiwebmanager"
+# indiwebmanager with control panel
+sudo pip install "git+https://github.com/jscheidtmann/indiwebmanager.git@control_panel#egg=indiwebmanager"
 
 # Set up indiwebmanager as a systemd service
 # Create service file with current user

@@ -20,41 +20,7 @@ PiFinder now supports controlling computerized telescope mounts via the INDI pro
 - A cable connection between PiFinder and mount
 - PiFinder in client mode to install software
 
-### Step 1: Run Installation Script
-
-Login to your PiFinder and execute the installation script from the PiFinder directory:
-
-```bash
-cd /home/grimaldi/Projects/PiFinder/PiFinder
-bash install-indi-pifinder.sh
-```
-
-This script will:
-1. Update system packages
-2. Install INDI library dependencies
-3. Compile and install INDI from source (current version 2.1.6)
-4. Install PyIndi client library
-5. Install modified INDI Web Manager as a systemd service, that allows configuring the mount
-6. Set up Chrony for GPS time synchronization
-
-**Important Notes:**
-- The installation process may take 30-60 minutes depending on your system
-- The PiFinder service will be temporarily stopped during INDI compilation
-- After installation completes, set your timezone using `sudo raspi-config`
-
-### Step 2: Verify Installation
-
-Check that INDI Web Manager is running:
-
-```bash
-systemctl status indiwebmanager.service
-```
-
-The service should show as "active (running)".
-
-Navigate to "http://pifinder.local/8624" and the Indi Web Manager should display.
-
-### Step 3: Check-out alpha version software of Indi Mount Control
+### Step 1: Check-out alpha version software of Indi Mount Control
 
 The mount control feature is currently in alpha development. To use it, you need to check out the development branch.
 
@@ -96,17 +62,48 @@ The mount control feature is currently in alpha development. To use it, you need
    git pull jscheidtmann indi_mount_control
    ```
 
-6. **Restart the PiFinder service:**
+6. **Install requirements:**
    ```bash
-   sudo systemctl start pifinder
+   sudo pip install python/requirements.txt
    ```
 
-7. **Verify the service is running:**
-   ```bash
-   systemctl status pifinder
-   ```
+**Note 1:** The pifinder service will be started later, as some indi specific requirements are not yet installed.
 
-**Note:** The mount control code is under active development. Check the branch regularly for updates and bug fixes.
+**Note 2:** The mount control code is under active development. Check the branch regularly for updates and bug fixes.
+
+### Step 2: Run Installation Script for INDI
+
+SSH to your PiFinder, login and execute the installation script from the PiFinder directory:
+
+```bash
+cd /home/pifinder/PiFinder
+bash install-indi-pifinder.sh
+```
+
+This script will:
+1. Update system packages
+2. Install INDI library dependencies
+3. Compile and install INDI from source (current version 2.1.6)
+4. Install PyIndi client library
+5. Install modified INDI Web Manager as a systemd service, that allows configuring the mount
+6. Set up Chrony for GPS time synchronization
+
+**Important Notes:**
+- The installation process may take 30-60 minutes depending on your system
+- The PiFinder service will be temporarily stopped during INDI compilation
+- After installation completes, set your timezone using `sudo raspi-config`
+
+### Step 2: Verify Installation
+
+Check that INDI Web Manager is running:
+
+```bash
+systemctl status indiwebmanager.service
+```
+
+The service should show as "active (running)".
+
+Navigate to "http://pifinder.local/8624" and the Indi Web Manager should display.
 
 ## Configuration
 
@@ -167,7 +164,7 @@ INDI Web Manager provides a web interface for managing INDI drivers and connecti
    - Check both the "Auto Start" and "Auto Connect" boxes
    - Click on "Save ⭳" button next to the profile name.
    - Click on the "⚙️ Start" button to start the server and driver.
-   - Once the driver comes up, it is listed in the list of connected drivers.
+   - Once the driver comes up, it is listed in the list of connected drivers on left hand side.
    - If it does not display, then there's a problem starting that driver. 
    - Run `indiserver <name of driver>` from the command line to get a grip on the problem.
    
@@ -182,6 +179,9 @@ INDI Web Manager provides a web interface for managing INDI drivers and connecti
    - Once connected, the driver status should show "Connected"
    - You should be able to start tracking or move the mount using the properties displayed on the web page.
 
+### Start PiFinder service
+
+The install script 
 
 ## Usage
 
