@@ -16,7 +16,7 @@ import sys
 import argparse
 from PIL import Image, ImageDraw
 from PiFinder import displays
-from PiFinder import utils
+from PiFinder import config
 
 
 def display_message(lines, brightness=125, display_type=None):
@@ -32,12 +32,12 @@ def display_message(lines, brightness=125, display_type=None):
     # Try to get display type from config if not specified
     if display_type is None:
         try:
-            config = utils.Config()
-            display_type = config.get_option("display")
-        except Exception:
+            cfg = config.Config()
+            display_type = cfg.get_option("display")
+        except Exception as e:
             # Default to OLED if config not available
             display_type = "ssd1351"
-            print(f"Warning: Could not read config, defaulting to {display_type}")
+            print(f"Warning: Could not read config ({e}), defaulting to {display_type}")
 
     # Initialize display
     display = displays.get_display(display_type)
