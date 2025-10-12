@@ -125,7 +125,7 @@ Examples:
 
     parser.add_argument(
         "-d", "--display",
-        choices=["SSD1351", "st7789", "pg_128", "pg_320"],
+        choices=["ssd1351", "st7789", "pg_128", "pg_320"],
         help="Display hardware type (auto-detected from config if not specified)"
     )
 
