@@ -15,6 +15,8 @@ import time
 import logging
 import sys
 from time import perf_counter as precision_timestamp
+import os
+import threading
 
 from PiFinder.utils import Timer
 from PiFinder import state_utils
@@ -22,70 +24,11 @@ from PiFinder import utils
 from PiFinder.sqm import SQM
 
 sys.path.append(str(utils.tetra3_dir))
-import PiFinder.tetra3.tetra3 as tetra3
-from PiFinder.tetra3.tetra3 import cedar_detect_client
+import tetra3
+from tetra3 import cedar_detect_client
 
 logger = logging.getLogger("Solver")
 sqm = SQM()
-
-def find_target_pixel(t3, fov_estimate, centroids, ra, dec):
-    """
-    Searches the most recent solve for a pixel
-    that matches the requested RA/DEC the best
-    """
-    print(f"{len(centroids)=}")
-    search_center = (256, 256)
-    search_distance = 128
-    while search_distance >= 1:
-        # try 5 search points
-        search_points = [
-            [search_center[0] - search_distance, search_center[1] - search_distance],
-            [search_center[0] - search_distance, search_center[1] + search_distance],
-            [search_center[0] + search_distance, search_center[1] - search_distance],
-            [search_center[0] + search_distance, search_center[1] + search_distance],
-            [search_center[0], search_center[1]],
-        ]
-
-        # probe points
-        min_dist = 100000
-        for search_point in search_points:
-            solve_fails=0
-            point_sol = {}
-            while point_sol.get("RA_target") is None:
-                solve_fails +=1
-                if solve_fails > 10:
-                    print("Too many fails")
-                    return (-1,-1)
-                try:
-                    point_sol = t3.solve_from_centroids(
-                        centroids,
-                        (512, 512),
-                        fov_estimate=fov_estimate,
-                        fov_max_error=0.2,
-                        return_matches=False,
-                        target_pixel=[search_point[0], search_point[1]],
-                        solve_timeout=1000,
-                    )
-                except Exception:
-                    return (-1, -1)
-
-            # distance...
-            p_dist = np.hypot(
-                point_sol["RA_target"] - ra, point_sol["Dec_target"] - dec
-            )
-            if p_dist < min_dist:
-                search_center = search_point
-                min_dist = p_dist
-
-        # cut search distance
-        search_distance = search_distance / 2
-
-    # Done?
-    if min_dist > 0.1:
-        # Didn't find a good pixel...
-        return (-1, -1)
-    return search_center
-
 
 def solver(
     shared_state,
@@ -104,11 +47,25 @@ def solver(
         str(utils.cwd_dir / "PiFinder/tetra3/tetra3/data/default_database.npz")
     )
     last_solve_time = 0
+    align_ra = 0
+    align_dec = 0
     solved = {
-        # RA, Dec, Roll solved at the center of the camera FoV:
-        "RA_camera": None,
-        "Dec_camera": None,
-        "Roll_camera": None,
+        # RA, Dec, Roll solved at the center of the camera FoV
+        # update by integrator
+        "camera_center": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+            "Alt": None,
+            "Az": None,
+        },
+        # RA, Dec, Roll from the camera, not
+        # affected by IMU in integrator
+        "camera_solve": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+        },
         # RA, Dec, Roll at the target pixel
         "RA": None,
         "Dec": None,
@@ -119,6 +76,7 @@ def solver(
     }
 
     centroids = []
+    log_no_stars_found = True
 
     while True:
         logger.info("Starting Solver Loop")
@@ -129,10 +87,13 @@ def solver(
                 + shared_state.arch()
             )
         except FileNotFoundError as e:
-            logger.warn(
+            logger.warning(
                 "Not using cedar_detect, as corresponding file '%s' could not be found",
                 e.filename,
             )
+            cedar_detect = None
+        except ValueError:
+            logger.exception("Not using cedar_detect")
             cedar_detect = None
 
         try:
@@ -143,6 +104,7 @@ def solver(
                 while command:
                     try:
                         command = align_command_queue.get(block=False)
+                        print(f"the command is {command}")
                     except queue.Empty:
                         command = False
 
@@ -153,22 +115,20 @@ def solver(
                             # for this RA/DEC and set it as alignment pixel
                             align_ra = command[1]
                             align_dec = command[2]
-                            align_target_pixel = find_target_pixel(
-                                t3=t3,
-                                fov_estimate=solved["FOV"],
-                                centroids=centroids,
-                                ra=align_ra,
-                                dec=align_dec,
-                            )
-                            logger.debug(f"Align {align_target_pixel=}")
-                            align_result_queue.put(["aligned", align_target_pixel])
+
+                        if command[0] == "align_cancel":
+                            align_ra = 0
+                            align_dec = 0
 
                 state_utils.sleep_for_framerate(shared_state)
 
                 # use the time the exposure started here to
                 # reject images started before the last solve
                 # which might be from the IMU
-                last_image_metadata = shared_state.last_image_metadata()
+                try:
+                    last_image_metadata = shared_state.last_image_metadata()
+                except (BrokenPipeError, ConnectionResetError) as e:
+                    logger.error(f"Lost connection to shared state manager: {e}")
                 if (
                     last_image_metadata["exposure_end"] > (last_solve_time)
                     and last_image_metadata["imu_delta"] < 1
@@ -193,18 +153,26 @@ def solver(
                     )
 
                     if len(centroids) == 0:
-                        logger.warn("No stars found, skipping")
+                        if log_no_stars_found:
+                            logger.info("No stars found, skipping (Logged only once)")
+                            log_no_stars_found = False
                         continue
                     else:
+                        log_no_stars_found = True
+                        _solver_args = {}
+                        if align_ra != 0 and align_dec != 0:
+                            _solver_args["target_sky_coord"] = [[align_ra, align_dec]]
+
                         solution = t3.solve_from_centroids(
                             centroids,
                             (512, 512),
                             fov_estimate=12.0,
                             fov_max_error=4.0,
                             match_max_error=0.005,
-                            return_matches=True,
+                            # return_matches=True,
                             target_pixel=shared_state.solve_pixel(),
                             solve_timeout=1000,
+                            **_solver_args,
                         )
 
                         if "matched_centroids" in solution:
@@ -224,13 +192,18 @@ def solver(
                     total_tetra_time = t_extract + solved["T_solve"]
                     if total_tetra_time > 1000:
                         console_queue.put(f"SLV: Long: {total_tetra_time}")
-                        logger.warn("Long solver time: %i", total_tetra_time)
+                        logger.warning("Long solver time: %i", total_tetra_time)
 
                     if solved["RA"] is not None:
                         # RA, Dec, Roll at the center of the camera's FoV:
-                        solved["RA_camera"] = solved["RA"]
-                        solved["Dec_camera"] = solved["Dec"]
-                        solved["Roll_camera"] = solved["Roll"]
+                        solved["camera_center"]["RA"] = solved["RA"]
+                        solved["camera_center"]["Dec"] = solved["Dec"]
+                        solved["camera_center"]["Roll"] = solved["Roll"]
+
+                        # RA, Dec, Roll at the center of the camera's not imu:
+                        solved["camera_solve"]["RA"] = solved["RA"]
+                        solved["camera_solve"]["Dec"] = solved["Dec"]
+                        solved["camera_solve"]["Roll"] = solved["Roll"]
                         # RA, Dec, Roll at the target pixel:
                         solved["RA"] = solved["RA_target"]
                         solved["Dec"] = solved["Dec_target"]
@@ -244,9 +217,35 @@ def solver(
                         solved["cam_solve_time"] = solved["solve_time"]
                         solver_queue.put(solved)
 
+                        # See if we are waiting for alignment
+                        if align_ra != 0 and align_dec != 0:
+                            if solved.get("x_target") is not None:
+                                align_target_pixel = (
+                                    solved["y_target"],
+                                    solved["x_target"],
+                                )
+                                logger.debug(f"Align {align_target_pixel=}")
+                                align_result_queue.put(["aligned", align_target_pixel])
+                                align_ra = 0
+                                align_dec = 0
+                                solved["x_target"] = None
+                                solved["y_target"] = None
+
                     last_solve_time = last_image_metadata["exposure_end"]
-        except EOFError:
-            logger.error("Main no longer running for solver")
+        except EOFError as eof:
+            logger.error(f"Main process no longer running for solver: {eof}")
+            logger.exception(eof)  # This logs the full stack trace
+            # Optionally log additional context
+            logger.error(f"Current solver state: {solved}")  # If you have state info
         except Exception as e:
-            logger.error("Exception in Solver")
-            logger.exception(e)
+            logger.error(f"Exception in Solver: {e.__class__.__name__}: {str(e)}")
+            logger.exception(e)  # Logs the full stack trace
+            # Log additional context that might be helpful
+            logger.error(f"Current process ID: {os.getpid()}")
+            logger.error(f"Current thread: {threading.current_thread().name}")
+            try:
+                logger.error(
+                    f"Active threads: {[t.name for t in threading.enumerate()]}"
+                )
+            except Exception as e:
+                pass  # Don't let diagnostic logging fail

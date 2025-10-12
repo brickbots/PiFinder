@@ -10,7 +10,7 @@
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "level": "DEBUG",
+            "level": "INFO",
             "formatter": "default",
             "stream": "ext://sys.stdout"
         },
@@ -76,16 +76,19 @@
         //   Solver
         //
         "Solver": {
-            "level": "ERROR"
+            "level": "INFO"
         },
 
         /////////////////////////////////////////////////////////////////
         ////// GPS Subsystem
         "GPS": {
-            "level": "WARNING" // Set this to debug, to see results parsed from the GPS
+            "level": "WARNING" // Set this to DEBUG, to see results parsed from the GPS
+        },
+        "GPS.parser": {
+            "level": "WARNING" // Set this to DEBUG, to see results parsed from the GPS
         },
         // "GPS.fake": {
-        //     "level": "DEBUG"
+        //     "level": "WARNING"
         // }
 
         /////////////////////////////////////////////////////////////////

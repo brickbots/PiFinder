@@ -27,7 +27,7 @@ class MagnitudeObject:
             self.filter_mag = self.UNKNOWN_MAG
 
     def _filter_floats(self) -> List[float]:
-        """ only used valid floats for magnitude"""
+        """only used valid floats for magnitude"""
         return [float(x) for x in self.mags if is_number(x)]
 
     def calc_two_mag_representation(self):
@@ -77,7 +77,10 @@ class CompositeObject:
     sequence: int = field(default=0)
     description: str = field(default="")
     names: list = field(default_factory=list)
+    # Background loading support
+    _details_loaded: bool = field(default=False)
     image_name: str = field(default="")
+    surface_brightness: float = field(default=0.0)
     logged: bool = field(default=False)
     last_filtered_time: float = 0
     last_filtered_result: bool = True

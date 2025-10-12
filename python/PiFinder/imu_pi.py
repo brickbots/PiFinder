@@ -41,6 +41,15 @@ class Imu:
                 adafruit_bno055.AXIS_REMAP_POSITIVE,
                 adafruit_bno055.AXIS_REMAP_NEGATIVE,
             )
+        elif cfg.get_option("screen_direction") == "as_bloom":
+            self.sensor.axis_remap = (
+                adafruit_bno055.AXIS_REMAP_X,
+                adafruit_bno055.AXIS_REMAP_Z,
+                adafruit_bno055.AXIS_REMAP_Y,
+                adafruit_bno055.AXIS_REMAP_POSITIVE,
+                adafruit_bno055.AXIS_REMAP_POSITIVE,
+                adafruit_bno055.AXIS_REMAP_POSITIVE,
+            )
         else:
             self.sensor.axis_remap = (
                 adafruit_bno055.AXIS_REMAP_Z,
@@ -64,7 +73,12 @@ class Imu:
         # First value is delta to exceed between samples
         # to start moving, second is threshold to fall below
         # to stop moving.
-        self.__moving_threshold = (0.0005, 0.0003)
+
+        imu_threshold_scale = cfg.get_option("imu_threshold_scale", 1)
+        self.__moving_threshold = (
+            0.0005 * imu_threshold_scale,
+            0.0003 * imu_threshold_scale,
+        )
 
     def quat_to_euler(self, quat):
         if quat[0] + quat[1] + quat[2] + quat[3] == 0:
@@ -149,9 +163,36 @@ class Imu:
     def get_euler(self):
         return list(self.quat_to_euler(self.avg_quat))
 
+    def __str__(self):
+        return (
+            f"IMU Information:\n"
+            f"Calibration Status: {self.calibration}\n"
+            f"Quaternion History: {self.quat_history}\n"
+            f"Average Quaternion: {self.avg_quat}\n"
+            f"Moving: {self.moving()}\n"
+            f"Reading Difference: {self.__reading_diff}\n"
+            f"Flip Count: {self._flip_count}\n"
+            f"Last Sample Time: {self.last_sample_time}\n"
+            f"IMU Sample Frequency: {self.imu_sample_frequency}\n"
+            f"Moving Threshold: {self.__moving_threshold}\n"
+        )
+
 
 def imu_monitor(shared_state, console_queue, log_queue):
     MultiprocLogging.configurer(log_queue)
+    logger.debug("Starting IMU")
+    imu = None
+    try:
+        imu = Imu()
+    except Exception as e:
+        logger.error(f"Error starting phyiscal IMU : {e}")
+        logger.error("Falling back to fake IMU")
+        console_queue.put("IMU: Error starting physical IMU, using fake IMU")
+        console_queue.put("DEGRADED_OPS IMU")
+        from PiFinder.imu_fake import Imu as ImuFake
+
+        imu = ImuFake()
+
     imu = Imu()
     imu_calibrated = False
     imu_data = {
@@ -191,3 +232,16 @@ def imu_monitor(shared_state, console_queue, log_queue):
 
         if shared_state is not None and imu_calibrated:
             shared_state.set_imu(imu_data)
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
+    logger.info("Trying to read state from IMU")
+    imu = None
+    try:
+        imu = Imu()
+        for i in range(10):
+            imu.update()
+            time.sleep(0.5)
+    except Exception as e:
+        logger.exception("Error starting phyiscal IMU", e)

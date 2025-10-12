@@ -7,6 +7,7 @@ and adds keys to the provided queue
 """
 
 from time import sleep
+import libinput
 from PiFinder.keyboard_interface import KeyboardInterface
 import RPi.GPIO as GPIO
 import logging
@@ -16,34 +17,98 @@ logger = logging.getLogger("Keyboard.Pi")
 
 
 class KeyboardPi(KeyboardInterface):
-    def __init__(self, q):
+    def __init__(self, q, bloom_remap=False):
         self.q = q
 
+        # GPIO pin numbers for the rows and columns of the keyboard matrix
         self.cols = [16, 23, 26, 27]
         self.rows = [19, 17, 18, 22, 20]
+
+        if bloom_remap:
+            _up = self.RIGHT
+            _down = self.LEFT
+            _left = self.UP
+            _right = self.DOWN
+            _lng_up = self.LNG_RIGHT
+            _lng_down = self.LNG_LEFT
+            _lng_left = self.LNG_UP
+            _lng_right = self.LNG_DOWN
+            _alt_up = self.ALT_RIGHT
+            _alt_down = self.ALT_LEFT
+            _alt_left = self.ALT_UP
+            _alt_right = self.ALT_DOWN
+        else:
+            _up = self.UP
+            _down = self.DOWN
+            _left = self.LEFT
+            _right = self.RIGHT
+            _lng_up = self.LNG_UP
+            _lng_down = self.LNG_DOWN
+            _lng_left = self.LNG_LEFT
+            _lng_right = self.LNG_RIGHT
+            _alt_up = self.ALT_UP
+            _alt_down = self.ALT_DOWN
+            _alt_left = self.ALT_LEFT
+            _alt_right = self.ALT_RIGHT
+
         # fmt: off
         self.keymap = [
             7 , 8 , 9 , self.NA,
             4 , 5 , 6 , self.PLUS,
             1 , 2 , 3 , self.MINUS,
             self.NA, 0 , self.NA, self.SQUARE,
-            self.LEFT , self.UP , self.DOWN , self.RIGHT,
+            _left, _up , _down , _right,
         ]
+        # If SQUARE is pressed together with key, ALT_<key> is sent
         self.alt_keymap = [
             self.NA, self.NA, self.NA, self.NA,
             self.NA, self.NA, self.NA, self.ALT_PLUS,
             self.NA, self.NA, self.NA, self.ALT_MINUS,
             self.NA, self.ALT_0, self.NA, self.NA,
-            self.ALT_LEFT, self.ALT_UP, self.ALT_DOWN, self.ALT_RIGHT,
+            _alt_left, _alt_up, _alt_down, _alt_right,
         ]
         self.long_keymap = [
             self.NA, self.NA, self.NA, self.NA,
             self.NA, self.NA, self.NA, self.NA,
             self.NA, self.NA, self.NA, self.NA,
             self.NA, self.NA, self.NA, self.LNG_SQUARE,
-            self.LNG_LEFT, self.LNG_UP, self.LNG_DOWN, self.LNG_RIGHT,
+            _lng_left, _lng_up, _lng_down, _lng_right,
         ]
         # fmt: on
+
+        # physical keyboard support init
+        self.li_kb = libinput.LibInput(context_type=libinput.ContextType.UDEV)
+        self.li_kb.assign_seat("seat0")
+
+    def get_keyboard_key(self) -> int:
+        """
+        Checks libinput keyboard, if keyrelesed
+        map to our keycode and return
+
+        Returns 0 for no key registered
+        """
+        key_mapping: dict[int, int] = {
+            103: self.UP,
+            108: self.DOWN,
+            105: self.LEFT,
+            106: self.RIGHT,
+            28: self.SQUARE,
+            78: self.MINUS,
+            74: self.PLUS,
+        }
+
+        while True:
+            while True:
+                self.li_kb._libinput.libinput_dispatch(self.li_kb._li)
+                hevent = self.li_kb._libinput.libinput_get_event(self.li_kb._li)
+                if not hevent:
+                    return 0
+                type_ = self.li_kb._libinput.libinput_event_get_type(hevent)
+
+                if type_.is_keyboard():
+                    kbev = libinput.KeyboardEvent(hevent, self.li_kb._libinput)
+                    if kbev.key_state == libinput.constant.KeyState.RELEASED:
+                        return key_mapping.get(kbev.key, 0)
 
     def run_keyboard(self, log_queue):
         """
@@ -60,6 +125,10 @@ class KeyboardPi(KeyboardInterface):
         hold_sent = False
         scan_freq = 60
         while True:
+            # Check physical keyboard
+            if keyboard_key := self.get_keyboard_key():
+                self.q.put(keyboard_key)
+
             sleep(1 / scan_freq)
             if len(pressed) > 0:
                 hold_counter += 1
@@ -103,7 +172,7 @@ class KeyboardPi(KeyboardInterface):
                 GPIO.setup(self.rows[i], GPIO.IN)
 
 
-def run_keyboard(q, shared_state, log_queue):
+def run_keyboard(q, shared_state, log_queue, bloom_remap=False):
     MultiprocLogging.configurer(log_queue)
-    keyboard = KeyboardPi(q)
+    keyboard = KeyboardPi(q, bloom_remap=bloom_remap)
     keyboard.run_keyboard(log_queue)

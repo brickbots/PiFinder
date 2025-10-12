@@ -2,12 +2,8 @@ import glob
 import re
 from typing import Dict, Any
 
-try:
-    import sh
-    from sh import wpa_cli, unzip, su, passwd
-    REAL_SYS_UTILS = True
-except ImportError:
-    REAL_SYS_UTILS = False
+import sh
+from sh import wpa_cli, unzip, su, passwd
 
 import socket
 from PiFinder import utils
@@ -151,19 +147,22 @@ class Network:
     def get_host_name(self):
         return socket.gethostname()
 
-    def get_connected_ssid(self):
+    def get_connected_ssid(self) -> str:
         """
         Returns the SSID of the connected wifi network or
         None if not connected or in AP mode
         """
         if self.wifi_mode() == "AP":
-            return None
+            return ""
         # get output from iwgetid
-        iwgetid = sh.Command("iwgetid")
-        _t = iwgetid(_ok_code=(0, 255)).strip()
-        return _t.split(":")[-1].strip('"')
+        try:
+            iwgetid = sh.Command("iwgetid")
+            _t = iwgetid(_ok_code=(0, 255)).strip()
+            return _t.split(":")[-1].strip('"')
+        except sh.CommandNotFound:
+            return "ssid_not_found"
 
-    def set_host_name(self, hostname):
+    def set_host_name(self, hostname) -> None:
         if hostname == self.get_host_name():
             return
         _result = sh.sudo("hostnamectl", "set-hostname", hostname)
@@ -318,3 +317,96 @@ def switch_cam_imx477() -> None:
 def switch_cam_imx296() -> None:
     logger.info("SYS: Switching cam to imx296")
     sh.sudo("python", "-m", "PiFinder.switch_camera", "imx296")
+
+
+def switch_cam_imx462() -> None:
+    logger.info("SYS: Switching cam to imx462")
+    sh.sudo("python", "-m", "PiFinder.switch_camera", "imx462")
+
+
+def check_and_sync_gpsd_config(baud_rate: int) -> bool:
+    """
+    Checks if GPSD configuration matches the desired baud rate,
+    and updates it only if necessary.
+
+    Args:
+        baud_rate: The desired baud rate (9600 or 115200)
+
+    Returns:
+        True if configuration was updated, False if already correct
+    """
+    logger.info(f"SYS: Checking GPSD config for baud rate {baud_rate}")
+
+    try:
+        # Read current config
+        with open("/etc/default/gpsd", "r") as f:
+            content = f.read()
+
+        # Determine expected GPSD_OPTIONS
+        if baud_rate == 115200:
+            # NOTE: the space before -s in the next line is really needed
+            expected_options = 'GPSD_OPTIONS=" -s 115200"'
+        else:
+            expected_options = 'GPSD_OPTIONS=""'
+
+        # Check if update is needed
+        current_match = re.search(r'^GPSD_OPTIONS=.*$', content, re.MULTILINE)
+        if current_match:
+            current_options = current_match.group(0)
+            if current_options == expected_options:
+                logger.info("SYS: GPSD config already correct, no update needed")
+                return False
+
+        # Update is needed
+        logger.info(f"SYS: GPSD config mismatch, updating to {expected_options}")
+        update_gpsd_config(baud_rate)
+        return True
+
+    except Exception as e:
+        logger.error(f"SYS: Error checking/syncing GPSD config: {e}")
+        return False
+
+
+def update_gpsd_config(baud_rate: int) -> None:
+    """
+    Updates the GPSD configuration file with the specified baud rate
+    and restarts the GPSD service.
+
+    Args:
+        baud_rate: The baud rate to configure (9600 or 115200)
+    """
+    logger.info(f"SYS: Updating GPSD config with baud rate {baud_rate}")
+
+    try:
+        # Read the current config
+        with open("/etc/default/gpsd", "r") as f:
+            lines = f.readlines()
+
+        # Update GPSD_OPTIONS line
+        updated_lines = []
+        for line in lines:
+            if line.startswith("GPSD_OPTIONS="):
+                if baud_rate == 115200:
+                    # NOTE: the space before -s in the next line is really needed
+                    updated_lines.append('GPSD_OPTIONS=" -s 115200"\n')
+                else:
+                    updated_lines.append('GPSD_OPTIONS=""\n')
+            else:
+                updated_lines.append(line)
+
+        # Write the updated config to a temporary file
+        with open("/tmp/gpsd.conf", "w") as f:
+            f.writelines(updated_lines)
+
+        # Copy the temp file to the actual location with sudo
+        sh.sudo("cp", "/tmp/gpsd.conf", "/etc/default/gpsd")
+
+        # Restart GPSD service
+        sh.sudo("systemctl", "restart", "gpsd")
+
+        logger.info("SYS: GPSD configuration updated and service restarted")
+
+    except Exception as e:
+        logger.error(f"SYS: Error updating GPSD config: {e}")
+        raise
+

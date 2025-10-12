@@ -1,8 +1,21 @@
 import os
 import time
 import logging
+import json
 from pathlib import Path
 import importlib
+
+
+home_dir = Path.home()
+cwd_dir = Path.cwd()
+pifinder_dir = Path("..")
+astro_data_dir = cwd_dir / pifinder_dir / "astro_data"
+tetra3_dir = pifinder_dir / "python/PiFinder/tetra3/tetra3"
+data_dir = Path(Path.home(), "PiFinder_data")
+pifinder_db = astro_data_dir / "pifinder_objects.db"
+observations_db = data_dir / "observations.db"
+debug_dump_dir = data_dir / "solver_debug_dumps"
+comet_file = astro_data_dir / Path("comets.txt")
 
 
 def create_dir(adir: str):
@@ -13,24 +26,30 @@ def create_path(apath: Path):
     os.makedirs(apath, exist_ok=True)
 
 
-home_dir = Path.home()
-cwd_dir = Path.cwd()
-pifinder_dir = Path("..")
-astro_data_dir = pifinder_dir / "astro_data"
-tetra3_dir = pifinder_dir / "python/PiFinder/tetra3/tetra3"
-data_dir = Path(Path.home(), "PiFinder_data")
-pifinder_db = astro_data_dir / "pifinder_objects.db"
-observations_db = data_dir / "observations.db"
-debug_dump_dir = data_dir / "solver_debug_dumps"
-comet_file = astro_data_dir / Path("comets.txt")
+def serialize_solution(solution: dict) -> str:
+    """
+    Take a solution dictionary and serialize it to a string
+    for logging and other debug output
+    """
+
+    out_dict = {}
+    for k, v in solution.items():
+        if "uint16" in str(type(v)):
+            v = int(v)
+
+        if "numpy.float" in str(type(v)):
+            v = float(v)
+        out_dict[k] = v
+
+    return json.dumps(out_dict)
 
 
 def get_sys_utils():
     try:
         # Attempt to import the real sys_utils
-        sys_utils = importlib.import_module('PiFinder.sys_utils')
+        sys_utils = importlib.import_module("PiFinder.sys_utils")
     except ImportError:
-        sys_utils = importlib.import_module('PiFinder.sys_utils_fake')
+        sys_utils = importlib.import_module("PiFinder.sys_utils_fake")
     return sys_utils
 
 
@@ -92,3 +111,27 @@ def is_number(s):
         return True
     except (ValueError, TypeError):
         return False
+
+
+def format_size_value(value):
+    """
+    Format a size value, removing unnecessary .0 decimals but preserving meaningful decimals.
+
+    Examples:
+        17.0 -> "17"
+        17.5 -> "17.5"
+        17.25 -> "17.3" (rounded to 1 decimal)
+    """
+    if value is None or value == "":
+        return ""
+
+    try:
+        num_val = float(value)
+        # If it's a whole number, return as integer
+        if num_val == int(num_val):
+            return str(int(num_val))
+        # Otherwise, round to 1 decimal and remove trailing zeros
+        formatted = f"{num_val:.1f}"
+        return formatted.rstrip("0").rstrip(".")
+    except (ValueError, TypeError):
+        return str(value)  # Return as-is if not a number

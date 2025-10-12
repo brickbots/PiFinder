@@ -7,6 +7,7 @@ from PiFinder.ui.base import UIModule
 from PiFinder.ui import menu_structure
 from PiFinder.ui.object_details import UIObjectDetails
 from PiFinder.displays import DisplayBase
+from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.marking_menus import (
     MarkingMenu,
     MarkingMenuOption,
@@ -56,6 +57,53 @@ def find_menu_by_label(label: str):
     return None
 
 
+def dyn_menu_equipment(cfg):
+    """
+    Add's equipment related menus to the menu tree
+    these are hidden under the equipment ui menu object
+    """
+    equipment_menu_item = find_menu_by_label("equipment")
+
+    eyepiece_menu_items = []
+    for eyepiece in cfg.equipment.eyepieces:
+        eyepiece_menu_items.append(
+            {
+                "name": f"{eyepiece.focal_length_mm}mm {eyepiece.name}",
+                "value": eyepiece,
+            }
+        )
+
+    eyepiece_menu = {
+        "name": _("Eyepiece"),
+        "class": UITextMenu,
+        "select": "single",
+        "label": "select_eyepiece",
+        "config_option": "equipment.active_eyepiece",
+        "items": eyepiece_menu_items,
+    }
+
+    # Loop over telescopes
+    telescope_menu_items = []
+    for telescope in cfg.equipment.telescopes:
+        telescope_menu_items.append(
+            {
+                "name": telescope.name,
+                "value": telescope,
+            }
+        )
+
+    telescope_menu = {
+        "name": _("Telescope"),
+        "class": UITextMenu,
+        "select": "single",
+        "label": "select_telescope",
+        "config_option": "equipment.active_telescope",
+        "items": telescope_menu_items,
+    }
+
+    equipment_menu_item["items"] = [telescope_menu, eyepiece_menu]
+
+
 class MenuManager:
     def __init__(
         self,
@@ -93,13 +141,11 @@ class MenuManager:
         self.ss_path = os.path.join(root_dir, "screenshots")
         self.ss_count = 0
 
-        self.preload_modules()
+        dyn_menu_equipment(self.config_object)
 
     def screengrab(self):
         self.ss_count += 1
-        filename = (
-            f"{self.stack[-1].__uuid__}_{self.ss_count :0>3}_{self.stack[-1].title}"
-        )
+        filename = f"{self.stack[-1].__uuid__}_{self.ss_count :0>3}_{self.stack[-1].title.replace('/','-')}"
         ss_imagepath = self.ss_path + f"/{filename}.png"
         ss = self.shared_state.screen().copy()
         ss.save(ss_imagepath)
@@ -108,6 +154,7 @@ class MenuManager:
     def remove_from_stack(self) -> None:
         if len(self.stack) > 1:
             self._stack_top_image = self.stack[-1].screen.copy()
+            self.stack[-1].inactive()  # type: ignore[call-arg]
             self.stack.pop()
             self.stack[-1].active()  # type: ignore[call-arg]
             self._stack_anim_counter = time.time() + self.config_object.get_option(
@@ -131,6 +178,7 @@ class MenuManager:
                 item_definition=module_def,
                 add_to_stack=self.add_to_stack,
                 remove_from_stack=self.remove_from_stack,
+                jump_to_label=self.jump_to_label,
             )
 
     def add_to_stack(self, item: dict) -> None:
@@ -141,6 +189,7 @@ class MenuManager:
         item dict
         """
         if item.get("state") is not None:
+            self.stack[-1].inactive()  # type: ignore[call-arg]
             self.stack.append(item["state"])
         else:
             self.stack.append(
@@ -154,6 +203,7 @@ class MenuManager:
                     item_definition=item,
                     add_to_stack=self.add_to_stack,
                     remove_from_stack=self.remove_from_stack,
+                    jump_to_label=self.jump_to_label,
                 )
             )
             if item.get("stateful", False):
@@ -170,6 +220,19 @@ class MenuManager:
         self.stack[-1].message(message, timeout)  # type: ignore[arg-type]
 
     def jump_to_label(self, label: str) -> None:
+        # to prevent many recent/object UI modules
+        # being added to the list upon repeated object
+        # pushes, check for existing 'recent' in the
+        # stack and jump to that, rather than adding
+        # a new one
+        if label in ["recent"]:
+            for stack_index, ui_module in enumerate(self.stack):
+                if ui_module.item_definition.get("label", "") == label:
+                    self.stack = self.stack[: stack_index + 1]
+                    self.stack[-1].active()  # type: ignore[call-arg]
+                    return
+        # either this is not a special case, or we didn't find
+        # the label already in the stack
         menu_to_jump = find_menu_by_label(label)
         if menu_to_jump is not None:
             self.add_to_stack(menu_to_jump)
@@ -259,12 +322,14 @@ class MenuManager:
         """
         Put an image on the display
         """
+        screen_to_display = screen_image.convert(self.display_class.device.mode)
+
         if time.time() < self.ui_state.message_timeout():
             return None
 
-        screen_to_display = screen_image.convert(self.display_class.device.mode)
         self.display_class.device.display(screen_to_display)
 
+        # Only update shared state when not in message timeout
         if self.shared_state:
             self.shared_state.set_screen(screen_to_display)
 
@@ -345,6 +410,7 @@ class MenuManager:
             self.help_images = None
             self.update()
 
+        self.stack[-1].inactive()
         self.stack = self.stack[:1]
         self.stack[0].active()
 
@@ -363,6 +429,7 @@ class MenuManager:
             # overrided by UIModule to perform some action before
             # being unloaded, or return False to prevent unload
             if self.stack[-1].key_left():
+                self.stack[-1].inactive()
                 self.remove_from_stack()
 
     def key_up(self):
@@ -414,7 +481,7 @@ class MenuManager:
         if type(selected_item.callback) is MarkingMenu:
             self.marking_menu_stack.append(selected_item.callback)
             self.display_marking_menu()
-        elif selected_item.label == "HELP":
+        elif selected_item.label == "HELP":  # TODO: This needs to be changed for I18N
             self.exit_marking_menu()
             self.help_images = self.stack[-1].help()
             if self.help_images is not None:
@@ -424,10 +491,16 @@ class MenuManager:
             self.exit_marking_menu()
             self.jump_to_label(selected_item.menu_jump)
         else:
-            if (
-                selected_item.callback(self.marking_menu_stack[-1], selected_item)
-                is True
-            ):
-                # Exit marking menu
-                self.exit_marking_menu()
-                self.update()
+            try:
+                if (
+                    selected_item.callback(self.marking_menu_stack[-1], selected_item)
+                    is True
+                ):
+                    # Exit marking menu
+                    self.exit_marking_menu()
+                    self.update()
+            except BaseException:
+                print(selected_item)
+                print(selected_item.callback)
+                print(self.marking_menu_stack)
+                raise

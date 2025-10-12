@@ -40,6 +40,13 @@ class UITextMenu(UIModule):
         )
 
         self._selected_values = []
+        if self.item_definition.get("value_callback"):
+            self._selected_values = self.item_definition.get("value_callback")(self)
+            # Set current item index based on selection
+            for i, _item in enumerate(self.item_definition["items"]):
+                if _item["value"] == self._selected_values[0]:
+                    self._current_item_index = i
+
         if config_option := self.item_definition.get("config_option"):
             if self._menu_type == "multi":
                 self._selected_values = self.config_object.get_option(config_option)
@@ -49,7 +56,9 @@ class UITextMenu(UIModule):
                     self._selected_values = [
                         x["value"] for x in self.item_definition["items"]
                     ]
-                self._menu_items = ["Select None"] + self._menu_items
+                self._menu_items = [
+                    _("Select None")
+                ] + self._menu_items  # TRANSLATORS: catalog filter deselect all
             else:
                 self._selected_values = [self.config_object.get_option(config_option)]
                 if self._selected_values == [None]:
@@ -107,7 +116,7 @@ class UITextMenu(UIModule):
 
                 self.draw.text(
                     (line_horiz_pos, line_pos),
-                    item_text,
+                    _(item_text),  # I18N: translate item for display.
                     font=line_font.font,
                     fill=self.colors.get(line_color),
                 )
@@ -170,6 +179,9 @@ class UITextMenu(UIModule):
         if selected_item_definition is not None and selected_item_definition.get(
             "class"
         ):
+            # Check for pre_callback before adding to stack
+            if selected_item_definition.get("pre_callback"):
+                selected_item_definition["pre_callback"](self)
             self.add_to_stack(selected_item_definition)
             return
 
@@ -209,7 +221,9 @@ class UITextMenu(UIModule):
                             and item_value in self._selected_values
                         ):
                             self._selected_values.remove(item_value)
-                    self._menu_items[0] = "Select All"
+                    self._menu_items[0] = _(
+                        "Select All"
+                    )  # TRANSLATORS: catalog filter select all catalogs
 
                 elif (
                     self.get_item(selected_item).get("value", "--")
@@ -221,7 +235,7 @@ class UITextMenu(UIModule):
 
                 self.config_object.set_option(config_option, self._selected_values)
                 # are we setting active catalogs
-                if config_option == "active_catalogs":
+                if config_option == "filter.selected_catalogs":
                     self.catalogs.select_no_catalogs()
                     self.catalogs.select_catalogs(self._selected_values)
                     self.catalogs.catalog_filter.selected_catalogs = (
