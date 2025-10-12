@@ -29,9 +29,9 @@ def display_message(lines, brightness=255, display_type=None):
         display_type: Display hardware type ('ssd1351', 'st7789', 'pg_128', 'pg_320')
                      If None, defaults to 'ssd1351' (standard PiFinder OLED)
     """
-    # Default to SSD1351 if not specified (standard PiFinder hardware)
+    # Default to ssd1351 if not specified (standard PiFinder hardware)
     if display_type is None:
-        display_type = "SSD1351"
+        display_type = "ssd1351"
 
     # Initialize display
     display = displays.get_display(display_type)
