@@ -47,20 +47,76 @@ sudo apt install -y \
     libcurl4-gnutls-dev \
     libtheora-dev
 
+# Dependencies for INDI 3rd party drivers.
+sudo apt-get -y install \
+    libnova-dev \
+    libcfitsio-dev \
+    libusb-1.0-0-dev \
+    zlib1g-dev \
+    libgsl-dev \
+    build-essential \
+    cmake \
+    git \
+    libjpeg-dev \
+    libcurl4-gnutls-dev \
+    libtiff-dev \
+    libfftw3-dev \
+    libftdi-dev \
+    libgps-dev \
+    libraw-dev \
+    libdc1394-dev \
+    libgphoto2-dev \
+    libboost-dev \
+    libboost-regex-dev \
+    librtlsdr-dev \
+    liblimesuite-dev \
+    libftdi1-dev \
+    libavcodec-dev \
+    libavdevice-dev \
+    libzmq3-dev \
+    libudev-dev
+
 echo "==============================================================================="
 echo "PiFinder: Compiling INDI..."
 echo "==============================================================================="
+
+# Deactivate pifinder service during build phase.
+sudo systemctl stop pifinder
+
+# Build and install indi
 cd ~
 # Latest release tag as of 2025-10-12
 git clone --branch v2.1.6 --depth 1 https://github.com/indilib/indi.git
 mkdir -p ./indi/build
 cd ./indi/build
-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr ..
-# Deactivate pifinder service during build phase.
-sudo systemctl stop pifinder
+cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=/usr ..
 make -j2
 sudo make install
+
+echo "==============================================================================="
+echo "PiFinder: Compiling INDI 3rd party drivers..."
+echo "==============================================================================="
+cd ~
+git clone --branch v2.1.6.1 --depth 1 https://github.com/indilib/indi-3rdparty.git
+# Libs
+mkdir -p ./indi-3rdparty/build-libs
+cd ./indi-3rdparty/build-libs
+cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Debug -DBUILD_LIBS=1 ..
+make -j2
+sudo make install
+
+# Drivers
+cd ~
+mkdir -p ./indi-3rdparty/build-drivers
+cd ./indi-3rdparty/build-drivers
+cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Debug ..
+make -j2
+sudo make install
+
+
+# Reactivate pifinder service after build phase.
 sudo systemctl start pifinder
+
 
 #
 # Build and install indiwebmanager
