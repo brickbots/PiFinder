@@ -250,7 +250,7 @@ Tipp: Press **1** once, to have the mount tracking.
      - Syncs mount and performs additional slew if needed (>0.01° error in one of the axes)
      - Repeats until target is centered within 0.01° (36 arcseconds)
 
-4. **Fine Adjustments**
+4. **Coarse Adjustments**
    - Use directional keys (**2, 4, 6, 8**) for manual adjustments
    - Those use the largest step size available for the mount, so this may be of limited use at the moment.
    
