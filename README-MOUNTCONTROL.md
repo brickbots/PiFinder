@@ -181,7 +181,18 @@ INDI Web Manager provides a web interface for managing INDI drivers and connecti
 
 ### Start PiFinder service
 
-The install script 
+Do not forget to start the pifinder service.
+```bash
+sudo systemctl start pifinder
+```
+
+Use
+
+```bash
+sudo systemctl status pifinder
+```
+
+To check it is up and running fine.
 
 ## Usage
 
