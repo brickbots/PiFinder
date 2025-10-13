@@ -547,7 +547,8 @@ class UIObjectDetails(UIModule):
             solution = self.shared_state.solution()
             if solution:
                 mountcontrol_queue.put({"type": "init"})
-                mountcontrol_queue.put({"type": "sync", "ra": solution.get("RA_target"), "dec": solution.get("Dec_target")})
+                RA_jnow, Dec_jnow = calc_utils.j2000_to_jnow(solution["RA"], solution["Dec"], self.shared_state.datetime())
+                mountcontrol_queue.put({"type": "sync", "ra": RA_jnow, "dec": Dec_jnow})
                 mc_logger.info(
                     f"UI: Mount init requested with sync to RA={solution.get('RA_target'):.4f}°, "
                     f"Dec={solution.get('Dec_target'):.4f}°"
@@ -572,11 +573,12 @@ class UIObjectDetails(UIModule):
             # Sync mount to current position if we have a solve
             solution = self.shared_state.solution()
             if solution:
+                RA_jnow, Dec_jnow = calc_utils.j2000_to_jnow(solution["RA_target"], solution["Dec_target"], self.shared_state.datetime())   
                 mountcontrol_queue.put(
                     {
                         "type": "sync",
-                        "ra": solution.get("RA_target"),
-                        "dec": solution.get("Dec_target"),
+                        "ra": RA_jnow,
+                        "dec": Dec_jnow,
                     }
                 )
             else:
