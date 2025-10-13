@@ -6,6 +6,7 @@ This module contains all the UI code for the object details screen
 
 """
 
+import datetime
 from PiFinder import cat_images
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
@@ -545,9 +546,13 @@ class UIObjectDetails(UIModule):
             # Initialize mount with current solve position if available
             mc_logger.debug("UI: Initializing mount")
             solution = self.shared_state.solution()
+            dt = self.shared_state.datetime()
+            if dt is None:
+                mc_logger.error("UI: Falling back to system time")
+                dt = datetime.datetime.utcnow()
             if solution:
                 mountcontrol_queue.put({"type": "init"})
-                RA_jnow, Dec_jnow = calc_utils.j2000_to_jnow(solution["RA"], solution["Dec"], self.shared_state.datetime())
+                RA_jnow, Dec_jnow = calc_utils.j2000_to_jnow(solution["RA"], solution["Dec"], dt)
                 mountcontrol_queue.put({"type": "sync", "ra": RA_jnow, "dec": Dec_jnow})
                 mc_logger.info(
                     f"UI: Mount init requested with sync to RA={solution.get('RA_target'):.4f}°, "
@@ -572,8 +577,12 @@ class UIObjectDetails(UIModule):
             mc_logger.debug("UI: Syncing mount")
             # Sync mount to current position if we have a solve
             solution = self.shared_state.solution()
+            dt = self.shared_state.datetime()
+            if dt is None:
+                mc_logger.error("UI: Falling back to system time")
+                dt = datetime.datetime.utcnow()
             if solution:
-                RA_jnow, Dec_jnow = calc_utils.j2000_to_jnow(solution["RA_target"], solution["Dec_target"], self.shared_state.datetime())   
+                RA_jnow, Dec_jnow = calc_utils.j2000_to_jnow(solution["RA_target"], solution["Dec_target"], dt)
                 mountcontrol_queue.put(
                     {
                         "type": "sync",
