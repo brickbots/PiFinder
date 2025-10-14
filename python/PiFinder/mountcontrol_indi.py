@@ -894,11 +894,15 @@ class MountControlIndi(MountControlBase):
                 elif num.name == "TRACK_RATE_DE":
                     current_rate_dec = num.value
 
-                logger.debug(
-                    f"Read current tracking rates from mount: "
-                    f"RA={self.current_rate_ra:.6f} arcsec/s, "
-                    f"Dec={self.current_rate_dec:.6f} arcsec/s"
-                )
+            if current_rate_ra is None or current_rate_dec is None:
+                logger.error("Current tracking rates not available from mount")
+                return False
+
+            logger.debug(
+                f"Read current tracking rates from mount: "
+                f"RA={current_rate_ra:.6f} arcsec/s, "
+                f"Dec={current_rate_dec:.6f} arcsec/s"
+            )
 
             # Calculate new tracking rates by adding adjustments
             new_rate_ra = current_rate_ra + drift_rate_adjustment_ra * 3600.0

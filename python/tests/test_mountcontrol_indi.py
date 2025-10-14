@@ -301,11 +301,61 @@ class TestMountControlIndiUnit:
         self.mock_indi_client.disconnectServer.assert_called_once()
         assert self.mount_control.client.isServerConnected() is False
 
-    def test_set_mount_drift_rates_not_implemented(self):
-        """Test that drift rates return False (not implemented)."""
-        result = self.mount_control.set_mount_drift_rates(0.1, 0.2)
+    def test_adjust_mount_drift_rates_property_not_available(self):
+        """Test that drift rate adjustments return False when TELESCOPE_TRACK_RATE not available."""
+        # Setup - no telescope device
+        self.mock_indi_client.telescope_device = self.mock_telescope
+        self.mock_indi_client._wait_for_property.return_value = None  # Property not available
 
+        # Execute adjustment
+        result = self.mount_control.adjust_mount_drift_rates(0.0001, 0.00005)
+
+        # Verify it returns False when property not available
         assert result is False
+
+    def test_adjust_mount_drift_rates_success(self):
+        """Test successful drift rate adjustment."""
+        # Setup
+        self.mock_indi_client.telescope_device = self.mock_telescope
+
+        # Mock TELESCOPE_TRACK_RATE property exists
+        mock_track_rate_prop = MagicMock()
+        self.mock_indi_client._wait_for_property.return_value = mock_track_rate_prop
+
+        # Mock the number property with current rates
+        mock_num_prop = MagicMock()
+        mock_ra_num = MagicMock()
+        mock_ra_num.name = "TRACK_RATE_RA"
+        mock_ra_num.value = 15.041067  # Sidereal rate in arcsec/s
+        mock_dec_num = MagicMock()
+        mock_dec_num.name = "TRACK_RATE_DE"
+        mock_dec_num.value = 0.0
+
+        # Make the mock iterable
+        mock_num_prop.__len__.return_value = 2
+        mock_num_prop.__getitem__.side_effect = lambda i: [mock_ra_num, mock_dec_num][i]
+
+        self.mock_telescope.getNumber.return_value = mock_num_prop
+        self.mock_indi_client.set_number.return_value = True
+
+        # Execute adjustment: 0.0001 deg/s = 0.36 arcsec/s
+        result = self.mount_control.adjust_mount_drift_rates(0.0001, 0.00005)
+
+        # Verify success
+        assert result is True
+
+        # Verify set_number was called with adjusted rates
+        self.mock_indi_client.set_number.assert_called_once()
+        call_args = self.mock_indi_client.set_number.call_args
+        assert call_args[0][0] == self.mock_telescope
+        assert call_args[0][1] == "TELESCOPE_TRACK_RATE"
+
+        # Check the adjusted values (0.0001 deg/s = 0.36 arcsec/s, 0.00005 deg/s = 0.18 arcsec/s)
+        values = call_args[0][2]
+        assert "TRACK_RATE_RA" in values
+        assert "TRACK_RATE_DE" in values
+        assert abs(values["TRACK_RATE_RA"] - (15.041067 + 0.36)) < 0.001
+        assert abs(values["TRACK_RATE_DE"] - (0.0 + 0.18)) < 0.001
 
 
 @pytest.mark.integration

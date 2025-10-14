@@ -22,7 +22,7 @@ class MountControlPhasesTestable(MountControlBase):
         self.stop_mount = Mock(return_value=True)
         self.move_mount_to_target = Mock(return_value=True)
         self.is_mount_moving = Mock(return_value=False)
-        self.set_mount_drift_rates = Mock(return_value=True)
+        self.adjust_mount_drift_rates = Mock(return_value=True)
         self.move_mount_manual = Mock(return_value=True)
         self.set_mount_step_size = Mock(return_value=True)
         self.disconnect_mount = Mock(return_value=True)
@@ -104,7 +104,7 @@ class TestMountControlPhases:
         self.mount_control.stop_mount.assert_not_called()
         self.mount_control.move_mount_to_target.assert_not_called()
         self.mount_control.is_mount_moving.assert_not_called()
-        self.mount_control.set_mount_drift_rates.assert_not_called()
+        self.mount_control.adjust_mount_drift_rates.assert_not_called()
         self.mount_control.move_mount_manual.assert_not_called()
         self.mount_control.set_mount_step_size.assert_not_called()
         self.mount_control.disconnect_mount.assert_not_called()
@@ -125,8 +125,8 @@ class TestMountControlPhases:
         # Verify init_mount was called
         self.mount_control.init_mount.assert_called_once()
 
-        # Verify state transition to MOUNT_STOPPED
-        assert self.mount_control.state == MountControlPhases.MOUNT_STOPPED
+        # Verify state transition to MOUNT_TRACKING (changed in mountcontrol_interface.py:761)
+        assert self.mount_control.state == MountControlPhases.MOUNT_TRACKING
 
         # Verify no warning messages
         assert self.console_queue.empty()
@@ -144,8 +144,8 @@ class TestMountControlPhases:
         # Verify init_mount was called twice (first fails, second succeeds)
         assert self.mount_control.init_mount.call_count == 2
 
-        # Verify state transition to MOUNT_STOPPED after successful init
-        assert self.mount_control.state == MountControlPhases.MOUNT_STOPPED
+        # Verify state transition to MOUNT_TRACKING after successful init (changed in mountcontrol_interface.py:761)
+        assert self.mount_control.state == MountControlPhases.MOUNT_TRACKING
 
         # Verify no warning messages since it eventually succeeded
         assert self.console_queue.empty()
@@ -187,7 +187,7 @@ class TestMountControlPhases:
         self.mount_control.stop_mount.assert_not_called()
         self.mount_control.move_mount_to_target.assert_not_called()
         self.mount_control.is_mount_moving.assert_not_called()
-        self.mount_control.set_mount_drift_rates.assert_not_called()
+        self.mount_control.adjust_mount_drift_rates.assert_not_called()
         self.mount_control.move_mount_manual.assert_not_called()
         self.mount_control.set_mount_step_size.assert_not_called()
         self.mount_control.disconnect_mount.assert_not_called()
@@ -363,16 +363,126 @@ class TestMountControlPhases:
         warning_msg = self.console_queue.get()
         assert warning_msg[0] == "WARNING"
 
-    @pytest.mark.parametrize(
-        "phase",
-        [
-            MountControlPhases.MOUNT_DRIFT_COMPENSATION,
-            MountControlPhases.MOUNT_SPIRAL_SEARCH,
-        ],
-    )
-    def test_unimplemented_phases(self, phase):
-        """Test phases that are not yet implemented."""
-        self.mount_control.state = phase
+    def test_mount_drift_compensation_with_good_fit(self):
+        """Test MOUNT_DRIFT_COMPENSATION phase with mocked solves that produce good R² fit."""
+        self.mount_control.state = MountControlPhases.MOUNT_DRIFT_COMPENSATION
+
+        # Create mock solution data that changes linearly over time
+        # Simulating drift: RA increases by 0.001 deg/s, Dec increases by 0.0005 deg/s
+        base_ra = 15.5
+        base_dec = 45.2
+        ra_drift_rate = 0.001  # degrees per second
+        dec_drift_rate = 0.0005  # degrees per second
+        base_time = 1000.0  # Arbitrary base timestamp
+
+        # Pre-generate 13 solve samples spanning 12 seconds
+        mock_solves = []
+        for i in range(13):  # 0 to 12 seconds
+            elapsed = i
+            mock_solves.append({
+                "solve_time": base_time + elapsed,
+                "RA_target": base_ra + ra_drift_rate * elapsed,
+                "Dec_target": base_dec + dec_drift_rate * elapsed,
+            })
+
+        solve_index = [0]
+
+        def mock_solution_sequential():
+            """Return pre-generated solutions sequentially."""
+            if solve_index[0] < len(mock_solves):
+                result = mock_solves[solve_index[0]]
+                solve_index[0] += 1
+                return result
+            # Return last solution if we run out
+            return mock_solves[-1]
+
+        self.shared_state.solution.side_effect = mock_solution_sequential
+
+        # Execute phase generator for each solve
+        phase_generator = None
+        for i in range(len(mock_solves)):
+            # Simulate the main loop: create new generator if needed
+            if phase_generator is None:
+                phase_generator = self.mount_control._process_phase(retry_count=3, delay=0.01)
+
+            try:
+                next(phase_generator)
+            except StopIteration:
+                # Generator finished, will create new one on next iteration
+                phase_generator = None
+
+        # Verify that adjust_mount_drift_rates was called with detected drift
+        assert self.mount_control.adjust_mount_drift_rates.called, \
+            "adjust_mount_drift_rates should have been called"
+
+        # Get the drift rate adjustments that were passed (absolute slopes detected)
+        call_args = self.mount_control.adjust_mount_drift_rates.call_args
+        assert call_args is not None, "adjust_mount_drift_rates should have been called with arguments"
+
+        ra_adjustment, dec_adjustment = call_args[0]
+
+        # Verify the adjustments are close to expected drift rates (within 20% tolerance due to discrete sampling)
+        assert abs(ra_adjustment - ra_drift_rate) < ra_drift_rate * 0.2, \
+            f"RA drift rate adjustment {ra_adjustment} should be close to expected {ra_drift_rate}"
+        assert abs(dec_adjustment - dec_drift_rate) < dec_drift_rate * 0.2, \
+            f"Dec drift rate adjustment {dec_adjustment} should be close to expected {dec_drift_rate}"
+
+    def test_mount_drift_compensation_with_poor_fit(self):
+        """Test MOUNT_DRIFT_COMPENSATION phase with noisy data that produces poor R² fit."""
+        import random
+        self.mount_control.state = MountControlPhases.MOUNT_DRIFT_COMPENSATION
+
+        # Create mock solution data with random noise (poor fit)
+        base_ra = 15.5
+        base_dec = 45.2
+        base_time = 1000.0
+
+        # Pre-generate 13 solve samples with random noise
+        mock_solves = []
+        for i in range(13):
+            mock_solves.append({
+                "solve_time": base_time + i,
+                "RA_target": base_ra + random.uniform(-0.1, 0.1),
+                "Dec_target": base_dec + random.uniform(-0.1, 0.1),
+            })
+
+        solve_index = [0]
+
+        def mock_solution_with_noise():
+            """Return solutions with significant random noise."""
+            if solve_index[0] < len(mock_solves):
+                result = mock_solves[solve_index[0]]
+                solve_index[0] += 1
+                return result
+            return mock_solves[-1]
+
+        self.shared_state.solution.side_effect = mock_solution_with_noise
+
+        # Execute phase generator for each solve
+        phase_generator = None
+        for i in range(len(mock_solves)):
+            if phase_generator is None:
+                phase_generator = self.mount_control._process_phase(retry_count=3, delay=0.01)
+
+            try:
+                next(phase_generator)
+            except StopIteration:
+                phase_generator = None
+
+        # Verify that adjust_mount_drift_rates was NOT called (due to poor R²)
+        assert not self.mount_control.adjust_mount_drift_rates.called, \
+            "adjust_mount_drift_rates should NOT have been called with poor R² fit"
+
+        # Verify no INFO console message (only logger messages)
+        # There might be WARNING messages, but no INFO about drift rates adjusted
+        while not self.console_queue.empty():
+            msg = self.console_queue.get()
+            assert msg[0] != "INFO" or "Drift rates adjusted" not in str(msg), \
+                "Should not send INFO message about drift rates with poor fit"
+
+    def test_mount_spiral_search_unimplemented(self):
+        """Test MOUNT_SPIRAL_SEARCH phase that is not yet implemented."""
+        self.mount_control.state = MountControlPhases.MOUNT_SPIRAL_SEARCH
 
         # Execute the phase
         self._execute_phase_generator()
@@ -383,7 +493,7 @@ class TestMountControlPhases:
         self.mount_control.move_mount_to_target.assert_not_called()
 
         # Verify state unchanged
-        assert self.mount_control.state == phase
+        assert self.mount_control.state == MountControlPhases.MOUNT_SPIRAL_SEARCH
 
         # Verify no console messages
         assert self.console_queue.empty()
