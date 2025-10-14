@@ -37,6 +37,14 @@ class PiFinderIndiClient(PyIndi.BaseClient):
         self.telescope_device = None
         self.mount_control = mount_control
 
+    def get_telescope_device(self):
+        """Get the telescope device.
+
+        Returns:
+            The telescope device if available, None otherwise.
+        """
+        return self.telescope_device
+
     def _wait_for_property(self, device, property_name, timeout=5.0):
         """Wait for a property to become available on a device.
 
@@ -465,14 +473,6 @@ class MountControlIndi(MountControlBase):
 
         self.log_queue = log_queue
 
-    def _get_telescope_device(self):
-        """Get the telescope device from the INDI client.
-
-        Returns:
-            The telescope device if available, None otherwise.
-        """
-        return self.client.telescope_device
-
     def _mount_current_position(self, ra_deg: float, dec_deg: float) -> None:
         """Update the current position of the mount.
 
@@ -590,20 +590,20 @@ class MountControlIndi(MountControlBase):
                 timeout = 5.0
                 start_time = time.time()
                 while time.time() - start_time < timeout:
-                    if self._get_telescope_device():
+                    if self.client.get_telescope_device():
                         break
                     time.sleep(0.1)
 
-                if not self._get_telescope_device():
+                if not self.client.get_telescope_device():
                     logger.error("No telescope device detected")
                     return False
 
                 logger.info(
-                    f"Telescope device found: {self._get_telescope_device().getDeviceName()}"
+                    f"Telescope device found: {self.client.get_telescope_device().getDeviceName()}"
                 )
 
             # Connect to the telescope device if not already connected
-            device = self._get_telescope_device()
+            device = self.client.get_telescope_device()
             device_name = device.getDeviceName()
 
             # Check CONNECTION property
@@ -727,7 +727,7 @@ class MountControlIndi(MountControlBase):
             f"Syncing mount to RA={current_position_ra_deg:.4f}°, Dec={current_position_dec_deg:.4f}°"
         )
         try:
-            device = self._get_telescope_device()
+            device = self.client.get_telescope_device()
             if not device:
                 logger.error("Telescope device not available for sync")
                 return False
@@ -778,7 +778,7 @@ class MountControlIndi(MountControlBase):
             True if stop command sent successfully, False otherwise.
         """
         try:
-            device = self._get_telescope_device()
+            device = self.client.get_telescope_device()
             if not device:
                 logger.error("Telescope device not available for stop")
                 return False
@@ -809,7 +809,7 @@ class MountControlIndi(MountControlBase):
             True if goto command sent successfully, False otherwise.
         """
         try:
-            device = self._get_telescope_device()
+            device = self.client.get_telescope_device()
             if not device:
                 logger.error("Telescope device not available for goto")
                 return False
@@ -862,7 +862,7 @@ class MountControlIndi(MountControlBase):
             True if drift rate adjustments applied successfully, False otherwise.
         """
         try:
-            device = self._get_telescope_device()
+            device = self.client.get_telescope_device()
             if not device:
                 logger.error("Telescope device not available for adjusting drift rates")
                 return False
@@ -943,7 +943,7 @@ class MountControlIndi(MountControlBase):
             True if manual movement command sent successfully, False otherwise.
         """
         try:
-            device = self._get_telescope_device()
+            device = self.client.get_telescope_device()
             if not device:
                 logger.error("Telescope device not available for manual movement")
                 return False
@@ -1024,7 +1024,7 @@ class MountControlIndi(MountControlBase):
             True if disconnection successful, False otherwise.
         """
         try:
-            device = self._get_telescope_device()
+            device = self.client.get_telescope_device()
             if device:
                 self.client.set_switch(device, "CONNECTION", "DISCONNECT")
                 logger.info(f"Telescope {device.getDeviceName()} disconnected")

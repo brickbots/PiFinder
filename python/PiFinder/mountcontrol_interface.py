@@ -207,7 +207,7 @@ class MountControlBase:
         self.drift_solve_times: list[float] = []  # Timestamps for each solve
         self.drift_solve_ra: list[float] = []  # RA_target values from solves
         self.drift_solve_dec: list[float] = []  # Dec_target values from solves
-        self.drift_compensation_window: float = 10.0  # Time window in seconds
+        self.drift_compensation_window: float = 10.0  # Time window in seconds, this is how long we take measurements before applying a drift compensation
         self.drift_r_squared_threshold: float = 0.90  # R² threshold for applying rates
 
     #
@@ -953,6 +953,9 @@ class MountControlBase:
             ### Data Collection
             ###
 
+            # The frequency, with which we get here is about 10 times per second (determined by the wait in run())
+            #
+
             # Check if we have a solution available
             solution = self.shared_state.solution()
             if solution is None:
@@ -965,10 +968,11 @@ class MountControlBase:
             ra_target = solution["RA_target"]
             dec_target = solution["Dec_target"]
 
-            # Add new data point
-            self.drift_solve_times.append(solve_time)
-            self.drift_solve_ra.append(ra_target)
-            self.drift_solve_dec.append(dec_target)
+            # Add new data point, if it is not a duplicate
+            if self.drift_solve_times[-1] != solve_time:
+                self.drift_solve_times.append(solve_time)
+                self.drift_solve_ra.append(ra_target)
+                self.drift_solve_dec.append(dec_target)
 
             # Remove data points older than the window
             cutoff_time = solve_time - self.drift_compensation_window
@@ -1018,7 +1022,7 @@ class MountControlBase:
                             dec_adjustment = dec_slope
 
                         logger.info(
-                            f"Applying drift rate adjustments: RA={ra_adjustment:.4f} deg/s, "
+                            f"Drift Compensation: Applying drift rate adjustments: RA={ra_adjustment:.4f} deg/s, "
                             f"Dec={dec_adjustment:.4f} deg/s"
                         )
 
