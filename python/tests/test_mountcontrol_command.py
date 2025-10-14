@@ -55,7 +55,13 @@ class TestMountControl:
         self.mount_control.move_mount_to_target = Mock(return_value=True)
         self.mount_control.adjust_mount_drift_rates = Mock(return_value=True)
         self.mount_control.move_mount_manual = Mock(return_value=True)
-        self.mount_control.set_mount_step_size = Mock(return_value=True)
+
+        # Make set_mount_step_size actually update the step_size like the real implementation does
+        def set_step_size_side_effect(step_size):
+            self.mount_control.step_size = step_size
+            return True
+        self.mount_control.set_mount_step_size = Mock(side_effect=set_step_size_side_effect)
+
         self.mount_control.disconnect_mount = Mock(return_value=True)
 
     def _execute_command_generator(self, command):
@@ -408,8 +414,7 @@ class TestMountControl:
         command = {
             "type": "manual_movement",
             "direction": "north",
-            "slew_rate": "SLEW_GUIDE",
-            "duration": 1.0,
+            "step_size": 1.5,  # Override default step size
         }
 
         # Execute the command
@@ -417,7 +422,7 @@ class TestMountControl:
 
         # Verify that _move_mount_manual was called with correct parameters
         self.mount_control.move_mount_manual.assert_called_once_with(
-            MountDirectionsEquatorial.NORTH, "SLEW_GUIDE", 1.0
+            MountDirectionsEquatorial.NORTH, 1.5
         )
 
         # Verify no warning messages
@@ -427,20 +432,24 @@ class TestMountControl:
         """Test 'manual_movement' command that fails."""
         # Setup initial state
         self.mount_control.state = MountControlPhases.MOUNT_STOPPED
+        self.mount_control.step_size = 2.0  # 2 degree step size
 
         # Mock move_mount_manual to fail
         self.mount_control.move_mount_manual.return_value = False
 
-        # Create manual movement command
+        # Create manual movement command (without step_size, should use default)
         command = {
             "type": "manual_movement",
             "direction": MountDirectionsEquatorial.SOUTH,
-            "slew_rate": "SLEW_GUIDE",
-            "duration": 1.0,
         }
 
         # Execute the command
         self._execute_command_generator(command)
+
+        # Verify that move_mount_manual was called with default step_size
+        self.mount_control.move_mount_manual.assert_called_once_with(
+            MountDirectionsEquatorial.SOUTH, 2.0
+        )
 
         # Verify warning message was sent
         assert not self.console_queue.empty()
@@ -535,9 +544,6 @@ class TestMountControl:
 
     def test_set_step_size_command_too_small(self):
         """Test 'set_step_size' command with value below minimum."""
-        # Store original step size
-        original_step_size = self.mount_control.step_size
-
         # Test value below minimum (less than 1 arcsec)
         command = {
             "type": "set_step_size",
@@ -546,11 +552,11 @@ class TestMountControl:
 
         self._execute_command_generator(command)
 
-        # Verify that set_mount_step_size was NOT called
-        self.mount_control.set_mount_step_size.assert_not_called()
+        # Verify that set_mount_step_size WAS called with the clamped minimum value
+        self.mount_control.set_mount_step_size.assert_called_once_with(1 / 3600)
 
-        # Verify step size was not changed
-        assert self.mount_control.step_size == original_step_size
+        # Verify step size was clamped to minimum
+        assert self.mount_control.step_size == 1 / 3600
 
         # Verify warning message was sent
         assert not self.console_queue.empty()
@@ -560,19 +566,16 @@ class TestMountControl:
 
     def test_set_step_size_command_too_large(self):
         """Test 'set_step_size' command with value above maximum."""
-        # Store original step size
-        original_step_size = self.mount_control.step_size
-
         # Test value above maximum (more than 10 degrees)
         command = {"type": "set_step_size", "step_size": 15.0}
 
         self._execute_command_generator(command)
 
-        # Verify that set_mount_step_size was NOT called
-        self.mount_control.set_mount_step_size.assert_not_called()
+        # Verify that set_mount_step_size WAS called with the clamped maximum value
+        self.mount_control.set_mount_step_size.assert_called_once_with(10.0)
 
-        # Verify step size was not changed
-        assert self.mount_control.step_size == original_step_size
+        # Verify step size was clamped to maximum
+        assert self.mount_control.step_size == 10.0
 
         # Verify warning message was sent
         assert not self.console_queue.empty()
@@ -585,8 +588,10 @@ class TestMountControl:
         # Store original step size
         original_step_size = self.mount_control.step_size
 
-        # Mock set_mount_step_size to fail
-        self.mount_control.set_mount_step_size.return_value = False
+        # Mock set_mount_step_size to fail (don't update step_size)
+        def failing_set_step_size(step_size):
+            return False
+        self.mount_control.set_mount_step_size = Mock(side_effect=failing_set_step_size)
 
         command = {"type": "set_step_size", "step_size": 3.0}
 
@@ -605,25 +610,22 @@ class TestMountControl:
         assert "Cannot set step size" in warning_msg[1]
 
     @pytest.mark.parametrize(
-        "step_size,expected_valid",
+        "step_size,expected_valid,expected_clamped",
         [
-            (1 / 3600, True),  # Minimum valid (1 arcsec)
-            (0.001, True),  # Valid small value
-            (1.0, True),  # Valid medium value
-            (5.0, True),  # Valid large value
-            (10.0, True),  # Maximum valid
-            (1 / 7200, False),  # Too small (0.5 arcsec)
-            (0.0, False),  # Zero
-            (-1.0, False),  # Negative
-            (15.0, False),  # Too large
-            (100.0, False),  # Way too large
+            (1 / 3600, True, None),  # Minimum valid (1 arcsec)
+            (0.001, True, None),  # Valid small value
+            (1.0, True, None),  # Valid medium value
+            (5.0, True, None),  # Valid large value
+            (10.0, True, None),  # Maximum valid
+            (1 / 7200, False, 1 / 3600),  # Too small (0.5 arcsec) - clamped to min
+            (0.0, False, 1 / 3600),  # Zero - clamped to min
+            (-1.0, False, 1 / 3600),  # Negative - clamped to min
+            (15.0, False, 10.0),  # Too large - clamped to max
+            (100.0, False, 10.0),  # Way too large - clamped to max
         ],
     )
-    def test_set_step_size_command_validation(self, step_size, expected_valid):
+    def test_set_step_size_command_validation(self, step_size, expected_valid, expected_clamped):
         """Test 'set_step_size' command validation with various values."""
-        # Store original step size
-        original_step_size = self.mount_control.step_size
-
         command = {"type": "set_step_size", "step_size": step_size}
 
         self._execute_command_generator(command)
@@ -634,9 +636,9 @@ class TestMountControl:
             assert self.mount_control.step_size == step_size
             assert self.console_queue.empty()
         else:
-            # Invalid values should not call set_mount_step_size or update step_size
-            self.mount_control.set_mount_step_size.assert_not_called()
-            assert self.mount_control.step_size == original_step_size
+            # Invalid values should be clamped and set_mount_step_size called with clamped value
+            self.mount_control.set_mount_step_size.assert_called_once_with(expected_clamped)
+            assert self.mount_control.step_size == expected_clamped
 
             # Should send warning message
             assert not self.console_queue.empty()

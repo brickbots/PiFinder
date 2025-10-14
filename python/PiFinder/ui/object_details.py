@@ -114,8 +114,11 @@ class UIObjectDetails(UIModule):
         self.alt_anchor = (0, self.display_class.resY - (self.fonts.huge.height * 1.2))
         self._elipsis_count = 0
 
+        self._default_step_size_multiplier: float = 0.2 # as % of tfov
+
         self.active()  # fill in activation time
         self.update_object_info()
+        self.set_mount_stepsize_from_fov()
 
     def _layout_designator(self):
         """
@@ -260,11 +263,13 @@ class UIObjectDetails(UIModule):
             ("0", _("Stop mount")),
             ("1", _("Init Mount")),
             ("2", _("South")),
-            ("3", _("Sync")),
+            ("3", _("Reduce step size")),
             ("4", _("West")),
             ("5", _("Goto target")),
             ("6", _("East")),
+            ("7", _("Sync mount")),
             ("8", _("North")),
+            ("9", _("Increase step size")),
         ]
 
         for key, label in shortcuts:
@@ -574,25 +579,13 @@ class UIObjectDetails(UIModule):
                 }
             )
         elif number == 3:
-            mc_logger.debug("UI: Syncing mount")
-            # Sync mount to current position if we have a solve
-            solution = self.shared_state.solution()
-            dt = self.shared_state.datetime()
-            if dt is None:
-                mc_logger.error("UI: Falling back to system time")
-                dt = datetime.datetime.utcnow()
-            if solution:
-                RA_jnow, Dec_jnow = calc_utils.j2000_to_jnow(solution["RA_target"], solution["Dec_target"], dt)
-                mountcontrol_queue.put(
-                    {
-                        "type": "sync",
-                        "ra": RA_jnow,
-                        "dec": Dec_jnow,
-                    }
-                )
-            else:
-                mc_logger.warning("UI: Cannot sync mount - no solution available")
-                self.command_queues.get("console").put({"warning", "No solve"})
+            mc_logger.debug("UI: Reducing mount step size")
+            # Reduce step size
+            mountcontrol_queue.put({"type": "reduce_step_size"})
+        elif number == 9:
+            mc_logger.debug("UI: Increasing mount step size")
+            # Increase step size
+            mountcontrol_queue.put({"type": "increase_step_size"})
         elif number == 4:
             mc_logger.debug("UI:Moving mount west")
             # West
@@ -628,8 +621,25 @@ class UIObjectDetails(UIModule):
                 }
             )
         elif number == 7:
-            # Spiral search - TODO: determine spiral search command structure
-            pass
+            mc_logger.debug("UI: Syncing mount")
+            # Sync mount to current position if we have a solve
+            solution = self.shared_state.solution()
+            dt = self.shared_state.datetime()
+            if dt is None:
+                mc_logger.error("UI: Falling back to system time")
+                dt = datetime.datetime.now(datetime.timezone.utc)
+            if solution:
+                RA_jnow, Dec_jnow = calc_utils.j2000_to_jnow(solution["RA_target"], solution["Dec_target"], dt)
+                mountcontrol_queue.put(
+                    {
+                        "type": "sync",
+                        "ra": RA_jnow,
+                        "dec": Dec_jnow,
+                    }
+                )
+            else:
+                mc_logger.warning("UI: Cannot sync mount - no solution available")
+                self.command_queues.get("console").put({"warning", "No solve"})
         elif number == 8:
             mc_logger.debug("UI: Moving mount north")
             # North
@@ -704,3 +714,21 @@ class UIObjectDetails(UIModule):
                 typeconst.next()
         else:
             self.change_fov(-1)
+
+    def set_mount_stepsize_from_fov(self):
+        """
+        Set mount step size based on current field of view
+        """
+        mountcontrol_queue = self.command_queues.get("mountcontrol")
+        if mountcontrol_queue is None:
+            return
+        
+        # Get current field of view in arcminutes
+        step_deg = self.config_object.equipment.calc_tfov() * self._default_step_size_multiplier
+        
+        mountcontrol_queue.put({
+            "type": "set_step_size",
+            "step_size": step_deg
+        })
+        
+        mc_logger.debug(f"UI: Set mount step size {step_deg:.4f}° based on TFOV")

@@ -931,13 +931,16 @@ class MountControlIndi(MountControlBase):
             return False
 
     def move_mount_manual(
-        self, direction: MountDirections, slew_rate: str, duration: float
+        self, direction: MountDirections, step_size_deg: float
     ) -> bool:
-        """Move the mount manually in the specified direction.
+        """Move the mount manually in the specified direction by the specified step size.
+
+        This implementation uses goto functionality by reading the current position
+        and then commanding a goto to current position + step_size.
 
         Args:
             direction: Direction to move (MountDirectionsEquatorial or MountDirectionsAltAz)
-            step_deg: Step size in degrees
+            step_size_deg: Step size in degrees
 
         Returns:
             True if manual movement command sent successfully, False otherwise.
@@ -951,65 +954,63 @@ class MountControlIndi(MountControlBase):
             if self.current_ra is None or self.current_dec is None:
                 logger.error("Current mount position unknown, cannot move manually")
                 self.console_queue.put(
-                    {"WARN", "Mount position unknown, cannot move manually"}
+                    ["WARN", _("No position")]
                 )
                 return False
 
-            # Map direction to INDI motion commands
-            motion_map = {
-                MountDirectionsEquatorial.NORTH: (
-                    "TELESCOPE_MOTION_NS",
-                    "MOTION_NORTH",
-                ),
-                MountDirectionsEquatorial.SOUTH: (
-                    "TELESCOPE_MOTION_NS",
-                    "MOTION_SOUTH",
-                ),
-                MountDirectionsEquatorial.EAST: ("TELESCOPE_MOTION_WE", "MOTION_EAST"),
-                MountDirectionsEquatorial.WEST: ("TELESCOPE_MOTION_WE", "MOTION_WEST"),
-                MountDirectionsAltAz.UP: ("TELESCOPE_MOTION_NS", "MOTION_NORTH"),
-                MountDirectionsAltAz.DOWN: ("TELESCOPE_MOTION_NS", "MOTION_SOUTH"),
-                MountDirectionsAltAz.LEFT: ("TELESCOPE_MOTION_WE", "MOTION_WEST"),
-                MountDirectionsAltAz.RIGHT: ("TELESCOPE_MOTION_WE", "MOTION_EAST"),
-            }
+            # Calculate target position based on direction and step size
+            target_ra = self.current_ra
+            target_dec = self.current_dec
 
-            if direction not in motion_map:
+            # Map direction to RA/Dec adjustments
+            if direction == MountDirectionsEquatorial.NORTH:
+                target_dec += step_size_deg
+            elif direction == MountDirectionsEquatorial.SOUTH:
+                target_dec -= step_size_deg
+            elif direction == MountDirectionsEquatorial.EAST:
+                target_ra += step_size_deg
+            elif direction == MountDirectionsEquatorial.WEST:
+                target_ra -= step_size_deg
+            elif direction == MountDirectionsAltAz.UP:
+                target_dec += step_size_deg
+            elif direction == MountDirectionsAltAz.DOWN:
+                target_dec -= step_size_deg
+            elif direction == MountDirectionsAltAz.LEFT:
+                target_ra -= step_size_deg
+            elif direction == MountDirectionsAltAz.RIGHT:
+                target_ra += step_size_deg
+            else:
                 logger.error(f"Unknown direction: {direction}")
                 return False
 
-            property_name, element_name = motion_map[direction]
+            # Normalize RA to 0-360 range
+            target_ra = target_ra % 360.0
 
-            # For manual movement with a specific step size, we'd ideally use
-            # timed pulses or jog commands. For simplicity, we'll use motion on/off.
-            # A better implementation would calculate timing based on step_deg.
+            # Clamp Dec to -90 to +90 range
+            target_dec = max(-90.0, min(90.0, target_dec))
 
-            (prev_ra, prev_dec) = (self.current_ra, self.current_dec)
             logger.info(
-                f"START manual movement {direction} by {slew_rate} at RA={prev_ra:.7f}, Dec={prev_dec:.7f}"
+                f"Manual movement {direction} by {step_size_deg:.5f}° from "
+                f"RA={self.current_ra:.7f}°, Dec={self.current_dec:.7f}° to "
+                f"RA={target_ra:.7f}°, Dec={target_dec:.7f}°"
             )
 
-            # Set slew rate based on passed velocity
-            if slew_rate in self.available_slew_rates:
-                if not self.client.set_switch(device, "TELESCOPE_SLEW_RATE", slew_rate):
-                    logger.warning(f"Failed to set slew rate to {slew_rate}")
-            else:
-                logger.warning(
-                    f"Unknown slew rate setting: {slew_rate} (not in available rates: {self.available_slew_rates})"
-                )
+            # Set ON_COORD_SET to TRACK mode (goto and track)
+            if not self.client.set_switch(device, "ON_COORD_SET", "TRACK"):
+                logger.error("Failed to set ON_COORD_SET to TRACK")
                 return False
 
-            # Turn on motion
-            if not self.client.set_switch(device, property_name, element_name):
-                logger.error(f"Failed to start manual movement {direction}")
+            # Convert RA from degrees to hours
+            ra_hours = target_ra / 15.0
+
+            # Set target coordinates
+            if not self.client.set_number(
+                device, "EQUATORIAL_EOD_COORD", {"RA": ra_hours, "DEC": target_dec}
+            ):
+                logger.error("Failed to set manual movement target coordinates")
                 return False
 
             self.current_time = time.time()  # Update timestamp to indicate movement
-            # Wait for the passed duration
-            time.sleep(duration)
-
-            # Turn off motion by setting all switches to OFF
-            if not self.client.set_switch_off(device, property_name):
-                logger.warning(f"Failed to stop motion for {property_name}")
 
             return True
 

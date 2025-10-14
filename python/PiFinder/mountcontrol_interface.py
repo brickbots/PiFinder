@@ -335,9 +335,9 @@ class MountControlBase:
         raise NotImplementedError("This method should be overridden by subclasses.")
 
     def move_mount_manual(
-        self, direction: MountDirections, slew_rate: str, duration: float
+        self, direction: MountDirections, step_size_deg: float
     ) -> bool:
-        """Move the mount manually in the specified direction using the mount's current step size.
+        """Move the mount manually in the specified direction by the specified step size.
 
         The subclass needs to return a boolean indicating success or failure,
         if the command was successfully sent.
@@ -345,8 +345,7 @@ class MountControlBase:
 
         Args:
             direction: The direction to move see MountDirections and its subclasses.
-            slew_rate: The slew rate used to move the mount.
-            duration: Duration in seconds to move the mount.
+            step_size_deg: Step size in degrees to move the mount.
         Returns:
             bool: True if manual movement command was successful, False otherwise.
 
@@ -475,7 +474,7 @@ class MountControlBase:
             return True
 
     def _move_mount_manual(
-        self, direction: MountDirections, slew_rate: str, duration: float
+        self, direction: MountDirections, step_size_deg: float
     ) -> bool:
         """Convert string direction to enum and move mount manually."""
         # Convert string to enum if needed (case-insensitive)
@@ -507,7 +506,7 @@ class MountControlBase:
                 logger.warning(f"Failed to convert direction string '{direction}': {e}")
                 return False
 
-        success = self.move_mount_manual(direction, slew_rate, duration)
+        success = self.move_mount_manual(direction, step_size_deg)
         if success:
             # Reset drift compensation if leaving that state
             if self.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
@@ -668,11 +667,10 @@ class MountControlBase:
         elif command["type"] == "manual_movement":
             logger.debug("Mount: manual_movement command received")
             direction = command["direction"]
-            slew_rate = command["slew_rate"]
-            duration = command["duration"]
-            logger.debug(f"Mount: Manual movement - direction={direction}")
+            step_size = command.get("step_size", self.step_size)
+            logger.debug(f"Mount: Manual movement - direction={direction}, step_size={step_size:.5f}°")
             # Not retrying these.
-            if not self._move_mount_manual(direction, slew_rate, duration):
+            if not self._move_mount_manual(direction, step_size):
                 logger.warning("Mount: Manual movement failed")
                 self.console_queue.put(["WARNING", _("Mount did not move!")])
 
@@ -686,8 +684,12 @@ class MountControlBase:
                 logger.warning(
                     "Mount: Step size out of range - %.5f degrees", step_size
                 )
+                if step_size < 1 / 3600:
+                    self.set_mount_step_size(1 / 3600)
+                else:
+                    self.set_mount_step_size(10.0)
+                logger.debug("Mount: Step size set to limit %.5f degrees", self.get_mount_step_size())
             else:
-                logger.debug(f"Mount: Set step size - {step_size} degrees")
                 if not self.set_mount_step_size(step_size):
                     self.console_queue.put(["WARNING", _("Cannot set step size!")])
                 else:
@@ -700,7 +702,7 @@ class MountControlBase:
                 1 / 3600, self.step_size / 2
             )  # Minimum step size of 1 arcsec
             logger.debug(
-                "Mount: Reduce step size - new step size = %.5f degrees", self.step_size
+                "Mount: Reduce step size - new step size = %.5f degrees", self.get_mount_step_size()
             )
 
         elif command["type"] == "increase_step_size":
@@ -969,7 +971,7 @@ class MountControlBase:
             dec_target = solution["Dec_target"]
 
             # Add new data point, if it is not a duplicate
-            if self.drift_solve_times[-1] != solve_time:
+            if not self.drift_solve_times or self.drift_solve_times[-1] != solve_time:
                 self.drift_solve_times.append(solve_time)
                 self.drift_solve_ra.append(ra_target)
                 self.drift_solve_dec.append(dec_target)
