@@ -685,6 +685,7 @@ class UIObjectDetails(UIModule):
     def change_fov(self, direction):
         self.config_object.equipment.cycle_eyepieces(direction)
         self.update_object_info()
+        self.set_mount_stepsize_from_fov()
         self.update()
 
     def key_plus(self):
