@@ -356,6 +356,8 @@ class TestMountControlIndiUnit:
         assert "TRACK_RATE_DE" in values
         assert abs(values["TRACK_RATE_RA"] - (15.041067 + 0.36)) < 0.001
         assert abs(values["TRACK_RATE_DE"] - (0.0 + 0.18)) < 0.001
+        assert values["TRACK_RATE_RA"] - 15.051067 > 0.0
+        assert values["TRACK_RATE_DE"] - 0.0 > 0.0
 
 
 @pytest.mark.integration
