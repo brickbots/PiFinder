@@ -143,7 +143,7 @@ class MountControlBase:
         init_mount(): Initialize the mount hardware and prepare for operation.
         sync_mount(current_position_radec): Synchronize the mount's pointing state.
         move_mount_to_target(target_position_radec): Move the mount to the specified target position.
-        set_mount_drift_rates(drift_rate_ra, drift_rate_dec): Set the mount's drift rates.
+        adjust_mount_drift_rates(drift_rate_adjustment_ra, drift_rate_adjustment_dec): Adjust the mount's drift rates.
         spiral_search(center_position_radec, max_radius_deg, step_size_deg): Perform a spiral search.
         move_mount_manual(direction, speed, duration): Move the mount manually in a specified direction and speed.
 
@@ -202,6 +202,13 @@ class MountControlBase:
         self.init_solve_dec: Optional[float] = None  # Solved Dec for mount initialization
 
         self.state: MountControlPhases = MountControlPhases.MOUNT_INIT_TELESCOPE
+
+        # Drift compensation data structures
+        self.drift_solve_times: list[float] = []  # Timestamps for each solve
+        self.drift_solve_ra: list[float] = []  # RA_target values from solves
+        self.drift_solve_dec: list[float] = []  # Dec_target values from solves
+        self.drift_compensation_window: float = 10.0  # Time window in seconds
+        self.drift_r_squared_threshold: float = 0.90  # R² threshold for applying rates
 
     #
     # Methods to be overridden by subclasses for controlling the specifics of a mount
@@ -303,19 +310,27 @@ class MountControlBase:
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
-    def set_mount_drift_rates(self, drift_rate_ra, drift_rate_dec) -> bool:
-        """Set the mount's drift rates in RA and DEC.
+    def adjust_mount_drift_rates(self, delta_drift_rate_ra, delta_drift_rate_dec) -> bool:
+        """Adjust the mount's drift rates in RA and DEC by the specified amounts.
 
-        Expectation is that the mount immediately starts applying the drift rates.
+        The parameters are adjustments (deltas) to be added to the current tracking rates,
+        not absolute rate values. The mount should immediately apply these adjustments.
+
+        These adjustments are determined by measuring the drift in platesolved images.
+        That means as the mount is already applying the previous drift rates, these are incremental adjustments.
+
+        Args:
+            delta_drift_rate_ra: Adjustment to RA drift rate in degrees/second
+            delta_drift_rate_dec: Adjustment to Dec drift rate in degrees/second
 
         The subclass needs to return a boolean indicating success or failure,
         if the command was successfully sent.
         A failure will cause the main loop to retry setting the rates after a delay.
-        If the mount cannot set the drift rates, throw an exception to abort the process.
+        If the mount cannot adjust the drift rates, throw an exception to abort the process.
         This will be used to inform the user via the console queue.
 
         Returns:
-            bool: True if setting drift rates was successful, False otherwise.
+            bool: True if adjusting drift rates was successful, False otherwise.
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
@@ -396,10 +411,64 @@ class MountControlBase:
         self.state = MountControlPhases.MOUNT_STOPPED
 
     #
+    # Helper methods for drift compensation
+    #
+    def _compute_linear_fit(
+        self, x_values: list[float], y_values: list[float]
+    ) -> tuple[float, float, float]:
+        """Compute linear regression fit and R² value.
+
+        Args:
+            x_values: List of independent variable values (time).
+            y_values: List of dependent variable values (RA or Dec).
+
+        Returns:
+            Tuple of (slope, intercept, r_squared).
+        """
+        n = len(x_values)
+        if n < 2:
+            return 0.0, 0.0, 0.0
+
+        # Calculate means
+        x_mean = sum(x_values) / n
+        y_mean = sum(y_values) / n
+
+        # Calculate slope and intercept using least squares
+        numerator = sum((x_values[i] - x_mean) * (y_values[i] - y_mean) for i in range(n))
+        denominator = sum((x_values[i] - x_mean) ** 2 for i in range(n))
+
+        if denominator == 0:
+            return 0.0, y_mean, 0.0
+
+        slope = numerator / denominator
+        intercept = y_mean - slope * x_mean
+
+        # Calculate R²
+        ss_tot = sum((y_values[i] - y_mean) ** 2 for i in range(n))
+        ss_res = sum((y_values[i] - (slope * x_values[i] + intercept)) ** 2 for i in range(n))
+
+        if ss_tot == 0:
+            r_squared = 0.0
+        else:
+            r_squared = 1.0 - (ss_res / ss_tot)
+
+        return slope, intercept, r_squared
+
+    def _reset_drift_compensation_data(self) -> None:
+        """Reset drift compensation data collection and clear current drift rates."""
+        self.drift_solve_times.clear()
+        self.drift_solve_ra.clear()
+        self.drift_solve_dec.clear()
+        self.drift_rates_applied = False
+
+    #
     # Helper methods to decorate mount control methods with state management
     #
     def _stop_mount(self) -> bool:
         if self.state != MountControlPhases.MOUNT_STOPPED:
+            # Reset drift compensation data when stopping
+            if self.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
+                self._reset_drift_compensation_data()
             return self.stop_mount()  # State is set in mount_stopped() callback
         else:
             logger.debug("Mount already stopped, not sending stop command")
@@ -440,6 +509,9 @@ class MountControlBase:
 
         success = self.move_mount_manual(direction, slew_rate, duration)
         if success:
+            # Reset drift compensation if leaving that state
+            if self.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
+                self._reset_drift_compensation_data()
             if (
                 self.state != MountControlPhases.MOUNT_TRACKING
                 and self.state != MountControlPhases.MOUNT_DRIFT_COMPENSATION
@@ -451,6 +523,9 @@ class MountControlBase:
     def _goto_target(self, target_ra, target_dec) -> bool:
         success = self.move_mount_to_target(target_ra, target_dec)
         if success:
+            # Reset drift compensation when starting a new target acquisition
+            if self.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
+                self._reset_drift_compensation_data()
             self.target_reached = False
             self.state = MountControlPhases.MOUNT_TARGET_ACQUISITION_MOVE
             logger.debug(
@@ -669,8 +744,11 @@ class MountControlBase:
                 retry_count -= 1
                 if retry_count <= 0:
                     logger.error("Failed to initialize mount.")
-                    self.console_queue.put(["WARNING", _("Cannot initialize mount!")])
+                    self.console_queue.put(["WARNING", _("Mount no init!")])
                     self.state = MountControlPhases.MOUNT_UNKNOWN
+                    if not self.disconnect_mount():
+                        logger.error("Failed to disconnect mount.")
+                        self.console_queue.put(["WARNING", _("Disconnect mount!")])
                     return
                 else:
                     logger.warning(
@@ -772,6 +850,8 @@ class MountControlBase:
                     "Phase REFINE: Target acquired within 0.01 degrees on both axes, starting drift compensation."
                 )
                 self.state = MountControlPhases.MOUNT_DRIFT_COMPENSATION
+                # Reset drift compensation data when entering this phase
+                self._reset_drift_compensation_data()
                 return
             else:
                 # We are off by more than 0.01 degrees in at least one axis, so we need to sync the mount and move again.
@@ -866,9 +946,122 @@ class MountControlBase:
                 return
 
         elif self.state == MountControlPhases.MOUNT_DRIFT_COMPENSATION:
-            # Handle drift compensation
-            # TODO implement drift compensation logic
-            # For now, just stay in this state.
+            # Handle drift compensation by collecting solve data over time
+            # and applying drift rates based on linear regression
+
+            ###
+            ### Data Collection
+            ###
+
+            # Check if we have a solution available
+            solution = self.shared_state.solution()
+            if solution is None:
+                # No solution available yet, wait
+                yield
+                return
+
+            # Collect solve data
+            solve_time = solution["solve_time"]
+            ra_target = solution["RA_target"]
+            dec_target = solution["Dec_target"]
+
+            # Add new data point
+            self.drift_solve_times.append(solve_time)
+            self.drift_solve_ra.append(ra_target)
+            self.drift_solve_dec.append(dec_target)
+
+            # Remove data points older than the window
+            cutoff_time = solve_time - self.drift_compensation_window
+            while self.drift_solve_times and self.drift_solve_times[0] < cutoff_time:
+                self.drift_solve_times.pop(0)
+                self.drift_solve_ra.pop(0)
+                self.drift_solve_dec.pop(0)
+
+            ###
+            ### Data Analysis and Drift Rate Adjustment
+            ###
+
+            # Check if we have enough data
+            if len(self.drift_solve_times) >= 3:
+
+                # Check if we have collected data for the full window duration
+                time_span = self.drift_solve_times[-1] - self.drift_solve_times[0]
+                if time_span >= self.drift_compensation_window:
+
+                    # Perform linear regression for RA and Dec
+                    ra_slope, _intercept_ra, ra_r_squared = self._compute_linear_fit(
+                        self.drift_solve_times, self.drift_solve_ra
+                    )
+                    dec_slope, _intercept_dec, dec_r_squared = self._compute_linear_fit(
+                        self.drift_solve_times, self.drift_solve_dec
+                    )
+
+                    logger.info("Drift compensation:"
+                        f"Drift compensation analysis: RA R²={ra_r_squared:.4f}, "
+                        f"Dec R²={dec_r_squared:.4f}"
+                    )
+                    logger.info("Drift compensation:"
+                        f"Drift rates: RA slope={ra_slope:.6f} deg/s, "
+                        f"Dec slope={dec_slope:.6f} deg/s"
+                    )
+
+                    # Check if the R² threshold is met for either axis
+                    if (
+                        ra_r_squared >= self.drift_r_squared_threshold
+                        or dec_r_squared >= self.drift_r_squared_threshold
+                    ):
+                        ra_adjustment = 0.0
+                        dec_adjustment = 0.0
+                        if ra_r_squared >= self.drift_r_squared_threshold:
+                            ra_adjustment = ra_slope
+                        if dec_r_squared >= self.drift_r_squared_threshold:
+                            dec_adjustment = dec_slope
+
+                        logger.info(
+                            f"Applying drift rate adjustments: RA={ra_adjustment:.4f} deg/s, "
+                            f"Dec={dec_adjustment:.4f} deg/s"
+                        )
+
+                        # Apply the drift rate adjustments to the mount
+                        retries = retry_count
+                        while retries > 0 and not self.adjust_mount_drift_rates(
+                            ra_adjustment, dec_adjustment
+                        ):
+                            # Wait for delay before retrying
+                            start_time = time.time()
+                            while time.time() - start_time <= delay:
+                                yield
+                            retries -= 1
+                            if retries <= 0:
+                                logger.error(
+                                    "Failed to adjust drift rates after retrying."
+                                )
+                                self.console_queue.put(
+                                    ["WARNING", _("Drift failure!")]
+                                )
+                                self.state = MountControlPhases.MOUNT_TRACKING
+                                # Reset drift compensation data
+                                self._reset_drift_compensation_data()
+                                return
+                            else:
+                                logger.warning(
+                                    "Retrying to adjust drift rates. Attempts left: %d",
+                                    retries,
+                                )
+                                yield
+                        # Applied compensation successfully, start fresh with measuring drift again
+                        self._reset_drift_compensation_data()
+                    else:
+                        logger.info(
+                            f"Drift Compensation: R² threshold not met (threshold={self.drift_r_squared_threshold}). "
+                            "Continuing to collect data."
+                        )
+                else:
+                    logger.debug(
+                        f"Drift Compensation: Collecting drift data: {len(self.drift_solve_times)} points "
+                        f"over {time_span:.1f}s (need {self.drift_compensation_window}s)"
+                    )
+            # Continue collecting data - let generator finish naturally and restart
             return
         elif self.state == MountControlPhases.MOUNT_SPIRAL_SEARCH:
             # Handle spiral search state
