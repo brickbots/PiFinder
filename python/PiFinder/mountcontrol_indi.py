@@ -459,6 +459,10 @@ class MountControlIndi(MountControlBase):
         # Available slew rates (will be populated during init_mount)
         self.available_slew_rates: List[str] = []
 
+        # Current tracking rates (will be read from mount if TELESCOPE_TRACK_RATE is available)
+        self._current_track_rate_ra: Optional[float] = None  # arcsec/s
+        self._current_track_rate_dec: Optional[float] = None  # arcsec/s
+
         self.log_queue = log_queue
 
     def _get_telescope_device(self):
@@ -842,22 +846,85 @@ class MountControlIndi(MountControlBase):
         # Assume moutn is moving if last position update was recently
         return time.time() - self.current_time < self._current_position_update_threshold
 
-    def set_mount_drift_rates(
-        self, drift_rate_ra: float, drift_rate_dec: float
+    def adjust_mount_drift_rates(
+        self, drift_rate_adjustment_ra: float, drift_rate_adjustment_dec: float
     ) -> bool:
-        """Set the mount's drift compensation rates.
+        """Adjust the mount's drift compensation rates by the specified amounts.
+
+        The parameters are adjustments (deltas) to be added to the current tracking rates,
+        not absolute rate values.
 
         Args:
-            drift_rate_ra: Drift rate in RA (arcsec/sec)
-            drift_rate_dec: Drift rate in Dec (arcsec/sec)
+            drift_rate_adjustment_ra: Adjustment to RA drift rate in degrees/second
+            drift_rate_adjustment_dec: Adjustment to Dec drift rate in degrees/second
 
         Returns:
-            True if drift rates set successfully, False otherwise.
+            True if drift rate adjustments applied successfully, False otherwise.
         """
-        # Not all INDI drivers support drift rates
-        # This would require TELESCOPE_TRACK_RATE property
-        logger.warning("Drift rate control not yet implemented for INDI")
-        return False
+        try:
+            device = self._get_telescope_device()
+            if not device:
+                logger.error("Telescope device not available for adjusting drift rates")
+                return False
+
+            # Check if TELESCOPE_TRACK_RATE property exists
+            track_rate_prop = self.client._wait_for_property(
+                device, "TELESCOPE_TRACK_RATE", timeout=1.0
+            )
+            if not track_rate_prop:
+                logger.warning(
+                    "TELESCOPE_TRACK_RATE property not available on this mount, "
+                    "drift rate control not supported"
+                )
+                return False
+
+            # Get the current tracking rates from the property
+            num_prop = device.getNumber("TELESCOPE_TRACK_RATE")
+            if not num_prop:
+                logger.error("Could not get TELESCOPE_TRACK_RATE number property")
+                return False
+
+            # Read current rates if not already cached
+            current_rate_ra = None
+            current_rate_dec = None
+            for i in range(len(num_prop)):
+                num = num_prop[i]
+                if num.name == "TRACK_RATE_RA":
+                    current_rate_ra = num.value
+                elif num.name == "TRACK_RATE_DE":
+                    current_rate_dec = num.value
+
+                logger.debug(
+                    f"Read current tracking rates from mount: "
+                    f"RA={self.current_rate_ra:.6f} arcsec/s, "
+                    f"Dec={self.current_rate_dec:.6f} arcsec/s"
+                )
+
+            # Calculate new tracking rates by adding adjustments
+            new_rate_ra = current_rate_ra + drift_rate_adjustment_ra * 3600.0
+            new_rate_dec = current_rate_dec + drift_rate_adjustment_dec * 3600.0
+
+            logger.debug(
+                f"Adjusting tracking rates: "
+                f"RA adjustment={drift_rate_adjustment_ra * 3600.0:.6f} arcsec/s, "
+                f"Dec adjustment={drift_rate_adjustment_dec * 3600.0:.6f} arcsec/s"
+            )
+
+            # Set the new tracking rates
+            values = {"TRACK_RATE_RA": new_rate_ra, "TRACK_RATE_DE": new_rate_dec}
+            if not self.client.set_number(device, "TELESCOPE_TRACK_RATE", values):
+                logger.error("Failed to set new tracking rates")
+                return False
+
+            logger.debug(
+                f"Tracking rates adjusted successfully: "
+                f"RA={new_rate_ra:.6f} arcsec/s, Dec={new_rate_dec:.6f} arcsec/s"
+            )
+            return True
+
+        except Exception as e:
+            logger.exception(f"Error adjusting drift rates: {e}")
+            return False
 
     def move_mount_manual(
         self, direction: MountDirections, slew_rate: str, duration: float
