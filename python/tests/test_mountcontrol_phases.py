@@ -379,11 +379,13 @@ class TestMountControlPhases:
         mock_solves = []
         for i in range(13):  # 0 to 12 seconds
             elapsed = i
-            mock_solves.append({
-                "solve_time": base_time + elapsed,
-                "RA_target": base_ra + ra_drift_rate * elapsed,
-                "Dec_target": base_dec + dec_drift_rate * elapsed,
-            })
+            mock_solves.append(
+                {
+                    "solve_time": base_time + elapsed,
+                    "RA_target": base_ra + ra_drift_rate * elapsed,
+                    "Dec_target": base_dec + dec_drift_rate * elapsed,
+                }
+            )
 
         solve_index = [0]
 
@@ -403,7 +405,9 @@ class TestMountControlPhases:
         for i in range(len(mock_solves)):
             # Simulate the main loop: create new generator if needed
             if phase_generator is None:
-                phase_generator = self.mount_control._process_phase(retry_count=3, delay=0.01)
+                phase_generator = self.mount_control._process_phase(
+                    retry_count=3, delay=0.01
+                )
 
             try:
                 next(phase_generator)
@@ -412,24 +416,30 @@ class TestMountControlPhases:
                 phase_generator = None
 
         # Verify that adjust_mount_drift_rates was called with detected drift
-        assert self.mount_control.adjust_mount_drift_rates.called, \
-            "adjust_mount_drift_rates should have been called"
+        assert (
+            self.mount_control.adjust_mount_drift_rates.called
+        ), "adjust_mount_drift_rates should have been called"
 
         # Get the drift rate adjustments that were passed (absolute slopes detected)
         call_args = self.mount_control.adjust_mount_drift_rates.call_args
-        assert call_args is not None, "adjust_mount_drift_rates should have been called with arguments"
+        assert (
+            call_args is not None
+        ), "adjust_mount_drift_rates should have been called with arguments"
 
         ra_adjustment, dec_adjustment = call_args[0]
 
         # Verify the adjustments are close to expected drift rates (within 20% tolerance due to discrete sampling)
-        assert abs(ra_adjustment - ra_drift_rate) < ra_drift_rate * 0.2, \
-            f"RA drift rate adjustment {ra_adjustment} should be close to expected {ra_drift_rate}"
-        assert abs(dec_adjustment - dec_drift_rate) < dec_drift_rate * 0.2, \
-            f"Dec drift rate adjustment {dec_adjustment} should be close to expected {dec_drift_rate}"
+        assert (
+            abs(ra_adjustment - ra_drift_rate) < ra_drift_rate * 0.2
+        ), f"RA drift rate adjustment {ra_adjustment} should be close to expected {ra_drift_rate}"
+        assert (
+            abs(dec_adjustment - dec_drift_rate) < dec_drift_rate * 0.2
+        ), f"Dec drift rate adjustment {dec_adjustment} should be close to expected {dec_drift_rate}"
 
     def test_mount_drift_compensation_with_poor_fit(self):
         """Test MOUNT_DRIFT_COMPENSATION phase with noisy data that produces poor R² fit."""
         import random
+
         self.mount_control.state = MountControlPhases.MOUNT_DRIFT_COMPENSATION
 
         # Create mock solution data with random noise (poor fit)
@@ -440,11 +450,13 @@ class TestMountControlPhases:
         # Pre-generate 13 solve samples with random noise
         mock_solves = []
         for i in range(13):
-            mock_solves.append({
-                "solve_time": base_time + i,
-                "RA_target": base_ra + random.uniform(-0.1, 0.1),
-                "Dec_target": base_dec + random.uniform(-0.1, 0.1),
-            })
+            mock_solves.append(
+                {
+                    "solve_time": base_time + i,
+                    "RA_target": base_ra + random.uniform(-0.1, 0.1),
+                    "Dec_target": base_dec + random.uniform(-0.1, 0.1),
+                }
+            )
 
         solve_index = [0]
 
@@ -462,7 +474,9 @@ class TestMountControlPhases:
         phase_generator = None
         for i in range(len(mock_solves)):
             if phase_generator is None:
-                phase_generator = self.mount_control._process_phase(retry_count=3, delay=0.01)
+                phase_generator = self.mount_control._process_phase(
+                    retry_count=3, delay=0.01
+                )
 
             try:
                 next(phase_generator)
@@ -470,15 +484,17 @@ class TestMountControlPhases:
                 phase_generator = None
 
         # Verify that adjust_mount_drift_rates was NOT called (due to poor R²)
-        assert not self.mount_control.adjust_mount_drift_rates.called, \
-            "adjust_mount_drift_rates should NOT have been called with poor R² fit"
+        assert (
+            not self.mount_control.adjust_mount_drift_rates.called
+        ), "adjust_mount_drift_rates should NOT have been called with poor R² fit"
 
         # Verify no INFO console message (only logger messages)
         # There might be WARNING messages, but no INFO about drift rates adjusted
         while not self.console_queue.empty():
             msg = self.console_queue.get()
-            assert msg[0] != "INFO" or "Drift rates adjusted" not in str(msg), \
-                "Should not send INFO message about drift rates with poor fit"
+            assert msg[0] != "INFO" or "Drift rates adjusted" not in str(
+                msg
+            ), "Should not send INFO message about drift rates with poor fit"
 
     def test_mount_spiral_search_unimplemented(self):
         """Test MOUNT_SPIRAL_SEARCH phase that is not yet implemented."""

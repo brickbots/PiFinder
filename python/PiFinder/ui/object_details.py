@@ -28,6 +28,14 @@ import numpy as np
 import time
 import logging
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+
+    def _(x: str) -> str:
+        return x
+
+
 # Constants for display modes
 DM_DESC = 0  # Display mode for description
 DM_LOCATE = 1  # Display mode for LOCATE
@@ -114,7 +122,7 @@ class UIObjectDetails(UIModule):
         self.alt_anchor = (0, self.display_class.resY - (self.fonts.huge.height * 1.2))
         self._elipsis_count = 0
 
-        self._default_step_size_multiplier: float = 0.2 # as % of tfov
+        self._default_step_size_multiplier: float = 0.2  # as % of tfov
 
         self.active()  # fill in activation time
         self.update_object_info()
@@ -557,7 +565,9 @@ class UIObjectDetails(UIModule):
                 dt = datetime.datetime.utcnow()
             if solution:
                 mountcontrol_queue.put({"type": "init"})
-                RA_jnow, Dec_jnow = calc_utils.j2000_to_jnow(solution["RA"], solution["Dec"], dt)
+                RA_jnow, Dec_jnow = calc_utils.j2000_to_jnow(
+                    solution["RA"], solution["Dec"], dt
+                )
                 mountcontrol_queue.put({"type": "sync", "ra": RA_jnow, "dec": Dec_jnow})
                 mc_logger.info(
                     f"UI: Mount init requested with sync to RA={solution.get('RA_target'):.4f}°, "
@@ -629,7 +639,9 @@ class UIObjectDetails(UIModule):
                 mc_logger.error("UI: Falling back to system time")
                 dt = datetime.datetime.now(datetime.timezone.utc)
             if solution:
-                RA_jnow, Dec_jnow = calc_utils.j2000_to_jnow(solution["RA_target"], solution["Dec_target"], dt)
+                RA_jnow, Dec_jnow = calc_utils.j2000_to_jnow(
+                    solution["RA_target"], solution["Dec_target"], dt
+                )
                 mountcontrol_queue.put(
                     {
                         "type": "sync",
@@ -723,13 +735,13 @@ class UIObjectDetails(UIModule):
         mountcontrol_queue = self.command_queues.get("mountcontrol")
         if mountcontrol_queue is None:
             return
-        
+
         # Get current field of view in arcminutes
-        step_deg = self.config_object.equipment.calc_tfov() * self._default_step_size_multiplier
-        
-        mountcontrol_queue.put({
-            "type": "set_step_size",
-            "step_size": step_deg
-        })
-        
+        step_deg = (
+            self.config_object.equipment.calc_tfov()
+            * self._default_step_size_multiplier
+        )
+
+        mountcontrol_queue.put({"type": "set_step_size", "step_size": step_deg})
+
         mc_logger.debug(f"UI: Set mount step size {step_deg:.4f}° based on TFOV")

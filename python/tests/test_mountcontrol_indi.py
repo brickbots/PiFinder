@@ -141,7 +141,6 @@ class TestMountControlIndiUnit:
         assert len(calls) == 3, f"Expected 3 set_switch calls, got {len(calls)}"
 
         # First call: set ON_COORD_SET to SYNC (use ANY matcher for device since it's called via get_telescope_device())
-        from unittest.mock import ANY
         assert calls[0][0][1:] == ("ON_COORD_SET", "SYNC")
         # Second call: set ON_COORD_SET to TRACK
         assert calls[1][0] == (self.mock_telescope, "ON_COORD_SET", "TRACK")
@@ -178,7 +177,10 @@ class TestMountControlIndiUnit:
         assert result is True
         # Check that set_switch was called with the right property (device comes from get_telescope_device())
         calls = self.mock_indi_client.set_switch.call_args_list
-        assert any("TELESCOPE_ABORT_MOTION" in str(call) and "ABORT" in str(call) for call in calls)
+        assert any(
+            "TELESCOPE_ABORT_MOTION" in str(call) and "ABORT" in str(call)
+            for call in calls
+        )
         assert self.mount_control.state == MountControlPhases.MOUNT_STOPPED
 
     def test_stop_mount_no_device(self):
@@ -205,7 +207,9 @@ class TestMountControlIndiUnit:
         assert result is True
         # Verify set_switch was called with ON_COORD_SET to TRACK
         calls = self.mock_indi_client.set_switch.call_args_list
-        assert any("ON_COORD_SET" in str(call) and "TRACK" in str(call) for call in calls)
+        assert any(
+            "ON_COORD_SET" in str(call) and "TRACK" in str(call) for call in calls
+        )
         # Verify set_number was called with coordinates (RA converted to hours)
         num_calls = self.mock_indi_client.set_number.call_args_list
         assert any("EQUATORIAL_EOD_COORD" in str(call) for call in num_calls)
@@ -240,7 +244,10 @@ class TestMountControlIndiUnit:
 
         # Verify set_switch was called to set ON_COORD_SET to TRACK
         switch_calls = self.mock_indi_client.set_switch.call_args_list
-        assert any("ON_COORD_SET" in str(call) and "TRACK" in str(call) for call in switch_calls)
+        assert any(
+            "ON_COORD_SET" in str(call) and "TRACK" in str(call)
+            for call in switch_calls
+        )
 
         # Verify set_number was called with new coordinates (Dec increased by 1.0)
         num_calls = self.mock_indi_client.set_number.call_args_list
@@ -297,7 +304,9 @@ class TestMountControlIndiUnit:
         """Test that drift rate adjustments return False when TELESCOPE_TRACK_RATE not available."""
         # Setup - no telescope device
         self.mock_indi_client.telescope_device = self.mock_telescope
-        self.mock_indi_client._wait_for_property.return_value = None  # Property not available
+        self.mock_indi_client._wait_for_property.return_value = (
+            None  # Property not available
+        )
 
         # Execute adjustment
         result = self.mount_control.adjust_mount_drift_rates(0.0001, 0.00005)
@@ -382,6 +391,16 @@ class TestMountControlIndiIntegration:
         self.shared_state.solution.return_value = self.mock_solution
         self.shared_state.solve_state.return_value = True
 
+        # Mock location and datetime for mount initialization
+        self.shared_state.location.return_value = {
+            "lat": 51.183333,
+            "lon": 7.083333,
+            "altitude": 250.0,
+        }
+        self.shared_state.datetime.return_value = datetime.datetime.now(
+            datetime.timezone.utc
+        )
+
         # Create mount control instance (will connect to real INDI server)
         self.mount_control = MountControlIndi(
             self.mount_queue,
@@ -398,12 +417,7 @@ class TestMountControlIndiIntegration:
             self.mount_control.disconnect_mount()
 
     def _init_mount(self):
-        ret = self.mount_control.init_mount(
-            latitude_deg=51.183333,
-            longitude_deg=7.083333,
-            elevation_m=250.0,
-            utc_time=datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        )
+        ret = self.mount_control.init_mount()
         return ret
 
     def test_radec_diff(self):

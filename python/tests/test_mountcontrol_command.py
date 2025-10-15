@@ -60,7 +60,10 @@ class TestMountControl:
         def set_step_size_side_effect(step_size):
             self.mount_control.step_size = step_size
             return True
-        self.mount_control.set_mount_step_size = Mock(side_effect=set_step_size_side_effect)
+
+        self.mount_control.set_mount_step_size = Mock(
+            side_effect=set_step_size_side_effect
+        )
 
         self.mount_control.disconnect_mount = Mock(return_value=True)
 
@@ -562,7 +565,7 @@ class TestMountControl:
         assert not self.console_queue.empty()
         warning_msg = self.console_queue.get()
         assert warning_msg[0] == "WARNING"
-        assert "Step size must be between 1 arcsec and 10 degrees" in warning_msg[1]
+        assert "Step size wrong" in warning_msg[1]
 
     def test_set_step_size_command_too_large(self):
         """Test 'set_step_size' command with value above maximum."""
@@ -581,7 +584,7 @@ class TestMountControl:
         assert not self.console_queue.empty()
         warning_msg = self.console_queue.get()
         assert warning_msg[0] == "WARNING"
-        assert "Step size must be between 1 arcsec and 10 degrees" in warning_msg[1]
+        assert "Step size wrong" in warning_msg[1]
 
     def test_set_step_size_command_mount_failure(self):
         """Test 'set_step_size' command when mount fails to set step size."""
@@ -591,6 +594,7 @@ class TestMountControl:
         # Mock set_mount_step_size to fail (don't update step_size)
         def failing_set_step_size(step_size):
             return False
+
         self.mount_control.set_mount_step_size = Mock(side_effect=failing_set_step_size)
 
         command = {"type": "set_step_size", "step_size": 3.0}
@@ -624,7 +628,9 @@ class TestMountControl:
             (100.0, False, 10.0),  # Way too large - clamped to max
         ],
     )
-    def test_set_step_size_command_validation(self, step_size, expected_valid, expected_clamped):
+    def test_set_step_size_command_validation(
+        self, step_size, expected_valid, expected_clamped
+    ):
         """Test 'set_step_size' command validation with various values."""
         command = {"type": "set_step_size", "step_size": step_size}
 
@@ -637,7 +643,9 @@ class TestMountControl:
             assert self.console_queue.empty()
         else:
             # Invalid values should be clamped and set_mount_step_size called with clamped value
-            self.mount_control.set_mount_step_size.assert_called_once_with(expected_clamped)
+            self.mount_control.set_mount_step_size.assert_called_once_with(
+                expected_clamped
+            )
             assert self.mount_control.step_size == expected_clamped
 
             # Should send warning message

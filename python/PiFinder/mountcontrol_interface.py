@@ -199,7 +199,9 @@ class MountControlBase:
         self.step_size: float = 1.0  # Default step size for manual movements in degrees
 
         self.init_solve_ra: Optional[float] = None  # Solved RA for mount initialization
-        self.init_solve_dec: Optional[float] = None  # Solved Dec for mount initialization
+        self.init_solve_dec: Optional[float] = (
+            None  # Solved Dec for mount initialization
+        )
 
         self.state: MountControlPhases = MountControlPhases.MOUNT_INIT_TELESCOPE
 
@@ -216,10 +218,6 @@ class MountControlBase:
 
     def init_mount(
         self,
-        latitude_deg: Optional[float] = None,
-        longitude_deg: Optional[float] = None,
-        elevation_m: Optional[float] = None,
-        utc_time: Optional[str] = None,
         solve_ra_deg: Optional[float] = None,
         solve_dec_deg: Optional[float] = None,
     ) -> bool:
@@ -227,7 +225,10 @@ class MountControlBase:
 
         The subclass needs to set up the mount and prepare it for operation.
         This may include connecting to the mount, setting initial parameters, un-parking, etc.
-        It should also set the geographic coordinates and UTC time if provided.
+
+        Geographic coordinates and UTC time are now synced from SharedStateObj automatically,
+        either during init_mount or via periodic_mount_task().
+
         If solve_ra_deg and solve_dec_deg are provided, the mount should sync to that position.
 
         The subclass needs to return a boolean indicating success or failure.
@@ -236,10 +237,6 @@ class MountControlBase:
         This will be used to inform the user via the console queue.
 
         Args:
-            latitude_deg: Observatory latitude in degrees (positive North). Optional.
-            longitude_deg: Observatory longitude in degrees (positive East). Optional.
-            elevation_m: Observatory elevation in meters above sea level. Optional.
-            utc_time: UTC time in ISO 8601 format (YYYY-MM-DDTHH:MM:SS). Optional.
             solve_ra_deg: Solved Right Ascension in degrees for initial sync. Optional.
             solve_dec_deg: Solved Declination in degrees for initial sync. Optional.
 
@@ -310,7 +307,9 @@ class MountControlBase:
         """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
-    def adjust_mount_drift_rates(self, delta_drift_rate_ra, delta_drift_rate_dec) -> bool:
+    def adjust_mount_drift_rates(
+        self, delta_drift_rate_ra, delta_drift_rate_dec
+    ) -> bool:
         """Adjust the mount's drift rates in RA and DEC by the specified amounts.
 
         The parameters are adjustments (deltas) to be added to the current tracking rates,
@@ -433,7 +432,9 @@ class MountControlBase:
         y_mean = sum(y_values) / n
 
         # Calculate slope and intercept using least squares
-        numerator = sum((x_values[i] - x_mean) * (y_values[i] - y_mean) for i in range(n))
+        numerator = sum(
+            (x_values[i] - x_mean) * (y_values[i] - y_mean) for i in range(n)
+        )
         denominator = sum((x_values[i] - x_mean) ** 2 for i in range(n))
 
         if denominator == 0:
@@ -444,7 +445,9 @@ class MountControlBase:
 
         # Calculate R²
         ss_tot = sum((y_values[i] - y_mean) ** 2 for i in range(n))
-        ss_res = sum((y_values[i] - (slope * x_values[i] + intercept)) ** 2 for i in range(n))
+        ss_res = sum(
+            (y_values[i] - (slope * x_values[i] + intercept)) ** 2 for i in range(n)
+        )
 
         if ss_tot == 0:
             r_squared = 0.0
@@ -566,6 +569,14 @@ class MountControlBase:
         """Commands the mount to perform a spiral search around the center position."""
         raise NotImplementedError("Not yet implemented.")
 
+    def periodic_mount_task(self) -> None:
+        """Periodic task called every 5 seconds from the main loop.
+
+        Override in subclasses to add periodic tasks (e.g., syncing location/time).
+        Default implementation does nothing.
+        """
+        pass
+
     def _process_command(
         self, command, retry_count: int = 3, delay: float = 2.0
     ) -> Generator:
@@ -642,9 +653,7 @@ class MountControlBase:
                 retry_count -= 1
                 if retry_count == 0:
                     logger.error("Failed to command mount to move to target.")
-                    self.console_queue.put(
-                        ["WARNING", _("Cannot move to target!\nStopping!")]
-                    )
+                    self.console_queue.put(["WARNING", _("Goto failed!")])
                     # Try to stop the mount.
                     logger.warning(
                         f"Stopping mount after failed goto_target. {retry_stop} retries"
@@ -668,7 +677,9 @@ class MountControlBase:
             logger.debug("Mount: manual_movement command received")
             direction = command["direction"]
             step_size = command.get("step_size", self.step_size)
-            logger.debug(f"Mount: Manual movement - direction={direction}, step_size={step_size:.5f}°")
+            logger.debug(
+                f"Mount: Manual movement - direction={direction}, step_size={step_size:.5f}°"
+            )
             # Not retrying these.
             if not self._move_mount_manual(direction, step_size):
                 logger.warning("Mount: Manual movement failed")
@@ -678,9 +689,7 @@ class MountControlBase:
             logger.debug("Mount: set_step_size command received")
             step_size = command["step_size"]
             if step_size < 1 / 3600 or step_size > 10.0:
-                self.console_queue.put(
-                    ["WARNING", _("Step size must be between 1 arcsec and 10 degrees!")]
-                )
+                self.console_queue.put(["WARNING", _("Step size wrong")])
                 logger.warning(
                     "Mount: Step size out of range - %.5f degrees", step_size
                 )
@@ -688,7 +697,10 @@ class MountControlBase:
                     self.set_mount_step_size(1 / 3600)
                 else:
                     self.set_mount_step_size(10.0)
-                logger.debug("Mount: Step size set to limit %.5f degrees", self.get_mount_step_size())
+                logger.debug(
+                    "Mount: Step size set to limit %.5f degrees",
+                    self.get_mount_step_size(),
+                )
             else:
                 if not self.set_mount_step_size(step_size):
                     self.console_queue.put(["WARNING", _("Cannot set step size!")])
@@ -702,7 +714,8 @@ class MountControlBase:
                 1 / 3600, self.step_size / 2
             )  # Minimum step size of 1 arcsec
             logger.debug(
-                "Mount: Reduce step size - new step size = %.5f degrees", self.get_mount_step_size()
+                "Mount: Reduce step size - new step size = %.5f degrees",
+                self.get_mount_step_size(),
             )
 
         elif command["type"] == "increase_step_size":
@@ -989,11 +1002,9 @@ class MountControlBase:
 
             # Check if we have enough data
             if len(self.drift_solve_times) >= 3:
-
                 # Check if we have collected data for the full window duration
                 time_span = self.drift_solve_times[-1] - self.drift_solve_times[0]
                 if time_span >= self.drift_compensation_window:
-
                     # Perform linear regression for RA and Dec
                     ra_slope, _intercept_ra, ra_r_squared = self._compute_linear_fit(
                         self.drift_solve_times, self.drift_solve_ra
@@ -1002,11 +1013,13 @@ class MountControlBase:
                         self.drift_solve_times, self.drift_solve_dec
                     )
 
-                    logger.info("Drift compensation:"
+                    logger.info(
+                        "Drift compensation:"
                         f"Drift compensation analysis: RA R²={ra_r_squared:.4f}, "
                         f"Dec R²={dec_r_squared:.4f}"
                     )
-                    logger.info("Drift compensation:"
+                    logger.info(
+                        "Drift compensation:"
                         f"Drift rates: RA slope={ra_slope:.6f} deg/s, "
                         f"Dec slope={dec_slope:.6f} deg/s"
                     )
@@ -1042,9 +1055,7 @@ class MountControlBase:
                                 logger.error(
                                     "Failed to adjust drift rates after retrying."
                                 )
-                                self.console_queue.put(
-                                    ["WARNING", _("Drift failure!")]
-                                )
+                                self.console_queue.put(["WARNING", _("Drift failure!")])
                                 self.state = MountControlPhases.MOUNT_TRACKING
                                 # Reset drift compensation data
                                 self._reset_drift_compensation_data()
@@ -1100,6 +1111,8 @@ class MountControlBase:
             command_step = None
             phase_step = None
             while True:
+                self.periodic_mount_task()
+
                 #
                 # Process commands from UI
                 #

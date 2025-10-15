@@ -9,12 +9,18 @@ from PiFinder.mountcontrol_interface import (
 import PyIndi
 import logging
 import time
+from typing import TYPE_CHECKING
 
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.state import SharedStateObj
 
 logger = logging.getLogger("MountControl.Indi")
 clientlogger = logging.getLogger("MountControl.Indi.PyIndi")
+
+if TYPE_CHECKING:
+
+    def _(x: str) -> str:
+        return x
 
 
 #
@@ -223,7 +229,9 @@ class PiFinderIndiClient(PyIndi.BaseClient):
             # Check if mount has TELESCOPE_PARK property
             park_prop = self._wait_for_property(device, "TELESCOPE_PARK", timeout=2.0)
             if not park_prop:
-                clientlogger.debug("Mount does not have TELESCOPE_PARK property, assuming not parked")
+                clientlogger.debug(
+                    "Mount does not have TELESCOPE_PARK property, assuming not parked"
+                )
                 return True
 
             # Get the park switch property
@@ -265,17 +273,25 @@ class PiFinderIndiClient(PyIndi.BaseClient):
         """
         try:
             # Set tracking mode to sidereal
-            track_mode_prop = self._wait_for_property(device, "TELESCOPE_TRACK_MODE", timeout=2.0)
+            track_mode_prop = self._wait_for_property(
+                device, "TELESCOPE_TRACK_MODE", timeout=2.0
+            )
             if track_mode_prop:
-                if not self.set_switch(device, "TELESCOPE_TRACK_MODE", "TRACK_SIDEREAL"):
+                if not self.set_switch(
+                    device, "TELESCOPE_TRACK_MODE", "TRACK_SIDEREAL"
+                ):
                     clientlogger.warning("Failed to set tracking mode to sidereal")
                 else:
                     clientlogger.info("Tracking mode set to sidereal")
             else:
-                clientlogger.debug("TELESCOPE_TRACK_MODE property not available, will use default tracking mode")
+                clientlogger.debug(
+                    "TELESCOPE_TRACK_MODE property not available, will use default tracking mode"
+                )
 
             # Enable tracking
-            track_state_prop = self._wait_for_property(device, "TELESCOPE_TRACK_STATE", timeout=2.0)
+            track_state_prop = self._wait_for_property(
+                device, "TELESCOPE_TRACK_STATE", timeout=2.0
+            )
             if track_state_prop:
                 if not self.set_switch(device, "TELESCOPE_TRACK_STATE", "TRACK_ON"):
                     clientlogger.error("Failed to enable tracking")
@@ -289,6 +305,124 @@ class PiFinderIndiClient(PyIndi.BaseClient):
 
         except Exception as e:
             clientlogger.exception(f"Error enabling sidereal tracking: {e}")
+            return False
+
+    def sync_mount_location(
+        self,
+        device,
+        latitude_deg: float,
+        longitude_deg: float,
+        elevation_m: Optional[float] = None,
+    ) -> bool:
+        """Sync geographic coordinates to the mount.
+
+        Only updates the mount if the coordinates differ from current values.
+
+        Args:
+            device: The INDI telescope device
+            latitude_deg: Observatory latitude in degrees (positive North)
+            longitude_deg: Observatory longitude in degrees (positive East)
+            elevation_m: Observatory elevation in meters above sea level (optional)
+
+        Returns:
+            True if coordinates were set successfully or unchanged, False on error.
+        """
+        try:
+            # Read current coordinates from the mount
+            geo_coord_prop = self._wait_for_property(
+                device, "GEOGRAPHIC_COORD", timeout=1.0
+            )
+            if not geo_coord_prop:
+                clientlogger.warning("GEOGRAPHIC_COORD property not available")
+                return False
+
+            num_prop = device.getNumber("GEOGRAPHIC_COORD")
+            if not num_prop:
+                clientlogger.warning("Could not get GEOGRAPHIC_COORD number property")
+                return False
+
+            # Read current values
+            current_lat = None
+            current_lon = None
+            current_elev = None
+            for i in range(len(num_prop)):
+                num = num_prop[i]
+                if num.name == "LAT":
+                    current_lat = num.value
+                elif num.name == "LONG":
+                    current_lon = num.value
+                elif num.name == "ELEV":
+                    current_elev = num.value
+
+            # Check if coordinates differ (using small tolerance for floating point comparison)
+            tolerance = 0.0001  # About 10 meters
+            lat_differs = (
+                current_lat is None or abs(current_lat - latitude_deg) > tolerance
+            )
+            lon_differs = (
+                current_lon is None or abs(current_lon - longitude_deg) > tolerance
+            )
+            elev_differs = elevation_m is not None and (
+                current_elev is None or abs(current_elev - elevation_m) > 1.0
+            )  # 1 meter tolerance
+
+            if not (lat_differs or lon_differs or elev_differs):
+                clientlogger.debug(
+                    f"Geographic coordinates unchanged: Lat={latitude_deg:.4f}°, Lon={longitude_deg:.4f}°, Elev={elevation_m}m"
+                )
+                return True
+
+            # Update coordinates
+            values = {"LAT": latitude_deg, "LONG": longitude_deg}
+            if elevation_m is not None:
+                values["ELEV"] = elevation_m
+
+            if self.set_number(device, "GEOGRAPHIC_COORD", values):
+                clientlogger.info(
+                    f"Geographic coordinates updated: Lat={latitude_deg:.4f}°, Lon={longitude_deg:.4f}°, Elev={elevation_m}m"
+                )
+                return True
+            else:
+                clientlogger.warning("Failed to sync geographic coordinates")
+                return False
+
+        except Exception as e:
+            clientlogger.exception(f"Error syncing mount location: {e}")
+            return False
+
+    def sync_mount_time(self, device, utc_time: str) -> bool:
+        """Sync UTC time to the mount.
+
+        Args:
+            device: The INDI telescope device
+            utc_time: UTC time in ISO 8601 format (YYYY-MM-DDTHH:MM:SS)
+
+        Returns:
+            True if time was set successfully, False on error.
+        """
+        try:
+            import datetime
+
+            dt = datetime.datetime.fromisoformat(utc_time)
+
+            # Calculate UTC offset in hours (0 for UTC)
+            utc_offset = 0
+
+            # TIME_UTC is a text property with format: UTC="YYYY-MM-DDTHH:MM:SS" and OFFSET="hours"
+            utc_values = {"UTC": dt.isoformat(), "OFFSET": str(utc_offset)}
+
+            if self.set_text(device, "TIME_UTC", utc_values):
+                clientlogger.debug(f"UTC time synced: {utc_time}")
+                return True
+            else:
+                clientlogger.warning("Failed to sync UTC time")
+                return False
+
+        except (ValueError, AttributeError) as e:
+            clientlogger.error(f"Invalid UTC time format '{utc_time}': {e}")
+            return False
+        except Exception as e:
+            clientlogger.exception(f"Error syncing mount time: {e}")
             return False
 
     def newDevice(self, device):
@@ -471,6 +605,16 @@ class MountControlIndi(MountControlBase):
         self._current_track_rate_ra: Optional[float] = None  # arcsec/s
         self._current_track_rate_dec: Optional[float] = None  # arcsec/s
 
+        # Periodically update position and time of the mount from SharedStateObj
+        self.last_periodic_update: float = 0.0
+        self.periodic_update_interval: float = 30.0  # seconds
+
+        # Cache last synced location and time values to avoid unnecessary updates
+        self._last_synced_lat: Optional[float] = None
+        self._last_synced_lon: Optional[float] = None
+        self._last_synced_elev: Optional[float] = None
+        self._last_synced_time: Optional[str] = None
+
         self.log_queue = log_queue
 
     def _mount_current_position(self, ra_deg: float, dec_deg: float) -> None:
@@ -547,27 +691,21 @@ class MountControlIndi(MountControlBase):
 
     def init_mount(
         self,
-        latitude_deg: Optional[float] = None,
-        longitude_deg: Optional[float] = None,
-        elevation_m: Optional[float] = None,
-        utc_time: Optional[str] = None,
         solve_ra_deg: Optional[float] = None,
         solve_dec_deg: Optional[float] = None,
     ) -> bool:
         """Initialize connection to the INDI mount.
 
+        Location and time are synced from SharedStateObj automatically.
+
         Args:
-            latitude_deg: Observatory latitude in degrees (positive North). Optional.
-            longitude_deg: Observatory longitude in degrees (positive East). Optional.
-            elevation_m: Observatory elevation in meters above sea level. Optional.
-            utc_time: UTC time in ISO 8601 format (YYYY-MM-DDTHH:MM:SS). Optional.
             solve_ra_deg: Solved Right Ascension in degrees for initial sync. Optional.
             solve_dec_deg: Solved Declination in degrees for initial sync. Optional.
 
         Returns:
             True if initialization successful, False otherwise.
         """
-        logger.debug("Initializing mount: connect, unpark, set location/time")
+        logger.debug("Initializing mount: connect, unpark, sync location/time")
         if solve_ra_deg is not None and solve_dec_deg is not None:
             logger.debug(
                 f"Will sync mount to solved position: RA={solve_ra_deg:.4f}°, Dec={solve_dec_deg:.4f}°"
@@ -617,6 +755,21 @@ class MountControlIndi(MountControlBase):
                             and connect_prop[i].s == PyIndi.ISS_ON
                         ):
                             logger.info(f"Telescope {device_name} already connected")
+                            # Still sync location/time even if already connected
+                            self.sync_mount_location_and_time()
+                            # Sync mount if solve coordinates provided
+                            if solve_ra_deg is not None and solve_dec_deg is not None:
+                                logger.info(
+                                    f"Syncing mount to solved position: RA={solve_ra_deg:.4f}°, Dec={solve_dec_deg:.4f}°"
+                                )
+                                if not self.sync_mount(solve_ra_deg, solve_dec_deg):
+                                    logger.warning(
+                                        "Failed to sync mount to solved position during initialization"
+                                    )
+                                else:
+                                    logger.info(
+                                        "Mount successfully synced to solved position"
+                                    )
                             return True
 
                     # Connect the device
@@ -630,39 +783,8 @@ class MountControlIndi(MountControlBase):
                     time.sleep(1.0)
                     logger.info(f"Telescope {device_name} connected successfully")
 
-            # Set geographic coordinates if provided
-            if latitude_deg is not None and longitude_deg is not None:
-                values = {"LAT": latitude_deg, "LONG": longitude_deg}
-                if elevation_m is not None:
-                    values["ELEV"] = elevation_m
-
-                if self.client.set_number(device, "GEOGRAPHIC_COORD", values):
-                    logger.info(
-                        f"Geographic coordinates set: Lat={latitude_deg}°, Lon={longitude_deg}°, Elev={elevation_m}m"
-                    )
-                else:
-                    logger.warning("Failed to set geographic coordinates")
-
-            # Set UTC time if provided
-            if utc_time is not None:
-                # Parse ISO 8601 format: YYYY-MM-DDTHH:MM:SS
-                try:
-                    import datetime
-
-                    dt = datetime.datetime.fromisoformat(utc_time)
-
-                    # Calculate UTC offset in hours (0 for UTC)
-                    utc_offset = 0
-
-                    # TIME_UTC is a text property with format: UTC="YYYY-MM-DDTHH:MM:SS" and OFFSET="hours"
-                    utc_values = {"UTC": dt.isoformat(), "OFFSET": str(utc_offset)}
-
-                    if self.client.set_text(device, "TIME_UTC", utc_values):
-                        logger.info(f"UTC time set: {utc_time}")
-                    else:
-                        logger.warning("Failed to set UTC time")
-                except (ValueError, AttributeError) as e:
-                    logger.error(f"Invalid UTC time format '{utc_time}': {e}")
+            # Sync location and time from SharedStateObj
+            self.sync_mount_location_and_time()
 
             # Read available slew rates from TELESCOPE_SLEW_RATE property
             slew_rate_prop = self.client._wait_for_property(
@@ -698,7 +820,9 @@ class MountControlIndi(MountControlBase):
                     f"Syncing mount to solved position: RA={solve_ra_deg:.4f}°, Dec={solve_dec_deg:.4f}°"
                 )
                 if not self.sync_mount(solve_ra_deg, solve_dec_deg):
-                    logger.warning("Failed to sync mount to solved position during initialization")
+                    logger.warning(
+                        "Failed to sync mount to solved position during initialization"
+                    )
                     # Don't fail initialization if sync fails
                 else:
                     logger.info("Mount successfully synced to solved position")
@@ -953,9 +1077,7 @@ class MountControlIndi(MountControlBase):
 
             if self.current_ra is None or self.current_dec is None:
                 logger.error("Current mount position unknown, cannot move manually")
-                self.console_queue.put(
-                    ["WARN", _("No position")]
-                )
+                self.console_queue.put(["WARN", _("No position")])
                 return False
 
             # Calculate target position based on direction and step size
@@ -1039,6 +1161,87 @@ class MountControlIndi(MountControlBase):
         except Exception as e:
             logger.exception(f"Error disconnecting mount: {e}")
             return False
+
+    def sync_mount_location_and_time(self) -> bool:
+        """Sync mount location and time from SharedStateObj.
+
+        Reads location and datetime from shared_state and updates the mount if they differ
+        from the last synced values.
+
+        Returns:
+            True if sync was successful or not needed, False on error.
+        """
+        try:
+            device = self.client.get_telescope_device()
+            if not device:
+                logger.debug("Telescope device not available for location/time sync")
+                return False
+
+            # Get location from shared state
+            location = self.shared_state.location()
+            if location is None:
+                logger.debug("Location not available in shared state")
+                return True  # Not an error, just no data yet
+
+            # Get datetime from shared state
+            dt = self.shared_state.datetime()
+            if dt is None:
+                logger.debug("Datetime not available in shared state")
+                return True  # Not an error, just no data yet
+
+            # Sync location - Location is a dataclass with lat, lon, altitude attributes
+            latitude_deg = location.lat
+            longitude_deg = location.lon
+            elevation_m = location.altitude
+
+            if latitude_deg is not None and longitude_deg is not None:
+                # Check if location has changed since last sync
+                if (
+                    self._last_synced_lat != latitude_deg
+                    or self._last_synced_lon != longitude_deg
+                    or self._last_synced_elev != elevation_m
+                ):
+                    if not self.client.sync_mount_location(
+                        device, latitude_deg, longitude_deg, elevation_m
+                    ):
+                        logger.warning("Failed to sync mount location")
+                        return False
+                    # Store the successfully synced values
+                    self._last_synced_lat = latitude_deg
+                    self._last_synced_lon = longitude_deg
+                    self._last_synced_elev = elevation_m
+                else:
+                    logger.debug(
+                        "Location unchanged from last sync, skipping mount update"
+                    )
+
+            # Sync time - convert datetime to ISO format
+            if dt is not None:
+                utc_time = dt.isoformat()
+                # Check if time has changed since last sync
+                if self._last_synced_time != utc_time:
+                    if not self.client.sync_mount_time(device, utc_time):
+                        logger.warning("Failed to sync mount time")
+                        return False
+                    # Store the successfully synced value
+                    self._last_synced_time = utc_time
+                else:
+                    logger.debug("Time unchanged from last sync, skipping mount update")
+
+            return True
+
+        except Exception as e:
+            logger.exception(f"Error syncing mount location and time: {e}")
+            return False
+
+    def periodic_mount_task(self) -> None:
+        """Task called periodically during super().run()
+
+        In MountControlIndi, this syncs location and time from SharedStateObj to the mount.
+        """
+        if self.last_periodic_update + self.periodic_update_interval < time.time():
+            self.last_periodic_update = time.time()
+            self.sync_mount_location_and_time()
 
 
 def run(
