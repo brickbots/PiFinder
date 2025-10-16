@@ -76,24 +76,28 @@ def solver(
 
     centroids = []
     log_no_stars_found = True
+    cedar_error = False
 
     while True:
         logger.info("Starting Solver Loop")
-        # Start cedar detect server
-        try:
-            cedar_detect = cedar_detect_client.CedarDetectClient(
-                binary_path=str(utils.cwd_dir / "../bin/cedar-detect-server-")
-                + shared_state.arch()
-            )
-        except FileNotFoundError as e:
-            logger.warning(
-                "Not using cedar_detect, as corresponding file '%s' could not be found",
-                e.filename,
-            )
-            cedar_detect = None
-        except ValueError:
-            logger.exception("Not using cedar_detect")
-            cedar_detect = None
+        if not cedar_error:
+            # Start cedar detect server
+            try:
+                cedar_detect = cedar_detect_client.CedarDetectClient(
+                    binary_path=str(utils.cwd_dir / "../bin/cedar-detect-server-")
+                    + shared_state.arch()
+                )
+            except FileNotFoundError as e:
+                logger.warning(
+                    "Not using cedar_detect, as corresponding file '%s' could not be found",
+                    e.filename,
+                )
+                cedar_detect = None
+            except ValueError:
+                logger.exception("Not using cedar_detect")
+                cedar_detect = None
+        else:
+            cedar_detect = None  
 
         try:
             while True:
@@ -156,8 +160,8 @@ def solver(
                             Image.fromarray(np_image).save(debug_path)
                             logger.debug(f"Saved image with cedar detect errors to {debug_path}")
                             # If there were errors, fall back to old tetra3 centroider
-                            if len(centroids) == 0:
-                                centroids = tetra3.get_centroids_from_image(np_image)
+                            centroids = tetra3.get_centroids_from_image(np_image)
+                            cedar_error = True  # Avoid using cedar detect next time
                     t_extract = (precision_timestamp() - t0) * 1000
                     logger.debug(
                         "File %s, extracted %d centroids in %.2fms"
