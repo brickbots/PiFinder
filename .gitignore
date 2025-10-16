@@ -140,6 +140,7 @@ kicad/PiFinder/PiFinder-backups
 config.json
 astro_data/hip_main.dat
 comets.txt
+.vscode/*
 
 # 3d printing business
 *.3mf

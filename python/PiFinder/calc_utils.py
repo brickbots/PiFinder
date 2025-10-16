@@ -132,6 +132,39 @@ def b1950_to_j2000(ra_hours, dec_deg):
     return epoch_to_epoch(B1950, J2000, ra_hours, dec_deg)
 
 
+def j2000_to_jnow(ra_deg, dec_deg, dt):
+    """
+    Convert J2000 coordinates to JNow (Epoch of Date / EOD) coordinates
+    at the given datetime.
+
+    This conversion accounts for precession, nutation, and other effects
+    that cause coordinates to change over time. The result is in the
+    apparent coordinate system for the specified observation time.
+
+    Args:
+        ra_deg: Right Ascension in degrees (J2000)
+        dec_deg: Declination in degrees (J2000)
+        dt: Python datetime object (must be timezone-aware)
+
+    Returns:
+        Tuple of (ra_jnow_deg, dec_jnow_deg) in degrees
+    """
+    ts = sf_utils.ts
+    t = ts.from_datetime(dt)
+
+    # Create position at J2000 epoch
+    j2000_pos = position_of_radec(
+        ra_hours=ra_deg / 15.0,
+        dec_degrees=dec_deg,
+        epoch=ts.tt(jd=J2000)
+    )
+
+    # Get coordinates at current epoch (JNow)
+    ra_jnow, dec_jnow, _ = j2000_pos.radec(epoch=t)
+
+    return ra_jnow._degrees, dec_jnow.degrees
+
+
 def aim_degrees(shared_state, mount_type, screen_direction, target):
     """
     Returns degrees in either

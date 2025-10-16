@@ -6,6 +6,8 @@ from collections import defaultdict
 import logging
 import time
 
+logger = logging.getLogger("ObjectsDatabase")
+
 
 class ObjectsDatabase(Database):
     def __init__(self, db_path=utils.pifinder_db):
@@ -124,7 +126,7 @@ class ObjectsDatabase(Database):
     def insert_object(
         self, obj_type, ra, dec, const, size, mag, surface_brightness=None
     ):
-        logging.debug(
+        logger.debug(
             f"Inserting object {obj_type}, {ra}, {dec}, {const}, {size}, {mag}, {surface_brightness}"
         )
         self.cursor.execute(
@@ -164,9 +166,9 @@ class ObjectsDatabase(Database):
     def insert_name(self, object_id, common_name, origin=""):
         common_name = common_name.strip()
         if common_name == "":
-            logging.debug(f"Skipping empty name for {object_id}")
+            logger.debug(f"Skipping empty name for {object_id}")
             return
-        logging.debug(f"Inserting name {common_name} into {object_id}")
+        logger.debug(f"Inserting name {common_name} into {object_id}")
         self.cursor.execute(
             """
             INSERT INTO names (object_id, common_name, origin)
@@ -265,7 +267,7 @@ class ObjectsDatabase(Database):
     # ---- CATALOG_OBJECTS methods ----
 
     def insert_catalog_object(self, object_id, catalog_code, sequence, description):
-        logging.debug(
+        logger.debug(
             f"Inserting catalog object '{object_id=}' into '{catalog_code=}-{sequence=}', {description=}"
         )
         self.cursor.execute(
