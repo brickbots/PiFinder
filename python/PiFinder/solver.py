@@ -24,6 +24,8 @@ from PiFinder import utils
 sys.path.append(str(utils.tetra3_dir))
 import tetra3
 from tetra3 import cedar_detect_client
+import datetime
+from PIL import Image
 
 logger = logging.getLogger("Solver")
 
@@ -139,9 +141,23 @@ def solver(
                         # Use old tetr3 centroider
                         centroids = tetra3.get_centroids_from_image(np_image)
                     else:
-                        centroids = cedar_detect.extract_centroids(
-                            np_image, sigma=8, max_size=10, use_binned=True
+                        centroids, cedar_errors = cedar_detect.extract_centroids(
+                            np_image, sigma=8, max_size=10, use_binned=True, return_errors=True
                         )
+                        if len(cedar_errors) > 0:
+                            for err in cedar_errors:
+                                logger.error(f"Cedar Detect errors: {err}")
+                            # Save the image with cedar detect errors for debugging
+                            debug_dir = os.path.expanduser("~/PiFinder_data/")
+                            os.makedirs(debug_dir, exist_ok=True)
+                            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                            debug_filename = f"cedar_errors_{timestamp}.png"
+                            debug_path = os.path.join(debug_dir, debug_filename)
+                            Image.fromarray(np_image).save(debug_path)
+                            logger.debug(f"Saved image with cedar detect errors to {debug_path}")
+                            # If there were errors, fall back to old tetra3 centroider
+                            if len(centroids) == 0:
+                                centroids = tetra3.get_centroids_from_image(np_image)
                     t_extract = (precision_timestamp() - t0) * 1000
                     logger.debug(
                         "File %s, extracted %d centroids in %.2fms"
