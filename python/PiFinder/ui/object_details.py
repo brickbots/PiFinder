@@ -20,7 +20,7 @@ from PiFinder.ui.ui_utils import (
     SpaceCalculatorFixed,
     name_deduplicate,
 )
-from PiFinder import calc_utils
+from PiFinder import calc_utils, utils
 import functools
 
 from PiFinder.db.observations_db import ObservationsDatabase
@@ -479,6 +479,11 @@ class UIObjectDetails(UIModule):
         self.object_display_mode = (
             self.object_display_mode + 1 if self.object_display_mode < 3 else 0
         )
+        # Skip mount control mode if indiwebmanager is not active
+        if not utils.get_sys_utils().is_mountcontrol_active() and self.object_display_mode == DM_MOUNT_CONTROL:
+            self.object_display_mode = (
+                self.object_display_mode + 1 if self.object_display_mode < 3 else 0
+            )
         self.update_object_info()
         self.update()
 

@@ -467,22 +467,24 @@ def main(
         posserver_process.start()
 
         # Mount Control
-        console.write("  Mount Control")
-        logger.info("  Mount Control")
-        console.update()
-        mountcontrol_process = Process(
-            name="MountControl",
-            target=mountcontrol_indi.run,
-            args=(
-                mountcontrol_queue,
-                console_queue,
-                shared_state,
-                mountcontrol_logqueue,
-                "localhost",
-                7624,
-            ),
-        )
-        mountcontrol_process.start()
+        sys_utils = utils.get_sys_utils()
+        if sys_utils.is_mountcontrol_active():
+            console.write("  Mount Control")
+            logger.info("  Mount Control")
+            console.update()
+            mountcontrol_process = Process(
+                name="MountControl",
+                target=mountcontrol_indi.run,
+                args=(
+                    mountcontrol_queue,
+                    console_queue,
+                    shared_state,
+                    mountcontrol_logqueue,
+                    "localhost",
+                    7624,
+                ),
+            )
+            mountcontrol_process.start()
 
         # Initialize Catalogs
         console.write("   Catalogs")
