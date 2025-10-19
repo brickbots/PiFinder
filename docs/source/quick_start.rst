@@ -80,8 +80,7 @@ Using the PiFinder
 
 The PiFinder features a scolling menu with the active option highlighted in the middle of the screen.  
 
-.. image:: images/quick_start/main_menu_01_docs.png
-.. image:: images/quick_start/main_menu_02_docs.png
+.. image:: images/quick_start/pifinder_main_menu.png
 
 All the features of the PiFinder are available through this menu by scrolling, selecting options
 or moving to new menu screens.

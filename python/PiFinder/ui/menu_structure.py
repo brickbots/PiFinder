@@ -274,6 +274,10 @@ pifinder_menu = {
                             "value": "PL",
                         },
                         {
+                            "name": _("Comets"),
+                            "value": "CM",
+                        },
+                        {
                             "name": _("NGC"),
                             "value": "NGC",
                         },

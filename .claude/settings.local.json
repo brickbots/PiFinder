@@ -34,7 +34,6 @@
       "Bash(PYTHON_DIR=\"/Users/mike/dev/amateur_astro/myPiFinder/wt-radec/python\")",
       "Bash(pytest:*)",
       "Bash(sed:*)",
-      "Read(//Users/mike/dev/amateur_astro/myPiFinder/wt-steinicke/**)"
     ],
     "deny": []
   }
