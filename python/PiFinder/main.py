@@ -580,6 +580,8 @@ def main(
                                 if "lock_type" in gps_content:
                                     location.lock_type = gps_content["lock_type"]
 
+                                # Update last_gps_lock timestamp when lock is set
+                                if "lock" in gps_content and gps_content["lock"]:
                                     dt = shared_state.datetime()
                                     if dt is None:
                                         location.last_gps_lock = "--"

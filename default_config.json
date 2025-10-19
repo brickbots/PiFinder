@@ -23,6 +23,7 @@
         "H",
         "Str",
         "PL",
+        "CM",
         "RDS"
     ],
     "filter.object_types": [
