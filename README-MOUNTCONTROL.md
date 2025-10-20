@@ -18,6 +18,15 @@ PiFinder now supports controlling computerized telescope mounts via the INDI pro
 - **Real-time Position Updates**: Mount position is continuously monitored and displayed
 - **Drift Compensation**: (In development) Compensate for polar alignment errors during tracking
 
+When displaying Object Details the following commands are available: 
+
+| Keypad        | Keypad         | Keypad           | Keypad             |
+|---------------|----------------|------------------|--------------------|
+| 7: Sync mount | 8: North       | 9: Increase step |                    |
+| 4: East       | 5: Goto target | 6: West          | +: Change eyepiece |
+| 1: Init mount | 2: South       | 3: Decrease step | -: Change eyepiece |
+|               | 0: Stop mount  |                  |  SQUARE            |
+
 ## Installation
 
 ### Prerequisites
