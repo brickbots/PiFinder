@@ -263,3 +263,98 @@ def solver(
                 )
             except Exception as e:
                 pass  # Don't let diagnostic logging fail
+
+
+if __name__ == "__main__":
+    import argparse
+    import glob
+    from pathlib import Path
+
+    # Set up argument parser
+    parser = argparse.ArgumentParser(
+        description="Process PNG images through the centroider"
+    )
+    parser.add_argument(
+        "paths",
+        nargs="+",
+        help="Directories or PNG files to process"
+    )
+    args = parser.parse_args()
+
+    # Collect all PNG files from provided paths
+    png_files = []
+    for path_str in args.paths:
+        path = Path(path_str)
+        if path.is_file() and path.suffix.lower() == ".png":
+            png_files.append(path)
+        elif path.is_dir():
+            png_files.extend(path.glob("**/*.png"))
+
+    if not png_files:
+        print("No PNG files found in the provided paths")
+        sys.exit(1)
+
+    print(f"Found {len(png_files)} PNG files to process")
+
+    # Initialize cedar detect if available (mimicking solver() logic)
+    cedar_detect = None
+    cedar_error = False
+
+    if not cedar_error:
+        try:
+            # Try to detect architecture for cedar binary
+            import platform
+            arch = platform.machine()
+            cedar_detect = cedar_detect_client.CedarDetectClient(
+                binary_path=str(utils.cwd_dir / f"../bin/cedar-detect-server-{arch}")
+            )
+            print(f"Using cedar-detect for centroiding (architecture: {arch})")
+        except FileNotFoundError as e:
+            print(f"cedar-detect not found ({e.filename}), falling back to tetra3 centroider")
+            cedar_detect = None
+        except ValueError as e:
+            print(f"cedar-detect initialization failed ({e}), falling back to tetra3 centroider")
+            cedar_detect = None
+
+    # Process each PNG file
+    try:
+        for i, png_file in enumerate(png_files, 1):
+            try:
+                # Load image
+                img = Image.open(png_file)
+                img = img.convert(mode="L")
+                np_image = np.asarray(img, dtype=np.uint8)
+
+                # Extract centroids (mimicking solver() logic)
+                t0 = precision_timestamp()
+                if cedar_detect is None:
+                    # Use old tetra3 centroider
+                    centroids = tetra3.get_centroids_from_image(np_image)
+                else:
+                    centroids, cedar_errors = cedar_detect.extract_centroids(
+                        np_image, sigma=8, max_size=10, use_binned=True, return_errors=True
+                    )
+                    if len(cedar_errors) > 0:
+                        print(f"  Cedar errors: {cedar_errors}")
+                        print(f"  Falling back to tetra3 centroider for this image")
+                        centroids = tetra3.get_centroids_from_image(np_image)
+                        cedar_error = True
+
+                t_extract = (precision_timestamp() - t0) * 1000
+
+                # Print results immediately
+                print(f"[{i}/{len(png_files)}] {png_file.name}: {len(centroids)} centroids in {t_extract:.2f}ms")
+
+            except Exception as e:
+                print(f"[{i}/{len(png_files)}] {png_file.name}: ERROR - {e}")
+
+        print(f"\nProcessed {len(png_files)} files")
+
+    finally:
+        # Gracefully shutdown cedar_detect if it was initialized
+        if cedar_detect is not None:
+            print("Shutting down cedar-detect server...")
+            cedar_detect._subprocess.kill()
+            cedar_detect._del_shmem()
+            if hasattr(cedar_detect, '_log_file') and cedar_detect._log_file:
+                cedar_detect._log_file.close()
