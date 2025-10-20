@@ -2,6 +2,13 @@
 
 PiFinder now supports controlling computerized telescope mounts via the INDI protocol. This feature allows you to automatically slew your mount to celestial objects, sync mount positions with plate-solved coordinates, and perform manual adjustments - all directly from the PiFinder interface.
 
+
+> [!WARNING]
+> Mount control is currently in **alpha development** and should be used with caution. 
+> Always maintain manual control of your mount and be prepared to stop movement immediately if needed. 
+> Test thoroughly in a safe environment before using in the field.
+
+
 ## Features
 
 - **Automatic GoTo**: Send your mount to any object in the PiFinder catalog with a single keypress
