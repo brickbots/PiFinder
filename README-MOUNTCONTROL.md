@@ -32,13 +32,14 @@ When displaying Object Details the following commands are available:
 ### Prerequisites
 
 - PiFinder device running on Raspberry Pi
-- Compatible INDI-supported telescope mount
-- A cable connection between PiFinder and mount
+- Compatible, INDI-supported telescope mount
+- A (cable) connection between PiFinder and mount
 - PiFinder in client mode to install software
 
 ### Step 1: Check-out alpha version software of Indi Mount Control
 
-The mount control feature is currently in alpha development. To use it, you need to check out the development branch.
+> [!WARNING]
+> The mount control feature is currently in **alpha development**. To use it, you need to check out the development branch.
 
 **On a typical PiFinder installation:**
 
@@ -99,17 +100,17 @@ bash install-indi-pifinder.sh
 This script will:
 1. Update system packages
 2. Install INDI library dependencies
-3. Compile and install INDI from source (current version 2.1.6)
+3. Compile and install INDI from source (current version 2.1.6, both indi lib and indi-3rdparty)
 4. Install PyIndi client library
 5. Install modified INDI Web Manager as a systemd service, that allows configuring the mount
-6. Set up Chrony for GPS time synchronization
+6. Sets up Chrony for GPS time synchronization
 
 **Important Notes:**
 - The installation process may take 30-60 minutes depending on your system
-- The PiFinder service will be temporarily stopped during INDI compilation
+- The PiFinder service needs to be temporarily stopped during INDI compilation
 - After installation completes, set your timezone using `sudo raspi-config`
 
-### Step 2: Verify Installation
+### Step 3: Verify Installation
 
 Check that INDI Web Manager is running:
 
@@ -123,7 +124,7 @@ Navigate to "http://pifinder.local/8624" and the Indi Web Manager should display
 
 ## Configuration
 
-At best configuration is done after installation. If you're in the field and/or testing the PiFinder on a new mount, follow these instructions:
+At best configuration is done after installation, before going to the field and wasting precious clear sky. Follow these instructions:
 
 ### Connect to your PiFinder using a cell phone, tablet or laptop
 
@@ -183,6 +184,9 @@ INDI Web Manager provides a web interface for managing INDI drivers and connecti
    - Once the driver comes up, it is listed in the list of connected drivers on left hand side.
    - If it does not display, then there's a problem starting that driver. 
    - Run `indiserver <name of driver>` from the command line to get a grip on the problem.
+   - One problem that might surface, is that gpsd grabs the serial port of your mount. 
+     In that case use `systemctl stop gpsd` to stop it temporarily and connect to the port with the indi driver.
+     Note that gpsd will start automatically after some time.
    
 3. **Configure Driver Settings**
    - Click the listed driver name to open another webpage showing its properties. 
@@ -197,7 +201,7 @@ INDI Web Manager provides a web interface for managing INDI drivers and connecti
 
 ### Start PiFinder service
 
-Do not forget to start the pifinder service.
+Now you can start the pifinder service, if it is not currently running:
 ```bash
 sudo systemctl start pifinder
 ```
@@ -210,12 +214,14 @@ sudo systemctl status pifinder
 
 To check it is up and running fine.
 
+Go to "Settings" > "Experimental..." > "Mount Control" and enable mount control.
+
 ## Usage
 
 ### Object Details Screen
 
 When viewing object details in PiFinder, mount control features are integrated directly into the interface. 
-The mount control functionality works across all displays of the details display.
+The mount control functionality works across all displays of the details display, see the table at the start of the page. 
 
 #### Display Modes
 
@@ -235,14 +241,16 @@ Mount control commands work in **any display mode** by pressing number keys:
 | **0** | Stop Mount | Immediately stops all mount movement |
 | **1** | Init Mount | Initialize mount connection and sync to current plate-solved position |
 | **2** | South | Move mount south (decreasing Dec) |
-| **3** | Sync | Sync mount to current plate-solved coordinates |
+| **3** | Decrease Step Size | Reduce the step size by a factor of 1/2 |
 | **4** | West | Move mount west (increasing RA) |
 | **5** | GoTo Target | Slew mount to currently displayed object |
 | **6** | East | Move mount east (decreasing RA) |
+| **7** | Sync | Sync platesolved position into mount, overwriting current mount position |
 | **8** | North | Move mount north (increasing Dec) |
+| **9** | Increase Step Size | Increase the step size by a factor of 2 |
 
 **Step Size Adjustment for manual moves**
-Not yet implemented. 
+When selecting an eyepiece, the step size is reset to 1/5 of the visible field. You can then use "3" and "9" to adjust step size. 
 
 ### Typical Workflow
 
@@ -265,10 +273,14 @@ Tipp: Press **1** once, to have the mount tracking.
      - Compares solved position to target position
      - Syncs mount and performs additional slew if needed (>0.01° error in one of the axes)
      - Repeats until target is centered within 0.01° (36 arcseconds)
+   - Once the target is acquired, PiFinder starts measuring the drift (for 10 seconds) and then adjusts 
+     the mounts tracking rates to compensate for the drift. 
+     - Using manual slews during this time will stop the process and the mount will be tracking with what-ever
+       drift rates are current at this time. 
 
-4. **Coarse Adjustments**
+4. **Manual Adjustments**
    - Use directional keys (**2, 4, 6, 8**) for manual adjustments
-   - Those use the largest step size available for the mount, so this may be of limited use at the moment.
+   - Use **3** and **9** to adjust step size down or up.
    
 5. **Emergency Stop**
    - Press **0** at any time to immediately stop mount movement
@@ -282,7 +294,9 @@ The mount control system operates in distinct phases visible in the logs:
 - **MOUNT_TRACKING**: Mount is tracking the sky (after manual movements)
 - **MOUNT_TARGET_ACQUISITION_MOVE**: Mount is slewing to target coordinates
 - **MOUNT_TARGET_ACQUISITION_REFINE**: Refining target position using plate-solved coordinates
-- **MOUNT_DRIFT_COMPENSATION**: (Future) Active drift compensation during tracking
+- **MOUNT_DRIFT_COMPENSATION**: Active drift compensation during tracking
+
+When using manual movements, the mount will go to **MOUNT_TRACKING** phase. Note that stopping means that the mount may still be tracking. 
 
 ### Mount Not Responding
 
@@ -290,20 +304,20 @@ The mount control system operates in distinct phases visible in the logs:
 2. Verify mount driver is started in INDI Web Manager
 3. Check mount driver shows "Connected" status
 4. Try pressing **1** to reinitialize mount connection
-5. Review logs: `journalctl -u pifinder -f | grep MountControl`
+5. Review logs: `sudo journalctl -u pifinder -f | grep MountControl`
 
-### Plate Solving Required
+### Plate Solving and GPS Required
 
 Many mount control features require an active plate solve:
 - **Sync (Key 3)**: Requires solved position to sync mount
-- **Init (Key 1)**: Works better with solved position for initial sync
-- **Target Refinement**: Requires solve after slew to refine position
+- **Init (Key 1)**: Works better with solved position for initial sync, stores the GPS position in the mount.
+- **Target Refinement** and **Drift Compensation**: Require solve after slew to refine position
 
 If plate solving fails:
 - Ensure camera is working and capturing images
-- Check focus - stars must be sharp for solving
+- Check focus - stars must be sharp for solving (This is the primary source of error for platesolving)
 - Verify sufficient stars are visible in frame
-- Check exposure time is appropriate for sky conditions
+- Check exposure time is appropriate for sky conditions. Choose the smallest exposure giving reliable solves.
 
 ### Position Accuracy
 
@@ -313,12 +327,6 @@ The target refinement process achieves 0.01° (36 arcsecond) accuracy by:
 3. Sync mount to solved position
 4. Additional slew to target if error > 0.01°
 5. Repeat until accuracy achieved
-
-For better accuracy:
-- Ensure good polar alignment
-- Use proper guide rates for manual adjustments
-- Sync frequently using plate-solved positions
-- Allow time for mount to settle after movements
 
 ### Time Synchronization
 
@@ -330,7 +338,7 @@ Accurate mount pointing requires correct time and location:
 
 ## Known Limitations
 
-- **Drift Compensation**: Not yet fully implemented
+- **Drift Compensation**: Not yet tested
 - **Spiral Search**: Planned feature, not yet available
 - **Mount Parking**: Not implemented
 - **Multiple Mounts**: Only one mount can be controlled at a time
@@ -364,11 +372,11 @@ When reporting mount control issues, please include:
 Mount control is designed to be extensible:
 - New mount backends can be added by subclassing `MountControlBase`
 - Current implementation supports any INDI-compatible mount
-- Future backends could support other protocols (ASCOM, NexStar, etc.)
+- Future backends could support other protocols (OnStep, NexStar, etc.)
 
 ## References
 
 - **INDI Library**: https://github.com/indilib/indi
-- **INDI Web Manager**: https://github.com/rkaczorek/indiwebmanager
+- **INDI Web Manager**: https://github.com/kno/indiwebmanager
 - **PyIndi**: https://github.com/indilib/pyindi-client
 - **PiFinder Documentation**: https://github.com/brickbots/PiFinder
