@@ -268,11 +268,11 @@ The alignment offset between the PiFinder camera frame and the scope frame is
 determined during alignment of the PiFinder with the scope and is assumed to be
 fixed. The goal of alignment is to determine the quaternion $q_{cam2scope}$.
 
-During alignment, the user user selects the target seen in the center the
-scope, which gives the (RA, Dec) of the scope pointing but not the roll. We can
-assume some arbitrary roll value (say roll = 0) and get $q_{eq2scope}$. At the
-same time, plate solving measures the (RA, Dec, Roll) at the camera center or
-$q_{eq2cam}$. We can express the relation by,
+During alignment, the user user selects the target seen in the center of the
+eyepiece, which gives the (RA, Dec) of the scope pointing but not the roll. We
+can assume some arbitrary roll value (say roll = 0) and get $q_{eq2scope}$. At
+the same time, plate solving measures the (RA, Dec, Roll) at the camera center
+or $q_{eq2cam}$. We can express the relation by,
 
 $$q_{eq2scope} = q_{eq2cam} \; q_{cam2scope}$$
 
