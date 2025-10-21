@@ -9,25 +9,14 @@ README: IMU support prototyping
 
 See Discord thread: https://discord.com/channels/1087556380724052059/1406599296002035895
 
-Issues:
-* Fails nox
-* Chart orientation: Under TestMode for desktop testing, When in "Chart Mode",
-alt/az seems to be swapped round. Looks OK in Align mode at first sight but
-this is because the chart is oriented 90-degrees around . Is it the way the
-fake IMU is generated? Does it try to account for the IMU orientation which is
-removed in imu_pi.py? Also check "Chart Mode" when sky testing.
-
-TODO:
-* Sky test
 
 For future:
+* Calibration to align IMU frame to camera frame to remove the residual error.
 * Update imu_pi.py
-* Set alignment once at alignment rather than calculating it every loop
-    * Alignment is currently done in `integrator.py` where `set_alignment()` is
-    called every iteration of the loop. Would like to set the alignment onece
-    to pre-compute the `q_scope2cam` quaternion, etc.
+* Set alignment once at alignment rather than calculating it every loop?
 
 Done:
+* Fails nox
 * Support other PiFinder types
 * Adjust Roll depending on mount_type for charts
 * Lint
@@ -102,12 +91,6 @@ PiFinder can be run from the command line as usual:
 ```bash
 cd ~/PiFinder/python
 python3 -m PiFinder.main
-```
-
-For testing, running the following command will dump the raw IMU measurements to the terminal:
-
-```bash
-python PiFinder/imu_print_measurements.py
 ```
 
 # Theory
