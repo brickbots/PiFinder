@@ -18,7 +18,6 @@ from time import perf_counter as precision_timestamp
 import os
 import threading
 
-from PiFinder.utils import Timer
 from PiFinder import state_utils
 from PiFinder import utils
 from PiFinder.sqm import SQM
@@ -29,6 +28,10 @@ from tetra3 import cedar_detect_client
 
 logger = logging.getLogger("Solver")
 sqm = SQM()
+
+# SQM calculation interval - calculate SQM every N successful solves
+SQM_CALCULATION_INTERVAL = 5
+
 
 def solver(
     shared_state,
@@ -77,6 +80,8 @@ def solver(
 
     centroids = []
     log_no_stars_found = True
+    sqm_solve_counter = 0
+    last_sqm_result = None  # Cache last SQM result to reuse between calculations
 
     while True:
         logger.info("Starting Solver Loop")
@@ -137,6 +142,16 @@ def solver(
                     img = img.convert(mode="L")
                     np_image = np.asarray(img, dtype=np.uint8)
 
+                    # Convert bias image to numpy array for SQM calculation
+                    np_bias_image = None
+                    try:
+                        bias_img = bias_image.copy()
+                        bias_img = bias_img.convert(mode="L")
+                        np_bias_image = np.asarray(bias_img, dtype=np.uint8)
+                    except Exception as e:
+                        logger.debug(f"Could not convert bias image: {e}")
+                        np_bias_image = None
+
                     t0 = precision_timestamp()
                     if cedar_detect is None:
                         # Use old tetr3 centroider
@@ -169,16 +184,42 @@ def solver(
                             fov_estimate=12.0,
                             fov_max_error=4.0,
                             match_max_error=0.005,
-                            # return_matches=True,
+                            return_matches=True,  # Required for SQM calculation
                             target_pixel=shared_state.solve_pixel(),
                             solve_timeout=1000,
                             **_solver_args,
                         )
 
                         if "matched_centroids" in solution:
-                            # Calculate SQM
-                            measured_sqm = sqm.calculate(bias_image, centroids, solution, np_image, radius=2)
-                            solved["SQM"] = measured_sqm
+                            # Calculate SQM periodically (every SQM_CALCULATION_INTERVAL solves)
+                            if sqm_solve_counter % SQM_CALCULATION_INTERVAL == 0:
+                                try:
+                                    sqm_value, sqm_details = sqm.calculate(
+                                        centroids=centroids,
+                                        solution=solution,
+                                        image=np_image,
+                                        bias_image=np_bias_image,
+                                        altitude_deg=solved.get("Alt") or 90.0,
+                                        aperture_radius=5,
+                                        annulus_inner_radius=6,
+                                        annulus_outer_radius=14,
+                                    )
+                                    if sqm_value is not None:
+                                        last_sqm_result = (
+                                            sqm_value,
+                                            sqm_details,
+                                            time.time(),
+                                        )
+                                        logger.info(
+                                            f"SQM: {sqm_value:.2f} mag/arcsec² (solve #{sqm_solve_counter})"
+                                        )
+                                except Exception as e:
+                                    logger.error(
+                                        f"SQM calculation failed: {e}", exc_info=True
+                                    )
+
+                            solved["SQM"] = last_sqm_result
+                            sqm_solve_counter += 1
 
                             # Don't clutter printed solution with these fields.
                             del solution["matched_catID"]
