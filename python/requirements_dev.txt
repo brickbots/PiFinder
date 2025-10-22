@@ -10,4 +10,4 @@ pre-commit==3.7.1
 Babel==2.16.0
 xlrd==2.0.2
 # Pin to avoid pyobjc 12.0 which has macOS 15 build issues
-pyobjc-framework-Quartz==11.1
+pyobjc-framework-Quartz==11.1; sys_platform == "darwin"

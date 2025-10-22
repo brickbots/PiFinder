@@ -183,7 +183,6 @@ def solver(
                             # Calculate SQM periodically (every SQM_CALCULATION_INTERVAL solves)
                             if sqm_solve_counter % SQM_CALCULATION_INTERVAL == 0:
                                 try:
-                                    t_sqm_start = precision_timestamp()
                                     sqm_value, sqm_details = sqm.calculate(
                                         centroids=centroids,
                                         solution=solution,
@@ -193,15 +192,14 @@ def solver(
                                         annulus_inner_radius=6,
                                         annulus_outer_radius=14,
                                     )
-                                    t_sqm = (precision_timestamp() - t_sqm_start) * 1000
                                     if sqm_value is not None:
                                         last_sqm_result = (
                                             sqm_value,
                                             sqm_details,
                                             time.time(),
                                         )
-                                        logger.info(
-                                            f"SQM: {sqm_value:.2f} mag/arcsec² in {t_sqm:.2f}ms (solve #{sqm_solve_counter})"
+                                        logger.debug(
+                                            f"SQM: {sqm_value:.2f} mag/arcsec²"
                                         )
                                 except Exception as e:
                                     logger.error(

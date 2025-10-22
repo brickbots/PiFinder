@@ -3,6 +3,13 @@ from PiFinder import utils
 from PiFinder.state_utils import sleep_for_framerate
 from PiFinder.ui.ui_utils import TextLayouter
 import time
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+
+    def _(a) -> Any:
+        return a
+
 
 sys_utils = utils.get_sys_utils()
 
@@ -12,7 +19,7 @@ class UISQM(UIModule):
     Displays various status information
     """
 
-    __title__ = "SQM"
+    __title__ = _("SQM")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,7 +44,7 @@ class UISQM(UIModule):
         ):
             self.draw.text(
                 (10, 30),
-                "NO SQM DATA",
+                _("NO SQM DATA"),
                 font=self.fonts.bold.font,
                 fill=self.colors.get(128),
             )
@@ -57,7 +64,7 @@ class UISQM(UIModule):
                 )
                 self.draw.text(
                     (10, 80),
-                    "mag/arcsec²",
+                    _("mag/arcsec²"),
                     font=self.fonts.base.font,
                     fill=self.colors.get(128),
                 )
@@ -74,7 +81,7 @@ class UISQM(UIModule):
                 # Title
                 self.draw.text(
                     (0, 20),
-                    f"Bortle {details['bortle_class']}",
+                    _("Bortle {bc}").format(bc=details["bortle_class"]),
                     font=self.fonts.bold.font,
                     fill=self.colors.get(255),
                 )
@@ -83,9 +90,11 @@ class UISQM(UIModule):
                 self.text_layout.draw((0, 38))
 
                 # Legend
+                back_text = _("BACK")
+                scroll_text = _("SCROLL")
                 self.draw.text(
                     (0, 115),
-                    f"{self._SQUARE_} BACK  {self._PLUSMINUS_} SCROLL",
+                    f"{self._SQUARE_} {back_text}  {self._PLUSMINUS_} {scroll_text}",
                     font=self.fonts.base.font,
                     fill=self.colors.get(128),
                 )
@@ -95,9 +104,9 @@ class UISQM(UIModule):
                 if sqm_timestamp:
                     elapsed = int(time.time() - sqm_timestamp)
                     if elapsed < 60:
-                        time_str = f"{elapsed}s ago"
+                        time_str = _("{s}s ago").format(s=elapsed)
                     else:
-                        time_str = f"{elapsed // 60}m ago"
+                        time_str = _("{m}m ago").format(m=elapsed // 60)
                     self.draw.text(
                         (10, 20),
                         time_str,
@@ -119,15 +128,16 @@ class UISQM(UIModule):
                 )
                 self.draw.text(
                     (10, 90),
-                    f"Bortle {details['bortle_class']}",
+                    _("Bortle {bc}").format(bc=details["bortle_class"]),
                     font=self.fonts.bold.font,
                     fill=self.colors.get(128),
                 )
 
                 # Legend
+                details_text = _("DETAILS")
                 self.draw.text(
                     (10, 110),
-                    f"{self._SQUARE_} DETAILS",
+                    f"{self._SQUARE_} {details_text}",
                     font=self.fonts.base.font,
                     fill=self.colors.get(64),
                 )
@@ -171,118 +181,118 @@ class UISQM(UIModule):
         scale = [
             {
                 "bortle_class": 1,
-                "title": "Excellent Dark-Sky Site",
+                "title": _("Excellent Dark-Sky Site"),
                 "nelm_range": (7.6, 8.0),
                 "mag_arcsec_range": (21.76, 22.00),
                 "description": [
-                    "The zodiacal light is visible and colorful. Gegenschein readily visible.",
-                    "The Scorpius and Sagittarius regions of the Milky Way cast obvious shadows.",
-                    "M33 is a direct naked-eye object. Airglow readily visible.",
-                    "Abundant stars make faint constellations hard to distinguish.",
+                    _("The zodiacal light is visible and colorful. Gegenschein readily visible."),
+                    _("The Scorpius and Sagittarius regions of the Milky Way cast obvious shadows."),
+                    _("M33 is a direct naked-eye object. Airglow readily visible."),
+                    _("Abundant stars make faint constellations hard to distinguish."),
                 ],
             },
             {
                 "bortle_class": 2,
-                "title": "Typical Truly Dark Site",
+                "title": _("Typical Truly Dark Site"),
                 "nelm_range": (7.1, 7.5),
                 "mag_arcsec_range": (21.60, 21.76),
                 "description": [
-                    "The zodiacal light is distinctly yellowish and bright enough to cast shadows at dusk and dawn.",
-                    "Clouds appear as dark silhouettes against the sky.",
-                    "The summer Milky Way is highly structured. M33 easily visible.",
+                    _("The zodiacal light is distinctly yellowish and bright enough to cast shadows at dusk and dawn."),
+                    _("Clouds appear as dark silhouettes against the sky."),
+                    _("The summer Milky Way is highly structured. M33 easily visible."),
                 ],
             },
             {
                 "bortle_class": 3,
-                "title": "Rural Sky",
+                "title": _("Rural Sky"),
                 "nelm_range": (6.6, 7.0),
                 "mag_arcsec_range": (21.30, 21.60),
                 "description": [
-                    "The zodiacal light is striking in spring and autumn, color still visible.",
-                    "Some light pollution at horizon. Clouds illuminated near horizon, dark overhead.",
-                    "The summer Milky Way still appears complex.",
-                    "Several Messier objects remain naked-eye visible.",
+                    _("The zodiacal light is striking in spring and autumn, color still visible."),
+                    _("Some light pollution at horizon. Clouds illuminated near horizon, dark overhead."),
+                    _("The summer Milky Way still appears complex."),
+                    _("Several Messier objects remain naked-eye visible."),
                 ],
             },
             {
                 "bortle_class": 4,
-                "title": "Brighter Rural",
+                "title": _("Brighter Rural"),
                 "nelm_range": (6.3, 6.5),
                 "mag_arcsec_range": (20.80, 21.30),
                 "description": [
-                    "Zodiacal light still visible but doesn't extend halfway to zenith.",
-                    "Light pollution domes apparent in multiple directions.",
-                    "The Milky Way well above the horizon is still impressive, but lacks detail.",
-                    "M33 difficult to see.",
+                    _("Zodiacal light still visible but doesn't extend halfway to zenith."),
+                    _("Light pollution domes apparent in multiple directions."),
+                    _("The Milky Way well above the horizon is still impressive, but lacks detail."),
+                    _("M33 difficult to see."),
                 ],
             },
             {
                 "bortle_class": 4.5,
-                "title": "Semi-Suburban/Transition Sky",
+                "title": _("Semi-Suburban/Transition Sky"),
                 "nelm_range": (6.1, 6.3),
                 "mag_arcsec_range": (20.30, 20.80),
                 "description": [
-                    "Clouds have a grayish glow at zenith and appear bright toward city domes.",
-                    "Milky Way only vaguely visible 10-15° above horizon.",
-                    "Great Rift observable overhead.",
+                    _("Clouds have a grayish glow at zenith and appear bright toward city domes."),
+                    _("Milky Way only vaguely visible 10-15° above horizon."),
+                    _("Great Rift observable overhead."),
                 ],
             },
             {
                 "bortle_class": 5,
-                "title": "Suburban Sky",
+                "title": _("Suburban Sky"),
                 "nelm_range": (5.6, 6.0),
                 "mag_arcsec_range": (19.25, 20.30),
                 "description": [
-                    "Only hints of zodiacal light seen on best nights in autumn and spring.",
-                    "Light pollution visible in most, if not all, directions.",
-                    "Clouds noticeably brighter than the sky.",
-                    "Milky Way invisible near horizon, looks washed out overhead.",
+                    _("Only hints of zodiacal light seen on best nights in autumn and spring."),
+                    _("Light pollution visible in most, if not all, directions."),
+                    _("Clouds noticeably brighter than the sky."),
+                    _("Milky Way invisible near horizon, looks washed out overhead."),
                 ],
             },
             {
                 "bortle_class": 6,
-                "title": "Bright Suburban Sky",
+                "title": _("Bright Suburban Sky"),
                 "nelm_range": (5.1, 5.5),
                 "mag_arcsec_range": (18.50, 19.25),
                 "description": [
-                    "The zodiacal light is invisible.",
-                    "Light pollution makes sky within 35° of horizon glow grayish white.",
-                    "The Milky Way is only visible near the zenith. M33 undetectable.",
-                    "M31 modestly apparent. Surroundings easily visible.",
+                    _("The zodiacal light is invisible."),
+                    _("Light pollution makes sky within 35° of horizon glow grayish white."),
+                    _("The Milky Way is only visible near the zenith. M33 undetectable."),
+                    _("M31 modestly apparent. Surroundings easily visible."),
                 ],
             },
             {
                 "bortle_class": 7,
-                "title": "Suburban/Urban Transition",
+                "title": _("Suburban/Urban Transition"),
                 "nelm_range": (4.6, 5.0),
                 "mag_arcsec_range": (18.00, 18.50),
                 "description": [
-                    "Light pollution makes the entire sky light gray.",
-                    "Strong light sources evident in all directions.",
-                    "The Milky Way is nearly or totally invisible.",
-                    "M31 and M44 may be glimpsed, but with no detail.",
+                    _("Light pollution makes the entire sky light gray."),
+                    _("Strong light sources evident in all directions."),
+                    _("The Milky Way is nearly or totally invisible."),
+                    _("M31 and M44 may be glimpsed, but with no detail."),
                 ],
             },
             {
                 "bortle_class": 8,
-                "title": "City Sky",
+                "title": _("City Sky"),
                 "nelm_range": (4.1, 4.5),
                 "mag_arcsec_range": (17.00, 18.00),
                 "description": [
-                    "The sky is light gray or orange—one can easily read.",
-                    "Stars forming recognizable patterns may vanish entirely.",
-                    "Only bright Messier objects can be detected with telescopes.",
+                    _("The sky is light gray or orange—one can easily read."),
+                    _("Stars forming recognizable patterns may vanish entirely."),
+                    _("Only bright Messier objects can be detected with telescopes."),
                 ],
             },
             {
                 "bortle_class": 9,
-                "title": "Inner-City Sky",
+                "title": _("Inner-City Sky"),
                 "nelm_range": (0.0, 4.0),
                 "mag_arcsec_range": (0.00, 17.00),
                 "description": [
-                    "The sky is brilliantly lit.",
-                    "Many stars forming constellations invisible.",
-                    "Only the Moon, planets, bright satellites, and a few of the brightest star clusters observable.",
+                    _("The sky is brilliantly lit."),
+                    _("Many stars forming constellations invisible."),
+                    _("Only the Moon, planets, bright satellites, and a few of the brightest star clusters observable."),
                 ],
             },
         ]
