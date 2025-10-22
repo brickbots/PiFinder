@@ -99,22 +99,40 @@ class SQM:
                 local_backgrounds: Local background per pixel for each star (ADU/pixel)
         """
         height, width = image.shape
-        y, x = np.ogrid[:height, :width]
         star_fluxes = []
         local_backgrounds = []
 
+        # Pre-compute squared radii
+        aperture_r2 = aperture_radius**2
+        annulus_inner_r2 = annulus_inner_radius**2
+        annulus_outer_r2 = annulus_outer_radius**2
+
         for cy, cx in centroids:  # centroids are in (y, x) format after swap
+            # Use bounding box instead of full-frame masks for huge speedup
+            # Box needs to contain outer annulus radius
+            box_size = annulus_outer_radius + 1
+            y_min = max(0, int(cy) - box_size)
+            y_max = min(height, int(cy) + box_size + 1)
+            x_min = max(0, int(cx) - box_size)
+            x_max = min(width, int(cx) + box_size + 1)
+
+            # Extract image patch
+            image_patch = image[y_min:y_max, x_min:x_max]
+
+            # Create coordinate grids relative to star center (only for patch)
+            y_grid, x_grid = np.ogrid[y_min:y_max, x_min:x_max]
+            dist_squared = (x_grid - cx) ** 2 + (y_grid - cy) ** 2
+
             # Create aperture mask for star flux
-            aperture_mask = (x - cx) ** 2 + (y - cy) ** 2 <= aperture_radius**2
+            aperture_mask = dist_squared <= aperture_r2
 
             # Create annulus mask for local background
-            dist_squared = (x - cx) ** 2 + (y - cy) ** 2
-            annulus_mask = (dist_squared > annulus_inner_radius**2) & (
-                dist_squared <= annulus_outer_radius**2
+            annulus_mask = (dist_squared > annulus_inner_r2) & (
+                dist_squared <= annulus_outer_r2
             )
 
             # Measure local background from annulus (median for robustness)
-            annulus_pixels = image[annulus_mask]
+            annulus_pixels = image_patch[annulus_mask]
             if len(annulus_pixels) > 0:
                 local_bg_per_pixel = float(np.median(annulus_pixels))
             else:
@@ -125,7 +143,7 @@ class SQM:
                 )
 
             # Total flux in aperture (includes background)
-            total_flux = np.sum(image[aperture_mask])
+            total_flux = np.sum(image_patch[aperture_mask])
 
             # Subtract background contribution
             aperture_area_pixels = np.sum(aperture_mask)
