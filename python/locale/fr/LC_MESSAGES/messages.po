@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-10-22 17:30+0200\n"
+"POT-Creation-Date: 2025-10-22 20:16+0200\n"
 "PO-Revision-Date: 2025-01-12 18:13+0100\n"
 "Last-Translator: xxxxxx <xxxxx@xxxxx.com>\n"
 "Language: fr_FR\n"
@@ -1267,237 +1267,261 @@ msgstr "Mise à jour maintenant"
 
 #: PiFinder/ui/sqm.py:22
 msgid "SQM"
-msgstr ""
+msgstr "SQM"
 
 #: PiFinder/ui/sqm.py:47
-#, fuzzy
 msgid "NO SQM DATA"
-msgstr "Pas de mise à jour"
+msgstr "AUCUNE DONNÉE SQM"
 
 #: PiFinder/ui/sqm.py:67
 msgid "mag/arcsec²"
-msgstr ""
+msgstr "mag/arcsec²"
 
 #: PiFinder/ui/sqm.py:84 PiFinder/ui/sqm.py:131
 msgid "Bortle {bc}"
-msgstr ""
+msgstr "Bortle {bc}"
 
 #: PiFinder/ui/sqm.py:93
-#, fuzzy
 msgid "BACK"
-msgstr "Basique"
+msgstr "RETOUR"
 
 #: PiFinder/ui/sqm.py:94
-#, fuzzy
 msgid "SCROLL"
-msgstr "Vitesse défilement"
+msgstr "DÉFILER"
 
 #: PiFinder/ui/sqm.py:107
 msgid "{s}s ago"
-msgstr ""
+msgstr "il y a {s}s"
 
 #: PiFinder/ui/sqm.py:109
 msgid "{m}m ago"
-msgstr ""
+msgstr "il y a {m}m"
 
 #: PiFinder/ui/sqm.py:137
 msgid "DETAILS"
-msgstr ""
+msgstr "DÉTAILS"
 
 #: PiFinder/ui/sqm.py:184
 msgid "Excellent Dark-Sky Site"
-msgstr ""
+msgstr "Site au Ciel Noir Excellent"
 
 #: PiFinder/ui/sqm.py:188
 msgid "The zodiacal light is visible and colorful. Gegenschein readily visible."
-msgstr ""
+msgstr "La lumière zodiacale est visible et colorée. Gegenschein bien visible."
 
 #: PiFinder/ui/sqm.py:189
 msgid ""
 "The Scorpius and Sagittarius regions of the Milky Way cast obvious "
 "shadows."
 msgstr ""
+"Les régions du Scorpion et du Sagittaire de la Voie Lactée projettent des"
+" ombres visibles."
 
 #: PiFinder/ui/sqm.py:190
 msgid "M33 is a direct naked-eye object. Airglow readily visible."
-msgstr ""
+msgstr "M33 est visible à l'œil nu. Airglow bien visible."
 
 #: PiFinder/ui/sqm.py:191
 msgid "Abundant stars make faint constellations hard to distinguish."
 msgstr ""
+"L'abondance d'étoiles rend les constellations faibles difficiles à "
+"distinguer."
 
 #: PiFinder/ui/sqm.py:196
 msgid "Typical Truly Dark Site"
-msgstr ""
+msgstr "Site Véritablement Noir Typique"
 
 #: PiFinder/ui/sqm.py:200
 msgid ""
 "The zodiacal light is distinctly yellowish and bright enough to cast "
 "shadows at dusk and dawn."
 msgstr ""
+"La lumière zodiacale est distinctement jaunâtre et assez brillante pour "
+"projeter des ombres au crépuscule et à l'aube."
 
 #: PiFinder/ui/sqm.py:201
 msgid "Clouds appear as dark silhouettes against the sky."
-msgstr ""
+msgstr "Les nuages apparaissent comme des silhouettes sombres sur le ciel."
 
 #: PiFinder/ui/sqm.py:202
 msgid "The summer Milky Way is highly structured. M33 easily visible."
-msgstr ""
+msgstr "La Voie Lactée d'été est très structurée. M33 facilement visible."
 
 #: PiFinder/ui/sqm.py:207
 msgid "Rural Sky"
-msgstr ""
+msgstr "Ciel Rural"
 
 #: PiFinder/ui/sqm.py:211
 msgid "The zodiacal light is striking in spring and autumn, color still visible."
 msgstr ""
+"La lumière zodiacale est frappante au printemps et en automne, la couleur"
+" encore visible."
 
 #: PiFinder/ui/sqm.py:212
 msgid ""
 "Some light pollution at horizon. Clouds illuminated near horizon, dark "
 "overhead."
 msgstr ""
+"Pollution lumineuse à l'horizon. Nuages éclairés près de l'horizon, "
+"sombres au zénith."
 
 #: PiFinder/ui/sqm.py:213
 msgid "The summer Milky Way still appears complex."
-msgstr ""
+msgstr "La Voie Lactée d'été apparaît encore complexe."
 
 #: PiFinder/ui/sqm.py:214
 msgid "Several Messier objects remain naked-eye visible."
-msgstr ""
+msgstr "Plusieurs objets Messier restent visibles à l'œil nu."
 
 #: PiFinder/ui/sqm.py:219
-#, fuzzy
 msgid "Brighter Rural"
-msgstr "Brillantes"
+msgstr "Rural Plus Lumineux"
 
 #: PiFinder/ui/sqm.py:223
 msgid "Zodiacal light still visible but doesn't extend halfway to zenith."
 msgstr ""
+"La lumière zodiacale encore visible mais ne s'étend pas jusqu'à mi-chemin"
+" du zénith."
 
 #: PiFinder/ui/sqm.py:224
 msgid "Light pollution domes apparent in multiple directions."
-msgstr ""
+msgstr "Dômes de pollution lumineuse apparents dans plusieurs directions."
 
 #: PiFinder/ui/sqm.py:225
 msgid ""
 "The Milky Way well above the horizon is still impressive, but lacks "
 "detail."
 msgstr ""
+"La Voie Lactée bien au-dessus de l'horizon est encore impressionnante, "
+"mais manque de détails."
 
 #: PiFinder/ui/sqm.py:226
 msgid "M33 difficult to see."
-msgstr ""
+msgstr "M33 difficile à voir."
 
 #: PiFinder/ui/sqm.py:231
 msgid "Semi-Suburban/Transition Sky"
-msgstr ""
+msgstr "Ciel Semi-Suburbain/Transition"
 
 #: PiFinder/ui/sqm.py:235
 msgid "Clouds have a grayish glow at zenith and appear bright toward city domes."
 msgstr ""
+"Les nuages ont une lueur grisâtre au zénith et apparaissent lumineux vers"
+" les dômes urbains."
 
 #: PiFinder/ui/sqm.py:236
 msgid "Milky Way only vaguely visible 10-15° above horizon."
 msgstr ""
+"La Voie Lactée vaguement visible seulement à 10-15° au-dessus de "
+"l'horizon."
 
 #: PiFinder/ui/sqm.py:237
 msgid "Great Rift observable overhead."
-msgstr ""
+msgstr "La Grande Faille observable au zénith."
 
 #: PiFinder/ui/sqm.py:242
 msgid "Suburban Sky"
-msgstr ""
+msgstr "Ciel Suburbain"
 
 #: PiFinder/ui/sqm.py:246
 msgid "Only hints of zodiacal light seen on best nights in autumn and spring."
 msgstr ""
+"Seulement des traces de lumière zodiacale visibles les meilleures nuits "
+"en automne et au printemps."
 
 #: PiFinder/ui/sqm.py:247
 msgid "Light pollution visible in most, if not all, directions."
-msgstr ""
+msgstr "Pollution lumineuse visible dans la plupart, sinon toutes les directions."
 
 #: PiFinder/ui/sqm.py:248
 msgid "Clouds noticeably brighter than the sky."
-msgstr ""
+msgstr "Les nuages visiblement plus lumineux que le ciel."
 
 #: PiFinder/ui/sqm.py:249
 msgid "Milky Way invisible near horizon, looks washed out overhead."
-msgstr ""
+msgstr "La Voie Lactée invisible près de l'horizon, semble délavée au zénith."
 
 #: PiFinder/ui/sqm.py:254
 msgid "Bright Suburban Sky"
-msgstr ""
+msgstr "Ciel Suburbain Lumineux"
 
 #: PiFinder/ui/sqm.py:258
 msgid "The zodiacal light is invisible."
-msgstr ""
+msgstr "La lumière zodiacale est invisible."
 
 #: PiFinder/ui/sqm.py:259
 msgid "Light pollution makes sky within 35° of horizon glow grayish white."
 msgstr ""
+"La pollution lumineuse fait briller le ciel jusqu'à 35° de l'horizon d'un"
+" blanc grisâtre."
 
 #: PiFinder/ui/sqm.py:260
 msgid "The Milky Way is only visible near the zenith. M33 undetectable."
-msgstr ""
+msgstr "La Voie Lactée est visible seulement près du zénith. M33 indétectable."
 
 #: PiFinder/ui/sqm.py:261
 msgid "M31 modestly apparent. Surroundings easily visible."
-msgstr ""
+msgstr "M31 modestement visible. L'environnement facilement visible."
 
 #: PiFinder/ui/sqm.py:266
 msgid "Suburban/Urban Transition"
-msgstr ""
+msgstr "Transition Suburbain/Urbain"
 
 #: PiFinder/ui/sqm.py:270
 msgid "Light pollution makes the entire sky light gray."
-msgstr ""
+msgstr "La pollution lumineuse rend tout le ciel gris clair."
 
 #: PiFinder/ui/sqm.py:271
 msgid "Strong light sources evident in all directions."
-msgstr ""
+msgstr "Sources lumineuses fortes évidentes dans toutes les directions."
 
 #: PiFinder/ui/sqm.py:272
 msgid "The Milky Way is nearly or totally invisible."
-msgstr ""
+msgstr "La Voie Lactée est presque ou totalement invisible."
 
 #: PiFinder/ui/sqm.py:273
 msgid "M31 and M44 may be glimpsed, but with no detail."
-msgstr ""
+msgstr "M31 et M44 peuvent être aperçus, mais sans détail."
 
 #: PiFinder/ui/sqm.py:278
 msgid "City Sky"
-msgstr ""
+msgstr "Ciel Urbain"
 
 #: PiFinder/ui/sqm.py:282
 msgid "The sky is light gray or orange—one can easily read."
-msgstr ""
+msgstr "Le ciel est gris clair ou orange—on peut facilement lire."
 
 #: PiFinder/ui/sqm.py:283
 msgid "Stars forming recognizable patterns may vanish entirely."
 msgstr ""
+"Les étoiles formant des motifs reconnaissables peuvent disparaître "
+"complètement."
 
 #: PiFinder/ui/sqm.py:284
 msgid "Only bright Messier objects can be detected with telescopes."
 msgstr ""
+"Seuls les objets Messier brillants peuvent être détectés avec des "
+"télescopes."
 
 #: PiFinder/ui/sqm.py:289
 msgid "Inner-City Sky"
-msgstr ""
+msgstr "Ciel du Centre-Ville"
 
 #: PiFinder/ui/sqm.py:293
 msgid "The sky is brilliantly lit."
-msgstr ""
+msgstr "Le ciel est brillamment éclairé."
 
 #: PiFinder/ui/sqm.py:294
 msgid "Many stars forming constellations invisible."
-msgstr ""
+msgstr "Nombreuses étoiles formant les constellations sont invisibles."
 
 #: PiFinder/ui/sqm.py:295
 msgid ""
 "Only the Moon, planets, bright satellites, and a few of the brightest "
 "star clusters observable."
 msgstr ""
+"Seuls la Lune, les planètes, les satellites brillants et quelques-uns des"
+" amas d'étoiles les plus brillants sont observables."
 
 #: PiFinder/ui/text_menu.py:60
 #, fuzzy
