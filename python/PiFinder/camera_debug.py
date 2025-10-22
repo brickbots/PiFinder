@@ -16,7 +16,6 @@ from PiFinder.camera_interface import CameraInterface
 from typing import Tuple
 import time
 import logging
-import numpy as np
 from itertools import cycle
 
 from PiFinder.multiproclogging import MultiprocLogging
@@ -78,10 +77,8 @@ class CameraDebug(CameraInterface):
         return self.last_image
 
     def capture_bias(self) -> Image.Image:
-        """Return synthetic bias frame with low pedestal for debug test images."""
-        # Use 5 ADU pedestal (debug images have low backgrounds, need minimal bias)
-        bias_array = np.full((512, 512), 5, dtype=np.uint8)
-        return Image.fromarray(bias_array, mode="L")
+        """Return black frame (bias capture not active)."""
+        return Image.new("L", (512, 512), 0)
 
     def capture_file(self, filename) -> None:
         logger.warn("capture_file not implemented in Camera Debug")
@@ -96,9 +93,7 @@ class CameraDebug(CameraInterface):
         return self.camType
 
 
-def get_images(
-    shared_state, camera_image, bias_image, command_queue, console_queue, log_queue
-):
+def get_images(shared_state, camera_image, command_queue, console_queue, log_queue):
     """
     Instantiates the camera hardware
     then calls the universal image loop
@@ -108,5 +103,5 @@ def get_images(
     exposure_time = cfg.get_option("camera_exp")
     camera_hardware = CameraDebug(exposure_time)
     camera_hardware.get_image_loop(
-        shared_state, camera_image, bias_image, command_queue, console_queue, cfg
+        shared_state, camera_image, command_queue, console_queue, cfg
     )

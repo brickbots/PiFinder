@@ -19,9 +19,6 @@ import logging
 
 logger = logging.getLogger("Camera.Interface")
 
-# Bias frame recapture interval - capture new bias every N frames
-BIAS_RECAPTURE_INTERVAL = 100
-
 
 class CameraInterface:
     """The CameraInterface interface."""
@@ -60,17 +57,13 @@ class CameraInterface:
         pass
 
     def get_image_loop(
-        self, shared_state, camera_image, bias_image, command_queue, console_queue, cfg
+        self, shared_state, camera_image, command_queue, console_queue, cfg
     ):
         try:
             debug = False
 
             screen_direction = cfg.get_option("screen_direction")
             camera_rotation = cfg.get_option("camera_rotation")
-
-            # Bias frame periodic recapture
-            bias_frame_counter = 0
-            cached_bias_image = None
 
             # Set path for test mode image
             root_dir = os.path.realpath(
@@ -97,22 +90,10 @@ class CameraInterface:
 
                 imu_start = shared_state.imu()
                 image_start_time = time.time()
-                local_bias_image = None  # Initialize for this iteration
                 if self._camera_started:
                     if not debug:
                         base_image = self.capture()
                         base_image = base_image.convert("L")
-
-                        # Capture bias frame periodically (every BIAS_RECAPTURE_INTERVAL frames)
-                        if bias_frame_counter % BIAS_RECAPTURE_INTERVAL == 0:
-                            local_bias_image = self.capture_bias()
-                            if local_bias_image:
-                                cached_bias_image = local_bias_image.convert("L")
-                                logger.debug(
-                                    f"Captured new bias frame (frame {bias_frame_counter})"
-                                )
-                        local_bias_image = cached_bias_image
-                        bias_frame_counter += 1
 
                         rotate_amount = 0
                         if camera_rotation is None:
@@ -151,8 +132,6 @@ class CameraInterface:
                         )
 
                     camera_image.paste(base_image)
-                    if local_bias_image:
-                        bias_image.paste(local_bias_image)
                     shared_state.set_last_image_metadata(
                         {
                             "exposure_start": image_start_time,

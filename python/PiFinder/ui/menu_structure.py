@@ -1041,7 +1041,8 @@ pifinder_menu = {
             "items": [
                 {"name": _("Status"), "class": UIStatus},
                 {"name": _("Equipment"), "class": UIEquipment, "label": "equipment"},
-                {"name": _("Place & Time"),
+                {
+                    "name": _("Place & Time"),
                     "class": UITextMenu,
                     "select": "single",
                     "items": [

@@ -1,6 +1,5 @@
 import pytest
 import numpy as np
-from PIL import Image
 
 from PiFinder.sqm import SQM
 
@@ -131,43 +130,6 @@ class TestSQMCalculation:
 
         # Second element should be dict
         assert isinstance(result[1], dict)
-
-    def test_calculate_with_bias_image(self):
-        """Test that bias_image is used for pedestal calculation"""
-        sqm = SQM()
-
-        solution = {
-            "FOV": 10.0,
-            "matched_centroids": np.array([[100, 100], [200, 200], [300, 300]]),
-            "matched_stars": [
-                [45.0, 30.0, 5.0],
-                [45.1, 30.1, 6.0],
-                [45.2, 30.2, 7.0],
-            ],
-        }
-
-        centroids = [[100, 100], [200, 200], [300, 300]]
-        image = np.random.randint(800, 1200, (512, 512), dtype=np.uint16)
-
-        # Create bias image with known pedestal value
-        bias_image_pil = Image.new("L", (512, 512), 50)
-        bias_image = np.array(bias_image_pil)
-
-        for x, y in centroids:
-            image[y - 2 : y + 3, x - 2 : x + 3] += 5000
-
-        _, details = sqm.calculate(
-            centroids=centroids,
-            solution=solution,
-            image=image,
-            bias_image=bias_image,
-            altitude_deg=90.0,
-        )
-
-        # Check that pedestal was calculated from bias image
-        assert "pedestal" in details
-        assert details["pedestal"] == pytest.approx(50.0, abs=1.0)
-        assert details["pedestal_source"] == "bias_image"
 
     def test_calculate_extinction_applied(self):
         """Test that extinction correction is applied to final SQM value"""

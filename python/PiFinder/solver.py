@@ -37,7 +37,6 @@ def solver(
     shared_state,
     solver_queue,
     camera_image,
-    bias_image,
     console_queue,
     log_queue,
     align_command_queue,
@@ -142,16 +141,6 @@ def solver(
                     img = img.convert(mode="L")
                     np_image = np.asarray(img, dtype=np.uint8)
 
-                    # Convert bias image to numpy array for SQM calculation
-                    np_bias_image = None
-                    try:
-                        bias_img = bias_image.copy()
-                        bias_img = bias_img.convert(mode="L")
-                        np_bias_image = np.asarray(bias_img, dtype=np.uint8)
-                    except Exception as e:
-                        logger.debug(f"Could not convert bias image: {e}")
-                        np_bias_image = None
-
                     t0 = precision_timestamp()
                     if cedar_detect is None:
                         # Use old tetr3 centroider
@@ -194,16 +183,17 @@ def solver(
                             # Calculate SQM periodically (every SQM_CALCULATION_INTERVAL solves)
                             if sqm_solve_counter % SQM_CALCULATION_INTERVAL == 0:
                                 try:
+                                    t_sqm_start = precision_timestamp()
                                     sqm_value, sqm_details = sqm.calculate(
                                         centroids=centroids,
                                         solution=solution,
                                         image=np_image,
-                                        bias_image=np_bias_image,
                                         altitude_deg=solved.get("Alt") or 90.0,
                                         aperture_radius=5,
                                         annulus_inner_radius=6,
                                         annulus_outer_radius=14,
                                     )
+                                    t_sqm = (precision_timestamp() - t_sqm_start) * 1000
                                     if sqm_value is not None:
                                         last_sqm_result = (
                                             sqm_value,
@@ -211,7 +201,7 @@ def solver(
                                             time.time(),
                                         )
                                         logger.info(
-                                            f"SQM: {sqm_value:.2f} mag/arcsec² (solve #{sqm_solve_counter})"
+                                            f"SQM: {sqm_value:.2f} mag/arcsec² in {t_sqm:.2f}ms (solve #{sqm_solve_counter})"
                                         )
                                 except Exception as e:
                                     logger.error(
