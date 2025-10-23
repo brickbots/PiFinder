@@ -20,17 +20,17 @@ import threading
 
 from PiFinder import state_utils
 from PiFinder import utils
-from PiFinder.sqm import SQM
+from PiFinder.sqm import SQM as SQMCalculator, update_sqm_if_needed
 
 sys.path.append(str(utils.tetra3_dir))
 import tetra3
 from tetra3 import cedar_detect_client
 
 logger = logging.getLogger("Solver")
-sqm = SQM()
+sqm_calculator = SQMCalculator()
 
-# SQM calculation interval - calculate SQM every N successful solves
-SQM_CALCULATION_INTERVAL = 5
+# SQM calculation interval - calculate SQM every N seconds
+SQM_CALCULATION_INTERVAL_SECONDS = 5.0
 
 
 def solver(
@@ -79,8 +79,6 @@ def solver(
 
     centroids = []
     log_no_stars_found = True
-    sqm_solve_counter = 0
-    last_sqm_result = None  # Cache last SQM result to reuse between calculations
 
     while True:
         logger.info("Starting Solver Loop")
@@ -180,34 +178,16 @@ def solver(
                         )
 
                         if "matched_centroids" in solution:
-                            # Calculate SQM periodically (every SQM_CALCULATION_INTERVAL solves)
-                            if sqm_solve_counter % SQM_CALCULATION_INTERVAL == 0:
-                                try:
-                                    sqm_value, sqm_details = sqm.calculate(
-                                        centroids=centroids,
-                                        solution=solution,
-                                        image=np_image,
-                                        altitude_deg=solved.get("Alt") or 90.0,
-                                        aperture_radius=5,
-                                        annulus_inner_radius=6,
-                                        annulus_outer_radius=14,
-                                    )
-                                    if sqm_value is not None:
-                                        last_sqm_result = (
-                                            sqm_value,
-                                            sqm_details,
-                                            time.time(),
-                                        )
-                                        logger.debug(
-                                            f"SQM: {sqm_value:.2f} mag/arcsec²"
-                                        )
-                                except Exception as e:
-                                    logger.error(
-                                        f"SQM calculation failed: {e}", exc_info=True
-                                    )
-
-                            solved["SQM"] = last_sqm_result
-                            sqm_solve_counter += 1
+                            # Update SQM if enough time has passed since last calculation
+                            update_sqm_if_needed(
+                                shared_state=shared_state,
+                                sqm_calculator=sqm_calculator,
+                                centroids=centroids,
+                                solution=solution,
+                                image=np_image,
+                                altitude_deg=solved.get("Alt") or 90.0,
+                                calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
+                            )
 
                             # Don't clutter printed solution with these fields.
                             del solution["matched_catID"]

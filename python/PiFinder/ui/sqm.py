@@ -36,12 +36,10 @@ class UISQM(UIModule):
         sleep_for_framerate(self.shared_state)
         self.clear_screen()
 
-        if (
-            self.shared_state.solve_state is None
-            or self.shared_state.solution() is None
-            or "SQM" not in self.shared_state.solution()
-            or self.shared_state.solution()["SQM"] is None
-        ):
+        # Get SQM from shared state
+        sqm_state = self.shared_state.sqm()
+
+        if sqm_state.last_update is None:
             self.draw.text(
                 (10, 30),
                 _("NO SQM DATA"),
@@ -49,9 +47,15 @@ class UISQM(UIModule):
                 fill=self.colors.get(128),
             )
         else:
-            sqm_data = self.shared_state.solution()["SQM"]
-            sqm = sqm_data[0]
-            sqm_timestamp = sqm_data[2] if len(sqm_data) > 2 else None
+            sqm = sqm_state.value
+            # Parse timestamp from ISO format to unix timestamp
+            try:
+                from datetime import datetime
+
+                sqm_timestamp = datetime.fromisoformat(sqm_state.last_update).timestamp()
+            except (ValueError, AttributeError):
+                sqm_timestamp = None
+
             details = self.get_sky_details(sqm)
 
             # If no details found, show SQM value only
@@ -60,13 +64,13 @@ class UISQM(UIModule):
                     (10, 30),
                     f"{sqm:.2f}",
                     font=self.fonts.huge.font,
-                    fill=self.colors.get(128),
+                    fill=self.colors.get(192),
                 )
                 self.draw.text(
-                    (10, 80),
+                    (12, 68),
                     _("mag/arcsec²"),
                     font=self.fonts.base.font,
-                    fill=self.colors.get(128),
+                    fill=self.colors.get(64),
                 )
                 return self.screen_update()
 
@@ -118,16 +122,23 @@ class UISQM(UIModule):
                     (10, 30),
                     f"{sqm:.2f}",
                     font=self.fonts.huge.font,
-                    fill=self.colors.get(128),
+                    fill=self.colors.get(192),
+                )
+                # Units in small, subtle text
+                self.draw.text(
+                    (12, 68),
+                    _("mag/arcsec²"),
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(64),
                 )
                 self.draw.text(
-                    (10, 80),
+                    (10, 82),
                     f"{details['title']}",
                     font=self.fonts.base.font,
                     fill=self.colors.get(128),
                 )
                 self.draw.text(
-                    (10, 90),
+                    (10, 92),
                     _("Bortle {bc}").format(bc=details["bortle_class"]),
                     font=self.fonts.bold.font,
                     fill=self.colors.get(128),

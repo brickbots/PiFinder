@@ -1,6 +1,9 @@
 import numpy as np
 import logging
 from typing import Tuple, Dict, Optional
+from datetime import datetime
+import time
+from PiFinder.state import SQM as SQMState
 
 logger = logging.getLogger("Solver")
 
@@ -172,25 +175,82 @@ class SQM:
 
         Returns:
             Tuple of (mean_mzero, list_of_individual_mzeros)
+            Note: The mzeros list will contain None for stars with invalid flux
         """
-        mzeros = []
+        mzeros: list[Optional[float]] = []
 
         for flux, mag in zip(star_fluxes, star_mags):
             if flux <= 0:
                 logger.warning(
                     f"Skipping star with flux={flux:.1f} ADU (mag={mag:.2f})"
                 )
+                mzeros.append(None)  # Keep array aligned
                 continue
 
             # Calculate zero point: ZP = m + 2.5*log10(F)
             mzero = mag + 2.5 * np.log10(flux)
             mzeros.append(mzero)
 
-        if len(mzeros) == 0:
-            logger.error("No valid stars for mzero calculation")
-            return None, []
+        # Filter out None values for statistics calculation
+        valid_mzeros = [mz for mz in mzeros if mz is not None]
 
-        return float(np.mean(mzeros)), mzeros
+        if len(valid_mzeros) == 0:
+            logger.error("No valid stars for mzero calculation")
+            return None, mzeros
+
+        # Return mean and the full mzeros list (which may contain None values)
+        return float(np.mean(valid_mzeros)), mzeros
+
+    def _detect_aperture_overlaps(
+        self,
+        centroids: np.ndarray,
+        aperture_radius: int,
+        annulus_inner_radius: int,
+        annulus_outer_radius: int,
+    ) -> set:
+        """
+        Detect stars with overlapping apertures or annuli.
+
+        Returns set of indices for stars that should be excluded due to overlaps.
+        We exclude stars involved in CRITICAL or HIGH severity overlaps:
+        - CRITICAL: Aperture-aperture overlap (distance < 2*aperture_radius)
+        - HIGH: Aperture inside another star's annulus (distance < aperture_radius + annulus_outer_radius)
+
+        Args:
+            centroids: Star centroids array (N x 2)
+            aperture_radius: Aperture radius in pixels
+            annulus_inner_radius: Inner annulus radius in pixels
+            annulus_outer_radius: Outer annulus radius in pixels
+
+        Returns:
+            Set of star indices to exclude
+        """
+        excluded_stars = set()
+        n_stars = len(centroids)
+
+        # Check all pairs
+        for i in range(n_stars):
+            for j in range(i + 1, n_stars):
+                x1, y1 = centroids[i]
+                x2, y2 = centroids[j]
+                distance = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+                # CRITICAL: Aperture-aperture overlap (star flux contamination)
+                if distance < 2 * aperture_radius:
+                    excluded_stars.add(i)
+                    excluded_stars.add(j)
+                    logger.debug(
+                        f"CRITICAL overlap: stars {i} and {j} (d={distance:.1f}px < {2*aperture_radius}px)"
+                    )
+                # HIGH: Aperture inside another star's annulus (background contamination)
+                elif distance < aperture_radius + annulus_outer_radius:
+                    excluded_stars.add(i)
+                    excluded_stars.add(j)
+                    logger.debug(
+                        f"HIGH overlap: stars {i} and {j} (d={distance:.1f}px < {aperture_radius + annulus_outer_radius}px)"
+                    )
+
+        return excluded_stars
 
     def _atmospheric_extinction(self, altitude_deg: float) -> float:
         """
@@ -238,6 +298,7 @@ class SQM:
         annulus_inner_radius: int = 6,
         annulus_outer_radius: int = 14,
         pedestal: float = 0.0,
+        correct_overlaps: bool = False,
     ) -> Tuple[Optional[float], Dict]:
         """
         Calculate SQM (Sky Quality Meter) value using local background annuli.
@@ -253,6 +314,8 @@ class SQM:
             annulus_outer_radius: Outer radius of background annulus in pixels (default: 14)
             pedestal: Bias/pedestal level to subtract from background (default: 0)
                      If bias_image is provided and pedestal=0, pedestal is calculated from bias_image
+            correct_overlaps: If True, exclude stars with overlapping apertures/annuli (default: False)
+                            Excludes CRITICAL and HIGH overlaps to prevent contamination
 
         Returns:
             Tuple of (sqm_value, details_dict) where:
@@ -269,7 +332,8 @@ class SQM:
                 altitude_deg=45.0,
                 aperture_radius=5,
                 annulus_inner_radius=6,
-                annulus_outer_radius=14
+                annulus_outer_radius=14,
+                correct_overlaps=True  # Exclude overlapping stars
             )
 
             if sqm_value:
@@ -298,6 +362,38 @@ class SQM:
         # Don't swap - centroids are already in (row, col) = (y, x) format
         matched_centroids_arr = matched_centroids
         star_mags = [s[2] for s in matched_stars]
+
+        # 0a. Detect and filter overlapping stars if requested
+        n_stars_original = len(matched_centroids_arr)
+        n_stars_excluded = 0
+
+        if correct_overlaps:
+            excluded_indices = self._detect_aperture_overlaps(
+                matched_centroids_arr,
+                aperture_radius,
+                annulus_inner_radius,
+                annulus_outer_radius,
+            )
+
+            if excluded_indices:
+                n_stars_excluded = len(excluded_indices)
+                # Filter out overlapping stars
+                valid_indices = [
+                    i for i in range(len(matched_centroids_arr)) if i not in excluded_indices
+                ]
+                matched_centroids_arr = matched_centroids_arr[valid_indices]
+                star_mags = [star_mags[i] for i in valid_indices]
+
+                logger.info(
+                    f"Overlap correction: excluded {n_stars_excluded}/{n_stars_original} stars "
+                    f"({n_stars_excluded*100//n_stars_original}%), using {len(valid_indices)} stars"
+                )
+
+                if len(valid_indices) < 3:
+                    logger.warning(
+                        f"Too few stars remaining after overlap correction ({len(valid_indices)})"
+                    )
+                    return None, {}
 
         # 0. Calculate pedestal from bias image if provided
         if bias_image is not None and pedestal == 0.0:
@@ -352,11 +448,17 @@ class SQM:
         extinction_correction = self._atmospheric_extinction(altitude_deg)
         sqm_final = sqm_raw + extinction_correction
 
+        # Filter out None values for statistics in diagnostics
+        valid_mzeros_for_stats = [mz for mz in mzeros if mz is not None]
+
         # Assemble diagnostics
         details = {
             "fov_deg": fov_estimate,
             "n_centroids": len(centroids) if centroids else 0,
             "n_matched_stars": len(matched_stars),
+            "n_matched_stars_original": n_stars_original,
+            "overlap_correction_enabled": correct_overlaps,
+            "n_stars_excluded_overlaps": n_stars_excluded,
             "background_per_pixel": background_per_pixel,
             "background_method": "local_annulus",
             "pedestal": pedestal,
@@ -370,8 +472,11 @@ class SQM:
             "annulus_inner_radius": annulus_inner_radius,
             "annulus_outer_radius": annulus_outer_radius,
             "mzero": mzero,
-            "mzero_std": float(np.std(mzeros)),
-            "mzero_range": (float(np.min(mzeros)), float(np.max(mzeros))),
+            "mzero_std": float(np.std(valid_mzeros_for_stats)),
+            "mzero_range": (
+                float(np.min(valid_mzeros_for_stats)),
+                float(np.max(valid_mzeros_for_stats)),
+            ),
             "sqm_raw": sqm_raw,
             "altitude_deg": altitude_deg,
             "extinction_correction": extinction_correction,
@@ -385,9 +490,101 @@ class SQM:
         }
 
         logger.debug(
-            f"SQM: mzero={mzero:.2f}±{np.std(mzeros):.2f}, "
+            f"SQM: mzero={mzero:.2f}±{np.std(valid_mzeros_for_stats):.2f}, "
             f"bg={background_flux_density:.6f} ADU/arcsec², pedestal={pedestal:.2f}, "
             f"raw={sqm_raw:.2f}, extinction={extinction_correction:.2f}, final={sqm_final:.2f}"
         )
 
         return sqm_final, details
+
+
+def update_sqm_if_needed(
+    shared_state,
+    sqm_calculator: SQM,
+    centroids: list,
+    solution: dict,
+    image: np.ndarray,
+    altitude_deg: float,
+    calculation_interval_seconds: float = 5.0,
+    aperture_radius: int = 5,
+    annulus_inner_radius: int = 6,
+    annulus_outer_radius: int = 14,
+) -> bool:
+    """
+    Check if SQM needs updating and calculate/store new value if needed.
+
+    This function encapsulates all the logic for time-based SQM updates:
+    - Checks if enough time has passed since last update
+    - Calculates new SQM value if needed
+    - Updates shared state with new SQM object
+    - Handles all timestamp conversions and error cases
+
+    Args:
+        shared_state: SharedStateObj instance to read/write SQM state
+        sqm_calculator: SQM calculator instance
+        centroids: List of detected star centroids
+        solution: Tetra3 solve solution with matched stars
+        image: Raw image array
+        altitude_deg: Altitude in degrees for extinction correction
+        calculation_interval_seconds: Minimum time between calculations (default: 5.0)
+        aperture_radius: Aperture radius for photometry (default: 5)
+        annulus_inner_radius: Inner annulus radius (default: 6)
+        annulus_outer_radius: Outer annulus radius (default: 14)
+
+    Returns:
+        bool: True if SQM was calculated and updated, False otherwise
+    """
+    # Get current SQM state from shared state
+    current_sqm = shared_state.sqm()
+    current_time = time.time()
+
+    # Check if we should calculate SQM:
+    # - No previous calculation (last_update is None), OR
+    # - Enough time has passed since last update
+    should_calculate = current_sqm.last_update is None
+
+    if current_sqm.last_update is not None:
+        try:
+            last_update_time = datetime.fromisoformat(
+                current_sqm.last_update
+            ).timestamp()
+            should_calculate = (
+                current_time - last_update_time
+            ) >= calculation_interval_seconds
+        except (ValueError, AttributeError):
+            # If timestamp parsing fails, recalculate
+            logger.warning("Failed to parse SQM timestamp, recalculating")
+            should_calculate = True
+
+    if not should_calculate:
+        return False
+
+    # Calculate new SQM value
+    try:
+        sqm_value, sqm_details = sqm_calculator.calculate(
+            centroids=centroids,
+            solution=solution,
+            image=image,
+            altitude_deg=altitude_deg,
+            aperture_radius=aperture_radius,
+            annulus_inner_radius=annulus_inner_radius,
+            annulus_outer_radius=annulus_outer_radius,
+        )
+
+        if sqm_value is not None:
+            # Create new SQM state object
+            new_sqm_state = SQMState(
+                value=sqm_value,
+                source="Calculated",
+                last_update=datetime.now().isoformat(),
+            )
+            shared_state.set_sqm(new_sqm_state)
+            logger.debug(f"SQM: {sqm_value:.2f} mag/arcsec²")
+            return True
+        else:
+            logger.warning("SQM calculation returned None")
+            return False
+
+    except Exception as e:
+        logger.error(f"SQM calculation failed: {e}", exc_info=True)
+        return False

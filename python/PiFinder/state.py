@@ -141,6 +141,43 @@ SharedStateObj(
 
 
 @dataclass
+class SQM:
+    """
+    Sky Quality Meter - represents the sky brightness measurement.
+    """
+
+    value: float = 20.15  # mag/arcsec² - default typical dark sky value
+    source: str = "None"  # "None", "Calculated", "Manual", etc.
+    last_update: Optional[str] = None  # ISO timestamp of last update
+
+    def __str__(self):
+        return (
+            f"SQM(value={self.value:.2f} mag/arcsec², "
+            f"source={self.source}, "
+            f"last_update={self.last_update or 'Never'})"
+        )
+
+    def to_dict(self):
+        """Convert the SQM object to a dictionary."""
+        return asdict(self)
+
+    def to_json(self):
+        """Convert the SQM object to a JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data):
+        """Create an SQM object from a dictionary."""
+        return cls(**data)
+
+    @classmethod
+    def from_json(cls, json_str):
+        """Create an SQM object from a JSON string."""
+        data = json.loads(json_str)
+        return cls.from_dict(data)
+
+
+@dataclass
 class Location:
     """
     the location of the observer, lat/lon/altitude and the source of the data.
@@ -215,6 +252,7 @@ class SharedStateObj:
         self.__sats = None
         self.__imu = None
         self.__location: Location = Location()
+        self.__sqm: SQM = SQM()
         self.__datetime = None
         self.__datetime_time = None
         self.__screen = None
@@ -298,6 +336,18 @@ class SharedStateObj:
         if v:
             v.timezone = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon)
         self.__location = v
+
+    def sqm(self):
+        """Return the current SQM object"""
+        return self.__sqm
+
+    def set_sqm(self, sqm: SQM):
+        """Update the SQM value"""
+        self.__sqm = sqm
+
+    def get_sky_brightness(self):
+        """Return just the numeric SQM value for convenience"""
+        return self.__sqm.value
 
     def last_image_metadata(self):
         return self.__last_image_metadata
