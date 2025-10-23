@@ -495,7 +495,8 @@ class PiFinderIndiClient(PyIndi.BaseClient):
 
             if ra_hours is not None and dec_deg is not None:
                 ra_deg = ra_hours * 15.0  # Convert hours to degrees
-                self.mount_control._mount_current_position(ra_deg, dec_deg)
+                if self.mount_control is not None:
+                    self.mount_control._mount_current_position(ra_deg, dec_deg)
 
     def newText(self, tvp):
         """Handle new text property value updates."""
@@ -548,7 +549,8 @@ class PiFinderIndiClient(PyIndi.BaseClient):
                     clientlogger.debug(
                         f"Current position updated: RA={current_ra:.4f}°, Dec={current_dec:.4f}°"
                     )
-                    self.mount_control._mount_current_position(current_ra, current_dec)
+                    if self.mount_control is not None:
+                        self.mount_control._mount_current_position(current_ra, current_dec)
 
 
 class MountControlIndi(MountControlBase):
