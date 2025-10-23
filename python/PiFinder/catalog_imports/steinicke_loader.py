@@ -249,14 +249,16 @@ def _extract_and_process_data():
 
         # Import and use the actual extractor
         import importlib.util
+
         spec = importlib.util.spec_from_file_location(
-            "steinicke_extractor", 
-            steinicke_dir / "steinicke_extractor.py"
+            "steinicke_extractor", steinicke_dir / "steinicke_extractor.py"
         )
         steinicke_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(steinicke_module)
-        
-        num_objects = steinicke_module.process_xls_to_json(str(xls_file), str(output_json))
+
+        num_objects = steinicke_module.process_xls_to_json(
+            str(xls_file), str(output_json)
+        )
         logging.info(f"Extracted Excel data with {num_objects} rows to {output_json}")
 
         # Step 3: Process NGC2000 descriptions

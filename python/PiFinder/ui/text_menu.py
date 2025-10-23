@@ -179,6 +179,9 @@ class UITextMenu(UIModule):
         if selected_item_definition is not None and selected_item_definition.get(
             "class"
         ):
+            # Check for pre_callback before adding to stack
+            if selected_item_definition.get("pre_callback"):
+                selected_item_definition["pre_callback"](self)
             self.add_to_stack(selected_item_definition)
             return
 

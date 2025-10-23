@@ -149,6 +149,7 @@ case/my_printer
 *.db-shm
 *.db-wal
 .devenv/
+.claude/
 astro_data/comets.txt
 python/tetra3
 

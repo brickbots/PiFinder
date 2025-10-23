@@ -1011,6 +1011,31 @@ msgstr "Pas d'objets"
 msgid "match filter"
 msgstr "Filtre de rech."
 
+#. TRANSLATORS: Status shown when catalog data is being downloaded from internet
+#: PiFinder/ui/object_list.py:212
+msgid "Downloading..."
+msgstr "Téléchargement..."
+
+#. TRANSLATORS: Status shown when waiting for GPS position lock
+#: PiFinder/ui/object_list.py:214
+msgid "No GPS lock"
+msgstr "Pas de GPS"
+
+#. TRANSLATORS: Status shown when catalog is computing object positions
+#: PiFinder/ui/object_list.py:216
+msgid "Calculating..."
+msgstr "Calcul..."
+
+#. TRANSLATORS: Generic error status for catalogs
+#: PiFinder/ui/object_list.py:218
+msgid "Error"
+msgstr "Erreur"
+
+#. TRANSLATORS: Generic loading status for catalogs
+#: PiFinder/ui/object_list.py:220
+msgid "Loading..."
+msgstr "Chargement..."
+
 #: PiFinder/ui/object_list.py:431
 msgid "{catalog_info_1} obj"
 msgstr ""
