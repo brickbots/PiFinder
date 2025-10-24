@@ -97,11 +97,11 @@ class CameraPI(CameraInterface):
         raw_capture = _request.make_array("raw").copy().view(np.uint16)
         # tmp_image = _request.make_image("main")
 
-        # Log actual camera metadata for exposure verification
+        # Log actual camera metadata for exposure verification (debug level only)
         metadata = _request.get_metadata()
         actual_exposure = metadata.get("ExposureTime", "unknown")
         actual_gain = metadata.get("AnalogueGain", "unknown")
-        logger.info(
+        logger.debug(
             f"Captured frame - Requested: {self.exposure_time}µs/{self.gain}x gain, "
             f"Actual: {actual_exposure}µs/{actual_gain:.2f}x gain"
         )

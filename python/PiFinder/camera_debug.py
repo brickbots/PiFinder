@@ -61,10 +61,6 @@ class CameraDebug(CameraInterface):
     def capture(self) -> Image.Image:
         sleep_time = self.exposure_time / 1000000
         time.sleep(sleep_time)
-        logger.info(
-            f"Captured debug frame - Exposure: {self.exposure_time}µs "
-            f"(slept {sleep_time:.3f}s), Gain: {self.gain}x"
-        )
         if time.time() - self.last_image_time > 5:
             self.last_image = next(self.image_cycle)
             self.last_image_time = time.time()

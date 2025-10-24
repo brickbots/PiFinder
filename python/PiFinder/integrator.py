@@ -161,6 +161,13 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 last_image_solve = copy.deepcopy(solved)
                 solved["solve_source"] = "CAM"
 
+                # Update shared state even if solve failed (RA is None) so UI can see attempt timestamps
+                if solved["RA"] is None:
+                    # Failed solve - set constellation to empty
+                    # UI expects constellation to always be present
+                    solved["constellation"] = ""
+                    shared_state.set_solution(solved)
+
             # Use IMU dead-reckoning from the last camera solve:
             # Check we have an alt/az solve, otherwise we can't use the IMU
             elif solved["Alt"]:

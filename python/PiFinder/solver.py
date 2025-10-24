@@ -43,7 +43,6 @@ def solver(
     t3 = tetra3.Tetra3(
         str(utils.cwd_dir / "PiFinder/tetra3/tetra3/data/default_database.npz")
     )
-    last_solve_time = 0
     align_ra = 0
     align_dec = 0
     solved = {
@@ -70,6 +69,8 @@ def solver(
         "imu_pos": None,
         "solve_time": None,
         "cam_solve_time": 0,
+        "last_solve_attempt": 0,  # Timestamp of last solve attempt - tracks exposure_end of last processed image
+        "last_solve_success": None,  # Timestamp of last successful solve
     }
 
     centroids = []
@@ -127,12 +128,16 @@ def solver(
                 except (BrokenPipeError, ConnectionResetError) as e:
                     logger.error(f"Lost connection to shared state manager: {e}")
                 if (
-                    last_image_metadata["exposure_end"] > (last_solve_time)
+                    last_image_metadata["exposure_end"] > solved["last_solve_attempt"]
                     and last_image_metadata["imu_delta"] < 1
                 ):
                     img = camera_image.copy()
                     img = img.convert(mode="L")
                     np_image = np.asarray(img, dtype=np.uint8)
+
+                    # Mark that we're attempting a solve - use image exposure_end timestamp
+                    # This is more accurate than wall clock and ties the attempt to the actual image
+                    solved["last_solve_attempt"] = last_image_metadata["exposure_end"]
 
                     t0 = precision_timestamp()
                     if cedar_detect is None:
@@ -152,7 +157,10 @@ def solver(
                         if log_no_stars_found:
                             logger.info("No stars found, skipping (Logged only once)")
                             log_no_stars_found = False
-                        continue
+                        # Clear solve results to mark solve as failed (otherwise old values persist)
+                        solved["RA"] = None
+                        solved["Dec"] = None
+                        solved["Matches"] = 0
                     else:
                         log_no_stars_found = True
                         _solver_args = {}
@@ -181,51 +189,56 @@ def solver(
                             del solution["epoch_proper_motion"]
                             del solution["cache_hit_fraction"]
 
-                    solved |= solution
+                        solved |= solution
 
-                    total_tetra_time = t_extract + solved["T_solve"]
-                    if total_tetra_time > 1000:
-                        console_queue.put(f"SLV: Long: {total_tetra_time}")
-                        logger.warning("Long solver time: %i", total_tetra_time)
+                        total_tetra_time = t_extract + solved["T_solve"]
+                        if total_tetra_time > 1000:
+                            console_queue.put(f"SLV: Long: {total_tetra_time}")
+                            logger.warning("Long solver time: %i", total_tetra_time)
 
-                    if solved["RA"] is not None:
-                        # RA, Dec, Roll at the center of the camera's FoV:
-                        solved["camera_center"]["RA"] = solved["RA"]
-                        solved["camera_center"]["Dec"] = solved["Dec"]
-                        solved["camera_center"]["Roll"] = solved["Roll"]
+                        if solved["RA"] is not None:
+                            # RA, Dec, Roll at the center of the camera's FoV:
+                            solved["camera_center"]["RA"] = solved["RA"]
+                            solved["camera_center"]["Dec"] = solved["Dec"]
+                            solved["camera_center"]["Roll"] = solved["Roll"]
 
-                        # RA, Dec, Roll at the center of the camera's not imu:
-                        solved["camera_solve"]["RA"] = solved["RA"]
-                        solved["camera_solve"]["Dec"] = solved["Dec"]
-                        solved["camera_solve"]["Roll"] = solved["Roll"]
-                        # RA, Dec, Roll at the target pixel:
-                        solved["RA"] = solved["RA_target"]
-                        solved["Dec"] = solved["Dec_target"]
-                        if last_image_metadata["imu"]:
-                            solved["imu_pos"] = last_image_metadata["imu"]["pos"]
-                            solved["imu_quat"] = last_image_metadata["imu"]["quat"]
+                            # RA, Dec, Roll at the center of the camera's not imu:
+                            solved["camera_solve"]["RA"] = solved["RA"]
+                            solved["camera_solve"]["Dec"] = solved["Dec"]
+                            solved["camera_solve"]["Roll"] = solved["Roll"]
+                            # RA, Dec, Roll at the target pixel:
+                            solved["RA"] = solved["RA_target"]
+                            solved["Dec"] = solved["Dec_target"]
+                            if last_image_metadata["imu"]:
+                                solved["imu_pos"] = last_image_metadata["imu"]["pos"]
+                                solved["imu_quat"] = last_image_metadata["imu"]["quat"]
+                            else:
+                                solved["imu_pos"] = None
+                                solved["imu_quat"] = None
+                            solved["solve_time"] = time.time()
+                            solved["cam_solve_time"] = solved["solve_time"]
+                            # Mark successful solve - use same timestamp as last_solve_attempt for comparison
+                            solved["last_solve_success"] = solved["last_solve_attempt"]
+
+                            # See if we are waiting for alignment
+                            if align_ra != 0 and align_dec != 0:
+                                if solved.get("x_target") is not None:
+                                    align_target_pixel = (
+                                        solved["y_target"],
+                                        solved["x_target"],
+                                    )
+                                    logger.debug(f"Align {align_target_pixel=}")
+                                    align_result_queue.put(["aligned", align_target_pixel])
+                                    align_ra = 0
+                                    align_dec = 0
+                                    solved["x_target"] = None
+                                    solved["y_target"] = None
                         else:
-                            solved["imu_pos"] = None
-                            solved["imu_quat"] = None
-                        solved["solve_time"] = time.time()
-                        solved["cam_solve_time"] = solved["solve_time"]
-                        solver_queue.put(solved)
+                            # Centroids found but solve failed - clear Matches
+                            solved["Matches"] = 0
 
-                        # See if we are waiting for alignment
-                        if align_ra != 0 and align_dec != 0:
-                            if solved.get("x_target") is not None:
-                                align_target_pixel = (
-                                    solved["y_target"],
-                                    solved["x_target"],
-                                )
-                                logger.debug(f"Align {align_target_pixel=}")
-                                align_result_queue.put(["aligned", align_target_pixel])
-                                align_ra = 0
-                                align_dec = 0
-                                solved["x_target"] = None
-                                solved["y_target"] = None
-
-                    last_solve_time = last_image_metadata["exposure_end"]
+                    # Always push to queue after every solve attempt (success or failure)
+                    solver_queue.put(solved)
         except EOFError as eof:
             logger.error(f"Main process no longer running for solver: {eof}")
             logger.exception(eof)  # This logs the full stack trace

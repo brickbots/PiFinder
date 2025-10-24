@@ -144,10 +144,6 @@ class CameraInterface:
                         "gain": self.gain,
                     }
                     shared_state.set_last_image_metadata(image_metadata)
-                    logger.debug(
-                        f"Frame captured - Exposure: {self.exposure_time}µs, Gain: {self.gain}x, "
-                        f"IMU delta: {reading_diff:.2f}"
-                    )
 
                     # Auto-exposure: adjust based on plate solve results
                     # Updates as fast as new solve results arrive (naturally rate-limited)
