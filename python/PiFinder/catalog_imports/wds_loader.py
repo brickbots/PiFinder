@@ -142,13 +142,13 @@ def load_wds():
         try:
             # Handle empty, missing, or '.' coordinates
             coord_clean = coord.strip()
-            if not coord_clean or coord_clean == '.':
+            if not coord_clean or coord_clean == ".":
                 return None, None
 
             # Find the sign position (+ or -)
             sign_pos = -1
             for i, char in enumerate(coord_clean):
-                if char in ['+', '-']:
+                if char in ["+", "-"]:
                     sign_pos = i
                     break
 
@@ -163,7 +163,7 @@ def load_wds():
 
             # Parse DEC part (after sign)
             dec_part = coord_clean[sign_pos:]
-            dec_sign = 1 if dec_part[0] == '+' else -1
+            dec_sign = 1 if dec_part[0] == "+" else -1
             dec_coords = dec_part[1:].strip()  # Remove sign
 
             dec_deg = float(dec_coords[:2]) * dec_sign
@@ -184,12 +184,25 @@ def load_wds():
             mag2 = round(value["Mag_Second"].item(), 2)
             if i == 0:
                 # Validate RA/DEC in the first (primary) object
-                if value['ra'] is None or value['dec'] is None or np.isnan(value['ra']) or np.isnan(value['dec']):
-                    logging.error(f"Empty or invalid RA/DEC in handle_multiples for WDS object '{key}'")
-                    logging.error(f"  Primary object RA: {value['ra']}, DEC: {value['dec']}")
+                if (
+                    value["ra"] is None
+                    or value["dec"] is None
+                    or np.isnan(value["ra"])
+                    or np.isnan(value["dec"])
+                ):
+                    logging.error(
+                        f"Empty or invalid RA/DEC in handle_multiples for WDS object '{key}'"
+                    )
+                    logging.error(
+                        f"  Primary object RA: {value['ra']}, DEC: {value['dec']}"
+                    )
                     logging.error(f"  Coordinates_2000: '{value['Coordinates_2000']}'")
-                    logging.error(f"  Coordinates_Arcsec: '{value['Coordinates_Arcsec']}'")
-                    raise ValueError(f"Invalid RA/DEC coordinates for primary WDS object '{key}': RA={value['ra']}, DEC={value['dec']}")
+                    logging.error(
+                        f"  Coordinates_Arcsec: '{value['Coordinates_Arcsec']}'"
+                    )
+                    raise ValueError(
+                        f"Invalid RA/DEC coordinates for primary WDS object '{key}': RA={value['ra']}, DEC={value['dec']}"
+                    )
                 result["ra"] = value["ra"]
                 result["dec"] = value["dec"]
                 result["mag"] = MagnitudeObject([mag1, mag2])
@@ -241,16 +254,27 @@ def load_wds():
             entry["dec"] = dec_2000
 
         # Validate RA/DEC values are not empty/invalid
-        if entry['ra'] is None or entry['dec'] is None or np.isnan(entry['ra']) or np.isnan(entry['dec']):
-            coord_2000 = entry['Coordinates_2000']
-            coord_arcsec = entry['Coordinates_Arcsec']
-            logging.error(f"Empty or invalid RA/DEC detected for WDS object at line {i+1}")
+        if (
+            entry["ra"] is None
+            or entry["dec"] is None
+            or np.isnan(entry["ra"])
+            or np.isnan(entry["dec"])
+        ):
+            coord_2000 = entry["Coordinates_2000"]
+            coord_arcsec = entry["Coordinates_Arcsec"]
+            logging.error(
+                f"Empty or invalid RA/DEC detected for WDS object at line {i+1}"
+            )
             logging.error(f"  Coordinates_2000: '{coord_2000}'")
             logging.error(f"  Coordinates_Arcsec: '{coord_arcsec}'")
             logging.error(f"  Parsed RA_2000: {ra_2000[i]}, DEC_2000: {dec_2000[i]}")
-            logging.error(f"  Parsed RA_arcsec: {ra_arcsec[i]}, DEC_arcsec: {dec_arcsec[i]}")
+            logging.error(
+                f"  Parsed RA_arcsec: {ra_arcsec[i]}, DEC_arcsec: {dec_arcsec[i]}"
+            )
             logging.error(f"  Final RA: {entry['ra']}, DEC: {entry['dec']}")
-            raise ValueError(f"Invalid RA/DEC coordinates for WDS object at line {i+1}: RA={entry['ra']}, DEC={entry['dec']}")
+            raise ValueError(
+                f"Invalid RA/DEC coordinates for WDS object at line {i+1}: RA={entry['ra']}, DEC={entry['dec']}"
+            )
 
     # make a dictionary of WDS objects to group duplicates
     wds_dict = defaultdict(list)

@@ -2,6 +2,7 @@
 Base catalog classes shared across catalog implementations.
 Contains the core catalog functionality without filtering logic.
 """
+
 import logging
 import threading
 from enum import Enum
@@ -141,9 +142,7 @@ class CatalogBase:
         self.id_to_pos = {obj.id: i for i, obj in enumerate(self.__objects)}
 
     def _update_sequence_to_pos(self):
-        self.sequence_to_pos = {
-            obj.sequence: i for i, obj in enumerate(self.__objects)
-        }
+        self.sequence_to_pos = {obj.sequence: i for i, obj in enumerate(self.__objects)}
 
     def __repr__(self):
         return f"Catalog({self.catalog_code=}, {self.max_sequence=}, count={self.get_count()})"
@@ -175,8 +174,12 @@ class TimerMixin:
     def __init__(self):
         self.timer: Optional[threading.Timer] = None
         self.is_running: bool = False
-        self.time_delay_seconds: Union[int, Callable[[], int]] = 300  # Default 5 minutes
-        self.do_timed_task: Optional[Callable] = None  # Will be bound to catalog's method
+        self.time_delay_seconds: Union[int, Callable[[], int]] = (
+            300  # Default 5 minutes
+        )
+        self.do_timed_task: Optional[Callable] = (
+            None  # Will be bound to catalog's method
+        )
         logger.debug("TimerMixin initialized")
 
     def start_timer(self) -> None:

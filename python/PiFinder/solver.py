@@ -20,12 +20,17 @@ import threading
 
 from PiFinder import state_utils
 from PiFinder import utils
+from PiFinder.sqm import SQM as SQMCalculator, update_sqm_if_needed
 
 sys.path.append(str(utils.tetra3_dir))
 import tetra3
 from tetra3 import cedar_detect_client
 
 logger = logging.getLogger("Solver")
+sqm_calculator = SQMCalculator()
+
+# SQM calculation interval - calculate SQM every N seconds
+SQM_CALCULATION_INTERVAL_SECONDS = 5.0
 
 
 def solver(
@@ -143,6 +148,7 @@ def solver(
                             np_image, sigma=8, max_size=10, use_binned=True
                         )
                     t_extract = (precision_timestamp() - t0) * 1000
+
                     logger.debug(
                         "File %s, extracted %d centroids in %.2fms"
                         % ("camera", len(centroids), t_extract)
@@ -165,16 +171,25 @@ def solver(
                             fov_estimate=12.0,
                             fov_max_error=4.0,
                             match_max_error=0.005,
-                            # return_matches=True,
+                            return_matches=True,  # Required for SQM calculation
                             target_pixel=shared_state.solve_pixel(),
                             solve_timeout=1000,
                             **_solver_args,
                         )
 
                         if "matched_centroids" in solution:
+                            # Update SQM if enough time has passed since last calculation
+                            update_sqm_if_needed(
+                                shared_state=shared_state,
+                                sqm_calculator=sqm_calculator,
+                                centroids=centroids,
+                                solution=solution,
+                                image=np_image,
+                                altitude_deg=solved.get("Alt") or 90.0,
+                                calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
+                            )
+
                             # Don't clutter printed solution with these fields.
-                            # del solution['matched_centroids']
-                            # del solution['matched_stars']
                             del solution["matched_catID"]
                             del solution["pattern_centroids"]
                             del solution["epoch_equinox"]

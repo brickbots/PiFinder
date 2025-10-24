@@ -345,4 +345,3 @@ def update_gpsd_baud_rate(ui_module: UIModule) -> None:
     except Exception as e:
         logger.error(f"Failed to update GPSD config: {e}")
         ui_module.message(_("GPS config\nfailed"), 3)
-

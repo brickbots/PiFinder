@@ -124,10 +124,12 @@ class UIObjectList(UITextMenu):
         marking_menu_down = MarkingMenuOption()
 
         # Add refresh option for comet catalog only
-        if self.item_definition.get("objects") == "catalog" and self.item_definition.get("value") == "CM":
+        if (
+            self.item_definition.get("objects") == "catalog"
+            and self.item_definition.get("value") == "CM"
+        ):
             marking_menu_down = MarkingMenuOption(
-                label=_("Refresh"),
-                callback=self.mm_refresh_comets
+                label=_("Refresh"), callback=self.mm_refresh_comets
             )
 
         self.marking_menu = MarkingMenu(
@@ -220,8 +222,10 @@ class UIObjectList(UITextMenu):
                 status = catalog.get_status()
 
                 # Handle state transitions - refresh immediately when transitioning to READY
-                if (status.previous != CatalogState.READY and
-                    status.current == CatalogState.READY):
+                if (
+                    status.previous != CatalogState.READY
+                    and status.current == CatalogState.READY
+                ):
                     self.refresh_object_list(force_update=True)
 
                 # Extract progress if available
@@ -234,23 +238,32 @@ class UIObjectList(UITextMenu):
                     return (None, None)
                 elif status.current == CatalogState.DOWNLOADING:
                     return (
-                        _("Downloading..."),  # TRANSLATORS: Status when catalog data is downloading
-                        progress
+                        _(
+                            "Downloading..."
+                        ),  # TRANSLATORS: Status when catalog data is downloading
+                        progress,
                     )
                 elif status.current == CatalogState.NO_GPS:
                     return (
-                        _("No GPS lock"),  # TRANSLATORS: Status when waiting for GPS position
-                        None
+                        _(
+                            "No GPS lock"
+                        ),  # TRANSLATORS: Status when waiting for GPS position
+                        None,
                     )
                 elif status.current == CatalogState.CALCULATING:
                     return (
-                        _("Calculating..."),  # TRANSLATORS: Status when computing object positions
-                        progress
+                        _(
+                            "Calculating..."
+                        ),  # TRANSLATORS: Status when computing object positions
+                        progress,
                     )
                 elif status.current == CatalogState.ERROR:
                     return (_("Error"), None)  # TRANSLATORS: Generic error status
                 else:
-                    return (_("Loading..."), None)  # TRANSLATORS: Generic loading status
+                    return (
+                        _("Loading..."),
+                        None,
+                    )  # TRANSLATORS: Generic loading status
 
         return (None, None)
 
@@ -789,7 +802,7 @@ class UIObjectList(UITextMenu):
     def mm_refresh_comets(self, marking_menu, menu_item):
         """Force refresh of comet data from the internet"""
         catalog = self.catalogs.get_catalog_by_code("CM")
-        if catalog and hasattr(catalog, 'refresh'):
+        if catalog and hasattr(catalog, "refresh"):
             self.message(_("Refreshing..."), 1)
             catalog.refresh()
             # Clear the UI object list and refresh to show status

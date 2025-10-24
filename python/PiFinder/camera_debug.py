@@ -41,13 +41,17 @@ class CameraDebug(CameraInterface):
         self.initialize()
 
     def setup_debug_images(self) -> None:
-        self.image1 = Image.open(self.path / "debug1.png")
-        self.image2 = Image.open(self.path / "debug2.png")
-        self.image3 = Image.open(self.path / "debug3.png")
+        # Image 1: Solves, brighter sky background
+        self.image1 = Image.open(self.path / "pifinder_debug_01.png")
+        # Image 2: Solves, darker sky background
+        self.image2 = Image.open(self.path / "pifinder_debug_02.png")
+        # Image 3: Doesn't solve (no stars)
+        self.image3 = Image.open(self.path / "empty.png")
         self.images = [self.image1, self.image2, self.image3]
         self.image_cycle = cycle(self.images)
-        self.last_image_time: float = 0
-        self.last_image = self.image2
+        self.last_image_time: float = time.time()
+        self.last_image = self.image1
+        self.current_image_num = 0
 
     def initialize(self) -> None:
         self._camera_started = True
@@ -61,11 +65,20 @@ class CameraDebug(CameraInterface):
     def capture(self) -> Image.Image:
         sleep_time = self.exposure_time / 1000000
         time.sleep(sleep_time)
-        logger.debug("CameraDebug exposed for %s seconds", sleep_time)
-        if time.time() - self.last_image_time > 5:
+        # Change images every 10 seconds
+        elapsed = time.time() - self.last_image_time
+        if elapsed > 10:
             self.last_image = next(self.image_cycle)
+            self.current_image_num = (self.current_image_num + 1) % len(self.images)
             self.last_image_time = time.time()
+            logger.debug(
+                f"Debug camera switched to test image #{self.current_image_num + 1}"
+            )
         return self.last_image
+
+    def capture_bias(self) -> Image.Image:
+        """Return black frame (bias capture not active)."""
+        return Image.new("L", (512, 512), 0)
 
     def capture_file(self, filename) -> None:
         logger.warn("capture_file not implemented in Camera Debug")

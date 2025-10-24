@@ -34,6 +34,14 @@ class CameraInterface:
     def capture_file(self, filename) -> None:
         pass
 
+    def capture_bias(self) -> Image.Image:
+        """
+        Capture a bias frame for pedestal calculation.
+        Base implementation returns a black frame (no bias correction).
+        Override in subclasses that support bias frames.
+        """
+        return Image.new("L", (512, 512), 0)  # Black 512x512 image
+
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
@@ -86,6 +94,7 @@ class CameraInterface:
                     if not debug:
                         base_image = self.capture()
                         base_image = base_image.convert("L")
+
                         rotate_amount = 0
                         if camera_rotation is None:
                             if screen_direction in [
@@ -105,6 +114,9 @@ class CameraInterface:
                     else:
                         # Test Mode: load image from disc and wait
                         base_image = Image.open(test_image_path)
+                        base_image = base_image.convert(
+                            "RGB"
+                        )  # Convert to RGB to match camera_image format
                         time.sleep(1)
                     image_end_time = time.time()
                     # check imu to make sure we're still static
