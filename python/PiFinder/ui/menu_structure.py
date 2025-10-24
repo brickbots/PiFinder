@@ -827,6 +827,11 @@ pifinder_menu = {
                     "post_callback": callbacks.set_exposure,
                     "items": [
                         {
+                            "name": _("Auto"),
+                            "value": "auto",
+                            "name_suffix_callback": callbacks.get_camera_exposure_display,
+                        },
+                        {
                             "name": _("0.025s"),
                             "value": 25000,
                         },

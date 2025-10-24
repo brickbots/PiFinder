@@ -135,10 +135,17 @@ class CameraPI(CameraInterface):
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
-        self.stop_camera()
-        self.camera.set_controls({"AnalogueGain": gain})
-        self.camera.set_controls({"ExposureTime": exposure_time})
-        self.start_camera()
+        # picamera2 supports changing controls on-the-fly without restart
+        # This allows seamless auto-exposure adjustments
+        if self._camera_started:
+            self.camera.set_controls({"AnalogueGain": gain})
+            self.camera.set_controls({"ExposureTime": exposure_time})
+        else:
+            # Camera not started, need to stop/start
+            self.stop_camera()
+            self.camera.set_controls({"AnalogueGain": gain})
+            self.camera.set_controls({"ExposureTime": exposure_time})
+            self.start_camera()
         return exposure_time, gain
 
     def get_cam_type(self) -> str:
@@ -154,6 +161,11 @@ def get_images(shared_state, camera_image, command_queue, console_queue, log_que
 
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
+
+    # Handle auto-exposure mode: use default value, auto-exposure will adjust
+    if exposure_time == "auto":
+        exposure_time = 400000  # Start with default 400ms
+
     camera_hardware = CameraPI(exposure_time)
     camera_hardware.get_image_loop(
         shared_state, camera_image, command_queue, console_queue, cfg

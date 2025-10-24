@@ -14,7 +14,8 @@ import queue
 import time
 from PIL import Image
 from PiFinder import state_utils, utils
-from typing import Tuple
+from PiFinder.auto_exposure import ExposurePIDController
+from typing import Tuple, Optional
 import logging
 
 logger = logging.getLogger("Camera.Interface")
@@ -24,6 +25,9 @@ class CameraInterface:
     """The CameraInterface interface."""
 
     _camera_started = False
+    _auto_exposure_enabled = False
+    _auto_exposure_pid: Optional[ExposurePIDController] = None
+    _last_solve_time: Optional[float] = None
 
     def initialize(self) -> None:
         pass
@@ -53,6 +57,17 @@ class CameraInterface:
     ):
         try:
             debug = False
+
+            # Check if auto-exposure was previously enabled in config
+            config_exp = cfg.get_option("camera_exp")
+            if config_exp == "auto":
+                self._auto_exposure_enabled = True
+                self._last_solve_time = None
+                if self._auto_exposure_pid is None:
+                    self._auto_exposure_pid = ExposurePIDController()
+                else:
+                    self._auto_exposure_pid.reset()
+                logger.info("Auto-exposure mode enabled from config")
 
             screen_direction = cfg.get_option("screen_direction")
             camera_rotation = cfg.get_option("camera_rotation")
@@ -126,8 +141,32 @@ class CameraInterface:
                             "exposure_end": image_end_time,
                             "imu": imu_end,
                             "imu_delta": reading_diff,
+                            "exposure_time": self.exposure_time,
                         }
                     )
+
+                    # Auto-exposure: adjust based on plate solve results
+                    # Updates as fast as new solve results arrive (naturally rate-limited)
+                    if self._auto_exposure_enabled and self._auto_exposure_pid:
+                        solution = shared_state.solution()
+                        if solution and solution.get("solve_source") == "CAM":
+                            matched_stars = solution.get("Matches", 0)
+                            solve_time = solution.get("solve_time")
+
+                            # Only update on NEW solve results (not re-processing same solution)
+                            if matched_stars > 0 and solve_time != self._last_solve_time:
+                                new_exposure = self._auto_exposure_pid.update(
+                                    matched_stars, self.exposure_time
+                                )
+                                if new_exposure is not None and new_exposure != self.exposure_time:
+                                    # Exposure value actually changed - update camera
+                                    logger.debug(
+                                        f"Auto-exposure: {matched_stars} stars, "
+                                        f"{self.exposure_time}µs → {new_exposure}µs"
+                                    )
+                                    self.exposure_time = new_exposure
+                                    self.set_camera_config(self.exposure_time, self.gain)
+                                self._last_solve_time = solve_time
 
                 # Loop over any pending commands
                 # There may be more than one!
@@ -149,9 +188,26 @@ class CameraInterface:
                                 debug = True
 
                         if command.startswith("set_exp"):
-                            self.exposure_time = int(command.split(":")[1])
-                            self.set_camera_config(self.exposure_time, self.gain)
-                            console_queue.put("CAM: Exp=" + str(self.exposure_time))
+                            exp_value = command.split(":")[1]
+                            if exp_value == "auto":
+                                # Enable auto-exposure mode
+                                self._auto_exposure_enabled = True
+                                self._last_solve_time = None  # Reset solve tracking
+                                if self._auto_exposure_pid is None:
+                                    self._auto_exposure_pid = ExposurePIDController()
+                                else:
+                                    self._auto_exposure_pid.reset()
+                                console_queue.put("CAM: Auto-Exposure Enabled")
+                                logger.info("Auto-exposure mode enabled")
+                            else:
+                                # Disable auto-exposure and set manual exposure
+                                self._auto_exposure_enabled = False
+                                self.exposure_time = int(exp_value)
+                                self.set_camera_config(self.exposure_time, self.gain)
+                                # Update config to reflect manual exposure value
+                                cfg.set_option("camera_exp", self.exposure_time)
+                                console_queue.put("CAM: Exp=" + str(self.exposure_time))
+                                logger.info(f"Manual exposure set: {self.exposure_time}µs")
 
                         if command.startswith("set_gain"):
                             self.gain = int(command.split(":")[1])
@@ -161,6 +217,8 @@ class CameraInterface:
                             console_queue.put("CAM: Gain=" + str(self.gain))
 
                         if command == "exp_up" or command == "exp_dn":
+                            # Manual exposure adjustments disable auto-exposure
+                            self._auto_exposure_enabled = False
                             if command == "exp_up":
                                 self.exposure_time = int(self.exposure_time * 1.25)
                             else:
@@ -168,9 +226,12 @@ class CameraInterface:
                             self.set_camera_config(self.exposure_time, self.gain)
                             console_queue.put("CAM: Exp=" + str(self.exposure_time))
                         if command == "exp_save":
-                            console_queue.put("CAM: Exp Saved")
+                            # Saving exposure disables auto-exposure and locks to current value
+                            self._auto_exposure_enabled = False
                             cfg.set_option("camera_exp", self.exposure_time)
                             cfg.set_option("camera_gain", int(self.gain))
+                            console_queue.put(f"CAM: Exp Saved ({self.exposure_time}µs)")
+                            logger.info(f"Exposure saved and auto-exposure disabled: {self.exposure_time}µs")
 
                         if command.startswith("save"):
                             filename = command.split(":")[1]
