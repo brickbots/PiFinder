@@ -135,14 +135,18 @@ class CameraInterface:
                         )
 
                     camera_image.paste(base_image)
-                    shared_state.set_last_image_metadata(
-                        {
-                            "exposure_start": image_start_time,
-                            "exposure_end": image_end_time,
-                            "imu": imu_end,
-                            "imu_delta": reading_diff,
-                            "exposure_time": self.exposure_time,
-                        }
+                    image_metadata = {
+                        "exposure_start": image_start_time,
+                        "exposure_end": image_end_time,
+                        "imu": imu_end,
+                        "imu_delta": reading_diff,
+                        "exposure_time": self.exposure_time,
+                        "gain": self.gain,
+                    }
+                    shared_state.set_last_image_metadata(image_metadata)
+                    logger.debug(
+                        f"Frame captured - Exposure: {self.exposure_time}µs, Gain: {self.gain}x, "
+                        f"IMU delta: {reading_diff:.2f}"
                     )
 
                     # Auto-exposure: adjust based on plate solve results
@@ -152,20 +156,38 @@ class CameraInterface:
                         if solution and solution.get("solve_source") == "CAM":
                             matched_stars = solution.get("Matches", 0)
                             solve_time = solution.get("solve_time")
+                            solve_rmse = solution.get("RMSE", 0)
+                            solve_fov = solution.get("FOV", 0)
 
                             # Only update on NEW solve results (not re-processing same solution)
                             if matched_stars > 0 and solve_time != self._last_solve_time:
+                                logger.info(
+                                    f"Auto-exposure feedback - Stars: {matched_stars}, "
+                                    f"RMSE: {solve_rmse:.1f}, Current exposure: {self.exposure_time}µs"
+                                )
                                 new_exposure = self._auto_exposure_pid.update(
                                     matched_stars, self.exposure_time
                                 )
                                 if new_exposure is not None and new_exposure != self.exposure_time:
                                     # Exposure value actually changed - update camera
-                                    logger.debug(
-                                        f"Auto-exposure: {matched_stars} stars, "
-                                        f"{self.exposure_time}µs → {new_exposure}µs"
+                                    logger.info(
+                                        f"Auto-exposure adjustment: {matched_stars} stars → "
+                                        f"{self.exposure_time}µs → {new_exposure}µs "
+                                        f"(change: {new_exposure - self.exposure_time:+d}µs)"
                                     )
                                     self.exposure_time = new_exposure
                                     self.set_camera_config(self.exposure_time, self.gain)
+                                elif new_exposure is None:
+                                    logger.debug(
+                                        f"Auto-exposure: {matched_stars} stars within deadband, "
+                                        f"no adjustment needed"
+                                    )
+                                self._last_solve_time = solve_time
+                            elif matched_stars == 0 and solve_time != self._last_solve_time:
+                                logger.warning(
+                                    f"Auto-exposure: 0 stars matched - possible over/underexposure! "
+                                    f"Current: {self.exposure_time}µs (PID not updating)"
+                                )
                                 self._last_solve_time = solve_time
 
                 # Loop over any pending commands
@@ -210,11 +232,13 @@ class CameraInterface:
                                 logger.info(f"Manual exposure set: {self.exposure_time}µs")
 
                         if command.startswith("set_gain"):
+                            old_gain = self.gain
                             self.gain = int(command.split(":")[1])
                             self.exposure_time, self.gain = self.set_camera_config(
                                 self.exposure_time, self.gain
                             )
                             console_queue.put("CAM: Gain=" + str(self.gain))
+                            logger.info(f"Gain changed: {old_gain}x → {self.gain}x")
 
                         if command == "exp_up" or command == "exp_dn":
                             # Manual exposure adjustments disable auto-exposure

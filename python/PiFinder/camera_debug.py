@@ -61,10 +61,14 @@ class CameraDebug(CameraInterface):
     def capture(self) -> Image.Image:
         sleep_time = self.exposure_time / 1000000
         time.sleep(sleep_time)
-        logger.debug("CameraDebug exposed for %s seconds", sleep_time)
+        logger.info(
+            f"Captured debug frame - Exposure: {self.exposure_time}µs "
+            f"(slept {sleep_time:.3f}s), Gain: {self.gain}x"
+        )
         if time.time() - self.last_image_time > 5:
             self.last_image = next(self.image_cycle)
             self.last_image_time = time.time()
+            logger.debug("Debug camera cycled to next image")
         return self.last_image
 
     def capture_file(self, filename) -> None:
@@ -74,6 +78,11 @@ class CameraDebug(CameraInterface):
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
+        logger.info(
+            f"Setting debug camera config - Exposure: {exposure_time}µs, Gain: {gain}x"
+        )
+        self.exposure_time = exposure_time
+        self.gain = gain
         return exposure_time, gain
 
     def get_cam_type(self) -> str:

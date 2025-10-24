@@ -96,6 +96,16 @@ class CameraPI(CameraInterface):
         # raw is actually 16 bit
         raw_capture = _request.make_array("raw").copy().view(np.uint16)
         # tmp_image = _request.make_image("main")
+
+        # Log actual camera metadata for exposure verification
+        metadata = _request.get_metadata()
+        actual_exposure = metadata.get("ExposureTime", "unknown")
+        actual_gain = metadata.get("AnalogueGain", "unknown")
+        logger.info(
+            f"Captured frame - Requested: {self.exposure_time}µs/{self.gain}x gain, "
+            f"Actual: {actual_exposure}µs/{actual_gain:.2f}x gain"
+        )
+
         _request.release()
         # crop to square
         if self.camera_type == "imx296":
@@ -136,6 +146,10 @@ class CameraPI(CameraInterface):
     ) -> Tuple[float, float]:
         # picamera2 supports changing controls on-the-fly without restart
         # This allows seamless auto-exposure adjustments
+        logger.info(
+            f"Setting camera config - Exposure: {exposure_time}µs, Gain: {gain}x "
+            f"(camera_started: {self._camera_started})"
+        )
         if self._camera_started:
             self.camera.set_controls({"AnalogueGain": gain})
             self.camera.set_controls({"ExposureTime": exposure_time})
