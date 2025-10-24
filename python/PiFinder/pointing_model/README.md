@@ -40,10 +40,11 @@ Done:
 ## 20251021: 7519b (tested 24 Oct)
 
 * v2 Flat.
-* Pointings in RA, Dec were OK but in Chart mode, the chart rotated 180 degrees as I 
-crossed to the East of around Mirfak in Perseus with the result that slewing to the 
-East showed up as moving to the right.
-* Brickbots tested Right version got strange estimates like the axes were swapped around.
+* Pointings in RA, Dec were OK but in Chart mode, the chart rotated 180 degrees
+as I crossed to the East of around Mirfak in Perseus with the result that
+slewing to the East showed up as moving to the right.
+* Brickbots tested Right version got strange estimates like the axes were
+  swapped around.
 
 ## 20251001: c6422 (tested 5 Oct)
 
