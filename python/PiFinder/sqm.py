@@ -561,7 +561,7 @@ def update_sqm_if_needed(
 
     # Calculate new SQM value
     try:
-        sqm_value, sqm_details = sqm_calculator.calculate(
+        sqm_value, _ = sqm_calculator.calculate(
             centroids=centroids,
             solution=solution,
             image=image,
