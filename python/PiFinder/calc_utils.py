@@ -168,8 +168,11 @@ def aim_degrees(shared_state, mount_type, screen_direction, target):
         else:
             # EQ Mount type
             ra_diff = target.ra - solution["RA"]
+            ra_diff = (ra_diff + 180) % 360 - 180  # Convert to -180 to +180
+
             dec_diff = target.dec - solution["Dec"]
             dec_diff = (dec_diff + 180) % 360 - 180
+
             return ra_diff, dec_diff
     return None, None
 

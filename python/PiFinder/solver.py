@@ -20,6 +20,7 @@ import threading
 
 from PiFinder import state_utils
 from PiFinder import utils
+from PiFinder.pointing_model.astro_coords import initialized_solved_dict
 
 sys.path.append(str(utils.tetra3_dir))
 import tetra3
@@ -37,6 +38,7 @@ def solver(
     align_command_queue,
     align_result_queue,
     is_debug=False,
+    max_imu_ang_during_exposure=1.0,  # Max allowed turn during exp [degrees]
 ):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting Solver")
@@ -46,31 +48,8 @@ def solver(
     last_solve_time = 0
     align_ra = 0
     align_dec = 0
-    solved = {
-        # RA, Dec, Roll solved at the center of the camera FoV
-        # update by integrator
-        "camera_center": {
-            "RA": None,
-            "Dec": None,
-            "Roll": None,
-            "Alt": None,
-            "Az": None,
-        },
-        # RA, Dec, Roll from the camera, not
-        # affected by IMU in integrator
-        "camera_solve": {
-            "RA": None,
-            "Dec": None,
-            "Roll": None,
-        },
-        # RA, Dec, Roll at the target pixel
-        "RA": None,
-        "Dec": None,
-        "Roll": None,
-        "imu_pos": None,
-        "solve_time": None,
-        "cam_solve_time": 0,
-    }
+    # Dict of RA, Dec, etc. initialized to None:
+    solved = initialized_solved_dict()
 
     centroids = []
     log_no_stars_found = True
@@ -128,7 +107,7 @@ def solver(
                     logger.error(f"Lost connection to shared state manager: {e}")
                 if (
                     last_image_metadata["exposure_end"] > (last_solve_time)
-                    and last_image_metadata["imu_delta"] < 1
+                    and last_image_metadata["imu_delta"] < max_imu_ang_during_exposure
                 ):
                     img = camera_image.copy()
                     img = img.convert(mode="L")
@@ -202,10 +181,8 @@ def solver(
                         solved["RA"] = solved["RA_target"]
                         solved["Dec"] = solved["Dec_target"]
                         if last_image_metadata["imu"]:
-                            solved["imu_pos"] = last_image_metadata["imu"]["pos"]
                             solved["imu_quat"] = last_image_metadata["imu"]["quat"]
                         else:
-                            solved["imu_pos"] = None
                             solved["imu_quat"] = None
                         solved["solve_time"] = time.time()
                         solved["cam_solve_time"] = solved["solve_time"]
