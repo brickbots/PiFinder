@@ -132,7 +132,7 @@ class CameraInterface:
                             "imu": imu_end,
                             "imu_delta": np.rad2deg(
                                 pointing_diff
-                            ),  # Pointing chiange during exposure in degrees
+                            ),  # Pointing change during exposure in degrees
                         }
                     )
 
