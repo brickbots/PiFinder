@@ -205,13 +205,13 @@ def get_screen_direction_q_imu2cam(screen_direction: str) -> quaternion.quaterni
     elif screen_direction == "straight":
         # Straight:
         # Rotate 180° around y_imu so that z_imu' points along z_camera
-        q1 = qt.axis_angle2quat([0, 1, 0], np.pi / 2)
+        q1 = qt.axis_angle2quat([0, 1, 0], np.pi)
         # Rotate -90° around z_imu' to align with the camera cooridnates
         q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
         q_imu2cam = (q1 * q2).normalized()
     elif screen_direction == "flat3":
         # Flat v3:
-        # Camera is tilted a further 30° compared to Flat v2
+        # Camera is tilted 30° further down from the screen compared to Flat v2
         # Rotate -120° around y_imu so that z_imu' points along z_camera
         q1 = qt.axis_angle2quat([0, 1, 0], -np.pi * 2 / 3)
         # Rotate -90° around z_imu' to align with the camera cooridnates
