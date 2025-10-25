@@ -257,7 +257,7 @@ def shadow_outline_text(
         )
 
 
-def outline_text(ri_draw, xy, text, align, font, fill, shadow_color, stroke=4):
+def outline_text(ri_draw, xy, text, align, font, fill, shadow_color, stroke=4, anchor=None):
     """draw outline text"""
     ri_draw.text(
         xy,
@@ -267,6 +267,7 @@ def outline_text(ri_draw, xy, text, align, font, fill, shadow_color, stroke=4):
         fill=fill,
         stroke_width=stroke,
         stroke_fill=shadow_color,
+        anchor=anchor,
     )
 
 

@@ -96,6 +96,16 @@ class CameraPI(CameraInterface):
         # raw is actually 16 bit
         raw_capture = _request.make_array("raw").copy().view(np.uint16)
         # tmp_image = _request.make_image("main")
+
+        # Log actual camera metadata for exposure verification (debug level only)
+        metadata = _request.get_metadata()
+        actual_exposure = metadata.get("ExposureTime", "unknown")
+        actual_gain = metadata.get("AnalogueGain", "unknown")
+        logger.debug(
+            f"Captured frame - Requested: {self.exposure_time}µs/{self.gain}x gain, "
+            f"Actual: {actual_exposure}µs/{actual_gain:.2f}x gain"
+        )
+
         _request.release()
         # crop to square
         if self.camera_type == "imx296":
@@ -134,10 +144,21 @@ class CameraPI(CameraInterface):
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
-        self.stop_camera()
-        self.camera.set_controls({"AnalogueGain": gain})
-        self.camera.set_controls({"ExposureTime": exposure_time})
-        self.start_camera()
+        # picamera2 supports changing controls on-the-fly without restart
+        # This allows seamless auto-exposure adjustments
+        logger.info(
+            f"Setting camera config - Exposure: {exposure_time}µs, Gain: {gain}x "
+            f"(camera_started: {self._camera_started})"
+        )
+        if self._camera_started:
+            self.camera.set_controls({"AnalogueGain": gain})
+            self.camera.set_controls({"ExposureTime": exposure_time})
+        else:
+            # Camera not started, need to stop/start
+            self.stop_camera()
+            self.camera.set_controls({"AnalogueGain": gain})
+            self.camera.set_controls({"ExposureTime": exposure_time})
+            self.start_camera()
         return exposure_time, gain
 
     def get_cam_type(self) -> str:
@@ -153,6 +174,11 @@ def get_images(shared_state, camera_image, command_queue, console_queue, log_que
 
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
+
+    # Handle auto-exposure mode: use default value, auto-exposure will adjust
+    if exposure_time == "auto":
+        exposure_time = 400000  # Start with default 400ms
+
     camera_hardware = CameraPI(exposure_time)
     camera_hardware.get_image_loop(
         shared_state, camera_image, command_queue, console_queue, cfg
