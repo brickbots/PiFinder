@@ -220,20 +220,12 @@ class UIPreview(UIModule):
         star_count_text = "---"
         try:
             solution = self.shared_state.solution()
-            if solution and solution.get("solve_source") == "CAM":
-                last_attempt = solution.get("last_solve_attempt")
-                last_success = solution.get("last_solve_success")
+            solve_source = solution.get("solve_source") if solution else None
 
-                if last_attempt is None:
-                    # No solve attempted yet
-                    star_count_text = "---"
-                elif last_success == last_attempt:
-                    # Last attempt was successful - show star count
-                    matched_stars = solution.get("Matches", 0)
-                    star_count_text = str(matched_stars)
-                else:
-                    # Attempted but failed (no stars found)
-                    star_count_text = "0"
+            # Show star count for camera solves (successful or failed)
+            if solve_source in ("CAM", "CAM_FAILED"):
+                matched_stars = solution.get("Matches", 0)
+                star_count_text = str(matched_stars)
         except Exception:
             pass
 

@@ -109,8 +109,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 # see if we can calc alt-az
                 solved["Alt"] = None
                 solved["Az"] = None
-                if location and dt:
-                    # We have position and time/date!
+                if location and dt and solved["RA"] is not None:
+                    # We have position and time/date and a valid solve!
                     calc_utils.sf_utils.set_location(
                         location.lat,
                         location.lon,
@@ -158,13 +158,13 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                         roll_target_calculated + solved["Roll_offset"]
                     )
 
-                last_image_solve = copy.deepcopy(solved)
-                solved["solve_source"] = "CAM"
-
-                # Update shared state even if solve failed (RA is None) so UI can see attempt timestamps
-                if solved["RA"] is None:
-                    # Failed solve - set constellation to empty
-                    # UI expects constellation to always be present
+                # Set solve_source based on whether solve succeeded or failed
+                if solved["RA"] is not None:
+                    last_image_solve = copy.deepcopy(solved)
+                    solved["solve_source"] = "CAM"
+                else:
+                    # Failed solve - mark as CAM_FAILED and set constellation to empty
+                    solved["solve_source"] = "CAM_FAILED"
                     solved["constellation"] = ""
                     shared_state.set_solution(solved)
 
