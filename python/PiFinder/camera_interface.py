@@ -154,12 +154,13 @@ class CameraInterface:
                         # Handle camera solves (successful or failed)
                         if solve_source in ("CAM", "CAM_FAILED"):
                             matched_stars = solution.get("Matches", 0)
-                            solve_time = solution.get("solve_time")
+                            solve_attempt_time = solution.get("last_solve_attempt")
                             solve_rmse = solution.get("RMSE", 0)
                             solve_fov = solution.get("FOV", 0)
 
                             # Only update on NEW solve results (not re-processing same solution)
-                            if solve_time != self._last_solve_time:
+                            # Use last_solve_attempt since it's set for both success and failure
+                            if solve_attempt_time and solve_attempt_time != self._last_solve_time:
                                 logger.info(
                                     f"Auto-exposure feedback - Stars: {matched_stars}, "
                                     f"RMSE: {solve_rmse:.1f}, Current exposure: {self.exposure_time}µs"
@@ -183,7 +184,7 @@ class CameraInterface:
                                     logger.debug(
                                         f"Auto-exposure: {matched_stars} stars, no adjustment needed"
                                     )
-                                self._last_solve_time = solve_time
+                                self._last_solve_time = solve_attempt_time
 
                 # Loop over any pending commands
                 # There may be more than one!
