@@ -149,21 +149,27 @@ class CameraInterface:
                     # Updates as fast as new solve results arrive (naturally rate-limited)
                     if self._auto_exposure_enabled and self._auto_exposure_pid:
                         solution = shared_state.solution()
-                        if solution and solution.get("solve_source") == "CAM":
+                        solve_source = solution.get("solve_source") if solution else None
+
+                        # Handle camera solves (successful or failed)
+                        if solve_source in ("CAM", "CAM_FAILED"):
                             matched_stars = solution.get("Matches", 0)
                             solve_time = solution.get("solve_time")
                             solve_rmse = solution.get("RMSE", 0)
                             solve_fov = solution.get("FOV", 0)
 
                             # Only update on NEW solve results (not re-processing same solution)
-                            if matched_stars > 0 and solve_time != self._last_solve_time:
+                            if solve_time != self._last_solve_time:
                                 logger.info(
                                     f"Auto-exposure feedback - Stars: {matched_stars}, "
                                     f"RMSE: {solve_rmse:.1f}, Current exposure: {self.exposure_time}µs"
                                 )
+
+                                # Call PID update (now handles zero stars with recovery mode)
                                 new_exposure = self._auto_exposure_pid.update(
                                     matched_stars, self.exposure_time
                                 )
+
                                 if new_exposure is not None and new_exposure != self.exposure_time:
                                     # Exposure value actually changed - update camera
                                     logger.info(
@@ -175,15 +181,8 @@ class CameraInterface:
                                     self.set_camera_config(self.exposure_time, self.gain)
                                 elif new_exposure is None:
                                     logger.debug(
-                                        f"Auto-exposure: {matched_stars} stars within deadband, "
-                                        f"no adjustment needed"
+                                        f"Auto-exposure: {matched_stars} stars, no adjustment needed"
                                     )
-                                self._last_solve_time = solve_time
-                            elif matched_stars == 0 and solve_time != self._last_solve_time:
-                                logger.warning(
-                                    f"Auto-exposure: 0 stars matched - possible over/underexposure! "
-                                    f"Current: {self.exposure_time}µs (PID not updating)"
-                                )
                                 self._last_solve_time = solve_time
 
                 # Loop over any pending commands

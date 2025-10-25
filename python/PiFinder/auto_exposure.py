@@ -68,6 +68,10 @@ class ExposurePIDController:
         self._integral = 0.0
         self._last_error: Optional[float] = None
 
+        # Zero-star recovery state
+        self._zero_star_count = 0
+        self._recovery_mode = False
+
         logger.info(
             f"AutoExposure PID initialized: target={target_stars}, "
             f"Kp={kp}, Ki={ki}, Kd={kd}, "
@@ -78,6 +82,8 @@ class ExposurePIDController:
         """Reset the PID controller state."""
         self._integral = 0.0
         self._last_error = None
+        self._zero_star_count = 0
+        self._recovery_mode = False
         logger.debug("PID controller reset")
 
     def update(
@@ -98,6 +104,46 @@ class ExposurePIDController:
             New exposure time in microseconds, or None if no update needed
             (within deadband)
         """
+        # Zero-star recovery mode: handle stuck-at-zero scenarios
+        if matched_stars == 0:
+            self._zero_star_count += 1
+
+            # After 2 consecutive zero-star solves, enter recovery mode
+            if self._zero_star_count >= 2:
+                if not self._recovery_mode:
+                    self._recovery_mode = True
+                    logger.warning(
+                        f"Entering recovery mode after {self._zero_star_count} zero-star solves "
+                        f"(exposure: {current_exposure}µs)"
+                    )
+
+                # Recovery strategy: double exposure each time to sweep upward
+                if current_exposure < self.max_exposure / 2:
+                    new_exposure = min(current_exposure * 2, self.max_exposure)
+                    logger.info(f"Recovery: increasing exposure {current_exposure}→{new_exposure}µs")
+                    return new_exposure
+                else:
+                    # Hit max and still no stars - restart sweep from minimum
+                    # Could be clouds, so we keep sweeping the full range
+                    logger.warning(
+                        f"Recovery: hit max exposure ({self.max_exposure}µs), "
+                        f"restarting sweep from minimum {self.min_exposure}µs"
+                    )
+                    return self.min_exposure
+            else:
+                # First zero - just log it, don't panic yet
+                logger.info(f"Zero stars detected ({self._zero_star_count}/2 before recovery)")
+                return None
+        else:
+            # Got stars! Exit recovery mode if active
+            if self._recovery_mode:
+                logger.info(
+                    f"Recovery successful! Found {matched_stars} stars at {current_exposure}µs, "
+                    "resuming normal PID control"
+                )
+                self._recovery_mode = False
+            self._zero_star_count = 0
+
         # Calculate error (negative = too many stars, positive = too few)
         error = self.target_stars - matched_stars
 
