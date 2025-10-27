@@ -189,12 +189,12 @@ class TestExposurePIDController:
     """Tests for ExposurePIDController with plugin architecture."""
 
     def test_initialization_defaults(self):
-        """Controller initializes with default parameters."""
+        """Controller initializes with default parameters (optimized values)."""
         pid = ExposurePIDController()
         assert pid.target_stars == 15
-        assert pid.kp == 8000.0
-        assert pid.ki == 500.0
-        assert pid.kd == 3000.0
+        assert pid.kp == 16288.0
+        assert pid.ki == 1162.0
+        assert pid.kd == 6128.0
         assert pid.min_exposure == 25000
         assert pid.max_exposure == 1000000
         assert pid.deadband == 2
