@@ -229,16 +229,21 @@ class UIPreview(UIModule):
         except Exception:
             pass
 
-        # Only redraw if values changed (reduces flickering from constant redraw)
-        if (exposure_text == self._last_overlay_exposure and
-            star_count_text == self._last_overlay_stars):
-            return
-
-        self._last_overlay_exposure = exposure_text
-        self._last_overlay_stars = star_count_text
-
         # Position below title bar (titlebar_height is typically 17)
         y_offset = self.display_class.titlebar_height + 2
+
+        # Draw solid background rectangles to clear previous text (prevents residue)
+        # Left side - exposure time background
+        self.draw.rectangle(
+            [(0, y_offset), (60, y_offset + 12)],
+            fill=(0, 0, 0)
+        )
+
+        # Right side - star count background
+        self.draw.rectangle(
+            [(68, y_offset), (128, y_offset + 12)],
+            fill=(0, 0, 0)
+        )
 
         # Draw exposure text with black outline using utility function
         outline_text(
