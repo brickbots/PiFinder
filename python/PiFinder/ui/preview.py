@@ -54,9 +54,6 @@ class UIPreview(UIModule):
 
         # Info overlay toggle (use square button)
         self.show_info_overlay = False
-        # Cache last drawn values to avoid redrawing identical text
-        self._last_overlay_exposure = None
-        self._last_overlay_stars = None
 
         # Marking menu definition
         self.marking_menu = MarkingMenu(
@@ -232,19 +229,6 @@ class UIPreview(UIModule):
         # Position below title bar (titlebar_height is typically 17)
         y_offset = self.display_class.titlebar_height + 2
 
-        # Draw solid background rectangles to clear previous text (prevents residue)
-        # Left side - exposure time background
-        self.draw.rectangle(
-            [(0, y_offset), (60, y_offset + 12)],
-            fill=(0, 0, 0)
-        )
-
-        # Right side - star count background
-        self.draw.rectangle(
-            [(68, y_offset), (128, y_offset + 12)],
-            fill=(0, 0, 0)
-        )
-
         # Draw exposure text with black outline using utility function
         outline_text(
             self.draw,
@@ -275,9 +259,6 @@ class UIPreview(UIModule):
     def update(self, force=False):
         if force:
             self.last_update = 0
-            # Force overlay redraw after forced update
-            self._last_overlay_exposure = None
-            self._last_overlay_stars = None
         # display an image
         last_image_time = self.shared_state.last_image_metadata()["exposure_end"]
         image_updated = False
@@ -326,12 +307,10 @@ class UIPreview(UIModule):
             else:
                 self.draw_reticle()
 
-        # Draw info overlay if enabled (on top of everything)
-        # If image was updated, force overlay redraw since paste wiped it out
-        if image_updated:
-            self._last_overlay_exposure = None
-            self._last_overlay_stars = None
-        self.draw_info_overlay()
+        # Draw info overlay if enabled and image was updated
+        # (image paste cleared the screen, so we need to redraw overlay)
+        if image_updated or force:
+            self.draw_info_overlay()
 
         return self.screen_update()
 
