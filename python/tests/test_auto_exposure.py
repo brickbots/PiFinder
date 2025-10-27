@@ -8,6 +8,8 @@ import pytest
 from PiFinder.auto_exposure import (
     ZeroStarHandler,
     SweepZeroStarHandler,
+    ResetZeroStarHandler,
+    HistogramZeroStarHandler,
     ExposurePIDController,
 )
 
@@ -474,3 +476,121 @@ class TestPIDIntegration:
         change2 = abs(result2 - current_exposure)
         change3 = abs(result3 - current_exposure)
         assert change2 > change3  # Larger error change = larger correction
+
+
+@pytest.mark.unit
+class TestResetZeroStarHandler:
+    """Tests for ResetZeroStarHandler recovery strategy."""
+
+    def test_initialization(self):
+        """Handler initializes with correct defaults."""
+        handler = ResetZeroStarHandler()
+        assert not handler.is_active()
+        assert handler._reset_exposure == 400000
+        assert handler._trigger_count == 2
+
+    def test_custom_reset_exposure(self):
+        """Handler accepts custom reset exposure."""
+        handler = ResetZeroStarHandler(reset_exposure=500000, trigger_count=3)
+        assert handler._reset_exposure == 500000
+        assert handler._trigger_count == 3
+
+    def test_trigger_delay(self):
+        """Handler doesn't activate until trigger count is reached."""
+        handler = ResetZeroStarHandler(trigger_count=2)
+
+        # First zero - should not activate
+        result = handler.handle(25000, 1)
+        assert result is None
+        assert not handler.is_active()
+
+        # Second zero - should activate and return reset exposure
+        result = handler.handle(25000, 2)
+        assert result == 400000
+        assert handler.is_active()
+
+    def test_consistent_reset_value(self):
+        """Handler returns same reset value each time."""
+        handler = ResetZeroStarHandler(reset_exposure=300000, trigger_count=1)
+
+        # Activate
+        result1 = handler.handle(50000, 1)
+        assert result1 == 300000
+
+        # Subsequent calls return same value
+        result2 = handler.handle(50000, 2)
+        assert result2 == 300000
+
+        result3 = handler.handle(100000, 3)
+        assert result3 == 300000
+
+    def test_reset(self):
+        """Reset clears handler state."""
+        handler = ResetZeroStarHandler(trigger_count=1)
+
+        # Activate
+        handler.handle(50000, 1)
+        assert handler.is_active()
+
+        # Reset
+        handler.reset()
+        assert not handler.is_active()
+
+
+@pytest.mark.unit
+class TestHistogramZeroStarHandler:
+    """Tests for HistogramZeroStarHandler recovery strategy."""
+
+    def test_initialization(self):
+        """Handler initializes with correct defaults."""
+        handler = HistogramZeroStarHandler()
+        assert not handler.is_active()
+        assert handler._min_exposure == 25000
+        assert handler._max_exposure == 1000000
+        assert handler._trigger_count == 2
+
+    def test_trigger_delay(self):
+        """Handler doesn't activate until trigger count is reached."""
+        handler = HistogramZeroStarHandler(trigger_count=2)
+
+        # First zero - should not activate
+        result = handler.handle(50000, 1)
+        assert result is None
+        assert not handler.is_active()
+
+        # Second zero - should activate
+        result = handler.handle(50000, 2)
+        assert result is not None
+        assert handler.is_active()
+
+    def test_placeholder_doubles_exposure(self):
+        """Placeholder implementation doubles exposure."""
+        handler = HistogramZeroStarHandler(trigger_count=1)
+
+        # Should double from 50ms to 100ms
+        result = handler.handle(50000, 1)
+        assert result == 100000
+
+        # Should double from 200ms to 400ms
+        result = handler.handle(200000, 2)
+        assert result == 400000
+
+    def test_respects_max_exposure(self):
+        """Handler respects maximum exposure limit."""
+        handler = HistogramZeroStarHandler(max_exposure=500000, trigger_count=1)
+
+        # Should cap at max_exposure
+        result = handler.handle(400000, 1)
+        assert result == 500000  # Would be 800000 but capped
+
+    def test_reset(self):
+        """Reset clears handler state."""
+        handler = HistogramZeroStarHandler(trigger_count=1)
+
+        # Activate
+        handler.handle(50000, 1)
+        assert handler.is_active()
+
+        # Reset
+        handler.reset()
+        assert not handler.is_active()

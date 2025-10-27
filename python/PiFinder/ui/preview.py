@@ -246,7 +246,7 @@ class UIPreview(UIModule):
             (2, y_offset),
             exposure_text,
             align="left",
-            font=self.fonts.small,
+            font=self.fonts.bold,
             fill=(192, 0, 0),  # Medium bright red
             shadow_color=(0, 0, 0),  # Black outline
             stroke=1,
@@ -260,7 +260,7 @@ class UIPreview(UIModule):
             (126, y_offset),
             stars_text,
             align="left",
-            font=self.fonts.small,
+            font=self.fonts.bold,
             fill=(192, 0, 0),  # Medium bright red
             shadow_color=(0, 0, 0),  # Black outline
             stroke=1,

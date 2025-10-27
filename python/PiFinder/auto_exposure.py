@@ -162,6 +162,133 @@ class SweepZeroStarHandler(ZeroStarHandler):
         logger.debug("SweepZeroStarHandler reset")
 
 
+class ResetZeroStarHandler(ZeroStarHandler):
+    """
+    Recovery strategy: reset to fixed exposure.
+
+    Simply resets to a safe default exposure (400ms) when zero stars detected.
+    Fast recovery but may not be optimal for all conditions.
+    """
+
+    def __init__(
+        self,
+        reset_exposure: int = 400000,
+        trigger_count: int = 2,
+    ):
+        """
+        Initialize the reset handler.
+
+        Args:
+            reset_exposure: Exposure to reset to (default: 400ms)
+            trigger_count: Number of zeros before activating
+        """
+        super().__init__()
+        self._trigger_count = trigger_count
+        self._reset_exposure = reset_exposure
+
+        logger.info(
+            f"ResetZeroStarHandler initialized: trigger after {trigger_count} zeros, "
+            f"reset to {reset_exposure}µs"
+        )
+
+    def handle(self, current_exposure: int, zero_count: int) -> Optional[int]:
+        """
+        Handle zero stars by resetting to fixed exposure.
+
+        Args:
+            current_exposure: Current exposure time in microseconds
+            zero_count: Number of consecutive zero-star solves
+
+        Returns:
+            Reset exposure, or None if waiting for trigger
+        """
+        # Wait for trigger count
+        if zero_count < self._trigger_count:
+            logger.info(f"Zero stars: {zero_count}/{self._trigger_count} before reset activation")
+            return None
+
+        # Activate and return reset exposure
+        if not self._active:
+            self._active = True
+            logger.warning(
+                f"Reset activated after {zero_count} zero-star solves "
+                f"(resetting from {current_exposure}µs to {self._reset_exposure}µs)"
+            )
+
+        return self._reset_exposure
+
+    def reset(self) -> None:
+        self._active = False
+        logger.debug("ResetZeroStarHandler reset")
+
+
+class HistogramZeroStarHandler(ZeroStarHandler):
+    """
+    Recovery strategy: histogram-based adaptive exposure.
+
+    Analyzes image histogram to intelligently adjust exposure.
+    Placeholder for future implementation.
+    """
+
+    def __init__(
+        self,
+        min_exposure: int = 25000,
+        max_exposure: int = 1000000,
+        trigger_count: int = 2,
+    ):
+        """
+        Initialize the histogram handler.
+
+        Args:
+            min_exposure: Minimum exposure in microseconds
+            max_exposure: Maximum exposure in microseconds
+            trigger_count: Number of zeros before activating
+        """
+        super().__init__()
+        self._trigger_count = trigger_count
+        self._min_exposure = min_exposure
+        self._max_exposure = max_exposure
+
+        logger.info(
+            f"HistogramZeroStarHandler initialized: trigger after {trigger_count} zeros "
+            f"(placeholder - not yet implemented)"
+        )
+
+    def handle(self, current_exposure: int, zero_count: int) -> Optional[int]:
+        """
+        Handle zero stars using histogram analysis.
+
+        Args:
+            current_exposure: Current exposure time in microseconds
+            zero_count: Number of consecutive zero-star solves
+
+        Returns:
+            Adjusted exposure based on histogram, or None if waiting
+        """
+        # Wait for trigger count
+        if zero_count < self._trigger_count:
+            logger.info(f"Zero stars: {zero_count}/{self._trigger_count} before histogram handler activation")
+            return None
+
+        # Activate
+        if not self._active:
+            self._active = True
+            logger.warning(
+                f"Histogram handler activated after {zero_count} zero-star solves "
+                f"(currently placeholder - using 2x increase)"
+            )
+
+        # TODO: Implement histogram analysis
+        # For now, just double the exposure (placeholder behavior)
+        new_exposure = min(current_exposure * 2, self._max_exposure)
+        logger.info(f"Histogram handler (placeholder): {current_exposure}µs → {new_exposure}µs")
+        return new_exposure
+
+    def reset(self) -> None:
+        self._active = False
+        logger.debug("HistogramZeroStarHandler reset")
+
+
 class ExposurePIDController:
     """
     PID controller for automatic camera exposure adjustment.

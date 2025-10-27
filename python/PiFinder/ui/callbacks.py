@@ -86,6 +86,33 @@ def set_exposure(ui_module: UIModule) -> None:
     ui_module.command_queues["camera"].put(f"set_exp:{new_exposure}")
 
 
+def set_auto_exposure_zero_star_handler(ui_module: UIModule) -> None:
+    """
+    Sets the zero-star handler plugin for auto-exposure.
+    Supports:
+      - "sweep": Systematic exposure sweep (25ms→1s with focus hold)
+      - "reset": Quick reset to 0.4s default
+      - "histogram": Histogram-based adaptive (placeholder)
+    """
+    handler_type = ui_module.config_object.get_option("auto_exposure_zero_star_handler")
+    logger.info("Set auto-exposure zero-star handler to: %s", handler_type)
+    ui_module.command_queues["camera"].put(f"set_ae_handler:{handler_type}")
+
+
+def capture_exposure_sweep(ui_module: UIModule) -> None:
+    """
+    Captures 100 images at different exposures for PID testing/calibration.
+
+    Uses logarithmic spacing from 25ms to 1s for fine-grained analysis.
+    Images saved to: ~/PiFinder_data/captures/sweep_YYYYMMDD_HHMMSS/
+    Takes approximately 20 seconds to complete.
+    """
+    logger.info("Starting exposure sweep capture")
+    ui_module.command_queues["camera"].put("capture_exp_sweep")
+    ui_module.message(_("Capturing\nExp Sweep...\n~20 sec"), 3)
+    ui_module.remove_from_stack()
+
+
 def get_camera_exposure_display(ui_module: UIModule) -> str:
     """
     Returns formatted current camera exposure for display.

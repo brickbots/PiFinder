@@ -236,6 +236,40 @@ class CameraInterface:
                             console_queue.put("CAM: Gain=" + str(self.gain))
                             logger.info(f"Gain changed: {old_gain}x → {self.gain}x")
 
+                        if command.startswith("set_ae_handler"):
+                            handler_type = command.split(":")[1]
+                            if self._auto_exposure_pid is not None:
+                                from PiFinder.auto_exposure import (
+                                    SweepZeroStarHandler,
+                                    ResetZeroStarHandler,
+                                    HistogramZeroStarHandler,
+                                )
+
+                                new_handler = None
+                                if handler_type == "sweep":
+                                    new_handler = SweepZeroStarHandler(
+                                        min_exposure=self._auto_exposure_pid.min_exposure,
+                                        max_exposure=self._auto_exposure_pid.max_exposure
+                                    )
+                                elif handler_type == "reset":
+                                    new_handler = ResetZeroStarHandler(
+                                        reset_exposure=400000  # 0.4s
+                                    )
+                                elif handler_type == "histogram":
+                                    new_handler = HistogramZeroStarHandler(
+                                        min_exposure=self._auto_exposure_pid.min_exposure,
+                                        max_exposure=self._auto_exposure_pid.max_exposure
+                                    )
+                                else:
+                                    logger.warning(f"Unknown zero-star handler type: {handler_type}")
+
+                                if new_handler is not None:
+                                    self._auto_exposure_pid._zero_star_handler = new_handler
+                                    console_queue.put(f"CAM: AE Handler={handler_type}")
+                                    logger.info(f"Auto-exposure zero-star handler changed to: {handler_type}")
+                            else:
+                                logger.warning("Cannot set AE handler: auto-exposure not initialized")
+
                         if command == "exp_up" or command == "exp_dn":
                             # Manual exposure adjustments disable auto-exposure
                             self._auto_exposure_enabled = False
@@ -258,6 +292,75 @@ class CameraInterface:
                             filename = f"{utils.data_dir}/captures/{filename}.png"
                             self.capture_file(filename)
                             console_queue.put("CAM: Saved Image")
+
+                        if command == "capture_exp_sweep":
+                            # Capture exposure sweep - save images at different exposures
+                            # Uses fine-grained logarithmic spacing for PID parameter testing
+                            logger.info("Starting exposure sweep capture (100 images)")
+                            console_queue.put("CAM: Starting sweep...")
+
+                            # Save current settings
+                            original_exposure = self.exposure_time
+                            original_gain = self.gain
+                            original_ae_enabled = self._auto_exposure_enabled
+
+                            # Disable auto-exposure during sweep
+                            self._auto_exposure_enabled = False
+
+                            # Generate 100 exposure values with logarithmic spacing
+                            # from 25ms (25000µs) to 1s (1000000µs)
+                            import datetime
+                            import numpy as np
+
+                            min_exp = 25000  # 25ms
+                            max_exp = 1000000  # 1s
+                            num_images = 100
+
+                            # Logarithmic spacing for exposure values
+                            sweep_exposures = np.logspace(
+                                np.log10(min_exp),
+                                np.log10(max_exp),
+                                num_images
+                            ).astype(int)
+
+                            # Generate timestamp for this sweep session
+                            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+                            # Create sweep directory
+                            sweep_dir = f"{utils.data_dir}/captures/sweep_{timestamp}"
+                            os.makedirs(sweep_dir, exist_ok=True)
+
+                            logger.info(f"Saving sweep to: {sweep_dir}")
+                            console_queue.put(f"CAM: {num_images} images")
+
+                            for i, exp_us in enumerate(sweep_exposures, 1):
+                                # Set exposure
+                                self.exposure_time = exp_us
+                                self.set_camera_config(self.exposure_time, self.gain)
+
+                                # Wait a bit for camera to stabilize
+                                time.sleep(0.15)
+
+                                # Capture image
+                                exp_ms = exp_us / 1000
+                                filename = f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms.png"
+                                self.capture_file(filename)
+
+                                # Update console every 10 images to avoid spam
+                                if i % 10 == 0 or i == num_images:
+                                    console_queue.put(f"CAM: Sweep {i}/{num_images}")
+
+                                logger.debug(f"Captured sweep image {i}/{num_images}: {exp_ms:.2f}ms")
+
+                            # Restore original settings
+                            self.exposure_time = original_exposure
+                            self.gain = original_gain
+                            self._auto_exposure_enabled = original_ae_enabled
+                            self.set_camera_config(self.exposure_time, self.gain)
+
+                            console_queue.put("CAM: Sweep done!")
+                            logger.info(f"Exposure sweep capture completed: {num_images} images in {sweep_dir}")
+
                         if command.startswith("stop"):
                             self.stop_camera()
                             console_queue.put("CAM: Stopped camera")

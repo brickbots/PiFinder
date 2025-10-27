@@ -1104,7 +1104,43 @@ pifinder_menu = {
                     "name": _("Experimental"),
                     "class": UITextMenu,
                     "select": "Single",
-                    "items": [],
+                    "items": [
+                        {
+                            "name": _("Auto-Exp 0★ Handler"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "auto_exposure_zero_star_handler",
+                            "label": "auto_exp_zero_star_handler",
+                            "post_callback": callbacks.set_auto_exposure_zero_star_handler,
+                            "items": [
+                                {
+                                    "name": _("Sweep"),
+                                    "value": "sweep",
+                                },
+                                {
+                                    "name": _("Reset to 0.4s"),
+                                    "value": "reset",
+                                },
+                                {
+                                    "name": _("Histogram"),
+                                    "value": "histogram",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Capture Exp Sweep"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "label": "capture_exp_sweep",
+                            "items": [
+                                {
+                                    "name": _("Confirm"),
+                                    "callback": callbacks.capture_exposure_sweep,
+                                },
+                                {"name": _("Cancel"), "callback": callbacks.go_back},
+                            ],
+                        },
+                    ],
                 },
             ],
         },
