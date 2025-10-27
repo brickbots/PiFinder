@@ -1,0 +1,476 @@
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+"""
+Unit tests for auto_exposure.py - PID controller and zero-star handler plugins.
+"""
+
+import pytest
+from PiFinder.auto_exposure import (
+    ZeroStarHandler,
+    SweepZeroStarHandler,
+    ExposurePIDController,
+)
+
+
+# Mock handler for testing the abstract base class
+class MockZeroStarHandler(ZeroStarHandler):
+    """Mock handler for testing."""
+
+    def __init__(self):
+        super().__init__()
+        self.handle_called = False
+        self.reset_called = False
+
+    def handle(self, current_exposure: int, zero_count: int):
+        self.handle_called = True
+        return 100000  # Return 100ms
+
+    def reset(self):
+        super().reset()
+        self.reset_called = True
+        self._active = False
+
+
+@pytest.mark.unit
+class TestZeroStarHandler:
+    """Tests for ZeroStarHandler abstract base class."""
+
+    def test_abstract_methods(self):
+        """Cannot instantiate abstract base class."""
+        with pytest.raises(TypeError):
+            ZeroStarHandler()
+
+    def test_mock_handler_interface(self):
+        """Mock handler implements the interface correctly."""
+        handler = MockZeroStarHandler()
+        assert not handler.is_active()
+
+        # Test handle
+        result = handler.handle(50000, 1)
+        assert handler.handle_called
+        assert result == 100000
+
+        # Test reset
+        handler._active = True
+        assert handler.is_active()
+        handler.reset()
+        assert handler.reset_called
+        assert not handler.is_active()
+
+
+@pytest.mark.unit
+class TestSweepZeroStarHandler:
+    """Tests for SweepZeroStarHandler recovery strategy."""
+
+    def test_initialization(self):
+        """Handler initializes with correct defaults."""
+        handler = SweepZeroStarHandler()
+        assert not handler.is_active()
+        assert handler._trigger_count == 2
+        assert handler._exposures == [25000, 50000, 100000, 200000, 400000, 800000, 1000000]
+        assert handler._repeats_per_exposure == 2
+        assert handler._focus_hold_cycles == 12
+
+    def test_custom_initialization(self):
+        """Handler accepts custom parameters."""
+        handler = SweepZeroStarHandler(
+            min_exposure=10000,
+            max_exposure=500000,
+            trigger_count=3
+        )
+        assert handler._trigger_count == 3
+
+    def test_trigger_delay(self):
+        """Handler doesn't activate until trigger count is reached."""
+        handler = SweepZeroStarHandler(trigger_count=2)
+
+        # First zero - should not activate
+        result = handler.handle(50000, 1)
+        assert result is None
+        assert not handler.is_active()
+
+        # Second zero - should activate and return first exposure
+        result = handler.handle(50000, 2)
+        assert result == 25000
+        assert handler.is_active()
+
+    def test_sweep_pattern_short_exposures(self):
+        """Sweep repeats each short exposure 2 times."""
+        handler = SweepZeroStarHandler(trigger_count=1)
+
+        # Activate sweep
+        result = handler.handle(50000, 1)
+        assert result == 25000  # First attempt at 25ms
+
+        # Second attempt at 25ms
+        result = handler.handle(50000, 2)
+        assert result == 25000
+
+        # Move to 50ms
+        result = handler.handle(50000, 3)
+        assert result == 50000
+
+        # Second attempt at 50ms
+        result = handler.handle(50000, 4)
+        assert result == 50000
+
+        # Move to 100ms
+        result = handler.handle(50000, 5)
+        assert result == 100000
+
+    def test_focus_hold_at_400ms(self):
+        """Sweep holds at 400ms for 12 cycles (~10 seconds)."""
+        handler = SweepZeroStarHandler(trigger_count=1)
+
+        # Skip to 400ms by advancing through earlier exposures
+        # 25ms: 2 times
+        handler.handle(50000, 1)  # 25ms attempt 1
+        handler.handle(50000, 2)  # 25ms attempt 2
+        # 50ms: 2 times
+        handler.handle(50000, 3)  # 50ms attempt 1
+        handler.handle(50000, 4)  # 50ms attempt 2
+        # 100ms: 2 times
+        handler.handle(50000, 5)  # 100ms attempt 1
+        handler.handle(50000, 6)  # 100ms attempt 2
+        # 200ms: 2 times
+        handler.handle(50000, 7)  # 200ms attempt 1
+        handler.handle(50000, 8)  # 200ms attempt 2
+
+        # Now at 400ms - should hold for 12 cycles
+        for i in range(1, 13):
+            result = handler.handle(50000, 8 + i)
+            assert result == 400000, f"Cycle {i} should be 400ms"
+
+        # After 12 cycles, move to 800ms
+        result = handler.handle(50000, 21)
+        assert result == 800000
+
+    def test_sweep_wraps_around(self):
+        """Sweep wraps back to minimum after reaching maximum."""
+        handler = SweepZeroStarHandler(trigger_count=1)
+
+        # Fast-forward through entire sweep
+        # 25ms (2×), 50ms (2×), 100ms (2×), 200ms (2×), 400ms (12×), 800ms (2×), 1000ms (2×)
+        total_cycles = 2 + 2 + 2 + 2 + 12 + 2 + 2  # = 24
+
+        for i in range(1, total_cycles + 1):
+            handler.handle(50000, i)
+
+        # Next cycle should wrap to 25ms
+        result = handler.handle(50000, total_cycles + 1)
+        assert result == 25000
+
+    def test_reset(self):
+        """Reset clears handler state."""
+        handler = SweepZeroStarHandler(trigger_count=2)
+
+        # Activate sweep (need 2 zeros)
+        handler.handle(50000, 1)  # First zero - no action
+        handler.handle(50000, 2)  # Second zero - activates, 25ms attempt 1
+        handler.handle(50000, 3)  # 25ms attempt 2
+        handler.handle(50000, 4)  # 50ms attempt 1
+        assert handler.is_active()
+
+        # Reset
+        handler.reset()
+        assert not handler.is_active()
+        assert handler._exposure_index == 0
+        assert handler._repeat_count == 0
+
+        # After reset, should start from beginning (needs 2 zeros again)
+        result = handler.handle(50000, 1)
+        assert result is None  # Trigger count = 2, so first call returns None
+
+
+@pytest.mark.unit
+class TestExposurePIDController:
+    """Tests for ExposurePIDController with plugin architecture."""
+
+    def test_initialization_defaults(self):
+        """Controller initializes with default parameters."""
+        pid = ExposurePIDController()
+        assert pid.target_stars == 15
+        assert pid.kp == 8000.0
+        assert pid.ki == 500.0
+        assert pid.kd == 3000.0
+        assert pid.min_exposure == 25000
+        assert pid.max_exposure == 1000000
+        assert pid.deadband == 2
+        assert isinstance(pid._zero_star_handler, SweepZeroStarHandler)
+
+    def test_initialization_custom_handler(self):
+        """Controller accepts custom zero-star handler."""
+        mock_handler = MockZeroStarHandler()
+        pid = ExposurePIDController(zero_star_handler=mock_handler)
+        assert pid._zero_star_handler is mock_handler
+
+    def test_pid_within_deadband(self):
+        """PID returns None when within deadband."""
+        pid = ExposurePIDController(target_stars=15, deadband=2)
+
+        # 15 stars = exactly at target
+        result = pid.update(15, 100000)
+        assert result is None
+
+        # 14 stars = within deadband (15 - 2 <= 14 <= 15 + 2)
+        result = pid.update(14, 100000)
+        assert result is None
+
+        # 17 stars = within deadband
+        result = pid.update(17, 100000)
+        assert result is None
+
+    def test_pid_increases_exposure_for_too_few_stars(self):
+        """PID increases exposure when stars < target."""
+        pid = ExposurePIDController(target_stars=15, deadband=2)
+
+        # 10 stars = too few (below deadband)
+        current_exposure = 100000
+        result = pid.update(10, current_exposure)
+        assert result is not None
+        assert result > current_exposure  # Should increase exposure
+
+    def test_pid_decreases_exposure_for_too_many_stars(self):
+        """PID decreases exposure when stars > target."""
+        pid = ExposurePIDController(target_stars=15, deadband=2)
+
+        # 25 stars = too many (above deadband)
+        current_exposure = 100000
+        result = pid.update(25, current_exposure)
+        assert result is not None
+        assert result < current_exposure  # Should decrease exposure
+
+    def test_pid_clamps_to_min_exposure(self):
+        """PID clamps output to minimum exposure."""
+        pid = ExposurePIDController(target_stars=15, min_exposure=25000, kp=50000.0)
+
+        # Many stars should drive exposure down to minimum
+        result = pid.update(100, 50000)
+        assert result == 25000
+
+    def test_pid_clamps_to_max_exposure(self):
+        """PID clamps output to maximum exposure."""
+        pid = ExposurePIDController(target_stars=15, max_exposure=1000000, kp=50000.0)
+
+        # Very few stars should drive exposure up to maximum
+        result = pid.update(1, 900000)
+        assert result == 1000000
+
+    def test_zero_stars_delegates_to_handler(self):
+        """Zero stars delegates to handler plugin."""
+        mock_handler = MockZeroStarHandler()
+        pid = ExposurePIDController(zero_star_handler=mock_handler)
+
+        result = pid.update(0, 50000)
+        assert mock_handler.handle_called
+        assert result == 100000  # Mock returns 100ms
+
+    def test_zero_star_counter_increments(self):
+        """Zero-star counter increments correctly."""
+        mock_handler = MockZeroStarHandler()
+        pid = ExposurePIDController(zero_star_handler=mock_handler)
+
+        # First zero
+        pid.update(0, 50000)
+        assert pid._zero_star_count == 1
+
+        # Second zero
+        pid.update(0, 50000)
+        assert pid._zero_star_count == 2
+
+        # Finding stars resets counter
+        pid.update(15, 50000)
+        assert pid._zero_star_count == 0
+
+    def test_recovery_to_pid_transition(self):
+        """Transition from handler mode back to PID when stars found."""
+        mock_handler = MockZeroStarHandler()
+        pid = ExposurePIDController(zero_star_handler=mock_handler)
+
+        # Activate handler
+        mock_handler._active = True
+
+        # Find stars - should reset handler
+        _ = pid.update(15, 50000)
+        assert mock_handler.reset_called
+        assert pid._zero_star_count == 0
+
+    def test_reset_clears_state(self):
+        """Reset clears all controller state."""
+        pid = ExposurePIDController()
+
+        # Build up some state
+        pid.update(10, 100000)  # Sets _last_error and _integral
+        pid.update(0, 100000)   # Increments zero counter
+
+        assert pid._last_error is not None
+        assert pid._zero_star_count > 0
+
+        # Reset
+        pid.reset()
+        assert pid._integral == 0.0
+        assert pid._last_error is None
+        assert pid._zero_star_count == 0
+
+    def test_set_target(self):
+        """set_target updates target star count."""
+        pid = ExposurePIDController(target_stars=15)
+        pid.set_target(20)
+        assert pid.target_stars == 20
+
+    def test_set_gains(self):
+        """set_gains updates PID coefficients."""
+        pid = ExposurePIDController(kp=8000.0, ki=500.0, kd=3000.0)
+
+        # Update all gains
+        pid.set_gains(kp=10000.0, ki=600.0, kd=4000.0)
+        assert pid.kp == 10000.0
+        assert pid.ki == 600.0
+        assert pid.kd == 4000.0
+
+        # Update single gain
+        pid.set_gains(kp=5000.0)
+        assert pid.kp == 5000.0
+        assert pid.ki == 600.0  # Unchanged
+        assert pid.kd == 4000.0  # Unchanged
+
+    def test_get_status(self):
+        """get_status returns controller state."""
+        pid = ExposurePIDController(
+            target_stars=15,
+            kp=8000.0,
+            ki=500.0,
+            kd=3000.0,
+            min_exposure=25000,
+            max_exposure=1000000,
+            deadband=2
+        )
+
+        status = pid.get_status()
+        assert status["target_stars"] == 15
+        assert status["kp"] == 8000.0
+        assert status["ki"] == 500.0
+        assert status["kd"] == 3000.0
+        assert status["min_exposure"] == 25000
+        assert status["max_exposure"] == 1000000
+        assert status["deadband"] == 2
+        assert "integral" in status
+        assert "last_error" in status
+
+
+@pytest.mark.unit
+class TestPIDIntegration:
+    """Integration tests for PID controller with real sweep handler."""
+
+    def test_full_zero_star_recovery_cycle(self):
+        """Test complete zero-star recovery and return to PID."""
+        pid = ExposurePIDController(target_stars=15, deadband=2)
+
+        # Normal operation - PID control
+        current_exposure = 100000
+        result = pid.update(10, current_exposure)
+        assert result > current_exposure  # Too few stars, increase exposure
+
+        # Zero stars (first time) - no action yet
+        result = pid.update(0, current_exposure)
+        assert result is None  # Trigger count = 2
+
+        # Zero stars (second time) - sweep activates
+        result = pid.update(0, current_exposure)
+        assert result == 25000  # Sweep starts at 25ms
+        assert pid._zero_star_handler.is_active()
+
+        # Continue sweep
+        result = pid.update(0, current_exposure)
+        assert result == 25000  # Second attempt at 25ms
+
+        # Still zero stars, sweep continues
+        result = pid.update(0, current_exposure)
+        assert result == 50000  # Move to 50ms
+
+        # Find stars again - return to PID
+        result = pid.update(15, 50000)
+        assert not pid._zero_star_handler.is_active()
+        assert pid._zero_star_count == 0
+        assert result is None  # Within deadband
+
+    def test_pid_proportional_response(self):
+        """Test that PID responds proportionally to error magnitude."""
+        pid = ExposurePIDController(
+            target_stars=15,
+            kp=1000.0,  # Lower gain for predictable testing
+            ki=0.0,      # Disable integral
+            kd=0.0,      # Disable derivative
+            deadband=0   # No deadband
+        )
+
+        current_exposure = 100000
+
+        # Small error (1 star off)
+        result_small = pid.update(14, current_exposure)
+        small_change = result_small - current_exposure
+
+        # Reset for clean test
+        pid.reset()
+
+        # Large error (10 stars off)
+        result_large = pid.update(5, current_exposure)
+        large_change = result_large - current_exposure
+
+        # Large error should produce larger correction
+        assert abs(large_change) > abs(small_change)
+
+    def test_integral_windup_protection(self):
+        """Test that integral term is clamped to prevent windup."""
+        pid = ExposurePIDController(
+            target_stars=15,
+            kp=0.0,       # Disable proportional
+            ki=100.0,     # Enable integral
+            kd=0.0,       # Disable derivative
+            deadband=0,
+            min_exposure=25000,
+            max_exposure=1000000
+        )
+
+        # Feed consistent error to build up integral
+        current_exposure = 100000
+        for _ in range(100):
+            result = pid.update(5, current_exposure)
+            current_exposure = result
+
+        # Integral should be clamped, not infinite
+        max_integral = (pid.max_exposure - pid.min_exposure) / (2.0 * pid.ki)
+        assert abs(pid._integral) <= max_integral
+
+    def test_derivative_dampens_oscillation(self):
+        """Test that derivative term responds to rate of change."""
+        pid = ExposurePIDController(
+            target_stars=15,
+            kp=0.0,       # Disable proportional
+            ki=0.0,       # Disable integral
+            kd=1000.0,    # Enable derivative
+            deadband=0
+        )
+
+        current_exposure = 100000
+
+        # First update - no derivative yet (no previous error)
+        result1 = pid.update(10, current_exposure)
+        # With only D term and no previous error, first result equals input
+        assert result1 == current_exposure
+
+        # Second update - derivative kicks in (error changed from 5 to 10)
+        result2 = pid.update(5, current_exposure)
+        # Error went from 5 to 10 (increased by 5), derivative should respond
+        assert result2 != current_exposure
+
+        # Third update - error stabilizing (changed from 10 to 11, smaller change)
+        result3 = pid.update(4, current_exposure)
+        # Error went from 10 to 11 (increased by 1), smaller derivative response
+        assert result3 != current_exposure
+
+        # The derivative response should differ based on rate of change
+        # Second update had larger error change (5) than third (1)
+        change2 = abs(result2 - current_exposure)
+        change3 = abs(result3 - current_exposure)
+        assert change2 > change3  # Larger error change = larger correction

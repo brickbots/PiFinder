@@ -1,7 +1,6 @@
 import pytest
 import threading
 from PiFinder.db import objects_db
-from PiFinder.db import observations_db
 from PiFinder.catalogs import CatalogBackgroundLoader, Names
 
 

@@ -156,7 +156,6 @@ class CameraInterface:
                             matched_stars = solution.get("Matches", 0)
                             solve_attempt_time = solution.get("last_solve_attempt")
                             solve_rmse = solution.get("RMSE", 0)
-                            solve_fov = solution.get("FOV", 0)
 
                             # Only update on NEW solve results (not re-processing same solution)
                             # Use last_solve_attempt since it's set for both success and failure

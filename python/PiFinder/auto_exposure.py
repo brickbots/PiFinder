@@ -13,8 +13,153 @@ while avoiding over-saturation and maintaining good performance.
 
 import logging
 from typing import Optional
+from abc import ABC, abstractmethod
 
 logger = logging.getLogger("AutoExposure")
+
+
+class ZeroStarHandler(ABC):
+    """
+    Base class for handling zero-star scenarios.
+
+    Plugins implement different strategies for recovering when no stars
+    are detected. The PID controller delegates to these handlers when
+    matched_stars == 0.
+    """
+
+    def __init__(self):
+        self._active = False
+
+    @abstractmethod
+    def handle(self, current_exposure: int, zero_count: int) -> Optional[int]:
+        """
+        Handle a zero-star solve.
+
+        Args:
+            current_exposure: Current exposure time in microseconds
+            zero_count: Number of consecutive zero-star solves
+
+        Returns:
+            New exposure to try, or None if no action yet
+        """
+        pass
+
+    @abstractmethod
+    def reset(self) -> None:
+        pass
+
+    def is_active(self) -> bool:
+        return self._active
+
+
+class SweepZeroStarHandler(ZeroStarHandler):
+    """
+    Recovery strategy: systematic exposure sweep.
+
+    Sweeps through predefined exposure values, trying each multiple times.
+    Includes extended hold at 400ms for manual focus adjustment.
+    """
+
+    def __init__(
+        self,
+        min_exposure: int = 25000,
+        max_exposure: int = 1000000,
+        trigger_count: int = 2,
+    ):
+        """
+        Initialize the sweep handler.
+
+        Args:
+            min_exposure: Minimum exposure in sweep
+            max_exposure: Maximum exposure in sweep
+            trigger_count: Number of zeros before activating
+        """
+        super().__init__()
+        self._trigger_count = trigger_count
+        self._exposure_index = 0
+        self._repeat_count = 0
+
+        # Sweep pattern: exposure values in microseconds
+        self._exposures = [25000, 50000, 100000, 200000, 400000, 800000, 1000000]
+        self._repeats_per_exposure = 2  # Try each exposure 2 times
+        self._focus_hold_cycles = 12  # Hold at 400ms for ~10 seconds
+
+        logger.info(
+            f"SweepZeroStarHandler initialized: trigger after {trigger_count} zeros, "
+            f"sweep pattern {self._exposures}µs"
+        )
+
+    def handle(self, current_exposure: int, zero_count: int) -> Optional[int]:
+        """
+        Handle zero stars by sweeping through exposures.
+
+        Args:
+            current_exposure: Current exposure time in microseconds
+            zero_count: Number of consecutive zero-star solves
+
+        Returns:
+            New exposure to try, or None if waiting for trigger
+        """
+        # Wait for trigger count
+        if zero_count < self._trigger_count:
+            logger.info(f"Zero stars: {zero_count}/{self._trigger_count} before sweep activation")
+            return None
+
+        # Activate if not already active
+        if not self._active:
+            self._active = True
+            logger.warning(
+                f"Sweep activated after {zero_count} zero-star solves (stuck at {current_exposure}µs)"
+            )
+
+        # Execute sweep
+        return self._next_exposure()
+
+    def _next_exposure(self) -> int:
+        current_sweep_exposure = self._exposures[self._exposure_index]
+
+        # Special handling for 400ms - hold longer for manual focus
+        is_focus_exposure = (current_sweep_exposure == 400000)
+        repeats_needed = self._focus_hold_cycles if is_focus_exposure else self._repeats_per_exposure
+
+        # Log current attempt
+        attempt_number = self._repeat_count + 1
+        if is_focus_exposure:
+            logger.info(
+                f"Sweep: holding at {current_sweep_exposure}µs for focusing "
+                f"({attempt_number}/{repeats_needed})"
+            )
+        else:
+            logger.info(
+                f"Sweep: trying {current_sweep_exposure}µs "
+                f"({attempt_number}/{repeats_needed})"
+            )
+
+        # Save result to return
+        result = current_sweep_exposure
+
+        # Update state for next call
+        self._repeat_count += 1
+        if self._repeat_count >= repeats_needed:
+            # Completed all repeats, advance to next exposure
+            self._repeat_count = 0
+            self._exposure_index += 1
+
+            # Wrap around to start of sweep
+            if self._exposure_index >= len(self._exposures):
+                self._exposure_index = 0
+                logger.warning(f"Sweep: complete, restarting from {self._exposures[0]}µs")
+            else:
+                next_exposure = self._exposures[self._exposure_index]
+                logger.info(f"Sweep: advancing to {next_exposure}µs")
+
+        return result
+
+    def reset(self) -> None:
+        self._active = False
+        self._exposure_index = 0
+        self._repeat_count = 0
+        logger.debug("SweepZeroStarHandler reset")
 
 
 class ExposurePIDController:
@@ -24,14 +169,6 @@ class ExposurePIDController:
     The controller adjusts exposure time based on the number of stars
     detected during plate solving, targeting an optimal count for
     reliable solving performance.
-
-    Attributes:
-        target_stars: Target number of matched stars (default: 15)
-        kp: Proportional gain coefficient
-        ki: Integral gain coefficient
-        kd: Derivative gain coefficient
-        min_exposure: Minimum exposure time in microseconds
-        max_exposure: Maximum exposure time in microseconds
     """
 
     def __init__(
@@ -43,6 +180,7 @@ class ExposurePIDController:
         min_exposure: int = 25000,
         max_exposure: int = 1000000,
         deadband: int = 2,
+        zero_star_handler: Optional[ZeroStarHandler] = None,
     ):
         """
         Initialize the PID controller.
@@ -55,6 +193,7 @@ class ExposurePIDController:
             min_exposure: Minimum exposure time in microseconds (default: 25ms)
             max_exposure: Maximum exposure time in microseconds (default: 1s)
             deadband: Don't adjust if within ±deadband of target (default: 2)
+            zero_star_handler: Plugin for handling zero-star scenarios (default: SweepZeroStarHandler)
         """
         self.target_stars = target_stars
         self.kp = kp
@@ -68,82 +207,57 @@ class ExposurePIDController:
         self._integral = 0.0
         self._last_error: Optional[float] = None
 
-        # Zero-star recovery state
+        # Zero-star handling (pluggable)
         self._zero_star_count = 0
-        self._recovery_mode = False
+        self._zero_star_handler = zero_star_handler or SweepZeroStarHandler(
+            min_exposure=min_exposure,
+            max_exposure=max_exposure
+        )
 
         logger.info(
             f"AutoExposure PID initialized: target={target_stars}, "
             f"Kp={kp}, Ki={ki}, Kd={kd}, "
-            f"range=[{min_exposure}, {max_exposure}]µs, deadband=±{deadband}"
+            f"range=[{min_exposure}, {max_exposure}]µs, deadband=±{deadband}, "
+            f"zero_star_handler={self._zero_star_handler.__class__.__name__}"
         )
 
     def reset(self) -> None:
-        """Reset the PID controller state."""
         self._integral = 0.0
         self._last_error = None
         self._zero_star_count = 0
-        self._recovery_mode = False
+        self._zero_star_handler.reset()
         logger.debug("PID controller reset")
 
-    def update(
-        self, matched_stars: int, current_exposure: int
-    ) -> Optional[int]:
+    def _handle_zero_stars(self, current_exposure: int) -> Optional[int]:
         """
-        Calculate new exposure time based on current star count.
+        Handle zero-star scenarios by delegating to the pluggable handler.
 
-        This method implements a PID control loop that adjusts exposure
-        to maintain the target number of matched stars. Updates on every
-        new solve result (naturally rate-limited by exposure + solve time).
+        This is called ONLY when matched_stars == 0. The handler implements
+        the recovery strategy (e.g., sweep, reset, etc.).
+
+        Args:
+            current_exposure: Current exposure time in microseconds
+
+        Returns:
+            New exposure from handler, or None if waiting
+        """
+        self._zero_star_count += 1
+        return self._zero_star_handler.handle(current_exposure, self._zero_star_count)
+
+    def _update_pid(self, matched_stars: int, current_exposure: int) -> Optional[int]:
+        """
+        Core PID control algorithm.
+
+        Calculates exposure adjustment based on star count error using
+        Proportional-Integral-Derivative feedback control.
 
         Args:
             matched_stars: Number of stars matched in last solve
             current_exposure: Current exposure time in microseconds
 
         Returns:
-            New exposure time in microseconds, or None if no update needed
-            (within deadband)
+            New exposure time in microseconds, or None if within deadband
         """
-        # Zero-star recovery mode: handle stuck-at-zero scenarios
-        if matched_stars == 0:
-            self._zero_star_count += 1
-
-            # After 2 consecutive zero-star solves, enter recovery mode
-            if self._zero_star_count >= 2:
-                if not self._recovery_mode:
-                    self._recovery_mode = True
-                    logger.warning(
-                        f"Entering recovery mode after {self._zero_star_count} zero-star solves "
-                        f"(exposure: {current_exposure}µs)"
-                    )
-
-                # Recovery strategy: double exposure each time to sweep upward
-                if current_exposure < self.max_exposure / 2:
-                    new_exposure = min(current_exposure * 2, self.max_exposure)
-                    logger.info(f"Recovery: increasing exposure {current_exposure}→{new_exposure}µs")
-                    return new_exposure
-                else:
-                    # Hit max and still no stars - restart sweep from minimum
-                    # Could be clouds, so we keep sweeping the full range
-                    logger.warning(
-                        f"Recovery: hit max exposure ({self.max_exposure}µs), "
-                        f"restarting sweep from minimum {self.min_exposure}µs"
-                    )
-                    return self.min_exposure
-            else:
-                # First zero - just log it, don't panic yet
-                logger.info(f"Zero stars detected ({self._zero_star_count}/2 before recovery)")
-                return None
-        else:
-            # Got stars! Exit recovery mode if active
-            if self._recovery_mode:
-                logger.info(
-                    f"Recovery successful! Found {matched_stars} stars at {current_exposure}µs, "
-                    "resuming normal PID control"
-                )
-                self._recovery_mode = False
-            self._zero_star_count = 0
-
         # Calculate error (negative = too many stars, positive = too few)
         error = self.target_stars - matched_stars
 
@@ -164,9 +278,10 @@ class ExposurePIDController:
 
         # Integral term with anti-windup
         self._integral += error * dt
-        # Clamp integral to prevent windup
-        max_integral = (self.max_exposure - self.min_exposure) / (2.0 * self.ki)
-        self._integral = max(-max_integral, min(max_integral, self._integral))
+        # Clamp integral to prevent windup (only if ki > 0)
+        if self.ki > 0:
+            max_integral = (self.max_exposure - self.min_exposure) / (2.0 * self.ki)
+            self._integral = max(-max_integral, min(max_integral, self._integral))
         i_term = self.ki * self._integral
 
         # Derivative term
@@ -195,26 +310,46 @@ class ExposurePIDController:
 
         return new_exposure
 
-    def set_target(self, target_stars: int) -> None:
+    def update(
+        self, matched_stars: int, current_exposure: int
+    ) -> Optional[int]:
         """
-        Change the target number of stars.
+        Update exposure based on star count.
+
+        Main entry point for auto-exposure control. Routes to either
+        PID control (normal) or zero-star handler (exception).
 
         Args:
-            target_stars: New target star count
+            matched_stars: Number of stars matched in last solve
+            current_exposure: Current exposure time in microseconds
+
+        Returns:
+            New exposure time in microseconds, or None if no change needed
         """
+        # Exception path: zero stars - delegate to handler plugin
+        if matched_stars == 0:
+            return self._handle_zero_stars(current_exposure)
+
+        # Exit handler mode if we were in it (stars found!)
+        if self._zero_star_handler.is_active():
+            logger.info(
+                f"Zero-star handler successful! Found {matched_stars} stars at {current_exposure}µs, "
+                "switching to PID control"
+            )
+            self._zero_star_handler.reset()
+
+        # Reset zero-star counter
+        self._zero_star_count = 0
+
+        # Normal path: PID control (this is the king!)
+        return self._update_pid(matched_stars, current_exposure)
+
+    def set_target(self, target_stars: int) -> None:
         old_target = self.target_stars
         self.target_stars = target_stars
         logger.info(f"Target stars changed: {old_target} → {target_stars}")
 
     def set_gains(self, kp: Optional[float] = None, ki: Optional[float] = None, kd: Optional[float] = None) -> None:
-        """
-        Update PID gain coefficients.
-
-        Args:
-            kp: Proportional gain (if provided)
-            ki: Integral gain (if provided)
-            kd: Derivative gain (if provided)
-        """
         if kp is not None:
             self.kp = kp
         if ki is not None:
@@ -225,12 +360,6 @@ class ExposurePIDController:
         logger.info(f"PID gains updated: Kp={self.kp}, Ki={self.ki}, Kd={self.kd}")
 
     def get_status(self) -> dict:
-        """
-        Get current controller status.
-
-        Returns:
-            Dictionary with controller state information
-        """
         return {
             "target_stars": self.target_stars,
             "kp": self.kp,

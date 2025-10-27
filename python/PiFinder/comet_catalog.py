@@ -4,7 +4,7 @@ import time
 import datetime
 import pytz
 import threading
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 from PiFinder.catalog_base import CatalogStatus, CatalogState, TimerMixin, VirtualIDManager
 from PiFinder.catalogs import Catalog
 from PiFinder.state import SharedStateObj
