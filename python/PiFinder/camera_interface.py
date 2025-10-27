@@ -155,14 +155,15 @@ class CameraInterface:
                         if solve_source in ("CAM", "CAM_FAILED"):
                             matched_stars = solution.get("Matches", 0)
                             solve_attempt_time = solution.get("last_solve_attempt")
-                            solve_rmse = solution.get("RMSE", 0)
+                            solve_rmse = solution.get("RMSE")
 
                             # Only update on NEW solve results (not re-processing same solution)
                             # Use last_solve_attempt since it's set for both success and failure
                             if solve_attempt_time and solve_attempt_time != self._last_solve_time:
+                                rmse_str = f"{solve_rmse:.1f}" if solve_rmse is not None else "N/A"
                                 logger.info(
                                     f"Auto-exposure feedback - Stars: {matched_stars}, "
-                                    f"RMSE: {solve_rmse:.1f}, Current exposure: {self.exposure_time}µs"
+                                    f"RMSE: {rmse_str}, Current exposure: {self.exposure_time}µs"
                                 )
 
                                 # Call PID update (now handles zero stars with recovery mode)
