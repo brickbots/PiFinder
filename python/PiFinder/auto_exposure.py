@@ -507,9 +507,9 @@ class ExposurePIDController:
     def __init__(
         self,
         target_stars: int = 15,
-        kp: float = 16288.0,
-        ki: float = 1162.0,
-        kd: float = 6128.0,
+        kp: float = 8000.0,
+        ki: float = 500.0,
+        kd: float = 3000.0,
         min_exposure: int = 25000,
         max_exposure: int = 1000000,
         deadband: int = 2,
