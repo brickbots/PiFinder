@@ -9,14 +9,24 @@ This module is the camera
 
 """
 
+import datetime
+import logging
 import os
 import queue
 import time
-from PIL import Image
-from PiFinder import state_utils, utils
-from PiFinder.auto_exposure import ExposurePIDController
 from typing import Tuple, Optional
-import logging
+
+import numpy as np
+from PIL import Image
+
+from PiFinder import state_utils, utils
+from PiFinder.auto_exposure import (
+    ExposurePIDController,
+    SweepZeroStarHandler,
+    ResetZeroStarHandler,
+    HistogramZeroStarHandler,
+    generate_exposure_sweep,
+)
 
 logger = logging.getLogger("Camera.Interface")
 
@@ -167,8 +177,9 @@ class CameraInterface:
                                 )
 
                                 # Call PID update (now handles zero stars with recovery mode)
+                                # Pass base_image for histogram analysis in zero-star handler
                                 new_exposure = self._auto_exposure_pid.update(
-                                    matched_stars, self.exposure_time
+                                    matched_stars, self.exposure_time, base_image
                                 )
 
                                 if new_exposure is not None and new_exposure != self.exposure_time:
@@ -239,12 +250,6 @@ class CameraInterface:
                         if command.startswith("set_ae_handler"):
                             handler_type = command.split(":")[1]
                             if self._auto_exposure_pid is not None:
-                                from PiFinder.auto_exposure import (
-                                    SweepZeroStarHandler,
-                                    ResetZeroStarHandler,
-                                    HistogramZeroStarHandler,
-                                )
-
                                 new_handler = None
                                 if handler_type == "sweep":
                                     new_handler = SweepZeroStarHandler(
@@ -309,19 +314,12 @@ class CameraInterface:
 
                             # Generate 100 exposure values with logarithmic spacing
                             # from 25ms (25000µs) to 1s (1000000µs)
-                            import datetime
-                            import numpy as np
-
                             min_exp = 25000  # 25ms
                             max_exp = 1000000  # 1s
                             num_images = 100
 
-                            # Logarithmic spacing for exposure values
-                            sweep_exposures = np.logspace(
-                                np.log10(min_exp),
-                                np.log10(max_exp),
-                                num_images
-                            ).astype(int)
+                            # Generate logarithmic sweep using shared utility
+                            sweep_exposures = generate_exposure_sweep(min_exp, max_exp, num_images)
 
                             # Generate timestamp for this sweep session
                             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -338,10 +336,14 @@ class CameraInterface:
                                 self.exposure_time = exp_us
                                 self.set_camera_config(self.exposure_time, self.gain)
 
-                                # Wait a bit for camera to stabilize
-                                time.sleep(0.15)
+                                # Flush camera buffer - discard pre-buffered frames with old exposure
+                                # Picamera2 maintains a frame queue, need to flush frames captured
+                                # before the new exposure setting was applied
+                                logger.debug(f"Flushing camera buffer for {exp_us}µs exposure")
+                                _ = self.capture()  # Discard buffered frame 1
+                                _ = self.capture()  # Discard buffered frame 2
 
-                                # Capture image
+                                # Now capture the actual image with correct exposure
                                 exp_ms = exp_us / 1000
                                 filename = f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms.png"
                                 self.capture_file(filename)

@@ -12,10 +12,45 @@ while avoiding over-saturation and maintaining good performance.
 """
 
 import logging
-from typing import Optional
 from abc import ABC, abstractmethod
+from typing import List, Optional
+
+import numpy as np
+from PIL import Image
 
 logger = logging.getLogger("AutoExposure")
+
+
+def generate_exposure_sweep(
+    min_exposure: int,
+    max_exposure: int,
+    num_steps: int
+) -> List[int]:
+    """
+    Generate logarithmically-spaced exposure values for sweeps.
+
+    This utility function is used by:
+    - Experimental menu sweep capture (camera_interface.py) - 100 steps for analysis
+    - HistogramZeroStarHandler - configurable steps (default 8) for live histogram analysis
+
+    Note: SweepZeroStarHandler uses a hard-coded doubling pattern [25, 50, 100, 200, 400, 800, 1000]ms
+    instead of this function because it has specific behavior tied to the 400ms value.
+
+    Args:
+        min_exposure: Minimum exposure in microseconds
+        max_exposure: Maximum exposure in microseconds
+        num_steps: Number of exposure values to generate
+
+    Returns:
+        List of exposure values in microseconds, logarithmically spaced
+    """
+    exposures = np.logspace(
+        np.log10(min_exposure),
+        np.log10(max_exposure),
+        num_steps
+    ).astype(int).tolist()
+
+    return exposures
 
 
 class ZeroStarHandler(ABC):
@@ -31,13 +66,19 @@ class ZeroStarHandler(ABC):
         self._active = False
 
     @abstractmethod
-    def handle(self, current_exposure: int, zero_count: int) -> Optional[int]:
+    def handle(
+        self,
+        current_exposure: int,
+        zero_count: int,
+        image: Optional[Image.Image] = None
+    ) -> Optional[int]:
         """
         Handle a zero-star solve.
 
         Args:
             current_exposure: Current exposure time in microseconds
             zero_count: Number of consecutive zero-star solves
+            image: Optional PIL Image for histogram analysis
 
         Returns:
             New exposure to try, or None if no action yet
@@ -80,6 +121,9 @@ class SweepZeroStarHandler(ZeroStarHandler):
         self._repeat_count = 0
 
         # Sweep pattern: exposure values in microseconds
+        # Uses doubling pattern (2x each step) with special hold at 400ms
+        # Note: This is intentionally NOT using generate_exposure_sweep() because
+        # it has specific behavior tied to these exact values (400ms hold)
         self._exposures = [25000, 50000, 100000, 200000, 400000, 800000, 1000000]
         self._repeats_per_exposure = 2  # Try each exposure 2 times
         self._focus_hold_cycles = 12  # Hold at 400ms for ~10 seconds
@@ -89,13 +133,19 @@ class SweepZeroStarHandler(ZeroStarHandler):
             f"sweep pattern {self._exposures}µs"
         )
 
-    def handle(self, current_exposure: int, zero_count: int) -> Optional[int]:
+    def handle(
+        self,
+        current_exposure: int,
+        zero_count: int,
+        image: Optional[Image.Image] = None
+    ) -> Optional[int]:
         """
         Handle zero stars by sweeping through exposures.
 
         Args:
             current_exposure: Current exposure time in microseconds
             zero_count: Number of consecutive zero-star solves
+            image: Unused by this handler
 
         Returns:
             New exposure to try, or None if waiting for trigger
@@ -191,13 +241,19 @@ class ResetZeroStarHandler(ZeroStarHandler):
             f"reset to {reset_exposure}µs"
         )
 
-    def handle(self, current_exposure: int, zero_count: int) -> Optional[int]:
+    def handle(
+        self,
+        current_exposure: int,
+        zero_count: int,
+        image: Optional[Image.Image] = None
+    ) -> Optional[int]:
         """
         Handle zero stars by resetting to fixed exposure.
 
         Args:
             current_exposure: Current exposure time in microseconds
             zero_count: Number of consecutive zero-star solves
+            image: Unused by this handler
 
         Returns:
             Reset exposure, or None if waiting for trigger
@@ -224,10 +280,27 @@ class ResetZeroStarHandler(ZeroStarHandler):
 
 class HistogramZeroStarHandler(ZeroStarHandler):
     """
-    Recovery strategy: histogram-based adaptive exposure.
+    Recovery strategy: histogram-based quick sweep to find minimum viable exposure.
 
-    Analyzes image histogram to intelligently adjust exposure.
-    Placeholder for future implementation.
+    When no stars are detected (likely defocused), performs a quick sweep
+    through configurable number of exposures (default 8), analyzing the histogram
+    of each image to find the minimum viable exposure where defocused stars would
+    be visible. Works across different instruments and sky conditions.
+
+    Viability criteria (from test_find_min_exposure.py):
+    - Mean brightness > 20 (enough signal above noise floor)
+    - Std deviation > 5 (some structure/variation, not flat)
+    - Saturation < 5% (not overexposed)
+
+    Strategy:
+    1. On activation, start sweep from min_exposure to max_exposure (logarithmic)
+    2. Capture and analyze histogram of each image in real-time
+    3. Settle on first viable exposure (minimum where defocused stars visible)
+    4. If no viable found after full sweep, use highest exposure from sweep
+
+    The sweep covers the full exposure range to accommodate different instruments,
+    apertures, and sky conditions. Histogram analysis ensures the right exposure
+    is found dynamically rather than relying on hard-coded values.
     """
 
     def __init__(
@@ -235,6 +308,7 @@ class HistogramZeroStarHandler(ZeroStarHandler):
         min_exposure: int = 25000,
         max_exposure: int = 1000000,
         trigger_count: int = 2,
+        sweep_steps: int = 8,
     ):
         """
         Initialize the histogram handler.
@@ -243,49 +317,181 @@ class HistogramZeroStarHandler(ZeroStarHandler):
             min_exposure: Minimum exposure in microseconds
             max_exposure: Maximum exposure in microseconds
             trigger_count: Number of zeros before activating
+            sweep_steps: Number of exposures to try in quick sweep (default 8)
         """
         super().__init__()
         self._trigger_count = trigger_count
         self._min_exposure = min_exposure
         self._max_exposure = max_exposure
+        self._sweep_steps = sweep_steps
+        self._sweep_index = 0
+        self._sweep_exposures: List[int] = []
+        self._sweep_results: List[tuple] = []  # Store (exposure, viable, metrics) tuples
+        self._target_exposure: Optional[int] = None
 
         logger.info(
-            f"HistogramZeroStarHandler initialized: trigger after {trigger_count} zeros "
-            f"(placeholder - not yet implemented)"
+            f"HistogramZeroStarHandler initialized: trigger after {trigger_count} zeros, "
+            f"quick sweep with {sweep_steps} steps using histogram analysis"
         )
 
-    def handle(self, current_exposure: int, zero_count: int) -> Optional[int]:
+    def _generate_sweep_exposures(self) -> list:
         """
-        Handle zero stars using histogram analysis.
+        Generate sweep exposure values.
+        Uses logarithmic spacing across full exposure range.
+        Histogram analysis will find the minimum viable exposure dynamically.
+        """
+        return generate_exposure_sweep(
+            self._min_exposure,
+            self._max_exposure,
+            self._sweep_steps
+        )
+
+    def _analyze_image_viability(self, image: Image.Image) -> tuple:
+        """
+        Analyze image to determine if it's viable for defocused focusing.
+
+        Returns:
+            (viable, metrics_dict) - viable is bool, metrics_dict has mean/std/saturation
+        """
+        # Convert to grayscale numpy array
+        if image.mode != 'L':
+            image = image.convert('L')
+        img_array = np.asarray(image, dtype=np.float32)
+
+        # Calculate metrics
+        mean = float(np.mean(img_array))
+        std = float(np.std(img_array))
+        saturated = np.sum(img_array > 250)
+        saturation_pct = (saturated / img_array.size) * 100
+
+        # Viability criteria from test_find_min_exposure.py
+        has_signal = mean > 20  # Enough brightness above noise floor
+        has_structure = std > 5  # Some variation (not completely flat)
+        not_saturated = saturation_pct < 5  # Not overexposed
+
+        viable = has_signal and has_structure and not_saturated
+
+        metrics = {
+            'mean': mean,
+            'std': std,
+            'saturation_pct': saturation_pct,
+            'has_signal': has_signal,
+            'has_structure': has_structure,
+            'not_saturated': not_saturated
+        }
+
+        return viable, metrics
+
+    def handle(
+        self,
+        current_exposure: int,
+        zero_count: int,
+        image: Optional[Image.Image] = None
+    ) -> Optional[int]:
+        """
+        Handle zero stars with histogram-based quick sweep.
+
+        Strategy:
+        - Activates after trigger_count zero-star solves
+        - Performs quick sweep, analyzing histogram of each image
+        - Settles on first viable exposure (minimum viable)
+        - If no viable found, uses last exposure from sweep
 
         Args:
             current_exposure: Current exposure time in microseconds
             zero_count: Number of consecutive zero-star solves
+            image: PIL Image for histogram analysis
 
         Returns:
-            Adjusted exposure based on histogram, or None if waiting
+            Next sweep exposure, or settled exposure after sweep completes
         """
         # Wait for trigger count
         if zero_count < self._trigger_count:
             logger.info(f"Zero stars: {zero_count}/{self._trigger_count} before histogram handler activation")
             return None
 
-        # Activate
+        # Activate and start sweep
         if not self._active:
             self._active = True
+            self._sweep_index = 0
+            self._sweep_exposures = self._generate_sweep_exposures()
+            self._sweep_results = []
             logger.warning(
-                f"Histogram handler activated after {zero_count} zero-star solves "
-                f"(currently placeholder - using 2x increase)"
+                f"Histogram handler activated: starting {self._sweep_steps}-step histogram sweep "
+                f"from {self._sweep_exposures[0]/1000:.1f}ms to {self._sweep_exposures[-1]/1000:.1f}ms"
+            )
+            return self._sweep_exposures[0]
+
+        # Analyze current image if we have one
+        # The image was captured at current_exposure, which should match our last returned exposure
+        if image is not None and self._sweep_index < len(self._sweep_exposures):
+            # Match current_exposure to find which sweep exposure was used
+            sweep_exposure = self._sweep_exposures[self._sweep_index]
+
+            viable, metrics = self._analyze_image_viability(image)
+            self._sweep_results.append((sweep_exposure, viable, metrics))
+
+            logger.info(
+                f"Histogram analysis for {sweep_exposure/1000:.1f}ms: "
+                f"viable={'YES' if viable else 'NO'}, "
+                f"mean={metrics['mean']:.1f}, std={metrics['std']:.1f}, sat={metrics['saturation_pct']:.1f}%"
             )
 
-        # TODO: Implement histogram analysis
-        # For now, just double the exposure (placeholder behavior)
-        new_exposure = min(current_exposure * 2, self._max_exposure)
-        logger.info(f"Histogram handler (placeholder): {current_exposure}µs → {new_exposure}µs")
-        return new_exposure
+            # If we found first viable exposure, we can settle immediately
+            if viable and self._target_exposure is None:
+                self._target_exposure = sweep_exposure
+                logger.info(
+                    f"Histogram handler: found minimum viable exposure {sweep_exposure/1000:.1f}ms "
+                    f"(step {self._sweep_index+1}/{self._sweep_steps})"
+                )
+                # Stop sweep and settle on this exposure
+                return self._target_exposure
+
+        # If we've completed the sweep, settle on target exposure
+        if self._sweep_index >= len(self._sweep_exposures):
+            if self._target_exposure is None:
+                # No viable exposure found - use highest from sweep
+                # Or pick one with best metrics
+                if self._sweep_results:
+                    # Use the last (highest) exposure
+                    highest_exp = self._sweep_results[-1][0]
+                    self._target_exposure = highest_exp
+                    logger.warning(
+                        f"Histogram handler: no viable exposure found, using highest {highest_exp/1000:.1f}ms"
+                    )
+                else:
+                    # Fallback to middle exposure
+                    middle_idx = len(self._sweep_exposures) // 2
+                    middle_exp = self._sweep_exposures[middle_idx]
+                    self._target_exposure = middle_exp
+                    logger.warning(
+                        f"Histogram handler: no analysis data, using middle {middle_exp/1000:.1f}ms"
+                    )
+
+            # Hold at target
+            if current_exposure != self._target_exposure:
+                return self._target_exposure
+            return None
+
+        # Continue sweep - advance to next exposure
+        self._sweep_index += 1
+        if self._sweep_index < len(self._sweep_exposures):
+            next_exp = self._sweep_exposures[self._sweep_index]
+            logger.info(
+                f"Histogram handler: sweep step {self._sweep_index+1}/{self._sweep_steps} → {next_exp/1000:.1f}ms"
+            )
+            return next_exp
+        else:
+            # Just finished last sweep step, next call will analyze and settle
+            logger.info("Histogram handler: sweep complete, analyzing final image")
+            return None
 
     def reset(self) -> None:
         self._active = False
+        self._sweep_index = 0
+        self._sweep_exposures = []
+        self._sweep_results = []
+        self._target_exposure = None
         logger.debug("HistogramZeroStarHandler reset")
 
 
@@ -355,7 +561,11 @@ class ExposurePIDController:
         self._zero_star_handler.reset()
         logger.debug("PID controller reset")
 
-    def _handle_zero_stars(self, current_exposure: int) -> Optional[int]:
+    def _handle_zero_stars(
+        self,
+        current_exposure: int,
+        image: Optional[Image.Image] = None
+    ) -> Optional[int]:
         """
         Handle zero-star scenarios by delegating to the pluggable handler.
 
@@ -364,12 +574,13 @@ class ExposurePIDController:
 
         Args:
             current_exposure: Current exposure time in microseconds
+            image: Optional PIL Image for histogram analysis
 
         Returns:
             New exposure from handler, or None if waiting
         """
         self._zero_star_count += 1
-        return self._zero_star_handler.handle(current_exposure, self._zero_star_count)
+        return self._zero_star_handler.handle(current_exposure, self._zero_star_count, image)
 
     def _update_pid(self, matched_stars: int, current_exposure: int) -> Optional[int]:
         """
@@ -438,7 +649,10 @@ class ExposurePIDController:
         return new_exposure
 
     def update(
-        self, matched_stars: int, current_exposure: int
+        self,
+        matched_stars: int,
+        current_exposure: int,
+        image: Optional[Image.Image] = None
     ) -> Optional[int]:
         """
         Update exposure based on star count.
@@ -449,13 +663,14 @@ class ExposurePIDController:
         Args:
             matched_stars: Number of stars matched in last solve
             current_exposure: Current exposure time in microseconds
+            image: Optional PIL Image for histogram analysis (used by zero-star handler)
 
         Returns:
             New exposure time in microseconds, or None if no change needed
         """
         # Exception path: zero stars - delegate to handler plugin
         if matched_stars == 0:
-            return self._handle_zero_stars(current_exposure)
+            return self._handle_zero_stars(current_exposure, image)
 
         # Exit handler mode if we were in it (stars found!)
         if self._zero_star_handler.is_active():

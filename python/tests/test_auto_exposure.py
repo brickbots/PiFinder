@@ -5,6 +5,8 @@ Unit tests for auto_exposure.py - PID controller and zero-star handler plugins.
 """
 
 import pytest
+from typing import Optional
+from PIL import Image
 from PiFinder.auto_exposure import (
     ZeroStarHandler,
     SweepZeroStarHandler,
@@ -23,7 +25,7 @@ class MockZeroStarHandler(ZeroStarHandler):
         self.handle_called = False
         self.reset_called = False
 
-    def handle(self, current_exposure: int, zero_count: int):
+    def handle(self, current_exposure: int, zero_count: int, image: Optional[Image.Image] = None):
         self.handle_called = True
         return 100000  # Return 100ms
 
@@ -548,6 +550,7 @@ class TestHistogramZeroStarHandler:
         assert handler._min_exposure == 25000
         assert handler._max_exposure == 1000000
         assert handler._trigger_count == 2
+        assert handler._sweep_steps == 8
 
     def test_trigger_delay(self):
         """Handler doesn't activate until trigger count is reached."""
@@ -558,39 +561,172 @@ class TestHistogramZeroStarHandler:
         assert result is None
         assert not handler.is_active()
 
-        # Second zero - should activate
+        # Second zero - should activate and start sweep
         result = handler.handle(50000, 2)
         assert result is not None
         assert handler.is_active()
+        # Should return first sweep exposure (approximately min_exposure)
+        assert abs(result - 25000) < 10  # Allow small rounding differences
 
-    def test_placeholder_doubles_exposure(self):
-        """Placeholder implementation doubles exposure."""
-        handler = HistogramZeroStarHandler(trigger_count=1)
+    def test_quick_sweep_sequence(self):
+        """Handler performs quick sweep through exposures."""
+        handler = HistogramZeroStarHandler(trigger_count=1, sweep_steps=5)
 
-        # Should double from 50ms to 100ms
-        result = handler.handle(50000, 1)
-        assert result == 100000
+        # Activation - returns first sweep exposure
+        result1 = handler.handle(50000, 1)
+        assert result1 is not None
+        assert handler.is_active()
 
-        # Should double from 200ms to 400ms
-        result = handler.handle(200000, 2)
-        assert result == 400000
+        # Subsequent calls advance through sweep
+        result2 = handler.handle(result1, 1)
+        assert result2 is not None
+        assert result2 > result1  # Should increase
 
-    def test_respects_max_exposure(self):
-        """Handler respects maximum exposure limit."""
-        handler = HistogramZeroStarHandler(max_exposure=500000, trigger_count=1)
+        result3 = handler.handle(result2, 1)
+        assert result3 is not None
+        assert result3 > result2
 
-        # Should cap at max_exposure
-        result = handler.handle(400000, 1)
-        assert result == 500000  # Would be 800000 but capped
+        result4 = handler.handle(result3, 1)
+        assert result4 is not None
+        assert result4 > result3
+
+        result5 = handler.handle(result4, 1)
+        assert result5 is not None
+        assert result5 > result4
+
+        # After sweep_steps, should settle on middle exposure
+        result6 = handler.handle(result5, 1)
+        # Either returns target or None (if already at target)
+        # Since we've completed the sweep, it should settle
+
+    def test_settles_after_sweep(self):
+        """Handler settles on middle exposure after sweep completes."""
+        handler = HistogramZeroStarHandler(trigger_count=1, sweep_steps=4)
+
+        # Run through sweep
+        exposures = []
+        exp = 50000
+        for i in range(6):  # More than sweep_steps to ensure completion
+            result = handler.handle(exp, 1)
+            if result is not None:
+                exposures.append(result)
+                exp = result
+
+        # Should have collected sweep exposures
+        assert len(exposures) >= 4
+
+        # Final exposure should be held
+        final_exp = exposures[-1]
+        result = handler.handle(final_exp, 1)
+        # Should either return None (holding) or return same exposure
+        assert result is None or result == final_exp
 
     def test_reset(self):
-        """Reset clears handler state."""
+        """Reset clears handler state including sweep progress."""
         handler = HistogramZeroStarHandler(trigger_count=1)
 
-        # Activate
+        # Activate and start sweep
         handler.handle(50000, 1)
         assert handler.is_active()
+        assert handler._sweep_index > 0 or len(handler._sweep_exposures) > 0
 
         # Reset
         handler.reset()
         assert not handler.is_active()
+        assert handler._sweep_index == 0
+        assert len(handler._sweep_exposures) == 0
+
+    def test_histogram_analysis_dark_image(self):
+        """Handler correctly identifies dark image as non-viable."""
+        import numpy as np
+        from PIL import Image
+
+        handler = HistogramZeroStarHandler(trigger_count=1)
+
+        # Create dark image (mean < 20)
+        dark_array = np.ones((128, 128), dtype=np.uint8) * 10
+        dark_image = Image.fromarray(dark_array, mode='L')
+
+        viable, metrics = handler._analyze_image_viability(dark_image)
+        assert not viable
+        assert not metrics['has_signal']  # Too dark
+        assert metrics['mean'] < 20
+
+    def test_histogram_analysis_flat_image(self):
+        """Handler correctly identifies flat image as non-viable."""
+        import numpy as np
+        from PIL import Image
+
+        handler = HistogramZeroStarHandler(trigger_count=1)
+
+        # Create flat image (std < 5)
+        flat_array = np.ones((128, 128), dtype=np.uint8) * 100
+        flat_image = Image.fromarray(flat_array, mode='L')
+
+        viable, metrics = handler._analyze_image_viability(flat_image)
+        assert not viable
+        assert not metrics['has_structure']  # Too flat
+        assert metrics['std'] < 5
+
+    def test_histogram_analysis_saturated_image(self):
+        """Handler correctly identifies saturated image as non-viable."""
+        import numpy as np
+        from PIL import Image
+
+        handler = HistogramZeroStarHandler(trigger_count=1)
+
+        # Create saturated image (> 5% pixels > 250)
+        saturated_array = np.ones((128, 128), dtype=np.uint8) * 255
+        saturated_image = Image.fromarray(saturated_array, mode='L')
+
+        viable, metrics = handler._analyze_image_viability(saturated_image)
+        assert not viable
+        assert not metrics['not_saturated']  # Too saturated
+        assert metrics['saturation_pct'] > 5
+
+    def test_histogram_analysis_viable_image(self):
+        """Handler correctly identifies viable image."""
+        import numpy as np
+        from PIL import Image
+
+        handler = HistogramZeroStarHandler(trigger_count=1)
+
+        # Create viable image (mean > 20, std > 5, not saturated)
+        # Add some noise/texture
+        viable_array = np.random.normal(80, 15, (128, 128)).astype(np.uint8)
+        viable_image = Image.fromarray(viable_array, mode='L')
+
+        viable, metrics = handler._analyze_image_viability(viable_image)
+        assert viable
+        assert metrics['has_signal']
+        assert metrics['has_structure']
+        assert metrics['not_saturated']
+        assert metrics['mean'] > 20
+        assert metrics['std'] > 5
+
+    def test_histogram_sweep_with_images(self):
+        """Handler performs sweep with image analysis and finds viable exposure."""
+        import numpy as np
+        from PIL import Image
+
+        handler = HistogramZeroStarHandler(trigger_count=1, sweep_steps=4)
+
+        # Activation - returns first exposure
+        exp1 = handler.handle(50000, 1)
+        assert exp1 is not None
+        assert handler.is_active()
+
+        # Create progressively brighter images
+        # First image: too dark (non-viable)
+        dark_image = Image.fromarray(np.ones((128, 128), dtype=np.uint8) * 10, mode='L')
+        exp2 = handler.handle(exp1, 1, dark_image)
+        assert exp2 is not None
+        assert exp2 > exp1  # Should continue sweep
+
+        # Second image: viable!
+        viable_image = Image.fromarray(np.random.normal(80, 15, (128, 128)).astype(np.uint8), mode='L')
+        exp3 = handler.handle(exp2, 1, viable_image)
+
+        # Should settle on this viable exposure
+        assert handler._target_exposure is not None
+        assert handler._target_exposure == exp2  # Settles on the previous exposure (which was viable)
