@@ -507,40 +507,28 @@ class ExposurePIDController:
     def __init__(
         self,
         target_stars: int = 15,
-        kp: float = 8000.0,
-        ki: float = 500.0,
-        kd: float = 3000.0,
+        gains_decrease: tuple = (4000.0, 250.0, 1500.0),  # Kp, Ki, Kd for too many stars
+        gains_increase: tuple = (8000.0, 500.0, 3000.0),  # Kp, Ki, Kd for too few stars
         min_exposure: int = 25000,
         max_exposure: int = 1000000,
         deadband: int = 2,
         zero_star_handler: Optional[ZeroStarHandler] = None,
     ):
         """
-        Initialize the PID controller.
+        Initialize PID controller with asymmetric gains.
 
-        Args:
-            target_stars: Optimal number of stars to maintain (default: 15)
-            kp: Proportional gain - immediate response to error
-            ki: Integral gain - eliminates steady-state error
-            kd: Derivative gain - dampens oscillation
-            min_exposure: Minimum exposure time in microseconds (default: 25ms)
-            max_exposure: Maximum exposure time in microseconds (default: 1s)
-            deadband: Don't adjust if within ±deadband of target (default: 2)
-            zero_star_handler: Plugin for handling zero-star scenarios (default: SweepZeroStarHandler)
+        Uses conservative gains when decreasing exposure (gentle descent),
+        aggressive gains when increasing (fast recovery).
         """
         self.target_stars = target_stars
-        self.kp = kp
-        self.ki = ki
-        self.kd = kd
+        self.gains_decrease = gains_decrease
+        self.gains_increase = gains_increase
         self.min_exposure = min_exposure
         self.max_exposure = max_exposure
         self.deadband = deadband
 
-        # PID state variables
         self._integral = 0.0
         self._last_error: Optional[float] = None
-
-        # Zero-star handling (pluggable)
         self._zero_star_count = 0
         self._zero_star_handler = zero_star_handler or SweepZeroStarHandler(
             min_exposure=min_exposure,
@@ -548,10 +536,9 @@ class ExposurePIDController:
         )
 
         logger.info(
-            f"AutoExposure PID initialized: target={target_stars}, "
-            f"Kp={kp}, Ki={ki}, Kd={kd}, "
-            f"range=[{min_exposure}, {max_exposure}]µs, deadband=±{deadband}, "
-            f"zero_star_handler={self._zero_star_handler.__class__.__name__}"
+            f"AutoExposure PID: target={target_stars}, "
+            f"gains_dec={gains_decrease}, gains_inc={gains_increase}, "
+            f"range=[{min_exposure}, {max_exposure}]µs"
         )
 
     def reset(self) -> None:
@@ -583,67 +570,34 @@ class ExposurePIDController:
         return self._zero_star_handler.handle(current_exposure, self._zero_star_count, image)
 
     def _update_pid(self, matched_stars: int, current_exposure: int) -> Optional[int]:
-        """
-        Core PID control algorithm.
-
-        Calculates exposure adjustment based on star count error using
-        Proportional-Integral-Derivative feedback control.
-
-        Args:
-            matched_stars: Number of stars matched in last solve
-            current_exposure: Current exposure time in microseconds
-
-        Returns:
-            New exposure time in microseconds, or None if within deadband
-        """
-        # Calculate error (negative = too many stars, positive = too few)
+        """Core PID algorithm with asymmetric gains."""
         error = self.target_stars - matched_stars
 
-        # Deadband - don't adjust if we're close enough
         if abs(error) <= self.deadband:
-            logger.debug(
-                f"Within deadband: {matched_stars} stars "
-                f"(target {self.target_stars} ±{self.deadband})"
-            )
             return None
 
-        # Use fixed dt since we update once per solve cycle
-        # (not time-based, but iteration-based)
-        dt = 1.0
+        # Select gains: conservative when decreasing, aggressive when increasing
+        kp, ki, kd = self.gains_decrease if error < 0 else self.gains_increase
 
-        # Proportional term
-        p_term = self.kp * error
+        # PID calculation
+        p_term = kp * error
 
-        # Integral term with anti-windup
-        self._integral += error * dt
-        # Clamp integral to prevent windup (only if ki > 0)
-        if self.ki > 0:
-            max_integral = (self.max_exposure - self.min_exposure) / (2.0 * self.ki)
-            self._integral = max(-max_integral, min(max_integral, self._integral))
-        i_term = self.ki * self._integral
+        self._integral += error
+        if ki > 0:
+            max_int = (self.max_exposure - self.min_exposure) / (2.0 * ki)
+            self._integral = max(-max_int, min(max_int, self._integral))
+        i_term = ki * self._integral
 
-        # Derivative term
-        if self._last_error is None:
-            d_term = 0.0
-        else:
-            d_term = self.kd * (error - self._last_error) / dt
+        d_term = 0.0 if self._last_error is None else kd * (error - self._last_error)
 
-        # Calculate adjustment
-        adjustment = p_term + i_term + d_term
-
-        # Apply adjustment to current exposure
-        new_exposure = int(current_exposure + adjustment)
-
-        # Clamp to valid range
+        new_exposure = int(current_exposure + p_term + i_term + d_term)
         new_exposure = max(self.min_exposure, min(self.max_exposure, new_exposure))
 
-        # Update state
         self._last_error = error
 
         logger.debug(
-            f"PID update: {matched_stars} stars (target {self.target_stars}), "
-            f"error={error}, P={p_term:.0f}, I={i_term:.0f}, D={d_term:.0f}, "
-            f"exposure {current_exposure}→{new_exposure}µs"
+            f"PID: {matched_stars}→{new_exposure//1000}ms "
+            f"(err={error}, P={p_term:.0f}, I={i_term:.0f}, D={d_term:.0f})"
         )
 
         return new_exposure
@@ -691,22 +645,23 @@ class ExposurePIDController:
         self.target_stars = target_stars
         logger.info(f"Target stars changed: {old_target} → {target_stars}")
 
-    def set_gains(self, kp: Optional[float] = None, ki: Optional[float] = None, kd: Optional[float] = None) -> None:
-        if kp is not None:
-            self.kp = kp
-        if ki is not None:
-            self.ki = ki
-        if kd is not None:
-            self.kd = kd
-
-        logger.info(f"PID gains updated: Kp={self.kp}, Ki={self.ki}, Kd={self.kd}")
+    def set_gains(
+        self,
+        gains_decrease: Optional[tuple] = None,
+        gains_increase: Optional[tuple] = None,
+    ) -> None:
+        """Update PID gains. Each tuple is (Kp, Ki, Kd)."""
+        if gains_decrease is not None:
+            self.gains_decrease = gains_decrease
+        if gains_increase is not None:
+            self.gains_increase = gains_increase
+        logger.info(f"PID gains: dec={self.gains_decrease}, inc={self.gains_increase}")
 
     def get_status(self) -> dict:
         return {
             "target_stars": self.target_stars,
-            "kp": self.kp,
-            "ki": self.ki,
-            "kd": self.kd,
+            "gains_decrease": self.gains_decrease,
+            "gains_increase": self.gains_increase,
             "integral": self._integral,
             "last_error": self._last_error,
             "min_exposure": self.min_exposure,
