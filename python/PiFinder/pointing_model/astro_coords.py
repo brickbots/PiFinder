@@ -121,12 +121,9 @@ def initialized_solved_dict() -> dict:
     Returns an initialized 'solved' dictionary with cooridnate and other
     information.
 
-    TODO: The solved dict is used by other components. Move this func
-    and use this elsewhere (e.g. solver.py) to enforce consistency.
     TODO: use RaDecRoll class for the RA, Dec, Roll coordinates here?
+    TODO: "Alt" and "Az" could be removed but seems to be required by catalogs?
     """
-    # TODO: This dict is duplicated in solver.py - Refactor?
-    # "Alt" and "Az" could be removed once we move to Eq-based dead-reckoning
     solved = {
         # RA, Dec, Roll of the scope at the target pixel
         "RA": None,
