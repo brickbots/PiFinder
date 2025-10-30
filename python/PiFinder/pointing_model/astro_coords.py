@@ -125,11 +125,11 @@ def initialized_solved_dict() -> dict:
     TODO: "Alt" and "Az" could be removed but seems to be required by catalogs?
     """
     solved = {
-        # RA, Dec, Roll of the scope at the target pixel
+        # RA, Dec, Roll [deg] of the scope at the target pixel
         "RA": None,
         "Dec": None,
         "Roll": None,
-        # RA, Dec, Roll solved at the center of the camera FoV
+        # RA, Dec, Roll [deg] solved at the center of the camera FoV
         # update by the IMU in the integrator
         "camera_center": {
             "RA": None,
@@ -138,14 +138,15 @@ def initialized_solved_dict() -> dict:
             "Alt": None,  # NOTE: Altaz needed by catalogs for altaz mounts
             "Az": None,
         },
-        # RA, Dec, Roll from the camera, not updated by IMU in integrator
+        # RA, Dec, Roll [deg] from the camera, not updated by IMU in integrator
         "camera_solve": {
             "RA": None,
             "Dec": None,
             "Roll": None,
         },
         "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first)
-        "Alt": None,  # Alt of scope
+        # Alt, Az [deg] of scope
+        "Alt": None,
         "Az": None,
         "solve_source": None,
         "solve_time": None,

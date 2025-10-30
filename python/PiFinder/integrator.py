@@ -251,7 +251,8 @@ def get_roll_by_mount_type(
     is displayed appropriately for the mount type. The RA and Dec of the target
     should be provided (in degrees).
 
-    * Alt/Az mount: Display the chart in the horizontal coordinate so the
+    * Alt/Az mount: Display the chart in the horizontal coordinate so that up
+      in the chart points to the Zenith.
     * EQ mount: Display the chart in the equatorial coordinate system with the
       NCP up so roll = 0.
 
@@ -264,14 +265,14 @@ def get_roll_by_mount_type(
             # Roll at the target RA/Dec in the horizontal frame
             roll_deg = calc_utils.sf_utils.radec_to_roll(ra_deg, dec_deg, dt)
         else:
-            # No position or time/date available, so set roll to 0
-            roll_deg = 0
+            # No position or time/date available, so set roll to 0.0
+            roll_deg = 0.0
 
     elif mount_type == "EQ":
-        # EQ-mounts: Display chart with NCP up so roll = 0
-        roll_deg = 0
+        # EQ-mounts: Display chart with NCP up so roll = 0.0
+        roll_deg = 0.0
     else:
         logger.error(f"Unknown mount type: {mount_type}. Cannot set roll.")
-        roll_deg = 0
+        roll_deg = 0.0
 
     return roll_deg
