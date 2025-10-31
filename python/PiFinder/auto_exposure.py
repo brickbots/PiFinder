@@ -516,9 +516,9 @@ class ExposurePIDController:
         self,
         target_stars: int = 15,
         gains_decrease: tuple = (
-            4000.0,
-            250.0,
-            1500.0,
+            2000.0,
+            125.0,
+            750.0,
         ),  # Kp, Ki, Kd for too many stars
         gains_increase: tuple = (8000.0, 500.0, 3000.0),  # Kp, Ki, Kd for too few stars
         min_exposure: int = 25000,
