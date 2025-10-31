@@ -118,6 +118,10 @@ class UIAlign(UIModule):
             # None....
             return
 
+        # Guard against None solution or None RA/Dec values
+        if not self.solution or self.solution["RA"] is None or self.solution["Dec"] is None:
+            return
+
         reticle_position = self.starfield.radec_to_xy(
             self.solution["RA"], self.solution["Dec"]
         )
