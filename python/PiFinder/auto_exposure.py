@@ -517,7 +517,7 @@ class ExposurePIDController:
         target_stars: int = 15,
         gains_decrease: tuple = (
             2000.0,
-            125.0,
+            10.0,
             750.0,
         ),  # Kp, Ki, Kd for too many stars
         gains_increase: tuple = (8000.0, 500.0, 3000.0),  # Kp, Ki, Kd for too few stars
@@ -602,7 +602,15 @@ class ExposurePIDController:
         d_term = 0.0 if self._last_error is None else kd * (error - self._last_error)
 
         new_exposure = int(current_exposure + p_term + i_term + d_term)
-        new_exposure = max(self.min_exposure, min(self.max_exposure, new_exposure))
+
+        # Anti-windup: if we hit limits, back out the integral contribution that caused it
+        clamped_exposure = max(self.min_exposure, min(self.max_exposure, new_exposure))
+        if clamped_exposure != new_exposure and ki > 0:
+            # We hit a limit - reduce integral to prevent windup
+            overshoot = new_exposure - clamped_exposure
+            self._integral -= overshoot / ki
+            logger.debug(f"Anti-windup: clamped {new_exposure}→{clamped_exposure}, reduced integral by {overshoot/ki:.1f}")
+        new_exposure = clamped_exposure
 
         self._last_error = error
 
