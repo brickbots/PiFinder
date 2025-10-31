@@ -84,6 +84,10 @@ class CameraDebug(CameraInterface):
         logger.warn("capture_file not implemented in Camera Debug")
         pass
 
+    def capture_raw_file(self, filename) -> None:
+        logger.warn("capture_raw_file not implemented in Camera Debug")
+        pass
+
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:

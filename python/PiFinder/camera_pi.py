@@ -148,6 +148,85 @@ class CameraPI(CameraInterface):
         tmp_capture = self.capture()
         tmp_capture.save(filename)
 
+    def capture_raw_file(self, filename) -> None:
+        """
+        Captures raw sensor data and saves as 16-bit TIFF.
+
+        For Bayer sensors:
+        - Saves raw Bayer mosaic (RGGB pattern)
+        - Adds "_RGGB" suffix to filename (indicates Bayer pattern for post-processing)
+        - Post-processing can debayer using scikit-image, opencv, etc.
+
+        For RGB sensors:
+        - Converts to grayscale
+        - Saves without Bayer pattern suffix
+        """
+        _request = self.camera.capture_request()
+        # raw is actually 16 bit
+        raw_capture = _request.make_array("raw").copy().view(np.uint16)
+
+        # Log actual camera metadata for exposure verification (debug level only)
+        metadata = _request.get_metadata()
+        actual_exposure = metadata.get("ExposureTime", "unknown")
+        actual_gain = metadata.get("AnalogueGain", "unknown")
+        logger.debug(
+            f"Captured raw frame - Requested: {self.exposure_time}µs/{self.gain}x gain, "
+            f"Actual: {actual_exposure}µs/{actual_gain:.2f}x gain"
+        )
+
+        _request.release()
+
+        # Crop to square (preserves Bayer pattern alignment if applicable)
+        if self.camera_type == "imx296":
+            raw_capture = raw_capture[:, 184:-184]
+            # Sensor orientation is different
+            raw_capture = np.rot90(raw_capture, 2)
+        elif self.camera_type == "imx462":
+            raw_capture = raw_capture[50:-50, 470:-470]
+        elif self.camera_type == "hq":
+            raw_capture = raw_capture[:, 256:-256]
+
+        # Determine if we need to flag for debayering
+        needs_debayer = False
+
+        # Handle different input types
+        if raw_capture.ndim == 3:
+            # Already RGB - convert to grayscale
+            logger.debug(
+                f"Converting RGB raw data to grayscale (shape: {raw_capture.shape})"
+            )
+            raw_capture = (
+                raw_capture[:, :, 0] * 0.299
+                + raw_capture[:, :, 1] * 0.587
+                + raw_capture[:, :, 2] * 0.114
+            ).astype(np.uint16)
+            needs_debayer = False
+        elif raw_capture.ndim == 2:
+            # Bayer mosaic - save as-is and flag for post-processing
+            logger.debug(
+                f"Saving raw Bayer mosaic (RGGB pattern, shape: {raw_capture.shape})"
+            )
+            needs_debayer = True
+        else:
+            raise ValueError(f"Unexpected raw image dimensions: {raw_capture.ndim}")
+
+        # Modify filename if debayering needed
+        if needs_debayer:
+            # Insert "_RGGB" suffix before extension to indicate Bayer pattern
+            import os
+
+            base, ext = os.path.splitext(filename)
+            filename = f"{base}_RGGB{ext}"
+
+        # Save as 16-bit TIFF
+        raw_image = Image.fromarray(raw_capture, mode="I;16")
+        raw_image.save(filename, format="TIFF")
+
+        debayer_note = " (RGGB Bayer pattern)" if needs_debayer else ""
+        logger.debug(
+            f"Saved raw {self.bit_depth}-bit image as 16-bit TIFF: {filename}{debayer_note}"
+        )
+
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:

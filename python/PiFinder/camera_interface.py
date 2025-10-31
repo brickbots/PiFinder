@@ -34,6 +34,9 @@ class CameraInterface:
     def capture_file(self, filename) -> None:
         pass
 
+    def capture_raw_file(self, filename) -> None:
+        pass
+
     def capture_bias(self) -> Image.Image:
         """
         Capture a bias frame for pedestal calculation.

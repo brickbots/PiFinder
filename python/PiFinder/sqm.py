@@ -30,8 +30,16 @@ class SQM:
     (extended source), giving SQM in mag/arcsec².
     """
 
-    def __init__(self):
+    def __init__(self, pedestal_from_background: bool = False):
+        """
+        Initialize SQM calculator.
+
+        Args:
+            pedestal_from_background: If True, automatically estimate pedestal from
+                median of local backgrounds. Default False (manual pedestal only).
+        """
         super()
+        self.pedestal_from_background = pedestal_from_background
 
     def _calc_field_parameters(self, fov_degrees: float) -> None:
         """Calculate field of view parameters."""
@@ -379,7 +387,9 @@ class SQM:
                 n_stars_excluded = len(excluded_indices)
                 # Filter out overlapping stars
                 valid_indices = [
-                    i for i in range(len(matched_centroids_arr)) if i not in excluded_indices
+                    i
+                    for i in range(len(matched_centroids_arr))
+                    if i not in excluded_indices
                 ]
                 matched_centroids_arr = matched_centroids_arr[valid_indices]
                 star_mags = [star_mags[i] for i in valid_indices]
@@ -410,6 +420,17 @@ class SQM:
             annulus_inner_radius,
             annulus_outer_radius,
         )
+
+        # 1a. Estimate pedestal from median local background if enabled and not already set
+        if (
+            self.pedestal_from_background
+            and pedestal == 0.0
+            and len(local_backgrounds) > 0
+        ):
+            pedestal = float(np.median(local_backgrounds))
+            logger.debug(
+                f"Pedestal estimated from median(local_backgrounds): {pedestal:.2f} ADU"
+            )
 
         # 2. Calculate sky background from median of local backgrounds
         if len(local_backgrounds) == 0:
@@ -454,7 +475,9 @@ class SQM:
         # Assemble diagnostics
         details = {
             "fov_deg": fov_estimate,
-            "n_centroids": len(centroids) if centroids else 0,
+            "n_centroids": len(centroids)
+            if centroids is not None and len(centroids) > 0
+            else 0,
             "n_matched_stars": len(matched_stars),
             "n_matched_stars_original": n_stars_original,
             "overlap_correction_enabled": correct_overlaps,
@@ -462,9 +485,17 @@ class SQM:
             "background_per_pixel": background_per_pixel,
             "background_method": "local_annulus",
             "pedestal": pedestal,
-            "pedestal_source": "bias_image"
-            if bias_image is not None
-            else ("manual" if pedestal > 0 else "none"),
+            "pedestal_source": (
+                "bias_image"
+                if bias_image is not None
+                else (
+                    "median_local_backgrounds"
+                    if pedestal > 0
+                    and bias_image is None
+                    and self.pedestal_from_background
+                    else ("manual" if pedestal > 0 else "none")
+                )
+            ),
             "background_corrected": background_corrected,
             "background_flux_density": background_flux_density,
             "arcsec_per_pixel": np.sqrt(self.arcsec_squared_per_pixel),

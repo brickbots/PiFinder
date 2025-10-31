@@ -52,7 +52,9 @@ class UISQM(UIModule):
             try:
                 from datetime import datetime
 
-                sqm_timestamp = datetime.fromisoformat(sqm_state.last_update).timestamp()
+                sqm_timestamp = datetime.fromisoformat(
+                    sqm_state.last_update
+                ).timestamp()
             except (ValueError, AttributeError):
                 sqm_timestamp = None
 
@@ -196,8 +198,12 @@ class UISQM(UIModule):
                 "nelm_range": (7.6, 8.0),
                 "mag_arcsec_range": (21.76, 22.00),
                 "description": [
-                    _("The zodiacal light is visible and colorful. Gegenschein readily visible."),
-                    _("The Scorpius and Sagittarius regions of the Milky Way cast obvious shadows."),
+                    _(
+                        "The zodiacal light is visible and colorful. Gegenschein readily visible."
+                    ),
+                    _(
+                        "The Scorpius and Sagittarius regions of the Milky Way cast obvious shadows."
+                    ),
                     _("M33 is a direct naked-eye object. Airglow readily visible."),
                     _("Abundant stars make faint constellations hard to distinguish."),
                 ],
@@ -208,7 +214,9 @@ class UISQM(UIModule):
                 "nelm_range": (7.1, 7.5),
                 "mag_arcsec_range": (21.60, 21.76),
                 "description": [
-                    _("The zodiacal light is distinctly yellowish and bright enough to cast shadows at dusk and dawn."),
+                    _(
+                        "The zodiacal light is distinctly yellowish and bright enough to cast shadows at dusk and dawn."
+                    ),
                     _("Clouds appear as dark silhouettes against the sky."),
                     _("The summer Milky Way is highly structured. M33 easily visible."),
                 ],
@@ -219,8 +227,12 @@ class UISQM(UIModule):
                 "nelm_range": (6.6, 7.0),
                 "mag_arcsec_range": (21.30, 21.60),
                 "description": [
-                    _("The zodiacal light is striking in spring and autumn, color still visible."),
-                    _("Some light pollution at horizon. Clouds illuminated near horizon, dark overhead."),
+                    _(
+                        "The zodiacal light is striking in spring and autumn, color still visible."
+                    ),
+                    _(
+                        "Some light pollution at horizon. Clouds illuminated near horizon, dark overhead."
+                    ),
                     _("The summer Milky Way still appears complex."),
                     _("Several Messier objects remain naked-eye visible."),
                 ],
@@ -231,9 +243,13 @@ class UISQM(UIModule):
                 "nelm_range": (6.3, 6.5),
                 "mag_arcsec_range": (20.80, 21.30),
                 "description": [
-                    _("Zodiacal light still visible but doesn't extend halfway to zenith."),
+                    _(
+                        "Zodiacal light still visible but doesn't extend halfway to zenith."
+                    ),
                     _("Light pollution domes apparent in multiple directions."),
-                    _("The Milky Way well above the horizon is still impressive, but lacks detail."),
+                    _(
+                        "The Milky Way well above the horizon is still impressive, but lacks detail."
+                    ),
                     _("M33 difficult to see."),
                 ],
             },
@@ -243,7 +259,9 @@ class UISQM(UIModule):
                 "nelm_range": (6.1, 6.3),
                 "mag_arcsec_range": (20.30, 20.80),
                 "description": [
-                    _("Clouds have a grayish glow at zenith and appear bright toward city domes."),
+                    _(
+                        "Clouds have a grayish glow at zenith and appear bright toward city domes."
+                    ),
                     _("Milky Way only vaguely visible 10-15° above horizon."),
                     _("Great Rift observable overhead."),
                 ],
@@ -254,7 +272,9 @@ class UISQM(UIModule):
                 "nelm_range": (5.6, 6.0),
                 "mag_arcsec_range": (19.25, 20.30),
                 "description": [
-                    _("Only hints of zodiacal light seen on best nights in autumn and spring."),
+                    _(
+                        "Only hints of zodiacal light seen on best nights in autumn and spring."
+                    ),
                     _("Light pollution visible in most, if not all, directions."),
                     _("Clouds noticeably brighter than the sky."),
                     _("Milky Way invisible near horizon, looks washed out overhead."),
@@ -267,8 +287,12 @@ class UISQM(UIModule):
                 "mag_arcsec_range": (18.50, 19.25),
                 "description": [
                     _("The zodiacal light is invisible."),
-                    _("Light pollution makes sky within 35° of horizon glow grayish white."),
-                    _("The Milky Way is only visible near the zenith. M33 undetectable."),
+                    _(
+                        "Light pollution makes sky within 35° of horizon glow grayish white."
+                    ),
+                    _(
+                        "The Milky Way is only visible near the zenith. M33 undetectable."
+                    ),
                     _("M31 modestly apparent. Surroundings easily visible."),
                 ],
             },
@@ -303,7 +327,9 @@ class UISQM(UIModule):
                 "description": [
                     _("The sky is brilliantly lit."),
                     _("Many stars forming constellations invisible."),
-                    _("Only the Moon, planets, bright satellites, and a few of the brightest star clusters observable."),
+                    _(
+                        "Only the Moon, planets, bright satellites, and a few of the brightest star clusters observable."
+                    ),
                 ],
             },
         ]
