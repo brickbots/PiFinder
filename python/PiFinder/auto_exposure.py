@@ -7,11 +7,13 @@ This module implements a PID (Proportional-Integral-Derivative) controller
 that automatically adjusts camera exposure time to maintain an optimal number
 of detected stars for plate solving.
 
-The controller targets 15 matched stars, which provides reliable plate solving
-while avoiding over-saturation and maintaining good performance.
+The controller targets 17 matched stars (acceptable range: 12-22) which provides
+reliable plate solving while avoiding over-saturation and maintaining good performance.
+Rate limiting on downward adjustments reduces CPU usage.
 """
 
 import logging
+import time
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
@@ -514,7 +516,7 @@ class ExposurePIDController:
 
     def __init__(
         self,
-        target_stars: int = 15,
+        target_stars: int = 17,
         gains_decrease: tuple = (
             2000.0,
             10.0,
@@ -523,7 +525,8 @@ class ExposurePIDController:
         gains_increase: tuple = (8000.0, 500.0, 3000.0),  # Kp, Ki, Kd for too few stars
         min_exposure: int = 25000,
         max_exposure: int = 1000000,
-        deadband: int = 2,
+        deadband: int = 5,
+        update_interval: float = 0.5,  # Minimum seconds between decreasing adjustments
         zero_star_handler: Optional[ZeroStarHandler] = None,
     ):
         """
@@ -538,16 +541,19 @@ class ExposurePIDController:
         self.min_exposure = min_exposure
         self.max_exposure = max_exposure
         self.deadband = deadband
+        self.update_interval = update_interval
 
         self._integral = 0.0
         self._last_error: Optional[float] = None
         self._zero_star_count = 0
+        self._last_adjustment_time = 0.0
         self._zero_star_handler = zero_star_handler or SweepZeroStarHandler(
             min_exposure=min_exposure, max_exposure=max_exposure
         )
 
         logger.info(
-            f"AutoExposure PID: target={target_stars}, "
+            f"AutoExposure PID: target={target_stars}, deadband={deadband}, "
+            f"update_interval={update_interval}s, "
             f"gains_dec={gains_decrease}, gains_inc={gains_increase}, "
             f"range=[{min_exposure}, {max_exposure}]µs"
         )
@@ -556,6 +562,7 @@ class ExposurePIDController:
         self._integral = 0.0
         self._last_error = None
         self._zero_star_count = 0
+        self._last_adjustment_time = 0.0
         self._zero_star_handler.reset()
         logger.debug("PID controller reset")
 
@@ -587,6 +594,16 @@ class ExposurePIDController:
         if abs(error) <= self.deadband:
             return None
 
+        # Rate limiting: only when decreasing (too many stars)
+        # When increasing (too few stars), respond immediately for faster recovery
+        if error < 0:  # Too many stars, going down
+            current_time = time.time()
+            time_since_last = current_time - self._last_adjustment_time
+            if time_since_last < self.update_interval:
+                return None  # Skip debug log for performance
+        else:
+            current_time = time.time()  # Only get time when needed
+
         # Select gains: conservative when decreasing, aggressive when increasing
         kp, ki, kd = self.gains_decrease if error < 0 else self.gains_increase
 
@@ -605,21 +622,15 @@ class ExposurePIDController:
 
         # Anti-windup: if we hit limits, back out the integral contribution that caused it
         clamped_exposure = max(self.min_exposure, min(self.max_exposure, new_exposure))
-        if clamped_exposure != new_exposure and ki > 0:
-            # We hit a limit - reduce integral to prevent windup
-            overshoot = new_exposure - clamped_exposure
-            self._integral -= overshoot / ki
-            logger.debug(f"Anti-windup: clamped {new_exposure}→{clamped_exposure}, reduced integral by {overshoot/ki:.1f}")
-        new_exposure = clamped_exposure
+        if clamped_exposure != new_exposure:
+            if ki > 0:  # Only unwind if integral term is active
+                overshoot = new_exposure - clamped_exposure
+                self._integral -= overshoot / ki
 
         self._last_error = error
+        self._last_adjustment_time = current_time
 
-        logger.debug(
-            f"PID: {matched_stars}→{new_exposure//1000}ms "
-            f"(err={error}, P={p_term:.0f}, I={i_term:.0f}, D={d_term:.0f})"
-        )
-
-        return new_exposure
+        return clamped_exposure
 
     def update(
         self,
@@ -689,4 +700,5 @@ class ExposurePIDController:
             "min_exposure": self.min_exposure,
             "max_exposure": self.max_exposure,
             "deadband": self.deadband,
+            "update_interval": self.update_interval,
         }
