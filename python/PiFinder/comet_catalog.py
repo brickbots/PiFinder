@@ -5,7 +5,12 @@ import datetime
 import pytz
 import threading
 from typing import Dict, Optional
-from PiFinder.catalog_base import CatalogStatus, CatalogState, TimerMixin, VirtualIDManager
+from PiFinder.catalog_base import (
+    CatalogStatus,
+    CatalogState,
+    TimerMixin,
+    VirtualIDManager,
+)
 from PiFinder.catalogs import Catalog
 from PiFinder.state import SharedStateObj
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
@@ -19,13 +24,13 @@ logger = logging.getLogger("CometCatalog")
 class CometCatalog(Catalog):
     """Creates a catalog of comets with adaptive update frequency based on GPS lock status
 
-        Logic:
-            - on startup, do init and dispatch a setup background task:
-                - check if we have a file, if so which file modification time and store that time.
-                - if we don't have a file, set want_download to true and log the reason
-                - if we have a file, try to get the remote file header, if the file is too old set want_download to true and set the age and log the reason
-            - start the background download task, but wait till it returns
-            - manually start the do_timed_task so it starts immediately, use locks to prevent double start
+    Logic:
+        - on startup, do init and dispatch a setup background task:
+            - check if we have a file, if so which file modification time and store that time.
+            - if we don't have a file, set want_download to true and log the reason
+            - if we have a file, try to get the remote file header, if the file is too old set want_download to true and set the age and log the reason
+        - start the background download task, but wait till it returns
+        - manually start the do_timed_task so it starts immediately, use locks to prevent double start
     """
 
     def __init__(self, dt: datetime.datetime, shared_state: SharedStateObj):
@@ -110,15 +115,19 @@ class CometCatalog(Catalog):
 
         # Include progress data if available
         data = None
-        if current_state == CatalogState.DOWNLOADING and self.download_progress is not None:
+        if (
+            current_state == CatalogState.DOWNLOADING
+            and self.download_progress is not None
+        ):
             data = {"progress": self.download_progress}
-        elif current_state == CatalogState.CALCULATING and self.calculation_progress is not None:
+        elif (
+            current_state == CatalogState.CALCULATING
+            and self.calculation_progress is not None
+        ):
             data = {"progress": self.calculation_progress}
 
         status = CatalogStatus(
-            current=current_state,
-            previous=self._last_state,
-            data=data
+            current=current_state, previous=self._last_state, data=data
         )
         self._last_state = status.current
         return status
@@ -132,6 +141,7 @@ class CometCatalog(Catalog):
             return False
 
         try:
+
             def progress_callback(progress: int):
                 self.download_progress = progress
 
@@ -139,8 +149,7 @@ class CometCatalog(Catalog):
             self.download_progress = 0
 
             success, _, file_mtime = comets.comet_data_download(
-                comet_file,
-                progress_callback=progress_callback
+                comet_file, progress_callback=progress_callback
             )
             self._is_downloading = False
             self.download_progress = None
@@ -199,6 +208,7 @@ class CometCatalog(Catalog):
         Only retries when download failed (no file exists).
         Does NOT check file age - that's done once at startup.
         """
+
         def retry_task():
             # Only retry if no file exists
             while not os.path.exists(comet_file):
@@ -284,15 +294,7 @@ class CometCatalog(Catalog):
             logger.error(f"Error adding comet {name}: {e}")
 
     def do_timed_task(self):
-        """Update comet catalog data periodically
-
-
-
-
-
-
-
-        """
+        """Update comet catalog data periodically"""
         # Prevent concurrent execution
         with self._task_lock:
             with Timer("Comet Catalog periodic update"):

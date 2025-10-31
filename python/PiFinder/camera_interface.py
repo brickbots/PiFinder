@@ -16,7 +16,6 @@ import queue
 import time
 from typing import Tuple, Optional
 
-import numpy as np
 from PIL import Image
 
 from PiFinder import state_utils, utils
@@ -46,6 +45,9 @@ class CameraInterface:
         return Image.Image()
 
     def capture_file(self, filename) -> None:
+        pass
+
+    def capture_raw_file(self, filename) -> None:
         pass
 
     def set_camera_config(
@@ -159,7 +161,9 @@ class CameraInterface:
                     # Updates as fast as new solve results arrive (naturally rate-limited)
                     if self._auto_exposure_enabled and self._auto_exposure_pid:
                         solution = shared_state.solution()
-                        solve_source = solution.get("solve_source") if solution else None
+                        solve_source = (
+                            solution.get("solve_source") if solution else None
+                        )
 
                         # Handle camera solves (successful or failed)
                         if solve_source in ("CAM", "CAM_FAILED"):
@@ -169,8 +173,15 @@ class CameraInterface:
 
                             # Only update on NEW solve results (not re-processing same solution)
                             # Use last_solve_attempt since it's set for both success and failure
-                            if solve_attempt_time and solve_attempt_time != self._last_solve_time:
-                                rmse_str = f"{solve_rmse:.1f}" if solve_rmse is not None else "N/A"
+                            if (
+                                solve_attempt_time
+                                and solve_attempt_time != self._last_solve_time
+                            ):
+                                rmse_str = (
+                                    f"{solve_rmse:.1f}"
+                                    if solve_rmse is not None
+                                    else "N/A"
+                                )
                                 logger.info(
                                     f"Auto-exposure feedback - Stars: {matched_stars}, "
                                     f"RMSE: {rmse_str}, Current exposure: {self.exposure_time}µs"
@@ -182,7 +193,10 @@ class CameraInterface:
                                     matched_stars, self.exposure_time, base_image
                                 )
 
-                                if new_exposure is not None and new_exposure != self.exposure_time:
+                                if (
+                                    new_exposure is not None
+                                    and new_exposure != self.exposure_time
+                                ):
                                     # Exposure value actually changed - update camera
                                     logger.info(
                                         f"Auto-exposure adjustment: {matched_stars} stars → "
@@ -190,7 +204,9 @@ class CameraInterface:
                                         f"(change: {new_exposure - self.exposure_time:+d}µs)"
                                     )
                                     self.exposure_time = new_exposure
-                                    self.set_camera_config(self.exposure_time, self.gain)
+                                    self.set_camera_config(
+                                        self.exposure_time, self.gain
+                                    )
                                 elif new_exposure is None:
                                     logger.debug(
                                         f"Auto-exposure: {matched_stars} stars, no adjustment needed"
@@ -236,7 +252,9 @@ class CameraInterface:
                                 # Update config to reflect manual exposure value
                                 cfg.set_option("camera_exp", self.exposure_time)
                                 console_queue.put("CAM: Exp=" + str(self.exposure_time))
-                                logger.info(f"Manual exposure set: {self.exposure_time}µs")
+                                logger.info(
+                                    f"Manual exposure set: {self.exposure_time}µs"
+                                )
 
                         if command.startswith("set_gain"):
                             old_gain = self.gain
@@ -254,7 +272,7 @@ class CameraInterface:
                                 if handler_type == "sweep":
                                     new_handler = SweepZeroStarHandler(
                                         min_exposure=self._auto_exposure_pid.min_exposure,
-                                        max_exposure=self._auto_exposure_pid.max_exposure
+                                        max_exposure=self._auto_exposure_pid.max_exposure,
                                     )
                                 elif handler_type == "reset":
                                     new_handler = ResetZeroStarHandler(
@@ -263,17 +281,25 @@ class CameraInterface:
                                 elif handler_type == "histogram":
                                     new_handler = HistogramZeroStarHandler(
                                         min_exposure=self._auto_exposure_pid.min_exposure,
-                                        max_exposure=self._auto_exposure_pid.max_exposure
+                                        max_exposure=self._auto_exposure_pid.max_exposure,
                                     )
                                 else:
-                                    logger.warning(f"Unknown zero-star handler type: {handler_type}")
+                                    logger.warning(
+                                        f"Unknown zero-star handler type: {handler_type}"
+                                    )
 
                                 if new_handler is not None:
-                                    self._auto_exposure_pid._zero_star_handler = new_handler
+                                    self._auto_exposure_pid._zero_star_handler = (
+                                        new_handler
+                                    )
                                     console_queue.put(f"CAM: AE Handler={handler_type}")
-                                    logger.info(f"Auto-exposure zero-star handler changed to: {handler_type}")
+                                    logger.info(
+                                        f"Auto-exposure zero-star handler changed to: {handler_type}"
+                                    )
                             else:
-                                logger.warning("Cannot set AE handler: auto-exposure not initialized")
+                                logger.warning(
+                                    "Cannot set AE handler: auto-exposure not initialized"
+                                )
 
                         if command == "exp_up" or command == "exp_dn":
                             # Manual exposure adjustments disable auto-exposure
@@ -289,8 +315,12 @@ class CameraInterface:
                             self._auto_exposure_enabled = False
                             cfg.set_option("camera_exp", self.exposure_time)
                             cfg.set_option("camera_gain", int(self.gain))
-                            console_queue.put(f"CAM: Exp Saved ({self.exposure_time}µs)")
-                            logger.info(f"Exposure saved and auto-exposure disabled: {self.exposure_time}µs")
+                            console_queue.put(
+                                f"CAM: Exp Saved ({self.exposure_time}µs)"
+                            )
+                            logger.info(
+                                f"Exposure saved and auto-exposure disabled: {self.exposure_time}µs"
+                            )
 
                         if command.startswith("save"):
                             filename = command.split(":")[1]
@@ -299,10 +329,13 @@ class CameraInterface:
                             console_queue.put("CAM: Saved Image")
 
                         if command == "capture_exp_sweep":
-                            # Capture exposure sweep - save images at different exposures
+                            # Capture exposure sweep - save RAW images at different exposures
                             # Uses fine-grained logarithmic spacing for PID parameter testing
-                            logger.info("Starting exposure sweep capture (100 images)")
-                            console_queue.put("CAM: Starting sweep...")
+                            # Saves as 16-bit TIFF to preserve full sensor bit depth
+                            logger.info(
+                                "Starting RAW exposure sweep capture (100 images)"
+                            )
+                            console_queue.put("CAM: Starting RAW sweep...")
 
                             # Save current settings
                             original_exposure = self.exposure_time
@@ -319,17 +352,21 @@ class CameraInterface:
                             num_images = 100
 
                             # Generate logarithmic sweep using shared utility
-                            sweep_exposures = generate_exposure_sweep(min_exp, max_exp, num_images)
+                            sweep_exposures = generate_exposure_sweep(
+                                min_exp, max_exp, num_images
+                            )
 
                             # Generate timestamp for this sweep session
-                            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                            timestamp = datetime.datetime.now().strftime(
+                                "%Y%m%d_%H%M%S"
+                            )
 
                             # Create sweep directory
                             sweep_dir = f"{utils.data_dir}/captures/sweep_{timestamp}"
                             os.makedirs(sweep_dir, exist_ok=True)
 
-                            logger.info(f"Saving sweep to: {sweep_dir}")
-                            console_queue.put(f"CAM: {num_images} images")
+                            logger.info(f"Saving RAW sweep to: {sweep_dir}")
+                            console_queue.put(f"CAM: {num_images} RAW images")
 
                             for i, exp_us in enumerate(sweep_exposures, 1):
                                 # Set exposure
@@ -339,20 +376,26 @@ class CameraInterface:
                                 # Flush camera buffer - discard pre-buffered frames with old exposure
                                 # Picamera2 maintains a frame queue, need to flush frames captured
                                 # before the new exposure setting was applied
-                                logger.debug(f"Flushing camera buffer for {exp_us}µs exposure")
+                                logger.debug(
+                                    f"Flushing camera buffer for {exp_us}µs exposure"
+                                )
                                 _ = self.capture()  # Discard buffered frame 1
                                 _ = self.capture()  # Discard buffered frame 2
 
-                                # Now capture the actual image with correct exposure
+                                # Now capture the actual RAW image with correct exposure
                                 exp_ms = exp_us / 1000
-                                filename = f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms.png"
-                                self.capture_file(filename)
+                                filename = (
+                                    f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms.tiff"
+                                )
+                                self.capture_raw_file(filename)
 
                                 # Update console every 10 images to avoid spam
                                 if i % 10 == 0 or i == num_images:
                                     console_queue.put(f"CAM: Sweep {i}/{num_images}")
 
-                                logger.debug(f"Captured sweep image {i}/{num_images}: {exp_ms:.2f}ms")
+                                logger.debug(
+                                    f"Captured RAW sweep image {i}/{num_images}: {exp_ms:.2f}ms"
+                                )
 
                             # Restore original settings
                             self.exposure_time = original_exposure
@@ -360,8 +403,10 @@ class CameraInterface:
                             self._auto_exposure_enabled = original_ae_enabled
                             self.set_camera_config(self.exposure_time, self.gain)
 
-                            console_queue.put("CAM: Sweep done!")
-                            logger.info(f"Exposure sweep capture completed: {num_images} images in {sweep_dir}")
+                            console_queue.put("CAM: RAW sweep done!")
+                            logger.info(
+                                f"RAW exposure sweep capture completed: {num_images} images in {sweep_dir}"
+                            )
 
                         if command.startswith("stop"):
                             self.stop_camera()

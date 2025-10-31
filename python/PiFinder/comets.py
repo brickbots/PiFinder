@@ -84,9 +84,9 @@ def check_if_comet_download_needed(
             last_modified, "%a, %d %b %Y %H:%M:%S GMT"
         ).replace(tzinfo=timezone.utc)
 
-        local_date = datetime.fromtimestamp(
-            os.path.getmtime(local_filename)
-        ).replace(tzinfo=timezone.utc)
+        local_date = datetime.fromtimestamp(os.path.getmtime(local_filename)).replace(
+            tzinfo=timezone.utc
+        )
 
         if remote_date > local_date:
             age_diff = (remote_date - local_date).total_seconds() / 86400
@@ -100,7 +100,9 @@ def check_if_comet_download_needed(
 
 
 def comet_data_download(
-    local_filename, url=mpc.COMET_URL, progress_callback: Optional[Callable[[int], None]] = None
+    local_filename,
+    url=mpc.COMET_URL,
+    progress_callback: Optional[Callable[[int], None]] = None,
 ) -> Tuple[bool, Optional[float], Optional[float]]:
     """
     Download comet data from the Minor Planet Center.
@@ -122,7 +124,7 @@ def comet_data_download(
         response.raise_for_status()
 
         # Get file size for progress calculation
-        total_size = int(response.headers.get('content-length', 0))
+        total_size = int(response.headers.get("content-length", 0))
         downloaded = 0
 
         with open(local_filename, "wb") as f:
@@ -159,7 +161,9 @@ def comet_data_download(
         return False, None, None
 
 
-def calc_comets(dt, comet_names=None, progress_callback: Optional[Callable[[int], None]] = None) -> dict:
+def calc_comets(
+    dt, comet_names=None, progress_callback: Optional[Callable[[int], None]] = None
+) -> dict:
     """
     Calculate comet positions.
 

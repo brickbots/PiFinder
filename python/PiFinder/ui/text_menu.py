@@ -125,7 +125,8 @@ class UITextMenu(UIModule):
 
                 self.draw.text(
                     (line_horiz_pos, line_pos),
-                    _(item_text) + suffix,  # I18N: translate item for display, add suffix
+                    _(item_text)
+                    + suffix,  # I18N: translate item for display, add suffix
                     font=line_font.font,
                     fill=self.colors.get(line_color),
                 )

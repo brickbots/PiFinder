@@ -228,7 +228,9 @@ def solver(
                                         solved["x_target"],
                                     )
                                     logger.debug(f"Align {align_target_pixel=}")
-                                    align_result_queue.put(["aligned", align_target_pixel])
+                                    align_result_queue.put(
+                                        ["aligned", align_target_pixel]
+                                    )
                                     align_ra = 0
                                     align_dec = 0
                                     solved["x_target"] = None

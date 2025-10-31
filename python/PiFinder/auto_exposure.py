@@ -22,9 +22,7 @@ logger = logging.getLogger("AutoExposure")
 
 
 def generate_exposure_sweep(
-    min_exposure: int,
-    max_exposure: int,
-    num_steps: int
+    min_exposure: int, max_exposure: int, num_steps: int
 ) -> List[int]:
     """
     Generate logarithmically-spaced exposure values for sweeps.
@@ -44,11 +42,11 @@ def generate_exposure_sweep(
     Returns:
         List of exposure values in microseconds, logarithmically spaced
     """
-    exposures = np.logspace(
-        np.log10(min_exposure),
-        np.log10(max_exposure),
-        num_steps
-    ).astype(int).tolist()
+    exposures = (
+        np.logspace(np.log10(min_exposure), np.log10(max_exposure), num_steps)
+        .astype(int)
+        .tolist()
+    )
 
     return exposures
 
@@ -70,7 +68,7 @@ class ZeroStarHandler(ABC):
         self,
         current_exposure: int,
         zero_count: int,
-        image: Optional[Image.Image] = None
+        image: Optional[Image.Image] = None,
     ) -> Optional[int]:
         """
         Handle a zero-star solve.
@@ -137,7 +135,7 @@ class SweepZeroStarHandler(ZeroStarHandler):
         self,
         current_exposure: int,
         zero_count: int,
-        image: Optional[Image.Image] = None
+        image: Optional[Image.Image] = None,
     ) -> Optional[int]:
         """
         Handle zero stars by sweeping through exposures.
@@ -152,7 +150,9 @@ class SweepZeroStarHandler(ZeroStarHandler):
         """
         # Wait for trigger count
         if zero_count < self._trigger_count:
-            logger.info(f"Zero stars: {zero_count}/{self._trigger_count} before sweep activation")
+            logger.info(
+                f"Zero stars: {zero_count}/{self._trigger_count} before sweep activation"
+            )
             return None
 
         # Activate if not already active
@@ -169,8 +169,10 @@ class SweepZeroStarHandler(ZeroStarHandler):
         current_sweep_exposure = self._exposures[self._exposure_index]
 
         # Special handling for 400ms - hold longer for manual focus
-        is_focus_exposure = (current_sweep_exposure == 400000)
-        repeats_needed = self._focus_hold_cycles if is_focus_exposure else self._repeats_per_exposure
+        is_focus_exposure = current_sweep_exposure == 400000
+        repeats_needed = (
+            self._focus_hold_cycles if is_focus_exposure else self._repeats_per_exposure
+        )
 
         # Log current attempt
         attempt_number = self._repeat_count + 1
@@ -198,7 +200,9 @@ class SweepZeroStarHandler(ZeroStarHandler):
             # Wrap around to start of sweep
             if self._exposure_index >= len(self._exposures):
                 self._exposure_index = 0
-                logger.warning(f"Sweep: complete, restarting from {self._exposures[0]}µs")
+                logger.warning(
+                    f"Sweep: complete, restarting from {self._exposures[0]}µs"
+                )
             else:
                 next_exposure = self._exposures[self._exposure_index]
                 logger.info(f"Sweep: advancing to {next_exposure}µs")
@@ -245,7 +249,7 @@ class ResetZeroStarHandler(ZeroStarHandler):
         self,
         current_exposure: int,
         zero_count: int,
-        image: Optional[Image.Image] = None
+        image: Optional[Image.Image] = None,
     ) -> Optional[int]:
         """
         Handle zero stars by resetting to fixed exposure.
@@ -260,7 +264,9 @@ class ResetZeroStarHandler(ZeroStarHandler):
         """
         # Wait for trigger count
         if zero_count < self._trigger_count:
-            logger.info(f"Zero stars: {zero_count}/{self._trigger_count} before reset activation")
+            logger.info(
+                f"Zero stars: {zero_count}/{self._trigger_count} before reset activation"
+            )
             return None
 
         # Activate and return reset exposure
@@ -326,7 +332,9 @@ class HistogramZeroStarHandler(ZeroStarHandler):
         self._sweep_steps = sweep_steps
         self._sweep_index = 0
         self._sweep_exposures: List[int] = []
-        self._sweep_results: List[tuple] = []  # Store (exposure, viable, metrics) tuples
+        self._sweep_results: List[
+            tuple
+        ] = []  # Store (exposure, viable, metrics) tuples
         self._target_exposure: Optional[int] = None
 
         logger.info(
@@ -341,9 +349,7 @@ class HistogramZeroStarHandler(ZeroStarHandler):
         Histogram analysis will find the minimum viable exposure dynamically.
         """
         return generate_exposure_sweep(
-            self._min_exposure,
-            self._max_exposure,
-            self._sweep_steps
+            self._min_exposure, self._max_exposure, self._sweep_steps
         )
 
     def _analyze_image_viability(self, image: Image.Image) -> tuple:
@@ -354,8 +360,8 @@ class HistogramZeroStarHandler(ZeroStarHandler):
             (viable, metrics_dict) - viable is bool, metrics_dict has mean/std/saturation
         """
         # Convert to grayscale numpy array
-        if image.mode != 'L':
-            image = image.convert('L')
+        if image.mode != "L":
+            image = image.convert("L")
         img_array = np.asarray(image, dtype=np.float32)
 
         # Calculate metrics
@@ -372,12 +378,12 @@ class HistogramZeroStarHandler(ZeroStarHandler):
         viable = has_signal and has_structure and not_saturated
 
         metrics = {
-            'mean': mean,
-            'std': std,
-            'saturation_pct': saturation_pct,
-            'has_signal': has_signal,
-            'has_structure': has_structure,
-            'not_saturated': not_saturated
+            "mean": mean,
+            "std": std,
+            "saturation_pct": saturation_pct,
+            "has_signal": has_signal,
+            "has_structure": has_structure,
+            "not_saturated": not_saturated,
         }
 
         return viable, metrics
@@ -386,7 +392,7 @@ class HistogramZeroStarHandler(ZeroStarHandler):
         self,
         current_exposure: int,
         zero_count: int,
-        image: Optional[Image.Image] = None
+        image: Optional[Image.Image] = None,
     ) -> Optional[int]:
         """
         Handle zero stars with histogram-based quick sweep.
@@ -407,7 +413,9 @@ class HistogramZeroStarHandler(ZeroStarHandler):
         """
         # Wait for trigger count
         if zero_count < self._trigger_count:
-            logger.info(f"Zero stars: {zero_count}/{self._trigger_count} before histogram handler activation")
+            logger.info(
+                f"Zero stars: {zero_count}/{self._trigger_count} before histogram handler activation"
+            )
             return None
 
         # Activate and start sweep
@@ -507,7 +515,11 @@ class ExposurePIDController:
     def __init__(
         self,
         target_stars: int = 15,
-        gains_decrease: tuple = (4000.0, 250.0, 1500.0),  # Kp, Ki, Kd for too many stars
+        gains_decrease: tuple = (
+            4000.0,
+            250.0,
+            1500.0,
+        ),  # Kp, Ki, Kd for too many stars
         gains_increase: tuple = (8000.0, 500.0, 3000.0),  # Kp, Ki, Kd for too few stars
         min_exposure: int = 25000,
         max_exposure: int = 1000000,
@@ -531,8 +543,7 @@ class ExposurePIDController:
         self._last_error: Optional[float] = None
         self._zero_star_count = 0
         self._zero_star_handler = zero_star_handler or SweepZeroStarHandler(
-            min_exposure=min_exposure,
-            max_exposure=max_exposure
+            min_exposure=min_exposure, max_exposure=max_exposure
         )
 
         logger.info(
@@ -549,9 +560,7 @@ class ExposurePIDController:
         logger.debug("PID controller reset")
 
     def _handle_zero_stars(
-        self,
-        current_exposure: int,
-        image: Optional[Image.Image] = None
+        self, current_exposure: int, image: Optional[Image.Image] = None
     ) -> Optional[int]:
         """
         Handle zero-star scenarios by delegating to the pluggable handler.
@@ -567,7 +576,9 @@ class ExposurePIDController:
             New exposure from handler, or None if waiting
         """
         self._zero_star_count += 1
-        return self._zero_star_handler.handle(current_exposure, self._zero_star_count, image)
+        return self._zero_star_handler.handle(
+            current_exposure, self._zero_star_count, image
+        )
 
     def _update_pid(self, matched_stars: int, current_exposure: int) -> Optional[int]:
         """Core PID algorithm with asymmetric gains."""
@@ -606,7 +617,7 @@ class ExposurePIDController:
         self,
         matched_stars: int,
         current_exposure: int,
-        image: Optional[Image.Image] = None
+        image: Optional[Image.Image] = None,
     ) -> Optional[int]:
         """
         Update exposure based on star count.

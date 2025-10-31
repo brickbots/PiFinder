@@ -25,7 +25,12 @@ class MockZeroStarHandler(ZeroStarHandler):
         self.handle_called = False
         self.reset_called = False
 
-    def handle(self, current_exposure: int, zero_count: int, image: Optional[Image.Image] = None):
+    def handle(
+        self,
+        current_exposure: int,
+        zero_count: int,
+        image: Optional[Image.Image] = None,
+    ):
         self.handle_called = True
         return 100000  # Return 100ms
 
@@ -71,16 +76,22 @@ class TestSweepZeroStarHandler:
         handler = SweepZeroStarHandler()
         assert not handler.is_active()
         assert handler._trigger_count == 2
-        assert handler._exposures == [25000, 50000, 100000, 200000, 400000, 800000, 1000000]
+        assert handler._exposures == [
+            25000,
+            50000,
+            100000,
+            200000,
+            400000,
+            800000,
+            1000000,
+        ]
         assert handler._repeats_per_exposure == 2
         assert handler._focus_hold_cycles == 12
 
     def test_custom_initialization(self):
         """Handler accepts custom parameters."""
         handler = SweepZeroStarHandler(
-            min_exposure=10000,
-            max_exposure=500000,
-            trigger_count=3
+            min_exposure=10000, max_exposure=500000, trigger_count=3
         )
         assert handler._trigger_count == 3
 
@@ -245,7 +256,9 @@ class TestExposurePIDController:
 
     def test_pid_clamps_to_min_exposure(self):
         """PID clamps output to minimum exposure."""
-        pid = ExposurePIDController(target_stars=15, min_exposure=25000, gains_decrease=(50000.0, 0.0, 0.0))
+        pid = ExposurePIDController(
+            target_stars=15, min_exposure=25000, gains_decrease=(50000.0, 0.0, 0.0)
+        )
 
         # Many stars should drive exposure down to minimum
         result = pid.update(100, 50000)
@@ -253,7 +266,9 @@ class TestExposurePIDController:
 
     def test_pid_clamps_to_max_exposure(self):
         """PID clamps output to maximum exposure."""
-        pid = ExposurePIDController(target_stars=15, max_exposure=1000000, gains_increase=(50000.0, 0.0, 0.0))
+        pid = ExposurePIDController(
+            target_stars=15, max_exposure=1000000, gains_increase=(50000.0, 0.0, 0.0)
+        )
 
         # Very few stars should drive exposure up to maximum
         result = pid.update(1, 900000)
@@ -304,7 +319,7 @@ class TestExposurePIDController:
 
         # Build up some state
         pid.update(10, 100000)  # Sets _last_error and _integral
-        pid.update(0, 100000)   # Increments zero counter
+        pid.update(0, 100000)  # Increments zero counter
 
         assert pid._last_error is not None
         assert pid._zero_star_count > 0
@@ -338,10 +353,7 @@ class TestExposurePIDController:
     def test_get_status(self):
         """get_status returns controller state."""
         pid = ExposurePIDController(
-            target_stars=15,
-            min_exposure=25000,
-            max_exposure=1000000,
-            deadband=2
+            target_stars=15, min_exposure=25000, max_exposure=1000000, deadband=2
         )
 
         status = pid.get_status()
@@ -353,6 +365,7 @@ class TestExposurePIDController:
         assert status["deadband"] == 2
         assert "integral" in status
         assert "last_error" in status
+
 
 class TestPIDIntegration:
     """Integration tests for PID controller with real sweep handler."""
@@ -395,7 +408,7 @@ class TestPIDIntegration:
             target_stars=15,
             gains_decrease=(1000.0, 0.0, 0.0),
             gains_increase=(1000.0, 0.0, 0.0),
-            deadband=0
+            deadband=0,
         )
 
         current_exposure = 100000
@@ -421,7 +434,7 @@ class TestPIDIntegration:
             gains_decrease=(0.0, 100.0, 0.0),
             gains_increase=(0.0, 100.0, 0.0),
             min_exposure=25000,
-            max_exposure=1000000
+            max_exposure=1000000,
         )
 
         # Feed consistent error to build up integral
@@ -431,7 +444,9 @@ class TestPIDIntegration:
             current_exposure = result
 
         # Integral should be clamped, not infinite
-        max_integral = (pid.max_exposure - pid.min_exposure) / (2.0 * pid.gains_increase[1])
+        max_integral = (pid.max_exposure - pid.min_exposure) / (
+            2.0 * pid.gains_increase[1]
+        )
         assert abs(pid._integral) <= max_integral
 
     def test_derivative_dampens_oscillation(self):
@@ -440,7 +455,7 @@ class TestPIDIntegration:
             target_stars=15,
             gains_decrease=(0.0, 0.0, 1000.0),
             gains_increase=(0.0, 0.0, 1000.0),
-            deadband=0
+            deadband=0,
         )
 
         current_exposure = 100000
@@ -632,12 +647,12 @@ class TestHistogramZeroStarHandler:
 
         # Create dark image (mean < 20)
         dark_array = np.ones((128, 128), dtype=np.uint8) * 10
-        dark_image = Image.fromarray(dark_array, mode='L')
+        dark_image = Image.fromarray(dark_array, mode="L")
 
         viable, metrics = handler._analyze_image_viability(dark_image)
         assert not viable
-        assert not metrics['has_signal']  # Too dark
-        assert metrics['mean'] < 20
+        assert not metrics["has_signal"]  # Too dark
+        assert metrics["mean"] < 20
 
     def test_histogram_analysis_flat_image(self):
         """Handler correctly identifies flat image as non-viable."""
@@ -648,12 +663,12 @@ class TestHistogramZeroStarHandler:
 
         # Create flat image (std < 5)
         flat_array = np.ones((128, 128), dtype=np.uint8) * 100
-        flat_image = Image.fromarray(flat_array, mode='L')
+        flat_image = Image.fromarray(flat_array, mode="L")
 
         viable, metrics = handler._analyze_image_viability(flat_image)
         assert not viable
-        assert not metrics['has_structure']  # Too flat
-        assert metrics['std'] < 5
+        assert not metrics["has_structure"]  # Too flat
+        assert metrics["std"] < 5
 
     def test_histogram_analysis_saturated_image(self):
         """Handler correctly identifies saturated image as non-viable."""
@@ -664,12 +679,12 @@ class TestHistogramZeroStarHandler:
 
         # Create saturated image (> 5% pixels > 250)
         saturated_array = np.ones((128, 128), dtype=np.uint8) * 255
-        saturated_image = Image.fromarray(saturated_array, mode='L')
+        saturated_image = Image.fromarray(saturated_array, mode="L")
 
         viable, metrics = handler._analyze_image_viability(saturated_image)
         assert not viable
-        assert not metrics['not_saturated']  # Too saturated
-        assert metrics['saturation_pct'] > 5
+        assert not metrics["not_saturated"]  # Too saturated
+        assert metrics["saturation_pct"] > 5
 
     def test_histogram_analysis_viable_image(self):
         """Handler correctly identifies viable image."""
@@ -681,15 +696,15 @@ class TestHistogramZeroStarHandler:
         # Create viable image (mean > 20, std > 5, not saturated)
         # Add some noise/texture
         viable_array = np.random.normal(80, 15, (128, 128)).astype(np.uint8)
-        viable_image = Image.fromarray(viable_array, mode='L')
+        viable_image = Image.fromarray(viable_array, mode="L")
 
         viable, metrics = handler._analyze_image_viability(viable_image)
         assert viable
-        assert metrics['has_signal']
-        assert metrics['has_structure']
-        assert metrics['not_saturated']
-        assert metrics['mean'] > 20
-        assert metrics['std'] > 5
+        assert metrics["has_signal"]
+        assert metrics["has_structure"]
+        assert metrics["not_saturated"]
+        assert metrics["mean"] > 20
+        assert metrics["std"] > 5
 
     def test_histogram_sweep_with_images(self):
         """Handler performs sweep with image analysis and finds viable exposure."""
@@ -705,15 +720,19 @@ class TestHistogramZeroStarHandler:
 
         # Create progressively brighter images
         # First image: too dark (non-viable)
-        dark_image = Image.fromarray(np.ones((128, 128), dtype=np.uint8) * 10, mode='L')
+        dark_image = Image.fromarray(np.ones((128, 128), dtype=np.uint8) * 10, mode="L")
         exp2 = handler.handle(exp1, 1, dark_image)
         assert exp2 is not None
         assert exp2 > exp1  # Should continue sweep
 
         # Second image: viable!
-        viable_image = Image.fromarray(np.random.normal(80, 15, (128, 128)).astype(np.uint8), mode='L')
+        viable_image = Image.fromarray(
+            np.random.normal(80, 15, (128, 128)).astype(np.uint8), mode="L"
+        )
         exp3 = handler.handle(exp2, 1, viable_image)
 
         # Should settle on this viable exposure
         assert handler._target_exposure is not None
-        assert handler._target_exposure == exp2  # Settles on the previous exposure (which was viable)
+        assert (
+            handler._target_exposure == exp2
+        )  # Settles on the previous exposure (which was viable)

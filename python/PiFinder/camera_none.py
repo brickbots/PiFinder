@@ -43,6 +43,10 @@ class CameraNone(CameraInterface):
         logger.warning("capture_file not implemented")
         pass
 
+    def capture_raw_file(self, filename) -> None:
+        logger.warning("capture_raw_file not implemented")
+        pass
+
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
