@@ -100,15 +100,15 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 pass
 
             if type(next_image_solve) is dict:
-                solved = next_image_solve
+                # Preserve existing solution to avoid losing Alt/Az when we can't recalculate
+                solved = shared_state.solution() or solved
+                solved.update(next_image_solve)
 
                 # see if we can generate alt/az
                 location = shared_state.location()
                 dt = shared_state.datetime()
 
                 # see if we can calc alt-az
-                solved["Alt"] = None
-                solved["Az"] = None
                 if location and dt and solved["RA"] is not None:
                     # We have position and time/date and a valid solve!
                     calc_utils.sf_utils.set_location(
@@ -162,11 +162,9 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 if solved["RA"] is not None:
                     last_image_solve = copy.deepcopy(solved)
                     solved["solve_source"] = "CAM"
-                else:
-                    # Failed solve - mark as CAM_FAILED and set constellation to empty
-                    solved["solve_source"] = "CAM_FAILED"
-                    solved["constellation"] = ""
-                    shared_state.set_solution(solved)
+                # Note: Failed solves are NOT pushed to shared_state
+                # This ensures RA/Dec/Alt/Az never become None after first successful solve
+                # IMU dead-reckoning continues from last successful solve
 
             # Use IMU dead-reckoning from the last camera solve:
             # Check we have an alt/az solve, otherwise we can't use the IMU
