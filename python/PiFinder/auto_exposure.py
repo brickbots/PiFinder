@@ -644,6 +644,9 @@ class ExposurePIDController:
                 "switching to PID control"
             )
             self._zero_star_handler.reset()
+            # Reset PID integral to prevent windup from affecting recovery
+            self._integral = 0.0
+            self._last_error = None
 
         # Reset zero-star counter
         self._zero_star_count = 0
