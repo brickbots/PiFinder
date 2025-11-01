@@ -100,8 +100,12 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 pass
 
             if type(next_image_solve) is dict:
-                # Preserve existing solution to avoid losing position data
-                solved = shared_state.solution() or solved
+                # For camera solves, always start from last successful camera solve
+                # NOT from shared_state (which may contain IMU drift)
+                # This prevents IMU noise accumulation during failed solves
+                if last_image_solve:
+                    solved = copy.deepcopy(last_image_solve)
+                # If no successful solve yet, keep initial solved dict
 
                 # Update solve metadata (always needed for auto-exposure)
                 for key in ["Matches", "RMSE", "last_solve_attempt", "last_solve_success"]:

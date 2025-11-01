@@ -203,13 +203,18 @@ class CameraPI(CameraInterface):
         else:
             raise ValueError(f"Unexpected raw image dimensions: {raw_capture.ndim}")
 
-        # Modify filename if debayering needed
-        if needs_debayer:
-            # Insert "_RGGB" suffix before extension to indicate Bayer pattern
-            import os
+        # Add camera type and Bayer pattern info to filename
+        import os
+        base, ext = os.path.splitext(filename)
 
-            base, ext = os.path.splitext(filename)
-            filename = f"{base}_RGGB{ext}"
+        # Add camera type suffix (imx296_mono, imx462_bayer, hq_bayer)
+        camera_suffix = f"_{self.camera_type}"
+        if needs_debayer:
+            camera_suffix += "_RGGB"
+        else:
+            camera_suffix += "_mono"
+
+        filename = f"{base}{camera_suffix}{ext}"
 
         # Save as 16-bit TIFF
         raw_image = Image.fromarray(raw_capture, mode="I;16")
