@@ -37,6 +37,12 @@ Done:
 
 >Remove this before release!
 
+## 20251030: b8e09ff (tested 31 Oct)
+
+* v2 Flat.
+* Issue with chart as before. Switches over in the E at around RA=+6hrs and
+also in the West around 22hrs?
+
 ## 20251021: 7519b (tested 24 Oct)
 
 * v2 Flat.
