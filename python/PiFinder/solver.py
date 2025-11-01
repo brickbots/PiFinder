@@ -127,10 +127,17 @@ def solver(
                     last_image_metadata = shared_state.last_image_metadata()
                 except (BrokenPipeError, ConnectionResetError) as e:
                     logger.error(f"Lost connection to shared state manager: {e}")
-                if (
-                    last_image_metadata["exposure_end"] > solved["last_solve_attempt"]
-                    and last_image_metadata["imu_delta"] < 1
-                ):
+
+                # Check if we should process this image
+                is_new_image = last_image_metadata["exposure_end"] > solved["last_solve_attempt"]
+                is_stationary = last_image_metadata["imu_delta"] < 1
+
+                if is_new_image and not is_stationary:
+                    logger.debug(
+                        f"Skipping image - IMU delta {last_image_metadata['imu_delta']:.2f}° >= 1° (moving)"
+                    )
+
+                if is_new_image and is_stationary:
                     img = camera_image.copy()
                     img = img.convert(mode="L")
                     np_image = np.asarray(img, dtype=np.uint8)
@@ -220,6 +227,12 @@ def solver(
                             # Mark successful solve - use same timestamp as last_solve_attempt for comparison
                             solved["last_solve_success"] = solved["last_solve_attempt"]
 
+                            logger.info(
+                                f"Solve SUCCESS - {len(centroids)} centroids → "
+                                f"{solved.get('Matches', 0)} matches, "
+                                f"RMSE: {solved.get('RMSE', 0):.1f}px"
+                            )
+
                             # See if we are waiting for alignment
                             if align_ra != 0 and align_dec != 0:
                                 if solved.get("x_target") is not None:
@@ -238,6 +251,10 @@ def solver(
                         else:
                             # Centroids found but solve failed - clear Matches
                             solved["Matches"] = 0
+                            logger.warning(
+                                f"Solve FAILED - {len(centroids)} centroids detected but "
+                                f"pattern match failed (FOV est: 12.0°, max err: 4.0°)"
+                            )
 
                     # Always push to queue after every solve attempt (success or failure)
                     solver_queue.put(solved)

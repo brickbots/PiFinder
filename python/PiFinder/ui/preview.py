@@ -213,16 +213,18 @@ class UIPreview(UIModule):
         # Get exposure info
         exposure_text = self.format_exposure_display()
 
-        # Get star count from solution
+        # Get star count from solution (only if recent)
         star_count_text = "---"
         try:
             solution = self.shared_state.solution()
             solve_source = solution.get("solve_source") if solution else None
+            solve_time = solution.get("solve_time") if solution else None
 
-            # Show star count for camera solves (successful or failed)
-            if solve_source in ("CAM", "CAM_FAILED"):
-                matched_stars = solution.get("Matches", 0)
-                star_count_text = str(matched_stars)
+            # Show star count only for recent camera solves (within last 10 seconds)
+            if solve_source in ("CAM", "CAM_FAILED") and solve_time:
+                if time.time() - solve_time < 10:
+                    matched_stars = solution.get("Matches", 0)
+                    star_count_text = str(matched_stars)
         except Exception:
             pass
 

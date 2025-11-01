@@ -100,9 +100,17 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 pass
 
             if type(next_image_solve) is dict:
-                # Preserve existing solution to avoid losing Alt/Az when we can't recalculate
+                # Preserve existing solution to avoid losing position data
                 solved = shared_state.solution() or solved
-                solved.update(next_image_solve)
+
+                # Update solve metadata (always needed for auto-exposure)
+                for key in ["Matches", "RMSE", "last_solve_attempt", "last_solve_success"]:
+                    if key in next_image_solve:
+                        solved[key] = next_image_solve[key]
+
+                # Only update position data if solve succeeded (RA not None)
+                if next_image_solve.get("RA") is not None:
+                    solved.update(next_image_solve)
 
                 # see if we can generate alt/az
                 location = shared_state.location()
@@ -162,9 +170,11 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 if solved["RA"] is not None:
                     last_image_solve = copy.deepcopy(solved)
                     solved["solve_source"] = "CAM"
-                # Note: Failed solves are NOT pushed to shared_state
-                # This ensures RA/Dec/Alt/Az never become None after first successful solve
-                # IMU dead-reckoning continues from last successful solve
+                else:
+                    # Failed solve - push to shared_state for auto-exposure zero-star handler
+                    # but preserve position data (RA/Dec/Alt/Az stay from previous solve)
+                    solved["solve_source"] = "CAM_FAILED"
+                    solved["constellation"] = ""
 
             # Use IMU dead-reckoning from the last camera solve:
             # Check we have an alt/az solve, otherwise we can't use the IMU
