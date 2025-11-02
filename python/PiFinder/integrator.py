@@ -28,7 +28,8 @@ logger = logging.getLogger("IMU.Integrator")
 
 # Constants:
 # Use IMU tracking if the angle moved is above this
-IMU_MOVED_ANG_THRESHOLD = np.deg2rad(0.1)
+# TODO: May need to adjust this depending on the IMU sensitivity thresholds
+IMU_MOVED_ANG_THRESHOLD = np.deg2rad(0.06)
 
 
 def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=False):
