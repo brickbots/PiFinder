@@ -340,7 +340,9 @@ def mountcontrol_activate() -> None:
     """
     logger.info("SYS: Activating Mount Control")
     sh.sudo("systemctl", "enable", "--now", "indiwebmanager.service")
-    sh.sudo("systemctl", "start", "indiwebmanager.service")
+    # sh.sudo("systemctl", "start", "indiwebmanager.service")
+    # We need to start the mount control process during startup, so reboot
+    sh.sudo("shutdown", "-r", "now")
 
 
 def mountcontrol_deactivate() -> None:
@@ -349,4 +351,6 @@ def mountcontrol_deactivate() -> None:
     """
     logger.info("SYS: Deactivating Mount Control")
     sh.sudo("systemctl", "disable", "--now", "indiwebmanager.service")
-    sh.sudo("systemctl", "stop", "indiwebmanager.service")
+    # sh.sudo("systemctl", "stop", "indiwebmanager.service")
+    # We do NOT need to start the mount control process during startup, so reboot
+    sh.sudo("shutdown", "-r", "now")
