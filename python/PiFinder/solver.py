@@ -321,8 +321,8 @@ if __name__ == "__main__":
         for i, png_file in enumerate(png_files, 1):
             try:
                 # Load image
-                img = Image.open(png_file)
-                img = img.convert(mode="L")
+                imgFile = Image.open(png_file)
+                img = imgFile.convert(mode="L")
                 np_image = np.asarray(img, dtype=np.uint8)
 
                 # Extract centroids (mimicking solver() logic)

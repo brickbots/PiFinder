@@ -53,7 +53,7 @@ class TelescopeCommander:
         # Use PiFinderIndiClient from mountcontrol_indi
         # Pass None as mount_control since we don't need the position update callbacks
         self.client = PiFinderIndiClient(mount_control=None)
-        self.device = None
+        self.device: PyIndi.BaseDevice = None
         self.available_slew_rates: Optional[List[str]] = None
 
     def connect(self) -> bool:

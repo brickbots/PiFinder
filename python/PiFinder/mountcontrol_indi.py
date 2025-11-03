@@ -43,7 +43,7 @@ class PiFinderIndiClient(PyIndi.BaseClient):
         self.telescope_device = None
         self.mount_control = mount_control
 
-    def get_telescope_device(self):
+    def get_telescope_device(self) -> PyIndi.BaseDevice:
         """Get the telescope device.
 
         Returns:
