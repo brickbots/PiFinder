@@ -29,6 +29,7 @@ from PiFinder.mountcontrol_indi import PiFinderIndiClient
 @dataclass
 class Movement:
     """Represents a single movement command"""
+
     ra_offset: float = 0.0  # degrees
     dec_offset: float = 0.0  # degrees
     velocity: int = 2  # velocity index (default)
@@ -46,7 +47,12 @@ class Movement:
 class TelescopeCommander:
     """Commands telescope movements via INDI"""
 
-    def __init__(self, host: str = "localhost", port: int = 7624, device_name: str = "Telescope Simulator"):
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 7624,
+        device_name: str = "Telescope Simulator",
+    ):
         self.host = host
         self.port = port
         self.device_name = device_name
@@ -64,7 +70,9 @@ class TelescopeCommander:
 
         if not self.client.connectServer():
             print(f"Error: Could not connect to INDI server at {self.host}:{self.port}")
-            print("Make sure indiserver is running (e.g., 'indiserver indi_simulator_telescope')")
+            print(
+                "Make sure indiserver is running (e.g., 'indiserver indi_simulator_telescope')"
+            )
             return False
 
         print("Connected to INDI server")
@@ -79,7 +87,7 @@ class TelescopeCommander:
             time.sleep(0.5)
 
         if not self.device:
-            print(f"Error: No telescope device found")
+            print("Error: No telescope device found")
             print("Available devices:")
             for dev in self.client.getDevices():
                 print(f"  - {dev.getDeviceName()}")
@@ -111,7 +119,9 @@ class TelescopeCommander:
         # Read and store available slew rates
         self.available_slew_rates = self.get_available_slew_rates()
         if self.available_slew_rates:
-            print(f"Available slew rates: {len(self.available_slew_rates)} rates detected")
+            print(
+                f"Available slew rates: {len(self.available_slew_rates)} rates detected"
+            )
 
         return True
 
@@ -122,7 +132,9 @@ class TelescopeCommander:
         Returns:
             List of slew rate names, or None if property not available
         """
-        slew_rate_prop = self.client._wait_for_property(self.device, "TELESCOPE_SLEW_RATE", timeout=2.0)
+        slew_rate_prop = self.client._wait_for_property(
+            self.device, "TELESCOPE_SLEW_RATE", timeout=2.0
+        )
         if not slew_rate_prop:
             return None
 
@@ -152,7 +164,9 @@ class TelescopeCommander:
             return False
 
         if rate < 0 or rate >= len(self.available_slew_rates):
-            print(f"Error: Rate {rate} is out of range (0-{len(self.available_slew_rates)-1})")
+            print(
+                f"Error: Rate {rate} is out of range (0-{len(self.available_slew_rates)-1})"
+            )
             return False
 
         # Get the actual switch property to find element names
@@ -167,7 +181,9 @@ class TelescopeCommander:
 
         print(f"Setting slew rate to: {rate_label} (level {rate})")
 
-        if not self.client.set_switch(self.device, "TELESCOPE_SLEW_RATE", rate_element_name):
+        if not self.client.set_switch(
+            self.device, "TELESCOPE_SLEW_RATE", rate_element_name
+        ):
             print("Warning: Could not set slew rate")
             return False
 
@@ -177,7 +193,9 @@ class TelescopeCommander:
     def get_current_position(self) -> Optional[Tuple[float, float]]:
         """Get current telescope RA/Dec position in hours and degrees"""
         # Wait for property to be available
-        equatorial_prop = self.client._wait_for_property(self.device, "EQUATORIAL_EOD_COORD", timeout=2.0)
+        equatorial_prop = self.client._wait_for_property(
+            self.device, "EQUATORIAL_EOD_COORD", timeout=2.0
+        )
         if not equatorial_prop:
             return None
 
@@ -197,7 +215,9 @@ class TelescopeCommander:
             Tuple of (altitude, azimuth) in degrees, or None if not available
         """
         # Wait for property to be available
-        horizontal_prop = self.client._wait_for_property(self.device, "HORIZONTAL_COORD", timeout=2.0)
+        horizontal_prop = self.client._wait_for_property(
+            self.device, "HORIZONTAL_COORD", timeout=2.0
+        )
         if not horizontal_prop:
             return None
 
@@ -247,8 +267,12 @@ class TelescopeCommander:
         # Clamp Dec to -90 to +90
         target_dec_deg = max(-90.0, min(90.0, target_dec_deg))
 
-        print(f"  Current: RA={current_ra_hours:.4f}h ({current_ra_deg:.2f}°), Dec={current_dec_deg:.2f}°")
-        print(f"  Target:  RA={target_ra_hours:.4f}h ({target_ra_deg:.2f}°), Dec={target_dec_deg:.2f}°")
+        print(
+            f"  Current: RA={current_ra_hours:.4f}h ({current_ra_deg:.2f}°), Dec={current_dec_deg:.2f}°"
+        )
+        print(
+            f"  Target:  RA={target_ra_hours:.4f}h ({target_ra_deg:.2f}°), Dec={target_dec_deg:.2f}°"
+        )
 
         # Set ON_COORD_SET to TRACK mode (goto and track)
         if not self.client.set_switch(self.device, "ON_COORD_SET", "TRACK"):
@@ -259,7 +283,7 @@ class TelescopeCommander:
         if not self.client.set_number(
             self.device,
             "EQUATORIAL_EOD_COORD",
-            {"RA": target_ra_hours, "DEC": target_dec_deg}
+            {"RA": target_ra_hours, "DEC": target_dec_deg},
         ):
             print("Error: Failed to set goto coordinates")
             return False
@@ -292,7 +316,9 @@ class TelescopeCommander:
         print(" Timeout!")
         return False
 
-    def execute_movements(self, movements: List[Movement], print_horizontal: bool = False) -> bool:
+    def execute_movements(
+        self, movements: List[Movement], print_horizontal: bool = False
+    ) -> bool:
         """
         Execute a sequence of movements
 
@@ -407,12 +433,12 @@ def main():
     current_velocity = 2  # default velocity
 
     # Filter out -v and -m args for manual processing
-    filtered_argv = ['mountcontrol_move.py']  # Start with program name
+    filtered_argv = ["mountcontrol_move.py"]  # Start with program name
     i = 1
     while i < len(sys.argv):
         arg = sys.argv[i]
 
-        if arg in ['-v', '--velocity']:
+        if arg in ["-v", "--velocity"]:
             # Next arg should be the velocity value
             if i + 1 < len(sys.argv):
                 try:
@@ -425,7 +451,7 @@ def main():
             else:
                 print("Error: -v/--velocity requires a value")
                 return 1
-        elif arg in ['-m', '--moves']:
+        elif arg in ["-m", "--moves"]:
             # Next arg should be the movement spec
             if i + 1 < len(sys.argv):
                 move_spec = sys.argv[i + 1]
@@ -466,38 +492,35 @@ Velocity levels:
   Common levels: 0=Guide (slowest), 1=Centering, 2=Find, 3=Max (fastest)
 
   The -v flag applies to all following -m flags until another -v is specified.
-        """
+        """,
     )
 
     parser.add_argument(
         "--list-velocities",
         action="store_true",
-        help="Connect to device and list available slew velocities, then exit"
+        help="Connect to device and list available slew velocities, then exit",
     )
 
     parser.add_argument(
-        "-p", "--print-horizontal",
+        "-p",
+        "--print-horizontal",
         action="store_true",
-        help="Print horizontal coordinates (Alt/Az) for start and end of each movement"
+        help="Print horizontal coordinates (Alt/Az) for start and end of each movement",
     )
 
     parser.add_argument(
-        "-d", "--device",
+        "-d",
+        "--device",
         default="Telescope Simulator",
-        help="INDI device name. Default: 'Telescope Simulator'"
+        help="INDI device name. Default: 'Telescope Simulator'",
     )
 
     parser.add_argument(
-        "--host",
-        default="localhost",
-        help="INDI server host. Default: localhost"
+        "--host", default="localhost", help="INDI server host. Default: localhost"
     )
 
     parser.add_argument(
-        "--port",
-        type=int,
-        default=7624,
-        help="INDI server port. Default: 7624"
+        "--port", type=int, default=7624, help="INDI server port. Default: 7624"
     )
 
     args = parser.parse_args(filtered_argv[1:])
@@ -511,9 +534,9 @@ Velocity levels:
 
         # Handle --list-velocities flag
         if args.list_velocities:
-            print("\n" + "="*60)
+            print("\n" + "=" * 60)
             print("Available Slew Velocities")
-            print("="*60)
+            print("=" * 60)
             rates = commander.get_available_slew_rates()
             if rates:
                 for i, rate_name in enumerate(rates):
@@ -538,15 +561,19 @@ Velocity levels:
 
             # Validate velocity for this movement
             if velocity < 0:
-                print(f"Error: Velocity must be non-negative (got {velocity} for movement '{move_spec}')")
+                print(
+                    f"Error: Velocity must be non-negative (got {velocity} for movement '{move_spec}')"
+                )
                 return 1
 
             if commander.available_slew_rates:
                 max_velocity = len(commander.available_slew_rates) - 1
                 if velocity > max_velocity:
-                    print(f"Error: Velocity {velocity} is out of range for this device (movement '{move_spec}')")
+                    print(
+                        f"Error: Velocity {velocity} is out of range for this device (movement '{move_spec}')"
+                    )
                     print(f"Available range: 0-{max_velocity}")
-                    print(f"Use --list-velocities to see available slew rates")
+                    print("Use --list-velocities to see available slew rates")
                     return 1
 
             movements.append(movement)
@@ -559,11 +586,13 @@ Velocity levels:
         print(f"\nTotal movements: {len(movements)}")
         print()
 
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Starting movement sequence")
-        print("="*60)
+        print("=" * 60)
 
-        success = commander.execute_movements(movements, print_horizontal=args.print_horizontal)
+        success = commander.execute_movements(
+            movements, print_horizontal=args.print_horizontal
+        )
 
         return 0 if success else 1
 
@@ -574,6 +603,7 @@ Velocity levels:
     except Exception as e:
         print(f"\nError: {e}")
         import traceback
+
         traceback.print_exc()
         return 1
 

@@ -550,7 +550,9 @@ class PiFinderIndiClient(PyIndi.BaseClient):
                         f"Current position updated: RA={current_ra:.4f}°, Dec={current_dec:.4f}°"
                     )
                     if self.mount_control is not None:
-                        self.mount_control._mount_current_position(current_ra, current_dec)
+                        self.mount_control._mount_current_position(
+                            current_ra, current_dec
+                        )
 
 
 class MountControlIndi(MountControlBase):

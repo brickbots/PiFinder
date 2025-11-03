@@ -99,7 +99,9 @@ class Server:
         self.network = sys_utils.Network()
 
         # Set global template variables
-        SimpleTemplate.defaults["mount_control_active"] = sys_utils.is_mountcontrol_active()
+        SimpleTemplate.defaults["mount_control_active"] = (
+            sys_utils.is_mountcontrol_active()
+        )
 
         app = Bottle()
         debug(True)
