@@ -44,7 +44,7 @@ def load_bright_stars():
             dfs = line.split(",")
             dfs = [d.strip() for d in dfs]
             other_names = dfs[1:3]
-            sequence = int(dfs[0]) + 1
+            sequence = int(dfs[0])
 
             logger.debug(f"---------------> Bright Stars {sequence=} <---------------")
             size = ""
