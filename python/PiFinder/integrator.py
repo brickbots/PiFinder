@@ -268,7 +268,6 @@ def get_roll_by_mount_type(
         else:
             # No position or time/date available, so set roll to 0.0
             roll_deg = 0.0
-
     elif mount_type == "EQ":
         # EQ-mounts: Display chart with NCP up so roll = 0.0
         roll_deg = 0.0
