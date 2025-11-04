@@ -273,6 +273,10 @@ pifinder_menu = {
                             "value": "PL",
                         },
                         {
+                            "name": _("Comets"),
+                            "value": "CM",
+                        },
+                        {
                             "name": _("NGC"),
                             "value": "NGC",
                         },
@@ -886,7 +890,7 @@ pifinder_menu = {
                             "value": "Alt/Az",
                         },
                         {
-                            "name": _("Equitorial"),
+                            "name": _("Equatorial"),
                             "value": "EQ",
                         },
                     ],
