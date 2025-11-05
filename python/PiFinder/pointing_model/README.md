@@ -32,6 +32,7 @@ Done:
 * Clean up README
   * Remove instruction on venv
   * Remove descriptions of frames
+* Brickbots tested Right version got strange estimates like the axes were swapped around --> Was due to an incorrect rotation `q_imu2cam` for the "right" PiFinder. Check the others. --> Fixed 25 Oct 2025 (6f7e17b)
 
 # Sky test log
 
