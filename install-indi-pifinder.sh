@@ -76,6 +76,9 @@ sudo apt-get -y install \
     libzmq3-dev \
     libudev-dev
 
+# dbus dependencies for compiling 
+sudo apt install -y libdbus-1-dev libglib2.0-dev pkg-config meson ninja-build build-essential
+
 echo "==============================================================================="
 echo "PiFinder: Compiling INDI..."
 echo "==============================================================================="
