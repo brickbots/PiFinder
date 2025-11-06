@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+####
+#### Install development environment in GitHub codespace.
+####
+
 # Add INDI repository
 sudo apt update
 sudo apt install -y software-properties-common
