@@ -22,6 +22,9 @@
         <li><a href="/equipment">Equipment</a></li>
         <li><a href="/tools">Tools</a></li>
         <li><a href="/logs">Logs</a></li>
+        % if mount_control_active:
+        <li><a href="http://localhost:8624">INDI Config</a></li>
+        % end
       </ul>
 
       <ul id="nav-mobile" class="sidenav">
@@ -33,6 +36,9 @@
         <li><a href="/equipment">Equipment</a></li>
         <li><a href="/tools">Tools</a></li>
         <li><a href="/logs">Logs</a></li>
+        % if mount_control_active:
+        <li><a href="http://localhost:8624">INDI Config</a></li>
+        % end
       </ul>
       <a href="#" data-target="nav-mobile" class="sidenav-trigger"><i class="material-icons">menu</i></a>
     </div>

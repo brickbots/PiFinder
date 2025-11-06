@@ -68,20 +68,20 @@ def gps_monitor(gps_queue, console_queue, log_queue, file_name="test.ubx"):
         dir = "../test_ubx/"
         f_path = os.path.join(dir, file_name)
         if os.path.isfile(f_path):
-            logger.error(f"Read ubx from {f_path}")
+            logger.info(f"Read ubx from {f_path}")
 
             while True:
-                logger.fatal(
+                logger.info(
                     "************************************************************************"
                 )
-                logger.fatal(
+                logger.info(
                     "************************************************************************"
                 )
-                logger.fatal(
+                logger.info(
                     "************************************************************************"
                 )
-                logger.fatal(f"******************************* {f_path}")
-                logger.error("Queue size (approximate): %s", gps_queue.qsize())
+                logger.info(f"******************************* {f_path}")
+                logger.info("Queue size (approximate): %s", gps_queue.qsize())
                 asyncio.run(emit(f_path, gps_queue, console_queue, file_name))
 
         logger.error("Simulating GPS data")

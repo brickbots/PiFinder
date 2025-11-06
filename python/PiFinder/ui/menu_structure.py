@@ -1031,6 +1031,32 @@ pifinder_menu = {
                         },
                     ],
                 },
+                {
+                    "name": _("Experimental..."),
+                    "class": UITextMenu,
+                    "select": "Single",
+                    "items": [
+                        {
+                            "name": _("Mount Control"),
+                            "class": UITextMenu,
+                            "select": "Single",
+                            "label": "mountcontrol",
+                            "value_callback": callbacks.get_mountcontrol_status,
+                            "items": [
+                                {
+                                    "name": _("Mount Control"),
+                                    "value": "mountcontrol_on",
+                                    "callback": callbacks.mountcontrol_activate,
+                                },
+                                {
+                                    "name": _("No Mount Control"),
+                                    "value": "mountcontrol_off",
+                                    "callback": callbacks.mountcontrol_deactivate,
+                                },
+                            ],
+                        },
+                    ],
+                },
             ],
         },
         {
@@ -1094,12 +1120,6 @@ pifinder_menu = {
                             ],
                         },
                     ],
-                },
-                {
-                    "name": _("Experimental"),
-                    "class": UITextMenu,
-                    "select": "Single",
-                    "items": [],
                 },
             ],
         },

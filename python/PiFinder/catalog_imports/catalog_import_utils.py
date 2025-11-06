@@ -20,6 +20,8 @@ from PiFinder.db.observations_db import ObservationsDatabase
 objects_db: Optional[ObjectsDatabase] = None
 observations_db: Optional[ObservationsDatabase] = None
 
+logger = logging.getLogger("CatalogImportUtils")
+
 
 @dataclass
 class NewCatalogObject:
@@ -147,14 +149,14 @@ class ObjectFinder:
         }
 
     def get_object_id(self, object_name: str):
-        logging.debug(f"Looking up object id for {object_name}")
+        logger.debug(f"Looking up object id for {object_name}")
         result = self.mappings.get(object_name.lower())
         if not result:
             result = self.mappings.get(normalize(object_name))
         if result:
-            logging.debug(f"Found object id {result} for {object_name}")
+            logger.debug(f"Found object id {result} for {object_name}")
         else:
-            logging.debug(f"DID NOT Find object id {result} for {object_name}")
+            logger.debug(f"DID NOT Find object id {result} for {object_name}")
         return result
 
 
