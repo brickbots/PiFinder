@@ -10,11 +10,13 @@ It uses a combination of:
 
 import numpy as np
 from collections import deque
-from typing import Optional, Tuple, Dict, Any
+from typing import Tuple, Dict, Any
 import time
 import logging
+import json
+from pathlib import Path
 
-from .camera_noise_profiles import get_camera_profile, CameraNoiseProfile
+from .camera_noise_profiles import get_camera_profile
 
 logger = logging.getLogger("PiFinder.NoiseFloorEstimator")
 
@@ -71,6 +73,9 @@ class NoiseFloorEstimator:
             "NOTE: No sensor temperature available (only CPU temp). "
             "Dark current estimate assumes ~20°C ambient temperature."
         )
+
+        # Try to load saved calibration
+        self.load_calibration()
 
     def estimate_noise_floor(
         self,
@@ -337,6 +342,95 @@ class NoiseFloorEstimator:
             stats["dark_pixel_median"] = float(np.median(history_array))
 
         return stats
+
+    def load_calibration(self) -> bool:
+        """
+        Load saved calibration data from file.
+
+        Returns:
+            True if calibration was loaded successfully, False otherwise
+        """
+        try:
+            # Load from ~/PiFinder_data/sqm_calibration.json
+            data_dir = Path.home() / "PiFinder_data"
+            calibration_file = data_dir / "sqm_calibration.json"
+
+            if not calibration_file.exists():
+                logger.info("No saved calibration found, using default profile")
+                return False
+
+            with open(calibration_file, "r") as f:
+                calibration_data = json.load(f)
+
+            # Update profile with calibration data
+            if "bias_offset" in calibration_data:
+                self.profile.bias_offset = calibration_data["bias_offset"]
+
+            if "read_noise" in calibration_data:
+                self.profile.read_noise_adu = calibration_data["read_noise"]
+
+            if "dark_current_rate" in calibration_data:
+                self.profile.dark_current_rate = calibration_data["dark_current_rate"]
+
+            logger.info(
+                f"Loaded calibration: bias={self.profile.bias_offset:.1f}, "
+                f"read_noise={self.profile.read_noise_adu:.2f}, "
+                f"dark_current={self.profile.dark_current_rate:.3f}"
+            )
+
+            return True
+
+        except Exception as e:
+            logger.warning(f"Failed to load calibration: {e}")
+            return False
+
+    def save_calibration(
+        self, bias_offset: float, read_noise: float, dark_current_rate: float
+    ) -> bool:
+        """
+        Save calibration data to file and update profile.
+
+        Args:
+            bias_offset: Measured bias offset in ADU
+            read_noise: Measured read noise in ADU
+            dark_current_rate: Measured dark current rate in ADU/s
+
+        Returns:
+            True if calibration was saved successfully, False otherwise
+        """
+        try:
+            calibration_data = {
+                "bias_offset": float(bias_offset),
+                "read_noise": float(read_noise),
+                "dark_current_rate": float(dark_current_rate),
+                "camera_type": self.camera_type,
+                "timestamp": time.time(),
+            }
+
+            # Save to ~/PiFinder_data/sqm_calibration.json
+            data_dir = Path.home() / "PiFinder_data"
+            data_dir.mkdir(exist_ok=True)
+
+            calibration_file = data_dir / "sqm_calibration.json"
+            with open(calibration_file, "w") as f:
+                json.dump(calibration_data, f, indent=2)
+
+            # Update profile
+            self.profile.bias_offset = bias_offset
+            self.profile.read_noise_adu = read_noise
+            self.profile.dark_current_rate = dark_current_rate
+
+            logger.info(
+                f"Saved calibration: bias={bias_offset:.1f}, "
+                f"read_noise={read_noise:.2f}, "
+                f"dark_current={dark_current_rate:.3f}"
+            )
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to save calibration: {e}")
+            return False
 
     def reset(self) -> None:
         """Reset all history and statistics."""

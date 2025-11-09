@@ -88,36 +88,41 @@ CAMERA_PROFILES: Dict[str, CameraNoiseProfile] = {
         typical_sky_background=21.0,
     ),
     # Processed image profiles (8-bit images after camera.capture() processing)
-    # These have already had bias offset subtracted and been scaled to 0-255
+    # These have been rescaled to 0-255 but still have residual offset from:
+    # - Imperfect bias subtraction in camera.capture()
+    # - Quantization floor after 8-bit conversion
+    # - Read noise floor
+    # Measured from actual processed images: darkest pixels ~9-12 ADU
+    # Use conservative offset to avoid over-subtraction
     "imx296_processed": CameraNoiseProfile(
-        read_noise_adu=1.0,      # Quantization noise in 8-bit space
-        dark_current_rate=0.0,   # Already subtracted during processing
+        read_noise_adu=1.5,      # Quantization + residual noise in 8-bit
+        dark_current_rate=0.0,   # Negligible after processing
         thermal_coeff=0.0,
-        bias_offset=0.0,         # Already subtracted in camera.capture()
+        bias_offset=8.0,         # Conservative - below typical dark pixels (9-12)
         bit_depth=8,
         typical_sky_background=21.0,
     ),
     "imx462_processed": CameraNoiseProfile(
-        read_noise_adu=1.0,
+        read_noise_adu=1.5,
         dark_current_rate=0.0,
         thermal_coeff=0.0,
-        bias_offset=0.0,
+        bias_offset=8.0,
         bit_depth=8,
         typical_sky_background=21.0,
     ),
     "imx290_processed": CameraNoiseProfile(
-        read_noise_adu=1.0,
+        read_noise_adu=1.5,
         dark_current_rate=0.0,
         thermal_coeff=0.0,
-        bias_offset=0.0,
+        bias_offset=8.0,
         bit_depth=8,
         typical_sky_background=21.0,
     ),
     "hq_processed": CameraNoiseProfile(
-        read_noise_adu=1.0,
+        read_noise_adu=1.5,
         dark_current_rate=0.0,
         thermal_coeff=0.0,
-        bias_offset=0.0,
+        bias_offset=8.0,
         bit_depth=8,
         typical_sky_background=21.0,
     ),

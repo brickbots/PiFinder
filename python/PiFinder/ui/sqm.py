@@ -1,4 +1,5 @@
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder import utils
 from PiFinder.state_utils import sleep_for_framerate
 from PiFinder.ui.ui_utils import TextLayouter
@@ -30,6 +31,16 @@ class UISQM(UIModule):
             color=self.colors.get(255),
             colors=self.colors,
             font=self.fonts.base,
+        )
+
+        # Marking menu definition
+        self.marking_menu = MarkingMenu(
+            left=MarkingMenuOption(
+                label=_("CALIBRATE"),
+                callback=self._launch_calibration,
+            ),
+            down=MarkingMenuOption(),
+            right=MarkingMenuOption(),
         )
 
     def update(self, force=False):
@@ -178,6 +189,18 @@ class UISQM(UIModule):
         Called when a module becomes active
         i.e. foreground controlling display
         """
+
+    def _launch_calibration(self, marking_menu, selected_item):
+        """Launch the SQM calibration wizard"""
+        from PiFinder.ui.sqm_calibration import UISQMCalibration
+
+        calibration_def = {
+            "name": _("SQM Calibration"),
+            "class": UISQMCalibration,
+            "label": "sqm_calibration",
+        }
+        self.add_to_stack(calibration_def)
+        return True  # Exit marking menu
 
     def get_sky_details(self, mag_arcsec):
         """
