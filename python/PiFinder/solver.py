@@ -28,15 +28,21 @@ from tetra3 import cedar_detect_client
 
 logger = logging.getLogger("Solver")
 
-# SQM calculator with adaptive noise floor
-# Use "_processed" profile since images are already processed 8-bit (not raw)
-sqm_calculator = SQMCalculator(
-    camera_type="imx296_processed",
-    use_adaptive_noise_floor=True,
-)
-
 # SQM calculation interval - calculate SQM every N seconds
 SQM_CALCULATION_INTERVAL_SECONDS = 5.0
+
+
+def create_sqm_calculator():
+    """Create a new SQM calculator instance with current calibration."""
+    # Use "_processed" profile since images are already processed 8-bit (not raw)
+    return SQMCalculator(
+        camera_type="imx296_processed",
+        use_adaptive_noise_floor=True,
+    )
+
+
+# SQM calculator with adaptive noise floor - will be reloaded on calibration
+sqm_calculator = create_sqm_calculator()
 
 
 def solver(
@@ -86,6 +92,9 @@ def solver(
     centroids = []
     log_no_stars_found = True
 
+    # Create SQM calculator - can be reloaded via command queue
+    sqm_calculator = create_sqm_calculator()
+
     while True:
         logger.info("Starting Solver Loop")
         # Start cedar detect server
@@ -127,6 +136,11 @@ def solver(
                         if command[0] == "align_cancel":
                             align_ra = 0
                             align_dec = 0
+
+                        if command[0] == "reload_sqm_calibration":
+                            logger.info("Reloading SQM calibration...")
+                            sqm_calculator = create_sqm_calculator()
+                            logger.info("SQM calibration reloaded")
 
                 state_utils.sleep_for_framerate(shared_state)
 

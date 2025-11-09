@@ -562,12 +562,34 @@ class UISQMCalibration(UIModule):
             if not success:
                 raise RuntimeError("Failed to save calibration")
 
+            # Tell solver to reload the calibration immediately
+            self._notify_solver_to_reload()
+
         except Exception as e:
             # Don't fail the whole wizard, just log the error
             import logging
 
             logger = logging.getLogger("PiFinder.SQMCalibration")
             logger.error(f"Failed to save calibration: {e}")
+
+    def _notify_solver_to_reload(self):
+        """Send command to solver to reload SQM calibration immediately"""
+        try:
+            # Use align_command queue to send reload command to solver
+            if "align_command" in self.command_queues:
+                self.command_queues["align_command"].put(["reload_sqm_calibration"])
+            else:
+                import logging
+
+                logger = logging.getLogger("PiFinder.SQMCalibration")
+                logger.warning(
+                    "align_command queue not found, calibration will take effect on restart"
+                )
+        except Exception as e:
+            import logging
+
+            logger = logging.getLogger("PiFinder.SQMCalibration")
+            logger.warning(f"Failed to notify solver: {e}")
 
     # ============================================
     # Key handlers
