@@ -260,6 +260,7 @@ class SharedStateObj:
         self.__solve_pixel = config.Config().get_option("solve_pixel")
         self.__arch = None
         self.__camera_align = False
+        self.__camera_type = "imx296"  # Default, will be set by camera process
         self.__cam_raw = None
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
@@ -308,6 +309,12 @@ class SharedStateObj:
 
     def set_camera_align(self, v: bool):
         self.__camera_align = v
+
+    def camera_type(self):
+        return self.__camera_type
+
+    def set_camera_type(self, v: str):
+        self.__camera_type = v
 
     def sats(self):
         return self.__sats

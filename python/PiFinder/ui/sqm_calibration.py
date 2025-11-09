@@ -544,9 +544,10 @@ class UISQMCalibration(UIModule):
             # Import here to avoid circular dependencies
             from PiFinder.noise_floor_estimator import NoiseFloorEstimator
 
-            # Create estimator for current camera type
-            # Note: We use the processed profile since images are 8-bit processed
-            camera_type = "imx296_processed"  # TODO: Get from config
+            # Get camera type from shared state and use "_processed" profile
+            # since images are 8-bit processed
+            camera_type_raw = self.shared_state.camera_type()
+            camera_type = f"{camera_type_raw}_processed"
 
             estimator = NoiseFloorEstimator(
                 camera_type=camera_type, enable_zero_sec_sampling=False

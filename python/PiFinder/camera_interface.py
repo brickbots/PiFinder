@@ -63,6 +63,14 @@ class CameraInterface:
         self, shared_state, camera_image, command_queue, console_queue, cfg
     ):
         try:
+            # Store camera type in shared state for SQM calibration
+            camera_type_str = self.get_cam_type()  # e.g., "PI imx296", "PI hq"
+            if " " in camera_type_str:
+                # Extract just the sensor type (imx296, hq, imx462, etc.)
+                camera_type = camera_type_str.split(" ")[1].lower()
+                shared_state.set_camera_type(camera_type)
+                logger.info(f"Camera type set to: {camera_type}")
+
             debug = False
 
             screen_direction = cfg.get_option("screen_direction")
@@ -188,7 +196,14 @@ class CameraInterface:
                             cfg.set_option("camera_exp", self.exposure_time)
                             cfg.set_option("camera_gain", int(self.gain))
 
-                        if command.startswith("save"):
+                        if command.startswith("saveraw"):
+                            filename = command.split(":")[1]
+                            # Raw files are saved as TIFF with camera-specific suffix
+                            filename = f"{utils.data_dir}/captures/{filename}"
+                            self.capture_raw_file(filename)
+                            console_queue.put("CAM: Saved Raw Image")
+
+                        if command.startswith("save") and not command.startswith("saveraw"):
                             filename = command.split(":")[1]
                             filename = f"{utils.data_dir}/captures/{filename}.png"
                             self.capture_file(filename)

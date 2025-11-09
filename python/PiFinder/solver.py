@@ -32,17 +32,19 @@ logger = logging.getLogger("Solver")
 SQM_CALCULATION_INTERVAL_SECONDS = 5.0
 
 
-def create_sqm_calculator():
+def create_sqm_calculator(shared_state):
     """Create a new SQM calculator instance with current calibration."""
-    # Use "_processed" profile since images are already processed 8-bit (not raw)
+    # Get camera type from shared state and use "_processed" profile
+    # since images are already processed 8-bit (not raw)
+    camera_type = shared_state.camera_type()
+    camera_type_processed = f"{camera_type}_processed"
+
+    logger.info(f"Creating SQM calculator for camera: {camera_type_processed}")
+
     return SQMCalculator(
-        camera_type="imx296_processed",
+        camera_type=camera_type_processed,
         use_adaptive_noise_floor=True,
     )
-
-
-# SQM calculator with adaptive noise floor - will be reloaded on calibration
-sqm_calculator = create_sqm_calculator()
 
 
 def solver(
@@ -93,7 +95,7 @@ def solver(
     log_no_stars_found = True
 
     # Create SQM calculator - can be reloaded via command queue
-    sqm_calculator = create_sqm_calculator()
+    sqm_calculator = create_sqm_calculator(shared_state)
 
     while True:
         logger.info("Starting Solver Loop")
@@ -139,7 +141,7 @@ def solver(
 
                         if command[0] == "reload_sqm_calibration":
                             logger.info("Reloading SQM calibration...")
-                            sqm_calculator = create_sqm_calculator()
+                            sqm_calculator = create_sqm_calculator(shared_state)
                             logger.info("SQM calibration reloaded")
 
                 state_utils.sleep_for_framerate(shared_state)
