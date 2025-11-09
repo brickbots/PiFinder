@@ -185,6 +185,7 @@ def solver(
                                 centroids=centroids,
                                 solution=solution,
                                 image=np_image,
+                                exposure_sec=last_image_metadata["exposure_time"],
                                 altitude_deg=solved.get("Alt") or 90.0,
                                 calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
                             )

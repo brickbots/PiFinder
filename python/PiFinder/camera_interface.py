@@ -139,6 +139,7 @@ class CameraInterface:
                         {
                             "exposure_start": image_start_time,
                             "exposure_end": image_end_time,
+                            "exposure_time": self.exposure_time / 1_000_000.0,  # Convert microseconds to seconds
                             "imu": imu_end,
                             "imu_delta": reading_diff,
                         }

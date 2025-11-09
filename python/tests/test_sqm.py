@@ -118,6 +118,7 @@ class TestSQMCalculation:
             centroids=centroids,
             solution=solution,
             image=image,
+            exposure_sec=0.5,
             altitude_deg=90.0,
         )
 
@@ -156,6 +157,7 @@ class TestSQMCalculation:
             centroids=centroids,
             solution=solution,
             image=image,
+            exposure_sec=0.5,
             altitude_deg=90.0,
         )
 
@@ -164,6 +166,7 @@ class TestSQMCalculation:
             centroids=centroids,
             solution=solution,
             image=image,
+            exposure_sec=0.5,
             altitude_deg=30.0,
         )
 
@@ -199,6 +202,7 @@ class TestSQMCalculation:
             centroids=[[100, 100]],
             solution=solution,
             image=image,
+            exposure_sec=0.5,
             altitude_deg=90.0,
         )
 
@@ -221,6 +225,7 @@ class TestSQMCalculation:
             centroids=[],
             solution=solution,
             image=image,
+            exposure_sec=0.5,
             altitude_deg=90.0,
         )
 
