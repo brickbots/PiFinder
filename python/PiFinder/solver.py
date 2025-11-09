@@ -179,13 +179,16 @@ def solver(
 
                         if "matched_centroids" in solution:
                             # Update SQM if enough time has passed since last calculation
+                            # Convert exposure time from microseconds to seconds
+                            exposure_sec = last_image_metadata["exposure_time"] / 1_000_000.0
+
                             update_sqm_if_needed(
                                 shared_state=shared_state,
                                 sqm_calculator=sqm_calculator,
                                 centroids=centroids,
                                 solution=solution,
                                 image=np_image,
-                                exposure_sec=last_image_metadata["exposure_time"],
+                                exposure_sec=exposure_sec,
                                 altitude_deg=solved.get("Alt") or 90.0,
                                 calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
                             )

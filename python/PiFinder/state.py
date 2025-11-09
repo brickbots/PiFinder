@@ -245,7 +245,7 @@ class SharedStateObj:
         self.__last_image_metadata = {
             "exposure_start": 0,
             "exposure_end": 0,
-            "exposure_time": 0.5,  # Default exposure time in seconds
+            "exposure_time": 500000,  # Default exposure time in microseconds (0.5s)
             "imu": None,
             "imu_delta": 0,
         }
