@@ -32,7 +32,7 @@ class CameraPI(CameraInterface):
         self.format = "SRGGB12"
         self.bit_depth = 12
         self.digital_gain = 1.0  # TODO: find optimum value for imx296 and imx290
-        self.offset = 0  # TODO: measure offset for imx296 and imx290
+        self.offset = 0  # Default offset (overridden per camera type below)
 
         # Figure out camera type, hq or imx296 (global shutter)
         if "imx296" in self.camera.camera.id:
@@ -44,6 +44,7 @@ class CameraPI(CameraInterface):
             self.bit_depth = 10
             # maximum analog gain for this sensor
             self.gain = 15
+            self.offset = 32  # measured from dark frames (Nov 2025)
         elif "imx290" in self.camera.camera.id:
             self.camera_type = "imx462"
             self.raw_size = (1920, 1080)
