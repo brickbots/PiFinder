@@ -430,6 +430,7 @@ def main(
                 solver_logqueue,
                 alignment_command_queue,
                 alignment_response_queue,
+                camera_command_queue,  # For raw SQM capture
                 verbose,
             ),
         )
