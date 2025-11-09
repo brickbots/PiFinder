@@ -1,9 +1,10 @@
 import numpy as np
 import logging
-from typing import Tuple, Dict, Optional
+from typing import Tuple, Dict, Optional, Any
 from datetime import datetime
 import time
 from PiFinder.state import SQM as SQMState
+from PiFinder.noise_floor_estimator import NoiseFloorEstimator
 
 logger = logging.getLogger("Solver")
 
@@ -30,16 +31,39 @@ class SQM:
     (extended source), giving SQM in mag/arcsec².
     """
 
-    def __init__(self, pedestal_from_background: bool = False):
+    def __init__(
+        self,
+        camera_type: str = "imx296",
+        pedestal_from_background: bool = False,
+        use_adaptive_noise_floor: bool = True,
+    ):
         """
         Initialize SQM calculator.
 
         Args:
+            camera_type: Camera model (imx296, imx462, imx290, hq) for noise estimation
             pedestal_from_background: If True, automatically estimate pedestal from
                 median of local backgrounds. Default False (manual pedestal only).
+            use_adaptive_noise_floor: If True, use adaptive noise floor estimation.
+                If False, fall back to manual pedestal parameter. Default True.
         """
         super()
         self.pedestal_from_background = pedestal_from_background
+        self.use_adaptive_noise_floor = use_adaptive_noise_floor
+
+        # Initialize noise floor estimator if enabled
+        self.noise_estimator: Optional[NoiseFloorEstimator] = None
+        if use_adaptive_noise_floor:
+            self.noise_estimator = NoiseFloorEstimator(
+                camera_type=camera_type,
+                enable_zero_sec_sampling=True,
+                zero_sec_interval=300,  # Every 5 minutes
+            )
+            logger.info(
+                f"SQM initialized with adaptive noise floor estimation (camera: {camera_type})"
+            )
+        else:
+            logger.info("SQM initialized with manual pedestal mode")
 
     def _calc_field_parameters(self, fov_degrees: float) -> None:
         """Calculate field of view parameters."""
@@ -300,6 +324,7 @@ class SQM:
         centroids: list,
         solution: dict,
         image: np.ndarray,
+        exposure_sec: float,
         bias_image: Optional[np.ndarray] = None,
         altitude_deg: float = 90.0,
         aperture_radius: int = 5,
@@ -315,12 +340,14 @@ class SQM:
             centroids: All detected centroids (unused, kept for compatibility)
             solution: Tetra3 solution dict with 'FOV', 'matched_centroids', 'matched_stars'
             image: Image array (uint8 or float)
+            exposure_sec: Exposure time in seconds (required for adaptive noise floor)
             bias_image: Optional bias/dark frame for pedestal calculation (default: None)
             altitude_deg: Altitude of field center for extinction correction (default: 90 = zenith)
             aperture_radius: Radius for star photometry in pixels (default: 5)
             annulus_inner_radius: Inner radius of background annulus in pixels (default: 6)
             annulus_outer_radius: Outer radius of background annulus in pixels (default: 14)
             pedestal: Bias/pedestal level to subtract from background (default: 0)
+                     Only used if use_adaptive_noise_floor=False
                      If bias_image is provided and pedestal=0, pedestal is calculated from bias_image
             correct_overlaps: If True, exclude stars with overlapping apertures/annuli (default: False)
                             Excludes CRITICAL and HIGH overlaps to prevent contamination
@@ -405,12 +432,40 @@ class SQM:
                     )
                     return None, {}
 
-        # 0. Calculate pedestal from bias image if provided
-        if bias_image is not None and pedestal == 0.0:
-            pedestal = float(np.median(bias_image))
-            logger.debug(f"Pedestal from bias: {pedestal:.2f} ADU")
-        elif pedestal > 0:
-            logger.debug(f"Using pedestal: {pedestal:.2f} ADU")
+        # 0. Determine noise floor / pedestal
+        noise_floor_details: Dict[str, Any] = {}
+
+        if self.use_adaptive_noise_floor and self.noise_estimator is not None:
+            # Use adaptive noise floor estimation
+            noise_floor, noise_floor_details = self.noise_estimator.estimate_noise_floor(
+                image=image,
+                exposure_sec=exposure_sec,
+                percentile=5.0,
+            )
+            pedestal = noise_floor
+
+            logger.info(
+                f"Adaptive noise floor: {noise_floor:.1f} ADU "
+                f"(dark_px={noise_floor_details['dark_pixel_smoothed']:.1f}, "
+                f"theory={noise_floor_details['theoretical_floor']:.1f}, "
+                f"valid={noise_floor_details['is_valid']})"
+            )
+
+            # Check if zero-sec sample requested
+            if noise_floor_details.get("request_zero_sec_sample"):
+                logger.info(
+                    "Zero-second calibration sample requested by noise estimator "
+                    "(will be captured in next cycle)"
+                )
+        else:
+            # Use manual pedestal (legacy mode)
+            if bias_image is not None and pedestal == 0.0:
+                pedestal = float(np.median(bias_image))
+                logger.debug(f"Pedestal from bias: {pedestal:.2f} ADU")
+            elif pedestal > 0:
+                logger.debug(f"Using manual pedestal: {pedestal:.2f} ADU")
+            else:
+                logger.debug("No pedestal applied")
 
         # 1. Measure star fluxes with local background from annulus
         star_fluxes, local_backgrounds = self._measure_star_flux_with_local_background(
@@ -486,16 +541,22 @@ class SQM:
             "background_method": "local_annulus",
             "pedestal": pedestal,
             "pedestal_source": (
-                "bias_image"
-                if bias_image is not None
+                "adaptive_noise_floor"
+                if self.use_adaptive_noise_floor and self.noise_estimator is not None
                 else (
-                    "median_local_backgrounds"
-                    if pedestal > 0
-                    and bias_image is None
-                    and self.pedestal_from_background
-                    else ("manual" if pedestal > 0 else "none")
+                    "bias_image"
+                    if bias_image is not None
+                    else (
+                        "median_local_backgrounds"
+                        if pedestal > 0
+                        and bias_image is None
+                        and self.pedestal_from_background
+                        else ("manual" if pedestal > 0 else "none")
+                    )
                 )
             ),
+            "noise_floor_details": noise_floor_details if noise_floor_details else None,
+            "exposure_sec": exposure_sec,
             "background_corrected": background_corrected,
             "background_flux_density": background_flux_density,
             "arcsec_per_pixel": np.sqrt(self.arcsec_squared_per_pixel),
@@ -535,6 +596,7 @@ def update_sqm_if_needed(
     centroids: list,
     solution: dict,
     image: np.ndarray,
+    exposure_sec: float,
     altitude_deg: float,
     calculation_interval_seconds: float = 5.0,
     aperture_radius: int = 5,
@@ -556,6 +618,7 @@ def update_sqm_if_needed(
         centroids: List of detected star centroids
         solution: Tetra3 solve solution with matched stars
         image: Raw image array
+        exposure_sec: Exposure time in seconds (required for adaptive noise floor)
         altitude_deg: Altitude in degrees for extinction correction
         calculation_interval_seconds: Minimum time between calculations (default: 5.0)
         aperture_radius: Aperture radius for photometry (default: 5)
@@ -596,6 +659,7 @@ def update_sqm_if_needed(
             centroids=centroids,
             solution=solution,
             image=image,
+            exposure_sec=exposure_sec,
             altitude_deg=altitude_deg,
             aperture_radius=aperture_radius,
             annulus_inner_radius=annulus_inner_radius,
