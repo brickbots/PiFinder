@@ -329,13 +329,14 @@ class CameraInterface:
                             console_queue.put("CAM: Saved Image")
 
                         if command == "capture_exp_sweep":
-                            # Capture exposure sweep - save RAW images at different exposures
-                            # Uses fine-grained logarithmic spacing for PID parameter testing
-                            # Saves as 16-bit TIFF to preserve full sensor bit depth
+                            # Capture exposure sweep - save both RAW and processed images
+                            # at different exposures for SQM testing
+                            # RAW: 16-bit TIFF to preserve full sensor bit depth
+                            # Processed: 8-bit PNG from normal camera.capture() pipeline
                             logger.info(
-                                "Starting RAW exposure sweep capture (100 images)"
+                                "Starting exposure sweep capture (100 image pairs)"
                             )
-                            console_queue.put("CAM: Starting RAW sweep...")
+                            console_queue.put("CAM: Starting sweep...")
 
                             # Save current settings
                             original_exposure = self.exposure_time
@@ -365,8 +366,8 @@ class CameraInterface:
                             sweep_dir = f"{utils.data_dir}/captures/sweep_{timestamp}"
                             os.makedirs(sweep_dir, exist_ok=True)
 
-                            logger.info(f"Saving RAW sweep to: {sweep_dir}")
-                            console_queue.put(f"CAM: {num_images} RAW images")
+                            logger.info(f"Saving sweep to: {sweep_dir}")
+                            console_queue.put(f"CAM: {num_images} image pairs")
 
                             for i, exp_us in enumerate(sweep_exposures, 1):
                                 # Set exposure
@@ -382,19 +383,27 @@ class CameraInterface:
                                 _ = self.capture()  # Discard buffered frame 1
                                 _ = self.capture()  # Discard buffered frame 2
 
-                                # Now capture the actual RAW image with correct exposure
+                                # Now capture both processed and RAW images with correct exposure
                                 exp_ms = exp_us / 1000
-                                filename = (
-                                    f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms.tiff"
+
+                                # Save processed PNG (8-bit, from camera.capture())
+                                processed_filename = (
+                                    f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms_processed.png"
                                 )
-                                self.capture_raw_file(filename)
+                                self.capture_file(processed_filename)
+
+                                # Save RAW TIFF (16-bit, from camera.capture_raw_file())
+                                raw_filename = (
+                                    f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms_raw.tiff"
+                                )
+                                self.capture_raw_file(raw_filename)
 
                                 # Update console every 10 images to avoid spam
                                 if i % 10 == 0 or i == num_images:
                                     console_queue.put(f"CAM: Sweep {i}/{num_images}")
 
                                 logger.debug(
-                                    f"Captured RAW sweep image {i}/{num_images}: {exp_ms:.2f}ms"
+                                    f"Captured sweep images {i}/{num_images}: {exp_ms:.2f}ms (PNG+TIFF)"
                                 )
 
                             # Restore original settings
@@ -403,9 +412,9 @@ class CameraInterface:
                             self._auto_exposure_enabled = original_ae_enabled
                             self.set_camera_config(self.exposure_time, self.gain)
 
-                            console_queue.put("CAM: RAW sweep done!")
+                            console_queue.put("CAM: Sweep done!")
                             logger.info(
-                                f"RAW exposure sweep capture completed: {num_images} images in {sweep_dir}"
+                                f"Exposure sweep completed: {num_images} image pairs in {sweep_dir}"
                             )
 
                         if command.startswith("stop"):

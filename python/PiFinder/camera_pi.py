@@ -208,8 +208,11 @@ class CameraPI(CameraInterface):
         elif self.camera_type == "hq":
             raw_capture = raw_capture[:, 256:-256]
 
-        # Determine if we need to flag for debayering
-        needs_debayer = False
+        # Determine if we need to flag for debayering based on camera type
+        # imx296: Mono sensor (R10 format)
+        # imx462: Bayer sensor (SRGGB12 format)
+        # HQ (imx477): Bayer sensor (SRGGB12 format)
+        needs_debayer = self.camera_type in ("imx462", "hq")
 
         # Handle different input types
         if raw_capture.ndim == 3:
@@ -223,13 +226,7 @@ class CameraPI(CameraInterface):
                 + raw_capture[:, :, 2] * 0.114
             ).astype(np.uint16)
             needs_debayer = False
-        elif raw_capture.ndim == 2:
-            # Bayer mosaic - save as-is and flag for post-processing
-            logger.debug(
-                f"Saving raw Bayer mosaic (RGGB pattern, shape: {raw_capture.shape})"
-            )
-            needs_debayer = True
-        else:
+        elif raw_capture.ndim != 2:
             raise ValueError(f"Unexpected raw image dimensions: {raw_capture.ndim}")
 
         # Add camera type and Bayer pattern info to filename
