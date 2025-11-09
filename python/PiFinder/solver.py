@@ -27,7 +27,13 @@ import tetra3
 from tetra3 import cedar_detect_client
 
 logger = logging.getLogger("Solver")
-sqm_calculator = SQMCalculator()
+
+# SQM calculator with adaptive noise floor
+# Use "_processed" profile since images are already processed 8-bit (not raw)
+sqm_calculator = SQMCalculator(
+    camera_type="imx296_processed",
+    use_adaptive_noise_floor=True,
+)
 
 # SQM calculation interval - calculate SQM every N seconds
 SQM_CALCULATION_INTERVAL_SECONDS = 5.0

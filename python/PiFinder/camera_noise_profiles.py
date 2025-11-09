@@ -87,6 +87,40 @@ CAMERA_PROFILES: Dict[str, CameraNoiseProfile] = {
         bit_depth=12,
         typical_sky_background=21.0,
     ),
+    # Processed image profiles (8-bit images after camera.capture() processing)
+    # These have already had bias offset subtracted and been scaled to 0-255
+    "imx296_processed": CameraNoiseProfile(
+        read_noise_adu=1.0,      # Quantization noise in 8-bit space
+        dark_current_rate=0.0,   # Already subtracted during processing
+        thermal_coeff=0.0,
+        bias_offset=0.0,         # Already subtracted in camera.capture()
+        bit_depth=8,
+        typical_sky_background=21.0,
+    ),
+    "imx462_processed": CameraNoiseProfile(
+        read_noise_adu=1.0,
+        dark_current_rate=0.0,
+        thermal_coeff=0.0,
+        bias_offset=0.0,
+        bit_depth=8,
+        typical_sky_background=21.0,
+    ),
+    "imx290_processed": CameraNoiseProfile(
+        read_noise_adu=1.0,
+        dark_current_rate=0.0,
+        thermal_coeff=0.0,
+        bias_offset=0.0,
+        bit_depth=8,
+        typical_sky_background=21.0,
+    ),
+    "hq_processed": CameraNoiseProfile(
+        read_noise_adu=1.0,
+        dark_current_rate=0.0,
+        thermal_coeff=0.0,
+        bias_offset=0.0,
+        bit_depth=8,
+        typical_sky_background=21.0,
+    ),
 }
 
 
@@ -95,13 +129,20 @@ def get_camera_profile(camera_type: str) -> CameraNoiseProfile:
     Get the noise profile for a camera type.
 
     Args:
-        camera_type: Camera model identifier (imx296, imx462, imx290, hq)
+        camera_type: Camera model identifier
+            Raw sensors: imx296, imx462, imx290, hq
+            Processed (8-bit): imx296_processed, imx462_processed, imx290_processed, hq_processed
 
     Returns:
         CameraNoiseProfile for the camera
 
     Raises:
         ValueError: If camera type is not recognized
+
+    Note:
+        Use "_processed" variants when working with 8-bit images that have already
+        had bias offset subtracted and been scaled (e.g., from camera.capture()).
+        Use raw variants only when working with unprocessed sensor data.
     """
     if camera_type not in CAMERA_PROFILES:
         raise ValueError(
