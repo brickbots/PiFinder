@@ -121,19 +121,30 @@ class NoiseFloorEstimator:
             dark_pixel_smoothed = dark_pixel_value
 
         # 4. Choose the conservative estimate
-        # The noise floor should be the MINIMUM of:
-        # a) What we measure (dark pixels) - might be sky + noise
-        # b) What physics predicts (read noise + dark current) - pure noise
-        #
-        # We take the min because:
-        # - If sky is dark, dark pixels ≈ noise floor (good)
-        # - If sky is bright, dark pixels > noise floor, so use physics model
-        noise_floor = min(dark_pixel_smoothed, theoretical_noise_floor)
+        # IMPORTANT: Dark pixels below bias offset are physically impossible
+        # (sensor always has electronic pedestal). If we see this, ignore the
+        # measurement and use theory instead.
+        if dark_pixel_smoothed < self.profile.bias_offset:
+            # Measurement is invalid (image too dark or wrong camera settings)
+            # Use theoretical estimate instead
+            noise_floor = theoretical_noise_floor
+            logger.debug(
+                f"Dark pixels ({dark_pixel_smoothed:.1f}) below bias offset "
+                f"({self.profile.bias_offset:.1f}) - using theoretical estimate"
+            )
+        else:
+            # Valid measurement - take min of measured vs theoretical
+            # - If sky is dark, dark pixels ≈ noise floor (good)
+            # - If sky is bright, dark pixels > noise floor, use physics model
+            noise_floor = min(dark_pixel_smoothed, theoretical_noise_floor)
 
-        # 5. Validate the estimate
+        # 5. Enforce absolute minimum at bias offset (can't be lower than pedestal)
+        noise_floor = max(noise_floor, self.profile.bias_offset)
+
+        # 6. Validate the estimate
         is_valid, reason = self._validate_estimate(noise_floor, image)
 
-        # 6. Build diagnostic details
+        # 7. Build diagnostic details
         details = {
             "noise_floor_adu": noise_floor,
             "dark_pixel_raw": dark_pixel_value,
@@ -151,7 +162,7 @@ class NoiseFloorEstimator:
             "validation_reason": reason,
         }
 
-        # 7. Check if we should request zero-second sample
+        # 8. Check if we should request zero-second sample
         if self.enable_zero_sec and self._should_sample_zero_sec():
             details["request_zero_sec_sample"] = True
             logger.debug("Requesting zero-second calibration sample")
@@ -276,16 +287,16 @@ class NoiseFloorEstimator:
         Validate that the noise floor estimate is reasonable.
 
         Checks:
-        1. Above bias offset (can't be below the electronic pedestal)
+        1. At or above bias offset (enforced by min constraint, this is just a sanity check)
         2. Below image median (shouldn't be pure noise if we see stars)
         3. Not impossibly high (sanity check)
 
         Returns:
             (is_valid, reason)
         """
-        # Check 1: Should be at or above bias offset
-        if noise_floor < self.profile.bias_offset * 0.8:  # Allow 20% tolerance
-            return False, f"Below bias offset ({self.profile.bias_offset:.1f})"
+        # Check 1: Should be at or above bias offset (sanity check - already enforced)
+        if noise_floor < self.profile.bias_offset:
+            return False, f"Below bias offset ({self.profile.bias_offset:.1f}) - logic error"
 
         # Check 2: Should be well below image median
         image_median = float(np.median(image))
