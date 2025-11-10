@@ -108,7 +108,12 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 # If no successful solve yet, keep initial solved dict
 
                 # Update solve metadata (always needed for auto-exposure)
-                for key in ["Matches", "RMSE", "last_solve_attempt", "last_solve_success"]:
+                for key in [
+                    "Matches",
+                    "RMSE",
+                    "last_solve_attempt",
+                    "last_solve_success",
+                ]:
                     if key in next_image_solve:
                         solved[key] = next_image_solve[key]
 
@@ -176,8 +181,10 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     last_image_solve = copy.deepcopy(solved)
                     solved["solve_source"] = "CAM"
                     # Calculate constellation for successful solve
-                    solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(
-                        solved["RA"], solved["Dec"]
+                    solved["constellation"] = (
+                        calc_utils.sf_utils.radec_to_constellation(
+                            solved["RA"], solved["Dec"]
+                        )
                     )
                 else:
                     # Failed solve - clear constellation
@@ -259,7 +266,11 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
 
             # Push IMU updates only if newer than last push
             # (Camera solves already pushed above at line 185)
-            if solved["RA"] and solved["solve_time"] > last_solve_time and solved.get("solve_source") == "IMU":
+            if (
+                solved["RA"]
+                and solved["solve_time"] > last_solve_time
+                and solved.get("solve_source") == "IMU"
+            ):
                 last_solve_time = time.time()
                 # Calculate constellation for IMU dead-reckoning position
                 solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(

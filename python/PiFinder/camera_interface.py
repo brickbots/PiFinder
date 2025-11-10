@@ -387,9 +387,7 @@ class CameraInterface:
                                 exp_ms = exp_us / 1000
 
                                 # Save processed PNG (8-bit, from camera.capture())
-                                processed_filename = (
-                                    f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms_processed.png"
-                                )
+                                processed_filename = f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms_processed.png"
                                 self.capture_file(processed_filename)
 
                                 # Save RAW TIFF (16-bit, from camera.capture_raw_file())

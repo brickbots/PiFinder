@@ -519,12 +519,12 @@ class ExposurePIDController:
         target_stars: int = 17,
         gains_decrease: tuple = (
             500.0,  # Kp: Conservative (was 2000, reduced 75% to prevent crash)
-            5.0,    # Ki: Minimal (was 10, reduced to prevent drift)
+            5.0,  # Ki: Minimal (was 10, reduced to prevent drift)
             250.0,  # Kd: Proportional (was 750, reduced 67%)
         ),  # Kp, Ki, Kd for too many stars (conservative descent)
         gains_increase: tuple = (
             4000.0,  # Kp: Moderate aggression (was 8000, reduced 50%)
-            250.0,   # Ki: Moderate (was 500, reduced 50%)
+            250.0,  # Ki: Moderate (was 500, reduced 50%)
             1500.0,  # Kd: Moderate (was 3000, reduced 50%)
         ),  # Kp, Ki, Kd for too few stars (faster ascent)
         min_exposure: int = 25000,

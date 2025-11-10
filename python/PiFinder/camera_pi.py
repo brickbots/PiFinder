@@ -231,6 +231,7 @@ class CameraPI(CameraInterface):
 
         # Add camera type and Bayer pattern info to filename
         import os
+
         base, ext = os.path.splitext(filename)
 
         # Add camera type suffix (imx296_mono, imx462_bayer, hq_bayer)

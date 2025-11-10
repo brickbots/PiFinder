@@ -204,12 +204,12 @@ class TestExposurePIDController:
     def test_initialization_defaults(self):
         """Controller initializes with default parameters."""
         pid = ExposurePIDController()
-        assert pid.target_stars == 15
-        assert pid.gains_decrease == (4000.0, 250.0, 1500.0)
-        assert pid.gains_increase == (8000.0, 500.0, 3000.0)
+        assert pid.target_stars == 17
+        assert pid.gains_decrease == (500.0, 5.0, 250.0)
+        assert pid.gains_increase == (4000.0, 250.0, 1500.0)
         assert pid.min_exposure == 25000
         assert pid.max_exposure == 1000000
-        assert pid.deadband == 2
+        assert pid.deadband == 5
         assert isinstance(pid._zero_star_handler, SweepZeroStarHandler)
 
     def test_initialization_custom_handler(self):
@@ -343,7 +343,7 @@ class TestExposurePIDController:
         # Update decrease gains
         pid.set_gains(gains_decrease=(5000.0, 300.0, 2000.0))
         assert pid.gains_decrease == (5000.0, 300.0, 2000.0)
-        assert pid.gains_increase == (8000.0, 500.0, 3000.0)  # Unchanged
+        assert pid.gains_increase == (4000.0, 250.0, 1500.0)  # Unchanged (new default)
 
         # Update increase gains
         pid.set_gains(gains_increase=(10000.0, 600.0, 4000.0))
@@ -358,8 +358,8 @@ class TestExposurePIDController:
 
         status = pid.get_status()
         assert status["target_stars"] == 15
-        assert status["gains_decrease"] == (4000.0, 250.0, 1500.0)
-        assert status["gains_increase"] == (8000.0, 500.0, 3000.0)
+        assert status["gains_decrease"] == (500.0, 5.0, 250.0)  # New defaults
+        assert status["gains_increase"] == (4000.0, 250.0, 1500.0)  # New defaults
         assert status["min_exposure"] == 25000
         assert status["max_exposure"] == 1000000
         assert status["deadband"] == 2
@@ -597,7 +597,7 @@ class TestHistogramZeroStarHandler:
         assert result5 > result4
 
         # After sweep_steps, should settle on middle exposure
-        result6 = handler.handle(result5, 1)
+        _result6 = handler.handle(result5, 1)
         # Either returns target or None (if already at target)
         # Since we've completed the sweep, it should settle
 
@@ -729,7 +729,7 @@ class TestHistogramZeroStarHandler:
         viable_image = Image.fromarray(
             np.random.normal(80, 15, (128, 128)).astype(np.uint8), mode="L"
         )
-        exp3 = handler.handle(exp2, 1, viable_image)
+        _exp3 = handler.handle(exp2, 1, viable_image)
 
         # Should settle on this viable exposure
         assert handler._target_exposure is not None

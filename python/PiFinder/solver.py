@@ -129,7 +129,9 @@ def solver(
                     logger.error(f"Lost connection to shared state manager: {e}")
 
                 # Check if we should process this image
-                is_new_image = last_image_metadata["exposure_end"] > solved["last_solve_attempt"]
+                is_new_image = (
+                    last_image_metadata["exposure_end"] > solved["last_solve_attempt"]
+                )
                 is_stationary = last_image_metadata["imu_delta"] < 1
 
                 if is_new_image and not is_stationary:
