@@ -31,8 +31,8 @@ class CameraPI(CameraInterface):
         self.exposure_time = exposure_time
         self.format = "SRGGB12"
         self.bit_depth = 12
-        self.digital_gain = 1.0 # TODO: find optimum value for imx296 and imx290
-        self.offset = 0 # TODO: measure offset for imx296 and imx290
+        self.digital_gain = 1.0  # TODO: find optimum value for imx296 and imx290
+        self.offset = 0  # TODO: measure offset for imx296 and imx290
 
         # Figure out camera type, hq or imx296 (global shutter)
         if "imx296" in self.camera.camera.id:
@@ -52,9 +52,13 @@ class CameraPI(CameraInterface):
             self.camera_type = "hq"
             # using this smaller scale auto-selects binning on the sensor
             self.raw_size = (2028, 1520)
-            self.gain = 22 # cedar uses this value
-            self.digital_gain = 13.0 # initial tests show that higher values don't help much
-            self.offset = 256 # measured with lens cap on, matches what the internet says
+            self.gain = 22  # cedar uses this value
+            self.digital_gain = (
+                13.0  # initial tests show that higher values don't help much
+            )
+            self.offset = (
+                256  # measured with lens cap on, matches what the internet says
+            )
         else:
             raise Exception(f"Unknown camera type: {self.camera.camera.id}")
 
@@ -65,13 +69,8 @@ class CameraPI(CameraInterface):
         """Initializes the camera and set the needed control parameters"""
         self.stop_camera()
         cam_config = self.camera.create_still_configuration(
-            {
-                "size": (512, 512)
-            },
-            raw={
-                "size": self.raw_size,
-                "format": self.format
-            },
+            {"size": (512, 512)},
+            raw={"size": self.raw_size, "format": self.format},
         )
         self.camera.configure(cam_config)
         self.camera.set_controls({"AeEnable": False})
@@ -98,7 +97,7 @@ class CameraPI(CameraInterface):
         raw_capture = _request.make_array("raw").copy().view(np.uint16)
         # tmp_image = _request.make_image("main")
         _request.release()
-        # crop to square 
+        # crop to square
         if self.camera_type == "imx296":
             raw_capture = raw_capture[:, 184:-184]
             # Sensor orientation is different

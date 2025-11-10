@@ -92,7 +92,9 @@ def main():
     # Load catalogs using registry (order is preserved for referencing)
     for module_name, function_name in CATALOG_LOADERS:
         try:
-            module = __import__(f"PiFinder.catalog_imports.{module_name}", fromlist=[function_name])
+            module = __import__(
+                f"PiFinder.catalog_imports.{module_name}", fromlist=[function_name]
+            )
             loader_func = getattr(module, function_name)
             logging.info(f"Loading catalog: {function_name}")
             loader_func()
@@ -103,7 +105,9 @@ def main():
     # Run post-processing functions
     for module_name, function_name in POST_PROCESSING_FUNCTIONS:
         try:
-            module = __import__(f"PiFinder.catalog_imports.{module_name}", fromlist=[function_name])
+            module = __import__(
+                f"PiFinder.catalog_imports.{module_name}", fromlist=[function_name]
+            )
             process_func = getattr(module, function_name)
             logging.info(f"Running post-processing: {function_name}")
             process_func()
