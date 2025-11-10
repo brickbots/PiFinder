@@ -146,8 +146,12 @@ class SQM:
     Sky Quality Meter - represents the sky brightness measurement.
     """
 
-    value: float = 20.15  # mag/arcsec² - default typical dark sky value (processed 8-bit)
-    value_raw: Optional[float] = None  # mag/arcsec² - from raw 16-bit pipeline (more accurate)
+    value: float = (
+        20.15  # mag/arcsec² - default typical dark sky value (processed 8-bit)
+    )
+    value_raw: Optional[float] = (
+        None  # mag/arcsec² - from raw 16-bit pipeline (more accurate)
+    )
     source: str = "None"  # "None", "Calculated", "Manual", etc.
     last_update: Optional[str] = None  # ISO timestamp of last update
 

@@ -22,7 +22,7 @@ from PIL import Image
 
 from PiFinder import state_utils
 from PiFinder import utils
-from PiFinder.sqm import SQM as SQMCalculator, update_sqm_if_needed
+from PiFinder.sqm import SQM as SQMCalculator
 from PiFinder.state import SQM as SQMState
 
 sys.path.append(str(utils.tetra3_dir))
@@ -42,7 +42,9 @@ def create_sqm_calculator(shared_state):
     camera_type = shared_state.camera_type()
     camera_type_processed = f"{camera_type}_processed"
 
-    logger.info(f"Creating processed SQM calculator for camera: {camera_type_processed}")
+    logger.info(
+        f"Creating processed SQM calculator for camera: {camera_type_processed}"
+    )
 
     return SQMCalculator(
         camera_type=camera_type_processed,
@@ -116,8 +118,12 @@ def update_sqm_dual_pipeline(
 
     if current_sqm.last_update is not None:
         try:
-            last_update_time = datetime.fromisoformat(current_sqm.last_update).timestamp()
-            should_calculate = (current_time - last_update_time) >= calculation_interval_seconds
+            last_update_time = datetime.fromisoformat(
+                current_sqm.last_update
+            ).timestamp()
+            should_calculate = (
+                current_time - last_update_time
+            ) >= calculation_interval_seconds
         except (ValueError, AttributeError):
             logger.warning("Failed to parse SQM timestamp, recalculating")
             should_calculate = True
@@ -186,7 +192,11 @@ def update_sqm_dual_pipeline(
             )
             shared_state.set_sqm(new_sqm_state)
 
-            raw_str = f", raw={sqm_value_raw:.2f}" if sqm_value_raw is not None else ", raw=N/A"
+            raw_str = (
+                f", raw={sqm_value_raw:.2f}"
+                if sqm_value_raw is not None
+                else ", raw=N/A"
+            )
             logger.info(f"SQM updated: processed={sqm_value_processed:.2f}{raw_str}")
             return True
 
@@ -292,7 +302,9 @@ def solver(
                             align_dec = 0
 
                         if command[0] == "reload_sqm_calibration":
-                            logger.info("Reloading SQM calibration (both processed and raw)...")
+                            logger.info(
+                                "Reloading SQM calibration (both processed and raw)..."
+                            )
                             sqm_calculator = create_sqm_calculator(shared_state)
                             sqm_calculator_raw = create_sqm_calculator_raw(shared_state)
                             logger.info("SQM calibration reloaded for both pipelines")
@@ -355,7 +367,9 @@ def solver(
                         if "matched_centroids" in solution:
                             # Update SQM for BOTH processed and raw pipelines
                             # Convert exposure time from microseconds to seconds
-                            exposure_sec = last_image_metadata["exposure_time"] / 1_000_000.0
+                            exposure_sec = (
+                                last_image_metadata["exposure_time"] / 1_000_000.0
+                            )
 
                             update_sqm_dual_pipeline(
                                 shared_state=shared_state,

@@ -203,7 +203,9 @@ class CameraInterface:
                             self.capture_raw_file(filename)
                             console_queue.put("CAM: Saved Raw Image")
 
-                        if command.startswith("save") and not command.startswith("saveraw"):
+                        if command.startswith("save") and not command.startswith(
+                            "saveraw"
+                        ):
                             filename = command.split(":")[1]
                             filename = f"{utils.data_dir}/captures/{filename}.png"
                             self.capture_file(filename)

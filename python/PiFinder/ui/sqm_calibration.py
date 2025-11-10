@@ -24,7 +24,6 @@ from typing import Optional, List
 from PIL import Image
 
 from PiFinder.ui.base import UIModule
-from PiFinder import utils
 
 
 class CalibrationState(Enum):
@@ -365,7 +364,10 @@ class UISQMCalibration(UIModule):
             y += self.fonts.base.height + 2
 
         # Dark current
-        if self.dark_current_rate is not None and self.dark_current_rate_raw is not None:
+        if (
+            self.dark_current_rate is not None
+            and self.dark_current_rate_raw is not None
+        ):
             self.draw.text(
                 (10, y),
                 f"Dark: {self.dark_current_rate:4.2f}  {self.dark_current_rate_raw:6.2f}",
@@ -577,12 +579,16 @@ class UISQMCalibration(UIModule):
                 return
 
             if len(self.bias_frames_raw) < self.num_frames:
-                self.error_message = f"Not enough raw bias frames ({len(self.bias_frames_raw)})"
+                self.error_message = (
+                    f"Not enough raw bias frames ({len(self.bias_frames_raw)})"
+                )
                 self.state = CalibrationState.ERROR
                 return
 
             if len(self.dark_frames_raw) < self.num_frames:
-                self.error_message = f"Not enough raw dark frames ({len(self.dark_frames_raw)})"
+                self.error_message = (
+                    f"Not enough raw dark frames ({len(self.dark_frames_raw)})"
+                )
                 self.state = CalibrationState.ERROR
                 return
 
@@ -618,7 +624,9 @@ class UISQMCalibration(UIModule):
             # 3. Compute dark current rate from raw frames
             dark_stack_raw = np.array(self.dark_frames_raw, dtype=np.float32)
             dark_median_raw = float(np.median(dark_stack_raw))
-            self.dark_current_rate_raw = (dark_median_raw - self.bias_offset_raw) / exposure_sec
+            self.dark_current_rate_raw = (
+                dark_median_raw - self.bias_offset_raw
+            ) / exposure_sec
 
             # Ensure dark current is not negative
             if self.dark_current_rate_raw < 0:
@@ -645,7 +653,7 @@ class UISQMCalibration(UIModule):
         """Save calibration data for BOTH raw and processed profiles with measured values"""
         try:
             # Import here to avoid circular dependencies
-            from PiFinder.noise_floor_estimator import NoiseFloorEstimator
+            from PiFinder.sqm import NoiseFloorEstimator
 
             # Get camera type from shared state
             camera_type_raw_sensor = self.shared_state.camera_type()
@@ -663,7 +671,9 @@ class UISQMCalibration(UIModule):
             )
 
             if not success_processed:
-                raise RuntimeError(f"Failed to save processed calibration for {camera_type_processed}")
+                raise RuntimeError(
+                    f"Failed to save processed calibration for {camera_type_processed}"
+                )
 
             # ========== Save RAW (16-bit) calibration ==========
             camera_type_raw = camera_type_raw_sensor  # e.g., "imx296", "hq"
@@ -678,7 +688,9 @@ class UISQMCalibration(UIModule):
             )
 
             if not success_raw:
-                raise RuntimeError(f"Failed to save raw calibration for {camera_type_raw}")
+                raise RuntimeError(
+                    f"Failed to save raw calibration for {camera_type_raw}"
+                )
 
             # Tell solver to reload the calibration immediately (for processed profile)
             self._notify_solver_to_reload()
