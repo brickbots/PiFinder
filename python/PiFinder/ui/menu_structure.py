@@ -891,7 +891,7 @@ pifinder_menu = {
                             "value": "Alt/Az",
                         },
                         {
-                            "name": _("Equitorial"),
+                            "name": _("Equatorial"),
                             "value": "EQ",
                         },
                     ],
