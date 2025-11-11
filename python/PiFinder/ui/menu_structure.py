@@ -1106,7 +1106,7 @@ pifinder_menu = {
                     "select": "Single",
                     "items": [
                         {
-                            "name": _("Auto-Exp 0★ Handler"),
+                            "name": _("AE Algo"),
                             "class": UITextMenu,
                             "select": "single",
                             "config_option": "auto_exposure_zero_star_handler",
@@ -1116,6 +1116,10 @@ pifinder_menu = {
                                 {
                                     "name": _("Sweep"),
                                     "value": "sweep",
+                                },
+                                {
+                                    "name": _("Exponential"),
+                                    "value": "exponential",
                                 },
                                 {
                                     "name": _("Reset to 0.4s"),

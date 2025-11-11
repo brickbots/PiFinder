@@ -159,7 +159,7 @@ class SweepZeroStarHandler(ZeroStarHandler):
         # Activate if not already active
         if not self._active:
             self._active = True
-            logger.info(
+            logger.debug(
                 f"Sweep activated after {zero_count} zero-star solves (stuck at {current_exposure}µs)"
             )
 
@@ -189,7 +189,7 @@ class SweepZeroStarHandler(ZeroStarHandler):
             # Wrap around to start of sweep
             if self._exposure_index >= len(self._exposures):
                 self._exposure_index = 0
-                logger.info(
+                logger.debug(
                     f"Sweep: complete, restarting from {self._exposures[0]}µs"
                 )
             else:
@@ -278,7 +278,7 @@ class ExponentialSweepZeroStarHandler(ZeroStarHandler):
         # Activate if not already active
         if not self._active:
             self._active = True
-            logger.info(
+            logger.debug(
                 f"Exponential sweep activated after {zero_count} zero-star solves "
                 f"(stuck at {current_exposure}µs)"
             )
@@ -309,7 +309,7 @@ class ExponentialSweepZeroStarHandler(ZeroStarHandler):
             # Wrap around to start of sweep
             if self._exposure_index >= len(self._exposures):
                 self._exposure_index = 0
-                logger.info(
+                logger.debug(
                     f"Exponential sweep: complete, restarting from {self._exposures[0]}µs"
                 )
             else:
@@ -373,7 +373,7 @@ class ResetZeroStarHandler(ZeroStarHandler):
         """
         # Wait for trigger count
         if zero_count < self._trigger_count:
-            logger.info(
+            logger.debug(
                 f"Zero stars: {zero_count}/{self._trigger_count} before reset activation"
             )
             return None
@@ -381,7 +381,7 @@ class ResetZeroStarHandler(ZeroStarHandler):
         # Activate and return reset exposure
         if not self._active:
             self._active = True
-            logger.warning(
+            logger.debug(
                 f"Reset activated after {zero_count} zero-star solves "
                 f"(resetting from {current_exposure}µs to {self._reset_exposure}µs)"
             )
@@ -534,7 +534,7 @@ class HistogramZeroStarHandler(ZeroStarHandler):
             self._sweep_index = 0
             self._sweep_exposures = self._generate_sweep_exposures()
             self._sweep_results = []
-            logger.info(
+            logger.debug(
                 f"Histogram handler activated: starting {self._sweep_steps}-step histogram sweep "
                 f"from {self._sweep_exposures[0]/1000:.1f}ms to {self._sweep_exposures[-1]/1000:.1f}ms"
             )
@@ -575,14 +575,14 @@ class HistogramZeroStarHandler(ZeroStarHandler):
                     if viable_exposures:
                         # Use highest viable exposure for best star detection
                         self._target_exposure = max(viable_exposures)
-                        logger.info(
+                        logger.debug(
                             f"Histogram handler: settling on highest viable exposure {self._target_exposure/1000:.1f}ms"
                         )
                     else:
                         # No viable exposures - use highest from sweep
                         highest_exp = self._sweep_results[-1][0]
                         self._target_exposure = highest_exp
-                        logger.info(
+                        logger.debug(
                             f"Histogram handler: no viable exposure found, using highest {highest_exp/1000:.1f}ms"
                         )
                 else:
@@ -590,7 +590,7 @@ class HistogramZeroStarHandler(ZeroStarHandler):
                     middle_idx = len(self._sweep_exposures) // 2
                     middle_exp = self._sweep_exposures[middle_idx]
                     self._target_exposure = middle_exp
-                    logger.info(
+                    logger.debug(
                         f"Histogram handler: no analysis data, using middle {middle_exp/1000:.1f}ms"
                     )
 
@@ -778,7 +778,7 @@ class ExposurePIDController:
 
         # Exit handler mode if we were in it (stars found!)
         if self._zero_star_handler.is_active():
-            logger.info(
+            logger.debug(
                 f"Zero-star handler successful! Found {matched_stars} stars at {current_exposure}µs, "
                 "switching to PID control"
             )
@@ -796,7 +796,7 @@ class ExposurePIDController:
     def set_target(self, target_stars: int) -> None:
         old_target = self.target_stars
         self.target_stars = target_stars
-        logger.info(f"Target stars changed: {old_target} → {target_stars}")
+        logger.debug(f"Target stars changed: {old_target} → {target_stars}")
 
     def set_gains(
         self,
@@ -808,7 +808,7 @@ class ExposurePIDController:
             self.gains_decrease = gains_decrease
         if gains_increase is not None:
             self.gains_increase = gains_increase
-        logger.info(f"PID gains: dec={self.gains_decrease}, inc={self.gains_increase}")
+        logger.debug(f"PID gains: dec={self.gains_decrease}, inc={self.gains_increase}")
 
     def get_status(self) -> dict:
         return {

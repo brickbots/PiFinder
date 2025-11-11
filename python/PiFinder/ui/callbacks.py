@@ -90,9 +90,10 @@ def set_auto_exposure_zero_star_handler(ui_module: UIModule) -> None:
     """
     Sets the zero-star handler plugin for auto-exposure.
     Supports:
-      - "sweep": Systematic exposure sweep (25ms→1s with focus hold)
+      - "sweep": Systematic doubling sweep (25ms→1s, 2× ratio)
+      - "exponential": Logarithmic sweep (25ms→1s, 1.85× ratio, 7 steps)
       - "reset": Quick reset to 0.4s default
-      - "histogram": Histogram-based adaptive (placeholder)
+      - "histogram": Histogram-based adaptive with viable exposure selection
     """
     handler_type = ui_module.config_object.get_option("auto_exposure_zero_star_handler")
     logger.info("Set auto-exposure zero-star handler to: %s", handler_type)

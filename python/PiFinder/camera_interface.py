@@ -22,6 +22,7 @@ from PiFinder import state_utils, utils
 from PiFinder.auto_exposure import (
     ExposurePIDController,
     SweepZeroStarHandler,
+    ExponentialSweepZeroStarHandler,
     ResetZeroStarHandler,
     HistogramZeroStarHandler,
     generate_exposure_sweep,
@@ -271,6 +272,11 @@ class CameraInterface:
                                 new_handler = None
                                 if handler_type == "sweep":
                                     new_handler = SweepZeroStarHandler(
+                                        min_exposure=self._auto_exposure_pid.min_exposure,
+                                        max_exposure=self._auto_exposure_pid.max_exposure,
+                                    )
+                                elif handler_type == "exponential":
+                                    new_handler = ExponentialSweepZeroStarHandler(
                                         min_exposure=self._auto_exposure_pid.min_exposure,
                                         max_exposure=self._auto_exposure_pid.max_exposure,
                                     )
