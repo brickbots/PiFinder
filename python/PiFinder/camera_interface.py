@@ -24,6 +24,7 @@ class CameraInterface:
     """The CameraInterface interface."""
 
     _camera_started = False
+    _save_next_to = None  # Filename to save next capture to (None = don't save)
 
     def initialize(self) -> None:
         pass
@@ -197,20 +198,29 @@ class CameraInterface:
                             cfg.set_option("camera_exp", self.exposure_time)
                             cfg.set_option("camera_gain", int(self.gain))
 
-                        if command.startswith("saveraw"):
-                            filename = command.split(":")[1]
-                            # Raw files are saved as TIFF with camera-specific suffix
-                            filename = f"{utils.data_dir}/captures/{filename}"
-                            self.capture_raw_file(filename)
-                            console_queue.put("CAM: Saved Raw Image")
+                        if command.startswith("save"):
+                            # Set flag to save next capture to this file
+                            self._save_next_to = command.split(":")[1]
+                            console_queue.put("CAM: Save flag set")
 
-                        if command.startswith("save") and not command.startswith(
-                            "saveraw"
-                        ):
-                            filename = command.split(":")[1]
-                            filename = f"{utils.data_dir}/captures/{filename}.png"
-                            self.capture_file(filename)
-                            console_queue.put("CAM: Saved Image")
+                        if command.startswith("capture"):
+                            # Capture single frame and update shared state
+                            captured_image = self.capture()
+                            camera_image.paste(captured_image)
+
+                            # If save flag is set, save to disk
+                            if self._save_next_to:
+                                self.capture_file(self._save_next_to)
+                                # Add .tiff extension for raw (replace .png if present)
+                                raw_filename = self._save_next_to.replace(".png", ".tiff")
+                                if not raw_filename.endswith(".tiff"):
+                                    raw_filename += ".tiff"
+                                self.capture_raw_file(raw_filename)
+                                console_queue.put("CAM: Captured + Saved")
+                                self._save_next_to = None  # Clear flag
+                            else:
+                                console_queue.put("CAM: Captured")
+
                         if command.startswith("stop"):
                             self.stop_camera()
                             console_queue.put("CAM: Stopped camera")

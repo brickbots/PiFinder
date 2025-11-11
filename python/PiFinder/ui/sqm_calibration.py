@@ -429,9 +429,11 @@ class UISQMCalibration(UIModule):
             self.bias_frames = []
             self.bias_frames_raw = []
 
-        # Capture frame (save to disk if debug enabled)
-        filename = os.path.join(self.calibration_output_dir, f"bias_{self.current_frame:03d}") if self.save_frames_enabled else ""
-        self.command_queues["camera"].put(f"capture:{filename}:bias")
+        # Set save flag if debug enabled, then capture
+        if self.save_frames_enabled:
+            filename = os.path.join(self.calibration_output_dir, f"bias_{self.current_frame:03d}.png")
+            self.command_queues["camera"].put(f"save:{filename}")
+        self.command_queues["camera"].put("capture")
 
         time.sleep(0.3)  # Wait for capture
 
@@ -464,9 +466,11 @@ class UISQMCalibration(UIModule):
             self.dark_frames = []
             self.dark_frames_raw = []
 
-        # Capture frame (save to disk if debug enabled)
-        filename = os.path.join(self.calibration_output_dir, f"dark_{self.current_frame:03d}") if self.save_frames_enabled else ""
-        self.command_queues["camera"].put(f"capture:{filename}:dark")
+        # Set save flag if debug enabled, then capture
+        if self.save_frames_enabled:
+            filename = os.path.join(self.calibration_output_dir, f"dark_{self.current_frame:03d}.png")
+            self.command_queues["camera"].put(f"save:{filename}")
+        self.command_queues["camera"].put("capture")
 
         time.sleep(0.3)  # Wait for capture
 
@@ -508,9 +512,11 @@ class UISQMCalibration(UIModule):
             time.sleep(0.1)
             return
 
-        # Valid solve, capture frame (save to disk if debug enabled)
-        filename = os.path.join(self.calibration_output_dir, f"sky_{self.current_frame:03d}") if self.save_frames_enabled else ""
-        self.command_queues["camera"].put(f"capture:{filename}:sky")
+        # Valid solve, set save flag if debug enabled, then capture
+        if self.save_frames_enabled:
+            filename = os.path.join(self.calibration_output_dir, f"sky_{self.current_frame:03d}.png")
+            self.command_queues["camera"].put(f"save:{filename}")
+        self.command_queues["camera"].put("capture")
 
         time.sleep(0.3)  # Wait for capture
 
