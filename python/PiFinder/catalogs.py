@@ -326,9 +326,7 @@ class Catalog(CatalogBase):
         Default returns READY state (catalog is always ready).
         """
         status = CatalogStatus(
-            current=CatalogState.READY,
-            previous=self._last_state,
-            data=None
+            current=CatalogState.READY, previous=self._last_state, data=None
         )
         self._last_state = status.current
         return status
@@ -534,9 +532,7 @@ class PlanetCatalog(Catalog):
             current_state = CatalogState.READY
 
         status = CatalogStatus(
-            current=current_state,
-            previous=self._last_state,
-            data=None
+            current=current_state, previous=self._last_state, data=None
         )
         self._last_state = status.current
         return status
@@ -618,8 +614,6 @@ class PlanetCatalog(Catalog):
                         obj.mag_str = obj.mag.calc_two_mag_representation()
                 except (KeyError, ValueError) as e:
                     logger.error(f"Error updating planet {name}: {e}")
-
-
 
 
 class CatalogBackgroundLoader:
