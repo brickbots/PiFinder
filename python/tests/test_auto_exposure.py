@@ -86,7 +86,6 @@ class TestSweepZeroStarHandler:
             1000000,
         ]
         assert handler._repeats_per_exposure == 2
-        assert handler._focus_hold_cycles == 12
 
     def test_custom_initialization(self):
         """Handler accepts custom parameters."""
@@ -133,8 +132,8 @@ class TestSweepZeroStarHandler:
         result = handler.handle(50000, 5)
         assert result == 100000
 
-    def test_focus_hold_at_400ms(self):
-        """Sweep holds at 400ms for 12 cycles (~10 seconds)."""
+    def test_400ms_normal_behavior(self):
+        """Sweep treats 400ms like other exposures (2 attempts)."""
         handler = SweepZeroStarHandler(trigger_count=1)
 
         # Skip to 400ms by advancing through earlier exposures
@@ -151,13 +150,15 @@ class TestSweepZeroStarHandler:
         handler.handle(50000, 7)  # 200ms attempt 1
         handler.handle(50000, 8)  # 200ms attempt 2
 
-        # Now at 400ms - should hold for 12 cycles
-        for i in range(1, 13):
-            result = handler.handle(50000, 8 + i)
-            assert result == 400000, f"Cycle {i} should be 400ms"
+        # Now at 400ms - should repeat 2 times like other exposures
+        result = handler.handle(50000, 9)
+        assert result == 400000  # Attempt 1
 
-        # After 12 cycles, move to 800ms
-        result = handler.handle(50000, 21)
+        result = handler.handle(50000, 10)
+        assert result == 400000  # Attempt 2
+
+        # After 2 cycles, move to 800ms
+        result = handler.handle(50000, 11)
         assert result == 800000
 
     def test_sweep_wraps_around(self):
@@ -165,8 +166,8 @@ class TestSweepZeroStarHandler:
         handler = SweepZeroStarHandler(trigger_count=1)
 
         # Fast-forward through entire sweep
-        # 25ms (2×), 50ms (2×), 100ms (2×), 200ms (2×), 400ms (12×), 800ms (2×), 1000ms (2×)
-        total_cycles = 2 + 2 + 2 + 2 + 12 + 2 + 2  # = 24
+        # 25ms (2×), 50ms (2×), 100ms (2×), 200ms (2×), 400ms (2×), 800ms (2×), 1000ms (2×)
+        total_cycles = 2 + 2 + 2 + 2 + 2 + 2 + 2  # = 14
 
         for i in range(1, total_cycles + 1):
             handler.handle(50000, i)
@@ -707,7 +708,7 @@ class TestHistogramZeroStarHandler:
         assert metrics["std"] > 5
 
     def test_histogram_sweep_with_images(self):
-        """Handler performs sweep with image analysis and finds viable exposure."""
+        """Handler performs sweep with image analysis and settles on highest viable."""
         import numpy as np
         from PIL import Image
 
@@ -718,21 +719,42 @@ class TestHistogramZeroStarHandler:
         assert exp1 is not None
         assert handler.is_active()
 
-        # Create progressively brighter images
+        # Create images for sweep
         # First image: too dark (non-viable)
         dark_image = Image.fromarray(np.ones((128, 128), dtype=np.uint8) * 10, mode="L")
         exp2 = handler.handle(exp1, 1, dark_image)
         assert exp2 is not None
         assert exp2 > exp1  # Should continue sweep
 
-        # Second image: viable!
-        viable_image = Image.fromarray(
+        # Second image: viable (but not the highest)
+        viable_image1 = Image.fromarray(
             np.random.normal(80, 15, (128, 128)).astype(np.uint8), mode="L"
         )
-        _exp3 = handler.handle(exp2, 1, viable_image)
+        exp3 = handler.handle(exp2, 1, viable_image1)
+        assert exp3 is not None  # Should continue sweep, not settle yet
+        assert exp3 > exp2
 
-        # Should settle on this viable exposure
+        # Third image: also viable (higher exposure)
+        viable_image2 = Image.fromarray(
+            np.random.normal(90, 20, (128, 128)).astype(np.uint8), mode="L"
+        )
+        exp4 = handler.handle(exp3, 1, viable_image2)
+        assert exp4 is not None  # Should continue sweep
+        assert exp4 > exp3
+
+        # Fourth image: complete the sweep
+        viable_image3 = Image.fromarray(
+            np.random.normal(100, 25, (128, 128)).astype(np.uint8), mode="L"
+        )
+        result = handler.handle(exp4, 1, viable_image3)
+        # Sweep should signal completion (return None since no more exposures)
+        assert result is None
+
+        # Next call should analyze final image and settle on target exposure
+        settled_exp = handler.handle(exp4, 1)
+
+        # Should settle on highest viable (exp4)
         assert handler._target_exposure is not None
-        assert (
-            handler._target_exposure == exp2
-        )  # Settles on the previous exposure (which was viable)
+        assert handler._target_exposure == exp4  # Highest viable exposure
+        # Since current_exposure == target, returns None (already at target)
+        assert settled_exp is None or settled_exp == exp4

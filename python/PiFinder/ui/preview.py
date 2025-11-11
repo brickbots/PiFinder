@@ -200,7 +200,9 @@ class UIPreview(UIModule):
                 if exp_sec < 0.1:
                     return f"{int(exp_sec * 1000)}ms"
                 else:
-                    return f"{exp_sec:g}s"
+                    # Truncate to 2 decimal places
+                    exp_truncated = int(exp_sec * 100) / 100
+                    return f"{exp_truncated:g}s"
         except Exception:
             pass
         return "N/A"
