@@ -10,6 +10,7 @@ from PIL import Image
 from PiFinder.auto_exposure import (
     ZeroStarHandler,
     SweepZeroStarHandler,
+    ExponentialSweepZeroStarHandler,
     ResetZeroStarHandler,
     HistogramZeroStarHandler,
     ExposurePIDController,
@@ -196,6 +197,130 @@ class TestSweepZeroStarHandler:
         # After reset, should start from beginning (needs 2 zeros again)
         result = handler.handle(50000, 1)
         assert result is None  # Trigger count = 2, so first call returns None
+
+
+@pytest.mark.unit
+class TestExponentialSweepZeroStarHandler:
+    """Tests for ExponentialSweepZeroStarHandler recovery strategy."""
+
+    def test_initialization(self):
+        """Handler initializes with correct defaults."""
+        handler = ExponentialSweepZeroStarHandler()
+        assert not handler.is_active()
+        assert handler._trigger_count == 2
+        assert handler._sweep_steps == 7
+        assert handler._repeats_per_exposure == 2
+        assert len(handler._exposures) == 7
+        # Check exposures are logarithmically spaced (within tolerance for rounding)
+        assert abs(handler._exposures[0] - 25000) < 10
+        assert abs(handler._exposures[-1] - 1000000) < 10
+
+    def test_custom_initialization(self):
+        """Handler accepts custom parameters."""
+        handler = ExponentialSweepZeroStarHandler(
+            min_exposure=10000,
+            max_exposure=500000,
+            trigger_count=3,
+            sweep_steps=5,
+            repeats_per_exposure=3,
+        )
+        assert handler._trigger_count == 3
+        assert handler._sweep_steps == 5
+        assert handler._repeats_per_exposure == 3
+        assert len(handler._exposures) == 5
+        assert abs(handler._exposures[0] - 10000) < 10
+        assert abs(handler._exposures[-1] - 500000) < 10
+
+    def test_trigger_delay(self):
+        """Handler doesn't activate until trigger count is reached."""
+        handler = ExponentialSweepZeroStarHandler(trigger_count=2)
+
+        # First zero - should not activate
+        result = handler.handle(50000, 1)
+        assert result is None
+        assert not handler.is_active()
+
+        # Second zero - should activate and return first exposure
+        result = handler.handle(50000, 2)
+        assert abs(result - 25000) < 10  # Approximately 25000
+        assert handler.is_active()
+
+    def test_exponential_sweep_pattern(self):
+        """Sweep uses logarithmic spacing and repeats each exposure."""
+        handler = ExponentialSweepZeroStarHandler(
+            trigger_count=1, sweep_steps=4, repeats_per_exposure=2
+        )
+
+        # Activate sweep
+        exp1 = handler.handle(50000, 1)
+        assert abs(exp1 - 25000) < 10  # Approximately 25000
+
+        # Second attempt at first exposure
+        exp2 = handler.handle(50000, 2)
+        assert exp2 == exp1  # Should be same exposure
+
+        # Move to second exposure (logarithmic spacing means not just doubling)
+        exp3 = handler.handle(50000, 3)
+        assert exp3 > exp1  # Should be higher
+        # Not exactly double due to logarithmic spacing
+        assert abs(exp3 - exp1 * 2) > 1000  # Should differ from doubling
+
+        # Second attempt at second exposure
+        exp4 = handler.handle(50000, 4)
+        assert exp4 == exp3
+
+    def test_logarithmic_spacing(self):
+        """Exposures are logarithmically spaced, not linear."""
+        handler = ExponentialSweepZeroStarHandler(
+            min_exposure=25000, max_exposure=1000000, sweep_steps=7
+        )
+
+        exposures = handler._exposures
+        assert len(exposures) == 7
+
+        # Check spacing increases exponentially
+        # Ratio between consecutive exposures should be roughly constant
+        ratios = [exposures[i + 1] / exposures[i] for i in range(len(exposures) - 1)]
+
+        # All ratios should be similar (within 20% tolerance)
+        avg_ratio = sum(ratios) / len(ratios)
+        for ratio in ratios:
+            assert abs(ratio - avg_ratio) / avg_ratio < 0.2
+
+    def test_sweep_wraps_around(self):
+        """Sweep wraps back to minimum after reaching maximum."""
+        handler = ExponentialSweepZeroStarHandler(
+            trigger_count=1, sweep_steps=3, repeats_per_exposure=2
+        )
+
+        # Fast-forward through entire sweep (3 exposures × 2 repeats = 6 cycles)
+        for i in range(1, 7):
+            handler.handle(50000, i)
+
+        # Next cycle should wrap to first exposure
+        result = handler.handle(50000, 7)
+        assert result == handler._exposures[0]  # Back to minimum
+
+    def test_reset(self):
+        """Reset clears handler state."""
+        handler = ExponentialSweepZeroStarHandler(trigger_count=2)
+
+        # Activate sweep
+        handler.handle(50000, 1)  # First zero - no action
+        handler.handle(50000, 2)  # Second zero - activates
+        handler.handle(50000, 3)  # First attempt complete
+        handler.handle(50000, 4)  # Move to second exposure
+        assert handler.is_active()
+
+        # Reset
+        handler.reset()
+        assert not handler.is_active()
+        assert handler._exposure_index == 0
+        assert handler._repeat_count == 0
+
+        # After reset, should start from beginning
+        result = handler.handle(50000, 1)
+        assert result is None  # Trigger count = 2
 
 
 @pytest.mark.unit

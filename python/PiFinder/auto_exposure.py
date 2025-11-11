@@ -30,11 +30,12 @@ def generate_exposure_sweep(
     Generate logarithmically-spaced exposure values for sweeps.
 
     This utility function is used by:
-    - Experimental menu sweep capture (camera_interface.py) - 100 steps for analysis
+    - ExponentialSweepZeroStarHandler - configurable steps (default 7) for zero-star recovery
     - HistogramZeroStarHandler - configurable steps (default 8) for live histogram analysis
+    - Experimental menu sweep capture (camera_interface.py) - 100 steps for analysis
 
     Note: SweepZeroStarHandler uses a hard-coded doubling pattern [25, 50, 100, 200, 400, 800, 1000]ms
-    instead of this function because it has specific behavior tied to the 400ms value.
+    instead of this function for a simpler, predictable pattern.
 
     Args:
         min_exposure: Minimum exposure in microseconds
@@ -202,6 +203,126 @@ class SweepZeroStarHandler(ZeroStarHandler):
         self._exposure_index = 0
         self._repeat_count = 0
         logger.debug("SweepZeroStarHandler reset")
+
+
+class ExponentialSweepZeroStarHandler(ZeroStarHandler):
+    """
+    Recovery strategy: exponential (logarithmic) exposure sweep.
+
+    Similar to SweepZeroStarHandler but uses logarithmically-spaced exposures
+    instead of doubling pattern. Provides more granular coverage across the
+    exposure range.
+    """
+
+    def __init__(
+        self,
+        min_exposure: int = 25000,
+        max_exposure: int = 1000000,
+        trigger_count: int = 2,
+        sweep_steps: int = 7,
+        repeats_per_exposure: int = 2,
+    ):
+        """
+        Initialize the exponential sweep handler.
+
+        Args:
+            min_exposure: Minimum exposure in microseconds
+            max_exposure: Maximum exposure in microseconds
+            trigger_count: Number of zeros before activating
+            sweep_steps: Number of exposures in sweep (default 7)
+            repeats_per_exposure: Times to try each exposure (default 2)
+        """
+        super().__init__()
+        self._trigger_count = trigger_count
+        self._min_exposure = min_exposure
+        self._max_exposure = max_exposure
+        self._sweep_steps = sweep_steps
+        self._repeats_per_exposure = repeats_per_exposure
+        self._exposure_index = 0
+        self._repeat_count = 0
+
+        # Generate logarithmically-spaced exposure sweep
+        self._exposures = generate_exposure_sweep(
+            min_exposure, max_exposure, sweep_steps
+        )
+
+        logger.info(
+            f"ExponentialSweepZeroStarHandler initialized: trigger after {trigger_count} zeros, "
+            f"{sweep_steps} logarithmic steps from {min_exposure}µs to {max_exposure}µs"
+        )
+
+    def handle(
+        self,
+        current_exposure: int,
+        zero_count: int,
+        image: Optional[Image.Image] = None,
+    ) -> Optional[int]:
+        """
+        Handle zero stars by sweeping through logarithmic exposures.
+
+        Args:
+            current_exposure: Current exposure time in microseconds
+            zero_count: Number of consecutive zero-star solves
+            image: Unused by this handler
+
+        Returns:
+            New exposure to try, or None if waiting for trigger
+        """
+        # Wait for trigger count
+        if zero_count < self._trigger_count:
+            logger.debug(
+                f"Zero stars: {zero_count}/{self._trigger_count} before exponential sweep activation"
+            )
+            return None
+
+        # Activate if not already active
+        if not self._active:
+            self._active = True
+            logger.info(
+                f"Exponential sweep activated after {zero_count} zero-star solves "
+                f"(stuck at {current_exposure}µs)"
+            )
+
+        # Execute sweep
+        return self._next_exposure()
+
+    def _next_exposure(self) -> int:
+        current_sweep_exposure = self._exposures[self._exposure_index]
+
+        # Log current attempt
+        attempt_number = self._repeat_count + 1
+        logger.debug(
+            f"Exponential sweep: trying {current_sweep_exposure}µs "
+            f"({attempt_number}/{self._repeats_per_exposure})"
+        )
+
+        # Save result to return
+        result = current_sweep_exposure
+
+        # Update state for next call
+        self._repeat_count += 1
+        if self._repeat_count >= self._repeats_per_exposure:
+            # Completed all repeats, advance to next exposure
+            self._repeat_count = 0
+            self._exposure_index += 1
+
+            # Wrap around to start of sweep
+            if self._exposure_index >= len(self._exposures):
+                self._exposure_index = 0
+                logger.info(
+                    f"Exponential sweep: complete, restarting from {self._exposures[0]}µs"
+                )
+            else:
+                next_exposure = self._exposures[self._exposure_index]
+                logger.debug(f"Exponential sweep: advancing to {next_exposure}µs")
+
+        return result
+
+    def reset(self) -> None:
+        self._active = False
+        self._exposure_index = 0
+        self._repeat_count = 0
+        logger.debug("ExponentialSweepZeroStarHandler reset")
 
 
 class ResetZeroStarHandler(ZeroStarHandler):
