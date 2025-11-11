@@ -32,7 +32,7 @@ class CameraDebug(CameraInterface):
 
     def __init__(self, exposure_time) -> None:
         logger.debug("init camera debug")
-        self.camType = "Debug camera"
+        self.camType = "Debug imx296"  # Format matches PI cameras for compatibility
         self.path = utils.pifinder_dir / "test_images"
         self.exposure_time = exposure_time
         self.gain = 10

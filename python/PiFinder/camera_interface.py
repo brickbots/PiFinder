@@ -63,6 +63,9 @@ class CameraInterface:
         self, shared_state, camera_image, command_queue, console_queue, cfg
     ):
         try:
+            # Store shared_state for access by capture() methods
+            self.shared_state = shared_state
+
             # Store camera type in shared state for SQM calibration
             camera_type_str = self.get_cam_type()  # e.g., "PI imx296", "PI hq"
             if " " in camera_type_str:

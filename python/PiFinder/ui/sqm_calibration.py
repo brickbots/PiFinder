@@ -17,13 +17,12 @@ The wizard guides the user through lens cap placement and displays progress.
 
 import time
 import os
-import tempfile
 import numpy as np
 from enum import Enum
 from typing import Optional, List
-from PIL import Image
 
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 
 
 class CalibrationState(Enum):
@@ -61,6 +60,13 @@ class UISQMCalibration(UIModule):
         self.num_frames = 10  # Number of frames to capture per measurement
         self.current_frame = 0  # Current frame being captured
 
+        # Debug option: save calibration frames to disk
+        self.save_frames_enabled = False
+        self.calibration_output_dir = None  # Set when debug enabled
+
+        # Marking menu for debug toggle
+        self.marking_menu = self._create_marking_menu()
+
         # Separate storage for each frame type - PROCESSED (8-bit)
         self.bias_frames: List[np.ndarray] = []
         self.dark_frames: List[np.ndarray] = []
@@ -91,9 +97,6 @@ class UISQMCalibration(UIModule):
         metadata = self.shared_state.last_image_metadata()
         self.exposure_time_us = metadata.get("exposure_time", 500000)  # microseconds
 
-        # Temporary directory for raw frame captures during calibration
-        self.temp_dir = tempfile.mkdtemp(prefix="sqm_cal_")
-
     def active(self):
         """Called when module becomes active"""
         # Store original camera settings
@@ -109,12 +112,6 @@ class UISQMCalibration(UIModule):
         # Restore original camera settings if needed
         if self.original_exposure is not None:
             self.command_queues["camera"].put(f"set_exp:{self.original_exposure}")
-
-        # Clean up temporary directory
-        if hasattr(self, "temp_dir") and os.path.exists(self.temp_dir):
-            import shutil
-
-            shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def update(self, force=False):
         """Update the display based on current state"""
@@ -153,23 +150,20 @@ class UISQMCalibration(UIModule):
         """Draw introduction screen"""
         self.draw.text(
             (10, 20),
-            "SQM CALIBRATION",
+            "SQM CAL",
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
 
         lines = [
-            "This wizard will",
-            "calibrate the SQM",
-            "noise floor.",
+            "Measure noise floor",
             "",
-            "You will need:",
+            "Need:",
             "• Lens cap",
-            "• Dark location",
-            "• 2-3 minutes",
+            "• ~3 minutes",
         ]
 
-        y = 38
+        y = 40
         for line in lines:
             self.draw.text(
                 (10, y), line, font=self.fonts.base.font, fill=self.colors.get(192)
@@ -181,7 +175,7 @@ class UISQMCalibration(UIModule):
             (10, 110),
             f"{self._SQUARE_} START  0 CANCEL",
             font=self.fonts.base.font,
-            fill=self.colors.get(64),
+            fill=self.colors.get(192),
         )
 
     def _draw_cap_on_instruction(self):
@@ -217,7 +211,7 @@ class UISQMCalibration(UIModule):
             (10, 110),
             f"{self._SQUARE_} READY  0 CANCEL",
             font=self.fonts.base.font,
-            fill=self.colors.get(64),
+            fill=self.colors.get(192),
         )
 
     def _draw_cap_off_instruction(self):
@@ -253,7 +247,7 @@ class UISQMCalibration(UIModule):
             (10, 110),
             f"{self._SQUARE_} READY  0 CANCEL",
             font=self.fonts.base.font,
-            fill=self.colors.get(64),
+            fill=self.colors.get(192),
         )
 
     def _draw_progress(self, label: str, current: int, total: int):
@@ -327,7 +321,7 @@ class UISQMCalibration(UIModule):
         """Draw final results - both processed and raw"""
         self.draw.text(
             (10, 18),
-            "CALIBRATION DONE",
+            "CAL COMPLETE",
             font=self.fonts.bold.font,
             fill=self.colors.get(255),
         )
@@ -381,7 +375,7 @@ class UISQMCalibration(UIModule):
             (10, 110),
             f"{self._SQUARE_} DONE",
             font=self.fonts.base.font,
-            fill=self.colors.get(64),
+            fill=self.colors.get(192),
         )
 
     def _draw_error(self):
@@ -418,45 +412,13 @@ class UISQMCalibration(UIModule):
             (10, 110),
             f"{self._SQUARE_} EXIT",
             font=self.fonts.base.font,
-            fill=self.colors.get(64),
+            fill=self.colors.get(192),
         )
 
     # ============================================
     # Frame capture methods
     # ============================================
 
-    def _capture_raw_frame_to_array(self, frame_name: str) -> Optional[np.ndarray]:
-        """
-        Capture a raw frame and return as numpy array.
-
-        Args:
-            frame_name: Name for the temp raw file
-
-        Returns:
-            Numpy array of raw frame, or None if capture failed
-        """
-        try:
-            # Save raw frame to temp directory
-            raw_path = os.path.join(self.temp_dir, f"{frame_name}.tiff")
-            self.command_queues["camera"].put(f"saveraw:{raw_path}")
-
-            # Wait for file to be written
-            time.sleep(0.3)
-
-            # Load the raw TIFF file
-            if os.path.exists(raw_path):
-                raw_img = Image.open(raw_path)
-                raw_array = np.asarray(raw_img)
-                return raw_array
-            else:
-                return None
-
-        except Exception as e:
-            import logging
-
-            logger = logging.getLogger("PiFinder.SQMCalibration")
-            logger.error(f"Failed to capture raw frame: {e}")
-            return None
 
     def _capture_bias_frame(self):
         """Capture a bias frame (0s exposure) - both processed and raw"""
@@ -467,16 +429,22 @@ class UISQMCalibration(UIModule):
             self.bias_frames = []
             self.bias_frames_raw = []
 
-        # Capture PROCESSED image (8-bit from camera_image)
+        # Capture frame (save to disk if debug enabled)
+        filename = os.path.join(self.calibration_output_dir, f"bias_{self.current_frame:03d}") if self.save_frames_enabled else ""
+        self.command_queues["camera"].put(f"capture:{filename}:bias")
+
+        time.sleep(0.3)  # Wait for capture
+
+        # Get PROCESSED image (8-bit) from shared memory
         img = self.camera_image.copy()
         img = img.convert(mode="L")
         np_image = np.asarray(img, dtype=np.uint8)
         self.bias_frames.append(np_image)
 
-        # Capture RAW image (16-bit from raw file)
-        raw_array = self._capture_raw_frame_to_array(f"bias_{self.current_frame}")
+        # Get RAW image (16-bit) from shared state
+        raw_array = self.shared_state.cam_raw()
         if raw_array is not None:
-            self.bias_frames_raw.append(raw_array)
+            self.bias_frames_raw.append(raw_array.copy())
 
         self.current_frame += 1
 
@@ -496,16 +464,22 @@ class UISQMCalibration(UIModule):
             self.dark_frames = []
             self.dark_frames_raw = []
 
-        # Capture PROCESSED image (8-bit from camera_image)
+        # Capture frame (save to disk if debug enabled)
+        filename = os.path.join(self.calibration_output_dir, f"dark_{self.current_frame:03d}") if self.save_frames_enabled else ""
+        self.command_queues["camera"].put(f"capture:{filename}:dark")
+
+        time.sleep(0.3)  # Wait for capture
+
+        # Get PROCESSED image (8-bit) from shared memory
         img = self.camera_image.copy()
         img = img.convert(mode="L")
         np_image = np.asarray(img, dtype=np.uint8)
         self.dark_frames.append(np_image)
 
-        # Capture RAW image (16-bit from raw file)
-        raw_array = self._capture_raw_frame_to_array(f"dark_{self.current_frame}")
+        # Get RAW image (16-bit) from shared state
+        raw_array = self.shared_state.cam_raw()
         if raw_array is not None:
-            self.dark_frames_raw.append(raw_array)
+            self.dark_frames_raw.append(raw_array.copy())
 
         self.current_frame += 1
 
@@ -534,16 +508,22 @@ class UISQMCalibration(UIModule):
             time.sleep(0.1)
             return
 
-        # Valid solve, capture PROCESSED frame (8-bit)
+        # Valid solve, capture frame (save to disk if debug enabled)
+        filename = os.path.join(self.calibration_output_dir, f"sky_{self.current_frame:03d}") if self.save_frames_enabled else ""
+        self.command_queues["camera"].put(f"capture:{filename}:sky")
+
+        time.sleep(0.3)  # Wait for capture
+
+        # Get PROCESSED image (8-bit) from shared memory
         img = self.camera_image.copy()
         img = img.convert(mode="L")
         np_image = np.asarray(img, dtype=np.uint8)
         self.sky_frames.append(np_image)
 
-        # Capture RAW image (16-bit from raw file)
-        raw_array = self._capture_raw_frame_to_array(f"sky_{self.current_frame}")
+        # Get RAW image (16-bit) from shared state
+        raw_array = self.shared_state.cam_raw()
         if raw_array is not None:
-            self.sky_frames_raw.append(raw_array)
+            self.sky_frames_raw.append(raw_array.copy())
 
         self.current_frame += 1
 
@@ -579,16 +559,24 @@ class UISQMCalibration(UIModule):
                 return
 
             if len(self.bias_frames_raw) < self.num_frames:
-                self.error_message = (
-                    f"Not enough raw bias frames ({len(self.bias_frames_raw)})"
-                )
+                camera_type = self.shared_state.camera_type()
+                if "Debug" in camera_type:
+                    self.error_message = "Calibration not available with debug camera"
+                else:
+                    self.error_message = (
+                        f"ERROR: {len(self.bias_frames_raw)}/{self.num_frames} raw bias frames captured"
+                    )
                 self.state = CalibrationState.ERROR
                 return
 
             if len(self.dark_frames_raw) < self.num_frames:
-                self.error_message = (
-                    f"Not enough raw dark frames ({len(self.dark_frames_raw)})"
-                )
+                camera_type = self.shared_state.camera_type()
+                if "Debug" in camera_type:
+                    self.error_message = "Calibration not available with debug camera"
+                else:
+                    self.error_message = (
+                        f"ERROR: {len(self.dark_frames_raw)}/{self.num_frames} raw dark frames captured"
+                    )
                 self.state = CalibrationState.ERROR
                 return
 
@@ -757,3 +745,47 @@ class UISQMCalibration(UIModule):
             # Cancel and exit
             if self.remove_from_stack:
                 self.remove_from_stack()
+
+    # ============================================
+    # Marking menu for debug options
+    # ============================================
+
+    def _create_marking_menu(self):
+        """Create marking menu for calibration options"""
+        debug_label = "Dbg ON" if self.save_frames_enabled else "Dbg"
+        return MarkingMenu(
+            left=MarkingMenuOption(
+                label=debug_label,
+                callback=self._toggle_save_frames,
+            ),
+            down=MarkingMenuOption(),
+            right=MarkingMenuOption(),
+        )
+
+    def _toggle_save_frames(self, marking_menu, selected_item):
+        """Toggle saving calibration frames to disk"""
+        self.save_frames_enabled = not self.save_frames_enabled
+
+        # Update marking menu to reflect new state
+        self.marking_menu = self._create_marking_menu()
+
+        if self.save_frames_enabled:
+            # Create timestamped directory for this calibration run
+            import datetime
+            from PiFinder import utils
+
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.calibration_output_dir = os.path.join(
+                utils.data_dir, "calibration", f"sqm_cal_{timestamp}"
+            )
+            os.makedirs(self.calibration_output_dir, exist_ok=True)
+
+            if hasattr(self, "console_queue") and self.console_queue:
+                self.console_queue.put(
+                    f"CAL: Saving to {os.path.basename(self.calibration_output_dir)}"
+                )
+        else:
+            if hasattr(self, "console_queue") and self.console_queue:
+                self.console_queue.put("CAL: Frame saving disabled")
+
+        return True  # Exit marking menu

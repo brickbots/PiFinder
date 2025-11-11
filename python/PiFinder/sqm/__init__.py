@@ -9,6 +9,12 @@ This module provides:
 
 from .sqm import SQM
 from .noise_floor import NoiseFloorEstimator
-from .camera_profiles import get_camera_profile
+from .camera_profiles import get_camera_profile, detect_camera_type, CameraProfile
 
-__all__ = ["SQM", "NoiseFloorEstimator", "get_camera_profile"]
+__all__ = [
+    "SQM",
+    "NoiseFloorEstimator",
+    "get_camera_profile",
+    "detect_camera_type",
+    "CameraProfile",
+]

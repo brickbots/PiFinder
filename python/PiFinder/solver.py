@@ -17,7 +17,6 @@ import sys
 from time import perf_counter as precision_timestamp
 import os
 import threading
-import tempfile
 from PIL import Image
 
 from PiFinder import state_utils
@@ -144,24 +143,15 @@ def update_sqm_dual_pipeline(
             annulus_outer_radius=annulus_outer_radius,
         )
 
-        # ========== Capture and Calculate RAW (16-bit) SQM ==========
+        # ========== Calculate RAW (16-bit) SQM from shared state ==========
         sqm_value_raw = None
 
         try:
-            # Create temp file for raw capture
-            with tempfile.NamedTemporaryFile(suffix=".tiff", delete=False) as temp_file:
-                temp_path = temp_file.name
+            # Get raw frame from shared state (already captured by camera)
+            raw_array = shared_state.cam_raw()
 
-            # Request raw frame capture from camera
-            camera_command_queue.put(f"saveraw:{temp_path}")
-
-            # Wait for file to be written
-            time.sleep(0.5)
-
-            # Load raw frame
-            if os.path.exists(temp_path):
-                raw_img = Image.open(temp_path)
-                raw_array = np.asarray(raw_img, dtype=np.float32)
+            if raw_array is not None:
+                raw_array = np.asarray(raw_array, dtype=np.float32)
 
                 # Calculate raw SQM
                 sqm_value_raw, _ = sqm_calculator_raw.calculate(
@@ -174,9 +164,6 @@ def update_sqm_dual_pipeline(
                     annulus_inner_radius=annulus_inner_radius,
                     annulus_outer_radius=annulus_outer_radius,
                 )
-
-                # Clean up temp file
-                os.unlink(temp_path)
 
         except Exception as e:
             logger.warning(f"Failed to calculate raw SQM: {e}")

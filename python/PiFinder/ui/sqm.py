@@ -36,7 +36,7 @@ class UISQM(UIModule):
         # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
-                label=_("CALIBRATE"),
+                label=_("CAL"),
                 callback=self._launch_calibration,
             ),
             down=MarkingMenuOption(),
