@@ -41,17 +41,15 @@ class CameraDebug(CameraInterface):
         self.initialize()
 
     def setup_debug_images(self) -> None:
-        # Image 1: Solves, brighter sky background
-        self.image1 = Image.open(self.path / "pifinder_debug_01.png")
-        # Image 2: Solves, darker sky background
-        self.image2 = Image.open(self.path / "pifinder_debug_02.png")
-        # Image 3: Doesn't solve (no stars)
-        self.image3 = Image.open(self.path / "empty.png")
-        self.images = [self.image1, self.image2, self.image3]
+        images = [
+            Image.open(self.path / "pifinder_debug_01.png"),  # Solves, brighter sky
+            Image.open(self.path / "pifinder_debug_02.png"),  # Solves, darker sky
+            Image.open(self.path / "empty.png"),  # Doesn't solve (no stars)
+        ]
+        self.images = list(zip(range(1, len(images) + 1), images))
         self.image_cycle = cycle(self.images)
         self.last_image_time: float = time.time()
-        self.last_image = self.image1
-        self.current_image_num = 0
+        self.current_image_num, self.last_image = self.images[0]
 
     def initialize(self) -> None:
         self._camera_started = True
@@ -68,11 +66,10 @@ class CameraDebug(CameraInterface):
         # Change images every 10 seconds
         elapsed = time.time() - self.last_image_time
         if elapsed > 10:
-            self.last_image = next(self.image_cycle)
-            self.current_image_num = (self.current_image_num + 1) % len(self.images)
+            self.current_image_num, self.last_image = next(self.image_cycle)
             self.last_image_time = time.time()
             logger.debug(
-                f"Debug camera switched to test image #{self.current_image_num + 1}"
+                f"Debug camera switched to test image #{self.current_image_num}"
             )
         return self.last_image
 

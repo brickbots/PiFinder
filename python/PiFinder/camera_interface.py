@@ -125,9 +125,7 @@ class CameraInterface:
                     else:
                         # Test Mode: load image from disc and wait
                         base_image = Image.open(test_image_path)
-                        base_image = base_image.convert(
-                            "RGB"
-                        )  # Convert to RGB to match camera_image format
+                        base_image = base_image.convert("L")  # Convert to grayscale to match camera output
                         time.sleep(1)
                     image_end_time = time.time()
                     # check imu to make sure we're still static

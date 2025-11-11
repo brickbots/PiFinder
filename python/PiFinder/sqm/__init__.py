@@ -7,7 +7,7 @@ This module provides:
 - get_camera_profile: Camera noise profile lookup
 """
 
-from .calculator import SQM
+from .sqm import SQM
 from .noise_floor import NoiseFloorEstimator
 from .camera_profiles import get_camera_profile
 

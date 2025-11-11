@@ -12,6 +12,7 @@ This module is the camera
 from PIL import Image
 from PiFinder import config
 from PiFinder.camera_interface import CameraInterface
+from PiFinder.sqm import get_camera_profile
 from typing import Tuple
 import logging
 from PiFinder.multiproclogging import MultiprocLogging
@@ -30,9 +31,7 @@ class CameraPI(CameraInterface):
 
         self.exposure_time = exposure_time
         self.format = "SRGGB12"
-        self.bit_depth = 12
         self.digital_gain = 1.0  # TODO: find optimum value for imx296 and imx290
-        self.offset = 0  # Default offset (overridden per camera type below)
 
         # Figure out camera type, hq or imx296 (global shutter)
         if "imx296" in self.camera.camera.id:
@@ -41,10 +40,8 @@ class CameraPI(CameraInterface):
             # exposure is too high
             self.raw_size = (1456, 1088)
             self.format = "R10"
-            self.bit_depth = 10
             # maximum analog gain for this sensor
             self.gain = 15
-            self.offset = 32  # measured from dark frames (Nov 2025)
         elif "imx290" in self.camera.camera.id:
             self.camera_type = "imx462"
             self.raw_size = (1920, 1080)
@@ -57,11 +54,15 @@ class CameraPI(CameraInterface):
             self.digital_gain = (
                 13.0  # initial tests show that higher values don't help much
             )
-            self.offset = (
-                256  # measured with lens cap on, matches what the internet says
-            )
         else:
             raise Exception(f"Unknown camera type: {self.camera.camera.id}")
+
+        # Load camera noise profile (cached for lifetime of camera instance)
+        self.profile = get_camera_profile(self.camera_type)
+        logger.info(
+            f"Loaded profile for {self.camera_type}: "
+            f"bit_depth={self.profile.bit_depth}, offset={self.profile.bias_offset:.1f} ADU"
+        )
 
         self.camType = f"PI {self.camera_type}"
         self.initialize()
@@ -114,14 +115,16 @@ class CameraPI(CameraInterface):
         # covert to 32 bit int to avoid overflow
         raw_capture = raw_capture.astype(np.float32)
 
-        # sensor offset, measured as average value when lens cap is on
-        raw_capture -= self.offset
+        # sensor offset (bias pedestal from camera profile)
+        raw_capture -= self.profile.bias_offset
 
         # apply digital gain
         raw_capture *= self.digital_gain
 
         # rescale to 8 bit
-        raw_capture = raw_capture * 255 / (2**self.bit_depth - self.offset - 1)
+        raw_capture = raw_capture * 255 / (
+            2**self.profile.bit_depth - self.profile.bias_offset - 1
+        )
 
         # clip to avoid <0 or >255 values
         raw_capture = np.clip(raw_capture.astype(np.int32), 0, 255).astype(np.uint8)
@@ -225,7 +228,7 @@ class CameraPI(CameraInterface):
 
         debayer_note = " (RGGB Bayer pattern)" if needs_debayer else ""
         logger.debug(
-            f"Saved raw {self.bit_depth}-bit image as 16-bit TIFF: {filename}{debayer_note}"
+            f"Saved raw {self.profile.bit_depth}-bit image as 16-bit TIFF: {filename}{debayer_note}"
         )
 
     def set_camera_config(
