@@ -67,13 +67,12 @@ class CameraDebug(CameraInterface):
         elapsed = time.time() - self.last_image_time
         if elapsed > 10:
             self.current_image_num, self.last_image = next(self.image_cycle)
-            self.last_image_time = time.time()
             logger.debug(
                 f"Debug camera switched to test image #{self.current_image_num}"
             )
         return self.last_image
 
-    def capture_bias(self) -> Image.Image:
+    def capture_bias(self):
         """Return black frame (bias capture not active)."""
         return Image.new("L", (512, 512), 0)
 
@@ -88,6 +87,11 @@ class CameraDebug(CameraInterface):
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
+        logger.info(
+            f"Setting debug camera config - Exposure: {exposure_time}µs, Gain: {gain}x"
+        )
+        self.exposure_time = exposure_time
+        self.gain = gain
         return exposure_time, gain
 
     def get_cam_type(self) -> str:
@@ -102,6 +106,11 @@ def get_images(shared_state, camera_image, command_queue, console_queue, log_que
     MultiprocLogging.configurer(log_queue)
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
+
+    # Handle auto-exposure mode: use default value, auto-exposure will adjust
+    if exposure_time == "auto":
+        exposure_time = 400000  # Start with default 400ms
+
     camera_hardware = CameraDebug(exposure_time)
     camera_hardware.get_image_loop(
         shared_state, camera_image, command_queue, console_queue, cfg

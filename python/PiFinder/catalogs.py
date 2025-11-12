@@ -653,8 +653,8 @@ class CatalogBackgroundLoader:
         self._stop_flag = threading.Event()
 
         # Performance tuning - load in batches with CPU yielding
-        self.batch_size = 500  # Objects per batch before yielding CPU
-        self.yield_time = 0.005  # Seconds to sleep between batches
+        self.batch_size = 100  # Objects per batch before yielding CPU
+        self.yield_time = 0.05  # Seconds to sleep between batches (50ms)
 
     def start(self) -> None:
         """Start background loading in daemon thread"""

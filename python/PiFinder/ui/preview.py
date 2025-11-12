@@ -17,6 +17,7 @@ from PIL import Image, ImageChops, ImageOps
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder import utils
 from PiFinder.ui.base import UIModule
+from PiFinder.ui.ui_utils import outline_text
 from PiFinder.image_util import (
     gamma_correct_high,
     gamma_correct_med,
@@ -32,6 +33,7 @@ class UIPreview(UIModule):
 
     __title__ = "CAMERA"
     __help_name__ = "camera"
+    _STAR_ICON = "\uf005"  # NerdFont star icon (Font Awesome solid)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -49,6 +51,9 @@ class UIPreview(UIModule):
         # so we're initialiazing one here
         self.star_list = np.empty((0, 2))
         self.highlight_count = 0
+
+        # Info overlay toggle (use square button)
+        self.show_info_overlay = False
 
         # Marking menu definition
         self.marking_menu = MarkingMenu(
@@ -183,12 +188,86 @@ class UIPreview(UIModule):
                     fill=self.colors.get(128),
                 )
 
+    def format_exposure_display(self) -> str:
+        """Format exposure time for overlay display, just the number like 0.4s."""
+        try:
+            metadata = self.shared_state.last_image_metadata()
+
+            # Get actual exposure from metadata
+            if metadata and "exposure_time" in metadata:
+                actual_exp = metadata["exposure_time"]
+                exp_sec = actual_exp / 1_000_000
+                if exp_sec < 0.1:
+                    return f"{int(exp_sec * 1000)}ms"
+                else:
+                    # Truncate to 2 decimal places
+                    exp_truncated = int(exp_sec * 100) / 100
+                    return f"{exp_truncated:g}s"
+        except Exception:
+            pass
+        return "N/A"
+
+    def draw_info_overlay(self):
+        """Draw info overlay with exposure time and star count."""
+        if not self.show_info_overlay:
+            return
+
+        # Get exposure info
+        exposure_text = self.format_exposure_display()
+
+        # Get star count from solution (only if recent)
+        star_count_text = "---"
+        try:
+            solution = self.shared_state.solution()
+            solve_source = solution.get("solve_source") if solution else None
+            solve_time = solution.get("solve_time") if solution else None
+
+            # Show star count only for recent camera solves (within last 10 seconds)
+            if solve_source in ("CAM", "CAM_FAILED") and solve_time:
+                if time.time() - solve_time < 10:
+                    matched_stars = solution.get("Matches", 0)
+                    star_count_text = str(matched_stars)
+        except Exception:
+            pass
+
+        # Position below title bar (titlebar_height is typically 17)
+        y_offset = self.display_class.titlebar_height + 2
+
+        # Draw exposure text with black outline using utility function
+        outline_text(
+            self.draw,
+            (2, y_offset),
+            exposure_text,
+            align="left",
+            font=self.fonts.bold,
+            fill=(192, 0, 0),  # Medium bright red
+            shadow_color=(0, 0, 0),  # Black outline
+            stroke=1,
+        )
+
+        # Draw star count with NerdFont icon - right-aligned to prevent jitter
+        stars_text = f"{self._STAR_ICON} {star_count_text}"
+
+        outline_text(
+            self.draw,
+            (126, y_offset),
+            stars_text,
+            align="left",
+            font=self.fonts.bold,
+            fill=(192, 0, 0),  # Medium bright red
+            shadow_color=(0, 0, 0),  # Black outline
+            stroke=1,
+            anchor="ra",  # Right-anchor: right edge at x=126
+        )
+
     def update(self, force=False):
         if force:
             self.last_update = 0
         # display an image
         last_image_time = self.shared_state.last_image_metadata()["exposure_end"]
+        image_updated = False
         if last_image_time > self.last_update:
+            image_updated = True
             image_obj = self.camera_image.copy()
 
             # Resize
@@ -232,6 +311,11 @@ class UIPreview(UIModule):
             else:
                 self.draw_reticle()
 
+        # Draw info overlay if enabled and image was updated
+        # (image paste cleared the screen, so we need to redraw overlay)
+        if image_updated or force:
+            self.draw_info_overlay()
+
         return self.screen_update()
 
     def key_plus(self):
@@ -243,3 +327,8 @@ class UIPreview(UIModule):
         self.zoom_level -= 1
         if self.zoom_level < 0:
             self.zoom_level = 0
+
+    def key_square(self):
+        """Toggle info overlay on/off with square button."""
+        self.show_info_overlay = not self.show_info_overlay
+        self.update(force=True)

@@ -79,6 +79,17 @@ class CameraPI(CameraInterface):
         _request = self.camera.capture_request()
         # raw is actually 16 bit
         raw_capture = _request.make_array("raw").copy().view(np.uint16)
+        # tmp_image = _request.make_image("main")
+
+        # Log actual camera metadata for exposure verification (debug level only)
+        metadata = _request.get_metadata()
+        actual_exposure = metadata.get("ExposureTime", "unknown")
+        actual_gain = metadata.get("AnalogueGain", "unknown")
+        logger.debug(
+            f"Captured frame - Requested: {self.exposure_time}µs/{self.gain}x gain, "
+            f"Actual: {actual_exposure}µs/{actual_gain:.2f}x gain"
+        )
+
         _request.release()
 
         # Apply camera-specific crop and rotation
@@ -110,17 +121,34 @@ class CameraPI(CameraInterface):
 
         return raw_image
 
-    def capture_bias(self) -> Image.Image:
-        """Capture a bias frame for dark subtraction"""
-        # Change exposure on-the-fly (no restart needed)
+    def capture_bias(self) -> np.ndarray:
+        """Capture a bias frame for measuring black level offset.
+
+        Captures with 0µs exposure (lens cap on) to measure sensor black level.
+        Returns raw sensor values before any processing.
+        """
+        self.camera.stop()
         self.camera.set_controls({"ExposureTime": 0})
-        tmp_capture = self.camera.capture_image()
-        # Restore normal exposure
+        self.camera.start()
+        _request = self.camera.capture_request()
+        raw_capture = _request.make_array("raw").copy().view(np.uint16)
+        _request.release()
+
+        self.camera.stop()
+        self.camera.set_controls({"AnalogueGain": self.gain})
         self.camera.set_controls({"ExposureTime": self.exposure_time})
-        print(
-            "Bias frame has {np.mean(tmp_capture)=}, {np.std(tmp_capture)=}, {np.max(tmp_capture)=}, {np.min(tmp_capture)=}, {np.median(tmp_capture)=}"
-        )
-        return tmp_capture
+        self.camera.start()
+
+        # Crop like normal capture but don't process
+        if self.camera_type == "imx296":
+            raw_capture = raw_capture[:, 184:-184]
+            raw_capture = np.rot90(raw_capture, 2)
+        elif self.camera_type == "imx462":
+            raw_capture = raw_capture[50:-50, 470:-470]
+        elif self.camera_type == "hq":
+            raw_capture = raw_capture[:, 256:-256]
+
+        return raw_capture
 
     def capture_file(self, filename) -> None:
         tmp_capture = self.capture()
@@ -208,7 +236,6 @@ class CameraPI(CameraInterface):
         # Start camera if it's not already running
         if not self._camera_started:
             self.start_camera()
-
         return exposure_time, gain
 
     def get_cam_type(self) -> str:
@@ -224,6 +251,11 @@ def get_images(shared_state, camera_image, command_queue, console_queue, log_que
 
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
+
+    # Handle auto-exposure mode: use default value, auto-exposure will adjust
+    if exposure_time == "auto":
+        exposure_time = 400000  # Start with default 400ms
+
     camera_hardware = CameraPI(exposure_time)
     camera_hardware.get_image_loop(
         shared_state, camera_image, command_queue, console_queue, cfg

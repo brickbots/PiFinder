@@ -832,6 +832,11 @@ pifinder_menu = {
                     "post_callback": callbacks.set_exposure,
                     "items": [
                         {
+                            "name": _("Auto"),
+                            "value": "auto",
+                            "name_suffix_callback": callbacks.get_camera_exposure_display,
+                        },
+                        {
                             "name": _("0.025s"),
                             "value": 25000,
                         },
@@ -1102,6 +1107,45 @@ pifinder_menu = {
                     "select": "Single",
                     "items": [
                         {"name": "SQM", "class": UISQM},
+                        {
+                            "name": _("AE Algo"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "auto_exposure_zero_star_handler",
+                            "label": "auto_exp_zero_star_handler",
+                            "post_callback": callbacks.set_auto_exposure_zero_star_handler,
+                            "items": [
+                                {
+                                    "name": _("Sweep"),
+                                    "value": "sweep",
+                                },
+                                {
+                                    "name": _("Exponential"),
+                                    "value": "exponential",
+                                },
+                                {
+                                    "name": _("Reset to 0.4s"),
+                                    "value": "reset",
+                                },
+                                {
+                                    "name": _("Histogram"),
+                                    "value": "histogram",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Capture Exp Sweep"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "label": "capture_exp_sweep",
+                            "items": [
+                                {
+                                    "name": _("Confirm"),
+                                    "callback": callbacks.capture_exposure_sweep,
+                                },
+                                {"name": _("Cancel"), "callback": callbacks.go_back},
+                            ],
+                        },
                     ],
                 },
             ],
