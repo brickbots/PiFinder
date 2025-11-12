@@ -13,20 +13,25 @@ sudo apt update
 sudo apt upgrade -y
 
 # Install INDI server and components
+# python-setuptools \
+# libglib2.0-0t64 \
 sudo apt install -y \
     indi-bin \
     libindi-dev \
     swig \
     libdbus-1-3 \
     libdbus-1-dev \
-    libglib2.0-0t64 \
+    libglib2.0-0 \
     libglib2.0-bin \
     libglib2.0-dev \
-    python-setuptools \
-    python-dev \
+    python-dev-is-python3 \
     libindi-dev \
     libcfitsio-dev \
-    libnova-dev
+    libnova-dev \
+    pkg-config \
+    meson \
+    ninja-build \
+    build-essential
 
 # Install Python dependencies
 cd /workspaces/PiFinder/python
@@ -38,7 +43,8 @@ pip install -r requirements_dev.txt
 pip install "git+https://github.com/indilib/pyindi-client.git@v2.1.2#egg=pyindi-client"
 
 # Install indiwebmanager from the "control_panel" branch from jscheidtmann's fork
-sudo pip install "git+https://github.com/jscheidtmann/indiwebmanager.git@control_panel#egg=indiwebmanager"
+pip install fastapi uvicorn jinja2 aiofiles
+pip install "git+https://github.com/jscheidtmann/indiwebmanager.git@control_panel#egg=indiweb"
 
 # Set up indiwebmanager as a systemd service
 # Create service file with current user
@@ -62,14 +68,8 @@ EOF
 # Install and enable the service
 sudo cp /tmp/indiwebmanager.service /etc/systemd/system/
 sudo chmod 644 /etc/systemd/system/indiwebmanager.service
-sudo systemctl daemon-reload
-sudo systemctl enable indiwebmanager.service
-sudo systemctl start indiwebmanager.service
+/usr/local/python/3.9.25/bin/indi-web &
 
-echo ""
-echo "INDI setup complete!"
-echo "INDI Web Manager service has been installed and started."
-echo "Check status with: systemctl status indiwebmanager.service"
-echo "Access at: http://localhost:8624"
-echo ""
-echo "To start INDI server directly: indiserver indi_simulator_telescope"
+cd /workspaces
+git clone --depth 1 https://github.com/indilib/indi.git
+git clone --depth 1 https://github.com/indilib/indi-3rdparty.git
