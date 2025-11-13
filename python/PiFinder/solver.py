@@ -319,44 +319,45 @@ def solver(
                     )
 
                 if is_new_image and is_stationary:
-                    img = camera_image.copy()
-                    img = img.convert(mode="L")
-                    np_image = np.asarray(img, dtype=np.uint8)
+                    try:
+                        img = camera_image.copy()
+                        img = img.convert(mode="L")
+                        np_image = np.asarray(img, dtype=np.uint8)
 
-                    # Mark that we're attempting a solve - use image exposure_end timestamp
-                    # This is more accurate than wall clock and ties the attempt to the actual image
-                    solved["last_solve_attempt"] = last_image_metadata["exposure_end"]
+                        # Mark that we're attempting a solve - use image exposure_end timestamp
+                        # This is more accurate than wall clock and ties the attempt to the actual image
+                        solved["last_solve_attempt"] = last_image_metadata["exposure_end"]
 
-                    t0 = precision_timestamp()
-                    if cedar_detect is None:
-                        # Use old tetr3 centroider
-                        centroids = tetra3.get_centroids_from_image(np_image)
-                    else:
-                        centroids = cedar_detect.extract_centroids(
-                            np_image, sigma=8, max_size=10, use_binned=True
+                        t0 = precision_timestamp()
+                        if cedar_detect is None:
+                            # Use old tetr3 centroider
+                            centroids = tetra3.get_centroids_from_image(np_image)
+                        else:
+                            centroids = cedar_detect.extract_centroids(
+                                np_image, sigma=8, max_size=10, use_binned=True
+                            )
+                        t_extract = (precision_timestamp() - t0) * 1000
+
+                        logger.debug(
+                            "File %s, extracted %d centroids in %.2fms"
+                            % ("camera", len(centroids), t_extract)
                         )
-                    t_extract = (precision_timestamp() - t0) * 1000
 
-                    logger.debug(
-                        "File %s, extracted %d centroids in %.2fms"
-                        % ("camera", len(centroids), t_extract)
-                    )
+                        if len(centroids) == 0:
+                            if log_no_stars_found:
+                                logger.info("No stars found, skipping (Logged only once)")
+                                log_no_stars_found = False
+                            # Clear solve results to mark solve as failed (otherwise old values persist)
+                            solved["RA"] = None
+                            solved["Dec"] = None
+                            solved["Matches"] = 0
+                        else:
+                            log_no_stars_found = True
+                            _solver_args = {}
+                            if align_ra != 0 and align_dec != 0:
+                                _solver_args["target_sky_coord"] = [[align_ra, align_dec]]
 
-                    if len(centroids) == 0:
-                        if log_no_stars_found:
-                            logger.info("No stars found, skipping (Logged only once)")
-                            log_no_stars_found = False
-                        # Clear solve results to mark solve as failed (otherwise old values persist)
-                        solved["RA"] = None
-                        solved["Dec"] = None
-                        solved["Matches"] = 0
-                    else:
-                        log_no_stars_found = True
-                        _solver_args = {}
-                        if align_ra != 0 and align_dec != 0:
-                            _solver_args["target_sky_coord"] = [[align_ra, align_dec]]
-
-                        solution = t3.solve_from_centroids(
+                            solution = t3.solve_from_centroids(
                             centroids,
                             (512, 512),
                             fov_estimate=12.0,
@@ -455,8 +456,20 @@ def solver(
                                 f"pattern match failed (FOV est: 12.0°, max err: 4.0°)"
                             )
 
-                    # Always push to queue after every solve attempt (success or failure)
-                    solver_queue.put(solved)
+                        # Always push to queue after every solve attempt (success or failure)
+                        solver_queue.put(solved)
+                    except Exception as e:
+                        # If solve attempt fails, still send update with Matches=0
+                        # so auto-exposure can continue running
+                        logger.error(
+                            f"Exception during solve attempt: {e.__class__.__name__}: {str(e)}"
+                        )
+                        logger.exception(e)
+                        solved["last_solve_attempt"] = last_image_metadata["exposure_end"]
+                        solved["Matches"] = 0
+                        solved["RA"] = None
+                        solved["Dec"] = None
+                        solver_queue.put(solved)
         except EOFError as eof:
             logger.error(f"Main process no longer running for solver: {eof}")
             logger.exception(eof)  # This logs the full stack trace

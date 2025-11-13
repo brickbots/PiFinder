@@ -151,7 +151,7 @@ class SweepZeroStarHandler(ZeroStarHandler):
         """
         # Wait for trigger count
         if zero_count < self._trigger_count:
-            logger.warning(
+            logger.debug(
                 f"Zero stars: {zero_count}/{self._trigger_count} before sweep activation"
             )
             return None
@@ -159,7 +159,7 @@ class SweepZeroStarHandler(ZeroStarHandler):
         # Activate if not already active
         if not self._active:
             self._active = True
-            logger.warning(
+            logger.debug(
                 f"Sweep activated after {zero_count} zero-star solves (stuck at {current_exposure}µs)"
             )
 
