@@ -46,14 +46,18 @@ class UISQM(UIModule):
     def update(self, force=False):
         sleep_for_framerate(self.shared_state)
 
-        # Show camera image in background instead of clearing
-        self.screen.paste(self.camera_image, (0, 0))
+        # Show camera image in background (like preview does)
+        from PIL import ImageDraw, ImageChops, ImageOps
+        image_obj = self.camera_image.copy()
+        image_obj = image_obj.resize((128, 128))
+        image_obj = image_obj.convert("RGB")
+        image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
+        self.screen.paste(image_obj)
 
         # Draw semi-transparent dark overlay for text readability
-        from PIL import ImageDraw
         overlay_draw = ImageDraw.Draw(self.screen, 'RGBA')
         overlay_draw.rectangle(
-            [(0, 0), (self.screen.width, self.screen.height)],
+            [(0, 0), (128, 128)],
             fill=(0, 0, 0, 180)  # Black with 70% opacity
         )
 
