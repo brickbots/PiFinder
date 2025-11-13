@@ -206,7 +206,7 @@ class CameraInterface:
                                     if solve_rmse is not None
                                     else "N/A"
                                 )
-                                logger.info(
+                                logger.warning(
                                     f"Auto-exposure feedback - Stars: {matched_stars}, "
                                     f"RMSE: {rmse_str}, Current exposure: {self.exposure_time}µs"
                                 )

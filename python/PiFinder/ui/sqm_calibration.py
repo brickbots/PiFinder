@@ -92,10 +92,11 @@ class UISQMCalibration(UIModule):
         # Store original camera settings to restore later
         self.original_exposure = None
         self.original_gain = None
+        self.original_ae_state = None
 
-        # Get current exposure time for dark/sky frames
-        metadata = self.shared_state.last_image_metadata()
-        self.exposure_time_us = metadata.get("exposure_time", 500000)  # microseconds
+        # Exposure time will be set in active() based on current exposure
+        # with minimum of 400ms to ensure good SNR
+        self.exposure_time_us = None
 
     def active(self):
         """Called when module becomes active"""
@@ -103,15 +104,26 @@ class UISQMCalibration(UIModule):
         metadata = self.shared_state.last_image_metadata()
         self.original_exposure = metadata.get("exposure_time", 500000)
 
+        # Use max(current_exposure, 400ms) to ensure good SNR
+        # but preserve higher exposure if already set
+        self.exposure_time_us = max(self.original_exposure, 400000)
+
+        # Set exposure for calibration
+        self.command_queues["camera"].put(f"set_exp:{self.exposure_time_us}")
+        time.sleep(0.2)  # Wait for camera to apply setting
+
         # Start with intro screen
         self.state = CalibrationState.INTRO
         self.update(force=True)
 
     def inactive(self):
         """Called when module becomes inactive"""
-        # Restore original camera settings if needed
+        # Restore original camera settings
         if self.original_exposure is not None:
             self.command_queues["camera"].put(f"set_exp:{self.original_exposure}")
+        else:
+            # Fallback: re-enable auto-exposure
+            self.command_queues["camera"].put("set_exp:auto")
 
     def update(self, force=False):
         """Update the display based on current state"""
