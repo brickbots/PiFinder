@@ -3,8 +3,10 @@ from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder import utils
 from PiFinder.state_utils import sleep_for_framerate
 from PiFinder.ui.ui_utils import TextLayouter
+from PiFinder.image_util import gamma_correct_med, subtract_background
 import time
 from typing import Any, TYPE_CHECKING
+from PIL import Image, ImageDraw, ImageChops, ImageOps
 
 if TYPE_CHECKING:
 
@@ -46,12 +48,14 @@ class UISQM(UIModule):
     def update(self, force=False):
         sleep_for_framerate(self.shared_state)
 
-        # Show camera image in background (like preview does)
-        from PIL import ImageDraw, ImageChops, ImageOps
+        # Show camera image in background (same processing as preview)
         image_obj = self.camera_image.copy()
         image_obj = image_obj.resize((128, 128))
+        image_obj = subtract_background(image_obj, percent=0.5)
         image_obj = image_obj.convert("RGB")
         image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
+        image_obj = ImageOps.autocontrast(image_obj)
+        image_obj = Image.eval(image_obj, gamma_correct_med)
         self.screen.paste(image_obj)
 
         # Draw semi-transparent dark overlay for text readability
