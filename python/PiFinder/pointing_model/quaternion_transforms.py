@@ -88,10 +88,11 @@ def radec2q_eq(ra_rad: float, dec_rad: float, roll_rad: float) -> quaternion.qua
     # Need to rotate this +90 degrees around z_cam so that +y_cam points up
     # and +x_cam points to the left of the Camera frame. In addition, need to
     # account for the roll offset of the camera.
-    q_roll = axis_angle2quat([0, 0, 1], np.pi / 2 + roll_rad)
+    q_roll = axis_angle2quat([0, 0, 1], np.pi / 2 - roll_rad)
 
     # Intrinsic rotation:
     q_eq = (q_ra * q_dec * q_roll).normalized()
+
     return q_eq
 
 
@@ -113,6 +114,6 @@ def q_eq2radec(q_eq2frame: quaternion.quaternion) -> tuple[float, float, float]:
     vec_north = np.array(
         [-np.sin(dec) * np.cos(ra), -np.sin(dec) * np.sin(ra), np.cos(dec)]
     )
-    roll = -np.arctan2(np.dot(py_cam.vec, vec_east), np.dot(py_cam.vec, vec_north))
+    roll = np.arctan2(np.dot(py_cam.vec, vec_east), np.dot(py_cam.vec, vec_north))
 
     return ra, dec, roll  # In radians
