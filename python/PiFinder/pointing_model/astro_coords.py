@@ -58,7 +58,7 @@ class RaDecRoll:
     def set_from_quaternion(self, q_eq: quaternion.quaternion):
         """
         Set from a quaternion rotation relative to the Equatorial frame.
-        Re-using code from quaternion_transforms.get_radec_of_q_eq.
+        Re-using code from quaternion_transforms.q_eq2radec.
         """
         # Pure quaternion along camera boresight
         pz_frame = q_eq * quaternion.quaternion(0, 0, 0, 1) * q_eq.conj()

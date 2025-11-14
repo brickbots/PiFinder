@@ -30,7 +30,10 @@ def axis_angle2quat(axis, theta: float) -> quaternion.quaternion:
 
     INPUTS:
     axis: (3,) Axis of rotation (doesn't need to be a unit vector)
-    angle: Angle of rotation [rad]
+    angle: Angle of rotation [rad]. It uses the right-hand rule; positive 
+        when for clock-wise rotation as viewed outwards along the axis vector. 
+        You can also point the thumb of the right hand in the direction of the 
+        axis vector. Positive turn in the direction that the fingers point.
     """
     assert len(axis) == 3, "axis should be a list or numpy array of length 3."
     # Define the vector part of the quaternion
@@ -62,7 +65,7 @@ def get_quat_angular_diff(
 # ========== Equatorial frame functions ============================
 
 
-def get_q_eq(ra_rad: float, dec_rad: float, roll_rad: float) -> quaternion.quaternion:
+def radec2q_eq(ra_rad: float, dec_rad: float, roll_rad: float) -> quaternion.quaternion:
     """
     Express the equatorial coordinates (RA, Dec, Roll) in radians
     in a quaternion rotation the relative to the Equatorial frame.
@@ -84,7 +87,7 @@ def get_q_eq(ra_rad: float, dec_rad: float, roll_rad: float) -> quaternion.quate
     return q_eq
 
 
-def get_radec_of_q_eq(q_eq2frame: quaternion.quaternion) -> tuple[float, float, float]:
+def q_eq2radec(q_eq2frame: quaternion.quaternion) -> tuple[float, float, float]:
     """
     Returns the (ra, dec, roll) angles of the quaterion rotation relative to
     the equatorial frame.

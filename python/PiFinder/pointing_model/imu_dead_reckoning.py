@@ -77,8 +77,8 @@ class ImuDeadReckoning:
         solved_scope: Equatorial coordinate of the scope center at alignement.
         """
         # Calculate q_scope2cam (alignment)
-        q_eq2cam = qt.get_q_eq(solved_cam.ra, solved_cam.dec, solved_cam.roll)
-        q_eq2scope = qt.get_q_eq(solved_scope.ra, solved_scope.dec, solved_scope.roll)
+        q_eq2cam = qt.radec2q_eq(solved_cam.ra, solved_cam.dec, solved_cam.roll)
+        q_eq2scope = qt.radec2q_eq(solved_scope.ra, solved_scope.dec, solved_scope.roll)
         q_scope2cam = q_eq2scope.conjugate() * q_eq2cam
 
         # Set the alignmen attributes:
@@ -107,7 +107,7 @@ class ImuDeadReckoning:
         # Update plate-solved coord: Camera frame relative to the Equatorial
         # frame where the +y camera frame (i.e. "up") points to the North
         # Celestial Pole (NCP) -- i.e. zero roll offset:
-        self.q_eq2cam = qt.get_q_eq(solved_cam.ra, solved_cam.dec, solved_cam.roll)
+        self.q_eq2cam = qt.radec2q_eq(solved_cam.ra, solved_cam.dec, solved_cam.roll)
         self.dead_reckoning = False  # Using plate solve, no dead_reckoning
 
         # Update IMU: Calculate the IMU's unknown reference frame X using the
