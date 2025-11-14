@@ -213,7 +213,8 @@ tracking error between the plate solved coordinates and the IMU dead-reckoning.
 
 The roll (as given by Tetra3) is defined as the rotation of the north pole
 relative to the camera image's "up" direction ($+y$). A positive roll angle
-means that the pole is counter-clockwise from image "up" (i.e. towards West).
+means that the pole is counter-clockwise from image "up" when looking out
+towards the sky (i.e. towards East).
 
 ### Telescope coordinate transformations
 

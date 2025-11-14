@@ -69,6 +69,15 @@ def radec2q_eq(ra_rad: float, dec_rad: float, roll_rad: float) -> quaternion.qua
     """
     Express the equatorial coordinates (RA, Dec, Roll) in radians
     in a quaternion rotation the relative to the Equatorial frame.
+
+    Equatorial frame: +z points to the NCP, +x points to the Vernal equinox
+    (RA = 0, Dec = 0), +y points to RA = 6h (+pi / 2), Dec = 0.
+
+    Roll: Roll is the angle of north celestial pole (NP) relative to image up.
+    positive roll when NP s counter-clockwise from image up when looking
+    out towards the sky towards the East (zero if +y_cam points up along
+    # the great circle towards the NP). Alternatively, roll is positive when
+    rotated clockwise when looking from the sky to the camera.
     """
     # Intrinsic rotation of q_ra followed by q_dec gives a quaternion rotation
     # that points +z towards the boresight of the camera. +y to the left and
@@ -78,8 +87,7 @@ def radec2q_eq(ra_rad: float, dec_rad: float, roll_rad: float) -> quaternion.qua
 
     # Need to rotate this +90 degrees around z_cam so that +y_cam points up
     # and +x_cam points to the left of the Camera frame. In addition, need to
-    # account for the roll offset of the camera (zero if +y_cam points up along
-    # the great circle towards the NCP)
+    # account for the roll offset of the camera.
     q_roll = axis_angle2quat([0, 0, 1], np.pi / 2 + roll_rad)
 
     # Intrinsic rotation:
