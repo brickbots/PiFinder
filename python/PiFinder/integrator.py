@@ -283,8 +283,8 @@ def get_roll_by_mount_type(
         roll_deg = 0.0
 
     # If location is available, adjust roll for hemisphere:
-    # For altaz, North up in northern hemisphere, South up in southern hemisphere
-    # For EQ mounts, NCP up in northern hemisphere, SCP up in southern hemisphere
+    # Altaz: North up in northern hemisphere, South up in southern hemisphere
+    # EQ mounts: NCP up in northern hemisphere, SCP up in southern hemisphere
     if location:
         if location.lat < 0.0:
             roll_deg += 180.0  # Southern hemisphere

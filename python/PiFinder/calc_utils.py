@@ -251,7 +251,7 @@ def hadec_to_roll(ha_deg, dec_deg, lat_deg):
         roll_deg = -pa_deg
     else:
         roll_deg = -pa_deg
-        #roll_deg = -pa_deg + np.sign(ha_deg) * 180  # Disable for testing
+        #roll_deg = -pa_deg + np.sign(ha_deg) * 180  # Disable for testing TODO: Check this
 
     return roll_deg
 
