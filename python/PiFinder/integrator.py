@@ -258,6 +258,13 @@ def get_roll_by_mount_type(
       NCP up so roll = 0.
 
     Assumes that location has already been set in calc_utils.sf_utils.
+
+    PARAMETERS:
+    ra_deg: Right Ascension of the target in degrees
+    dec_deg: Declination of the target in degrees
+    location: astropy EarthLocation object or None
+    dt: datetime.datetime object or None
+    mount_type: "Alt/Az" or "EQ"
     """
     if mount_type == "Alt/Az":
         # Altaz mounts: Display chart in horizontal coordinates
@@ -274,5 +281,12 @@ def get_roll_by_mount_type(
     else:
         logger.error(f"Unknown mount type: {mount_type}. Cannot set roll.")
         roll_deg = 0.0
+
+    # If location is available, adjust roll for hemisphere:
+    # For altaz, North up in northern hemisphere, South up in southern hemisphere
+    # For EQ mounts, NCP up in northern hemisphere, SCP up in southern hemisphere
+    if location:
+        if location.lat < 0.0:
+            roll_deg += 180.0  # Southern hemisphere
 
     return roll_deg
