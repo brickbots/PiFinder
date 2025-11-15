@@ -67,12 +67,111 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 pass
 
             if type(next_image_solve) is dict:
+                #--------- TODO: Merge removed this? --------
                 # We have a new image solve: Use plate-solving for RA/Dec
-                solved = next_image_solve
-                update_plate_solve_and_imu(imu_dead_reckoning, solved)
+                #solved = next_image_solve
+                #update_plate_solve_and_imu(imu_dead_reckoning, solved)
+                #--------------------------------------------
 
-                last_image_solve = copy.deepcopy(solved)
-                solved["solve_source"] = "CAM"
+                # For camera solves, always start from last successful camera solve
+                # NOT from shared_state (which may contain IMU drift)
+                # This prevents IMU noise accumulation during failed solves
+                if last_image_solve:
+                    solved = copy.deepcopy(last_image_solve)
+                # If no successful solve yet, keep initial solved dict
+
+                # Update solve metadata (always needed for auto-exposure)
+                for key in [
+                    "Matches",
+                    "RMSE",
+                    "last_solve_attempt",
+                    "last_solve_success",
+                ]:
+                    if key in next_image_solve:
+                        solved[key] = next_image_solve[key]
+
+                # Only update position data if solve succeeded (RA not None)
+                if next_image_solve.get("RA") is not None:
+                    solved.update(next_image_solve)
+
+                    # Recalculate Alt/Az for NEW successful solve
+                    location = shared_state.location()
+                    dt = shared_state.datetime()
+
+                    if location and dt:
+                        # We have position and time/date and a valid solve!
+                        calc_utils.sf_utils.set_location(
+                            location.lat,
+                            location.lon,
+                            location.altitude,
+                        )
+                        alt, az = calc_utils.sf_utils.radec_to_altaz(
+                            solved["RA"],
+                            solved["Dec"],
+                            dt,
+                        )
+                        solved["Alt"] = alt
+                        solved["Az"] = az
+
+                        alt, az = calc_utils.sf_utils.radec_to_altaz(
+                            solved["camera_center"]["RA"],
+                            solved["camera_center"]["Dec"],
+                            dt,
+                        )
+                        solved["camera_center"]["Alt"] = alt
+                        solved["camera_center"]["Az"] = az
+
+                    # Experimental: For monitoring roll offset
+                    # Estimate the roll offset due misalignment of the
+                    # camera sensor with the Pole-to-Source great circle.
+                    solved["Roll_offset"] = estimate_roll_offset(solved, dt)
+                    # Find the roll at the target RA/Dec. Note that this doesn't include the
+                    # roll offset so it's not the roll that the PiFinder camear sees but the
+                    # roll relative to the celestial pole
+                    roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
+                        solved["RA"], solved["Dec"], dt
+                    )
+                    # Compensate for the roll offset. This gives the roll at the target
+                    # as seen by the camera.
+                    solved["Roll"] = roll_target_calculated + solved["Roll_offset"]
+
+                    # calculate roll for camera center
+                    roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
+                        solved["camera_center"]["RA"],
+                        solved["camera_center"]["Dec"],
+                        dt,
+                    )
+                    # Compensate for the roll offset. This gives the roll at the target
+                    # as seen by the camera.
+                    solved["camera_center"]["Roll"] = (
+                        roll_target_calculated + solved["Roll_offset"]
+                    )
+
+                    # Update IMU-dead-reckoning system with the new plate-solve
+                    update_plate_solve_and_imu(imu_dead_reckoning, solved)
+
+                # For failed solves, preserve ALL position data from previous solve
+                # Don't recalculate from GPS (causes drift from GPS noise)
+
+                # Set solve_source and push camera solves immediately
+                if solved["RA"] is not None:
+                    last_image_solve = copy.deepcopy(solved)
+                    solved["solve_source"] = "CAM"
+                    # Calculate constellation for successful solve
+                    solved["constellation"] = (
+                        calc_utils.sf_utils.radec_to_constellation(
+                            solved["RA"], solved["Dec"]
+                        )
+                    )
+                else:
+                    # Failed solve - clear constellation
+                    solved["solve_source"] = "CAM_FAILED"
+                    solved["constellation"] = ""
+
+                # Push all camera solves (success and failure) immediately
+                # This ensures auto-exposure sees Matches=0 for failed solves
+                shared_state.set_solution(solved)
+                shared_state.set_solve_state(True)
 
             elif imu_dead_reckoning.tracking:
                 # Previous plate-solve exists so use IMU dead-reckoning from
@@ -81,20 +180,27 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 if imu:
                     update_imu(imu_dead_reckoning, solved, last_image_solve, imu)
 
-            # Is the solution new?
-            if solved["RA"] and solved["solve_time"] > last_solve_time:
+            # Push IMU updates only if newer than last push
+            # (Camera solves already pushed above at line ~185)  # TODO: Line numbers may have changed in merge
+            if (
+                solved["RA"]
+                and solved["solve_time"] > last_solve_time
+                and solved.get("solve_source") == "IMU"
+            ):
                 last_solve_time = time.time()
 
                 # Try to set date and time
                 location = shared_state.location()
                 dt = shared_state.datetime()
                 # Set location for roll and altaz calculations.
-                # TODO: Is itnecessary to set location?
+                # TODO: Is it necessary to set location?
                 # TODO: Altaz doesn't seem to be required for catalogs when in
-                # EQ mode? Could be disabled in future when in EQ mode?
-                calc_utils.sf_utils.set_location(
-                    location.lat, location.lon, location.altitude
-                )
+                #  EQ mode? Could be disabled in future when in EQ mode? 
+                # TODO: Is it necessary to set location?
+                if location:
+                    calc_utils.sf_utils.set_location(
+                        location.lat, location.lon, location.altitude
+                    )
 
                 # Set the roll so that the chart is displayed appropriately for the mount type
                 solved["Roll"] = get_roll_by_mount_type(
@@ -102,6 +208,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 )
 
                 # Update remaining solved keys
+                # Calculate constellation for IMU dead-reckoning position
                 solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(
                     solved["RA"], solved["Dec"]
                 )
@@ -114,7 +221,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                         solved["RA"], solved["Dec"], dt
                     )
 
-                # add solution
+                # Push IMU update
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
 

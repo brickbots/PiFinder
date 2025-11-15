@@ -131,13 +131,15 @@ def initialized_solved_dict() -> dict:
             "Roll": None,
         },
         "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first)
-        # Alt, Az [deg] of scope
-        "Alt": None,
-        "Az": None,
-        "solve_source": None,
+        # Alt, Az [deg] of scope - Not used in Autoexposure? TODO: Remove?
+        #"Alt": None,
+        #"Az": None,
+        #"solve_source": None, - Not used in Autoexposure? TODO: Remove?
         "solve_time": None,
         "cam_solve_time": 0,
-        "constellation": None,
+        "last_solve_attempt": 0,  # Timestamp of last solve attempt - tracks exposure_end of last processed image
+        "last_solve_success": None,  # Timestamp of last successful solve
+        #"constellation": None, - Not used in Autoexposure? TODO: Remove?
     }
 
     return solved

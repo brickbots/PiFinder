@@ -306,6 +306,27 @@ class UIObjectDetails(UIModule):
             self.screen_direction,
             self.object,
         )
+
+        # Check if aim_degrees returned valid values
+        if point_az is None or point_alt is None:
+            # No valid pointing data available
+            self.draw.text(
+                (10, 70),
+                _("Calculating"),
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
+            self.draw.text(
+                (10, 90),
+                _(f"position{'.' * int(self._elipsis_count / 10)}"),
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
+            self._elipsis_count += 1
+            if self._elipsis_count > 39:
+                self._elipsis_count = 0
+            return
+
         if point_az < 0:
             point_az *= -1
             az_arrow = self._LEFT_ARROW

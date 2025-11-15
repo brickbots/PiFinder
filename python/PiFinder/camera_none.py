@@ -43,6 +43,10 @@ class CameraNone(CameraInterface):
         logger.warning("capture_file not implemented")
         pass
 
+    def capture_raw_file(self, filename) -> None:
+        logger.warning("capture_raw_file not implemented")
+        pass
+
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
@@ -59,6 +63,11 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
     """
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
+
+    # Handle auto-exposure mode: use default value, auto-exposure will adjust
+    if exposure_time == "auto":
+        exposure_time = 400000  # Start with default 400ms
+
     camera_hardware = CameraNone(exposure_time)
     camera_hardware.get_image_loop(
         shared_state, camera_image, command_queue, console_queue, cfg
