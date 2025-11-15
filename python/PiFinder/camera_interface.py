@@ -18,6 +18,7 @@ import queue
 import logging
 
 from PiFinder import state_utils, utils
+import PiFinder.pointing_model.quaternion_transforms as qt
 from PiFinder.auto_exposure import (
     ExposurePIDController,
     SweepZeroStarHandler,
@@ -126,14 +127,14 @@ class CameraInterface:
 
                     # see if we moved during exposure
                     if imu_start and imu_end:
-                        # Pointing difference between start and end of exposure [rad]
-                        pointing_diff = utils.calc_quat_angle_diff(imu_start["quat"], imu_end["quat"])
+                        # Returns the pointing difference between successive IMU quaternions as
+                        # an angle (radians). Note that this also accounts for rotation around the
+                        # scope axis. Returns an angle in radians.
+                        pointing_diff = qt.get_quat_angular_diff(
+                            imu_start["quat"], imu_end["quat"]
+                        )
                     else:
                         pointing_diff = 0.0
-
-                    # TODO: Merge issue: Rename reading_diff?
-                    # Pointing change during exposure in degrees
-                    #reading_diff = np.rad2deg(pointing_diff) if isinstance(pointing_diff, (int, float)) else 0.0
 
                     camera_image.paste(base_image)
 
