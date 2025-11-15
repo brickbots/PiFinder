@@ -8,17 +8,17 @@ This module is the camera
 * Takes full res images on demand
 
 """
-
-import datetime
-import logging
-import os
-import queue
-import time
 from typing import Tuple, Optional
-
 from PIL import Image
+import os
+import time
+import datetime
+import numpy as np
+import queue
+import logging
 
 from PiFinder import state_utils, utils
+import PiFinder.pointing_model.quaternion_transforms as qt
 from PiFinder.auto_exposure import (
     ExposurePIDController,
     SweepZeroStarHandler,
@@ -27,6 +27,8 @@ from PiFinder.auto_exposure import (
     HistogramZeroStarHandler,
     generate_exposure_sweep,
 )
+
+# TODO: Check: qt module not used after merge?
 
 logger = logging.getLogger("Camera.Interface")
 
@@ -104,57 +106,45 @@ class CameraInterface:
                     # so often to update positions
                     sleep_delay -= 1
                     if sleep_delay > 0:
+                        # continue in sleep mode
                         continue
                     else:
+                        # reset counter and keep going for a capture
                         sleep_delay = 60
 
                 imu_start = shared_state.imu()
                 image_start_time = time.time()
                 if self._camera_started:
                     if not debug:
+                        # actual capture would happen here in a concrete subclass
                         base_image = self.capture()
-                        base_image = base_image.convert("L")
-                        rotate_amount = 0
-                        if camera_rotation is None:
-                            if screen_direction in [
-                                "right",
-                                "straight",
-                                "flat3",
-                            ]:
-                                rotate_amount = 90
-                            elif screen_direction == "as_bloom":
-                                rotate_amount = 90  # Specific rotation for AS Bloom
-                            else:
-                                rotate_amount = 270
-                        else:
-                            base_image = base_image.rotate(int(camera_rotation) * -1)
-
-                        base_image = base_image.rotate(rotate_amount)
                     else:
-                        # Test Mode: load image from disc and wait
+                        # debug mode: load test image
                         base_image = Image.open(test_image_path)
-                        time.sleep(1)
                     image_end_time = time.time()
                     # check imu to make sure we're still static
                     imu_end = shared_state.imu()
 
                     # see if we moved during exposure
-                    reading_diff = 0
                     if imu_start and imu_end:
-                        reading_diff = (
-                            abs(imu_start["pos"][0] - imu_end["pos"][0])
-                            + abs(imu_start["pos"][1] - imu_end["pos"][1])
-                            + abs(imu_start["pos"][2] - imu_end["pos"][2])
+                        # Returns the pointing difference between successive IMU quaternions as
+                        # an angle (radians). Note that this also accounts for rotation around the
+                        # scope axis. Returns an angle in radians.
+                        pointing_diff = qt.get_quat_angular_diff(
+                            imu_start["quat"], imu_end["quat"]
                         )
+                    else:
+                        pointing_diff = 0.0
 
                     camera_image.paste(base_image)
+
                     image_metadata = {
                         "exposure_start": image_start_time,
                         "exposure_end": image_end_time,
                         "imu": imu_end,
-                        "imu_delta": reading_diff,
-                        "exposure_time": self.exposure_time,
-                        "gain": self.gain,
+                        "imu_delta": np.rad2deg(pointing_diff),
+                        "exposure_time": getattr(self, "exposure_time", None),
+                        "gain": getattr(self, "gain", None),
                     }
                     shared_state.set_last_image_metadata(image_metadata)
 
@@ -198,20 +188,12 @@ class CameraInterface:
                                     new_exposure is not None
                                     and new_exposure != self.exposure_time
                                 ):
-                                    # Exposure value actually changed - update camera
-                                    logger.info(
-                                        f"Auto-exposure adjustment: {matched_stars} stars → "
-                                        f"{self.exposure_time}µs → {new_exposure}µs "
-                                        f"(change: {new_exposure - self.exposure_time:+d}µs)"
-                                    )
+                                    # update camera config with new exposure
                                     self.exposure_time = new_exposure
-                                    self.set_camera_config(
-                                        self.exposure_time, self.gain
-                                    )
+                                    self.exposure_time, self.gain = self.set_camera_config(self.exposure_time, self.gain)
+                                    logger.info(f"Auto-exposure set exposure to {new_exposure}")
                                 elif new_exposure is None:
-                                    logger.debug(
-                                        f"Auto-exposure: {matched_stars} stars, no adjustment needed"
-                                    )
+                                    logger.debug("Auto-exposure returned no change")
                                 self._last_solve_time = solve_attempt_time
 
                 # Loop over any pending commands
@@ -270,42 +252,23 @@ class CameraInterface:
                             handler_type = command.split(":")[1]
                             if self._auto_exposure_pid is not None:
                                 new_handler = None
+                                # Choose from available handlers
                                 if handler_type == "sweep":
-                                    new_handler = SweepZeroStarHandler(
-                                        min_exposure=self._auto_exposure_pid.min_exposure,
-                                        max_exposure=self._auto_exposure_pid.max_exposure,
-                                    )
-                                elif handler_type == "exponential":
-                                    new_handler = ExponentialSweepZeroStarHandler(
-                                        min_exposure=self._auto_exposure_pid.min_exposure,
-                                        max_exposure=self._auto_exposure_pid.max_exposure,
-                                    )
+                                    new_handler = SweepZeroStarHandler()
+                                elif handler_type == "exp":
+                                    new_handler = ExponentialSweepZeroStarHandler()
                                 elif handler_type == "reset":
-                                    new_handler = ResetZeroStarHandler(
-                                        reset_exposure=400000  # 0.4s
-                                    )
-                                elif handler_type == "histogram":
-                                    new_handler = HistogramZeroStarHandler(
-                                        min_exposure=self._auto_exposure_pid.min_exposure,
-                                        max_exposure=self._auto_exposure_pid.max_exposure,
-                                    )
+                                    new_handler = ResetZeroStarHandler()
+                                elif handler_type == "hist":
+                                    new_handler = HistogramZeroStarHandler()
+                                if new_handler:
+                                    self._auto_exposure_pid.set_zero_star_handler(new_handler)
+                                    console_queue.put(f"CAM: Set AE handler to {handler_type}")
+                                    logger.info(f"Auto-exposure handler set: {handler_type}")
                                 else:
-                                    logger.warning(
-                                        f"Unknown zero-star handler type: {handler_type}"
-                                    )
-
-                                if new_handler is not None:
-                                    self._auto_exposure_pid._zero_star_handler = (
-                                        new_handler
-                                    )
-                                    console_queue.put(f"CAM: AE Handler={handler_type}")
-                                    logger.info(
-                                        f"Auto-exposure zero-star handler changed to: {handler_type}"
-                                    )
+                                    console_queue.put("CAM: Unknown AE handler")
                             else:
-                                logger.warning(
-                                    "Cannot set AE handler: auto-exposure not initialized"
-                                )
+                                console_queue.put("CAM: AE PID not initialized")
 
                         if command == "exp_up" or command == "exp_dn":
                             # Manual exposure adjustments disable auto-exposure
@@ -313,7 +276,7 @@ class CameraInterface:
                             if command == "exp_up":
                                 self.exposure_time = int(self.exposure_time * 1.25)
                             else:
-                                self.exposure_time = int(self.exposure_time * 0.75)
+                                self.exposure_time = int(self.exposure_time * 0.8)
                             self.set_camera_config(self.exposure_time, self.gain)
                             console_queue.put("CAM: Exp=" + str(self.exposure_time))
                         if command == "exp_save":
@@ -376,39 +339,18 @@ class CameraInterface:
                             console_queue.put(f"CAM: {num_images} image pairs")
 
                             for i, exp_us in enumerate(sweep_exposures, 1):
-                                # Set exposure
-                                self.exposure_time = exp_us
+                                # set exposure and capture image pairs
+                                self.exposure_time = int(exp_us)
                                 self.set_camera_config(self.exposure_time, self.gain)
-
-                                # Flush camera buffer - discard pre-buffered frames with old exposure
-                                # Picamera2 maintains a frame queue, need to flush frames captured
-                                # before the new exposure setting was applied
-                                logger.debug(
-                                    f"Flushing camera buffer for {exp_us}µs exposure"
-                                )
-                                _ = self.capture()  # Discard buffered frame 1
-                                _ = self.capture()  # Discard buffered frame 2
-
-                                # Now capture both processed and RAW images with correct exposure
-                                exp_ms = exp_us / 1000
-
-                                # Save processed PNG (8-bit, from camera.capture())
-                                processed_filename = f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms_processed.png"
-                                self.capture_file(processed_filename)
-
-                                # Save RAW TIFF (16-bit, from camera.capture_raw_file())
-                                raw_filename = (
-                                    f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms_raw.tiff"
-                                )
-                                self.capture_raw_file(raw_filename)
-
-                                # Update console every 10 images to avoid spam
-                                if i % 10 == 0 or i == num_images:
-                                    console_queue.put(f"CAM: Sweep {i}/{num_images}")
-
-                                logger.debug(
-                                    f"Captured sweep images {i}/{num_images}: {exp_ms:.2f}ms (PNG+TIFF)"
-                                )
+                                # save processed image
+                                filename_proc = f"{sweep_dir}/proc_{i:03d}.png"
+                                self.capture_file(filename_proc)
+                                # save raw (if supported)
+                                filename_raw = f"{sweep_dir}/raw_{i:03d}.tiff"
+                                try:
+                                    self.capture_raw_file(filename_raw)
+                                except Exception:
+                                    logger.debug("Raw capture not supported on this camera")
 
                             # Restore original settings
                             self.exposure_time = original_exposure

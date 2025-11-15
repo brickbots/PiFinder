@@ -168,8 +168,11 @@ def aim_degrees(shared_state, mount_type, screen_direction, target):
         else:
             # EQ Mount type
             ra_diff = target.ra - solution["RA"]
+            ra_diff = (ra_diff + 180) % 360 - 180  # Convert to -180 to +180
+
             dec_diff = target.dec - solution["Dec"]
             dec_diff = (dec_diff + 180) % 360 - 180
+
             return ra_diff, dec_diff
     return None, None
 
@@ -247,7 +250,8 @@ def hadec_to_roll(ha_deg, dec_deg, lat_deg):
     if dec_deg <= lat_deg:
         roll_deg = -pa_deg
     else:
-        roll_deg = -pa_deg + np.sign(ha_deg) * 180
+        roll_deg = -pa_deg
+        #roll_deg = -pa_deg + np.sign(ha_deg) * 180  # Disable for testing TODO: Check this
 
     return roll_deg
 
