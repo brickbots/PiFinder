@@ -61,19 +61,28 @@ class CameraDebug(CameraInterface):
     def capture(self) -> Image.Image:
         sleep_time = self.exposure_time / 1000000
         time.sleep(sleep_time)
-        logger.debug("CameraDebug exposed for %s seconds", sleep_time)
         if time.time() - self.last_image_time > 5:
             self.last_image = next(self.image_cycle)
             self.last_image_time = time.time()
+            logger.debug("Debug camera cycled to next image")
         return self.last_image
 
     def capture_file(self, filename) -> None:
         logger.warn("capture_file not implemented in Camera Debug")
         pass
 
+    def capture_raw_file(self, filename) -> None:
+        logger.warn("capture_raw_file not implemented in Camera Debug")
+        pass
+
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
+        logger.info(
+            f"Setting debug camera config - Exposure: {exposure_time}µs, Gain: {gain}x"
+        )
+        self.exposure_time = exposure_time
+        self.gain = gain
         return exposure_time, gain
 
     def get_cam_type(self) -> str:
@@ -88,6 +97,11 @@ def get_images(shared_state, camera_image, command_queue, console_queue, log_que
     MultiprocLogging.configurer(log_queue)
     cfg = config.Config()
     exposure_time = cfg.get_option("camera_exp")
+
+    # Handle auto-exposure mode: use default value, auto-exposure will adjust
+    if exposure_time == "auto":
+        exposure_time = 400000  # Start with default 400ms
+
     camera_hardware = CameraDebug(exposure_time)
     camera_hardware.get_image_loop(
         shared_state, camera_image, command_queue, console_queue, cfg

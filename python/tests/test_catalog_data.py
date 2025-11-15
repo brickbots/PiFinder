@@ -1,7 +1,6 @@
 import pytest
 import threading
 from PiFinder.db import objects_db
-from PiFinder.db import observations_db
 from PiFinder.catalogs import CatalogBackgroundLoader, Names
 
 
@@ -383,7 +382,9 @@ def test_background_loader():
 
     # Verify results
     assert loaded_count == 100, f"Expected 100 objects, got {loaded_count}"
-    assert len(loaded_objects) == 100, f"Expected 100 loaded objects, got {len(loaded_objects)}"
+    assert (
+        len(loaded_objects) == 100
+    ), f"Expected 100 loaded objects, got {len(loaded_objects)}"
 
     # Verify objects have details loaded
     for obj in loaded_objects[:10]:  # Check first 10
