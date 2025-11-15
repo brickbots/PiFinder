@@ -35,6 +35,7 @@ class CameraInterface:
     """The CameraInterface interface."""
 
     _camera_started = False
+    _save_next_to = None  # Filename to save next capture to (None = don't save)
     _auto_exposure_enabled = False
     _auto_exposure_pid: Optional[ExposurePIDController] = None
     _last_solve_time: Optional[float] = None
@@ -50,6 +51,15 @@ class CameraInterface:
 
     def capture_raw_file(self, filename) -> None:
         pass
+
+    def capture_bias(self):
+        """
+        Capture a bias frame for pedestal calculation.
+        Base implementation returns a black frame (no bias correction).
+        Override in subclasses that support bias frames.
+        Returns Image.Image or np.ndarray depending on implementation.
+        """
+        return Image.new("L", (512, 512), 0)  # Black 512x512 image
 
     def set_camera_config(
         self, exposure_time: float, gain: float
@@ -69,6 +79,17 @@ class CameraInterface:
         self, shared_state, camera_image, command_queue, console_queue, cfg
     ):
         try:
+            # Store shared_state for access by capture() methods
+            self.shared_state = shared_state
+
+            # Store camera type in shared state for SQM calibration
+            camera_type_str = self.get_cam_type()  # e.g., "PI imx296", "PI hq"
+            if " " in camera_type_str:
+                # Extract just the sensor type (imx296, hq, imx462, etc.)
+                camera_type = camera_type_str.split(" ")[1].lower()
+                shared_state.set_camera_type(camera_type)
+                logger.info(f"Camera type set to: {camera_type}")
+
             debug = False
 
             # Check if auto-exposure was previously enabled in config
@@ -114,6 +135,7 @@ class CameraInterface:
                     if not debug:
                         base_image = self.capture()
                         base_image = base_image.convert("L")
+
                         rotate_amount = 0
                         if camera_rotation is None:
                             if screen_direction in [
@@ -133,6 +155,7 @@ class CameraInterface:
                     else:
                         # Test Mode: load image from disc and wait
                         base_image = Image.open(test_image_path)
+                        base_image = base_image.convert("L")  # Convert to grayscale to match camera output
                         time.sleep(1)
                     image_end_time = time.time()
                     # check imu to make sure we're still static
@@ -183,7 +206,7 @@ class CameraInterface:
                                     if solve_rmse is not None
                                     else "N/A"
                                 )
-                                logger.info(
+                                logger.debug(
                                     f"Auto-exposure feedback - Stars: {matched_stars}, "
                                     f"RMSE: {rmse_str}, Current exposure: {self.exposure_time}µs"
                                 )
@@ -329,10 +352,34 @@ class CameraInterface:
                             )
 
                         if command.startswith("save"):
-                            filename = command.split(":")[1]
-                            filename = f"{utils.data_dir}/captures/{filename}.png"
-                            self.capture_file(filename)
-                            console_queue.put("CAM: Saved Image")
+                            # Set flag to save next capture to this file
+                            self._save_next_to = command.split(":")[1]
+                            console_queue.put("CAM: Save flag set")
+
+                        if command.startswith("capture") and command != "capture_exp_sweep":
+                            # Capture single frame and update shared state
+                            # This is used by SQM calibration for precise exposure control
+                            captured_image = self.capture()
+                            camera_image.paste(captured_image)
+
+                            # If save flag is set, save to disk
+                            if self._save_next_to:
+                                # Build full path
+                                filename = f"{utils.data_dir}/captures/{self._save_next_to}"
+                                if not filename.endswith('.png'):
+                                    filename += '.png'
+                                self.capture_file(filename)
+
+                                # Also save raw as TIFF
+                                raw_filename = filename.replace(".png", ".tiff")
+                                if not raw_filename.endswith(".tiff"):
+                                    raw_filename += ".tiff"
+                                self.capture_raw_file(raw_filename)
+
+                                console_queue.put("CAM: Captured + Saved")
+                                self._save_next_to = None  # Clear flag
+                            else:
+                                console_queue.put("CAM: Captured")
 
                         if command == "capture_exp_sweep":
                             # Capture exposure sweep - save both RAW and processed images

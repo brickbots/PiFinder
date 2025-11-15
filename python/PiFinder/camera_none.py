@@ -56,7 +56,7 @@ class CameraNone(CameraInterface):
         return self.camType
 
 
-def get_images(shared_state, camera_image, command_queue, console_queue):
+def get_images(shared_state, camera_image, bias_image, command_queue, console_queue):
     """
     Instantiates the camera hardware
     then calls the universal image loop
@@ -70,5 +70,5 @@ def get_images(shared_state, camera_image, command_queue, console_queue):
 
     camera_hardware = CameraNone(exposure_time)
     camera_hardware.get_image_loop(
-        shared_state, camera_image, command_queue, console_queue, cfg
+        shared_state, camera_image, bias_image, command_queue, console_queue, cfg
     )
