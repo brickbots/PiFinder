@@ -281,7 +281,7 @@ class UITextEntry(UIModule):
                 if search_version == self._search_version:
                     self.search_results = results
                     self._results_updated = True  # Flag that we need UI refresh
-                    logger.info(f"Search results updated, flagging UI refresh")
+                    logger.info("Search results updated, flagging UI refresh")
                 else:
                     logger.info(f"Search results discarded (version mismatch: {search_version} != {self._search_version})")
         except Exception as e:
