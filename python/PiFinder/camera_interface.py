@@ -420,7 +420,7 @@ class CameraInterface:
                             os.makedirs(sweep_dir, exist_ok=True)
 
                             logger.info(f"Saving sweep to: {sweep_dir}")
-                            console_queue.put(f"CAM: Starting sweep...")
+                            console_queue.put("CAM: Starting sweep...")
 
                             for i, exp_us in enumerate(sweep_exposures, 1):
                                 # Update progress at start of each capture
@@ -465,7 +465,6 @@ class CameraInterface:
 
                             # Save sweep metadata (GPS time, location, altitude)
                             try:
-                                import json
                                 from PiFinder.sqm.save_sweep_metadata import (
                                     save_sweep_metadata,
                                 )
@@ -494,8 +493,8 @@ class CameraInterface:
 
                                         coord = SkyCoord(ra=ra_deg*u.degree, dec=dec_deg*u.degree, frame='icrs')
                                         earth_location = EarthLocation(lat=location.lat*u.degree, lon=location.lon*u.degree)
-                                        time = Time(gps_datetime)
-                                        altaz_frame = AltAz(obstime=time, location=earth_location)
+                                        obs_time = Time(gps_datetime)
+                                        altaz_frame = AltAz(obstime=obs_time, location=earth_location)
                                         altaz = coord.transform_to(altaz_frame)
                                         altitude_deg = altaz.alt.degree
 

@@ -17,7 +17,6 @@ import sys
 from time import perf_counter as precision_timestamp
 import os
 import threading
-from PIL import Image
 
 from PiFinder import state_utils
 from PiFinder import utils
