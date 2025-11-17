@@ -416,8 +416,9 @@ class CameraInterface:
                             )
 
                             # Create sweep directory
-                            sweep_dir = f"{utils.data_dir}/captures/sweep_{timestamp}"
-                            os.makedirs(sweep_dir, exist_ok=True)
+                            from pathlib import Path
+                            sweep_dir = Path(f"{utils.data_dir}/captures/sweep_{timestamp}")
+                            sweep_dir.mkdir(parents=True, exist_ok=True)
 
                             logger.info(f"Saving sweep to: {sweep_dir}")
                             console_queue.put("CAM: Starting sweep...")
@@ -443,15 +444,13 @@ class CameraInterface:
                                 exp_ms = exp_us / 1000
 
                                 # Save processed 8-bit PNG (same as production capture() method)
-                                processed_filename = f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms_processed.png"
+                                processed_filename = sweep_dir / f"img_{i:03d}_{exp_ms:.2f}ms_processed.png"
                                 processed_img = self.capture()  # Returns 8-bit PIL Image
-                                processed_img.save(processed_filename)
+                                processed_img.save(str(processed_filename))
 
                                 # Save RAW TIFF (16-bit, from camera.capture_raw_file())
-                                raw_filename = (
-                                    f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms_raw.tiff"
-                                )
-                                self.capture_raw_file(raw_filename)
+                                raw_filename = sweep_dir / f"img_{i:03d}_{exp_ms:.2f}ms_raw.tiff"
+                                self.capture_raw_file(str(raw_filename))
 
                                 logger.debug(
                                     f"Captured sweep images {i}/{num_images}: {exp_ms:.2f}ms (PNG+TIFF)"
