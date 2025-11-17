@@ -410,10 +410,14 @@ class CameraInterface:
                                 min_exp, max_exp, num_images
                             )
 
-                            # Generate timestamp for this sweep session
-                            timestamp = datetime.datetime.now().strftime(
-                                "%Y%m%d_%H%M%S"
-                            )
+                            # Generate timestamp for this sweep session using GPS time
+                            gps_time = shared_state.datetime()
+                            if gps_time:
+                                timestamp = gps_time.strftime("%Y%m%d_%H%M%S")
+                            else:
+                                # Fallback to Pi time if GPS not available
+                                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                                logger.warning("GPS time not available, using Pi system time for sweep directory name")
 
                             # Create sweep directory
                             from pathlib import Path
