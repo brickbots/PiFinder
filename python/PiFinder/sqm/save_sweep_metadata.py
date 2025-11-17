@@ -23,6 +23,7 @@ def save_sweep_metadata(
     ra_deg: Optional[float] = None,
     dec_deg: Optional[float] = None,
     altitude_deg: Optional[float] = None,
+    azimuth_deg: Optional[float] = None,
     notes: str = ""
 ):
     """
@@ -39,7 +40,8 @@ def save_sweep_metadata(
         reference_sqm: Reference SQM value from external meter (optional)
         ra_deg: Right Ascension from solver (optional)
         dec_deg: Declination from solver (optional)
-        altitude_deg: Calculated altitude in degrees (optional)
+        altitude_deg: Altitude angle above horizon in degrees (optional)
+        azimuth_deg: Azimuth angle in degrees (optional)
         notes: Any additional notes
     """
     metadata: Dict[str, Any] = {
@@ -62,9 +64,10 @@ def save_sweep_metadata(
             'ra_deg': ra_deg,
             'dec_deg': dec_deg,
         }
-
-    if altitude_deg is not None:
-        metadata['altitude_deg'] = altitude_deg
+        if altitude_deg is not None:
+            metadata['coordinates']['altitude_deg'] = altitude_deg
+        if azimuth_deg is not None:
+            metadata['coordinates']['azimuth_deg'] = azimuth_deg
 
     if notes:
         metadata['notes'] = notes

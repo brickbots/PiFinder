@@ -481,30 +481,19 @@ class CameraInterface:
                                 location = shared_state.location()
                                 logger.debug(f"Location: lat={location.lat}, lon={location.lon}, alt={location.altitude}")
 
-                                # Get current solve for altitude calculation
+                                # Get current solve with RA/Dec/Alt/Az
                                 solve_state = shared_state.solution()
                                 ra_deg = None
                                 dec_deg = None
                                 altitude_deg = None
+                                azimuth_deg = None
 
-                                if solve_state and solve_state.get("RA") and solve_state.get("Dec"):
-                                    ra_deg = solve_state["RA"]
-                                    dec_deg = solve_state["Dec"]
-                                    logger.debug(f"Solve: RA={ra_deg}, Dec={dec_deg}")
-
-                                    # Calculate altitude from RA/Dec
-                                    if gps_datetime and location.lat and location.lon:
-                                        from astropy.coordinates import SkyCoord, EarthLocation, AltAz  # type: ignore
-                                        from astropy.time import Time  # type: ignore
-                                        import astropy.units as u  # type: ignore
-
-                                        coord = SkyCoord(ra=ra_deg*u.degree, dec=dec_deg*u.degree, frame='icrs')
-                                        earth_location = EarthLocation(lat=location.lat*u.degree, lon=location.lon*u.degree)
-                                        obs_time = Time(gps_datetime)
-                                        altaz_frame = AltAz(obstime=obs_time, location=earth_location)
-                                        altaz = coord.transform_to(altaz_frame)
-                                        altitude_deg = altaz.alt.degree
-                                        logger.debug(f"Calculated altitude: {altitude_deg}")
+                                if solve_state:
+                                    ra_deg = solve_state.get("RA")
+                                    dec_deg = solve_state.get("Dec")
+                                    altitude_deg = solve_state.get("Alt")
+                                    azimuth_deg = solve_state.get("Az")
+                                    logger.debug(f"Solve: RA={ra_deg}, Dec={dec_deg}, Alt={altitude_deg}, Az={azimuth_deg}")
 
                                 # Save metadata
                                 logger.info(f"Calling save_sweep_metadata for {sweep_dir}")
@@ -517,6 +506,7 @@ class CameraInterface:
                                     ra_deg=ra_deg,
                                     dec_deg=dec_deg,
                                     altitude_deg=altitude_deg,
+                                    azimuth_deg=azimuth_deg,
                                     notes=f"Exposure sweep: {num_images} images, {min_exp/1000:.1f}-{max_exp/1000:.1f}ms",
                                 )
                                 logger.info(f"Successfully saved sweep metadata to {sweep_dir}/sweep_metadata.json")
