@@ -3,11 +3,11 @@
 """
 Exposure Sweep Progress UI
 
-Displays real-time progress during exposure sweep capture.
+Displays progress during exposure sweep capture.
+Shows elapsed time and estimated progress based on typical sweep duration.
 """
 
 import time
-import queue
 from PiFinder.ui.base import UIModule
 
 
@@ -31,7 +31,7 @@ class UIExpSweep(UIModule):
 
     def active(self):
         """Called when module becomes active - start the sweep"""
-        self.progress_text = "Starting sweep..."
+        self.progress_text = "Capturing 100 images..."
         self.sweep_started = False
         self.sweep_complete = False
         self.start_time = time.time()
@@ -41,36 +41,23 @@ class UIExpSweep(UIModule):
         self.update(force=True)
 
     def update(self, force=False):
-        """Update display with current progress"""
-        # Check console queue for progress messages
-        try:
-            while True:
-                console_msg = self.console_queue.get(block=False)
+        """Update display with elapsed time"""
+        # Calculate elapsed time
+        elapsed = int(time.time() - self.start_time)
 
-                # Look for camera sweep messages
-                if console_msg.startswith("CAM: "):
-                    cam_msg = console_msg[5:]  # Strip "CAM: " prefix
+        # Estimate progress based on typical 25-second sweep duration
+        # This is approximate since we can't directly monitor camera progress
+        estimated_duration = 25  # seconds
+        if elapsed >= estimated_duration:
+            self.sweep_complete = True
+            self.progress_text = "Complete!"
+        else:
+            # Show estimated progress
+            progress_pct = int((elapsed / estimated_duration) * 100)
+            self.progress_text = f"Progress: ~{progress_pct}%"
 
-                    if "Sweep" in cam_msg:
-                        self.progress_text = cam_msg
-                        self.sweep_started = True
-
-                        if "done" in cam_msg.lower():
-                            self.sweep_complete = True
-                    elif "Starting sweep" in cam_msg:
-                        self.progress_text = "Starting..."
-                        self.sweep_started = True
-                else:
-                    # Put non-camera messages back for main loop to handle
-                    # (But for now just ignore them to avoid queue issues)
-                    pass
-
-        except queue.Empty:
-            pass
-
-        # Auto-exit when complete
-        if self.sweep_complete:
-            time.sleep(0.5)  # Brief pause to show "done" message
+        # Auto-exit when complete (with extra margin for safety)
+        if elapsed >= estimated_duration + 2:
             if self.remove_from_stack:
                 self.remove_from_stack()
             return self.screen_update()
@@ -86,7 +73,7 @@ class UIExpSweep(UIModule):
             fill=self.colors.get(255),
         )
 
-        # Progress text (e.g., "Sweep 23/100")
+        # Progress text
         self.draw.text(
             (10, 40),
             self.progress_text,
@@ -99,18 +86,19 @@ class UIExpSweep(UIModule):
             elapsed = int(time.time() - self.start_time)
             self.draw.text(
                 (10, 70),
-                f"Elapsed: {elapsed}s",
+                f"Elapsed: {elapsed}s / ~25s",
                 font=self.fonts.base.font,
                 fill=self.colors.get(128),
             )
 
         # Instructions
-        self.draw.text(
-            (10, 95),
-            "Please wait...",
-            font=self.fonts.base.font,
-            fill=self.colors.get(128),
-        )
+        if not self.sweep_complete:
+            self.draw.text(
+                (10, 95),
+                "Please wait...",
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
 
         return self.screen_update(title_bar=True)
 
