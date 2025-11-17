@@ -420,9 +420,12 @@ class CameraInterface:
                             os.makedirs(sweep_dir, exist_ok=True)
 
                             logger.info(f"Saving sweep to: {sweep_dir}")
-                            console_queue.put(f"CAM: {num_images} image pairs")
+                            console_queue.put(f"CAM: Starting sweep...")
 
                             for i, exp_us in enumerate(sweep_exposures, 1):
+                                # Update progress at start of each capture
+                                console_queue.put(f"CAM: Sweep {i}/{num_images}")
+
                                 # Set exposure
                                 self.exposure_time = exp_us
                                 self.set_camera_config(self.exposure_time, self.gain)
@@ -439,19 +442,16 @@ class CameraInterface:
                                 # Now capture both processed and RAW images with correct exposure
                                 exp_ms = exp_us / 1000
 
-                                # Save processed PNG (8-bit, from camera.capture())
+                                # Save processed 8-bit PNG (same as production capture() method)
                                 processed_filename = f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms_processed.png"
-                                self.capture_file(processed_filename)
+                                processed_img = self.capture()  # Returns 8-bit PIL Image
+                                processed_img.save(processed_filename)
 
                                 # Save RAW TIFF (16-bit, from camera.capture_raw_file())
                                 raw_filename = (
                                     f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms_raw.tiff"
                                 )
                                 self.capture_raw_file(raw_filename)
-
-                                # Update console every 10 images to avoid spam
-                                if i % 10 == 0 or i == num_images:
-                                    console_queue.put(f"CAM: Sweep {i}/{num_images}")
 
                                 logger.debug(
                                     f"Captured sweep images {i}/{num_images}: {exp_ms:.2f}ms (PNG+TIFF)"
@@ -462,6 +462,58 @@ class CameraInterface:
                             self.gain = original_gain
                             self._auto_exposure_enabled = original_ae_enabled
                             self.set_camera_config(self.exposure_time, self.gain)
+
+                            # Save sweep metadata (GPS time, location, altitude)
+                            try:
+                                import json
+                                from PiFinder.sqm.save_sweep_metadata import (
+                                    save_sweep_metadata,
+                                )
+
+                                # Get GPS datetime (not Pi time)
+                                gps_datetime = shared_state.datetime()
+
+                                # Get observer location
+                                location = shared_state.location()
+
+                                # Get current solve for altitude calculation
+                                solve_state = shared_state.solve()
+                                ra_deg = None
+                                dec_deg = None
+                                altitude_deg = None
+
+                                if solve_state and solve_state.get("RA") and solve_state.get("Dec"):
+                                    ra_deg = solve_state["RA"]
+                                    dec_deg = solve_state["Dec"]
+
+                                    # Calculate altitude from RA/Dec
+                                    if gps_datetime and location.lat and location.lon:
+                                        from astropy.coordinates import SkyCoord, EarthLocation, AltAz  # type: ignore
+                                        from astropy.time import Time  # type: ignore
+                                        import astropy.units as u  # type: ignore
+
+                                        coord = SkyCoord(ra=ra_deg*u.degree, dec=dec_deg*u.degree, frame='icrs')
+                                        earth_location = EarthLocation(lat=location.lat*u.degree, lon=location.lon*u.degree)
+                                        time = Time(gps_datetime)
+                                        altaz_frame = AltAz(obstime=time, location=earth_location)
+                                        altaz = coord.transform_to(altaz_frame)
+                                        altitude_deg = altaz.alt.degree
+
+                                # Save metadata
+                                save_sweep_metadata(
+                                    sweep_dir=sweep_dir,
+                                    observer_lat=location.lat,
+                                    observer_lon=location.lon,
+                                    observer_altitude_m=location.altitude,
+                                    gps_datetime=gps_datetime.isoformat() if gps_datetime else None,
+                                    ra_deg=ra_deg,
+                                    dec_deg=dec_deg,
+                                    altitude_deg=altitude_deg,
+                                    notes=f"Exposure sweep: {num_images} images, {min_exp/1000:.1f}-{max_exp/1000:.1f}ms",
+                                )
+                                logger.info(f"Saved sweep metadata to {sweep_dir}/sweep_metadata.json")
+                            except Exception as e:
+                                logger.warning(f"Failed to save sweep metadata: {e}")
 
                             console_queue.put("CAM: Sweep done!")
                             logger.info(
