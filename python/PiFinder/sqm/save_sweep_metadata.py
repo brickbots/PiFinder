@@ -4,10 +4,13 @@ Add this to your sweep capture code.
 """
 
 import json
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Dict, Any
 import pytz
+
+logger = logging.getLogger("SweepMetadata")
 
 
 def save_sweep_metadata(
@@ -68,10 +71,16 @@ def save_sweep_metadata(
 
     # Save to JSON file
     metadata_file = sweep_dir / 'sweep_metadata.json'
-    with open(metadata_file, 'w') as f:
-        json.dump(metadata, f, indent=2)
+    logger.info(f"Writing metadata to: {metadata_file}")
 
-    print(f"Saved metadata to {metadata_file}")
+    try:
+        with open(metadata_file, 'w') as f:
+            json.dump(metadata, f, indent=2)
+        logger.info(f"Successfully saved metadata to {metadata_file}")
+    except Exception as e:
+        logger.error(f"Failed to write metadata file: {e}")
+        raise
+
     return metadata_file
 
 

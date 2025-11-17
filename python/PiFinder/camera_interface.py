@@ -467,6 +467,7 @@ class CameraInterface:
                             self.set_camera_config(self.exposure_time, self.gain)
 
                             # Save sweep metadata (GPS time, location, altitude)
+                            logger.info("Starting sweep metadata save...")
                             try:
                                 from PiFinder.sqm.save_sweep_metadata import (
                                     save_sweep_metadata,
@@ -474,12 +475,14 @@ class CameraInterface:
 
                                 # Get GPS datetime (not Pi time)
                                 gps_datetime = shared_state.datetime()
+                                logger.debug(f"GPS datetime: {gps_datetime}")
 
                                 # Get observer location
                                 location = shared_state.location()
+                                logger.debug(f"Location: lat={location.lat}, lon={location.lon}, alt={location.altitude}")
 
                                 # Get current solve for altitude calculation
-                                solve_state = shared_state.solve()
+                                solve_state = shared_state.solution()
                                 ra_deg = None
                                 dec_deg = None
                                 altitude_deg = None
@@ -487,6 +490,7 @@ class CameraInterface:
                                 if solve_state and solve_state.get("RA") and solve_state.get("Dec"):
                                     ra_deg = solve_state["RA"]
                                     dec_deg = solve_state["Dec"]
+                                    logger.debug(f"Solve: RA={ra_deg}, Dec={dec_deg}")
 
                                     # Calculate altitude from RA/Dec
                                     if gps_datetime and location.lat and location.lon:
@@ -500,8 +504,10 @@ class CameraInterface:
                                         altaz_frame = AltAz(obstime=obs_time, location=earth_location)
                                         altaz = coord.transform_to(altaz_frame)
                                         altitude_deg = altaz.alt.degree
+                                        logger.debug(f"Calculated altitude: {altitude_deg}")
 
                                 # Save metadata
+                                logger.info(f"Calling save_sweep_metadata for {sweep_dir}")
                                 save_sweep_metadata(
                                     sweep_dir=sweep_dir,
                                     observer_lat=location.lat,
@@ -513,9 +519,9 @@ class CameraInterface:
                                     altitude_deg=altitude_deg,
                                     notes=f"Exposure sweep: {num_images} images, {min_exp/1000:.1f}-{max_exp/1000:.1f}ms",
                                 )
-                                logger.info(f"Saved sweep metadata to {sweep_dir}/sweep_metadata.json")
+                                logger.info(f"Successfully saved sweep metadata to {sweep_dir}/sweep_metadata.json")
                             except Exception as e:
-                                logger.warning(f"Failed to save sweep metadata: {e}")
+                                logger.error(f"Failed to save sweep metadata: {e}", exc_info=True)
 
                             console_queue.put("CAM: Sweep done!")
                             logger.info(
