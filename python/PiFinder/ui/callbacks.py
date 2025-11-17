@@ -117,10 +117,11 @@ def capture_exposure_sweep(ui_module: UIModule) -> None:
 
     # Push the sweep progress UI onto the stack
     # It will handle starting the sweep and showing progress
-    ui_module.add_to_stack(
-        UIExpSweep,
-        active_args={},
-    )
+    sweep_item = {
+        "class": UIExpSweep,
+        "label": "exp_sweep_progress",
+    }
+    ui_module.add_to_stack(sweep_item)
 
 
 def get_camera_exposure_display(ui_module: UIModule) -> str:
