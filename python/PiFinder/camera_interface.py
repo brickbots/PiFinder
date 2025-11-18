@@ -381,11 +381,21 @@ class CameraInterface:
                             else:
                                 console_queue.put("CAM: Captured")
 
-                        if command == "capture_exp_sweep":
+                        if command.startswith("capture_exp_sweep"):
                             # Capture exposure sweep - save both RAW and processed images
                             # at different exposures for SQM testing
                             # RAW: 16-bit TIFF to preserve full sensor bit depth
                             # Processed: 8-bit PNG from normal camera.capture() pipeline
+
+                            # Parse reference SQM if provided
+                            reference_sqm = None
+                            if ":" in command:
+                                try:
+                                    reference_sqm = float(command.split(":")[1])
+                                    logger.info(f"Reference SQM: {reference_sqm:.2f}")
+                                except (ValueError, IndexError):
+                                    logger.warning("Invalid reference SQM in command")
+
                             logger.info(
                                 "Starting exposure sweep capture (100 image pairs)"
                             )
@@ -503,6 +513,7 @@ class CameraInterface:
                                     observer_lon=location.lon,
                                     observer_altitude_m=location.altitude,
                                     gps_datetime=gps_datetime.isoformat() if gps_datetime else None,
+                                    reference_sqm=reference_sqm,
                                     ra_deg=ra_deg,
                                     dec_deg=dec_deg,
                                     altitude_deg=altitude_deg,
