@@ -42,6 +42,8 @@ class UIExpSweep(UIModule):
         self.sqm_input = ""  # User input for SQM value
         self.sweep_started = False
         self.start_time = None
+        self.sweep_dir = None  # Track the actual sweep directory
+        self.initial_file_count = None  # Files that existed before we started
         self.total_images = 100  # Expected number of images
         self.estimated_duration = 240  # 4 minutes estimated
 
@@ -161,6 +163,8 @@ class UIExpSweep(UIModule):
             # Start sweep
             self.sweep_started = True
             self.start_time = time.time()
+            # Get initial file count from most recent sweep (if any)
+            self.initial_file_count = self._get_total_sweep_files()
             # Send command with reference SQM
             cmd = f"capture_exp_sweep:{self.reference_sqm if self.reference_sqm else 0.0}"
             self.command_queues["camera"].put(cmd)
@@ -172,8 +176,9 @@ class UIExpSweep(UIModule):
             fill=self.colors.get(255),
         )
 
-        # Count actual files in sweep directory
-        file_count = self._count_sweep_files()
+        # Count new files created since we started
+        current_total = self._get_total_sweep_files()
+        file_count = max(0, current_total - self.initial_file_count)
         progress_pct = min(100, int((file_count / self.total_images) * 100))
 
         # Show actual file count
@@ -223,8 +228,8 @@ class UIExpSweep(UIModule):
         if file_count >= self.total_images:
             self.state = SweepState.COMPLETE
 
-    def _count_sweep_files(self):
-        """Count PNG files in most recent sweep directory"""
+    def _get_total_sweep_files(self):
+        """Count total PNG files in most recent sweep directory"""
         try:
             captures_dir = Path(utils.data_dir) / "captures"
             if not captures_dir.exists():

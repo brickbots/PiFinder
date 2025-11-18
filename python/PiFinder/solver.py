@@ -357,45 +357,45 @@ def solver(
                                 _solver_args["target_sky_coord"] = [[align_ra, align_dec]]
 
                             solution = t3.solve_from_centroids(
-                            centroids,
-                            (512, 512),
-                            fov_estimate=12.0,
-                            fov_max_error=4.0,
-                            match_max_error=0.005,
-                            return_matches=True,  # Required for SQM calculation
-                            target_pixel=shared_state.solve_pixel(),
-                            solve_timeout=1000,
-                            **_solver_args,
-                        )
-
-                        if "matched_centroids" in solution:
-                            # Update SQM for BOTH processed and raw pipelines
-                            # Convert exposure time from microseconds to seconds
-                            exposure_sec = (
-                                last_image_metadata["exposure_time"] / 1_000_000.0
+                                centroids,
+                                (512, 512),
+                                fov_estimate=12.0,
+                                fov_max_error=4.0,
+                                match_max_error=0.005,
+                                return_matches=True,  # Required for SQM calculation
+                                target_pixel=shared_state.solve_pixel(),
+                                solve_timeout=1000,
+                                **_solver_args,
                             )
 
-                            update_sqm_dual_pipeline(
-                                shared_state=shared_state,
-                                sqm_calculator=sqm_calculator,
-                                sqm_calculator_raw=sqm_calculator_raw,
-                                camera_command_queue=camera_command_queue,
-                                centroids=centroids,
-                                solution=solution,
-                                image_processed=np_image,
-                                exposure_sec=exposure_sec,
-                                altitude_deg=solved.get("Alt") or 90.0,
-                                calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
-                            )
+                            if "matched_centroids" in solution:
+                                # Update SQM for BOTH processed and raw pipelines
+                                # Convert exposure time from microseconds to seconds
+                                exposure_sec = (
+                                    last_image_metadata["exposure_time"] / 1_000_000.0
+                                )
 
-                            # Don't clutter printed solution with these fields.
-                            del solution["matched_catID"]
-                            del solution["pattern_centroids"]
-                            del solution["epoch_equinox"]
-                            del solution["epoch_proper_motion"]
-                            del solution["cache_hit_fraction"]
+                                update_sqm_dual_pipeline(
+                                    shared_state=shared_state,
+                                    sqm_calculator=sqm_calculator,
+                                    sqm_calculator_raw=sqm_calculator_raw,
+                                    camera_command_queue=camera_command_queue,
+                                    centroids=centroids,
+                                    solution=solution,
+                                    image_processed=np_image,
+                                    exposure_sec=exposure_sec,
+                                    altitude_deg=solved.get("Alt") or 90.0,
+                                    calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
+                                )
 
-                        solved |= solution
+                                # Don't clutter printed solution with these fields.
+                                del solution["matched_catID"]
+                                del solution["pattern_centroids"]
+                                del solution["epoch_equinox"]
+                                del solution["epoch_proper_motion"]
+                                del solution["cache_hit_fraction"]
+
+                            solved |= solution
 
                         total_tetra_time = t_extract + solved["T_solve"]
                         if total_tetra_time > 1000:
