@@ -1133,19 +1133,6 @@ pifinder_menu = {
                                 },
                             ],
                         },
-                        {
-                            "name": _("Capture Exp Sweep"),
-                            "class": UITextMenu,
-                            "select": "single",
-                            "label": "capture_exp_sweep",
-                            "items": [
-                                {
-                                    "name": _("Confirm"),
-                                    "callback": callbacks.capture_exposure_sweep,
-                                },
-                                {"name": _("Cancel"), "callback": callbacks.go_back},
-                            ],
-                        },
                     ],
                 },
             ],

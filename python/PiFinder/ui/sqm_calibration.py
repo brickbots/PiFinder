@@ -17,12 +17,15 @@ The wizard guides the user through lens cap placement and displays progress.
 
 import time
 import os
+import logging
 import numpy as np
 from enum import Enum
 from typing import Optional, List
 
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
+
+logger = logging.getLogger("PiFinder.SQMCalibration")
 
 
 class CalibrationState(Enum):
@@ -77,6 +80,9 @@ class UISQMCalibration(UIModule):
         self.dark_frames_raw: List[np.ndarray] = []
         self.sky_frames_raw: List[np.ndarray] = []
 
+        # Store solution for each sky frame (needed for SQM calculation)
+        self.sky_solutions: List[dict] = []
+
         # Calibration results - PROCESSED (8-bit)
         self.bias_offset: Optional[float] = None
         self.read_noise: Optional[float] = None
@@ -88,6 +94,10 @@ class UISQMCalibration(UIModule):
         self.read_noise_raw: Optional[float] = None
         self.dark_current_rate_raw: Optional[float] = None
         self.sky_brightness_raw: Optional[float] = None
+
+        # SQM measurements from sky frames
+        self.sqm_median: Optional[float] = None  # Median SQM from all sky frames
+        self.sqm_values: List[float] = []  # Individual SQM values
 
         # Store original camera settings to restore later
         self.original_exposure = None
@@ -382,6 +392,23 @@ class UISQMCalibration(UIModule):
             )
             y += self.fonts.base.height + 2
 
+        # SQM median result
+        y += 2  # Extra spacing before SQM
+        if self.sqm_median is not None:
+            self.draw.text(
+                (10, y),
+                f"SQM: {self.sqm_median:.2f}",
+                font=self.fonts.base.font,
+                fill=self.colors.get(255),  # Brighter for emphasis
+            )
+        else:
+            self.draw.text(
+                (10, y),
+                "SQM: N/A",
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
+
         # Legend
         self.draw.text(
             (10, 110),
@@ -511,6 +538,7 @@ class UISQMCalibration(UIModule):
         if self.current_frame == 0:
             self.sky_frames = []
             self.sky_frames_raw = []
+            self.sky_solutions = []
 
         # Check if we have a recent solve
         if not self.shared_state.solve_state():
@@ -542,6 +570,9 @@ class UISQMCalibration(UIModule):
         raw_array = self.shared_state.cam_raw()
         if raw_array is not None:
             self.sky_frames_raw.append(raw_array.copy())
+
+        # Store the solution for this frame (copy it so it doesn't change)
+        self.sky_solutions.append(solution.copy())
 
         self.current_frame += 1
 
@@ -638,9 +669,8 @@ class UISQMCalibration(UIModule):
             if self.dark_current_rate_raw < 0:
                 self.dark_current_rate_raw = 0.0
 
-            # 4. Sky brightness (optional, not implemented yet)
-            self.sky_brightness = None
-            self.sky_brightness_raw = None
+            # 4. Calculate SQM for sky frames using the new calibration
+            self._calculate_sky_sqm(exposure_sec)
 
             # 5. Save BOTH calibrations
             self._save_calibration()
@@ -654,6 +684,92 @@ class UISQMCalibration(UIModule):
             self.error_message = f"{type(e).__name__}: {str(e)}"
             traceback.print_exc()
             self.state = CalibrationState.ERROR
+
+    def _calculate_sky_sqm(self, exposure_sec: float):
+        """
+        Calculate SQM for each sky frame using the newly measured calibration.
+        Takes the median SQM across all frames.
+        Uses 8-bit processed pipeline.
+        """
+        try:
+            from PiFinder.sqm import SQM
+
+            if len(self.sky_frames) == 0:
+                logger.warning("No sky frames to calculate SQM")
+                self.sqm_median = None
+                return
+
+            if len(self.sky_solutions) != len(self.sky_frames):
+                logger.error(f"Mismatch: {len(self.sky_frames)} frames but {len(self.sky_solutions)} solutions")
+                self.sqm_median = None
+                return
+
+            # Create SQM calculator with the newly measured calibration
+            # Use PROCESSED (8-bit) pipeline
+            camera_type_processed = f"{self.shared_state.camera_type()}_processed"
+            sqm_calc = SQM(
+                camera_type=camera_type_processed,
+                use_adaptive_noise_floor=True
+            )
+
+            # Manually set the calibration values we just measured
+            if (sqm_calc.noise_estimator is not None and
+                self.bias_offset is not None and
+                self.read_noise is not None and
+                self.dark_current_rate is not None):
+                sqm_calc.noise_estimator.profile.bias_offset = self.bias_offset
+                sqm_calc.noise_estimator.profile.read_noise_adu = self.read_noise
+                sqm_calc.noise_estimator.profile.dark_current_rate = self.dark_current_rate
+
+            self.sqm_values = []
+
+            # Calculate SQM for each sky frame using its stored solution
+            for i, (sky_frame, solution) in enumerate(zip(self.sky_frames, self.sky_solutions)):
+                if solution is None or solution.get("RA") is None:
+                    # No valid solve - skip SQM calculation
+                    logger.warning(f"No valid solve for sky frame {i}, skipping SQM")
+                    continue
+
+                altitude_deg = solution.get("Alt", 90.0)
+
+                # Check if we have matched centroids (needed for SQM calculation)
+                if "matched_centroids" not in solution:
+                    logger.warning(f"No matched centroids for sky frame {i}, skipping SQM")
+                    continue
+
+                centroids = solution["matched_centroids"]
+
+                if len(centroids) == 0:
+                    logger.warning(f"Empty centroids for sky frame {i}, skipping SQM")
+                    continue
+
+                # Calculate SQM for this frame (using processed 8-bit image)
+                # Returns Tuple[Optional[float], Dict]
+                sqm_value, details = sqm_calc.calculate(
+                    centroids=centroids,
+                    solution=solution,
+                    image=sky_frame,
+                    exposure_sec=exposure_sec,
+                    altitude_deg=altitude_deg
+                )
+
+                if sqm_value is not None:
+                    self.sqm_values.append(sqm_value)
+                    logger.info(f"Sky frame {i}: SQM = {sqm_value:.2f}")
+
+            # Calculate median SQM if we have any values
+            if len(self.sqm_values) > 0:
+                self.sqm_median = float(np.median(self.sqm_values))
+                logger.info(f"Median SQM from {len(self.sqm_values)} frames: {self.sqm_median:.2f}")
+            else:
+                self.sqm_median = None
+                logger.warning("No valid SQM values calculated from sky frames")
+
+        except Exception as e:
+            logger.error(f"Failed to calculate sky SQM: {e}")
+            import traceback
+            traceback.print_exc()
+            self.sqm_median = None
 
     def _save_calibration(self):
         """Save calibration data for BOTH raw and processed profiles with measured values"""

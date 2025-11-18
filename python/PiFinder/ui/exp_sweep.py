@@ -89,11 +89,20 @@ class UIExpSweep(UIModule):
             fill=self.colors.get(192),
         )
 
-        # Show current input
-        input_text = self.sqm_input if self.sqm_input else "_"
+        # Show current input with decimal separator (XX.XX format)
+        if self.sqm_input:
+            if len(self.sqm_input) <= 2:
+                # Show what we have so far
+                display = self.sqm_input + "_" * (2 - len(self.sqm_input)) + "." + "__"
+            else:
+                # Insert decimal point after 2 digits
+                display = self.sqm_input[:2] + "." + self.sqm_input[2:] + "_" * (4 - len(self.sqm_input))
+        else:
+            display = "__.__"
+
         self.draw.text(
             (10, 65),
-            f"SQM: {input_text}",
+            f"SQM: {display}",
             font=self.fonts.large.font,
             fill=self.colors.get(255),
         )
@@ -101,7 +110,7 @@ class UIExpSweep(UIModule):
         # Legend
         self.draw.text(
             (10, 95),
-            "0-9: Enter",
+            "0-9: Enter  -: Del",
             font=self.fonts.base.font,
             fill=self.colors.get(128),
         )
@@ -163,11 +172,11 @@ class UIExpSweep(UIModule):
             # Start sweep
             self.sweep_started = True
             self.start_time = time.time()
-            # Get initial file count from most recent sweep (if any)
-            self.initial_file_count = self._get_total_sweep_files()
             # Send command with reference SQM
             cmd = f"capture_exp_sweep:{self.reference_sqm if self.reference_sqm else 0.0}"
             self.command_queues["camera"].put(cmd)
+            # Wait a moment for sweep directory to be created
+            time.sleep(0.2)
 
         self.draw.text(
             (10, 15),
@@ -176,9 +185,8 @@ class UIExpSweep(UIModule):
             fill=self.colors.get(255),
         )
 
-        # Count new files created since we started
-        current_total = self._get_total_sweep_files()
-        file_count = max(0, current_total - self.initial_file_count)
+        # Count files in sweep directory that was created after we started
+        file_count = self._get_sweep_files_since_start()
         progress_pct = min(100, int((file_count / self.total_images) * 100))
 
         # Show actual file count
@@ -228,19 +236,26 @@ class UIExpSweep(UIModule):
         if file_count >= self.total_images:
             self.state = SweepState.COMPLETE
 
-    def _get_total_sweep_files(self):
-        """Count total PNG files in most recent sweep directory"""
+    def _get_sweep_files_since_start(self):
+        """Count PNG files in sweep directory created after we started"""
         try:
             captures_dir = Path(utils.data_dir) / "captures"
             if not captures_dir.exists():
                 return 0
 
-            # Find most recent sweep directory
-            sweep_dirs = sorted(captures_dir.glob("sweep_*"), key=lambda p: p.name, reverse=True)
+            # Find sweep directories created after we started (with tolerance)
+            sweep_dirs = []
+            for sweep_dir in captures_dir.glob("sweep_*"):
+                # Check if directory was created after we started (minus 1 second tolerance)
+                if sweep_dir.stat().st_ctime >= (self.start_time - 1):
+                    sweep_dirs.append(sweep_dir)
+
             if not sweep_dirs:
                 return 0
 
-            most_recent_sweep = sweep_dirs[0]
+            # Use the most recent one (should be ours)
+            most_recent_sweep = max(sweep_dirs, key=lambda p: p.stat().st_ctime)
+
             # Count processed PNG files (the ones we care about for progress)
             png_files = list(most_recent_sweep.glob("*_processed.png"))
             return len(png_files)
@@ -278,7 +293,7 @@ class UIExpSweep(UIModule):
             if number == 0 and self.sqm_input == "":
                 # Skip SQM input
                 self.state = SweepState.CONFIRM
-            elif len(self.sqm_input) < 5:  # Limit input length
+            elif len(self.sqm_input) < 4:  # Limit to 4 digits (XX.XX)
                 self.sqm_input += str(number)
         elif self.state == SweepState.CONFIRM:
             if number == 0:
@@ -286,18 +301,25 @@ class UIExpSweep(UIModule):
                 if self.remove_from_stack:
                     self.remove_from_stack()
 
+    def key_minus(self):
+        """Handle minus button - delete last digit"""
+        if self.state == SweepState.ASK_SQM:
+            if self.sqm_input:
+                self.sqm_input = self.sqm_input[:-1]
+
     def key_square(self):
         """Handle square button"""
         if self.state == SweepState.ASK_SQM:
             # Accept SQM input and move to confirm
-            if self.sqm_input:
+            if self.sqm_input and len(self.sqm_input) == 4:
+                # Convert to XX.XX format
                 try:
-                    self.reference_sqm = float(self.sqm_input)
+                    self.reference_sqm = float(self.sqm_input[:2] + "." + self.sqm_input[2:])
                     self.state = SweepState.CONFIRM
                 except ValueError:
                     # Invalid input, clear and try again
                     self.sqm_input = ""
-            else:
+            elif not self.sqm_input:
                 # No input, skip to confirm
                 self.state = SweepState.CONFIRM
         elif self.state == SweepState.CONFIRM:
