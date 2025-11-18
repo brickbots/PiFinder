@@ -108,6 +108,10 @@ class UISQMCalibration(UIModule):
         # with minimum of 400ms to ensure good SNR
         self.exposure_time_us = None
 
+        # Timeout tracking for sky frame capture
+        self.sky_capture_start_time = None
+        self.sky_capture_timeout = 30  # seconds - skip if no solve after this
+
     def active(self):
         """Called when module becomes active"""
         # Store original camera settings
@@ -310,12 +314,47 @@ class UISQMCalibration(UIModule):
                 fill=self.colors.get(128),
             )
 
-        self.draw.text(
-            (10, 90),
-            "Hold steady...",
-            font=self.fonts.base.font,
-            fill=self.colors.get(64),
-        )
+        # Show different message for sky frames (which need plate solve)
+        if label == "SKY":
+            # Show timeout countdown if waiting for solve
+            if self.sky_capture_start_time is not None and current == 0:
+                elapsed = time.time() - self.sky_capture_start_time
+                remaining = int(self.sky_capture_timeout - elapsed)
+                if remaining > 0:
+                    self.draw.text(
+                        (10, 90),
+                        f"Wait for solve: {remaining}s",
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(128),
+                    )
+                else:
+                    self.draw.text(
+                        (10, 90),
+                        "No solve detected",
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(128),
+                    )
+            else:
+                self.draw.text(
+                    (10, 90),
+                    "Hold steady...",
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(64),
+                )
+            # Show skip option
+            self.draw.text(
+                (10, 110),
+                "0: SKIP SKY",
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
+        else:
+            self.draw.text(
+                (10, 90),
+                "Hold steady...",
+                font=self.fonts.base.font,
+                fill=self.colors.get(64),
+            )
 
     def _draw_analyzing(self):
         """Draw analyzing screen"""
@@ -539,6 +578,19 @@ class UISQMCalibration(UIModule):
             self.sky_frames = []
             self.sky_frames_raw = []
             self.sky_solutions = []
+            # Start timeout timer
+            if self.sky_capture_start_time is None:
+                self.sky_capture_start_time = time.time()
+
+        # Check for timeout - if no solve after timeout, skip sky frames
+        if self.sky_capture_start_time is not None:
+            elapsed = time.time() - self.sky_capture_start_time
+            if elapsed > self.sky_capture_timeout and self.current_frame == 0:
+                logger.warning(f"Sky frame capture timed out after {self.sky_capture_timeout}s - skipping to analysis")
+                # Skip to analyzing with no sky frames
+                self.state = CalibrationState.ANALYZING
+                self.current_frame = 0
+                return
 
         # Check if we have a recent solve
         if not self.shared_state.solve_state():
@@ -874,11 +926,18 @@ class UISQMCalibration(UIModule):
                 self.remove_from_stack()
 
     def key_number(self, number):
-        """Number key cancels calibration"""
+        """Number key cancels calibration or skips sky frames"""
         if number == 0:
-            # Cancel and exit
-            if self.remove_from_stack:
-                self.remove_from_stack()
+            # If capturing sky frames, skip to analysis
+            if self.state == CalibrationState.CAPTURING_SKY:
+                logger.info("User skipped sky frame capture")
+                self.state = CalibrationState.ANALYZING
+                self.current_frame = 0
+            # Otherwise cancel and exit
+            elif self.state in [CalibrationState.INTRO, CalibrationState.CAP_ON_INSTRUCTION,
+                               CalibrationState.CAP_OFF_INSTRUCTION]:
+                if self.remove_from_stack:
+                    self.remove_from_stack()
 
     # ============================================
     # Marking menu for debug options
