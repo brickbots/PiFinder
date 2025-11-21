@@ -48,13 +48,17 @@ class UIObjectDetails(UIModule):
 
         self.screen_direction = self.config_object.get_option("screen_direction")
         self.mount_type = self.config_object.get_option("mount_type")
+        self._chart_gen = None  # Cached chart generator instance
         self.object = self.item_definition["object"]
         self.object_list = self.item_definition["object_list"]
         self.object_display_mode = DM_LOCATE
         self.object_image = None
+        self._is_showing_loading_chart = False  # Track if showing "Loading..." for deep chart
+        self._force_deep_chart = False  # Toggle: force deep chart even if POSS image exists
+        self._is_deep_chart = False  # Track if currently showing a deep chart (auto or forced)
 
-        # Marking Menu - Just default help for now
-        self.marking_menu = MarkingMenu(
+        # Default Marking Menu
+        self._default_marking_menu = MarkingMenu(
             left=MarkingMenuOption(),
             right=MarkingMenuOption(),
             down=MarkingMenuOption(
@@ -66,6 +70,14 @@ class UIObjectDetails(UIModule):
                     right=MarkingMenuOption(label=_("ALIGN"), callback=self.mm_align),
                 ),
             ),
+        )
+
+        # Deep Chart Marking Menu - Settings access
+        self._deep_chart_marking_menu = MarkingMenu(
+            up=MarkingMenuOption(label=_("SETTINGS"), menu_jump="obj_chart_settings"),
+            right=MarkingMenuOption(label=_("CROSS"), menu_jump="obj_chart_crosshair"),
+            down=MarkingMenuOption(label=_("STYLE"), menu_jump="obj_chart_style"),
+            left=MarkingMenuOption(label=_("LM"), menu_jump="obj_chart_lm"),
         )
 
         # Used for displaying obsevation counts
@@ -106,6 +118,15 @@ class UIObjectDetails(UIModule):
 
         self.active()  # fill in activation time
         self.update_object_info()
+
+    @property
+    def marking_menu(self):
+        """
+        Return appropriate marking menu based on current view mode
+        """
+        if self._is_deep_chart:
+            return self._deep_chart_marking_menu
+        return self._default_marking_menu
 
     def _layout_designator(self):
         """
@@ -218,6 +239,11 @@ class UIObjectDetails(UIModule):
             roll = solution["Roll"]
 
         magnification = self.config_object.equipment.calc_magnification()
+        prev_object_image = self.object_image
+
+        # Get or create chart generator (owned by UI layer, not cat_images)
+        chart_gen = self._get_chart_generator()
+
         self.object_image = cat_images.get_display_image(
             self.object,
             str(self.config_object.equipment.active_eyepiece),
@@ -226,10 +252,34 @@ class UIObjectDetails(UIModule):
             self.display_class,
             burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
             magnification=magnification,
+            config_object=self.config_object,
+            shared_state=self.shared_state,
+            chart_generator=chart_gen,  # Pass our chart generator to cat_images
+            force_deep_chart=self._force_deep_chart,  # Toggle state
+        )
+
+        # Track if we're showing a "Loading..." placeholder for deep chart
+        # Check if image has the special "is_loading_placeholder" attribute
+        self._is_showing_loading_chart = (
+            self.object_image is not None
+            and hasattr(self.object_image, 'is_loading_placeholder')
+            and self.object_image.is_loading_placeholder
+            and self.object_display_mode in [DM_POSS, DM_SDSS]
+        )
+
+        # Detect if we're showing a deep chart (forced or automatic due to no POSS image)
+        # Deep charts are identified by the is_loading_placeholder attribute (loading or False)
+        self._is_deep_chart = (
+            self.object_image is not None
+            and hasattr(self.object_image, 'is_loading_placeholder')
+            and self.object_display_mode in [DM_POSS, DM_SDSS]
         )
 
     def active(self):
         self.activation_time = time.time()
+        # Regenerate object info when returning to this screen
+        # This ensures config changes (like LM) are applied
+        self.update_object_info()
 
     def _check_catalog_initialized(self):
         code = self.object.catalog_code
@@ -238,6 +288,214 @@ class UIObjectDetails(UIModule):
             return True
         catalog = self.catalogs.get_catalog_by_code(code)
         return catalog and catalog.initialized
+
+    def _get_pulse_factor(self):
+        """
+        Calculate current pulse factor for animations
+        Returns tuple: (pulse_factor, size_multiplier, color_intensity)
+        - pulse_factor: 0.0 to 1.0 sine wave
+        - size_multiplier: factor to multiply sizes by (0.6 to 1.0 for smoother animation)
+        - color_intensity: brightness value (48 to 128 for more visible change)
+        """
+        import time
+        import numpy as np
+
+        # Pulsate: full cycle every 2 seconds
+        pulse_period = 2.0  # seconds
+        t = time.time() % pulse_period
+        # Sine wave for smooth pulsation (0.0 to 1.0 range)
+        pulse_factor = 0.5 + 0.5 * np.sin(2 * np.pi * t / pulse_period)
+
+        # Size multiplier: 0.6 to 1.0 (smaller range, smoother looking)
+        size_multiplier = 0.6 + 0.4 * pulse_factor
+
+        # Color intensity: 48 to 128 (brighter and more visible)
+        color_intensity = int(48 + 80 * pulse_factor)
+
+        return pulse_factor, size_multiplier, color_intensity
+
+    def _draw_crosshair_simple(self, pulse=False):
+        """
+        Draw simple crosshair with 4 lines and center gap
+
+        Args:
+            pulse: If True, apply pulsation effect
+        """
+        width, height = self.display_class.resolution
+        cx, cy = width / 2.0, height / 2.0
+
+        if pulse:
+            _, size_mult, color_intensity = self._get_pulse_factor()
+            # Size pulsates from 6 down to 3 pixels (inverted - more steps)
+            outer = 6.0 - (3.0 * size_mult)  # 6.0 down to 3.0 (more visible integer steps)
+            marker_color = self.colors.get(color_intensity)
+        else:
+            # Fixed size and brightness
+            outer = 4
+            marker_color = self.colors.get(64)
+
+        inner = 2  # Fixed gap (small center)
+
+        # Crosshair outline (4 short lines with gap in middle)
+        self.draw.line([cx - outer, cy, cx - inner, cy], fill=marker_color, width=1)  # Left
+        self.draw.line([cx + inner, cy, cx + outer, cy], fill=marker_color, width=1)  # Right
+        self.draw.line([cx, cy - outer, cx, cy - inner], fill=marker_color, width=1)  # Top
+        self.draw.line([cx, cy + inner, cx, cy + outer], fill=marker_color, width=1)  # Bottom
+
+    def _draw_crosshair_circle(self, pulse=False):
+        """
+        Draw circle reticle
+
+        Args:
+            pulse: If True, apply pulsation effect
+        """
+        width, height = self.display_class.resolution
+        cx, cy = width / 2.0, height / 2.0
+
+        if pulse:
+            _, size_mult, color_intensity = self._get_pulse_factor()
+            radius = 8.0 - (4.0 * size_mult)  # 8.0 down to 4.0 (more steps)
+            marker_color = self.colors.get(color_intensity)
+        else:
+            radius = 4  # Smaller fixed size
+            marker_color = self.colors.get(64)
+
+        # Draw circle
+        bbox = [cx - radius, cy - radius, cx + radius, cy + radius]
+        self.draw.ellipse(bbox, outline=marker_color, width=1)
+
+        # Small center dot
+        self.draw.ellipse([cx - 1, cy - 1, cx + 1, cy + 1], fill=marker_color)
+
+    def _draw_crosshair_bullseye(self, pulse=False):
+        """
+        Draw concentric circles (bullseye)
+
+        Args:
+            pulse: If True, apply pulsation effect
+        """
+        width, height = self.display_class.resolution
+        cx, cy = width / 2.0, height / 2.0
+
+        if pulse:
+            _, size_mult, color_intensity = self._get_pulse_factor()
+            marker_color = self.colors.get(color_intensity)
+            # Pulsate from larger to smaller (more visible steps)
+            radii = [4.0 - (2.0 * size_mult), 8.0 - (4.0 * size_mult), 12.0 - (6.0 * size_mult)]  # 4→2, 8→4, 12→6
+        else:
+            marker_color = self.colors.get(64)
+            radii = [2, 4, 6]  # Smaller fixed radii
+
+        # Draw concentric circles
+        for radius in radii:
+            bbox = [cx - radius, cy - radius, cx + radius, cy + radius]
+            self.draw.ellipse(bbox, outline=marker_color, width=1)
+
+    def _draw_crosshair_brackets(self, pulse=False):
+        """
+        Draw corner brackets (frame corners)
+
+        Args:
+            pulse: If True, apply pulsation effect
+        """
+        width, height = self.display_class.resolution
+        cx, cy = width / 2.0, height / 2.0
+
+        if pulse:
+            _, size_mult, color_intensity = self._get_pulse_factor()
+            size = 8.0 - (4.0 * size_mult)  # 8.0 down to 4.0 (more steps)
+            length = 5.0 - (2.0 * size_mult)  # 5.0 down to 3.0 (more steps)
+            marker_color = self.colors.get(color_intensity)
+        else:
+            size = 4  # Smaller distance from center to bracket corner
+            length = 3  # Shorter bracket arms
+            marker_color = self.colors.get(64)
+
+        # Top-left bracket
+        self.draw.line([cx - size, cy - size, cx - size + length, cy - size], fill=marker_color, width=1)
+        self.draw.line([cx - size, cy - size, cx - size, cy - size + length], fill=marker_color, width=1)
+
+        # Top-right bracket
+        self.draw.line([cx + size, cy - size, cx + size - length, cy - size], fill=marker_color, width=1)
+        self.draw.line([cx + size, cy - size, cx + size, cy - size + length], fill=marker_color, width=1)
+
+        # Bottom-left bracket
+        self.draw.line([cx - size, cy + size, cx - size + length, cy + size], fill=marker_color, width=1)
+        self.draw.line([cx - size, cy + size, cx - size, cy + size - length], fill=marker_color, width=1)
+
+        # Bottom-right bracket
+        self.draw.line([cx + size, cy + size, cx + size - length, cy + size], fill=marker_color, width=1)
+        self.draw.line([cx + size, cy + size, cx + size, cy + size - length], fill=marker_color, width=1)
+
+    def _draw_crosshair_dots(self, pulse=False):
+        """
+        Draw four corner dots
+
+        Args:
+            pulse: If True, apply pulsation effect
+        """
+        width, height = self.display_class.resolution
+        cx, cy = width / 2.0, height / 2.0
+
+        if pulse:
+            _, size_mult, color_intensity = self._get_pulse_factor()
+            distance = 8.0 - (4.0 * size_mult)  # 8.0 down to 4.0 (more steps)
+            dot_size = 3.0 - (1.5 * size_mult)  # 3.0 down to 1.5 (more steps)
+            marker_color = self.colors.get(color_intensity)
+        else:
+            distance = 4  # Smaller distance from center to dots
+            dot_size = 1  # Smaller dot radius
+            marker_color = self.colors.get(64)
+
+        # Four corner dots
+        positions = [
+            (cx - distance, cy - distance),  # Top-left
+            (cx + distance, cy - distance),  # Top-right
+            (cx - distance, cy + distance),  # Bottom-left
+            (cx + distance, cy + distance),  # Bottom-right
+        ]
+
+        for x, y in positions:
+            bbox = [x - dot_size, y - dot_size, x + dot_size, y + dot_size]
+            self.draw.ellipse(bbox, fill=marker_color)
+
+    def _draw_crosshair_cross(self, pulse=False):
+        """
+        Draw full cross (lines extend across entire screen)
+
+        Args:
+            pulse: If True, apply pulsation effect
+        """
+        width, height = self.display_class.resolution
+        cx, cy = width / 2.0, height / 2.0
+
+        if pulse:
+            _, size_mult, color_intensity = self._get_pulse_factor()
+            marker_color = self.colors.get(color_intensity)
+        else:
+            marker_color = self.colors.get(64)
+
+        # Horizontal line
+        self.draw.line([0, cy, width, cy], fill=marker_color, width=1)
+        # Vertical line
+        self.draw.line([cx, 0, cx, height], fill=marker_color, width=1)
+
+    def _draw_fov_circle(self):
+        """
+        Draw FOV circle to show eyepiece field of view boundary
+        Matches the POSS view circular crop
+        """
+        width, height = self.display_class.resolution
+        cx, cy = width / 2.0, height / 2.0
+
+        # Use slightly smaller than screen to show the boundary
+        # Screen is typically 128x128, so use radius that fits within screen
+        radius = min(width, height) / 2.0 - 2  # Leave 2 pixel margin
+
+        # Draw subtle circle
+        marker_color = self.colors.get(32)  # Very dim, just to show boundary
+        bbox = [cx - radius, cy - radius, cx + radius, cy + radius]
+        self.draw.ellipse(bbox, outline=marker_color, width=1)
 
     def _render_pointing_instructions(self):
         # Pointing Instructions
@@ -378,13 +636,68 @@ class UIObjectDetails(UIModule):
                 fill=self.colors.get(indicator_color),
             )
 
+    def _get_chart_generator(self):
+        """Get the global chart generator singleton"""
+        from PiFinder.deep_chart import get_chart_generator
+        import logging
+        logger = logging.getLogger("ObjectDetails")
+
+        chart_gen = get_chart_generator(self.config_object, self.shared_state)
+        logger.info(f">>> _get_chart_generator returning: {chart_gen}")
+        return chart_gen
+
     def update(self, force=True):
+        import logging
+        logger = logging.getLogger("ObjectDetails")
+
+        # Check if we're showing "Loading..." for a deep chart
+        # and if catalog is now ready, regenerate the image
+        if self._is_showing_loading_chart:
+            try:
+                from PiFinder.star_catalog import CatalogState
+
+                # Use cached chart generator to preserve catalog state
+                chart_gen = self._get_chart_generator()
+                state = chart_gen.get_catalog_state()
+                logger.info(f">>> Update check: catalog state = {state}")
+
+                if state == CatalogState.READY:
+                    # Catalog ready! Regenerate display
+                    logger.info(">>> Catalog READY! Regenerating image...")
+                    self._is_showing_loading_chart = False
+                    self.update_object_info()
+                    force = True  # Force screen update
+            except Exception as e:
+                logger.error(f">>> Update check failed: {e}", exc_info=True)
+                pass
         # Clear Screen
         self.clear_screen()
 
         # paste image
         if self.object_display_mode in [DM_POSS, DM_SDSS]:
             self.screen.paste(self.object_image)
+
+            # If showing deep chart, draw crosshair based on config
+            if self._force_deep_chart and self.object_image is not None:
+                crosshair_mode = self.config_object.get_option("obj_chart_crosshair")
+                crosshair_style = self.config_object.get_option("obj_chart_crosshair_style")
+
+                if crosshair_mode != "off":
+                    # Determine if we should pulse
+                    pulse = (crosshair_mode == "pulse")
+
+                    # Call the appropriate drawing method based on style
+                    style_methods = {
+                        "simple": self._draw_crosshair_simple,
+                        "circle": self._draw_crosshair_circle,
+                        "bullseye": self._draw_crosshair_bullseye,
+                        "brackets": self._draw_crosshair_brackets,
+                        "dots": self._draw_crosshair_dots,
+                        "cross": self._draw_crosshair_cross,
+                    }
+
+                    draw_method = style_methods.get(crosshair_style, self._draw_crosshair_simple)
+                    draw_method(pulse=pulse)
 
         if self.object_display_mode == DM_DESC or self.object_display_mode == DM_LOCATE:
             # catalog and entry field i.e. NGC-311
@@ -478,6 +791,40 @@ class UIObjectDetails(UIModule):
         """
         return True
 
+    def mm_toggle_crosshair(self, _marking_menu, _menu_item) -> bool:
+        """
+        Cycle through crosshair modes: off -> on -> pulse -> off
+        """
+        current_mode = self.config_object.get_option("obj_chart_crosshair")
+        modes = ["off", "on", "pulse"]
+        current_index = modes.index(current_mode) if current_mode in modes else 0
+        next_index = (current_index + 1) % len(modes)
+        self.config_object.set_option("obj_chart_crosshair", modes[next_index])
+        return False  # Don't exit, just update
+
+    def mm_cycle_style(self, _marking_menu, _menu_item) -> bool:
+        """
+        Cycle through crosshair styles
+        """
+        current_style = self.config_object.get_option("obj_chart_crosshair_style")
+        styles = ["simple", "circle", "bullseye", "brackets", "dots", "cross"]
+        current_index = styles.index(current_style) if current_style in styles else 0
+        next_index = (current_index + 1) % len(styles)
+        self.config_object.set_option("obj_chart_crosshair_style", styles[next_index])
+        return False  # Don't exit, just update
+
+    def mm_toggle_lm_mode(self, _marking_menu, _menu_item) -> bool:
+        """
+        Toggle between auto and fixed LM mode
+        """
+        current_mode = self.config_object.get_option("obj_chart_lm_mode")
+        new_mode = "fixed" if current_mode == "auto" else "auto"
+        self.config_object.set_option("obj_chart_lm_mode", new_mode)
+        # If switching to auto, regenerate the chart with new calculation
+        if new_mode == "auto":
+            self.update_object_info()
+        return False  # Don't exit, just update
+
     def mm_align(self, _marking_menu, _menu_item) -> bool:
         """
         Called from marking menu to align on curent object
@@ -545,3 +892,15 @@ class UIObjectDetails(UIModule):
                 typeconst.next()
         else:
             self.change_fov(-1)
+
+    def key_number(self, number):
+        """
+        Handle number key presses
+        0: Toggle between POSS image and deep chart (when both are available)
+        """
+        if number == 0:
+            # Toggle the flag
+            self._force_deep_chart = not self._force_deep_chart
+            # Reload image with new setting
+            self.update_object_info()
+            self.update()

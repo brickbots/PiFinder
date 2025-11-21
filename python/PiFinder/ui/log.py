@@ -47,8 +47,16 @@ class UILog(UIModule):
         roll = 0
         if solution:
             roll = solution["Roll"]
+
+        # Get chart generator singleton for deep chart support
+        from PiFinder.deep_chart import get_chart_generator
+        chart_gen = get_chart_generator(self.config_object, self.shared_state)
+
         self.object_image = cat_images.get_display_image(
-            self.object, "POSS", 1, roll, self.display_class, burn_in=False
+            self.object, "POSS", 1, roll, self.display_class, burn_in=False,
+            config_object=self.config_object,
+            shared_state=self.shared_state,
+            chart_generator=chart_gen
         )
 
         self.menu_index = 1  # Observability

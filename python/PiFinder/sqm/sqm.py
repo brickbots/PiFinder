@@ -213,7 +213,7 @@ class SQM:
 
         for flux, mag in zip(star_fluxes, star_mags):
             if flux <= 0:
-                logger.warning(
+                logger.debug(
                     f"Skipping star with flux={flux:.1f} ADU (mag={mag:.2f})"
                 )
                 mzeros.append(None)  # Keep array aligned
@@ -676,7 +676,7 @@ def update_sqm_if_needed(
                 last_update=datetime.now().isoformat(),
             )
             shared_state.set_sqm(new_sqm_state)
-            logger.debug(f"SQM: {sqm_value:.2f} mag/arcsec²")
+            # logger.debug(f"SQM: {sqm_value:.2f} mag/arcsec²")
             return True
         else:
             logger.warning("SQM calculation returned None")

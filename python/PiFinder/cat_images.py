@@ -27,6 +27,10 @@ def get_display_image(
     display_class,
     burn_in=True,
     magnification=None,
+    config_object=None,
+    shared_state=None,
+    chart_generator=None,  # Pass in from UI layer instead of creating here
+    force_deep_chart=False,  # Toggle: force deep chart even if POSS image exists
 ):
     """
     Returns a 128x128 image buffer for
@@ -36,20 +40,89 @@ def get_display_image(
         fov: 1-.125
     roll:
         degrees
+    config_object:
+        Required for deep chart generation
+    shared_state:
+        Required for deep chart generation
     """
 
     object_image_path = resolve_image_name(catalog_object, source="POSS")
     logger.debug("object_image_path = %s", object_image_path)
-    if not os.path.exists(object_image_path):
-        return_image = Image.new("RGB", display_class.resolution)
-        ri_draw = ImageDraw.Draw(return_image)
-        if burn_in:
-            ri_draw.text(
-                (30, 50),
-                _("No Image"),
-                font=display_class.fonts.large.font,
-                fill=display_class.colors.get(128),
-            )
+
+    # If force_deep_chart is True, skip POSS image even if it exists
+    if force_deep_chart or not os.path.exists(object_image_path):
+        # Try to generate deep chart if catalog available
+        return_image = None
+
+        if config_object and shared_state:
+            from pathlib import Path
+            from PiFinder import utils
+
+            deep_catalog_path = Path(utils.astro_data_dir, "deep_stars", "metadata.json")
+
+            logger.info(f"Deep chart request: chart_generator={chart_generator is not None}, catalog_exists={deep_catalog_path.exists()}, path={deep_catalog_path}")
+
+            # Try to generate deep chart if chart_generator was passed in
+            if chart_generator is not None and deep_catalog_path.exists():
+                try:
+                    from PiFinder.image_utils import create_loading_image
+
+                    # Ensure catalog loading started
+                    chart_generator.ensure_catalog_loading()
+
+                    # Try to generate chart
+                    chart_image = chart_generator.generate_chart(
+                        catalog_object,
+                        (display_class.fov_res, display_class.fov_res),
+                        burn_in=burn_in,
+                        display_class=display_class,
+                        roll=roll
+                    )
+
+                    if chart_image is None:
+                        # Catalog not ready yet, show "Loading..." with progress
+                        if chart_generator.catalog:
+                            progress_text = chart_generator.catalog.load_progress
+                            progress_percent = chart_generator.catalog.load_percent
+                        else:
+                            progress_text = "Initializing..."
+                            progress_percent = 0
+
+                        return_image = create_loading_image(
+                            display_class,
+                            message="Loading Chart...",
+                            progress_text=progress_text,
+                            progress_percent=progress_percent
+                        )
+                        # Mark image as "loading" so UI knows to refresh
+                        return_image.is_loading_placeholder = True
+                    else:
+                        # Chart ready, convert to red
+                        return_image = ImageChops.multiply(
+                            chart_image.convert("RGB"),
+                            display_class.colors.red_image
+                        )
+                        return_image.is_loading_placeholder = False
+                except Exception as e:
+                    logger.error(f"Chart generation failed: {e}", exc_info=True)
+                    return_image = None
+            else:
+                if chart_generator is None:
+                    logger.warning("Deep chart requested but chart_generator is None")
+                if not deep_catalog_path.exists():
+                    logger.warning(f"Deep star catalog not found at {deep_catalog_path}")
+
+        # Fallback: "No Image" placeholder
+        if return_image is None:
+            return_image = Image.new("RGB", display_class.resolution)
+            ri_draw = ImageDraw.Draw(return_image)
+            if burn_in:
+                ri_draw.text(
+                    (30, 50),
+                    _("No Image"),
+                    font=display_class.fonts.large.font,
+                    fill=display_class.colors.get(128),
+                )
     else:
         return_image = Image.open(object_image_path)
 
@@ -123,45 +196,29 @@ def get_display_image(
             ri_draw = ImageDraw.Draw(return_image)
 
     if burn_in:
-        # Top text - FOV on left, magnification on right
-        ui_utils.shadow_outline_text(
-            ri_draw,
-            (1, display_class.titlebar_height - 1),
-            f"{fov:0.2f}°",
-            font=display_class.fonts.base,
-            align="left",
-            fill=display_class.colors.get(254),
-            shadow_color=display_class.colors.get(0),
-            outline=2,
-        )
+        # Use shared overlay utility for consistency with generated charts
+        # Create fake eyepiece object from text if needed
+        from PiFinder.image_utils import add_image_overlays
 
-        magnification_text = (
-            f"{magnification:.0f}x" if magnification and magnification > 0 else "?x"
-        )
-        ui_utils.shadow_outline_text(
-            ri_draw,
-            (
-                display_class.resX - (display_class.fonts.base.width * 4),
-                display_class.titlebar_height - 1,
-            ),
-            magnification_text,
-            font=display_class.fonts.base,
-            align="right",
-            fill=display_class.colors.get(254),
-            shadow_color=display_class.colors.get(0),
-            outline=2,
-        )
+        # Parse eyepiece text to get eyepiece object
+        # If we have config_object, use actual eyepiece
+        if config_object and hasattr(config_object, 'equipment'):
+            eyepiece_obj = config_object.equipment.active_eyepiece
+        else:
+            # Create minimal eyepiece object from text for overlay
+            class FakeEyepiece:
+                def __init__(self, text):
+                    self.focal_length_mm = 0
+                    self.name = text
+            eyepiece_obj = FakeEyepiece(eyepiece_text)
 
-        # Bottom text - only eyepiece information
-        ui_utils.shadow_outline_text(
-            ri_draw,
-            (1, display_class.resY - (display_class.fonts.base.height * 1.1)),
-            eyepiece_text,
-            font=display_class.fonts.base,
-            align="left",
-            fill=display_class.colors.get(128),
-            shadow_color=display_class.colors.get(0),
-            outline=2,
+        return_image = add_image_overlays(
+            return_image,
+            display_class,
+            fov,
+            magnification,
+            eyepiece_obj,
+            burn_in=True
         )
 
     return return_image

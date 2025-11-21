@@ -173,7 +173,7 @@ class NoiseFloorEstimator:
             logger.debug("Requesting zero-second calibration sample")
 
         if not is_valid:
-            logger.warning(
+            logger.debug(
                 f"Noise floor estimate may be invalid: {reason} "
                 f"(floor={noise_floor:.1f}, median={np.median(image):.1f})"
             )

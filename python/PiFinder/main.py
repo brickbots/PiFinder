@@ -545,9 +545,52 @@ def main(
         # stop_profiling(profiler, startup_profile_start)
 
         log_time = True
+
+        # Set up Pygame event handling if using Pygame display
+        pygame_events_enabled = display_hardware in ["pg_128", "pg_320"]
+        if pygame_events_enabled:
+            import pygame
+            from PiFinder.keyboard_interface import KeyboardInterface
+            logger.info("Pygame event polling enabled for keyboard input")
+
+            # Key mapping for Pygame
+            pygame_key_map = {
+                pygame.K_LEFT: KeyboardInterface.LEFT,
+                pygame.K_UP: KeyboardInterface.UP,
+                pygame.K_DOWN: KeyboardInterface.DOWN,
+                pygame.K_RIGHT: KeyboardInterface.RIGHT,
+                pygame.K_q: KeyboardInterface.PLUS,
+                pygame.K_a: KeyboardInterface.MINUS,
+                pygame.K_z: KeyboardInterface.SQUARE,
+                pygame.K_m: KeyboardInterface.LNG_SQUARE,
+                pygame.K_0: 0, pygame.K_1: 1, pygame.K_2: 2, pygame.K_3: 3, pygame.K_4: 4,
+                pygame.K_5: 5, pygame.K_6: 6, pygame.K_7: 7, pygame.K_8: 8, pygame.K_9: 9,
+                pygame.K_w: KeyboardInterface.ALT_PLUS,
+                pygame.K_s: KeyboardInterface.ALT_MINUS,
+                pygame.K_d: KeyboardInterface.ALT_LEFT,
+                pygame.K_r: KeyboardInterface.ALT_UP,
+                pygame.K_f: KeyboardInterface.ALT_DOWN,
+                pygame.K_g: KeyboardInterface.ALT_RIGHT,
+                pygame.K_e: KeyboardInterface.ALT_0,
+                pygame.K_j: KeyboardInterface.LNG_LEFT,
+                pygame.K_i: KeyboardInterface.LNG_UP,
+                pygame.K_k: KeyboardInterface.LNG_DOWN,
+                pygame.K_l: KeyboardInterface.LNG_RIGHT,
+            }
+
         # Start of main except handler / loop
         try:
             while True:
+                # Poll Pygame events if using Pygame display
+                if pygame_events_enabled:
+                    for event in pygame.event.get():
+                        if event.type == pygame.KEYDOWN:
+                            if event.key in pygame_key_map:
+                                keyboard_queue.put(pygame_key_map[event.key])
+                        elif event.type == pygame.QUIT:
+                            logger.info("Pygame window closed, exiting...")
+                            raise KeyboardInterrupt
+
                 # Console
                 try:
                     console_msg = console_queue.get(block=False)
@@ -628,6 +671,9 @@ def main(
                             shared_state.set_sats(gps_content)
                 except queue.Empty:
                     pass
+
+                # Deep catalog loading removed - now lazy-loads on first chart view
+                # (cat_images.py triggers loading when needed)
 
                 # ui queue
                 try:
@@ -1013,17 +1059,18 @@ if __name__ == "__main__":
         rlogger.warn("not using camera")
         from PiFinder import camera_none as camera  # type: ignore[no-redef]
 
-    if args.keyboard.lower() == "pi":
-        from PiFinder import keyboard_pi as keyboard
-
+    # When using Pygame display, use built-in event polling (no keyboard subprocess needed)
+    if display_hardware in ["pg_128", "pg_320"]:
+        from PiFinder import keyboard_none as keyboard
+        rlogger.info("using pygame built-in keyboard (no subprocess)")
+    elif args.keyboard.lower() == "pi":
+        from PiFinder import keyboard_pi as keyboard  # type: ignore[no-redef]
         rlogger.info("using pi keyboard hat")
     elif args.keyboard.lower() == "local":
         from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
-
         rlogger.info("using local keyboard")
     elif args.keyboard.lower() == "none":
-        from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
-
+        from PiFinder import keyboard_none as keyboard
         rlogger.warning("using no keyboard")
 
     if args.lang:
