@@ -27,7 +27,7 @@ import numpy as np
 # Import healpy at module level to avoid first-use delay
 # This ensures the slow import happens during initialization, not during first chart render
 try:
-    import healpy as hp  # type: ignore[import-not-found]
+    import healpy as hp  # type: ignore[import-untyped]
     _HEALPY_AVAILABLE = True
 except ImportError:
     hp = None
@@ -38,6 +38,17 @@ logger = logging.getLogger("PiFinder.StarCatalog")
 # Star record format (must match healpix_builder.py)
 STAR_RECORD_FORMAT = "<IBBBbb"
 STAR_RECORD_SIZE = 9
+
+# Numpy dtype for efficient batch parsing
+# Format: <I (uint32), B (uint8), B (uint8), B (uint8), b (int8), b (int8)
+STAR_RECORD_DTYPE = np.dtype([
+    ('healpix', '<u4'),      # HEALPix pixel ID (24-bit, upper 8 bits unused)
+    ('ra_offset', 'u1'),     # RA offset encoded 0-255
+    ('dec_offset', 'u1'),    # Dec offset encoded 0-255
+    ('mag', 'u1'),           # Magnitude * 10
+    ('pmra', 'i1'),          # Proper motion RA (mas/yr / 50)
+    ('pmdec', 'i1'),         # Proper motion Dec (mas/yr / 50)
+])
 
 
 class CatalogState(Enum):
@@ -300,8 +311,9 @@ class DeepStarCatalog:
         tile_star_counts = {}
 
         # Try batch loading if catalog is compact format
+        # Only batch for moderate tile counts (10-50) to avoid UI blocking
         is_compact = self.metadata.get("format") == "compact"
-        if is_compact and len(tiles) > 10:
+        if is_compact and 10 < len(tiles) <= 50:
             # Batch load is much faster for many tiles
             # Note: batch loading returns PM-corrected (ra, dec, mag) tuples
             logger.info(f"Using BATCH loading for {len(tiles)} tiles")
@@ -674,6 +686,8 @@ class DeepStarCatalog:
 
         all_stars = []
 
+        logger.info(f"_load_tiles_batch: Starting batch load of {len(tile_ids)} tiles")
+
         # Process each magnitude band
         for mag_band_info in self.metadata.get("mag_bands", []):
             mag_min = mag_band_info["min"]
@@ -682,6 +696,7 @@ class DeepStarCatalog:
             if mag_min >= mag_limit:
                 continue  # Skip faint bands
 
+            logger.info(f"_load_tiles_batch: Processing mag band {mag_min}-{mag_max}")
             band_dir = self.catalog_path / f"mag_{mag_min:02.0f}_{mag_max:02.0f}"
             index_file_bin = band_dir / "index.bin"
             index_file_json = band_dir / "index.json"
@@ -717,6 +732,8 @@ class DeepStarCatalog:
             if not read_ops:
                 continue
 
+            logger.info(f"_load_tiles_batch: Found {len(read_ops)} tiles in mag band {mag_min}-{mag_max}")
+
             # Sort by offset to minimize seeks
             read_ops.sort(key=lambda x: x[1]["offset"])
 
@@ -724,6 +741,7 @@ class DeepStarCatalog:
             # Group tiles that are close together (within 100KB)
             MAX_GAP = 100 * 1024  # 100KB gap tolerance
 
+            logger.info(f"_load_tiles_batch: Opening {tiles_file}")
             # Open file once and read all tiles
             with open(tiles_file, "rb") as f:
                 i = 0
@@ -752,10 +770,13 @@ class DeepStarCatalog:
                             break
 
                     # Read entire chunk at once
+                    chunk_size = chunk_end - offset
+                    logger.info(f"_load_tiles_batch: Reading chunk at offset {offset}, size {chunk_size/1024:.1f}KB with {len(tiles_in_chunk)} tiles")
                     f.seek(offset)
-                    chunk_data = f.read(chunk_end - offset)
+                    chunk_data = f.read(chunk_size)
+                    logger.info(f"_load_tiles_batch: Read complete, processing {len(tiles_in_chunk)} tiles")
 
-                    # Process each tile in the chunk
+                    # Process each tile in the chunk using vectorized operations
                     for tile_id, tile_info in tiles_in_chunk:
                         tile_offset = tile_info["offset"] - offset  # Relative offset in chunk
                         compressed_size = tile_info.get("compressed_size")
@@ -764,45 +785,52 @@ class DeepStarCatalog:
                         if compressed_size:
                             import zlib
                             compressed_data = chunk_data[tile_offset:tile_offset + compressed_size]
+                            logger.info(f"_load_tiles_batch: Decompressing tile {tile_id}, {compressed_size} → {size} bytes")
                             data = zlib.decompress(compressed_data)
                         else:
                             data = chunk_data[tile_offset:tile_offset + size]
 
-                        # Decode stars in this tile
+                        # VECTORIZED: Parse all star records at once using numpy
                         num_records = len(data) // STAR_RECORD_SIZE
-                        for k in range(num_records):
-                            record_data = data[k * STAR_RECORD_SIZE : (k + 1) * STAR_RECORD_SIZE]
+                        logger.info(f"_load_tiles_batch: Decoding {num_records} stars from tile {tile_id} (vectorized)")
 
-                            healpix_pixel, ra_offset_encoded, dec_offset_encoded, mag_encoded, pmra_encoded, pmdec_encoded = (
-                                struct.unpack(STAR_RECORD_FORMAT, record_data)
-                            )
+                        records = np.frombuffer(data, dtype=STAR_RECORD_DTYPE, count=num_records)
 
-                            # Mask to 24 bits
-                            healpix_pixel = healpix_pixel & 0xFFFFFF
+                        # Mask healpix to 24 bits
+                        healpix_pixels = records['healpix'] & 0xFFFFFF
 
-                            # Get pixel center
-                            pixel_ra, pixel_dec = hp.pix2ang(self.nside, healpix_pixel, lonlat=True)
+                        # VECTORIZED: Get all pixel centers at once (healpy handles arrays efficiently)
+                        pixel_ras, pixel_decs = hp.pix2ang(self.nside, healpix_pixels, lonlat=True)
 
-                            # Decode position
-                            pixel_size_deg = np.sqrt(hp.nside2pixarea(self.nside, degrees=True))
-                            max_offset_arcsec = pixel_size_deg * 3600.0 / 2.0
+                        # Calculate pixel size once (not per star!)
+                        pixel_size_deg = np.sqrt(hp.nside2pixarea(self.nside, degrees=True))
+                        max_offset_arcsec = pixel_size_deg * 3600.0 / 2.0
 
-                            ra_offset_arcsec = (ra_offset_encoded / 127.5 - 1.0) * max_offset_arcsec
-                            dec_offset_arcsec = (dec_offset_encoded / 127.5 - 1.0) * max_offset_arcsec
+                        # VECTORIZED: Decode all offsets at once
+                        ra_offset_arcsec = (records['ra_offset'] / 127.5 - 1.0) * max_offset_arcsec
+                        dec_offset_arcsec = (records['dec_offset'] / 127.5 - 1.0) * max_offset_arcsec
 
-                            dec = pixel_dec + dec_offset_arcsec / 3600.0
-                            ra = pixel_ra + ra_offset_arcsec / 3600.0 / np.cos(np.radians(dec))
+                        # VECTORIZED: Calculate final positions
+                        decs = pixel_decs + dec_offset_arcsec / 3600.0
+                        ras = pixel_ras + ra_offset_arcsec / 3600.0 / np.cos(np.radians(decs))
 
-                            mag = mag_encoded / 10.0
-                            pmra = pmra_encoded * 50
-                            pmdec = pmdec_encoded * 50
+                        # VECTORIZED: Decode magnitudes and proper motions
+                        mags = records['mag'] / 10.0
+                        pmras = records['pmra'] * 50
+                        pmdecs = records['pmdec'] * 50
 
-                            # Filter by magnitude
-                            if mag <= mag_limit:
-                                all_stars.append((ra, dec, mag, pmra, pmdec))
+                        # VECTORIZED: Filter by magnitude
+                        mag_mask = mags <= mag_limit
+
+                        # Collect stars that pass magnitude filter
+                        for i in np.where(mag_mask)[0]:
+                            all_stars.append((ras[i], decs[i], mags[i], pmras[i], pmdecs[i]))
 
                     # Move to next chunk
                     i = j
 
+        logger.info(f"_load_tiles_batch: Loaded {len(all_stars)} stars total, applying proper motion")
         # Apply proper motion
-        return self._apply_proper_motion(all_stars)
+        result = self._apply_proper_motion(all_stars)
+        logger.info(f"_load_tiles_batch: Complete, returning {len(result)} stars")
+        return result

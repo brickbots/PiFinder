@@ -58,6 +58,7 @@ class DeepChartGenerator:
         self.shared_state = shared_state
         self.catalog = None
         self.chart_cache = {}
+        self._lm_cache = None  # Cache (sqm, eyepiece_id, lm) to avoid recalculation
 
         # Initialize font for text overlays
         font_path = Path(Path.cwd(), "../fonts/RobotoMonoNerdFontMono-Bold.ttf")
@@ -583,6 +584,24 @@ class DeepChartGenerator:
         Returns:
             Limiting magnitude value
         """
+        # Build cache key from sqm, telescope, and eyepiece focal lengths
+        # Round SQM to 1 decimal to avoid floating point comparison issues
+        equipment = self.config.equipment
+        telescope = equipment.active_telescope
+        eyepiece = equipment.active_eyepiece
+
+        # Cache key includes all factors that affect LM calculation
+        telescope_fl = telescope.focal_length_mm if telescope else None
+        telescope_aperture = telescope.aperture_mm if telescope else None
+        eyepiece_fl = eyepiece.focal_length_mm if eyepiece else None
+        sqm_value = round(sqm.value, 1) if sqm and hasattr(sqm, 'value') and sqm.value else None
+
+        cache_key = (sqm_value, telescope_aperture, telescope_fl, eyepiece_fl)
+
+        # Check cache - return cached value without logging
+        if self._lm_cache is not None and self._lm_cache[0] == cache_key:
+            return self._lm_cache[1]
+
         lm_mode = self.config.get_option("obj_chart_lm_mode")
 
         if lm_mode == "fixed":
@@ -591,14 +610,19 @@ class DeepChartGenerator:
             try:
                 lm = float(lm)
                 logger.info(f"Using fixed LM from config: {lm:.1f}")
+                self._lm_cache = (cache_key, lm)
                 return lm
             except (ValueError, TypeError):
                 # Invalid fixed value, fall back to auto
                 logger.warning(f"Invalid fixed LM value: {lm}, falling back to auto")
-                return self.calculate_limiting_magnitude(sqm)
+                lm = self.calculate_limiting_magnitude(sqm)
+                self._lm_cache = (cache_key, lm)
+                return lm
         else:
             # Auto mode: calculate based on equipment and sky brightness
-            return self.calculate_limiting_magnitude(sqm)
+            lm = self.calculate_limiting_magnitude(sqm)
+            self._lm_cache = (cache_key, lm)
+            return lm
 
     def calculate_limiting_magnitude(self, sqm) -> float:
         """
