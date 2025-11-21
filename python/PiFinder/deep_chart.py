@@ -14,7 +14,7 @@ Features:
 
 import logging
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Generator, Optional, Tuple
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -111,7 +111,7 @@ class DeepChartGenerator:
 
     def generate_chart(
         self, catalog_object, resolution: Tuple[int, int], burn_in: bool = True, display_class=None, roll=None
-    ) -> Optional[Image.Image]:
+    ) -> Generator[Optional[Image.Image], None, None]:
         """
         Generate chart for object at current equipment settings
 
@@ -154,22 +154,24 @@ class DeepChartGenerator:
         # For query, cap at catalog max
         mag_limit_query = min(mag_limit_calculated, 17.0)
 
-        # Query stars
+        # Query stars PROGRESSIVELY (bright to faint)
+        # This is a generator that yields partial results as each magnitude band loads
         import time
         t0 = time.time()
-        stars = self.catalog.get_stars_for_fov(
-            ra_deg=catalog_object.ra,
-            dec_deg=catalog_object.dec,
-            fov_deg=fov,
-            mag_limit=mag_limit_query,
-        )
-        t1 = time.time()
 
         logger.info(
             f"Chart for {catalog_object.catalog_code}{catalog_object.sequence}: "
             f"Center RA={catalog_object.ra:.4f}° Dec={catalog_object.dec:.4f}°, "
             f"FOV={fov:.4f}°, Roll={roll if roll is not None else 0:.1f}°, "
-            f"{len(stars)} stars (query: {(t1-t0)*1000:.1f}ms)"
+            f"Starting PROGRESSIVE loading (mag_limit={mag_limit_query:.1f})"
+        )
+
+        # Use progressive loading to show bright stars first
+        stars_generator = self.catalog.get_stars_for_fov_progressive(
+            ra_deg=catalog_object.ra,
+            dec_deg=catalog_object.dec,
+            fov_deg=fov,
+            mag_limit=mag_limit_query,
         )
 
         # Calculate rotation angle for roll / Newtonian orientation
@@ -180,47 +182,68 @@ class DeepChartGenerator:
         if roll is not None:
             image_rotate += roll
 
-        # Render chart with rotation applied to star coordinates
-        t2 = time.time()
-        image = self.render_chart(
-            stars, catalog_object.ra, catalog_object.dec, fov, resolution, mag, image_rotate, mag_limit_query
-        )
-        t3 = time.time()
-        logger.info(f"Chart rendering: {(t3-t2)*1000:.1f}ms")
+        # Progressive rendering: Yield image after each magnitude band loads
+        final_image = None
+        for stars, is_complete in stars_generator:
+            t_render_start = time.time()
 
-        # Add FOV circle BEFORE text overlays so it appears behind them
-        if burn_in and display_class is not None:
-            draw = ImageDraw.Draw(image)
-            width, height = display_class.resolution
-            cx, cy = width / 2.0, height / 2.0
-            radius = min(width, height) / 2.0 - 2  # Leave 2 pixel margin
-            marker_color = display_class.colors.get(64)  # Subtle but visible
-            bbox = [cx - radius, cy - radius, cx + radius, cy + radius]
-            draw.ellipse(bbox, outline=marker_color, width=1)
-
-        # Add overlays (using shared utility)
-        if burn_in and display_class is not None:
-            from PiFinder.image_utils import add_image_overlays
-
-            logger.info(f"Adding overlays: burn_in={burn_in}, LM={mag_limit_calculated:.1f}")
-            image = add_image_overlays(
-                image,
-                display_class,
-                fov,
-                mag,
-                equipment.active_eyepiece,
-                burn_in=True,
-                limiting_magnitude=mag_limit_calculated,  # Pass uncapped value for display
+            # Render chart with rotation applied to star coordinates
+            image = self.render_chart(
+                stars, catalog_object.ra, catalog_object.dec, fov, resolution, mag, image_rotate, mag_limit_query
             )
 
-        # Cache result (limit cache size to 10 charts)
-        self.chart_cache[cache_key] = image
-        if len(self.chart_cache) > 10:
-            # Remove oldest
-            oldest = next(iter(self.chart_cache))
-            del self.chart_cache[oldest]
+            # Add FOV circle BEFORE text overlays so it appears behind them
+            if burn_in and display_class is not None:
+                draw = ImageDraw.Draw(image)
+                width, height = display_class.resolution
+                cx, cy = width / 2.0, height / 2.0
+                radius = min(width, height) / 2.0 - 2  # Leave 2 pixel margin
+                marker_color = display_class.colors.get(64)  # Subtle but visible
+                bbox = [cx - radius, cy - radius, cx + radius, cy + radius]
+                draw.ellipse(bbox, outline=marker_color, width=1)
 
-        return image
+            # Add overlays (using shared utility)
+            if burn_in and display_class is not None:
+                from PiFinder.image_utils import add_image_overlays
+
+                image = add_image_overlays(
+                    image,
+                    display_class,
+                    fov,
+                    mag,
+                    equipment.active_eyepiece,
+                    burn_in=True,
+                    limiting_magnitude=mag_limit_calculated,  # Pass uncapped value for display
+                )
+
+            t_render_end = time.time()
+            logger.info(
+                f"PROGRESSIVE: Rendered {len(stars)} stars in {(t_render_end-t_render_start)*1000:.1f}ms "
+                f"(complete={is_complete})"
+            )
+
+            final_image = image
+
+            # Yield intermediate result (allows UI to update)
+            if not is_complete:
+                yield image
+            # If complete, will yield final image after loop
+
+        # Final yield with complete image
+        t1 = time.time()
+        logger.info(f"Chart complete: {(t1-t0)*1000:.1f}ms total")
+
+        # Cache result (limit cache size to 10 charts)
+        if final_image is not None:
+            self.chart_cache[cache_key] = final_image
+            if len(self.chart_cache) > 10:
+                # Remove oldest
+                oldest = next(iter(self.chart_cache))
+                del self.chart_cache[oldest]
+
+            yield final_image
+        else:
+            yield None
 
     def render_chart(
         self,

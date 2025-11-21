@@ -27,7 +27,7 @@ import numpy as np
 # Import healpy at module level to avoid first-use delay
 # This ensures the slow import happens during initialization, not during first chart render
 try:
-    import healpy as hp  # type: ignore[import-untyped]
+    import healpy as hp  # type: ignore[import-not-found]
     _HEALPY_AVAILABLE = True
 except ImportError:
     hp = None
@@ -246,6 +246,107 @@ class DeepStarCatalog:
             # (50ms was too conservative, slowing down loading significantly)
             time.sleep(0.01)
 
+    def get_stars_for_fov_progressive(
+        self,
+        ra_deg: float,
+        dec_deg: float,
+        fov_deg: float,
+        mag_limit: Optional[float] = None,
+    ):
+        """
+        Query stars in field of view progressively (bright to faint)
+
+        This is a generator that yields (stars, is_complete) tuples as each
+        magnitude band is loaded. This allows the UI to display bright stars
+        immediately while continuing to load fainter stars in the background.
+
+        Blocks if state == LOADING (waits for load to complete)
+        Returns empty list if state == NOT_LOADED
+
+        Args:
+            ra_deg: Center RA in degrees
+            dec_deg: Center Dec in degrees
+            fov_deg: Field of view in degrees
+            mag_limit: Limiting magnitude (uses catalog default if None)
+
+        Yields:
+            (stars, is_complete) tuples where:
+                - stars: List of (ra, dec, mag) tuples with proper motion corrected
+                - is_complete: True if this is the final yield with all stars
+        """
+        if self.state == CatalogState.NOT_LOADED:
+            logger.warning("Catalog not loaded")
+            yield ([], True)
+            return
+
+        # Wait for catalog to be loaded
+        while self.state == CatalogState.LOADING:
+            import time
+            time.sleep(0.1)
+
+        if mag_limit is None:
+            mag_limit = self.metadata.get("mag_limit", 17.0) if self.metadata else 17.0
+
+        if not _HEALPY_AVAILABLE:
+            logger.error("healpy not available - cannot perform HEALPix queries")
+            yield ([], True)
+            return
+
+        # Calculate HEALPix tiles covering FOV
+        vec = hp.ang2vec(ra_deg, dec_deg, lonlat=True)
+        radius_rad = np.radians(fov_deg * 0.85)
+        tiles = hp.query_disc(self.nside, vec, radius_rad)
+        logger.info(f"HEALPix PROGRESSIVE: Querying {len(tiles)} tiles for FOV={fov_deg:.2f}° at nside={self.nside}")
+
+        # Filter by visible hemisphere
+        if self.visible_tiles:
+            tiles = [t for t in tiles if t in self.visible_tiles]
+
+        # Limit tile count to prevent excessive loading
+        if len(tiles) > 100:
+            logger.warning(f"Large tile count ({len(tiles)}) detected! Limiting to 100 tiles")
+            tiles = tiles[:100]
+
+        # Load stars progressively by magnitude band (bright to faint)
+        all_stars = []
+
+        if not self.metadata:
+            yield ([], True)
+            return
+
+        for mag_band_info in self.metadata.get("mag_bands", []):
+            mag_min = mag_band_info["min"]
+            mag_max = mag_band_info["max"]
+
+            # Skip bands fainter than limit
+            if mag_min >= mag_limit:
+                break
+
+            logger.info(f"PROGRESSIVE: Loading mag band {mag_min}-{mag_max}")
+            import time
+            t_band_start = time.time()
+
+            # Load stars from this magnitude band only
+            band_stars = self._load_tiles_for_mag_band(
+                tiles, mag_band_info, mag_limit, ra_deg, dec_deg, fov_deg
+            )
+
+            t_band_end = time.time()
+            logger.info(f"PROGRESSIVE: Mag band {mag_min}-{mag_max} loaded {len(band_stars)} stars in {(t_band_end-t_band_start)*1000:.1f}ms")
+
+            # Add to cumulative list
+            all_stars.extend(band_stars)
+
+            # Yield current results (not complete yet unless this is the last band)
+            is_last_band = mag_max >= mag_limit
+            yield (all_stars.copy(), is_last_band)
+
+            if is_last_band:
+                break
+
+        # Final yield (should already be done above, but just in case)
+        logger.info(f"PROGRESSIVE: Complete! Total {len(all_stars)} stars loaded")
+
     def get_stars_for_fov(
         self,
         ra_deg: float,
@@ -326,11 +427,46 @@ class DeepStarCatalog:
         else:
             # Load one by one (better for small queries or legacy format)
             logger.info(f"Using SINGLE-TILE loading for {len(tiles)} tiles (compact={is_compact})")
+            import time
+            t_single_start = time.time()
             stars_raw: List[Tuple[float, float, float, float, float]] = []
-            for tile_id in tiles:
+
+            # To prevent UI blocking, limit the number of tiles loaded at once
+            # For large tile counts (>100), only load the most important tiles
+            if len(tiles) > 100:
+                logger.warning(f"Large tile count ({len(tiles)}) detected! Limiting to 100 tiles to prevent UI freeze")
+                # Tiles from query_disc are roughly ordered by distance from center
+                # Keep the first 100 which are closest to FOV center
+                tiles = tiles[:100]
+
+            cache_hits = 0
+            cache_misses = 0
+
+            for i, tile_id in enumerate(tiles):
+                # Check if this tile is cached (for performance tracking)
+                cache_key = (tile_id, mag_limit)
+                was_cached = cache_key in self.tile_cache
+
                 tile_stars = self._load_tile_data(tile_id, mag_limit)
                 tile_star_counts[tile_id] = len(tile_stars)
                 stars_raw.extend(tile_stars)
+
+                if was_cached:
+                    cache_hits += 1
+                else:
+                    cache_misses += 1
+
+                # Log progress every 25 tiles
+                if (i + 1) % 25 == 0:
+                    elapsed = (time.time() - t_single_start) * 1000
+                    logger.info(f"Progress: {i+1}/{len(tiles)} tiles loaded ({elapsed:.0f}ms elapsed)")
+
+            t_single_end = time.time()
+            elapsed_ms = (t_single_end - t_single_start) * 1000
+
+            # Log cache performance
+            logger.info(f"Tile cache: {cache_hits} hits, {cache_misses} misses ({cache_hits/(cache_hits+cache_misses)*100:.1f}% hit rate)")
+            logger.info(f"Single-tile loading complete: {len(stars_raw)} stars in {elapsed_ms:.1f}ms ({elapsed_ms/len(tiles):.2f}ms/tile)")
 
             # Log tile loading stats
             if tile_star_counts:
@@ -339,9 +475,68 @@ class DeepStarCatalog:
                             f"total={sum(tile_star_counts.values())}")
 
             # Apply proper motion correction (for non-batch path only)
+            t_pm_start = time.time()
             stars = self._apply_proper_motion(stars_raw)
+            t_pm_end = time.time()
+            logger.info(f"Proper motion correction: {len(stars)} stars in {(t_pm_end-t_pm_start)*1000:.1f}ms")
 
         return stars
+
+    def _load_tiles_for_mag_band(
+        self,
+        tile_ids: List[int],
+        mag_band_info: dict,
+        mag_limit: float,
+        ra_deg: float,
+        dec_deg: float,
+        fov_deg: float,
+    ) -> List[Tuple[float, float, float]]:
+        """
+        Load tiles for a specific magnitude band (used by progressive loading)
+
+        Args:
+            tile_ids: List of HEALPix tile IDs to load
+            mag_band_info: Magnitude band metadata dict with 'min', 'max' keys
+            mag_limit: Maximum magnitude to include
+            ra_deg: Center RA (for logging)
+            dec_deg: Center Dec (for logging)
+            fov_deg: Field of view (for logging)
+
+        Returns:
+            List of (ra, dec, mag) tuples with proper motion corrected
+        """
+        mag_min = mag_band_info["min"]
+        mag_max = mag_band_info["max"]
+        band_dir = self.catalog_path / f"mag_{mag_min:02.0f}_{mag_max:02.0f}"
+
+        # Check if this band directory exists
+        if not band_dir.exists():
+            logger.debug(f"Magnitude band directory not found: {band_dir}")
+            return []
+
+        # For compact format, use vectorized batch loading per band
+        assert self.metadata is not None, "metadata must be loaded"
+        is_compact = self.metadata.get("format") == "compact"
+        if is_compact:
+            return self._load_tiles_batch_single_band(
+                tile_ids, mag_band_info, mag_limit
+            )
+        else:
+            # Legacy format - load tiles one by one (will load all bands for each tile)
+            # This is less efficient but legacy format doesn't support per-band loading
+            stars_raw = []
+            for tile_id in tile_ids:
+                tile_stars = self._load_tile_data(tile_id, mag_limit)
+                # Filter to just this magnitude band
+                tile_stars_filtered = [
+                    (ra, dec, mag, pmra, pmdec)
+                    for ra, dec, mag, pmra, pmdec in tile_stars
+                    if mag_min <= mag < mag_max
+                ]
+                stars_raw.extend(tile_stars_filtered)
+
+            # Apply proper motion
+            return self._apply_proper_motion(stars_raw)
 
     def _load_tile_data(
         self, tile_id: int, mag_limit: float
@@ -657,6 +852,149 @@ class DeepStarCatalog:
             corrected.append((ra_corrected, dec_corrected, mag))
 
         return corrected
+
+    def _load_tiles_batch_single_band(
+        self,
+        tile_ids: List[int],
+        mag_band_info: dict,
+        mag_limit: float,
+    ) -> List[Tuple[float, float, float]]:
+        """
+        Batch load multiple tiles for a SINGLE magnitude band (compact format only)
+        Used by progressive loading to load one mag band at a time
+
+        Args:
+            tile_ids: List of HEALPix tile IDs
+            mag_band_info: Magnitude band metadata dict
+            mag_limit: Maximum magnitude
+
+        Returns:
+            List of (ra, dec, mag) tuples (already PM-corrected)
+        """
+        if not _HEALPY_AVAILABLE:
+            return []
+
+        mag_min = mag_band_info["min"]
+        mag_max = mag_band_info["max"]
+
+        band_dir = self.catalog_path / f"mag_{mag_min:02.0f}_{mag_max:02.0f}"
+        index_file_bin = band_dir / "index.bin"
+        index_file_json = band_dir / "index.json"
+        tiles_file = band_dir / "tiles.bin"
+
+        if not tiles_file.exists():
+            return []
+
+        # Load index
+        cache_key = f"index_{mag_min}_{mag_max}"
+        if not hasattr(self, '_index_cache'):
+            self._index_cache = {}
+
+        if cache_key not in self._index_cache:
+            if index_file_bin.exists():
+                self._index_cache[cache_key] = self._read_binary_index(index_file_bin)
+            elif index_file_json.exists():
+                with open(index_file_json, "r") as f:
+                    self._index_cache[cache_key] = json.load(f)
+            else:
+                return []
+
+        index = self._index_cache[cache_key]
+
+        # Collect all tile read operations
+        read_ops = []
+        for tile_id in tile_ids:
+            tile_key = str(tile_id)
+            if tile_key in index:
+                tile_info = index[tile_key]
+                read_ops.append((tile_id, tile_info))
+
+        if not read_ops:
+            return []
+
+        # Sort by offset to minimize seeks
+        read_ops.sort(key=lambda x: x[1]["offset"])
+
+        # Read data in larger sequential chunks when possible
+        MAX_GAP = 100 * 1024  # 100KB gap tolerance
+        all_stars = []
+
+        with open(tiles_file, "rb") as f:
+            i = 0
+            while i < len(read_ops):
+                tile_id, tile_info = read_ops[i]
+                offset = tile_info["offset"]
+                chunk_end = offset + tile_info.get("compressed_size", tile_info["size"])
+
+                # Find consecutive tiles for chunk reading
+                tiles_in_chunk = [(tile_id, tile_info)]
+                j = i + 1
+                while j < len(read_ops):
+                    next_tile_id, next_tile_info = read_ops[j]
+                    next_offset = next_tile_info["offset"]
+                    if next_offset - chunk_end <= MAX_GAP:
+                        chunk_end = next_offset + next_tile_info.get("compressed_size", next_tile_info["size"])
+                        tiles_in_chunk.append((next_tile_id, next_tile_info))
+                        j += 1
+                    else:
+                        break
+
+                # Read entire chunk
+                chunk_size = chunk_end - offset
+                f.seek(offset)
+                chunk_data = f.read(chunk_size)
+
+                # Process each tile in chunk
+                for tile_id, tile_info in tiles_in_chunk:
+                    tile_offset = tile_info["offset"] - offset
+                    compressed_size = tile_info.get("compressed_size")
+                    size = tile_info["size"]
+
+                    if compressed_size:
+                        import zlib
+                        compressed_data = chunk_data[tile_offset:tile_offset + compressed_size]
+                        data = zlib.decompress(compressed_data)
+                    else:
+                        data = chunk_data[tile_offset:tile_offset + size]
+
+                    # VECTORIZED: Parse all star records at once
+                    num_records = len(data) // STAR_RECORD_SIZE
+                    records = np.frombuffer(data, dtype=STAR_RECORD_DTYPE, count=num_records)
+
+                    # Mask healpix to 24 bits
+                    healpix_pixels = records['healpix'] & 0xFFFFFF
+
+                    # VECTORIZED: Get all pixel centers at once
+                    pixel_ras, pixel_decs = hp.pix2ang(self.nside, healpix_pixels, lonlat=True)
+
+                    # Calculate pixel size once
+                    pixel_size_deg = np.sqrt(hp.nside2pixarea(self.nside, degrees=True))
+                    max_offset_arcsec = pixel_size_deg * 3600.0 / 2.0
+
+                    # VECTORIZED: Decode all offsets
+                    ra_offset_arcsec = (records['ra_offset'] / 127.5 - 1.0) * max_offset_arcsec
+                    dec_offset_arcsec = (records['dec_offset'] / 127.5 - 1.0) * max_offset_arcsec
+
+                    # VECTORIZED: Calculate final positions
+                    decs = pixel_decs + dec_offset_arcsec / 3600.0
+                    ras = pixel_ras + ra_offset_arcsec / 3600.0 / np.cos(np.radians(decs))
+
+                    # VECTORIZED: Decode magnitudes and proper motions
+                    mags = records['mag'] / 10.0
+                    pmras = records['pmra'] * 50
+                    pmdecs = records['pmdec'] * 50
+
+                    # Filter by magnitude
+                    mag_mask = mags < mag_limit
+
+                    # Collect stars
+                    for idx in np.where(mag_mask)[0]:
+                        all_stars.append((ras[idx], decs[idx], mags[idx], pmras[idx], pmdecs[idx]))
+
+                i = j
+
+        # Apply proper motion
+        return self._apply_proper_motion(all_stars)
 
     def _load_tiles_batch(
         self, tile_ids: List[int], mag_limit: float

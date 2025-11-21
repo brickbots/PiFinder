@@ -70,14 +70,19 @@ def get_display_image(
                     # Ensure catalog loading started
                     chart_generator.ensure_catalog_loading()
 
-                    # Try to generate chart
-                    chart_image = chart_generator.generate_chart(
+                    # Try to generate chart (progressive generator - consume all yields)
+                    # The generator yields intermediate images as magnitude bands load
+                    # We'll use the final (most complete) image
+                    chart_image = None
+                    for image in chart_generator.generate_chart(
                         catalog_object,
                         (display_class.fov_res, display_class.fov_res),
                         burn_in=burn_in,
                         display_class=display_class,
                         roll=roll
-                    )
+                    ):
+                        chart_image = image  # Keep updating to latest
+                        # TODO: Could potentially display intermediate images here for faster feedback
 
                     if chart_image is None:
                         # Catalog not ready yet, show "Loading..." with progress
