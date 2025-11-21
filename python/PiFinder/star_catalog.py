@@ -424,45 +424,42 @@ class DeepStarCatalog:
         if not _HEALPY_AVAILABLE:
             return []
 
-        stars = []
-
+        # Read entire file at once
         with open(tile_file, "rb") as f:
-            while True:
-                data = f.read(STAR_RECORD_SIZE)
-                if len(data) < STAR_RECORD_SIZE:
-                    break
+            data = f.read()
 
-                # Decode record
-                healpix_pixel, ra_offset_encoded, dec_offset_encoded, mag_encoded, pmra_encoded, pmdec_encoded = (
-                    struct.unpack(STAR_RECORD_FORMAT, data)
-                )
+        if len(data) == 0:
+            return []
 
-                # Mask to 24 bits
-                healpix_pixel = healpix_pixel & 0xFFFFFF
+        # VECTORIZED: Parse all records at once
+        num_records = len(data) // STAR_RECORD_SIZE
+        records = np.frombuffer(data, dtype=STAR_RECORD_DTYPE, count=num_records)
 
-                # Get pixel center coordinates
-                pixel_ra, pixel_dec = hp.pix2ang(self.nside, healpix_pixel, lonlat=True)
+        # Mask healpix to 24 bits
+        healpix_pixels = records['healpix'] & 0xFFFFFF
 
-                # Calculate pixel size
-                pixel_size_deg = np.sqrt(hp.nside2pixarea(self.nside, degrees=True))
-                max_offset_arcsec = pixel_size_deg * 3600.0 / 2.0
+        # VECTORIZED: Get all pixel centers at once
+        pixel_ras, pixel_decs = hp.pix2ang(self.nside, healpix_pixels, lonlat=True)
 
-                # Decode offsets
-                ra_offset_arcsec = (ra_offset_encoded / 127.5 - 1.0) * max_offset_arcsec
-                dec_offset_arcsec = (dec_offset_encoded / 127.5 - 1.0) * max_offset_arcsec
+        # Calculate pixel size once (not per star!)
+        pixel_size_deg = np.sqrt(hp.nside2pixarea(self.nside, degrees=True))
+        max_offset_arcsec = pixel_size_deg * 3600.0 / 2.0
 
-                # Calculate actual Dec FIRST (needed for RA cosine correction)
-                dec = pixel_dec + dec_offset_arcsec / 3600.0
+        # VECTORIZED: Decode all offsets at once
+        ra_offset_arcsec = (records['ra_offset'] / 127.5 - 1.0) * max_offset_arcsec
+        dec_offset_arcsec = (records['dec_offset'] / 127.5 - 1.0) * max_offset_arcsec
 
-                # Calculate actual RA using the star's actual declination (not pixel center)
-                # This matches the encoder which uses the star's actual dec for compression
-                ra = pixel_ra + ra_offset_arcsec / 3600.0 / np.cos(np.radians(dec))
+        # VECTORIZED: Calculate final positions
+        decs = pixel_decs + dec_offset_arcsec / 3600.0
+        ras = pixel_ras + ra_offset_arcsec / 3600.0 / np.cos(np.radians(decs))
 
-                mag = mag_encoded / 10.0  # 0.1 mag precision
-                pmra = pmra_encoded * 50  # mas/year
-                pmdec = pmdec_encoded * 50  # mas/year
+        # VECTORIZED: Decode magnitudes and proper motions
+        mags = records['mag'] / 10.0
+        pmras = records['pmra'] * 50
+        pmdecs = records['pmdec'] * 50
 
-                stars.append((ra, dec, mag, pmra, pmdec))
+        # Build result list
+        stars = [(ras[i], decs[i], mags[i], pmras[i], pmdecs[i]) for i in range(num_records)]
 
         return stars
 
@@ -538,41 +535,37 @@ class DeepStarCatalog:
                 # Uncompressed tile
                 data = f.read(size)
 
-            # Decode all records in this tile
+            # VECTORIZED: Decode all records in this tile at once
             num_records = len(data) // STAR_RECORD_SIZE
-            for i in range(num_records):
-                record_data = data[i * STAR_RECORD_SIZE : (i + 1) * STAR_RECORD_SIZE]
 
-                healpix_pixel, ra_offset_encoded, dec_offset_encoded, mag_encoded, pmra_encoded, pmdec_encoded = (
-                    struct.unpack(STAR_RECORD_FORMAT, record_data)
-                )
+            # Parse all records using numpy
+            records = np.frombuffer(data, dtype=STAR_RECORD_DTYPE, count=num_records)
 
-                # Mask to 24 bits
-                healpix_pixel = healpix_pixel & 0xFFFFFF
+            # Mask healpix to 24 bits
+            healpix_pixels = records['healpix'] & 0xFFFFFF
 
-                # Get pixel center coordinates
-                pixel_ra, pixel_dec = hp.pix2ang(self.nside, healpix_pixel, lonlat=True)
+            # VECTORIZED: Get all pixel centers at once
+            pixel_ras, pixel_decs = hp.pix2ang(self.nside, healpix_pixels, lonlat=True)
 
-                # Calculate pixel size
-                pixel_size_deg = np.sqrt(hp.nside2pixarea(self.nside, degrees=True))
-                max_offset_arcsec = pixel_size_deg * 3600.0 / 2.0
+            # Calculate pixel size once (not per star!)
+            pixel_size_deg = np.sqrt(hp.nside2pixarea(self.nside, degrees=True))
+            max_offset_arcsec = pixel_size_deg * 3600.0 / 2.0
 
-                # Decode offsets
-                ra_offset_arcsec = (ra_offset_encoded / 127.5 - 1.0) * max_offset_arcsec
-                dec_offset_arcsec = (dec_offset_encoded / 127.5 - 1.0) * max_offset_arcsec
+            # VECTORIZED: Decode all offsets at once
+            ra_offset_arcsec = (records['ra_offset'] / 127.5 - 1.0) * max_offset_arcsec
+            dec_offset_arcsec = (records['dec_offset'] / 127.5 - 1.0) * max_offset_arcsec
 
-                # Calculate actual Dec FIRST (needed for RA cosine correction)
-                dec = pixel_dec + dec_offset_arcsec / 3600.0
+            # VECTORIZED: Calculate final positions
+            decs = pixel_decs + dec_offset_arcsec / 3600.0
+            ras = pixel_ras + ra_offset_arcsec / 3600.0 / np.cos(np.radians(decs))
 
-                # Calculate actual RA using the star's actual declination (not pixel center)
-                # This matches the encoder which uses the star's actual dec for compression
-                ra = pixel_ra + ra_offset_arcsec / 3600.0 / np.cos(np.radians(dec))
+            # VECTORIZED: Decode magnitudes and proper motions
+            mags = records['mag'] / 10.0
+            pmras = records['pmra'] * 50
+            pmdecs = records['pmdec'] * 50
 
-                mag = mag_encoded / 10.0
-                pmra = pmra_encoded * 50
-                pmdec = pmdec_encoded * 50
-
-                stars.append((ra, dec, mag, pmra, pmdec))
+            # Build result list
+            stars = [(ras[i], decs[i], mags[i], pmras[i], pmdecs[i]) for i in range(num_records)]
 
         return stars
 
