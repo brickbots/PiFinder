@@ -165,6 +165,7 @@ class UIObjectDetails(UIModule):
         """
         Generates object text and loads object images
         """
+        logger.info(f">>> update_object_info() called for {self.object.display_name if self.object else 'None'}")
         # Title...
         self.title = self.object.display_name
 
@@ -242,8 +243,11 @@ class UIObjectDetails(UIModule):
         prev_object_image = self.object_image
 
         # Get or create chart generator (owned by UI layer, not cat_images)
+        logger.info(">>> Getting chart generator...")
         chart_gen = self._get_chart_generator()
+        logger.info(f">>> Chart generator obtained, state: {chart_gen.get_catalog_state() if chart_gen else 'None'}")
 
+        logger.info(f">>> Calling cat_images.get_display_image with force_deep_chart={self._force_deep_chart}")
         self.object_image = cat_images.get_display_image(
             self.object,
             str(self.config_object.equipment.active_eyepiece),
@@ -257,6 +261,7 @@ class UIObjectDetails(UIModule):
             chart_generator=chart_gen,  # Pass our chart generator to cat_images
             force_deep_chart=self._force_deep_chart,  # Toggle state
         )
+        logger.info(f">>> cat_images.get_display_image returned: {type(self.object_image)}")
 
         # Track if we're showing a "Loading..." placeholder for deep chart
         # Check if image has the special "is_loading_placeholder" attribute
@@ -898,9 +903,15 @@ class UIObjectDetails(UIModule):
         Handle number key presses
         0: Toggle between POSS image and deep chart (when both are available)
         """
+        logger.info(f">>> key_number({number}) called")
         if number == 0:
+            logger.info(f">>> Toggling _force_deep_chart (was: {self._force_deep_chart})")
             # Toggle the flag
             self._force_deep_chart = not self._force_deep_chart
+            logger.info(f">>> _force_deep_chart now: {self._force_deep_chart}")
             # Reload image with new setting
+            logger.info(">>> Calling update_object_info()...")
             self.update_object_info()
+            logger.info(">>> Calling update()...")
             self.update()
+            logger.info(">>> key_number(0) complete")

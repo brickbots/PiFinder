@@ -46,11 +46,15 @@ def get_display_image(
         Required for deep chart generation
     """
 
+    logger.info(f">>> get_display_image() called for {catalog_object.display_name if catalog_object else 'None'}")
+    logger.info(f">>> force_deep_chart={force_deep_chart}, chart_generator={chart_generator is not None}")
+
     object_image_path = resolve_image_name(catalog_object, source="POSS")
-    logger.debug("object_image_path = %s", object_image_path)
+    logger.info(f">>> POSS image path: {object_image_path}, exists: {os.path.exists(object_image_path)}")
 
     # If force_deep_chart is True, skip POSS image even if it exists
     if force_deep_chart or not os.path.exists(object_image_path):
+        logger.info(f">>> Will use deep chart (force={force_deep_chart}, poss_missing={not os.path.exists(object_image_path)})")
         # Try to generate deep chart if catalog available
         return_image = None
 
@@ -60,20 +64,25 @@ def get_display_image(
 
             deep_catalog_path = Path(utils.astro_data_dir, "deep_stars", "metadata.json")
 
-            logger.info(f"Deep chart request: chart_generator={chart_generator is not None}, catalog_exists={deep_catalog_path.exists()}, path={deep_catalog_path}")
+            logger.info(f">>> Deep chart request: chart_generator={chart_generator is not None}, catalog_exists={deep_catalog_path.exists()}, path={deep_catalog_path}")
 
             # Try to generate deep chart if chart_generator was passed in
             if chart_generator is not None and deep_catalog_path.exists():
+                logger.info(">>> chart_generator and deep catalog available, generating chart...")
                 try:
                     from PiFinder.image_utils import create_loading_image
 
                     # Ensure catalog loading started
+                    logger.info(">>> Calling chart_generator.ensure_catalog_loading()...")
                     chart_generator.ensure_catalog_loading()
+                    logger.info(f">>> Catalog state: {chart_generator.get_catalog_state()}")
 
                     # Try to generate chart (progressive generator - consume all yields)
                     # The generator yields intermediate images as magnitude bands load
                     # We'll use the final (most complete) image
                     chart_image = None
+                    logger.info(">>> Starting to consume chart generator yields...")
+                    yield_count = 0
                     for image in chart_generator.generate_chart(
                         catalog_object,
                         (display_class.fov_res, display_class.fov_res),
@@ -81,10 +90,15 @@ def get_display_image(
                         display_class=display_class,
                         roll=roll
                     ):
+                        yield_count += 1
+                        logger.info(f">>> Received yield #{yield_count}: {type(image)}")
                         chart_image = image  # Keep updating to latest
                         # TODO: Could potentially display intermediate images here for faster feedback
 
+                    logger.info(f">>> Chart generation complete: {yield_count} yields, final image: {type(chart_image)}")
+
                     if chart_image is None:
+                        logger.info(">>> Chart is None, creating loading placeholder...")
                         # Catalog not ready yet, show "Loading..." with progress
                         if chart_generator.catalog:
                             progress_text = chart_generator.catalog.load_progress
@@ -101,24 +115,28 @@ def get_display_image(
                         )
                         # Mark image as "loading" so UI knows to refresh
                         return_image.is_loading_placeholder = True
+                        logger.info(f">>> Returning loading placeholder: {type(return_image)}")
                     else:
+                        logger.info(">>> Chart ready, converting to red...")
                         # Chart ready, convert to red
                         return_image = ImageChops.multiply(
                             chart_image.convert("RGB"),
                             display_class.colors.red_image
                         )
                         return_image.is_loading_placeholder = False
+                        logger.info(f">>> Returning final chart image: {type(return_image)}")
                 except Exception as e:
-                    logger.error(f"Chart generation failed: {e}", exc_info=True)
+                    logger.error(f">>> Chart generation failed: {e}", exc_info=True)
                     return_image = None
             else:
                 if chart_generator is None:
-                    logger.warning("Deep chart requested but chart_generator is None")
+                    logger.warning(">>> Deep chart requested but chart_generator is None")
                 if not deep_catalog_path.exists():
-                    logger.warning(f"Deep star catalog not found at {deep_catalog_path}")
+                    logger.warning(f">>> Deep star catalog not found at {deep_catalog_path}")
 
         # Fallback: "No Image" placeholder
         if return_image is None:
+            logger.info(">>> No chart generated, creating 'No Image' placeholder")
             return_image = Image.new("RGB", display_class.resolution)
             ri_draw = ImageDraw.Draw(return_image)
             if burn_in:
@@ -129,6 +147,7 @@ def get_display_image(
                     fill=display_class.colors.get(128),
                 )
     else:
+        logger.info(">>> Using POSS image")
         return_image = Image.open(object_image_path)
 
         # rotate for roll / newtonian orientation

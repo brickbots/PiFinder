@@ -27,7 +27,7 @@ import numpy as np
 # Import healpy at module level to avoid first-use delay
 # This ensures the slow import happens during initialization, not during first chart render
 try:
-    import healpy as hp  # type: ignore[import-not-found]
+    import healpy as hp  # type: ignore[import-untyped]
     _HEALPY_AVAILABLE = True
 except ImportError:
     hp = None
@@ -77,6 +77,8 @@ class DeepStarCatalog:
         Args:
             catalog_path: Path to deep_stars directory containing metadata.json
         """
+        logger.info(f">>> DeepStarCatalog.__init__() called with path: {catalog_path}")
+        t0 = time.time()
         self.catalog_path = Path(catalog_path)
         self.state = CatalogState.NOT_LOADED
         self.metadata: Optional[Dict[str, Any]] = None
@@ -91,6 +93,8 @@ class DeepStarCatalog:
         self.load_progress: str = ""  # Status message for UI
         self.load_percent: int = 0  # Progress percentage (0-100)
         self._index_cache: Dict[str, Any] = {}
+        t_init = (time.time() - t0) * 1000
+        logger.info(f">>> DeepStarCatalog.__init__() completed in {t_init:.1f}ms")
 
     def start_background_load(
         self, observer_lat: Optional[float] = None, limiting_mag: float = 12.0
@@ -102,48 +106,55 @@ class DeepStarCatalog:
             observer_lat: Observer latitude for hemisphere filtering (None = full sky)
             limiting_mag: Magnitude limit for preloading bright stars
         """
+        logger.info(f">>> start_background_load() called, current state: {self.state}")
         if self.state != CatalogState.NOT_LOADED:
-            logger.warning("Catalog already loading or loaded")
+            logger.warning(f">>> Catalog already loading or loaded (state={self.state}), skipping")
             return
 
-        logger.info(f"Starting background load: lat={observer_lat}, mag={limiting_mag}, path={self.catalog_path}")
+        logger.info(f">>> Starting background load: lat={observer_lat}, mag={limiting_mag}, path={self.catalog_path}")
 
         self.state = CatalogState.LOADING
         self.observer_lat = observer_lat
         self.limiting_magnitude = limiting_mag
 
         # Start background thread
+        logger.info(">>> Creating background thread...")
         self.load_thread = threading.Thread(
             target=self._background_load_worker, daemon=True, name="CatalogLoader"
         )
         self.load_thread.start()
-        logger.info("Deep catalog background thread started")
+        logger.info(f">>> Background thread started, thread alive: {self.load_thread.is_alive()}")
 
     def _background_load_worker(self):
         """Background worker - just loads metadata"""
+        logger.info(">>> _background_load_worker() started")
+        t_worker_start = time.time()
         try:
             # Load metadata
             self.load_progress = "Loading..."
             self.load_percent = 50
-            logger.info(f"Loading catalog metadata from {self.catalog_path}")
+            logger.info(f">>> Loading catalog metadata from {self.catalog_path}")
 
             metadata_file = self.catalog_path / "metadata.json"
 
             if not metadata_file.exists():
-                logger.error(f"Catalog metadata not found: {metadata_file}")
-                logger.error(f"Please build catalog using: python -m PiFinder.catalog_tools.gaia_downloader")
+                logger.error(f">>> Catalog metadata not found: {metadata_file}")
+                logger.error(f">>> Please build catalog using: python -m PiFinder.catalog_tools.gaia_downloader")
                 self.load_progress = "Error: catalog not built"
                 self.state = CatalogState.NOT_LOADED
                 return
 
+            t0 = time.time()
             with open(metadata_file, "r") as f:
                 self.metadata = json.load(f)
+            t_json = (time.time() - t0) * 1000
+            logger.info(f">>> metadata.json loaded in {t_json:.1f}ms")
 
             self.nside = self.metadata.get("nside", 512)
             star_count = self.metadata.get('star_count', 0)
             logger.info(
-                f"Catalog ready: {star_count:,} stars, "
-                f"mag limit {self.metadata.get('mag_limit', 0):.1f}"
+                f">>> Catalog metadata ready: {star_count:,} stars, "
+                f"mag limit {self.metadata.get('mag_limit', 0):.1f}, nside={self.nside}"
             )
 
             # Initialize empty structures (no preloading)
@@ -154,9 +165,11 @@ class DeepStarCatalog:
             self.load_progress = "Ready"
             self.load_percent = 100
             self.state = CatalogState.READY
+            t_worker_total = (time.time() - t_worker_start) * 1000
+            logger.info(f">>> _background_load_worker() completed in {t_worker_total:.1f}ms, state: {self.state}")
 
         except Exception as e:
-            logger.error(f"Catalog loading failed: {e}", exc_info=True)
+            logger.error(f">>> Catalog loading failed: {e}", exc_info=True)
             self.load_progress = f"Error: {str(e)}"
             self.state = CatalogState.NOT_LOADED
 

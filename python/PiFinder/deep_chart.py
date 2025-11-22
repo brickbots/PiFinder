@@ -31,8 +31,13 @@ _chart_generator_instance = None
 def get_chart_generator(config, shared_state):
     """Get or create the global chart generator singleton"""
     global _chart_generator_instance
+    logger.info(f">>> get_chart_generator() called, instance exists: {_chart_generator_instance is not None}")
     if _chart_generator_instance is None:
+        logger.info(">>> Creating new DeepChartGenerator instance...")
         _chart_generator_instance = DeepChartGenerator(config, shared_state)
+        logger.info(f">>> DeepChartGenerator created, state: {_chart_generator_instance.get_catalog_state()}")
+    else:
+        logger.info(f">>> Returning existing instance, state: {_chart_generator_instance.get_catalog_state()}")
     return _chart_generator_instance
 
 
@@ -79,8 +84,11 @@ class DeepChartGenerator:
         Ensure catalog is loading or loaded
         Triggers background load if needed
         """
+        logger.info(f">>> ensure_catalog_loading() called, catalog is None: {self.catalog is None}")
         if self.catalog is None:
+            logger.info(">>> Calling initialize_catalog()...")
             self.initialize_catalog()
+            logger.info(f">>> initialize_catalog() done, state: {self.catalog.state}")
 
         if self.catalog.state == CatalogState.NOT_LOADED:
             # Trigger background load
@@ -91,13 +99,15 @@ class DeepChartGenerator:
             limiting_mag = self.get_limiting_magnitude(sqm)
 
             logger.info(
-                f"Starting catalog load: lat={observer_lat}, mag_limit={limiting_mag:.1f}"
+                f">>> Starting background catalog load: lat={observer_lat}, mag_limit={limiting_mag:.1f}"
             )
             self.catalog.start_background_load(observer_lat, limiting_mag)
+            logger.info(f">>> start_background_load() called, new state: {self.catalog.state}")
 
     def initialize_catalog(self):
         """Create catalog instance (doesn't load data yet)"""
         catalog_path = Path(utils.astro_data_dir, "deep_stars")
+        logger.info(f">>> initialize_catalog() - catalog_path: {catalog_path}")
 
         # Check if catalog exists before initializing
         metadata_file = catalog_path / "metadata.json"
@@ -106,8 +116,13 @@ class DeepChartGenerator:
             logger.warning("To build catalog, run: python -m PiFinder.catalog_tools.gaia_downloader --mag-limit 12 --output /tmp/gaia.csv")
             logger.warning("Then: python -m PiFinder.catalog_tools.healpix_builder --input /tmp/gaia.csv --output {}/astro_data/deep_stars".format(Path.home() / "PiFinder"))
 
+        logger.info(f">>> Creating DeepStarCatalog instance...")
+        import time
+        t0 = time.time()
         self.catalog = DeepStarCatalog(str(catalog_path))
-        logger.info(f"Catalog initialized: {catalog_path}")
+        t_init = (time.time() - t0) * 1000
+        logger.info(f">>> DeepStarCatalog.__init__() took {t_init:.1f}ms")
+        logger.info(f">>> Catalog initialized: {catalog_path}, state: {self.catalog.state}")
 
     def generate_chart(
         self, catalog_object, resolution: Tuple[int, int], burn_in: bool = True, display_class=None, roll=None

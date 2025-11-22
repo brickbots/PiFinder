@@ -520,6 +520,17 @@ def main(
         _new_filter = CatalogFilter(shared_state=shared_state)
         _new_filter.load_from_config(cfg)
         catalogs.set_catalog_filter(_new_filter)
+
+        # Initialize deep chart generator in background to avoid first-use delay
+        console.write("   Deep Charts")
+        console.update()
+        logger.info("   Initializing deep chart generator...")
+        from PiFinder.deep_chart import get_chart_generator
+        chart_gen = get_chart_generator(cfg, shared_state)
+        # Trigger background loading so catalog is ready when needed
+        chart_gen.ensure_catalog_loading()
+        logger.info("   Deep chart background loading started")
+
         console.write("   Menus")
         console.update()
 

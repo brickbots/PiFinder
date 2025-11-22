@@ -343,6 +343,9 @@ def solver(
                             % ("camera", len(centroids), t_extract)
                         )
 
+                        # Initialize solution to prevent UnboundLocalError
+                        solution = {}
+
                         if len(centroids) == 0:
                             if log_no_stars_found:
                                 logger.info("No stars found, skipping (Logged only once)")
