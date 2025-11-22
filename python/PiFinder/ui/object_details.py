@@ -56,6 +56,7 @@ class UIObjectDetails(UIModule):
         self.object_list = self.item_definition["object_list"]
         self.object_display_mode = DM_LOCATE
         self.object_image = None
+        self._chart_generator = None  # Active generator for progressive chart updates
         self._is_showing_loading_chart = False  # Track if showing "Loading..." for deep chart
         self._force_deep_chart = False  # Toggle: force deep chart even if POSS image exists
         self._is_deep_chart = False  # Track if currently showing a deep chart (auto or forced)
@@ -275,18 +276,14 @@ class UIObjectDetails(UIModule):
 
         # Check if it's a generator (progressive deep chart) or direct image (POSS)
         if hasattr(result, '__iter__') and hasattr(result, '__next__'):
-            # It's a generator - consume yields and update display for each one
-            logger.info(">>> get_display_image returned GENERATOR, consuming yields progressively...")
-            for yield_num, image in enumerate(result, 1):
-                logger.info(f">>> Received yield #{yield_num} from generator: {type(image)}")
-                self.object_image = image
-                # Force immediate screen update to show this progressive result
-                self.update(force=True)
-                logger.info(f">>> Display updated with yield #{yield_num}")
-            logger.info(f">>> Generator exhausted, final image: {type(self.object_image)}")
+            # It's a generator - store it for progressive consumption by update()
+            logger.info(">>> get_display_image returned GENERATOR, storing for progressive updates...")
+            self._chart_generator = result
+            self.object_image = None  # Will be set by first yield
         else:
             # Direct image (POSS)
             logger.info(f">>> get_display_image returned direct image: {type(result)}")
+            self._chart_generator = None
             self.object_image = result
 
         logger.info(f">>> update_object_info() complete, self.object_image is now: {type(self.object_image)}")
@@ -682,6 +679,17 @@ class UIObjectDetails(UIModule):
     def update(self, force=True):
         import logging
         logger = logging.getLogger("ObjectDetails")
+
+        # If we have a chart generator, consume one yield to get the next progressive update
+        if hasattr(self, '_chart_generator') and self._chart_generator is not None:
+            try:
+                next_image = next(self._chart_generator)
+                logger.info(f">>> update(): Consumed next chart yield: {type(next_image)}")
+                self.object_image = next_image
+                force = True  # Force screen update for progressive chart
+            except StopIteration:
+                logger.info(">>> update(): Chart generator exhausted")
+                self._chart_generator = None  # Generator exhausted
 
         # Check if we're showing "Loading..." for a deep chart
         # and if catalog is now ready, regenerate the image
