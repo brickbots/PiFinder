@@ -913,16 +913,23 @@ class DeepStarCatalog:
         if not hasattr(self, '_index_cache'):
             self._index_cache = {}
 
+        logger.info(f">>> Checking index cache for {cache_key}, in_cache={cache_key in self._index_cache}")
         if cache_key not in self._index_cache:
             if index_file_bin.exists():
+                logger.info(f">>> Reading binary index from {index_file_bin}")
                 self._index_cache[cache_key] = self._read_binary_index(index_file_bin)
+                logger.info(f">>> Binary index loaded, {len(self._index_cache[cache_key])} tiles in index")
             elif index_file_json.exists():
+                logger.info(f">>> Reading JSON index from {index_file_json}")
                 with open(index_file_json, "r") as f:
                     self._index_cache[cache_key] = json.load(f)
+                logger.info(f">>> JSON index loaded, {len(self._index_cache[cache_key])} tiles in index")
             else:
+                logger.warning(f">>> No index file found for {cache_key}")
                 return []
 
         index = self._index_cache[cache_key]
+        logger.info(f">>> Index ready, building read_ops for {len(tile_ids)} tiles...")
 
         # Collect all tile read operations
         read_ops = []

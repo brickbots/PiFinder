@@ -34,6 +34,7 @@ DM_DESC = 0  # Display mode for description
 DM_LOCATE = 1  # Display mode for LOCATE
 DM_POSS = 2  # Display mode for POSS
 DM_SDSS = 3  # Display mode for SDSS
+DM_CHART = 4  # Display mode for deep chart
 
 
 class UIObjectDetails(UIModule):
@@ -258,7 +259,7 @@ class UIObjectDetails(UIModule):
             self.config_object.equipment.calc_tfov(),
             roll,
             self.display_class,
-            burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
+            burn_in=self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART],
             magnification=magnification,
             config_object=self.config_object,
             shared_state=self.shared_state,
@@ -290,7 +291,7 @@ class UIObjectDetails(UIModule):
             self.object_image is not None
             and hasattr(self.object_image, 'is_loading_placeholder')
             and self.object_image.is_loading_placeholder
-            and self.object_display_mode in [DM_POSS, DM_SDSS]
+            and self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART]
         )
 
         # Detect if we're showing a deep chart (forced or automatic due to no POSS image)
@@ -298,7 +299,7 @@ class UIObjectDetails(UIModule):
         self._is_deep_chart = (
             self.object_image is not None
             and hasattr(self.object_image, 'is_loading_placeholder')
-            and self.object_display_mode in [DM_POSS, DM_SDSS]
+            and self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART]
         )
 
     def active(self):
@@ -700,8 +701,11 @@ class UIObjectDetails(UIModule):
         self.clear_screen()
 
         # paste image
-        if self.object_display_mode in [DM_POSS, DM_SDSS]:
+        logger.info(f">>> update(): object_display_mode={self.object_display_mode}, DM_POSS={DM_POSS}, DM_SDSS={DM_SDSS}, DM_CHART={DM_CHART}, will_paste={self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART]}")
+        logger.info(f">>> update(): object_image type={type(self.object_image)}, size={self.object_image.size if self.object_image else None}")
+        if self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART]:
             self.screen.paste(self.object_image)
+            logger.info(f">>> Image pasted to screen")
 
             # If showing deep chart, draw crosshair based on config
             if self._force_deep_chart and self.object_image is not None:
@@ -930,6 +934,15 @@ class UIObjectDetails(UIModule):
             # Toggle the flag
             self._force_deep_chart = not self._force_deep_chart
             logger.info(f">>> _force_deep_chart now: {self._force_deep_chart}")
+
+            # Set appropriate display mode: DM_CHART for deep chart, DM_POSS for POSS image
+            if self._force_deep_chart:
+                logger.info(f">>> Setting object_display_mode to DM_CHART (was {self.object_display_mode})")
+                self.object_display_mode = DM_CHART
+            else:
+                logger.info(f">>> Setting object_display_mode to DM_POSS (was {self.object_display_mode})")
+                self.object_display_mode = DM_POSS
+
             # Reload image with new setting
             logger.info(">>> Calling update_object_info()...")
             self.update_object_info()
