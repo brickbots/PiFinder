@@ -787,9 +787,9 @@ class DeepStarCatalog:
 
         return stars
 
-    def _read_binary_index(self, index_file: Path) -> dict:
+    def _read_binary_index(self, index_file: Path, needed_tiles: Optional[set] = None) -> dict:
         """
-        Read binary index file
+        Read binary index file - optimized to only load needed tiles for large indices
 
         Format v1 (uncompressed):
             Header: [version:4][num_tiles:4]
@@ -798,6 +798,11 @@ class DeepStarCatalog:
         Format v2 (compressed):
             Header: [version:4][num_tiles:4]
             Per tile: [tile_id:4][offset:8][compressed_size:4][uncompressed_size:4]
+
+        Args:
+            index_file: Path to the index file
+            needed_tiles: Set of tile IDs we actually need. If provided and index is large (>100K tiles),
+                         only load these specific tiles instead of the whole index.
 
         Returns:
             Dict mapping tile_id (as string) -> {"offset": int, "size": int, "compressed_size": int (optional)}
@@ -809,6 +814,44 @@ class DeepStarCatalog:
             header = f.read(8)
             version, num_tiles = struct.unpack("<II", header)
 
+            # For large indices (>100K tiles), only load what we need if a subset is specified
+            # This avoids loading millions of entries when we only need a few dozen
+            if needed_tiles is not None and num_tiles > 100000 and len(needed_tiles) < num_tiles / 100:
+                logger.info(f">>> Large index detected ({num_tiles:,} tiles), loading only {len(needed_tiles)} needed tiles")
+                entry_size = 16 if version == 1 else 20
+
+                # Convert needed_tiles to integers for comparison
+                needed_int = {int(t) if isinstance(t, str) else t for t in needed_tiles}
+
+                # Read only needed entries by seeking
+                for _ in range(num_tiles):
+                    if version == 1:
+                        tile_data = f.read(16)
+                        if len(tile_data) < 16:
+                            break
+                        tile_id, offset, size = struct.unpack("<IQI", tile_data)
+                        if tile_id in needed_int:
+                            index[str(tile_id)] = {"offset": offset, "size": size}
+                            if len(index) >= len(needed_int):
+                                break  # Found all needed tiles
+                    else:  # version == 2
+                        tile_data = f.read(20)
+                        if len(tile_data) < 20:
+                            break
+                        tile_id, offset, compressed_size, uncompressed_size = struct.unpack("<IQII", tile_data)
+                        if tile_id in needed_int:
+                            index[str(tile_id)] = {
+                                "offset": offset,
+                                "size": uncompressed_size,
+                                "compressed_size": compressed_size
+                            }
+                            if len(index) >= len(needed_int):
+                                break  # Found all needed tiles
+
+                logger.info(f">>> Loaded {len(index)} entries from large index (scanned to find matches)")
+                return index
+
+            # For small indices or when we need everything, load all entries
             if version == 1:
                 # Uncompressed format
                 for _ in range(num_tiles):
@@ -917,7 +960,8 @@ class DeepStarCatalog:
         if cache_key not in self._index_cache:
             if index_file_bin.exists():
                 logger.info(f">>> Reading binary index from {index_file_bin}")
-                self._index_cache[cache_key] = self._read_binary_index(index_file_bin)
+                # Pass needed tiles for optimization
+                self._index_cache[cache_key] = self._read_binary_index(index_file_bin, needed_tiles=set(tile_ids))
                 logger.info(f">>> Binary index loaded, {len(self._index_cache[cache_key])} tiles in index")
             elif index_file_json.exists():
                 logger.info(f">>> Reading JSON index from {index_file_json}")
