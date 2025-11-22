@@ -77,23 +77,49 @@ def get_display_image(
                     chart_generator.ensure_catalog_loading()
                     logger.info(f">>> Catalog state: {chart_generator.get_catalog_state()}")
 
-                    # Generate chart - consume ALL yields to get final complete chart
+                    # RETURN THE GENERATOR ITSELF - don't consume it here!
+                    # The UI will consume yields and update display for each one
+                    logger.info(">>> Returning chart generator (not consuming yields here)")
+
+                    # Create generator that yields converted images
+                    def chart_image_generator():
+                        for image in chart_generator.generate_chart(
+                            catalog_object,
+                            (display_class.fov_res, display_class.fov_res),
+                            burn_in=burn_in,
+                            display_class=display_class,
+                            roll=roll
+                        ):
+                            if image is None:
+                                # Catalog not ready yet, show "Loading..." with progress
+                                if chart_generator.catalog:
+                                    progress_text = chart_generator.catalog.load_progress
+                                    progress_percent = chart_generator.catalog.load_percent
+                                else:
+                                    progress_text = "Initializing..."
+                                    progress_percent = 0
+
+                                loading_image = create_loading_image(
+                                    display_class,
+                                    message="Loading Chart...",
+                                    progress_text=progress_text,
+                                    progress_percent=progress_percent
+                                )
+                                loading_image.is_loading_placeholder = True
+                                yield loading_image
+                            else:
+                                # Convert chart to red and yield it
+                                red_image = ImageChops.multiply(
+                                    image.convert("RGB"),
+                                    display_class.colors.red_image
+                                )
+                                red_image.is_loading_placeholder = False
+                                yield red_image
+
+                    return chart_image_generator()
+
+                    # OLD CODE BELOW - never reached
                     chart_image = None
-                    logger.info(">>> Starting chart generation (consuming all yields)...")
-                    yield_count = 0
-                    for image in chart_generator.generate_chart(
-                        catalog_object,
-                        (display_class.fov_res, display_class.fov_res),
-                        burn_in=burn_in,
-                        display_class=display_class,
-                        roll=roll
-                    ):
-                        yield_count += 1
-                        logger.info(f">>> Received yield #{yield_count}: {type(image)}")
-                        chart_image = image  # Keep last (most complete) image
-
-                    logger.info(f">>> Chart complete after {yield_count} yields: {type(chart_image)}")
-
                     if chart_image is None:
                         logger.info(">>> Chart is None, creating loading placeholder...")
                         # Catalog not ready yet, show "Loading..." with progress
@@ -242,6 +268,7 @@ def get_display_image(
             burn_in=True
         )
 
+    logger.info(f">>> get_display_image() RETURNING: {type(return_image)}, size={return_image.size if return_image else None}, has_is_loading={hasattr(return_image, 'is_loading_placeholder') if return_image else False}")
     return return_image
 
 

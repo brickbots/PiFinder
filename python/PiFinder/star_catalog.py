@@ -337,14 +337,16 @@ class DeepStarCatalog:
             if mag_min >= mag_limit:
                 break
 
-            logger.info(f"PROGRESSIVE: Loading mag band {mag_min}-{mag_max}")
+            logger.info(f">>> PROGRESSIVE: Loading mag band {mag_min}-{mag_max}, tiles={len(tiles)}, mag_limit={mag_limit}")
             import time
             t_band_start = time.time()
 
             # Load stars from this magnitude band only
+            logger.info(f">>> Calling _load_tiles_for_mag_band...")
             band_stars = self._load_tiles_for_mag_band(
                 tiles, mag_band_info, mag_limit, ra_deg, dec_deg, fov_deg
             )
+            logger.info(f">>> _load_tiles_for_mag_band returned {len(band_stars)} stars")
 
             t_band_end = time.time()
             logger.info(f"PROGRESSIVE: Mag band {mag_min}-{mag_max} loaded {len(band_stars)} stars in {(t_band_end-t_band_start)*1000:.1f}ms")
@@ -525,18 +527,23 @@ class DeepStarCatalog:
         mag_max = mag_band_info["max"]
         band_dir = self.catalog_path / f"mag_{mag_min:02.0f}_{mag_max:02.0f}"
 
+        logger.info(f">>> _load_tiles_for_mag_band: mag {mag_min}-{mag_max}, band_dir={band_dir}, tiles={len(tile_ids)}")
+
         # Check if this band directory exists
         if not band_dir.exists():
-            logger.debug(f"Magnitude band directory not found: {band_dir}")
+            logger.warning(f">>> Magnitude band directory not found: {band_dir}")
             return []
 
         # For compact format, use vectorized batch loading per band
         assert self.metadata is not None, "metadata must be loaded"
         is_compact = self.metadata.get("format") == "compact"
+        logger.info(f">>> Format is_compact={is_compact}, calling _load_tiles_batch_single_band...")
         if is_compact:
-            return self._load_tiles_batch_single_band(
+            result = self._load_tiles_batch_single_band(
                 tile_ids, mag_band_info, mag_limit
             )
+            logger.info(f">>> _load_tiles_batch_single_band returned {len(result)} stars")
+            return result
         else:
             # Legacy format - load tiles one by one (will load all bands for each tile)
             # This is less efficient but legacy format doesn't support per-band loading

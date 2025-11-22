@@ -250,7 +250,9 @@ class UIObjectDetails(UIModule):
         logger.info(f">>> Chart generator obtained, state: {chart_gen.get_catalog_state() if chart_gen else 'None'}")
 
         logger.info(f">>> Calling cat_images.get_display_image with force_deep_chart={self._force_deep_chart}")
-        self.object_image = cat_images.get_display_image(
+
+        # get_display_image returns either an image directly (POSS) or a generator (deep chart)
+        result = cat_images.get_display_image(
             self.object,
             str(self.config_object.equipment.active_eyepiece),
             self.config_object.equipment.calc_tfov(),
@@ -263,7 +265,24 @@ class UIObjectDetails(UIModule):
             chart_generator=chart_gen,  # Pass our chart generator to cat_images
             force_deep_chart=self._force_deep_chart,  # Toggle state
         )
-        logger.info(f">>> cat_images.get_display_image returned: {type(self.object_image)}")
+
+        # Check if it's a generator (progressive deep chart) or direct image (POSS)
+        if hasattr(result, '__iter__') and hasattr(result, '__next__'):
+            # It's a generator - consume yields and update display for each one
+            logger.info(">>> get_display_image returned GENERATOR, consuming yields progressively...")
+            for yield_num, image in enumerate(result, 1):
+                logger.info(f">>> Received yield #{yield_num} from generator: {type(image)}")
+                self.object_image = image
+                # Force immediate screen update to show this progressive result
+                self.update(force=True)
+                logger.info(f">>> Display updated with yield #{yield_num}")
+            logger.info(f">>> Generator exhausted, final image: {type(self.object_image)}")
+        else:
+            # Direct image (POSS)
+            logger.info(f">>> get_display_image returned direct image: {type(result)}")
+            self.object_image = result
+
+        logger.info(f">>> update_object_info() complete, self.object_image is now: {type(self.object_image)}")
 
         # Track if we're showing a "Loading..." placeholder for deep chart
         # Check if image has the special "is_loading_placeholder" attribute
@@ -914,6 +933,9 @@ class UIObjectDetails(UIModule):
             # Reload image with new setting
             logger.info(">>> Calling update_object_info()...")
             self.update_object_info()
+            logger.info(f">>> After update_object_info(), self.object_image type: {type(self.object_image)}, size: {self.object_image.size if self.object_image else None}")
             logger.info(">>> Calling update()...")
-            self.update()
+            update_result = self.update()
+            logger.info(f">>> update() returned: {type(update_result)}")
             logger.info(">>> key_number(0) complete")
+            return True
