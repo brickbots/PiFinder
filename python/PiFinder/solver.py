@@ -399,12 +399,12 @@ def solver(
                             del solution["epoch_proper_motion"]
                             del solution["cache_hit_fraction"]
 
-                        solved |= solution
+                            solved |= solution
 
-                        total_tetra_time = t_extract + solved["T_solve"]
-                        if total_tetra_time > 1000:
-                            console_queue.put(f"SLV: Long: {total_tetra_time}")
-                            logger.warning("Long solver time: %i", total_tetra_time)
+                            total_tetra_time = t_extract + solved["T_solve"]
+                            if total_tetra_time > 1000:
+                                console_queue.put(f"SLV: Long: {total_tetra_time}")
+                                logger.warning("Long solver time: %i", total_tetra_time)
 
                         if solved["RA"] is not None:
                             # RA, Dec, Roll at the center of the camera's FoV:

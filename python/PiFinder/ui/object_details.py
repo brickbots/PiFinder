@@ -23,9 +23,11 @@ from PiFinder import calc_utils
 import functools
 
 from PiFinder.db.observations_db import ObservationsDatabase
+import logging
 import numpy as np
 import time
 
+logger = logging.getLogger("PiFinder.UIObjectDetails")
 
 # Constants for display modes
 DM_DESC = 0  # Display mode for description
