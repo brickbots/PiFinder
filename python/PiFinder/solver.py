@@ -178,6 +178,13 @@ def update_sqm_dual_pipeline(
                 last_update=datetime.now().isoformat(),
             )
             shared_state.set_sqm(new_sqm_state)
+
+            raw_str = (
+                f", raw={sqm_value_raw:.2f}"
+                if sqm_value_raw is not None
+                else ", raw=N/A"
+            )
+            logger.info(f"SQM updated: processed={sqm_value_processed:.2f}{raw_str}")
             return True
 
     except Exception as e:
@@ -337,7 +344,9 @@ def solver(
                         )
 
                         if len(centroids) == 0:
-                            log_no_stars_found = False
+                            if log_no_stars_found:
+                                logger.info("No stars found, skipping (Logged only once)")
+                                log_no_stars_found = False
                             # Clear solve results to mark solve as failed (otherwise old values persist)
                             solved["RA"] = None
                             solved["Dec"] = None
@@ -381,12 +390,11 @@ def solver(
                             )
 
                             # Don't clutter printed solution with these fields.
-                            # Use pop() to safely remove keys that may not exist
-                            solution.pop("matched_catID", None)
-                            solution.pop("pattern_centroids", None)
-                            solution.pop("epoch_equinox", None)
-                            solution.pop("epoch_proper_motion", None)
-                            solution.pop("cache_hit_fraction", None)
+                            del solution["matched_catID"]
+                            del solution["pattern_centroids"]
+                            del solution["epoch_equinox"]
+                            del solution["epoch_proper_motion"]
+                            del solution["cache_hit_fraction"]
 
                         solved |= solution
 
@@ -418,6 +426,12 @@ def solver(
                             solved["cam_solve_time"] = solved["solve_time"]
                             # Mark successful solve - use same timestamp as last_solve_attempt for comparison
                             solved["last_solve_success"] = solved["last_solve_attempt"]
+
+                            logger.info(
+                                f"Solve SUCCESS - {len(centroids)} centroids → "
+                                f"{solved.get('Matches', 0)} matches, "
+                                f"RMSE: {solved.get('RMSE', 0):.1f}px"
+                            )
 
                             # See if we are waiting for alignment
                             if align_ra != 0 and align_dec != 0:
