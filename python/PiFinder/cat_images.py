@@ -77,11 +77,9 @@ def get_display_image(
                     chart_generator.ensure_catalog_loading()
                     logger.info(f">>> Catalog state: {chart_generator.get_catalog_state()}")
 
-                    # Try to generate chart (progressive generator - consume all yields)
-                    # The generator yields intermediate images as magnitude bands load
-                    # We'll use the final (most complete) image
+                    # Generate chart - consume ALL yields to get final complete chart
                     chart_image = None
-                    logger.info(">>> Starting to consume chart generator yields...")
+                    logger.info(">>> Starting chart generation (consuming all yields)...")
                     yield_count = 0
                     for image in chart_generator.generate_chart(
                         catalog_object,
@@ -92,10 +90,9 @@ def get_display_image(
                     ):
                         yield_count += 1
                         logger.info(f">>> Received yield #{yield_count}: {type(image)}")
-                        chart_image = image  # Keep updating to latest
-                        # TODO: Could potentially display intermediate images here for faster feedback
+                        chart_image = image  # Keep last (most complete) image
 
-                    logger.info(f">>> Chart generation complete: {yield_count} yields, final image: {type(chart_image)}")
+                    logger.info(f">>> Chart complete after {yield_count} yields: {type(chart_image)}")
 
                     if chart_image is None:
                         logger.info(">>> Chart is None, creating loading placeholder...")

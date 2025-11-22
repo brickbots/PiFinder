@@ -316,9 +316,11 @@ class DeepStarCatalog:
             tiles = [t for t in tiles if t in self.visible_tiles]
 
         # Limit tile count to prevent excessive loading
-        if len(tiles) > 100:
-            logger.warning(f"Large tile count ({len(tiles)}) detected! Limiting to 100 tiles")
-            tiles = tiles[:100]
+        # For small FOVs (<1°), 20-30 tiles is more than enough
+        MAX_TILES = 25
+        if len(tiles) > MAX_TILES:
+            logger.warning(f"Large tile count ({len(tiles)}) detected! Limiting to {MAX_TILES} tiles")
+            tiles = tiles[:MAX_TILES]
 
         # Load stars progressively by magnitude band (bright to faint)
         all_stars = []
@@ -445,12 +447,13 @@ class DeepStarCatalog:
             stars_raw: List[Tuple[float, float, float, float, float]] = []
 
             # To prevent UI blocking, limit the number of tiles loaded at once
-            # For large tile counts (>100), only load the most important tiles
-            if len(tiles) > 100:
-                logger.warning(f"Large tile count ({len(tiles)}) detected! Limiting to 100 tiles to prevent UI freeze")
+            # For small FOVs (<1°), 20-30 tiles is more than enough
+            MAX_TILES = 25
+            if len(tiles) > MAX_TILES:
+                logger.warning(f"Large tile count ({len(tiles)}) detected! Limiting to {MAX_TILES} tiles to prevent UI freeze")
                 # Tiles from query_disc are roughly ordered by distance from center
-                # Keep the first 100 which are closest to FOV center
-                tiles = tiles[:100]
+                # Keep the first MAX_TILES which are closest to FOV center
+                tiles = tiles[:MAX_TILES]
 
             cache_hits = 0
             cache_misses = 0
