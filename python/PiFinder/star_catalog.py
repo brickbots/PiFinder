@@ -315,13 +315,6 @@ class DeepStarCatalog:
         if self.visible_tiles:
             tiles = [t for t in tiles if t in self.visible_tiles]
 
-        # Limit tile count to prevent excessive loading
-        # For small FOVs (<1°), 20-30 tiles is more than enough
-        MAX_TILES = 25
-        if len(tiles) > MAX_TILES:
-            logger.warning(f"Large tile count ({len(tiles)}) detected! Limiting to {MAX_TILES} tiles")
-            tiles = tiles[:MAX_TILES]
-
         # Load stars progressively by magnitude band (bright to faint)
         all_stars = []
 
