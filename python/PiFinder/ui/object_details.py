@@ -169,6 +169,12 @@ class UIObjectDetails(UIModule):
         Generates object text and loads object images
         """
         logger.info(f">>> update_object_info() called for {self.object.display_name if self.object else 'None'}")
+
+        # CRITICAL: Clear loading flag at START to prevent recursive update() calls
+        # during generator consumption. If we don't do this, calling self.update()
+        # while consuming yields will trigger update() -> update_object_info() recursion.
+        self._is_showing_loading_chart = False
+
         # Title...
         self.title = self.object.display_name
 
@@ -703,9 +709,36 @@ class UIObjectDetails(UIModule):
         # paste image
         logger.info(f">>> update(): object_display_mode={self.object_display_mode}, DM_POSS={DM_POSS}, DM_SDSS={DM_SDSS}, DM_CHART={DM_CHART}, will_paste={self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART]}")
         logger.info(f">>> update(): object_image type={type(self.object_image)}, size={self.object_image.size if self.object_image else None}")
+
+        # DEBUG: Check if object_image has the is_loading_placeholder attribute (indicates it's a chart)
+        if self.object_image:
+            is_chart = hasattr(self.object_image, 'is_loading_placeholder')
+            logger.info(f">>> update(): object_image has is_loading_placeholder={is_chart}, _force_deep_chart={self._force_deep_chart}")
+
         if self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART]:
+            # DEBUG: Check if image has any non-black pixels
+            if self.object_image and self.object_display_mode == DM_CHART:
+                import numpy as np
+                img_array = np.array(self.object_image)
+                non_zero = np.count_nonzero(img_array)
+                max_val = np.max(img_array)
+                logger.info(f">>> CHART IMAGE DEBUG: non-zero pixels={non_zero}, max_value={max_val}, shape={img_array.shape}")
+
             self.screen.paste(self.object_image)
             logger.info(f">>> Image pasted to screen")
+
+            # DEBUG: Save screen buffer to file for inspection
+            if self.object_display_mode == DM_CHART and self._force_deep_chart:
+                try:
+                    import os
+                    debug_path = "/tmp/pifinder_chart_debug.png"
+                    self.object_image.save(debug_path)
+                    logger.info(f">>> SAVED object_image to {debug_path}")
+                    screen_path = "/tmp/pifinder_screen_debug.png"
+                    self.screen.save(screen_path)
+                    logger.info(f">>> SAVED screen buffer to {screen_path}")
+                except Exception as e:
+                    logger.error(f">>> Failed to save debug images: {e}")
 
             # If showing deep chart, draw crosshair based on config
             if self._force_deep_chart and self.object_image is not None:
