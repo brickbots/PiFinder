@@ -935,9 +935,14 @@ class DeepStarCatalog:
         MAX_GAP = 100 * 1024  # 100KB gap tolerance
         all_stars = []
 
+        logger.info(f">>> Batch loading {len(read_ops)} tiles for mag {mag_min}-{mag_max}")
         with open(tiles_file, "rb") as f:
             i = 0
+            chunk_num = 0
             while i < len(read_ops):
+                chunk_num += 1
+                logger.debug(f">>> Processing chunk {chunk_num}, tile {i+1}/{len(read_ops)}")
+
                 tile_id, tile_info = read_ops[i]
                 offset = tile_info["offset"]
                 chunk_end = offset + tile_info.get("compressed_size", tile_info["size"])
@@ -945,7 +950,13 @@ class DeepStarCatalog:
                 # Find consecutive tiles for chunk reading
                 tiles_in_chunk = [(tile_id, tile_info)]
                 j = i + 1
+                inner_iterations = 0
                 while j < len(read_ops):
+                    inner_iterations += 1
+                    if inner_iterations > 1000:
+                        logger.error(f">>> INFINITE LOOP DETECTED in chunk consolidation! j={j}, len={len(read_ops)}, i={i}")
+                        break  # Safety break
+
                     next_tile_id, next_tile_info = read_ops[j]
                     next_offset = next_tile_info["offset"]
                     if next_offset - chunk_end <= MAX_GAP:
@@ -957,11 +968,14 @@ class DeepStarCatalog:
 
                 # Read entire chunk
                 chunk_size = chunk_end - offset
+                logger.debug(f">>> Reading chunk: {len(tiles_in_chunk)} tiles, size={chunk_size} bytes")
                 f.seek(offset)
                 chunk_data = f.read(chunk_size)
+                logger.debug(f">>> Chunk read complete, processing tiles...")
 
                 # Process each tile in chunk
-                for tile_id, tile_info in tiles_in_chunk:
+                for tile_idx, (tile_id, tile_info) in enumerate(tiles_in_chunk):
+                    logger.debug(f">>> Processing tile {tile_idx+1}/{len(tiles_in_chunk)} (id={tile_id})")
                     tile_offset = tile_info["offset"] - offset
                     compressed_size = tile_info.get("compressed_size")
                     size = tile_info["size"]
