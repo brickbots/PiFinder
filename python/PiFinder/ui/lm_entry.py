@@ -97,8 +97,8 @@ class UILMEntry(UIModule):
 
         # Icons (matching radec_entry style)
         arrow_icons = "󰹺"
-        back_icon = ""
-        go_icon = ""
+        left_icon = ""
+        right_icon = ""
 
         # Legends at bottom (two lines)
         bar_y = self.height - (self.fonts.base.height * 2) - 4
@@ -115,7 +115,7 @@ class UILMEntry(UIModule):
         draw.text((2, bar_y + 2), line1, font=self.fonts.base.font, fill=self.colors.get(128))
 
         # Line 2: Actions
-        line2 = f"{back_icon}Cancel {go_icon}Accept -Del"
+        line2 = f"{left_icon}Cancel {right_icon}Save -Del"
         draw.text((2, bar_y + 12), line2, font=self.fonts.base.font, fill=self.colors.get(128))
 
         return self.screen, None
@@ -173,7 +173,7 @@ class UILMEntry(UIModule):
         return True
 
     def key_right(self):
-        """Accept - save value and return"""
+        """Accept - save value and exit"""
         import logging
         logger = logging.getLogger("UILMEntry")
         logger.info(">>> key_right() called!")
@@ -210,7 +210,10 @@ class UILMEntry(UIModule):
             # No need to invalidate cache - cache key includes LM so different
             # LM values will automatically get separate cache entries
 
-            logger.info("Returning True to exit LM entry screen")
+            logger.info("Calling remove_from_stack() to exit LM entry screen")
+            # Exit the screen by removing from stack
+            if self.remove_from_stack:
+                self.remove_from_stack()
             return True
         except ValueError as e:
             # Invalid value, don't accept

@@ -129,14 +129,17 @@ class DeepChartGenerator:
         # Check state
         if self.catalog.state != CatalogState.READY:
             logger.info(f"Chart generation skipped: catalog state = {self.catalog.state}")
-            return None
+            yield None
+            return
 
         # Check cache
         cache_key = self.get_cache_key(catalog_object)
         if cache_key in self.chart_cache:
             # Return cached base image (without crosshair)
             # Crosshair will be added by add_pulsating_crosshair() each frame
-            return self.chart_cache[cache_key]
+            logger.info(f"Chart cache HIT for {cache_key}")
+            yield self.chart_cache[cache_key]
+            return
 
         # Get equipment settings
         equipment = self.config.equipment
