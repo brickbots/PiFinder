@@ -640,6 +640,40 @@ class Server:
                 success_message="Eyepiece Deleted, restart your PiFinder to remove from menu",
             )
 
+        @app.route("/equipment/reorder_eyepieces", method="post")
+        @auth_required
+        def equipment_reorder_eyepieces():
+            cfg = config.Config()
+            try:
+                # Get the new order from the request body
+                data = request.json
+                new_order = data.get("order", [])
+
+                # Validate the order
+                if len(new_order) != len(cfg.equipment.eyepieces):
+                    return {"success": False, "error": "Invalid order length"}
+
+                # Reorder the eyepieces based on the new indices
+                reordered_eyepieces = [
+                    cfg.equipment.eyepieces[idx] for idx in new_order
+                ]
+                cfg.equipment.eyepieces = reordered_eyepieces
+
+                # Update active eyepiece index if needed
+                if cfg.equipment.active_eyepiece_index >= 0:
+                    # Find where the active eyepiece moved to
+                    old_active_idx = cfg.equipment.active_eyepiece_index
+                    new_active_idx = new_order.index(old_active_idx)
+                    cfg.equipment.active_eyepiece_index = new_active_idx
+
+                # Save the new order
+                cfg.save_equipment()
+                self.ui_queue.put("reload_config")
+
+                return {"success": True}
+            except Exception as e:
+                return {"success": False, "error": str(e)}
+
         @app.route("/equipment/edit_instrument/<instrument_id:int>")
         @auth_required
         def edit_instrument(instrument_id: int):

@@ -110,20 +110,24 @@
     % end
 </table>
 
-<h5 class="grey-text">Eyepieces</h5>
+<h5 class="grey-text">Eyepieces <span class="grey-text text-lighten-1" style="font-size: 14px;">(drag to reorder)</span></h5>
 <table class="grey darken-2 grey-text z-depth-1">
-    <tr>
-        <th>Make</th>
-        <th>Name</th>
-        <th>Focal Length (mm)</th>
-        <th>Apparent FOV</th>
-        <th>Field Stop</th>
-        <th>Active</th>
-        <th>Actions</th>
-    </tr>
-
+    <thead>
+        <tr>
+            <th style="width: 30px;"></th>
+            <th>Make</th>
+            <th>Name</th>
+            <th>Focal Length (mm)</th>
+            <th>Apparent FOV</th>
+            <th>Field Stop</th>
+            <th>Active</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody id="eyepiece-list">
     % for eyepiece in equipment.eyepieces:
-    <tr>
+    <tr data-eyepiece-index="{{equipment.eyepieces.index(eyepiece)}}" style="cursor: move;">
+        <td class="drag-handle"><i class="material-icons grey-text text-lighten-1">drag_indicator</i></td>
         <td>{{eyepiece.make}}</td>
         <td>{{eyepiece.name}}</td>
         <td>{{eyepiece.focal_length_mm}}</td>
@@ -147,10 +151,12 @@
         </td>
     </tr>
     % end
+    </tbody>
 </table>
 
 <br/>
 
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         let elems = document.querySelectorAll('select');
@@ -165,6 +171,51 @@
     function set_instrument_id(id) {
         let instrument_id = id;
     }
+
+    // Initialize drag-and-drop for eyepieces
+    document.addEventListener('DOMContentLoaded', function () {
+        const eyepieceList = document.getElementById('eyepiece-list');
+        if (eyepieceList) {
+            Sortable.create(eyepieceList, {
+                handle: '.drag-handle',
+                animation: 150,
+                ghostClass: 'grey',
+                onEnd: function (evt) {
+                    // Get the new order of eyepiece indices
+                    const rows = eyepieceList.querySelectorAll('tr');
+                    const newOrder = Array.from(rows).map(row =>
+                        parseInt(row.getAttribute('data-eyepiece-index'))
+                    );
+
+                    // Send the new order to the server
+                    fetch('/equipment/reorder_eyepieces', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ order: newOrder })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            console.log('Eyepiece order saved successfully');
+                            // Update the data-eyepiece-index attributes to reflect new positions
+                            rows.forEach((row, index) => {
+                                row.setAttribute('data-eyepiece-index', index);
+                            });
+                        } else {
+                            console.error('Failed to save eyepiece order');
+                            M.toast({html: 'Failed to save eyepiece order', classes: 'red'});
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error saving eyepiece order:', error);
+                        M.toast({html: 'Error saving eyepiece order', classes: 'red'});
+                    });
+                }
+            });
+        }
+    });
 </script>
 
 % include("footer.tpl")
