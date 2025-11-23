@@ -46,15 +46,15 @@ def get_display_image(
         Required for deep chart generation
     """
 
-    logger.info(f">>> get_display_image() called for {catalog_object.display_name if catalog_object else 'None'}")
-    logger.info(f">>> force_deep_chart={force_deep_chart}, chart_generator={chart_generator is not None}")
+    logger.debug(f">>> get_display_image() called for {catalog_object.display_name if catalog_object else 'None'}")
+    logger.debug(f">>> force_deep_chart={force_deep_chart}, chart_generator={chart_generator is not None}")
 
     object_image_path = resolve_image_name(catalog_object, source="POSS")
-    logger.info(f">>> POSS image path: {object_image_path}, exists: {os.path.exists(object_image_path)}")
+    logger.debug(f">>> POSS image path: {object_image_path}, exists: {os.path.exists(object_image_path)}")
 
     # If force_deep_chart is True, skip POSS image even if it exists
     if force_deep_chart or not os.path.exists(object_image_path):
-        logger.info(f">>> Will use deep chart (force={force_deep_chart}, poss_missing={not os.path.exists(object_image_path)})")
+        logger.debug(f">>> Will use deep chart (force={force_deep_chart}, poss_missing={not os.path.exists(object_image_path)})")
         # Try to generate deep chart if catalog available
         return_image = None
 
@@ -64,22 +64,22 @@ def get_display_image(
 
             deep_catalog_path = Path(utils.astro_data_dir, "deep_stars", "metadata.json")
 
-            logger.info(f">>> Deep chart request: chart_generator={chart_generator is not None}, catalog_exists={deep_catalog_path.exists()}, path={deep_catalog_path}")
+            logger.debug(f">>> Deep chart request: chart_generator={chart_generator is not None}, catalog_exists={deep_catalog_path.exists()}, path={deep_catalog_path}")
 
             # Try to generate deep chart if chart_generator was passed in
             if chart_generator is not None and deep_catalog_path.exists():
-                logger.info(">>> chart_generator and deep catalog available, generating chart...")
+                logger.debug(">>> chart_generator and deep catalog available, generating chart...")
                 try:
                     from PiFinder.image_utils import create_loading_image
 
                     # Ensure catalog loading started
-                    logger.info(">>> Calling chart_generator.ensure_catalog_loading()...")
+                    logger.debug(">>> Calling chart_generator.ensure_catalog_loading()...")
                     chart_generator.ensure_catalog_loading()
-                    logger.info(f">>> Catalog state: {chart_generator.get_catalog_state()}")
+                    logger.debug(f">>> Catalog state: {chart_generator.get_catalog_state()}")
 
                     # RETURN THE GENERATOR ITSELF - don't consume it here!
                     # The UI will consume yields and update display for each one
-                    logger.info(">>> Returning chart generator (not consuming yields here)")
+                    logger.debug(">>> Returning chart generator (not consuming yields here)")
 
                     # Create generator that yields converted images
                     def chart_image_generator():
@@ -159,7 +159,7 @@ def get_display_image(
 
         # Fallback: "No Image" placeholder
         if return_image is None:
-            logger.info(">>> No chart generated, creating 'No Image' placeholder")
+            logger.debug(">>> No chart generated, creating 'No Image' placeholder")
             return_image = Image.new("RGB", display_class.resolution)
             ri_draw = ImageDraw.Draw(return_image)
             if burn_in:
@@ -170,7 +170,7 @@ def get_display_image(
                     fill=display_class.colors.get(128),
                 )
     else:
-        logger.info(">>> Using POSS image")
+        logger.debug(">>> Using POSS image")
         return_image = Image.open(object_image_path)
 
         # rotate for roll / newtonian orientation
@@ -268,7 +268,7 @@ def get_display_image(
             burn_in=True
         )
 
-    logger.info(f">>> get_display_image() RETURNING: {type(return_image)}, size={return_image.size if return_image else None}, has_is_loading={hasattr(return_image, 'is_loading_placeholder') if return_image else False}")
+    logger.debug(f">>> get_display_image() RETURNING: {type(return_image)}, size={return_image.size if return_image else None}, has_is_loading={hasattr(return_image, 'is_loading_placeholder') if return_image else False}")
     return return_image
 
 

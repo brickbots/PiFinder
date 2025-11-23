@@ -59,7 +59,7 @@ class UIObjectDetails(UIModule):
         self._chart_generator = None  # Active generator for progressive chart updates
         self._is_showing_loading_chart = False  # Track if showing "Loading..." for deep chart
         self._force_deep_chart = False  # Toggle: force deep chart even if POSS image exists
-        self._is_deep_chart = False  # Track if currently showing a deep chart (auto or forced)
+        self._force_deep_chart = False  # Toggle: force deep chart even if POSS image exists
 
         # Default Marking Menu
         self._default_marking_menu = MarkingMenu(
@@ -169,7 +169,7 @@ class UIObjectDetails(UIModule):
         """
         Generates object text and loads object images
         """
-        logger.info(f">>> update_object_info() called for {self.object.display_name if self.object else 'None'}")
+        # logger.info(f">>> update_object_info() called for {self.object.display_name if self.object else 'None'}")
 
         # CRITICAL: Clear loading flag at START to prevent recursive update() calls
         # during generator consumption. If we don't do this, calling self.update()
@@ -299,7 +299,12 @@ class UIObjectDetails(UIModule):
 
         # Detect if we're showing a deep chart (forced or automatic due to no POSS image)
         # Deep charts are identified by the is_loading_placeholder attribute (loading or False)
-        self._is_deep_chart = (
+        # self._is_deep_chart is now a property
+        pass
+
+    @property
+    def _is_deep_chart(self):
+        return (
             self.object_image is not None
             and hasattr(self.object_image, 'is_loading_placeholder')
             and self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART]
@@ -346,31 +351,52 @@ class UIObjectDetails(UIModule):
 
     def _draw_crosshair_simple(self, pulse=False):
         """
-        Draw simple crosshair with 4 lines and center gap
+        Draw simple crosshair with 4 lines and center gap using inverted pixels
 
         Args:
             pulse: If True, apply pulsation effect
         """
+        import numpy as np
+
         width, height = self.display_class.resolution
-        cx, cy = width / 2.0, height / 2.0
+        cx, cy = int(width / 2.0), int(height / 2.0)
 
         if pulse:
-            _, size_mult, color_intensity = self._get_pulse_factor()
+            _, size_mult, _ = self._get_pulse_factor()
             # Size pulsates from 6 down to 3 pixels (inverted - more steps)
-            outer = 6.0 - (3.0 * size_mult)  # 6.0 down to 3.0 (more visible integer steps)
-            marker_color = self.colors.get(color_intensity)
+            outer = int(6.0 - (3.0 * size_mult))  # 6.0 down to 3.0 (more visible integer steps)
         else:
-            # Fixed size and brightness
+            # Fixed size
             outer = 4
-            marker_color = self.colors.get(64)
 
         inner = 2  # Fixed gap (small center)
 
-        # Crosshair outline (4 short lines with gap in middle)
-        self.draw.line([cx - outer, cy, cx - inner, cy], fill=marker_color, width=1)  # Left
-        self.draw.line([cx + inner, cy, cx + outer, cy], fill=marker_color, width=1)  # Right
-        self.draw.line([cx, cy - outer, cx, cy - inner], fill=marker_color, width=1)  # Top
-        self.draw.line([cx, cy + inner, cx, cy + outer], fill=marker_color, width=1)  # Bottom
+        # Get screen buffer as numpy array for pixel inversion
+        pixels = np.array(self.screen)
+
+        # Invert pixels to create crosshair (always visible on any background)
+        # Horizontal lines (left and right of center)
+        for x in range(max(0, cx - outer), max(0, cx - inner)):
+            if 0 <= x < width and 0 <= cy < height:
+                pixels[cy, x, 0] = 255 - pixels[cy, x, 0]  # Invert red channel
+        for x in range(min(width, cx + inner), min(width, cx + outer + 1)):
+            if 0 <= x < width and 0 <= cy < height:
+                pixels[cy, x, 0] = 255 - pixels[cy, x, 0]  # Invert red channel
+
+        # Vertical lines (top and bottom of center)
+        for y in range(max(0, cy - outer), max(0, cy - inner)):
+            if 0 <= y < height and 0 <= cx < width:
+                pixels[y, cx, 0] = 255 - pixels[y, cx, 0]  # Invert red channel
+        for y in range(min(height, cy + inner), min(height, cy + outer + 1)):
+            if 0 <= y < height and 0 <= cx < width:
+                pixels[y, cx, 0] = 255 - pixels[y, cx, 0]  # Invert red channel
+
+        # Update screen buffer with inverted pixels
+        from PIL import Image
+        self.screen = Image.fromarray(pixels, mode="RGB")
+        # Re-create draw object since we replaced the image
+        from PIL import ImageDraw
+        self.draw = ImageDraw.Draw(self.screen)
 
     def _draw_crosshair_circle(self, pulse=False):
         """
@@ -684,12 +710,20 @@ class UIObjectDetails(UIModule):
         if hasattr(self, '_chart_generator') and self._chart_generator is not None:
             try:
                 next_image = next(self._chart_generator)
-                logger.info(f">>> update(): Consumed next chart yield: {type(next_image)}")
+                # logger.debug(f">>> update(): Consumed next chart yield: {type(next_image)}")
                 self.object_image = next_image
                 force = True  # Force screen update for progressive chart
             except StopIteration:
                 logger.info(">>> update(): Chart generator exhausted")
                 self._chart_generator = None  # Generator exhausted
+        
+        # Update loading flag based on current image
+        if self.object_image is not None:
+            self._is_showing_loading_chart = (
+                hasattr(self.object_image, 'is_loading_placeholder')
+                and self.object_image.is_loading_placeholder
+                and self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART]
+            )
 
         # Check if we're showing "Loading..." for a deep chart
         # and if catalog is now ready, regenerate the image
@@ -700,11 +734,11 @@ class UIObjectDetails(UIModule):
                 # Use cached chart generator to preserve catalog state
                 chart_gen = self._get_chart_generator()
                 state = chart_gen.get_catalog_state()
-                logger.info(f">>> Update check: catalog state = {state}")
+                # logger.debug(f">>> Update check: catalog state = {state}")
 
                 if state == CatalogState.READY:
                     # Catalog ready! Regenerate display
-                    logger.info(">>> Catalog READY! Regenerating image...")
+                    # logger.info(">>> Catalog READY! Regenerating image...")
                     self._is_showing_loading_chart = False
                     self.update_object_info()
                     force = True  # Force screen update
@@ -715,13 +749,14 @@ class UIObjectDetails(UIModule):
         self.clear_screen()
 
         # paste image
-        logger.info(f">>> update(): object_display_mode={self.object_display_mode}, DM_POSS={DM_POSS}, DM_SDSS={DM_SDSS}, DM_CHART={DM_CHART}, will_paste={self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART]}")
-        logger.info(f">>> update(): object_image type={type(self.object_image)}, size={self.object_image.size if self.object_image else None}")
+        # paste image
+        # logger.debug(f">>> update(): object_display_mode={self.object_display_mode}...")
+        # logger.debug(f">>> update(): object_image type={type(self.object_image)}...")
 
         # DEBUG: Check if object_image has the is_loading_placeholder attribute (indicates it's a chart)
         if self.object_image:
             is_chart = hasattr(self.object_image, 'is_loading_placeholder')
-            logger.info(f">>> update(): object_image has is_loading_placeholder={is_chart}, _force_deep_chart={self._force_deep_chart}")
+            # logger.debug(f">>> update(): object_image has is_loading_placeholder={is_chart}...")
 
         if self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART]:
             # DEBUG: Check if image has any non-black pixels
@@ -730,23 +765,13 @@ class UIObjectDetails(UIModule):
                 img_array = np.array(self.object_image)
                 non_zero = np.count_nonzero(img_array)
                 max_val = np.max(img_array)
-                logger.info(f">>> CHART IMAGE DEBUG: non-zero pixels={non_zero}, max_value={max_val}, shape={img_array.shape}")
+                # logger.debug(f">>> CHART IMAGE DEBUG: non-zero pixels={non_zero}, max_value={max_val}, shape={img_array.shape}")
 
             self.screen.paste(self.object_image)
-            logger.info(f">>> Image pasted to screen")
+            # logger.debug(f">>> Image pasted to screen")
 
             # DEBUG: Save screen buffer to file for inspection
-            if self.object_display_mode == DM_CHART and self._force_deep_chart:
-                try:
-                    import os
-                    debug_path = "/tmp/pifinder_chart_debug.png"
-                    self.object_image.save(debug_path)
-                    logger.info(f">>> SAVED object_image to {debug_path}")
-                    screen_path = "/tmp/pifinder_screen_debug.png"
-                    self.screen.save(screen_path)
-                    logger.info(f">>> SAVED screen buffer to {screen_path}")
-                except Exception as e:
-                    logger.error(f">>> Failed to save debug images: {e}")
+            # (Removed per user request)
 
             # If showing deep chart, draw crosshair based on config
             if self._force_deep_chart and self.object_image is not None:

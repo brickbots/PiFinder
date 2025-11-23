@@ -31,13 +31,13 @@ _chart_generator_instance = None
 def get_chart_generator(config, shared_state):
     """Get or create the global chart generator singleton"""
     global _chart_generator_instance
-    logger.info(f">>> get_chart_generator() called, instance exists: {_chart_generator_instance is not None}")
+    logger.debug(f">>> get_chart_generator() called, instance exists: {_chart_generator_instance is not None}")
     if _chart_generator_instance is None:
         logger.info(">>> Creating new DeepChartGenerator instance...")
         _chart_generator_instance = DeepChartGenerator(config, shared_state)
         logger.info(f">>> DeepChartGenerator created, state: {_chart_generator_instance.get_catalog_state()}")
     else:
-        logger.info(f">>> Returning existing instance, state: {_chart_generator_instance.get_catalog_state()}")
+        logger.debug(f">>> Returning existing instance, state: {_chart_generator_instance.get_catalog_state()}")
     return _chart_generator_instance
 
 
@@ -84,7 +84,7 @@ class DeepChartGenerator:
         Ensure catalog is loading or loaded
         Triggers background load if needed
         """
-        logger.info(f">>> ensure_catalog_loading() called, catalog is None: {self.catalog is None}")
+        logger.debug(f">>> ensure_catalog_loading() called, catalog is None: {self.catalog is None}")
         if self.catalog is None:
             logger.info(">>> Calling initialize_catalog()...")
             self.initialize_catalog()
@@ -152,7 +152,7 @@ class DeepChartGenerator:
         if cache_key in self.chart_cache:
             # Return cached base image (without crosshair)
             # Crosshair will be added by add_pulsating_crosshair() each frame
-            logger.info(f"Chart cache HIT for {cache_key}")
+            logger.debug(f"Chart cache HIT for {cache_key}")
             yield self.chart_cache[cache_key]
             return
 
@@ -168,9 +168,10 @@ class DeepChartGenerator:
 
         sqm = self.shared_state.sqm()
         mag_limit_calculated = self.get_limiting_magnitude(sqm)
-        # For display, keep the calculated value (may be >17)
         # For query, cap at catalog max
         mag_limit_query = min(mag_limit_calculated, 17.0)
+        
+        logger.info(f">>> Mag Limit: calculated={mag_limit_calculated:.2f}, query={mag_limit_query:.2f}, sqm={sqm.value if sqm else 'None'}")
 
         # Query stars PROGRESSIVELY (bright to faint)
         # This is a generator that yields partial results as each magnitude band loads
@@ -237,7 +238,7 @@ class DeepChartGenerator:
             t_render_end = time.time()
             logger.info(
                 f"PROGRESSIVE: Rendered {len(stars)} stars in {(t_render_end-t_render_start)*1000:.1f}ms "
-                f"(complete={is_complete})"
+                f"(complete={is_complete}, mag_limit={mag_limit_query:.1f})"
             )
 
             final_image = image
@@ -265,7 +266,7 @@ class DeepChartGenerator:
 
     def render_chart(
         self,
-        stars,
+        stars: np.ndarray,
         center_ra: float,
         center_dec: float,
         fov: float,
@@ -279,7 +280,7 @@ class DeepChartGenerator:
         Uses fast vectorized stereographic projection
 
         Args:
-            stars: List of (ra, dec, mag) tuples
+            stars: Numpy array (N, 3) of (ra, dec, mag)
             center_ra: Center RA in degrees
             center_dec: Center Dec in degrees
             fov: Field of view in degrees
@@ -298,6 +299,8 @@ class DeepChartGenerator:
         image_array = np.zeros((height, width, 3), dtype=np.uint8)
         image = Image.new("RGB", (width, height), (0, 0, 0))
         draw = ImageDraw.Draw(image)
+        
+        logger.info(f"Render Chart: {len(stars)} stars input, center=({center_ra:.4f}, {center_dec:.4f}), fov={fov:.4f}, res={resolution}")
 
         if len(stars) == 0:
             # Still draw crosshair even if no stars
@@ -310,12 +313,13 @@ class DeepChartGenerator:
 
         # Convert to numpy arrays for vectorized operations
         t1 = time.time()
-        stars_array = np.array(stars)
+        # stars is already a numpy array (N, 3)
+        stars_array = stars
         ra_arr = stars_array[:, 0]
         dec_arr = stars_array[:, 1]
         mag_arr = stars_array[:, 2]
         t2 = time.time()
-        logger.debug(f"  Array conversion: {(t2-t1)*1000:.1f}ms")
+        # logger.debug(f"  Array conversion: {(t2-t1)*1000:.1f}ms")
 
         # Fast stereographic projection (vectorized)
         # Convert degrees to radians
@@ -391,6 +395,8 @@ class DeepChartGenerator:
         mag_visible = mag_arr[mask]
         ra_visible = ra_arr[mask]
         dec_visible = dec_arr[mask]
+        
+        logger.info(f"Render Chart: {len(x_visible)} stars visible on screen (of {len(stars)} total)")
 
         # Scale brightness based on magnitude range in current field
         # Brightest star in field → 255, faintest → 50
@@ -447,50 +453,12 @@ class DeepChartGenerator:
         t_end = time.time()
         logger.debug(f"  Total render time: {(t_end-t_start)*1000:.1f}ms")
 
+        # Tag image as a deep chart (not a loading placeholder)
+        # This enables the correct marking menu in UIObjectDetails
+        image.is_loading_placeholder = False  # type: ignore[attr-defined]
+
         return image
 
-    def add_pulsating_crosshair(self, image: Image.Image) -> Image.Image:
-        """
-        Add pulsating crosshair to center of image
-        Called each frame to animate - does not modify original image
-
-        Args:
-            image: Base chart image (will be copied)
-
-        Returns:
-            New image with crosshair overlay
-        """
-        import time
-
-        # Copy image so we don't modify the cached version
-        result = image.copy()
-        width, height = result.size
-        draw = ImageDraw.Draw(result)
-
-        # Center position
-        cx, cy = width / 2.0, height / 2.0
-
-        # Pulsate crosshair: full cycle every 2 seconds
-        pulse_period = 2.0  # seconds
-        t = time.time() % pulse_period
-        # Sine wave for smooth pulsation (0.5 to 1.0 range)
-        pulse_factor = 0.5 + 0.5 * np.sin(2 * np.pi * t / pulse_period)
-
-        # Size pulsates between 3 and 7 pixels
-        outer = int(3 + 4 * pulse_factor)
-        inner = 2  # Fixed gap
-
-        # Color pulsates in brightness (32 to 96)
-        color_intensity = int(32 + 64 * pulse_factor)
-        marker_color = (color_intensity, 0, 0)
-
-        # Crosshair outline (4 short lines with gap in middle)
-        draw.line([cx - outer, cy, cx - inner, cy], fill=marker_color, width=1)  # Left
-        draw.line([cx + inner, cy, cx + outer, cy], fill=marker_color, width=1)  # Right
-        draw.line([cx, cy - outer, cx, cy - inner], fill=marker_color, width=1)  # Top
-        draw.line([cx, cy + inner, cx, cy + outer], fill=marker_color, width=1)  # Bottom
-
-        return result
 
     def _draw_star_antialiased_fast(self, image_array, ix, iy, fx, fy, intensity):
         """
@@ -637,13 +605,15 @@ class DeepChartGenerator:
         eyepiece_fl = eyepiece.focal_length_mm if eyepiece else None
         sqm_value = round(sqm.value, 1) if sqm and hasattr(sqm, 'value') and sqm.value else None
 
-        cache_key = (sqm_value, telescope_aperture, telescope_fl, eyepiece_fl)
+        # Include config mode and fixed value in cache key to handle mode switching
+        lm_mode = self.config.get_option("obj_chart_lm_mode")
+        lm_fixed = self.config.get_option("obj_chart_lm_fixed")
+        
+        cache_key = (sqm_value, telescope_aperture, telescope_fl, eyepiece_fl, lm_mode, lm_fixed)
 
         # Check cache - return cached value without logging
         if self._lm_cache is not None and self._lm_cache[0] == cache_key:
             return self._lm_cache[1]
-
-        lm_mode = self.config.get_option("obj_chart_lm_mode")
 
         if lm_mode == "fixed":
             # Use fixed limiting magnitude from config

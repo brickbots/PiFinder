@@ -430,7 +430,7 @@ def solver(
                             # Mark successful solve - use same timestamp as last_solve_attempt for comparison
                             solved["last_solve_success"] = solved["last_solve_attempt"]
 
-                            logger.info(
+                            logger.debug(
                                 f"Solve SUCCESS - {len(centroids)} centroids → "
                                 f"{solved.get('Matches', 0)} matches, "
                                 f"RMSE: {solved.get('RMSE', 0):.1f}px"
@@ -454,7 +454,7 @@ def solver(
                         else:
                             # Centroids found but solve failed - clear Matches
                             solved["Matches"] = 0
-                            logger.warning(
+                            logger.debug(
                                 f"Solve FAILED - {len(centroids)} centroids detected but "
                                 f"pattern match failed (FOV est: 12.0°, max err: 4.0°)"
                             )

@@ -446,7 +446,7 @@ class SQM:
             )
             pedestal = noise_floor
 
-            logger.info(
+            logger.debug(
                 f"Adaptive noise floor: {noise_floor:.1f} ADU "
                 f"(dark_px={noise_floor_details['dark_pixel_smoothed']:.1f}, "
                 f"theory={noise_floor_details['theoretical_floor']:.1f}, "
@@ -455,7 +455,7 @@ class SQM:
 
             # Check if zero-sec sample requested
             if noise_floor_details.get("request_zero_sec_sample"):
-                logger.info(
+                logger.debug(
                     "Zero-second calibration sample requested by noise estimator "
                     "(will be captured in next cycle)"
                 )

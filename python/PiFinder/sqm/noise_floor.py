@@ -251,7 +251,7 @@ class NoiseFloorEstimator:
             }
         )
 
-        logger.info(
+        logger.debug(
             f"Zero-sec sample: bias={measured_bias:.1f} ADU, "
             f"read_noise={measured_std:.2f} ADU"
         )
@@ -279,7 +279,7 @@ class NoiseFloorEstimator:
                 alpha * avg_read_noise + (1 - alpha) * self.profile.read_noise_adu
             )
 
-            logger.info(
+            logger.debug(
                 f"Updated camera profile: "
                 f"bias {old_bias:.1f} → {self.profile.bias_offset:.1f}, "
                 f"read_noise {old_noise:.2f} → {self.profile.read_noise_adu:.2f}"
