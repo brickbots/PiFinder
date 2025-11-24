@@ -18,6 +18,7 @@ from time import perf_counter as precision_timestamp
 import os
 import threading
 from PIL import Image
+import grpc
 
 from PiFinder import state_utils
 from PiFinder import utils
@@ -194,6 +195,28 @@ def update_sqm_dual_pipeline(
     return False
 
 
+class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
+    def __init__(self, port=50551):
+        """Set up the client without spawning the server as we
+        run this as a service on the PiFinder
+
+        Also changing this to a different default port
+        """
+        self._port = port
+        time.sleep(2)
+        # Will initialize on first use.
+        self._stub = None
+        self._shmem = None
+        self._shmem_size = 0
+        # Try shared memory, fall back if an error occurs.
+        self._use_shmem = True
+
+    def _get_stub(self):
+        if self._stub is None:
+            channel = grpc.insecure_channel('127.0.0.1:%d' % self._port)
+            self._stub = cedar_detect_client.cedar_detect_pb2_grpc.CedarDetectStub(channel)
+        return self._stub
+
 def solver(
     shared_state,
     solver_queue,
@@ -251,10 +274,7 @@ def solver(
         logger.info("Starting Solver Loop")
         # Start cedar detect server
         try:
-            cedar_detect = cedar_detect_client.CedarDetectClient(
-                binary_path=str(utils.cwd_dir / "../bin/cedar-detect-server-")
-                + shared_state.arch()
-            )
+            cedar_detect = PFCedarDetectClient()
         except FileNotFoundError as e:
             logger.warning(
                 "Not using cedar_detect, as corresponding file '%s' could not be found",
