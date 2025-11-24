@@ -81,13 +81,23 @@ These are the bigger items/assemblies which you'll need to purchase to include i
      - 
      - High quality is best to avoid power sensitivity and corruption.  The software only needs a couple gigs, so almost any available size should be fine
    * - 1
-     - InnoMaker imx296 mono camera module
+     - innomaker imx296 mono camera module
+
+       or
+       
+       innomaker imx462 color camera module
      - https://www.inno-maker.com/product/cam-mipi296raw-trigger/
+
+       https://www.inno-maker.com/product/cam-mipi462raw/
      - 
    * - 1
      - 16mm F2 CCTV Lens for m12 Mount
      - https://www.amazon.com/dp/B07VDWNSG9
      - Other lenses might work here, but something fast with a 10deg FOV is ideal
+
+You can use either the imx296 or imx462 module from innomaker.  They both 
+perform about the same so choose the least expesive/easiest to get model 
+in your particular location.
 
 Case hardware
 -------------
