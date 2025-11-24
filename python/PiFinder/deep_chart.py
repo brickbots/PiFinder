@@ -202,14 +202,39 @@ class DeepChartGenerator:
             image_rotate += roll
 
         # Progressive rendering: Yield image after each magnitude band loads
+        # Use INCREMENTAL rendering to avoid re-rendering all stars on each band
         final_image = None
+        base_image = None  # Accumulate star rendering incrementally
+        previous_star_count = 0
+
         for stars, is_complete in stars_generator:
             t_render_start = time.time()
 
-            # Render chart with rotation applied to star coordinates
-            image = self.render_chart(
-                stars, catalog_object.ra, catalog_object.dec, fov, resolution, mag, image_rotate, mag_limit_query
-            )
+            # Incremental rendering: only render NEW stars from this band
+            new_star_count = len(stars) - previous_star_count
+
+            if new_star_count > 0 or base_image is None:
+                # Render incrementally: pass base_image and only new stars
+                # render_chart will draw new stars onto the base
+                new_stars = stars[previous_star_count:] if previous_star_count > 0 else stars
+                base_image = self.render_chart_incremental(
+                    all_stars=stars,  # All stars for intensity scaling
+                    new_stars=new_stars,  # Only new stars to draw
+                    base_image=base_image,  # Existing image or None
+                    center_ra=catalog_object.ra,
+                    center_dec=catalog_object.dec,
+                    fov=fov,
+                    resolution=resolution,
+                    magnification=mag,
+                    rotation=image_rotate,
+                    mag_limit=mag_limit_query
+                )
+                logger.info(f"PROGRESSIVE: Incremental render of {new_star_count} new stars (total {len(stars)})")
+            else:
+                logger.info(f"PROGRESSIVE: No new stars in this band (total {len(stars)})")
+
+            previous_star_count = len(stars)
+            image = base_image.copy()  # Work on a copy for overlays
 
             # Add FOV circle BEFORE text overlays so it appears behind them
             if burn_in and display_class is not None:
@@ -237,8 +262,8 @@ class DeepChartGenerator:
 
             t_render_end = time.time()
             logger.info(
-                f"PROGRESSIVE: Rendered {len(stars)} stars in {(t_render_end-t_render_start)*1000:.1f}ms "
-                f"(complete={is_complete}, mag_limit={mag_limit_query:.1f})"
+                f"PROGRESSIVE: Total render time {(t_render_end-t_render_start)*1000:.1f}ms "
+                f"(complete={is_complete}, total_stars={len(stars)})"
             )
 
             final_image = image
@@ -456,6 +481,150 @@ class DeepChartGenerator:
         # Tag image as a deep chart (not a loading placeholder)
         # This enables the correct marking menu in UIObjectDetails
         image.is_loading_placeholder = False  # type: ignore[attr-defined]
+
+        return image
+
+    def render_chart_incremental(
+        self,
+        all_stars: np.ndarray,
+        new_stars: np.ndarray,
+        base_image: Optional[Image.Image],
+        center_ra: float,
+        center_dec: float,
+        fov: float,
+        resolution: Tuple[int, int],
+        magnification: float = 50.0,
+        rotation: float = 0.0,
+        mag_limit: float = 17.0,
+    ) -> Image.Image:
+        """
+        Incrementally render new stars onto existing base image.
+        Uses intensity scaling from ALL stars to maintain consistent brightness.
+
+        Args:
+            all_stars: All stars loaded so far (for intensity scaling)
+            new_stars: Only the new stars to render
+            base_image: Existing image to draw onto (None for first render)
+            center_ra: Center RA in degrees
+            center_dec: Center Dec in degrees
+            fov: Field of view in degrees
+            resolution: (width, height) tuple
+            magnification: Magnification factor
+            rotation: Rotation angle in degrees
+            mag_limit: Limiting magnitude
+
+        Returns:
+            PIL Image with new stars added
+        """
+        import time
+        t_start = time.time()
+
+        width, height = resolution
+
+        # Start with base image or create new blank one
+        if base_image is None:
+            image_array = np.zeros((height, width, 3), dtype=np.uint8)
+        else:
+            image_array = np.array(base_image)
+
+        logger.info(f"Render Chart INCREMENTAL: {len(new_stars)} new stars, {len(all_stars)} total")
+
+        if len(new_stars) == 0:
+            return Image.fromarray(image_array, mode="RGB")
+
+        # Calculate intensity scaling from ALL stars (for consistency across bands)
+        all_mags = all_stars[:, 2]
+        brightest_mag = np.min(all_mags)
+        faintest_mag = np.max(all_mags)
+
+        # Convert new stars to numpy arrays
+        ra_arr = new_stars[:, 0]
+        dec_arr = new_stars[:, 1]
+        mag_arr = new_stars[:, 2]
+
+        # Projection (same as render_chart)
+        center_ra_rad = np.radians(center_ra)
+        center_dec_rad = np.radians(center_dec)
+        ra_rad = np.radians(ra_arr)
+        dec_rad = np.radians(dec_arr)
+
+        cos_center_dec = np.cos(center_dec_rad)
+
+        dra = ra_rad - center_ra_rad
+        dra = np.where(dra > np.pi, dra - 2*np.pi, dra)
+        dra = np.where(dra < -np.pi, dra + 2*np.pi, dra)
+        ddec = dec_rad - center_dec_rad
+
+        x_proj = dra * cos_center_dec
+        y_proj = ddec
+
+        pixel_scale = width / np.radians(fov)
+
+        x_screen = width / 2.0 - x_proj * pixel_scale
+        y_screen = height / 2.0 - y_proj * pixel_scale
+
+        # Apply rotation
+        if rotation != 0:
+            rot_rad = np.radians(rotation)
+            cos_rot = np.cos(rot_rad)
+            sin_rot = np.sin(rot_rad)
+
+            center_x = width / 2.0
+            center_y = height / 2.0
+            x_rel = x_screen - center_x
+            y_rel = y_screen - center_y
+
+            x_rotated = x_rel * cos_rot - y_rel * sin_rot
+            y_rotated = x_rel * sin_rot + y_rel * cos_rot
+
+            x_screen = x_rotated + center_x
+            y_screen = y_rotated + center_y
+
+        # Filter visible stars
+        mask = (
+            (x_screen >= 0)
+            & (x_screen < width)
+            & (y_screen >= 0)
+            & (y_screen < height)
+        )
+
+        x_visible = x_screen[mask]
+        y_visible = y_screen[mask]
+        mag_visible = mag_arr[mask]
+
+        logger.info(f"Render Chart INCREMENTAL: {len(x_visible)} of {len(new_stars)} new stars visible")
+
+        # Calculate intensities using GLOBAL magnitude range (from all_stars)
+        if len(mag_visible) == 0:
+            intensities = np.array([])
+        elif faintest_mag - brightest_mag < 0.1:
+            intensities = np.full_like(mag_visible, 255, dtype=int)
+        else:
+            # Use global magnitude range for consistent scaling
+            intensities = 255 - ((mag_visible - brightest_mag) / (faintest_mag - brightest_mag) * 205)
+            intensities = intensities.astype(int)
+
+        # Draw new stars
+        ix = np.round(x_visible).astype(int)
+        iy = np.round(y_visible).astype(int)
+
+        for i in range(len(ix)):
+            px = ix[i]
+            py = iy[i]
+            intensity = intensities[i]
+
+            if 0 <= px < width and 0 <= py < height:
+                image_array[py, px, 0] = min(255, image_array[py, px, 0] + intensity)
+
+        np.clip(image_array[:, :, 0], 0, 255, out=image_array[:, :, 0])
+
+        image = Image.fromarray(image_array, mode="RGB")
+
+        # Tag as deep chart
+        image.is_loading_placeholder = False  # type: ignore[attr-defined]
+
+        t_end = time.time()
+        logger.debug(f"  Incremental render time: {(t_end-t_start)*1000:.1f}ms")
 
         return image
 

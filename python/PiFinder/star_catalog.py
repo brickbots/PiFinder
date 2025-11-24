@@ -16,6 +16,7 @@ import hashlib
 import json
 import logging
 import math
+import mmap
 import struct
 import threading
 import time
@@ -65,6 +66,106 @@ class CatalogState(Enum):
     NOT_LOADED = 0
     LOADING = 1
     READY = 2
+
+
+class CompressedIndex:
+    """
+    Memory-efficient compressed index reader with mmap support.
+
+    Uses run-length encoding format:
+    - Header: version(4), num_tiles(4), num_runs(4)
+    - Run directory: [start_tile_id(4), data_offset(8)] per run (in RAM)
+    - Run data: [length(2), offset_base(8), sizes...] (mmap'd)
+    """
+
+    def __init__(self, index_file: Path):
+        """Load compressed index with run directory in memory"""
+        self.index_file = index_file
+        self.run_directory: List[Tuple[int, int]] = []  # (start_tile_id, data_offset)
+
+        # Open file for mmap
+        self._file = open(index_file, 'rb')
+        self._mm = mmap.mmap(self._file.fileno(), 0, access=mmap.ACCESS_READ)
+
+        # Read header
+        version, self.num_tiles, num_runs = struct.unpack_from("<III", self._mm, 0)
+        if version != 3:
+            raise ValueError(f"Expected compressed index v3, got v{version}")
+
+        # Read run directory into memory (fast!)
+        offset = 12
+        for _ in range(num_runs):
+            start_tile, data_offset = struct.unpack_from("<IQ", self._mm, offset)
+            self.run_directory.append((start_tile, data_offset))
+            offset += 12
+
+        logger.debug(f"CompressedIndex: loaded {num_runs} runs for {self.num_tiles:,} tiles")
+
+    def get(self, tile_id: int) -> Optional[Tuple[int, int]]:
+        """
+        Get (offset, size) for a tile ID.
+
+        Returns None if tile doesn't exist.
+        """
+        # Binary search in run directory
+        left, right = 0, len(self.run_directory) - 1
+        run_idx = -1
+
+        while left <= right:
+            mid = (left + right) // 2
+            start_tile = self.run_directory[mid][0]
+
+            # Check if tile is in this run
+            if mid < len(self.run_directory) - 1:
+                next_start = self.run_directory[mid + 1][0]
+                if start_tile <= tile_id < next_start:
+                    run_idx = mid
+                    break
+            else:
+                # Last run
+                if start_tile <= tile_id:
+                    run_idx = mid
+                    break
+
+            if tile_id < start_tile:
+                right = mid - 1
+            else:
+                left = mid + 1
+
+        if run_idx == -1:
+            return None
+
+        # Read run data from mmap
+        start_tile, data_offset = self.run_directory[run_idx]
+        offset_in_run = tile_id - start_tile
+
+        # Read run header
+        run_length, offset_base = struct.unpack_from("<HQ", self._mm, data_offset)
+
+        if offset_in_run >= run_length:
+            return None
+
+        # Read sizes up to and including our tile
+        sizes_offset = data_offset + 10  # After length(2) + offset_base(8)
+        sizes_data = self._mm[sizes_offset:sizes_offset + (offset_in_run + 1) * 2]
+        sizes = struct.unpack(f"<{offset_in_run + 1}H", sizes_data)
+
+        # Calculate tile offset and size
+        tile_offset = offset_base + sum(sizes[:-1])
+        tile_size = sizes[-1]
+
+        return (tile_offset, tile_size)
+
+    def close(self):
+        """Close mmap and file"""
+        if self._mm:
+            self._mm.close()
+        if self._file:
+            self._file.close()
+
+    def __del__(self):
+        """Cleanup on deletion"""
+        self.close()
 
 
 class TileBloomFilter:
@@ -290,7 +391,6 @@ class DeepStarCatalog:
         self.observer_lat: Optional[float] = None
         self.limiting_magnitude: float = 12.0
         self.visible_tiles: Optional[Set[int]] = None
-        self.spatial_index: Optional[Any] = None
         self.tile_cache: Dict[Tuple[int, float], np.ndarray] = {}
         self.cache_lock = threading.Lock()
         self.load_thread: Optional[threading.Thread] = None
@@ -370,11 +470,14 @@ class DeepStarCatalog:
             logger.info(f">>> Catalog mag bands: {json.dumps(bands)}")
 
             # Preload all bloom filters into memory (~12 MB total)
-            # This eliminates on-demand loading delays during chart generation
-            self._preload_bloom_filters()
+            # DISABLED: Bloom filters not currently used (testing performance on Pi)
+            # self._preload_bloom_filters()
+
+            # Preload all compressed indices (run directories) into memory (~2-12 MB total)
+            # This eliminates first-query delays (70ms per band → 420ms total stuttering)
+            self._preload_compressed_indices()
 
             # Initialize empty structures (no preloading)
-            self.spatial_index = {}
             self.visible_tiles = None  # Load full sky on-demand
 
             # Mark ready
@@ -389,46 +492,6 @@ class DeepStarCatalog:
             self.load_progress = f"Error: {str(e)}"
             self.state = CatalogState.NOT_LOADED
 
-    def _load_binary_spatial_index(self, bin_path: Path) -> dict:
-        """
-        Load binary spatial index
-
-        Binary format:
-        - Header: [version: 4][num_tiles: 4][nside: 4]
-        - Per tile: [tile_id: 4][num_bands: 1][bands: (mag_min:1, mag_max:1)*num_bands]
-
-        Returns:
-            Dict mapping tile_id -> [(mag_min, mag_max), ...]
-        """
-        with open(bin_path, "rb") as f:
-            # Read header
-            header = f.read(12)
-            version, num_tiles, nside = struct.unpack("<III", header)
-
-            if version != 1:
-                logger.error(f"Unsupported spatial index version: {version}")
-                return {}
-
-            # Read tiles
-            index = {}
-            for _ in range(num_tiles):
-                tile_data = f.read(5)
-                if len(tile_data) < 5:
-                    break
-
-                tile_id, num_bands = struct.unpack("<IB", tile_data)
-                bands = []
-
-                for _ in range(num_bands):
-                    band_data = f.read(2)
-                    if len(band_data) < 2:
-                        break
-                    mag_min, mag_max = struct.unpack("<BB", band_data)
-                    bands.append((mag_min, mag_max))
-
-                index[tile_id] = bands
-
-        return index
 
     def _calc_visible_tiles(self, observer_lat: float) -> Optional[Set[int]]:
         """
@@ -522,10 +585,13 @@ class DeepStarCatalog:
             return
 
         # Calculate HEALPix tiles covering FOV
+        # fov_deg is the diagonal field width, query_disc expects radius
+        # For square FOV rotated arbitrarily, need circumscribed circle radius = diagonal/2
+        # Add 10% margin to ensure edge tiles are fully covered
         vec = hp.ang2vec(ra_deg, dec_deg, lonlat=True)
-        radius_rad = np.radians(fov_deg * 0.85)
+        radius_rad = np.radians(fov_deg / 2 * 1.1)
         tiles = hp.query_disc(self.nside, vec, radius_rad)
-        logger.debug(f"HEALPix PROGRESSIVE: Querying {len(tiles)} tiles for FOV={fov_deg:.2f}° at nside={self.nside}")
+        logger.debug(f"HEALPix PROGRESSIVE: Querying {len(tiles)} tiles for FOV={fov_deg:.2f}° (radius={np.degrees(radius_rad):.3f}°) at nside={self.nside}")
 
         # Filter by visible hemisphere
         if self.visible_tiles:
@@ -557,22 +623,35 @@ class DeepStarCatalog:
             )
             # logger.info(f">>> _load_tiles_for_mag_band returned {len(band_stars)} stars")
 
-            t_band_end = time.time()
-            logger.debug(f"PROGRESSIVE: Mag band {mag_min}-{mag_max} loaded {len(band_stars)} stars in {(t_band_end-t_band_start)*1000:.1f}ms")
+            t_load = (time.time() - t_band_start) * 1000
 
             # Add to cumulative list
+            t_append_start = time.time()
             if len(band_stars) > 0:
                 all_stars_list.append(band_stars)
+            t_append = (time.time() - t_append_start) * 1000
 
             # Yield current results (not complete yet unless this is the last band)
             is_last_band = mag_max >= mag_limit
-            
+
+            t_concat_start = time.time()
             if all_stars_list:
                 current_total = np.concatenate(all_stars_list)
             else:
                 current_total = np.empty((0, 3))
-                
+            t_concat = (time.time() - t_concat_start) * 1000
+
+            t_yield_start = time.time()
             yield (current_total, is_last_band)
+            t_yield = (time.time() - t_yield_start) * 1000
+
+            logger.info(
+                f">>> PROGRESSIVE TIMING: mag {mag_min}-{mag_max}: "
+                f"load={t_load:.1f}ms, append={t_append:.1f}ms, "
+                f"concat={t_concat:.1f}ms, yield={t_yield:.1f}ms, "
+                f"total={(t_load+t_append+t_concat+t_yield):.1f}ms, "
+                f"stars={len(band_stars)}, cumulative={len(current_total)}"
+            )
 
             if is_last_band:
                 break
@@ -632,13 +711,13 @@ class DeepStarCatalog:
             return np.empty((0, 3))
 
         # Calculate HEALPix tiles covering FOV
-        # Query larger area to account for rectangular screen and rotation
-        # Diagonal of square is sqrt(2) * side, with rotation could be any angle
+        # fov_deg is the diagonal field width, query_disc expects radius
+        # For square FOV rotated arbitrarily, need circumscribed circle radius = diagonal/2
+        # Add 10% margin to ensure edge tiles are fully covered
         vec = hp.ang2vec(ra_deg, dec_deg, lonlat=True)
-        # Use full diagonal + margin to ensure corners are covered even when rotated
-        radius_rad = np.radians(fov_deg * 0.85)  # sqrt(2)/2 ≈ 0.707, add extra for rotation
+        radius_rad = np.radians(fov_deg / 2 * 1.1)
         tiles = hp.query_disc(self.nside, vec, radius_rad)
-        logger.debug(f"HEALPix: Querying {len(tiles)} tiles for FOV={fov_deg:.2f}° at nside={self.nside}")
+        logger.debug(f"HEALPix: Querying {len(tiles)} tiles for FOV={fov_deg:.2f}° (radius={np.degrees(radius_rad):.3f}°) at nside={self.nside}")
 
         # Filter by visible hemisphere
         if self.visible_tiles:
@@ -1169,6 +1248,61 @@ class DeepStarCatalog:
             f"{total_bytes / 1024 / 1024:.1f} MB total in {t_total:.1f}ms"
         )
 
+    def _preload_compressed_indices(self) -> None:
+        """
+        Preload all compressed indices (run directories) into memory during startup.
+
+        Loads compressed index run directories (~2-12 MB total) to eliminate first-query
+        delays during chart generation. Each compressed index loads its run directory
+        into RAM for fast binary search, while keeping run data in mmap.
+
+        This runs in background thread during catalog startup and trades a one-time
+        ~200ms startup cost for eliminating 6 × 70ms = 420ms of stuttering during
+        first chart generation.
+        """
+        if not self.metadata or "mag_bands" not in self.metadata:
+            logger.warning(">>> No metadata available, skipping compressed index preload")
+            return
+
+        t0_total = time.time()
+        bands_loaded = 0
+
+        logger.info(">>> Preloading compressed indices for all magnitude bands...")
+
+        for band_info in self.metadata["mag_bands"]:
+            mag_min = int(band_info["min"])
+            mag_max = int(band_info["max"])
+            cache_key = f"index_{mag_min}_{mag_max}"
+
+            # Try compressed index first (v3)
+            index_file_v3 = self.catalog_path / f"mag_{mag_min:02d}_{mag_max:02d}" / "index_v3.bin"
+
+            if not index_file_v3.exists():
+                logger.debug(
+                    f">>> Compressed index not found for {cache_key}: {index_file_v3} - "
+                    f"Will fall back to v1/v2 index on first query"
+                )
+                continue
+
+            t0 = time.time()
+            self._index_cache[cache_key] = CompressedIndex(index_file_v3)
+            t_load = (time.time() - t0) * 1000
+
+            compressed_idx = self._index_cache[cache_key]
+            bands_loaded += 1
+
+            logger.info(
+                f">>> Loaded compressed index {cache_key}: "
+                f"{compressed_idx.num_tiles:,} tiles, {len(compressed_idx.run_directory):,} runs "
+                f"in {t_load:.1f}ms"
+            )
+
+        t_total = (time.time() - t0_total) * 1000
+        logger.info(
+            f">>> Compressed index preload complete: {bands_loaded} indices "
+            f"in {t_total:.1f}ms"
+        )
+
     def _ensure_bloom_filter(self, cache_key: str, mag_min: int, mag_max: int) -> None:
         """
         Ensure bloom filter is loaded for given magnitude band.
@@ -1509,22 +1643,44 @@ class DeepStarCatalog:
         if not tiles_file.exists():
             return np.empty((0, 3))
 
-        # Load index
         cache_key = f"index_{mag_min}_{mag_max}"
+
+        # Bloom filter pre-check: DISABLED for performance testing
+        # TODO: Re-enable after Pi performance comparison
+        # Saves ~4ms per query by checking bloom filter (0.24ms) vs compressed index (2.4ms)
+        # Trade-off: 12 MB RAM for bloom filters vs 4ms per query
+        #
+        # if cache_key in self._bloom_filters:
+        #     bloom = self._bloom_filters[cache_key]
+        #     has_any_tile = any(bloom.might_contain(tile_id) for tile_id in tile_ids)
+        #     if not has_any_tile:
+        #         logger.debug(
+        #             f">>> Bloom filter: No tiles exist in {cache_key} for query region, "
+        #             f"skipping band"
+        #         )
+        #         return np.empty((0, 3))
+
+        # Load index - prefer compressed v3 format
         if not hasattr(self, '_index_cache'):
             self._index_cache = {}
 
         t_index_start = time.time()
         logger.info(f">>> Checking index cache for {cache_key}, in_cache={cache_key in self._index_cache}")
         if cache_key not in self._index_cache:
-            if index_file_bin.exists():
-                logger.info(f">>> Reading binary index from {index_file_bin}")
-                # Pass needed tiles for optimization (only for initial load)
-                # This creates a PARTIAL index with only these tiles
+            # Try compressed index first (v3)
+            index_file_v3 = band_dir / "index_v3.bin"
+            if index_file_v3.exists():
+                logger.info(f">>> Loading compressed index from {index_file_v3}")
                 t0 = time.time()
-                self._index_cache[cache_key] = self._read_binary_index(index_file_bin, needed_tiles=set(tile_ids))
+                self._index_cache[cache_key] = CompressedIndex(index_file_v3)
                 t_read_index = (time.time() - t0) * 1000
-                logger.info(f">>> Partial index loaded, {len(self._index_cache[cache_key])} tiles in cache in {t_read_index:.1f}ms")
+                logger.info(f">>> Compressed index loaded in {t_read_index:.1f}ms")
+            elif index_file_bin.exists():
+                logger.info(f">>> Loading FULL index from {index_file_bin} (v1/v2 format)")
+                t0 = time.time()
+                self._index_cache[cache_key] = self._read_binary_index(index_file_bin, needed_tiles=None)
+                t_read_index = (time.time() - t0) * 1000
+                logger.info(f">>> FULL index loaded, {len(self._index_cache[cache_key])} tiles in {t_read_index:.1f}ms")
             elif index_file_json.exists():
                 logger.info(f">>> Reading JSON index from {index_file_json}")
                 with open(index_file_json, "r") as f:
@@ -1534,55 +1690,7 @@ class DeepStarCatalog:
                 logger.warning(f">>> No index file found for {cache_key}")
                 return np.empty((0, 3))
         else:
-            # Check if cached index has all the tiles we need
-            # If missing tiles, load just those tiles and merge into cache
-            index = self._index_cache[cache_key]
-            missing_tile_ids = [tid for tid in tile_ids if str(tid) not in index]
-            if missing_tile_ids:
-                # Use bloom filter to pre-screen tiles (fast, space-efficient)
-                # Load bloom filter if not already cached
-                self._ensure_bloom_filter(cache_key, mag_min, mag_max)
-                bloom = self._bloom_filters[cache_key]
-
-                # Filter missing tiles through bloom filter
-                t0 = time.time()
-                tiles_to_load = [tid for tid in missing_tile_ids if bloom.might_contain(tid)]
-                t_bloom = (time.time() - t0) * 1000
-                tiles_filtered_out = len(missing_tile_ids) - len(tiles_to_load)
-
-                if tiles_filtered_out > 0:
-                    logger.debug(
-                        f">>> Bloom filter: {len(missing_tile_ids)} missing → "
-                        f"{len(tiles_to_load)} candidates (filtered {tiles_filtered_out}) "
-                        f"in {t_bloom:.2f}ms"
-                    )
-
-                if tiles_to_load:
-                    t0 = time.time()
-                    logger.info(f">>> Cached index missing {len(tiles_to_load)}/{len(tile_ids)} tiles, loading them...")
-                    if index_file_bin.exists():
-                        # Load only the missing tiles that actually exist
-                        missing_index = self._read_binary_index(index_file_bin, needed_tiles=set(tiles_to_load))
-                        # Merge into existing cache
-                        self._index_cache[cache_key].update(missing_index)
-                        t_missing = (time.time() - t0) * 1000
-                        logger.info(f">>> Added {len(missing_index)} tiles to cache in {t_missing:.1f}ms, now {len(self._index_cache[cache_key])} tiles total")
-
-                        # Trim cache if it exceeds limit
-                        self._trim_index_cache(cache_key, tile_ids)
-                    elif index_file_json.exists():
-                        # For JSON, we have to load the full file (no selective loading)
-                        with open(index_file_json, "r") as f:
-                            full_index = json.load(f)
-                        # Merge only the missing tiles that we're loading
-                        for tid in tiles_to_load:
-                            tile_key = str(tid)
-                            if tile_key in full_index:
-                                self._index_cache[cache_key][tile_key] = full_index[tile_key]
-                        logger.info(f">>> Added missing tiles to cache, now {len(self._index_cache[cache_key])} tiles total")
-
-                        # Trim cache if it exceeds limit
-                        self._trim_index_cache(cache_key, tile_ids)
+            logger.debug(f">>> Using cached index for {cache_key}")
 
         index = self._index_cache[cache_key]
         t_index_total = (time.time() - t_index_start) * 1000
@@ -1592,12 +1700,22 @@ class DeepStarCatalog:
         logger.debug(f">>> Building read_ops for {len(tile_ids)} tiles...")
 
         # Collect all tile read operations
-        read_ops = []
-        for tile_id in tile_ids:
-            tile_key = str(tile_id)
-            if tile_key in index:
-                tile_info = index[tile_key]
-                read_ops.append((tile_id, tile_info))
+        # Handle both CompressedIndex and dict formats
+        read_ops: List[Tuple[int, Dict[str, int]]] = []
+        if isinstance(index, CompressedIndex):
+            # Compressed index: use .get() method
+            for tile_id in tile_ids:
+                tile_tuple = index.get(tile_id)
+                if tile_tuple:
+                    offset, size = tile_tuple
+                    read_ops.append((tile_id, {"offset": offset, "size": size}))
+        else:
+            # Dict-based index (v1/v2 or JSON)
+            for tile_id in tile_ids:
+                tile_key = str(tile_id)
+                if tile_key in index:
+                    tile_info: Dict[str, int] = index[tile_key]
+                    read_ops.append((tile_id, tile_info))
 
         if not read_ops:
             logger.debug(f">>> No tiles to load (all {len(tile_ids)} requested tiles are empty)")
@@ -1635,7 +1753,7 @@ class DeepStarCatalog:
                 chunk_end = offset + tile_info.get("compressed_size", tile_info["size"])
 
                 # Find consecutive tiles for chunk reading
-                tiles_in_chunk = [(tile_id, tile_info)]
+                tiles_in_chunk: List[Tuple[int, Dict[str, int]]] = [(tile_id, tile_info)]
                 j = i + 1
                 inner_iterations = 0
                 while j < len(read_ops):
@@ -1683,7 +1801,7 @@ class DeepStarCatalog:
                     t_decode_total += (time.time() - t_decode_start)
                     
                     # Filter by magnitude
-                    mask = mags < mag_limit
+                    mask = mags <= mag_limit
                     
                     if np.any(mask):
                         all_ras.append(ras[mask])

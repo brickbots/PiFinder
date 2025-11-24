@@ -371,25 +371,25 @@ class UIObjectDetails(UIModule):
 
         inner = 2  # Fixed gap (small center)
 
-        # Get screen buffer as numpy array for pixel inversion
+        # Get screen buffer as numpy array for pixel manipulation
         pixels = np.array(self.screen)
 
-        # Invert pixels to create crosshair (always visible on any background)
+        # Invert crosshair pixels (red channel only) for visibility
         # Horizontal lines (left and right of center)
         for x in range(max(0, cx - outer), max(0, cx - inner)):
             if 0 <= x < width and 0 <= cy < height:
-                pixels[cy, x, 0] = 255 - pixels[cy, x, 0]  # Invert red channel
+                pixels[cy, x, 0] = 255 - pixels[cy, x, 0]
         for x in range(min(width, cx + inner), min(width, cx + outer + 1)):
             if 0 <= x < width and 0 <= cy < height:
-                pixels[cy, x, 0] = 255 - pixels[cy, x, 0]  # Invert red channel
+                pixels[cy, x, 0] = 255 - pixels[cy, x, 0]
 
         # Vertical lines (top and bottom of center)
         for y in range(max(0, cy - outer), max(0, cy - inner)):
             if 0 <= y < height and 0 <= cx < width:
-                pixels[y, cx, 0] = 255 - pixels[y, cx, 0]  # Invert red channel
+                pixels[y, cx, 0] = 255 - pixels[y, cx, 0]
         for y in range(min(height, cy + inner), min(height, cy + outer + 1)):
             if 0 <= y < height and 0 <= cx < width:
-                pixels[y, cx, 0] = 255 - pixels[y, cx, 0]  # Invert red channel
+                pixels[y, cx, 0] = 255 - pixels[y, cx, 0]
 
         # Update screen buffer with inverted pixels
         from PIL import Image
