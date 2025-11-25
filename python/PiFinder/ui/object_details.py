@@ -704,6 +704,7 @@ class UIObjectDetails(UIModule):
 
     def update(self, force=True):
         import logging
+        import time
         logger = logging.getLogger("ObjectDetails")
 
         # If we have a chart generator, consume one yield to get the next progressive update
@@ -712,6 +713,7 @@ class UIObjectDetails(UIModule):
                 next_image = next(self._chart_generator)
                 # logger.debug(f">>> update(): Consumed next chart yield: {type(next_image)}")
                 self.object_image = next_image
+
                 force = True  # Force screen update for progressive chart
             except StopIteration:
                 logger.info(">>> update(): Chart generator exhausted")
@@ -845,7 +847,8 @@ class UIObjectDetails(UIModule):
                 desc.set_available_lines(desc_available_lines)
                 desc.draw((0, posy))
 
-        return self.screen_update()
+        result = self.screen_update()
+        return result
 
     def cycle_display_mode(self):
         """

@@ -202,39 +202,16 @@ class DeepChartGenerator:
             image_rotate += roll
 
         # Progressive rendering: Yield image after each magnitude band loads
-        # Use INCREMENTAL rendering to avoid re-rendering all stars on each band
+        # Re-render all stars each time (simple, correct, fast enough)
         final_image = None
-        base_image = None  # Accumulate star rendering incrementally
-        previous_star_count = 0
 
         for stars, is_complete in stars_generator:
             t_render_start = time.time()
 
-            # Incremental rendering: only render NEW stars from this band
-            new_star_count = len(stars) - previous_star_count
-
-            if new_star_count > 0 or base_image is None:
-                # Render incrementally: pass base_image and only new stars
-                # render_chart will draw new stars onto the base
-                new_stars = stars[previous_star_count:] if previous_star_count > 0 else stars
-                base_image = self.render_chart_incremental(
-                    all_stars=stars,  # All stars for intensity scaling
-                    new_stars=new_stars,  # Only new stars to draw
-                    base_image=base_image,  # Existing image or None
-                    center_ra=catalog_object.ra,
-                    center_dec=catalog_object.dec,
-                    fov=fov,
-                    resolution=resolution,
-                    magnification=mag,
-                    rotation=image_rotate,
-                    mag_limit=mag_limit_query
-                )
-                logger.info(f"PROGRESSIVE: Incremental render of {new_star_count} new stars (total {len(stars)})")
-            else:
-                logger.info(f"PROGRESSIVE: No new stars in this band (total {len(stars)})")
-
-            previous_star_count = len(stars)
-            image = base_image.copy()  # Work on a copy for overlays
+            # Render ALL stars from scratch
+            image = self.render_chart(
+                stars, catalog_object.ra, catalog_object.dec, fov, resolution, mag, image_rotate, mag_limit_query
+            )
 
             # Add FOV circle BEFORE text overlays so it appears behind them
             if burn_in and display_class is not None:
@@ -327,17 +304,6 @@ class DeepChartGenerator:
         
         logger.info(f"Render Chart: {len(stars)} stars input, center=({center_ra:.4f}, {center_dec:.4f}), fov={fov:.4f}, res={resolution}")
 
-        if len(stars) == 0:
-            # Still draw crosshair even if no stars
-            cx, cy = width // 2, height // 2
-            marker_color = (128, 0, 0)
-            size = 5
-            draw.line([cx - size, cy, cx + size, cy], fill=marker_color, width=1)
-            draw.line([cx, cy - size, cx, cy + size], fill=marker_color, width=1)
-            return image
-
-        # Convert to numpy arrays for vectorized operations
-        t1 = time.time()
         # stars is already a numpy array (N, 3)
         stars_array = stars
         ra_arr = stars_array[:, 0]
@@ -423,24 +389,25 @@ class DeepChartGenerator:
         
         logger.info(f"Render Chart: {len(x_visible)} stars visible on screen (of {len(stars)} total)")
 
-        # Scale brightness based on magnitude range in current field
-        # Brightest star in field → 255, faintest → 50
-        # This auto-adjusts contrast for any FOV
+        # Scale brightness based on FIXED magnitude range
+        # Use brightest visible star and LIMITING MAGNITUDE (not faintest loaded star)
+        # This ensures consistent intensity scaling across progressive renders
 
         if len(mag_visible) == 0:
             intensities = np.array([])
         else:
             brightest_mag = np.min(mag_visible)
-            faintest_mag = np.max(mag_visible)
+            faintest_mag = mag_limit  # Use limiting magnitude, not max(mag_visible)
 
-            if faintest_mag - brightest_mag < 0.1:
-                # All stars same magnitude - use full brightness
-                intensities = np.full_like(mag_visible, 255, dtype=int)
-            else:
-                # Linear scaling from brightest (255) to faintest (50)
-                # Note: Lower magnitude = brighter star
-                intensities = 255 - ((mag_visible - brightest_mag) / (faintest_mag - brightest_mag) * 205)
-                intensities = intensities.astype(int)
+            # Always use proper magnitude scaling
+            # Linear scaling from brightest (255) to limiting magnitude (50)
+            # Note: Lower magnitude = brighter star
+            mag_range = faintest_mag - brightest_mag
+            if mag_range < 0.01:
+                mag_range = 0.01  # Avoid division by zero
+            
+            intensities = 255 - ((mag_visible - brightest_mag) / mag_range * 205)
+            intensities = np.clip(intensities, 50, 255).astype(int)
 
         # Render stars: crosses for bright ones, single pixels for faint
         t3 = time.time()
@@ -456,7 +423,8 @@ class DeepChartGenerator:
 
             # Draw all stars as single pixels (no crosses)
             if 0 <= px < width and 0 <= py < height:
-                image_array[py, px, 0] = min(255, image_array[py, px, 0] + intensity)
+                # Use max to avoid bright blobs from overlapping stars
+                image_array[py, px, 0] = max(image_array[py, px, 0], intensity)
 
         np.clip(image_array[:, :, 0], 0, 255, out=image_array[:, :, 0])
         t5 = time.time()
@@ -486,7 +454,6 @@ class DeepChartGenerator:
 
     def render_chart_incremental(
         self,
-        all_stars: np.ndarray,
         new_stars: np.ndarray,
         base_image: Optional[Image.Image],
         center_ra: float,
@@ -496,13 +463,14 @@ class DeepChartGenerator:
         magnification: float = 50.0,
         rotation: float = 0.0,
         mag_limit: float = 17.0,
+        fixed_brightest_mag: Optional[float] = None,
+        fixed_faintest_mag: Optional[float] = None,
     ) -> Image.Image:
         """
         Incrementally render new stars onto existing base image.
-        Uses intensity scaling from ALL stars to maintain consistent brightness.
+        Uses FIXED intensity scaling to maintain consistent brightness across bands.
 
         Args:
-            all_stars: All stars loaded so far (for intensity scaling)
             new_stars: Only the new stars to render
             base_image: Existing image to draw onto (None for first render)
             center_ra: Center RA in degrees
@@ -512,6 +480,8 @@ class DeepChartGenerator:
             magnification: Magnification factor
             rotation: Rotation angle in degrees
             mag_limit: Limiting magnitude
+            fixed_brightest_mag: Brightest magnitude for intensity scaling (from first band)
+            fixed_faintest_mag: Faintest magnitude for intensity scaling (limiting mag)
 
         Returns:
             PIL Image with new stars added
@@ -527,15 +497,21 @@ class DeepChartGenerator:
         else:
             image_array = np.array(base_image)
 
-        logger.info(f"Render Chart INCREMENTAL: {len(new_stars)} new stars, {len(all_stars)} total")
+        logger.info(f"Render Chart INCREMENTAL: {len(new_stars)} new stars")
 
         if len(new_stars) == 0:
             return Image.fromarray(image_array, mode="RGB")
 
-        # Calculate intensity scaling from ALL stars (for consistency across bands)
-        all_mags = all_stars[:, 2]
-        brightest_mag = np.min(all_mags)
-        faintest_mag = np.max(all_mags)
+        # Use FIXED intensity scaling (established from first band + limiting mag)
+        if fixed_brightest_mag is None or fixed_faintest_mag is None:
+            # Fallback: calculate from new stars only
+            new_mags = new_stars[:, 2]
+            brightest_mag = np.min(new_mags)
+            faintest_mag = np.max(new_mags)
+            logger.warning(f"INCREMENTAL: No fixed scale provided, using fallback: {brightest_mag:.2f} to {faintest_mag:.2f}")
+        else:
+            brightest_mag = fixed_brightest_mag
+            faintest_mag = fixed_faintest_mag
 
         # Convert new stars to numpy arrays
         ra_arr = new_stars[:, 0]
@@ -614,7 +590,8 @@ class DeepChartGenerator:
             intensity = intensities[i]
 
             if 0 <= px < width and 0 <= py < height:
-                image_array[py, px, 0] = min(255, image_array[py, px, 0] + intensity)
+                # Use max instead of add to avoid bright blobs from overlapping stars
+                image_array[py, px, 0] = max(image_array[py, px, 0], intensity)
 
         np.clip(image_array[:, :, 0], 0, 255, out=image_array[:, :, 0])
 
