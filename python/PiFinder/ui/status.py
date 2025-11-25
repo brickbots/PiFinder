@@ -265,7 +265,7 @@ class UIStatus(UIModule):
                 self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu["status"])
                 self.status_dict["IMU PS"] = (
                     "imu NA"
-                    # f"{imu['quat'][0] : >6.1f}/{imu['quat'][2] : >6.1f}"  # TODO: Quick hack for now. This was changed from imu["pos"] and should be changed.
+                    # f"{imu['quat'][0] : >6.1f}/{imu['quat'][2] : >6.1f}"
                 )
         location = self.shared_state.location()
         sats = self.shared_state.sats()
