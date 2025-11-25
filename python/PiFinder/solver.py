@@ -110,7 +110,7 @@ def solver(
                     last_image_metadata["exposure_end"] > solved["last_solve_attempt"]
                 )
                 # Use configured max_imu_ang_during_exposure (degrees)
-                is_stationary = last_image_metadata.get("imu_delta", float("inf")) < max_imu_ang_during_exposure
+                is_stationary = last_image_metadata["imu_delta"] < max_imu_ang_during_exposure
 
                 if is_new_image and not is_stationary:
                     logger.debug(
@@ -183,29 +183,25 @@ def solver(
                             console_queue.put(f"SLV: Long: {total_tetra_time}")
                             logger.warning("Long solver time: %i", total_tetra_time)
 
-                        # RA, Dec, Roll at the center of the camera's FoV:
-                        # TODO: Check merge: where did .get() come from?
-                        if solved.get("RA") is not None:
+                        if solved["RA"] is not None:
+                            # RA, Dec, Roll at the center of the camera's FoV:
                             solved["camera_center"]["RA"] = solved["RA"]
                             solved["camera_center"]["Dec"] = solved["Dec"]
                             solved["camera_center"]["Roll"] = solved["Roll"]
 
-                            # RA, Dec, Roll at the camera solve (no IMU compensation)
+                            # RA, Dec, Roll at the camera center from plate-solve (no IMU compensation)
                             solved["camera_solve"]["RA"] = solved["RA"]
                             solved["camera_solve"]["Dec"] = solved["Dec"]
                             solved["camera_solve"]["Roll"] = solved["Roll"]
 
                             # RA, Dec, Roll at the target pixel:
-                            # Replace the central RA/Dec with the RA/Dec for the target pixel
-                            solved["RA"] = solved.get("RA_target", solved["RA"])
-                            solved["Dec"] = solved.get("Dec_target", solved["Dec"])
+                            # Replace the camera center RA/Dec with the RA/Dec for the target pixel
+                            solved["RA"] = solved["RA_target"]
+                            solved["Dec"] = solved["Dec_target"]
 
                             if last_image_metadata.get("imu"):
-                                # TODO: imu_pos isn't used any more?
-                                solved["imu_pos"] = last_image_metadata["imu"].get("pos")
-                                solved["imu_quat"] = last_image_metadata["imu"].get("quat")
+                                solved["imu_quat"] = last_image_metadata["imu"]["quat"]
                             else:
-                                solved["imu_pos"] = None
                                 solved["imu_quat"] = None
 
                             solved["solve_time"] = time.time()
