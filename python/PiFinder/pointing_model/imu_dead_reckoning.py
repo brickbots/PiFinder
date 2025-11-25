@@ -224,7 +224,7 @@ def get_screen_direction_q_imu2cam(screen_direction: str) -> quaternion.quaterni
         # Rotate -90° around z_imu' to align with the camera cooridnates
         q2 = qt.axis_angle2quat([0, 0, 1], -np.pi / 2)
         q_imu2cam = (q1 * q2).normalized()
-    elif screen_direction == "as_dream":  # TODO: Propose to rename to "back"?
+    elif screen_direction == "as_bloom":
         # As Dream:
         # Camera points back up from the screen
         # NOTE: Need to check if the orientation of the camera is correct
