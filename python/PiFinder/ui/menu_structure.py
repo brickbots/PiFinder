@@ -849,6 +849,10 @@ pifinder_menu = {
                                     "name": _("Pulse"),
                                     "value": "pulse",
                                 },
+                                {
+                                    "name": _("Fade"),
+                                    "value": "fade",
+                                },
                             ],
                         },
                         {
@@ -881,6 +885,31 @@ pifinder_menu = {
                                 {
                                     "name": _("Cross"),
                                     "value": "cross",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Speed"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "label": "obj_chart_speed",
+                            "config_option": "obj_chart_crosshair_speed",
+                            "items": [
+                                {
+                                    "name": _("Fast (1s)"),
+                                    "value": "1.0",
+                                },
+                                {
+                                    "name": _("Medium (2s)"),
+                                    "value": "2.0",
+                                },
+                                {
+                                    "name": _("Slow (3s)"),
+                                    "value": "3.0",
+                                },
+                                {
+                                    "name": _("Very Slow (4s)"),
+                                    "value": "4.0",
                                 },
                             ],
                         },

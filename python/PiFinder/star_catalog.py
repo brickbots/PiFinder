@@ -38,18 +38,17 @@ except ImportError:
 logger = logging.getLogger("PiFinder.StarCatalog")
 
 # Optimized tile format: header + star records (no redundant HEALPix per star)
-TILE_HEADER_FORMAT = "<II"  # [HEALPix:4][NumStars:4]
-TILE_HEADER_SIZE = 8
-STAR_RECORD_FORMAT = "<BBBbb"  # [RA_offset:1][Dec_offset:1][Mag:1][PM_RA:1][PM_Dec:1]
-STAR_RECORD_SIZE = 5
+TILE_HEADER_FORMAT = "<IH"  # [HEALPix:4][NumStars:2]
+TILE_HEADER_SIZE = 6
+STAR_RECORD_FORMAT = "<BBB"  # [RA_offset:1][Dec_offset:1][Mag:1]
+STAR_RECORD_SIZE = 3
 
 # Numpy dtype for vectorized parsing (star records only, no HEALPix)
+# NOTE: Proper motion has been pre-applied at catalog build time
 STAR_RECORD_DTYPE = np.dtype([
     ('ra_offset', 'u1'),
     ('dec_offset', 'u1'),
     ('mag', 'u1'),
-    ('pmra', 'i1'),
-    ('pmdec', 'i1'),
 ])
 
 # Index cache size limit (tiles per magnitude band)
@@ -383,10 +382,11 @@ class DeepStarCatalog:
         # fov_deg is the diagonal field width, query_disc expects radius
         # For square FOV rotated arbitrarily, need circumscribed circle radius = diagonal/2
         # Add 10% margin to ensure edge tiles are fully covered
+        # Use inclusive=True to ensure boundary tiles are included (critical for small FOVs)
         vec = hp.ang2vec(ra_deg, dec_deg, lonlat=True)
         radius_rad = np.radians(fov_deg / 2 * 1.1)
-        tiles = hp.query_disc(self.nside, vec, radius_rad)
-        logger.debug(f"HEALPix PROGRESSIVE: Querying {len(tiles)} tiles for FOV={fov_deg:.2f}° (radius={np.degrees(radius_rad):.3f}°) at nside={self.nside}")
+        tiles = hp.query_disc(self.nside, vec, radius_rad, inclusive=True)
+        logger.debug(f"HEALPix query_disc: FOV={fov_deg:.4f}°, radius={np.degrees(radius_rad):.4f}°, nside={self.nside}, returned {len(tiles)} tiles")
 
         # Filter by visible hemisphere
         if self.visible_tiles:
@@ -895,10 +895,13 @@ class DeepStarCatalog:
         decs = pixel_dec + dec_offset_arcsec / 3600.0
         ras = pixel_ra + ra_offset_arcsec / 3600.0 / np.cos(np.radians(decs))
 
-        # Decode magnitudes and proper motions
+        # Decode magnitudes
         mags = records['mag'] / 10.0
-        pmras = records['pmra'] * 50
-        pmdecs = records['pmdec'] * 50
+
+        # v2.1: Proper motion has been pre-applied at build time
+        # Return empty arrays for backward compatibility
+        pmras = np.zeros(len(records))
+        pmdecs = np.zeros(len(records))
 
         return ras, decs, mags, pmras, pmdecs
 
@@ -1130,7 +1133,7 @@ class DeepStarCatalog:
             self._index_cache = {}
 
         t_index_start = time.time()
-        logger.info(f">>> Checking index cache for {cache_key}, in_cache={cache_key in self._index_cache}")
+        logger.debug(f"Checking index cache for {cache_key}")
         if cache_key not in self._index_cache:
             logger.info(f">>> Loading v3 compressed index from {index_file}")
             t0 = time.time()
@@ -1145,30 +1148,32 @@ class DeepStarCatalog:
         logger.debug(f">>> Index cache operations took {t_index_total:.1f}ms")
 
         t_readops_start = time.time()
-        logger.debug(f">>> Building read_ops for {len(tile_ids)} tiles...")
+        logger.debug(f"Building read_ops for {len(tile_ids)} tiles...")
 
         # Collect all tile read operations from v3 compressed index
         read_ops: List[Tuple[int, Dict[str, int]]] = []
         missing_tiles = 0
         for tile_id in tile_ids:
-            tile_tuple = index.get(tile_id)
+            # Ensure tile_id is a Python int (not numpy.int64)
+            tile_id_int = int(tile_id)
+            tile_tuple = index.get(tile_id_int)
             if tile_tuple:
                 offset, size = tile_tuple
-                read_ops.append((tile_id, {"offset": offset, "size": size}))
+                read_ops.append((tile_id_int, {"offset": offset, "size": size}))
             else:
                 missing_tiles += 1
 
         if missing_tiles > 0:
-            logger.warning(f">>> {missing_tiles} of {len(tile_ids)} tiles missing from index for mag {mag_min}-{mag_max}")
+            logger.debug(f"{missing_tiles} of {len(tile_ids)} tiles missing from index for mag {mag_min}-{mag_max}")
 
         if not read_ops:
-            logger.debug(f">>> No tiles to load (all {len(tile_ids)} requested tiles are empty)")
+            logger.debug(f"No tiles to load (all {len(tile_ids)} requested tiles are empty)")
             return np.empty((0, 3))
 
         # Sort by offset to minimize seeks
         read_ops.sort(key=lambda x: x[1]["offset"])
         t_readops = (time.time() - t_readops_start) * 1000
-        logger.debug(f">>> Built {len(read_ops)} read_ops in {t_readops:.1f}ms")
+        logger.debug(f"Built {len(read_ops)} read_ops in {t_readops:.1f}ms")
 
         # Read data in larger sequential chunks when possible
         MAX_GAP = 100 * 1024  # 100KB gap tolerance
@@ -1183,7 +1188,7 @@ class DeepStarCatalog:
         t_io_start = time.time()
         t_decode_total = 0.0
         bytes_read = 0
-        logger.info(f">>> Batch loading {len(read_ops)} tiles for mag {mag_min}-{mag_max}")
+        logger.debug(f"Batch loading {len(read_ops)} tiles for mag {mag_min}-{mag_max}")
         with open(tiles_file, "rb") as f:
             i = 0
             chunk_num = 0
@@ -1265,11 +1270,9 @@ class DeepStarCatalog:
 
         # Log performance breakdown
         t_io_total = (time.time() - t_io_start) * 1000
-        logger.info(
-            f">>> Tile I/O performance for mag {mag_min}-{mag_max}: "
-            f"total={t_io_total:.1f}ms, "
-            f"decode={t_decode_total*1000:.1f}ms, concat={t_concat:.1f}ms, pm={t_pm:.1f}ms, "
-            f"bytes={bytes_read/1024:.1f}KB, stars={len(result)}"
+        logger.debug(
+            f"Tile I/O for mag {mag_min}-{mag_max}: "
+            f"{t_io_total:.1f}ms, {len(result)} stars, {bytes_read/1024:.1f}KB"
         )
 
         return result

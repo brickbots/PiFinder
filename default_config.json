@@ -17,6 +17,7 @@
     "chart_constellations": 64,
     "obj_chart_crosshair": "pulse",
     "obj_chart_crosshair_style": "simple",
+    "obj_chart_crosshair_speed": "2.0",
     "obj_chart_lm_mode": "auto",
     "obj_chart_lm_fixed": 14.0,
     "solve_pixel": [256, 256],

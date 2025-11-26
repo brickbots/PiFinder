@@ -138,14 +138,18 @@ class DeepChartGenerator:
         Returns:
             PIL Image in RGB (red colorspace), or None if catalog not ready
         """
+        logger.info(f">>> generate_chart() ENTRY: object={catalog_object.display_name}")
+
         # Ensure catalog is loading
         self.ensure_catalog_loading()
 
         # Check state
         if self.catalog.state != CatalogState.READY:
-            logger.info(f"Chart generation skipped: catalog state = {self.catalog.state}")
+            logger.info(f">>> Chart generation skipped: catalog state = {self.catalog.state}")
             yield None
             return
+
+        logger.info(f">>> Catalog state is READY, proceeding...")
 
         # Check cache
         cache_key = self.get_cache_key(catalog_object)
@@ -165,6 +169,8 @@ class DeepChartGenerator:
         mag = equipment.calc_magnification()
         if mag <= 0:
             mag = 50.0  # Default fallback
+
+        logger.info(f">>> Chart Generation: object={catalog_object.display_name}, center=({catalog_object.ra:.4f}, {catalog_object.dec:.4f}), fov={fov:.4f}°, mag={mag:.1f}x, eyepiece={equipment.active_eyepiece}")
 
         sqm = self.shared_state.sqm()
         mag_limit_calculated = self.get_limiting_magnitude(sqm)
@@ -204,8 +210,12 @@ class DeepChartGenerator:
         # Progressive rendering: Yield image after each magnitude band loads
         # Re-render all stars each time (simple, correct, fast enough)
         final_image = None
+        iteration_count = 0
 
+        logger.info(f">>> Starting star generator loop...")
         for stars, is_complete in stars_generator:
+            iteration_count += 1
+            logger.info(f">>> Star generator iteration {iteration_count}: got {len(stars)} stars, complete={is_complete}")
             t_render_start = time.time()
 
             # Render ALL stars from scratch
@@ -252,7 +262,10 @@ class DeepChartGenerator:
 
         # Final yield with complete image
         t1 = time.time()
-        logger.info(f"Chart complete: {(t1-t0)*1000:.1f}ms total")
+        logger.info(f">>> Star generator loop complete: {iteration_count} iterations, {(t1-t0)*1000:.1f}ms total")
+
+        if iteration_count == 0:
+            logger.warning(f">>> WARNING: Star generator yielded NO results! FOV={fov:.4f}°, center=({catalog_object.ra:.4f}, {catalog_object.dec:.4f})")
 
         # Cache result (limit cache size to 10 charts)
         if final_image is not None:
@@ -345,6 +358,13 @@ class DeepChartGenerator:
         # Simple linear pixel scale (matches POSS behavior)
         # fov degrees should map to width pixels
         pixel_scale = width / np.radians(fov)
+
+        if fov < 0.2:  # Debug small FOVs
+            logger.info(f">>> SMALL FOV DEBUG: fov={fov:.4f}°, pixel_scale={pixel_scale:.1f} px/rad")
+            if len(stars) > 0:
+                logger.info(f">>> Star RA range: [{np.min(ra_arr):.4f}, {np.max(ra_arr):.4f}]")
+                logger.info(f">>> Star Dec range: [{np.min(dec_arr):.4f}, {np.max(dec_arr):.4f}]")
+                logger.info(f">>> Center: RA={center_ra:.4f}, Dec={center_dec:.4f}")
 
         # Convert to screen coordinates FIRST
         # Center of field should always be at width/2, height/2
