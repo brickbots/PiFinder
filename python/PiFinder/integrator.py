@@ -67,12 +67,6 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 pass
 
             if type(next_image_solve) is dict:
-                #--------- TODO: Merge removed this? --------
-                # We have a new image solve: Use plate-solving for RA/Dec
-                #solved = next_image_solve
-                #update_plate_solve_and_imu(imu_dead_reckoning, solved)
-                #--------------------------------------------
-
                 # For camera solves, always start from last successful camera solve
                 # NOT from shared_state (which may contain IMU drift)
                 # This prevents IMU noise accumulation during failed solves
@@ -98,6 +92,10 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     location = shared_state.location()
                     dt = shared_state.datetime()
 
+                    # Set location for altaz calculations.
+                    # TODO: Is itnecessary to set location?
+                    # TODO: Altaz doesn't seem to be required for catalogs when in
+                    # EQ mode? Could be disabled in future when in EQ mode?
                     if location and dt:
                         # We have position and time/date and a valid solve!
                         calc_utils.sf_utils.set_location(
@@ -105,6 +103,9 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                             location.lon,
                             location.altitude,
                         )
+
+
+
                         alt, az = calc_utils.sf_utils.radec_to_altaz(
                             solved["RA"],
                             solved["Dec"],
@@ -124,7 +125,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     # Experimental: For monitoring roll offset
                     # Estimate the roll offset due misalignment of the
                     # camera sensor with the Pole-to-Source great circle.
-                    solved["Roll_offset"] = estimate_roll_offset(solved, dt)
+                    #solved["Roll_offset"] = estimate_roll_offset(solved, dt)
+                    
                     # Find the roll at the target RA/Dec. Note that this doesn't include the
                     # roll offset so it's not the roll that the PiFinder camear sees but the
                     # roll relative to the celestial pole
@@ -148,7 +150,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     )
 
                     # Update IMU-dead-reckoning system with the new plate-solve
-                    update_plate_solve_and_imu(imu_dead_reckoning, solved)
+                    #update_plate_solve_and_imu(imu_dead_reckoning, solved)
 
                 # For failed solves, preserve ALL position data from previous solve
                 # Don't recalculate from GPS (causes drift from GPS noise)
@@ -173,6 +175,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
 
+            #============== Above from main ==============
+
             elif imu_dead_reckoning.tracking:
                 # Previous plate-solve exists so use IMU dead-reckoning from
                 # the last plate solved coordinates.
@@ -185,7 +189,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             if (
                 solved["RA"]
                 and solved["solve_time"] > last_solve_time
-                and solved.get("solve_source") == "IMU"
+                and solved["solve_source"] == "IMU"
             ):
                 last_solve_time = time.time()
 
@@ -196,7 +200,6 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 # TODO: Is it necessary to set location?
                 # TODO: Altaz doesn't seem to be required for catalogs when in
                 #  EQ mode? Could be disabled in future when in EQ mode? 
-                # TODO: Is it necessary to set location?
                 if location:
                     calc_utils.sf_utils.set_location(
                         location.lat, location.lon, location.altitude
