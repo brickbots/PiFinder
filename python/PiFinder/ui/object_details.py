@@ -6,7 +6,9 @@ This module contains all the UI code for the object details screen
 
 """
 
-from PiFinder import cat_images
+from PiFinder.object_images import get_display_image
+from PiFinder.object_images.image_base import ImageType
+from PiFinder.object_images.star_catalog import CatalogState
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.obj_types import OBJ_TYPES
 from PiFinder.ui.align import align_on_radec
@@ -33,9 +35,7 @@ logger = logging.getLogger("PiFinder.UIObjectDetails")
 # Constants for display modes
 DM_DESC = 0  # Display mode for description
 DM_LOCATE = 1  # Display mode for LOCATE
-DM_POSS = 2  # Display mode for POSS
-DM_SDSS = 3  # Display mode for SDSS
-DM_CHART = 4  # Display mode for deep chart
+DM_IMAGE = 2  # Display mode for images (POSS or Gaia chart)
 
 
 class EyepieceInput:
@@ -117,7 +117,7 @@ class UIObjectDetails(UIModule):
         self.object_image = None
         self._chart_generator = None  # Active generator for progressive chart updates
         self._is_showing_loading_chart = False  # Track if showing "Loading..." for deep chart
-        self._force_deep_chart = False  # Toggle: force deep chart even if POSS image exists
+        self._force_gaia_chart = False  # Toggle: force deep chart even if POSS image exists
         self.eyepiece_input = EyepieceInput()  # Custom eyepiece input handler
         self.eyepiece_input_display = False  # Show eyepiece input popup
         self._custom_eyepiece = None  # Reference to custom eyepiece object in equipment list (None = not active)
@@ -138,7 +138,7 @@ class UIObjectDetails(UIModule):
         )
 
         # Deep Chart Marking Menu - Settings access
-        self._deep_chart_marking_menu = MarkingMenu(
+        self._gaia_chart_marking_menu = MarkingMenu(
             up=MarkingMenuOption(label=_("SETTINGS"), menu_jump="obj_chart_settings"),
             right=MarkingMenuOption(label=_("CROSS"), menu_jump="obj_chart_crosshair"),
             down=MarkingMenuOption(label=_("STYLE"), menu_jump="obj_chart_style"),
@@ -189,8 +189,8 @@ class UIObjectDetails(UIModule):
         """
         Return appropriate marking menu based on current view mode
         """
-        if self._is_deep_chart:
-            return self._deep_chart_marking_menu
+        if self._is_gaia_chart:
+            return self._gaia_chart_marking_menu
         return self._default_marking_menu
 
     def _layout_designator(self):
@@ -322,26 +322,26 @@ class UIObjectDetails(UIModule):
 
         prev_object_image = self.object_image
 
-        # Get or create chart generator (owned by UI layer, not cat_images)
+        # Get or create chart generator (owned by UI layer)
         logger.info(">>> Getting chart generator...")
-        chart_gen = self._get_chart_generator()
+        chart_gen = self._get_gaia_chart_generator()
         logger.info(f">>> Chart generator obtained, state: {chart_gen.get_catalog_state() if chart_gen else 'None'}")
 
-        logger.info(f">>> Calling cat_images.get_display_image with force_deep_chart={self._force_deep_chart}")
+        logger.info(f">>> Calling get_display_image with force_gaia_chart={self._force_gaia_chart}")
 
         # get_display_image returns either an image directly (POSS) or a generator (deep chart)
-        result = cat_images.get_display_image(
+        result = get_display_image(
             self.object,
             eyepiece_text,
             tfov,
             roll,
             self.display_class,
-            burn_in=self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART],
+            burn_in=self.object_display_mode == DM_IMAGE,
             magnification=magnification,
             config_object=self.config_object,
             shared_state=self.shared_state,
-            chart_generator=chart_gen,  # Pass our chart generator to cat_images
-            force_deep_chart=self._force_deep_chart,  # Toggle state
+            chart_generator=chart_gen,  # Pass our chart generator to object_images
+            force_chart=self._force_gaia_chart,  # Toggle state
         )
 
         # Check if it's a generator (progressive deep chart) or direct image (POSS)
@@ -358,26 +358,21 @@ class UIObjectDetails(UIModule):
 
         logger.info(f">>> update_object_info() complete, self.object_image is now: {type(self.object_image)}")
 
-        # Track if we're showing a "Loading..." placeholder for deep chart
-        # Check if image has the special "is_loading_placeholder" attribute
+        # Track if we're showing a "Loading..." placeholder for chart
         self._is_showing_loading_chart = (
             self.object_image is not None
-            and hasattr(self.object_image, 'is_loading_placeholder')
-            and self.object_image.is_loading_placeholder
-            and self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART]
+            and hasattr(self.object_image, 'image_type')
+            and self.object_image.image_type == ImageType.LOADING
         )
 
-        # Detect if we're showing a deep chart (forced or automatic due to no POSS image)
-        # Deep charts are identified by the is_loading_placeholder attribute (loading or False)
-        # self._is_deep_chart is now a property
-        pass
 
     @property
-    def _is_deep_chart(self):
+    def _is_gaia_chart(self):
+        """Check if currently displaying a Gaia chart"""
         return (
             self.object_image is not None
-            and hasattr(self.object_image, 'is_loading_placeholder')
-            and self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART]
+            and hasattr(self.object_image, 'image_type')
+            and self.object_image.image_type == ImageType.GAIA_CHART
         )
 
     def active(self):
@@ -841,14 +836,14 @@ class UIObjectDetails(UIModule):
                 fill=self.colors.get(indicator_color),
             )
 
-    def _get_chart_generator(self):
+    def _get_gaia_chart_generator(self):
         """Get the global chart generator singleton"""
-        from PiFinder.deep_chart import get_chart_generator
+        from PiFinder.object_images.gaia_chart import get_gaia_chart_generator
         import logging
         logger = logging.getLogger("ObjectDetails")
 
-        chart_gen = get_chart_generator(self.config_object, self.shared_state)
-        logger.info(f">>> _get_chart_generator returning: {chart_gen}")
+        chart_gen = get_gaia_chart_generator(self.config_object, self.shared_state)
+        logger.info(f">>> _get_gaia_chart_generator returning: {chart_gen}")
         return chart_gen
 
     def _apply_custom_eyepiece(self):
@@ -913,19 +908,16 @@ class UIObjectDetails(UIModule):
         # Update loading flag based on current image
         if self.object_image is not None:
             self._is_showing_loading_chart = (
-                hasattr(self.object_image, 'is_loading_placeholder')
-                and self.object_image.is_loading_placeholder
-                and self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART]
+                hasattr(self.object_image, 'image_type')
+                and self.object_image.image_type == ImageType.LOADING
             )
 
         # Check if we're showing "Loading..." for a deep chart
         # and if catalog is now ready, regenerate the image
         if self._is_showing_loading_chart:
             try:
-                from PiFinder.star_catalog import CatalogState
-
                 # Use cached chart generator to preserve catalog state
-                chart_gen = self._get_chart_generator()
+                chart_gen = self._get_gaia_chart_generator()
                 state = chart_gen.get_catalog_state()
                 # logger.debug(f">>> Update check: catalog state = {state}")
 
@@ -946,14 +938,10 @@ class UIObjectDetails(UIModule):
         # logger.debug(f">>> update(): object_display_mode={self.object_display_mode}...")
         # logger.debug(f">>> update(): object_image type={type(self.object_image)}...")
 
-        # DEBUG: Check if object_image has the is_loading_placeholder attribute (indicates it's a chart)
-        if self.object_image:
-            is_chart = hasattr(self.object_image, 'is_loading_placeholder')
-            # logger.debug(f">>> update(): object_image has is_loading_placeholder={is_chart}...")
 
-        if self.object_display_mode in [DM_POSS, DM_SDSS, DM_CHART]:
+        if self.object_display_mode == DM_IMAGE:
             # DEBUG: Check if image has any non-black pixels
-            if self.object_image and self.object_display_mode == DM_CHART:
+            if self.object_image and self._force_gaia_chart:
                 import numpy as np
                 img_array = np.array(self.object_image)
                 non_zero = np.count_nonzero(img_array)
@@ -961,13 +949,20 @@ class UIObjectDetails(UIModule):
                 # logger.debug(f">>> CHART IMAGE DEBUG: non-zero pixels={non_zero}, max_value={max_val}, shape={img_array.shape}")
 
             self.screen.paste(self.object_image)
+            # Recreate draw object to ensure it's in sync with screen after paste
+            self.draw = ImageDraw.Draw(self.screen, mode="RGBA")
             # logger.debug(f">>> Image pasted to screen")
 
             # DEBUG: Save screen buffer to file for inspection
             # (Removed per user request)
 
-            # If showing deep chart, draw crosshair based on config
-            if self._force_deep_chart and self.object_image is not None:
+            # If showing Gaia chart, draw crosshair based on config
+            is_chart = (
+                self.object_image is not None
+                and hasattr(self.object_image, 'image_type')
+                and self.object_image.image_type == ImageType.GAIA_CHART
+            )
+            if is_chart:
                 crosshair_mode = self.config_object.get_option("obj_chart_crosshair")
                 crosshair_style = self.config_object.get_option("obj_chart_crosshair_style")
 
@@ -988,17 +983,17 @@ class UIObjectDetails(UIModule):
                     # Force continuous updates for animated crosshairs
                     if crosshair_mode in ["pulse", "fade"]:
                         force = True
-        else:
-            # Clear screen when not in image modes (DESC, LOCATE)
-            self.screen = Image.new("RGB", self.display_class.resolution)
-            self.draw = ImageDraw.Draw(self.screen, mode="RGBA")
+        # Note: We do NOT create a new screen/draw here because text layouts
+        # hold references to self.draw from __init__. The screen was already
+        # cleared by self.clear_screen() at line 940.
 
         if self.object_display_mode == DM_DESC or self.object_display_mode == DM_LOCATE:
             # catalog and entry field i.e. NGC-311
             self.refresh_designator()
             desc_available_lines = 4
-            desig = self.texts["designator"]
-            desig.draw((0, 20))
+            desig = self.texts.get("designator")
+            if desig:
+                desig.draw((0, 20))
 
             # Object TYPE and Constellation i.e. 'Galaxy    PER'
             typeconst = self.texts.get("type-const")
@@ -1253,31 +1248,23 @@ class UIObjectDetails(UIModule):
     def key_number(self, number):
         """
         Handle number key presses
-        When viewing image (DM_POSS/DM_CHART):
-        - 0: Toggle between POSS image and deep chart (only if no input active)
+        When viewing image (DM_IMAGE):
+        - 0: Toggle between POSS image and Gaia chart (only if no input active)
         - 1-9: Start custom eyepiece input
         - After first digit, 0-9 adds second digit or completes input
         """
         logger.info(f">>> key_number({number}) called")
 
         # Only handle custom eyepiece input in image display modes
-        if self.object_display_mode not in [DM_POSS, DM_SDSS, DM_CHART]:
+        if self.object_display_mode != DM_IMAGE:
             return
 
         # Special case: 0 when no input is active toggles POSS/chart
         if number == 0 and not self.eyepiece_input_display:
-            logger.info(f">>> Toggling _force_deep_chart (was: {self._force_deep_chart})")
+            logger.info(f">>> Toggling _force_gaia_chart (was: {self._force_gaia_chart})")
             # Toggle the flag
-            self._force_deep_chart = not self._force_deep_chart
-            logger.info(f">>> _force_deep_chart now: {self._force_deep_chart}")
-
-            # Set appropriate display mode: DM_CHART for deep chart, DM_POSS for POSS image
-            if self._force_deep_chart:
-                logger.info(f">>> Setting object_display_mode to DM_CHART (was {self.object_display_mode})")
-                self.object_display_mode = DM_CHART
-            else:
-                logger.info(f">>> Setting object_display_mode to DM_POSS (was {self.object_display_mode})")
-                self.object_display_mode = DM_POSS
+            self._force_gaia_chart = not self._force_gaia_chart
+            logger.info(f">>> _force_gaia_chart now: {self._force_gaia_chart}")
 
             # Reload image with new setting
             logger.info(">>> Calling update_object_info()...")

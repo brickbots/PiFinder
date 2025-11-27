@@ -6,7 +6,7 @@ This module contains all the UI Module classes
 
 """
 
-from PiFinder import cat_images
+from PiFinder.object_images import get_display_image
 from PiFinder import obslog
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder.ui.base import UIModule
@@ -49,10 +49,10 @@ class UILog(UIModule):
             roll = solution["Roll"]
 
         # Get chart generator singleton for deep chart support
-        from PiFinder.deep_chart import get_chart_generator
-        chart_gen = get_chart_generator(self.config_object, self.shared_state)
+        from PiFinder.object_images.gaia_chart import get_gaia_chart_generator
+        chart_gen = get_gaia_chart_generator(self.config_object, self.shared_state)
 
-        self.object_image = cat_images.get_display_image(
+        self.object_image = get_display_image(
             self.object, "POSS", 1, roll, self.display_class, burn_in=False,
             config_object=self.config_object,
             shared_state=self.shared_state,

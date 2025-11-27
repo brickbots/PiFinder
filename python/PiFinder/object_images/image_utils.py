@@ -1,10 +1,14 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-Shared image utility functions for POSS/SDSS images and generated charts
+Shared image utility functions for object images
+
+Provides common operations for:
+- POSS survey images
+- Generated Gaia star charts
 """
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageChops
 
 
 def add_image_overlays(
@@ -14,8 +18,8 @@ def add_image_overlays(
     Add FOV/magnification/eyepiece overlays to image
 
     This function is shared by:
-    - POSS/SDSS image display (cat_images.py)
-    - Generated deep star charts (deep_chart.py)
+    - POSS image display (poss_provider.py)
+    - Generated Gaia star charts (chart_provider.py)
 
     Args:
         image: PIL Image to modify
@@ -117,17 +121,21 @@ def create_loading_image(display_class, message="Loading...", progress_text=None
         PIL Image with centered message and progress
     """
     image = Image.new(
-        "RGB", (display_class.fov_res, display_class.fov_res), (0, 0, 0)
+        "RGB", display_class.resolution, (0, 0, 0)
     )
     draw = ImageDraw.Draw(image)
+
+    # Use center of display for positioning
+    center_x = display_class.resolution[0] // 2
+    center_y = display_class.resolution[1] // 2
 
     # Draw main message
     text_bbox = draw.textbbox((0, 0), message, font=display_class.fonts.large.font)
     text_width = text_bbox[2] - text_bbox[0]
     text_height = text_bbox[3] - text_bbox[1]
 
-    x = (display_class.fov_res - text_width) // 2
-    y = (display_class.fov_res - text_height) // 2 - 10
+    x = center_x - (text_width // 2)
+    y = center_y - (text_height // 2) - 20
 
     draw.text(
         (x, y),
@@ -141,7 +149,7 @@ def create_loading_image(display_class, message="Loading...", progress_text=None
         progress_bbox = draw.textbbox((0, 0), progress_text, font=display_class.fonts.base.font)
         progress_width = progress_bbox[2] - progress_bbox[0]
 
-        px = (display_class.fov_res - progress_width) // 2
+        px = center_x - (progress_width // 2)
         py = y + text_height + 8
 
         draw.text(
@@ -153,10 +161,10 @@ def create_loading_image(display_class, message="Loading...", progress_text=None
 
     # Draw progress bar if percentage > 0
     if progress_percent > 0:
-        bar_width = int(display_class.fov_res * 0.6)
+        bar_width = int(display_class.resolution[0] * 0.8)
         bar_height = 4
-        bar_x = (display_class.fov_res - bar_width) // 2
-        bar_y = display_class.fov_res - 20
+        bar_x = center_x - (bar_width // 2)
+        bar_y = display_class.resolution[1] - 25
 
         # Background bar
         draw.rectangle(
@@ -179,10 +187,116 @@ def create_loading_image(display_class, message="Loading...", progress_text=None
         percent_width = percent_bbox[2] - percent_bbox[0]
 
         draw.text(
-            ((display_class.fov_res - percent_width) // 2, bar_y + bar_height + 4),
+            (center_x - (percent_width // 2), bar_y + bar_height + 4),
             percent_text,
             font=display_class.fonts.base.font,
             fill=(100, 0, 0)
         )
+
+    return image
+
+
+def create_no_image_placeholder(display_class, burn_in=True):
+    """
+    Create a "No Image" placeholder
+
+    Used when neither POSS nor Gaia chart is available
+
+    Args:
+        display_class: Display configuration object
+        burn_in: Whether to add text (default True)
+
+    Returns:
+        PIL Image with "No Image" message
+    """
+    image = Image.new("RGB", display_class.resolution)
+    if burn_in:
+        draw = ImageDraw.Draw(image)
+        draw.text(
+            (30, 50),
+            "No Image",
+            font=display_class.fonts.large.font,
+            fill=display_class.colors.get(128),
+        )
+    return image
+
+
+def apply_circular_vignette(image, display_class):
+    """
+    Apply circular vignette to show eyepiece FOV boundary
+
+    Creates a circular mask that dims everything outside
+    the eyepiece field of view, then adds a subtle outline.
+
+    Args:
+        image: PIL Image to modify
+        display_class: Display configuration object
+
+    Returns:
+        Modified PIL Image with circular vignette
+    """
+    # Create dimming mask (circle is full brightness, outside is dimmed)
+    _circle_dim = Image.new(
+        "RGB",
+        (display_class.fov_res, display_class.fov_res),
+        display_class.colors.get(127),  # Dim the outside
+    )
+    _circle_draw = ImageDraw.Draw(_circle_dim)
+    _circle_draw.ellipse(
+        [2, 2, display_class.fov_res - 2, display_class.fov_res - 2],
+        fill=display_class.colors.get(255),  # Full brightness inside
+    )
+
+    # Apply dimming by multiplying
+    image = ImageChops.multiply(image, _circle_dim)
+
+    # Add subtle outline
+    draw = ImageDraw.Draw(image)
+    draw.ellipse(
+        [2, 2, display_class.fov_res - 2, display_class.fov_res - 2],
+        outline=display_class.colors.get(64),
+        width=1,
+    )
+
+    return image
+
+
+def pad_to_display_resolution(image, display_class):
+    """
+    Pad image to match display resolution
+
+    If FOV resolution differs from display resolution,
+    centers the image and pads with black.
+
+    Args:
+        image: PIL Image to pad
+        display_class: Display configuration object
+
+    Returns:
+        Padded PIL Image at display resolution
+    """
+    # Pad horizontally if needed
+    if display_class.fov_res != display_class.resX:
+        pad_image = Image.new("RGB", display_class.resolution)
+        pad_image.paste(
+            image,
+            (
+                int((display_class.resX - display_class.fov_res) / 2),
+                0,
+            ),
+        )
+        image = pad_image
+
+    # Pad vertically if needed
+    if display_class.fov_res != display_class.resY:
+        pad_image = Image.new("RGB", display_class.resolution)
+        pad_image.paste(
+            image,
+            (
+                0,
+                int((display_class.resY - display_class.fov_res) / 2),
+            ),
+        )
+        image = pad_image
 
     return image

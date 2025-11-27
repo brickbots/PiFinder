@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 import sys
 
-from PiFinder.star_catalog import DeepStarCatalog, STAR_RECORD_DTYPE, STAR_RECORD_SIZE
+from PiFinder.object_images.star_catalog import DeepStarCatalog, STAR_RECORD_DTYPE, STAR_RECORD_SIZE
 
 class TestDeepStarCatalog(unittest.TestCase):
     def setUp(self):

@@ -525,8 +525,8 @@ def main(
         console.write("   Deep Charts")
         console.update()
         logger.info("   Initializing deep chart generator...")
-        from PiFinder.deep_chart import get_chart_generator
-        chart_gen = get_chart_generator(cfg, shared_state)
+        from PiFinder.object_images.gaia_chart import get_gaia_chart_generator
+        chart_gen = get_gaia_chart_generator(cfg, shared_state)
         # Trigger background loading so catalog is ready when needed
         chart_gen.ensure_catalog_loading()
         logger.info("   Deep chart background loading started")
@@ -684,7 +684,7 @@ def main(
                     pass
 
                 # Deep catalog loading removed - now lazy-loads on first chart view
-                # (cat_images.py triggers loading when needed)
+                # (object_images triggers loading when needed)
 
                 # ui queue
                 try:

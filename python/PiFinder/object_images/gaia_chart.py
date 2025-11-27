@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-Deep star chart generator for objects without DSS/POSS images
+Gaia star chart generator for objects without DSS/POSS images
 
 Generates on-demand star charts using HEALPix-indexed deep star catalog.
 Features:
@@ -20,33 +20,34 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from PiFinder import utils
-from PiFinder.star_catalog import CatalogState, DeepStarCatalog
+from PiFinder.object_images.star_catalog import CatalogState, DeepStarCatalog
+from PiFinder.object_images.image_utils import pad_to_display_resolution, add_image_overlays
 
-logger = logging.getLogger("PiFinder.DeepChart")
+logger = logging.getLogger("PiFinder.GaiaChart")
 
 # Global singleton instance to ensure same catalog across all uses
-_chart_generator_instance = None
+_gaia_chart_generator_instance = None
 
 
-def get_chart_generator(config, shared_state):
+def get_gaia_chart_generator(config, shared_state):
     """Get or create the global chart generator singleton"""
-    global _chart_generator_instance
-    logger.debug(f">>> get_chart_generator() called, instance exists: {_chart_generator_instance is not None}")
-    if _chart_generator_instance is None:
-        logger.info(">>> Creating new DeepChartGenerator instance...")
-        _chart_generator_instance = DeepChartGenerator(config, shared_state)
-        logger.info(f">>> DeepChartGenerator created, state: {_chart_generator_instance.get_catalog_state()}")
+    global _gaia_chart_generator_instance
+    logger.debug(f">>> get_gaia_chart_generator() called, instance exists: {_gaia_chart_generator_instance is not None}")
+    if _gaia_chart_generator_instance is None:
+        logger.info(">>> Creating new GaiaChartGenerator instance...")
+        _gaia_chart_generator_instance = GaiaChartGenerator(config, shared_state)
+        logger.info(f">>> GaiaChartGenerator created, state: {_gaia_chart_generator_instance.get_catalog_state()}")
     else:
-        logger.debug(f">>> Returning existing instance, state: {_chart_generator_instance.get_catalog_state()}")
-    return _chart_generator_instance
+        logger.debug(f">>> Returning existing instance, state: {_gaia_chart_generator_instance.get_catalog_state()}")
+    return _gaia_chart_generator_instance
 
 
-class DeepChartGenerator:
+class GaiaChartGenerator:
     """
     Generate on-demand star charts with equipment-aware settings
 
     Usage:
-        gen = DeepChartGenerator(config, shared_state)
+        gen = GaiaChartGenerator(config, shared_state)
         image = gen.generate_chart(catalog_object, (128, 128), burn_in=True)
     """
 
@@ -58,7 +59,7 @@ class DeepChartGenerator:
             config: PiFinder config object
             shared_state: Shared state object
         """
-        logger.info(">>> DeepChartGenerator.__init__() called")
+        logger.info(">>> GaiaChartGenerator.__init__() called")
         self.config = config
         self.shared_state = shared_state
         self.catalog = None
@@ -85,6 +86,7 @@ class DeepChartGenerator:
         Triggers background load if needed
         """
         logger.debug(f">>> ensure_catalog_loading() called, catalog is None: {self.catalog is None}")
+
         if self.catalog is None:
             logger.info(">>> Calling initialize_catalog()...")
             self.initialize_catalog()
@@ -154,10 +156,47 @@ class DeepChartGenerator:
         # Check cache
         cache_key = self.get_cache_key(catalog_object)
         if cache_key in self.chart_cache:
-            # Return cached base image (without crosshair)
+            # Return cached base image, adding overlays if needed
             # Crosshair will be added by add_pulsating_crosshair() each frame
             logger.debug(f"Chart cache HIT for {cache_key}")
-            yield self.chart_cache[cache_key]
+            cached_image = self.chart_cache[cache_key]
+
+            # Make a copy to avoid modifying cached image
+            image = cached_image.copy()
+
+            # ALWAYS pad to display resolution when display_class is provided
+            if display_class is not None:
+                image = pad_to_display_resolution(image, display_class)
+
+            # Add overlays if burn_in requested
+            if burn_in and display_class is not None:
+                # Add FOV circle
+                draw = ImageDraw.Draw(image)
+                width, height = display_class.resolution
+                cx, cy = width / 2.0, height / 2.0
+                radius = min(width, height) / 2.0 - 2
+                marker_color = display_class.colors.get(64)
+                bbox = [cx - radius, cy - radius, cx + radius, cy + radius]
+                draw.ellipse(bbox, outline=marker_color, width=1)
+
+                # Add text overlays
+                sqm = self.shared_state.sqm()
+                mag_limit_calculated = self.get_limiting_magnitude(sqm)
+                equipment = self.config.equipment
+                fov = equipment.calc_tfov()
+                mag = equipment.calc_magnification()
+
+                image = add_image_overlays(
+                    image,
+                    display_class,
+                    fov,
+                    mag,
+                    equipment.active_eyepiece,
+                    burn_in=True,
+                    limiting_magnitude=mag_limit_calculated,
+                )
+
+            yield image
             return
 
         # Get equipment settings
@@ -218,14 +257,25 @@ class DeepChartGenerator:
             logger.info(f">>> Star generator iteration {iteration_count}: got {len(stars)} stars, complete={is_complete}")
             t_render_start = time.time()
 
-            # Render ALL stars from scratch
-            image = self.render_chart(
+            # Render ALL stars from scratch (base image without overlays)
+            base_image = self.render_chart(
                 stars, catalog_object.ra, catalog_object.dec, fov, resolution, mag, image_rotate, mag_limit_query
             )
 
-            # Add FOV circle BEFORE text overlays so it appears behind them
+            # Store base image for caching (without overlays)
+            final_base_image = base_image
+
+            # Make a copy for display (don't modify the base image)
+            display_image = base_image.copy()
+
+            # ALWAYS pad to display resolution when display_class is provided
+            if display_class is not None:
+                display_image = pad_to_display_resolution(display_image, display_class)
+
+            # Add overlays if burn_in requested
             if burn_in and display_class is not None:
-                draw = ImageDraw.Draw(image)
+                # Add FOV circle BEFORE text overlays so it appears behind them
+                draw = ImageDraw.Draw(display_image)
                 width, height = display_class.resolution
                 cx, cy = width / 2.0, height / 2.0
                 radius = min(width, height) / 2.0 - 2  # Leave 2 pixel margin
@@ -233,12 +283,9 @@ class DeepChartGenerator:
                 bbox = [cx - radius, cy - radius, cx + radius, cy + radius]
                 draw.ellipse(bbox, outline=marker_color, width=1)
 
-            # Add overlays (using shared utility)
-            if burn_in and display_class is not None:
-                from PiFinder.image_utils import add_image_overlays
-
-                image = add_image_overlays(
-                    image,
+                # Add text overlays (using shared utility)
+                display_image = add_image_overlays(
+                    display_image,
                     display_class,
                     fov,
                     mag,
@@ -253,11 +300,9 @@ class DeepChartGenerator:
                 f"(complete={is_complete}, total_stars={len(stars)})"
             )
 
-            final_image = image
-
-            # Yield intermediate result (allows UI to update)
+            # Yield display image (with or without overlays)
             if not is_complete:
-                yield image
+                yield display_image
             # If complete, will yield final image after loop
 
         # Final yield with complete image
@@ -266,16 +311,50 @@ class DeepChartGenerator:
 
         if iteration_count == 0:
             logger.warning(f">>> WARNING: Star generator yielded NO results! FOV={fov:.4f}°, center=({catalog_object.ra:.4f}, {catalog_object.dec:.4f})")
+            # Generate blank chart (no stars) - this is the base image
+            final_base_image = self.render_chart(
+                np.array([]).reshape(0, 3),  # Empty star array
+                catalog_object.ra, catalog_object.dec, fov, resolution, mag, image_rotate, mag_limit_query
+            )
 
-        # Cache result (limit cache size to 10 charts)
-        if final_image is not None:
-            self.chart_cache[cache_key] = final_image
+        # Cache base image (without overlays) so it can be reused
+        if 'final_base_image' in locals() and final_base_image is not None:
+            self.chart_cache[cache_key] = final_base_image
             if len(self.chart_cache) > 10:
                 # Remove oldest
                 oldest = next(iter(self.chart_cache))
                 del self.chart_cache[oldest]
 
-            yield final_image
+            # Create final display image
+            final_display_image = final_base_image.copy()
+
+            # ALWAYS pad to display resolution when display_class is provided
+            if display_class is not None:
+                final_display_image = pad_to_display_resolution(final_display_image, display_class)
+
+            # Add overlays if burn_in requested
+            if burn_in and display_class is not None:
+                # Add FOV circle
+                draw = ImageDraw.Draw(final_display_image)
+                width, height = display_class.resolution
+                cx, cy = width / 2.0, height / 2.0
+                radius = min(width, height) / 2.0 - 2
+                marker_color = display_class.colors.get(64)
+                bbox = [cx - radius, cy - radius, cx + radius, cy + radius]
+                draw.ellipse(bbox, outline=marker_color, width=1)
+
+                # Add overlays
+                final_display_image = add_image_overlays(
+                    final_display_image,
+                    display_class,
+                    fov,
+                    mag,
+                    equipment.active_eyepiece,
+                    burn_in=True,
+                    limiting_magnitude=mag_limit_calculated,
+                )
+
+            yield final_display_image
         else:
             yield None
 

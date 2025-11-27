@@ -1,3 +1,5 @@
+from PiFinder.object_images.poss_provider import BASE_IMAGE_PATH
+from PiFinder.object_images.poss_provider import create_catalog_image_dirs
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
@@ -11,7 +13,7 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Tuple
 
-from PiFinder import cat_images
+from PiFinder.object_images import get_display_image
 from PiFinder.db.objects_db import ObjectsDatabase
 
 
@@ -35,7 +37,7 @@ def check_missing_images() -> List[str]:
     for image_name in tqdm(image_names, desc="Checking existing images"):
         # Check if POSS image exists (primary check)
         poss_path = (
-            f"{cat_images.BASE_IMAGE_PATH}/{image_name[-1]}/{image_name}_POSS.jpg"
+            f"{BASE_IMAGE_PATH}/{image_name[-1]}/{image_name}_POSS.jpg"
         )
         if not os.path.exists(poss_path):
             missing_images.append(image_name)
@@ -79,7 +81,7 @@ def fetch_images_for_object(
 
     # Download POSS image
     poss_filename = f"{image_name}_POSS.jpg"
-    poss_path = f"{cat_images.BASE_IMAGE_PATH}/{seq_ones}/{poss_filename}"
+    poss_path = f"{BASE_IMAGE_PATH}/{seq_ones}/{poss_filename}"
     poss_url = f"https://ddbeeedxfpnp0.cloudfront.net/catalog_images/{seq_ones}/{poss_filename}"
 
     poss_success, poss_error = download_image_from_url(session, poss_url, poss_path)
@@ -88,7 +90,7 @@ def fetch_images_for_object(
 
     # Download SDSS image
     sdss_filename = f"{image_name}_SDSS.jpg"
-    sdss_path = f"{cat_images.BASE_IMAGE_PATH}/{seq_ones}/{sdss_filename}"
+    sdss_path = f"{BASE_IMAGE_PATH}/{seq_ones}/{sdss_filename}"
     sdss_url = f"https://ddbeeedxfpnp0.cloudfront.net/catalog_images/{seq_ones}/{sdss_filename}"
 
     sdss_success, sdss_error = download_image_from_url(session, sdss_url, sdss_path)
@@ -154,7 +156,7 @@ def main():
     """
     Main function to check for and download missing catalog images.
     """
-    cat_images.create_catalog_image_dirs()
+    create_catalog_image_dirs()
 
     print("Checking for missing images...")
     missing_images = check_missing_images()
