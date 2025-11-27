@@ -343,6 +343,9 @@ def solver(
                             % ("camera", len(centroids), t_extract)
                         )
 
+                        # Initialize solution to prevent UnboundLocalError
+                        solution = {}
+
                         if len(centroids) == 0:
                             if log_no_stars_found:
                                 logger.info("No stars found, skipping (Logged only once)")
@@ -396,12 +399,12 @@ def solver(
                             del solution["epoch_proper_motion"]
                             del solution["cache_hit_fraction"]
 
-                        solved |= solution
+                            solved |= solution
 
-                        total_tetra_time = t_extract + solved["T_solve"]
-                        if total_tetra_time > 1000:
-                            console_queue.put(f"SLV: Long: {total_tetra_time}")
-                            logger.warning("Long solver time: %i", total_tetra_time)
+                            total_tetra_time = t_extract + solved["T_solve"]
+                            if total_tetra_time > 1000:
+                                console_queue.put(f"SLV: Long: {total_tetra_time}")
+                                logger.warning("Long solver time: %i", total_tetra_time)
 
                         if solved["RA"] is not None:
                             # RA, Dec, Roll at the center of the camera's FoV:
@@ -427,7 +430,7 @@ def solver(
                             # Mark successful solve - use same timestamp as last_solve_attempt for comparison
                             solved["last_solve_success"] = solved["last_solve_attempt"]
 
-                            logger.info(
+                            logger.debug(
                                 f"Solve SUCCESS - {len(centroids)} centroids → "
                                 f"{solved.get('Matches', 0)} matches, "
                                 f"RMSE: {solved.get('RMSE', 0):.1f}px"
@@ -451,7 +454,7 @@ def solver(
                         else:
                             # Centroids found but solve failed - clear Matches
                             solved["Matches"] = 0
-                            logger.warning(
+                            logger.debug(
                                 f"Solve FAILED - {len(centroids)} centroids detected but "
                                 f"pattern match failed (FOV est: 12.0°, max err: 4.0°)"
                             )
