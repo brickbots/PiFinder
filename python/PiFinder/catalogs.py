@@ -20,6 +20,27 @@ from PiFinder.config import Config
 
 logger = logging.getLogger("Catalog")
 
+# Mapping from keypad numbers to characters (non-conventional layout)
+KEYPAD_DIGIT_TO_CHARS = {
+    "7": "abc",
+    "8": "def",
+    "9": "ghi",
+    "4": "jkl",
+    "5": "mno",
+    "6": "pqrs",
+    "1": "tuv",
+    "2": "wxyz",
+    "3": "'-+/",
+}
+
+LETTER_TO_DIGIT_MAP: dict[str, str] = {}
+for _digit, _chars in KEYPAD_DIGIT_TO_CHARS.items():
+    # Map the digit to itself so numbers in names still match
+    LETTER_TO_DIGIT_MAP[_digit] = _digit
+    for _char in _chars:
+        LETTER_TO_DIGIT_MAP[_char] = _digit
+        LETTER_TO_DIGIT_MAP[_char.upper()] = _digit
+
 # collection of all catalog-related classes
 
 # CatalogBase : just the CompositeObjects
@@ -488,6 +509,34 @@ class Catalogs:
 
     # this is memory efficient and doesn't hit the sdcard, but could be faster
     # also, it could be cached
+    def _name_to_t9_digits(self, name: str) -> str:
+        return "".join(
+            [LETTER_TO_DIGIT_MAP[char] for char in name if char in LETTER_TO_DIGIT_MAP]
+        )
+
+    def search_by_t9(self, search_digits: str) -> List[CompositeObject]:
+        """Search catalog objects using keypad digits.
+
+        Uses the existing keypad letter mapping (including its non-conventional
+        layout) to convert object names to their digit representation and
+        returns all objects whose digit string contains the search pattern.
+        """
+
+        objs = self.get_objects(only_selected=False, filtered=False)
+        result: list[CompositeObject] = []
+        if not search_digits:
+            return result
+
+        for obj in objs:
+            for name in obj.names:
+                if search_digits in self._name_to_t9_digits(name):
+                    result.append(obj)
+                    logger.debug(
+                        "Found %s in %s %i via T9", name, obj.catalog_code, obj.sequence
+                    )
+                    break
+        return result
+
     def search_by_text(self, search_text: str) -> List[CompositeObject]:
         objs = self.get_objects(only_selected=False, filtered=False)
         result = []

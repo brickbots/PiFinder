@@ -114,6 +114,10 @@ class UITextEntry(UIModule):
         self.text_x_end = 128 - self.text_x
         self.text_y = 15
 
+    @property
+    def t9_search_enabled(self) -> bool:
+        return bool(self.config_object.get_option("t9_search", False))
+
     def draw_text_entry(self):
         line_text_y = self.text_y + 15
         self.draw.line(
@@ -209,7 +213,10 @@ class UITextEntry(UIModule):
     def update_search_results(self):
         """Only update search results in search mode"""
         if not self.text_entry_mode:
-            results = self.catalogs.search_by_text(self.current_text)
+            if self.t9_search_enabled:
+                results = self.catalogs.search_by_t9(self.current_text)
+            else:
+                results = self.catalogs.search_by_text(self.current_text)
             self.search_results = results
 
     def add_char(self, char):
@@ -260,6 +267,15 @@ class UITextEntry(UIModule):
     def key_number(self, number):
         current_time = time.time()
         number_key = str(number)
+        if not self.text_entry_mode and self.t9_search_enabled:
+            # In T9 mode we simply append the pressed digit
+            self.last_key_press_time = current_time
+            self.last_key = number
+            if number_key in self.keys:
+                self.char_index = 0
+                self.add_char(number_key)
+            return
+
         # Check if the same key is pressed within a short time
         if self.last_key == number and self.within_keypress_window(current_time):
             self.char_index = (self.char_index + 1) % self.keys.get_nr_entries(
