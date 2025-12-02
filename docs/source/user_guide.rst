@@ -220,8 +220,9 @@ from one of four options:
   and looking for the nearest objects in a particular catalog.
 - **Recent**: This list starts empty and will contain a history of all the objects you've checked out during your current
   observing session
-- **Name Search**: Using the number keypad and T9 style text entry, you can search for objects by name.  The snowball planetary?
-  Cats-Eye?  This is the way to find them!
+- **Name Search**: Using the number keypad with either multi-tap entry or the optional T9 predictive mode (toggle it in Settings
+  > User Pref > Name Search Mode), you can search for objects by name.  The snowball planetary? Cats-Eye?  This is the way to
+  find them!
 
 No matter how you get objects onto the list, it always displays 
 the same information and allows you to sort and select the same way.
@@ -362,15 +363,17 @@ the Name Search screen select it from the Objects menu:
 
 .. image:: images/user_guide/name_search_01.png
 
-It uses a T9 style text input, like some popular cellular phones at the dawn of text messages!  
-The on-screen keypad shows the letters that are available by pressing each number key multiple
-times in a row.  
+By default it uses the familiar multi-tap keypad input, like the old feature phones at the dawn of
+text messages. The on-screen keypad shows the letters that are available by pressing each number
+key multiple times in a row. If you prefer to simply enter each number once and let the PiFinder do
+the matching, enable **T9 Predictive** under Settings > User Pref > Name Search Mode.
 
 .. image:: images/user_guide/name_search_02.png
 
-Each number key will generate its number, then the three or four letters displayed
-in turn.  If you pause long enough between key-presses, or press a different key, the cursor
-will move to the next position.
+In multi-tap mode each number key will generate its number, then the three or four letters displayed
+in turn. If you pause long enough between key-presses, or press a different key, the cursor will move
+to the next position. With T9 enabled the PiFinder will instead search the database for names that
+match the numeric sequence you're entering, so there's no need to cycle through letters.
 
 .. image:: images/user_guide/name_search_cat_01.png
 
