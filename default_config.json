@@ -5,6 +5,7 @@
     "camera_gain": 20,
     "menu_anim_speed": 0.1,
     "text_scroll_speed": "Med",
+    "t9_search": false,
     "screen_direction": "right",
     "mount_type": "Alt/Az",
     "solver_debug": 0,

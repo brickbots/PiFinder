@@ -675,6 +675,22 @@ pifinder_menu = {
                             ],
                         },
                         {
+                            "name": _("T9 Search"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "t9_search",
+                            "items": [
+                                {
+                                    "name": _("Off"),
+                                    "value": False,
+                                },
+                                {
+                                    "name": _("On"),
+                                    "value": True,
+                                },
+                            ],
+                        },
+                        {
                             "name": _("Az Arrows"),
                             "class": UITextMenu,
                             "select": "single",
