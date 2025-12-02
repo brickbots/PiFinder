@@ -277,7 +277,10 @@ class UITextEntry(UIModule):
             # Priority catalogs (NGC, IC, M) are loaded first, WDS loads in background
             # So search will work immediately with those, WDS results appear when loading completes
             logger.info(f"Starting search for '{search_text}'")
-            results = self.catalogs.search_by_text(search_text)
+            if self.t9_search_enabled:
+                results = self.catalogs.search_by_t9(search_text)
+            else:
+                results = self.catalogs.search_by_text(search_text)
             logger.info(f"Search for '{search_text}' found {len(results)} results")
 
             # Only update if this search is still current (not superseded by newer search)
