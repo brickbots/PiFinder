@@ -675,22 +675,6 @@ pifinder_menu = {
                             ],
                         },
                         {
-                            "name": _("Name Search Mode"),
-                            "class": UITextMenu,
-                            "select": "single",
-                            "config_option": "t9_search",
-                            "items": [
-                                {
-                                    "name": _("Multi-tap"),
-                                    "value": False,
-                                },
-                                {
-                                    "name": _("T9 Predictive"),
-                                    "value": True,
-                                },
-                            ],
-                        },
-                        {
                             "name": _("Az Arrows"),
                             "class": UITextMenu,
                             "select": "single",
