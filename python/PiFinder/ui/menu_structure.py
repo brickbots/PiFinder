@@ -10,6 +10,7 @@ from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
+from PiFinder.ui.sqm import UISQM
 from PiFinder.ui.equipment import UIEquipment
 from PiFinder.ui.location_list import UILocationList
 from PiFinder.ui.radec_entry import UIRADecEntry
@@ -214,12 +215,12 @@ pifinder_menu = {
                                     "objects": "catalog",
                                     "value": "RDS",
                                 },
-                                # {
-                                #    "name": _("WDS Doubles"),
-                                #    "class": UIObjectList,
-                                #    "objects": "catalog",
-                                #    "value": "WDS",
-                                # },
+                                {
+                                    "name": _("WDS Doubles"),
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "WDS",
+                                },
                                 {
                                     "name": _("TLK 90 Variables"),
                                     "class": UIObjectList,
@@ -271,6 +272,10 @@ pifinder_menu = {
                         {
                             "name": _("Planets"),
                             "value": "PL",
+                        },
+                        {
+                            "name": _("Comets"),
+                            "value": "CM",
                         },
                         {
                             "name": _("NGC"),
@@ -843,6 +848,11 @@ pifinder_menu = {
                     "post_callback": callbacks.set_exposure,
                     "items": [
                         {
+                            "name": _("Auto"),
+                            "value": "auto",
+                            "name_suffix_callback": callbacks.get_camera_exposure_display,
+                        },
+                        {
                             "name": _("0.025s"),
                             "value": 25000,
                         },
@@ -891,39 +901,6 @@ pifinder_menu = {
                     ],
                 },
                 {
-                    "name": _("PiFinder Type"),
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "screen_direction",
-                    "post_callback": callbacks.restart_pifinder,
-                    "items": [
-                        {
-                            "name": _("Left"),
-                            "value": "left",
-                        },
-                        {
-                            "name": _("Right"),
-                            "value": "right",
-                        },
-                        {
-                            "name": _("Straight"),
-                            "value": "straight",
-                        },
-                        {
-                            "name": _("Flat v3"),
-                            "value": "flat3",
-                        },
-                        {
-                            "name": _("Flat v2"),
-                            "value": "flat",
-                        },
-                        {
-                            "name": _("AS Bloom"),
-                            "value": "as_bloom",
-                        },
-                    ],
-                },
-                {
                     "name": _("Mount Type"),
                     "class": UITextMenu,
                     "select": "single",
@@ -935,49 +912,115 @@ pifinder_menu = {
                             "value": "Alt/Az",
                         },
                         {
-                            "name": _("Equitorial"),
+                            "name": _("Equatorial"),
                             "value": "EQ",
                         },
                     ],
                 },
                 {
-                    "name": _("Camera Type"),
+                    "name": _("Advanced"),
                     "class": UITextMenu,
                     "select": "single",
-                    "value_callback": callbacks.get_camera_type,
+                    "pre_callback": callbacks.show_advanced_message,
                     "items": [
                         {
-                            "name": _("v2 - imx477"),
-                            "callback": callbacks.switch_cam_imx477,
-                            "value": "imx477",
+                            "name": _("PiFinder Type"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "screen_direction",
+                            "post_callback": callbacks.restart_pifinder,
+                            "items": [
+                                {
+                                    "name": _("Left"),
+                                    "value": "left",
+                                },
+                                {
+                                    "name": _("Right"),
+                                    "value": "right",
+                                },
+                                {
+                                    "name": _("Straight"),
+                                    "value": "straight",
+                                },
+                                {
+                                    "name": _("Flat v3"),
+                                    "value": "flat3",
+                                },
+                                {
+                                    "name": _("Flat v2"),
+                                    "value": "flat",
+                                },
+                                {
+                                    "name": _("AS Bloom"),
+                                    "value": "as_bloom",
+                                },
+                            ],
                         },
                         {
-                            "name": _("v3 - imx296"),
-                            "callback": callbacks.switch_cam_imx296,
-                            "value": "imx296",
+                            "name": _("Camera Type"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "value_callback": callbacks.get_camera_type,
+                            "items": [
+                                {
+                                    "name": _("v2 - imx477"),
+                                    "callback": callbacks.switch_cam_imx477,
+                                    "value": "imx477",
+                                },
+                                {
+                                    "name": _("v3 - imx296"),
+                                    "callback": callbacks.switch_cam_imx296,
+                                    "value": "imx296",
+                                },
+                                {
+                                    "name": _("v3 - imx462"),
+                                    "callback": callbacks.switch_cam_imx462,
+                                    "value": "imx462",
+                                },
+                            ],
                         },
                         {
-                            "name": _("v3 - imx462"),
-                            "callback": callbacks.switch_cam_imx462,
-                            "value": "imx462",
-                        },
-                    ],
-                },
-                {
-                    "name": _("GPS Type"),
-                    "class": UITextMenu,
-                    "select": "single",
-                    "config_option": "gps_type",
-                    "label": "gps_type",
-                    "post_callback": callbacks.restart_pifinder,
-                    "items": [
-                        {
-                            "name": _("UBlox"),
-                            "value": "ublox",
-                        },
-                        {
-                            "name": _("GPSD (generic)"),
-                            "value": "gpsd",
+                            "name": _("GPS Settings"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "items": [
+                                {
+                                    "name": _("GPS Type"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "gps_type",
+                                    "label": "gps_type",
+                                    "post_callback": callbacks.restart_pifinder,
+                                    "items": [
+                                        {
+                                            "name": _("UBlox"),
+                                            "value": "ublox",
+                                        },
+                                        {
+                                            "name": _("GPSD (generic)"),
+                                            "value": "gpsd",
+                                        },
+                                    ],
+                                },
+                                {
+                                    "name": _("GPS Baud Rate"),
+                                    "class": UITextMenu,
+                                    "select": "single",
+                                    "config_option": "gps_baud_rate",
+                                    "label": "gps_baud_rate",
+                                    "post_callback": callbacks.update_gpsd_baud_rate,
+                                    "items": [
+                                        {
+                                            "name": _("9600 (standard)"),
+                                            "value": 9600,
+                                        },
+                                        {
+                                            "name": _("115200 (UBlox-10)"),
+                                            "value": 115200,
+                                        },
+                                    ],
+                                },
+                            ],
                         },
                     ],
                 },
@@ -1078,7 +1121,48 @@ pifinder_menu = {
                     "name": _("Experimental"),
                     "class": UITextMenu,
                     "select": "Single",
-                    "items": [],
+                    "items": [
+                        {"name": "SQM", "class": UISQM},
+                        {
+                            "name": _("AE Algo"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "auto_exposure_zero_star_handler",
+                            "label": "auto_exp_zero_star_handler",
+                            "post_callback": callbacks.set_auto_exposure_zero_star_handler,
+                            "items": [
+                                {
+                                    "name": _("Sweep"),
+                                    "value": "sweep",
+                                },
+                                {
+                                    "name": _("Exponential"),
+                                    "value": "exponential",
+                                },
+                                {
+                                    "name": _("Reset to 0.4s"),
+                                    "value": "reset",
+                                },
+                                {
+                                    "name": _("Histogram"),
+                                    "value": "histogram",
+                                },
+                            ],
+                        },
+                        {
+                            "name": _("Capture Exp Sweep"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "label": "capture_exp_sweep",
+                            "items": [
+                                {
+                                    "name": _("Confirm"),
+                                    "callback": callbacks.capture_exposure_sweep,
+                                },
+                                {"name": _("Cancel"), "callback": callbacks.go_back},
+                            ],
+                        },
+                    ],
                 },
             ],
         },

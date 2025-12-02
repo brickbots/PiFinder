@@ -38,6 +38,14 @@ def go_back(ui_module: UIModule) -> None:
     return
 
 
+def show_advanced_message(ui_module: UIModule) -> None:
+    """
+    Show popup message when entering Advanced settings menu
+    """
+    ui_module.message(_("Options for\nDIY PiFinders"), 2)
+    return
+
+
 def reset_filters(ui_module: UIModule) -> None:
     """
     Reset all filters to default
@@ -68,10 +76,75 @@ def activate_debug(ui_module: UIModule) -> None:
 def set_exposure(ui_module: UIModule) -> None:
     """
     Sets exposure to current value in config option
+    Can be either a numeric value (microseconds) or "auto" for auto-exposure
     """
-    new_exposure: int = ui_module.config_object.get_option("camera_exp")
-    logger.info("Set exposure %f", new_exposure)
+    new_exposure = ui_module.config_object.get_option("camera_exp")
+    if new_exposure == "auto":
+        logger.info("Set exposure to auto mode")
+    else:
+        logger.info("Set exposure %f", new_exposure)
     ui_module.command_queues["camera"].put(f"set_exp:{new_exposure}")
+
+
+def set_auto_exposure_zero_star_handler(ui_module: UIModule) -> None:
+    """
+    Sets the zero-star handler plugin for auto-exposure.
+    Supports:
+      - "sweep": Systematic doubling sweep (25ms→1s, 2× ratio)
+      - "exponential": Logarithmic sweep (25ms→1s, 1.85× ratio, 7 steps)
+      - "reset": Quick reset to 0.4s default
+      - "histogram": Histogram-based adaptive with viable exposure selection
+    """
+    handler_type = ui_module.config_object.get_option("auto_exposure_zero_star_handler")
+    logger.info("Set auto-exposure zero-star handler to: %s", handler_type)
+    ui_module.command_queues["camera"].put(f"set_ae_handler:{handler_type}")
+
+
+def capture_exposure_sweep(ui_module: UIModule) -> None:
+    """
+    Captures 100 images at different exposures for PID testing/calibration.
+
+    Uses logarithmic spacing from 25ms to 1s for fine-grained analysis.
+    Images saved to: ~/PiFinder_data/captures/sweep_YYYYMMDD_HHMMSS/
+    Takes approximately 20 seconds to complete.
+    """
+    logger.info("Starting exposure sweep capture")
+    ui_module.command_queues["camera"].put("capture_exp_sweep")
+    ui_module.message(_("Capturing\nExp Sweep...\n~20 sec"), 3)
+    ui_module.remove_from_stack()
+
+
+def get_camera_exposure_display(ui_module: UIModule) -> str:
+    """
+    Returns formatted current camera exposure for display.
+    Used to show current value when in auto-exposure mode.
+    """
+    config_exp = ui_module.config_object.get_option("camera_exp")
+
+    # For auto mode, get actual exposure from metadata
+    if config_exp == "auto":
+        try:
+            metadata = ui_module.shared_state.last_image_metadata()
+            if metadata and "exposure_time" in metadata:
+                actual_exp = metadata["exposure_time"]
+                exp_sec = actual_exp / 1_000_000
+                if exp_sec < 0.1:
+                    return f" ({int(exp_sec * 1000)}ms)"
+                else:
+                    return f" ({exp_sec:g}s)"
+        except Exception:
+            pass
+        return ""
+
+    # Format numeric exposure nicely for manual mode
+    if isinstance(config_exp, (int, float)):
+        exp_sec = config_exp / 1_000_000
+        if exp_sec < 0.1:
+            return f" ({int(exp_sec * 1000)}ms)"
+        else:
+            return f" ({exp_sec:g}s)"
+
+    return ""
 
 
 def shutdown(ui_module: UIModule) -> None:
@@ -317,3 +390,23 @@ def generate_custom_object_name(ui_module: UIModule) -> str:
 
     # Return next available number
     return f"CUSTOM {max_num + 1}"
+
+
+def update_gpsd_baud_rate(ui_module: UIModule) -> None:
+    """
+    Updates the GPSD configuration with the current baud rate setting.
+    Always updates GPSD config regardless of current GPS type.
+    """
+    baud_rate = ui_module.config_object.get_option("gps_baud_rate")
+
+    ui_module.message(_("Checking GPS\nconfig..."), 2)
+    logger.info(f"Checking GPSD baud rate {baud_rate}")
+
+    try:
+        if sys_utils.check_and_sync_gpsd_config(baud_rate):
+            ui_module.message(_("GPS config\nupdated"), 2)
+        else:
+            ui_module.message(_("GPS config\nOK"), 2)
+    except Exception as e:
+        logger.error(f"Failed to update GPSD config: {e}")
+        ui_module.message(_("GPS config\nfailed"), 3)
