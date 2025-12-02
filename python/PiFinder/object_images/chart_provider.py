@@ -19,7 +19,7 @@ class ChartImageProvider(ImageProvider):
     Provides dynamically generated Gaia star charts
 
     Uses the GaiaChartGenerator to create on-demand star charts
-    from the HEALPix-indexed deep star catalog. Returns a generator
+    from the HEALPix-indexed Gaia star catalog. Returns a generator
     that yields progressive updates as magnitude bands load.
     """
 
@@ -39,10 +39,10 @@ class ChartImageProvider(ImageProvider):
         """
         Check if Gaia chart can be generated
 
-        Returns True if deep star catalog exists
+        Returns True if Gaia star catalog exists
         """
-        deep_catalog_path = Path(utils.astro_data_dir, "deep_stars", "metadata.json")
-        return deep_catalog_path.exists()
+        gaia_catalog_path = Path(utils.astro_data_dir, "gaia_stars", "metadata.json")
+        return gaia_catalog_path.exists()
 
     def get_image(
         self,
@@ -77,10 +77,10 @@ class ChartImageProvider(ImageProvider):
                 self.config_object, self.shared_state
             )
 
-        deep_catalog_path = Path(utils.astro_data_dir, "deep_stars", "metadata.json")
+        gaia_catalog_path = Path(utils.astro_data_dir, "gaia_stars", "metadata.json")
 
-        if not deep_catalog_path.exists():
-            logger.warning(f"Gaia star catalog not found at {deep_catalog_path}")
+        if not gaia_catalog_path.exists():
+            logger.warning(f"Gaia star catalog not found at {gaia_catalog_path}")
             placeholder = create_no_image_placeholder(display_class, burn_in=burn_in)
             yield placeholder
             return

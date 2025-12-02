@@ -3,7 +3,7 @@
 """
 Gaia star chart generator for objects without DSS/POSS images
 
-Generates on-demand star charts using HEALPix-indexed deep star catalog.
+Generates on-demand star charts using HEALPix-indexed Gaia star catalog.
 Features:
 - Equipment-aware FOV and magnitude limits
 - Stereographic projection (matching chart.py)
@@ -20,7 +20,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from PiFinder import utils
-from PiFinder.object_images.star_catalog import CatalogState, DeepStarCatalog
+from PiFinder.object_images.star_catalog import CatalogState, GaiaStarCatalog
 from PiFinder.object_images.image_utils import pad_to_display_resolution, add_image_overlays
 
 logger = logging.getLogger("PiFinder.GaiaChart")
@@ -108,22 +108,22 @@ class GaiaChartGenerator:
 
     def initialize_catalog(self):
         """Create catalog instance (doesn't load data yet)"""
-        catalog_path = Path(utils.astro_data_dir, "deep_stars")
+        catalog_path = Path(utils.astro_data_dir, "gaia_stars")
         logger.info(f">>> initialize_catalog() - catalog_path: {catalog_path}")
 
         # Check if catalog exists before initializing
         metadata_file = catalog_path / "metadata.json"
         if not metadata_file.exists():
-            logger.warning(f"Deep star catalog not found at {catalog_path}")
+            logger.warning(f"Gaia star catalog not found at {catalog_path}")
             logger.warning("To build catalog, run: python -m PiFinder.catalog_tools.gaia_downloader --mag-limit 12 --output /tmp/gaia.csv")
-            logger.warning("Then: python -m PiFinder.catalog_tools.healpix_builder --input /tmp/gaia.csv --output {}/astro_data/deep_stars".format(Path.home() / "PiFinder"))
+            logger.warning("Then: python -m PiFinder.catalog_tools.healpix_builder --input /tmp/gaia.csv --output {}/astro_data/gaia_stars".format(Path.home() / "PiFinder"))
 
-        logger.info(f">>> Creating DeepStarCatalog instance...")
+        logger.info(f">>> Creating GaiaStarCatalog instance...")
         import time
         t0 = time.time()
-        self.catalog = DeepStarCatalog(str(catalog_path))
+        self.catalog = GaiaStarCatalog(str(catalog_path))
         t_init = (time.time() - t0) * 1000
-        logger.info(f">>> DeepStarCatalog.__init__() took {t_init:.1f}ms")
+        logger.info(f">>> GaiaStarCatalog.__init__() took {t_init:.1f}ms")
         logger.info(f">>> Catalog initialized: {catalog_path}, state: {self.catalog.state}")
 
     def generate_chart(
@@ -545,7 +545,7 @@ class GaiaChartGenerator:
         t_end = time.time()
         logger.debug(f"  Total render time: {(t_end-t_start)*1000:.1f}ms")
 
-        # Tag image as a deep chart (not a loading placeholder)
+        # Tag image as a Gaia chart (not a loading placeholder)
         # This enables the correct marking menu in UIObjectDetails
         image.is_loading_placeholder = False  # type: ignore[attr-defined]
 
@@ -696,7 +696,7 @@ class GaiaChartGenerator:
 
         image = Image.fromarray(image_array, mode="RGB")
 
-        # Tag as deep chart
+        # Tag as Gaia chart
         image.is_loading_placeholder = False  # type: ignore[attr-defined]
 
         t_end = time.time()

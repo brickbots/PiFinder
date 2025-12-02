@@ -174,50 +174,27 @@ class UILMEntry(UIModule):
 
     def key_right(self):
         """Accept - save value and exit"""
-        import logging
-        logger = logging.getLogger("UILMEntry")
-        logger.info(">>> key_right() called!")
-
         try:
-            # Convert digits to string, replacing spaces with nothing won't work
-            # We need at least one digit before decimal and one after
             value_str = "".join(self.digits).strip()
-            logger.info(f"LM entry: digits={self.digits}, value_str='{value_str}'")
 
-            # Check if we have any actual digits (not just spaces and decimal)
             if value_str.replace('.', '').replace(' ', '') == '':
-                # No digits entered, reject
-                logger.info("LM entry rejected: no digits")
                 return False
 
-            # Replace remaining spaces with 0 for parsing
             value_str = value_str.replace(' ', '0')
             final_value = float(value_str)
-            logger.info(f"LM entry: parsed value={final_value}")
 
-            # Validate range
             if final_value < 5.0 or final_value > 20.0:
-                # Out of range, reject
-                logger.info(f"LM entry rejected: out of range (5.0-20.0)")
                 return False
 
-            logger.info(f"LM entry accepted: {final_value}")
             self.config_object.set_option(self.config_option, final_value)
-
-            # Also set the mode to "fixed" since user entered a value
             self.config_object.set_option("obj_chart_lm_mode", "fixed")
 
-            # No need to invalidate cache - cache key includes LM so different
-            # LM values will automatically get separate cache entries
-
-            logger.info("Calling remove_from_stack() to exit LM entry screen")
-            # Exit the screen by removing from stack
+            # Exit: LM entry -> LM menu -> back to chart
             if self.remove_from_stack:
                 self.remove_from_stack()
+                self.remove_from_stack()
             return True
-        except ValueError as e:
-            # Invalid value, don't accept
-            logger.error(f"LM entry ValueError: {e}")
+        except ValueError:
             return False
 
     def active(self):

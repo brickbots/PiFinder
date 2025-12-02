@@ -48,7 +48,7 @@ class UILog(UIModule):
         if solution:
             roll = solution["Roll"]
 
-        # Get chart generator singleton for deep chart support
+        # Get chart generator singleton for Gaia chart support
         from PiFinder.object_images.gaia_chart import get_gaia_chart_generator
         chart_gen = get_gaia_chart_generator(self.config_object, self.shared_state)
 

@@ -116,8 +116,8 @@ class UIObjectDetails(UIModule):
         self.object_display_mode = DM_LOCATE
         self.object_image = None
         self._chart_generator = None  # Active generator for progressive chart updates
-        self._is_showing_loading_chart = False  # Track if showing "Loading..." for deep chart
-        self._force_gaia_chart = False  # Toggle: force deep chart even if POSS image exists
+        self._is_showing_loading_chart = False  # Track if showing "Loading..." for Gaia chart
+        self._force_gaia_chart = False  # Toggle: force Gaia chart even if POSS image exists
         self.eyepiece_input = EyepieceInput()  # Custom eyepiece input handler
         self.eyepiece_input_display = False  # Show eyepiece input popup
         self._custom_eyepiece = None  # Reference to custom eyepiece object in equipment list (None = not active)
@@ -137,7 +137,7 @@ class UIObjectDetails(UIModule):
             ),
         )
 
-        # Deep Chart Marking Menu - Settings access
+        # Gaia Chart Marking Menu - Settings access
         self._gaia_chart_marking_menu = MarkingMenu(
             up=MarkingMenuOption(label=_("SETTINGS"), menu_jump="obj_chart_settings"),
             right=MarkingMenuOption(label=_("CROSS"), menu_jump="obj_chart_crosshair"),
@@ -329,7 +329,7 @@ class UIObjectDetails(UIModule):
 
         logger.info(f">>> Calling get_display_image with force_gaia_chart={self._force_gaia_chart}")
 
-        # get_display_image returns either an image directly (POSS) or a generator (deep chart)
+        # get_display_image returns either an image directly (POSS) or a generator (Gaia chart)
         result = get_display_image(
             self.object,
             eyepiece_text,
@@ -344,7 +344,7 @@ class UIObjectDetails(UIModule):
             force_chart=self._force_gaia_chart,  # Toggle state
         )
 
-        # Check if it's a generator (progressive deep chart) or direct image (POSS)
+        # Check if it's a generator (progressive Gaia chart) or direct image (POSS)
         if hasattr(result, '__iter__') and hasattr(result, '__next__'):
             # It's a generator - store it for progressive consumption by update()
             logger.info(">>> get_display_image returned GENERATOR, storing for progressive updates...")
@@ -505,18 +505,10 @@ class UIObjectDetails(UIModule):
             color_intensity = 64
             radius = 4  # Smaller fixed size
 
-        # Create a separate layer for the crosshair
-        crosshair_layer = Image.new("RGB", (width, height), (0, 0, 0))
-        crosshair_draw = ImageDraw.Draw(crosshair_layer)
-
-        # Draw circle on the layer
+        # Draw directly on screen
         marker_color = (color_intensity, 0, 0)
         bbox = [cx - radius, cy - radius, cx + radius, cy + radius]
-        crosshair_draw.ellipse(bbox, outline=marker_color, width=1)
-
-        # Use lighten blend: take the lighter of the two values for each pixel
-        self.screen = ImageChops.lighter(self.screen, crosshair_layer)
-        self.draw = ImageDraw.Draw(self.screen)
+        self.draw.ellipse(bbox, outline=marker_color, width=1)
 
     def _draw_crosshair_bullseye(self, mode="off"):
         """
@@ -539,19 +531,11 @@ class UIObjectDetails(UIModule):
             color_intensity = 64
             radii = [2, 4, 6]  # Smaller fixed radii
 
-        # Create a separate layer for the crosshair
-        crosshair_layer = Image.new("RGB", (width, height), (0, 0, 0))
-        crosshair_draw = ImageDraw.Draw(crosshair_layer)
-
-        # Draw concentric circles on the layer
+        # Draw directly on screen
         marker_color = (color_intensity, 0, 0)
         for radius in radii:
             bbox = [cx - radius, cy - radius, cx + radius, cy + radius]
-            crosshair_draw.ellipse(bbox, outline=marker_color, width=1)
-
-        # Use lighten blend
-        self.screen = ImageChops.lighter(self.screen, crosshair_layer)
-        self.draw = ImageDraw.Draw(self.screen)
+            self.draw.ellipse(bbox, outline=marker_color, width=1)
 
     def _draw_crosshair_brackets(self, mode="off"):
         """
@@ -576,32 +560,24 @@ class UIObjectDetails(UIModule):
             size = 4  # Smaller distance from center to bracket corner
             length = 3  # Shorter bracket arms
 
-        # Create a separate layer for the crosshair
-        crosshair_layer = Image.new("RGB", (width, height), (0, 0, 0))
-        crosshair_draw = ImageDraw.Draw(crosshair_layer)
-
+        # Draw directly on screen
         marker_color = (color_intensity, 0, 0)
 
-        # Draw brackets on the layer
         # Top-left bracket
-        crosshair_draw.line([cx - size, cy - size, cx - size + length, cy - size], fill=marker_color, width=1)
-        crosshair_draw.line([cx - size, cy - size, cx - size, cy - size + length], fill=marker_color, width=1)
+        self.draw.line([cx - size, cy - size, cx - size + length, cy - size], fill=marker_color, width=1)
+        self.draw.line([cx - size, cy - size, cx - size, cy - size + length], fill=marker_color, width=1)
 
         # Top-right bracket
-        crosshair_draw.line([cx + size - length, cy - size, cx + size, cy - size], fill=marker_color, width=1)
-        crosshair_draw.line([cx + size, cy - size, cx + size, cy - size + length], fill=marker_color, width=1)
+        self.draw.line([cx + size - length, cy - size, cx + size, cy - size], fill=marker_color, width=1)
+        self.draw.line([cx + size, cy - size, cx + size, cy - size + length], fill=marker_color, width=1)
 
         # Bottom-left bracket
-        crosshair_draw.line([cx - size, cy + size, cx - size + length, cy + size], fill=marker_color, width=1)
-        crosshair_draw.line([cx - size, cy + size - length, cx - size, cy + size], fill=marker_color, width=1)
+        self.draw.line([cx - size, cy + size, cx - size + length, cy + size], fill=marker_color, width=1)
+        self.draw.line([cx - size, cy + size - length, cx - size, cy + size], fill=marker_color, width=1)
 
         # Bottom-right bracket
-        crosshair_draw.line([cx + size - length, cy + size, cx + size, cy + size], fill=marker_color, width=1)
-        crosshair_draw.line([cx + size, cy + size - length, cx + size, cy + size], fill=marker_color, width=1)
-
-        # Use lighten blend
-        self.screen = ImageChops.lighter(self.screen, crosshair_layer)
-        self.draw = ImageDraw.Draw(self.screen)
+        self.draw.line([cx + size - length, cy + size, cx + size, cy + size], fill=marker_color, width=1)
+        self.draw.line([cx + size, cy + size - length, cx + size, cy + size], fill=marker_color, width=1)
 
     def _draw_crosshair_dots(self, mode="off"):
         """
@@ -626,10 +602,7 @@ class UIObjectDetails(UIModule):
             distance = 4  # Smaller distance from center to dots
             dot_size = 1  # Smaller dot radius
 
-        # Create a separate layer for the crosshair
-        crosshair_layer = Image.new("RGB", (width, height), (0, 0, 0))
-        crosshair_draw = ImageDraw.Draw(crosshair_layer)
-
+        # Draw directly on screen
         marker_color = (color_intensity, 0, 0)
 
         # Four corner dots
@@ -642,11 +615,7 @@ class UIObjectDetails(UIModule):
 
         for x, y in positions:
             bbox = [x - dot_size, y - dot_size, x + dot_size, y + dot_size]
-            crosshair_draw.ellipse(bbox, fill=marker_color)
-
-        # Use lighten blend
-        self.screen = ImageChops.lighter(self.screen, crosshair_layer)
-        self.draw = ImageDraw.Draw(self.screen)
+            self.draw.ellipse(bbox, fill=marker_color)
 
     def _draw_crosshair_cross(self, mode="off"):
         """
@@ -665,20 +634,13 @@ class UIObjectDetails(UIModule):
         else:
             color_intensity = 64
 
-        # Create a separate layer for the crosshair
-        crosshair_layer = Image.new("RGB", (width, height), (0, 0, 0))
-        crosshair_draw = ImageDraw.Draw(crosshair_layer)
-
+        # Draw directly on screen
         marker_color = (color_intensity, 0, 0)
 
         # Horizontal line
-        crosshair_draw.line([0, cy, width, cy], fill=marker_color, width=1)
+        self.draw.line([0, cy, width, cy], fill=marker_color, width=1)
         # Vertical line
-        crosshair_draw.line([cx, 0, cx, height], fill=marker_color, width=1)
-
-        # Use lighten blend
-        self.screen = ImageChops.lighter(self.screen, crosshair_layer)
-        self.draw = ImageDraw.Draw(self.screen)
+        self.draw.line([cx, 0, cx, height], fill=marker_color, width=1)
 
     def _draw_fov_circle(self):
         """
@@ -912,7 +874,7 @@ class UIObjectDetails(UIModule):
                 and self.object_image.image_type == ImageType.LOADING
             )
 
-        # Check if we're showing "Loading..." for a deep chart
+        # Check if we're showing "Loading..." for a Gaia chart
         # and if catalog is now ready, regenerate the image
         if self._is_showing_loading_chart:
             try:
@@ -930,31 +892,14 @@ class UIObjectDetails(UIModule):
             except Exception as e:
                 logger.error(f">>> Update check failed: {e}", exc_info=True)
                 pass
-        # Clear Screen
-        self.clear_screen()
+        # Clear screen
+        self.draw.rectangle(
+            [0, 0, self.display_class.resX, self.display_class.resY],
+            fill=self.colors.get(0),
+        )
 
-        # paste image
-        # paste image
-        # logger.debug(f">>> update(): object_display_mode={self.object_display_mode}...")
-        # logger.debug(f">>> update(): object_image type={type(self.object_image)}...")
-
-
-        if self.object_display_mode == DM_IMAGE:
-            # DEBUG: Check if image has any non-black pixels
-            if self.object_image and self._force_gaia_chart:
-                import numpy as np
-                img_array = np.array(self.object_image)
-                non_zero = np.count_nonzero(img_array)
-                max_val = np.max(img_array)
-                # logger.debug(f">>> CHART IMAGE DEBUG: non-zero pixels={non_zero}, max_value={max_val}, shape={img_array.shape}")
-
+        if self.object_display_mode == DM_IMAGE and self.object_image:
             self.screen.paste(self.object_image)
-            # Recreate draw object to ensure it's in sync with screen after paste
-            self.draw = ImageDraw.Draw(self.screen, mode="RGBA")
-            # logger.debug(f">>> Image pasted to screen")
-
-            # DEBUG: Save screen buffer to file for inspection
-            # (Removed per user request)
 
             # If showing Gaia chart, draw crosshair based on config
             is_chart = (
@@ -967,7 +912,6 @@ class UIObjectDetails(UIModule):
                 crosshair_style = self.config_object.get_option("obj_chart_crosshair_style")
 
                 if crosshair_mode != "off":
-                    # Call the appropriate drawing method based on style
                     style_methods = {
                         "simple": self._draw_crosshair_simple,
                         "circle": self._draw_crosshair_circle,
@@ -980,12 +924,8 @@ class UIObjectDetails(UIModule):
                     draw_method = style_methods.get(crosshair_style, self._draw_crosshair_simple)
                     draw_method(mode=crosshair_mode)
 
-                    # Force continuous updates for animated crosshairs
                     if crosshair_mode in ["pulse", "fade"]:
                         force = True
-        # Note: We do NOT create a new screen/draw here because text layouts
-        # hold references to self.draw from __init__. The screen was already
-        # cleared by self.clear_screen() at line 940.
 
         if self.object_display_mode == DM_DESC or self.object_display_mode == DM_LOCATE:
             # catalog and entry field i.e. NGC-311

@@ -9,13 +9,13 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 import sys
 
-from PiFinder.object_images.star_catalog import DeepStarCatalog, STAR_RECORD_DTYPE, STAR_RECORD_SIZE
+from PiFinder.object_images.star_catalog import GaiaStarCatalog, STAR_RECORD_DTYPE, STAR_RECORD_SIZE
 
-class TestDeepStarCatalog(unittest.TestCase):
+class TestGaiaStarCatalog(unittest.TestCase):
     def setUp(self):
         self.test_dir = tempfile.mkdtemp()
         self.catalog_path = Path(self.test_dir)
-        self.catalog = DeepStarCatalog(str(self.catalog_path))
+        self.catalog = GaiaStarCatalog(str(self.catalog_path))
         self.catalog.nside = 512
         
     def tearDown(self):

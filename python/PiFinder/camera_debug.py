@@ -49,7 +49,7 @@ class CameraDebug(CameraInterface):
         self.images = list(zip(range(1, len(images) + 1), images))
         self.image_cycle = cycle(self.images)
         self.last_image_time: float = time.time()
-        self.current_image_num, self.last_image = self.images[0]
+        self.current_image_num, self.last_image = self.images[1]  # Use darker sky image
 
     def initialize(self) -> None:
         self._camera_started = True

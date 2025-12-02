@@ -3,7 +3,7 @@
 """
 HEALPix-indexed star catalog loader with background loading and CPU throttling
 
-This module provides efficient loading of deep star catalogs for chart generation.
+This module provides efficient loading of Gaia star catalogs for chart generation.
 Features:
 - Background loading with thread safety
 - CPU throttling to avoid blocking other processes
@@ -166,12 +166,12 @@ class CompressedIndex:
         self.close()
 
 
-class DeepStarCatalog:
+class GaiaStarCatalog:
     """
     HEALPix-indexed star catalog with background loading
 
     Usage:
-        catalog = DeepStarCatalog("/path/to/deep_stars")
+        catalog = GaiaStarCatalog("/path/to/gaia_stars")
         catalog.start_background_load(observer_lat=40.0, limiting_mag=14.0)
         # ... wait for catalog.state == CatalogState.READY ...
         stars = catalog.get_stars_for_fov(ra=180.0, dec=45.0, fov=10.0, mag_limit=12.0)
@@ -182,9 +182,9 @@ class DeepStarCatalog:
         Initialize catalog (doesn't load data yet)
 
         Args:
-            catalog_path: Path to deep_stars directory containing metadata.json
+            catalog_path: Path to gaia_stars directory containing metadata.json
         """
-        logger.info(f">>> DeepStarCatalog.__init__() called with path: {catalog_path}")
+        logger.info(f">>> GaiaStarCatalog.__init__() called with path: {catalog_path}")
         self.catalog_path = Path(catalog_path)
         self.state = CatalogState.NOT_LOADED
         self.metadata: Optional[Dict[str, Any]] = None
@@ -200,7 +200,7 @@ class DeepStarCatalog:
         self._index_cache: Dict[str, Any] = {}
         # Cache of existing tile IDs per magnitude band to avoid scanning for non-existent tiles
         self._existing_tiles_cache: Dict[str, Set[int]] = {}
-        logger.info(f">>> DeepStarCatalog.__init__() completed")
+        logger.info(f">>> GaiaStarCatalog.__init__() completed")
 
     def start_background_load(
         self, observer_lat: Optional[float] = None, limiting_mag: float = 12.0
