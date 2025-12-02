@@ -20,6 +20,21 @@ from PiFinder.config import Config
 
 logger = logging.getLogger("Catalog")
 
+T9_KEY_MAP = {
+    "7": "abc",
+    "8": "def",
+    "9": "ghi",
+    "4": "jkl",
+    "5": "mno",
+    "6": "pqrs",
+    "1": "tuv",
+    "2": "wxyz",
+}
+
+LETTER_TO_T9_DIGIT = {
+    letter: digit for digit, letters in T9_KEY_MAP.items() for letter in letters
+}
+
 # collection of all catalog-related classes
 
 # CatalogBase : just the CompositeObjects
@@ -433,6 +448,7 @@ class Catalogs:
     def __init__(self, catalogs: List[Catalog]):
         self.__catalogs: List[Catalog] = catalogs
         self.catalog_filter: Union[CatalogFilter, None] = None
+        self._t9_name_cache: dict[int, list[str]] = {}
 
     def filter_catalogs(self):
         """
@@ -485,6 +501,42 @@ class Catalogs:
         catalog = self.get_catalog_by_code(catalog_code)
         if catalog:
             return catalog.get_object_by_sequence(sequence)
+
+    def _name_to_t9(self, name: str) -> str:
+        digits: list[str] = []
+        for char in name.lower():
+            if char.isalpha():
+                if digit := LETTER_TO_T9_DIGIT.get(char):
+                    digits.append(digit)
+            elif char.isdigit():
+                digits.append(char)
+        return "".join(digits)
+
+    def _get_t9_names(self, obj: CompositeObject) -> list[str]:
+        if obj.object_id not in self._t9_name_cache:
+            self._t9_name_cache[obj.object_id] = []
+            for name in obj.names:
+                if encoded := self._name_to_t9(name):
+                    self._t9_name_cache[obj.object_id].append(encoded)
+        return self._t9_name_cache[obj.object_id]
+
+    def search_by_t9(self, search_digits: str) -> List[CompositeObject]:
+        cleaned_digits = "".join(char for char in search_digits if char.isdigit())
+        if not cleaned_digits:
+            return []
+
+        objs = self.get_objects(only_selected=False, filtered=False)
+        result: list[CompositeObject] = []
+        for obj in objs:
+            for encoded_name in self._get_t9_names(obj):
+                if encoded_name.startswith(cleaned_digits):
+                    result.append(obj)
+                    logger.debug(
+                        "Found %s in %s %i", encoded_name, obj.catalog_code, obj.sequence
+                    )
+                    break
+
+        return result
 
     # this is memory efficient and doesn't hit the sdcard, but could be faster
     # also, it could be cached

@@ -114,6 +114,12 @@ class UITextEntry(UIModule):
         self.text_x_end = 128 - self.text_x
         self.text_y = 15
 
+    @property
+    def t9_enabled(self) -> bool:
+        return (not self.text_entry_mode) and bool(
+            self.config_object.get_option("t9_search", False)
+        )
+
     def draw_text_entry(self):
         line_text_y = self.text_y + 15
         self.draw.line(
@@ -203,14 +209,18 @@ class UITextEntry(UIModule):
         )
 
     def within_keypress_window(self, current_time) -> bool:
+        if self.t9_enabled:
+            return False
         result = (current_time - self.last_key_press_time) < self.KEYPRESS_TIMEOUT
         return result and self.keys.get_nr_entries(str(self.last_key)) > 1
 
     def update_search_results(self):
         """Only update search results in search mode"""
         if not self.text_entry_mode:
-            results = self.catalogs.search_by_text(self.current_text)
-            self.search_results = results
+            if self.t9_enabled:
+                self.search_results = self.catalogs.search_by_t9(self.current_text)
+            else:
+                self.search_results = self.catalogs.search_by_text(self.current_text)
 
     def add_char(self, char):
         if len(self.current_text) >= 12:
@@ -260,6 +270,12 @@ class UITextEntry(UIModule):
     def key_number(self, number):
         current_time = time.time()
         number_key = str(number)
+        if self.t9_enabled:
+            self.last_key_press_time = current_time
+            self.last_key = number
+            self.char_index = 0
+            self.add_char(number_key)
+            return
         # Check if the same key is pressed within a short time
         if self.last_key == number and self.within_keypress_window(current_time):
             self.char_index = (self.char_index + 1) % self.keys.get_nr_entries(
