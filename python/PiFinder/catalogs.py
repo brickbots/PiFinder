@@ -40,6 +40,7 @@ KEYPAD_DIGIT_TO_CHARS = {
     "3": "'-+/",
 }
 
+translator = str.maketrans(LETTER_TO_DIGIT_MAP)
 VALID_T9_DIGITS = "".join(KEYPAD_DIGIT_TO_CHARS.keys())
 INVALID_T9_DIGITS_RE = re.compile(f"[^{VALID_T9_DIGITS}]")
 
@@ -426,7 +427,6 @@ class Catalogs:
     # this is memory efficient and doesn't hit the sdcard, but could be faster
     # also, it could be cached
     def _name_to_t9_digits(self, name: str) -> str:
-        translator = str.maketrans(LETTER_TO_DIGIT_MAP)
         translated_name = name.translate(translator)
         return INVALID_T9_DIGITS_RE.sub("", translated_name)
 
