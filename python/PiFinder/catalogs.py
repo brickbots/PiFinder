@@ -40,10 +40,6 @@ KEYPAD_DIGIT_TO_CHARS = {
     "3": "'-+/",
 }
 
-translator = str.maketrans(LETTER_TO_DIGIT_MAP)
-VALID_T9_DIGITS = "".join(KEYPAD_DIGIT_TO_CHARS.keys())
-INVALID_T9_DIGITS_RE = re.compile(f"[^{VALID_T9_DIGITS}]")
-
 LETTER_TO_DIGIT_MAP: dict[str, str] = {}
 for _digit, _chars in KEYPAD_DIGIT_TO_CHARS.items():
     # Map the digit to itself so numbers in names still match
@@ -51,6 +47,10 @@ for _digit, _chars in KEYPAD_DIGIT_TO_CHARS.items():
     for _char in _chars:
         LETTER_TO_DIGIT_MAP[_char] = _digit
         LETTER_TO_DIGIT_MAP[_char.upper()] = _digit
+
+translator = str.maketrans(LETTER_TO_DIGIT_MAP)
+VALID_T9_DIGITS = "".join(KEYPAD_DIGIT_TO_CHARS.keys())
+INVALID_T9_DIGITS_RE = re.compile(f"[^{VALID_T9_DIGITS}]")
 
 # collection of all catalog-related classes
 
