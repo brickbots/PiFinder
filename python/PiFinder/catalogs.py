@@ -371,6 +371,8 @@ class Catalogs:
     def __init__(self, catalogs: List[Catalog]):
         self.__catalogs: List[Catalog] = catalogs
         self.catalog_filter: Union[CatalogFilter, None] = None
+        self._t9_cache: dict[tuple[str, int], list[str]] = {}
+        self._t9_cache_dirty = True
 
     def filter_catalogs(self):
         """
@@ -430,6 +432,25 @@ class Catalogs:
         translated_name = name.translate(translator)
         return INVALID_T9_DIGITS_RE.sub("", translated_name)
 
+    def _object_cache_key(self, obj: CompositeObject) -> tuple[str, int]:
+        return (obj.catalog_code, obj.sequence)
+
+    def _invalidate_t9_cache(self) -> None:
+        self._t9_cache_dirty = True
+
+    def _rebuild_t9_cache(self, objs: list[CompositeObject]) -> None:
+        self._t9_cache = {}
+        for obj in objs:
+            self._t9_cache[self._object_cache_key(obj)] = [
+                self._name_to_t9_digits(name) for name in obj.names
+            ]
+        self._t9_cache_dirty = False
+
+    def _ensure_t9_cache(self, objs: list[CompositeObject]) -> None:
+        current_keys = {self._object_cache_key(obj) for obj in objs}
+        if self._t9_cache_dirty or current_keys != set(self._t9_cache.keys()):
+            self._rebuild_t9_cache(objs)
+
     def search_by_t9(self, search_digits: str) -> List[CompositeObject]:
         """Search catalog objects using keypad digits.
 
@@ -443,14 +464,16 @@ class Catalogs:
         if not search_digits:
             return result
 
+        self._ensure_t9_cache(objs)
+
         for obj in objs:
-            for name in obj.names:
-                if len(name) < len(search_digits):
+            for digits in self._t9_cache.get(self._object_cache_key(obj), []):
+                if len(digits) < len(search_digits):
                     continue
-                if search_digits in self._name_to_t9_digits(name):
+                if search_digits in digits:
                     result.append(obj)
                     logger.debug(
-                        "Found %s in %s %i via T9", name, obj.catalog_code, obj.sequence
+                        "Found %s in %s %i via T9", digits, obj.catalog_code, obj.sequence
                     )
                     break
         return result
@@ -474,12 +497,14 @@ class Catalogs:
     def set(self, catalogs: List[Catalog]):
         self.__catalogs = catalogs
         self.select_all_catalogs()
+        self._invalidate_t9_cache()
 
     def add(self, catalog: Catalog, select: bool = False):
         if catalog.catalog_code not in [x.catalog_code for x in self.__catalogs]:
             if select:
                 self.catalog_filter.selected_catalogs.add(catalog.catalog_code)
             self.__catalogs.append(catalog)
+            self._invalidate_t9_cache()
         else:
             logger.warning(
                 "Catalog %s already exists, not replaced (in Catalogs.add)",
@@ -490,6 +515,7 @@ class Catalogs:
         for catalog in self.__catalogs:
             if catalog.catalog_code == catalog_code:
                 self.__catalogs.remove(catalog)
+                self._invalidate_t9_cache()
                 return
 
         logger.warning("Catalog %s does not exist, cannot remove", catalog_code)
