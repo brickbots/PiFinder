@@ -1,5 +1,6 @@
 # mypy: ignore-errors
 import logging
+import re
 import time
 import datetime
 import pytz
@@ -38,6 +39,9 @@ KEYPAD_DIGIT_TO_CHARS = {
     "2": "wxyz",
     "3": "'-+/",
 }
+
+VALID_T9_DIGITS = "".join(KEYPAD_DIGIT_TO_CHARS.keys())
+INVALID_T9_DIGITS_RE = re.compile(f"[^{VALID_T9_DIGITS}]")
 
 LETTER_TO_DIGIT_MAP: dict[str, str] = {}
 for _digit, _chars in KEYPAD_DIGIT_TO_CHARS.items():
@@ -422,9 +426,9 @@ class Catalogs:
     # this is memory efficient and doesn't hit the sdcard, but could be faster
     # also, it could be cached
     def _name_to_t9_digits(self, name: str) -> str:
-        return "".join(
-            [LETTER_TO_DIGIT_MAP[char] for char in name if char in LETTER_TO_DIGIT_MAP]
-        )
+        translator = str.maketrans(LETTER_TO_DIGIT_MAP)
+        translated_name = name.translate(translator)
+        return INVALID_T9_DIGITS_RE.sub("", translated_name)
 
     def search_by_t9(self, search_digits: str) -> List[CompositeObject]:
         """Search catalog objects using keypad digits.
@@ -441,6 +445,8 @@ class Catalogs:
 
         for obj in objs:
             for name in obj.names:
+                if len(name) < len(search_digits):
+                    continue
                 if search_digits in self._name_to_t9_digits(name):
                     result.append(obj)
                     logger.debug(
