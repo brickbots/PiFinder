@@ -1071,37 +1071,6 @@ pifinder_menu = {
                 {"name": _("Software Upd"), "class": UISoftware},
                 {"name": _("Test Mode"), "callback": callbacks.activate_debug},
                 {
-                    "name": _("Power"),
-                    "class": UITextMenu,
-                    "select": "Single",
-                    "label": "power",
-                    "items": [
-                        {
-                            "name": _("Shutdown"),
-                            "class": UITextMenu,
-                            "select": "Single",
-                            "label": "shutdown",
-                            "items": [
-                                {"name": "Confirm", "callback": callbacks.shutdown},
-                                {"name": "Cancel", "callback": callbacks.go_back},
-                            ],
-                        },
-                        {
-                            "name": _("Restart"),
-                            "class": UITextMenu,
-                            "select": "Single",
-                            "label": "restart",
-                            "items": [
-                                {
-                                    "name": _("Confirm"),
-                                    "callback": callbacks.restart_system,
-                                },
-                                {"name": _("Cancel"), "callback": callbacks.go_back},
-                            ],
-                        },
-                    ],
-                },
-                {
                     "name": _("Experimental"),
                     "class": UITextMenu,
                     "select": "Single",
@@ -1142,6 +1111,37 @@ pifinder_menu = {
                                 {
                                     "name": _("Confirm"),
                                     "callback": callbacks.capture_exposure_sweep,
+                                },
+                                {"name": _("Cancel"), "callback": callbacks.go_back},
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "name": _("Power"),
+                    "class": UITextMenu,
+                    "select": "Single",
+                    "label": "power",
+                    "items": [
+                        {
+                            "name": _("Shutdown"),
+                            "class": UITextMenu,
+                            "select": "Single",
+                            "label": "shutdown",
+                            "items": [
+                                {"name": "Confirm", "callback": callbacks.shutdown},
+                                {"name": "Cancel", "callback": callbacks.go_back},
+                            ],
+                        },
+                        {
+                            "name": _("Restart"),
+                            "class": UITextMenu,
+                            "select": "Single",
+                            "label": "restart",
+                            "items": [
+                                {
+                                    "name": _("Confirm"),
+                                    "callback": callbacks.restart_system,
                                 },
                                 {"name": _("Cancel"), "callback": callbacks.go_back},
                             ],
