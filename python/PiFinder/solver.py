@@ -17,7 +17,7 @@ import sys
 from time import perf_counter as precision_timestamp
 import os
 import threading
-from PIL import Image
+import grpc
 
 from PiFinder import state_utils
 from PiFinder import utils
@@ -194,6 +194,31 @@ def update_sqm_dual_pipeline(
     return False
 
 
+class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
+    def __init__(self, port=50551):
+        """Set up the client without spawning the server as we
+        run this as a service on the PiFinder
+
+        Also changing this to a different default port
+        """
+        self._port = port
+        time.sleep(2)
+        # Will initialize on first use.
+        self._stub = None
+        self._shmem = None
+        self._shmem_size = 0
+        # Try shared memory, fall back if an error occurs.
+        self._use_shmem = True
+
+    def _get_stub(self):
+        if self._stub is None:
+            channel = grpc.insecure_channel("127.0.0.1:%d" % self._port)
+            self._stub = cedar_detect_client.cedar_detect_pb2_grpc.CedarDetectStub(
+                channel
+            )
+        return self._stub
+
+
 def solver(
     shared_state,
     solver_queue,
@@ -212,6 +237,7 @@ def solver(
     )
     align_ra = 0
     align_dec = 0
+    solution = {}
     solved = {
         # RA, Dec, Roll solved at the center of the camera FoV
         # update by integrator
@@ -251,10 +277,7 @@ def solver(
         logger.info("Starting Solver Loop")
         # Start cedar detect server
         try:
-            cedar_detect = cedar_detect_client.CedarDetectClient(
-                binary_path=str(utils.cwd_dir / "../bin/cedar-detect-server-")
-                + shared_state.arch()
-            )
+            cedar_detect = PFCedarDetectClient()
         except FileNotFoundError as e:
             logger.warning(
                 "Not using cedar_detect, as corresponding file '%s' could not be found",
@@ -326,7 +349,9 @@ def solver(
 
                         # Mark that we're attempting a solve - use image exposure_end timestamp
                         # This is more accurate than wall clock and ties the attempt to the actual image
-                        solved["last_solve_attempt"] = last_image_metadata["exposure_end"]
+                        solved["last_solve_attempt"] = last_image_metadata[
+                            "exposure_end"
+                        ]
 
                         t0 = precision_timestamp()
                         if cedar_detect is None:
@@ -345,7 +370,9 @@ def solver(
 
                         if len(centroids) == 0:
                             if log_no_stars_found:
-                                logger.info("No stars found, skipping (Logged only once)")
+                                logger.info(
+                                    "No stars found, skipping (Logged only once)"
+                                )
                                 log_no_stars_found = False
                             # Clear solve results to mark solve as failed (otherwise old values persist)
                             solved["RA"] = None
@@ -355,19 +382,21 @@ def solver(
                             log_no_stars_found = True
                             _solver_args = {}
                             if align_ra != 0 and align_dec != 0:
-                                _solver_args["target_sky_coord"] = [[align_ra, align_dec]]
+                                _solver_args["target_sky_coord"] = [
+                                    [align_ra, align_dec]
+                                ]
 
                             solution = t3.solve_from_centroids(
-                            centroids,
-                            (512, 512),
-                            fov_estimate=12.0,
-                            fov_max_error=4.0,
-                            match_max_error=0.005,
-                            return_matches=True,  # Required for SQM calculation
-                            target_pixel=shared_state.solve_pixel(),
-                            solve_timeout=1000,
-                            **_solver_args,
-                        )
+                                centroids,
+                                (512, 512),
+                                fov_estimate=12.0,
+                                fov_max_error=4.0,
+                                match_max_error=0.005,
+                                return_matches=True,  # Required for SQM calculation
+                                target_pixel=shared_state.solve_pixel(),
+                                solve_timeout=1000,
+                                **_solver_args,
+                            )
 
                         if "matched_centroids" in solution:
                             # Update SQM for BOTH processed and raw pipelines
@@ -398,10 +427,11 @@ def solver(
 
                         solved |= solution
 
-                        total_tetra_time = t_extract + solved["T_solve"]
-                        if total_tetra_time > 1000:
-                            console_queue.put(f"SLV: Long: {total_tetra_time}")
-                            logger.warning("Long solver time: %i", total_tetra_time)
+                        if "T_solve" in solution:
+                            total_tetra_time = t_extract + solved["T_solve"]
+                            if total_tetra_time > 1000:
+                                console_queue.put(f"SLV: Long: {total_tetra_time}")
+                                logger.warning("Long solver time: %i", total_tetra_time)
 
                         if solved["RA"] is not None:
                             # RA, Dec, Roll at the center of the camera's FoV:
@@ -465,7 +495,9 @@ def solver(
                             f"Exception during solve attempt: {e.__class__.__name__}: {str(e)}"
                         )
                         logger.exception(e)
-                        solved["last_solve_attempt"] = last_image_metadata["exposure_end"]
+                        solved["last_solve_attempt"] = last_image_metadata[
+                            "exposure_end"
+                        ]
                         solved["Matches"] = 0
                         solved["RA"] = None
                         solved["Dec"] = None
