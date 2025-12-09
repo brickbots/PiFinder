@@ -497,7 +497,6 @@ class UISQMCalibration(UIModule):
     # Frame capture methods
     # ============================================
 
-
     def _capture_bias_frame(self):
         """Capture a bias frame (0s exposure) - both processed and raw"""
         if self.current_frame == 0:
@@ -509,7 +508,9 @@ class UISQMCalibration(UIModule):
 
         # Set save flag if debug enabled, then capture
         if self.save_frames_enabled:
-            filename = os.path.join(self.calibration_output_dir, f"bias_{self.current_frame:03d}.png")
+            filename = os.path.join(
+                self.calibration_output_dir, f"bias_{self.current_frame:03d}.png"
+            )
             self.command_queues["camera"].put(f"save:{filename}")
         self.command_queues["camera"].put("capture")
 
@@ -546,7 +547,9 @@ class UISQMCalibration(UIModule):
 
         # Set save flag if debug enabled, then capture
         if self.save_frames_enabled:
-            filename = os.path.join(self.calibration_output_dir, f"dark_{self.current_frame:03d}.png")
+            filename = os.path.join(
+                self.calibration_output_dir, f"dark_{self.current_frame:03d}.png"
+            )
             self.command_queues["camera"].put(f"save:{filename}")
         self.command_queues["camera"].put("capture")
 
@@ -586,7 +589,9 @@ class UISQMCalibration(UIModule):
         if self.sky_capture_start_time is not None:
             elapsed = time.time() - self.sky_capture_start_time
             if elapsed > self.sky_capture_timeout and self.current_frame == 0:
-                logger.warning(f"Sky frame capture timed out after {self.sky_capture_timeout}s - skipping to analysis")
+                logger.warning(
+                    f"Sky frame capture timed out after {self.sky_capture_timeout}s - skipping to analysis"
+                )
                 # Skip to analyzing with no sky frames
                 self.state = CalibrationState.ANALYZING
                 self.current_frame = 0
@@ -606,7 +611,9 @@ class UISQMCalibration(UIModule):
 
         # Valid solve, set save flag if debug enabled, then capture
         if self.save_frames_enabled:
-            filename = os.path.join(self.calibration_output_dir, f"sky_{self.current_frame:03d}.png")
+            filename = os.path.join(
+                self.calibration_output_dir, f"sky_{self.current_frame:03d}.png"
+            )
             self.command_queues["camera"].put(f"save:{filename}")
         self.command_queues["camera"].put("capture")
 
@@ -664,9 +671,7 @@ class UISQMCalibration(UIModule):
                 if "Debug" in camera_type:
                     self.error_message = "Calibration not available with debug camera"
                 else:
-                    self.error_message = (
-                        f"ERROR: {len(self.bias_frames_raw)}/{self.num_frames} raw bias frames captured"
-                    )
+                    self.error_message = f"ERROR: {len(self.bias_frames_raw)}/{self.num_frames} raw bias frames captured"
                 self.state = CalibrationState.ERROR
                 return
 
@@ -675,9 +680,7 @@ class UISQMCalibration(UIModule):
                 if "Debug" in camera_type:
                     self.error_message = "Calibration not available with debug camera"
                 else:
-                    self.error_message = (
-                        f"ERROR: {len(self.dark_frames_raw)}/{self.num_frames} raw dark frames captured"
-                    )
+                    self.error_message = f"ERROR: {len(self.dark_frames_raw)}/{self.num_frames} raw dark frames captured"
                 self.state = CalibrationState.ERROR
                 return
 
@@ -752,7 +755,9 @@ class UISQMCalibration(UIModule):
                 return
 
             if len(self.sky_solutions) != len(self.sky_frames):
-                logger.error(f"Mismatch: {len(self.sky_frames)} frames but {len(self.sky_solutions)} solutions")
+                logger.error(
+                    f"Mismatch: {len(self.sky_frames)} frames but {len(self.sky_solutions)} solutions"
+                )
                 self.sqm_median = None
                 return
 
@@ -760,23 +765,28 @@ class UISQMCalibration(UIModule):
             # Use PROCESSED (8-bit) pipeline
             camera_type_processed = f"{self.shared_state.camera_type()}_processed"
             sqm_calc = SQM(
-                camera_type=camera_type_processed,
-                use_adaptive_noise_floor=True
+                camera_type=camera_type_processed, use_adaptive_noise_floor=True
             )
 
             # Manually set the calibration values we just measured
-            if (sqm_calc.noise_estimator is not None and
-                self.bias_offset is not None and
-                self.read_noise is not None and
-                self.dark_current_rate is not None):
+            if (
+                sqm_calc.noise_estimator is not None
+                and self.bias_offset is not None
+                and self.read_noise is not None
+                and self.dark_current_rate is not None
+            ):
                 sqm_calc.noise_estimator.profile.bias_offset = self.bias_offset
                 sqm_calc.noise_estimator.profile.read_noise_adu = self.read_noise
-                sqm_calc.noise_estimator.profile.dark_current_rate = self.dark_current_rate
+                sqm_calc.noise_estimator.profile.dark_current_rate = (
+                    self.dark_current_rate
+                )
 
             self.sqm_values = []
 
             # Calculate SQM for each sky frame using its stored solution
-            for i, (sky_frame, solution) in enumerate(zip(self.sky_frames, self.sky_solutions)):
+            for i, (sky_frame, solution) in enumerate(
+                zip(self.sky_frames, self.sky_solutions)
+            ):
                 if solution is None or solution.get("RA") is None:
                     # No valid solve - skip SQM calculation
                     logger.warning(f"No valid solve for sky frame {i}, skipping SQM")
@@ -786,7 +796,9 @@ class UISQMCalibration(UIModule):
 
                 # Check if we have matched centroids (needed for SQM calculation)
                 if "matched_centroids" not in solution:
-                    logger.warning(f"No matched centroids for sky frame {i}, skipping SQM")
+                    logger.warning(
+                        f"No matched centroids for sky frame {i}, skipping SQM"
+                    )
                     continue
 
                 centroids = solution["matched_centroids"]
@@ -797,12 +809,12 @@ class UISQMCalibration(UIModule):
 
                 # Calculate SQM for this frame (using processed 8-bit image)
                 # Returns Tuple[Optional[float], Dict]
-                sqm_value, details = sqm_calc.calculate(
+                sqm_value, _details = sqm_calc.calculate(
                     centroids=centroids,
                     solution=solution,
                     image=sky_frame,
                     exposure_sec=exposure_sec,
-                    altitude_deg=altitude_deg
+                    altitude_deg=altitude_deg,
                 )
 
                 if sqm_value is not None:
@@ -812,7 +824,9 @@ class UISQMCalibration(UIModule):
             # Calculate median SQM if we have any values
             if len(self.sqm_values) > 0:
                 self.sqm_median = float(np.median(self.sqm_values))
-                logger.info(f"Median SQM from {len(self.sqm_values)} frames: {self.sqm_median:.2f}")
+                logger.info(
+                    f"Median SQM from {len(self.sqm_values)} frames: {self.sqm_median:.2f}"
+                )
             else:
                 self.sqm_median = None
                 logger.warning("No valid SQM values calculated from sky frames")
@@ -820,6 +834,7 @@ class UISQMCalibration(UIModule):
         except Exception as e:
             logger.error(f"Failed to calculate sky SQM: {e}")
             import traceback
+
             traceback.print_exc()
             self.sqm_median = None
 
@@ -934,8 +949,11 @@ class UISQMCalibration(UIModule):
                 self.state = CalibrationState.ANALYZING
                 self.current_frame = 0
             # Otherwise cancel and exit
-            elif self.state in [CalibrationState.INTRO, CalibrationState.CAP_ON_INSTRUCTION,
-                               CalibrationState.CAP_OFF_INSTRUCTION]:
+            elif self.state in [
+                CalibrationState.INTRO,
+                CalibrationState.CAP_ON_INSTRUCTION,
+                CalibrationState.CAP_OFF_INSTRUCTION,
+            ]:
                 if self.remove_from_stack:
                     self.remove_from_stack()
 
