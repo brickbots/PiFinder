@@ -218,6 +218,9 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             )
         return self._stub
 
+    def __del__(self):
+        self._del_shmem()
+
 
 def solver(
     shared_state,
@@ -511,15 +514,21 @@ def solver(
                                 solved["RA"] = solved["RA_target"]
                                 solved["Dec"] = solved["Dec_target"]
                                 if last_image_metadata["imu"]:
-                                    solved["imu_pos"] = last_image_metadata["imu"]["pos"]
-                                    solved["imu_quat"] = last_image_metadata["imu"]["quat"]
+                                    solved["imu_pos"] = last_image_metadata["imu"][
+                                        "pos"
+                                    ]
+                                    solved["imu_quat"] = last_image_metadata["imu"][
+                                        "quat"
+                                    ]
                                 else:
                                     solved["imu_pos"] = None
                                     solved["imu_quat"] = None
                                 solved["solve_time"] = time.time()
                                 solved["cam_solve_time"] = solved["solve_time"]
                                 # Mark successful solve - use same timestamp as last_solve_attempt for comparison
-                                solved["last_solve_success"] = solved["last_solve_attempt"]
+                                solved["last_solve_success"] = solved[
+                                    "last_solve_attempt"
+                                ]
 
                                 logger.info(
                                     f"Solve SUCCESS - {len(centroids)} centroids → "
@@ -537,7 +546,7 @@ def solver(
                                         logger.debug(f"Align {align_target_pixel=}")
                                         align_result_queue.put(
                                             ["aligned", align_target_pixel]
-                                    )
+                                        )
                                     align_ra = 0
                                     align_dec = 0
                                     solved["x_target"] = None
