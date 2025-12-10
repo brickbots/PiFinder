@@ -75,6 +75,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 # If no successful solve yet, keep initial solved dict
 
                 #========= From main ======================
+                # TODO: Create a function to update solve?
                 # Update solve metadata (always needed for auto-exposure)
                 for key in [
                     "Matches",
@@ -109,7 +110,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 update_plate_solve_and_imu(imu_dead_reckoning, solved)
 
                 # TODO: main also calculates (alt, az) for target & camera center.
-                # Is this needed?
+                # Don't think this is needed because they are done by the update functions?s
                 #====================================================
 
             elif imu_dead_reckoning.tracking:
