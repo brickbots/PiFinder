@@ -74,6 +74,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     solved = copy.deepcopy(last_image_solve)
                 # If no successful solve yet, keep initial solved dict
 
+                #========= From main ======================
                 # Update solve metadata (always needed for auto-exposure)
                 for key in [
                     "Matches",
@@ -88,70 +89,6 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 if next_image_solve.get("RA") is not None:
                     solved.update(next_image_solve)
 
-                    # Recalculate Alt/Az for NEW successful solve
-                    location = shared_state.location()
-                    dt = shared_state.datetime()
-
-                    # Set location for altaz calculations.
-                    # TODO: Is itnecessary to set location?
-                    # TODO: Altaz doesn't seem to be required for catalogs when in
-                    # EQ mode? Could be disabled in future when in EQ mode?
-                    if location and dt:
-                        # We have position and time/date and a valid solve!
-                        calc_utils.sf_utils.set_location(
-                            location.lat,
-                            location.lon,
-                            location.altitude,
-                        )
-
-
-
-                        alt, az = calc_utils.sf_utils.radec_to_altaz(
-                            solved["RA"],
-                            solved["Dec"],
-                            dt,
-                        )
-                        solved["Alt"] = alt
-                        solved["Az"] = az
-
-                        alt, az = calc_utils.sf_utils.radec_to_altaz(
-                            solved["camera_center"]["RA"],
-                            solved["camera_center"]["Dec"],
-                            dt,
-                        )
-                        solved["camera_center"]["Alt"] = alt
-                        solved["camera_center"]["Az"] = az
-
-                    # Experimental: For monitoring roll offset
-                    # Estimate the roll offset due misalignment of the
-                    # camera sensor with the Pole-to-Source great circle.
-                    #solved["Roll_offset"] = estimate_roll_offset(solved, dt)
-                    
-                    # Find the roll at the target RA/Dec. Note that this doesn't include the
-                    # roll offset so it's not the roll that the PiFinder camear sees but the
-                    # roll relative to the celestial pole
-                    roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
-                        solved["RA"], solved["Dec"], dt
-                    )
-                    # Compensate for the roll offset. This gives the roll at the target
-                    # as seen by the camera.
-                    solved["Roll"] = roll_target_calculated + solved["Roll_offset"]
-
-                    # calculate roll for camera center
-                    roll_target_calculated = calc_utils.sf_utils.radec_to_roll(
-                        solved["camera_center"]["RA"],
-                        solved["camera_center"]["Dec"],
-                        dt,
-                    )
-                    # Compensate for the roll offset. This gives the roll at the target
-                    # as seen by the camera.
-                    solved["camera_center"]["Roll"] = (
-                        roll_target_calculated + solved["Roll_offset"]
-                    )
-
-                    # Update IMU-dead-reckoning system with the new plate-solve
-                    #update_plate_solve_and_imu(imu_dead_reckoning, solved)
-
                 # For failed solves, preserve ALL position data from previous solve
                 # Don't recalculate from GPS (causes drift from GPS noise)
 
@@ -159,23 +96,21 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 if solved["RA"] is not None:
                     last_image_solve = copy.deepcopy(solved)
                     solved["solve_source"] = "CAM"
-                    # Calculate constellation for successful solve
-                    solved["constellation"] = (
-                        calc_utils.sf_utils.radec_to_constellation(
-                            solved["RA"], solved["Dec"]
-                        )
-                    )
                 else:
                     # Failed solve - clear constellation
                     solved["solve_source"] = "CAM_FAILED"
-                    solved["constellation"] = ""
 
                 # Push all camera solves (success and failure) immediately
                 # This ensures auto-exposure sees Matches=0 for failed solves
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
+                
+                # We have a new image solve: Use plate-solving for RA/Dec
+                update_plate_solve_and_imu(imu_dead_reckoning, solved)
 
-            #============== Above from main ==============
+                # TODO: main also calculates (alt, az) for target & camera center.
+                # Is this needed?
+                #====================================================
 
             elif imu_dead_reckoning.tracking:
                 # Previous plate-solve exists so use IMU dead-reckoning from
@@ -189,13 +124,14 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             if (
                 solved["RA"]
                 and solved["solve_time"] > last_solve_time
-                and solved["solve_source"] == "IMU"
+                #and solved["solve_source"] == "IMU"
             ):
-                last_solve_time = time.time()
+                last_solve_time = time.time()  # TODO: solve_time is ambiguous because it's also used for IMU dead-reckoning
 
                 # Try to set date and time
                 location = shared_state.location()
                 dt = shared_state.datetime()
+                
                 # Set location for roll and altaz calculations.
                 # TODO: Is it necessary to set location?
                 # TODO: Altaz doesn't seem to be required for catalogs when in
@@ -211,10 +147,12 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 )
 
                 # Update remaining solved keys
-                # Calculate constellation for IMU dead-reckoning position
-                solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(
+                # Calculate constellation for current position
+                solved["constellation"] = (
+                    calc_utils.sf_utils.radec_to_constellation(
                     solved["RA"], solved["Dec"]
-                )
+                    )
+                )  # TODO: Can the outer brackets be omitted?
 
                 # Set Alt/Az because it's needed for the catalogs for the
                 # Alt/Az mount type. TODO: Can this be moved to the catalog?
