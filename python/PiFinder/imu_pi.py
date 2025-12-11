@@ -38,7 +38,8 @@ class Imu:
         self.calibration = 0
         self.avg_quat = (0, 0, 0, 0)  # Scalar-first quaternion: (w, x, y, z)
         self.__moving = False
-
+        self.__reading_diff = 0.0
+        
         self.last_sample_time = time.time()
 
         # Calibration settings
@@ -213,6 +214,7 @@ if __name__ == "__main__":
         imu = Imu()
         for i in range(10):
             imu.update()
+            print(imu)
             time.sleep(0.5)
     except Exception as e:
         logger.exception("Error starting phyiscal IMU", e)
