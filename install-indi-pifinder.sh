@@ -20,10 +20,12 @@ echo "PiFinder: Installing dependencies for INDI..."
 echo "==============================================================================="
 
 sudo apt install -y \
-    git \
+    build-essential \
+    cmake
+
+sudo apt install -y \
     cdbs \
     dkms \
-    cmake \
     fxload \
     libev-dev \
     libgps-dev \
@@ -40,7 +42,6 @@ sudo apt install -y \
     librtlsdr-dev \
     libcfitsio-dev \
     libgphoto2-dev \
-    build-essential \
     libusb-1.0-0-dev \
     libdc1394-dev \
     libboost-regex-dev \
@@ -49,14 +50,10 @@ sudo apt install -y \
 
 # Dependencies for INDI 3rd party drivers.
 sudo apt-get -y install \
-    libnova-dev \
     libcfitsio-dev \
     libusb-1.0-0-dev \
     zlib1g-dev \
     libgsl-dev \
-    build-essential \
-    cmake \
-    git \
     libjpeg-dev \
     libcurl4-gnutls-dev \
     libtiff-dev \

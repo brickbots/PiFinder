@@ -53,30 +53,20 @@ When displaying Object Details the following commands are available:
    sudo systemctl stop pifinder
    ```
 
-3. **Add the jscheidtmann fork as a remote** (if not already added):
-   ```bash
-   git remote add jscheidtmann https://github.com/jscheidtmann/PiFinder.git
-   ```
-
-   If the remote already exists, update it:
-   ```bash
-   git remote set-url jscheidtmann https://github.com/jscheidtmann/PiFinder.git
-   ```
-
 4. **Fetch the latest changes from the fork:**
    ```bash
-   git fetch jscheidtmann
+   git fetch --all
    ```
 
 5. **Check out the mount control branch:**
    ```bash
-   git checkout -b indi_mount_control jscheidtmann/indi_mount_control
+   git checkout indi_mount_control
    ```
 
    If you've already checked out this branch before, update it:
    ```bash
    git checkout indi_mount_control
-   git pull jscheidtmann indi_mount_control
+   git pull
    ```
 
 6. **Install requirements:**
@@ -122,6 +112,16 @@ The service should show as "active (running)".
 
 Navigate to "http://pifinder.local/8624" and the Indi Web Manager should display.
 
+### Step N: Update to latest version of Mount Control
+
+Run the script: 
+
+```bash
+./update-indi-pifinder.sh
+```
+
+repeatedly to keep up with latest changes.
+
 ## Configuration
 
 At best configuration is done after installation, before going to the field and wasting precious clear sky. Follow these instructions:
@@ -151,7 +151,7 @@ In AP mode, the PiFinder creates its own WiFi network for easy connection:
 
 In Client mode, the PiFinder connects to your existing WiFi network:
 
-1. **Connect to PiFinder** and navigate to `http://pifinder.local` or 
+1. **Connect to your WiFi** and navigate to `http://pifinder.local` or 
 
 2. **Find the PiFinder's IP:**
    - Check your router's DHCP client list, or
@@ -234,7 +234,7 @@ Press the **Square** button to cycle through display modes:
 
 #### Mount Control Commands
 
-Mount control commands work in **any display mode** by pressing number keys:
+Mount control commands work in **object display** by pressing number keys:
 
 | Key | Command | Description |
 |-----|---------|-------------|
@@ -275,8 +275,8 @@ Tipp: Press **1** once, to have the mount tracking.
      - Repeats until target is centered within 0.01° (36 arcseconds)
    - Once the target is acquired, PiFinder starts measuring the drift (for 10 seconds) and then adjusts 
      the mounts tracking rates to compensate for the drift. 
-     - Using manual slews during this time will stop the process and the mount will be tracking with what-ever
-       drift rates are current at this time. 
+   - Using manual slews during this time will stop the process and the mount will be tracking with what-ever
+     drift rates are current at this time. 
 
 4. **Manual Adjustments**
    - Use directional keys (**2, 4, 6, 8**) for manual adjustments
@@ -310,7 +310,7 @@ When using manual movements, the mount will go to **MOUNT_TRACKING** phase. Note
 
 Many mount control features require an active plate solve:
 - **Sync (Key 3)**: Requires solved position to sync mount
-- **Init (Key 1)**: Works better with solved position for initial sync, stores the GPS position in the mount.
+- **Init (Key 1)**: Works better with solved position for initial sync, stores the GPS position and time in the mount.
 - **Target Refinement** and **Drift Compensation**: Require solve after slew to refine position
 
 If plate solving fails:
