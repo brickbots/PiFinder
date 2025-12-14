@@ -19,6 +19,21 @@ def lint(session: nox.Session) -> None:
 
 
 @nox.session(reuse_venv=True, python="3.9")
+def format_check(session: nox.Session) -> None:
+    """
+    Check the formatting of the project's codebase.
+
+    This session installs necessary dependencies for code formatting and runs the formatter
+    to check if the code format adheres to the project's style guide without making any changes.
+
+    Args:
+        session (nox.Session): The Nox session being run, providing context and methods for session actions.
+    """
+    session.install("ruff==0.4.8")
+    session.run("ruff", "format", "--check")
+
+
+@nox.session(reuse_venv=True, python="3.9")
 def format(session: nox.Session) -> None:
     """
     Format the project's codebase.
