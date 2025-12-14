@@ -380,7 +380,7 @@ def check_and_sync_gpsd_config(baud_rate: int) -> bool:
             expected_options = 'GPSD_OPTIONS=""'
 
         # Check if update is needed
-        current_match = re.search(r'^GPSD_OPTIONS=.*$', content, re.MULTILINE)
+        current_match = re.search(r"^GPSD_OPTIONS=.*$", content, re.MULTILINE)
         if current_match:
             current_options = current_match.group(0)
             if current_options == expected_options:
@@ -439,4 +439,3 @@ def update_gpsd_config(baud_rate: int) -> None:
     except Exception as e:
         logger.error(f"SYS: Error updating GPSD config: {e}")
         raise
-

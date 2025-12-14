@@ -240,6 +240,47 @@ class PowerManager:
         self.display_device.device.show()
 
 
+def start_profiling():
+    """Start profiling for performance analysis"""
+    import cProfile
+
+    profiler = cProfile.Profile()
+    profiler.enable()
+    startup_profile_start = time.time()
+    return profiler, startup_profile_start
+
+
+def stop_profiling(profiler, startup_profile_start):
+    """Stop profiling and save results"""
+    import pstats
+
+    profiler.disable()
+    startup_profile_time = time.time() - startup_profile_start
+    profile_path = utils.data_dir / "startup_profile.prof"
+    profiler.dump_stats(str(profile_path))
+
+    logger = logging.getLogger("Main.Profiling")
+    logger.info(f"=== Startup Profiling Complete ({startup_profile_time:.2f}s) ===")
+    logger.info(f"Profile saved to: {profile_path}")
+    logger.info("To analyze, run:")
+    logger.info(
+        f"  python -c \"import pstats; p = pstats.Stats('{profile_path}'); p.sort_stats('cumulative').print_stats(30)\""
+    )
+
+    summary_path = utils.data_dir / "startup_profile.txt"
+    with open(summary_path, "w") as f:
+        ps = pstats.Stats(profiler, stream=f)
+        f.write(f"=== STARTUP PROFILING ({startup_profile_time:.2f}s) ===\n\n")
+        f.write("Top 30 functions by cumulative time:\n")
+        f.write("=" * 80 + "\n")
+        ps.sort_stats("cumulative").print_stats(30)
+        f.write("\n" + "=" * 80 + "\n")
+        f.write("Top 30 functions by internal time:\n")
+        f.write("=" * 80 + "\n")
+        ps.sort_stats("time").print_stats(30)
+    logger.info(f"Text summary saved to: {summary_path}")
+
+
 def main(
     log_helper: MultiprocLogging,
     script_name=None,
@@ -434,6 +475,7 @@ def main(
                 solver_logqueue,
                 alignment_command_queue,
                 alignment_response_queue,
+                camera_command_queue,  # For raw SQM capture
                 verbose,
             ),
         )
@@ -492,12 +534,8 @@ def main(
         logger.info("   Catalogs")
         console.update()
 
-        # Start profiling (automatic for performance analysis)
-        import cProfile
-        import pstats
-        profiler = cProfile.Profile()
-        profiler.enable()
-        startup_profile_start = time.time()
+        # Start profiling (uncomment to enable performance analysis)
+        # profiler, startup_profile_start = start_profiling()
 
         # Initialize Catalogs (pass ui_queue for background loading completion signal)
         catalogs: Catalogs = CatalogBuilder().build(shared_state, ui_queue)
@@ -527,33 +565,8 @@ def main(
         logger.info("   Event Loop")
         console.update()
 
-        # Stop profiling and save results
-        profiler.disable()
-        startup_profile_time = time.time() - startup_profile_start
-
-        # Save to file
-        profile_path = utils.data_dir / "startup_profile.prof"
-        profiler.dump_stats(str(profile_path))
-
-        # Print summary
-        logger.info(f"=== Startup Profiling Complete ({startup_profile_time:.2f}s) ===")
-        logger.info(f"Profile saved to: {profile_path}")
-        logger.info("To analyze, run:")
-        logger.info(f"  python -c \"import pstats; p = pstats.Stats('{profile_path}'); p.sort_stats('cumulative').print_stats(30)\"")
-
-        # Also save a text summary
-        summary_path = utils.data_dir / "startup_profile.txt"
-        with open(summary_path, 'w') as f:
-            ps = pstats.Stats(profiler, stream=f)
-            f.write(f"=== STARTUP PROFILING ({startup_profile_time:.2f}s) ===\n\n")
-            f.write("Top 30 functions by cumulative time:\n")
-            f.write("=" * 80 + "\n")
-            ps.sort_stats('cumulative').print_stats(30)
-            f.write("\n" + "=" * 80 + "\n")
-            f.write("Top 30 functions by internal time:\n")
-            f.write("=" * 80 + "\n")
-            ps.sort_stats('time').print_stats(30)
-        logger.info(f"Text summary saved to: {summary_path}")
+        # Stop profiling (uncomment to analyze startup performance)
+        # stop_profiling(profiler, startup_profile_start)
 
         log_time = True
         # Start of main except handler / loop
@@ -1002,7 +1015,10 @@ if __name__ == "__main__":
         # verify and sync GPSD baud rate
         try:
             from PiFinder import sys_utils
-            baud_rate = cfg.get_option("gps_baud_rate", 9600)  # Default to 9600 if not set
+
+            baud_rate = cfg.get_option(
+                "gps_baud_rate", 9600
+            )  # Default to 9600 if not set
             if sys_utils.check_and_sync_gpsd_config(baud_rate):
                 logger.info(f"GPSD configuration updated to {baud_rate} baud")
         except Exception as e:

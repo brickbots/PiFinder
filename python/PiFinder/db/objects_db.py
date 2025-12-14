@@ -18,10 +18,14 @@ class ObjectsDatabase(Database):
         logging.info("Applying database performance optimizations...")
         self.cursor.execute("PRAGMA foreign_keys = ON;")
         self.cursor.execute("PRAGMA mmap_size = 268435456;")  # 256MB memory mapping
-        self.cursor.execute("PRAGMA cache_size = -64000;")    # 64MB cache (negative = KB)
-        self.cursor.execute("PRAGMA temp_store = MEMORY;")    # Keep temporary data in RAM
-        self.cursor.execute("PRAGMA journal_mode = WAL;")     # Write-ahead logging for better concurrency
-        self.cursor.execute("PRAGMA synchronous = NORMAL;")   # Balanced safety/performance
+        self.cursor.execute("PRAGMA cache_size = -64000;")  # 64MB cache (negative = KB)
+        self.cursor.execute("PRAGMA temp_store = MEMORY;")  # Keep temporary data in RAM
+        self.cursor.execute(
+            "PRAGMA journal_mode = WAL;"
+        )  # Write-ahead logging for better concurrency
+        self.cursor.execute(
+            "PRAGMA synchronous = NORMAL;"
+        )  # Balanced safety/performance
         logging.info("Database optimizations applied")
 
         self.conn.commit()
@@ -195,7 +199,9 @@ class ObjectsDatabase(Database):
         self.cursor.execute("SELECT object_id, common_name FROM names;")
         results = self.cursor.fetchall()
         query_time = time.time() - query_start
-        logging.info(f"Database query took {query_time:.2f}s, returned {len(results)} rows")
+        logging.info(
+            f"Database query took {query_time:.2f}s, returned {len(results)} rows"
+        )
 
         process_start = time.time()
         name_dict = defaultdict(list)
@@ -204,7 +210,9 @@ class ObjectsDatabase(Database):
         for object_id in name_dict:
             name_dict[object_id] = list(set(name_dict[object_id]))
         process_time = time.time() - process_start
-        logging.info(f"Processing took {process_time:.2f}s, created {len(name_dict)} object entries")
+        logging.info(
+            f"Processing took {process_time:.2f}s, created {len(name_dict)} object entries"
+        )
 
         total_time = time.time() - start_time
         logging.info(f"get_object_id_to_names total time: {total_time:.2f}s")
@@ -307,7 +315,9 @@ class ObjectsDatabase(Database):
         results = self.cursor.fetchall()
 
         total_time = time.time() - start_time
-        logging.info(f"get_catalog_objects took {total_time:.2f}s, returned {len(results)} rows")
+        logging.info(
+            f"get_catalog_objects took {total_time:.2f}s, returned {len(results)} rows"
+        )
         return results
 
     # ---- IMAGES_OBJECTS methods ----

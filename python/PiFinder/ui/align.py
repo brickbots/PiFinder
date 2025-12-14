@@ -118,6 +118,10 @@ class UIAlign(UIModule):
             # None....
             return
 
+        # No solution yet (initial state before first successful solve)
+        if not self.solution or self.solution["RA"] is None:
+            return
+
         reticle_position = self.starfield.radec_to_xy(
             self.solution["RA"], self.solution["Dec"]
         )
