@@ -38,6 +38,7 @@ from PiFinder import pos_server
 from PiFinder import utils
 from PiFinder import server
 from PiFinder import keyboard_interface
+from PiFinder import mountcontrol_indi
 
 from PiFinder.multiproclogging import MultiprocLogging
 from PiFinder.catalogs import CatalogBuilder, CatalogFilter, Catalogs
@@ -239,11 +240,53 @@ class PowerManager:
         self.display_device.device.show()
 
 
+def start_profiling():
+    """Start profiling for performance analysis"""
+    import cProfile
+
+    profiler = cProfile.Profile()
+    profiler.enable()
+    startup_profile_start = time.time()
+    return profiler, startup_profile_start
+
+
+def stop_profiling(profiler, startup_profile_start):
+    """Stop profiling and save results"""
+    import pstats
+
+    profiler.disable()
+    startup_profile_time = time.time() - startup_profile_start
+    profile_path = utils.data_dir / "startup_profile.prof"
+    profiler.dump_stats(str(profile_path))
+
+    logger = logging.getLogger("Main.Profiling")
+    logger.info(f"=== Startup Profiling Complete ({startup_profile_time:.2f}s) ===")
+    logger.info(f"Profile saved to: {profile_path}")
+    logger.info("To analyze, run:")
+    logger.info(
+        f"  python -c \"import pstats; p = pstats.Stats('{profile_path}'); p.sort_stats('cumulative').print_stats(30)\""
+    )
+
+    summary_path = utils.data_dir / "startup_profile.txt"
+    with open(summary_path, "w") as f:
+        ps = pstats.Stats(profiler, stream=f)
+        f.write(f"=== STARTUP PROFILING ({startup_profile_time:.2f}s) ===\n\n")
+        f.write("Top 30 functions by cumulative time:\n")
+        f.write("=" * 80 + "\n")
+        ps.sort_stats("cumulative").print_stats(30)
+        f.write("\n" + "=" * 80 + "\n")
+        f.write("Top 30 functions by internal time:\n")
+        f.write("=" * 80 + "\n")
+        ps.sort_stats("time").print_stats(30)
+    logger.info(f"Text summary saved to: {summary_path}")
+
+
 def main(
     log_helper: MultiprocLogging,
     script_name=None,
     show_fps=False,
     verbose=False,
+    profile_startup=False,
 ) -> None:
     """
     Get this show on the road!
@@ -266,6 +309,7 @@ def main(
     alignment_command_queue: Queue = Queue()
     alignment_response_queue: Queue = Queue()
     ui_queue: Queue = Queue()
+    mountcontrol_queue: Queue = Queue()
 
     # init queues for logging
     keyboard_logqueue: Queue = log_helper.get_queue()
@@ -276,6 +320,7 @@ def main(
     posserver_logqueue: Queue = log_helper.get_queue()
     integrator_logqueque: Queue = log_helper.get_queue()
     imu_logqueue: Queue = log_helper.get_queue()
+    mountcontrol_logqueue: Queue = log_helper.get_queue()
 
     # Start log consolidation process first.
     log_helper.start()
@@ -291,6 +336,7 @@ def main(
         "align_command": alignment_command_queue,
         "align_response": alignment_response_queue,
         "gps": gps_queue,
+        "mountcontrol": mountcontrol_queue,
     }
     cfg = config.Config()
 
@@ -429,6 +475,7 @@ def main(
                 solver_logqueue,
                 alignment_command_queue,
                 alignment_response_queue,
+                camera_command_queue,  # For raw SQM capture
                 verbose,
             ),
         )
@@ -462,13 +509,36 @@ def main(
         )
         posserver_process.start()
 
+        # Mount Control
+        sys_utils = utils.get_sys_utils()
+        if sys_utils.is_mountcontrol_active():
+            console.write("  Mount Control")
+            logger.info("  Mount Control")
+            console.update()
+            mountcontrol_process = Process(
+                name="MountControl",
+                target=mountcontrol_indi.run,
+                args=(
+                    mountcontrol_queue,
+                    console_queue,
+                    shared_state,
+                    mountcontrol_logqueue,
+                    "localhost",
+                    7624,
+                ),
+            )
+            mountcontrol_process.start()
+
         # Initialize Catalogs
         console.write("   Catalogs")
         logger.info("   Catalogs")
         console.update()
 
-        # Initialize Catalogs
-        catalogs: Catalogs = CatalogBuilder().build(shared_state)
+        # Start profiling (uncomment to enable performance analysis)
+        # profiler, startup_profile_start = start_profiling()
+
+        # Initialize Catalogs (pass ui_queue for background loading completion signal)
+        catalogs: Catalogs = CatalogBuilder().build(shared_state, ui_queue)
 
         # Establish the common catalog filter object
         _new_filter = CatalogFilter(shared_state=shared_state)
@@ -495,6 +565,9 @@ def main(
         logger.info("   Event Loop")
         console.update()
 
+        # Stop profiling (uncomment to analyze startup performance)
+        # stop_profiling(profiler, startup_profile_start)
+
         log_time = True
         # Start of main except handler / loop
         try:
@@ -502,9 +575,13 @@ def main(
                 # Console
                 try:
                     console_msg = console_queue.get(block=False)
-                    if console_msg.startswith("DEGRADED_OPS"):
-                        menu_manager.message(_("Degraded\nCheck Status"), 5)
-                        time.sleep(5)
+                    if isinstance(console_msg, list) and console_msg[0] == "WARNING":
+                        menu_manager.message(_("WARNING") + "\n" + console_msg[1], 3)
+                    elif (
+                        isinstance(console_msg, list)
+                        and console_msg[0] == "DEGRADED_OPS"
+                    ):
+                        menu_manager.message(console_msg[1], 5)
                     else:
                         console.write(console_msg)
                 except queue.Empty:
@@ -544,6 +621,8 @@ def main(
                                 if "lock_type" in gps_content:
                                     location.lock_type = gps_content["lock_type"]
 
+                                # Update last_gps_lock timestamp when lock is set
+                                if "lock" in gps_content and gps_content["lock"]:
                                     dt = shared_state.datetime()
                                     if dt is None:
                                         location.last_gps_lock = "--"
@@ -589,6 +668,11 @@ def main(
                     menu_manager.jump_to_label("recent")
                 elif ui_command == "reload_config":
                     cfg.load_config()
+                elif ui_command == "catalogs_fully_loaded":
+                    logger.info(
+                        "All catalogs loaded - WDS and extended catalogs available"
+                    )
+                    menu_manager.message(_("Catalogs\nFully Loaded"), 2)
                 elif ui_command == "test_mode":
                     dt = datetime.datetime(2025, 6, 28, 11, 0, 0)
                     shared_state.set_datetime(dt)
@@ -792,6 +876,9 @@ def main(
             logger.info("\tPos Server...")
             posserver_process.join()
 
+            logger.info("\tMount Control...")
+            mountcontrol_process.join()
+
             logger.info("\tGPS...")
             gps_process.terminate()
 
@@ -808,7 +895,7 @@ def main(
             solver_process.join()
 
             log_helper.join()
-            exit()
+            exit(0)
 
 
 if __name__ == "__main__":
@@ -823,6 +910,7 @@ if __name__ == "__main__":
             log_path,
         )
         MultiprocLogging.configurer(log_helper.get_queue())
+        rlogger = logging.getLogger()
     except FileNotFoundError:
         rlogger.warning(
             "Cannot find log configuration file, proceeding with basic configuration."
@@ -897,6 +985,13 @@ if __name__ == "__main__":
         help="Force user interface language (iso2 code). Changes configuration",
         type=str,
     )
+    parser.add_argument(
+        "--profile-startup",
+        help="Profile startup performance (catalog/menu loading)",
+        default=False,
+        action="store_true",
+        required=False,
+    )
     args = parser.parse_args()
     # add the handlers to the logger
     if args.verbose:
@@ -916,6 +1011,19 @@ if __name__ == "__main__":
 
         imu = importlib.import_module("PiFinder.imu_pi")
         cfg = config.Config()
+
+        # verify and sync GPSD baud rate
+        try:
+            from PiFinder import sys_utils
+
+            baud_rate = cfg.get_option(
+                "gps_baud_rate", 9600
+            )  # Default to 9600 if not set
+            if sys_utils.check_and_sync_gpsd_config(baud_rate):
+                logger.info(f"GPSD configuration updated to {baud_rate} baud")
+        except Exception as e:
+            logger.warning(f"Could not check/sync GPSD configuration: {e}")
+
         gps_type = cfg.get_option("gps_type")
         if gps_type == "ublox":
             gps_monitor = importlib.import_module("PiFinder.gps_ubx")
@@ -957,7 +1065,7 @@ if __name__ == "__main__":
             config.Config().set_option("language", args.lang)
 
     try:
-        main(log_helper, args.script, args.fps, args.verbose)
+        main(log_helper, args.script, args.fps, args.verbose, args.profile_startup)
     except Exception:
         rlogger.exception("Exception in main(). Aborting program.")
         os._exit(1)

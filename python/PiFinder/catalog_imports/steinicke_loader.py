@@ -27,6 +27,7 @@ from .catalog_import_utils import (
 # Import shared database object
 from .database import objects_db
 
+logger = logging.getLogger("SteinickeLoader")
 
 # Basic object type mappings for exact matches
 BASIC_TYPE_MAPPING = {
@@ -393,12 +394,12 @@ def load_ngc_catalog():
             if len(objects) > 1:
                 skipped = [obj for obj in objects[1:] if get_priority(obj) < 999]
                 if skipped:
-                    logging.debug(
+                    logger.debug(
                         f"Selected {prefix}{number}{best_object.get('extension_letter') or best_object.get('component') or ''}, "
                         f"skipped {len(skipped)} other variants"
                     )
 
-    logging.debug(f"Selected {len(selected_objects)} objects after deduplication")
+    logger.debug(f"Selected {len(selected_objects)} objects after deduplication")
 
     # Prepare all objects for batch insertion
     logging.info("Preparing objects for batch insertion...")

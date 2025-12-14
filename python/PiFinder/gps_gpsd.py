@@ -88,6 +88,7 @@ async def process_reading_messages(client, gps_queue, console_queue, gps_locked)
                         "altitude": result.get("altHAE"),
                         "source": "GPS",
                         "lock": True,
+                        "lock_type": result.get("mode", 0),
                         "error_in_m": error_in_m,
                     },
                 )

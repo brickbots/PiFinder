@@ -39,6 +39,14 @@ then
     touch /home/pifinder/PiFinder_data/migrations/v2.2.2
 fi
 
+# v2.4.0
+# Switch detect to system process
+if ! [ -f "/home/pifinder/PiFinder_data/migrations/v2.4.0" ]
+then
+    source /home/pifinder/PiFinder/migration_source/v2.4.0.sh
+    touch /home/pifinder/PiFinder_data/migrations/v2.4.0
+fi
+
 # DONE
 echo "Post Update Complete"
 

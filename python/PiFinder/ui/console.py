@@ -81,7 +81,7 @@ class UIConsole(UIModule):
         """
         Writes a new line to the console.
         """
-        print(f"Write: {line}")
+        # print(f"Write: {line}")
         self.lines.append(line)
         # reset scroll offset
         self.scroll_offset = 0

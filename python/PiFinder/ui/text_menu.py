@@ -114,9 +114,19 @@ class UITextMenu(UIModule):
                 # figure out line text
                 item_text = str(self._menu_items[i])
 
+                # Check if this item has a name_suffix_callback for dynamic display
+                item_def = self.get_item(item_text)
+                suffix = ""
+                if item_def and item_def.get("name_suffix_callback"):
+                    try:
+                        suffix = item_def["name_suffix_callback"](self)
+                    except Exception:
+                        suffix = ""
+
                 self.draw.text(
                     (line_horiz_pos, line_pos),
-                    _(item_text),  # I18N: translate item for display.
+                    _(item_text)
+                    + suffix,  # I18N: translate item for display, add suffix
                     font=line_font.font,
                     fill=self.colors.get(line_color),
                 )
@@ -179,6 +189,9 @@ class UITextMenu(UIModule):
         if selected_item_definition is not None and selected_item_definition.get(
             "class"
         ):
+            # Check for pre_callback before adding to stack
+            if selected_item_definition.get("pre_callback"):
+                selected_item_definition["pre_callback"](self)
             self.add_to_stack(selected_item_definition)
             return
 

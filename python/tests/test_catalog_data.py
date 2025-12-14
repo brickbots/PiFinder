@@ -1,5 +1,7 @@
 import pytest
+import threading
 from PiFinder.db import objects_db
+from PiFinder.catalogs import CatalogBackgroundLoader, Names
 
 
 @pytest.mark.unit
@@ -318,3 +320,75 @@ def test_catalog_data_validation():
     check_messier_objects()
     check_ngc_objects()
     check_ic_objects()
+
+
+@pytest.mark.unit
+def test_background_loader():
+    """
+    Test that CatalogBackgroundLoader correctly loads objects in background.
+    """
+    # Load minimal test data
+    db = objects_db.ObjectsDatabase()
+
+    # Create a mock observations database for testing
+    class MockObservationsDB:
+        def check_logged(self, obj):
+            return False
+
+    obs_db = MockObservationsDB()
+
+    # Get small sample of WDS objects for testing
+    catalog_objects = list(db.get_catalog_objects_by_catalog_code("WDS"))[:100]
+    catalog_objects_list = [dict(row) for row in catalog_objects]
+
+    # Get objects dict
+    objects = {row["id"]: dict(row) for row in db.get_objects()}
+
+    # Get names
+    common_names = Names()
+
+    # Track completion
+    loaded_count = 0
+    completed = threading.Event()
+    loaded_objects = []
+
+    def on_progress(loaded, total, catalog):
+        nonlocal loaded_count
+        loaded_count = loaded
+
+    def on_complete(objects):
+        nonlocal loaded_objects
+        loaded_objects = objects
+        completed.set()
+
+    # Create and start loader
+    loader = CatalogBackgroundLoader(
+        deferred_catalog_objects=catalog_objects_list,
+        objects=objects,
+        common_names=common_names,
+        obs_db=obs_db,
+        on_progress=on_progress,
+        on_complete=on_complete,
+    )
+
+    # Configure for faster testing
+    loader.batch_size = 10
+    loader.yield_time = 0.001
+
+    loader.start()
+
+    # Wait for completion (5 second timeout)
+    assert completed.wait(timeout=5.0), "Background loading did not complete in time"
+
+    # Verify results
+    assert loaded_count == 100, f"Expected 100 objects, got {loaded_count}"
+    assert (
+        len(loaded_objects) == 100
+    ), f"Expected 100 loaded objects, got {len(loaded_objects)}"
+
+    # Verify objects have details loaded
+    for obj in loaded_objects[:10]:  # Check first 10
+        assert obj._details_loaded, "Object should have details loaded"
+        assert obj.mag_str != "...", "Object should have magnitude loaded"
+        assert hasattr(obj, "names"), "Object should have names"
+        assert obj.catalog_code == "WDS", "Object should be WDS catalog"
