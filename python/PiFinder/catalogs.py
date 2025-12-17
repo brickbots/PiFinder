@@ -1,5 +1,6 @@
 # mypy: ignore-errors
 import logging
+import re
 import time
 import datetime
 import pytz
@@ -25,6 +26,31 @@ from PiFinder.catalog_base import (
 )
 
 logger = logging.getLogger("Catalog")
+
+# Mapping from keypad numbers to characters (non-conventional layout)
+KEYPAD_DIGIT_TO_CHARS = {
+    "7": "abc",
+    "8": "def",
+    "9": "ghi",
+    "4": "jkl",
+    "5": "mno",
+    "6": "pqrs",
+    "1": "tuv",
+    "2": "wxyz",
+    "3": "'-+/",
+}
+
+LETTER_TO_DIGIT_MAP: dict[str, str] = {}
+for _digit, _chars in KEYPAD_DIGIT_TO_CHARS.items():
+    # Map the digit to itself so numbers in names still match
+    LETTER_TO_DIGIT_MAP[_digit] = _digit
+    for _char in _chars:
+        LETTER_TO_DIGIT_MAP[_char] = _digit
+        LETTER_TO_DIGIT_MAP[_char.upper()] = _digit
+
+translator = str.maketrans(LETTER_TO_DIGIT_MAP)
+VALID_T9_DIGITS = "".join(KEYPAD_DIGIT_TO_CHARS.keys())
+INVALID_T9_DIGITS_RE = re.compile(f"[^{VALID_T9_DIGITS}]")
 
 # collection of all catalog-related classes
 
@@ -345,6 +371,8 @@ class Catalogs:
     def __init__(self, catalogs: List[Catalog]):
         self.__catalogs: List[Catalog] = catalogs
         self.catalog_filter: Union[CatalogFilter, None] = None
+        self._t9_cache: dict[tuple[str, int], list[str]] = {}
+        self._t9_cache_dirty = True
 
     def filter_catalogs(self):
         """
@@ -400,6 +428,56 @@ class Catalogs:
 
     # this is memory efficient and doesn't hit the sdcard, but could be faster
     # also, it could be cached
+    def _name_to_t9_digits(self, name: str) -> str:
+        translated_name = name.translate(translator)
+        return INVALID_T9_DIGITS_RE.sub("", translated_name)
+
+    def _object_cache_key(self, obj: CompositeObject) -> tuple[str, int]:
+        return (obj.catalog_code, obj.sequence)
+
+    def _invalidate_t9_cache(self) -> None:
+        self._t9_cache_dirty = True
+
+    def _rebuild_t9_cache(self, objs: list[CompositeObject]) -> None:
+        self._t9_cache = {}
+        for obj in objs:
+            self._t9_cache[self._object_cache_key(obj)] = [
+                self._name_to_t9_digits(name) for name in obj.names
+            ]
+        self._t9_cache_dirty = False
+
+    def _ensure_t9_cache(self, objs: list[CompositeObject]) -> None:
+        current_keys = {self._object_cache_key(obj) for obj in objs}
+        if self._t9_cache_dirty or current_keys != set(self._t9_cache.keys()):
+            self._rebuild_t9_cache(objs)
+
+    def search_by_t9(self, search_digits: str) -> List[CompositeObject]:
+        """Search catalog objects using keypad digits.
+
+        Uses the existing keypad letter mapping (including its non-conventional
+        layout) to convert object names to their digit representation and
+        returns all objects whose digit string contains the search pattern.
+        """
+
+        objs = self.get_objects(only_selected=False, filtered=False)
+        result: list[CompositeObject] = []
+        if not search_digits:
+            return result
+
+        self._ensure_t9_cache(objs)
+
+        for obj in objs:
+            for digits in self._t9_cache.get(self._object_cache_key(obj), []):
+                if len(digits) < len(search_digits):
+                    continue
+                if search_digits in digits:
+                    result.append(obj)
+                    logger.debug(
+                        "Found %s in %s %i via T9", digits, obj.catalog_code, obj.sequence
+                    )
+                    break
+        return result
+
     def search_by_text(self, search_text: str) -> List[CompositeObject]:
         objs = self.get_objects(only_selected=False, filtered=False)
         result = []
@@ -419,12 +497,14 @@ class Catalogs:
     def set(self, catalogs: List[Catalog]):
         self.__catalogs = catalogs
         self.select_all_catalogs()
+        self._invalidate_t9_cache()
 
     def add(self, catalog: Catalog, select: bool = False):
         if catalog.catalog_code not in [x.catalog_code for x in self.__catalogs]:
             if select:
                 self.catalog_filter.selected_catalogs.add(catalog.catalog_code)
             self.__catalogs.append(catalog)
+            self._invalidate_t9_cache()
         else:
             logger.warning(
                 "Catalog %s already exists, not replaced (in Catalogs.add)",
@@ -435,6 +515,7 @@ class Catalogs:
         for catalog in self.__catalogs:
             if catalog.catalog_code == catalog_code:
                 self.__catalogs.remove(catalog)
+                self._invalidate_t9_cache()
                 return
 
         logger.warning("Catalog %s does not exist, cannot remove", catalog_code)
