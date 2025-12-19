@@ -24,7 +24,7 @@ def save_sweep_metadata(
     dec_deg: Optional[float] = None,
     altitude_deg: Optional[float] = None,
     azimuth_deg: Optional[float] = None,
-    notes: str = ""
+    notes: str = "",
 ):
     """
     Save metadata file in sweep directory.
@@ -45,39 +45,41 @@ def save_sweep_metadata(
         notes: Any additional notes
     """
     metadata: Dict[str, Any] = {
-        'timestamp': gps_datetime if gps_datetime else datetime.now(pytz.timezone('Europe/Brussels')).isoformat(),
-        'observer': {
-            'latitude_deg': observer_lat,
-            'longitude_deg': observer_lon,
+        "timestamp": gps_datetime
+        if gps_datetime
+        else datetime.now(pytz.timezone("Europe/Brussels")).isoformat(),
+        "observer": {
+            "latitude_deg": observer_lat,
+            "longitude_deg": observer_lon,
         },
-        'sweep_directory': str(sweep_dir),
+        "sweep_directory": str(sweep_dir),
     }
 
     if observer_altitude_m is not None:
-        metadata['observer']['altitude_m'] = observer_altitude_m
+        metadata["observer"]["altitude_m"] = observer_altitude_m
 
     if reference_sqm is not None:
-        metadata['reference_sqm'] = reference_sqm
+        metadata["reference_sqm"] = reference_sqm
 
     if ra_deg is not None and dec_deg is not None:
-        metadata['coordinates'] = {
-            'ra_deg': ra_deg,
-            'dec_deg': dec_deg,
+        metadata["coordinates"] = {
+            "ra_deg": ra_deg,
+            "dec_deg": dec_deg,
         }
         if altitude_deg is not None:
-            metadata['coordinates']['altitude_deg'] = altitude_deg
+            metadata["coordinates"]["altitude_deg"] = altitude_deg
         if azimuth_deg is not None:
-            metadata['coordinates']['azimuth_deg'] = azimuth_deg
+            metadata["coordinates"]["azimuth_deg"] = azimuth_deg
 
     if notes:
-        metadata['notes'] = notes
+        metadata["notes"] = notes
 
     # Save to JSON file
-    metadata_file = sweep_dir / 'sweep_metadata.json'
+    metadata_file = sweep_dir / "sweep_metadata.json"
     logger.info(f"Writing metadata to: {metadata_file}")
 
     try:
-        with open(metadata_file, 'w') as f:
+        with open(metadata_file, "w") as f:
             json.dump(metadata, f, indent=2)
         logger.info(f"Successfully saved metadata to {metadata_file}")
     except Exception as e:
@@ -99,5 +101,5 @@ if __name__ == "__main__":
         observer_lat=50.8503,  # Brussels
         observer_lon=4.3517,
         reference_sqm=18.7,
-        notes="Diaphragm fully open, clear sky"
+        notes="Diaphragm fully open, clear sky",
     )

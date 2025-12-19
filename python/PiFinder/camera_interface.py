@@ -155,7 +155,9 @@ class CameraInterface:
                     else:
                         # Test Mode: load image from disc and wait
                         base_image = Image.open(test_image_path)
-                        base_image = base_image.convert("L")  # Convert to grayscale to match camera output
+                        base_image = base_image.convert(
+                            "L"
+                        )  # Convert to grayscale to match camera output
                         time.sleep(1)
                     image_end_time = time.time()
                     # check imu to make sure we're still static
@@ -356,7 +358,10 @@ class CameraInterface:
                             self._save_next_to = command.split(":")[1]
                             console_queue.put("CAM: Save flag set")
 
-                        if command.startswith("capture") and command != "capture_exp_sweep":
+                        if (
+                            command.startswith("capture")
+                            and command != "capture_exp_sweep"
+                        ):
                             # Capture single frame and update shared state
                             # This is used by SQM calibration for precise exposure control
                             captured_image = self.capture()
@@ -365,9 +370,11 @@ class CameraInterface:
                             # If save flag is set, save to disk
                             if self._save_next_to:
                                 # Build full path
-                                filename = f"{utils.data_dir}/captures/{self._save_next_to}"
-                                if not filename.endswith('.png'):
-                                    filename += '.png'
+                                filename = (
+                                    f"{utils.data_dir}/captures/{self._save_next_to}"
+                                )
+                                if not filename.endswith(".png"):
+                                    filename += ".png"
                                 self.capture_file(filename)
 
                                 # Also save raw as TIFF
@@ -426,12 +433,19 @@ class CameraInterface:
                                 timestamp = gps_time.strftime("%Y%m%d_%H%M%S")
                             else:
                                 # Fallback to Pi time if GPS not available
-                                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                                logger.warning("GPS time not available, using Pi system time for sweep directory name")
+                                timestamp = datetime.datetime.now().strftime(
+                                    "%Y%m%d_%H%M%S"
+                                )
+                                logger.warning(
+                                    "GPS time not available, using Pi system time for sweep directory name"
+                                )
 
                             # Create sweep directory
                             from pathlib import Path
-                            sweep_dir = Path(f"{utils.data_dir}/captures/sweep_{timestamp}")
+
+                            sweep_dir = Path(
+                                f"{utils.data_dir}/captures/sweep_{timestamp}"
+                            )
                             sweep_dir.mkdir(parents=True, exist_ok=True)
 
                             logger.info(f"Saving sweep to: {sweep_dir}")
@@ -458,12 +472,19 @@ class CameraInterface:
                                 exp_ms = exp_us / 1000
 
                                 # Save processed 8-bit PNG (same as production capture() method)
-                                processed_filename = sweep_dir / f"img_{i:03d}_{exp_ms:.2f}ms_processed.png"
-                                processed_img = self.capture()  # Returns 8-bit PIL Image
+                                processed_filename = (
+                                    sweep_dir
+                                    / f"img_{i:03d}_{exp_ms:.2f}ms_processed.png"
+                                )
+                                processed_img = (
+                                    self.capture()
+                                )  # Returns 8-bit PIL Image
                                 processed_img.save(str(processed_filename))
 
                                 # Save RAW TIFF (16-bit, from camera.capture_raw_file())
-                                raw_filename = sweep_dir / f"img_{i:03d}_{exp_ms:.2f}ms_raw.tiff"
+                                raw_filename = (
+                                    sweep_dir / f"img_{i:03d}_{exp_ms:.2f}ms_raw.tiff"
+                                )
                                 self.capture_raw_file(str(raw_filename))
 
                                 logger.debug(
@@ -489,7 +510,9 @@ class CameraInterface:
 
                                 # Get observer location
                                 location = shared_state.location()
-                                logger.debug(f"Location: lat={location.lat}, lon={location.lon}, alt={location.altitude}")
+                                logger.debug(
+                                    f"Location: lat={location.lat}, lon={location.lon}, alt={location.altitude}"
+                                )
 
                                 # Get current solve with RA/Dec/Alt/Az
                                 solve_state = shared_state.solution()
@@ -503,16 +526,22 @@ class CameraInterface:
                                     dec_deg = solve_state.get("Dec")
                                     altitude_deg = solve_state.get("Alt")
                                     azimuth_deg = solve_state.get("Az")
-                                    logger.debug(f"Solve: RA={ra_deg}, Dec={dec_deg}, Alt={altitude_deg}, Az={azimuth_deg}")
+                                    logger.debug(
+                                        f"Solve: RA={ra_deg}, Dec={dec_deg}, Alt={altitude_deg}, Az={azimuth_deg}"
+                                    )
 
                                 # Save metadata
-                                logger.info(f"Calling save_sweep_metadata for {sweep_dir}")
+                                logger.info(
+                                    f"Calling save_sweep_metadata for {sweep_dir}"
+                                )
                                 save_sweep_metadata(
                                     sweep_dir=sweep_dir,
                                     observer_lat=location.lat,
                                     observer_lon=location.lon,
                                     observer_altitude_m=location.altitude,
-                                    gps_datetime=gps_datetime.isoformat() if gps_datetime else None,
+                                    gps_datetime=gps_datetime.isoformat()
+                                    if gps_datetime
+                                    else None,
                                     reference_sqm=reference_sqm,
                                     ra_deg=ra_deg,
                                     dec_deg=dec_deg,
@@ -520,9 +549,13 @@ class CameraInterface:
                                     azimuth_deg=azimuth_deg,
                                     notes=f"Exposure sweep: {num_images} images, {min_exp/1000:.1f}-{max_exp/1000:.1f}ms",
                                 )
-                                logger.info(f"Successfully saved sweep metadata to {sweep_dir}/sweep_metadata.json")
+                                logger.info(
+                                    f"Successfully saved sweep metadata to {sweep_dir}/sweep_metadata.json"
+                                )
                             except Exception as e:
-                                logger.error(f"Failed to save sweep metadata: {e}", exc_info=True)
+                                logger.error(
+                                    f"Failed to save sweep metadata: {e}", exc_info=True
+                                )
 
                             console_queue.put("CAM: Sweep done!")
                             logger.info(
