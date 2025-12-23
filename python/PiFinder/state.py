@@ -141,6 +141,49 @@ SharedStateObj(
 
 
 @dataclass
+class SQM:
+    """
+    Sky Quality Meter - represents the sky brightness measurement.
+    """
+
+    value: float = (
+        20.15  # mag/arcsec² - default typical dark sky value (processed 8-bit)
+    )
+    value_raw: Optional[float] = (
+        None  # mag/arcsec² - from raw 16-bit pipeline (more accurate)
+    )
+    source: str = "None"  # "None", "Calculated", "Manual", etc.
+    last_update: Optional[str] = None  # ISO timestamp of last update
+
+    def __str__(self):
+        raw_str = f", raw={self.value_raw:.2f}" if self.value_raw is not None else ""
+        return (
+            f"SQM(value={self.value:.2f} mag/arcsec²{raw_str}, "
+            f"source={self.source}, "
+            f"last_update={self.last_update or 'Never'})"
+        )
+
+    def to_dict(self):
+        """Convert the SQM object to a dictionary."""
+        return asdict(self)
+
+    def to_json(self):
+        """Convert the SQM object to a JSON string."""
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_dict(cls, data):
+        """Create an SQM object from a dictionary."""
+        return cls(**data)
+
+    @classmethod
+    def from_json(cls, json_str):
+        """Create an SQM object from a JSON string."""
+        data = json.loads(json_str)
+        return cls.from_dict(data)
+
+
+@dataclass
 class Location:
     """
     the location of the observer, lat/lon/altitude and the source of the data.
@@ -208,6 +251,7 @@ class SharedStateObj:
         self.__last_image_metadata = {
             "exposure_start": 0,
             "exposure_end": 0,
+            "exposure_time": 500000,  # Default exposure time in microseconds (0.5s)
             "imu": None,
             "imu_delta": 0.0,  # Angle between quaternion at start and end of exposure [deg]
         }
@@ -215,12 +259,15 @@ class SharedStateObj:
         self.__sats = None
         self.__imu = None
         self.__location: Location = Location()
+        self.__sqm: SQM = SQM()
         self.__datetime = None
         self.__datetime_time = None
         self.__screen = None
         self.__solve_pixel = config.Config().get_option("solve_pixel")
         self.__arch = None
         self.__camera_align = False
+        self.__camera_type = "imx296"  # Default, will be set by camera process
+        self.__cam_raw = None
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
         self.__tz_finder = TimezoneFinder()
@@ -269,6 +316,12 @@ class SharedStateObj:
     def set_camera_align(self, v: bool):
         self.__camera_align = v
 
+    def camera_type(self):
+        return self.__camera_type
+
+    def set_camera_type(self, v: str):
+        self.__camera_type = v
+
     def sats(self):
         return self.__sats
 
@@ -297,6 +350,18 @@ class SharedStateObj:
         if v:
             v.timezone = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon)
         self.__location = v
+
+    def sqm(self):
+        """Return the current SQM object"""
+        return self.__sqm
+
+    def set_sqm(self, sqm: SQM):
+        """Update the SQM value"""
+        self.__sqm = sqm
+
+    def get_sky_brightness(self):
+        """Return just the numeric SQM value for convenience"""
+        return self.__sqm.value
 
     def last_image_metadata(self):
         return self.__last_image_metadata
@@ -348,6 +413,12 @@ class SharedStateObj:
 
     def set_screen(self, v):
         self.__screen = v
+
+    def cam_raw(self):
+        return self.__cam_raw
+
+    def set_cam_raw(self, v):
+        self.__cam_raw = v
 
     def ui_state(self):
         return self.__ui_state

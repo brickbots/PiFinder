@@ -150,6 +150,7 @@ case/my_printer
 *.db-wal
 .devenv/
 .claude/
+.serena/
 astro_data/comets.txt
 python/tetra3
 

@@ -12,6 +12,7 @@ This module is the camera
 from PIL import Image
 from PiFinder import config
 from PiFinder.camera_interface import CameraInterface
+from PiFinder.sqm import get_camera_profile, detect_camera_type
 from typing import Tuple
 import logging
 from PiFinder.multiproclogging import MultiprocLogging
@@ -27,40 +28,20 @@ class CameraPI(CameraInterface):
         from picamera2 import Picamera2
 
         self.camera = Picamera2()
-
         self.exposure_time = exposure_time
-        self.format = "SRGGB12"
-        self.bit_depth = 12
-        self.digital_gain = 1.0  # TODO: find optimum value for imx296 and imx290
-        self.offset = 0  # TODO: measure offset for imx296 and imx290
 
-        # Figure out camera type, hq or imx296 (global shutter)
-        if "imx296" in self.camera.camera.id:
-            self.camera_type = "imx296"
-            # The auto selected 728x544 sensor mode returns black frames if the
-            # exposure is too high
-            self.raw_size = (1456, 1088)
-            self.format = "R10"
-            self.bit_depth = 10
-            # maximum analog gain for this sensor
-            self.gain = 15
-        elif "imx290" in self.camera.camera.id:
-            self.camera_type = "imx462"
-            self.raw_size = (1920, 1080)
-            self.gain = 30
-        elif "imx477" in self.camera.camera.id:
-            self.camera_type = "hq"
-            # using this smaller scale auto-selects binning on the sensor
-            self.raw_size = (2028, 1520)
-            self.gain = 22  # cedar uses this value
-            self.digital_gain = (
-                13.0  # initial tests show that higher values don't help much
-            )
-            self.offset = (
-                256  # measured with lens cap on, matches what the internet says
-            )
-        else:
-            raise Exception(f"Unknown camera type: {self.camera.camera.id}")
+        # Detect camera type and load complete profile (hardware config + noise characteristics)
+        self.camera_type = detect_camera_type(self.camera.camera.id)
+        self.profile = get_camera_profile(self.camera_type)
+        logger.info(
+            f"Loaded profile for {self.camera_type}: "
+            f"{self.profile.format}, {self.profile.raw_size}, "
+            f"gain={self.profile.analog_gain:.0f}, dgain={self.profile.digital_gain:.1f}, "
+            f"{self.profile.bit_depth}bit, offset={self.profile.bias_offset:.1f} ADU"
+        )
+
+        # Initialize runtime gain from profile (can be changed via commands)
+        self.gain = self.profile.analog_gain
 
         self.camType = f"PI {self.camera_type}"
         self.initialize()
@@ -70,13 +51,16 @@ class CameraPI(CameraInterface):
         self.stop_camera()
         cam_config = self.camera.create_still_configuration(
             {"size": (512, 512)},
-            raw={"size": self.raw_size, "format": self.format},
+            raw={"size": self.profile.raw_size, "format": self.profile.format},
         )
         self.camera.configure(cam_config)
+        self._default_controls()
+        self.start_camera()
+
+    def _default_controls(self) -> None:
         self.camera.set_controls({"AeEnable": False})
         self.camera.set_controls({"AnalogueGain": self.gain})
         self.camera.set_controls({"ExposureTime": self.exposure_time})
-        self.start_camera()
 
     def start_camera(self) -> None:
         self.camera.start()
@@ -107,27 +91,29 @@ class CameraPI(CameraInterface):
         )
 
         _request.release()
-        # crop to square
-        if self.camera_type == "imx296":
-            raw_capture = raw_capture[:, 184:-184]
-            # Sensor orientation is different
-            raw_capture = np.rot90(raw_capture, 2)
-        elif self.camera_type == "imx462":
-            raw_capture = raw_capture[50:-50, 470:-470]
-        elif self.camera_type == "hq":
-            raw_capture = raw_capture[:, 256:-256]
+
+        # Apply camera-specific crop and rotation
+        raw_capture = self.profile.crop_and_rotate(raw_capture)
+
+        # Store raw in shared state (before processing) for calibration and analysis
+        if hasattr(self, "shared_state"):
+            self.shared_state.set_cam_raw(raw_capture.copy())
 
         # covert to 32 bit int to avoid overflow
         raw_capture = raw_capture.astype(np.float32)
 
-        # sensor offset, measured as average value when lens cap is on
-        raw_capture -= self.offset
+        # sensor offset (bias pedestal from camera profile)
+        raw_capture -= self.profile.bias_offset
 
         # apply digital gain
-        raw_capture *= self.digital_gain
+        raw_capture *= self.profile.digital_gain
 
         # rescale to 8 bit
-        raw_capture = raw_capture * 255 / (2**self.bit_depth - self.offset - 1)
+        raw_capture = (
+            raw_capture
+            * 255
+            / (2**self.profile.bit_depth - self.profile.bias_offset - 1)
+        )
 
         # clip to avoid <0 or >255 values
         raw_capture = np.clip(raw_capture.astype(np.int32), 0, 255).astype(np.uint8)
@@ -198,21 +184,11 @@ class CameraPI(CameraInterface):
 
         _request.release()
 
-        # Crop to square (preserves Bayer pattern alignment if applicable)
-        if self.camera_type == "imx296":
-            raw_capture = raw_capture[:, 184:-184]
-            # Sensor orientation is different
-            raw_capture = np.rot90(raw_capture, 2)
-        elif self.camera_type == "imx462":
-            raw_capture = raw_capture[50:-50, 470:-470]
-        elif self.camera_type == "hq":
-            raw_capture = raw_capture[:, 256:-256]
+        # Apply camera-specific crop and rotation (preserves Bayer pattern alignment)
+        raw_capture = self.profile.crop_and_rotate(raw_capture)
 
-        # Determine if we need to flag for debayering based on camera type
-        # imx296: Mono sensor (R10 format)
-        # imx462: Bayer sensor (SRGGB12 format)
-        # HQ (imx477): Bayer sensor (SRGGB12 format)
-        needs_debayer = self.camera_type in ("imx462", "hq")
+        # Determine if we need to flag for debayering
+        needs_debayer = False
 
         # Handle different input types
         if raw_capture.ndim == 3:
@@ -226,22 +202,22 @@ class CameraPI(CameraInterface):
                 + raw_capture[:, :, 2] * 0.114
             ).astype(np.uint16)
             needs_debayer = False
-        elif raw_capture.ndim != 2:
+        elif raw_capture.ndim == 2:
+            # Bayer mosaic - save as-is and flag for post-processing
+            logger.debug(
+                f"Saving raw Bayer mosaic (RGGB pattern, shape: {raw_capture.shape})"
+            )
+            needs_debayer = True
+        else:
             raise ValueError(f"Unexpected raw image dimensions: {raw_capture.ndim}")
 
-        # Add camera type and Bayer pattern info to filename
-        import os
-
-        base, ext = os.path.splitext(filename)
-
-        # Add camera type suffix (imx296_mono, imx462_bayer, hq_bayer)
-        camera_suffix = f"_{self.camera_type}"
+        # Modify filename if debayering needed
         if needs_debayer:
-            camera_suffix += "_RGGB"
-        else:
-            camera_suffix += "_mono"
+            # Insert "_RGGB" suffix before extension to indicate Bayer pattern
+            import os
 
-        filename = f"{base}{camera_suffix}{ext}"
+            base, ext = os.path.splitext(filename)
+            filename = f"{base}_RGGB{ext}"
 
         # Save as 16-bit TIFF
         raw_image = Image.fromarray(raw_capture, mode="I;16")
@@ -249,26 +225,18 @@ class CameraPI(CameraInterface):
 
         debayer_note = " (RGGB Bayer pattern)" if needs_debayer else ""
         logger.debug(
-            f"Saved raw {self.bit_depth}-bit image as 16-bit TIFF: {filename}{debayer_note}"
+            f"Saved raw {self.profile.bit_depth}-bit image as 16-bit TIFF: {filename}{debayer_note}"
         )
 
     def set_camera_config(
         self, exposure_time: float, gain: float
     ) -> Tuple[float, float]:
         # picamera2 supports changing controls on-the-fly without restart
-        # This allows seamless auto-exposure adjustments
-        logger.info(
-            f"Setting camera config - Exposure: {exposure_time}µs, Gain: {gain}x "
-            f"(camera_started: {self._camera_started})"
-        )
-        if self._camera_started:
-            self.camera.set_controls({"AnalogueGain": gain})
-            self.camera.set_controls({"ExposureTime": exposure_time})
-        else:
-            # Camera not started, need to stop/start
-            self.stop_camera()
-            self.camera.set_controls({"AnalogueGain": gain})
-            self.camera.set_controls({"ExposureTime": exposure_time})
+        self.camera.set_controls({"AnalogueGain": gain})
+        self.camera.set_controls({"ExposureTime": exposure_time})
+
+        # Start camera if it's not already running
+        if not self._camera_started:
             self.start_camera()
         return exposure_time, gain
 

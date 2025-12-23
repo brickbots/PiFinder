@@ -364,6 +364,15 @@ PiFinder:
 
     ps aux | grep PiFinder.main | awk '{system("kill -9  " $2)}'
 
+You will need to start the ``cedar-detect`` process manually, if your development machine is not a PiFinder, 
+as it is started as a separate process on the PiFinder starting with v2.4.0. 
+You can do this by running the following command in another terminal window:
+
+.. code-block::
+
+    cd /home/pifinder/PiFinder/python/PiFinder/bin
+    ./cedar-detect-server-<your arch> -p 50551
+
 -h, --help | available command line arguments
 .............................................
 

@@ -10,6 +10,7 @@ from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
 from PiFinder.ui.textentry import UITextEntry
 from PiFinder.ui.preview import UIPreview
+from PiFinder.ui.sqm import UISQM
 from PiFinder.ui.equipment import UIEquipment
 from PiFinder.ui.location_list import UILocationList
 from PiFinder.ui.radec_entry import UIRADecEntry
@@ -1070,41 +1071,11 @@ pifinder_menu = {
                 {"name": _("Software Upd"), "class": UISoftware},
                 {"name": _("Test Mode"), "callback": callbacks.activate_debug},
                 {
-                    "name": _("Power"),
-                    "class": UITextMenu,
-                    "select": "Single",
-                    "label": "power",
-                    "items": [
-                        {
-                            "name": _("Shutdown"),
-                            "class": UITextMenu,
-                            "select": "Single",
-                            "label": "shutdown",
-                            "items": [
-                                {"name": "Confirm", "callback": callbacks.shutdown},
-                                {"name": "Cancel", "callback": callbacks.go_back},
-                            ],
-                        },
-                        {
-                            "name": _("Restart"),
-                            "class": UITextMenu,
-                            "select": "Single",
-                            "label": "restart",
-                            "items": [
-                                {
-                                    "name": _("Confirm"),
-                                    "callback": callbacks.restart_system,
-                                },
-                                {"name": _("Cancel"), "callback": callbacks.go_back},
-                            ],
-                        },
-                    ],
-                },
-                {
                     "name": _("Experimental"),
                     "class": UITextMenu,
                     "select": "Single",
                     "items": [
+                        {"name": "SQM", "class": UISQM},
                         {
                             "name": _("AE Algo"),
                             "class": UITextMenu,
@@ -1131,15 +1102,33 @@ pifinder_menu = {
                                 },
                             ],
                         },
+                    ],
+                },
+                {
+                    "name": _("Power"),
+                    "class": UITextMenu,
+                    "select": "Single",
+                    "label": "power",
+                    "items": [
                         {
-                            "name": _("Capture Exp Sweep"),
+                            "name": _("Shutdown"),
                             "class": UITextMenu,
-                            "select": "single",
-                            "label": "capture_exp_sweep",
+                            "select": "Single",
+                            "label": "shutdown",
+                            "items": [
+                                {"name": "Confirm", "callback": callbacks.shutdown},
+                                {"name": "Cancel", "callback": callbacks.go_back},
+                            ],
+                        },
+                        {
+                            "name": _("Restart"),
+                            "class": UITextMenu,
+                            "select": "Single",
+                            "label": "restart",
                             "items": [
                                 {
                                     "name": _("Confirm"),
-                                    "callback": callbacks.capture_exposure_sweep,
+                                    "callback": callbacks.restart_system,
                                 },
                                 {"name": _("Cancel"), "callback": callbacks.go_back},
                             ],

@@ -36,6 +36,7 @@ class CameraInterface:
     """The CameraInterface interface."""
 
     _camera_started = False
+    _save_next_to = None  # Filename to save next capture to (None = don't save)
     _auto_exposure_enabled = False
     _auto_exposure_pid: Optional[ExposurePIDController] = None
     _last_solve_time: Optional[float] = None
@@ -51,6 +52,15 @@ class CameraInterface:
 
     def capture_raw_file(self, filename) -> None:
         pass
+
+    def capture_bias(self):
+        """
+        Capture a bias frame for pedestal calculation.
+        Base implementation returns a black frame (no bias correction).
+        Override in subclasses that support bias frames.
+        Returns Image.Image or np.ndarray depending on implementation.
+        """
+        return Image.new("L", (512, 512), 0)  # Black 512x512 image
 
     def set_camera_config(
         self, exposure_time: float, gain: float
@@ -70,6 +80,17 @@ class CameraInterface:
         self, shared_state, camera_image, command_queue, console_queue, cfg
     ):
         try:
+            # Store shared_state for access by capture() methods
+            self.shared_state = shared_state
+
+            # Store camera type in shared state for SQM calibration
+            camera_type_str = self.get_cam_type()  # e.g., "PI imx296", "PI hq"
+            if " " in camera_type_str:
+                # Extract just the sensor type (imx296, hq, imx462, etc.)
+                camera_type = camera_type_str.split(" ")[1].lower()
+                shared_state.set_camera_type(camera_type)
+                logger.info(f"Camera type set to: {camera_type}")
+
             debug = False
 
             # Check if auto-exposure was previously enabled in config
@@ -115,6 +136,7 @@ class CameraInterface:
                     if not debug:
                         base_image = self.capture()
                         base_image = base_image.convert("L")
+
                         rotate_amount = 0
                         if camera_rotation is None:
                             if screen_direction in [
@@ -134,6 +156,9 @@ class CameraInterface:
                     else:
                         # Test Mode: load image from disc and wait
                         base_image = Image.open(test_image_path)
+                        base_image = base_image.convert(
+                            "L"
+                        )  # Convert to grayscale to match camera output
                         time.sleep(1)
                     image_end_time = time.time()
                     # check imu to make sure we're still static
@@ -187,7 +212,7 @@ class CameraInterface:
                                     if solve_rmse is not None
                                     else "N/A"
                                 )
-                                logger.info(
+                                logger.debug(
                                     f"Auto-exposure feedback - Stars: {matched_stars}, "
                                     f"RMSE: {rmse_str}, Current exposure: {self.exposure_time}µs"
                                 )
@@ -333,16 +358,55 @@ class CameraInterface:
                             )
 
                         if command.startswith("save"):
-                            filename = command.split(":")[1]
-                            filename = f"{utils.data_dir}/captures/{filename}.png"
-                            self.capture_file(filename)
-                            console_queue.put("CAM: Saved Image")
+                            # Set flag to save next capture to this file
+                            self._save_next_to = command.split(":")[1]
+                            console_queue.put("CAM: Save flag set")
 
-                        if command == "capture_exp_sweep":
+                        if (
+                            command.startswith("capture")
+                            and command != "capture_exp_sweep"
+                        ):
+                            # Capture single frame and update shared state
+                            # This is used by SQM calibration for precise exposure control
+                            captured_image = self.capture()
+                            camera_image.paste(captured_image)
+
+                            # If save flag is set, save to disk
+                            if self._save_next_to:
+                                # Build full path
+                                filename = (
+                                    f"{utils.data_dir}/captures/{self._save_next_to}"
+                                )
+                                if not filename.endswith(".png"):
+                                    filename += ".png"
+                                self.capture_file(filename)
+
+                                # Also save raw as TIFF
+                                raw_filename = filename.replace(".png", ".tiff")
+                                if not raw_filename.endswith(".tiff"):
+                                    raw_filename += ".tiff"
+                                self.capture_raw_file(raw_filename)
+
+                                console_queue.put("CAM: Captured + Saved")
+                                self._save_next_to = None  # Clear flag
+                            else:
+                                console_queue.put("CAM: Captured")
+
+                        if command.startswith("capture_exp_sweep"):
                             # Capture exposure sweep - save both RAW and processed images
                             # at different exposures for SQM testing
                             # RAW: 16-bit TIFF to preserve full sensor bit depth
                             # Processed: 8-bit PNG from normal camera.capture() pipeline
+
+                            # Parse reference SQM if provided
+                            reference_sqm = None
+                            if ":" in command:
+                                try:
+                                    reference_sqm = float(command.split(":")[1])
+                                    logger.info(f"Reference SQM: {reference_sqm:.2f}")
+                                except (ValueError, IndexError):
+                                    logger.warning("Invalid reference SQM in command")
+
                             logger.info(
                                 "Starting exposure sweep capture (100 image pairs)"
                             )
@@ -367,19 +431,34 @@ class CameraInterface:
                                 min_exp, max_exp, num_images
                             )
 
-                            # Generate timestamp for this sweep session
-                            timestamp = datetime.datetime.now().strftime(
-                                "%Y%m%d_%H%M%S"
-                            )
+                            # Generate timestamp for this sweep session using GPS time
+                            gps_time = shared_state.datetime()
+                            if gps_time:
+                                timestamp = gps_time.strftime("%Y%m%d_%H%M%S")
+                            else:
+                                # Fallback to Pi time if GPS not available
+                                timestamp = datetime.datetime.now().strftime(
+                                    "%Y%m%d_%H%M%S"
+                                )
+                                logger.warning(
+                                    "GPS time not available, using Pi system time for sweep directory name"
+                                )
 
                             # Create sweep directory
-                            sweep_dir = f"{utils.data_dir}/captures/sweep_{timestamp}"
-                            os.makedirs(sweep_dir, exist_ok=True)
+                            from pathlib import Path
+
+                            sweep_dir = Path(
+                                f"{utils.data_dir}/captures/sweep_{timestamp}"
+                            )
+                            sweep_dir.mkdir(parents=True, exist_ok=True)
 
                             logger.info(f"Saving sweep to: {sweep_dir}")
-                            console_queue.put(f"CAM: {num_images} image pairs")
+                            console_queue.put("CAM: Starting sweep...")
 
                             for i, exp_us in enumerate(sweep_exposures, 1):
+                                # Update progress at start of each capture
+                                console_queue.put(f"CAM: Sweep {i}/{num_images}")
+
                                 # Set exposure
                                 self.exposure_time = exp_us
                                 self.set_camera_config(self.exposure_time, self.gain)
@@ -396,19 +475,21 @@ class CameraInterface:
                                 # Now capture both processed and RAW images with correct exposure
                                 exp_ms = exp_us / 1000
 
-                                # Save processed PNG (8-bit, from camera.capture())
-                                processed_filename = f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms_processed.png"
-                                self.capture_file(processed_filename)
+                                # Save processed 8-bit PNG (same as production capture() method)
+                                processed_filename = (
+                                    sweep_dir
+                                    / f"img_{i:03d}_{exp_ms:.2f}ms_processed.png"
+                                )
+                                processed_img = (
+                                    self.capture()
+                                )  # Returns 8-bit PIL Image
+                                processed_img.save(str(processed_filename))
 
                                 # Save RAW TIFF (16-bit, from camera.capture_raw_file())
                                 raw_filename = (
-                                    f"{sweep_dir}/img_{i:03d}_{exp_ms:.2f}ms_raw.tiff"
+                                    sweep_dir / f"img_{i:03d}_{exp_ms:.2f}ms_raw.tiff"
                                 )
-                                self.capture_raw_file(raw_filename)
-
-                                # Update console every 10 images to avoid spam
-                                if i % 10 == 0 or i == num_images:
-                                    console_queue.put(f"CAM: Sweep {i}/{num_images}")
+                                self.capture_raw_file(str(raw_filename))
 
                                 logger.debug(
                                     f"Captured sweep images {i}/{num_images}: {exp_ms:.2f}ms (PNG+TIFF)"
@@ -419,6 +500,66 @@ class CameraInterface:
                             self.gain = original_gain
                             self._auto_exposure_enabled = original_ae_enabled
                             self.set_camera_config(self.exposure_time, self.gain)
+
+                            # Save sweep metadata (GPS time, location, altitude)
+                            logger.info("Starting sweep metadata save...")
+                            try:
+                                from PiFinder.sqm.save_sweep_metadata import (
+                                    save_sweep_metadata,
+                                )
+
+                                # Get GPS datetime (not Pi time)
+                                gps_datetime = shared_state.datetime()
+                                logger.debug(f"GPS datetime: {gps_datetime}")
+
+                                # Get observer location
+                                location = shared_state.location()
+                                logger.debug(
+                                    f"Location: lat={location.lat}, lon={location.lon}, alt={location.altitude}"
+                                )
+
+                                # Get current solve with RA/Dec/Alt/Az
+                                solve_state = shared_state.solution()
+                                ra_deg = None
+                                dec_deg = None
+                                altitude_deg = None
+                                azimuth_deg = None
+
+                                if solve_state:
+                                    ra_deg = solve_state.get("RA")
+                                    dec_deg = solve_state.get("Dec")
+                                    altitude_deg = solve_state.get("Alt")
+                                    azimuth_deg = solve_state.get("Az")
+                                    logger.debug(
+                                        f"Solve: RA={ra_deg}, Dec={dec_deg}, Alt={altitude_deg}, Az={azimuth_deg}"
+                                    )
+
+                                # Save metadata
+                                logger.info(
+                                    f"Calling save_sweep_metadata for {sweep_dir}"
+                                )
+                                save_sweep_metadata(
+                                    sweep_dir=sweep_dir,
+                                    observer_lat=location.lat,
+                                    observer_lon=location.lon,
+                                    observer_altitude_m=location.altitude,
+                                    gps_datetime=gps_datetime.isoformat()
+                                    if gps_datetime
+                                    else None,
+                                    reference_sqm=reference_sqm,
+                                    ra_deg=ra_deg,
+                                    dec_deg=dec_deg,
+                                    altitude_deg=altitude_deg,
+                                    azimuth_deg=azimuth_deg,
+                                    notes=f"Exposure sweep: {num_images} images, {min_exp/1000:.1f}-{max_exp/1000:.1f}ms",
+                                )
+                                logger.info(
+                                    f"Successfully saved sweep metadata to {sweep_dir}/sweep_metadata.json"
+                                )
+                            except Exception as e:
+                                logger.error(
+                                    f"Failed to save sweep metadata: {e}", exc_info=True
+                                )
 
                             console_queue.put("CAM: Sweep done!")
                             logger.info(
