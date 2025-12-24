@@ -269,12 +269,13 @@ class UIModule:
                     if len(self.title) < 9:
                         # draw the constellation
                         constellation = solution["constellation"]
-                        self.draw.text(
-                            (self.display_class.resX * 0.54, 1),
-                            constellation,
-                            font=self.fonts.bold.font,
-                            fill=fg if self._unmoved else self.colors.get(32),
-                        )
+                        if constellation is not None:
+                            self.draw.text(
+                                (self.display_class.resX * 0.54, 1),
+                                constellation,
+                                font=self.fonts.bold.font,
+                                fill=fg if self._unmoved else self.colors.get(32),
+                            )
                 else:
                     # no solve yet....
                     self.draw.text(
