@@ -223,7 +223,7 @@ class UIModule:
                     (6, 1), _(self.title), font=self.fonts.bold.font, fill=fg
                 )
             imu = self.shared_state.imu()
-            moving = True if imu and imu["pos"] and imu["moving"] else False
+            moving = True if imu and imu["quat"] and imu["moving"] else False
 
             # GPS status
             if self.shared_state.altaz_ready():
@@ -269,12 +269,13 @@ class UIModule:
                     if len(self.title) < 9:
                         # draw the constellation
                         constellation = solution["constellation"]
-                        self.draw.text(
-                            (self.display_class.resX * 0.54, 1),
-                            constellation,
-                            font=self.fonts.bold.font,
-                            fill=fg if self._unmoved else self.colors.get(32),
-                        )
+                        if constellation is not None:
+                            self.draw.text(
+                                (self.display_class.resX * 0.54, 1),
+                                constellation,
+                                font=self.fonts.bold.font,
+                                fill=fg if self._unmoved else self.colors.get(32),
+                            )
                 else:
                     # no solve yet....
                     self.draw.text(
