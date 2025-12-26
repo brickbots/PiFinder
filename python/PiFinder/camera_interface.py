@@ -21,6 +21,7 @@ from PIL import Image
 from PiFinder import state_utils, utils
 from PiFinder.auto_exposure import (
     ExposurePIDController,
+    ExposureSNRController,
     SweepZeroStarHandler,
     ExponentialSweepZeroStarHandler,
     ResetZeroStarHandler,
@@ -37,7 +38,9 @@ class CameraInterface:
     _camera_started = False
     _save_next_to = None  # Filename to save next capture to (None = don't save)
     _auto_exposure_enabled = False
+    _auto_exposure_mode = "pid"  # "pid" or "snr"
     _auto_exposure_pid: Optional[ExposurePIDController] = None
+    _auto_exposure_snr: Optional[ExposureSNRController] = None
     _last_solve_time: Optional[float] = None
 
     def initialize(self) -> None:
@@ -213,11 +216,20 @@ class CameraInterface:
                                     f"RMSE: {rmse_str}, Current exposure: {self.exposure_time}µs"
                                 )
 
-                                # Call PID update (now handles zero stars with recovery mode)
-                                # Pass base_image for histogram analysis in zero-star handler
-                                new_exposure = self._auto_exposure_pid.update(
-                                    matched_stars, self.exposure_time, base_image
-                                )
+                                # Call auto-exposure update based on current mode
+                                if self._auto_exposure_mode == "snr":
+                                    # SNR mode: use background-based controller (for SQM measurements)
+                                    if self._auto_exposure_snr is None:
+                                        self._auto_exposure_snr = ExposureSNRController()
+                                    new_exposure = self._auto_exposure_snr.update(
+                                        self.exposure_time, base_image
+                                    )
+                                else:
+                                    # PID mode: use star-count based controller (default)
+                                    # Pass base_image for histogram analysis in zero-star handler
+                                    new_exposure = self._auto_exposure_pid.update(
+                                        matched_stars, self.exposure_time, base_image
+                                    )
 
                                 if (
                                     new_exposure is not None
@@ -330,6 +342,19 @@ class CameraInterface:
                             else:
                                 logger.warning(
                                     "Cannot set AE handler: auto-exposure not initialized"
+                                )
+
+                        if command.startswith("set_ae_mode"):
+                            mode = command.split(":")[1]
+                            if mode in ["pid", "snr"]:
+                                self._auto_exposure_mode = mode
+                                console_queue.put(f"CAM: AE Mode={mode.upper()}")
+                                logger.info(
+                                    f"Auto-exposure mode changed to: {mode.upper()}"
+                                )
+                            else:
+                                logger.warning(
+                                    f"Unknown auto-exposure mode: {mode} (valid: pid, snr)"
                                 )
 
                         if command == "exp_up" or command == "exp_dn":

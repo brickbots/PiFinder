@@ -475,7 +475,17 @@ class HistogramZeroStarHandler(ZeroStarHandler):
         # Calculate metrics
         mean = float(np.mean(img_array))
         std = float(np.std(img_array))
-        saturated = np.sum(img_array > 250)
+
+        # Determine saturation threshold based on image bit depth
+        # 8-bit images: 0-255 range, saturate at ~250 (98% of max)
+        # 16-bit images: 0-65535 range, saturate at ~64000 (98% of max)
+        img_max = np.max(img_array)
+        if img_max > 1000:  # Likely 16-bit (range 0-65535)
+            saturation_threshold = 64000  # 98% of 16-bit range
+        else:  # 8-bit (range 0-255)
+            saturation_threshold = 250  # 98% of 8-bit range
+
+        saturated = np.sum(img_array > saturation_threshold)
         saturation_pct = (saturated / img_array.size) * 100
 
         # Viability criteria from test_find_min_exposure.py
@@ -489,6 +499,7 @@ class HistogramZeroStarHandler(ZeroStarHandler):
             "mean": mean,
             "std": std,
             "saturation_pct": saturation_pct,
+            "saturation_threshold": saturation_threshold,
             "has_signal": has_signal,
             "has_structure": has_structure,
             "not_saturated": not_saturated,
@@ -617,6 +628,132 @@ class HistogramZeroStarHandler(ZeroStarHandler):
         self._sweep_results = []
         self._target_exposure = None
         logger.debug("HistogramZeroStarHandler reset")
+
+
+class ExposureSNRController:
+    """
+    SNR-based auto exposure for SQM measurements.
+
+    Targets a minimum background SNR and exposure time instead of star count.
+    This provides more stable, longer exposures (e.g., 0.4s) that are better
+    for accurate SQM measurements compared to the histogram-based approach
+    which can drop too low (0.1s).
+
+    Strategy:
+    - Maintain minimum exposure time for good photon statistics
+    - Target specific background level above noise floor
+    - Slower adjustments for stability
+    """
+
+    def __init__(
+        self,
+        min_exposure: int = 400000,  # 0.4s minimum for SQM
+        max_exposure: int = 1000000,  # 1.0s maximum
+        target_background: int = 30,  # Target background level in ADU
+        min_background: int = 15,  # Minimum acceptable background
+        max_background: int = 100,  # Maximum before saturating
+        adjustment_factor: float = 1.3,  # Gentle adjustments (30% steps)
+        update_interval: float = 5.0,  # Update every 5 seconds
+    ):
+        """
+        Initialize SNR-based auto exposure.
+
+        Args:
+            min_exposure: Minimum exposure in microseconds (default 400ms)
+            max_exposure: Maximum exposure in microseconds (default 1000ms)
+            target_background: Target median background level in ADU
+            min_background: Minimum acceptable background (increase if below)
+            max_background: Maximum acceptable background (decrease if above)
+            adjustment_factor: Multiplicative adjustment step (default 1.3 = 30%)
+            update_interval: Minimum seconds between updates
+        """
+        self.min_exposure = min_exposure
+        self.max_exposure = max_exposure
+        self.target_background = target_background
+        self.min_background = min_background
+        self.max_background = max_background
+        self.adjustment_factor = adjustment_factor
+        self.update_interval = update_interval
+
+        self._last_update_time = 0.0
+
+        logger.info(
+            f"AutoExposure SNR: target_bg={target_background}, "
+            f"range=[{min_background}, {max_background}] ADU, "
+            f"exp_range=[{min_exposure/1000:.0f}, {max_exposure/1000:.0f}]ms, "
+            f"adjustment={adjustment_factor}x"
+        )
+
+    def update(
+        self,
+        current_exposure: int,
+        image: Image.Image,
+        **kwargs  # Ignore other params (matched_stars, etc.)
+    ) -> Optional[int]:
+        """
+        Update exposure based on background level.
+
+        Args:
+            current_exposure: Current exposure in microseconds
+            image: Current image for analysis
+            **kwargs: Ignored (for compatibility with PID interface)
+
+        Returns:
+            New exposure in microseconds, or None if no change needed
+        """
+        current_time = time.time()
+
+        # Rate limiting
+        if current_time - self._last_update_time < self.update_interval:
+            return None
+
+        # Analyze image background
+        if image.mode != "L":
+            image = image.convert("L")
+        img_array = np.asarray(image, dtype=np.float32)
+
+        # Use 10th percentile as background estimate (dark pixels)
+        background = float(np.percentile(img_array, 10))
+
+        logger.debug(f"SNR AE: bg={background:.1f} ADU, exp={current_exposure/1000:.0f}ms")
+
+        # Determine adjustment
+        new_exposure = None
+
+        if background < self.min_background:
+            # Too dark - increase exposure
+            new_exposure = int(current_exposure * self.adjustment_factor)
+            logger.info(
+                f"SNR AE: Background too low ({background:.1f} < {self.min_background}), "
+                f"increasing exposure {current_exposure/1000:.0f}ms → {new_exposure/1000:.0f}ms"
+            )
+        elif background > self.max_background:
+            # Too bright - decrease exposure
+            new_exposure = int(current_exposure / self.adjustment_factor)
+            logger.info(
+                f"SNR AE: Background too high ({background:.1f} > {self.max_background}), "
+                f"decreasing exposure {current_exposure/1000:.0f}ms → {new_exposure/1000:.0f}ms"
+            )
+        else:
+            # Background is in acceptable range
+            logger.debug(f"SNR AE: Background OK ({background:.1f} ADU)")
+            return None
+
+        # Clamp to limits
+        new_exposure = max(self.min_exposure, min(self.max_exposure, new_exposure))
+
+        self._last_update_time = current_time
+        return new_exposure
+
+    def get_status(self) -> dict:
+        return {
+            "mode": "SNR",
+            "target_background": self.target_background,
+            "min_background": self.min_background,
+            "max_background": self.max_background,
+            "min_exposure": self.min_exposure,
+            "max_exposure": self.max_exposure,
+        }
 
 
 class ExposurePIDController:
