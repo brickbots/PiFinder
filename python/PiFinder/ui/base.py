@@ -276,25 +276,27 @@ class UIModule:
         # Use brightness values 0-64 for title bar
 
         if self.rotating_animation_progress < 1.0:
-            # During transition: cross-fade
-            # Calculate brightness levels (0-64 for title bar)
-            prev_brightness = int(64 * (1.0 - self.rotating_animation_progress))
-            curr_brightness = int(64 * self.rotating_animation_progress)
+            # During transition: fade out, then fade in (not overlapping)
+            # Progress 0.0-0.5: fade out previous (64 → 0)
+            # Progress 0.5-1.0: fade in current (0 → 64)
 
-            # Draw both texts overlapping (cross-fade)
-            if prev_brightness > 0:
+            if self.rotating_animation_progress < 0.5:
+                # First half: fade out previous
+                brightness = int(64 * (1.0 - self.rotating_animation_progress * 2))
                 self.draw.text(
                     (x, y),
                     previous_text,
                     font=self.fonts.bold.font,
-                    fill=self.colors.get(prev_brightness),
+                    fill=self.colors.get(brightness),
                 )
-            if curr_brightness > 0:
+            else:
+                # Second half: fade in current
+                brightness = int(64 * (self.rotating_animation_progress - 0.5) * 2)
                 self.draw.text(
                     (x, y),
                     current_text,
                     font=self.fonts.bold.font,
-                    fill=self.colors.get(curr_brightness),
+                    fill=self.colors.get(brightness),
                 )
         else:
             # Stable: show current at full brightness
@@ -321,26 +323,28 @@ class UIModule:
         self._update_rotating_state()
         current_text, previous_text = self._get_rotating_content()
 
-        # Quick cross-fade for content areas (brighter than title bar)
+        # Sequential fade: fade out, then fade in (not overlapping)
         if self.rotating_animation_progress < 1.0:
-            # During transition: cross-fade
-            prev_alpha = int(255 * (1.0 - self.rotating_animation_progress))
-            curr_alpha = int(255 * self.rotating_animation_progress)
+            # Progress 0.0-0.5: fade out previous (255 → 0)
+            # Progress 0.5-1.0: fade in current (0 → 255)
 
-            # Draw both texts overlapping (cross-fade)
-            if prev_alpha > 0:
+            if self.rotating_animation_progress < 0.5:
+                # First half: fade out previous
+                brightness = int(255 * (1.0 - self.rotating_animation_progress * 2))
                 self.draw.text(
                     (x, y),
                     previous_text,
                     font=font,
-                    fill=self.colors.get(prev_alpha),
+                    fill=self.colors.get(brightness),
                 )
-            if curr_alpha > 0:
+            else:
+                # Second half: fade in current
+                brightness = int(255 * (self.rotating_animation_progress - 0.5) * 2)
                 self.draw.text(
                     (x, y),
                     current_text,
                     font=font,
-                    fill=self.colors.get(curr_alpha),
+                    fill=self.colors.get(brightness),
                 )
         else:
             # Stable: show current at full brightness
