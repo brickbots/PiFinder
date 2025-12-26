@@ -238,13 +238,24 @@ class GaiaChartGenerator:
             mag_limit=mag_limit_query,
         )
 
-        # Calculate rotation angle for roll / Newtonian orientation
-        # TODO: Should use telescope type from config (Newtonian vs Refractor)
-        # For now, hardcoded 180° to match existing cat_images.py behavior
-        # Add 90° clockwise rotation to match POSS image orientation
-        image_rotate = 180 + 90  # Newtonian inverts image + 90° CW alignment
+        # Calculate rotation angle for roll / telescope orientation
+        # Reflectors (Newtonian, SCT) invert the image 180°
+        # Refractors typically don't invert (depends on eyepiece design)
+        # Use obstruction as heuristic: obstruction > 0 = reflector
+        telescope = equipment.active_telescope
+        if telescope and telescope.obstruction_perc > 0:
+            # Reflector telescope (Newtonian, SCT) - inverts image
+            image_rotate = 180
+        else:
+            # Refractor or unknown - no base rotation
+            image_rotate = 0
+
         if roll is not None:
             image_rotate += roll
+
+        # Get flip/flop settings from telescope config
+        flip_image = telescope.flip_image if telescope else False
+        flop_image = telescope.flop_image if telescope else False
 
         # Progressive rendering: Yield image after each magnitude band loads
         # Re-render all stars each time (simple, correct, fast enough)
@@ -259,7 +270,8 @@ class GaiaChartGenerator:
 
             # Render ALL stars from scratch (base image without overlays)
             base_image = self.render_chart(
-                stars, catalog_object.ra, catalog_object.dec, fov, resolution, mag, image_rotate, mag_limit_query
+                stars, catalog_object.ra, catalog_object.dec, fov, resolution, mag, image_rotate, mag_limit_query,
+                flip_image=flip_image, flop_image=flop_image
             )
 
             # Store base image for caching (without overlays)
@@ -314,7 +326,8 @@ class GaiaChartGenerator:
             # Generate blank chart (no stars) - this is the base image
             final_base_image = self.render_chart(
                 np.array([]).reshape(0, 3),  # Empty star array
-                catalog_object.ra, catalog_object.dec, fov, resolution, mag, image_rotate, mag_limit_query
+                catalog_object.ra, catalog_object.dec, fov, resolution, mag, image_rotate, mag_limit_query,
+                flip_image=flip_image, flop_image=flop_image
             )
 
         # Cache base image (without overlays) so it can be reused
@@ -368,6 +381,8 @@ class GaiaChartGenerator:
         magnification: float = 50.0,
         rotation: float = 0.0,
         mag_limit: float = 17.0,
+        flip_image: bool = False,
+        flop_image: bool = False,
     ) -> Image.Image:
         """
         Render stars to PIL Image with center crosshair
@@ -534,9 +549,13 @@ class GaiaChartGenerator:
         t6 = time.time()
         logger.debug(f"  Image conversion: {(t6-t5)*1000:.1f}ms")
 
-        # NOTE: No vertical flip needed - rotation already handles telescope orientation
-        # POSS images use rotation only (180° + roll), so we match that behavior
-        # The 180° rotation in generate_chart() inverts the image for Newtonian telescopes
+        # Apply telescope flip/flop transformations
+        # flip_image = vertical flip (mirror top to bottom)
+        # flop_image = horizontal flip (mirror left to right)
+        if flip_image:
+            image = image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+        if flop_image:
+            image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
 
         # Note: Limiting magnitude display added by add_image_overlays() in generate_chart()
         # Note: Pulsating crosshair added separately via add_pulsating_crosshair()

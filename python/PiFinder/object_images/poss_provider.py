@@ -64,11 +64,33 @@ class POSSImageProvider(ImageProvider):
         image_path = self._resolve_image_name(catalog_object, source="POSS")
         return_image = Image.open(image_path)
 
-        # Rotate for roll / newtonian orientation
-        image_rotate = 180
+        # Rotate for roll / telescope orientation
+        # Reflectors (Newtonian, SCT) invert the image 180°
+        # Refractors typically don't invert (depends on eyepiece design)
+        # Use obstruction as heuristic: obstruction > 0 = reflector
+        telescope = None
+        if config_object and hasattr(config_object, "equipment"):
+            telescope = config_object.equipment.active_telescope
+
+        if telescope and telescope.obstruction_perc > 0:
+            # Reflector telescope (Newtonian, SCT) - inverts image
+            image_rotate = 180
+        else:
+            # Refractor or unknown - no base rotation
+            image_rotate = 0
+
         if roll is not None:
             image_rotate += roll
         return_image = return_image.rotate(image_rotate)  # type: ignore[assignment]
+
+        # Apply telescope flip/flop transformations
+        # flip_image = vertical flip (mirror top to bottom)
+        # flop_image = horizontal flip (mirror left to right)
+        if telescope:
+            if telescope.flip_image:
+                return_image = return_image.transpose(Image.Transpose.FLIP_TOP_BOTTOM)  # type: ignore[assignment]
+            if telescope.flop_image:
+                return_image = return_image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)  # type: ignore[assignment]
 
         # Crop to FOV
         fov_size = int(1024 * fov / 2)
