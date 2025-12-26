@@ -79,6 +79,11 @@ class SQM:
         self.pixels_total = height * width
         self.arcsec_squared_per_pixel = self.field_arcsec_squared / self.pixels_total
 
+        logger.info(
+            f"SQM field params: {width}x{height} pixels, FOV={fov_degrees:.2f}°, "
+            f"scale={np.sqrt(self.arcsec_squared_per_pixel):.2f}\"/px"
+        )
+
     def _calculate_background(
         self, image: np.ndarray, centroids: np.ndarray, exclusion_radius: int
     ) -> float:

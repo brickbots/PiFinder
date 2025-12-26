@@ -158,6 +158,11 @@ def update_sqm_dual_pipeline(
                 raw_height, raw_width = raw_array.shape
                 scale_factor = raw_width / 512.0
 
+                logger.info(
+                    f"Raw SQM scaling: image={raw_width}x{raw_height}, "
+                    f"scale={scale_factor:.2f}x, n_centroids={len(centroids)}"
+                )
+
                 # Scale centroids (y, x) coordinates
                 centroids_raw = [(y * scale_factor, x * scale_factor) for y, x in centroids]
 
@@ -165,6 +170,11 @@ def update_sqm_dual_pipeline(
                 aperture_radius_raw = int(aperture_radius * scale_factor)
                 annulus_inner_radius_raw = int(annulus_inner_radius * scale_factor)
                 annulus_outer_radius_raw = int(annulus_outer_radius * scale_factor)
+
+                logger.info(
+                    f"Raw SQM apertures: r={aperture_radius_raw}, "
+                    f"annulus={annulus_inner_radius_raw}-{annulus_outer_radius_raw}"
+                )
 
                 # Scale solution FOV to match raw image (FOV is same, but pixel scale changes)
                 solution_raw = solution.copy()
