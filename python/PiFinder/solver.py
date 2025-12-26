@@ -153,16 +153,33 @@ def update_sqm_dual_pipeline(
             if raw_array is not None:
                 raw_array = np.asarray(raw_array, dtype=np.float32)
 
-                # Calculate raw SQM
+                # Scale centroids and apertures to match raw image size
+                # Processed image is 512x512, raw image is larger (e.g., 1088x1088 for IMX296)
+                raw_height, raw_width = raw_array.shape
+                scale_factor = raw_width / 512.0
+
+                # Scale centroids (y, x) coordinates
+                centroids_raw = [(y * scale_factor, x * scale_factor) for y, x in centroids]
+
+                # Scale aperture radii proportionally
+                aperture_radius_raw = int(aperture_radius * scale_factor)
+                annulus_inner_radius_raw = int(annulus_inner_radius * scale_factor)
+                annulus_outer_radius_raw = int(annulus_outer_radius * scale_factor)
+
+                # Scale solution FOV to match raw image (FOV is same, but pixel scale changes)
+                solution_raw = solution.copy()
+                # FOV in degrees stays the same, SQM calc will recalculate arcsec/pixel from image size
+
+                # Calculate raw SQM with scaled parameters
                 sqm_value_raw, _ = sqm_calculator_raw.calculate(
-                    centroids=centroids,
-                    solution=solution,
+                    centroids=centroids_raw,
+                    solution=solution_raw,
                     image=raw_array,
                     exposure_sec=exposure_sec,
                     altitude_deg=altitude_deg,
-                    aperture_radius=aperture_radius,
-                    annulus_inner_radius=annulus_inner_radius,
-                    annulus_outer_radius=annulus_outer_radius,
+                    aperture_radius=aperture_radius_raw,
+                    annulus_inner_radius=annulus_inner_radius_raw,
+                    annulus_outer_radius=annulus_outer_radius_raw,
                 )
 
         except Exception as e:

@@ -65,11 +65,18 @@ class SQM:
         else:
             logger.info("SQM initialized with manual pedestal mode")
 
-    def _calc_field_parameters(self, fov_degrees: float) -> None:
-        """Calculate field of view parameters."""
+    def _calc_field_parameters(self, fov_degrees: float, image_shape: tuple) -> None:
+        """Calculate field of view parameters based on actual image size.
+
+        Args:
+            fov_degrees: Field of view in degrees
+            image_shape: (height, width) of the image being analyzed
+        """
         self.fov_degrees = fov_degrees
         self.field_arcsec_squared = (fov_degrees * 3600) ** 2
-        self.pixels_total = 512**2
+        # Use actual image dimensions, not hardcoded 512x512
+        height, width = image_shape
+        self.pixels_total = height * width
         self.arcsec_squared_per_pixel = self.field_arcsec_squared / self.pixels_total
 
     def _calculate_background(
@@ -380,7 +387,7 @@ class SQM:
             return None, {}
 
         fov_estimate = solution["FOV"]
-        self._calc_field_parameters(fov_estimate)
+        self._calc_field_parameters(fov_estimate, image.shape)
 
         # Validate solution has matched stars
         if "matched_centroids" not in solution or "matched_stars" not in solution:
