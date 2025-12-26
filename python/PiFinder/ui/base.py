@@ -266,33 +266,35 @@ class UIModule:
         Args:
             x: X coordinate for text
             y: Y coordinate for text
-            fg: Foreground color to use (typically 64 for title bar)
+            fg: Foreground color value (already from colors.get())
         """
         self._update_rotating_state()
         current_text, previous_text = self._get_rotating_content()
 
         # Quick cross-fade: fade out old, fade in new
         # Progress: 0.0 = show previous, 1.0 = show current
+        # Use brightness values 0-64 for title bar
 
         if self.rotating_animation_progress < 1.0:
             # During transition: cross-fade
-            prev_alpha = int(fg * (1.0 - self.rotating_animation_progress))
-            curr_alpha = int(fg * self.rotating_animation_progress)
+            # Calculate brightness levels (0-64 for title bar)
+            prev_brightness = int(64 * (1.0 - self.rotating_animation_progress))
+            curr_brightness = int(64 * self.rotating_animation_progress)
 
             # Draw both texts overlapping (cross-fade)
-            if prev_alpha > 0:
+            if prev_brightness > 0:
                 self.draw.text(
                     (x, y),
                     previous_text,
                     font=self.fonts.bold.font,
-                    fill=self.colors.get(prev_alpha),
+                    fill=self.colors.get(prev_brightness),
                 )
-            if curr_alpha > 0:
+            if curr_brightness > 0:
                 self.draw.text(
                     (x, y),
                     current_text,
                     font=self.fonts.bold.font,
-                    fill=self.colors.get(curr_alpha),
+                    fill=self.colors.get(curr_brightness),
                 )
         else:
             # Stable: show current at full brightness
@@ -300,7 +302,7 @@ class UIModule:
                 (x, y),
                 current_text,
                 font=self.fonts.bold.font,
-                fill=self.colors.get(fg),
+                fill=fg,
             )
 
     def draw_rotating_info(self, x=10, y=92, font=None):
