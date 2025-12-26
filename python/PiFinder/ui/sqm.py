@@ -142,7 +142,7 @@ class UISQM(UIModule):
                 )
             else:
                 # Main SQM view
-                # Last calculation time
+                # Last calculation time and exposure time
                 if sqm_timestamp:
                     elapsed = int(time.time() - sqm_timestamp)
                     if elapsed < 60:
@@ -156,44 +156,64 @@ class UISQM(UIModule):
                         fill=self.colors.get(64),
                     )
 
+                # Show current exposure time (right side)
+                image_metadata = self.shared_state.last_image_metadata()
+                if image_metadata and "exposure_time" in image_metadata:
+                    exp_ms = image_metadata["exposure_time"] / 1000  # Convert µs to ms
+                    if exp_ms >= 1000:
+                        exp_str = f"{exp_ms/1000:.2f}s"
+                    else:
+                        exp_str = f"{exp_ms:.0f}ms"
+                    self.draw.text(
+                        (95, 20),
+                        exp_str,
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(64),
+                    )
+
                 self.draw.text(
                     (10, 30),
                     f"{sqm:.2f}",
                     font=self.fonts.huge.font,
                     fill=self.colors.get(192),
                 )
-                # Raw SQM value (if available) in smaller text next to main value
+                # 8-bit SQM value (processed, right side - keep original position)
+                # Note: sqm_state.value is the 8-bit processed value
+                self.draw.text(
+                    (95, 50),
+                    f"{sqm:.2f}",
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(128),
+                )
+                self.draw.text(
+                    (95, 62),
+                    "8bit",
+                    font=self.fonts.small.font,
+                    fill=self.colors.get(64),
+                )
+
+                # 16-bit SQM value (raw sensor, left side below units)
+                # Note: sqm_state.value_raw is the 16-bit raw value
                 if sqm_state.value_raw is not None:
                     self.draw.text(
-                        (95, 50),
+                        (10, 78),
                         f"{sqm_state.value_raw:.2f}",
                         font=self.fonts.base.font,
                         fill=self.colors.get(128),
                     )
                     self.draw.text(
-                        (95, 62),
-                        "raw",
+                        (48, 78),
+                        "16bit",
                         font=self.fonts.small.font,
                         fill=self.colors.get(64),
                     )
+
                 # Units in small, subtle text
                 self.draw.text(
                     (12, 68),
                     _("mag/arcsec²"),
                     font=self.fonts.base.font,
                     fill=self.colors.get(64),
-                )
-                self.draw.text(
-                    (10, 82),
-                    f"{details['title']}",
-                    font=self.fonts.base.font,
-                    fill=self.colors.get(128),
-                )
-                self.draw.text(
-                    (10, 92),
-                    _("Bortle {bc}").format(bc=details["bortle_class"]),
-                    font=self.fonts.bold.font,
-                    fill=self.colors.get(128),
                 )
 
                 # Legend
