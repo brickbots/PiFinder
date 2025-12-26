@@ -97,12 +97,12 @@ class UIModule:
         # anim timer stuff
         self.last_update_time = time.time()
 
-        # Wheel animation: rotates between constellation and SQM value
-        self.wheel_mode = "constellation"  # "constellation" or "sqm"
-        self.wheel_last_switch = time.time()
-        self.wheel_switch_interval = 3.0  # Switch every 3 seconds
-        self.wheel_animation_progress = 1.0  # 0.0 = transitioning, 1.0 = stable
-        self.wheel_animation_speed = 0.2  # Animation speed per frame
+        # Rotating info: alternates between constellation and SQM value
+        self.rotating_mode = "constellation"  # "constellation" or "sqm"
+        self.rotating_last_switch = time.time()
+        self.rotating_switch_interval = 3.0  # Switch every 3 seconds
+        self.rotating_animation_progress = 1.0  # 0.0 = transitioning, 1.0 = stable
+        self.rotating_animation_speed = 0.15  # Quick fade: ~7 frames at 30fps
 
     def active(self):
         """
@@ -203,41 +203,46 @@ class UIModule:
 
         self.ui_state.set_message_timeout(timeout + time.time())
 
-    def _update_wheel_state(self):
+    def _update_rotating_state(self):
         """
-        Update wheel rotation state. Called internally by both rotating info methods.
+        Update rotating info state. Handles timing and animation progress.
         """
         # Check if it's time to switch modes
         current_time = time.time()
-        if current_time - self.wheel_last_switch >= self.wheel_switch_interval:
+        if current_time - self.rotating_last_switch >= self.rotating_switch_interval:
             # Switch mode
-            if self.wheel_mode == "constellation":
-                self.wheel_mode = "sqm"
+            if self.rotating_mode == "constellation":
+                self.rotating_mode = "sqm"
             else:
-                self.wheel_mode = "constellation"
-            self.wheel_last_switch = current_time
-            self.wheel_animation_progress = 0.0  # Start animation
+                self.rotating_mode = "constellation"
+            self.rotating_last_switch = current_time
+            self.rotating_animation_progress = 0.0  # Start fade transition
 
         # Animate if in progress
-        if self.wheel_animation_progress < 1.0:
-            self.wheel_animation_progress = min(
-                1.0, self.wheel_animation_progress + self.wheel_animation_speed
+        if self.rotating_animation_progress < 1.0:
+            self.rotating_animation_progress = min(
+                1.0, self.rotating_animation_progress + self.rotating_animation_speed
             )
 
-    def _get_wheel_content(self):
+    def _get_rotating_content(self):
         """
-        Get current and previous content for wheel display.
-        Returns: (current_text, previous_text, previous_mode)
+        Get current and previous content for rotating display.
+        Returns: (current_text, previous_text)
         """
-        # Get content to display
-        if self.wheel_mode == "constellation":
+        # Get content to display based on current mode
+        if self.rotating_mode == "constellation":
             # Get constellation from solution
             solution = self.shared_state.solution()
             if solution and solution.get("constellation"):
                 current_text = solution["constellation"]
             else:
                 current_text = "---"
-            previous_mode = "sqm"
+            # Previous was SQM
+            sqm_state = self.shared_state.sqm()
+            if sqm_state and sqm_state.value:
+                previous_text = f"{sqm_state.value:.1f}"
+            else:
+                previous_text = "---"
         else:
             # Get SQM value (1 decimal place)
             sqm_state = self.shared_state.sqm()
@@ -245,66 +250,63 @@ class UIModule:
                 current_text = f"{sqm_state.value:.1f}"
             else:
                 current_text = "---"
-            previous_mode = "constellation"
-
-        # Get previous text (for animation)
-        if previous_mode == "constellation":
+            # Previous was constellation
             solution = self.shared_state.solution()
             if solution and solution.get("constellation"):
                 previous_text = solution["constellation"]
             else:
                 previous_text = "---"
-        else:
-            sqm_state = self.shared_state.sqm()
-            if sqm_state and sqm_state.value:
-                previous_text = f"{sqm_state.value:.1f}"
-            else:
-                previous_text = "---"
 
-        return current_text, previous_text, previous_mode
+        return current_text, previous_text
 
     def _draw_titlebar_rotating_info(self, x, y, fg):
         """
-        Draw rotating constellation/SQM in title bar with wheel slide-up animation.
+        Draw rotating constellation/SQM in title bar with quick cross-fade.
 
         Args:
             x: X coordinate for text
             y: Y coordinate for text
-            fg: Foreground color to use
+            fg: Foreground color to use (typically 64 for title bar)
         """
-        self._update_wheel_state()
-        current_text, previous_text, _ = self._get_wheel_content()
+        self._update_rotating_state()
+        current_text, previous_text = self._get_rotating_content()
 
-        # Calculate animation offsets (wheel effect: slide up)
-        # Scale down for title bar (smaller movement range)
-        prev_offset = int(-8 * self.wheel_animation_progress)
-        curr_offset = int(8 * (1.0 - self.wheel_animation_progress))
+        # Quick cross-fade: fade out old, fade in new
+        # Progress: 0.0 = show previous, 1.0 = show current
 
-        # Calculate fade for smooth transition
-        prev_alpha = int(64 * (1.0 - self.wheel_animation_progress))
-        curr_alpha = int(64 * self.wheel_animation_progress)
+        if self.rotating_animation_progress < 1.0:
+            # During transition: cross-fade
+            prev_alpha = int(fg * (1.0 - self.rotating_animation_progress))
+            curr_alpha = int(fg * self.rotating_animation_progress)
 
-        # Draw previous text (fading out, sliding up)
-        if self.wheel_animation_progress < 1.0 and prev_alpha > 0:
+            # Draw both texts overlapping (cross-fade)
+            if prev_alpha > 0:
+                self.draw.text(
+                    (x, y),
+                    previous_text,
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(prev_alpha),
+                )
+            if curr_alpha > 0:
+                self.draw.text(
+                    (x, y),
+                    current_text,
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(curr_alpha),
+                )
+        else:
+            # Stable: show current at full brightness
             self.draw.text(
-                (x, y + prev_offset),
-                previous_text,
+                (x, y),
+                current_text,
                 font=self.fonts.bold.font,
-                fill=self.colors.get(max(0, prev_alpha)),
+                fill=self.colors.get(fg),
             )
-
-        # Draw current text (fading in, sliding up)
-        self.draw.text(
-            (x, y + curr_offset),
-            current_text,
-            font=self.fonts.bold.font,
-            fill=self.colors.get(curr_alpha) if self.wheel_animation_progress < 1.0 else fg,
-        )
 
     def draw_rotating_info(self, x=10, y=92, font=None):
         """
         Draw rotating display that alternates between constellation and SQM value.
-        Creates a smooth wheel animation effect when switching.
+        Uses quick cross-fade transition.
 
         Args:
             x: X coordinate for text
@@ -314,35 +316,38 @@ class UIModule:
         if font is None:
             font = self.fonts.bold.font
 
-        self._update_wheel_state()
-        current_text, previous_text, _ = self._get_wheel_content()
+        self._update_rotating_state()
+        current_text, previous_text = self._get_rotating_content()
 
-        # Calculate animation offsets (wheel effect: slide up)
-        # Previous text slides up and out (0 → -20)
-        # Current text slides up and in (20 → 0)
-        prev_offset = int(-20 * self.wheel_animation_progress)
-        curr_offset = int(20 * (1.0 - self.wheel_animation_progress))
+        # Quick cross-fade for content areas (brighter than title bar)
+        if self.rotating_animation_progress < 1.0:
+            # During transition: cross-fade
+            prev_alpha = int(255 * (1.0 - self.rotating_animation_progress))
+            curr_alpha = int(255 * self.rotating_animation_progress)
 
-        # Calculate fade for smooth transition
-        prev_alpha = int(128 * (1.0 - self.wheel_animation_progress))
-        curr_alpha = int(128 + 127 * self.wheel_animation_progress)
-
-        # Draw previous text (fading out, sliding up)
-        if self.wheel_animation_progress < 1.0:
+            # Draw both texts overlapping (cross-fade)
+            if prev_alpha > 0:
+                self.draw.text(
+                    (x, y),
+                    previous_text,
+                    font=font,
+                    fill=self.colors.get(prev_alpha),
+                )
+            if curr_alpha > 0:
+                self.draw.text(
+                    (x, y),
+                    current_text,
+                    font=font,
+                    fill=self.colors.get(curr_alpha),
+                )
+        else:
+            # Stable: show current at full brightness
             self.draw.text(
-                (x, y + prev_offset),
-                previous_text,
+                (x, y),
+                current_text,
                 font=font,
-                fill=self.colors.get(max(32, prev_alpha)),
+                fill=self.colors.get(255),
             )
-
-        # Draw current text (fading in, sliding up)
-        self.draw.text(
-            (x, y + curr_offset),
-            current_text,
-            font=font,
-            fill=self.colors.get(curr_alpha),
-        )
 
     def screen_update(self, title_bar=True, button_hints=True) -> None:
         """
