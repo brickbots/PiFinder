@@ -107,11 +107,21 @@ def capture_exposure_sweep(ui_module: UIModule) -> None:
     Uses logarithmic spacing from 25ms to 1s for fine-grained analysis.
     Images saved to: ~/PiFinder_data/captures/sweep_YYYYMMDD_HHMMSS/
     Takes approximately 20 seconds to complete.
+
+    Shows real-time progress UI that monitors camera progress messages.
     """
     logger.info("Starting exposure sweep capture")
-    ui_module.command_queues["camera"].put("capture_exp_sweep")
-    ui_module.message(_("Capturing\nExp Sweep...\n~20 sec"), 3)
-    ui_module.remove_from_stack()
+
+    # Import the sweep UI module
+    from PiFinder.ui.exp_sweep import UIExpSweep
+
+    # Push the sweep progress UI onto the stack
+    # It will handle starting the sweep and showing progress
+    sweep_item = {
+        "class": UIExpSweep,
+        "label": "exp_sweep_progress",
+    }
+    ui_module.add_to_stack(sweep_item)
 
 
 def get_camera_exposure_display(ui_module: UIModule) -> str:

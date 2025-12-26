@@ -3,7 +3,7 @@
 """
 This module contains the UIPreview class, a UI module for displaying and interacting with camera images.
 
-It handles image processing, including background subtraction and gamma correction, and provides zoom
+It handles image processing and provides zoom
 functionality. It also manages a marking menu for adjusting camera settings and draws reticles and star
 selectors on the images.
 """
@@ -12,18 +12,12 @@ import sys
 import numpy as np
 import time
 
-from PIL import Image, ImageChops, ImageOps
+from PIL import ImageChops, ImageOps
 
 from PiFinder.ui.marking_menus import MarkingMenuOption, MarkingMenu
 from PiFinder import utils
 from PiFinder.ui.base import UIModule
 from PiFinder.ui.ui_utils import outline_text
-from PiFinder.image_util import (
-    gamma_correct_high,
-    gamma_correct_med,
-    gamma_correct_low,
-    subtract_background,
-)
 
 sys.path.append(str(utils.tetra3_dir))
 
@@ -61,61 +55,9 @@ class UIPreview(UIModule):
                 label=_("Exposure"),
                 menu_jump="camera_exposure",
             ),
-            down=MarkingMenuOption(
-                label=_("Gamma"),
-                callback=MarkingMenu(
-                    up=MarkingMenuOption(label=_("Off"), callback=self.mm_change_gamma),
-                    left=MarkingMenuOption(
-                        label=_("High"), callback=self.mm_change_gamma
-                    ),
-                    down=MarkingMenuOption(
-                        label=_("Medium"),
-                        callback=self.mm_change_gamma,
-                        selected=True,  # TODO Selected item should be read from config.
-                    ),
-                    right=MarkingMenuOption(
-                        label=_("Low"), callback=self.mm_change_gamma
-                    ),
-                ),
-            ),
-            right=MarkingMenuOption(
-                label=_("BG Sub"),  # TRANSLATE: Background Subtraction context menu
-                callback=MarkingMenu(
-                    up=MarkingMenuOption(label=_("Off"), callback=self.mm_change_bgsub),
-                    left=MarkingMenuOption(
-                        label=_("Full"), callback=self.mm_change_bgsub
-                    ),
-                    down=MarkingMenuOption(),
-                    right=MarkingMenuOption(
-                        label=_("Half"),
-                        callback=self.mm_change_bgsub,
-                        selected=True,  # TODO Selected item should be read from config.
-                    ),
-                ),
-            ),
+            down=MarkingMenuOption(),
+            right=MarkingMenuOption(),
         )
-
-    def mm_change_gamma(self, marking_menu, menu_item):
-        """
-        Called to change gamma adjust value
-        """
-        marking_menu.select_none()
-        menu_item.selected = True
-
-        self.config_object.set_option(
-            "session.camera_gamma", menu_item.label
-        )  # TODO I18N: context menu need display names
-        return True
-
-    def mm_change_bgsub(self, marking_menu, menu_item):
-        """
-        Called to change bg sub amount
-        """
-        marking_menu.select_none()
-        menu_item.selected = True
-
-        self.config_object.set_option("session.camera_bg_sub", menu_item.label)
-        return True
 
     def draw_reticle(self):
         """
@@ -280,22 +222,10 @@ class UIPreview(UIModule):
                 # no resize, just crop
                 image_obj = image_obj.crop((192, 192, 320, 320))
 
-            bg_sub = self.config_object.get_option("session.camera_bg_sub", "Half")
-            if bg_sub == "Half":
-                image_obj = subtract_background(image_obj, percent=0.5)
-            elif bg_sub == "Full":
-                image_obj = subtract_background(image_obj, percent=1)
+            # Convert to RED
             image_obj = image_obj.convert("RGB")
             image_obj = ImageChops.multiply(image_obj, self.colors.red_image)
             image_obj = ImageOps.autocontrast(image_obj)
-
-            gamma_adjust = self.config_object.get_option("session.camera_gamma", "Med")
-            if gamma_adjust == "Low":
-                image_obj = Image.eval(image_obj, gamma_correct_low)
-            elif gamma_adjust == "Medium":
-                image_obj = Image.eval(image_obj, gamma_correct_med)
-            elif gamma_adjust == "High":
-                image_obj = Image.eval(image_obj, gamma_correct_high)
 
             self.screen.paste(image_obj)
             self.last_update = last_image_time

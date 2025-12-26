@@ -499,12 +499,13 @@ class SQM:
         # 3. Apply pedestal correction (like ASTAP)
         background_corrected = background_per_pixel - pedestal
 
+        # Clamp background to minimum of 1 ADU to prevent negative/zero values
         if background_corrected <= 0:
             logger.warning(
-                f"SQM calculation skipped: background ≤0 after pedestal correction "
+                f"Background clamped to 1.0 ADU after pedestal correction "
                 f"({background_per_pixel:.2f} - {pedestal:.2f} = {background_corrected:.2f})"
             )
-            return None, {}
+            background_corrected = 1.0
 
         # 4. Calculate photometric zero point
         mzero, mzeros = self._calculate_mzero(star_fluxes, star_mags)

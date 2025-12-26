@@ -23,6 +23,7 @@ class UISQM(UIModule):
     """
 
     __title__ = _("SQM")
+    __help_name__ = "sqm"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -38,11 +39,17 @@ class UISQM(UIModule):
         # Marking menu definition
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
-                label=_("CAL"),
+                label=_("CALC"),
                 callback=self._launch_calibration,
             ),
-            down=MarkingMenuOption(),
-            right=MarkingMenuOption(),
+            down=MarkingMenuOption(
+                label=_("DEBUG"),
+                callback=self._launch_debug_sweep,
+            ),
+            right=MarkingMenuOption(
+                label=_("CORRECT"),
+                callback=self._launch_correction,
+            ),
         )
 
     def update(self, force=False):
@@ -59,10 +66,10 @@ class UISQM(UIModule):
         self.screen.paste(image_obj)
 
         # Draw semi-transparent dark overlay for text readability
-        overlay_draw = ImageDraw.Draw(self.screen, 'RGBA')
+        overlay_draw = ImageDraw.Draw(self.screen, "RGBA")
         overlay_draw.rectangle(
             [(0, 0), (128, 128)],
-            fill=(0, 0, 0, 180)  # Black with 70% opacity
+            fill=(0, 0, 0, 180),  # Black with 70% opacity
         )
 
         # Get SQM from shared state
@@ -232,6 +239,30 @@ class UISQM(UIModule):
             "label": "sqm_calibration",
         }
         self.add_to_stack(calibration_def)
+        return True  # Exit marking menu
+
+    def _launch_debug_sweep(self, marking_menu, selected_item):
+        """Launch the exposure sweep debug tool"""
+        from PiFinder.ui.exp_sweep import UIExpSweep
+
+        sweep_def = {
+            "name": _("Exposure Sweep"),
+            "class": UIExpSweep,
+            "label": "exp_sweep",
+        }
+        self.add_to_stack(sweep_def)
+        return True  # Exit marking menu
+
+    def _launch_correction(self, marking_menu, selected_item):
+        """Launch the SQM correction UI"""
+        from PiFinder.ui.sqm_correction import UISQMCorrection
+
+        correction_def = {
+            "name": _("SQM Correction"),
+            "class": UISQMCorrection,
+            "label": "sqm_correction",
+        }
+        self.add_to_stack(correction_def)
         return True  # Exit marking menu
 
     def get_sky_details(self, mag_arcsec):

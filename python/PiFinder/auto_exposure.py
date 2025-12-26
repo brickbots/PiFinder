@@ -189,9 +189,7 @@ class SweepZeroStarHandler(ZeroStarHandler):
             # Wrap around to start of sweep
             if self._exposure_index >= len(self._exposures):
                 self._exposure_index = 0
-                logger.debug(
-                    f"Sweep: complete, restarting from {self._exposures[0]}µs"
-                )
+                logger.debug(f"Sweep: complete, restarting from {self._exposures[0]}µs")
             else:
                 next_exposure = self._exposures[self._exposure_index]
                 logger.debug(f"Sweep: advancing to {next_exposure}µs")
