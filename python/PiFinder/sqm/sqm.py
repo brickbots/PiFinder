@@ -596,10 +596,12 @@ class SQM:
             "star_mzeros": mzeros,
         }
 
-        logger.debug(
-            f"SQM: mzero={mzero:.2f}±{np.std(valid_mzeros_for_stats):.2f}, "
-            f"bg={background_flux_density:.6f} ADU/arcsec², pedestal={pedestal:.2f}, "
-            f"raw={sqm_raw:.2f}, extinction={extinction_correction:.2f}, final={sqm_final:.2f}"
+        logger.info(
+            f"SQM calc: mzero={mzero:.2f}±{np.std(valid_mzeros_for_stats):.2f}, "
+            f"bg_px={background_per_pixel:.1f}, pedestal={pedestal:.1f}, "
+            f"bg_corr={background_corrected:.1f}, "
+            f"bg_density={background_flux_density:.2f} ADU/arcsec², "
+            f"raw={sqm_raw:.2f}, ext={extinction_correction:.2f}, final={sqm_final:.2f}"
         )
 
         return sqm_final, details
