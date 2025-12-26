@@ -178,8 +178,6 @@ class UISQM(UIModule):
                     fill=self.colors.get(192),
                 )
 
-                # 16-bit raw SQM removed - 8-bit processed matches real SQM meters
-
                 # Units in small, subtle text
                 self.draw.text(
                     (12, 68),
@@ -187,6 +185,15 @@ class UISQM(UIModule):
                     font=self.fonts.base.font,
                     fill=self.colors.get(64),
                 )
+
+                # Bortle class
+                if details:
+                    self.draw.text(
+                        (10, 92),
+                        _("Bortle {bc}").format(bc=details["bortle_class"]),
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(128),
+                    )
 
                 # Legend
                 details_text = _("DETAILS")
