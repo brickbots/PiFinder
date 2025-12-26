@@ -178,21 +178,7 @@ class UISQM(UIModule):
                     fill=self.colors.get(192),
                 )
 
-                # 16-bit SQM value (raw sensor, left side below units)
-                # Note: sqm_state.value_raw is the 16-bit raw value
-                if sqm_state.value_raw is not None:
-                    self.draw.text(
-                        (10, 78),
-                        f"{sqm_state.value_raw:.2f}",
-                        font=self.fonts.base.font,
-                        fill=self.colors.get(128),
-                    )
-                    self.draw.text(
-                        (48, 78),
-                        "16bit",
-                        font=self.fonts.small.font,
-                        fill=self.colors.get(64),
-                    )
+                # 16-bit raw SQM removed - 8-bit processed matches real SQM meters
 
                 # Units in small, subtle text
                 self.draw.text(
