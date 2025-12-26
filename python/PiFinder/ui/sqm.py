@@ -227,6 +227,16 @@ class UISQM(UIModule):
         Called when a module becomes active
         i.e. foreground controlling display
         """
+        # Switch to SNR auto-exposure mode for stable longer exposures
+        self.command_queues["camera"].put("set_ae_mode:snr")
+
+    def inactive(self):
+        """
+        Called when a module becomes inactive
+        i.e. leaving the SQM screen
+        """
+        # Switch back to PID auto-exposure mode
+        self.command_queues["camera"].put("set_ae_mode:pid")
 
     def _launch_calibration(self, marking_menu, selected_item):
         """Launch the SQM calibration wizard"""
