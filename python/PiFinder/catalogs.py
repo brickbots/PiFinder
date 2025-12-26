@@ -912,8 +912,18 @@ class CatalogBuilder:
 
         # Start background loader for deferred objects
         if deferred_objects:
+            # Sort deferred objects: load WDS last (it has 131K objects)
+            # This ensures smaller catalogs (C, Col, etc.) are available sooner
+            def sort_key(obj):
+                if obj["catalog_code"] == "WDS":
+                    return 1  # Load last
+                else:
+                    return 0  # Load first
+
+            deferred_objects_sorted = sorted(deferred_objects, key=sort_key)
+
             loader = CatalogBackgroundLoader(
-                deferred_catalog_objects=deferred_objects,
+                deferred_catalog_objects=deferred_objects_sorted,
                 objects=objects,
                 common_names=common_names,
                 obs_db=obs_db,
@@ -929,8 +939,7 @@ class CatalogBuilder:
 
     def _on_loader_progress(self, loaded: int, total: int, catalog: str) -> None:
         """Progress callback - log every 10K objects"""
-        if loaded % 10000 == 0 or loaded == total:
-            logger.info(f"Background loading: {loaded}/{total} ({catalog})")
+        pass  # Muted to reduce log noise
 
     def _on_loader_complete(
         self, loaded_objects: List[CompositeObject], ui_queue
