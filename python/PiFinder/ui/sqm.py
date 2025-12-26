@@ -177,20 +177,6 @@ class UISQM(UIModule):
                     font=self.fonts.huge.font,
                     fill=self.colors.get(192),
                 )
-                # 8-bit SQM value (processed, right side - keep original position)
-                # Note: sqm_state.value is the 8-bit processed value
-                self.draw.text(
-                    (95, 50),
-                    f"{sqm:.2f}",
-                    font=self.fonts.base.font,
-                    fill=self.colors.get(128),
-                )
-                self.draw.text(
-                    (95, 62),
-                    "8bit",
-                    font=self.fonts.small.font,
-                    fill=self.colors.get(64),
-                )
 
                 # 16-bit SQM value (raw sensor, left side below units)
                 # Note: sqm_state.value_raw is the 16-bit raw value

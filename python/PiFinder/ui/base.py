@@ -265,7 +265,7 @@ class UIModule:
 
     def _draw_titlebar_rotating_info(self, x, y, fg):
         """
-        Draw rotating constellation/SQM in title bar (simplified, no vertical animation).
+        Draw rotating constellation/SQM in title bar with wheel slide-up animation.
 
         Args:
             x: X coordinate for text
@@ -275,37 +275,31 @@ class UIModule:
         self._update_wheel_state()
         current_text, previous_text, _ = self._get_wheel_content()
 
-        # For title bar: just fade between texts without vertical movement
+        # Calculate animation offsets (wheel effect: slide up)
+        # Scale down for title bar (smaller movement range)
+        prev_offset = int(-8 * self.wheel_animation_progress)
+        curr_offset = int(8 * (1.0 - self.wheel_animation_progress))
+
         # Calculate fade for smooth transition
-        if self.wheel_animation_progress < 1.0:
-            # During transition, blend between old and new
-            # Simple fade without movement (title bar is too small for animation)
-            alpha_progress = self.wheel_animation_progress
-            # Use interpolated alpha for smooth fade
-            if alpha_progress < 0.5:
-                # Fade out previous
-                self.draw.text(
-                    (x, y),
-                    previous_text,
-                    font=self.fonts.bold.font,
-                    fill=self.colors.get(int(64 * (1.0 - alpha_progress * 2))),
-                )
-            else:
-                # Fade in current
-                self.draw.text(
-                    (x, y),
-                    current_text,
-                    font=self.fonts.bold.font,
-                    fill=self.colors.get(int(64 * (alpha_progress - 0.5) * 2)),
-                )
-        else:
-            # Stable: show current text at full brightness
+        prev_alpha = int(64 * (1.0 - self.wheel_animation_progress))
+        curr_alpha = int(64 * self.wheel_animation_progress)
+
+        # Draw previous text (fading out, sliding up)
+        if self.wheel_animation_progress < 1.0 and prev_alpha > 0:
             self.draw.text(
-                (x, y),
-                current_text,
+                (x, y + prev_offset),
+                previous_text,
                 font=self.fonts.bold.font,
-                fill=fg,
+                fill=self.colors.get(max(0, prev_alpha)),
             )
+
+        # Draw current text (fading in, sliding up)
+        self.draw.text(
+            (x, y + curr_offset),
+            current_text,
+            font=self.fonts.bold.font,
+            fill=self.colors.get(curr_alpha) if self.wheel_animation_progress < 1.0 else fg,
+        )
 
     def draw_rotating_info(self, x=10, y=92, font=None):
         """
