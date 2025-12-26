@@ -475,7 +475,17 @@ class HistogramZeroStarHandler(ZeroStarHandler):
         # Calculate metrics
         mean = float(np.mean(img_array))
         std = float(np.std(img_array))
-        saturated = np.sum(img_array > 250)
+
+        # Determine saturation threshold based on image bit depth
+        # 8-bit images: 0-255 range, saturate at ~250 (98% of max)
+        # 16-bit images: 0-65535 range, saturate at ~64000 (98% of max)
+        img_max = np.max(img_array)
+        if img_max > 1000:  # Likely 16-bit (range 0-65535)
+            saturation_threshold = 64000  # 98% of 16-bit range
+        else:  # 8-bit (range 0-255)
+            saturation_threshold = 250  # 98% of 8-bit range
+
+        saturated = np.sum(img_array > saturation_threshold)
         saturation_pct = (saturated / img_array.size) * 100
 
         # Viability criteria from test_find_min_exposure.py
@@ -489,6 +499,7 @@ class HistogramZeroStarHandler(ZeroStarHandler):
             "mean": mean,
             "std": std,
             "saturation_pct": saturation_pct,
+            "saturation_threshold": saturation_threshold,
             "has_signal": has_signal,
             "has_structure": has_structure,
             "not_saturated": not_saturated,
