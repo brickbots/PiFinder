@@ -277,12 +277,13 @@ class UIModule:
 
         if self.rotating_animation_progress < 1.0:
             # During transition: fade out, then fade in (not overlapping)
-            # Progress 0.0-0.5: fade out previous (64 → 0)
-            # Progress 0.5-1.0: fade in current (0 → 64)
+            # Title bar background is gray (64), text is black (0)
+            # Fade out: 0 → 64 (black to gray = invisible)
+            # Fade in: 64 → 0 (gray to black = visible)
 
             if self.rotating_animation_progress < 0.5:
-                # First half: fade out previous
-                brightness = int(64 * (1.0 - self.rotating_animation_progress * 2))
+                # First half: fade out previous (black → gray)
+                brightness = int(64 * self.rotating_animation_progress * 2)
                 self.draw.text(
                     (x, y),
                     previous_text,
@@ -290,8 +291,8 @@ class UIModule:
                     fill=self.colors.get(brightness),
                 )
             else:
-                # Second half: fade in current
-                brightness = int(64 * (self.rotating_animation_progress - 0.5) * 2)
+                # Second half: fade in current (gray → black)
+                brightness = int(64 * (1.0 - (self.rotating_animation_progress - 0.5) * 2))
                 self.draw.text(
                     (x, y),
                     current_text,
@@ -299,12 +300,12 @@ class UIModule:
                     fill=self.colors.get(brightness),
                 )
         else:
-            # Stable: show current at full brightness
+            # Stable: show current in black for visibility
             self.draw.text(
                 (x, y),
                 current_text,
                 font=self.fonts.bold.font,
-                fill=fg,
+                fill=self.colors.get(0),
             )
 
     def draw_rotating_info(self, x=10, y=92, font=None):
