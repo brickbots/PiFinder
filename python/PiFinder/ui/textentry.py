@@ -122,7 +122,6 @@ class UITextEntry(UIModule):
         self._results_updated = False  # Flag to trigger UI refresh
         self.SEARCH_DEBOUNCE_MS = 250  # milliseconds
 
-
     def draw_text_entry(self):
         line_text_y = self.text_y + 15
         self.draw.line(
@@ -229,13 +228,16 @@ class UITextEntry(UIModule):
         Only updates search results in search mode.
         """
         import logging
+
         logger = logging.getLogger("TextEntry")
 
         if self.text_entry_mode:
             logger.info("update_search_results: in text_entry_mode, returning")
             return
 
-        logger.info(f"update_search_results: scheduling search for '{self.current_text}'")
+        logger.info(
+            f"update_search_results: scheduling search for '{self.current_text}'"
+        )
 
         # Cancel pending timer if exists
         if self._search_timer is not None:
@@ -256,7 +258,9 @@ class UITextEntry(UIModule):
             lambda: self._perform_search(search_text, current_version),
         )
         self._search_timer.start()
-        logger.info(f"update_search_results: timer started for 250ms, version={current_version}")
+        logger.info(
+            f"update_search_results: timer started for 250ms, version={current_version}"
+        )
 
     def _perform_search(self, search_text, search_version):
         """
@@ -264,10 +268,13 @@ class UITextEntry(UIModule):
         Only updates results if this search version is still current.
         """
         import logging
+
         logger = logging.getLogger("TextEntry")
 
         try:
-            logger.info(f"_perform_search called with text='{search_text}', version={search_version}")
+            logger.info(
+                f"_perform_search called with text='{search_text}', version={search_version}"
+            )
 
             # Search through whatever catalogs are loaded
             # Priority catalogs (NGC, IC, M) are loaded first, WDS loads in background
@@ -283,7 +290,9 @@ class UITextEntry(UIModule):
                     self._results_updated = True  # Flag that we need UI refresh
                     logger.info("Search results updated, flagging UI refresh")
                 else:
-                    logger.info(f"Search results discarded (version mismatch: {search_version} != {self._search_version})")
+                    logger.info(
+                        f"Search results discarded (version mismatch: {search_version} != {self._search_version})"
+                    )
         except Exception as e:
             logger.error(f"Exception in _perform_search: {e}", exc_info=True)
 
