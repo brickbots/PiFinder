@@ -809,7 +809,7 @@ class UISQMCalibration(UIModule):
 
                 # Calculate SQM for this frame (using processed 8-bit image)
                 # Returns Tuple[Optional[float], Dict]
-                sqm_value, details = sqm_calc.calculate(
+                sqm_value, _details = sqm_calc.calculate(
                     centroids=centroids,
                     solution=solution,
                     image=sky_frame,

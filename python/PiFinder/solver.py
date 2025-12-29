@@ -218,6 +218,9 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             )
         return self._stub
 
+    def __del__(self):
+        self._del_shmem()
+
 
 def solver(
     shared_state,
@@ -418,12 +421,12 @@ def solver(
                                 calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
                             )
 
-                            # Don't clutter printed solution with these fields.
-                            del solution["matched_catID"]
-                            del solution["pattern_centroids"]
-                            del solution["epoch_equinox"]
-                            del solution["epoch_proper_motion"]
-                            del solution["cache_hit_fraction"]
+                            # Don't clutter printed solution with these fields (use pop to safely remove)
+                            solution.pop("matched_catID", None)
+                            solution.pop("pattern_centroids", None)
+                            solution.pop("epoch_equinox", None)
+                            solution.pop("epoch_proper_motion", None)
+                            solution.pop("cache_hit_fraction", None)
 
                         solved |= solution
 
