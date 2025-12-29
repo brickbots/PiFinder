@@ -65,12 +65,24 @@ class SQM:
         else:
             logger.info("SQM initialized with manual pedestal mode")
 
-    def _calc_field_parameters(self, fov_degrees: float) -> None:
-        """Calculate field of view parameters."""
+    def _calc_field_parameters(self, fov_degrees: float, image_shape: tuple) -> None:
+        """Calculate field of view parameters based on actual image size.
+
+        Args:
+            fov_degrees: Field of view in degrees
+            image_shape: (height, width) of the image being analyzed
+        """
         self.fov_degrees = fov_degrees
         self.field_arcsec_squared = (fov_degrees * 3600) ** 2
-        self.pixels_total = 512**2
+        # Use actual image dimensions, not hardcoded 512x512
+        height, width = image_shape
+        self.pixels_total = height * width
         self.arcsec_squared_per_pixel = self.field_arcsec_squared / self.pixels_total
+
+        logger.info(
+            f"SQM field params: {width}x{height} pixels, FOV={fov_degrees:.2f}°, "
+            f"scale={np.sqrt(self.arcsec_squared_per_pixel):.2f}\"/px"
+        )
 
     def _calculate_background(
         self, image: np.ndarray, centroids: np.ndarray, exclusion_radius: int
@@ -380,7 +392,7 @@ class SQM:
             return None, {}
 
         fov_estimate = solution["FOV"]
-        self._calc_field_parameters(fov_estimate)
+        self._calc_field_parameters(fov_estimate, image.shape)
 
         # Validate solution has matched stars
         if "matched_centroids" not in solution or "matched_stars" not in solution:
@@ -584,10 +596,12 @@ class SQM:
             "star_mzeros": mzeros,
         }
 
-        logger.debug(
-            f"SQM: mzero={mzero:.2f}±{np.std(valid_mzeros_for_stats):.2f}, "
-            f"bg={background_flux_density:.6f} ADU/arcsec², pedestal={pedestal:.2f}, "
-            f"raw={sqm_raw:.2f}, extinction={extinction_correction:.2f}, final={sqm_final:.2f}"
+        logger.info(
+            f"SQM calc: mzero={mzero:.2f}±{np.std(valid_mzeros_for_stats):.2f}, "
+            f"bg_px={background_per_pixel:.1f}, pedestal={pedestal:.1f}, "
+            f"bg_corr={background_corrected:.1f}, "
+            f"bg_density={background_flux_density:.2f} ADU/arcsec², "
+            f"raw={sqm_raw:.2f}, ext={extinction_correction:.2f}, final={sqm_final:.2f}"
         )
 
         return sqm_final, details
