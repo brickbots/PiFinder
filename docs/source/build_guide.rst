@@ -220,6 +220,10 @@ After you have all the pins soldrerd, it's a good time to insert the SD card and
 
 .. image:: images/build_guide/ui_module_18.jpeg
 
+Once it started completely, you will be greeted with :ref:`"the menu"<user_guide:the menu system>`. You can now use the buttons below the screen to navigate. See the faceplate for button functions.
+
+Navigate to the ``Tools > Status`` :ref:`screen<user_guide:status screen>` and verify that the IMU is detected properly: The lines displaying "IMU" in the status screen should show some numbers. Then navigate to the ``Objects > Name Search`` entry and use it to test the keypad to enter a few letters of an object name.  Congratulations, the keypad is working properly.
+
 There you go!  The PiFinder hat is fully assembled and you can move on to printing your parts or :ref:`final assembly<build_guide:assembly>`
 
 Configurations Overview
