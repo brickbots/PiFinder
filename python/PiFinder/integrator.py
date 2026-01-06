@@ -97,9 +97,18 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 if solved["RA"] is not None:
                     last_image_solve = copy.deepcopy(solved)
                     solved["solve_source"] = "CAM"
+                    # Calculate constellation for successful solve
+                    solved["constellation"] = (
+                        calc_utils.sf_utils.radec_to_constellation(
+                            solved["RA"], solved["Dec"]
+                        )
+                    )
+                    shared_state.set_solve_state(True)
                 else:
                     # Failed solve - clear constellation
                     solved["solve_source"] = "CAM_FAILED"
+                    solved["constellation"] = ""
+                    shared_state.set_solve_state(False)
 
                 # Push all camera solves (success and failure) immediately
                 # This ensures auto-exposure sees Matches=0 for failed solves
