@@ -546,7 +546,7 @@ class CameraInterface:
                                 altitude_deg = None
                                 azimuth_deg = None
 
-                                if solve_state:
+                                if solve_state is not None:
                                     ra_deg = solve_state.get("RA")
                                     dec_deg = solve_state.get("Dec")
                                     altitude_deg = solve_state.get("Alt")

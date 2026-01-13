@@ -142,6 +142,7 @@ class MenuManager:
         self.ss_count = 0
 
         dyn_menu_equipment(self.config_object)
+        self.preload_modules()
 
     def screengrab(self):
         self.ss_count += 1
@@ -168,6 +169,7 @@ class MenuManager:
         like chart, so they are ready to go
         """
         for module_def in collect_preloads():
+            print(f"Preloading: {module_def['class']}")
             module_def["state"] = module_def["class"](
                 display_class=self.display_class,
                 camera_image=self.camera_image,
