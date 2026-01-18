@@ -246,6 +246,10 @@ class Location:
 class SharedStateObj:
     def __init__(self) -> None:
         self.__power_state = 1
+        # self.__solve_state
+        # None = No solve attempted yet
+        # True = Valid solve data from either IMU or Camera
+        # False = Invalid solve data
         self.__solve_state = None
         self.__ui_state = None
         self.__last_image_metadata = {
