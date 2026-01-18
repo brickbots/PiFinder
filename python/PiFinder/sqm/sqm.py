@@ -211,22 +211,27 @@ class SQM:
         self, star_fluxes: list, star_mags: list
     ) -> Tuple[Optional[float], list]:
         """
-        Calculate photometric zero point from calibrated stars.
+        Calculate photometric zero point from calibrated stars using flux-weighted mean.
 
         For point sources: mzero = catalog_mag + 2.5 × log10(total_flux_ADU)
 
         This zero point allows converting any ADU measurement to magnitudes:
             mag = mzero - 2.5 × log10(flux_ADU)
 
+        Uses flux-weighted mean: brighter stars have higher SNR so their
+        mzero estimates are more reliable.
+
         Args:
             star_fluxes: Background-subtracted star fluxes (ADU)
             star_mags: Catalog magnitudes for matched stars
 
         Returns:
-            Tuple of (mean_mzero, list_of_individual_mzeros)
+            Tuple of (weighted_mean_mzero, list_of_individual_mzeros)
             Note: The mzeros list will contain None for stars with invalid flux
         """
         mzeros: list[Optional[float]] = []
+        valid_mzeros = []
+        valid_fluxes = []
 
         for flux, mag in zip(star_fluxes, star_mags):
             if flux <= 0:
@@ -239,16 +244,21 @@ class SQM:
             # Calculate zero point: ZP = m + 2.5*log10(F)
             mzero = mag + 2.5 * np.log10(flux)
             mzeros.append(mzero)
-
-        # Filter out None values for statistics calculation
-        valid_mzeros = [mz for mz in mzeros if mz is not None]
+            valid_mzeros.append(mzero)
+            valid_fluxes.append(flux)
 
         if len(valid_mzeros) == 0:
             logger.error("No valid stars for mzero calculation")
             return None, mzeros
 
-        # Return mean and the full mzeros list (which may contain None values)
-        return float(np.mean(valid_mzeros)), mzeros
+        # Flux-weighted mean: brighter stars contribute more
+        valid_mzeros_arr = np.array(valid_mzeros)
+        valid_fluxes_arr = np.array(valid_fluxes)
+        weighted_mzero = float(
+            np.average(valid_mzeros_arr, weights=valid_fluxes_arr)
+        )
+
+        return weighted_mzero, mzeros
 
     def _detect_aperture_overlaps(
         self,
