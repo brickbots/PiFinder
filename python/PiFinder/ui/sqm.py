@@ -195,6 +195,18 @@ class UISQM(UIModule):
                     font=self.fonts.base.font,
                     fill=self.colors.get(64),
                 )
+
+                # Show altitude-corrected SQM (scientific value) if available
+                if sqm_details:
+                    sqm_alt = sqm_details.get("sqm_altitude_corrected")
+                    if sqm_alt:
+                        self.draw.text(
+                            (12, 80),
+                            f"alt: {sqm_alt:.2f}",
+                            font=self.fonts.base.font,
+                            fill=self.colors.get(64),
+                        )
+
                 # Bortle class
                 if details:
                     self.draw.text(

@@ -566,11 +566,17 @@ class SQM:
 
         sqm_uncorrected = mzero - 2.5 * np.log10(background_flux_density)
 
-        # 7. Apply atmospheric extinction correction (0.1 mag/airmass)
-        # This enables comparing measurements at different altitudes and matches
-        # typical consumer SQM meters which also apply extinction correction.
-        extinction_correction = self._atmospheric_extinction(altitude_deg)
-        sqm_final = sqm_uncorrected + extinction_correction
+        # 7. Apply atmospheric extinction corrections
+        # Two values are calculated:
+        # a) Fixed 0.1 mag (matches typical consumer SQM meters at zenith)
+        # b) Altitude-dependent correction using 0.1 mag/airmass for scientific comparison
+        extinction_fixed = 0.1  # Fixed correction to match reference SQM meters
+        extinction_altitude = self._atmospheric_extinction(altitude_deg)  # Altitude-dependent
+
+        # Main SQM value uses fixed correction (for meter comparison)
+        sqm_final = sqm_uncorrected + extinction_fixed
+        # Scientific value uses altitude-dependent correction
+        sqm_altitude_corrected = sqm_uncorrected + extinction_altitude
 
         # Filter out None values for statistics in diagnostics
         valid_mzeros_for_stats = [mz for mz in mzeros if mz is not None]
@@ -621,8 +627,10 @@ class SQM:
             ),
             "sqm_uncorrected": sqm_uncorrected,
             "altitude_deg": altitude_deg,
-            "extinction_correction": extinction_correction,
+            "extinction_fixed": extinction_fixed,
+            "extinction_altitude": extinction_altitude,
             "sqm_final": sqm_final,
+            "sqm_altitude_corrected": sqm_altitude_corrected,
             # Per-star details for diagnostics
             "star_centroids": matched_centroids_arr.tolist(),
             "star_mags": star_mags,
@@ -634,7 +642,8 @@ class SQM:
         logger.debug(
             f"SQM: mzero={mzero:.2f}±{np.std(valid_mzeros_for_stats):.2f}, "
             f"bg={background_flux_density:.6f} ADU/arcsec², pedestal={pedestal:.2f}, "
-            f"raw={sqm_uncorrected:.2f}, extinction={extinction_correction:.2f}, final={sqm_final:.2f}"
+            f"raw={sqm_uncorrected:.2f}, ext_fixed={extinction_fixed:.2f}, "
+            f"ext_alt={extinction_altitude:.2f}, final={sqm_final:.2f}"
         )
 
         return sqm_final, details
