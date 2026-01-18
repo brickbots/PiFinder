@@ -177,14 +177,6 @@ class UISQM(UIModule):
                     font=self.fonts.huge.font,
                     fill=self.colors.get(192),
                 )
-                # Raw SQM value (if available) in smaller text next to main value
-                if sqm_state.value_raw is not None:
-                    self.draw.text(
-                        (95, 50),
-                        f"{sqm_state.value_raw:.2f}",
-                        font=self.fonts.base.font,
-                        fill=self.colors.get(128),
-                    )
 
                 # Units in small, subtle text
                 self.draw.text(

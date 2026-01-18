@@ -516,16 +516,16 @@ class SQM:
         # 5. Convert background to flux density (ADU per arcsec²)
         background_flux_density = background_corrected / self.arcsec_squared_per_pixel
 
-        # 6. Calculate raw SQM
+        # 6. Calculate SQM (before extinction correction)
         if background_flux_density <= 0:
             logger.error(f"Invalid background flux density: {background_flux_density}")
             return None, {}
 
-        sqm_raw = mzero - 2.5 * np.log10(background_flux_density)
+        sqm_uncorrected = mzero - 2.5 * np.log10(background_flux_density)
 
         # 7. Apply atmospheric extinction correction
         extinction_correction = self._atmospheric_extinction(altitude_deg)
-        sqm_final = sqm_raw + extinction_correction
+        sqm_final = sqm_uncorrected + extinction_correction
 
         # Filter out None values for statistics in diagnostics
         valid_mzeros_for_stats = [mz for mz in mzeros if mz is not None]
@@ -572,7 +572,7 @@ class SQM:
                 float(np.min(valid_mzeros_for_stats)),
                 float(np.max(valid_mzeros_for_stats)),
             ),
-            "sqm_raw": sqm_raw,
+            "sqm_uncorrected": sqm_uncorrected,
             "altitude_deg": altitude_deg,
             "extinction_correction": extinction_correction,
             "sqm_final": sqm_final,
@@ -587,7 +587,7 @@ class SQM:
         logger.debug(
             f"SQM: mzero={mzero:.2f}±{np.std(valid_mzeros_for_stats):.2f}, "
             f"bg={background_flux_density:.6f} ADU/arcsec², pedestal={pedestal:.2f}, "
-            f"raw={sqm_raw:.2f}, extinction={extinction_correction:.2f}, final={sqm_final:.2f}"
+            f"raw={sqm_uncorrected:.2f}, extinction={extinction_correction:.2f}, final={sqm_final:.2f}"
         )
 
         return sqm_final, details

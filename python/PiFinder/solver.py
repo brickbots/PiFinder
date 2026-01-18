@@ -35,15 +35,11 @@ SQM_CALCULATION_INTERVAL_SECONDS = 5.0
 
 
 def create_sqm_calculator(shared_state):
-    """Create a new SQM calculator instance for PROCESSED images with current calibration."""
-    # Get camera type from shared state and use "_processed" profile
-    # since images are already processed 8-bit (not raw)
+    """Create a new SQM calculator instance with current calibration."""
     camera_type = shared_state.camera_type()
     camera_type_processed = f"{camera_type}_processed"
 
-    logger.info(
-        f"Creating processed SQM calculator for camera: {camera_type_processed}"
-    )
+    logger.info(f"Creating SQM calculator for camera: {camera_type_processed}")
 
     return SQMCalculator(
         camera_type=camera_type_processed,
@@ -51,16 +47,12 @@ def create_sqm_calculator(shared_state):
     )
 
 
-# Raw SQM calculation removed - 8-bit processed matches real SQM meters
-# and is properly calibrated. Raw would need separate calibration.
-
-
-def update_sqm_single_pipeline(
+def update_sqm(
     shared_state,
     sqm_calculator,
     centroids,
     solution,
-    image_processed,
+    image,
     exposure_sec,
     altitude_deg,
     calculation_interval_seconds=5.0,
@@ -69,16 +61,14 @@ def update_sqm_single_pipeline(
     annulus_outer_radius=14,
 ):
     """
-    Calculate SQM from processed (8-bit) image.
-
-    Uses ISP-processed 8-bit image which matches real SQM meter calibration.
+    Calculate SQM from image.
 
     Args:
         shared_state: SharedStateObj instance
-        sqm_calculator: SQM calculator for processed images
+        sqm_calculator: SQM calculator instance
         centroids: List of detected star centroids
         solution: Tetra3 solve solution with matched stars
-        image_processed: Processed 8-bit image array
+        image: Image array
         exposure_sec: Exposure time in seconds
         altitude_deg: Altitude in degrees for extinction correction
         calculation_interval_seconds: Minimum time between calculations (default: 5.0)
@@ -114,7 +104,7 @@ def update_sqm_single_pipeline(
         return False
 
     try:
-        # Calculate SQM from processed 8-bit image
+        # Calculate SQM from image
         sqm_value, _ = sqm_calculator.calculate(
             centroids=centroids,
             solution=solution,
@@ -130,7 +120,6 @@ def update_sqm_single_pipeline(
         if sqm_value is not None:
             new_sqm_state = SQMState(
                 value=sqm_value,
-                value_raw=None,  # No longer calculating raw SQM
                 source="Calculated",
                 last_update=datetime.now().isoformat(),
             )
@@ -355,7 +344,7 @@ def solver(
                                 last_image_metadata["exposure_time"] / 1_000_000.0
                             )
 
-                            update_sqm_single_pipeline(
+                            update_sqm(
                                 shared_state=shared_state,
                                 sqm_calculator=sqm_calculator,
                                 centroids=centroids,
@@ -418,7 +407,7 @@ def solver(
                                     last_image_metadata["exposure_time"] / 1_000_000.0
                                 )
 
-                                update_sqm_single_pipeline(
+                                update_sqm(
                                     shared_state=shared_state,
                                     sqm_calculator=sqm_calculator,
                                     centroids=centroids,

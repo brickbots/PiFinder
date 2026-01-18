@@ -146,19 +146,13 @@ class SQM:
     Sky Quality Meter - represents the sky brightness measurement.
     """
 
-    value: float = (
-        20.15  # mag/arcsec² - default typical dark sky value (processed 8-bit)
-    )
-    value_raw: Optional[float] = (
-        None  # mag/arcsec² - from raw 16-bit pipeline (more accurate)
-    )
+    value: float = 20.15  # mag/arcsec² - default typical dark sky value
     source: str = "None"  # "None", "Calculated", "Manual", etc.
     last_update: Optional[str] = None  # ISO timestamp of last update
 
     def __str__(self):
-        raw_str = f", raw={self.value_raw:.2f}" if self.value_raw is not None else ""
         return (
-            f"SQM(value={self.value:.2f} mag/arcsec²{raw_str}, "
+            f"SQM(value={self.value:.2f} mag/arcsec², "
             f"source={self.source}, "
             f"last_update={self.last_update or 'Never'})"
         )
