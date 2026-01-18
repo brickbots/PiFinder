@@ -28,6 +28,7 @@ from PiFinder.auto_exposure import (
     HistogramZeroStarHandler,
     generate_exposure_sweep,
 )
+from PiFinder.sqm.camera_profiles import detect_camera_type
 
 logger = logging.getLogger("Camera.Interface")
 
@@ -221,15 +222,16 @@ class CameraInterface:
                                     # SNR mode: use background-based controller (for SQM measurements)
                                     if self._auto_exposure_snr is None:
                                         # Use camera profile to derive thresholds
-                                        cam_type = f"{self.get_cam_type()}_processed"
                                         try:
+                                            cam_type = detect_camera_type(self.get_cam_type())
+                                            cam_type = f"{cam_type}_processed"
                                             self._auto_exposure_snr = (
                                                 ExposureSNRController.from_camera_profile(cam_type)
                                             )
-                                        except ValueError:
+                                        except ValueError as e:
                                             # Unknown camera, use defaults
                                             logger.warning(
-                                                f"Unknown camera '{cam_type}', using default SNR thresholds"
+                                                f"Camera detection failed: {e}, using default SNR thresholds"
                                             )
                                             self._auto_exposure_snr = ExposureSNRController()
                                     new_exposure = self._auto_exposure_snr.update(
