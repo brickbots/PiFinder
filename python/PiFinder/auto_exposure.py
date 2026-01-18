@@ -641,6 +641,7 @@ class ExposureSNRController:
         min_background: int = 15,  # Minimum acceptable background
         max_background: int = 100,  # Maximum before saturating
         adjustment_factor: float = 1.3,  # Gentle adjustments (30% steps)
+        saturation_threshold: int = 250,  # Pixel value indicating saturation
     ):
         """
         Initialize SNR-based auto exposure.
@@ -652,6 +653,7 @@ class ExposureSNRController:
             min_background: Minimum acceptable background (increase if below)
             max_background: Maximum acceptable background (decrease if above)
             adjustment_factor: Multiplicative adjustment step (default 1.3 = 30%)
+            saturation_threshold: Pixel value above which stars are saturating
         """
         self.min_exposure = min_exposure
         self.max_exposure = max_exposure
@@ -659,12 +661,13 @@ class ExposureSNRController:
         self.min_background = min_background
         self.max_background = max_background
         self.adjustment_factor = adjustment_factor
+        self.saturation_threshold = saturation_threshold
 
         logger.info(
             f"AutoExposure SNR: target_bg={target_background}, "
             f"range=[{min_background}, {max_background}] ADU, "
             f"exp_range=[{min_exposure/1000:.0f}, {max_exposure/1000:.0f}]ms, "
-            f"adjustment={adjustment_factor}x"
+            f"adjustment={adjustment_factor}x, sat_thresh={saturation_threshold}"
         )
 
     @classmethod
@@ -706,10 +709,14 @@ class ExposureSNRController:
         # target_background: just above min (no benefit to higher values)
         target_background = int(min_background * 1.25)
 
+        # saturation_threshold: ~98% of max ADU (stars above this are saturating)
+        saturation_threshold = int(max_adu * 0.98)
+
         logger.info(
             f"SNR controller from {camera_type}: "
             f"bit_depth={profile.bit_depth}, bias={bias:.0f}, "
-            f"thresholds=[{min_background}, {target_background}, {max_background}]"
+            f"thresholds=[{min_background}, {target_background}, {max_background}], "
+            f"sat={saturation_threshold}"
         )
 
         return cls(
@@ -719,6 +726,7 @@ class ExposureSNRController:
             min_background=min_background,
             max_background=max_background,
             adjustment_factor=adjustment_factor,
+            saturation_threshold=saturation_threshold,
         )
 
     def update(
@@ -738,20 +746,32 @@ class ExposureSNRController:
         Returns:
             New exposure in microseconds, or None if no change needed
         """
-        # Analyze image background
+        # Analyze image
         if image.mode != "L":
             image = image.convert("L")
         img_array = np.asarray(image, dtype=np.float32)
 
         # Use 10th percentile as background estimate (dark pixels)
         background = float(np.percentile(img_array, 10))
+        # Check for saturation (max pixel value)
+        max_pixel = float(np.max(img_array))
 
-        logger.debug(f"SNR AE: bg={background:.1f} ADU, exp={current_exposure/1000:.0f}ms")
+        logger.debug(
+            f"SNR AE: bg={background:.1f}, max={max_pixel:.0f} ADU, "
+            f"exp={current_exposure/1000:.0f}ms"
+        )
 
         # Determine adjustment
         new_exposure = None
 
-        if background < self.min_background:
+        # Saturation check takes priority - if stars are saturating, reduce exposure
+        if max_pixel >= self.saturation_threshold:
+            new_exposure = int(current_exposure / self.adjustment_factor)
+            logger.info(
+                f"SNR AE: Saturation detected (max={max_pixel:.0f} >= {self.saturation_threshold}), "
+                f"decreasing exposure {current_exposure/1000:.0f}ms → {new_exposure/1000:.0f}ms"
+            )
+        elif background < self.min_background:
             # Too dark - increase exposure
             new_exposure = int(current_exposure * self.adjustment_factor)
             logger.info(
@@ -766,8 +786,8 @@ class ExposureSNRController:
                 f"decreasing exposure {current_exposure/1000:.0f}ms → {new_exposure/1000:.0f}ms"
             )
         else:
-            # Background is in acceptable range
-            logger.debug(f"SNR AE: Background OK ({background:.1f} ADU)")
+            # Background is in acceptable range and no saturation
+            logger.debug(f"SNR AE: OK (bg={background:.1f}, max={max_pixel:.0f} ADU)")
             return None
 
         # Clamp to limits
