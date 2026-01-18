@@ -193,18 +193,14 @@ class UISQM(UIModule):
                     font=self.fonts.base.font,
                     fill=self.colors.get(64),
                 )
-                self.draw.text(
-                    (10, 82),
-                    f"{details['title']}",
-                    font=self.fonts.base.font,
-                    fill=self.colors.get(128),
-                )
-                self.draw.text(
-                    (10, 92),
-                    _("Bortle {bc}").format(bc=details["bortle_class"]),
-                    font=self.fonts.bold.font,
-                    fill=self.colors.get(128),
-                )
+                # Bortle class
+                if details:
+                    self.draw.text(
+                        (10, 92),
+                        _("Bortle {bc}").format(bc=details["bortle_class"]),
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(128),
+                    )
 
                 # Legend
                 details_text = _("DETAILS")
