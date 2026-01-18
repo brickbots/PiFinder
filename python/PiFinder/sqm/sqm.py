@@ -117,7 +117,8 @@ class SQM:
         aperture_radius: int,
         annulus_inner_radius: int,
         annulus_outer_radius: int,
-    ) -> Tuple[list, list]:
+        saturation_threshold: int = 250,
+    ) -> Tuple[list, list, int]:
         """
         Measure star flux with local background from annulus around each star.
 
@@ -127,15 +128,20 @@ class SQM:
             aperture_radius: Aperture radius for star flux in pixels
             annulus_inner_radius: Inner radius of background annulus in pixels
             annulus_outer_radius: Outer radius of background annulus in pixels
+            saturation_threshold: Pixel value threshold for saturation detection (default: 250)
+                                  Stars with any aperture pixel >= this value are marked saturated
 
         Returns:
-            Tuple of (star_fluxes, local_backgrounds) where:
+            Tuple of (star_fluxes, local_backgrounds, n_saturated) where:
                 star_fluxes: Background-subtracted star fluxes (total ADU above local background)
+                            Saturated stars have flux set to -1 to be excluded from mzero calculation
                 local_backgrounds: Local background per pixel for each star (ADU/pixel)
+                n_saturated: Number of stars excluded due to saturation
         """
         height, width = image.shape
         star_fluxes = []
         local_backgrounds = []
+        n_saturated = 0
 
         # Pre-compute squared radii
         aperture_r2 = aperture_radius**2
@@ -177,8 +183,19 @@ class SQM:
                     f"Star at ({cx:.0f},{cy:.0f}) has no annulus pixels, using global median"
                 )
 
+            # Check for saturation in aperture
+            aperture_pixels = image_patch[aperture_mask]
+            max_aperture_pixel = np.max(aperture_pixels) if len(aperture_pixels) > 0 else 0
+
+            if max_aperture_pixel >= saturation_threshold:
+                # Mark saturated star with flux=-1 to be excluded from mzero calculation
+                star_fluxes.append(-1)
+                local_backgrounds.append(local_bg_per_pixel)
+                n_saturated += 1
+                continue
+
             # Total flux in aperture (includes background)
-            total_flux = np.sum(image_patch[aperture_mask])
+            total_flux = np.sum(aperture_pixels)
 
             # Subtract background contribution
             aperture_area_pixels = np.sum(aperture_mask)
@@ -188,7 +205,7 @@ class SQM:
             star_fluxes.append(star_flux)
             local_backgrounds.append(local_bg_per_pixel)
 
-        return star_fluxes, local_backgrounds
+        return star_fluxes, local_backgrounds, n_saturated
 
     def _calculate_mzero(
         self, star_fluxes: list, star_mags: list
@@ -332,6 +349,7 @@ class SQM:
         annulus_outer_radius: int = 14,
         pedestal: float = 0.0,
         correct_overlaps: bool = False,
+        saturation_threshold: int = 250,
     ) -> Tuple[Optional[float], Dict]:
         """
         Calculate SQM (Sky Quality Meter) value using local background annuli.
@@ -351,6 +369,8 @@ class SQM:
                      If bias_image is provided and pedestal=0, pedestal is calculated from bias_image
             correct_overlaps: If True, exclude stars with overlapping apertures/annuli (default: False)
                             Excludes CRITICAL and HIGH overlaps to prevent contamination
+            saturation_threshold: Pixel value threshold for saturation detection (default: 250)
+                                Stars with any aperture pixel >= this value are excluded from mzero
 
         Returns:
             Tuple of (sqm_value, details_dict) where:
@@ -470,13 +490,22 @@ class SQM:
                 logger.debug("No pedestal applied")
 
         # 1. Measure star fluxes with local background from annulus
-        star_fluxes, local_backgrounds = self._measure_star_flux_with_local_background(
-            image,
-            matched_centroids_arr,
-            aperture_radius,
-            annulus_inner_radius,
-            annulus_outer_radius,
+        star_fluxes, local_backgrounds, n_saturated = (
+            self._measure_star_flux_with_local_background(
+                image,
+                matched_centroids_arr,
+                aperture_radius,
+                annulus_inner_radius,
+                annulus_outer_radius,
+                saturation_threshold,
+            )
         )
+
+        if n_saturated > 0:
+            logger.info(
+                f"Excluded {n_saturated}/{len(matched_centroids_arr)} saturated stars "
+                f"(threshold={saturation_threshold})"
+            )
 
         # 1a. Estimate pedestal from median local background if enabled and not already set
         if (
@@ -540,6 +569,8 @@ class SQM:
             "n_matched_stars_original": n_stars_original,
             "overlap_correction_enabled": correct_overlaps,
             "n_stars_excluded_overlaps": n_stars_excluded,
+            "n_stars_excluded_saturation": n_saturated,
+            "saturation_threshold": saturation_threshold,
             "background_per_pixel": background_per_pixel,
             "background_method": "local_annulus",
             "pedestal": pedestal,
