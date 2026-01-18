@@ -333,6 +333,11 @@ class UISQMCorrection(UIModule):
         # Get adaptive noise floor (used for auto-exposure and SQM pedestal)
         metadata["noise_floor_adu"] = self.shared_state.noise_floor()
 
+        # Get full SQM calculation details (mzero, background, extinction, etc.)
+        sqm_details = self.shared_state.sqm_details()
+        if sqm_details:
+            metadata["sqm_calculation"] = sqm_details
+
         return metadata
 
     def active(self):

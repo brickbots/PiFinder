@@ -259,6 +259,7 @@ class SharedStateObj:
         self.__location: Location = Location()
         self.__sqm: SQM = SQM()
         self.__noise_floor: float = 10.0  # Adaptive noise floor in ADU (default fallback)
+        self.__sqm_details: dict = {}  # Full SQM calculation details for calibration
         self.__datetime = None
         self.__datetime_time = None
         self.__screen = None
@@ -365,6 +366,14 @@ class SharedStateObj:
     def set_noise_floor(self, v: float):
         """Update the adaptive noise floor (from SQM calculator)"""
         self.__noise_floor = v
+
+    def sqm_details(self) -> dict:
+        """Return the full SQM calculation details"""
+        return self.__sqm_details
+
+    def set_sqm_details(self, v: dict):
+        """Update the SQM calculation details"""
+        self.__sqm_details = v
 
     def get_sky_brightness(self):
         """Return just the numeric SQM value for convenience"""

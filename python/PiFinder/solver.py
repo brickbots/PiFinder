@@ -121,6 +121,15 @@ def update_sqm(
         if noise_floor_details and "noise_floor_adu" in noise_floor_details:
             shared_state.set_noise_floor(noise_floor_details["noise_floor_adu"])
 
+        # Store SQM details (filter out large per-star arrays)
+        filtered_details = {
+            k: v
+            for k, v in details.items()
+            if k
+            not in ("star_centroids", "star_mags", "star_fluxes", "star_local_backgrounds", "star_mzeros")
+        }
+        shared_state.set_sqm_details(filtered_details)
+
         # Update shared state
         if sqm_value is not None:
             new_sqm_state = SQMState(
