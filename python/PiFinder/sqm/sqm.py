@@ -340,9 +340,9 @@ class SQM:
         altitude_rad = np.radians(altitude_deg)
         airmass = 1.0 / np.sin(altitude_rad)
 
-        # Typical V-band extinction: 0.28 mag/airmass at sea level
-        # Total extinction is always present (minimum 0.28 mag at zenith)
-        extinction_correction = 0.28 * airmass
+        # Extinction coefficient: 0.1 mag/airmass (matches typical SQM meters)
+        # Standard V-band is 0.2-0.3 but consumer meters often use lower values
+        extinction_correction = 0.10 * airmass
 
         return extinction_correction
 
@@ -566,13 +566,10 @@ class SQM:
 
         sqm_uncorrected = mzero - 2.5 * np.log10(background_flux_density)
 
-        # 7. Atmospheric extinction correction
-        # NOTE: Extinction correction is DISABLED by default.
-        # When comparing to ground-based SQM meters, both measurements are through
-        # the same atmosphere, so no correction is needed. The correction would only
-        # be useful for comparing to satellite measurements or scientific surveys
-        # that report "above atmosphere" values.
-        extinction_correction = 0.0  # self._atmospheric_extinction(altitude_deg)
+        # 7. Apply atmospheric extinction correction (0.1 mag/airmass)
+        # This enables comparing measurements at different altitudes and matches
+        # typical consumer SQM meters which also apply extinction correction.
+        extinction_correction = self._atmospheric_extinction(altitude_deg)
         sqm_final = sqm_uncorrected + extinction_correction
 
         # Filter out None values for statistics in diagnostics
