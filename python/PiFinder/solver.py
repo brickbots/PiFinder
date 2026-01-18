@@ -364,7 +364,7 @@ def solver(
 
                         solved |= solution
 
-                        if "T_solve" in solution:
+                        if "T_solve" in solved:
                             total_tetra_time = t_extract + solved["T_solve"]
                             if total_tetra_time > 1000:
                                 console_queue.put(f"SLV: Long: {total_tetra_time}")
@@ -427,10 +427,11 @@ def solver(
 
                             solved |= solution
 
-                            total_tetra_time = t_extract + solved["T_solve"]
-                            if total_tetra_time > 1000:
-                                console_queue.put(f"SLV: Long: {total_tetra_time}")
-                                logger.warning("Long solver time: %i", total_tetra_time)
+                            if "T_solve" in solved:
+                                total_tetra_time = t_extract + solved["T_solve"]
+                                if total_tetra_time > 1000:
+                                    console_queue.put(f"SLV: Long: {total_tetra_time}")
+                                    logger.warning("Long solver time: %i", total_tetra_time)
 
                             if solved["RA"] is not None:
                                 # RA, Dec, Roll at the center of the camera's FoV:
