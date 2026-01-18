@@ -324,10 +324,14 @@ class UISQMCorrection(UIModule):
                 "exposure_us": image_metadata.get("exposure_time"),
                 "exposure_sec": image_metadata.get("exposure_time", 0) / 1_000_000.0,
                 "gain": image_metadata.get("gain"),
+                "imu_delta": image_metadata.get("imu_delta"),
             }
 
         # Get camera type
         metadata["camera_type"] = self.shared_state.camera_type()
+
+        # Get adaptive noise floor (used for auto-exposure and SQM pedestal)
+        metadata["noise_floor_adu"] = self.shared_state.noise_floor()
 
         return metadata
 
