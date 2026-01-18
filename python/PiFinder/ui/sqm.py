@@ -156,6 +156,21 @@ class UISQM(UIModule):
                         fill=self.colors.get(64),
                     )
 
+                # Show current exposure time (right side)
+                image_metadata = self.shared_state.last_image_metadata()
+                if image_metadata and "exposure_time" in image_metadata:
+                    exp_ms = image_metadata["exposure_time"] / 1000  # Convert µs to ms
+                    if exp_ms >= 1000:
+                        exp_str = f"{exp_ms/1000:.2f}s"
+                    else:
+                        exp_str = f"{exp_ms:.0f}ms"
+                    self.draw.text(
+                        (95, 20),
+                        exp_str,
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(64),
+                    )
+
                 self.draw.text(
                     (10, 30),
                     f"{sqm:.2f}",
