@@ -400,100 +400,31 @@ def solver(
                                 f"RMSE: {solved.get('RMSE', 0):.1f}px"
                             )
 
-                            if "matched_centroids" in solution:
-                                # Update SQM
-                                # Convert exposure time from microseconds to seconds
-                                exposure_sec = (
-                                    last_image_metadata["exposure_time"] / 1_000_000.0
-                                )
+                            # See if we are waiting for alignment
+                            if align_ra != 0 and align_dec != 0:
+                                if solved.get("x_target") is not None:
+                                    align_target_pixel = (
+                                        solved["y_target"],
+                                        solved["x_target"],
+                                    )
+                                    logger.debug(f"Align {align_target_pixel=}")
+                                    align_result_queue.put(
+                                        ["aligned", align_target_pixel]
+                                    )
+                                align_ra = 0
+                                align_dec = 0
+                                solved["x_target"] = None
+                                solved["y_target"] = None
+                        else:
+                            # Centroids found but solve failed - clear Matches
+                            solved["Matches"] = 0
+                            logger.warning(
+                                f"Solve FAILED - {len(centroids)} centroids detected but "
+                                f"pattern match failed (FOV est: 12.0°, max err: 4.0°)"
+                            )
 
-                                update_sqm(
-                                    shared_state=shared_state,
-                                    sqm_calculator=sqm_calculator,
-                                    centroids=centroids,
-                                    solution=solution,
-                                    image_processed=np_image,
-                                    exposure_sec=exposure_sec,
-                                    altitude_deg=solved.get("Alt") or 90.0,
-                                    calculation_interval_seconds=SQM_CALCULATION_INTERVAL_SECONDS,
-                                )
-
-                                # Don't clutter printed solution with these fields.
-                                solution.pop("matched_catID", None)
-                                solution.pop("pattern_centroids", None)
-                                solution.pop("epoch_equinox", None)
-                                solution.pop("epoch_proper_motion", None)
-                                solution.pop("cache_hit_fraction", None)
-
-                            solved |= solution
-
-                            if "T_solve" in solved:
-                                total_tetra_time = t_extract + solved["T_solve"]
-                                if total_tetra_time > 1000:
-                                    console_queue.put(f"SLV: Long: {total_tetra_time}")
-                                    logger.warning("Long solver time: %i", total_tetra_time)
-
-                            if solved["RA"] is not None:
-                                # RA, Dec, Roll at the center of the camera's FoV:
-                                solved["camera_center"]["RA"] = solved["RA"]
-                                solved["camera_center"]["Dec"] = solved["Dec"]
-                                solved["camera_center"]["Roll"] = solved["Roll"]
-
-                                # RA, Dec, Roll at the center of the camera's not imu:
-                                solved["camera_solve"]["RA"] = solved["RA"]
-                                solved["camera_solve"]["Dec"] = solved["Dec"]
-                                solved["camera_solve"]["Roll"] = solved["Roll"]
-                                # RA, Dec, Roll at the target pixel:
-                                solved["RA"] = solved["RA_target"]
-                                solved["Dec"] = solved["Dec_target"]
-                                if last_image_metadata["imu"]:
-                                    solved["imu_pos"] = last_image_metadata["imu"][
-                                        "pos"
-                                    ]
-                                    solved["imu_quat"] = last_image_metadata["imu"][
-                                        "quat"
-                                    ]
-                                else:
-                                    solved["imu_pos"] = None
-                                    solved["imu_quat"] = None
-                                solved["solve_time"] = time.time()
-                                solved["cam_solve_time"] = solved["solve_time"]
-                                # Mark successful solve - use same timestamp as last_solve_attempt for comparison
-                                solved["last_solve_success"] = solved[
-                                    "last_solve_attempt"
-                                ]
-
-                                logger.info(
-                                    f"Solve SUCCESS - {len(centroids)} centroids → "
-                                    f"{solved.get('Matches', 0)} matches, "
-                                    f"RMSE: {solved.get('RMSE', 0):.1f}px"
-                                )
-
-                                # See if we are waiting for alignment
-                                if align_ra != 0 and align_dec != 0:
-                                    if solved.get("x_target") is not None:
-                                        align_target_pixel = (
-                                            solved["y_target"],
-                                            solved["x_target"],
-                                        )
-                                        logger.debug(f"Align {align_target_pixel=}")
-                                        align_result_queue.put(
-                                            ["aligned", align_target_pixel]
-                                        )
-                                    align_ra = 0
-                                    align_dec = 0
-                                    solved["x_target"] = None
-                                    solved["y_target"] = None
-                            else:
-                                # Centroids found but solve failed - clear Matches
-                                solved["Matches"] = 0
-                                logger.warning(
-                                    f"Solve FAILED - {len(centroids)} centroids detected but "
-                                    f"pattern match failed (FOV est: 12.0°, max err: 4.0°)"
-                                )
-
-                            # Always push to queue after every solve attempt (success or failure)
-                            solver_queue.put(solved)
+                        # Always push to queue after every solve attempt (success or failure)
+                        solver_queue.put(solved)
                     except Exception as e:
                         # If solve attempt fails, still send update with Matches=0
                         # so auto-exposure can continue running
