@@ -340,9 +340,10 @@ class SQM:
         altitude_rad = np.radians(altitude_deg)
         airmass = 1.0 / np.sin(altitude_rad)
 
-        # Extinction coefficient: 0.1 mag/airmass (matches typical SQM meters)
-        # Standard V-band is 0.2-0.3 but consumer meters often use lower values
-        extinction_correction = 0.10 * airmass
+        # V-band extinction coefficient: 0.28 mag/airmass
+        # Following ASTAP convention: zenith is reference point (extinction=0 at zenith)
+        # Only the ADDITIONAL extinction below zenith is added: k * (airmass - 1)
+        extinction_correction = 0.28 * (airmass - 1)
 
         return extinction_correction
 
@@ -566,17 +567,16 @@ class SQM:
 
         sqm_uncorrected = mzero - 2.5 * np.log10(background_flux_density)
 
-        # 7. Apply atmospheric extinction corrections
-        # Two values are calculated:
-        # a) Fixed 0.1 mag (matches typical consumer SQM meters at zenith)
-        # b) Altitude-dependent correction using 0.1 mag/airmass for scientific comparison
-        extinction_fixed = 0.1  # Fixed correction to match reference SQM meters
-        extinction_altitude = self._atmospheric_extinction(altitude_deg)  # Altitude-dependent
+        # 7. Apply atmospheric extinction correction (ASTAP convention)
+        # Following ASTAP: zenith is reference point where extinction = 0
+        # Only ADDITIONAL extinction below zenith is added: 0.28 * (airmass - 1)
+        # This allows comparing measurements at different altitudes
+        extinction_for_altitude = self._atmospheric_extinction(altitude_deg)  # 0.28*(airmass-1)
 
-        # Main SQM value uses fixed correction (for meter comparison)
-        sqm_final = sqm_uncorrected + extinction_fixed
-        # Scientific value uses altitude-dependent correction
-        sqm_altitude_corrected = sqm_uncorrected + extinction_altitude
+        # Main SQM value: no extinction correction (raw measurement)
+        sqm_final = sqm_uncorrected
+        # Altitude-corrected value: adds extinction for altitude comparison
+        sqm_altitude_corrected = sqm_uncorrected + extinction_for_altitude
 
         # Filter out None values for statistics in diagnostics
         valid_mzeros_for_stats = [mz for mz in mzeros if mz is not None]
@@ -627,8 +627,7 @@ class SQM:
             ),
             "sqm_uncorrected": sqm_uncorrected,
             "altitude_deg": altitude_deg,
-            "extinction_fixed": extinction_fixed,
-            "extinction_altitude": extinction_altitude,
+            "extinction_for_altitude": extinction_for_altitude,
             "sqm_final": sqm_final,
             "sqm_altitude_corrected": sqm_altitude_corrected,
             # Per-star details for diagnostics
@@ -642,8 +641,8 @@ class SQM:
         logger.debug(
             f"SQM: mzero={mzero:.2f}±{np.std(valid_mzeros_for_stats):.2f}, "
             f"bg={background_flux_density:.6f} ADU/arcsec², pedestal={pedestal:.2f}, "
-            f"raw={sqm_uncorrected:.2f}, ext_fixed={extinction_fixed:.2f}, "
-            f"ext_alt={extinction_altitude:.2f}, final={sqm_final:.2f}"
+            f"raw={sqm_uncorrected:.2f}, ext_alt={extinction_for_altitude:.2f}, "
+            f"final={sqm_final:.2f}, alt_corr={sqm_altitude_corrected:.2f}"
         )
 
         return sqm_final, details
