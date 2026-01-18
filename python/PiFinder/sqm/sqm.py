@@ -117,7 +117,8 @@ class SQM:
         aperture_radius: int,
         annulus_inner_radius: int,
         annulus_outer_radius: int,
-    ) -> Tuple[list, list]:
+        saturation_threshold: int = 250,
+    ) -> Tuple[list, list, int]:
         """
         Measure star flux with local background from annulus around each star.
 
@@ -127,15 +128,20 @@ class SQM:
             aperture_radius: Aperture radius for star flux in pixels
             annulus_inner_radius: Inner radius of background annulus in pixels
             annulus_outer_radius: Outer radius of background annulus in pixels
+            saturation_threshold: Pixel value threshold for saturation detection (default: 250)
+                                  Stars with any aperture pixel >= this value are marked saturated
 
         Returns:
-            Tuple of (star_fluxes, local_backgrounds) where:
+            Tuple of (star_fluxes, local_backgrounds, n_saturated) where:
                 star_fluxes: Background-subtracted star fluxes (total ADU above local background)
+                            Saturated stars have flux set to -1 to be excluded from mzero calculation
                 local_backgrounds: Local background per pixel for each star (ADU/pixel)
+                n_saturated: Number of stars excluded due to saturation
         """
         height, width = image.shape
         star_fluxes = []
         local_backgrounds = []
+        n_saturated = 0
 
         # Pre-compute squared radii
         aperture_r2 = aperture_radius**2
@@ -177,8 +183,19 @@ class SQM:
                     f"Star at ({cx:.0f},{cy:.0f}) has no annulus pixels, using global median"
                 )
 
+            # Check for saturation in aperture
+            aperture_pixels = image_patch[aperture_mask]
+            max_aperture_pixel = np.max(aperture_pixels) if len(aperture_pixels) > 0 else 0
+
+            if max_aperture_pixel >= saturation_threshold:
+                # Mark saturated star with flux=-1 to be excluded from mzero calculation
+                star_fluxes.append(-1)
+                local_backgrounds.append(local_bg_per_pixel)
+                n_saturated += 1
+                continue
+
             # Total flux in aperture (includes background)
-            total_flux = np.sum(image_patch[aperture_mask])
+            total_flux = np.sum(aperture_pixels)
 
             # Subtract background contribution
             aperture_area_pixels = np.sum(aperture_mask)
@@ -188,28 +205,33 @@ class SQM:
             star_fluxes.append(star_flux)
             local_backgrounds.append(local_bg_per_pixel)
 
-        return star_fluxes, local_backgrounds
+        return star_fluxes, local_backgrounds, n_saturated
 
     def _calculate_mzero(
         self, star_fluxes: list, star_mags: list
     ) -> Tuple[Optional[float], list]:
         """
-        Calculate photometric zero point from calibrated stars.
+        Calculate photometric zero point from calibrated stars using flux-weighted mean.
 
         For point sources: mzero = catalog_mag + 2.5 × log10(total_flux_ADU)
 
         This zero point allows converting any ADU measurement to magnitudes:
             mag = mzero - 2.5 × log10(flux_ADU)
 
+        Uses flux-weighted mean: brighter stars have higher SNR so their
+        mzero estimates are more reliable.
+
         Args:
             star_fluxes: Background-subtracted star fluxes (ADU)
             star_mags: Catalog magnitudes for matched stars
 
         Returns:
-            Tuple of (mean_mzero, list_of_individual_mzeros)
+            Tuple of (weighted_mean_mzero, list_of_individual_mzeros)
             Note: The mzeros list will contain None for stars with invalid flux
         """
         mzeros: list[Optional[float]] = []
+        valid_mzeros = []
+        valid_fluxes = []
 
         for flux, mag in zip(star_fluxes, star_mags):
             if flux <= 0:
@@ -222,16 +244,21 @@ class SQM:
             # Calculate zero point: ZP = m + 2.5*log10(F)
             mzero = mag + 2.5 * np.log10(flux)
             mzeros.append(mzero)
-
-        # Filter out None values for statistics calculation
-        valid_mzeros = [mz for mz in mzeros if mz is not None]
+            valid_mzeros.append(mzero)
+            valid_fluxes.append(flux)
 
         if len(valid_mzeros) == 0:
             logger.error("No valid stars for mzero calculation")
             return None, mzeros
 
-        # Return mean and the full mzeros list (which may contain None values)
-        return float(np.mean(valid_mzeros)), mzeros
+        # Flux-weighted mean: brighter stars contribute more
+        valid_mzeros_arr = np.array(valid_mzeros)
+        valid_fluxes_arr = np.array(valid_fluxes)
+        weighted_mzero = float(
+            np.average(valid_mzeros_arr, weights=valid_fluxes_arr)
+        )
+
+        return weighted_mzero, mzeros
 
     def _detect_aperture_overlaps(
         self,
@@ -313,9 +340,10 @@ class SQM:
         altitude_rad = np.radians(altitude_deg)
         airmass = 1.0 / np.sin(altitude_rad)
 
-        # Typical V-band extinction: 0.28 mag/airmass at sea level
-        # Total extinction is always present (minimum 0.28 mag at zenith)
-        extinction_correction = 0.28 * airmass
+        # V-band extinction coefficient: 0.28 mag/airmass
+        # Following ASTAP convention: zenith is reference point (extinction=0 at zenith)
+        # Only the ADDITIONAL extinction below zenith is added: k * (airmass - 1)
+        extinction_correction = 0.28 * (airmass - 1)
 
         return extinction_correction
 
@@ -332,6 +360,7 @@ class SQM:
         annulus_outer_radius: int = 14,
         pedestal: float = 0.0,
         correct_overlaps: bool = False,
+        saturation_threshold: int = 250,
     ) -> Tuple[Optional[float], Dict]:
         """
         Calculate SQM (Sky Quality Meter) value using local background annuli.
@@ -351,6 +380,8 @@ class SQM:
                      If bias_image is provided and pedestal=0, pedestal is calculated from bias_image
             correct_overlaps: If True, exclude stars with overlapping apertures/annuli (default: False)
                             Excludes CRITICAL and HIGH overlaps to prevent contamination
+            saturation_threshold: Pixel value threshold for saturation detection (default: 250)
+                                Stars with any aperture pixel >= this value are excluded from mzero
 
         Returns:
             Tuple of (sqm_value, details_dict) where:
@@ -444,10 +475,14 @@ class SQM:
                     percentile=5.0,
                 )
             )
-            pedestal = noise_floor
+            # IMPORTANT: Only subtract bias_offset as pedestal, NOT the full noise floor.
+            # Read noise and dark current are random fluctuations around the mean,
+            # not systematic offsets. Subtracting them causes over-subtraction
+            # and makes SQM values too high.
+            pedestal = noise_floor_details.get("bias_offset", noise_floor)
 
             logger.info(
-                f"Adaptive noise floor: {noise_floor:.1f} ADU "
+                f"Adaptive noise floor: {noise_floor:.1f} ADU, using bias={pedestal:.1f} as pedestal "
                 f"(dark_px={noise_floor_details['dark_pixel_smoothed']:.1f}, "
                 f"theory={noise_floor_details['theoretical_floor']:.1f}, "
                 f"valid={noise_floor_details['is_valid']})"
@@ -470,13 +505,22 @@ class SQM:
                 logger.debug("No pedestal applied")
 
         # 1. Measure star fluxes with local background from annulus
-        star_fluxes, local_backgrounds = self._measure_star_flux_with_local_background(
-            image,
-            matched_centroids_arr,
-            aperture_radius,
-            annulus_inner_radius,
-            annulus_outer_radius,
+        star_fluxes, local_backgrounds, n_saturated = (
+            self._measure_star_flux_with_local_background(
+                image,
+                matched_centroids_arr,
+                aperture_radius,
+                annulus_inner_radius,
+                annulus_outer_radius,
+                saturation_threshold,
+            )
         )
+
+        if n_saturated > 0:
+            logger.info(
+                f"Excluded {n_saturated}/{len(matched_centroids_arr)} saturated stars "
+                f"(threshold={saturation_threshold})"
+            )
 
         # 1a. Estimate pedestal from median local background if enabled and not already set
         if (
@@ -516,16 +560,23 @@ class SQM:
         # 5. Convert background to flux density (ADU per arcsec²)
         background_flux_density = background_corrected / self.arcsec_squared_per_pixel
 
-        # 6. Calculate raw SQM
+        # 6. Calculate SQM (before extinction correction)
         if background_flux_density <= 0:
             logger.error(f"Invalid background flux density: {background_flux_density}")
             return None, {}
 
-        sqm_raw = mzero - 2.5 * np.log10(background_flux_density)
+        sqm_uncorrected = mzero - 2.5 * np.log10(background_flux_density)
 
-        # 7. Apply atmospheric extinction correction
-        extinction_correction = self._atmospheric_extinction(altitude_deg)
-        sqm_final = sqm_raw + extinction_correction
+        # 7. Apply atmospheric extinction correction (ASTAP convention)
+        # Following ASTAP: zenith is reference point where extinction = 0
+        # Only ADDITIONAL extinction below zenith is added: 0.28 * (airmass - 1)
+        # This allows comparing measurements at different altitudes
+        extinction_for_altitude = self._atmospheric_extinction(altitude_deg)  # 0.28*(airmass-1)
+
+        # Main SQM value: no extinction correction (raw measurement)
+        sqm_final = sqm_uncorrected
+        # Altitude-corrected value: adds extinction for altitude comparison
+        sqm_altitude_corrected = sqm_uncorrected + extinction_for_altitude
 
         # Filter out None values for statistics in diagnostics
         valid_mzeros_for_stats = [mz for mz in mzeros if mz is not None]
@@ -540,6 +591,8 @@ class SQM:
             "n_matched_stars_original": n_stars_original,
             "overlap_correction_enabled": correct_overlaps,
             "n_stars_excluded_overlaps": n_stars_excluded,
+            "n_stars_excluded_saturation": n_saturated,
+            "saturation_threshold": saturation_threshold,
             "background_per_pixel": background_per_pixel,
             "background_method": "local_annulus",
             "pedestal": pedestal,
@@ -572,10 +625,11 @@ class SQM:
                 float(np.min(valid_mzeros_for_stats)),
                 float(np.max(valid_mzeros_for_stats)),
             ),
-            "sqm_raw": sqm_raw,
+            "sqm_uncorrected": sqm_uncorrected,
             "altitude_deg": altitude_deg,
-            "extinction_correction": extinction_correction,
+            "extinction_for_altitude": extinction_for_altitude,
             "sqm_final": sqm_final,
+            "sqm_altitude_corrected": sqm_altitude_corrected,
             # Per-star details for diagnostics
             "star_centroids": matched_centroids_arr.tolist(),
             "star_mags": star_mags,
@@ -587,7 +641,8 @@ class SQM:
         logger.debug(
             f"SQM: mzero={mzero:.2f}±{np.std(valid_mzeros_for_stats):.2f}, "
             f"bg={background_flux_density:.6f} ADU/arcsec², pedestal={pedestal:.2f}, "
-            f"raw={sqm_raw:.2f}, extinction={extinction_correction:.2f}, final={sqm_final:.2f}"
+            f"raw={sqm_uncorrected:.2f}, ext_alt={extinction_for_altitude:.2f}, "
+            f"final={sqm_final:.2f}, alt_corr={sqm_altitude_corrected:.2f}"
         )
 
         return sqm_final, details

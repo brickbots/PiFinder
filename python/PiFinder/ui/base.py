@@ -25,6 +25,52 @@ if TYPE_CHECKING:
         return a
 
 
+class RotatingInfoDisplay:
+    """Alternates between constellation and SQM with cross-fade animation."""
+
+    def __init__(self, shared_state, interval=3.0, fade_speed=0.15):
+        self.shared_state = shared_state
+        self.interval = interval
+        self.fade_speed = fade_speed
+        self.show_sqm = False
+        self.last_switch = time.time()
+        self.progress = 1.0  # 1.0 = stable, <1.0 = transitioning
+
+    def _get_text(self, use_sqm):
+        if use_sqm:
+            sqm = self.shared_state.sqm()
+            return f"{sqm.value:.1f}" if sqm and sqm.value else "---"
+        else:
+            sol = self.shared_state.solution()
+            return sol.get("constellation", "---") if sol else "---"
+
+    def update(self):
+        """Update state, returns (current_text, previous_text, progress)."""
+        now = time.time()
+        if now - self.last_switch >= self.interval:
+            self.show_sqm = not self.show_sqm
+            self.last_switch = now
+            self.progress = 0.0
+        if self.progress < 1.0:
+            self.progress = min(1.0, self.progress + self.fade_speed)
+        return self._get_text(self.show_sqm), self._get_text(not self.show_sqm), self.progress
+
+    def draw(self, draw, x, y, font, colors, max_brightness=255, inverted=False):
+        """Draw with cross-fade animation. inverted=True for dark text on light bg."""
+        current, previous, progress = self.update()
+        if progress < 1.0:
+            fade_out = progress < 0.5
+            t = progress * 2 if fade_out else (progress - 0.5) * 2
+            if inverted:
+                brightness = int(max_brightness * t) if fade_out else int(max_brightness * (1 - t))
+            else:
+                brightness = int(max_brightness * (1 - t)) if fade_out else int(max_brightness * t)
+            text = previous if fade_out else current
+            draw.text((x, y), text, font=font, fill=colors.get(brightness))
+        else:
+            draw.text((x, y), current, font=font, fill=colors.get(0 if inverted else max_brightness))
+
+
 class UIModule:
     __title__ = "BASE"
     __help_name__ = ""
@@ -96,6 +142,9 @@ class UIModule:
 
         # anim timer stuff
         self.last_update_time = time.time()
+
+        # Rotating info: alternates between constellation and SQM value
+        self._rotating_display = RotatingInfoDisplay(self.shared_state)
 
     def active(self):
         """
@@ -196,6 +245,18 @@ class UIModule:
 
         self.ui_state.set_message_timeout(timeout + time.time())
 
+    def _draw_titlebar_rotating_info(self, x, y, fg):
+        """Draw rotating constellation/SQM in title bar (dark text on gray bg)."""
+        self._rotating_display.draw(
+            self.draw, x, y, self.fonts.bold.font, self.colors, max_brightness=64, inverted=True
+        )
+
+    def draw_rotating_info(self, x=10, y=92, font=None):
+        """Draw rotating constellation/SQM display with cross-fade."""
+        self._rotating_display.draw(
+            self.draw, x, y, font or self.fonts.bold.font, self.colors, max_brightness=255
+        )
+
     def screen_update(self, title_bar=True, button_hints=True) -> None:
         """
         called to trigger UI updates
@@ -267,13 +328,11 @@ class UIModule:
                         )
 
                     if len(self.title) < 9:
-                        # draw the constellation
-                        constellation = solution["constellation"]
-                        self.draw.text(
-                            (self.display_class.resX * 0.54, 1),
-                            constellation,
-                            font=self.fonts.bold.font,
-                            fill=fg if self._unmoved else self.colors.get(32),
+                        # Draw rotating constellation/SQM wheel (replaces static constellation)
+                        self._draw_titlebar_rotating_info(
+                            x=int(self.display_class.resX * 0.54),
+                            y=1,
+                            fg=fg if self._unmoved else self.colors.get(32),
                         )
                 else:
                     # no solve yet....

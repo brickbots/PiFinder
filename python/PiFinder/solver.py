@@ -35,15 +35,11 @@ SQM_CALCULATION_INTERVAL_SECONDS = 5.0
 
 
 def create_sqm_calculator(shared_state):
-    """Create a new SQM calculator instance for PROCESSED images with current calibration."""
-    # Get camera type from shared state and use "_processed" profile
-    # since images are already processed 8-bit (not raw)
+    """Create a new SQM calculator instance with current calibration."""
     camera_type = shared_state.camera_type()
     camera_type_processed = f"{camera_type}_processed"
 
-    logger.info(
-        f"Creating processed SQM calculator for camera: {camera_type_processed}"
-    )
+    logger.info(f"Creating SQM calculator for camera: {camera_type_processed}")
 
     return SQMCalculator(
         camera_type=camera_type_processed,
@@ -51,24 +47,9 @@ def create_sqm_calculator(shared_state):
     )
 
 
-def create_sqm_calculator_raw(shared_state):
-    """Create a new SQM calculator instance for RAW 16-bit images with current calibration."""
-    # Get camera type from shared state (raw profile, e.g., "imx296", "hq")
-    camera_type_raw = shared_state.camera_type()
-
-    logger.info(f"Creating raw SQM calculator for camera: {camera_type_raw}")
-
-    return SQMCalculator(
-        camera_type=camera_type_raw,
-        use_adaptive_noise_floor=True,
-    )
-
-
-def update_sqm_dual_pipeline(
+def update_sqm(
     shared_state,
     sqm_calculator,
-    sqm_calculator_raw,
-    camera_command_queue,
     centroids,
     solution,
     image_processed,
@@ -80,22 +61,14 @@ def update_sqm_dual_pipeline(
     annulus_outer_radius=14,
 ):
     """
-    Calculate SQM for BOTH processed (8-bit) and raw (16-bit) images.
-
-    This function:
-    1. Checks if enough time has passed since last update
-    2. Calculates SQM from processed 8-bit image
-    3. Captures a raw 16-bit frame, loads it, and calculates raw SQM
-    4. Updates shared state with both values
+    Calculate SQM from image.
 
     Args:
         shared_state: SharedStateObj instance
-        sqm_calculator: SQM calculator for processed images
-        sqm_calculator_raw: SQM calculator for raw images
-        camera_command_queue: Queue to send raw capture command
+        sqm_calculator: SQM calculator instance
         centroids: List of detected star centroids
         solution: Tetra3 solve solution with matched stars
-        image_processed: Processed 8-bit image array
+        image_processed: Processed image array (numpy)
         exposure_sec: Exposure time in seconds
         altitude_deg: Altitude in degrees for extinction correction
         calculation_interval_seconds: Minimum time between calculations (default: 5.0)
@@ -131,8 +104,8 @@ def update_sqm_dual_pipeline(
         return False
 
     try:
-        # ========== Calculate PROCESSED (8-bit) SQM ==========
-        sqm_value_processed, _ = sqm_calculator.calculate(
+        # Calculate SQM from image
+        sqm_value, details = sqm_calculator.calculate(
             centroids=centroids,
             solution=solution,
             image=image_processed,
@@ -143,48 +116,29 @@ def update_sqm_dual_pipeline(
             annulus_outer_radius=annulus_outer_radius,
         )
 
-        # ========== Calculate RAW (16-bit) SQM from shared state ==========
-        sqm_value_raw = None
+        # Update noise floor in shared state (for SNR auto-exposure)
+        noise_floor_details = details.get("noise_floor_details")
+        if noise_floor_details and "noise_floor_adu" in noise_floor_details:
+            shared_state.set_noise_floor(noise_floor_details["noise_floor_adu"])
 
-        try:
-            # Get raw frame from shared state (already captured by camera)
-            raw_array = shared_state.cam_raw()
+        # Store SQM details (filter out large per-star arrays)
+        filtered_details = {
+            k: v
+            for k, v in details.items()
+            if k
+            not in ("star_centroids", "star_mags", "star_fluxes", "star_local_backgrounds", "star_mzeros")
+        }
+        shared_state.set_sqm_details(filtered_details)
 
-            if raw_array is not None:
-                raw_array = np.asarray(raw_array, dtype=np.float32)
-
-                # Calculate raw SQM
-                sqm_value_raw, _ = sqm_calculator_raw.calculate(
-                    centroids=centroids,
-                    solution=solution,
-                    image=raw_array,
-                    exposure_sec=exposure_sec,
-                    altitude_deg=altitude_deg,
-                    aperture_radius=aperture_radius,
-                    annulus_inner_radius=annulus_inner_radius,
-                    annulus_outer_radius=annulus_outer_radius,
-                )
-
-        except Exception as e:
-            logger.warning(f"Failed to calculate raw SQM: {e}")
-            # Continue with just processed SQM
-
-        # ========== Update shared state with BOTH values ==========
-        if sqm_value_processed is not None:
+        # Update shared state
+        if sqm_value is not None:
             new_sqm_state = SQMState(
-                value=sqm_value_processed,
-                value_raw=sqm_value_raw,  # May be None if raw failed
+                value=sqm_value,
                 source="Calculated",
                 last_update=datetime.now().isoformat(),
             )
             shared_state.set_sqm(new_sqm_state)
-
-            raw_str = (
-                f", raw={sqm_value_raw:.2f}"
-                if sqm_value_raw is not None
-                else ", raw=N/A"
-            )
-            logger.info(f"SQM updated: processed={sqm_value_processed:.2f}{raw_str}")
+            logger.info(f"SQM updated: {sqm_value:.2f} mag/arcsec²")
             return True
 
     except Exception as e:
@@ -272,9 +226,8 @@ def solver(
     centroids = []
     log_no_stars_found = True
 
-    # Create SQM calculators (processed and raw) - can be reloaded via command queue
+    # Create SQM calculator - can be reloaded via command queue
     sqm_calculator = create_sqm_calculator(shared_state)
-    sqm_calculator_raw = create_sqm_calculator_raw(shared_state)
 
     while True:
         logger.info("Starting Solver Loop")
@@ -316,12 +269,9 @@ def solver(
                             align_dec = 0
 
                         if command[0] == "reload_sqm_calibration":
-                            logger.info(
-                                "Reloading SQM calibration (both processed and raw)..."
-                            )
+                            logger.info("Reloading SQM calibration...")
                             sqm_calculator = create_sqm_calculator(shared_state)
-                            sqm_calculator_raw = create_sqm_calculator_raw(shared_state)
-                            logger.info("SQM calibration reloaded for both pipelines")
+                            logger.info("SQM calibration reloaded")
 
                 state_utils.sleep_for_framerate(shared_state)
 
@@ -408,11 +358,9 @@ def solver(
                                 last_image_metadata["exposure_time"] / 1_000_000.0
                             )
 
-                            update_sqm_dual_pipeline(
+                            update_sqm(
                                 shared_state=shared_state,
                                 sqm_calculator=sqm_calculator,
-                                sqm_calculator_raw=sqm_calculator_raw,
-                                camera_command_queue=camera_command_queue,
                                 centroids=centroids,
                                 solution=solution,
                                 image_processed=np_image,
@@ -430,7 +378,7 @@ def solver(
 
                         solved |= solution
 
-                        if "T_solve" in solution:
+                        if "T_solve" in solved:
                             total_tetra_time = t_extract + solved["T_solve"]
                             if total_tetra_time > 1000:
                                 console_queue.put(f"SLV: Long: {total_tetra_time}")
