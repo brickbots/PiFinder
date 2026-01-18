@@ -105,7 +105,7 @@ def update_sqm(
 
     try:
         # Calculate SQM from image
-        sqm_value, _ = sqm_calculator.calculate(
+        sqm_value, details = sqm_calculator.calculate(
             centroids=centroids,
             solution=solution,
             image=image_processed,
@@ -115,6 +115,11 @@ def update_sqm(
             annulus_inner_radius=annulus_inner_radius,
             annulus_outer_radius=annulus_outer_radius,
         )
+
+        # Update noise floor in shared state (for SNR auto-exposure)
+        noise_floor_details = details.get("noise_floor_details")
+        if noise_floor_details and "noise_floor_adu" in noise_floor_details:
+            shared_state.set_noise_floor(noise_floor_details["noise_floor_adu"])
 
         # Update shared state
         if sqm_value is not None:

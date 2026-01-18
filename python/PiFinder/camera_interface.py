@@ -234,8 +234,11 @@ class CameraInterface:
                                                 f"Camera detection failed: {e}, using default SNR thresholds"
                                             )
                                             self._auto_exposure_snr = ExposureSNRController()
+                                    # Get adaptive noise floor from shared state
+                                    adaptive_noise_floor = self.shared_state.noise_floor()
                                     new_exposure = self._auto_exposure_snr.update(
-                                        self.exposure_time, base_image
+                                        self.exposure_time, base_image,
+                                        noise_floor=adaptive_noise_floor
                                     )
                                 else:
                                     # PID mode: use star-count based controller (default)

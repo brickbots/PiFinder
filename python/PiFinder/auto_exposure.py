@@ -725,6 +725,7 @@ class ExposureSNRController:
         self,
         current_exposure: int,
         image: Image.Image,
+        noise_floor: Optional[float] = None,
         **kwargs  # Ignore other params (matched_stars, etc.)
     ) -> Optional[int]:
         """
@@ -733,11 +734,18 @@ class ExposureSNRController:
         Args:
             current_exposure: Current exposure in microseconds
             image: Current image for analysis
+            noise_floor: Adaptive noise floor from SQM calculator (if available)
             **kwargs: Ignored (for compatibility with PID interface)
 
         Returns:
             New exposure in microseconds, or None if no change needed
         """
+        # Use adaptive noise floor if available, otherwise fall back to static config
+        if noise_floor is not None:
+            min_bg = noise_floor + 2  # Just above noise floor
+        else:
+            min_bg = self.min_background
+
         # Analyze image
         if image.mode != "L":
             image = image.convert("L")
@@ -747,17 +755,17 @@ class ExposureSNRController:
         background = float(np.percentile(img_array, 10))
 
         logger.debug(
-            f"SNR AE: bg={background:.1f} ADU, exp={current_exposure/1000:.0f}ms"
+            f"SNR AE: bg={background:.1f}, min={min_bg:.1f} ADU, exp={current_exposure/1000:.0f}ms"
         )
 
         # Determine adjustment
         new_exposure = None
 
-        if background < self.min_background:
+        if background < min_bg:
             # Too dark - increase exposure
             new_exposure = int(current_exposure * self.adjustment_factor)
             logger.info(
-                f"SNR AE: Background too low ({background:.1f} < {self.min_background}), "
+                f"SNR AE: Background too low ({background:.1f} < {min_bg:.1f}), "
                 f"increasing exposure {current_exposure/1000:.0f}ms → {new_exposure/1000:.0f}ms"
             )
         elif background > self.max_background:
