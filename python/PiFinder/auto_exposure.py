@@ -703,8 +703,8 @@ class ExposureSNRController:
         # max_background: ~40% of full range (avoid saturation/nonlinearity)
         max_background = int(max_adu * 0.4)
 
-        # target_background: just above min (no benefit to higher values)
-        target_background = int(min_background * 1.25)
+        # target_background: just above min (lower = shorter exposure = more linear response)
+        target_background = min_background + 2
 
         logger.info(
             f"SNR controller from {camera_type}: "
