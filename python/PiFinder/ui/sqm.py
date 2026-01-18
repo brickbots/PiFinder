@@ -156,7 +156,17 @@ class UISQM(UIModule):
                         fill=self.colors.get(64),
                     )
 
-                # Show current exposure time (right side)
+                # Show star count and exposure time (right side)
+                sqm_details = self.shared_state.sqm_details()
+                if sqm_details:
+                    n_stars = sqm_details.get("n_matched_stars", 0)
+                    self.draw.text(
+                        (60, 20),
+                        f"{n_stars}★",
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(64),
+                    )
+
                 image_metadata = self.shared_state.last_image_metadata()
                 if image_metadata and "exposure_time" in image_metadata:
                     exp_ms = image_metadata["exposure_time"] / 1000  # Convert µs to ms
@@ -185,22 +195,11 @@ class UISQM(UIModule):
                     font=self.fonts.base.font,
                     fill=self.colors.get(64),
                 )
-                # Bortle class and star count
+                # Bortle class
                 if details:
                     self.draw.text(
                         (10, 92),
                         _("Bortle {bc}").format(bc=details["bortle_class"]),
-                        font=self.fonts.base.font,
-                        fill=self.colors.get(128),
-                    )
-
-                # Show star count used for SQM calculation
-                sqm_details = self.shared_state.sqm_details()
-                if sqm_details:
-                    n_stars = sqm_details.get("n_matched_stars", 0)
-                    self.draw.text(
-                        (80, 92),
-                        f"{n_stars}★",
                         font=self.fonts.base.font,
                         fill=self.colors.get(128),
                     )
