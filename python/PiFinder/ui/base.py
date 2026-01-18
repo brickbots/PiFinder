@@ -25,6 +25,52 @@ if TYPE_CHECKING:
         return a
 
 
+class RotatingInfoDisplay:
+    """Alternates between constellation and SQM with cross-fade animation."""
+
+    def __init__(self, shared_state, interval=3.0, fade_speed=0.15):
+        self.shared_state = shared_state
+        self.interval = interval
+        self.fade_speed = fade_speed
+        self.show_sqm = False
+        self.last_switch = time.time()
+        self.progress = 1.0  # 1.0 = stable, <1.0 = transitioning
+
+    def _get_text(self, use_sqm):
+        if use_sqm:
+            sqm = self.shared_state.sqm()
+            return f"{sqm.value:.1f}" if sqm and sqm.value else "---"
+        else:
+            sol = self.shared_state.solution()
+            return sol.get("constellation", "---") if sol else "---"
+
+    def update(self):
+        """Update state, returns (current_text, previous_text, progress)."""
+        now = time.time()
+        if now - self.last_switch >= self.interval:
+            self.show_sqm = not self.show_sqm
+            self.last_switch = now
+            self.progress = 0.0
+        if self.progress < 1.0:
+            self.progress = min(1.0, self.progress + self.fade_speed)
+        return self._get_text(self.show_sqm), self._get_text(not self.show_sqm), self.progress
+
+    def draw(self, draw, x, y, font, colors, max_brightness=255, inverted=False):
+        """Draw with cross-fade animation. inverted=True for dark text on light bg."""
+        current, previous, progress = self.update()
+        if progress < 1.0:
+            fade_out = progress < 0.5
+            t = progress * 2 if fade_out else (progress - 0.5) * 2
+            if inverted:
+                brightness = int(max_brightness * t) if fade_out else int(max_brightness * (1 - t))
+            else:
+                brightness = int(max_brightness * (1 - t)) if fade_out else int(max_brightness * t)
+            text = previous if fade_out else current
+            draw.text((x, y), text, font=font, fill=colors.get(brightness))
+        else:
+            draw.text((x, y), current, font=font, fill=colors.get(0 if inverted else max_brightness))
+
+
 class UIModule:
     __title__ = "BASE"
     __help_name__ = ""
@@ -98,11 +144,7 @@ class UIModule:
         self.last_update_time = time.time()
 
         # Rotating info: alternates between constellation and SQM value
-        self.rotating_mode = "constellation"  # "constellation" or "sqm"
-        self.rotating_last_switch = time.time()
-        self.rotating_switch_interval = 3.0  # Switch every 3 seconds
-        self.rotating_animation_progress = 1.0  # 0.0 = transitioning, 1.0 = stable
-        self.rotating_animation_speed = 0.15  # Quick fade: ~7 frames at 30fps
+        self._rotating_display = RotatingInfoDisplay(self.shared_state)
 
     def active(self):
         """
@@ -203,158 +245,17 @@ class UIModule:
 
         self.ui_state.set_message_timeout(timeout + time.time())
 
-    def _update_rotating_state(self):
-        """
-        Update rotating info state. Handles timing and animation progress.
-        """
-        # Check if it's time to switch modes
-        current_time = time.time()
-        if current_time - self.rotating_last_switch >= self.rotating_switch_interval:
-            # Switch mode
-            if self.rotating_mode == "constellation":
-                self.rotating_mode = "sqm"
-            else:
-                self.rotating_mode = "constellation"
-            self.rotating_last_switch = current_time
-            self.rotating_animation_progress = 0.0  # Start fade transition
-
-        # Animate if in progress
-        if self.rotating_animation_progress < 1.0:
-            self.rotating_animation_progress = min(
-                1.0, self.rotating_animation_progress + self.rotating_animation_speed
-            )
-
-    def _get_rotating_content(self):
-        """
-        Get current and previous content for rotating display.
-        Returns: (current_text, previous_text)
-        """
-        # Get content to display based on current mode
-        if self.rotating_mode == "constellation":
-            # Get constellation from solution
-            solution = self.shared_state.solution()
-            if solution and solution.get("constellation"):
-                current_text = solution["constellation"]
-            else:
-                current_text = "---"
-            # Previous was SQM
-            sqm_state = self.shared_state.sqm()
-            if sqm_state and sqm_state.value:
-                previous_text = f"{sqm_state.value:.1f}"
-            else:
-                previous_text = "---"
-        else:
-            # Get SQM value (1 decimal place)
-            sqm_state = self.shared_state.sqm()
-            if sqm_state and sqm_state.value:
-                current_text = f"{sqm_state.value:.1f}"
-            else:
-                current_text = "---"
-            # Previous was constellation
-            solution = self.shared_state.solution()
-            if solution and solution.get("constellation"):
-                previous_text = solution["constellation"]
-            else:
-                previous_text = "---"
-
-        return current_text, previous_text
-
     def _draw_titlebar_rotating_info(self, x, y, fg):
-        """
-        Draw rotating constellation/SQM in title bar with quick cross-fade.
-
-        Args:
-            x: X coordinate for text
-            y: Y coordinate for text
-            fg: Foreground color value (already from colors.get())
-        """
-        self._update_rotating_state()
-        current_text, previous_text = self._get_rotating_content()
-
-        # Quick cross-fade: fade out old, fade in new
-        # Progress: 0.0 = show previous, 1.0 = show current
-        # Use brightness values 0-64 for title bar
-
-        if self.rotating_animation_progress < 1.0:
-            # During transition: fade out, then fade in (not overlapping)
-            # Title bar background is gray (64), text is black (0)
-            # Fade out: 0 → 64 (black to gray = invisible)
-            # Fade in: 64 → 0 (gray to black = visible)
-
-            if self.rotating_animation_progress < 0.5:
-                # First half: fade out previous (black → gray)
-                brightness = int(64 * self.rotating_animation_progress * 2)
-                self.draw.text(
-                    (x, y),
-                    previous_text,
-                    font=self.fonts.bold.font,
-                    fill=self.colors.get(brightness),
-                )
-            else:
-                # Second half: fade in current (gray → black)
-                brightness = int(64 * (1.0 - (self.rotating_animation_progress - 0.5) * 2))
-                self.draw.text(
-                    (x, y),
-                    current_text,
-                    font=self.fonts.bold.font,
-                    fill=self.colors.get(brightness),
-                )
-        else:
-            # Stable: show current in black for visibility
-            self.draw.text(
-                (x, y),
-                current_text,
-                font=self.fonts.bold.font,
-                fill=self.colors.get(0),
-            )
+        """Draw rotating constellation/SQM in title bar (dark text on gray bg)."""
+        self._rotating_display.draw(
+            self.draw, x, y, self.fonts.bold.font, self.colors, max_brightness=64, inverted=True
+        )
 
     def draw_rotating_info(self, x=10, y=92, font=None):
-        """
-        Draw rotating display that alternates between constellation and SQM value.
-        Uses quick cross-fade transition.
-
-        Args:
-            x: X coordinate for text
-            y: Y coordinate for text
-            font: Font to use (defaults to self.fonts.bold.font)
-        """
-        if font is None:
-            font = self.fonts.bold.font
-
-        self._update_rotating_state()
-        current_text, previous_text = self._get_rotating_content()
-
-        # Sequential fade: fade out, then fade in (not overlapping)
-        if self.rotating_animation_progress < 1.0:
-            # Progress 0.0-0.5: fade out previous (255 → 0)
-            # Progress 0.5-1.0: fade in current (0 → 255)
-
-            if self.rotating_animation_progress < 0.5:
-                # First half: fade out previous
-                brightness = int(255 * (1.0 - self.rotating_animation_progress * 2))
-                self.draw.text(
-                    (x, y),
-                    previous_text,
-                    font=font,
-                    fill=self.colors.get(brightness),
-                )
-            else:
-                # Second half: fade in current
-                brightness = int(255 * (self.rotating_animation_progress - 0.5) * 2)
-                self.draw.text(
-                    (x, y),
-                    current_text,
-                    font=font,
-                    fill=self.colors.get(brightness),
-                )
-        else:
-            # Stable: show current at full brightness
-            self.draw.text(
-                (x, y),
-                current_text,
-                font=font,
-                fill=self.colors.get(255),
-            )
+        """Draw rotating constellation/SQM display with cross-fade."""
+        self._rotating_display.draw(
+            self.draw, x, y, font or self.fonts.bold.font, self.colors, max_brightness=255
+        )
 
     def screen_update(self, title_bar=True, button_hints=True) -> None:
         """
