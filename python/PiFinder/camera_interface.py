@@ -220,7 +220,18 @@ class CameraInterface:
                                 if self._auto_exposure_mode == "snr":
                                     # SNR mode: use background-based controller (for SQM measurements)
                                     if self._auto_exposure_snr is None:
-                                        self._auto_exposure_snr = ExposureSNRController()
+                                        # Use camera profile to derive thresholds
+                                        cam_type = f"{self.get_cam_type()}_processed"
+                                        try:
+                                            self._auto_exposure_snr = (
+                                                ExposureSNRController.from_camera_profile(cam_type)
+                                            )
+                                        except ValueError:
+                                            # Unknown camera, use defaults
+                                            logger.warning(
+                                                f"Unknown camera '{cam_type}', using default SNR thresholds"
+                                            )
+                                            self._auto_exposure_snr = ExposureSNRController()
                                     new_exposure = self._auto_exposure_snr.update(
                                         self.exposure_time, base_image
                                     )

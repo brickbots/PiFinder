@@ -624,37 +624,34 @@ class ExposureSNRController:
     SNR-based auto exposure for SQM measurements.
 
     Targets a minimum background SNR and exposure time instead of star count.
-    This provides more stable, longer exposures (e.g., 0.4s) that are better
-    for accurate SQM measurements compared to the histogram-based approach
-    which can drop too low (0.1s).
+    This provides more stable, longer exposures that are better for accurate
+    SQM measurements compared to the histogram-based approach.
 
     Strategy:
-    - Maintain minimum exposure time for good photon statistics
     - Target specific background level above noise floor
+    - Derive thresholds from camera profile (bit depth, bias offset)
     - Slower adjustments for stability
     """
 
     def __init__(
         self,
-        min_exposure: int = 400000,  # 0.4s minimum for SQM
+        min_exposure: int = 10000,  # 10ms minimum
         max_exposure: int = 1000000,  # 1.0s maximum
         target_background: int = 30,  # Target background level in ADU
         min_background: int = 15,  # Minimum acceptable background
         max_background: int = 100,  # Maximum before saturating
         adjustment_factor: float = 1.3,  # Gentle adjustments (30% steps)
-        update_interval: float = 5.0,  # Update every 5 seconds
     ):
         """
         Initialize SNR-based auto exposure.
 
         Args:
-            min_exposure: Minimum exposure in microseconds (default 400ms)
+            min_exposure: Minimum exposure in microseconds (default 10ms)
             max_exposure: Maximum exposure in microseconds (default 1000ms)
             target_background: Target median background level in ADU
             min_background: Minimum acceptable background (increase if below)
             max_background: Maximum acceptable background (decrease if above)
             adjustment_factor: Multiplicative adjustment step (default 1.3 = 30%)
-            update_interval: Minimum seconds between updates
         """
         self.min_exposure = min_exposure
         self.max_exposure = max_exposure
@@ -662,15 +659,66 @@ class ExposureSNRController:
         self.min_background = min_background
         self.max_background = max_background
         self.adjustment_factor = adjustment_factor
-        self.update_interval = update_interval
-
-        self._last_update_time = 0.0
 
         logger.info(
             f"AutoExposure SNR: target_bg={target_background}, "
             f"range=[{min_background}, {max_background}] ADU, "
             f"exp_range=[{min_exposure/1000:.0f}, {max_exposure/1000:.0f}]ms, "
             f"adjustment={adjustment_factor}x"
+        )
+
+    @classmethod
+    def from_camera_profile(
+        cls,
+        camera_type: str,
+        min_exposure: int = 10000,
+        max_exposure: int = 1000000,
+        adjustment_factor: float = 1.3,
+    ) -> "ExposureSNRController":
+        """
+        Create controller with thresholds derived from camera profile.
+
+        Calculates min/target/max background based on bit depth and bias offset.
+
+        Args:
+            camera_type: Camera type (e.g., "imx296_processed", "imx462_processed")
+            min_exposure: Minimum exposure in microseconds
+            max_exposure: Maximum exposure in microseconds
+            adjustment_factor: Multiplicative adjustment step
+
+        Returns:
+            ExposureSNRController configured for the camera
+        """
+        from PiFinder.sqm.camera_profiles import get_camera_profile
+
+        profile = get_camera_profile(camera_type)
+
+        # Derive thresholds from camera specs
+        max_adu = (2 ** profile.bit_depth) - 1
+        bias = profile.bias_offset
+
+        # min_background: bias + margin (2x bias or bias + 8, whichever larger)
+        min_background = int(max(bias * 2, bias + 8))
+
+        # max_background: ~40% of full range (avoid saturation/nonlinearity)
+        max_background = int(max_adu * 0.4)
+
+        # target_background: just above min (no benefit to higher values)
+        target_background = int(min_background * 1.25)
+
+        logger.info(
+            f"SNR controller from {camera_type}: "
+            f"bit_depth={profile.bit_depth}, bias={bias:.0f}, "
+            f"thresholds=[{min_background}, {target_background}, {max_background}]"
+        )
+
+        return cls(
+            min_exposure=min_exposure,
+            max_exposure=max_exposure,
+            target_background=target_background,
+            min_background=min_background,
+            max_background=max_background,
+            adjustment_factor=adjustment_factor,
         )
 
     def update(
@@ -690,12 +738,6 @@ class ExposureSNRController:
         Returns:
             New exposure in microseconds, or None if no change needed
         """
-        current_time = time.time()
-
-        # Rate limiting
-        if current_time - self._last_update_time < self.update_interval:
-            return None
-
         # Analyze image background
         if image.mode != "L":
             image = image.convert("L")
@@ -730,8 +772,6 @@ class ExposureSNRController:
 
         # Clamp to limits
         new_exposure = max(self.min_exposure, min(self.max_exposure, new_exposure))
-
-        self._last_update_time = current_time
         return new_exposure
 
     def get_status(self) -> dict:
