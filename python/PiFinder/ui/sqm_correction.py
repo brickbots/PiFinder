@@ -137,7 +137,7 @@ class UISQMCorrection(UIModule):
                     (0, message_y),
                     self.error_message,
                     font=self.fonts.base.font,
-                    fill=self.colors.get(255, red=True),
+                    fill=self.colors.get(255),
                 )
             else:
                 self.error_message = None
