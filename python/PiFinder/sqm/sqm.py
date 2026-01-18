@@ -474,10 +474,14 @@ class SQM:
                     percentile=5.0,
                 )
             )
-            pedestal = noise_floor
+            # IMPORTANT: Only subtract bias_offset as pedestal, NOT the full noise floor.
+            # Read noise and dark current are random fluctuations around the mean,
+            # not systematic offsets. Subtracting them causes over-subtraction
+            # and makes SQM values too high.
+            pedestal = noise_floor_details.get("bias_offset", noise_floor)
 
             logger.info(
-                f"Adaptive noise floor: {noise_floor:.1f} ADU "
+                f"Adaptive noise floor: {noise_floor:.1f} ADU, using bias={pedestal:.1f} as pedestal "
                 f"(dark_px={noise_floor_details['dark_pixel_smoothed']:.1f}, "
                 f"theory={noise_floor_details['theoretical_floor']:.1f}, "
                 f"valid={noise_floor_details['is_valid']})"
@@ -562,8 +566,13 @@ class SQM:
 
         sqm_uncorrected = mzero - 2.5 * np.log10(background_flux_density)
 
-        # 7. Apply atmospheric extinction correction
-        extinction_correction = self._atmospheric_extinction(altitude_deg)
+        # 7. Atmospheric extinction correction
+        # NOTE: Extinction correction is DISABLED by default.
+        # When comparing to ground-based SQM meters, both measurements are through
+        # the same atmosphere, so no correction is needed. The correction would only
+        # be useful for comparing to satellite measurements or scientific surveys
+        # that report "above atmosphere" values.
+        extinction_correction = 0.0  # self._atmospheric_extinction(altitude_deg)
         sqm_final = sqm_uncorrected + extinction_correction
 
         # Filter out None values for statistics in diagnostics
