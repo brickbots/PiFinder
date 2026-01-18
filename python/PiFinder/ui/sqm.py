@@ -185,11 +185,22 @@ class UISQM(UIModule):
                     font=self.fonts.base.font,
                     fill=self.colors.get(64),
                 )
-                # Bortle class
+                # Bortle class and star count
                 if details:
                     self.draw.text(
                         (10, 92),
                         _("Bortle {bc}").format(bc=details["bortle_class"]),
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(128),
+                    )
+
+                # Show star count used for SQM calculation
+                sqm_details = self.shared_state.sqm_details()
+                if sqm_details:
+                    n_stars = sqm_details.get("n_matched_stars", 0)
+                    self.draw.text(
+                        (80, 92),
+                        f"{n_stars}★",
                         font=self.fonts.base.font,
                         fill=self.colors.get(128),
                     )
