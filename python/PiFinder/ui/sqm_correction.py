@@ -279,10 +279,10 @@ class UISQMCorrection(UIModule):
             },
         }
 
-        # Get SQM state for raw value
+        # Get SQM source
         sqm_state = self.shared_state.sqm()
-        if sqm_state.value_raw is not None:
-            metadata["sqm"]["original_raw"] = sqm_state.value_raw
+        if sqm_state.source:
+            metadata["sqm"]["source"] = sqm_state.source
 
         # Get GPS location
         location = self.shared_state.location()
