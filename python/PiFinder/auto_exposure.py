@@ -742,7 +742,7 @@ class ExposureSNRController:
         """
         # Use adaptive noise floor if available, otherwise fall back to static config
         if noise_floor is not None:
-            min_bg = noise_floor + 2  # Just above noise floor
+            min_bg = noise_floor  # Target at noise floor for shortest exposure
         else:
             min_bg = self.min_background
 

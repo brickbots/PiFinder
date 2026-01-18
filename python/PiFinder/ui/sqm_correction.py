@@ -205,6 +205,11 @@ class UISQMCorrection(UIModule):
             self.message_time = datetime.now()
             return
 
+        # Show saving message and force screen update
+        self.success_message = _("Saving...")
+        self.message_time = datetime.now()
+        self.update(force=True)
+
         # Create correction package
         try:
             zip_path = self._create_correction_package(corrected_sqm)
