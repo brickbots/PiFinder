@@ -52,7 +52,7 @@ def update_sqm(
     sqm_calculator,
     centroids,
     solution,
-    image,
+    image_processed,
     exposure_sec,
     altitude_deg,
     calculation_interval_seconds=5.0,
@@ -68,7 +68,7 @@ def update_sqm(
         sqm_calculator: SQM calculator instance
         centroids: List of detected star centroids
         solution: Tetra3 solve solution with matched stars
-        image: Image array
+        image_processed: Processed image array (numpy)
         exposure_sec: Exposure time in seconds
         altitude_deg: Altitude in degrees for extinction correction
         calculation_interval_seconds: Minimum time between calculations (default: 5.0)
