@@ -457,11 +457,11 @@ class CameraInterface:
                             # Disable auto-exposure during sweep
                             self._auto_exposure_enabled = False
 
-                            # Generate 100 exposure values with logarithmic spacing
+                            # Generate 20 exposure values with logarithmic spacing
                             # from 25ms (25000µs) to 1s (1000000µs)
                             min_exp = 25000  # 25ms
                             max_exp = 1000000  # 1s
-                            num_images = 100
+                            num_images = 20
 
                             # Generate logarithmic sweep using shared utility
                             sweep_exposures = generate_exposure_sweep(
