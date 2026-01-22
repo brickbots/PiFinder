@@ -41,10 +41,7 @@ def create_sqm_calculator(shared_state):
 
     logger.info(f"Creating SQM calculator for camera: {camera_type_processed}")
 
-    return SQMCalculator(
-        camera_type=camera_type_processed,
-        use_adaptive_noise_floor=True,
-    )
+    return SQMCalculator(camera_type=camera_type_processed)
 
 
 def update_sqm(
@@ -148,6 +145,12 @@ def update_sqm(
     return False
 
 
+class CedarConnectionError(Exception):
+    """Raised when Cedar gRPC connection fails."""
+
+    pass
+
+
 class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
     def __init__(self, port=50551):
         """Set up the client without spawning the server as we
@@ -171,6 +174,60 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
                 channel
             )
         return self._stub
+
+    def extract_centroids(self, image, sigma, max_size, use_binned, detect_hot_pixels=True):
+        """Override to raise CedarConnectionError on gRPC failure instead of returning empty list."""
+        import numpy as np
+        from tetra3 import cedar_detect_pb2
+
+        np_image = np.asarray(image, dtype=np.uint8)
+        (height, width) = np_image.shape
+        centroids_result = None
+
+        # Use shared memory path (same machine)
+        if self._use_shmem:
+            self._alloc_shmem(size=width * height)
+            shimg = np.ndarray(np_image.shape, dtype=np_image.dtype, buffer=self._shmem.buf)
+            shimg[:] = np_image[:]
+
+            im = cedar_detect_pb2.Image(width=width, height=height, shmem_name=self._shmem.name)
+            req = cedar_detect_pb2.CentroidsRequest(
+                input_image=im,
+                sigma=sigma,
+                max_size=max_size,
+                return_binned=False,
+                use_binned_for_star_candidates=use_binned,
+                detect_hot_pixels=detect_hot_pixels,
+            )
+            try:
+                centroids_result = self._get_stub().ExtractCentroids(req)
+            except grpc.RpcError as err:
+                if err.code() == grpc.StatusCode.INTERNAL:
+                    # Shared memory issue, fall back to non-shmem
+                    self._del_shmem()
+                    self._use_shmem = False
+                else:
+                    raise CedarConnectionError(f"Cedar gRPC failed: {err.details()}") from err
+
+        if not self._use_shmem:
+            im = cedar_detect_pb2.Image(width=width, height=height, image_data=np_image.tobytes())
+            req = cedar_detect_pb2.CentroidsRequest(
+                input_image=im,
+                sigma=sigma,
+                max_size=max_size,
+                return_binned=False,
+                use_binned_for_star_candidates=use_binned,
+            )
+            try:
+                centroids_result = self._get_stub().ExtractCentroids(req)
+            except grpc.RpcError as err:
+                raise CedarConnectionError(f"Cedar gRPC failed: {err.details()}") from err
+
+        tetra_centroids = []
+        if centroids_result is not None:
+            for sc in centroids_result.star_candidates:
+                tetra_centroids.append((sc.centroid_position.y, sc.centroid_position.x))
+        return tetra_centroids
 
     def __del__(self):
         self._del_shmem()
@@ -231,7 +288,8 @@ def solver(
 
     while True:
         logger.info("Starting Solver Loop")
-        # Start cedar detect server
+        # Try to start cedar detect server, fall back to tetra3 centroider if unavailable
+        cedar_detect = None
         try:
             cedar_detect = PFCedarDetectClient()
         except FileNotFoundError as e:
@@ -239,10 +297,8 @@ def solver(
                 "Not using cedar_detect, as corresponding file '%s' could not be found",
                 e.filename,
             )
-            cedar_detect = None
         except ValueError:
             logger.exception("Not using cedar_detect")
-            cedar_detect = None
 
         try:
             while True:
@@ -307,13 +363,18 @@ def solver(
                         ]
 
                         t0 = precision_timestamp()
-                        if cedar_detect is None:
-                            # Use old tetr3 centroider
-                            centroids = tetra3.get_centroids_from_image(np_image)
+                        if cedar_detect is not None:
+                            # Try Cedar first
+                            try:
+                                centroids = cedar_detect.extract_centroids(
+                                    np_image, sigma=8, max_size=10, use_binned=True
+                                )
+                            except CedarConnectionError as e:
+                                logger.warning(f"Cedar connection failed: {e}, falling back to tetra3")
+                                centroids = tetra3.get_centroids_from_image(np_image)
                         else:
-                            centroids = cedar_detect.extract_centroids(
-                                np_image, sigma=8, max_size=10, use_binned=True
-                            )
+                            # Cedar not available, use tetra3
+                            centroids = tetra3.get_centroids_from_image(np_image)
                         t_extract = (precision_timestamp() - t0) * 1000
 
                         logger.debug(
