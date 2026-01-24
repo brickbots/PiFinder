@@ -5,6 +5,7 @@ from PiFinder.state_utils import sleep_for_framerate
 from PiFinder.ui.ui_utils import TextLayouter
 from PiFinder.image_util import gamma_correct_med, subtract_background
 import time
+from pathlib import Path
 from typing import Any, TYPE_CHECKING
 from PIL import Image, ImageDraw, ImageChops, ImageOps
 
@@ -196,6 +197,22 @@ class UISQM(UIModule):
                     fill=self.colors.get(64),
                 )
 
+                # Calibration indicator (right side of units line)
+                if self._is_calibrated():
+                    self.draw.text(
+                        (105, 68),
+                        "CAL",
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(128),
+                    )
+                else:
+                    self.draw.text(
+                        (98, 68),
+                        "!CAL",
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(64),
+                    )
+
                 # Show altitude-corrected SQM (scientific value) if available
                 if sqm_details:
                     sqm_alt = sqm_details.get("sqm_altitude_corrected")
@@ -242,6 +259,15 @@ class UISQM(UIModule):
         """Scroll description up"""
         if self.show_description:
             self.text_layout.previous()
+
+    def _is_calibrated(self) -> bool:
+        """Check if SQM calibration file exists for current camera."""
+        camera_type = self.shared_state.camera_type()
+        camera_type_processed = f"{camera_type}_processed"
+        calibration_file = (
+            Path.home() / "PiFinder_data" / f"sqm_calibration_{camera_type_processed}.json"
+        )
+        return calibration_file.exists()
 
     def active(self):
         """

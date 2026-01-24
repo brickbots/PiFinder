@@ -41,10 +41,7 @@ def create_sqm_calculator(shared_state):
 
     logger.info(f"Creating SQM calculator for camera: {camera_type_processed}")
 
-    return SQMCalculator(
-        camera_type=camera_type_processed,
-        use_adaptive_noise_floor=True,
-    )
+    return SQMCalculator(camera_type=camera_type_processed)
 
 
 def update_sqm(
@@ -231,7 +228,7 @@ def solver(
 
     while True:
         logger.info("Starting Solver Loop")
-        # Start cedar detect server
+        # Try to start cedar detect server, fall back to tetra3 centroider if unavailable
         try:
             cedar_detect = PFCedarDetectClient()
         except FileNotFoundError as e:
@@ -308,12 +305,28 @@ def solver(
 
                         t0 = precision_timestamp()
                         if cedar_detect is None:
-                            # Use old tetr3 centroider
+                            # Use tetra3 centroider
                             centroids = tetra3.get_centroids_from_image(np_image)
                         else:
-                            centroids = cedar_detect.extract_centroids(
-                                np_image, sigma=8, max_size=10, use_binned=True
-                            )
+                            try:
+                                centroids = cedar_detect.extract_centroids(
+                                    np_image, sigma=8, max_size=10, use_binned=True
+                                )
+                                # Cedar returns empty list on connection failure, fall back to tetra3
+                                if len(centroids) == 0:
+                                    logger.info("Cedar returned 0 centroids, trying tetra3")
+                                    centroids = tetra3.get_centroids_from_image(np_image)
+                                    if len(centroids) > 0:
+                                        # tetra3 found stars, Cedar is broken - disable it
+                                        logger.warning("Cedar not working, switching to tetra3")
+                                        cedar_detect = None
+                            except Exception as e:
+                                # Cedar server not available, fall back to tetra3
+                                logger.warning(
+                                    f"Cedar failed ({type(e).__name__}: {e}), falling back to tetra3"
+                                )
+                                cedar_detect = None
+                                centroids = tetra3.get_centroids_from_image(np_image)
                         t_extract = (precision_timestamp() - t0) * 1000
 
                         logger.debug(
