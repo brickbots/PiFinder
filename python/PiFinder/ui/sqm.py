@@ -47,6 +47,7 @@ class UISQM(UIModule):
                 label=_("CORRECT"),
                 callback=self._launch_sqm_sweep,
             ),
+            right=MarkingMenuOption(),
         )
 
     def update(self, force=False):
