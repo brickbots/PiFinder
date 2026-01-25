@@ -1,7 +1,16 @@
+import json
+
 import pytest
 import numpy as np
 
 from PiFinder.sqm import SQM
+from PiFinder.sqm.noise_floor import NoiseFloorEstimator
+from PiFinder.sqm.camera_profiles import (
+    CameraProfile,
+    get_camera_profile,
+    detect_camera_type,
+)
+from PiFinder.sqm.save_sweep_metadata import save_sweep_metadata
 
 
 @pytest.mark.unit
@@ -132,6 +141,17 @@ class TestPickeringAirmass:
         assert pickering == pytest.approx(5.60, abs=0.05)
         assert simple > pickering  # Simple overestimates at low altitudes
 
+    def test_airmass_at_5_degrees(self):
+        """Test airmass at 5° altitude shows significant Pickering correction."""
+        sqm = SQM()
+        pickering = sqm._pickering_airmass(5.0)
+        simple = 1.0 / np.sin(np.radians(5.0))
+        # Pickering gives ~10.3, simple gives ~11.47 (10% difference)
+        # Expected range from literature: ≈ 9-10
+        assert pickering == pytest.approx(10.3, abs=0.5)
+        assert simple == pytest.approx(11.47, abs=0.1)
+        assert simple > pickering  # Simple significantly overestimates near horizon
+
     def test_airmass_increases_toward_horizon(self):
         """Test airmass increases monotonically toward horizon"""
         sqm = SQM()
@@ -153,6 +173,7 @@ class TestSQMCalculation:
 
     def test_calculate_returns_tuple(self):
         """Test that calculate() returns a tuple (value, details_dict)"""
+        np.random.seed(42)
         sqm = SQM()
 
         # Create minimal mock data
@@ -169,9 +190,9 @@ class TestSQMCalculation:
         centroids = [[100, 100], [200, 200], [300, 300]]
         image = np.random.randint(800, 1200, (512, 512), dtype=np.uint16)
 
-        # Add bright spots for stars
-        for x, y in centroids:
-            image[y - 2 : y + 3, x - 2 : x + 3] += 5000
+        # Add bright spots for stars at (row, col) positions
+        for row, col in centroids:
+            image[row - 2 : row + 3, col - 2 : col + 3] += 5000
 
         result = sqm.calculate(
             centroids=centroids,
@@ -193,6 +214,7 @@ class TestSQMCalculation:
 
     def test_calculate_extinction_applied(self):
         """Test that extinction correction follows ASTAP convention"""
+        np.random.seed(42)
         sqm = SQM()
 
         solution = {
@@ -208,8 +230,8 @@ class TestSQMCalculation:
         centroids = [[100, 100], [200, 200], [300, 300]]
         image = np.random.randint(800, 1200, (512, 512), dtype=np.uint16)
 
-        for x, y in centroids:
-            image[y - 2 : y + 3, x - 2 : x + 3] += 5000
+        for row, col in centroids:
+            image[row - 2 : row + 3, col - 2 : col + 3] += 5000
 
         # Calculate at zenith
         # Note: Use high saturation threshold for uint16 test images
@@ -258,6 +280,7 @@ class TestSQMCalculation:
 
     def test_calculate_missing_fov(self):
         """Test that calculate() returns None when FOV is missing"""
+        np.random.seed(42)
         sqm = SQM()
 
         solution = {
@@ -280,6 +303,7 @@ class TestSQMCalculation:
 
     def test_calculate_no_matched_stars(self):
         """Test that calculate() returns None when no stars are matched"""
+        np.random.seed(42)
         sqm = SQM()
 
         solution = {
@@ -300,6 +324,56 @@ class TestSQMCalculation:
 
         assert sqm_value is None
         assert details == {}
+
+    def test_calculate_asymmetric_centroids(self):
+        """Test with asymmetric centroids to verify (row, col) convention.
+
+        This test uses centroids where row != col to catch any (x,y)/(y,x) confusion.
+        If the coordinate convention is wrong, stars won't be found at the expected
+        positions and the calculation will fail or produce incorrect results.
+        """
+        np.random.seed(42)
+        sqm = SQM()
+
+        # CRITICAL: Use asymmetric coordinates to catch any (x,y)/(y,x) confusion
+        # Format is (row, col) = (y, x), NOT (x, y)
+        asymmetric_centroids = np.array([[50, 400], [100, 300], [150, 200]])
+
+        solution = {
+            "FOV": 10.0,
+            "matched_centroids": asymmetric_centroids,
+            "matched_stars": [
+                [45.0, 30.0, 5.0],
+                [45.1, 30.1, 6.0],
+                [45.2, 30.2, 7.0],
+            ],
+        }
+
+        image = np.random.randint(800, 1200, (512, 512), dtype=np.uint16)
+
+        # Add bright spots at correct positions: image[row, col]
+        for row, col in asymmetric_centroids:
+            image[row - 2 : row + 3, col - 2 : col + 3] += 5000
+
+        result, details = sqm.calculate(
+            centroids=asymmetric_centroids.tolist(),
+            solution=solution,
+            image=image,
+            exposure_sec=0.5,
+            altitude_deg=90.0,
+            saturation_threshold=65000,
+        )
+
+        # Should find valid SQM (stars are at correct positions)
+        assert result is not None, "SQM calculation failed with asymmetric centroids"
+        assert details["n_matched_stars"] == 3
+
+        # Verify star fluxes are positive (stars were found at correct positions)
+        valid_fluxes = [f for f in details["star_fluxes"] if f > 0]
+        assert len(valid_fluxes) == 3, (
+            f"Expected 3 valid star fluxes but got {len(valid_fluxes)}. "
+            "This may indicate coordinate convention mismatch."
+        )
 
 
 @pytest.mark.unit
@@ -489,8 +563,6 @@ class TestNoiseFloorEstimation:
 
     def test_temporal_noise_calculation(self):
         """Test temporal noise = read_noise + dark_current * exposure."""
-        from PiFinder.sqm.noise_floor import NoiseFloorEstimator
-
         estimator = NoiseFloorEstimator(camera_type="imx296_processed")
         # imx296_processed has read_noise=1.5, dark_current=0.0
 
@@ -501,8 +573,6 @@ class TestNoiseFloorEstimation:
 
     def test_noise_floor_uses_theory_when_dark_pixels_below_bias(self):
         """Test that theory is used when dark pixels are impossibly low."""
-        from PiFinder.sqm.noise_floor import NoiseFloorEstimator
-
         estimator = NoiseFloorEstimator(camera_type="imx296_processed")
         # bias_offset for imx296_processed is 6.0
 
@@ -516,8 +586,7 @@ class TestNoiseFloorEstimation:
 
     def test_noise_floor_uses_measured_when_valid(self):
         """Test that measured dark pixels are used when valid."""
-        from PiFinder.sqm.noise_floor import NoiseFloorEstimator
-
+        np.random.seed(42)
         estimator = NoiseFloorEstimator(camera_type="imx296_processed")
         # bias_offset=6.0, read_noise=1.5, dark_current=0.0
         # theoretical_floor = 6.0 + 1.5 = 7.5
@@ -536,8 +605,6 @@ class TestNoiseFloorEstimation:
 
     def test_noise_floor_clamped_to_bias_offset(self):
         """Test that noise floor is never below bias offset."""
-        from PiFinder.sqm.noise_floor import NoiseFloorEstimator
-
         estimator = NoiseFloorEstimator(camera_type="imx296_processed")
 
         # Even with weird inputs, should never go below bias
@@ -549,8 +616,6 @@ class TestNoiseFloorEstimation:
 
     def test_history_smoothing_after_multiple_estimates(self):
         """Test that history smoothing kicks in after 5+ estimates."""
-        from PiFinder.sqm.noise_floor import NoiseFloorEstimator
-
         estimator = NoiseFloorEstimator(camera_type="imx296_processed")
 
         # First 4 estimates - no smoothing yet
@@ -569,8 +634,7 @@ class TestNoiseFloorEstimation:
 
     def test_update_with_zero_sec_sample(self):
         """Test zero-second sample updates profile gradually."""
-        from PiFinder.sqm.noise_floor import NoiseFloorEstimator
-
+        np.random.seed(42)
         estimator = NoiseFloorEstimator(camera_type="imx296_processed")
         original_bias = estimator.profile.bias_offset
 
@@ -587,8 +651,6 @@ class TestNoiseFloorEstimation:
 
     def test_validate_estimate_too_close_to_median(self):
         """Test validation fails when noise floor is too close to image median."""
-        from PiFinder.sqm.noise_floor import NoiseFloorEstimator
-
         estimator = NoiseFloorEstimator(camera_type="imx296_processed")
 
         # Image where darkest pixels are close to median (uniform image)
@@ -614,8 +676,7 @@ class TestNoiseFloorEstimation:
 
     def test_get_statistics(self):
         """Test get_statistics returns expected data."""
-        from PiFinder.sqm.noise_floor import NoiseFloorEstimator
-
+        np.random.seed(42)
         estimator = NoiseFloorEstimator(camera_type="imx296_processed")
 
         # Do a few estimates
@@ -634,8 +695,7 @@ class TestNoiseFloorEstimation:
 
     def test_reset_clears_state(self):
         """Test reset clears all history and statistics."""
-        from PiFinder.sqm.noise_floor import NoiseFloorEstimator
-
+        np.random.seed(42)
         estimator = NoiseFloorEstimator(camera_type="imx296_processed")
 
         # Build up some state
@@ -655,8 +715,6 @@ class TestNoiseFloorEstimation:
 
     def test_save_and_load_calibration(self, tmp_path, monkeypatch):
         """Test calibration save/load round-trip."""
-        from PiFinder.sqm.noise_floor import NoiseFloorEstimator
-
         # Redirect Path.home() to tmp_path
         monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
 
@@ -683,3 +741,514 @@ class TestNoiseFloorEstimation:
         assert estimator2.profile.bias_offset == 25.0
         assert estimator2.profile.read_noise_adu == 3.5
         assert estimator2.profile.dark_current_rate == 0.5
+
+
+@pytest.mark.unit
+class TestMeasureStarFluxWithLocalBackground:
+    """Unit tests for SQM._measure_star_flux_with_local_background()."""
+
+    def test_single_star_flux_measurement(self):
+        """Test flux measurement for a single star with known values."""
+        np.random.seed(42)
+        sqm = SQM()
+
+        # Create image with uniform background of 100 ADU
+        image = np.full((100, 100), 100.0, dtype=np.float32)
+
+        # Add a star at center (50, 50) with 1000 ADU above background
+        # Star in 5-pixel radius aperture
+        y, x = np.ogrid[:100, :100]
+        dist_sq = (x - 50) ** 2 + (y - 50) ** 2
+        star_mask = dist_sq <= 25  # radius 5
+        image[star_mask] += 1000
+
+        centroids = np.array([[50, 50]])  # (row, col) format
+
+        fluxes, backgrounds, n_saturated = sqm._measure_star_flux_with_local_background(
+            image=image,
+            centroids=centroids,
+            aperture_radius=5,
+            annulus_inner_radius=6,
+            annulus_outer_radius=14,
+            saturation_threshold=65000,
+        )
+
+        # Background should be ~100 (the uniform background)
+        assert backgrounds[0] == pytest.approx(100.0, abs=1.0)
+
+        # Flux should be ~1000 * number_of_aperture_pixels
+        # Aperture area for r=5 is approximately pi*5^2 = 78.5 pixels
+        assert fluxes[0] > 50000  # Should have significant positive flux
+        assert n_saturated == 0
+
+    def test_saturated_star_detection(self):
+        """Test that saturated stars are detected and marked with flux=-1."""
+        sqm = SQM()
+
+        # Create image with background
+        image = np.full((100, 100), 50.0, dtype=np.float32)
+
+        # Add a saturated star (pixel value >= threshold)
+        image[48:53, 48:53] = 255  # Saturated pixels
+
+        centroids = np.array([[50, 50]])
+
+        fluxes, backgrounds, n_saturated = sqm._measure_star_flux_with_local_background(
+            image=image,
+            centroids=centroids,
+            aperture_radius=5,
+            annulus_inner_radius=6,
+            annulus_outer_radius=14,
+            saturation_threshold=250,
+        )
+
+        assert fluxes[0] == -1  # Saturated stars get flux=-1
+        assert n_saturated == 1
+
+    def test_multiple_stars(self):
+        """Test flux measurement for multiple stars."""
+        np.random.seed(42)
+        sqm = SQM()
+
+        # Create image with uniform background
+        image = np.full((200, 200), 80.0, dtype=np.float32)
+
+        # Add two stars at different positions
+        y, x = np.ogrid[:200, :200]
+
+        # Star 1 at (50, 50)
+        dist_sq1 = (x - 50) ** 2 + (y - 50) ** 2
+        image[dist_sq1 <= 16] += 500  # radius 4
+
+        # Star 2 at (150, 150)
+        dist_sq2 = (x - 150) ** 2 + (y - 150) ** 2
+        image[dist_sq2 <= 16] += 800  # brighter star
+
+        centroids = np.array([[50, 50], [150, 150]])
+
+        fluxes, backgrounds, n_saturated = sqm._measure_star_flux_with_local_background(
+            image=image,
+            centroids=centroids,
+            aperture_radius=5,
+            annulus_inner_radius=6,
+            annulus_outer_radius=14,
+            saturation_threshold=65000,
+        )
+
+        assert len(fluxes) == 2
+        assert len(backgrounds) == 2
+        assert fluxes[0] > 0  # Both should have positive flux
+        assert fluxes[1] > 0
+        assert fluxes[1] > fluxes[0]  # Star 2 should be brighter
+        assert n_saturated == 0
+
+    def test_star_near_edge(self):
+        """Test flux measurement for a star near image edge."""
+        sqm = SQM()
+
+        # Create small image
+        image = np.full((50, 50), 60.0, dtype=np.float32)
+
+        # Add star near edge
+        image[5:10, 5:10] += 300
+
+        centroids = np.array([[7, 7]])
+
+        fluxes, backgrounds, n_saturated = sqm._measure_star_flux_with_local_background(
+            image=image,
+            centroids=centroids,
+            aperture_radius=3,
+            annulus_inner_radius=4,
+            annulus_outer_radius=8,
+            saturation_threshold=65000,
+        )
+
+        # Should still return a result (clipped to image bounds)
+        assert len(fluxes) == 1
+        assert fluxes[0] > 0
+
+    def test_local_background_varies_per_star(self):
+        """Test that each star uses its own local background."""
+        sqm = SQM()
+
+        # Create image with gradient background
+        image = np.zeros((200, 200), dtype=np.float32)
+        for i in range(200):
+            image[i, :] = 50 + i * 0.5  # Gradient from 50 to 150
+
+        # Add stars in different background regions
+        y, x = np.ogrid[:200, :200]
+
+        # Star 1 in low background region (row 30)
+        dist_sq1 = (x - 100) ** 2 + (y - 30) ** 2
+        image[dist_sq1 <= 16] += 500
+
+        # Star 2 in high background region (row 170)
+        dist_sq2 = (x - 100) ** 2 + (y - 170) ** 2
+        image[dist_sq2 <= 16] += 500
+
+        centroids = np.array([[30, 100], [170, 100]])
+
+        fluxes, backgrounds, n_saturated = sqm._measure_star_flux_with_local_background(
+            image=image,
+            centroids=centroids,
+            aperture_radius=5,
+            annulus_inner_radius=6,
+            annulus_outer_radius=14,
+            saturation_threshold=65000,
+        )
+
+        # Backgrounds should be different (local to each star)
+        assert backgrounds[0] < backgrounds[1]
+        # Background at row 30 should be ~65, at row 170 should be ~135
+        assert backgrounds[0] == pytest.approx(65, abs=10)
+        assert backgrounds[1] == pytest.approx(135, abs=10)
+
+
+@pytest.mark.unit
+class TestGetCameraProfile:
+    """Unit tests for camera_profiles.get_camera_profile()."""
+
+    def test_get_known_camera_profile(self):
+        """Test getting profiles for known camera types."""
+        profile = get_camera_profile("imx296")
+
+        assert isinstance(profile, CameraProfile)
+        assert profile.format == "R10"
+        assert profile.bit_depth == 10
+        assert profile.analog_gain == 15.0
+
+    def test_get_processed_camera_profile(self):
+        """Test getting processed (8-bit) camera profiles."""
+        profile = get_camera_profile("imx296_processed")
+
+        assert isinstance(profile, CameraProfile)
+        assert profile.bit_depth == 8
+        assert profile.format == "L"
+
+    def test_get_all_known_profiles(self):
+        """Test that all documented camera types are accessible."""
+        camera_types = [
+            "imx296",
+            "imx462",
+            "imx290",
+            "hq",
+            "imx296_processed",
+            "imx462_processed",
+            "imx290_processed",
+            "hq_processed",
+        ]
+
+        for camera_type in camera_types:
+            profile = get_camera_profile(camera_type)
+            assert isinstance(profile, CameraProfile)
+            assert profile.raw_size is not None
+
+    def test_unknown_camera_raises_error(self):
+        """Test that unknown camera type raises ValueError."""
+        with pytest.raises(ValueError) as exc_info:
+            get_camera_profile("unknown_camera")
+
+        assert "unknown_camera" in str(exc_info.value).lower()
+        assert "available" in str(exc_info.value).lower()
+
+
+@pytest.mark.unit
+class TestDetectCameraType:
+    """Unit tests for camera_profiles.detect_camera_type()."""
+
+    def test_detect_imx296(self):
+        """Test detection of IMX296 sensor."""
+        assert detect_camera_type("imx296") == "imx296"
+        assert detect_camera_type("IMX296") == "imx296"
+        assert detect_camera_type("imx296_mono") == "imx296"
+
+    def test_detect_imx290_maps_to_imx462(self):
+        """Test that IMX290 maps to IMX462 profile (driver compatibility)."""
+        assert detect_camera_type("imx290") == "imx462"
+        assert detect_camera_type("IMX290") == "imx462"
+
+    def test_detect_imx477_maps_to_hq(self):
+        """Test that IMX477 maps to HQ profile."""
+        assert detect_camera_type("imx477") == "hq"
+        assert detect_camera_type("IMX477") == "hq"
+        assert detect_camera_type("raspberry_pi_imx477") == "hq"
+
+    def test_unknown_hardware_raises_error(self):
+        """Test that unknown hardware ID raises ValueError."""
+        with pytest.raises(ValueError) as exc_info:
+            detect_camera_type("unknown_sensor")
+
+        assert "unknown_sensor" in str(exc_info.value).lower()
+        assert "supported" in str(exc_info.value).lower()
+
+
+@pytest.mark.unit
+class TestCropAndRotate:
+    """Unit tests for CameraProfile.crop_and_rotate()."""
+
+    def test_no_crop_no_rotation(self):
+        """Test with no cropping and no rotation."""
+        profile = CameraProfile(
+            format="R10",
+            raw_size=(100, 100),
+            analog_gain=1.0,
+            crop_y=(0, 0),
+            crop_x=(0, 0),
+            rotation_90=0,
+        )
+
+        arr = np.arange(100 * 100).reshape(100, 100)
+        result = profile.crop_and_rotate(arr)
+
+        assert result.shape == (100, 100)
+        np.testing.assert_array_equal(result, arr)
+
+    def test_vertical_crop(self):
+        """Test vertical (y) cropping."""
+        profile = CameraProfile(
+            format="R10",
+            raw_size=(100, 100),
+            analog_gain=1.0,
+            crop_y=(10, 20),  # Remove 10 from top, 20 from bottom
+            crop_x=(0, 0),
+            rotation_90=0,
+        )
+
+        arr = np.arange(100 * 100).reshape(100, 100)
+        result = profile.crop_and_rotate(arr)
+
+        assert result.shape == (70, 100)  # 100 - 10 - 20 = 70
+        np.testing.assert_array_equal(result, arr[10:-20, :])
+
+    def test_horizontal_crop(self):
+        """Test horizontal (x) cropping."""
+        profile = CameraProfile(
+            format="R10",
+            raw_size=(100, 100),
+            analog_gain=1.0,
+            crop_y=(0, 0),
+            crop_x=(15, 25),  # Remove 15 from left, 25 from right
+            rotation_90=0,
+        )
+
+        arr = np.arange(100 * 100).reshape(100, 100)
+        result = profile.crop_and_rotate(arr)
+
+        assert result.shape == (100, 60)  # 100 - 15 - 25 = 60
+        np.testing.assert_array_equal(result, arr[:, 15:-25])
+
+    def test_both_crops(self):
+        """Test both vertical and horizontal cropping."""
+        profile = CameraProfile(
+            format="R10",
+            raw_size=(100, 100),
+            analog_gain=1.0,
+            crop_y=(5, 10),
+            crop_x=(10, 15),
+            rotation_90=0,
+        )
+
+        arr = np.arange(100 * 100).reshape(100, 100)
+        result = profile.crop_and_rotate(arr)
+
+        assert result.shape == (85, 75)  # (100-5-10, 100-10-15)
+        np.testing.assert_array_equal(result, arr[5:-10, 10:-15])
+
+    def test_rotation_90(self):
+        """Test 90-degree counter-clockwise rotation."""
+        profile = CameraProfile(
+            format="R10",
+            raw_size=(100, 50),
+            analog_gain=1.0,
+            crop_y=(0, 0),
+            crop_x=(0, 0),
+            rotation_90=1,  # 90° CCW
+        )
+
+        arr = np.arange(100 * 50).reshape(100, 50)
+        result = profile.crop_and_rotate(arr)
+
+        assert result.shape == (50, 100)  # Dimensions swapped
+        np.testing.assert_array_equal(result, np.rot90(arr, 1))
+
+    def test_rotation_180(self):
+        """Test 180-degree rotation."""
+        profile = CameraProfile(
+            format="R10",
+            raw_size=(100, 100),
+            analog_gain=1.0,
+            crop_y=(0, 0),
+            crop_x=(0, 0),
+            rotation_90=2,  # 180°
+        )
+
+        arr = np.arange(100 * 100).reshape(100, 100)
+        result = profile.crop_and_rotate(arr)
+
+        assert result.shape == (100, 100)
+        np.testing.assert_array_equal(result, np.rot90(arr, 2))
+
+    def test_crop_then_rotate(self):
+        """Test that crop is applied before rotation."""
+        profile = CameraProfile(
+            format="R10",
+            raw_size=(100, 80),
+            analog_gain=1.0,
+            crop_y=(10, 10),  # 100 -> 80
+            crop_x=(0, 0),
+            rotation_90=1,  # 90° CCW
+        )
+
+        arr = np.arange(100 * 80).reshape(100, 80)
+        result = profile.crop_and_rotate(arr)
+
+        # After crop: (80, 80), after 90° rotation: (80, 80)
+        assert result.shape == (80, 80)
+
+        # Verify correct order: crop first, then rotate
+        expected = np.rot90(arr[10:-10, :], 1)
+        np.testing.assert_array_equal(result, expected)
+
+    def test_imx296_profile_crop_and_rotate(self):
+        """Test with actual IMX296 profile settings."""
+        profile = get_camera_profile("imx296")
+
+        # Create array matching IMX296 raw size
+        arr = np.ones(profile.raw_size[::-1], dtype=np.uint16)  # (height, width)
+
+        result = profile.crop_and_rotate(arr)
+
+        # IMX296 crops 184 from each side horizontally and rotates 180°
+        # Original: (1088, 1456) -> crop to (1088, 1088) -> same after 180° rotation
+        expected_width = profile.raw_size[0] - profile.crop_x[0] - profile.crop_x[1]
+        expected_height = profile.raw_size[1] - profile.crop_y[0] - profile.crop_y[1]
+
+        # After rotation, if 180°, dimensions stay same
+        assert result.shape == (expected_height, expected_width)
+
+
+@pytest.mark.unit
+class TestSaveSweepMetadata:
+    """Unit tests for save_sweep_metadata.save_sweep_metadata()."""
+
+    def test_save_minimal_metadata(self, tmp_path):
+        """Test saving metadata with only required fields."""
+        sweep_dir = tmp_path / "sweep_test"
+        sweep_dir.mkdir()
+
+        result = save_sweep_metadata(
+            sweep_dir=sweep_dir,
+            observer_lat=50.85,
+            observer_lon=4.35,
+        )
+
+        assert result == sweep_dir / "sweep_metadata.json"
+        assert result.exists()
+
+        with open(result) as f:
+            data = json.load(f)
+
+        assert data["observer"]["latitude_deg"] == 50.85
+        assert data["observer"]["longitude_deg"] == 4.35
+        assert "timestamp" in data
+        assert data["sweep_directory"] == str(sweep_dir)
+
+    def test_save_full_metadata(self, tmp_path):
+        """Test saving metadata with all optional fields."""
+        sweep_dir = tmp_path / "sweep_full"
+        sweep_dir.mkdir()
+
+        result = save_sweep_metadata(
+            sweep_dir=sweep_dir,
+            observer_lat=50.85,
+            observer_lon=4.35,
+            observer_altitude_m=100.0,
+            gps_datetime="2024-01-15T22:30:00+00:00",
+            reference_sqm=21.5,
+            ra_deg=180.0,
+            dec_deg=45.0,
+            altitude_deg=60.0,
+            azimuth_deg=90.0,
+            notes="Clear sky, no moon",
+        )
+
+        with open(result) as f:
+            data = json.load(f)
+
+        assert data["observer"]["altitude_m"] == 100.0
+        assert data["timestamp"] == "2024-01-15T22:30:00+00:00"
+        assert data["reference_sqm"] == 21.5
+        assert data["coordinates"]["ra_deg"] == 180.0
+        assert data["coordinates"]["dec_deg"] == 45.0
+        assert data["coordinates"]["altitude_deg"] == 60.0
+        assert data["coordinates"]["azimuth_deg"] == 90.0
+        assert data["notes"] == "Clear sky, no moon"
+
+    def test_save_partial_coordinates(self, tmp_path):
+        """Test saving metadata with only RA/Dec (no alt/az)."""
+        sweep_dir = tmp_path / "sweep_partial"
+        sweep_dir.mkdir()
+
+        save_sweep_metadata(
+            sweep_dir=sweep_dir,
+            observer_lat=50.85,
+            observer_lon=4.35,
+            ra_deg=120.0,
+            dec_deg=30.0,
+        )
+
+        with open(sweep_dir / "sweep_metadata.json") as f:
+            data = json.load(f)
+
+        assert data["coordinates"]["ra_deg"] == 120.0
+        assert data["coordinates"]["dec_deg"] == 30.0
+        assert "altitude_deg" not in data["coordinates"]
+        assert "azimuth_deg" not in data["coordinates"]
+
+    def test_coordinates_require_both_ra_dec(self, tmp_path):
+        """Test that coordinates block requires both RA and Dec."""
+        sweep_dir = tmp_path / "sweep_ra_only"
+        sweep_dir.mkdir()
+
+        # Only RA, no Dec - should not create coordinates block
+        save_sweep_metadata(
+            sweep_dir=sweep_dir,
+            observer_lat=50.85,
+            observer_lon=4.35,
+            ra_deg=120.0,  # Only RA, no Dec
+        )
+
+        with open(sweep_dir / "sweep_metadata.json") as f:
+            data = json.load(f)
+
+        assert "coordinates" not in data
+
+    def test_uses_gps_datetime_when_provided(self, tmp_path):
+        """Test that provided GPS datetime is used instead of current time."""
+        sweep_dir = tmp_path / "sweep_gps"
+        sweep_dir.mkdir()
+
+        gps_time = "2024-06-15T12:00:00+00:00"
+        save_sweep_metadata(
+            sweep_dir=sweep_dir,
+            observer_lat=50.85,
+            observer_lon=4.35,
+            gps_datetime=gps_time,
+        )
+
+        with open(sweep_dir / "sweep_metadata.json") as f:
+            data = json.load(f)
+
+        assert data["timestamp"] == gps_time
+
+    def test_nonexistent_directory_raises_error(self, tmp_path):
+        """Test that saving to nonexistent directory raises an error."""
+        nonexistent = tmp_path / "does_not_exist"
+
+        with pytest.raises(Exception):  # FileNotFoundError or similar
+            save_sweep_metadata(
+                sweep_dir=nonexistent,
+                observer_lat=50.85,
+                observer_lon=4.35,
+            )

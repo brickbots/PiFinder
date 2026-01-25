@@ -88,7 +88,9 @@ class SQM:
 
         Args:
             image: Image array
-            centroids: Star centroids to measure
+            centroids: Star centroids to measure, shape (N, 2).
+                       Each row is (row_idx, col_idx) = (y, x) to match numpy indexing.
+                       This is the convention used by Tetra3 matched_centroids.
             aperture_radius: Aperture radius for star flux in pixels
             annulus_inner_radius: Inner radius of background annulus in pixels
             annulus_outer_radius: Outer radius of background annulus in pixels
@@ -330,7 +332,9 @@ class SQM:
 
         Args:
             centroids: All detected centroids (unused, kept for compatibility)
-            solution: Tetra3 solution dict with 'FOV', 'matched_centroids', 'matched_stars'
+            solution: Tetra3 solution dict with 'FOV', 'matched_centroids', 'matched_stars'.
+                      Note: matched_centroids uses (row, col) = (y, x) convention to match
+                      numpy array indexing (image[row, col]).
             image: Image array (uint8 or float)
             exposure_sec: Exposure time in seconds (required for noise floor estimation)
             altitude_deg: Altitude of field center for extinction correction (default: 90 = zenith)

@@ -10,6 +10,8 @@ dark frame measurements for improved accuracy.
 from dataclasses import dataclass
 from typing import Dict, Tuple
 
+import numpy as np
+
 
 @dataclass
 class CameraProfile:
@@ -80,8 +82,6 @@ class CameraProfile:
         Returns:
             Cropped and rotated array
         """
-        import numpy as np
-
         # Apply cropping
         crop_top, crop_bottom = self.crop_y
         crop_left, crop_right = self.crop_x
