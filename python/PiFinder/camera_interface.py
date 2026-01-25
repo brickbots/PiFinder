@@ -39,7 +39,7 @@ class CameraInterface:
     _camera_started = False
     _save_next_to = None  # Filename to save next capture to (None = don't save)
     _auto_exposure_enabled = False
-    _auto_exposure_mode = "pid"  # "pid" or "snr"
+    _auto_exposure_mode = "snr"  # "snr" or "pid"
     _auto_exposure_pid: Optional[ExposurePIDController] = None
     _auto_exposure_snr: Optional[ExposureSNRController] = None
     _last_solve_time: Optional[float] = None
