@@ -39,7 +39,7 @@ class CameraInterface:
     _camera_started = False
     _save_next_to = None  # Filename to save next capture to (None = don't save)
     _auto_exposure_enabled = False
-    _auto_exposure_mode = "snr"  # "snr" or "pid"
+    _auto_exposure_mode = "pid"  # "pid" or "snr"
     _auto_exposure_pid: Optional[ExposurePIDController] = None
     _auto_exposure_snr: Optional[ExposureSNRController] = None
     _last_solve_time: Optional[float] = None
@@ -118,13 +118,18 @@ class CameraInterface:
                 root_dir, "test_images", "pifinder_debug_02.png"
             )
 
-            # 60 half-second cycles
+            # 60 half-second cycles (30 seconds between captures in sleep mode)
             sleep_delay = 60
+            was_sleeping = False
             while True:
                 sleeping = state_utils.sleep_for_framerate(
                     shared_state, limit_framerate=False
                 )
                 if sleeping:
+                    # Log transition to sleep mode
+                    if not was_sleeping:
+                        logger.info("Camera entering low-power sleep mode")
+                        was_sleeping = True
                     # Even in sleep mode, we want to take photos every
                     # so often to update positions
                     sleep_delay -= 1
@@ -132,6 +137,10 @@ class CameraInterface:
                         continue
                     else:
                         sleep_delay = 60
+                        logger.debug("Sleep mode: waking for periodic capture")
+                elif was_sleeping:
+                    logger.info("Camera exiting low-power sleep mode")
+                    was_sleeping = False
 
                 imu_start = shared_state.imu()
                 image_start_time = time.time()

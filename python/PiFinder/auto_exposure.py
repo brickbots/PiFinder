@@ -121,10 +121,10 @@ class SweepZeroStarHandler(ZeroStarHandler):
         self._repeat_count = 0
 
         # Sweep pattern: exposure values in microseconds
-        # Uses doubling pattern (2x each step)
+        # Start at 400ms (reasonable middle), sweep up, then try shorter exposures
         # Note: This is intentionally NOT using generate_exposure_sweep() because
-        # it uses a specific doubling pattern
-        self._exposures = [25000, 50000, 100000, 200000, 400000, 800000, 1000000]
+        # it uses a specific pattern optimized for recovery
+        self._exposures = [400000, 800000, 1000000, 200000, 100000, 50000, 25000]
         self._repeats_per_exposure = 2  # Try each exposure 2 times
 
         logger.info(
@@ -841,6 +841,7 @@ class ExposurePIDController:
         self._integral = 0.0
         self._last_error: Optional[float] = None
         self._zero_star_count = 0
+        self._nonzero_star_count = 0  # Hysteresis: consecutive non-zero solves
         self._last_adjustment_time = 0.0
         self._zero_star_handler = zero_star_handler or SweepZeroStarHandler(
             min_exposure=min_exposure, max_exposure=max_exposure
@@ -857,6 +858,7 @@ class ExposurePIDController:
         self._integral = 0.0
         self._last_error = None
         self._zero_star_count = 0
+        self._nonzero_star_count = 0
         self._last_adjustment_time = 0.0
         self._zero_star_handler.reset()
         logger.debug("PID controller reset")
@@ -901,6 +903,16 @@ class ExposurePIDController:
 
         # Select gains: conservative when decreasing, aggressive when increasing
         kp, ki, kd = self.gains_decrease if error < 0 else self.gains_increase
+
+        # Reset integral when error changes sign to prevent accumulated integral
+        # from crashing exposure when conditions change suddenly
+        # (e.g., going from too many stars to too few stars)
+        if self._last_error is not None:
+            if (error > 0 and self._last_error < 0) or (error < 0 and self._last_error > 0):
+                logger.debug(
+                    f"PID: Error sign changed ({self._last_error:.0f} → {error:.0f}), resetting integral"
+                )
+                self._integral = 0.0
 
         # PID calculation
         p_term = kp * error
