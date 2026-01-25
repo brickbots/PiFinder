@@ -122,24 +122,55 @@ def load_wds():
     data = read_wds_catalog(data_path)
 
     def parse_coordinates_2000(coord):
-        ra_h = float(coord[:2])
-        ra_m = float(coord[2:4])
-        ra_s = float(coord[4:5]) * 6  # Convert tenths of minutes to seconds
-        dec_deg = float(coord[5:8])
-        dec_m = float(coord[8:10])
-        return ra_to_deg(ra_h, ra_m, ra_s), dec_to_deg(dec_deg, dec_m, 0)
+        try:
+            # Check for correct length (WDS identifier is always 10 chars)
+            if len(coord) != 10:
+                return None, None
+
+            # Format: HHMM.t±DDMM (10 characters) - example: 00001-0122
+            ra_h = float(coord[:2])
+            ra_m = float(coord[2:4])
+            ra_s = float(coord[4:5]) * 6  # Convert tenths of minutes to seconds
+            dec_sign = 1 if coord[5] == "+" else -1
+            dec_deg = float(coord[6:8]) * dec_sign
+            dec_m = float(coord[8:10])
+            return ra_to_deg(ra_h, ra_m, ra_s), dec_to_deg(dec_deg, dec_m, 0)
+        except (ValueError, IndexError):
+            return None, None
 
     def parse_coordinates_arcsec(coord):
         try:
-            ra_h = float(coord[:2])
-            ra_m = float(coord[2:4])
-            ra_s = float(coord[4:9])
-            dec_sign = 1 if coord[9] == "+" else -1
-            dec_deg = float(coord[10:12]) * dec_sign
-            dec_m = float(coord[12:14])
-            dec_s = float(coord[14:])
-            # 00000+7530A  000006.64+752859.8
-        except ValueError:
+            # Handle empty, missing, or '.' coordinates
+            coord_clean = coord.strip()
+            if not coord_clean or coord_clean == ".":
+                return None, None
+
+            # Find the sign position (+ or -)
+            sign_pos = -1
+            for i, char in enumerate(coord_clean):
+                if char in ["+", "-"]:
+                    sign_pos = i
+                    break
+
+            if sign_pos == -1:
+                return None, None
+
+            # Parse RA part (before sign)
+            ra_part = coord_clean[:sign_pos].strip()
+            ra_h = float(ra_part[:2])
+            ra_m = float(ra_part[2:4])
+            ra_s = float(ra_part[4:])  # Variable length seconds
+
+            # Parse DEC part (after sign)
+            dec_part = coord_clean[sign_pos:]
+            dec_sign = 1 if dec_part[0] == "+" else -1
+            dec_coords = dec_part[1:].strip()  # Remove sign
+
+            dec_deg = float(dec_coords[:2]) * dec_sign
+            dec_m = float(dec_coords[2:4])
+            dec_s = float(dec_coords[4:]) if len(dec_coords) > 4 else 0.0
+
+        except (ValueError, IndexError):
             return None, None
         return ra_to_deg(ra_h, ra_m, ra_s), dec_to_deg(dec_deg, dec_m, dec_s)
 
@@ -152,6 +183,26 @@ def load_wds():
             mag1 = round(value["Mag_First"].item(), 2)
             mag2 = round(value["Mag_Second"].item(), 2)
             if i == 0:
+                # Validate RA/DEC in the first (primary) object
+                if (
+                    value["ra"] is None
+                    or value["dec"] is None
+                    or np.isnan(value["ra"])
+                    or np.isnan(value["dec"])
+                ):
+                    logging.error(
+                        f"Empty or invalid RA/DEC in handle_multiples for WDS object '{key}'"
+                    )
+                    logging.error(
+                        f"  Primary object RA: {value['ra']}, DEC: {value['dec']}"
+                    )
+                    logging.error(f"  Coordinates_2000: '{value['Coordinates_2000']}'")
+                    logging.error(
+                        f"  Coordinates_Arcsec: '{value['Coordinates_Arcsec']}'"
+                    )
+                    raise ValueError(
+                        f"Invalid RA/DEC coordinates for primary WDS object '{key}': RA={value['ra']}, DEC={value['dec']}"
+                    )
                 result["ra"] = value["ra"]
                 result["dec"] = value["dec"]
                 result["mag"] = MagnitudeObject([mag1, mag2])
@@ -177,46 +228,53 @@ def load_wds():
         result["description"] = "\n".join(descriptions)
         return result
 
-    # Convert coordinates
-    ra_2000, dec_2000 = np.vectorize(parse_coordinates_2000)(data["Coordinates_2000"])
-    ra_arcsec, dec_arcsec = np.vectorize(parse_coordinates_arcsec)(
-        data["Coordinates_Arcsec"]
-    )
-
-    # Add these new coordinates to the numpy array
-    new_dtype = data.dtype.descr + [
-        ("ra_2000", "f8"),
-        ("dec_2000", "f8"),
-        ("ra_arcsec", "f8"),
-        ("dec_arcsec", "f8"),
-        ("ra", "f8"),
-        ("dec", "f8"),
-    ]
+    # Add coordinate columns to the numpy array
+    new_dtype = data.dtype.descr + [("ra", "f8"), ("dec", "f8")]
     new_data = np.empty(data.shape, dtype=new_dtype)
 
     # Copy existing data
     for name in data.dtype.names:
         new_data[name] = data[name]
 
-    # Add new data
-    new_data["ra_2000"] = ra_2000
-    new_data["dec_2000"] = dec_2000
-    new_data["ra_arcsec"] = ra_arcsec
-    new_data["dec_arcsec"] = dec_arcsec
-    new_data["ra"] = 0
-    new_data["dec"] = 0
-
     # Replace the old data with the new data
     data = new_data
 
-    # Append new columns to data
+    # Parse coordinates on demand and assign final values
     for i, entry in enumerate(data):
-        if ra_arcsec[i] is None or dec_arcsec[i] is None:
-            entry["ra"] = ra_2000[i]
-            entry["dec"] = dec_2000[i]
+        # Try arcsecond coordinates first
+        ra_arcsec, dec_arcsec = parse_coordinates_arcsec(entry["Coordinates_Arcsec"])
+
+        if ra_arcsec is not None and dec_arcsec is not None:
+            entry["ra"] = ra_arcsec
+            entry["dec"] = dec_arcsec
         else:
-            entry["ra"] = ra_arcsec[i]
-            entry["dec"] = dec_arcsec[i]
+            # Fall back to 2000 coordinates
+            ra_2000, dec_2000 = parse_coordinates_2000(entry["Coordinates_2000"])
+            entry["ra"] = ra_2000
+            entry["dec"] = dec_2000
+
+        # Validate RA/DEC values are not empty/invalid
+        if (
+            entry["ra"] is None
+            or entry["dec"] is None
+            or np.isnan(entry["ra"])
+            or np.isnan(entry["dec"])
+        ):
+            coord_2000 = entry["Coordinates_2000"]
+            coord_arcsec = entry["Coordinates_Arcsec"]
+            logging.error(
+                f"Empty or invalid RA/DEC detected for WDS object at line {i+1}"
+            )
+            logging.error(f"  Coordinates_2000: '{coord_2000}'")
+            logging.error(f"  Coordinates_Arcsec: '{coord_arcsec}'")
+            logging.error(f"  Parsed RA_2000: {ra_2000[i]}, DEC_2000: {dec_2000[i]}")
+            logging.error(
+                f"  Parsed RA_arcsec: {ra_arcsec[i]}, DEC_arcsec: {dec_arcsec[i]}"
+            )
+            logging.error(f"  Final RA: {entry['ra']}, DEC: {entry['dec']}")
+            raise ValueError(
+                f"Invalid RA/DEC coordinates for WDS object at line {i+1}: RA={entry['ra']}, DEC={entry['dec']}"
+            )
 
     # make a dictionary of WDS objects to group duplicates
     wds_dict = defaultdict(list)

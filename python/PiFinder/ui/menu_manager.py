@@ -146,9 +146,7 @@ class MenuManager:
 
     def screengrab(self):
         self.ss_count += 1
-        filename = (
-            f"{self.stack[-1].__uuid__}_{self.ss_count :0>3}_{self.stack[-1].title}"
-        )
+        filename = f"{self.stack[-1].__uuid__}_{self.ss_count :0>3}_{self.stack[-1].title.replace('/','-')}"
         ss_imagepath = self.ss_path + f"/{filename}.png"
         ss = self.shared_state.screen().copy()
         ss.save(ss_imagepath)
@@ -171,6 +169,7 @@ class MenuManager:
         like chart, so they are ready to go
         """
         for module_def in collect_preloads():
+            print(f"Preloading: {module_def['class']}")
             module_def["state"] = module_def["class"](
                 display_class=self.display_class,
                 camera_image=self.camera_image,

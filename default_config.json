@@ -3,6 +3,7 @@
     "keypad_brightness": "0",
     "camera_exp": 400000,
     "camera_gain": 20,
+    "auto_exposure_zero_star_handler": "sweep",
     "menu_anim_speed": 0.1,
     "text_scroll_speed": "Med",
     "screen_direction": "right",
@@ -16,12 +17,14 @@
     "chart_constellations": 64,
     "solve_pixel": [256, 256],
     "gps_type": "ublox",
+    "gps_baud_rate": 9600,
     "filter.selected_catalogs": [
         "NGC",
         "M",
         "H",
         "Str",
         "PL",
+        "CM",
         "RDS"
     ],
     "filter.object_types": [

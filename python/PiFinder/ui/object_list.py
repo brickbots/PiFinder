@@ -7,7 +7,7 @@ This module contains all the UI Module classes
 
 import copy
 from enum import Enum
-from typing import Union
+from typing import Union, Optional, Tuple
 from pathlib import Path
 import os
 import functools
@@ -26,6 +26,7 @@ from PiFinder.calc_utils import aim_degrees
 from PiFinder import utils
 from PiFinder.composite_object import CompositeObject, MagnitudeObject
 from PiFinder.nearby import Nearby
+from PiFinder.catalogs import CatalogState
 from PiFinder.ui.ui_utils import (
     TextLayouterScroll,
     name_deduplicate,
@@ -86,6 +87,7 @@ class UIObjectList(UITextMenu):
         self._menu_items: list[CompositeObject] = []
         self.catalog_info_1: str = ""
         self.catalog_info_2: str = ""
+        self._was_loading: bool = False  # Track loading state to detect completion
 
         # Init display mode defaults
         self.mode_cycle = cycle(DisplayModes)
@@ -118,6 +120,18 @@ class UIObjectList(UITextMenu):
         self.last_item_index = -1
         self.item_text_scroll: Union[None, TextLayouterScroll] = None
 
+        # Base marking menu
+        marking_menu_down = MarkingMenuOption()
+
+        # Add refresh option for comet catalog only
+        if (
+            self.item_definition.get("objects") == "catalog"
+            and self.item_definition.get("value") == "CM"
+        ):
+            marking_menu_down = MarkingMenuOption(
+                label=_("Refresh"), callback=self.mm_refresh_comets
+            )
+
         self.marking_menu = MarkingMenu(
             left=MarkingMenuOption(
                 label=_("Sort"),
@@ -132,7 +146,7 @@ class UIObjectList(UITextMenu):
                     ),
                 ),
             ),
-            down=MarkingMenuOption(),
+            down=marking_menu_down,
             right=MarkingMenuOption(label=_("Filter"), menu_jump="filter_options"),
         )
 
@@ -187,6 +201,71 @@ class UIObjectList(UITextMenu):
         self.catalog_info_1 = str(self.get_nr_of_menu_items())
         self._menu_items_sorted = self._menu_items
         self.sort()
+
+    def _get_catalog_status_message(self) -> Tuple[Optional[str], Optional[int]]:
+        """
+        Generate status message explaining why catalog might be empty.
+        Returns tuple of (message, progress_percentage).
+        Returns (None, None) if catalog is ready (empty is due to filtering).
+
+        Also handles refreshing object list when catalog transitions to READY.
+        """
+        if self.item_definition.get("objects") != "catalog":
+            return (None, None)
+
+        catalog_code = self.item_definition.get("value")
+        if not catalog_code:
+            return (None, None)
+
+        for catalog in self.catalogs.get_catalogs(only_selected=False):
+            if catalog.catalog_code == catalog_code:
+                status = catalog.get_status()
+
+                # Handle state transitions - refresh immediately when transitioning to READY
+                if (
+                    status.previous != CatalogState.READY
+                    and status.current == CatalogState.READY
+                ):
+                    self.refresh_object_list(force_update=True)
+
+                # Extract progress if available
+                progress = None
+                if status.data and "progress" in status.data:
+                    progress = status.data["progress"]
+
+                # Map state to user-facing messages
+                if status.current == CatalogState.READY:
+                    return (None, None)
+                elif status.current == CatalogState.DOWNLOADING:
+                    return (
+                        _(
+                            "Downloading..."
+                        ),  # TRANSLATORS: Status when catalog data is downloading
+                        progress,
+                    )
+                elif status.current == CatalogState.NO_GPS:
+                    return (
+                        _(
+                            "No GPS lock"
+                        ),  # TRANSLATORS: Status when waiting for GPS position
+                        None,
+                    )
+                elif status.current == CatalogState.CALCULATING:
+                    return (
+                        _(
+                            "Calculating..."
+                        ),  # TRANSLATORS: Status when computing object positions
+                        progress,
+                    )
+                elif status.current == CatalogState.ERROR:
+                    return (_("Error"), None)  # TRANSLATORS: Generic error status
+                else:
+                    return (
+                        _("Loading..."),
+                        None,
+                    )  # TRANSLATORS: Generic loading status
+
+        return (None, None)
 
     def sort(self) -> None:
         message = _(
@@ -402,22 +481,59 @@ class UIObjectList(UITextMenu):
         self.clear_screen()
         begin_x = 12
 
+        # Check if loading just completed and refresh if so
+        is_loading = self.catalogs.is_loading()
+        if self._was_loading and not is_loading:
+            # Loading just completed - force refresh to show new objects
+            # Update flag BEFORE calling refresh to avoid infinite loop
+            self._was_loading = False
+            self.refresh_object_list(force_update=True)
+        else:
+            self._was_loading = is_loading
+
         # no objects to display
         if self.get_nr_of_menu_items() == 0:
-            self.draw.text(
-                (begin_x, self.line_position(2)),
-                _("No objects"),  # TRANSLATORS: no objects in object list (1/2)
-                font=self.fonts.bold.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (begin_x, self.line_position(3)),
-                _("match filter"),  # TRANSLATORS: no objects in object list (2/2)
-                font=self.fonts.bold.font,
-                fill=self.colors.get(255),
-            )
-            self.screen_update()
-            return
+            # Get catalog-specific status message if available
+            status_msg, progress = self._get_catalog_status_message()
+
+            # Re-check menu items in case refresh happened during status check
+            if self.get_nr_of_menu_items() > 0:
+                # Objects were loaded, continue with normal rendering
+                pass
+            elif status_msg:
+                # Display status message on line 2
+                self.draw.text(
+                    (begin_x, self.line_position(2)),
+                    status_msg,
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+                # Display progress percentage on line 3 if available
+                if progress is not None:
+                    self.draw.text(
+                        (begin_x, self.line_position(3)),
+                        f"{progress}%",
+                        font=self.fonts.bold.font,
+                        fill=self.colors.get(255),
+                    )
+                self.screen_update()
+                return
+            else:
+                # No status message, show default "no objects" message
+                self.draw.text(
+                    (begin_x, self.line_position(2)),
+                    _("No objects"),  # TRANSLATORS: no objects in object list (1/2)
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (begin_x, self.line_position(3)),
+                    _("match filter"),  # TRANSLATORS: no objects in object list (2/2)
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+                self.screen_update()
+                return
 
         # should we refresh the nearby list?
         if self.current_sort == SortOrder.NEAREST and self.nearby.should_refresh():
@@ -682,6 +798,16 @@ class UIObjectList(UITextMenu):
 
     def mm_jump_to_filter(self, marking_menu, menu_item):
         pass
+
+    def mm_refresh_comets(self, marking_menu, menu_item):
+        """Force refresh of comet data from the internet"""
+        catalog = self.catalogs.get_catalog_by_code("CM")
+        if catalog and hasattr(catalog, "refresh"):
+            self.message(_("Refreshing..."), 1)
+            catalog.refresh()
+            # Clear the UI object list and refresh to show status
+            self.refresh_object_list(force_update=True)
+        return True
 
 
 class CatalogSequence:
