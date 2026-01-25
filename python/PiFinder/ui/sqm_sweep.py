@@ -1,16 +1,24 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-Exposure Sweep UI
+SQM Sweep UI
 
-Multi-step wizard for capturing exposure sweeps with reference SQM.
+Multi-step wizard for capturing exposure sweeps with reference SQM
+and full metadata for calibration validation.
 """
 
+import json
+import logging
 import time
 from enum import Enum
 from pathlib import Path
+
+import numpy as np
+
 from PiFinder import utils
 from PiFinder.ui.base import UIModule
+
+logger = logging.getLogger("PiFinder.SQMSweep")
 
 
 class SweepState(Enum):
@@ -22,18 +30,18 @@ class SweepState(Enum):
     COMPLETE = "complete"  # Sweep done
 
 
-class UIExpSweep(UIModule):
+class UISQMSweep(UIModule):
     """
-    Exposure Sweep Wizard
+    SQM Sweep Wizard
 
     Steps:
     1. Ask user for reference SQM value from external meter
     2. Confirm ready to start
-    3. Capture 100 image sweep
-    4. Save metadata and exit
+    3. Capture exposure sweep images
+    4. Save full metadata (SQM details, solve, noise floor estimator)
     """
 
-    __title__ = "EXP SWEEP"
+    __title__ = "SQM SWEEP"
     __help_name__ = ""
 
     def __init__(self, *args, **kwargs):
@@ -242,6 +250,7 @@ class UIExpSweep(UIModule):
 
         # Auto-complete when all files captured
         if file_count >= self.total_images:
+            self._add_detailed_metadata()
             self.state = SweepState.COMPLETE
 
     def _get_sweep_files_since_start(self):
@@ -270,6 +279,102 @@ class UIExpSweep(UIModule):
         except Exception:
             # If anything fails, return 0 to avoid crashing the UI
             return 0
+
+    def _add_detailed_metadata(self):
+        """Add detailed metadata including SQM state and NoiseFloorEstimator output."""
+        try:
+            from PiFinder.sqm.noise_floor import NoiseFloorEstimator
+
+            # Find the sweep directory
+            captures_dir = Path(utils.data_dir) / "captures"
+            sweep_dirs = [
+                d for d in captures_dir.glob("sweep_*")
+                if d.stat().st_ctime >= (self.start_time - 1)
+            ]
+            if not sweep_dirs:
+                logger.warning("No sweep directory found for metadata update")
+                return
+
+            sweep_dir = max(sweep_dirs, key=lambda p: p.stat().st_ctime)
+            metadata_file = sweep_dir / "sweep_metadata.json"
+
+            if not metadata_file.exists():
+                logger.warning(f"No metadata file found at {metadata_file}")
+                return
+
+            # Load existing metadata
+            with open(metadata_file, "r") as f:
+                metadata = json.load(f)
+
+            # Add current SQM state (like sqm_correction does)
+            sqm_state = self.shared_state.sqm()
+            if sqm_state:
+                metadata["sqm"] = {
+                    "pifinder_value": sqm_state.value,
+                    "reference_value": self.reference_sqm,
+                    "difference": (self.reference_sqm - sqm_state.value)
+                                  if self.reference_sqm and sqm_state.value else None,
+                    "source": sqm_state.source,
+                }
+
+            # Add full SQM calculation details
+            sqm_details = self.shared_state.sqm_details()
+            if sqm_details:
+                metadata["sqm_calculation"] = sqm_details
+
+            # Add image metadata
+            image_metadata = self.shared_state.last_image_metadata()
+            if image_metadata:
+                metadata["image"] = {
+                    "exposure_us": image_metadata.get("exposure_time"),
+                    "exposure_sec": image_metadata.get("exposure_time", 0) / 1_000_000.0,
+                    "gain": image_metadata.get("gain"),
+                    "imu_delta": image_metadata.get("imu_delta"),
+                }
+
+            # Add solve data
+            solution = self.shared_state.solution()
+            if solution:
+                metadata["solve"] = {
+                    "ra_deg": solution.get("RA"),
+                    "dec_deg": solution.get("Dec"),
+                    "altitude_deg": solution.get("Alt"),
+                    "azimuth_deg": solution.get("Az"),
+                    "fov_deg": solution.get("FOV"),
+                    "matches": solution.get("Matches"),
+                    "rmse": solution.get("RMSE"),
+                }
+
+            # Add NoiseFloorEstimator output
+            camera_type = self.shared_state.camera_type()
+            camera_type_processed = f"{camera_type}_processed"
+            exposure_sec = (image_metadata.get("exposure_time", 500000) / 1_000_000.0
+                          if image_metadata else 0.5)
+
+            if self.camera_image is not None:
+                image_array = np.array(self.camera_image.convert("L"))
+
+                estimator = NoiseFloorEstimator(
+                    camera_type=camera_type_processed,
+                    enable_zero_sec_sampling=False,
+                )
+                _, nf_details = estimator.estimate_noise_floor(
+                    image=image_array,
+                    exposure_sec=exposure_sec,
+                )
+
+                nf_details.pop("request_zero_sec_sample", None)
+                nf_details["camera_type"] = camera_type_processed
+                metadata["noise_floor_estimator"] = nf_details
+
+            # Save updated metadata
+            with open(metadata_file, "w") as f:
+                json.dump(metadata, f, indent=2)
+
+            logger.info(f"Added detailed metadata to {metadata_file}")
+
+        except Exception as e:
+            logger.error(f"Failed to add detailed metadata: {e}")
 
     def _draw_complete(self):
         """Draw completion screen"""

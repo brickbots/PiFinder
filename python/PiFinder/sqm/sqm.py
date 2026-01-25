@@ -1,7 +1,11 @@
-import numpy as np
+import json
 import logging
+from pathlib import Path
 from typing import Tuple, Dict, Optional
-from .noise_floor import NoiseFloorEstimator
+
+import numpy as np
+
+from .camera_profiles import get_camera_profile
 
 logger = logging.getLogger("Solver")
 
@@ -36,17 +40,55 @@ class SQM:
         Initialize SQM calculator.
 
         Args:
-            camera_type: Camera model (imx296, imx462, imx290, hq) for noise estimation.
+            camera_type: Camera model (imx296, imx462, imx290, hq).
                 Use "_processed" suffix for 8-bit ISP-processed images.
         """
-        self.noise_estimator = NoiseFloorEstimator(
-            camera_type=camera_type,
-            enable_zero_sec_sampling=True,
-            zero_sec_interval=300,  # Every 5 minutes
-        )
+        self.camera_type = camera_type
+        self.profile = get_camera_profile(camera_type)
+        self._load_calibration()
         logger.info(
-            f"SQM initialized with adaptive noise floor estimation (camera: {camera_type})"
+            f"SQM initialized (camera: {camera_type}, bias_offset: {self.profile.bias_offset})"
         )
+
+    def _load_calibration(self) -> bool:
+        """
+        Load calibration from JSON file if it exists.
+
+        Calibration file is saved by the SQM calibration wizard to:
+        ~/PiFinder_data/sqm_calibration_{camera_type}.json
+
+        Returns:
+            True if calibration was loaded, False if using defaults
+        """
+        calibration_file = (
+            Path.home() / "PiFinder_data" / f"sqm_calibration_{self.camera_type}.json"
+        )
+
+        if not calibration_file.exists():
+            logger.debug(f"No calibration file found at {calibration_file}, using defaults")
+            return False
+
+        try:
+            with open(calibration_file, "r") as f:
+                calibration = json.load(f)
+
+            # Update profile with calibrated values
+            if "bias_offset" in calibration:
+                self.profile.bias_offset = float(calibration["bias_offset"])
+            if "read_noise" in calibration:
+                self.profile.read_noise_adu = float(calibration["read_noise"])
+            if "dark_current_rate" in calibration:
+                self.profile.dark_current_rate = float(calibration["dark_current_rate"])
+
+            logger.info(
+                f"Loaded calibration from {calibration_file.name}: "
+                f"bias_offset={self.profile.bias_offset:.1f}"
+            )
+            return True
+
+        except Exception as e:
+            logger.warning(f"Failed to load calibration: {e}, using defaults")
+            return False
 
     def _calc_field_parameters(self, fov_degrees: float) -> None:
         """Calculate field of view parameters."""
@@ -312,7 +354,7 @@ class SQM:
 
     def _determine_pedestal_source(self) -> str:
         """Determine the source of the pedestal value for diagnostics."""
-        return "adaptive_noise_floor"
+        return "bias_offset"
 
     def calculate(
         self,
@@ -326,6 +368,7 @@ class SQM:
         annulus_outer_radius: int = 14,
         correct_overlaps: bool = False,
         saturation_threshold: int = 250,
+        include_noise_floor_details: bool = False,
     ) -> Tuple[Optional[float], Dict]:
         """
         Calculate SQM (Sky Quality Meter) value using local background annuli.
@@ -343,6 +386,8 @@ class SQM:
             annulus_outer_radius: Outer radius of background annulus in pixels (default: 14)
             correct_overlaps: If True, exclude stars with overlapping apertures/annuli (default: False)
             saturation_threshold: Pixel value threshold for saturation detection (default: 250)
+            include_noise_floor_details: If True, run NoiseFloorEstimator and include full output
+                in details dict under "noise_floor_estimator" key (default: False)
 
         Returns:
             Tuple of (sqm_value, details_dict) where:
@@ -419,35 +464,24 @@ class SQM:
                     )
                     return None, {}
 
-        # 0. Determine noise floor / pedestal using adaptive estimation
-        noise_floor, noise_floor_details = self.noise_estimator.estimate_noise_floor(
-            image=image,
-            exposure_sec=exposure_sec,
-            percentile=5.0,
-        )
-        # Pedestal = bias_offset + dark_current_contribution
-        # - Bias offset: electronic pedestal, systematic offset - SUBTRACT
-        # - Dark current mean: thermal electrons, systematic offset - SUBTRACT
+        # Pedestal = bias_offset only (from camera profile)
+        # - Bias offset: electronic pedestal, systematic DC offset - SUBTRACT
+        # - Dark current: contributes to noise variance, not a DC offset - do NOT subtract
         # - Read noise: random fluctuation around 0 - do NOT subtract
-        # For processed images, dark_current_contribution is ~0 (ISP handles it)
-        bias_offset = noise_floor_details.get("bias_offset", 0.0)
-        dark_current_contrib = noise_floor_details.get("dark_current_contribution", 0.0)
-        pedestal = bias_offset + dark_current_contrib
+        # Validated against SQM-L reference meter: bias_offset only gives ±0.07 mag accuracy
+        pedestal = self.profile.bias_offset
 
-        logger.info(
-            f"Adaptive noise floor: {noise_floor:.1f} ADU, "
-            f"pedestal={pedestal:.1f} (bias={bias_offset:.1f} + dark={dark_current_contrib:.1f}) "
-            f"(dark_px={noise_floor_details['dark_pixel_smoothed']:.1f}, "
-            f"theory={noise_floor_details['theoretical_floor']:.1f}, "
-            f"valid={noise_floor_details['is_valid']})"
+        # Calculate temporal noise for diagnostics (not used in pedestal)
+        read_noise = self.profile.read_noise_adu
+        dark_current_contribution = self.profile.dark_current_rate * exposure_sec
+        temporal_noise = read_noise + dark_current_contribution
+
+        logger.debug(
+            f"Calibration: pedestal={pedestal:.1f} ADU (bias_offset), "
+            f"read_noise={read_noise:.2f}, dark_current={dark_current_contribution:.2f} "
+            f"(rate={self.profile.dark_current_rate:.3f} ADU/s × {exposure_sec:.2f}s), "
+            f"temporal_noise={temporal_noise:.2f}"
         )
-
-        # Check if zero-sec sample requested
-        if noise_floor_details.get("request_zero_sec_sample"):
-            logger.info(
-                "Zero-second calibration sample requested by noise estimator "
-                "(will be captured in next cycle)"
-            )
 
         # 1. Measure star fluxes with local background from annulus
         star_fluxes, local_backgrounds, n_saturated = (
@@ -531,7 +565,10 @@ class SQM:
             "background_method": "local_annulus",
             "pedestal": pedestal,
             "pedestal_source": self._determine_pedestal_source(),
-            "noise_floor_details": noise_floor_details if noise_floor_details else None,
+            "read_noise_adu": read_noise,
+            "dark_current_rate": self.profile.dark_current_rate,
+            "dark_current_contribution": dark_current_contribution,
+            "temporal_noise": temporal_noise,
             "exposure_sec": exposure_sec,
             "background_corrected": background_corrected,
             "background_flux_density": background_flux_density,
@@ -557,6 +594,27 @@ class SQM:
             "star_local_backgrounds": local_backgrounds,
             "star_mzeros": mzeros,
         }
+
+        # Optionally include full NoiseFloorEstimator output
+        if include_noise_floor_details:
+            try:
+                from .noise_floor import NoiseFloorEstimator
+
+                estimator = NoiseFloorEstimator(
+                    camera_type=self.camera_type,
+                    enable_zero_sec_sampling=False,
+                )
+                _, nf_details = estimator.estimate_noise_floor(
+                    image=image,
+                    exposure_sec=exposure_sec,
+                )
+                # Remove internal flags, add camera type
+                nf_details.pop("request_zero_sec_sample", None)
+                nf_details["camera_type"] = self.camera_type
+                details["noise_floor_estimator"] = nf_details
+            except Exception as e:
+                logger.warning(f"Failed to get noise floor details: {e}")
+                details["noise_floor_estimator"] = {"error": str(e)}
 
         logger.debug(
             f"SQM: mzero={mzero:.2f}±{np.std(valid_mzeros_for_stats):.2f}, "

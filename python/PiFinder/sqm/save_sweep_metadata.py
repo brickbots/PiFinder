@@ -24,6 +24,8 @@ def save_sweep_metadata(
     dec_deg: Optional[float] = None,
     altitude_deg: Optional[float] = None,
     azimuth_deg: Optional[float] = None,
+    noise_floor_details: Optional[Dict[str, Any]] = None,
+    camera_type: Optional[str] = None,
     notes: str = "",
 ):
     """
@@ -42,6 +44,10 @@ def save_sweep_metadata(
         dec_deg: Declination from solver (optional)
         altitude_deg: Altitude angle above horizon in degrees (optional)
         azimuth_deg: Azimuth angle in degrees (optional)
+        noise_floor_details: Output from NoiseFloorEstimator.estimate_noise_floor() (optional)
+            Contains: noise_floor_adu, dark_pixel_raw, dark_pixel_smoothed, theoretical_floor,
+            temporal_noise, read_noise, dark_current_contribution, bias_offset, etc.
+        camera_type: Camera type string (optional)
         notes: Any additional notes
     """
     metadata: Dict[str, Any] = {
@@ -70,6 +76,18 @@ def save_sweep_metadata(
             metadata["coordinates"]["altitude_deg"] = altitude_deg
         if azimuth_deg is not None:
             metadata["coordinates"]["azimuth_deg"] = azimuth_deg
+
+    # Noise floor estimation details (from NoiseFloorEstimator)
+    if noise_floor_details is not None:
+        metadata["noise_floor_estimator"] = {
+            k: v for k, v in noise_floor_details.items()
+            if k != "request_zero_sec_sample"  # Exclude internal flags
+        }
+        if camera_type is not None:
+            metadata["noise_floor_estimator"]["camera_type"] = camera_type
+    elif camera_type is not None:
+        # Fallback: just record camera type if no noise floor details
+        metadata["noise_floor_estimator"] = {"camera_type": camera_type}
 
     if notes:
         metadata["notes"] = notes
