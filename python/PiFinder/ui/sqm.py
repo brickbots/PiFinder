@@ -5,6 +5,7 @@ from PiFinder.state_utils import sleep_for_framerate
 from PiFinder.ui.ui_utils import TextLayouter
 from PiFinder.image_util import gamma_correct_med, subtract_background
 import time
+from pathlib import Path
 from typing import Any, TYPE_CHECKING
 from PIL import Image, ImageDraw, ImageChops, ImageOps
 
@@ -156,26 +157,38 @@ class UISQM(UIModule):
                         fill=self.colors.get(64),
                     )
 
+                # Show star count and exposure time (right side)
+                sqm_details = self.shared_state.sqm_details()
+                if sqm_details:
+                    n_stars = sqm_details.get("n_matched_stars", 0)
+                    self.draw.text(
+                        (60, 20),
+                        f"{n_stars}★",
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(64),
+                    )
+
+                image_metadata = self.shared_state.last_image_metadata()
+                if image_metadata and "exposure_time" in image_metadata:
+                    exp_ms = image_metadata["exposure_time"] / 1000  # Convert µs to ms
+                    if exp_ms >= 1000:
+                        exp_str = f"{exp_ms/1000:.2f}s"
+                    else:
+                        exp_str = f"{exp_ms:.0f}ms"
+                    self.draw.text(
+                        (95, 20),
+                        exp_str,
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(64),
+                    )
+
                 self.draw.text(
                     (10, 30),
                     f"{sqm:.2f}",
                     font=self.fonts.huge.font,
                     fill=self.colors.get(192),
                 )
-                # Raw SQM value (if available) in smaller text next to main value
-                if sqm_state.value_raw is not None:
-                    self.draw.text(
-                        (95, 50),
-                        f"{sqm_state.value_raw:.2f}",
-                        font=self.fonts.base.font,
-                        fill=self.colors.get(128),
-                    )
-                    self.draw.text(
-                        (95, 62),
-                        "raw",
-                        font=self.fonts.small.font,
-                        fill=self.colors.get(64),
-                    )
+
                 # Units in small, subtle text
                 self.draw.text(
                     (12, 68),
@@ -183,18 +196,42 @@ class UISQM(UIModule):
                     font=self.fonts.base.font,
                     fill=self.colors.get(64),
                 )
-                self.draw.text(
-                    (10, 82),
-                    f"{details['title']}",
-                    font=self.fonts.base.font,
-                    fill=self.colors.get(128),
-                )
-                self.draw.text(
-                    (10, 92),
-                    _("Bortle {bc}").format(bc=details["bortle_class"]),
-                    font=self.fonts.bold.font,
-                    fill=self.colors.get(128),
-                )
+
+                # Calibration indicator (right side of units line)
+                if self._is_calibrated():
+                    self.draw.text(
+                        (105, 68),
+                        "CAL",
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(128),
+                    )
+                else:
+                    self.draw.text(
+                        (98, 68),
+                        "!CAL",
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(64),
+                    )
+
+                # Show altitude-corrected SQM (scientific value) if available
+                if sqm_details:
+                    sqm_alt = sqm_details.get("sqm_altitude_corrected")
+                    if sqm_alt:
+                        self.draw.text(
+                            (12, 80),
+                            f"alt: {sqm_alt:.2f}",
+                            font=self.fonts.base.font,
+                            fill=self.colors.get(64),
+                        )
+
+                # Bortle class
+                if details:
+                    self.draw.text(
+                        (10, 92),
+                        _("Bortle {bc}").format(bc=details["bortle_class"]),
+                        font=self.fonts.base.font,
+                        fill=self.colors.get(128),
+                    )
 
                 # Legend
                 details_text = _("DETAILS")
@@ -223,11 +260,30 @@ class UISQM(UIModule):
         if self.show_description:
             self.text_layout.previous()
 
+    def _is_calibrated(self) -> bool:
+        """Check if SQM calibration file exists for current camera."""
+        camera_type = self.shared_state.camera_type()
+        camera_type_processed = f"{camera_type}_processed"
+        calibration_file = (
+            Path.home() / "PiFinder_data" / f"sqm_calibration_{camera_type_processed}.json"
+        )
+        return calibration_file.exists()
+
     def active(self):
         """
         Called when a module becomes active
         i.e. foreground controlling display
         """
+        # Switch to SNR auto-exposure mode for stable longer exposures
+        self.command_queues["camera"].put("set_ae_mode:snr")
+
+    def inactive(self):
+        """
+        Called when a module becomes inactive
+        i.e. leaving the SQM screen
+        """
+        # Switch back to PID auto-exposure mode
+        self.command_queues["camera"].put("set_ae_mode:pid")
 
     def _launch_calibration(self, marking_menu, selected_item):
         """Launch the SQM calibration wizard"""

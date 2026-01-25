@@ -77,14 +77,15 @@ class TestSweepZeroStarHandler:
         handler = SweepZeroStarHandler()
         assert not handler.is_active()
         assert handler._trigger_count == 2
+        # Sweep starts at 400ms, goes up, then tries shorter exposures
         assert handler._exposures == [
-            25000,
-            50000,
-            100000,
-            200000,
             400000,
             800000,
             1000000,
+            200000,
+            100000,
+            50000,
+            25000,
         ]
         assert handler._repeats_per_exposure == 2
 
@@ -104,78 +105,74 @@ class TestSweepZeroStarHandler:
         assert result is None
         assert not handler.is_active()
 
-        # Second zero - should activate and return first exposure
+        # Second zero - should activate and return first exposure (400ms)
         result = handler.handle(50000, 2)
-        assert result == 25000
+        assert result == 400000
         assert handler.is_active()
 
-    def test_sweep_pattern_short_exposures(self):
-        """Sweep repeats each short exposure 2 times."""
+    def test_sweep_pattern_start_at_400ms(self):
+        """Sweep starts at 400ms and repeats each exposure 2 times."""
         handler = SweepZeroStarHandler(trigger_count=1)
 
-        # Activate sweep
+        # Activate sweep - starts at 400ms
         result = handler.handle(50000, 1)
-        assert result == 25000  # First attempt at 25ms
+        assert result == 400000  # First attempt at 400ms
 
-        # Second attempt at 25ms
+        # Second attempt at 400ms
         result = handler.handle(50000, 2)
-        assert result == 25000
+        assert result == 400000
 
-        # Move to 50ms
+        # Move to 800ms
         result = handler.handle(50000, 3)
-        assert result == 50000
-
-        # Second attempt at 50ms
-        result = handler.handle(50000, 4)
-        assert result == 50000
-
-        # Move to 100ms
-        result = handler.handle(50000, 5)
-        assert result == 100000
-
-    def test_400ms_normal_behavior(self):
-        """Sweep treats 400ms like other exposures (2 attempts)."""
-        handler = SweepZeroStarHandler(trigger_count=1)
-
-        # Skip to 400ms by advancing through earlier exposures
-        # 25ms: 2 times
-        handler.handle(50000, 1)  # 25ms attempt 1
-        handler.handle(50000, 2)  # 25ms attempt 2
-        # 50ms: 2 times
-        handler.handle(50000, 3)  # 50ms attempt 1
-        handler.handle(50000, 4)  # 50ms attempt 2
-        # 100ms: 2 times
-        handler.handle(50000, 5)  # 100ms attempt 1
-        handler.handle(50000, 6)  # 100ms attempt 2
-        # 200ms: 2 times
-        handler.handle(50000, 7)  # 200ms attempt 1
-        handler.handle(50000, 8)  # 200ms attempt 2
-
-        # Now at 400ms - should repeat 2 times like other exposures
-        result = handler.handle(50000, 9)
-        assert result == 400000  # Attempt 1
-
-        result = handler.handle(50000, 10)
-        assert result == 400000  # Attempt 2
-
-        # After 2 cycles, move to 800ms
-        result = handler.handle(50000, 11)
         assert result == 800000
 
+        # Second attempt at 800ms
+        result = handler.handle(50000, 4)
+        assert result == 800000
+
+        # Move to 1000ms
+        result = handler.handle(50000, 5)
+        assert result == 1000000
+
+    def test_sweep_continues_to_shorter_exposures(self):
+        """After longer exposures, sweep tries shorter ones."""
+        handler = SweepZeroStarHandler(trigger_count=1)
+
+        # 400ms: 2 times (first in sweep)
+        handler.handle(50000, 1)  # 400ms attempt 1
+        handler.handle(50000, 2)  # 400ms attempt 2
+        # 800ms: 2 times
+        handler.handle(50000, 3)  # 800ms attempt 1
+        handler.handle(50000, 4)  # 800ms attempt 2
+        # 1000ms: 2 times
+        handler.handle(50000, 5)  # 1000ms attempt 1
+        handler.handle(50000, 6)  # 1000ms attempt 2
+
+        # Now at 200ms - sweep continues with shorter exposures
+        result = handler.handle(50000, 7)
+        assert result == 200000  # Attempt 1
+
+        result = handler.handle(50000, 8)
+        assert result == 200000  # Attempt 2
+
+        # Move to 100ms
+        result = handler.handle(50000, 9)
+        assert result == 100000
+
     def test_sweep_wraps_around(self):
-        """Sweep wraps back to minimum after reaching maximum."""
+        """Sweep wraps back to start (400ms) after completing all exposures."""
         handler = SweepZeroStarHandler(trigger_count=1)
 
         # Fast-forward through entire sweep
-        # 25ms (2×), 50ms (2×), 100ms (2×), 200ms (2×), 400ms (2×), 800ms (2×), 1000ms (2×)
+        # 400ms (2×), 800ms (2×), 1000ms (2×), 200ms (2×), 100ms (2×), 50ms (2×), 25ms (2×)
         total_cycles = 2 + 2 + 2 + 2 + 2 + 2 + 2  # = 14
 
         for i in range(1, total_cycles + 1):
             handler.handle(50000, i)
 
-        # Next cycle should wrap to 25ms
+        # Next cycle should wrap to 400ms (start of sweep)
         result = handler.handle(50000, total_cycles + 1)
-        assert result == 25000
+        assert result == 400000
 
     def test_reset(self):
         """Reset clears handler state."""
@@ -509,18 +506,18 @@ class TestPIDIntegration:
         result = pid.update(0, current_exposure)
         assert result is None  # Trigger count = 2
 
-        # Zero stars (second time) - sweep activates
+        # Zero stars (second time) - sweep activates at 400ms
         result = pid.update(0, current_exposure)
-        assert result == 25000  # Sweep starts at 25ms
+        assert result == 400000  # Sweep starts at 400ms
         assert pid._zero_star_handler.is_active()
 
         # Continue sweep
         result = pid.update(0, current_exposure)
-        assert result == 25000  # Second attempt at 25ms
+        assert result == 400000  # Second attempt at 400ms
 
         # Still zero stars, sweep continues
         result = pid.update(0, current_exposure)
-        assert result == 50000  # Move to 50ms
+        assert result == 800000  # Move to 800ms
 
         # Find stars again - return to PID
         result = pid.update(15, 50000)

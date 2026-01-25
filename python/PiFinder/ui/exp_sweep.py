@@ -45,8 +45,8 @@ class UIExpSweep(UIModule):
         self.start_time = None
         self.sweep_dir = None  # Track the actual sweep directory
         self.initial_file_count = None  # Files that existed before we started
-        self.total_images = 100  # Expected number of images
-        self.estimated_duration = 240  # 4 minutes estimated
+        self.total_images = 20  # Expected number of images
+        self.estimated_duration = 60  # ~1 minute estimated
 
     def active(self):
         """Called when module becomes active"""
@@ -153,13 +153,13 @@ class UIExpSweep(UIModule):
 
         self.draw.text(
             (10, 65),
-            "100 images",
+            "20 images",
             font=self.fonts.base.font,
             fill=self.colors.get(192),
         )
         self.draw.text(
             (10, 77),
-            "~4 minutes",
+            "~1 minute",
             font=self.fonts.base.font,
             fill=self.colors.get(192),
         )

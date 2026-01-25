@@ -21,12 +21,14 @@ from PIL import Image
 from PiFinder import state_utils, utils
 from PiFinder.auto_exposure import (
     ExposurePIDController,
+    ExposureSNRController,
     SweepZeroStarHandler,
     ExponentialSweepZeroStarHandler,
     ResetZeroStarHandler,
     HistogramZeroStarHandler,
     generate_exposure_sweep,
 )
+from PiFinder.sqm.camera_profiles import detect_camera_type
 
 logger = logging.getLogger("Camera.Interface")
 
@@ -37,7 +39,9 @@ class CameraInterface:
     _camera_started = False
     _save_next_to = None  # Filename to save next capture to (None = don't save)
     _auto_exposure_enabled = False
+    _auto_exposure_mode = "pid"  # "pid" or "snr"
     _auto_exposure_pid: Optional[ExposurePIDController] = None
+    _auto_exposure_snr: Optional[ExposureSNRController] = None
     _last_solve_time: Optional[float] = None
 
     def initialize(self) -> None:
@@ -114,13 +118,18 @@ class CameraInterface:
                 root_dir, "test_images", "pifinder_debug_02.png"
             )
 
-            # 60 half-second cycles
+            # 60 half-second cycles (30 seconds between captures in sleep mode)
             sleep_delay = 60
+            was_sleeping = False
             while True:
                 sleeping = state_utils.sleep_for_framerate(
                     shared_state, limit_framerate=False
                 )
                 if sleeping:
+                    # Log transition to sleep mode
+                    if not was_sleeping:
+                        logger.info("Camera entering low-power sleep mode")
+                        was_sleeping = True
                     # Even in sleep mode, we want to take photos every
                     # so often to update positions
                     sleep_delay -= 1
@@ -128,6 +137,10 @@ class CameraInterface:
                         continue
                     else:
                         sleep_delay = 60
+                        logger.debug("Sleep mode: waking for periodic capture")
+                elif was_sleeping:
+                    logger.info("Camera exiting low-power sleep mode")
+                    was_sleeping = False
 
                 imu_start = shared_state.imu()
                 image_start_time = time.time()
@@ -213,11 +226,35 @@ class CameraInterface:
                                     f"RMSE: {rmse_str}, Current exposure: {self.exposure_time}µs"
                                 )
 
-                                # Call PID update (now handles zero stars with recovery mode)
-                                # Pass base_image for histogram analysis in zero-star handler
-                                new_exposure = self._auto_exposure_pid.update(
-                                    matched_stars, self.exposure_time, base_image
-                                )
+                                # Call auto-exposure update based on current mode
+                                if self._auto_exposure_mode == "snr":
+                                    # SNR mode: use background-based controller (for SQM measurements)
+                                    if self._auto_exposure_snr is None:
+                                        # Use camera profile to derive thresholds
+                                        try:
+                                            cam_type = detect_camera_type(self.get_cam_type())
+                                            cam_type = f"{cam_type}_processed"
+                                            self._auto_exposure_snr = (
+                                                ExposureSNRController.from_camera_profile(cam_type)
+                                            )
+                                        except ValueError as e:
+                                            # Unknown camera, use defaults
+                                            logger.warning(
+                                                f"Camera detection failed: {e}, using default SNR thresholds"
+                                            )
+                                            self._auto_exposure_snr = ExposureSNRController()
+                                    # Get adaptive noise floor from shared state
+                                    adaptive_noise_floor = self.shared_state.noise_floor()
+                                    new_exposure = self._auto_exposure_snr.update(
+                                        self.exposure_time, base_image,
+                                        noise_floor=adaptive_noise_floor
+                                    )
+                                else:
+                                    # PID mode: use star-count based controller (default)
+                                    # Pass base_image for histogram analysis in zero-star handler
+                                    new_exposure = self._auto_exposure_pid.update(
+                                        matched_stars, self.exposure_time, base_image
+                                    )
 
                                 if (
                                     new_exposure is not None
@@ -332,6 +369,19 @@ class CameraInterface:
                                     "Cannot set AE handler: auto-exposure not initialized"
                                 )
 
+                        if command.startswith("set_ae_mode"):
+                            mode = command.split(":")[1]
+                            if mode in ["pid", "snr"]:
+                                self._auto_exposure_mode = mode
+                                console_queue.put(f"CAM: AE Mode={mode.upper()}")
+                                logger.info(
+                                    f"Auto-exposure mode changed to: {mode.upper()}"
+                                )
+                            else:
+                                logger.warning(
+                                    f"Unknown auto-exposure mode: {mode} (valid: pid, snr)"
+                                )
+
                         if command == "exp_up" or command == "exp_dn":
                             # Manual exposure adjustments disable auto-exposure
                             self._auto_exposure_enabled = False
@@ -416,11 +466,11 @@ class CameraInterface:
                             # Disable auto-exposure during sweep
                             self._auto_exposure_enabled = False
 
-                            # Generate 100 exposure values with logarithmic spacing
+                            # Generate 20 exposure values with logarithmic spacing
                             # from 25ms (25000µs) to 1s (1000000µs)
                             min_exp = 25000  # 25ms
                             max_exp = 1000000  # 1s
-                            num_images = 100
+                            num_images = 20
 
                             # Generate logarithmic sweep using shared utility
                             sweep_exposures = generate_exposure_sweep(
