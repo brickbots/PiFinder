@@ -357,7 +357,7 @@ class UISQMCalibration(UIModule):
         else:
             self.draw.text(
                 (10, 90),
-                "Hold steady...",
+                "Keep cap on...",
                 font=self.fonts.base.font,
                 fill=self.colors.get(64),
             )
