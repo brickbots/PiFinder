@@ -8,7 +8,6 @@ Introduction and Overview
 
 Welcome to the PiFinder build guide!  This guide is split into three main parts, one for building the :ref:`UI Board<build_guide:pifinder ui hat>` with Screen and Buttons, a section related to :ref:`3d printing<build_guide:printed parts>` and preparing the case parts, and one for :ref:`final assembly<build_guide:assembly>`.   Along with these sections, please consult the :doc:`Bill of Materials<BOM>` for a full list of parts required and reach out with any questions via `email <mailto:info@pifinder.io>`_ or `discord <https://discord.gg/Nk5fHcAtWD>`_
 
-If you've received a kit with an assembled UI Board + 3d Parts, you can jump right to the :ref:`final assembly<build_guide:assembly>`.  Otherwise, fire up that 3d printer and get the :ref:`parts printing<build_guide:printing>` while you work to assemble the UI Hat.
 
 PiFinder UI Hat
 ========================
