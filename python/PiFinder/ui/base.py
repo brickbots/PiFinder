@@ -328,24 +328,12 @@ class UIModule:
                         )
 
                     if len(self.title) < 9:
-<<<<<<< HEAD
-                        # draw the constellation
-                        constellation = solution["constellation"]
-                        if constellation is not None:
-                            self.draw.text(
-                                (self.display_class.resX * 0.54, 1),
-                                constellation,
-                                font=self.fonts.bold.font,
-                                fill=fg if self._unmoved else self.colors.get(32),
-                            )
-=======
                         # Draw rotating constellation/SQM wheel (replaces static constellation)
                         self._draw_titlebar_rotating_info(
                             x=int(self.display_class.resX * 0.54),
                             y=1,
                             fg=fg if self._unmoved else self.colors.get(32),
                         )
->>>>>>> cf19c10 (Sqm improvements (#372))
                 else:
                     # no solve yet....
                     self.draw.text(
