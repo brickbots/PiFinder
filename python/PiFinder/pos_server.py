@@ -27,6 +27,7 @@ logger = logging.getLogger("PosServer")
 sr_result = None
 sequence = 0
 ui_queue: Queue
+is_stellarium = False
 
 # shortcut for skyfield timescale
 ts = sf_utils.ts
@@ -167,11 +168,13 @@ def parse_sd_command(shared_state, input_str: str):
 
 
 def handle_goto_command(shared_state, ra_parsed, dec_parsed):
-    global sequence, ui_queue
+    global sequence, ui_queue, is_stellarium
     ra = ra_to_deg(*ra_parsed)
     dec = dec_to_deg(*dec_parsed)
-    logger.debug("handle_goto_command: ra,dec in deg, JNOW: %s, %s", ra, dec)
-    _p = position_of_radec(ra_hours=ra / 15, dec_degrees=dec, epoch=ts.now())
+    epoch = ts.J2000 if is_stellarium else ts.now()
+    epoch_s = "J2000" if is_stellarium else "JNOW"
+    logger.debug("handle_goto_command: ra,dec in deg, %s: %s, %s", epoch_s, ra, dec)
+    _p = position_of_radec(ra_hours=ra / 15, dec_degrees=dec, epoch=epoch)
     ra_h, dec_d, _ = _p.radec(epoch=ts.J2000)
     sequence += 1
     comp_ra = float(ra_h._degrees)
@@ -233,8 +236,10 @@ def setup_server_socket():
 
 
 def handle_client(client_socket, shared_state):
+    global is_stellarium
     client_socket.settimeout(60)
     client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+    is_stellarium = False
 
     while True:
         try:
@@ -253,6 +258,7 @@ def handle_client(client_socket, shared_state):
             # Special case for the ACK command in the LX200 protocol sent by Stellarium
             # No leading : for the ACK command but Stellarium leads all commands with #
             elif in_data[0] == 0x06 or (in_data[0] == b'#' and in_data[1] == 0x06):
+                is_stellarium = True
                 # A indicates alt-az mode
                 client_socket.send("A".encode())
         except socket.timeout:
