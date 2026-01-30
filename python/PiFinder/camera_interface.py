@@ -30,7 +30,6 @@ from PiFinder.auto_exposure import (
 )
 from PiFinder.sqm.camera_profiles import detect_camera_type
 
-
 logger = logging.getLogger("Camera.Interface")
 
 
