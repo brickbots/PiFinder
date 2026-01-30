@@ -5,6 +5,13 @@ This module is the solver
 * Checks IMU
 * Plate solves high-res image
 
+TODO:
+- Rename solved --> pointing_estimate (also includes IMU)
+- Rename next_image_solved --> new_solve
+- Rename last_image_solve --> prev_solve (previous successful solve)
+- Simplify program flow and explain in comments at top
+- Refactor into class PointingTracker
+
 """
 
 import datetime
@@ -298,7 +305,11 @@ def update_imu(
 
 
 def get_roll_by_mount_type(
-    ra_deg: float, dec_deg: float, location, dt: datetime.datetime, mount_type: str
+    ra_deg: float,  # Right Ascension of the target in degrees
+    dec_deg: float,  # Declination of the target in degrees
+    location,  # astropy EarthLocation object or None
+    dt: datetime.datetime,  # datetime.datetime object or None
+    mount_type: str  # "Alt/Az" or "EQ"
 ) -> float:
     """
     Returns the roll (in degrees) depending on the mount type so that the chart
@@ -311,13 +322,6 @@ def get_roll_by_mount_type(
       NCP up so roll = 0.
 
     Assumes that location has already been set in calc_utils.sf_utils.
-
-    PARAMETERS:
-    ra_deg: Right Ascension of the target in degrees
-    dec_deg: Declination of the target in degrees
-    location: astropy EarthLocation object or None
-    dt: datetime.datetime object or None
-    mount_type: "Alt/Az" or "EQ"
     """
     if mount_type == "Alt/Az":
         # Altaz mounts: Display chart in horizontal coordinates
