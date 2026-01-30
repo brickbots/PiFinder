@@ -107,6 +107,7 @@ def initialized_solved_dict() -> dict:
     Returns an initialized 'solved' dictionary with cooridnate and other
     information.
 
+    TODO: Update solver_main.py with this
     TODO: use RaDecRoll class for the RA, Dec, Roll coordinates here?
     TODO: "Alt" and "Az" could be removed but seems to be required by catalogs?
     """

@@ -74,7 +74,6 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                     solved = copy.deepcopy(last_image_solve)
                 # If no successful solve yet, keep initial solved dict
 
-                #========= From main ======================
                 # TODO: Create a function to update solve?
                 # Update solve metadata (always needed for auto-exposure)
                 for key in [
@@ -119,9 +118,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 update_plate_solve_and_imu(imu_dead_reckoning, solved)
 
                 # TODO: main also calculates (alt, az) for target & camera center.
-                # Don't think this is needed because they are done by the update functions?s
-                #====================================================
-
+                # Don't think this is needed because they are done by the update functions?
             elif imu_dead_reckoning.tracking:
                 # Previous plate-solve exists so use IMU dead-reckoning from
                 # the last plate solved coordinates.
@@ -138,14 +135,12 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             ):
                 last_solve_time = time.time()  # TODO: solve_time is ambiguous because it's also used for IMU dead-reckoning
 
-                # Try to set date and time
-                location = shared_state.location()
-                dt = shared_state.datetime()
-                
                 # Set location for roll and altaz calculations.
                 # TODO: Is it necessary to set location?
                 # TODO: Altaz doesn't seem to be required for catalogs when in
                 #  EQ mode? Could be disabled in future when in EQ mode? 
+                location = shared_state.location()
+                dt = shared_state.datetime()
                 if location:
                     calc_utils.sf_utils.set_location(
                         location.lat, location.lon, location.altitude
