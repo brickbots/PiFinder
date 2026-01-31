@@ -23,7 +23,7 @@ guide once before diving in.
 Camera Prep
 ----------------
 
-The new v3 camera may come with one of two different lens holders aready installed. No matter 
+The new v3 camera may come with one of two different lens holders already installed. No matter 
 which your camera has you'll be removing and replacing it.
 
 .. image:: images/v25_upgrade/v25_upgrade_11.jpeg
@@ -51,8 +51,8 @@ there are holes there to help get started.  Tighten the screws down against the 
 .. image:: images/v25_upgrade/v25_upgrade_15.jpeg
 
 Flip the camera assembly over and thread in the lens.  Be slow and careful here.  With gentle force
-the lens should slide in a few MM to get everything align and stop.  When it stops, check to make sure it seems 
-straight and start screwing it into place.  To get focus about right, You'll want a 6mm gap (picured below) between the 
+the lens should slide in a few MM to get everything aligned and stop.  When it stops, check to make sure it seems
+straight and start screwing it into place.  To get focus about right, You'll want a 6mm gap (pictured below) between the 
 top of the lens holder and the bottom of the lip on the lens.  Don't fret too much about it as you'll do final focus 
 under the stars.
 
@@ -97,7 +97,7 @@ by sliding the dark-grey piece away from the PCB.  Be gentle as this part can br
 much force. 
 
 Once the connector is open, slide the cable into the connector using gentle force and making 
-sure it's well aligned.  Take you time and watch the
+sure it's well aligned.  Take your time and watch the
 dark-grey clip.  It should not close as you are inserting the cable, and if it does, you'll need
 to re-open it to get the cable to slide in all the way.
 
