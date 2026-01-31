@@ -11,7 +11,6 @@ from PiFinder.multiproclogging import MultiprocLogging
 import board
 import adafruit_bno055
 import logging
-import numpy as np
 import quaternion  # Numpy quaternion
 
 logger = logging.getLogger("IMU.pi")
@@ -36,7 +35,7 @@ class Imu:
         self.quat_history = [(0, 0, 0, 0)] * QUEUE_LEN
         self._flip_count = 0
         self.calibration = 0
-        self.avg_quat = (0, 0, 0, 0)  # Scalar-first quaternion: (w, x, y, z)
+        self.avg_quat = (0, 0, 0, 0)  # Scalar-first quaternion as float: (w, x, y, z)
         self.__moving = False
         self.__reading_diff = 0.0
         
