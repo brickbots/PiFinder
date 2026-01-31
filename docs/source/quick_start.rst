@@ -3,7 +3,7 @@ Quick Start
 
 .. note::
    This documentation is for v3 and v2.5 PiFinders running software 2.2.0 or above.
-   You can see what version of software is running by lookin in the upper right of
+   You can see what version of software is running by looking in the upper right of
    the welcome screen. 
 
    If you need docs for a previous version please choose `1.x.x <https://pifinder.readthedocs.io/en/v1.11.2/index.html>`_
@@ -66,7 +66,7 @@ is closest to the keypad (there will be only one if you don't have the internal 
 charge the internal battery. You can use the regular charging connector to both power the unit and charge the battery 
 from external power if you turn the white power switch to the 'On' position.
 
-Note that when you turn on your PiFinder for the first time, it will take a minute to start up. During intial 
+Note that when you turn on your PiFinder for the first time, it will take a minute to start up. During initial
 startup, the welcome screen will come and go as the PiFinder restarts but subsequent power-on's will be much quicker.
 
 Once the PiFinder is powered on, an welcome image will appear on the screen.  You’ll then see some information about 
@@ -78,7 +78,7 @@ the loading process and finally the Main Menu will appear.
 Using the PiFinder
 -------------------
 
-The PiFinder features a scolling menu with the active option highlighted in the middle of the screen.  
+The PiFinder features a scrolling menu with the active option highlighted in the middle of the screen.  
 
 .. image:: images/quick_start/pifinder_main_menu.png
 
@@ -183,12 +183,12 @@ started. This may happen a little after sunset, or, if you’re in an area with 
 you may have to wait until full darkness. 
 
 There are two icons in the upper right of the screen that will tell you if the PiFinder knows 
-where it is: one shows a sattelite dish which will be solid when there is a GPS signal and 
+where it is: one shows a satellite dish which will be solid when there is a GPS signal and 
 a location has been acquired, and will flash when searching for a location and time.
 
-The other indicator shows how the PiFinder has determined your current telescope poition.  It will 
+The other indicator shows how the PiFinder has determined your current telescope position.  It will 
 display a camera if it has plate-solved its current view and this camera icon will fade if the scope 
-is moving and it's using the acceleromiter.  If you see an 'X', the PiFinder has yet to determine 
+is moving and it's using the accelerometer.  If you see an 'X', the PiFinder has yet to determine 
 where it's pointing (see :ref:`quick_start:setting focus & first solve`)
 
 .. list-table::
@@ -214,15 +214,15 @@ where it's pointing (see :ref:`quick_start:setting focus & first solve`)
 
 
 .. note::
-   The GPS reciever in the PiFinder must be outside to get a GPS lock and may take several
-   minutes to recieve all the data required to calculate it's location and date/time.
+   The GPS receiver in the PiFinder must be outside to get a GPS lock and may take several
+   minutes to receive all the data required to calculate its location and date/time.
 
    This delay is longer after the PiFinder has been off for a long period or moved a distance
    while it's turned off.  Subsequent start ups at the same location should be quicker.
 
    Leaving the PiFinder on the GPS Status screen will result in a faster lock time as 
    this screen disables the camera, reducing the overall EM noise and helping the GPS
-   reciever see more satellites.
+   receiver see more satellites.
 
 
 
@@ -278,7 +278,7 @@ Use the menu system to select the 'Focus' option under the 'Start' menu
 The Focus screen shows a live preview of what the camera is seeing.  It uses special image processing to 
 highlight stars and remove background skyglow so that you can easily focus your PiFinder camera.
 
-If there are no stars visible or the image is too defocused he screen may seem too bright or dark or 
+If there are no stars visible or the image is too defocused the screen may seem too bright or dark or 
 have a noisy appearance, this is normal until the camera is near focus.  See below for some examples
 
 .. list-table::
@@ -317,7 +317,7 @@ of it's FOV lines up with your telescope, you tell the PiFinder where within it'
 your telescope is pointing.
 
 The PiFinder camera sees a patch of sky that is 10 degrees wide.  That's about 20 full moons
-across and the much smaller field of view (FOV) of your telescope is somehwere in 
+across and the much smaller field of view (FOV) of your telescope is somewhere in 
 that patch of sky.  By pointing your telescope at a star, and then selecting that same star 
 on the PiFinder's alignment chart, you are telling the PiFinder where to put DSO's so they
 are in the middle of your eyepiece each time.
@@ -328,7 +328,7 @@ are in the middle of your eyepiece each time.
    `click here <https://pifinder.readthedocs.io/en/v2.0.4/quick_start.html#alignment>`_
 
 
-To being, select the 'Align' option from the 'Start' menu 
+To begin, select the 'Align' option from the 'Start' menu 
 
 .. image:: images/quick_start/start_align_selected.png
 
@@ -366,7 +366,7 @@ go back to the eyepiece and center it up as well you can.  When you press the
 wherever in your telescope eyepiece the star is at that moment
 
 Press the **SQUARE** button to complete the alignment, or you can press the **0** key
-to exit alignment mode without changing the alignmnet point.
+to exit alignment mode without changing the alignment point.
 
 .. image:: images/quick_start/align_done.png
 
@@ -467,7 +467,7 @@ Now it's time to point your scope at the selected object!
 
 .. image:: images/quick_start/M13_locate.png
 
-The Push-To instructions show how many degress to move your scope on each axis in order to find the
+The Push-To instructions show how many degrees to move your scope on each axis in order to find the
 current object.  The top arrow and number tell you which direction to spin your scope clockwise vs. 
 counterclockwise, and how far in degrees. The lower arrow tells you whether to move your scope up towards 
 zenith, or down towards the horizon, and how far in degrees.
@@ -480,7 +480,7 @@ be in your eyepiece!
    - How close you need to get to 0.00/0.00 depends on your eyepiece.  If you have an eyepiece with a true
      field of view of 1/2 degree, then a readout below 0.25/0.25 will assure the object is somewhere in your eyepiece FOV
    - When moving your scope the PiFinder uses it's accelerometer to estimate where your telescope is pointing.  This is 
-     less accurate than a plate solve, so the numbers displayed dim slightly to signal this.  As soon as your stop
+     less accurate than a plate solve, so the numbers displayed dim slightly to signal this.  As soon as you stop
      moving the telescope, the PiFinder will take a new image of the sky and determine exactly where your scope is pointing.
      The numbers displayed will shift a bit and become brighter indicating a 100% reliable position.
 
@@ -504,7 +504,7 @@ To easily shut down the PiFinder:
 
 .. image:: images/quick_start/shutdown_confirm.png
 
-When you confrim the screen and keypad will turn off after a few seconds and it's then safe to
+When you confirm the screen and keypad will turn off after a few seconds and it's then safe to
 turn off the unit using the power switch or unplugging the battery.
 
 You've now got the basics of using the PiFinder sorted, to learn more you can continue on to the full :doc:`user_guide`

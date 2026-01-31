@@ -12,7 +12,7 @@
   <div id="modal{{network["id"]}}" class="modal">
     <div class="modal-content">
       <h4>Delete {{network["ssid"]}}</h4>
-      <p>This will take effect immediately and can not be undone.  Are you sure?</p>
+      <p>This will take effect immediately and cannot be undone.  Are you sure?</p>
     </div>
     <div class="modal-footer">
       <a href="/network/delete/{{network["id"]}}" class="modal-close btn-flat">Delete</a>

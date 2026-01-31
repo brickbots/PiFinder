@@ -48,7 +48,7 @@ there are some time-critical requirements:
    information, that would be cumbersome to change using the keyboard. 
    This means that in parallel http requests MUST be parsed and serviced.
 5. `SkySafari <https://skysafariastronomy.com/>`_ can connect to PiFinder and 
-   be used as planetarium software to a) see there PiFinder is pointing and 
+   be used as planetarium software to a) see where PiFinder is pointing and 
    b) to push targets to PiFinder. This means that PiFinder MUST support the 
    LX200 protocol as supported by SkySafari. 
 
@@ -197,8 +197,8 @@ Here some details:
    commands on exposure time through `camera_command_queue`
  - The solver processes the image and notifies the integrator of new solves 
    through the `solver_queue`
- - The `aligment_command_queue` is used to ask the solver, which pixel corresponds 
-   to a given position and the result is handed back using the `aligment_response_queue`
+ - The `alignment_command_queue` is used to ask the solver, which pixel corresponds 
+   to a given position and the result is handed back using the `alignment_response_queue`
  - Through the `ui_queue` a new target is set by the SkySafari server
  - Commands and telescope location (GPS) are injected by the `webserver` into the respective queues.
 
@@ -234,7 +234,7 @@ There are three types of shared state in PiFinder
 
 - The shared image - 
   This uses a **shared memory image, that is constantly updated by the 
-  image acquision thread**. Whenever working on this image, make sure that 
+  image acquisition thread**. Whenever working on this image, make sure that 
   you create your own local copy of it, so it does not get changed while you process it. 
 
 - An UIState object - see ``ui/status.py`` 
