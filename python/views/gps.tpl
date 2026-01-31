@@ -54,7 +54,7 @@
         <div class="row">
             <div class="input-field col s8">
                 <input id="altitude" type="text" name="altitude" value="{{ altitude if altitude is not None else '' }}"/>
-                <label for="altitude">Altitude in meter</label>
+                <label for="altitude">Altitude in meters</label>
             </div>
             </div>
         <div class="row">
