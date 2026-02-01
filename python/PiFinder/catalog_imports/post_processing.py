@@ -14,6 +14,8 @@ from .catalog_import_utils import NewCatalogObject
 from PiFinder.composite_object import MagnitudeObject
 import PiFinder.utils as utils
 
+logger = logging.getLogger("PostProcessing")
+
 
 def _load_messier_names():
     """
@@ -65,7 +67,7 @@ def _load_messier_names():
 
                 messier_names[m_number] = common_names
 
-        logging.debug(f"Loaded {len(messier_names)} Messier objects with common names")
+        logger.debug(f"Loaded {len(messier_names)} Messier objects with common names")
 
     except Exception as e:
         logging.error(f"Error reading messier_names.dat: {e}")

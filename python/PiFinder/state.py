@@ -414,7 +414,7 @@ class SharedStateObj:
             self.__datetime_time = time.time()
             self.__datetime = dt
         else:
-            # only reset if there is some significant diff
+            # only advance time, never rewind it,
             # as some gps recievers send multiple updates that can
             # rewind and fastforward the clock
             curtime = self.__datetime + datetime.timedelta(

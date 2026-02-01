@@ -1,0 +1,6 @@
+# This is a test file with comments
+# Event file created for testing comment parsing
+{"timestamp": 1609459200.0, "relative_time": 0.0, "event_number": 0, "event_type": "server_connected", "data": {"host": "localhost", "port": 7624}}
+# This is a comment between events
+{"timestamp": 1609459201.0, "relative_time": 1.0, "event_number": 1, "event_type": "new_device", "data": {"device_name": "Test Device", "driver_name": "test", "driver_exec": "test", "driver_version": "1.0"}}
+# Final comment

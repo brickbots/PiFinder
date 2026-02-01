@@ -28,6 +28,8 @@ from .catalog_import_utils import (
 # Import shared database object
 from .database import objects_db
 
+logger = logging.getLogger("SpecializedLoaders")
+
 
 def load_egc():
     """
@@ -259,7 +261,7 @@ def load_taas200():
         # Iterate over each row in the file
         for row in tqdm(list(reader), leave=False):
             sequence = int(row["Nr"])
-            logging.debug(f"<----------------- TAAS {sequence=} ----------------->")
+            logger.debug(f"<----------------- TAAS {sequence=} ----------------->")
             ngc = row["NGC/IC"]
             other_catalog = []
             if ngc:
@@ -271,7 +273,7 @@ def load_taas200():
                         other_catalog.append(f"NGC {s}")
 
             other_names = row["Name"]
-            logging.debug(f"TAAS catalog {other_catalog=} {other_names=}")
+            logger.debug(f"TAAS catalog {other_catalog=} {other_names=}")
             obj_type = typedict[row["Type"]]
             ra = ra_to_deg(float(row["RA Hr"]), float(row["RA Min"]), 0)
             dec_deg = row["Dec Deg"]
@@ -356,7 +358,7 @@ def load_rasc_double_Stars():
             for row in tqdm(list(df), leave=False):
                 dfs = row.split("\t")
                 sequence = dfs[0].strip()
-                logging.debug(
+                logger.debug(
                     f"<----------------- Rasc DS {sequence=} ----------------->"
                 )
                 target = dfs[1]
@@ -439,7 +441,7 @@ def load_barnard():
                 DE2000m = int(row[36:38])
                 Diam = float(row[39:44]) if row[39:44].strip() else ""
                 sequence = Barn
-                logging.debug(f"<------------- Barnard {sequence=} ------------->")
+                logger.debug(f"<------------- Barnard {sequence=} ------------->")
                 obj_type = "Nb"
                 ra_h = RA2000h
                 ra_m = RA2000m

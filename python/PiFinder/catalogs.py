@@ -667,6 +667,13 @@ class CatalogBackgroundLoader:
         )
         self._thread.start()
 
+    def do_timed_task(self):
+        """updating comet catalog data"""
+        with Timer("Comet Catalog periodic update"):
+            with self._init_lock:
+                if not self.initialized:
+                    logger.debug("Comets not yet initialized, skip periodic update...")
+                    
     def stop(self) -> None:
         """Stop background loading gracefully"""
         self._stop_flag.set()

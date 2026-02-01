@@ -22,6 +22,8 @@ from .catalog_import_utils import (
 # Import shared database object
 from .database import objects_db
 
+logger = logging.getLogger("SACLoaders")
+
 
 def load_sac_asterisms():
     """Load the SAC Asterisms catalog"""
@@ -53,9 +55,7 @@ def load_sac_asterisms():
             else:
                 sequence += 1
 
-            logging.debug(
-                f"---------------> SAC Asterisms {sequence=} <---------------"
-            )
+            logger.debug(f"---------------> SAC Asterisms {sequence=} <---------------")
             # const = dfs[2].strip()
             ra = dfs[3].strip()
             dec = dfs[4].strip()
@@ -246,9 +246,7 @@ def load_sac_redstars():
             else:
                 sequence += 1
 
-            logging.debug(
-                f"---------------> SAC Red Stars {sequence=} <---------------"
-            )
+            logger.debug(f"---------------> SAC Red Stars {sequence=} <---------------")
             # const = dfs[3].strip()
             ra = dfs[4].strip()
             dec = dfs[5].strip()

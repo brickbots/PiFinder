@@ -87,7 +87,7 @@ docstring-code-format = false
 docstring-code-line-length = "dynamic"
 
 [tool.mypy]
-exclude = "venv|tetra3"
+exclude = "venv|tetra3|indi_tools"
 # Start off with these
 warn_unused_configs = true
 warn_redundant_casts = true
@@ -135,6 +135,7 @@ module = [
     'picamera2',
     'bottle',
     'libinput',
+    'PyIndi',
 ]
 ignore_missing_imports = true
 ignore_errors = true

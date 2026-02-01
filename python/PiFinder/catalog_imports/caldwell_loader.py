@@ -22,10 +22,12 @@ from .catalog_import_utils import (
 # Import shared database object
 from .database import objects_db
 
+logger = logging.getLogger("CaldwellLoader")
+
 
 def load_caldwell():
     """Load the Caldwell catalog"""
-    logging.info("Loading Caldwell")
+    logger.info("Loading Caldwell")
     catalog = "C"
     conn, _ = objects_db.get_conn_cursor()
     delete_catalog_from_database(catalog)
@@ -38,7 +40,7 @@ def load_caldwell():
         for line in tqdm(list(df), leave=False):
             dfs = line.split("\t")
             sequence = dfs[0].strip()
-            logging.debug(f"<----------------- Caldwell {sequence=} ----------------->")
+            logger.debug(f"<----------------- Caldwell {sequence=} ----------------->")
             other_names = add_space_after_prefix(dfs[1])
             obj_type = dfs[2]
             mag = dfs[4]

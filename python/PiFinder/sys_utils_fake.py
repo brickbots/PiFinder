@@ -160,3 +160,30 @@ def switch_cam_imx477() -> None:
 def switch_cam_imx296() -> None:
     logger.info("SYS: Switching cam to imx296")
     logger.info('sh.sudo("python", "-m", "PiFinder.switch_camera", "imx296")')
+
+
+
+mountcontrol_active = True
+
+def is_mountcontrol_active() -> bool:
+    """
+    Returns True if mount control service is active
+    """
+    global mountcontrol_active
+    return mountcontrol_active
+    
+def mountcontrol_activate() -> None:
+    """
+    Activates the mount control service
+    """
+    logger.info("SYS: Activating Mount Control")
+    global mountcontrol_active
+    mountcontrol_active = True
+
+def mountcontrol_deactivate() -> None:
+    """
+    Deactivates the mount control service
+    """
+    logger.info("SYS: Deactivating Mount Control")
+    global mountcontrol_active
+    mountcontrol_active= False

@@ -18,6 +18,8 @@ from .catalog_import_utils import (
 # Import shared database object
 from .database import objects_db
 
+logger = logging.getLogger("Herschel400Loader")
+
 
 def load_herschel400():
     """
@@ -50,7 +52,7 @@ def load_herschel400():
                 h_desc = dfs[8]
                 sequence += 1
 
-                logging.debug(
+                logger.debug(
                     f"---------------> Herschel 400 {sequence=} <---------------"
                 )
 
