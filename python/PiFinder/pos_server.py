@@ -171,14 +171,15 @@ def handle_goto_command(shared_state, ra_parsed, dec_parsed):
     global sequence, ui_queue, is_stellarium
     ra = ra_to_deg(*ra_parsed)
     dec = dec_to_deg(*dec_parsed)
-    epoch = ts.J2000 if is_stellarium else ts.now()
-    epoch_s = "J2000" if is_stellarium else "JNOW"
-    logger.debug("handle_goto_command: ra,dec in deg, %s: %s, %s", epoch_s, ra, dec)
-    _p = position_of_radec(ra_hours=ra / 15, dec_degrees=dec, epoch=epoch)
-    ra_h, dec_d, _ = _p.radec(epoch=ts.J2000)
+    if is_stellarium:
+        comp_ra, comp_dec = ra, dec
+    else:
+        logger.debug("handle_goto_command: ra,dec in deg, JNOW: %s, %s", ra, dec)
+        _p = position_of_radec(ra_hours=ra / 15, dec_degrees=dec, epoch=ts.now())
+        ra_h, dec_d, _ = _p.radec(epoch=ts.J2000)
+        comp_ra = float(ra_h._degrees)
+        comp_dec = float(dec_d.degrees)
     sequence += 1
-    comp_ra = float(ra_h._degrees)
-    comp_dec = float(dec_d.degrees)
     logger.debug("Goto ra,dec in deg, J2000: %s, %s", comp_ra, comp_dec)
     constellation = sf_utils.radec_to_constellation(comp_ra, comp_dec)
     obj = CompositeObject.from_dict(
