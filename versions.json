@@ -1,0 +1,26 @@
+{
+  "channels": {
+    "stable": {
+      "description": "Tested releases",
+      "versions": [
+        {
+          "version": "2.4.0",
+          "ref": "v2.4.0",
+          "date": "2025-07-01",
+          "notes": "Initial NixOS release"
+        }
+      ]
+    },
+    "unstable": {
+      "description": "Latest development",
+      "versions": [
+        {
+          "version": "2.5.0-dev",
+          "ref": "main",
+          "date": "2025-07-01",
+          "notes": "Development branch"
+        }
+      ]
+    }
+  }
+}

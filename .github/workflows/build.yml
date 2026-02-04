@@ -1,0 +1,83 @@
+name: Build PiFinder NixOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [labeled, synchronize, opened]
+  workflow_dispatch:
+
+jobs:
+  build:
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'preview')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            extra-platforms = aarch64-linux
+            extra-system-features = big-parallel
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: pifinder
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Register QEMU binfmt for aarch64
+        run: sudo apt-get update && sudo apt-get install -y qemu-user-static
+
+      - name: Build NixOS system closure
+        run: |
+          nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            --system aarch64-linux \
+            -L --no-link
+
+      - name: Push to Cachix
+        if: github.event_name != 'pull_request'
+        run: |
+          nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            --system aarch64-linux \
+            --json | jq -r '.[].outputs.out' | cachix push pifinder
+
+  update-unstable:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update unstable channel
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DATE=$(date -I)
+
+          # Update main entry
+          jq --arg d "$DATE" \
+            '.channels.unstable.versions = [{version:"main", ref:"main", date:$d, notes:"Latest development"}]' \
+            versions.json > tmp.json && mv tmp.json versions.json
+
+          # Add all preview-labeled PRs (no limit)
+          gh pr list --label preview --json number,title,headRefOid | \
+            jq --arg d "$DATE" '.[] | {version:("PR #" + (.number|tostring)), ref:.headRefOid, date:$d, notes:.title}' | \
+            jq -s '.' > prs.json
+
+          jq --slurpfile prs prs.json '.channels.unstable.versions += $prs[0]' \
+            versions.json > tmp.json && mv tmp.json versions.json
+
+          rm prs.json
+
+      - name: Commit versions.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add versions.json
+          git diff --staged --quiet || git commit -m "chore: update unstable"
+          git push
