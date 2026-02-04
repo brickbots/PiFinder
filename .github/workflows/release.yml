@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g., 2.5.0)'
+        required: true
+      notes:
+        description: 'Release notes'
+        required: true
+      type:
+        description: 'Release type'
+        type: choice
+        options:
+          - stable
+          - beta
+        default: stable
+      source_branch:
+        description: 'Source branch (default: main, use release/X.Y for hotfixes)'
+        required: false
+        default: 'main'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create tag
+        run: |
+          TAG="v${{ inputs.version }}"
+          [[ "${{ inputs.type }}" == "beta" ]] && TAG="${TAG}-beta"
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            extra-platforms = aarch64-linux
+            extra-system-features = big-parallel
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: pifinder
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Register QEMU binfmt for aarch64
+        run: sudo apt-get update && sudo apt-get install -y qemu-user-static
+
+      - name: Build and push closure to Cachix
+        run: |
+          nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            --system aarch64-linux -L
+          nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            --system aarch64-linux --json | jq -r '.[].outputs.out' | cachix push pifinder
+
+      - name: Build SD image
+        run: |
+          nix build .#images.pifinder \
+            --system aarch64-linux \
+            -L -o result
+
+      - name: Update versions.json on main
+        run: |
+          # versions.json always lives on main, even for hotfix releases
+          git fetch origin main
+          git checkout main
+
+          DATE=$(date -I)
+          CHANNEL="${{ inputs.type }}"
+          VERSION="${{ inputs.version }}"
+          NOTES="${{ inputs.notes }}"
+          REF="$TAG"
+
+          jq --arg v "$VERSION" --arg r "$REF" --arg d "$DATE" --arg n "$NOTES" --arg c "$CHANNEL" \
+            '.channels[$c].versions = ([{version:$v, ref:$r, date:$d, notes:$n}] + .channels[$c].versions)[:3]' \
+            versions.json > tmp.json && mv tmp.json versions.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add versions.json
+          git commit -m "release: $TAG"
+          git push origin main
+
+      - name: Upload SD image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pifinder-sd-image
+          path: result/sd-image/*.img.zst
+          retention-days: 90
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.TAG }}
+          name: PiFinder ${{ env.TAG }}
+          body: ${{ inputs.notes }}
+          prerelease: ${{ inputs.type == 'beta' }}
+          files: result/sd-image/*.img.zst
