@@ -7,6 +7,9 @@
   };
 
   config = {
+    # Only include RPi 4B device tree (not CM4 variants)
+    hardware.deviceTree.filter = "*rpi-4-b.dtb";
+
     # I2C1 (ARM bus) at 10 kHz for BNO055 IMU
     hardware.raspberry-pi."4".i2c1 = {
       enable = true;
@@ -44,16 +47,13 @@
           /dts-v1/;
           /plugin/;
           / { compatible = "brcm,bcm2711"; };
-          fragment@0 {
-            target = <&gpio>;
-            __overlay__ {
-              pwm_pins: pwm_pins { brcm,pins = <13>; brcm,function = <4>; };
+          &gpio {
+            pwm_pins: pwm_pins {
+              brcm,pins = <13>;
+              brcm,function = <4>;
             };
           };
-          fragment@1 {
-            target = <&pwm>;
-            __overlay__ { status = "okay"; };
-          };
+          &pwm { status = "okay"; };
         '';
       };
 
