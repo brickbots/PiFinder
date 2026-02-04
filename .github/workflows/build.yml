@@ -13,11 +13,20 @@ jobs:
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.pull_request.labels.*.name, 'preview')
-    runs-on: ubuntu-latest
+    # Prefer self-hosted aarch64 runner (Pi5), fallback to ubuntu with QEMU
+    runs-on: ${{ vars.RUNNER_LABELS || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Nix (self-hosted)
+        if: runner.arch == 'ARM64'
+        run: |
+          if ! command -v nix &> /dev/null; then
+            curl -L https://nixos.org/nix/install | sh -s -- --daemon
+          fi
+
       - uses: cachix/install-nix-action@v27
+        if: runner.arch != 'ARM64'
         with:
           extra_nix_config: |
             extra-platforms = aarch64-linux
@@ -29,19 +38,29 @@ jobs:
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
       - name: Register QEMU binfmt for aarch64
+        if: runner.arch != 'ARM64'
         run: sudo apt-get update && sudo apt-get install -y qemu-user-static
 
       - name: Build NixOS system closure
         run: |
+          # Native build on aarch64, cross-compile via QEMU on x86_64
+          SYSTEM_FLAG=""
+          if [[ "$(uname -m)" != "aarch64" ]]; then
+            SYSTEM_FLAG="--system aarch64-linux"
+          fi
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
-            --system aarch64-linux \
+            $SYSTEM_FLAG \
             -L --no-link
 
       - name: Push to Cachix
         if: github.event_name != 'pull_request'
         run: |
+          SYSTEM_FLAG=""
+          if [[ "$(uname -m)" != "aarch64" ]]; then
+            SYSTEM_FLAG="--system aarch64-linux"
+          fi
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
-            --system aarch64-linux \
+            $SYSTEM_FLAG \
             --json | jq -r '.[].outputs.out' | cachix push pifinder
 
   update-unstable:
