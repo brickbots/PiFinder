@@ -24,7 +24,7 @@ import pam  # type: ignore[import-not-found]
 import gi  # type: ignore[import-not-found]
 
 gi.require_version("NM", "1.0")
-from gi.repository import GLib, NM  # type: ignore[import-not-found]  # noqa: E402
+from gi.repository import GLib, NM  # noqa: E402  # type: ignore[import-not-found]
 
 from PiFinder import utils
 
