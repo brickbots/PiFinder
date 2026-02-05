@@ -157,3 +157,11 @@ python/tetra3
 # users GPS data
 test_ubx
 test_ubx/*
+
+#Mark's additions
+# Specific PiFinder Data
+astro_data/pifinder_objects.db
+astro_data/pifinder_objects.db.bak*
+astro_data/tyc_main.dat
+astro_data/constellations.json
+astro_data/con_names.json
