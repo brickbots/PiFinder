@@ -23,7 +23,7 @@ on:
 
 jobs:
   release:
-    runs-on: ${{ vars.RUNNER_LABELS || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
@@ -40,15 +40,7 @@ jobs:
           git push origin "$TAG"
           echo "TAG=$TAG" >> $GITHUB_ENV
 
-      - name: Install Nix (self-hosted)
-        if: runner.arch == 'ARM64'
-        run: |
-          if ! command -v nix &> /dev/null; then
-            curl -L https://nixos.org/nix/install | sh -s -- --daemon
-          fi
-
       - uses: cachix/install-nix-action@v27
-        if: runner.arch != 'ARM64'
         with:
           extra_nix_config: |
             extra-platforms = aarch64-linux
@@ -60,33 +52,23 @@ jobs:
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
       - name: Register QEMU binfmt for aarch64
-        if: runner.arch != 'ARM64'
         run: sudo apt-get update && sudo apt-get install -y qemu-user-static
 
       - name: Build and push closure to Cachix
         run: |
-          SYSTEM_FLAG=""
-          if [[ "$(uname -m)" != "aarch64" ]]; then
-            SYSTEM_FLAG="--system aarch64-linux"
-          fi
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
-            $SYSTEM_FLAG -L
+            --system aarch64-linux -L
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
-            $SYSTEM_FLAG --json | jq -r '.[].outputs.out' | cachix push pifinder
+            --system aarch64-linux --json | jq -r '.[].outputs.out' | cachix push pifinder
 
       - name: Build SD image
         run: |
-          SYSTEM_FLAG=""
-          if [[ "$(uname -m)" != "aarch64" ]]; then
-            SYSTEM_FLAG="--system aarch64-linux"
-          fi
           nix build .#images.pifinder \
-            $SYSTEM_FLAG \
+            --system aarch64-linux \
             -L -o result
 
       - name: Update versions.json on main
         run: |
-          # versions.json always lives on main, even for hotfix releases
           git fetch origin main
           git checkout main
 
