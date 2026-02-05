@@ -23,7 +23,9 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNNER_LABELS || 'ubuntu-latest' }}
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,7 +40,15 @@ jobs:
           git push origin "$TAG"
           echo "TAG=$TAG" >> $GITHUB_ENV
 
+      - name: Install Nix (self-hosted)
+        if: runner.arch == 'ARM64'
+        run: |
+          if ! command -v nix &> /dev/null; then
+            curl -L https://nixos.org/nix/install | sh -s -- --daemon
+          fi
+
       - uses: cachix/install-nix-action@v27
+        if: runner.arch != 'ARM64'
         with:
           extra_nix_config: |
             extra-platforms = aarch64-linux
@@ -50,19 +60,28 @@ jobs:
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
       - name: Register QEMU binfmt for aarch64
+        if: runner.arch != 'ARM64'
         run: sudo apt-get update && sudo apt-get install -y qemu-user-static
 
       - name: Build and push closure to Cachix
         run: |
+          SYSTEM_FLAG=""
+          if [[ "$(uname -m)" != "aarch64" ]]; then
+            SYSTEM_FLAG="--system aarch64-linux"
+          fi
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
-            --system aarch64-linux -L
+            $SYSTEM_FLAG -L
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
-            --system aarch64-linux --json | jq -r '.[].outputs.out' | cachix push pifinder
+            $SYSTEM_FLAG --json | jq -r '.[].outputs.out' | cachix push pifinder
 
       - name: Build SD image
         run: |
+          SYSTEM_FLAG=""
+          if [[ "$(uname -m)" != "aarch64" ]]; then
+            SYSTEM_FLAG="--system aarch64-linux"
+          fi
           nix build .#images.pifinder \
-            --system aarch64-linux \
+            $SYSTEM_FLAG \
             -L -o result
 
       - name: Update versions.json on main
