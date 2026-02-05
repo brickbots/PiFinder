@@ -66,6 +66,11 @@ jobs:
           nix build .#images.pifinder \
             --system aarch64-linux \
             -L -o result
+          # Rename image to include version
+          mkdir -p release
+          for f in result/sd-image/*.img.zst; do
+            cp "$f" "release/pifinder-${TAG}.img.zst"
+          done
 
       - name: Update versions.json on main
         run: |
@@ -92,7 +97,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pifinder-sd-image
-          path: result/sd-image/*.img.zst
+          path: release/pifinder-*.img.zst
           retention-days: 90
 
       - name: Create GitHub Release
@@ -102,4 +107,4 @@ jobs:
           name: PiFinder ${{ env.TAG }}
           body: ${{ inputs.notes }}
           prerelease: ${{ inputs.type == 'beta' }}
-          files: result/sd-image/*.img.zst
+          files: release/pifinder-*.img.zst
