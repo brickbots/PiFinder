@@ -36,6 +36,69 @@
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
         "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+        # Runtime camera selection via /boot/camera.txt
+        ({ config, pkgs, lib, ... }:
+        let
+          # Custom config.txt with camera.txt include
+          configTxt = pkgs.writeText "config.txt" ''
+            [pi3]
+            kernel=u-boot-rpi3.bin
+
+            [pi02]
+            kernel=u-boot-rpi3.bin
+
+            [pi4]
+            kernel=u-boot-rpi4.bin
+            enable_gic=1
+            armstub=armstub8-gic.bin
+
+            disable_overscan=1
+            arm_boost=1
+
+            [cm4]
+            otg_mode=1
+
+            [all]
+            arm_64bit=1
+            enable_uart=1
+            avoid_warnings=1
+
+            # Camera overlay - edit camera.txt and reboot to change camera
+            include camera.txt
+          '';
+
+          cameraTxt = pkgs.writeText "camera.txt" ''
+            # PiFinder Camera Configuration
+            # Edit this file and reboot to switch cameras
+            # Options: imx296, imx290 (for imx462), imx477
+            dtoverlay=imx296
+          '';
+        in {
+          sdImage.populateFirmwareCommands = lib.mkForce ''
+            (cd ${pkgs.raspberrypifw}/share/raspberrypi/boot && cp bootcode.bin fixup*.dat start*.elf $NIX_BUILD_TOP/firmware/)
+
+            # Custom config.txt with camera.txt include
+            cp ${configTxt} firmware/config.txt
+            cp ${cameraTxt} firmware/camera.txt
+
+            # Pi3 files
+            cp ${pkgs.ubootRaspberryPi3_64bit}/u-boot.bin firmware/u-boot-rpi3.bin
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-2-b.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-3-b.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-3-b-plus.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-cm3.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-zero-2.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-zero-2-w.dtb firmware/
+
+            # Pi4 files
+            cp ${pkgs.ubootRaspberryPi4_64bit}/u-boot.bin firmware/u-boot-rpi4.bin
+            cp ${pkgs.raspberrypi-armstubs}/armstub8-gic.bin firmware/armstub8-gic.bin
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-4-b.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-400.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-cm4.dtb firmware/
+            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-cm4s.dtb firmware/
+          '';
+        })
       ] ++ nixpkgs.lib.optionals (!includeSDImage) [
         # Minimal filesystem stub for closure builds (CI)
         ({ lib, ... }: {
