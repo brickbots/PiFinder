@@ -1,9 +1,30 @@
 { config, lib, pkgs, ... }:
-{
-  options.pifinder.cameraType = lib.mkOption {
-    type = lib.types.enum [ "imx296" "imx462" "imx477" ];
-    default = "imx296";
-    description = "Camera sensor type for PiFinder";
+let
+  cfg = config.pifinder;
+
+  # Camera driver name mapping
+  cameraDriver = {
+    imx296 = "imx296";
+    imx462 = "imx290";  # imx462 uses imx290 driver
+    imx477 = "imx477";
+  }.${cfg.cameraType};
+in {
+  options.pifinder = {
+    cameraType = lib.mkOption {
+      type = lib.types.enum [ "imx296" "imx462" "imx477" ];
+      default = "imx296";
+      description = "Camera sensor type for PiFinder";
+    };
+
+    runtimeCameraSelection = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Enable runtime camera selection via /boot/camera.txt.
+        When true, camera overlay is loaded via config.txt include (SD card).
+        When false, camera overlay is baked into device tree (netboot).
+      '';
+    };
   };
 
   config = {
@@ -57,13 +78,8 @@
         '';
       };
 
-      # Camera dtoverlay — driver depends on selected camera type
-      cameraDriver = {
-        imx296 = "imx296";
-        imx462 = "imx290";
-        imx477 = "imx477";
-      }.${config.pifinder.cameraType};
-
+      # Camera dtoverlay — only bake into device tree when NOT using runtime selection
+      # For SD cards (runtimeCameraSelection=true), overlay is loaded via config.txt
       cameraOverlay = {
         name = "${cameraDriver}-camera";
         dtboFile = "${pkgs.raspberrypifw}/share/raspberrypi/boot/overlays/${cameraDriver}.dtbo";
@@ -72,8 +88,19 @@
       spi0Overlay
       uart3Overlay
       pwmOverlay
+    ] ++ lib.optionals (!cfg.runtimeCameraSelection) [
       cameraOverlay
     ];
+
+    # Runtime camera selection: create /boot/camera.txt with default overlay
+    # User can edit this file and reboot to switch cameras
+    environment.etc."camera.txt.default" = lib.mkIf cfg.runtimeCameraSelection {
+      text = ''
+        # Camera overlay - edit and reboot to change camera
+        # Options: imx296, imx290 (for imx462), imx477
+        dtoverlay=${cameraDriver}
+      '';
+    };
 
     # udev rules for hardware access without root
     services.udev.extraRules = ''

@@ -69,6 +69,31 @@ in {
   ];
 
   # ---------------------------------------------------------------------------
+  # PWM permissions setup for keypad backlight
+  # ---------------------------------------------------------------------------
+  systemd.services.pwm-permissions = {
+    description = "Set PWM sysfs permissions for pifinder";
+    before = [ "pifinder.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      # Export PWM channel 1 (GPIO 13) if not already exported
+      if [ ! -d /sys/class/pwm/pwmchip0/pwm1 ]; then
+        echo 1 > /sys/class/pwm/pwmchip0/export || true
+        sleep 0.5
+      fi
+      # sysfs doesn't support chgrp, so make files world-writable
+      chmod 0666 /sys/class/pwm/pwmchip0/export /sys/class/pwm/pwmchip0/unexport
+      if [ -d /sys/class/pwm/pwmchip0/pwm1 ]; then
+        chmod 0666 /sys/class/pwm/pwmchip0/pwm1/{enable,period,duty_cycle,polarity}
+      fi
+    '';
+  };
+
+  # ---------------------------------------------------------------------------
   # PiFinder source + data directory setup
   # ---------------------------------------------------------------------------
   system.activationScripts.pifinder-home = lib.stringAfter [ "users" ] ''
@@ -115,6 +140,8 @@ in {
       { command = "/run/current-system/sw/bin/systemctl start pifinder-upgrade.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl reset-failed pifinder-upgrade.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl restart pifinder.service"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/systemctl stop pifinder.service"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/systemctl start pifinder.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl restart avahi-daemon.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/nixos-rebuild *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/shutdown *"; options = [ "NOPASSWD" ]; }
