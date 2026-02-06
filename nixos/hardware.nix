@@ -79,14 +79,18 @@
     services.udev.extraRules = ''
       SUBSYSTEM=="spidev", GROUP="spi", MODE="0660"
       SUBSYSTEM=="i2c-dev", GROUP="i2c", MODE="0660"
-      SUBSYSTEM=="pwm", GROUP="gpio", MODE="0660"
       SUBSYSTEM=="gpio", GROUP="gpio", MODE="0660"
+      KERNEL=="gpiomem", GROUP="gpio", MODE="0660"
       KERNEL=="ttyAMA1", GROUP="dialout", MODE="0660"
+      # DMA heap for libcamera/picamera2 (CMA memory allocation)
+      SUBSYSTEM=="dma_heap", GROUP="video", MODE="0660"
     '';
 
+    users.users.root.initialPassword = "solveit";
     users.users.pifinder = {
       isNormalUser = true;
-      extraGroups = [ "spi" "i2c" "gpio" "dialout" "video" "networkmanager" ];
+      initialPassword = "solveit";
+      extraGroups = [ "spi" "i2c" "gpio" "dialout" "video" "networkmanager" "systemd-journal" "input" "kmem" ];
     };
     users.groups = {
       spi = {};
