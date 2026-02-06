@@ -5,37 +5,39 @@
   };
 
   outputs = { self, nixpkgs, nixos-hardware, ... }: let
-    mkPifinderSystem = { includeSDImage ? false, devMode ? false }: nixpkgs.lib.nixosSystem {
+    # Shared modules for all PiFinder configurations
+    commonModules = [
+      nixos-hardware.nixosModules.raspberry-pi-4
+      ./nixos/hardware.nix
+      ./nixos/networking.nix
+      ./nixos/services.nix
+      ./nixos/python-env.nix
+      # Headless — strip X11, fonts, docs, desktop bloat
+      ({ lib, ... }: {
+        services.xserver.enable = false;
+        security.polkit.enable = true;
+        fonts.fontconfig.enable = false;
+        documentation.enable = false;
+        documentation.man.enable = false;
+        documentation.nixos.enable = false;
+        xdg.portal.enable = false;
+        services.pipewire.enable = false;
+        hardware.pulseaudio.enable = false;
+        boot.initrd.availableKernelModules = lib.mkForce [ "mmc_block" "usbhid" "usb_storage" "vc4" ];
+      })
+    ];
+
+    mkPifinderSystem = { includeSDImage ? false }: nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
-      modules = [
-        nixos-hardware.nixosModules.raspberry-pi-4
-        ./nixos/hardware.nix
-        ./nixos/networking.nix
-        { pifinder.devMode = devMode; }
-        ./nixos/services.nix
-        ./nixos/python-env.nix
-        # Headless — strip X11, fonts, docs, desktop bloat
+      modules = commonModules ++ [
+        { pifinder.devMode = false; }
         ({ lib, ... }: {
-          services.xserver.enable = false;
-          security.polkit.enable = true;
-          fonts.fontconfig.enable = false;
-          documentation.enable = false;
-          documentation.man.enable = false;
-          documentation.nixos.enable = false;
-          xdg.portal.enable = false;
-          services.pipewire.enable = false;
-          hardware.pulseaudio.enable = false;
-          boot.supportedFilesystems = lib.mkForce ([ "vfat" "ext4" ] ++ lib.optionals devMode [ "nfs" ]);
-          boot.initrd.availableKernelModules = lib.mkForce [ "mmc_block" "usbhid" "usb_storage" "vc4" ];
-          # NFS netboot support (dev mode only) - NFS and ethernet are built into RPi kernel
-          boot.initrd.supportedFilesystems = lib.mkIf devMode [ "nfs" ];
-          boot.initrd.network.enable = devMode;
+          boot.supportedFilesystems = lib.mkForce [ "vfat" "ext4" ];
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
         "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
       ] ++ nixpkgs.lib.optionals (!includeSDImage) [
         # Minimal filesystem stub for closure builds (CI)
-        # The SD image module provides real filesystems; this is just for evaluation
         ({ lib, ... }: {
           fileSystems."/" = {
             device = "/dev/disk/by-label/NIXOS_SD";
@@ -48,18 +50,80 @@
         })
       ];
     };
+
+    # Netboot configuration — NFS root, DHCP network in initrd
+    mkPifinderNetboot = nixpkgs.lib.nixosSystem {
+      system = "aarch64-linux";
+      modules = commonModules ++ [
+        { pifinder.devMode = true; }
+        { pifinder.cameraType = "imx477"; }  # HQ camera for netboot dev
+        ({ lib, pkgs, ... }: {
+          # Static passwd/group — NFS can't run activation scripts
+          users.mutableUsers = false;
+          # DNS for netboot (udhcpc doesn't configure resolvconf properly)
+          networking.nameservers = [ "192.168.5.1" "8.8.8.8" ];
+          boot.supportedFilesystems = lib.mkForce [ "vfat" "ext4" "nfs" ];
+          boot.initrd.supportedFilesystems = [ "nfs" ];
+          # Override the minimal module list from commonModules — add network drivers
+          # Note: genet (RPi4 ethernet) is built into the kernel, not a module
+          boot.initrd.availableKernelModules = lib.mkForce [
+            "mmc_block" "usbhid" "usb_storage" "vc4"
+          ];
+          # Disable predictable interface names so eth0 works
+          boot.kernelParams = [ "net.ifnames=0" "biosdevname=0" ];
+          boot.initrd.network = {
+            enable = true;
+          };
+          # Manually configure network before NFS mount
+          boot.initrd.postDeviceCommands = ''
+            # Wait for interface to appear
+            for i in $(seq 1 30); do
+              if ip link show eth0 >/dev/null 2>&1; then
+                break
+              fi
+              sleep 0.5
+            done
+
+            ip link set eth0 up
+            udhcpc -i eth0 -t 10 -T 3 -n -q -s /etc/udhcpc.script || true
+            ip addr show eth0
+          '';
+          # NFS root filesystem
+          fileSystems."/" = {
+            device = "192.168.5.12:/srv/nfs/pifinder";
+            fsType = "nfs";
+            options = [ "vers=3" "tcp" "nolock" ];
+          };
+          # Dummy /boot — not used for netboot but NixOS requires it
+          fileSystems."/boot" = {
+            device = "none";
+            fsType = "tmpfs";
+            neededForBoot = false;
+          };
+        })
+      ];
+    };
+    # Custom u-boot with network boot prioritized for netboot
+    # Uses direct commands since bootcmd_* env vars may not be defined
+    pkgsAarch64 = import nixpkgs { system = "aarch64-linux"; };
+    ubootNetboot = pkgsAarch64.ubootRaspberryPi4_64bit.override {
+      extraConfig = ''
+        CONFIG_BOOTCOMMAND="pci enum; dhcp; pxe get; pxe boot"
+      '';
+    };
   in {
     nixosConfigurations = {
-      # Single universal build - camera selected at runtime via /boot/camera.txt
+      # SD card boot — camera selected at runtime via /boot/camera.txt
       pifinder = mkPifinderSystem {};
-      # Dev config (NFS netboot support)
-      pifinder-dev = mkPifinderSystem { devMode = true; };
+      # NFS netboot — for development on proxnix
+      pifinder-netboot = mkPifinderNetboot;
     };
     images = {
-      # Single universal image - camera selected at runtime via /boot/camera.txt
+      # SD card image
       pifinder = (mkPifinderSystem { includeSDImage = true; }).config.system.build.sdImage;
-      # Dev image (NFS netboot support, larger initrd)
-      pifinder-dev = (mkPifinderSystem { includeSDImage = true; devMode = true; }).config.system.build.sdImage;
+    };
+    packages.aarch64-linux = {
+      uboot-netboot = ubootNetboot;
     };
   };
 }

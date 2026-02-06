@@ -982,8 +982,7 @@ if __name__ == "__main__":
 
         # verify and sync GPSD baud rate
         try:
-            from PiFinder import sys_utils
-
+            sys_utils = utils.get_sys_utils()
             baud_rate = cfg.get_option(
                 "gps_baud_rate", 9600
             )  # Default to 9600 if not set

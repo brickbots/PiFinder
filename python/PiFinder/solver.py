@@ -25,6 +25,7 @@ from PiFinder.sqm import SQM as SQMCalculator
 from PiFinder.state import SQM as SQMState
 
 sys.path.append(str(utils.tetra3_dir))
+sys.path.append(str(utils.tetra3_dir / "tetra3"))
 import tetra3
 from tetra3 import cedar_detect_client
 
@@ -174,6 +175,31 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
                 channel
             )
         return self._stub
+
+    def _alloc_shmem(self, size):
+        """Override to fix shared memory name (no leading / for Python's SharedMemory)."""
+        from multiprocessing import shared_memory
+
+        if self._shmem is not None and size > self._shmem_size:
+            self._shmem.close()
+            self._shmem.unlink()
+            self._shmem = None
+        if self._shmem is None:
+            # Use name without leading / - Python's SharedMemory adds it automatically
+            self._shmem = shared_memory.SharedMemory(
+                "cedar_detect_image", create=True, size=size
+            )
+            self._shmem_size = size
+
+    def _del_shmem(self):
+        """Override to match _alloc_shmem naming."""
+        if self._shmem is not None:
+            self._shmem.close()
+            try:
+                self._shmem.unlink()
+            except FileNotFoundError:
+                pass
+            self._shmem = None
 
     def extract_centroids(self, image, sigma, max_size, use_binned, detect_hot_pixels=True):
         """Override to raise CedarConnectionError on gRPC failure instead of returning empty list."""
