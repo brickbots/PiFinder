@@ -31,9 +31,12 @@ jobs:
       - name: Register QEMU binfmt for aarch64
         run: sudo apt-get update && sudo apt-get install -y qemu-user-static
 
-      - name: Build NixOS system closure
+      - name: Build NixOS system closures
         run: |
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            --system aarch64-linux \
+            -L --no-link
+          nix build .#nixosConfigurations.pifinder-dev.config.system.build.toplevel \
             --system aarch64-linux \
             -L --no-link
 
@@ -41,6 +44,9 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            --system aarch64-linux \
+            --json | jq -r '.[].outputs.out' | cachix push pifinder
+          nix build .#nixosConfigurations.pifinder-dev.config.system.build.toplevel \
             --system aarch64-linux \
             --json | jq -r '.[].outputs.out' | cachix push pifinder
 
