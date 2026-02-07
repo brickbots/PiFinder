@@ -10,7 +10,7 @@ home_dir = Path.home()
 cwd_dir = Path.cwd()
 pifinder_dir = Path("..")
 astro_data_dir = cwd_dir / pifinder_dir / "astro_data"
-tetra3_dir = pifinder_dir / "python/PiFinder/tetra3/tetra3"
+tetra3_dir = pifinder_dir / "python/PiFinder/tetra3"
 data_dir = Path(Path.home(), "PiFinder_data")
 pifinder_db = astro_data_dir / "pifinder_objects.db"
 observations_db = data_dir / "observations.db"
@@ -45,12 +45,15 @@ def serialize_solution(solution: dict) -> str:
 
 
 def get_sys_utils():
+    if Path("/etc/NIXOS").exists():
+        try:
+            return importlib.import_module("PiFinder.sys_utils_nixos")
+        except ImportError:
+            pass
     try:
-        # Attempt to import the real sys_utils
-        sys_utils = importlib.import_module("PiFinder.sys_utils")
-    except ImportError:
-        sys_utils = importlib.import_module("PiFinder.sys_utils_fake")
-    return sys_utils
+        return importlib.import_module("PiFinder.sys_utils")
+    except Exception:
+        return importlib.import_module("PiFinder.sys_utils_fake")
 
 
 def get_os_info():

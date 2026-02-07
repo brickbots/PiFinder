@@ -8,12 +8,9 @@ Replaces sys_utils.py's wpa_supplicant/hostapd/file-editing approach with:
 - stdlib zipfile for backup/restore
 - nixos-rebuild for camera switching and software updates
 """
-import glob
-import os
+
 import subprocess
-import socket
 import time
-import zipfile
 import logging
 from pathlib import Path
 from typing import Optional
@@ -26,9 +23,16 @@ import gi  # type: ignore[import-not-found]
 gi.require_version("NM", "1.0")
 from gi.repository import GLib, NM  # noqa: E402  # type: ignore[import-not-found]
 
-from PiFinder import utils
+from PiFinder import utils  # noqa: E402
+from PiFinder.sys_utils_base import (  # noqa: E402
+    NetworkBase,
+    BACKUP_PATH,  # noqa: F401
+    remove_backup,  # noqa: F401
+    backup_userdata,  # noqa: F401
+    restore_userdata,  # noqa: F401
+    restart_pifinder,  # noqa: F401
+)
 
-BACKUP_PATH = str(utils.data_dir / "PiFinder_backup.zip")
 AP_CONNECTION_NAME = "PiFinder-AP"
 
 logger = logging.getLogger("SysUtils.NixOS")
@@ -38,13 +42,16 @@ logger = logging.getLogger("SysUtils.NixOS")
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
-    """Run a command, logging failures. Used only for nixos-rebuild and systemctl."""
+    """Run a command, logging failures."""
     result = subprocess.run(cmd, capture_output=True, text=True, **kwargs)
     if result.returncode != 0:
         logger.error(
             "Command %s failed (rc=%d): %s",
-            cmd, result.returncode, result.stderr.strip(),
+            cmd,
+            result.returncode,
+            result.stderr.strip(),
         )
     return result
 
@@ -57,21 +64,12 @@ def _nm_client() -> NM.Client:
 def _nm_run_async(async_fn, *args):
     """
     Run an async NM operation synchronously by spinning a local GLib MainLoop.
-
-    Usage:
-        result = _nm_run_async(client.add_connection_async, profile, True, None)
     """
     loop = GLib.MainLoop.new(None, False)
     state = {"result": None, "error": None}
 
     def callback(source, async_result, _user_data):
         try:
-            # The finish method name matches the async method name:
-            # add_connection_async -> add_connection_finish
-            # delete_async -> delete_finish
-            # activate_connection_async -> activate_connection_finish
-            # deactivate_connection_async -> deactivate_connection_finish
-            # commit_changes_async -> commit_changes_finish
             method_name = async_fn.__name__.replace("_async", "_finish")
             finish_fn = getattr(source, method_name)
             state["result"] = finish_fn(async_result)
@@ -96,7 +94,8 @@ def _get_system_bus() -> dbus.SystemBus:
 # Network class — WiFi management via NM GLib bindings
 # ---------------------------------------------------------------------------
 
-class Network:
+
+class Network(NetworkBase):
     """
     Provides wifi network info via NetworkManager GLib bindings (libnm).
     """
@@ -126,16 +125,15 @@ class Network:
                 continue
             ssid_bytes = s_wifi.get_ssid()
             ssid = ssid_bytes.get_data().decode("utf-8") if ssid_bytes else ""
-            self._wifi_networks.append({
-                "id": network_id,
-                "ssid": ssid,
-                "psk": None,
-                "key_mgmt": "WPA-PSK",
-            })
+            self._wifi_networks.append(
+                {
+                    "id": network_id,
+                    "ssid": ssid,
+                    "psk": None,
+                    "key_mgmt": "WPA-PSK",
+                }
+            )
             network_id += 1
-
-    def get_wifi_networks(self):
-        return self._wifi_networks
 
     def delete_wifi_network(self, network_id):
         """Delete a saved WiFi connection."""
@@ -222,9 +220,6 @@ class Network:
                         logger.error("Failed to update AP SSID: %s", e)
                 return
 
-    def get_host_name(self) -> str:
-        return socket.gethostname()
-
     def get_connected_ssid(self) -> str:
         """Returns the SSID of the connected wifi network."""
         if self.wifi_mode() == "AP":
@@ -261,17 +256,13 @@ class Network:
         except dbus.DBusException as e:
             logger.error("Failed to set hostname via D-Bus: %s", e)
 
-    def wifi_mode(self) -> str:
-        return self._wifi_mode
+    def _go_ap(self) -> None:
+        """Activate the AP connection."""
+        self._activate_connection(AP_CONNECTION_NAME)
 
-    def set_wifi_mode(self, mode: str) -> None:
-        if mode == self._wifi_mode:
-            return
-        if mode == "AP":
-            self._activate_connection(AP_CONNECTION_NAME)
-        elif mode == "Client":
-            self._deactivate_connection(AP_CONNECTION_NAME)
-        self._wifi_mode = mode
+    def _go_client(self) -> None:
+        """Deactivate the AP connection (fall back to client)."""
+        self._deactivate_connection(AP_CONNECTION_NAME)
 
     def _activate_connection(self, name: str) -> None:
         """Activate a saved connection by name."""
@@ -287,7 +278,10 @@ class Network:
         try:
             _nm_run_async(
                 self._client.activate_connection_async,
-                conn, device, None, None,
+                conn,
+                device,
+                None,
+                None,
             )
         except Exception as e:
             logger.error("Failed to activate '%s': %s", name, e)
@@ -298,82 +292,47 @@ class Network:
             if ac.get_id() == name:
                 try:
                     _nm_run_async(
-                        self._client.deactivate_connection_async, ac, None,
+                        self._client.deactivate_connection_async,
+                        ac,
+                        None,
                     )
                 except Exception as e:
                     logger.error("Failed to deactivate '%s': %s", name, e)
                 return
         logger.warning("No active connection named '%s' to deactivate", name)
 
-    def local_ip(self) -> str:
-        if self._wifi_mode == "AP":
-            return "10.10.10.1"
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            s.connect(("192.255.255.255", 1))
-            ip = s.getsockname()[0]
-        except Exception:
-            ip = "NONE"
-        finally:
-            s.close()
-        return ip
-
 
 # ---------------------------------------------------------------------------
-# Backup / restore (stdlib zipfile)
+# Module-level WiFi switching (called by callbacks.py and status.py)
 # ---------------------------------------------------------------------------
 
-def remove_backup():
-    """Removes backup file."""
-    path = Path(BACKUP_PATH)
-    if path.exists():
-        path.unlink()
+_network_instance: Optional[Network] = None
 
 
-def backup_userdata() -> str:
-    """
-    Back up userdata to a single zip file.
-
-    Backs up:
-        config.json
-        observations.db
-        obslists/*
-    """
-    remove_backup()
-
-    files = [
-        utils.data_dir / "config.json",
-        utils.data_dir / "observations.db",
-    ]
-    for p in utils.data_dir.glob("obslists/*"):
-        files.append(p)
-
-    with zipfile.ZipFile(BACKUP_PATH, "w", zipfile.ZIP_DEFLATED) as zf:
-        for filepath in files:
-            filepath = Path(filepath)
-            if filepath.exists():
-                zf.write(filepath, filepath.relative_to("/"))
-
-    return BACKUP_PATH
+def _get_network() -> Network:
+    global _network_instance
+    if _network_instance is None:
+        _network_instance = Network()
+    return _network_instance
 
 
-def restore_userdata(zip_path: str) -> None:
-    """
-    Restore userdata from a zip backup.
-    OVERWRITES existing data!
-    """
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        zf.extractall("/")
+def go_wifi_ap():
+    logger.info("SYS: Switching to AP")
+    net = _get_network()
+    net.set_wifi_mode("AP")
+    return True
+
+
+def go_wifi_cli():
+    logger.info("SYS: Switching to Client")
+    net = _get_network()
+    net.set_wifi_mode("Client")
+    return True
 
 
 # ---------------------------------------------------------------------------
 # System control (systemctl subprocess + D-Bus for reboot/shutdown)
 # ---------------------------------------------------------------------------
-
-def restart_pifinder() -> None:
-    """Restart the PiFinder service."""
-    logger.info("SYS: Restarting PiFinder")
-    _run(["sudo", "systemctl", "restart", "pifinder"])
 
 
 def restart_system() -> None:
@@ -436,10 +395,7 @@ def fetch_version_manifest() -> Optional[dict]:
 
 
 def get_versions_for_channel(channel: str) -> list[dict]:
-    """Get available versions for a channel.
-
-    Returns list of {version, ref, date, notes}.
-    """
+    """Get available versions for a channel."""
     manifest = fetch_version_manifest()
     if manifest is None:
         return []
@@ -455,11 +411,7 @@ def get_available_channels() -> list[str]:
 
 
 def start_upgrade(ref: str = "release") -> bool:
-    """Start pifinder-upgrade.service with a specific git ref.
-
-    Writes the ref to /run/pifinder/upgrade-ref for the service to read.
-    Returns True if the service was started successfully.
-    """
+    """Start pifinder-upgrade.service with a specific git ref."""
     try:
         UPGRADE_REF_FILE.write_text(ref)
     except OSError as e:
@@ -467,10 +419,15 @@ def start_upgrade(ref: str = "release") -> bool:
         return False
 
     _run(["sudo", "systemctl", "reset-failed", "pifinder-upgrade.service"])
-    result = _run([
-        "sudo", "systemctl", "start", "--no-block",
-        "pifinder-upgrade.service",
-    ])
+    result = _run(
+        [
+            "sudo",
+            "systemctl",
+            "start",
+            "--no-block",
+            "pifinder-upgrade.service",
+        ]
+    )
     return result.returncode == 0
 
 
@@ -489,10 +446,18 @@ def get_upgrade_state() -> str:
 
 def get_upgrade_log_tail(lines: int = 3) -> str:
     """Last N lines from upgrade journal for UI display."""
-    result = _run([
-        "journalctl", "-u", "pifinder-upgrade.service",
-        "-n", str(lines), "--no-pager", "-o", "cat",
-    ])
+    result = _run(
+        [
+            "journalctl",
+            "-u",
+            "pifinder-upgrade.service",
+            "-n",
+            str(lines),
+            "--no-pager",
+            "-o",
+            "cat",
+        ]
+    )
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
@@ -512,6 +477,7 @@ def update_software() -> bool:
 # ---------------------------------------------------------------------------
 # Password management (python-pam + chpasswd)
 # ---------------------------------------------------------------------------
+
 
 def verify_password(username: str, password: str) -> bool:
     """Verify a password against PAM."""
@@ -536,6 +502,7 @@ def change_password(username: str, current_password: str, new_password: str) -> 
 # Camera switching (nixos-rebuild + reboot)
 # ---------------------------------------------------------------------------
 
+
 def switch_camera(cam_type: str) -> None:
     """
     Switch camera by rebuilding NixOS with the appropriate camera type.
@@ -543,10 +510,15 @@ def switch_camera(cam_type: str) -> None:
     """
     logger.info("SYS: Switching camera to %s via nixos-rebuild", cam_type)
     flake_path = str(utils.pifinder_dir)
-    result = _run([
-        "sudo", "nixos-rebuild", "switch",
-        "--flake", f"{flake_path}#pifinder-{cam_type}",
-    ])
+    result = _run(
+        [
+            "sudo",
+            "nixos-rebuild",
+            "switch",
+            "--flake",
+            f"{flake_path}#pifinder-{cam_type}",
+        ]
+    )
     if result.returncode == 0:
         restart_system()
     else:
@@ -572,14 +544,13 @@ def switch_cam_imx462() -> None:
 # GPSD config (declarative on NixOS — no-ops)
 # ---------------------------------------------------------------------------
 
+
 def check_and_sync_gpsd_config(baud_rate: int) -> bool:
     """
     On NixOS, GPSD config is managed declaratively via services.nix.
     This is a no-op.
     """
-    logger.info(
-        "SYS: GPSD baud rate %d — managed by NixOS configuration", baud_rate
-    )
+    logger.info("SYS: GPSD baud rate %d — managed by NixOS configuration", baud_rate)
     return False
 
 
