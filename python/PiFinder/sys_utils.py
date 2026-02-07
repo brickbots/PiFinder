@@ -1,22 +1,26 @@
-import glob
 import re
 from typing import Dict, Any
 
 import sh
-from sh import wpa_cli, unzip, su, passwd
+from sh import wpa_cli, su, passwd
 
-import socket
 from PiFinder import utils
+from PiFinder.sys_utils_base import (
+    NetworkBase,
+    BACKUP_PATH,  # noqa: F401
+    remove_backup,  # noqa: F401
+    backup_userdata,  # noqa: F401
+    restore_userdata,  # noqa: F401
+    restart_pifinder,  # noqa: F401
+)
 import logging
-
-BACKUP_PATH = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
 
 logger = logging.getLogger("SysUtils")
 
 
-class Network:
+class Network(NetworkBase):
     """
-    Provides wifi network info
+    Provides wifi network info via wpa_supplicant (Debian).
     """
 
     def __init__(self):
@@ -24,6 +28,7 @@ class Network:
         with open(self.wifi_txt, "r") as wifi_f:
             self._wifi_mode = wifi_f.read()
 
+        self._wifi_networks: list = []
         self.populate_wifi_networks()
 
     def populate_wifi_networks(self) -> None:
@@ -71,9 +76,6 @@ class Network:
                         network_dict[key] = value.strip('"')
 
         return wifi_networks
-
-    def get_wifi_networks(self):
-        return self._wifi_networks
 
     def delete_wifi_network(self, network_id):
         """
@@ -123,7 +125,6 @@ class Network:
 
         self.populate_wifi_networks()
         if self._wifi_mode == "Client":
-            # Restart the supplicant
             wpa_cli("reconfigure")
 
     def get_ap_name(self):
@@ -144,17 +145,13 @@ class Network:
                     new_conf.write(line)
         sh.sudo("cp", "/tmp/hostapd.conf", "/etc/hostapd/hostapd.conf")
 
-    def get_host_name(self):
-        return socket.gethostname()
-
     def get_connected_ssid(self) -> str:
         """
         Returns the SSID of the connected wifi network or
-        None if not connected or in AP mode
+        empty string if not connected or in AP mode
         """
         if self.wifi_mode() == "AP":
             return ""
-        # get output from iwgetid
         try:
             iwgetid = sh.Command("iwgetid")
             _t = iwgetid(_ok_code=(0, 255)).strip()
@@ -167,31 +164,11 @@ class Network:
             return
         _result = sh.sudo("hostnamectl", "set-hostname", hostname)
 
-    def wifi_mode(self):
-        return self._wifi_mode
+    def _go_ap(self) -> None:
+        go_wifi_ap()
 
-    def set_wifi_mode(self, mode):
-        if mode == self._wifi_mode:
-            return
-        if mode == "AP":
-            go_wifi_ap()
-
-        if mode == "Client":
-            go_wifi_cli()
-
-    def local_ip(self):
-        if self._wifi_mode == "AP":
-            return "10.10.10.1"
-
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            s.connect(("192.255.255.255", 1))
-            ip = s.getsockname()[0]
-        except Exception:
-            ip = "NONE"
-        finally:
-            s.close()
-        return ip
+    def _go_client(self) -> None:
+        go_wifi_cli()
 
 
 def go_wifi_ap():
@@ -204,55 +181,6 @@ def go_wifi_cli():
     logger.info("SYS: Switching to Client")
     sh.sudo("/home/pifinder/PiFinder/switch-cli.sh")
     return True
-
-
-def remove_backup():
-    """
-    Removes backup file
-    """
-    sh.sudo("rm", BACKUP_PATH, _ok_code=(0, 1))
-
-
-def backup_userdata():
-    """
-    Back up userdata to a single zip file for later
-    restore.  Returns the path to the zip file.
-
-    Backs up:
-        config.json
-        observations.db
-        obslist/*
-    """
-
-    remove_backup()
-
-    _zip = sh.Command("zip")
-    _zip(
-        BACKUP_PATH,
-        "/home/pifinder/PiFinder_data/config.json",
-        "/home/pifinder/PiFinder_data/observations.db",
-        glob.glob("/home/pifinder/PiFinder_data/obslists/*"),
-    )
-
-    return BACKUP_PATH
-
-
-def restore_userdata(zip_path):
-    """
-    Compliment to backup_userdata
-    restores userdata
-    OVERWRITES existing data!
-    """
-    unzip("-d", "/", "-o", zip_path)
-
-
-def restart_pifinder() -> None:
-    """
-    Uses systemctl to restart the PiFinder
-    service
-    """
-    logger.info("SYS: Restarting PiFinder")
-    sh.sudo("systemctl", "restart", "pifinder")
 
 
 def restart_system() -> None:
@@ -338,18 +266,15 @@ def check_and_sync_gpsd_config(baud_rate: int) -> bool:
     logger.info(f"SYS: Checking GPSD config for baud rate {baud_rate}")
 
     try:
-        # Read current config
         with open("/etc/default/gpsd", "r") as f:
             content = f.read()
 
-        # Determine expected GPSD_OPTIONS
         if baud_rate == 115200:
             # NOTE: the space before -s in the next line is really needed
             expected_options = 'GPSD_OPTIONS=" -s 115200"'
         else:
             expected_options = 'GPSD_OPTIONS=""'
 
-        # Check if update is needed
         current_match = re.search(r"^GPSD_OPTIONS=.*$", content, re.MULTILINE)
         if current_match:
             current_options = current_match.group(0)
@@ -357,7 +282,6 @@ def check_and_sync_gpsd_config(baud_rate: int) -> bool:
                 logger.info("SYS: GPSD config already correct, no update needed")
                 return False
 
-        # Update is needed
         logger.info(f"SYS: GPSD config mismatch, updating to {expected_options}")
         update_gpsd_config(baud_rate)
         return True
@@ -371,18 +295,13 @@ def update_gpsd_config(baud_rate: int) -> None:
     """
     Updates the GPSD configuration file with the specified baud rate
     and restarts the GPSD service.
-
-    Args:
-        baud_rate: The baud rate to configure (9600 or 115200)
     """
     logger.info(f"SYS: Updating GPSD config with baud rate {baud_rate}")
 
     try:
-        # Read the current config
         with open("/etc/default/gpsd", "r") as f:
             lines = f.readlines()
 
-        # Update GPSD_OPTIONS line
         updated_lines = []
         for line in lines:
             if line.startswith("GPSD_OPTIONS="):
@@ -394,14 +313,10 @@ def update_gpsd_config(baud_rate: int) -> None:
             else:
                 updated_lines.append(line)
 
-        # Write the updated config to a temporary file
         with open("/tmp/gpsd.conf", "w") as f:
             f.writelines(updated_lines)
 
-        # Copy the temp file to the actual location with sudo
         sh.sudo("cp", "/tmp/gpsd.conf", "/etc/default/gpsd")
-
-        # Restart GPSD service
         sh.sudo("systemctl", "restart", "gpsd")
 
         logger.info("SYS: GPSD configuration updated and service restarted")
