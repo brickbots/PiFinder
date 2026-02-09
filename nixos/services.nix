@@ -3,6 +3,7 @@ let
   cfg = config.pifinder;
   cedar-detect = import ./pkgs/cedar-detect.nix { inherit pkgs; };
   pifinder-src = import ./pkgs/pifinder-src.nix { inherit pkgs; };
+  boot-splash = import ./pkgs/boot-splash.nix { inherit pkgs; };
 in {
   options.pifinder = {
     devMode = lib.mkOption {
@@ -170,24 +171,21 @@ in {
   };
 
   # ---------------------------------------------------------------------------
-  # Early boot indicator — turn on keypad LEDs ASAP for visual feedback
+  # Early boot splash — show welcome image with Knight Rider animation
+  # Stops automatically when pifinder.service starts
   # ---------------------------------------------------------------------------
-  systemd.services.boot-indicator = {
-    description = "Early boot LED indicator";
+  systemd.services.boot-splash = {
+    description = "Early boot splash screen";
     wantedBy = [ "sysinit.target" ];
     before = [ "pifinder.service" ];
-    serviceConfig.Type = "oneshot";
-    script = ''
-      # Export PWM channel 1 if not already exported
-      if [ ! -d /sys/class/pwm/pwmchip0/pwm1 ]; then
-        echo 1 > /sys/class/pwm/pwmchip0/export 2>/dev/null || true
-        sleep 0.1
-      fi
-      # Configure PWM: 120Hz, 50% duty cycle
-      echo 8333333 > /sys/class/pwm/pwmchip0/pwm1/period 2>/dev/null || true
-      echo 4166666 > /sys/class/pwm/pwmchip0/pwm1/duty_cycle 2>/dev/null || true
-      echo 1 > /sys/class/pwm/pwmchip0/pwm1/enable 2>/dev/null || true
-    '';
+    conflicts = [ "pifinder.service" ];  # Stop when pifinder starts
+    serviceConfig = {
+      Type = "simple";
+      ExecStart = "${boot-splash}/bin/boot-splash";
+      # Graceful shutdown on SIGTERM
+      KillSignal = "SIGTERM";
+      TimeoutStopSec = 2;
+    };
   };
 
   # ---------------------------------------------------------------------------
