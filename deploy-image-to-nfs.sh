@@ -144,11 +144,10 @@ fi
 
 echo "Linking NixOS etc files..."
 ssh "${PROXNIX}" "sudo bash -euo pipefail -c '
-ln -sf ${CLOSURE}/etc/ssh/sshd_config ${NFS_ROOT}/etc/ssh/sshd_config
-ln -sf ${CLOSURE}/etc/ssh/ssh_config ${NFS_ROOT}/etc/ssh/ssh_config 2>/dev/null || true
-ln -sf ${CLOSURE}/etc/ssh/moduli ${NFS_ROOT}/etc/ssh/moduli 2>/dev/null || true
-ln -sfT ${CLOSURE}/etc/pam.d ${NFS_ROOT}/etc/pam.d
-ln -sf ${CLOSURE}/etc/nsswitch.conf ${NFS_ROOT}/etc/nsswitch.conf 2>/dev/null || true
+ln -sf /etc/static/ssh/sshd_config ${NFS_ROOT}/etc/ssh/sshd_config
+ln -sf /etc/static/ssh/ssh_config ${NFS_ROOT}/etc/ssh/ssh_config 2>/dev/null || true
+ln -sf /etc/static/ssh/moduli ${NFS_ROOT}/etc/ssh/moduli 2>/dev/null || true
+# pam.d already symlinked to /etc/static/pam.d in SETUP block
 '"
 
 # ── Static user files ────────────────────────────────────────────────────────
