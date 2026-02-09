@@ -31,7 +31,7 @@ jobs:
         run: |
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             -L --no-link
-          nix build .#nixosConfigurations.pifinder-dev.config.system.build.toplevel \
+          nix build .#nixosConfigurations.pifinder-netboot.config.system.build.toplevel \
             -L --no-link
 
       - name: Push to Cachix
@@ -39,7 +39,7 @@ jobs:
         run: |
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             --json | jq -r '.[].outputs.out' | cachix push pifinder
-          nix build .#nixosConfigurations.pifinder-dev.config.system.build.toplevel \
+          nix build .#nixosConfigurations.pifinder-netboot.config.system.build.toplevel \
             --json | jq -r '.[].outputs.out' | cachix push pifinder
 
   # Fallback to QEMU emulation if Pi5 unavailable
@@ -70,7 +70,7 @@ jobs:
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             --system aarch64-linux \
             -L --no-link
-          nix build .#nixosConfigurations.pifinder-dev.config.system.build.toplevel \
+          nix build .#nixosConfigurations.pifinder-netboot.config.system.build.toplevel \
             --system aarch64-linux \
             -L --no-link
 
@@ -80,7 +80,7 @@ jobs:
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             --system aarch64-linux \
             --json | jq -r '.[].outputs.out' | cachix push pifinder
-          nix build .#nixosConfigurations.pifinder-dev.config.system.build.toplevel \
+          nix build .#nixosConfigurations.pifinder-netboot.config.system.build.toplevel \
             --system aarch64-linux \
             --json | jq -r '.[].outputs.out' | cachix push pifinder
 
