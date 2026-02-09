@@ -27,9 +27,9 @@
 #define GPIO_DC 24
 #define GPIO_RST 25
 
-/* BGR565 colors */
+/* RGB565 colors (display interprets as RGB despite BGR setting) */
 #define COL_BLACK   0x0000
-#define COL_RED     0x001F
+#define COL_RED     0xF800
 
 /* Include generated image data */
 #include "welcome_image.h"
@@ -167,11 +167,11 @@ static void draw_scanner(int pos, int scanner_width) {
         uint16_t color = COL_BLACK;
 
         if (dist < scanner_width) {
-            /* Gradient: brighter at center, RED color in BGR565 */
+            /* Gradient: brighter at center */
             int intensity = 31 - (dist * 31 / scanner_width);
             if (intensity < 8) intensity = 8;  /* Minimum brightness */
-            /* BGR565: BBBBBGGGGGGRRRRR - red is lowest 5 bits (0x001F = max red) */
-            color = (uint16_t)intensity & 0x1F;
+            /* RGB565: RRRRRGGGGGGBBBBB - red is high 5 bits */
+            color = ((uint16_t)intensity & 0x1F) << 11;
         }
 
         for (int y = y_start; y < HEIGHT; y++) {
@@ -218,9 +218,19 @@ static void hw_cleanup(void) {
     if (spi_fd >= 0) close(spi_fd);
 }
 
+static void show_static_image(void) {
+    memcpy(framebuf, welcome_image, sizeof(framebuf));
+    ssd1351_flush();
+}
+
 int main(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
+    int static_mode = 0;
+
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--static") == 0) {
+            static_mode = 1;
+        }
+    }
 
     signal(SIGTERM, signal_handler);
     signal(SIGINT, signal_handler);
@@ -234,6 +244,14 @@ int main(int argc, char *argv[]) {
     /* Turn on display */
     ssd1351_cmd(0xAF);
 
+    if (static_mode) {
+        /* Static mode: show image once and exit */
+        show_static_image();
+        hw_cleanup();
+        return 0;
+    }
+
+    /* Animation mode: Knight Rider scanner */
     int pos = 0;
     int dir = 1;
     int scanner_width = 20;
