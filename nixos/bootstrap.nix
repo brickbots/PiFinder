@@ -10,6 +10,7 @@
 { config, lib, pkgs, ... }:
 
 let
+  cfg = config.pifinder;
   # State directory for migration tracking
   stateDir = "/var/lib/pifinder-migration";
 
@@ -37,6 +38,15 @@ let
     echo "[$PCT%] $STATUS $DETAIL"
   '';
 in {
+  options.pifinder = {
+    repoUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "github:mrosseel/PiFinder";
+      description = "GitHub flake URL for PiFinder repo (without branch/output)";
+    };
+  };
+
+  config = {
   # ---------------------------------------------------------------------------
   # Boot - minimal Pi 4 support
   # ---------------------------------------------------------------------------
@@ -258,7 +268,7 @@ in {
       # -----------------------------------------------------------------------
       progress 76 "Starting switch"
 
-      FLAKE="github:mrosseel/PiFinder/nixos#pifinder"
+      FLAKE="${cfg.repoUrl}/nixos#pifinder"
 
       # Fetch nixos-rebuild at runtime to avoid bloating bootstrap closure
       # This adds ~30s but saves ~500MB in the tarball
@@ -350,4 +360,5 @@ in {
 
   # Minimal nix - no gc, no daemon overhead
   nix.gc.automatic = false;
+  }; # config
 }
