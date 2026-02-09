@@ -49,7 +49,9 @@ jobs:
 
       - name: Extract boot and rootfs
         run: |
-          IMAGE_FILE=$(find "$IMAGE_PATH" -name "*.img" -o -name "*.img.zst" | head -1)
+          # The SD image output is a directory containing sd-image/*.img.zst
+          IMAGE_FILE=$(find "$IMAGE_PATH" -type f \( -name "*.img" -o -name "*.img.zst" \) | head -1)
+          echo "Found image: $IMAGE_FILE"
 
           if [[ "${IMAGE_FILE}" == *.zst ]]; then
             zstd -d "${IMAGE_FILE}" -o /tmp/bootstrap.img
