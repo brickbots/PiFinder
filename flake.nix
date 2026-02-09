@@ -120,25 +120,36 @@
       modules = commonModules ++ [
         { pifinder.devMode = true; }
         { pifinder.cameraType = "imx477"; }  # HQ camera for netboot dev
-        ({ lib, pkgs, ... }: {
+        ({ lib, pkgs, ... }:
+        let
+          boot-splash = import ./nixos/pkgs/boot-splash.nix { inherit pkgs; };
+        in {
           # Static passwd/group — NFS can't run activation scripts
           users.mutableUsers = false;
           # DNS for netboot (udhcpc doesn't configure resolvconf properly)
           networking.nameservers = [ "192.168.5.1" "8.8.8.8" ];
           boot.supportedFilesystems = lib.mkForce [ "vfat" "ext4" "nfs" ];
           boot.initrd.supportedFilesystems = [ "nfs" ];
+          # Add SPI kernel module for early OLED splash
+          boot.initrd.kernelModules = [ "spi_bcm2835" ];
           # Override the minimal module list from commonModules — add network drivers
           # Note: genet (RPi4 ethernet) is built into the kernel, not a module
           boot.initrd.availableKernelModules = lib.mkForce [
             "mmc_block" "usbhid" "usb_storage" "vc4"
           ];
+          # Add boot-splash to initrd
+          boot.initrd.extraUtilsCommands = ''
+            copy_bin_and_libs ${boot-splash}/bin/boot-splash
+          '';
           # Disable predictable interface names so eth0 works
           boot.kernelParams = [ "net.ifnames=0" "biosdevname=0" ];
           boot.initrd.network = {
             enable = true;
           };
-          # Manually configure network before NFS mount
+          # Start splash immediately, then configure network
           boot.initrd.postDeviceCommands = ''
+            # Start OLED splash in background (shows Knight Rider animation)
+            boot-splash &
             # Wait for interface to appear (up to 30 seconds)
             echo "Waiting for eth0..."
             for i in $(seq 1 60); do
@@ -187,6 +198,11 @@
             fsType = "nfs";
             options = [ "vers=4" "noac" "actimeo=0" ];
           };
+          # Kill initrd boot-splash before pivoting to real root
+          # (systemd boot-splash.service takes over from there)
+          boot.initrd.postMountCommands = ''
+            killall boot-splash 2>/dev/null || true
+          '';
           # Dummy /boot — not used for netboot but NixOS requires it
           fileSystems."/boot" = {
             device = "none";
@@ -207,10 +223,17 @@
 
     # Bootstrap system for migration from RPi OS
     # Minimal NixOS that boots, connects to network, and runs nixos-rebuild switch
+    # NOTE: Does NOT use nixos-hardware module to avoid pulling in linux-firmware (659MB)
     mkBootstrapSystem = { includeSDImage ? false }: nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
       modules = [
-        nixos-hardware.nixosModules.raspberry-pi-4
+        # Inline minimal Pi4 hardware config instead of nixos-hardware module
+        ({ lib, ... }: {
+          # Basic Pi 4 kernel - no extra firmware needed for bootstrap
+          boot.kernelPackages = lib.mkDefault (import nixpkgs { system = "aarch64-linux"; }).linuxPackages_rpi4;
+          hardware.enableRedistributableFirmware = lib.mkForce false;
+          hardware.firmware = lib.mkForce [];
+        })
         ./nixos/bootstrap.nix
       ] ++ nixpkgs.lib.optionals includeSDImage [
         "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
