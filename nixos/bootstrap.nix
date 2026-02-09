@@ -93,15 +93,6 @@ in {
     wireless.enable = false;
   };
 
-  # Override NetworkManager to exclude openconnect (pulls GTK 427MB via stoken)
-  nixpkgs.overlays = [
-    (final: prev: {
-      networkmanager = prev.networkmanager.override {
-        withOpenconnect = false;
-      };
-    })
-  ];
-
   # Wired ethernet autoconnect (fallback if WiFi fails)
   environment.etc."NetworkManager/system-connections/Wired.nmconnection" = {
     text = ''
