@@ -49,6 +49,9 @@ jobs:
 
       - name: Extract boot and rootfs
         run: |
+          # Clean up any leftover from previous runs
+          sudo rm -rf /tmp/tarball-staging /tmp/bootstrap.img /mnt/boot /mnt/root
+
           # The SD image output is a directory containing sd-image/*.img.zst
           IMAGE_FILE=$(find "$IMAGE_PATH" -type f \( -name "*.img" -o -name "*.img.zst" \) | head -1)
           echo "Found image: $IMAGE_FILE"
@@ -77,6 +80,9 @@ jobs:
       - name: Create bootstrap tarball
         run: |
           TARBALL="pifinder-bootstrap-v${VERSION}.tar.gz"
+
+          # Clean up any leftover files from previous runs
+          sudo rm -rf /tmp/tarball-staging/manifest.json "/tmp/${TARBALL}" "/tmp/${TARBALL}.sha256"
 
           cat > /tmp/tarball-staging/manifest.json <<EOF
           {
