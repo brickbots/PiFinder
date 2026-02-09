@@ -2,18 +2,52 @@ name: Build PiFinder NixOS
 
 on:
   push:
-    branches: [main]
+    branches: [main, nixos]
   pull_request:
     types: [labeled, synchronize, opened]
   workflow_dispatch:
 
 jobs:
-  build:
+  # Try Pi5 native build first (fast)
+  build-native:
     if: |
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.pull_request.labels.*.name, 'preview')
+    runs-on: [self-hosted, aarch64]
+    timeout-minutes: 30
+    outputs:
+      success: ${{ steps.build.outcome == 'success' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: pifinder
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Build NixOS system closures
+        id: build
+        run: |
+          nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            -L --no-link
+          nix build .#nixosConfigurations.pifinder-dev.config.system.build.toplevel \
+            -L --no-link
+
+      - name: Push to Cachix
+        if: github.event_name != 'pull_request'
+        run: |
+          nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            --json | jq -r '.[].outputs.out' | cachix push pifinder
+          nix build .#nixosConfigurations.pifinder-dev.config.system.build.toplevel \
+            --json | jq -r '.[].outputs.out' | cachix push pifinder
+
+  # Fallback to QEMU emulation if Pi5 unavailable
+  build-emulated:
+    needs: build-native
+    if: failure() || cancelled()
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
 
@@ -51,8 +85,8 @@ jobs:
             --json | jq -r '.[].outputs.out' | cachix push pifinder
 
   update-unstable:
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build-native, build-emulated]
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && (needs.build-native.result == 'success' || needs.build-emulated.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
