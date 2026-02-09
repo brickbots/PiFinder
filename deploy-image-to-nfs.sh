@@ -111,6 +111,7 @@ ln -sfT ${CLOSURE}/sw ${NFS_ROOT}/usr
 ln -sfT ${CLOSURE}/etc ${NFS_ROOT}/etc/static
 
 # Critical /etc symlinks that NixOS activation would normally create
+rm -rf ${NFS_ROOT}/etc/pam.d 2>/dev/null || true
 ln -sfT /etc/static/pam.d ${NFS_ROOT}/etc/pam.d
 ln -sfT /etc/static/bashrc ${NFS_ROOT}/etc/bashrc
 # passwd/shadow/group are created as real files later (need to be writable for netboot)
