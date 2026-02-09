@@ -205,7 +205,7 @@ in {
       LIBCAMERA_IPA_MODULE_PATH = "${pkgs.libcamera}/lib/libcamera";
     };
     serviceConfig = {
-      Type = "idle";
+      Type = "simple";
       User = "pifinder";
       Group = "users";
       WorkingDirectory = "/home/pifinder/PiFinder/python";
