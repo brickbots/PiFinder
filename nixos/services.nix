@@ -11,6 +11,11 @@ in {
       default = false;
       description = "Enable development mode (NFS netboot support, etc.)";
     };
+    repoUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "github:mrosseel/PiFinder";
+      description = "GitHub flake URL for PiFinder repo (without branch/output)";
+    };
   };
 
   config = {
@@ -232,7 +237,7 @@ in {
       set -euo pipefail
       REF=$(cat /run/pifinder/upgrade-ref 2>/dev/null || echo "release")
       # Single universal build - camera is selected at runtime via /boot/camera.txt
-      FLAKE="github:brickbots/PiFinder/''${REF}#pifinder"
+      FLAKE="${cfg.repoUrl}/''${REF}#pifinder"
 
       # Pre-flight: check disk space (need at least 500MB)
       AVAIL=$(df --output=avail /nix/store | tail -1)
