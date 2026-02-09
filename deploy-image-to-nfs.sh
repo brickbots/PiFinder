@@ -14,6 +14,10 @@ TFTP_ROOT="/srv/tftp"
 PI_IP="192.168.5.150"
 PI_MAC="e4-5f-01-b7-37-31"  # For PXE boot speedup
 
+# SSH options to prevent timeout during long transfers
+SSH_OPTS="-o ServerAliveInterval=30 -o ServerAliveCountMax=10"
+export RSYNC_RSH="ssh ${SSH_OPTS}"
+
 SSH_PUBKEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGrPg9hSgxwg0EECxXSpYi7t3F/w/BgpymlD1uUDedRz mike@nixtop"
 
 # Password hash for "solveit"
@@ -22,7 +26,7 @@ SHADOW_HASH='$6$upbQ1/Jfh7zDiIYW$jPVQdYJCZn/Pe/OIGx89DZm9trIhEJp7Q4LNZsq/5x9csj6
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 run_proxnix() {
-    ssh "${PROXNIX}" "bash -euo pipefail -c \"$1\""
+    ssh ${SSH_OPTS} "${PROXNIX}" "bash -euo pipefail -c \"$1\""
 }
 
 # ── Build netboot closure ────────────────────────────────────────────────────
@@ -77,15 +81,18 @@ ssh "${PROXNIX}" "sudo cp -a ${NFS_ROOT}/etc/ssh/ssh_host_* /tmp/ 2>/dev/null ||
 
 # ── Copy nix store closure to NFS ────────────────────────────────────────────
 
-echo "Copying nix store closure to NFS (this may take a while)..."
-# Create nix store directory on remote
+echo "Copying nix store closure to NFS..."
 ssh "${PROXNIX}" "sudo mkdir -p ${NFS_ROOT}/nix/store"
 
-# Get all store paths and rsync them in one go
-STORE_PATHS=$(nix path-info -r "$CLOSURE" | tr '\n' ' ')
-echo "Transferring $(echo $STORE_PATHS | wc -w) store paths..."
+# Get list of store paths and stream via tar (fast, handles duplicates via overwrite)
+STORE_PATHS=$(nix path-info -r "$CLOSURE")
+TOTAL_PATHS=$(echo "$STORE_PATHS" | wc -l)
+echo "Streaming ${TOTAL_PATHS} store paths via tar..."
+
+# Rsync store paths with -R to preserve directory structure
 # shellcheck disable=SC2086
-rsync -avz --rsync-path="sudo rsync" $STORE_PATHS "${PROXNIX}:${NFS_ROOT}/nix/store/"
+rsync -avR --rsync-path="sudo rsync" $STORE_PATHS "${PROXNIX}:${NFS_ROOT}/"
+echo "Transfer complete"
 
 # ── Set up NFS root directory structure ──────────────────────────────────────
 
