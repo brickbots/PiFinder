@@ -318,6 +318,8 @@ in {
   documentation.enable = false;
   documentation.man.enable = false;
   documentation.nixos.enable = false;
+  documentation.doc.enable = false;
+  documentation.info.enable = false;
   fonts.fontconfig.enable = false;
   xdg.portal.enable = false;
   services.xserver.enable = false;
