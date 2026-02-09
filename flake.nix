@@ -139,17 +139,47 @@
           };
           # Manually configure network before NFS mount
           boot.initrd.postDeviceCommands = ''
-            # Wait for interface to appear
-            for i in $(seq 1 30); do
+            # Wait for interface to appear (up to 30 seconds)
+            echo "Waiting for eth0..."
+            for i in $(seq 1 60); do
               if ip link show eth0 >/dev/null 2>&1; then
+                echo "eth0 found after $i attempts"
                 break
               fi
               sleep 0.5
             done
 
             ip link set eth0 up
-            udhcpc -i eth0 -t 10 -T 3 -n -q -s /etc/udhcpc.script || true
-            ip addr show eth0
+
+            # Wait for link carrier (cable connected)
+            echo "Waiting for link carrier..."
+            for i in $(seq 1 20); do
+              if [ "$(cat /sys/class/net/eth0/carrier 2>/dev/null)" = "1" ]; then
+                echo "Link up after $i attempts"
+                break
+              fi
+              sleep 0.5
+            done
+
+            # DHCP with retries
+            echo "Starting DHCP..."
+            for attempt in 1 2 3; do
+              if udhcpc -i eth0 -t 5 -T 3 -n -q -s /etc/udhcpc.script; then
+                echo "DHCP succeeded on attempt $attempt"
+                break
+              fi
+              echo "DHCP attempt $attempt failed, retrying..."
+              sleep 2
+            done
+
+            # Verify we got an IP
+            if ip addr show eth0 | grep -q "inet "; then
+              echo "Network configured:"
+              ip addr show eth0
+            else
+              echo "WARNING: No IP address on eth0!"
+              ip addr show eth0
+            fi
           '';
           # NFS root filesystem - NFSv4 with disabled caching for Nix compatibility
           fileSystems."/" = {
