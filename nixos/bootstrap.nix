@@ -323,4 +323,17 @@ in {
   fonts.fontconfig.enable = false;
   xdg.portal.enable = false;
   services.xserver.enable = false;
+
+  # Remove default packages that bloat the image
+  environment.defaultPackages = lib.mkForce [];
+  programs.nano.enable = false;
+  programs.vim.defaultEditor = false;
+
+  # Disable unnecessary services
+  services.udisks2.enable = false;
+  security.polkit.enable = lib.mkForce false;
+  services.speechd.enable = lib.mkForce false;
+
+  # Minimal nix - no gc, no daemon overhead
+  nix.gc.automatic = false;
 }
