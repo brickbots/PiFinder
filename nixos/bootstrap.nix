@@ -125,9 +125,8 @@ in {
   # ---------------------------------------------------------------------------
   # Minimal packages
   # ---------------------------------------------------------------------------
+  # Minimal packages - nix has built-in git support for flakes
   environment.systemPackages = with pkgs; [
-    git
-    curl
     progressScript
   ];
 
@@ -179,7 +178,8 @@ in {
       TimeoutStartSec = "30min";
     };
 
-    path = with pkgs; [ nixos-rebuild git nix coreutils gnugrep gawk systemd inetutils ];
+    # Minimal path - nixos-rebuild fetched at runtime to avoid pulling llvm into closure
+    path = with pkgs; [ nix coreutils gnugrep gawk systemd inetutils ];
 
     script = ''
       set -euo pipefail
@@ -261,9 +261,12 @@ in {
 
       FLAKE="github:brickbots/PiFinder/release#pifinder"
 
+      # Fetch nixos-rebuild at runtime to avoid bloating bootstrap closure
+      # This adds ~30s but saves ~500MB in the tarball
+      progress 77 "Fetching tools"
+
       # Parse nix build output for progress
-      # Using --log-format bar-with-logs for parseable output
-      if nixos-rebuild switch --flake "$FLAKE" --refresh 2>&1 | \
+      if nix shell nixpkgs#nixos-rebuild -c nixos-rebuild switch --flake "$FLAKE" --refresh 2>&1 | \
          while IFS= read -r line; do
            echo "$line"  # Pass through for logging
 
