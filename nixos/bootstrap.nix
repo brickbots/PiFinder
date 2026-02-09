@@ -332,11 +332,22 @@ in {
   environment.defaultPackages = lib.mkForce [];
   programs.nano.enable = false;
   programs.vim.defaultEditor = false;
+  programs.command-not-found.enable = false;  # pulls perl
 
   # Disable unnecessary services
   services.udisks2.enable = false;
   security.polkit.enable = lib.mkForce false;
   services.speechd.enable = lib.mkForce false;
+
+  # Disable xdg stuff that pulls in perl via xdg-utils
+  xdg.mime.enable = false;
+  xdg.icons.enable = false;
+  xdg.sounds.enable = false;
+  xdg.autostart.enable = false;
+
+  # Disable fuse/fusermount (86MB)
+  programs.fuse.userAllowOther = false;
+  boot.initrd.supportedFilesystems = lib.mkForce [];
 
   # Minimal nix - no gc, no daemon overhead
   nix.gc.automatic = false;
