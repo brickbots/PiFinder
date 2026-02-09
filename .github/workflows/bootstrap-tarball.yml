@@ -1,0 +1,91 @@
+name: Build Bootstrap Tarball
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag (e.g. 2.5.0)"
+        required: true
+        type: string
+
+jobs:
+  build-bootstrap:
+    runs-on: [self-hosted, aarch64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: pifinder
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Build bootstrap SD image
+        run: |
+          nix build .#images.bootstrap --print-out-paths > /tmp/image_path
+          echo "IMAGE_PATH=$(cat /tmp/image_path)" >> "$GITHUB_ENV"
+
+      - name: Extract boot and rootfs
+        run: |
+          IMAGE_FILE=$(find "$IMAGE_PATH" -name "*.img" -o -name "*.img.zst" | head -1)
+
+          if [[ "${IMAGE_FILE}" == *.zst ]]; then
+            zstd -d "${IMAGE_FILE}" -o /tmp/bootstrap.img
+          else
+            cp "${IMAGE_FILE}" /tmp/bootstrap.img
+          fi
+
+          LOOP=$(sudo losetup --find --show --partscan /tmp/bootstrap.img)
+          echo "LOOP=${LOOP}" >> "$GITHUB_ENV"
+
+          sudo mkdir -p /mnt/boot /mnt/root
+          sudo mount "${LOOP}p1" /mnt/boot
+          sudo mount "${LOOP}p2" /mnt/root
+
+          mkdir -p /tmp/tarball-staging
+          sudo cp -a /mnt/boot /tmp/tarball-staging/boot
+          sudo cp -a /mnt/root /tmp/tarball-staging/rootfs
+
+          sudo umount /mnt/boot /mnt/root
+          sudo losetup -d "${LOOP}"
+          rm -f /tmp/bootstrap.img
+
+      - name: Create bootstrap tarball
+        run: |
+          VERSION="${{ inputs.version }}"
+          TARBALL="pifinder-bootstrap-v${VERSION}.tar.gz"
+
+          cat > /tmp/tarball-staging/manifest.json <<EOF
+          {
+            "version": "${VERSION}",
+            "type": "bootstrap",
+            "created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "boot_label": "FIRMWARE",
+            "root_label": "NIXOS_SD"
+          }
+          EOF
+
+          tar -C /tmp/tarball-staging -czf "/tmp/${TARBALL}" boot rootfs manifest.json
+
+          echo "TARBALL=/tmp/${TARBALL}" >> "$GITHUB_ENV"
+          echo "TARBALL_NAME=${TARBALL}" >> "$GITHUB_ENV"
+
+          sha256sum "/tmp/${TARBALL}" | awk '{print $1}' > "/tmp/${TARBALL}.sha256"
+          echo "SHA256=$(cat /tmp/${TARBALL}.sha256)" >> "$GITHUB_ENV"
+
+          ls -lh "/tmp/${TARBALL}"
+
+      - name: Upload tarball artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.TARBALL_NAME }}
+          path: |
+            ${{ env.TARBALL }}
+            ${{ env.TARBALL }}.sha256
