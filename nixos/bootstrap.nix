@@ -86,7 +86,11 @@ in {
   # ---------------------------------------------------------------------------
   networking = {
     hostName = "pifinder-bootstrap";
-    networkmanager.enable = true;
+    networkmanager = {
+      enable = true;
+      # Disable VPN plugins - they pull in 1GB+ of deps (webkitgtk, llvm, etc)
+      plugins = lib.mkForce [];
+    };
     wireless.enable = false;
   };
 
