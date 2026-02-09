@@ -82,42 +82,27 @@ in {
   };
 
   # ---------------------------------------------------------------------------
-  # Networking - NetworkManager without VPN bloat
+  # Networking - iwd + systemd-networkd (much lighter than NetworkManager)
   # ---------------------------------------------------------------------------
   networking = {
     hostName = "pifinder-bootstrap";
-    networkmanager = {
-      enable = true;
-      plugins = lib.mkForce [];
-    };
-    wireless.enable = false;
+    useNetworkd = true;
+    wireless.iwd.enable = true;
   };
 
-  # Override NetworkManager to exclude VPN bloat
-  # openconnect pulls GTK 427MB via stoken
-  nixpkgs.overlays = [
-    (final: prev: {
-      networkmanager = prev.networkmanager.override {
-        openconnect = final.writeShellScriptBin "openconnect" "exit 1";
+  # systemd-networkd config for DHCP on all interfaces
+  systemd.network = {
+    enable = true;
+    networks = {
+      "20-wired" = {
+        matchConfig.Type = "ether";
+        networkConfig.DHCP = "yes";
       };
-    })
-  ];
-
-  # Wired ethernet autoconnect (fallback if WiFi fails)
-  environment.etc."NetworkManager/system-connections/Wired.nmconnection" = {
-    text = ''
-      [connection]
-      id=Wired
-      type=ethernet
-      autoconnect=true
-
-      [ipv4]
-      method=auto
-
-      [ipv6]
-      method=auto
-    '';
-    mode = "0600";
+      "25-wireless" = {
+        matchConfig.Type = "wlan";
+        networkConfig.DHCP = "yes";
+      };
+    };
   };
 
   # ---------------------------------------------------------------------------
@@ -150,7 +135,7 @@ in {
   users.users.pifinder = {
     isNormalUser = true;
     initialPassword = "solveit";
-    extraGroups = [ "networkmanager" "systemd-journal" ];
+    extraGroups = [ "wheel" "systemd-journal" ];
   };
 
   # ---------------------------------------------------------------------------
@@ -180,8 +165,8 @@ in {
   systemd.services.pifinder-bootstrap = {
     description = "PiFinder NixOS Bootstrap";
     wantedBy = [ "multi-user.target" ];
-    after = [ "network-online.target" "NetworkManager-wait-online.service" ];
-    wants = [ "network-online.target" "NetworkManager-wait-online.service" ];
+    after = [ "network-online.target" "systemd-networkd-wait-online.service" "iwd.service" ];
+    wants = [ "network-online.target" "systemd-networkd-wait-online.service" "iwd.service" ];
 
     serviceConfig = {
       Type = "oneshot";
@@ -260,7 +245,7 @@ in {
         fi
 
         # Show connection status
-        conn_state=$(nmcli -t -f STATE general 2>/dev/null || echo "unknown")
+        conn_state=$(networkctl status 2>/dev/null | grep -oP 'State: \K\S+' || echo "unknown")
         progress 72 "Connecting..." "$conn_state"
         sleep 5
       done
