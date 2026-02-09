@@ -1,11 +1,18 @@
 name: Build Bootstrap Tarball
 
 on:
+  push:
+    branches: [nixos]
+    paths:
+      - 'nixos/bootstrap.nix'
+      - 'flake.nix'
+      - '.github/workflows/bootstrap-tarball.yml'
   workflow_dispatch:
     inputs:
       version:
         description: "Version tag (e.g. 2.5.0)"
-        required: true
+        required: false
+        default: "2.5.0"
         type: string
 
 jobs:
@@ -14,6 +21,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=2.5.0" >> "$GITHUB_ENV"
+          fi
 
       - name: Install Nix
         uses: cachix/install-nix-action@v30
@@ -59,12 +74,11 @@ jobs:
 
       - name: Create bootstrap tarball
         run: |
-          VERSION="${{ inputs.version }}"
           TARBALL="pifinder-bootstrap-v${VERSION}.tar.gz"
 
           cat > /tmp/tarball-staging/manifest.json <<EOF
           {
-            "version": "${VERSION}",
+            "version": "$VERSION",
             "type": "bootstrap",
             "created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "boot_label": "FIRMWARE",
