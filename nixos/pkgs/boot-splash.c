@@ -167,11 +167,11 @@ static void draw_scanner(int pos, int scanner_width) {
         uint16_t color = COL_BLACK;
 
         if (dist < scanner_width) {
-            /* Gradient: brighter at center */
+            /* Gradient: brighter at center, RED color in BGR565 */
             int intensity = 31 - (dist * 31 / scanner_width);
-            if (intensity < 0) intensity = 0;
-            /* Red in BGR565: 0x001F is max red */
-            color = intensity;
+            if (intensity < 8) intensity = 8;  /* Minimum brightness */
+            /* BGR565: BBBBBGGGGGGRRRRR - red is lowest 5 bits (0x001F = max red) */
+            color = (uint16_t)intensity & 0x1F;
         }
 
         for (int y = y_start; y < HEIGHT; y++) {
