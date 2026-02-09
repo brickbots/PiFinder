@@ -333,6 +333,7 @@ in {
   programs.nano.enable = false;
   programs.vim.defaultEditor = false;
   programs.command-not-found.enable = false;  # pulls perl
+  programs.less.lessopen = null;  # lesspipe pulls perl (112MB)
 
   # Disable unnecessary services
   services.udisks2.enable = false;
