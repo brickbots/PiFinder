@@ -88,7 +88,11 @@ jobs:
           }
           EOF
 
-          tar -C /tmp/tarball-staging -czf "/tmp/${TARBALL}" boot rootfs manifest.json
+          # Use sudo for tar since rootfs contains root-owned files
+          sudo tar -C /tmp/tarball-staging -czf "/tmp/${TARBALL}" \
+            --exclude='*/lost+found' \
+            boot rootfs manifest.json
+          sudo chown $USER "/tmp/${TARBALL}"
 
           echo "TARBALL=/tmp/${TARBALL}" >> "$GITHUB_ENV"
           echo "TARBALL_NAME=${TARBALL}" >> "$GITHUB_ENV"
