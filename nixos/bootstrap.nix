@@ -258,7 +258,7 @@ in {
       # -----------------------------------------------------------------------
       progress 76 "Starting switch"
 
-      FLAKE="github:brickbots/PiFinder/release#pifinder"
+      FLAKE="github:mrosseel/PiFinder/nixos#pifinder"
 
       # Fetch nixos-rebuild at runtime to avoid bloating bootstrap closure
       # This adds ~30s but saves ~500MB in the tarball
