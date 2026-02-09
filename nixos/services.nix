@@ -40,7 +40,8 @@ in {
     dates = "weekly";
     options = "--delete-older-than 3d";
   };
-  nix.settings.auto-optimise-store = true;
+  # Disable store optimization on NFS (hard links cause issues)
+  nix.settings.auto-optimise-store = !cfg.devMode;
 
   boot.tmp.useTmpfs = true;
   boot.tmp.tmpfsSize = "200M";
