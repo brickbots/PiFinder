@@ -336,6 +336,7 @@ in {
   services.udisks2.enable = false;
   security.polkit.enable = lib.mkForce false;
   services.speechd.enable = lib.mkForce false;
+  boot.enableContainers = false;  # nixos-container pulls perl (112MB)
 
   # Disable xdg stuff that pulls in perl via xdg-utils
   xdg.mime.enable = false;
