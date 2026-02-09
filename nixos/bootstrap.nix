@@ -93,14 +93,12 @@ in {
     wireless.enable = false;
   };
 
-  # Override NetworkManager to exclude VPN/modem bloat
-  # - openconnect pulls GTK 427MB via stoken
-  # - modemmanager pulls 284MB for cellular modem support we don't need
+  # Override NetworkManager to exclude VPN bloat
+  # openconnect pulls GTK 427MB via stoken
   nixpkgs.overlays = [
     (final: prev: {
       networkmanager = prev.networkmanager.override {
         openconnect = final.writeShellScriptBin "openconnect" "exit 1";
-        modemmanager = final.writeShellScriptBin "mmcli" "exit 1";
       };
     })
   ];
