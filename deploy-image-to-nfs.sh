@@ -106,7 +106,20 @@ chmod 1777 ${NFS_ROOT}/tmp
 rm -rf ${NFS_ROOT}/bin ${NFS_ROOT}/usr
 ln -sfT ${CLOSURE}/sw/bin ${NFS_ROOT}/bin
 ln -sfT ${CLOSURE}/sw ${NFS_ROOT}/usr
-ln -sfT ${CLOSURE}/etc/bashrc ${NFS_ROOT}/etc/bashrc 2>/dev/null || true
+
+# /etc/static points to the NixOS etc derivation (required for PAM, etc.)
+ln -sfT ${CLOSURE}/etc ${NFS_ROOT}/etc/static
+
+# Critical /etc symlinks that NixOS activation would normally create
+ln -sfT /etc/static/pam.d ${NFS_ROOT}/etc/pam.d
+ln -sfT /etc/static/bashrc ${NFS_ROOT}/etc/bashrc
+# passwd/shadow/group are created as real files later (need to be writable for netboot)
+rm -f ${NFS_ROOT}/etc/passwd ${NFS_ROOT}/etc/shadow ${NFS_ROOT}/etc/group 2>/dev/null || true
+ln -sfT /etc/static/sudoers ${NFS_ROOT}/etc/sudoers 2>/dev/null || true
+ln -sfT /etc/static/sudoers.d ${NFS_ROOT}/etc/sudoers.d 2>/dev/null || true
+ln -sfT /etc/static/nsswitch.conf ${NFS_ROOT}/etc/nsswitch.conf 2>/dev/null || true
+ln -sfT /etc/static/systemd ${NFS_ROOT}/etc/systemd 2>/dev/null || true
+ln -sfT /etc/static/polkit-1 ${NFS_ROOT}/etc/polkit-1 2>/dev/null || true
 
 # Create nix profile symlinks
 mkdir -p ${NFS_ROOT}/nix/var/nix/profiles

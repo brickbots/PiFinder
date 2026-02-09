@@ -171,22 +171,16 @@ in {
   };
 
   # ---------------------------------------------------------------------------
-  # Early boot splash — show welcome image with Knight Rider animation
-  # Stops automatically when pifinder.service starts (via ExecStartPre)
+  # Early boot splash — show static welcome image, pifinder overwrites when ready
   # ---------------------------------------------------------------------------
   systemd.services.boot-splash = {
     description = "Early boot splash screen";
     wantedBy = [ "sysinit.target" ];
     serviceConfig = {
-      Type = "simple";
-      ExecStart = "${boot-splash}/bin/boot-splash";
-      KillSignal = "SIGTERM";
-      TimeoutStopSec = 2;
+      Type = "oneshot";
+      ExecStart = "${boot-splash}/bin/boot-splash --static";
     };
   };
-
-  # Stop boot-splash before pifinder starts to release GPIO/SPI
-  systemd.services.pifinder.serviceConfig.ExecStartPre = "-${pkgs.systemd}/bin/systemctl stop boot-splash";
 
   # ---------------------------------------------------------------------------
   # Main PiFinder application

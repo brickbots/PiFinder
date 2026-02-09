@@ -60,8 +60,8 @@ in {
         '';
       };
 
-      # PWM on GPIO 13 (function 4) for keypad backlight
-      # nixos-hardware pwm0 is hardcoded to GPIO 18, so use custom overlay
+      # PWM on GPIO 13 (PWM channel 1) for keypad backlight
+      # GPIO 13 = PWM0_1 when ALT0 (function 4)
       pwmOverlay = {
         name = "pwm-pin13-overlay";
         dtsText = ''
@@ -69,12 +69,16 @@ in {
           /plugin/;
           / { compatible = "brcm,bcm2711"; };
           &gpio {
-            pwm_pins: pwm_pins {
+            pwm_pin13: pwm_pin13 {
               brcm,pins = <13>;
-              brcm,function = <4>;
+              brcm,function = <4>;  /* ALT0 = PWM0_1 */
             };
           };
-          &pwm { status = "okay"; };
+          &pwm {
+            status = "okay";
+            pinctrl-names = "default";
+            pinctrl-0 = <&pwm_pin13>;
+          };
         '';
       };
 

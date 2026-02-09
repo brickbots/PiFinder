@@ -146,10 +146,15 @@
           boot.initrd.network = {
             enable = true;
           };
-          # Start splash immediately, then configure network
+          # Show static splash, then configure network
           boot.initrd.postDeviceCommands = ''
-            # Start OLED splash in background (shows Knight Rider animation)
-            boot-splash &
+            # Create device nodes for SPI OLED
+            mkdir -p /dev
+            mknod -m 666 /dev/spidev0.0 c 153 0 2>/dev/null || true
+            mknod -m 666 /dev/gpiochip0 c 254 0 2>/dev/null || true
+
+            # Show static splash image (--static flag = display once and exit)
+            boot-splash --static || true
             # Wait for interface to appear (up to 30 seconds)
             echo "Waiting for eth0..."
             for i in $(seq 1 60); do
@@ -198,11 +203,6 @@
             fsType = "nfs";
             options = [ "vers=4" "noac" "actimeo=0" ];
           };
-          # Kill initrd boot-splash before pivoting to real root
-          # (systemd boot-splash.service takes over from there)
-          boot.initrd.postMountCommands = ''
-            killall boot-splash 2>/dev/null || true
-          '';
           # Dummy /boot — not used for netboot but NixOS requires it
           fileSystems."/boot" = {
             device = "none";
