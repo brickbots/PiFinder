@@ -106,6 +106,7 @@ in {
     services.udev.extraRules = ''
       SUBSYSTEM=="spidev", GROUP="spi", MODE="0660"
       SUBSYSTEM=="i2c-dev", GROUP="i2c", MODE="0660"
+      SUBSYSTEM=="pwm", GROUP="gpio", MODE="0660"
       SUBSYSTEM=="gpio", GROUP="gpio", MODE="0660"
       KERNEL=="gpiomem", GROUP="gpio", MODE="0660"
       KERNEL=="ttyAMA1", GROUP="dialout", MODE="0660"
