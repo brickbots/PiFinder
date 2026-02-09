@@ -82,33 +82,17 @@ in {
   };
 
   # ---------------------------------------------------------------------------
-  # Networking - NetworkManager for WiFi (creds migrated from RPi OS)
+  # Networking - wpa_supplicant + dhcpcd (minimal, no GTK deps)
+  # NetworkManager pulls in 427MB of GTK via VPN deps
   # ---------------------------------------------------------------------------
   networking = {
     hostName = "pifinder-bootstrap";
-    networkmanager = {
+    useDHCP = true;
+    wireless = {
       enable = true;
-      # Disable VPN plugins - they pull in 1GB+ of deps (webkitgtk, llvm, etc)
-      plugins = lib.mkForce [];
+      # WiFi creds will be in /etc/wpa_supplicant.conf (migrated from RPi OS)
+      userControlled.enable = false;
     };
-    wireless.enable = false;
-  };
-
-  # Wired ethernet autoconnect (fallback if WiFi fails)
-  environment.etc."NetworkManager/system-connections/Wired.nmconnection" = {
-    text = ''
-      [connection]
-      id=Wired
-      type=ethernet
-      autoconnect=true
-
-      [ipv4]
-      method=auto
-
-      [ipv6]
-      method=auto
-    '';
-    mode = "0600";
   };
 
   # ---------------------------------------------------------------------------
@@ -141,7 +125,7 @@ in {
   users.users.pifinder = {
     isNormalUser = true;
     initialPassword = "solveit";
-    extraGroups = [ "networkmanager" "systemd-journal" ];
+    extraGroups = [ "wheel" "systemd-journal" ];
   };
 
   # ---------------------------------------------------------------------------
@@ -251,7 +235,7 @@ in {
         fi
 
         # Show connection status
-        conn_state=$(nmcli -t -f STATE general 2>/dev/null || echo "unknown")
+        conn_state=$(ip route get 8.8.8.8 2>/dev/null | head -1 || echo "no route")
         progress 72 "Connecting..." "$conn_state"
         sleep 5
       done
