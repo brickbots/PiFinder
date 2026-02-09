@@ -124,9 +124,10 @@ in {
   # Minimal packages
   # ---------------------------------------------------------------------------
   # Minimal packages - nix has built-in git support for flakes
-  environment.systemPackages = with pkgs; [
+  # mkForce overrides profiles/base.nix which adds w3m (150MB with perl)
+  environment.systemPackages = lib.mkForce (with pkgs; [
     progressScript
-  ];
+  ]);
 
   # ---------------------------------------------------------------------------
   # Users - minimal, just for debugging/SSH
