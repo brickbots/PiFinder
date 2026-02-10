@@ -419,11 +419,11 @@ def start_upgrade(ref: str = "release") -> bool:
         logger.error("Failed to write upgrade ref file: %s", e)
         return False
 
-    _run(["/run/current-system/sw/bin/sudo", "systemctl", "reset-failed", "pifinder-upgrade.service"])
+    _run(["/run/current-system/sw/bin/sudo", "/run/current-system/sw/bin/systemctl", "reset-failed", "pifinder-upgrade.service"])
     result = _run(
         [
             "/run/current-system/sw/bin/sudo",
-            "systemctl",
+            "/run/current-system/sw/bin/systemctl",
             "start",
             "--no-block",
             "pifinder-upgrade.service",
@@ -434,7 +434,7 @@ def start_upgrade(ref: str = "release") -> bool:
 
 def get_upgrade_state() -> str:
     """Poll upgrade service state."""
-    result = _run(["systemctl", "is-active", "pifinder-upgrade.service"])
+    result = _run(["/run/current-system/sw/bin/systemctl", "is-active", "pifinder-upgrade.service"])
     status = result.stdout.strip()
     if status == "activating":
         return UPGRADE_STATE_RUNNING
@@ -449,7 +449,7 @@ def get_upgrade_log_tail(lines: int = 3) -> str:
     """Last N lines from upgrade journal for UI display."""
     result = _run(
         [
-            "journalctl",
+            "/run/current-system/sw/bin/journalctl",
             "-u",
             "pifinder-upgrade.service",
             "-n",
