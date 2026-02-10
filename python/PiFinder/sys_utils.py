@@ -349,7 +349,7 @@ def restart_system() -> None:
         manager.Reboot(False)
     except dbus.DBusException as e:
         logger.error("D-Bus reboot failed, falling back to subprocess: %s", e)
-        _run(["sudo", "shutdown", "-r", "now"])
+        _run(["/run/current-system/sw/bin/sudo", "shutdown", "-r", "now"])
 
 
 def shutdown() -> None:
@@ -365,7 +365,7 @@ def shutdown() -> None:
         manager.PowerOff(False)
     except dbus.DBusException as e:
         logger.error("D-Bus shutdown failed, falling back to subprocess: %s", e)
-        _run(["sudo", "shutdown", "now"])
+        _run(["/run/current-system/sw/bin/sudo", "shutdown", "now"])
 
 
 # ---------------------------------------------------------------------------
@@ -419,10 +419,10 @@ def start_upgrade(ref: str = "release") -> bool:
         logger.error("Failed to write upgrade ref file: %s", e)
         return False
 
-    _run(["sudo", "systemctl", "reset-failed", "pifinder-upgrade.service"])
+    _run(["/run/current-system/sw/bin/sudo", "systemctl", "reset-failed", "pifinder-upgrade.service"])
     result = _run(
         [
-            "sudo",
+            "/run/current-system/sw/bin/sudo",
             "systemctl",
             "start",
             "--no-block",
@@ -491,7 +491,7 @@ def change_password(username: str, current_password: str, new_password: str) -> 
     if not verify_password(username, current_password):
         return False
     result = subprocess.run(
-        ["sudo", "chpasswd"],
+        ["/run/current-system/sw/bin/sudo", "chpasswd"],
         input=f"{username}:{new_password}\n",
         capture_output=True,
         text=True,
@@ -512,7 +512,7 @@ def switch_camera(cam_type: str) -> None:
     Requires reboot (dtoverlay change).
     """
     logger.info("SYS: Switching camera to %s via specialisation", cam_type)
-    result = _run(["sudo", "pifinder-switch-camera", cam_type])
+    result = _run(["/run/current-system/sw/bin/sudo", "pifinder-switch-camera", cam_type])
     if result.returncode != 0:
         logger.error("SYS: Camera switch failed: %s", result.stderr)
 
