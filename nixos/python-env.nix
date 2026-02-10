@@ -1,6 +1,6 @@
 { config, lib, pkgs, ... }:
 let
-  python = pkgs.python312;
+  python = pkgs.python313;
 
   pifinderPython = python.override {
     packageOverrides = self: super: {
@@ -9,6 +9,8 @@ let
       sh = self.buildPythonPackage rec {
         pname = "sh";
         version = "1.14.3";
+        pyproject = true;
+        build-system = [ self.setuptools ];
         src = self.fetchPypi {
           inherit pname version;
           hash = "sha256-5ARbbHMtnOddVxx59awiNO3Zrk9fqdWbCXBQgr3KGMc=";
@@ -19,6 +21,8 @@ let
       gpsdclient = self.buildPythonPackage rec {
         pname = "gpsdclient";
         version = "1.3.2";
+        pyproject = true;
+        build-system = [ self.poetry-core ];
         src = self.fetchPypi {
           inherit pname version;
           hash = "sha256-cKSWVQqXR9/14OULPJWm4dyrnYQoYJl+lRIHZ+IGCno=";
@@ -29,6 +33,8 @@ let
       rpi-hardware-pwm = self.buildPythonPackage rec {
         pname = "rpi-hardware-pwm";
         version = "0.3.0";
+        pyproject = true;
+        build-system = [ self.setuptools ];
         src = pkgs.fetchurl {
           url = "https://files.pythonhosted.org/packages/be/0c/4308050d8b6bbe24e8e54b38e48b287b1e356efce33cd485ee4387fc92a9/rpi_hardware_pwm-0.3.0.tar.gz";
           hash = "sha256-HshwYzp5XpijEGhWXwZ/gvZKjhZ4BpvPjdcC+i+zGyY=";
@@ -62,6 +68,8 @@ let
       RPi-GPIO = self.buildPythonPackage rec {
         pname = "RPi.GPIO";
         version = "0.7.1";
+        pyproject = true;
+        build-system = [ self.setuptools ];
         src = self.fetchPypi {
           inherit pname version;
           hash = "sha256-zWHEsDw3tiu6SlrP6phidJwzxhjgKV5+kKpHE/s3O3A=";
@@ -128,6 +136,7 @@ let
         ];
         pythonRelaxDeps = true;
         pythonRemoveDeps = [ "binho-host-adapter" "pyftdi" "sysv-ipc" ];
+        dontCheckRuntimeDeps = true;
         doCheck = false;
       };
 
@@ -187,6 +196,8 @@ let
       luma-core = self.buildPythonPackage rec {
         pname = "luma.core";
         version = "2.4.2";
+        pyproject = true;
+        build-system = [ self.setuptools ];
         src = self.fetchPypi {
           inherit pname version;
           hash = "sha256-ljwmQWTUN09UnVfbCVmeDKRYzqG9BeFpOYl2Gb5Obb0=";
@@ -198,12 +209,15 @@ let
           self.cbor2
           self.deprecated
         ];
+        dontCheckRuntimeDeps = true;
         doCheck = false;
       };
 
       luma-oled = self.buildPythonPackage rec {
         pname = "luma.oled";
         version = "3.13.0";
+        pyproject = true;
+        build-system = [ self.setuptools ];
         src = self.fetchPypi {
           inherit pname version;
           hash = "sha256-fioNakyWjGSYAlXWgewnkU2avVpmqQGbKJvzrQUMISU=";
@@ -215,6 +229,8 @@ let
       luma-lcd = self.buildPythonPackage rec {
         pname = "luma.lcd";
         version = "2.11.0";
+        pyproject = true;
+        build-system = [ self.setuptools ];
         src = self.fetchPypi {
           inherit pname version;
           hash = "sha256-1GBE6W/TmUPr5Iph51M3FXG+FJekvqlrcuOpxzL77uQ=";
@@ -228,6 +244,8 @@ let
       pydeepskylog = self.buildPythonPackage rec {
         pname = "pydeepskylog";
         version = "1.6";
+        pyproject = true;
+        build-system = [ self.setuptools ];
         src = self.fetchPypi {
           inherit pname version;
           hash = "sha256-3erm0ASBfPtQ1cngzsqkZUrnKoLNIBu8U1D6iA4ePmE=";
@@ -261,6 +279,8 @@ let
       pidng = self.buildPythonPackage rec {
         pname = "pidng";
         version = "4.0.9";
+        pyproject = true;
+        build-system = [ self.setuptools ];
         src = pkgs.fetchurl {
           url = "https://files.pythonhosted.org/packages/source/p/pidng/pidng-4.0.9.tar.gz";
           hash = "sha256-Vg6wCAhvinFf2eGrmYgXp9TIUAp/Fhuc5q9asnUB+Cw=";
@@ -277,8 +297,8 @@ let
         version = "1.9.0";
         format = "wheel";
         src = pkgs.fetchurl {
-          url = "https://files.pythonhosted.org/packages/75/c1/0cbf167e3efa32adfbb0674a3504eb118cc5bdc372a44ee937c30324188e/simplejpeg-1.9.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl";
-          hash = "sha256-CKszfKOybXVi9a1oarjzlm+yBvztYH0kjmk8vFf8U7M=";
+          url = "https://files.pythonhosted.org/packages/88/8b/d8ca384f1362371d61690d7460d3ae4cec4a5a25d9eb06cd15623de3725a/simplejpeg-1.9.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl";
+          hash = "sha256-oMN1Ew9zuwgimj3tOS2E7i2Raz6H5+xdKsTke3FENGo=";
         };
         propagatedBuildInputs = [ self.numpy ];
         doCheck = false;
@@ -289,6 +309,8 @@ let
       python-prctl = self.buildPythonPackage rec {
         pname = "python-prctl";
         version = "1.8.1";
+        pyproject = true;
+        build-system = [ self.setuptools ];
         src = pkgs.fetchurl {
           url = "https://files.pythonhosted.org/packages/source/p/python-prctl/python-prctl-1.8.1.tar.gz";
           hash = "sha256-tMqaJafU8azk//0fOi5k71II/gX5KfPt1eJwgcp+Z84=";
@@ -302,6 +324,8 @@ let
       python-libinput = self.buildPythonPackage rec {
         pname = "python-libinput";
         version = "0.3.0a0";
+        pyproject = true;
+        build-system = [ self.setuptools ];
         src = self.fetchPypi {
           inherit pname version;
           hash = "sha256-fj08l4aqp5vy8UYBZIWBtGJLaS0/DZGZkC0NCDQhkwI=";
@@ -328,6 +352,8 @@ def load_source(name, path):
       v4l2-python3 = self.buildPythonPackage rec {
         pname = "v4l2-python3";
         version = "0.3.4";
+        pyproject = true;
+        build-system = [ self.setuptools ];
         src = self.fetchPypi {
           inherit pname version;
           hash = "sha256-YliResgEmsaYcaXg39bYnVXJ5/gOgSwe+LqIeb2hxYc=";
@@ -353,6 +379,8 @@ def load_source(name, path):
       picamera2 = self.buildPythonPackage rec {
         pname = "picamera2";
         version = "0.3.22";
+        pyproject = true;
+        build-system = [ self.setuptools ];
         src = self.fetchPypi {
           inherit pname version;
           hash = "sha256-iShpgUNCu8uHS7jeehtgWJhEm/UhJjn0bw2qpkbWgy0=";
@@ -381,8 +409,9 @@ except ImportError:
         ];
         # libcamera Python bindings must be on PYTHONPATH
         postFixup = ''
-          wrapPythonProgramsIn "$out" "$out ${pkgs.libcamera}/lib/python3.12/site-packages"
+          wrapPythonProgramsIn "$out" "$out ${pkgs.libcamera}/lib/python3.13/site-packages"
         '';
+        dontCheckRuntimeDeps = true;
         doCheck = false;
       };
     };
@@ -442,8 +471,8 @@ in {
         "-Dpycamera=enabled"
       ];
       buildInputs = (old.buildInputs or []) ++ [
-        final.python312
-        final.python312.pkgs.pybind11
+        final.python313
+        final.python313.pkgs.pybind11
       ];
     });
   })];
@@ -463,7 +492,7 @@ in {
   ];
 
   # Add libcamera Python bindings to PYTHONPATH (for picamera2)
-  environment.sessionVariables.PYTHONPATH = "${pkgs.libcamera}/lib/python3.12/site-packages";
+  environment.sessionVariables.PYTHONPATH = "${pkgs.libcamera}/lib/python3.13/site-packages";
 
   # Export the Python environment for use by services.nix
   _module.args.pifinderPythonEnv = env;
