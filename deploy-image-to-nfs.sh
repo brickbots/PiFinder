@@ -38,10 +38,6 @@ nix build .#nixosConfigurations.pifinder-netboot.config.system.build.toplevel \
 CLOSURE=$(readlink -f result-netboot)
 echo "Closure: $CLOSURE"
 
-# Extract camera type from NixOS config for config.txt dtoverlay
-CAMERA_TYPE=$(nix eval .#nixosConfigurations.pifinder-netboot.config.pifinder.cameraType --raw)
-echo "Camera: $CAMERA_TYPE"
-
 # Extract paths from closure
 KERNEL=$(readlink -f result-netboot/kernel)
 INITRD=$(readlink -f result-netboot/initrd)
@@ -250,9 +246,10 @@ rsync -avz "${KERNEL}" "${PROXNIX}:/tmp/${KERNEL_NAME}"
 rsync -avz "${INITRD}" "${PROXNIX}:/tmp/${INITRD_NAME}"
 ssh "${PROXNIX}" "sudo mv /tmp/${KERNEL_NAME} /tmp/${INITRD_NAME} ${TFTP_ROOT}/nixos/"
 
-# Copy DTBs from device-tree-overlays package
+# Copy NixOS-built DTBs (with camera overlay baked in) to dtbs/ subdirectory
+ssh "${PROXNIX}" "sudo mkdir -p ${TFTP_ROOT}/dtbs"
 rsync -avz "${DTBS}/broadcom/" "${PROXNIX}:/tmp/dtbs/"
-ssh "${PROXNIX}" "sudo cp /tmp/dtbs/*.dtb ${TFTP_ROOT}/ && sudo rm -rf /tmp/dtbs"
+ssh "${PROXNIX}" "sudo cp /tmp/dtbs/*.dtb ${TFTP_ROOT}/dtbs/ && sudo rm -rf /tmp/dtbs"
 
 # Copy overlays from kernel package
 KERNEL_DIR=$(dirname "$KERNEL")
@@ -271,9 +268,6 @@ armstub=armstub8-gic.bin
 disable_overscan=1
 arm_boost=1
 
-# Camera overlay from NixOS config
-dtoverlay=${CAMERA_TYPE}
-
 [all]
 arm_64bit=1
 enable_uart=1
@@ -291,6 +285,7 @@ LABEL nixos-default
   MENU LABEL NixOS - Default
   LINUX /nixos/${KERNEL_NAME}
   INITRD /nixos/${INITRD_NAME}
+  FDTDIR /dtbs
   APPEND init=${INIT_PATH} ip=dhcp console=ttyS0,115200n8 console=ttyAMA0,115200n8 console=tty0 loglevel=4
 EXTLINUX
 

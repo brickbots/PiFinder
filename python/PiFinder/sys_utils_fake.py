@@ -92,6 +92,10 @@ def change_password(username, current_password, new_password):
     return False
 
 
+def get_camera_type() -> list[str]:
+    return ["imx462"]
+
+
 def switch_cam_imx477() -> None:
     logger.info("SYS: Switching cam to imx477")
 

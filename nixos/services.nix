@@ -4,6 +4,21 @@ let
   cedar-detect = import ./pkgs/cedar-detect.nix { inherit pkgs; };
   pifinder-src = import ./pkgs/pifinder-src.nix { inherit pkgs; };
   boot-splash = import ./pkgs/boot-splash.nix { inherit pkgs; };
+  pifinder-switch-camera = pkgs.writeShellScriptBin "pifinder-switch-camera" ''
+    CAM="$1"
+    PERSIST="/var/lib/pifinder/camera-type"
+    mkdir -p /var/lib/pifinder
+
+    SPEC="/run/current-system/specialisation/$CAM"
+    if [ "$CAM" = "${cfg.cameraType}" ]; then
+      /run/current-system/bin/switch-to-configuration boot
+    elif [ -d "$SPEC" ]; then
+      "$SPEC/bin/switch-to-configuration" boot
+    else
+      echo "Unknown camera: $CAM" >&2; exit 1
+    fi
+    echo "$CAM" > "$PERSIST"
+  '';
 in {
   options.pifinder = {
     devMode = lib.mkOption {
@@ -19,6 +34,11 @@ in {
   };
 
   config = {
+  # ---------------------------------------------------------------------------
+  # Camera switch wrapper (used by pifinder UI via sudo)
+  # ---------------------------------------------------------------------------
+  environment.systemPackages = [ pifinder-switch-camera ];
+
   # ---------------------------------------------------------------------------
   # Cachix binary substituter — Pi downloads pre-built paths, never compiles
   # ---------------------------------------------------------------------------
@@ -155,7 +175,7 @@ in {
       { command = "/run/current-system/sw/bin/chpasswd"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/dmesg"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/hostnamectl *"; options = [ "NOPASSWD" ]; }
-      { command = "/run/current-system/sw/bin/tee /boot/camera.txt"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/pifinder-switch-camera *"; options = [ "NOPASSWD" ]; }
     ];
   }];
 
@@ -236,7 +256,6 @@ in {
     script = ''
       set -euo pipefail
       REF=$(cat /run/pifinder/upgrade-ref 2>/dev/null || echo "release")
-      # Single universal build - camera is selected at runtime via /boot/camera.txt
       FLAKE="${cfg.repoUrl}/''${REF}#pifinder"
 
       # Pre-flight: check disk space (need at least 500MB)
@@ -259,6 +278,16 @@ in {
 
           echo "Phase 3: Persist to bootloader"
           nixos-rebuild switch --flake "$FLAKE"
+
+          # Restore camera specialisation if not default
+          CAM=$(cat /var/lib/pifinder/camera-type 2>/dev/null || echo "${cfg.cameraType}")
+          if [ "$CAM" != "${cfg.cameraType}" ]; then
+            SPEC="/run/current-system/specialisation/$CAM"
+            if [ -d "$SPEC" ]; then
+              echo "Restoring camera specialisation: $CAM"
+              "$SPEC/bin/switch-to-configuration" boot
+            fi
+          fi
 
           echo "Phase 4: Cleanup old generations"
           nix-env --delete-generations +2 -p /nix/var/nix/profiles/system || true
