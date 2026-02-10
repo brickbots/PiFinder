@@ -31,15 +31,20 @@
       system = "aarch64-linux";
       modules = commonModules ++ [
         { pifinder.devMode = false; }
+        # Camera specialisations — base is imx462 (default), specialisations for others
+        ({ ... }: {
+          specialisation = {
+            imx296.configuration = { pifinder.cameraType = "imx296"; };
+            imx477.configuration = { pifinder.cameraType = "imx477"; };
+          };
+        })
         ({ lib, ... }: {
           boot.supportedFilesystems = lib.mkForce [ "vfat" "ext4" ];
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
         "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
-        # Runtime camera selection via /boot/camera.txt
         ({ config, pkgs, lib, ... }:
         let
-          # Custom config.txt with camera.txt include
           configTxt = pkgs.writeText "config.txt" ''
             [pi3]
             kernel=u-boot-rpi3.bin
@@ -62,24 +67,12 @@
             arm_64bit=1
             enable_uart=1
             avoid_warnings=1
-
-            # Camera overlay - edit camera.txt and reboot to change camera
-            include camera.txt
-          '';
-
-          cameraTxt = pkgs.writeText "camera.txt" ''
-            # PiFinder Camera Configuration
-            # Edit this file and reboot to switch cameras
-            # Options: imx296, imx290 (for imx462), imx477
-            dtoverlay=imx296
           '';
         in {
           sdImage.populateFirmwareCommands = lib.mkForce ''
             (cd ${pkgs.raspberrypifw}/share/raspberrypi/boot && cp bootcode.bin fixup*.dat start*.elf $NIX_BUILD_TOP/firmware/)
 
-            # Custom config.txt with camera.txt include
             cp ${configTxt} firmware/config.txt
-            cp ${cameraTxt} firmware/camera.txt
 
             # Pi3 files
             cp ${pkgs.ubootRaspberryPi3_64bit}/u-boot.bin firmware/u-boot-rpi3.bin
@@ -120,6 +113,13 @@
       modules = commonModules ++ [
         { pifinder.devMode = true; }
         { pifinder.cameraType = "imx477"; }  # HQ camera for netboot dev
+        # Camera specialisations for netboot (base is imx477)
+        ({ ... }: {
+          specialisation = {
+            imx296.configuration = { pifinder.cameraType = "imx296"; };
+            imx462.configuration = { pifinder.cameraType = "imx462"; };
+          };
+        })
         ({ lib, pkgs, ... }:
         let
           boot-splash = import ./nixos/pkgs/boot-splash.nix { inherit pkgs; };
@@ -272,7 +272,7 @@
     };
   in {
     nixosConfigurations = {
-      # SD card boot — camera selected at runtime via /boot/camera.txt
+      # SD card boot — camera baked into DT, switched via specialisations
       pifinder = mkPifinderSystem {};
       # NFS netboot — for development on proxnix
       pifinder-netboot = mkPifinderNetboot;

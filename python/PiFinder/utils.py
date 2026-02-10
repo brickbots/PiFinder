@@ -45,11 +45,6 @@ def serialize_solution(solution: dict) -> str:
 
 
 def get_sys_utils():
-    if Path("/etc/NIXOS").exists():
-        try:
-            return importlib.import_module("PiFinder.sys_utils_nixos")
-        except ImportError:
-            pass
     try:
         return importlib.import_module("PiFinder.sys_utils")
     except Exception:
