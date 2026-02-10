@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
     nixos-hardware.url = "github:NixOS/nixos-hardware";
   };
 
@@ -22,7 +22,7 @@
         documentation.nixos.enable = false;
         xdg.portal.enable = false;
         services.pipewire.enable = false;
-        hardware.pulseaudio.enable = false;
+        services.pulseaudio.enable = false;
         boot.initrd.availableKernelModules = lib.mkForce [ "mmc_block" "usbhid" "usb_storage" "vc4" ];
       })
     ];
@@ -40,6 +40,7 @@
         })
         ({ lib, ... }: {
           boot.supportedFilesystems = lib.mkForce [ "vfat" "ext4" ];
+          boot.loader.timeout = 0;
         })
       ] ++ nixpkgs.lib.optionals includeSDImage [
         "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
@@ -112,7 +113,7 @@
       system = "aarch64-linux";
       modules = commonModules ++ [
         { pifinder.devMode = true; }
-        { pifinder.cameraType = "imx477"; }  # HQ camera for netboot dev
+        { pifinder.cameraType = nixpkgs.lib.mkDefault "imx477"; }  # HQ camera for netboot dev
         # Camera specialisations for netboot (base is imx477)
         ({ ... }: {
           specialisation = {
@@ -212,9 +213,16 @@
         })
       ];
     };
-    # Custom u-boot with network boot prioritized for netboot
-    # Uses direct commands since bootcmd_* env vars may not be defined
+    # Custom u-boot variants
     pkgsAarch64 = import nixpkgs { system = "aarch64-linux"; };
+    # SD boot: skip PCI/USB/net probe, go straight to mmc extlinux
+    ubootSD = pkgsAarch64.ubootRaspberryPi4_64bit.override {
+      extraConfig = ''
+        CONFIG_BOOTDELAY=0
+        CONFIG_BOOTCOMMAND="sysboot mmc 0:1 any $${scriptaddr} /extlinux/extlinux.conf"
+      '';
+    };
+    # Netboot: PCI + DHCP + PXE
     ubootNetboot = pkgsAarch64.ubootRaspberryPi4_64bit.override {
       extraConfig = ''
         CONFIG_BOOTCOMMAND="pci enum; dhcp; pxe get; pxe boot"
@@ -286,6 +294,7 @@
       bootstrap = (mkBootstrapSystem { includeSDImage = true; }).config.system.build.sdImage;
     };
     packages.aarch64-linux = {
+      uboot-sd = ubootSD;
       uboot-netboot = ubootNetboot;
     };
   };

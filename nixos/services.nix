@@ -225,7 +225,7 @@ in {
         pkgs.gobject-introspection
       ];
       # libcamera Python bindings for picamera2
-      PYTHONPATH = "${pkgs.libcamera}/lib/python3.12/site-packages";
+      PYTHONPATH = "${pkgs.libcamera}/lib/python3.13/site-packages";
       # libcamera IPA modules path
       LIBCAMERA_IPA_MODULE_PATH = "${pkgs.libcamera}/lib/libcamera";
     };
