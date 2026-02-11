@@ -74,6 +74,36 @@ let
           inherit pname version;
           hash = "sha256-zWHEsDw3tiu6SlrP6phidJwzxhjgKV5+kKpHE/s3O3A=";
         };
+        # aarch64 + u-boot: /proc/cpuinfo lacks Hardware line, and u-boot
+        # replaces firmware DTB so /system/linux,revision is missing.
+        # Add fallback: check /proc/device-tree/compatible for "raspberrypi".
+        postPatch = ''
+          python3 -c '
+          import sys
+          with open("source/cpuinfo.c") as f: src = f.read()
+          old = "   if (!found)\n      return -1;"
+          new = (
+              "   if (!found) {\n"
+              "      FILE *fp2 = fopen(\"/proc/device-tree/compatible\", \"r\");\n"
+              "      if (fp2) {\n"
+              "         char compat[256] = {0};\n"
+              "         fread(compat, 1, sizeof(compat)-1, fp2);\n"
+              "         fclose(fp2);\n"
+              "         if (strstr(compat, \"raspberrypi\")) {\n"
+              "            found = 1;\n"
+              "            strcpy(revision, \"c03115\");\n"
+              "         }\n"
+              "      }\n"
+              "   }\n"
+              "\n"
+              "   if (!found)\n"
+              "      return -1;"
+          )
+          assert old in src, "pattern not found in cpuinfo.c"
+          src = src.replace(old, new, 1)
+          with open("source/cpuinfo.c", "w") as f: f.write(src)
+          '
+        '';
         doCheck = false;
       };
 

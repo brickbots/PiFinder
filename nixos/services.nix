@@ -39,6 +39,8 @@ in {
   # ---------------------------------------------------------------------------
   environment.systemPackages = [ pifinder-switch-camera ];
 
+
+
   # ---------------------------------------------------------------------------
   # Cachix binary substituter — Pi downloads pre-built paths, never compiles
   # ---------------------------------------------------------------------------
@@ -155,6 +157,13 @@ in {
         }
         // Allow NetworkManager control
         if (action.id.indexOf("org.freedesktop.NetworkManager") == 0) {
+          return polkit.Result.YES;
+        }
+        // Allow reboot/shutdown via D-Bus (logind)
+        if (action.id == "org.freedesktop.login1.reboot" ||
+            action.id == "org.freedesktop.login1.reboot-multiple-sessions" ||
+            action.id == "org.freedesktop.login1.power-off" ||
+            action.id == "org.freedesktop.login1.power-off-multiple-sessions") {
           return polkit.Result.YES;
         }
       }
