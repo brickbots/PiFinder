@@ -1,0 +1,774 @@
+# Chinese (Simplified) translations for PiFinder.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the PiFinder project.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-10-22 20:16+0200\n"
+"PO-Revision-Date: 2025-02-05 15:00+0800\n"
+"Last-Translator: ClawdPulse\n"
+"Language: zh_CN\n"
+"Language-Team: zh_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.16.0\n"
+
+#: PiFinder/cat_images.py:49
+msgid "No Image"
+msgstr "无图像"
+
+#: PiFinder/main.py:545
+msgid ""
+"Degraded\n"
+"Check Status"
+msgstr ""
+"性能下降\n"
+"检查状态"
+
+#: PiFinder/main.py:637
+msgid ""
+"Catalogs\n"
+"Fully Loaded"
+msgstr ""
+"星表\n"
+"已完全加载"
+
+#: PiFinder/obj_types.py:7 PiFinder/ui/menu_structure.py:385
+msgid "Galaxy"
+msgstr "星系"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:8 PiFinder/ui/menu_structure.py:389
+msgid "Open Cluster"
+msgstr "疏散星团"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:9 PiFinder/ui/menu_structure.py:397
+msgid "Globular"
+msgstr "球状星团"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:10 PiFinder/ui/menu_structure.py:401
+msgid "Nebula"
+msgstr "星云"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:11 PiFinder/ui/menu_structure.py:409
+msgid "Dark Nebula"
+msgstr "暗星云"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:12
+msgid "Planetary"
+msgstr "行星状星云"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:13
+msgid "Cluster + Neb"
+msgstr "星团+星云"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:14 PiFinder/ui/menu_structure.py:429
+msgid "Asterism"
+msgstr "星群"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:15 PiFinder/ui/menu_structure.py:425
+msgid "Knot"
+msgstr "节"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:16
+msgid "Triple star"
+msgstr "三合星"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:17
+msgid "Double star"
+msgstr "双星"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:18 PiFinder/ui/menu_structure.py:413
+msgid "Star"
+msgstr "恒星"
+
+#. TRANSLATORS: Object type
+#: PiFinder/obj_types.py:19
+msgid "Unkn"
+msgstr "未知"
+
+#: PiFinder/obj_types.py:20 PiFinder/ui/menu_structure.py:421
+msgid "Planet"
+msgstr "行星"
+
+#: PiFinder/obj_types.py:21 PiFinder/ui/menu_structure.py:282
+msgid "Comet"
+msgstr "彗星"
+
+#: PiFinder/align.py:45
+msgid "Align Timeout"
+msgstr "对齐超时"
+
+#: PiFinder/align.py:58
+msgid "Alignment Set"
+msgstr "对齐已设置"
+
+#: PiFinder/ui/chart.py:115
+msgid "Can't plot"
+msgstr "无法绘制"
+
+#: PiFinder/ui/chart.py:134
+msgid "No Solve Yet"
+msgstr "尚未解析"
+
+#: PiFinder/ui/align.py:43
+msgid "Aligning..."
+msgstr "对齐中..."
+
+#: PiFinder/ui/align.py:67
+msgid "Aligned!"
+msgstr "已对齐！"
+
+#: PiFinder/ui/align.py:88
+msgid "Alignment failed"
+msgstr "对齐失败"
+
+#: PiFinder/ui/callbacks.py:54
+msgid "Filters Reset"
+msgstr "滤镜已重置"
+
+#: PiFinder/ui/callbacks.py:74
+msgid "Test Mode"
+msgstr "测试模式"
+
+#: PiFinder/ui/callbacks.py:107
+msgid "Shutting Down"
+msgstr "正在关机"
+
+#: PiFinder/ui/callbacks.py:118
+msgid "Restarting..."
+msgstr "正在重启..."
+
+#: PiFinder/ui/callbacks.py:145
+msgid "Switching cam"
+msgstr "切换相机"
+
+#: PiFinder/ui/callbacks.py:161
+msgid "WiFi to AP"
+msgstr "WiFi转AP"
+
+#: PiFinder/ui/callbacks.py:168
+msgid "WiFi to Client"
+msgstr "WiFi转客户端"
+
+#: PiFinder/ui/loc_gps.py:21
+msgid "Time: {time}"
+msgstr "时间: {time}"
+
+#: PiFinder/ui/menu_structure.py:33
+msgid "PiFinder"
+msgstr "PiFinder"
+
+#: PiFinder/ui/menu_structure.py:37
+msgid "Start"
+msgstr "开始"
+
+#: PiFinder/ui/menu_structure.py:42
+msgid "Focus"
+msgstr "对焦"
+
+#: PiFinder/ui/menu_structure.py:46
+msgid "Align"
+msgstr "对齐"
+
+#: PiFinder/ui/menu_structure.py:53
+msgid "GPS Status"
+msgstr "GPS状态"
+
+#: PiFinder/ui/menu_structure.py:58
+msgid "Chart"
+msgstr "星图"
+
+#: PiFinder/ui/menu_structure.py:63
+msgid "Objects"
+msgstr "天体"
+
+#: PiFinder/ui/menu_structure.py:68
+msgid "All Filtered"
+msgstr "全部筛选"
+
+#: PiFinder/ui/menu_structure.py:73
+msgid "By Catalog"
+msgstr "按星表"
+
+#: PiFinder/ui/menu_structure.py:79
+msgid "Planets"
+msgstr "行星"
+
+#: PiFinder/ui/menu_structure.py:89
+msgid "NGC"
+msgstr "NGC"
+
+#: PiFinder/ui/menu_structure.py:93
+msgid "Messier"
+msgstr "梅西耶"
+
+#: PiFinder/ui/menu_structure.py:97
+msgid "DSO..."
+msgstr "深空天体..."
+
+#: PiFinder/ui/menu_structure.py:102
+msgid "Abell Pn"
+msgstr "阿贝尔行星状星云"
+
+#: PiFinder/ui/menu_structure.py:107
+msgid "Arp Galaxies"
+msgstr "Arp星系"
+
+#: PiFinder/ui/menu_structure.py:112
+msgid "Barnard"
+msgstr "巴纳德"
+
+#: PiFinder/ui/menu_structure.py:117
+msgid "Caldwell"
+msgstr "考德威尔"
+
+#: PiFinder/ui/menu_structure.py:122
+msgid "Collinder"
+msgstr "科林德"
+
+#: PiFinder/ui/menu_structure.py:127
+msgid "E.G. Globs"
+msgstr "ESO球状星团"
+
+#: PiFinder/ui/menu_structure.py:132
+msgid "Herschel 400"
+msgstr "赫歇尔400"
+
+#: PiFinder/ui/menu_structure.py:137
+msgid "IC"
+msgstr "IC"
+
+#: PiFinder/ui/menu_structure.py:156
+msgid "Sharpless"
+msgstr "夏普利斯"
+
+#: PiFinder/ui/menu_structure.py:161
+msgid "TAAS 200"
+msgstr "TAAS 200"
+
+#: PiFinder/ui/menu_structure.py:166
+msgid "Stars..."
+msgstr "恒星..."
+
+#: PiFinder/ui/menu_structure.py:171
+msgid "Bright Named"
+msgstr "亮星"
+
+#: PiFinder/ui/menu_structure.py:176
+msgid "SAC Doubles"
+msgstr "SAC双星"
+
+#: PiFinder/ui/menu_structure.py:181
+msgid "SAC Asterisms"
+msgstr "SAC星群"
+
+#: PiFinder/ui/menu_structure.py:186
+msgid "SAC Red Stars"
+msgstr "SAC红巨星"
+
+#: PiFinder/ui/menu_structure.py:191
+msgid "RASC Doubles"
+msgstr "RASC双星"
+
+#: PiFinder/ui/menu_structure.py:196
+msgid "WDS Doubles"
+msgstr "WDS双星"
+
+#: PiFinder/ui/menu_structure.py:201
+msgid "TLK 90 Variables"
+msgstr "TLK 90变星"
+
+#: PiFinder/ui/menu_structure.py:207
+msgid "Recent"
+msgstr "最近"
+
+#: PiFinder/ui/menu_structure.py:212
+msgid "Custom"
+msgstr "自定义"
+
+#: PiFinder/ui/menu_structure.py:217
+msgid "Name Search"
+msgstr "名称搜索"
+
+#: PiFinder/ui/menu_structure.py:223
+msgid "Filter"
+msgstr "筛选"
+
+#: PiFinder/ui/menu_structure.py:228
+msgid "Reset All"
+msgstr "全部重置"
+
+#: PiFinder/ui/menu_structure.py:233
+msgid "Confirm"
+msgstr "确认"
+
+#: PiFinder/ui/menu_structure.py:234
+msgid "Cancel"
+msgstr "取消"
+
+#: PiFinder/ui/menu_structure.py:238
+msgid "Catalogs"
+msgstr "星表"
+
+#: PiFinder/ui/menu_structure.py:305
+msgid "Type"
+msgstr "类型"
+
+#: PiFinder/ui/menu_structure.py:373
+msgid "Cluster/Neb"
+msgstr "星团/星云"
+
+#: PiFinder/ui/menu_structure.py:377
+msgid "P. Nebula"
+msgstr "行星状星云"
+
+#: PiFinder/ui/menu_structure.py:405
+msgid "Double Str"
+msgstr "双星"
+
+#: PiFinder/ui/menu_structure.py:433
+msgid "Triple Str"
+msgstr "三合星"
+
+#: PiFinder/ui/menu_structure.py:449
+msgid "Altitude"
+msgstr "高度"
+
+#: PiFinder/ui/menu_structure.py:454
+msgid "None"
+msgstr "无"
+
+#: PiFinder/ui/menu_structure.py:492
+msgid "Magnitude"
+msgstr "星等"
+
+#: PiFinder/ui/menu_structure.py:541
+msgid "Observed"
+msgstr "已观测"
+
+#: PiFinder/ui/menu_structure.py:546
+msgid "Any"
+msgstr "任意"
+
+#: PiFinder/ui/menu_structure.py:550
+msgid "Yes"
+msgstr "是"
+
+#: PiFinder/ui/menu_structure.py:554
+msgid "No"
+msgstr "否"
+
+#: PiFinder/ui/menu_structure.py:559
+msgid "Settings"
+msgstr "设置"
+
+#: PiFinder/ui/menu_structure.py:563
+msgid "User Pref..."
+msgstr "用户偏好..."
+
+#: PiFinder/ui/menu_structure.py:568
+msgid "Key Bright"
+msgstr "按键亮度"
+
+#: PiFinder/ui/menu_structure.py:598
+msgid "Sleep Time"
+msgstr "休眠时间"
+
+#: PiFinder/ui/menu_structure.py:602
+msgid "Off"
+msgstr "关闭"
+
+#: PiFinder/ui/menu_structure.py:622
+msgid "Menu Anim"
+msgstr "菜单动画"
+
+#: PiFinder/ui/menu_structure.py:626
+msgid "Fast"
+msgstr "快"
+
+#: PiFinder/ui/menu_structure.py:630
+msgid "Medium"
+msgstr "中"
+
+#: PiFinder/ui/menu_structure.py:634
+msgid "Slow"
+msgstr "慢"
+
+#: PiFinder/ui/menu_structure.py:642
+msgid "Scroll Speed"
+msgstr "滚动速度"
+
+#: PiFinder/ui/menu_structure.py:660
+msgid "Az Arrows"
+msgstr "方位箭头"
+
+#: PiFinder/ui/menu_structure.py:664
+msgid "Default"
+msgstr "默认"
+
+#: PiFinder/ui/menu_structure.py:668
+msgid "Reverse"
+msgstr "反向"
+
+#: PiFinder/ui/menu_structure.py:673
+msgid "Language"
+msgstr "语言"
+
+#: PiFinder/ui/menu_structure.py:677
+msgid "English"
+msgstr "英语"
+
+#: PiFinder/ui/menu_structure.py:681
+msgid "German"
+msgstr "德语"
+
+#: PiFinder/ui/menu_structure.py:685
+msgid "French"
+msgstr "法语"
+
+#: PiFinder/ui/menu_structure.py:689
+msgid "Spanish"
+msgstr "西班牙语"
+
+#: PiFinder/ui/menu_structure.py:693
+msgid "Chinese"
+msgstr "中文"
+
+#: PiFinder/ui/menu_structure.py:699
+msgid "Chart..."
+msgstr "星图..."
+
+#: PiFinder/ui/menu_structure.py:703
+msgid "Reticle"
+msgstr "十字丝"
+
+#: PiFinder/ui/menu_structure.py:723
+msgid "Constellation"
+msgstr "星座"
+
+#: PiFinder/ui/menu_structure.py:743
+msgid "DSO Display"
+msgstr "深空天体显示"
+
+#: PiFinder/ui/menu_structure.py:763
+msgid "RA/DEC Disp."
+msgstr "赤经/赤纬显示"
+
+#: PiFinder/ui/menu_structure.py:767
+msgid "HH:MM"
+msgstr "时:分"
+
+#: PiFinder/ui/menu_structure.py:771
+msgid "Degrees"
+msgstr "度数"
+
+#: PiFinder/ui/menu_structure.py:775
+msgid "Camera Exp"
+msgstr "相机曝光"
+
+#: PiFinder/ui/menu_structure.py:779
+msgid "Auto"
+msgstr "自动"
+
+#: PiFinder/ui/menu_structure.py:811
+msgid "WiFi Mode"
+msgstr "WiFi模式"
+
+#: PiFinder/ui/menu_structure.py:815
+msgid "Client Mode"
+msgstr "客户端模式"
+
+#: PiFinder/ui/menu_structure.py:820
+msgid "AP Mode"
+msgstr "AP模式"
+
+#: PiFinder/ui/menu_structure.py:826
+msgid "Mount Type"
+msgstr "望远镜类型"
+
+#: PiFinder/ui/menu_structure.py:830
+msgid "Alt/Az"
+msgstr "地平式"
+
+#: PiFinder/ui/menu_structure.py:834
+msgid "Equatorial"
+msgstr "赤道式"
+
+#: PiFinder/ui/menu_structure.py:839
+msgid "Advanced"
+msgstr "高级"
+
+#: PiFinder/ui/menu_structure.py:848
+msgid "PiFinder Type"
+msgstr "PiFinder类型"
+
+#: PiFinder/ui/menu_structure.py:852
+msgid "Left"
+msgstr "左"
+
+#: PiFinder/ui/menu_structure.py:856
+msgid "Right"
+msgstr "右"
+
+#: PiFinder/ui/menu_structure.py:860
+msgid "Straight"
+msgstr "直"
+
+#: PiFinder/ui/menu_structure.py:864
+msgid "Flat v3"
+msgstr "平板v3"
+
+#: PiFinder/ui/menu_structure.py:868
+msgid "Flat v2"
+msgstr "平板v2"
+
+#: PiFinder/ui/menu_structure.py:872
+msgid "AS Bloom"
+msgstr "AS Bloom"
+
+#: PiFinder/ui/menu_structure.py:877
+msgid "Camera Type"
+msgstr "相机类型"
+
+#: PiFinder/ui/menu_structure.py:881
+msgid "v2 - imx477"
+msgstr "v2 - imx477"
+
+#: PiFinder/ui/menu_structure.py:885
+msgid "v3 - imx296"
+msgstr "v3 - imx296"
+
+#: PiFinder/ui/menu_structure.py:889
+msgid "v3 - imx462"
+msgstr "v3 - imx462"
+
+#: PiFinder/ui/menu_structure.py:893
+msgid "GPS Settings"
+msgstr "GPS设置"
+
+#: PiFinder/ui/menu_structure.py:897
+msgid "GPS Type"
+msgstr "GPS类型"
+
+#: PiFinder/ui/menu_structure.py:901
+msgid "UBlox"
+msgstr "UBlox"
+
+#: PiFinder/ui/menu_structure.py:905
+msgid "GPSD (generic)"
+msgstr "GPSD (通用)"
+
+#: PiFinder/ui/menu_structure.py:909
+msgid "GPS Baud Rate"
+msgstr "GPS波特率"
+
+#: PiFinder/ui/menu_structure.py:913
+msgid "9600 (standard)"
+msgstr "9600 (标准)"
+
+#: PiFinder/ui/menu_structure.py:917
+msgid "115200 (UBlox-10)"
+msgstr "115200 (UBlox-10)"
+
+#: PiFinder/ui/menu_structure.py:924
+msgid "IMU Sensit."
+msgstr "IMU灵敏度"
+
+#: PiFinder/ui/menu_structure.py:928
+msgid "Very Low"
+msgstr "很低"
+
+#: PiFinder/ui/menu_structure.py:932
+msgid "Low"
+msgstr "低"
+
+#: PiFinder/ui/menu_structure.py:936
+msgid "High"
+msgstr "高"
+
+#: PiFinder/ui/menu_structure.py:943
+msgid "Tools"
+msgstr "工具"
+
+#: PiFinder/ui/menu_structure.py:945
+msgid "Status"
+msgstr "状态"
+
+#: PiFinder/ui/menu_structure.py:946
+msgid "Equipment"
+msgstr "设备"
+
+#: PiFinder/ui/menu_structure.py:950
+msgid "Place & Time"
+msgstr "位置和时间"
+
+#: PiFinder/ui/menu_structure.py:955
+msgid "Set Location"
+msgstr "设置位置"
+
+#: PiFinder/ui/menu_structure.py:959
+msgid "Set Time"
+msgstr "设置时间"
+
+#: PiFinder/ui/menu_structure.py:964
+msgid "Reset"
+msgstr "重置"
+
+#: PiFinder/ui/menu_structure.py:966
+msgid "Console"
+msgstr "控制台"
+
+#: PiFinder/ui/menu_structure.py:967
+msgid "Software Upd"
+msgstr "软件更新"
+
+#: PiFinder/ui/menu_structure.py:968
+msgid "Test Mode"
+msgstr "测试模式"
+
+#: PiFinder/ui/menu_structure.py:970
+msgid "Experimental"
+msgstr "实验功能"
+
+#: PiFinder/ui/menu_structure.py:972
+msgid "SQM"
+msgstr "SQM"
+
+#: PiFinder/ui/menu_structure.py:976
+msgid "AE Algo"
+msgstr "AE算法"
+
+#: PiFinder/ui/menu_structure.py:980
+msgid "Sweep"
+msgstr "扫描"
+
+#: PiFinder/ui/menu_structure.py:984
+msgid "Exponential"
+msgstr "指数"
+
+#: PiFinder/ui/menu_structure.py:988
+msgid "Reset to 0.4s"
+msgstr "重置为0.4秒"
+
+#: PiFinder/ui/menu_structure.py:992
+msgid "Histogram"
+msgstr "直方图"
+
+#: PiFinder/ui/menu_structure.py:997
+msgid "Power"
+msgstr "电源"
+
+#: PiFinder/ui/menu_structure.py:1001
+msgid "Shutdown"
+msgstr "关机"
+
+#: PiFinder/ui/menu_structure.py:1010
+msgid "Restart"
+msgstr "重启"
+
+#: PiFinder/ui/menu_structure.py:1026 PiFinder/ui/menu_structure.py:1037
+msgid "Cancel"
+msgstr "取消"
+
+#: PiFinder/ui/menu_structure.py:22
+msgid "Language: zh"
+msgstr "语言: 中文"
+
+#: PiFinder/ui/callbacks.py:49
+msgid "Options for\nDIY PiFinders"
+msgstr "DIY PiFinder\n选项"
+
+#: PiFinder/ui/equipment.py:95
+msgid "No telescope selected"
+msgstr "未选择望远镜"
+
+#: PiFinder/ui/equipment.py:97
+msgid "No eyepiece selected"
+msgstr "未选择目镜"
+
+#: PiFinder/ui/equipment.py:99
+msgid "Mag: {mag:.0f}x"
+msgstr "倍率: {mag:.0f}x"
+
+#: PiFinder/ui/equipment.py:101
+msgid "TFOV: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
+msgstr "视场: {tfov_degrees:.0f}°{tfov_minutes:02.0f}'"
+
+#: PiFinder/ui/equipment.py:104
+msgid "Telescope..."
+msgstr "望远镜..."
+
+#: PiFinder/ui/equipment.py:108
+msgid "Eyepiece..."
+msgstr "目镜..."
+
+#: PiFinder/ui/base.py:319
+msgid "Limited"
+msgstr "有限"
+
+#: PiFinder/ui/base.py:320
+msgid "Basic"
+msgstr "基础"
+
+#: PiFinder/ui/base.py:321
+msgid "Accurate"
+msgstr "精确"
+
+#: PiFinder/ui/base.py:322
+msgid "Precise"
+msgstr "精准"
+
+#: PiFinder/ui/location_list.py:42
+msgid "Save"
+msgstr "保存"
+
+#: PiFinder/ui/location_list.py:43
+msgid "Lock"
+msgstr "锁定"
+
+#: PiFinder/ui/location_list.py:55
+msgid "Location Name"
+msgstr "位置名称"
+
+#: PiFinder/ui/location_list.py:56
+msgid "Loc {number}"
+msgstr "位置 {number}"
+
+#: PiFinder/ui/location_list.py:60
+msgid "Location saved"
+msgstr "位置已保存"
+
+#: PiFinder/ui/location_list.py:61
+msgid "Location locked"
+msgstr "位置已锁定"
+
+#: PiFinder/ui/loc_gps.py:47
+msgid "{error:.1f} km"
+msgstr "{error:.1f} 公里"
+
+#: PiFinder/ui/loc_gps.py:49
+msgid "{error:.0f} m"
+msgstr "{error:.0f} 米"
+
+#: PiFinder/ui/loc_gps.py:75
+msgid "GPS Locked"
+msgstr "GPS已锁定"
+
+#: PiFinder/ui/loc_gps.py:82
+msgid "Lock boost on"
+msgstr "锁定增强开启"
