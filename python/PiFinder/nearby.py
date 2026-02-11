@@ -69,6 +69,8 @@ class ClosestObjectsFinder:
         """
         Calculates a flat list of objects and the balltree for those objects
         """
+        from sklearn.neighbors import BallTree
+
         deduplicated_objects = deduplicate_objects(objects)
         object_radecs = np.array(
             [[np.deg2rad(x.ra), np.deg2rad(x.dec)] for x in deduplicated_objects]
