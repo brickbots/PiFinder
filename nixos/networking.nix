@@ -4,7 +4,15 @@
     hostName = "pifinder";
     networkmanager.enable = true;
     wireless.enable = false; # NetworkManager handles WiFi
+    firewall = {
+      allowedUDPPorts = [ 53 67 ];  # DNS + DHCP for AP mode
+      allowedTCPPorts = [ 80 ];     # PiFinder web UI
+    };
   };
+
+  # dnsmasq for NetworkManager AP shared mode (DHCP for AP clients)
+  services.dnsmasq.enable = false;  # NM manages its own dnsmasq instance
+  environment.systemPackages = [ pkgs.dnsmasq ];
 
   # Wired ethernet with DHCP (autoconnect)
   environment.etc."NetworkManager/system-connections/Wired.nmconnection" = {
@@ -29,7 +37,8 @@
       [connection]
       id=PiFinder-AP
       type=wifi
-      autoconnect=false
+      autoconnect=true
+      autoconnect-priority=-1
 
       [wifi]
       mode=ap

@@ -348,7 +348,7 @@ def restart_system() -> None:
         manager.Reboot(False)
     except dbus.DBusException as e:
         logger.error("D-Bus reboot failed, falling back to subprocess: %s", e)
-        _run(["/run/current-system/sw/bin/sudo", "shutdown", "-r", "now"])
+        _run(["sudo", "shutdown", "-r", "now"])
 
 
 def shutdown() -> None:
@@ -364,7 +364,7 @@ def shutdown() -> None:
         manager.PowerOff(False)
     except dbus.DBusException as e:
         logger.error("D-Bus shutdown failed, falling back to subprocess: %s", e)
-        _run(["/run/current-system/sw/bin/sudo", "shutdown", "now"])
+        _run(["sudo", "shutdown", "now"])
 
 
 # ---------------------------------------------------------------------------
@@ -387,11 +387,11 @@ def start_upgrade(ref: str = "release") -> bool:
         logger.error("Failed to write upgrade ref file: %s", e)
         return False
 
-    _run(["/run/current-system/sw/bin/sudo", "/run/current-system/sw/bin/systemctl", "reset-failed", "pifinder-upgrade.service"])
+    _run(["sudo", "systemctl", "reset-failed", "pifinder-upgrade.service"])
     result = _run(
         [
-            "/run/current-system/sw/bin/sudo",
-            "/run/current-system/sw/bin/systemctl",
+            "sudo",
+            "systemctl",
             "start",
             "--no-block",
             "pifinder-upgrade.service",
@@ -402,7 +402,7 @@ def start_upgrade(ref: str = "release") -> bool:
 
 def get_upgrade_state() -> str:
     """Poll upgrade service state."""
-    result = _run(["/run/current-system/sw/bin/systemctl", "is-active", "pifinder-upgrade.service"])
+    result = _run(["systemctl", "is-active", "pifinder-upgrade.service"])
     status = result.stdout.strip()
     if status == "activating":
         return UPGRADE_STATE_RUNNING
@@ -417,7 +417,7 @@ def get_upgrade_log_tail(lines: int = 3) -> str:
     """Last N lines from upgrade journal for UI display."""
     result = _run(
         [
-            "/run/current-system/sw/bin/journalctl",
+            "journalctl",
             "-u",
             "pifinder-upgrade.service",
             "-n",
@@ -451,7 +451,7 @@ def update_software(ref: str = "release") -> bool:
 def verify_password(username: str, password: str) -> bool:
     """Verify a password against PAM."""
     p = pam.pam()
-    return p.authenticate(username, password, service="login")
+    return p.authenticate(username, password, service="pifinder")
 
 
 def change_password(username: str, current_password: str, new_password: str) -> bool:
@@ -459,7 +459,7 @@ def change_password(username: str, current_password: str, new_password: str) -> 
     if not verify_password(username, current_password):
         return False
     result = subprocess.run(
-        ["/run/current-system/sw/bin/sudo", "chpasswd"],
+        ["sudo", "chpasswd"],
         input=f"{username}:{new_password}\n",
         capture_output=True,
         text=True,
@@ -480,7 +480,7 @@ def switch_camera(cam_type: str) -> None:
     Requires reboot (dtoverlay change).
     """
     logger.info("SYS: Switching camera to %s via specialisation", cam_type)
-    result = _run(["/run/current-system/sw/bin/sudo", "pifinder-switch-camera", cam_type])
+    result = _run(["sudo", "pifinder-switch-camera", cam_type])
     if result.returncode != 0:
         logger.error("SYS: Camera switch failed: %s", result.stderr)
 

@@ -253,70 +253,17 @@
       '';
     };
 
-    # Bootstrap system for migration from RPi OS
-    # Minimal NixOS that boots, connects to network, and runs nixos-rebuild switch
-    # NOTE: Does NOT use nixos-hardware module to avoid pulling in linux-firmware (659MB)
-    mkBootstrapSystem = { includeSDImage ? false }: nixpkgs.lib.nixosSystem {
-      system = "aarch64-linux";
-      modules = [
-        # Inline minimal Pi4 hardware config instead of nixos-hardware module
-        ({ lib, ... }: {
-          # Basic Pi 4 kernel - no extra firmware needed for bootstrap
-          boot.kernelPackages = lib.mkDefault (import nixpkgs { system = "aarch64-linux"; }).linuxPackages_rpi4;
-          hardware.enableRedistributableFirmware = lib.mkForce false;
-          hardware.firmware = lib.mkForce [];
-        })
-        ./nixos/bootstrap.nix
-      ] ++ nixpkgs.lib.optionals includeSDImage [
-        "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
-        ({ pkgs, lib, ... }: {
-          # Simplified firmware population for bootstrap
-          sdImage.populateFirmwareCommands = lib.mkForce ''
-            (cd ${pkgs.raspberrypifw}/share/raspberrypi/boot && cp bootcode.bin fixup*.dat start*.elf $NIX_BUILD_TOP/firmware/)
-
-            # Minimal config.txt for Pi 4
-            cat > firmware/config.txt <<EOF
-            [pi4]
-            kernel=u-boot-rpi4.bin
-            enable_gic=1
-            armstub=armstub8-gic.bin
-            disable_overscan=1
-            arm_boost=1
-
-            [cm4]
-            otg_mode=1
-
-            [all]
-            arm_64bit=1
-            enable_uart=1
-            avoid_warnings=1
-            EOF
-
-            # Pi4 files only (bootstrap is Pi 4 only for now)
-            cp ${pkgs.ubootRaspberryPi4_64bit}/u-boot.bin firmware/u-boot-rpi4.bin
-            cp ${pkgs.raspberrypi-armstubs}/armstub8-gic.bin firmware/armstub8-gic.bin
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-4-b.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-400.dtb firmware/
-            cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-cm4.dtb firmware/
-          '';
-        })
-      ];
-    };
   in {
     nixosConfigurations = {
       # SD card boot — camera baked into DT, switched via specialisations
       pifinder = mkPifinderSystem {};
       # NFS netboot — for development on proxnix
       pifinder-netboot = mkPifinderNetboot;
-      # Bootstrap for migration from RPi OS
-      pifinder-bootstrap = mkBootstrapSystem {};
-    };
+};
     images = {
       # SD card image
       pifinder = (mkPifinderSystem { includeSDImage = true; }).config.system.build.sdImage;
-      # Bootstrap image for migration
-      bootstrap = (mkBootstrapSystem { includeSDImage = true; }).config.system.build.sdImage;
-    };
+};
     packages.aarch64-linux = {
       uboot-sd = ubootSD;
       uboot-netboot = ubootNetboot;

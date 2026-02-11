@@ -122,6 +122,20 @@ class CameraInterface:
             sleep_delay = 60
             was_sleeping = False
             while True:
+                # Check for mode-switch commands before capture (capture may block)
+                pending = []
+                try:
+                    while True:
+                        cmd = command_queue.get_nowait()
+                        if cmd == "debug":
+                            debug = not debug
+                        else:
+                            pending.append(cmd)
+                except queue.Empty:
+                    pass
+                for cmd in pending:
+                    command_queue.put(cmd)
+
                 sleeping = state_utils.sleep_for_framerate(
                     shared_state, limit_framerate=False
                 )
