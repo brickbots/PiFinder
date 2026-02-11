@@ -46,6 +46,14 @@
         "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
         ({ config, pkgs, lib, ... }:
         let
+          ubootSD = pkgs.ubootRaspberryPi4_64bit.override {
+            extraConfig = ''
+              CONFIG_CMD_PXE=y
+              CONFIG_CMD_SYSBOOT=y
+              CONFIG_BOOTDELAY=0
+              CONFIG_BOOTCOMMAND="sysboot mmc 0:2 any 0x02400000 /boot/extlinux/extlinux.conf"
+            '';
+          };
           configTxt = pkgs.writeText "config.txt" ''
             [pi3]
             kernel=u-boot-rpi3.bin
@@ -85,7 +93,7 @@
             cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2710-rpi-zero-2-w.dtb firmware/
 
             # Pi4 files
-            cp ${pkgs.ubootRaspberryPi4_64bit}/u-boot.bin firmware/u-boot-rpi4.bin
+            cp ${ubootSD}/u-boot.bin firmware/u-boot-rpi4.bin
             cp ${pkgs.raspberrypi-armstubs}/armstub8-gic.bin firmware/armstub8-gic.bin
             cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-4-b.dtb firmware/
             cp ${pkgs.raspberrypifw}/share/raspberrypi/boot/bcm2711-rpi-400.dtb firmware/
@@ -100,7 +108,7 @@
             device = "/dev/disk/by-label/NIXOS_SD";
             fsType = "ext4";
           };
-          fileSystems."/boot" = {
+          fileSystems."/boot/firmware" = {
             device = "/dev/disk/by-label/FIRMWARE";
             fsType = "vfat";
           };
@@ -218,8 +226,10 @@
     # SD boot: skip PCI/USB/net probe, go straight to mmc extlinux
     ubootSD = pkgsAarch64.ubootRaspberryPi4_64bit.override {
       extraConfig = ''
+        CONFIG_CMD_PXE=y
+        CONFIG_CMD_SYSBOOT=y
         CONFIG_BOOTDELAY=0
-        CONFIG_BOOTCOMMAND="sysboot mmc 0:1 any $${scriptaddr} /extlinux/extlinux.conf"
+        CONFIG_BOOTCOMMAND="sysboot mmc 0:2 any 0x02400000 /boot/extlinux/extlinux.conf"
       '';
     };
     # Netboot: PCI + DHCP + PXE

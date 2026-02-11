@@ -39,5 +39,10 @@ pkgs.stdenv.mkDerivation {
 
     # Hipparcos catalog is gitignored (51MB), fetch and include for starfield plotting
     cp ${hip_main} $out/astro_data/hip_main.dat
+
+    # NixOS: sudo setuid wrapper is at /run/wrappers/bin/sudo, not sw/bin/sudo
+    chmod -R u+w $out/python
+    substituteInPlace $out/python/PiFinder/sys_utils.py \
+      --replace-fail '/run/current-system/sw/bin/sudo' '/run/wrappers/bin/sudo'
   '';
 }
