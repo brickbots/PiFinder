@@ -3,8 +3,8 @@ let
   tetra3-src = pkgs.fetchFromGitHub {
     owner = "smroid";
     repo = "cedar-solve";
-    rev = "38c3f48f57d1005e9b65cbb26136f9f13ec0a1b0";
-    hash = "sha256-63Jc5xuJpAZ2UcdKk19MmwuXpix8EBzNNbJzLbl0VyU=";
+    rev = "cded265ca1c41e4e526f91e06d3c7ef99bc37288";
+    hash = "sha256-eJtBuBmsElEojXLYfYy3gQ/s2+8qjyvOYAqROe4sNO0=";
   };
 
   # Hipparcos star catalog for starfield plotting
@@ -41,12 +41,8 @@ pkgs.stdenv.mkDerivation {
     # Hipparcos catalog is gitignored (51MB), fetch and include for starfield plotting
     cp ${hip_main} $out/astro_data/hip_main.dat
 
-    # NixOS: sudo setuid wrapper is at /run/wrappers/bin/sudo, not sw/bin/sudo
-    chmod -R u+w $out/python
-    substituteInPlace $out/python/PiFinder/sys_utils.py \
-      --replace-fail '/run/current-system/sw/bin/sudo' '/run/wrappers/bin/sudo'
-
     # Pre-compile .pyc bytecode so Python skips compilation at runtime
+    chmod -R u+w $out/python
     python3 -m compileall -q $out/python
   '';
 }

@@ -250,7 +250,17 @@ in {
     after = [ "basic.target" "cedar-detect.service" "gpsd.socket" ];
     wants = [ "cedar-detect.service" "gpsd.socket" ];
     wantedBy = [ "multi-user.target" ];
-    path = [ pkgs.gpsd ];  # For gpsctl
+    path = let
+      # Runtime paths not in the nix store — symlinks resolve at boot, not build time
+      wrapperBins = pkgs.runCommand "wrapper-bins" {} ''
+        mkdir -p $out
+        ln -s /run/wrappers/bin $out/bin
+      '';
+      systemBins = pkgs.runCommand "system-bins" {} ''
+        mkdir -p $out
+        ln -s /run/current-system/sw/bin $out/bin
+      '';
+    in [ wrapperBins systemBins pkgs.gpsd ];
     environment = {
       PIFINDER_HOME = "/home/pifinder/PiFinder";
       PIFINDER_DATA = "/home/pifinder/PiFinder_data";
@@ -431,6 +441,17 @@ in {
       ExecStart = "${pkgs.gpsd}/sbin/gpsdctl add /dev/ttyAMA3";
       ExecStop = "${pkgs.gpsd}/sbin/gpsdctl remove /dev/ttyAMA3";
     };
+  };
+
+  # ---------------------------------------------------------------------------
+  # PAM service for PiFinder web UI password verification
+  # ---------------------------------------------------------------------------
+  security.pam.services.pifinder = {
+    # Auth-only: no account/session management (avoids setuid and pam_lastlog2 errors)
+    allowNullPassword = false;
+    unixAuth = true;
+    setLoginUid = false;
+    updateWtmp = false;
   };
 
   # ---------------------------------------------------------------------------
