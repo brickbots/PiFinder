@@ -23,6 +23,11 @@ let
 
     # Write state file
     mkdir -p "${stateDir}"
+    STAGE_FILE="${stateDir}/stage_num"
+    STAGE_NUM=$(cat "$STAGE_FILE" 2>/dev/null || echo 0)
+    STAGE_NUM=$((STAGE_NUM + 1))
+    echo "$STAGE_NUM" > "$STAGE_FILE"
+
     cat > "${stateDir}/state" <<EOF
     PHASE=3
     PERCENT=$PCT
@@ -30,9 +35,9 @@ let
     DETAIL=$DETAIL
     EOF
 
-    # Try OLED binary if present (copied by initramfs)
+    # Try OLED binary if present (copied by initramfs init script)
     if [ -x /bin/migration_progress ]; then
-      /bin/migration_progress "$PCT" "$STATUS" 2>/dev/null || true
+      /bin/migration_progress "$PCT" "$STAGE_NUM" 10 "$STATUS" 2>/dev/null || true
     fi
 
     echo "[$PCT%] $STATUS $DETAIL"
@@ -120,6 +125,7 @@ in {
   # ---------------------------------------------------------------------------
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
+    download-buffer-size = 536870912;  # 512MB - PiFinder repo tarball is large
     substituters = [
       "https://cache.nixos.org"
       "https://pifinder.cachix.org"
@@ -137,6 +143,7 @@ in {
   # mkForce overrides profiles/base.nix which adds w3m (150MB with perl)
   environment.systemPackages = lib.mkForce (with pkgs; [
     progressScript
+    bashInteractive
   ]);
 
   # ---------------------------------------------------------------------------
@@ -275,23 +282,24 @@ in {
       progress 77 "Fetching tools"
 
       # Parse nix build output for progress
+      # Expected ~600 paths total; count copying/building lines for progress
+      COPY_COUNT=0
+      TOTAL_EST=600
       if nix shell nixpkgs#nixos-rebuild -c nixos-rebuild switch --flake "$FLAKE" --refresh 2>&1 | \
          while IFS= read -r line; do
            echo "$line"  # Pass through for logging
 
-           # Parse copying progress
-           if echo "$line" | grep -qE 'copying path.*\([0-9]+/[0-9]+\)'; then
-             nums=$(echo "$line" | grep -oE '\([0-9]+/[0-9]+\)' | tr -d '()')
-             done=$(echo "$nums" | cut -d/ -f1)
-             total=$(echo "$nums" | cut -d/ -f2)
-             if [ "$total" -gt 0 ]; then
-               pct=$((done * 100 / total))
-               # Map 0-100% to 78-95%
-               mapped=$((78 + pct * 17 / 100))
-               progress "$mapped" "Downloading" "$done/$total paths"
-             fi
+           if echo "$line" | grep -qE '^copying path |^building '; then
+             COPY_COUNT=$((COPY_COUNT + 1))
+             pct=$((COPY_COUNT * 100 / TOTAL_EST))
+             [ "$pct" -gt 100 ] && pct=100
+             # Map 0-100% to 78-95%
+             mapped=$((78 + pct * 17 / 100))
+             progress "$mapped" "Installing" "$COPY_COUNT paths"
            elif echo "$line" | grep -qi 'activating'; then
              progress 95 "Activating system"
+           elif echo "$line" | grep -qi 'building the system configuration'; then
+             progress 78 "Building config"
            fi
          done; then
 
