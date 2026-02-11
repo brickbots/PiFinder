@@ -51,7 +51,14 @@
               CONFIG_CMD_PXE=y
               CONFIG_CMD_SYSBOOT=y
               CONFIG_BOOTDELAY=0
+              CONFIG_PREBOOT=""
               CONFIG_BOOTCOMMAND="sysboot mmc 0:2 any 0x02400000 /boot/extlinux/extlinux.conf"
+              CONFIG_PCI=n
+              CONFIG_USB=n
+              CONFIG_CMD_USB=n
+              CONFIG_CMD_PCI=n
+              CONFIG_USB_KEYBOARD=n
+              CONFIG_BCMGENET=n
             '';
           };
           configTxt = pkgs.writeText "config.txt" ''
@@ -229,7 +236,14 @@
         CONFIG_CMD_PXE=y
         CONFIG_CMD_SYSBOOT=y
         CONFIG_BOOTDELAY=0
+        CONFIG_PREBOOT=""
         CONFIG_BOOTCOMMAND="sysboot mmc 0:2 any 0x02400000 /boot/extlinux/extlinux.conf"
+        CONFIG_PCI=n
+        CONFIG_USB=n
+        CONFIG_CMD_USB=n
+        CONFIG_CMD_PCI=n
+        CONFIG_USB_KEYBOARD=n
+        CONFIG_BCMGENET=n
       '';
     };
     # Netboot: PCI + DHCP + PXE

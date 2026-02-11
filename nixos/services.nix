@@ -102,7 +102,6 @@ in {
   # ---------------------------------------------------------------------------
   systemd.services.pwm-permissions = {
     description = "Set PWM sysfs permissions for pifinder";
-    before = [ "pifinder.service" ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
       Type = "oneshot";
@@ -210,9 +209,19 @@ in {
   systemd.services.boot-splash = {
     description = "Early boot splash screen";
     wantedBy = [ "sysinit.target" ];
+    after = [ "systemd-modules-load.service" ];
+    wants = [ "systemd-modules-load.service" ];
+    unitConfig.DefaultDependencies = false;
     serviceConfig = {
       Type = "oneshot";
-      ExecStart = "${boot-splash}/bin/boot-splash --static";
+      ExecStart = pkgs.writeShellScript "boot-splash-wait" ''
+        for i in $(seq 1 40); do
+          [ -e /dev/spidev0.0 ] && exec ${boot-splash}/bin/boot-splash --static
+          sleep 0.25
+        done
+        echo "SPI device never appeared" >&2
+        exit 1
+      '';
     };
   };
 
@@ -432,6 +441,9 @@ in {
       workstation = true;
     };
   };
+
+  # Don't block boot waiting for network — NM still works, just async
+  systemd.services.NetworkManager-wait-online.enable = false;
 
   services.samba = {
     enable = true;
