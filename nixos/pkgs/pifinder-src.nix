@@ -1,4 +1,4 @@
-{ pkgs }:
+{ pkgs, python ? pkgs.python313 }:
 let
   tetra3-src = pkgs.fetchFromGitHub {
     owner = "smroid";
@@ -18,6 +18,7 @@ pkgs.stdenv.mkDerivation {
   version = "0.0.1";
   src = ../..;
 
+  nativeBuildInputs = [ python ];
   phases = [ "installPhase" ];
 
   installPhase = ''
@@ -44,5 +45,8 @@ pkgs.stdenv.mkDerivation {
     chmod -R u+w $out/python
     substituteInPlace $out/python/PiFinder/sys_utils.py \
       --replace-fail '/run/current-system/sw/bin/sudo' '/run/wrappers/bin/sudo'
+
+    # Pre-compile .pyc bytecode so Python skips compilation at runtime
+    python3 -m compileall -q $out/python
   '';
 }
