@@ -321,5 +321,13 @@
       uboot-sd = ubootSD;
       uboot-netboot = ubootNetboot;
     };
+
+    devShells.x86_64-linux.default = let
+      pkgs = import nixpkgs { system = "x86_64-linux"; };
+      pyPkgs = import ./nixos/pkgs/python-packages.nix { inherit pkgs; };
+      cedar-detect = import ./nixos/pkgs/cedar-detect.nix { inherit pkgs; };
+    in pkgs.mkShell {
+      packages = [ pyPkgs.devEnv pkgs.ruff cedar-detect ];
+    };
   };
 }

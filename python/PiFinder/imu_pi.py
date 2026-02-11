@@ -11,8 +11,6 @@ import board
 import adafruit_bno055
 import logging
 
-from scipy.spatial.transform import Rotation
-
 from PiFinder import config
 
 logger = logging.getLogger("IMU.pi")
@@ -81,6 +79,8 @@ class Imu:
         )
 
     def quat_to_euler(self, quat):
+        from scipy.spatial.transform import Rotation
+
         if quat[0] + quat[1] + quat[2] + quat[3] == 0:
             return 0, 0, 0
         rot = Rotation.from_quat(quat)
