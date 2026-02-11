@@ -1,11 +1,21 @@
 import pytest
+from unittest.mock import patch, MagicMock
 
 from PiFinder.ui.software import (
     update_needed,
     _parse_version,
     _strip_markdown,
-    _filter_upgrades,
+    _meets_min_version,
+    _version_from_tag,
+    _fetch_github_releases,
+    _fetch_testable_prs,
+    GITHUB_REPO,
 )
+
+
+# ---------------------------------------------------------------------------
+# Version parsing
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
@@ -45,11 +55,9 @@ class TestUpdateNeeded:
         assert update_needed("2.5.0-beta.1", "2.5.0") is True
 
     def test_release_to_prerelease_same(self):
-        # Going from a release to a pre-release of same version is not an update
         assert update_needed("2.5.0", "2.5.0-beta.1") is False
 
     def test_prerelease_higher_minor(self):
-        # 2.5.0-beta.1 is still greater than 2.4.0
         assert update_needed("2.4.0", "2.5.0-beta.1") is True
 
     def test_garbage_input_returns_false(self):
@@ -63,6 +71,11 @@ class TestUpdateNeeded:
 
     def test_unknown_returns_false(self):
         assert update_needed("2.4.0", "Unknown") is False
+
+
+# ---------------------------------------------------------------------------
+# Markdown stripping
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
@@ -94,49 +107,290 @@ class TestStripMarkdown:
         assert "**" not in result
 
 
+# ---------------------------------------------------------------------------
+# Min version cutoff
+# ---------------------------------------------------------------------------
+
+
 @pytest.mark.unit
-class TestFilterUpgrades:
-    def test_filters_newer_versions(self):
-        versions = [
-            {"version": "2.5.0", "type": "upgrade"},
-            {"version": "2.4.1", "type": "update"},
+class TestMeetsMinVersion:
+    def test_exact_min_version(self):
+        assert _meets_min_version("2.5.0") is True
+
+    def test_above_min_version(self):
+        assert _meets_min_version("2.6.0") is True
+
+    def test_below_min_version(self):
+        assert _meets_min_version("2.4.0") is False
+
+    def test_prerelease_at_min(self):
+        # 2.5.0-beta.1 < 2.5.0, so below minimum
+        assert _meets_min_version("2.5.0-beta.1") is False
+
+    def test_prerelease_above_min(self):
+        assert _meets_min_version("2.6.0-beta.1") is True
+
+    def test_garbage_returns_false(self):
+        assert _meets_min_version("garbage") is False
+
+    def test_old_major_version(self):
+        assert _meets_min_version("1.0.0") is False
+
+
+@pytest.mark.unit
+class TestVersionFromTag:
+    def test_strips_v_prefix(self):
+        assert _version_from_tag("v2.5.0") == "2.5.0"
+
+    def test_no_prefix(self):
+        assert _version_from_tag("2.5.0") == "2.5.0"
+
+    def test_prerelease_tag(self):
+        assert _version_from_tag("v2.6.0-beta.1") == "2.6.0-beta.1"
+
+
+# ---------------------------------------------------------------------------
+# GitHub releases API parsing
+# ---------------------------------------------------------------------------
+
+MOCK_RELEASES = [
+    {
+        "tag_name": "v2.6.0",
+        "prerelease": False,
+        "draft": False,
+        "body": "## v2.6.0\n- Feature A",
+    },
+    {
+        "tag_name": "v2.5.1",
+        "prerelease": False,
+        "draft": False,
+        "body": "Bugfix release",
+    },
+    {
+        "tag_name": "v2.6.0-beta.1",
+        "prerelease": True,
+        "draft": False,
+        "body": "Beta changelog",
+    },
+    {
+        "tag_name": "v2.5.0-beta.2",
+        "prerelease": True,
+        "draft": False,
+        "body": "Old beta",
+    },
+    {
+        "tag_name": "v2.4.0",
+        "prerelease": False,
+        "draft": False,
+        "body": "Pre-NixOS release",
+    },
+    {
+        "tag_name": "v2.3.0",
+        "prerelease": False,
+        "draft": True,
+        "body": "Draft release",
+    },
+]
+
+
+@pytest.mark.unit
+class TestFetchGitHubReleases:
+    @patch("PiFinder.ui.software.requests.get")
+    def test_partitions_stable_and_beta(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = MOCK_RELEASES
+        mock_get.return_value = mock_resp
+
+        stable, beta = _fetch_github_releases()
+
+        stable_versions = [e["version"] for e in stable]
+        beta_versions = [e["version"] for e in beta]
+
+        assert "2.6.0" in stable_versions
+        assert "2.5.1" in stable_versions
+        assert "2.6.0-beta.1" in beta_versions
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_filters_below_min_version(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = MOCK_RELEASES
+        mock_get.return_value = mock_resp
+
+        stable, beta = _fetch_github_releases()
+
+        all_versions = [e["version"] for e in stable + beta]
+        assert "2.4.0" not in all_versions
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_excludes_drafts(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = MOCK_RELEASES
+        mock_get.return_value = mock_resp
+
+        stable, beta = _fetch_github_releases()
+
+        all_labels = [e["label"] for e in stable + beta]
+        assert "v2.3.0" not in all_labels
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_flake_ref_format(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = [MOCK_RELEASES[0]]
+        mock_get.return_value = mock_resp
+
+        stable, _ = _fetch_github_releases()
+
+        assert stable[0]["ref"] == f"github:{GITHUB_REPO}/v2.6.0#pifinder"
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_preserves_changelog_body(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = [MOCK_RELEASES[0]]
+        mock_get.return_value = mock_resp
+
+        stable, _ = _fetch_github_releases()
+
+        assert stable[0]["notes"] == "## v2.6.0\n- Feature A"
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_api_failure_returns_empty(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 500
+        mock_get.return_value = mock_resp
+
+        stable, beta = _fetch_github_releases()
+
+        assert stable == []
+        assert beta == []
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_network_error_returns_empty(self, mock_get):
+        import requests as req
+
+        mock_get.side_effect = req.exceptions.ConnectionError("no network")
+
+        stable, beta = _fetch_github_releases()
+
+        assert stable == []
+        assert beta == []
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_prerelease_at_min_filtered(self, mock_get):
+        """2.5.0-beta.2 is below 2.5.0 minimum, should be excluded."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = MOCK_RELEASES
+        mock_get.return_value = mock_resp
+
+        _, beta = _fetch_github_releases()
+
+        beta_versions = [e["version"] for e in beta]
+        assert "2.5.0-beta.2" not in beta_versions
+
+
+# ---------------------------------------------------------------------------
+# Testable PRs
+# ---------------------------------------------------------------------------
+
+MOCK_PRS = [
+    {
+        "number": 42,
+        "title": "Fix star matching algorithm",
+        "head": {"sha": "abc123def456"},
+        "user": {"login": "contributor1"},
+        "body": "This PR fixes the star matching.",
+    },
+    {
+        "number": 99,
+        "title": "Add dark mode support",
+        "head": {"sha": "789xyz000111"},
+        "user": {"login": "contributor2"},
+        "body": None,
+    },
+]
+
+
+@pytest.mark.unit
+class TestFetchTestablePRs:
+    @patch("PiFinder.ui.software.requests.get")
+    def test_builds_pr_entries(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = MOCK_PRS
+        mock_get.return_value = mock_resp
+
+        entries = _fetch_testable_prs()
+
+        assert len(entries) == 2
+        assert entries[0]["label"].startswith("PR#42")
+        assert entries[1]["label"].startswith("PR#99")
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_pr_flake_ref_uses_sha(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = [MOCK_PRS[0]]
+        mock_get.return_value = mock_resp
+
+        entries = _fetch_testable_prs()
+
+        assert entries[0]["ref"] == f"github:{GITHUB_REPO}/abc123def456#pifinder"
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_pr_version_is_none(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = [MOCK_PRS[0]]
+        mock_get.return_value = mock_resp
+
+        entries = _fetch_testable_prs()
+
+        assert entries[0]["version"] is None
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_pr_notes_from_body(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = MOCK_PRS
+        mock_get.return_value = mock_resp
+
+        entries = _fetch_testable_prs()
+
+        assert entries[0]["notes"] == "This PR fixes the star matching."
+        assert entries[1]["notes"] is None
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_api_failure_returns_empty(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 403
+        mock_get.return_value = mock_resp
+
+        entries = _fetch_testable_prs()
+
+        assert entries == []
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_long_title_truncated(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = [
+            {
+                "number": 7,
+                "title": "A very long PR title that exceeds twenty characters",
+                "head": {"sha": "aaa"},
+                "user": {"login": "x"},
+                "body": None,
+            }
         ]
-        result = _filter_upgrades("2.4.0", versions)
-        assert len(result) == 2
+        mock_get.return_value = mock_resp
 
-    def test_excludes_older_versions(self):
-        versions = [
-            {"version": "2.5.0", "type": "upgrade"},
-            {"version": "2.3.0", "type": "update"},
-        ]
-        result = _filter_upgrades("2.4.0", versions)
-        assert len(result) == 1
-        assert result[0]["version"] == "2.5.0"
+        entries = _fetch_testable_prs()
 
-    def test_preserves_type_field(self):
-        versions = [
-            {"version": "2.5.0", "type": "upgrade", "migration_url": "https://..."},
-            {"version": "2.4.1", "type": "update"},
-        ]
-        result = _filter_upgrades("2.4.0", versions)
-        assert result[0]["type"] == "upgrade"
-        assert result[0]["migration_url"] == "https://..."
-        assert result[1]["type"] == "update"
-
-    def test_empty_input(self):
-        assert _filter_upgrades("2.4.0", []) == []
-
-    def test_upgrade_type_detected(self):
-        versions = [{"version": "2.5.0", "type": "upgrade"}]
-        result = _filter_upgrades("2.4.0", versions)
-        assert result[0].get("type") == "upgrade"
-
-    def test_update_type_detected(self):
-        versions = [{"version": "2.4.1", "type": "update"}]
-        result = _filter_upgrades("2.4.0", versions)
-        assert result[0].get("type") == "update"
-
-    def test_missing_type_field(self):
-        versions = [{"version": "2.4.1"}]
-        result = _filter_upgrades("2.4.0", versions)
-        assert result[0].get("type") is None
+        assert "..." in entries[0]["label"]
+        # PR#7 prefix + space + 20 chars + ...
+        assert entries[0]["label"].startswith("PR#7 ")

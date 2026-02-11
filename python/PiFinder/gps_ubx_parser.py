@@ -159,7 +159,7 @@ class UBXParser:
     async def from_file(cls, file_path: str):
         """Create a UBXParser instance from a file."""
         f = await aiofiles.open(file_path, "rb")
-        return cls(log_queue=None, reader=f, file_path=file_path)  # type:ignore[arg-type]
+        return cls(log_queue=None, reader=f, file_path=file_path)
 
     async def close(self):
         """Clean up resources and close the connection."""

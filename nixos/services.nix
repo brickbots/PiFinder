@@ -37,7 +37,24 @@ in {
   # ---------------------------------------------------------------------------
   # Camera switch wrapper (used by pifinder UI via sudo)
   # ---------------------------------------------------------------------------
-  environment.systemPackages = [ pifinder-switch-camera ];
+  environment.systemPackages = with pkgs; [
+    pifinder-switch-camera
+
+    # Diagnostic tools for SSH troubleshooting
+    htop
+    vim
+    tcpdump
+    iftop
+    lsof
+    strace
+    file
+    dnsutils        # dig, nslookup
+    curl
+    usbutils        # lsusb
+    pciutils        # lspci
+    i2c-tools       # i2cdetect (sensor debugging)
+    iotop
+  ];
 
 
 
@@ -274,7 +291,11 @@ in {
     script = ''
       set -euo pipefail
       REF=$(cat /run/pifinder/upgrade-ref 2>/dev/null || echo "release")
-      FLAKE="${cfg.repoUrl}/''${REF}#pifinder"
+      if [[ "$REF" == github:* ]]; then
+        FLAKE="$REF"
+      else
+        FLAKE="${cfg.repoUrl}/''${REF}#pifinder"
+      fi
 
       # Pre-flight: check disk space (need at least 500MB)
       AVAIL=$(df --output=avail /nix/store | tail -1)

@@ -16,13 +16,12 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-import requests
-import dbus  # type: ignore[import-not-found]
-import pam  # type: ignore[import-not-found]
-import gi  # type: ignore[import-not-found]
+import dbus
+import pam
+import gi
 
 gi.require_version("NM", "1.0")
-from gi.repository import GLib, NM  # type: ignore  # noqa: E402
+from gi.repository import GLib, NM  # noqa: E402
 
 from PiFinder import utils  # noqa: E402
 from PiFinder.sys_utils_base import (  # noqa: E402
@@ -377,38 +376,7 @@ UPGRADE_STATE_RUNNING = "running"
 UPGRADE_STATE_SUCCESS = "success"
 UPGRADE_STATE_FAILED = "failed"
 
-VERSIONS_URL = (
-    "https://raw.githubusercontent.com/mrosseel/PiFinder/release/versions.json"
-)
-
 UPGRADE_REF_FILE = Path("/run/pifinder/upgrade-ref")
-
-
-def fetch_version_manifest() -> Optional[dict]:
-    """Fetch the channel/version manifest from GitHub."""
-    try:
-        resp = requests.get(VERSIONS_URL, timeout=10)
-        resp.raise_for_status()
-        return resp.json()
-    except Exception as e:
-        logger.error("Failed to fetch version manifest: %s", e)
-        return None
-
-
-def get_versions_for_channel(channel: str) -> list[dict]:
-    """Get available versions for a channel."""
-    manifest = fetch_version_manifest()
-    if manifest is None:
-        return []
-    return manifest.get("channels", {}).get(channel, {}).get("versions", [])
-
-
-def get_available_channels() -> list[str]:
-    """Get list of available channel names."""
-    manifest = fetch_version_manifest()
-    if manifest is None:
-        return ["stable"]
-    return list(manifest.get("channels", {}).keys())
 
 
 def start_upgrade(ref: str = "release") -> bool:
@@ -462,9 +430,9 @@ def get_upgrade_log_tail(lines: int = 3) -> str:
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
-def update_software() -> bool:
-    """Blocking wrapper for backward compatibility (uses default ref)."""
-    if not start_upgrade():
+def update_software(ref: str = "release") -> bool:
+    """Blocking wrapper — starts upgrade and polls until complete."""
+    if not start_upgrade(ref=ref):
         return False
     while True:
         time.sleep(10)

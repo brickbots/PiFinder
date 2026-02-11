@@ -61,8 +61,8 @@ def shutdown() -> None:
     logger.info("SYS: Initiating Shutdown")
 
 
-def update_software():
-    logger.info("SYS: Running update")
+def update_software(ref: str = "release"):
+    logger.info("SYS: Running update (ref=%s)", ref)
     return True
 
 

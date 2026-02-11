@@ -154,19 +154,47 @@ class CedarConnectionError(Exception):
 
 class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
     def __init__(self, port=50551):
-        """Set up the client without spawning the server as we
-        run this as a service on the PiFinder
+        """Connect to cedar-detect-server.
 
-        Also changing this to a different default port
+        On the Pi the server runs as a systemd service.
+        In dev mode we spawn it as a subprocess (like upstream does).
         """
         self._port = port
-        time.sleep(2)
+        self._subprocess = None
+
+        # Check if the server is already listening (systemd service on Pi)
+        if not self._server_reachable():
+            # Dev mode: spawn the server ourselves
+            import shutil
+            binary = shutil.which("cedar-detect-server")
+            if binary is None:
+                raise FileNotFoundError("cedar-detect-server")
+            my_env = os.environ.copy()
+            my_env["RUST_BACKTRACE"] = "1"
+            import subprocess
+            self._subprocess = subprocess.Popen(
+                [binary, "--port", str(self._port)], env=my_env
+            )
+            time.sleep(1)
+
         # Will initialize on first use.
         self._stub = None
         self._shmem = None
         self._shmem_size = 0
         # Try shared memory, fall back if an error occurs.
         self._use_shmem = True
+
+    def __del__(self):
+        if self._subprocess is not None:
+            self._subprocess.kill()
+        self._del_shmem()
+
+    def _server_reachable(self):
+        """Quick check if cedar-detect-server is already listening."""
+        import socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.2)
+            return s.connect_ex(("127.0.0.1", self._port)) == 0
 
     def _get_stub(self):
         if self._stub is None:
@@ -255,8 +283,6 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
                 tetra_centroids.append((sc.centroid_position.y, sc.centroid_position.x))
         return tetra_centroids
 
-    def __del__(self):
-        self._del_shmem()
 
 
 def solver(

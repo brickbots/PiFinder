@@ -1,11 +1,14 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
-This module contains the UI Module classes for
-software updates, channel selection, and release notes.
+UI modules for software updates, channel selection, and release notes.
+
+Channels:
+  - stable:   GitHub Releases (non-prerelease, >= MIN_NIXOS_VERSION)
+  - beta:     GitHub Pre-releases (>= MIN_NIXOS_VERSION)
+  - unstable: main branch + open PRs labeled 'testable'
 """
 
-import json
 import logging
 import time
 from typing import Dict, List, Optional
@@ -14,18 +17,15 @@ import requests
 
 from PiFinder import utils
 from PiFinder.ui.base import UIModule
-from PiFinder.ui.ui_utils import TextLayouter
+from PiFinder.ui.ui_utils import TextLayouter, TextLayouterScroll
 
 sys_utils = utils.get_sys_utils()
 logger = logging.getLogger("UISoftware")
 
-MANIFEST_URL = (
-    "https://raw.githubusercontent.com/brickbots/PiFinder"
-    "/release/release_manifest.json"
-)
-VERSION_TXT_URL = (
-    "https://raw.githubusercontent.com/brickbots/PiFinder" "/release/version.txt"
-)
+GITHUB_REPO = "brickbots/PiFinder"
+GITHUB_RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases"
+GITHUB_PULLS_URL = f"https://api.github.com/repos/{GITHUB_REPO}/pulls"
+MIN_NIXOS_VERSION = "2.5.0"
 REQUEST_TIMEOUT = 10
 
 
@@ -34,7 +34,7 @@ def update_needed(current_version: str, repo_version: str) -> bool:
     Returns true if an update is available.
 
     Update is available if semver of repo_version is > current_version.
-    Returns False on error (safe default — don't offer broken updates).
+    Returns False on error (safe default).
     """
     try:
         cur = _parse_version(current_version)
@@ -66,438 +66,585 @@ def _parse_version(version_str: str) -> tuple:
         return (major, minor, patch, 0, pre_release)
 
 
-def _fetch_manifest() -> Optional[dict]:
-    """Fetch and parse the release manifest JSON. Returns None on failure."""
+def _meets_min_version(version_str: str) -> bool:
+    """Check if a version string is >= MIN_NIXOS_VERSION."""
     try:
-        if MANIFEST_URL.startswith("file://"):
-            path = MANIFEST_URL[len("file://") :]
-            with open(path, "r") as f:
-                return json.load(f)
-        res = requests.get(MANIFEST_URL, timeout=REQUEST_TIMEOUT)
-        if res.status_code == 200:
-            return json.loads(res.text)
-    except (OSError, json.JSONDecodeError, KeyError) as e:
-        logger.warning(f"Could not read release manifest: {e}")
-    except requests.exceptions.RequestException as e:
-        logger.warning(f"Could not fetch release manifest: {e}")
-    return None
+        ver = _parse_version(version_str)
+        minimum = _parse_version(MIN_NIXOS_VERSION)
+        return ver >= minimum
+    except Exception:
+        return False
 
 
-def _fetch_version_txt() -> Optional[str]:
-    """Fallback: fetch version.txt. Returns version string or None."""
+def _version_from_tag(tag: str) -> str:
+    """Strip leading 'v' from a tag name to get the version string."""
+    return tag.lstrip("v")
+
+
+def _fetch_github_releases() -> tuple[list[dict], list[dict]]:
+    """
+    Fetch releases from GitHub API.
+    Returns (stable_entries, beta_entries) sorted newest-first.
+    """
+    stable: list[dict] = []
+    beta: list[dict] = []
     try:
-        res = requests.get(VERSION_TXT_URL, timeout=REQUEST_TIMEOUT)
-        if res.status_code == 200:
-            return res.text.strip()
+        res = requests.get(
+            GITHUB_RELEASES_URL,
+            timeout=REQUEST_TIMEOUT,
+            headers={"Accept": "application/vnd.github.v3+json"},
+        )
+        if res.status_code != 200:
+            logger.warning("GitHub releases API returned %d", res.status_code)
+            return stable, beta
+
+        for release in res.json():
+            if release.get("draft"):
+                continue
+            tag = release.get("tag_name", "")
+            version = _version_from_tag(tag)
+            if not _meets_min_version(version):
+                continue
+
+            entry = {
+                "label": tag,
+                "ref": f"github:{GITHUB_REPO}/{tag}#pifinder",
+                "notes": release.get("body") or None,
+                "version": version,
+            }
+
+            if release.get("prerelease"):
+                beta.append(entry)
+            else:
+                stable.append(entry)
+
     except requests.exceptions.RequestException as e:
-        logger.warning(f"Could not fetch version.txt: {e}")
-    return None
+        logger.warning("Could not fetch GitHub releases: %s", e)
+
+    return stable, beta
 
 
-def _filter_upgrades(
-    current: str, versions: List[dict]
-) -> List[dict]:
-    """Return only versions that are newer than current."""
-    return [v for v in versions if update_needed(current, v["version"].strip())]
+def _fetch_testable_prs() -> list[dict]:
+    """
+    Fetch open PRs with the 'testable' label.
+    Returns list of unstable entries (main branch prepended by caller).
+    """
+    entries: list[dict] = []
+    try:
+        res = requests.get(
+            GITHUB_PULLS_URL,
+            params={"state": "open", "labels": "testable"},
+            timeout=REQUEST_TIMEOUT,
+            headers={"Accept": "application/vnd.github.v3+json"},
+        )
+        if res.status_code != 200:
+            logger.warning("GitHub pulls API returned %d", res.status_code)
+            return entries
+
+        for pr in res.json():
+            number = pr.get("number", 0)
+            title = pr.get("title", "")
+            sha = pr.get("head", {}).get("sha", "")
+            body = pr.get("body") or None
+            # Truncate title for display
+            short_title = title[:20] + "..." if len(title) > 20 else title
+            entries.append(
+                {
+                    "label": f"PR#{number} {short_title}",
+                    "ref": f"github:{GITHUB_REPO}/{sha}#pifinder",
+                    "notes": body,
+                    "version": None,
+                }
+            )
+
+    except requests.exceptions.RequestException as e:
+        logger.warning("Could not fetch testable PRs: %s", e)
+
+    return entries
 
 
 class UISoftware(UIModule):
     """
-    UI for updating software versions.
-    Supports stable/unstable channels with manifest-based version checking.
+    Software update UI.
 
-    Menu phases (each shows max 3 items, skipped if only one choice):
-      channel → version → action
+    Phases:
+      loading  - animated "Checking for updates..."
+      browse   - header (version + channel selector) + scrollable version list
+      confirm  - selected version details + Install / Notes / Cancel
+      failed   - update failed + Retry / Cancel
     """
 
     __title__ = "SOFTWARE"
+    MAX_VISIBLE = 5
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.version_txt = f"{utils.pifinder_dir}/version.txt"
         self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
-        with open(self.wifi_txt, "r") as wfs:
-            self._wifi_mode = wfs.read()
-        with open(self.version_txt, "r") as ver:
-            self._software_version = ver.read()
+        with open(self.wifi_txt, "r") as f:
+            self._wifi_mode = f.read().strip()
+        with open(self.version_txt, "r") as f:
+            self._software_version = f.read().strip()
 
-        # Parsed manifest data: channel name → list of version dicts
         self._channels: Dict[str, List[dict]] = {}
-        self._release_version = "-.-.-"
+        self._channel_names: List[str] = []
+        self._channel_index = 0
+
+        self._version_list: List[dict] = []
+        self._list_index = 0
+        self._scroll_offset = 0
+
+        self._phase = "loading"
+        self._focus = "channel"  # "channel" or "list" (browse phase)
         self._elipsis_count = 0
-        self._go_for_update = False
 
-        # Menu navigation
-        # Phases: "channel" or "action"
-        self._menu_phase = "action"
-        self._selected_channel = "stable"
         self._selected_version: Optional[dict] = None
-        self._version_index = 0
-        self._options: list = []
-        self._option_index = 0
+        self._confirm_options: List[str] = []
+        self._confirm_index = 0
 
-        # Update failure state
-        self._update_failed = False
         self._fail_option = "Retry"
+        self._unstable_unlocked = False
+        self._unstable_entries: List[dict] = []
+        self._square_count = 0
+
+        self._scroll_label: Optional[TextLayouterScroll] = None
+        self._scroll_label_text: Optional[str] = None
 
     def active(self):
         super().active()
-        self._menu_phase = "action"
-        self._selected_channel = "stable"
+        self._phase = "loading"
+        self._elipsis_count = 0
+        self._focus = "channel"
+        self._channel_index = 0
+        self._list_index = 0
+        self._scroll_offset = 0
         self._selected_version = None
-        self._version_index = 0
 
-    def get_release_version(self):
-        """
-        Fetches current release version from github.
-        Tries manifest first, falls back to version.txt.
-        """
-        manifest = _fetch_manifest()
-        if manifest and "channels" in manifest:
-            self._channels = manifest["channels"]
-            # Set release version from first stable entry
-            stable_versions = self._channels.get("stable", [])
-            if stable_versions:
-                self._release_version = stable_versions[0]["version"]
-            else:
-                self._release_version = "Unknown"
-            return
+    # ------------------------------------------------------------------
+    # Data
+    # ------------------------------------------------------------------
 
-        # Fallback to version.txt
-        logger.info("Manifest unavailable, falling back to version.txt")
-        version = _fetch_version_txt()
-        if version:
-            self._channels = {
-                "stable": [{"version": version, "notes_url": None}]
+    def _fetch_channels(self):
+        stable, beta = _fetch_github_releases()
+        pr_entries = _fetch_testable_prs()
+
+        unstable = [
+            {
+                "label": "main",
+                "ref": f"github:{GITHUB_REPO}/main#pifinder",
+                "notes": None,
+                "version": None,
             }
-            self._release_version = version
-        else:
-            self._release_version = "Unknown"
+        ]
+        unstable.extend(pr_entries)
 
-    def _available_channels(self) -> Dict[str, List[dict]]:
-        """Return channels that have updates, filtered by type."""
-        current = self._software_version.strip()
-        result = {}
-        for name, versions in self._channels.items():
-            upgrades = _filter_upgrades(current, versions)
-            if upgrades:
-                result[name] = upgrades
-        return result
+        self._channels = {
+            "stable": stable,
+            "beta": beta,
+        }
+        self._unstable_entries = unstable
 
-    def _channel_versions(self) -> List[dict]:
-        """Return upgrade versions for the selected channel."""
-        available = self._available_channels()
-        return available.get(self._selected_channel, [])
+        if self._unstable_unlocked:
+            self._channels["unstable"] = unstable
 
-    def _rebuild_options(self):
-        """Build the option list for the current menu phase."""
-        available = self._available_channels()
-        options = []
+        self._channel_names = list(self._channels.keys())
+        self._channel_index = 0
+        self._refresh_version_list()
+        self._phase = "browse"
 
-        if self._menu_phase == "channel":
-            for name in available:
-                options.append(name.capitalize())
-        else:
-            # Action phase — version selector + actions
-            versions = self._channel_versions()
-            if len(versions) > 1:
-                v = self._selected_version or versions[0]
-                options.append(f"v{v['version']}")
-            v = self._selected_version or (versions[0] if versions else {})
-            options.append("Update")
-            if self._selected_version and self._selected_version.get("notes_url"):
-                options.append("Notes")
-            options.append("Cancel")
-
-        self._options = options
-        if self._option_index >= len(self._options):
-            self._option_index = 0
-
-    def _enter_best_phase(self):
-        """
-        Set the menu phase based on what choices exist.
-        Skip channel phase when there's only one channel.
-        """
-        available = self._available_channels()
-        channel_names = list(available.keys())
-
-        if len(channel_names) > 1:
-            self._menu_phase = "channel"
-            self._option_index = 0
+    def _refresh_version_list(self):
+        if not self._channel_names:
+            self._version_list = []
             return
+        channel = self._channel_names[self._channel_index]
+        entries = self._channels.get(channel, [])
+        self._version_list = [
+            e for e in entries if e.get("version") != self._software_version
+        ]
+        self._list_index = 0
+        self._scroll_offset = 0
+        self._scroll_label = None
+        self._scroll_label_text = None
 
-        # Single channel
-        if channel_names:
-            self._selected_channel = channel_names[0]
-        else:
-            return
+    # ------------------------------------------------------------------
+    # Drawing helpers
+    # ------------------------------------------------------------------
 
-        versions = available.get(self._selected_channel, [])
-        self._version_index = 0
-        if versions:
-            self._selected_version = versions[0]
-        self._menu_phase = "action"
-        self._option_index = 0
+    def _draw_separator(self, y):
+        self.draw.line([(0, y), (127, y)], fill=self.colors.get(64))
 
-    def update_software(self):
-        self.message(_("Updating..."), 10)
-        if sys_utils.update_software():
-            self.message(_("Ok! Restarting..."), 10)
-            sys_utils.restart_system()
-        else:
-            self._update_failed = True
-
-    def _draw_version_header(self):
-        """Draw the top section: wifi, current version, release version."""
-        draw_pos = self.display_class.titlebar_height + 2
-
+    def _draw_loading(self):
+        y = self.display_class.titlebar_height + 2
         self.draw.text(
-            (0, draw_pos),
-            _("Wifi Mode: {}").format(self._wifi_mode),
-            font=self.fonts.base.font,
-            fill=self.colors.get(128),
-        )
-        draw_pos += 15
-
-        self.draw.text(
-            (0, draw_pos),
-            _("Current Version"),
+            (0, y),
+            self._software_version,
             font=self.fonts.bold.font,
-            fill=self.colors.get(128),
+            fill=self.colors.get(255),
         )
-        draw_pos += 10
-
+        dots = "." * (self._elipsis_count // 10)
         self.draw.text(
-            (10, draw_pos),
-            f"{self._software_version}",
-            font=self.fonts.bold.font,
-            fill=self.colors.get(192),
+            (10, 90),
+            _("Checking for"),
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
         )
-        draw_pos += 16
-
-        if self._selected_version:
-            update_label = _("Update to")
-            update_version = self._selected_version["version"]
-        else:
-            update_label = _("Update to")
-            update_version = self._release_version
-
         self.draw.text(
-            (0, draw_pos),
-            update_label,
-            font=self.fonts.bold.font,
-            fill=self.colors.get(128),
+            (10, 105),
+            _("updates{elipsis}").format(elipsis=dots),
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
         )
-        draw_pos += 10
+        self._elipsis_count += 1
+        if self._elipsis_count > 39:
+            self._elipsis_count = 0
 
+    def _draw_wifi_warning(self):
+        y = self.display_class.titlebar_height + 2
         self.draw.text(
-            (10, draw_pos),
-            f"{update_version}",
+            (0, y),
+            self._software_version,
             font=self.fonts.bold.font,
-            fill=self.colors.get(192),
+            fill=self.colors.get(255),
+        )
+        self.draw.text(
+            (10, 90),
+            _("WiFi must be"),
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
+        )
+        self.draw.text(
+            (10, 105),
+            _("client mode"),
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
         )
 
-    def _draw_options(self):
-        """Draw the option list at the bottom of the screen."""
-        self._rebuild_options()
-        option_start_y = 90
-        for i, label in enumerate(self._options):
-            y = option_start_y + i * 12
+    def _draw_browse(self):
+        y = self.display_class.titlebar_height + 2
+
+        # Current version
+        self.draw.text(
+            (0, y),
+            self._software_version,
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
+        )
+        y += 14
+
+        # Channel selector
+        channel_name = (
+            self._channel_names[self._channel_index].capitalize()
+            if self._channel_names
+            else "---"
+        )
+        if self._focus == "channel":
             self.draw.text(
-                (10, y),
-                _(label),
+                (0, y),
+                self._RIGHT_ARROW,
                 font=self.fonts.bold.font,
                 fill=self.colors.get(255),
             )
-            if i == self._option_index:
+            self.draw.text(
+                (10, y),
+                channel_name,
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+        else:
+            self.draw.text(
+                (10, y),
+                channel_name,
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
+        y += 14
+
+        self._draw_separator(y)
+        y += 4
+
+        # Version list
+        if not self._version_list:
+            self.draw.text(
+                (10, y + 10),
+                _("No versions"),
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
+            self.draw.text(
+                (10, y + 22),
+                _("available"),
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
+            return
+
+        visible = min(self.MAX_VISIBLE, len(self._version_list))
+        # available width after arrow (10px) in characters
+        label_width = self.fonts.base.line_length - 2
+        for i in range(visible):
+            idx = self._scroll_offset + i
+            if idx >= len(self._version_list):
+                break
+            entry = self._version_list[idx]
+            item_y = y + i * 12
+            label = entry["label"]
+
+            if self._focus == "list" and idx == self._list_index:
+                self.draw.text(
+                    (0, item_y),
+                    self._RIGHT_ARROW,
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+                if self._scroll_label_text != label:
+                    self._scroll_label = TextLayouterScroll(
+                        label,
+                        draw=self.draw,
+                        color=self.colors.get(255),
+                        font=self.fonts.bold,
+                        width=label_width,
+                    )
+                    self._scroll_label_text = label
+                self._scroll_label.draw((10, item_y))
+            else:
+                self.draw.text(
+                    (10, item_y),
+                    label[:label_width],
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(192),
+                )
+
+    def _draw_confirm(self):
+        y = self.display_class.titlebar_height + 2
+
+        self.draw.text(
+            (0, y),
+            _("Update to:"),
+            font=self.fonts.base.font,
+            fill=self.colors.get(128),
+        )
+        y += 14
+
+        version_label = (
+            self._selected_version.get("version")
+            or self._selected_version["label"]
+        )
+        self.draw.text(
+            (0, y),
+            version_label,
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
+        )
+        y += 14
+
+        self._draw_separator(y)
+        y += 4
+
+        for i, opt in enumerate(self._confirm_options):
+            item_y = y + i * 12
+            if i == self._confirm_index:
+                self.draw.text(
+                    (0, item_y),
+                    self._RIGHT_ARROW,
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+                self.draw.text(
+                    (10, item_y),
+                    _(opt),
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+            else:
+                self.draw.text(
+                    (10, item_y),
+                    _(opt),
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(192),
+                )
+
+    def _draw_failed(self):
+        y = self.display_class.titlebar_height + 20
+        self.draw.text(
+            (10, y),
+            _("Update failed!"),
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
+        )
+        y += 20
+        for label in ("Retry", "Cancel"):
+            if self._fail_option == label:
                 self.draw.text(
                     (0, y),
                     self._RIGHT_ARROW,
                     font=self.fonts.bold.font,
                     fill=self.colors.get(255),
                 )
+            self.draw.text(
+                (10, y),
+                _(label),
+                font=self.fonts.bold.font,
+                fill=self.colors.get(255),
+            )
+            y += 12
+
+    # ------------------------------------------------------------------
+    # Main update loop
+    # ------------------------------------------------------------------
 
     def update(self, force=False):
         time.sleep(1 / 30)
         self.clear_screen()
-        self._draw_version_header()
 
-        # Handle update failure screen
-        if self._update_failed:
-            self.draw.text(
-                (10, 90),
-                _("Update failed!"),
-                font=self.fonts.bold.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (10, 102),
-                _("Retry"),
-                font=self.fonts.bold.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (10, 114),
-                _("Cancel"),
-                font=self.fonts.bold.font,
-                fill=self.colors.get(255),
-            )
-            ind_pos = 102 if self._fail_option == "Retry" else 114
-            self.draw.text(
-                (0, ind_pos),
-                self._RIGHT_ARROW,
-                font=self.fonts.bold.font,
-                fill=self.colors.get(255),
-            )
+        if self._phase == "failed":
+            self._draw_failed()
             return self.screen_update()
 
         if self._wifi_mode != "Client":
-            self.draw.text(
-                (10, 90),
-                _("WiFi must be"),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (10, 105),
-                _("client mode"),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
+            self._draw_wifi_warning()
             return self.screen_update()
 
-        if self._release_version == "-.-.-":
+        if self._phase == "loading":
             if self._elipsis_count > 30:
-                self.get_release_version()
-            self.draw.text(
-                (10, 90),
-                _("Checking for"),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (10, 105),
-                _("updates{elipsis}").format(
-                    elipsis="." * int(self._elipsis_count / 10)
-                ),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            self._elipsis_count += 1
-            if self._elipsis_count > 39:
-                self._elipsis_count = 0
-            return self.screen_update()
+                self._fetch_channels()
+                # phase is now "browse", fall through
+            else:
+                self._draw_loading()
+                return self.screen_update()
 
-        available = self._available_channels()
-        if not available:
-            self.draw.text(
-                (10, 90),
-                _("No Update"),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (10, 105),
-                _("needed"),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            return self.screen_update()
+        if self._phase == "browse":
+            self._draw_browse()
+        elif self._phase == "confirm":
+            self._draw_confirm()
 
-        # Update available — enter menu if not already navigating
-        if not self._go_for_update:
-            self._go_for_update = True
-            self._enter_best_phase()
-
-        self._draw_options()
         return self.screen_update()
 
-    def _cycle_option(self, direction: int = 1):
-        if self._update_failed:
-            self._fail_option = "Cancel" if self._fail_option == "Retry" else "Retry"
-            return
-        if not self._go_for_update:
-            return
-        self._option_index = (self._option_index + direction) % len(self._options)
+    # ------------------------------------------------------------------
+    # Key handlers
+    # ------------------------------------------------------------------
+
+    def _reset_unlock(self):
+        self._square_count = 0
 
     def key_up(self):
-        self._cycle_option(-1)
+        self._reset_unlock()
+        if self._phase == "failed":
+            self._fail_option = "Cancel" if self._fail_option == "Retry" else "Retry"
+        elif self._phase == "browse":
+            if self._focus == "list":
+                if self._list_index == 0:
+                    self._focus = "channel"
+                else:
+                    self._list_index -= 1
+                    if self._list_index < self._scroll_offset:
+                        self._scroll_offset = self._list_index
+        elif self._phase == "confirm":
+            if self._confirm_index > 0:
+                self._confirm_index -= 1
 
     def key_down(self):
-        self._cycle_option(1)
+        self._reset_unlock()
+        if self._phase == "failed":
+            self._fail_option = "Cancel" if self._fail_option == "Retry" else "Retry"
+        elif self._phase == "browse":
+            if self._focus == "channel":
+                if self._version_list:
+                    self._focus = "list"
+                    self._list_index = 0
+                    self._scroll_offset = 0
+            elif self._focus == "list":
+                if self._list_index < len(self._version_list) - 1:
+                    self._list_index += 1
+                    if self._list_index >= self._scroll_offset + self.MAX_VISIBLE:
+                        self._scroll_offset = (
+                            self._list_index - self.MAX_VISIBLE + 1
+                        )
+        elif self._phase == "confirm":
+            if self._confirm_index < len(self._confirm_options) - 1:
+                self._confirm_index += 1
+
+    def key_right(self):
+        self._reset_unlock()
+        if self._phase == "failed":
+            if self._fail_option == "Retry":
+                self._phase = "confirm"
+                self.update_software()
+            else:
+                self.remove_from_stack()
+        elif self._phase == "browse":
+            if self._focus == "channel" and self._channel_names:
+                self._channel_index = (
+                    (self._channel_index + 1) % len(self._channel_names)
+                )
+                self._refresh_version_list()
+            elif self._focus == "list" and self._version_list:
+                self._selected_version = self._version_list[self._list_index]
+                self._confirm_options = ["Install"]
+                if self._selected_version.get("notes"):
+                    self._confirm_options.append("Notes")
+                self._confirm_options.append("Cancel")
+                self._confirm_index = 0
+                self._phase = "confirm"
+        elif self._phase == "confirm":
+            opt = self._confirm_options[self._confirm_index]
+            if opt == "Install":
+                self.update_software()
+            elif opt == "Notes":
+                notes = self._selected_version.get("notes")
+                if notes:
+                    self.add_to_stack(
+                        {"class": UIReleaseNotes, "notes_text": notes}
+                    )
+            elif opt == "Cancel":
+                self._phase = "browse"
 
     def key_left(self):
-        available = self._available_channels()
-        if self._menu_phase == "action" and len(available) > 1:
-            self._menu_phase = "channel"
-            self._selected_version = None
-            self._option_index = 0
+        self._reset_unlock()
+        if self._phase == "confirm":
+            self._phase = "browse"
             return False
         return True
 
-    def key_right(self):
-        if self._update_failed:
-            if self._fail_option == "Retry":
-                self._update_failed = False
-                self._fail_option = "Retry"
-                self.update_software()
-            else:
-                self._update_failed = False
-                self.remove_from_stack()
+    def key_square(self):
+        self._square_count += 1
+        if self._square_count >= 7 and not self._unstable_unlocked:
+            self._unstable_unlocked = True
+            self._channels["unstable"] = self._unstable_entries
+            self._channel_names = list(self._channels.keys())
+            self.message(_("Unstable\nunlocked"), 1)
+
+    def key_number(self, number):
+        self._square_count = 0
+
+    # ------------------------------------------------------------------
+    # Update action
+    # ------------------------------------------------------------------
+
+    def update_software(self):
+        if not self._selected_version:
             return
-
-        if not self._go_for_update:
-            return
-
-        selected = self._options[self._option_index]
-
-        if self._menu_phase == "channel":
-            self._selected_channel = selected.lower()
-            versions = self._channel_versions()
-            self._version_index = 0
-            self._selected_version = versions[0] if versions else None
-            self._menu_phase = "action"
-            self._option_index = 0
-            return
-
-        # Action phase
-        if selected.startswith("v"):
-            # Version selector — cycle to next version
-            versions = self._channel_versions()
-            self._version_index = (self._version_index + 1) % len(versions)
-            self._selected_version = versions[self._version_index]
-        elif selected == "Cancel":
-            self.remove_from_stack()
-        elif selected == "Notes":
-            notes_url = (
-                self._selected_version.get("notes_url")
-                if self._selected_version
-                else None
-            )
-            if notes_url:
-                self.add_to_stack(
-                    {
-                        "class": UIReleaseNotes,
-                        "notes_url": notes_url,
-                    }
-                )
-        elif selected == "Update":
-            self.update_software()
+        ref = self._selected_version.get("ref") or "release"
+        self.message(_("Updating..."), 10)
+        if sys_utils.update_software(ref=ref):
+            self.message(_("Ok! Restarting..."), 10)
+            sys_utils.restart_system()
+        else:
+            self._phase = "failed"
+            self._fail_option = "Retry"
 
 
 class UIReleaseNotes(UIModule):
     """
     Scrollable release notes viewer.
-    Fetches markdown from a URL and displays as plain text.
+    Accepts markdown text directly via notes_text in item_definition.
     """
 
     __title__ = "NOTES"
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._notes_url = self.item_definition.get("notes_url", "")
+        self._notes_text = self.item_definition.get("notes_text", "")
         self._loaded = False
-        self._error = False
         self._text_layout = TextLayouter(
             "",
             draw=self.draw,
@@ -510,40 +657,32 @@ class UIReleaseNotes(UIModule):
     def active(self):
         super().active()
         if not self._loaded:
-            self._fetch_notes()
+            self._load_notes()
 
-    def _fetch_notes(self):
-        """Fetch release notes from the configured URL."""
-        try:
-            res = requests.get(self._notes_url, timeout=REQUEST_TIMEOUT)
-            if res.status_code == 200:
-                text = _strip_markdown(res.text)
-                self._text_layout.set_text(text)
-                self._loaded = True
-            else:
-                self._error = True
-                logger.warning(
-                    f"Failed to fetch release notes: HTTP {res.status_code}"
-                )
-        except requests.exceptions.RequestException as e:
-            self._error = True
-            logger.warning(f"Failed to fetch release notes: {e}")
+    def _load_notes(self):
+        """Process notes text for display."""
+        if self._notes_text:
+            text = _strip_markdown(self._notes_text)
+            self._text_layout.set_text(text)
+            self._loaded = True
+        else:
+            self._loaded = True
 
     def update(self, force=False):
         time.sleep(1 / 30)
         self.clear_screen()
         draw_pos = self.display_class.titlebar_height + 2
 
-        if self._error:
+        if not self._notes_text:
             self.draw.text(
                 (10, draw_pos + 20),
-                _("Could not load"),
+                _("No release notes"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
             self.draw.text(
                 (10, draw_pos + 35),
-                _("release notes"),
+                _("available"),
                 font=self.fonts.large.font,
                 fill=self.colors.get(255),
             )
