@@ -76,4 +76,4 @@ The Abell Catalog of Planetary Nebulae (1966 by George O. Abell) contains 79 ent
 Arp
 ----
 Atlas of Peculiar Galaxies    (Arp 1966)
-Select galaxies with interest morhphology.  See `Wikipedia - Atlas of Peculiar Galaxies <https://en.wikipedia.org/wiki/Atlas_of_Peculiar_Galaxies>`_
+Select galaxies with interest morphology.  See `Wikipedia - Atlas of Peculiar Galaxies <https://en.wikipedia.org/wiki/Atlas_of_Peculiar_Galaxies>`_

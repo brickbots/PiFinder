@@ -4,6 +4,7 @@ from PiFinder.db.objects_db import ObjectsDatabase
 from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.ui_utils import format_number
 import time
+import threading
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -112,7 +113,14 @@ class UITextEntry(UIModule):
         self.cursor_height = self.fonts.bold.height
         self.text_x = 7
         self.text_x_end = 128 - self.text_x
-        self.text_y = 15
+        self.text_y = self.display_class.titlebar_height + 2
+
+        # Async search state
+        self._search_timer = None
+        self._search_version = 0
+        self._search_lock = threading.Lock()
+        self._results_updated = False  # Flag to trigger UI refresh
+        self.SEARCH_DEBOUNCE_MS = 250  # milliseconds
 
     def draw_text_entry(self):
         line_text_y = self.text_y + 15
@@ -182,16 +190,24 @@ class UITextEntry(UIModule):
             )
 
     def draw_results(self):
+        # Thread-safe read of search results
+        with self._search_lock:
+            results = self.search_results.copy()
+
         item_definition = {
             "name": _("Results"),
             "class": UIObjectList,
             "objects": "custom",
-            "object_list": self.search_results,
+            "object_list": results,
         }
         self.add_to_stack(item_definition)
 
     def draw_search_result_len(self):
-        formatted_len = format_number(len(self.search_results), 4).strip()
+        # Thread-safe read of search results length
+        with self._search_lock:
+            result_count = len(self.search_results)
+
+        formatted_len = format_number(result_count, 4).strip()
         self.text_x_end = (
             128 - 2 - self.text_x - self.bold.font.getbbox(formatted_len)[2]
         )
@@ -207,10 +223,78 @@ class UITextEntry(UIModule):
         return result and self.keys.get_nr_entries(str(self.last_key)) > 1
 
     def update_search_results(self):
-        """Only update search results in search mode"""
-        if not self.text_entry_mode:
-            results = self.catalogs.search_by_text(self.current_text)
-            self.search_results = results
+        """
+        Debounced async search - waits 250ms after last keystroke before searching.
+        Only updates search results in search mode.
+        """
+        import logging
+
+        logger = logging.getLogger("TextEntry")
+
+        if self.text_entry_mode:
+            logger.info("update_search_results: in text_entry_mode, returning")
+            return
+
+        logger.info(
+            f"update_search_results: scheduling search for '{self.current_text}'"
+        )
+
+        # Cancel pending timer if exists
+        if self._search_timer is not None:
+            self._search_timer.cancel()
+            logger.info("update_search_results: cancelled pending timer")
+
+        # Increment search version to invalidate any in-flight searches
+        with self._search_lock:
+            self._search_version += 1
+            current_version = self._search_version
+
+        # Capture current search text (don't reference self.current_text in lambda)
+        search_text = self.current_text
+
+        # Schedule search after debounce delay
+        self._search_timer = threading.Timer(
+            self.SEARCH_DEBOUNCE_MS / 1000.0,
+            lambda: self._perform_search(search_text, current_version),
+        )
+        self._search_timer.start()
+        logger.info(
+            f"update_search_results: timer started for 250ms, version={current_version}"
+        )
+
+    def _perform_search(self, search_text, search_version):
+        """
+        Perform the actual search in background thread.
+        Only updates results if this search version is still current.
+        """
+        import logging
+
+        logger = logging.getLogger("TextEntry")
+
+        try:
+            logger.info(
+                f"_perform_search called with text='{search_text}', version={search_version}"
+            )
+
+            # Search through whatever catalogs are loaded
+            # Priority catalogs (NGC, IC, M) are loaded first, WDS loads in background
+            # So search will work immediately with those, WDS results appear when loading completes
+            logger.info(f"Starting search for '{search_text}'")
+            results = self.catalogs.search_by_text(search_text)
+            logger.info(f"Search for '{search_text}' found {len(results)} results")
+
+            # Only update if this search is still current (not superseded by newer search)
+            with self._search_lock:
+                if search_version == self._search_version:
+                    self.search_results = results
+                    self._results_updated = True  # Flag that we need UI refresh
+                    logger.info("Search results updated, flagging UI refresh")
+                else:
+                    logger.info(
+                        f"Search results discarded (version mismatch: {search_version} != {self._search_version})"
+                    )
+        except Exception as e:
+            logger.error(f"Exception in _perform_search: {e}", exc_info=True)
 
     def add_char(self, char):
         if len(self.current_text) >= 12:
@@ -281,26 +365,25 @@ class UITextEntry(UIModule):
         else:
             print("didn't find key", number_key)
 
+    def inactive(self):
+        """Cancel/invalidate any in-flight searches when screen becomes inactive"""
+        # Cancel pending timer
+        if self._search_timer is not None:
+            self._search_timer.cancel()
+            self._search_timer = None
+
+        # Increment version to make any running searches ignore their results
+        with self._search_lock:
+            self._search_version += 1
+
     def update(self, force=False):
         self.draw.rectangle((0, 0, 128, 128), fill=self.colors.get(0))
 
-        # Draw appropriate header based on mode
+        # Set title based on mode (will be drawn by screen_update())
         if self.text_entry_mode:
-            # Pure text entry mode
-            self.draw.text(
-                (7, 0),
-                _("Enter Location Name:"),
-                font=self.fonts.base.font,
-                fill=self.half_red,
-            )
+            self.title = _("Enter Location Name:")
         else:
-            # Search mode
-            self.draw.text(
-                (7, 0),
-                _("Search:"),
-                font=self.fonts.base.font,
-                fill=self.half_red,
-            )
+            self.title = _("Search")
             self.draw_search_result_len()
 
         self.draw_text_entry()
@@ -312,6 +395,4 @@ class UITextEntry(UIModule):
         else:
             self.draw_results()
 
-        if self.shared_state:
-            self.shared_state.set_screen(self.screen)
         return self.screen_update()

@@ -71,7 +71,7 @@ General Pi Setup
    You must use the specific Raspberry Pi OS version listed here or the PiFinder software will not work.  The software is designed and tested for a specific version with each release.
 
 
-* Create Image:  I'd strongly recommend using the Rapsberry Pi imager.  It's available for most platforms and lets you easily setup wifi and SSH for your new image.
+* Create Image:  I'd strongly recommend using the Raspberry Pi imager.  It's available for most platforms and lets you easily setup wifi and SSH for your new image.
 
   * Select the 64-Bit version of Pi OS (**Legacy**) Lite (No Desktop Environment)
 

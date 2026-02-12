@@ -5,7 +5,7 @@
         <p class="grey-text">This will take approximately 45 seconds and you should
         be redirected to the home page.
 
-        <p class="grey-text text-lighter-1">You may need to change the URL above or connect to a differnet
+        <p class="grey-text text-lighter-1">You may need to change the URL above or connect to a different
         wifi network on your phone/tablet/computer depending on the changes you made to the PiFinder 
         configuration.  
 

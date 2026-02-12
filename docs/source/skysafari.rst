@@ -57,4 +57,4 @@ Click 'Next' to continue
 
 The defaults are good for the Readout rate and Timeout.  Give your profile a name and click the 'Save Preset' button.  This will save your new profile and make it the active one.
 
-Now you should be able to select the Telescope icon on the main SkyFinder screen and click the connect button to start requesting position updates from the PiFinder.  If no solution has been obtained yet, the PiFinder will send a default location to SkySafari (0 degress RA/DEC) until it completes the first exposure/solve.
+Now you should be able to select the Telescope icon on the main SkySafari screen and click the connect button to start requesting position updates from the PiFinder.  If no solution has been obtained yet, the PiFinder will send a default location to SkySafari (0 degrees RA/DEC) until it completes the first exposure/solve.

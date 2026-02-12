@@ -394,14 +394,45 @@ class UIObjectDetails(UIModule):
             self.screen_direction,
             self.object,
         )
+
+        # Check if aim_degrees returned valid values
+        if point_az is None or point_alt is None:
+            # No valid pointing data available
+            self.draw.text(
+                (10, 70),
+                _("Calculating"),
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
+            self.draw.text(
+                (10, 90),
+                _(f"position{'.' * int(self._elipsis_count / 10)}"),
+                font=self.fonts.large.font,
+                fill=self.colors.get(255),
+            )
+            self._elipsis_count += 1
+            if self._elipsis_count > 39:
+                self._elipsis_count = 0
+            return
+
         if point_az < 0:
             point_az *= -1
-            az_arrow = self._LEFT_ARROW
+            if self.mount_type == "Alt/Az":
+                az_arrow = self._LEFT_ARROW
+            else:
+                az_arrow = "-"
+
         else:
-            az_arrow = self._RIGHT_ARROW
+            if self.mount_type == "Alt/Az":
+                az_arrow = self._RIGHT_ARROW
+            else:
+                az_arrow = "+"
 
         # Check az arrow config
-        if self.config_object.get_option("pushto_az_arrows", "Default") == "Reverse":
+        if (
+            self.config_object.get_option("pushto_az_arrows", "Default") == "Reverse"
+            and self.mount_type == "Alt/Az"
+        ):
             if az_arrow is self._LEFT_ARROW:
                 az_arrow = self._RIGHT_ARROW
             else:
@@ -425,9 +456,15 @@ class UIObjectDetails(UIModule):
 
         if point_alt < 0:
             point_alt *= -1
-            alt_arrow = self._DOWN_ARROW
+            if self.mount_type == "Alt/Az":
+                alt_arrow = self._DOWN_ARROW
+            else:
+                alt_arrow = "-"
         else:
-            alt_arrow = self._UP_ARROW
+            if self.mount_type == "Alt/Az":
+                alt_arrow = self._UP_ARROW
+            else:
+                alt_arrow = "+"
 
         # Change decimal points when within 1 degree
         if point_alt < 1:

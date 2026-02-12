@@ -27,6 +27,7 @@ logger = logging.getLogger("PosServer")
 sr_result = None
 sequence = 0
 ui_queue: Queue
+is_stellarium = False
 
 # shortcut for skyfield timescale
 ts = sf_utils.ts
@@ -90,6 +91,31 @@ def get_telescope_dec(shared_state, _):
     return dec_result
 
 
+def get_distance_bars(_shared_state, _input_str):
+    return "\x7f"
+
+
+def get_firmware_date(_shared_state, _input_str):
+    return "Jan 28 2026"
+
+
+def get_firmware_version(_shared_state, _input_str):
+    return "01.0"
+
+
+def get_product(_shared_state, _input_str):
+    return "PiFinder"
+
+
+def get_firmware_time(_shared_state, _input_str):
+    return "17:25:00"
+
+
+def get_status(_shared_state, _input_str):
+    # Indicates alt-az mode, tracking, and 1-star aligned
+    return "AT1"
+
+
 def respond_none(shared_state, input_str):
     return None
 
@@ -142,15 +168,18 @@ def parse_sd_command(shared_state, input_str: str):
 
 
 def handle_goto_command(shared_state, ra_parsed, dec_parsed):
-    global sequence, ui_queue
+    global sequence, ui_queue, is_stellarium
     ra = ra_to_deg(*ra_parsed)
     dec = dec_to_deg(*dec_parsed)
-    logger.debug("handle_goto_command: ra,dec in deg, JNOW: %s, %s", ra, dec)
-    _p = position_of_radec(ra_hours=ra / 15, dec_degrees=dec, epoch=ts.now())
-    ra_h, dec_d, _ = _p.radec(epoch=ts.J2000)
+    if is_stellarium:
+        comp_ra, comp_dec = ra, dec
+    else:
+        logger.debug("handle_goto_command: ra,dec in deg, JNOW: %s, %s", ra, dec)
+        _p = position_of_radec(ra_hours=ra / 15, dec_degrees=dec, epoch=ts.now())
+        ra_h, dec_d, _ = _p.radec(epoch=ts.J2000)
+        comp_ra = float(ra_h._degrees)
+        comp_dec = float(dec_d.degrees)
     sequence += 1
-    comp_ra = float(ra_h._degrees)
-    comp_dec = float(dec_d.degrees)
     logger.debug("Goto ra,dec in deg, J2000: %s, %s", comp_ra, comp_dec)
     constellation = sf_utils.radec_to_constellation(comp_ra, comp_dec)
     obj = CompositeObject.from_dict(
@@ -182,13 +211,20 @@ def extract_command(s):
 
 
 lx_command_dict = {
+    "D": get_distance_bars,
     "GD": get_telescope_dec,
     "GR": get_telescope_ra,
-    "RS": respond_none,
-    "MS": respond_zero,
-    "Sd": parse_sd_command,
-    "Sr": parse_sr_command,
-    "Q": respond_none,
+    "GVD": get_firmware_date,
+    "GVN": get_firmware_version,
+    "GVP": get_product,
+    "GVT": get_firmware_time,
+    "GW": get_status,
+    "RS": respond_none, # Set slew rate to max
+    "MS": respond_zero, # Slew to object
+    "Q": respond_none, # Abort
+    "U": respond_none, # Precision toggle
+    "Sd": parse_sd_command, # Set declination
+    "Sr": parse_sr_command, # Set RA
 }
 
 
@@ -201,8 +237,10 @@ def setup_server_socket():
 
 
 def handle_client(client_socket, shared_state):
+    global is_stellarium
     client_socket.settimeout(60)
     client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+    is_stellarium = False
 
     while True:
         try:
@@ -216,8 +254,14 @@ def handle_client(client_socket, shared_state):
                 command_handler = lx_command_dict.get(command, not_implemented)
                 out_data = command_handler(shared_state, in_data)
                 if out_data:
-                    response = out_data if out_data in ("0", "1") else out_data + "#"
+                    response = out_data if out_data in ("0", "1", "AT1") else out_data + "#"
                     client_socket.send(response.encode())
+            # Special case for the ACK command in the LX200 protocol sent by Stellarium
+            # No leading : for the ACK command but Stellarium leads all commands with #
+            elif in_data[0] == 0x06 or (in_data[0] == b'#' and in_data[1] == 0x06):
+                is_stellarium = True
+                # A indicates alt-az mode
+                client_socket.send("A".encode())
         except socket.timeout:
             logging.warning("Connection timed out.")
             break
