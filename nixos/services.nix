@@ -139,6 +139,28 @@ in {
   };
 
   # ---------------------------------------------------------------------------
+  # Nix DB registration (first boot after migration)
+  # ---------------------------------------------------------------------------
+  # The migration tarball includes /nix-path-registration with store path data.
+  # Load it into the Nix DB so nix-store and nixos-rebuild work correctly.
+  systemd.services.nix-path-registration = {
+    description = "Load Nix store path registration from migration";
+    after = [ "local-fs.target" ];
+    before = [ "nix-daemon.service" ];
+    wantedBy = [ "multi-user.target" ];
+    unitConfig.ConditionPathExists = "/nix-path-registration";
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = with pkgs; [ nix coreutils ];
+    script = ''
+      nix-store --load-db < /nix-path-registration
+      rm /nix-path-registration
+    '';
+  };
+
+  # ---------------------------------------------------------------------------
   # PiFinder source + data directory setup
   # ---------------------------------------------------------------------------
   system.activationScripts.pifinder-home = lib.stringAfter [ "users" ] ''
