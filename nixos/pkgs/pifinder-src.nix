@@ -45,7 +45,10 @@ pkgs.stdenv.mkDerivation {
     rm -rf $out/.git $out/.github $out/nixos $out/result* $out/.venv
     rm -rf $out/case $out/docs $out/gerbers $out/kicad
     rm -rf $out/migration_source $out/pi_config_files $out/scripts
-    rm -rf $out/bin $out/images
+    rm -rf $out/bin
+
+    # Strip doc photos from images/ but keep welcome.png (used at runtime)
+    find $out/images -type f ! -name 'welcome.png' -delete
 
     # Replace astro_data with symlink to stable derivation
     rm -rf $out/astro_data
