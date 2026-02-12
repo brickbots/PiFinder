@@ -269,33 +269,19 @@
       '';
     };
 
-    # Bootstrap system — minimal NixOS without PiFinder source, for migration tarball
-    mkPifinderBootstrap = nixpkgs.lib.nixosSystem {
-      system = "aarch64-linux";
-      modules = commonModules ++ [
-        { pifinder.bootstrapMode = true; }
-        ({ lib, ... }: {
-          boot.supportedFilesystems = lib.mkForce [ "vfat" "ext4" ];
-          boot.loader.timeout = 0;
-        })
-      ];
-    };
-
   in {
     nixosConfigurations = {
       # SD card boot — camera baked into DT, switched via specialisations
       pifinder = mkPifinderSystem {};
       # NFS netboot — for development on proxnix
       pifinder-netboot = mkPifinderNetboot;
-      # Bootstrap — for migration tarball (no pifinder-src)
-      pifinder-bootstrap = mkPifinderBootstrap;
     };
     images = {
       # SD card image
       pifinder = (mkPifinderSystem { includeSDImage = true; }).config.system.build.sdImage;
       # Migration bootstrap tarball
       bootstrap = let
-        system = mkPifinderBootstrap;
+        system = mkPifinderSystem {};
         toplevel = system.config.system.build.toplevel;
         pkgs = import nixpkgs { system = "aarch64-linux"; };
         closure = pkgs.closureInfo { rootPaths = [ toplevel ]; };
