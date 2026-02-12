@@ -84,7 +84,23 @@
             enable_uart=1
             avoid_warnings=1
           '';
+          catalog-images = pkgs.stdenv.mkDerivation {
+            pname = "pifinder-catalog-images";
+            version = "1.0";
+            src = pkgs.fetchurl {
+              url = "https://files.miker.be/public/pifinder/catalog_images.tar.zst";
+              hash = "sha256-20YOmO2qy2W27nIFV4Aqibu0MLip4gymHrfe411+VNg=";
+            };
+            nativeBuildInputs = [ pkgs.zstd ];
+            unpackPhase = "tar xf $src";
+            installPhase = "mv catalog_images $out";
+          };
         in {
+          sdImage.populateRootCommands = ''
+            mkdir -p ./files/home/pifinder/PiFinder_data
+            cp -r ${catalog-images} ./files/home/pifinder/PiFinder_data/catalog_images
+            chmod -R u+w ./files/home/pifinder/PiFinder_data/catalog_images
+          '';
           sdImage.populateFirmwareCommands = lib.mkForce ''
             (cd ${pkgs.raspberrypifw}/share/raspberrypi/boot && cp bootcode.bin fixup*.dat start*.elf $NIX_BUILD_TOP/firmware/)
 
