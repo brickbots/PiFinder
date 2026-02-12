@@ -12,6 +12,20 @@ let
     url = "https://cdsarc.cds.unistra.fr/ftp/cats/I/239/hip_main.dat";
     sha256 = "1q0n6sa55z92bad8gy6r9axkd802798nxkipjh6iciyn0jqspkjq";
   };
+
+  # Stable astro data — catalogs, star patterns, ephemeris (~193MB, rarely changes)
+  astro-data = pkgs.stdenv.mkDerivation {
+    pname = "pifinder-astro-data";
+    version = "1.0";
+    src = ../../astro_data;
+    phases = [ "installPhase" ];
+    installPhase = ''
+      mkdir -p $out
+      cp -r $src/* $out/
+      cp ${hip_main} $out/hip_main.dat
+    '';
+  };
+
 in
 pkgs.stdenv.mkDerivation {
   pname = "pifinder-src";
@@ -31,15 +45,16 @@ pkgs.stdenv.mkDerivation {
     rm -rf $out/.git $out/.github $out/nixos $out/result* $out/.venv
     rm -rf $out/case $out/docs $out/gerbers $out/kicad
     rm -rf $out/migration_source $out/pi_config_files $out/scripts
-    rm -rf $out/bin
+    rm -rf $out/bin $out/images
+
+    # Replace astro_data with symlink to stable derivation
+    rm -rf $out/astro_data
+    ln -s ${astro-data} $out/astro_data
 
     # tetra3/cedar-solve is a git submodule — Nix doesn't include submodule
     # contents, so we fetch it separately and graft it into the source tree.
     rm -rf $out/python/PiFinder/tetra3
     cp -r ${tetra3-src} $out/python/PiFinder/tetra3
-
-    # Hipparcos catalog is gitignored (51MB), fetch and include for starfield plotting
-    cp ${hip_main} $out/astro_data/hip_main.dat
 
     # Pre-compile .pyc bytecode so Python skips compilation at runtime
     chmod -R u+w $out/python

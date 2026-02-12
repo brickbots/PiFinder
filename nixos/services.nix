@@ -31,6 +31,11 @@ in {
       default = "github:mrosseel/PiFinder";
       description = "GitHub flake URL for PiFinder repo (without branch/output)";
     };
+    bootstrapMode = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Bootstrap mode: minimal system without PiFinder source, runs nixos-rebuild on first boot";
+    };
   };
 
   config = {
@@ -141,7 +146,11 @@ in {
   # ---------------------------------------------------------------------------
   # PiFinder source + data directory setup
   # ---------------------------------------------------------------------------
-  system.activationScripts.pifinder-home = lib.stringAfter [ "users" ] ''
+  system.activationScripts.pifinder-home = lib.stringAfter [ "users" ] (''
+    # Create writable data directory
+    mkdir -p /home/pifinder/PiFinder_data
+    chown pifinder:users /home/pifinder/PiFinder_data
+  '' + lib.optionalString (!cfg.bootstrapMode) ''
     # Symlink immutable source tree from Nix store
     # Database is opened read-only, so no need for writable copy
     PFHOME=/home/pifinder/PiFinder
@@ -153,11 +162,7 @@ in {
 
     # Create symlink to immutable Nix store path
     ln -sfT ${pifinder-src} "$PFHOME"
-
-    # Create writable data directory
-    mkdir -p /home/pifinder/PiFinder_data
-    chown pifinder:users /home/pifinder/PiFinder_data
-  '';
+  '');
 
   # ---------------------------------------------------------------------------
   # Sudoers — pifinder user can start upgrade and restart services
@@ -207,7 +212,7 @@ in {
   # ---------------------------------------------------------------------------
   # Cedar Detect star detection gRPC server
   # ---------------------------------------------------------------------------
-  systemd.services.cedar-detect = {
+  systemd.services.cedar-detect = lib.mkIf (!cfg.bootstrapMode) {
     description = "Cedar Detect Star Detection Server";
     after = [ "basic.target" ];
     wantedBy = [ "multi-user.target" ];
@@ -245,7 +250,7 @@ in {
   # ---------------------------------------------------------------------------
   # Main PiFinder application
   # ---------------------------------------------------------------------------
-  systemd.services.pifinder = {
+  systemd.services.pifinder = lib.mkIf (!cfg.bootstrapMode) {
     description = "PiFinder";
     after = [ "basic.target" "cedar-detect.service" "gpsd.socket" ];
     wants = [ "cedar-detect.service" "gpsd.socket" ];
@@ -290,7 +295,7 @@ in {
   # ---------------------------------------------------------------------------
   # PiFinder Safe NixOS Upgrade (test-then-switch)
   # ---------------------------------------------------------------------------
-  systemd.services.pifinder-upgrade = {
+  systemd.services.pifinder-upgrade = lib.mkIf (!cfg.bootstrapMode) {
     description = "PiFinder Safe NixOS Upgrade (test-then-switch)";
     serviceConfig = {
       Type = "oneshot";
@@ -356,7 +361,7 @@ in {
   # ---------------------------------------------------------------------------
   # PiFinder Boot Health Watchdog
   # ---------------------------------------------------------------------------
-  systemd.services.pifinder-watchdog = {
+  systemd.services.pifinder-watchdog = lib.mkIf (!cfg.bootstrapMode) {
     description = "PiFinder Boot Health Watchdog";
     after = [ "multi-user.target" "pifinder.service" ];
     wantedBy = [ "multi-user.target" ];
@@ -503,5 +508,47 @@ in {
       };
     };
   };
+  # ---------------------------------------------------------------------------
+  # Bootstrap: first-boot rebuild to full PiFinder system
+  # ---------------------------------------------------------------------------
+  systemd.services.pifinder-bootstrap = lib.mkIf cfg.bootstrapMode {
+    description = "PiFinder Bootstrap — first-boot nixos-rebuild";
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      TimeoutStartSec = "30min";
+    };
+    path = with pkgs; [ nixos-rebuild nix systemd coreutils ];
+    script = ''
+      set -euo pipefail
+      MARKER="/var/lib/pifinder-migration/bootstrap-complete"
+      if [ -f "$MARKER" ]; then
+        echo "Bootstrap already completed, skipping."
+        exit 0
+      fi
+
+      echo "Waiting for network..."
+      for i in $(seq 1 60); do
+        if ping -c1 -W2 cache.nixos.org >/dev/null 2>&1; then
+          break
+        fi
+        sleep 5
+      done
+
+      REF=$(cat /var/lib/pifinder-migration/target-ref 2>/dev/null || echo "nixos")
+      FLAKE="${cfg.repoUrl}/''${REF}#pifinder"
+      echo "Rebuilding to $FLAKE"
+
+      nixos-rebuild switch --flake "$FLAKE" --refresh
+
+      mkdir -p /var/lib/pifinder-migration
+      touch "$MARKER"
+      echo "Bootstrap complete."
+    '';
+  };
+
   }; # config
 }
