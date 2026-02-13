@@ -33,8 +33,9 @@ def show_splash():
     screen_draw = ImageDraw.Draw(welcome_image)
 
     # Display version and Wifi mode
-    with open(os.path.join(root_dir, "version.txt"), "r") as ver_f:
-        version = "v" + ver_f.read()
+    from PiFinder import utils
+
+    version = utils.get_version()
 
     with open(os.path.join(root_dir, "wifi_status.txt"), "r") as wifi_f:
         wifi_mode = wifi_f.read()
