@@ -6,6 +6,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: false
       - uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Lint
         run: nix develop --command bash -c "cd python && ruff check"
@@ -17,6 +19,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: false
       - uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Type check
         run: nix develop --command bash -c "cd python && mypy --install-types --non-interactive ."
@@ -26,6 +30,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: false
       - uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Smoke tests
         run: nix develop --command bash -c "cd python && pytest -m smoke"
