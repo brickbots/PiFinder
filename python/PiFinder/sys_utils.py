@@ -11,6 +11,7 @@ Uses:
 """
 
 import os
+import re
 import subprocess
 import time
 import logging
@@ -241,6 +242,8 @@ class Network(NetworkBase):
             return ""
         return ssid_bytes.get_data().decode("utf-8")
 
+    _HOSTNAME_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$")
+
     def set_host_name(self, hostname: str) -> None:
         """Set kernel hostname and update avahi mDNS announcement.
 
@@ -248,11 +251,23 @@ class Network(NetworkBase):
         the kernel hostname directly and persist to a file that a boot
         service reads on startup.
         """
+        hostname = hostname.strip()
+        if not self._HOSTNAME_RE.match(hostname):
+            logger.warning("Invalid hostname rejected: %r", hostname)
+            return
         if hostname == self.get_host_name():
             return
         subprocess.run(["sudo", "hostname", hostname], check=False)
-        subprocess.run(["avahi-set-host-name", hostname], check=False)
-        # Persist for next boot (pifinder-hostname.service reads this)
+        result = subprocess.run(["sudo", "avahi-set-host-name", hostname], check=False)
+        if result.returncode != 0:
+            logger.warning(
+                "avahi-set-host-name failed (rc=%d), restarting avahi-daemon",
+                result.returncode,
+            )
+            subprocess.run(
+                ["sudo", "systemctl", "restart", "avahi-daemon.service"],
+                check=False,
+            )
         data_dir = Path(os.environ.get("PIFINDER_DATA", "/home/pifinder/PiFinder_data"))
         (data_dir / "hostname").write_text(hostname)
 

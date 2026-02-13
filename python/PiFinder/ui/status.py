@@ -304,7 +304,10 @@ class UIStatus(UIModule):
     def update(self, force=False):
         time.sleep(1 / 30)
         self.update_status_dict()
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+        self.draw.rectangle(
+            [0, 0, self.display_class.resX, self.display_class.resY],
+            fill=self.colors.get(0),
+        )
         lines = []
         # Insert IP address here...
         for k, v in self.status_dict.items():

@@ -213,6 +213,7 @@ in {
       { command = "/run/current-system/sw/bin/systemctl stop pifinder.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl start pifinder.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl restart avahi-daemon.service"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/avahi-set-host-name *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/shutdown *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/chpasswd"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/dmesg"; options = [ "NOPASSWD" ]; }
@@ -524,7 +525,8 @@ in {
         name=$(cat "$f")
         [ -n "$name" ] || exit 0
         /run/current-system/sw/bin/hostname "$name"
-        /run/current-system/sw/bin/avahi-set-host-name "$name"
+        /run/current-system/sw/bin/avahi-set-host-name "$name" || \
+          /run/current-system/sw/bin/systemctl restart avahi-daemon.service
       '';
     };
   };
