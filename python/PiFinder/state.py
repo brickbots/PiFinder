@@ -239,7 +239,7 @@ class Location:
 
 class SharedStateObj:
     def __init__(self):
-        self.__power_state = 1
+        self.__power_state = 1  # 0 = sleep state, 1 = awake state
         # self.__solve_state
         # None = No solve attempted yet
         # True = Valid solve data from either IMU or Camera
