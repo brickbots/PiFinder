@@ -392,6 +392,7 @@ UPGRADE_STATE_SUCCESS = "success"
 UPGRADE_STATE_FAILED = "failed"
 
 UPGRADE_REF_FILE = Path("/run/pifinder/upgrade-ref")
+UPGRADE_STATUS_FILE = Path("/run/pifinder/upgrade-status")
 
 
 def start_upgrade(ref: str = "release") -> bool:
@@ -401,6 +402,9 @@ def start_upgrade(ref: str = "release") -> bool:
     except OSError as e:
         logger.error("Failed to write upgrade ref file: %s", e)
         return False
+
+    # Clean stale status from previous run
+    UPGRADE_STATUS_FILE.unlink(missing_ok=True)
 
     _run(["sudo", "systemctl", "reset-failed", "pifinder-upgrade.service"])
     result = _run(
@@ -416,12 +420,22 @@ def start_upgrade(ref: str = "release") -> bool:
 
 
 def get_upgrade_state() -> str:
-    """Poll upgrade service state."""
-    result = _run(["systemctl", "is-active", "pifinder-upgrade.service"])
-    status = result.stdout.strip()
-    if status == "activating":
+    """Poll upgrade status file written by the activation scope."""
+    try:
+        status = UPGRADE_STATUS_FILE.read_text().strip()
+    except FileNotFoundError:
+        # Service hasn't written status yet — check if it's still starting
+        result = _run(["systemctl", "is-active", "pifinder-upgrade.service"])
+        svc = result.stdout.strip()
+        if svc in ("activating", "active"):
+            return UPGRADE_STATE_RUNNING
+        if svc == "failed":
+            return UPGRADE_STATE_FAILED
+        return UPGRADE_STATE_IDLE
+
+    if status == "running":
         return UPGRADE_STATE_RUNNING
-    elif status == "active":
+    elif status == "success":
         return UPGRADE_STATE_SUCCESS
     elif status == "failed":
         return UPGRADE_STATE_FAILED
