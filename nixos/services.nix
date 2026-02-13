@@ -311,6 +311,9 @@ in {
   # ---------------------------------------------------------------------------
   systemd.services.pifinder-upgrade = {
     description = "PiFinder Safe NixOS Upgrade (test-then-switch)";
+    # Prevent switch-to-configuration from killing us mid-upgrade.
+    restartIfChanged = false;
+    stopIfChanged = false;
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -325,70 +328,65 @@ in {
         exit 1
       fi
 
+      STATUS_FILE=/run/pifinder/upgrade-status
+
       # Pre-flight: check disk space (need at least 500MB)
       AVAIL=$(df --output=avail /nix/store | tail -1)
       if [ "$AVAIL" -lt 524288 ]; then
         echo "ERROR: Less than 500MB free on /nix/store"
+        echo "failed" > "$STATUS_FILE"
         exit 1
       fi
 
       echo "Upgrading to $STORE_PATH"
+      echo "downloading" > "$STATUS_FILE"
 
       echo "Phase 1: Download from binary caches"
       nix build "$STORE_PATH" --max-jobs 0
 
-      echo "Phase 2: Hand off to activation scope"
+      echo "activating" > "$STATUS_FILE"
+
+      echo "Phase 2: Activate (test mode — bootloader untouched)"
       nix-env -p /nix/var/nix/profiles/system --set "$STORE_PATH"
+      "$STORE_PATH/bin/switch-to-configuration" test
 
-      STATUS_FILE=/run/pifinder/upgrade-status
-      echo "running" > "$STATUS_FILE"
+      echo "verifying" > "$STATUS_FILE"
 
-      # Run activation in a separate systemd scope so it survives
-      # pifinder-upgrade.service being stopped by switch-to-configuration.
-      systemd-run --scope --unit=pifinder-activate \
-        ${pkgs.writeShellScript "pifinder-activate" ''
-          set -euo pipefail
-          export PATH=${lib.makeBinPath (with pkgs; [ nix systemd coreutils ])}
-          STORE_PATH="$1"
-          STATUS_FILE=/run/pifinder/upgrade-status
+      echo "Phase 3: Verifying pifinder.service health"
+      systemctl restart pifinder.service
+      for i in $(seq 1 24); do
+        if systemctl is-active --quiet pifinder.service; then
+          echo "pifinder.service active after $((i * 5))s"
 
-          echo "Activate: test mode (bootloader untouched)"
-          "$STORE_PATH/bin/switch-to-configuration" test
+          echo "persisting" > "$STATUS_FILE"
 
-          echo "Activate: verifying pifinder.service health"
-          systemctl restart pifinder.service
-          for i in $(seq 1 24); do
-            if systemctl is-active --quiet pifinder.service; then
-              echo "pifinder.service active after $((i * 5))s"
+          echo "Phase 4: Persist to bootloader"
+          "$STORE_PATH/bin/switch-to-configuration" switch
 
-              echo "Activate: persist to bootloader"
-              "$STORE_PATH/bin/switch-to-configuration" switch
-
-              # Restore camera specialisation if not default
-              CAM=$(cat /var/lib/pifinder/camera-type 2>/dev/null || echo "${cfg.cameraType}")
-              if [ "$CAM" != "${cfg.cameraType}" ]; then
-                SPEC="/run/current-system/specialisation/$CAM"
-                if [ -d "$SPEC" ]; then
-                  echo "Restoring camera specialisation: $CAM"
-                  "$SPEC/bin/switch-to-configuration" boot
-                fi
-              fi
-
-              echo "Activate: cleanup old generations"
-              nix-env --delete-generations +2 -p /nix/var/nix/profiles/system || true
-              nix-collect-garbage || true
-
-              echo "success" > "$STATUS_FILE"
-              echo "Upgrade complete."
-              exit 0
+          # Restore camera specialisation if not default
+          CAM=$(cat /var/lib/pifinder/camera-type 2>/dev/null || echo "${cfg.cameraType}")
+          if [ "$CAM" != "${cfg.cameraType}" ]; then
+            SPEC="/run/current-system/specialisation/$CAM"
+            if [ -d "$SPEC" ]; then
+              echo "Restoring camera specialisation: $CAM"
+              "$SPEC/bin/switch-to-configuration" boot
             fi
-            sleep 5
-          done
+          fi
 
-          echo "failed" > "$STATUS_FILE"
-          echo "ERROR: pifinder.service not healthy. Rebooting to revert."
-          systemctl reboot
-        ''} "$STORE_PATH"
+          echo "Phase 5: Cleanup old generations"
+          nix-env --delete-generations +2 -p /nix/var/nix/profiles/system || true
+          nix-collect-garbage || true
+
+          echo "success" > "$STATUS_FILE"
+          echo "Upgrade complete."
+          exit 0
+        fi
+        sleep 5
+      done
+
+      echo "failed" > "$STATUS_FILE"
+      echo "ERROR: pifinder.service not healthy. Rebooting to revert."
+      systemctl reboot
     '';
   };
 

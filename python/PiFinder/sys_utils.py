@@ -420,7 +420,7 @@ def start_upgrade(ref: str = "release") -> bool:
 
 
 def get_upgrade_state() -> str:
-    """Poll upgrade status file written by the activation scope."""
+    """Poll upgrade status file written by the upgrade service."""
     try:
         status = UPGRADE_STATUS_FILE.read_text().strip()
     except FileNotFoundError:
@@ -433,13 +433,21 @@ def get_upgrade_state() -> str:
             return UPGRADE_STATE_FAILED
         return UPGRADE_STATE_IDLE
 
-    if status == "running":
-        return UPGRADE_STATE_RUNNING
-    elif status == "success":
+    if status == "success":
         return UPGRADE_STATE_SUCCESS
     elif status == "failed":
         return UPGRADE_STATE_FAILED
+    elif status in ("downloading", "activating", "verifying", "persisting"):
+        return UPGRADE_STATE_RUNNING
     return UPGRADE_STATE_IDLE
+
+
+def get_upgrade_phase() -> str:
+    """Return the current upgrade phase for progress display."""
+    try:
+        return UPGRADE_STATUS_FILE.read_text().strip()
+    except FileNotFoundError:
+        return ""
 
 
 def get_upgrade_log_tail(lines: int = 3) -> str:
