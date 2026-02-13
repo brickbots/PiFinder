@@ -7,7 +7,6 @@ from PiFinder.ui.status import UIStatus
 from PiFinder.ui.console import UIConsole
 from PiFinder.ui.software import UISoftware
 from PiFinder.ui.gpsstatus import UIGPSStatus
-from PiFinder.ui.sqm import UIsqm
 from PiFinder.ui.chart import UIChart
 from PiFinder.ui.align import UIAlign
 from PiFinder.ui.textentry import UITextEntry
@@ -1048,7 +1047,6 @@ pifinder_menu = {
             "items": [
                 {"name": _("Status"), "class": UIStatus},
                 {"name": _("Equipment"), "class": UIEquipment, "label": "equipment"},
-                {"name": _("SQM"), "class": UIsqm, "label": "sqm"},
                 {
                     "name": _("Place & Time"),
                     "class": UITextMenu,

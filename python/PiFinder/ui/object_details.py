@@ -35,6 +35,7 @@ DM_DESC = 0  # Display mode for description
 DM_LOCATE = 1  # Display mode for LOCATE
 DM_POSS = 2  # Display mode for POSS
 DM_SDSS = 3  # Display mode for SDSS
+DM_CONTRAST = 4  # Display mode for Contrast Reserve explanation
 
 
 class UIObjectDetails(UIModule):
@@ -534,19 +535,67 @@ class UIObjectDetails(UIModule):
             else:
                 desc_available_lines += 1  # extra lines for description
 
-            contrast = self.texts.get("contrast_reserve")
-
-            if contrast and contrast.text.strip():
-                contrast.draw((0, posy))
-                posy += 11
-            else:
-                desc_available_lines +=1
-
             # Remaining lines with object description
             desc = self.texts.get("desc")
             if desc:
                 desc.set_available_lines(desc_available_lines)
                 desc.draw((0, posy))
+
+        elif self.object_display_mode == DM_CONTRAST:
+            # Display contrast reserve explanation page
+            y_pos = 20
+            
+            # Title
+            self.draw.text(
+                (0, y_pos),
+                _("Contrast Reserve"),
+                font=self.fonts.base.font,
+                fill=self.colors.get(255),
+            )
+            y_pos += 14
+            
+            # Display the contrast value
+            contrast = self.texts.get("contrast_reserve")
+
+            if self.contrast:
+                contrast_display = f"CR: {self.contrast}"
+                self.draw.text(
+                    (0, y_pos),
+                    contrast_display,
+                    font=self.fonts.bold.font,
+                    fill=self.colors.get(255),
+                )
+                y_pos += 17
+                
+                # Display the interpretation
+                if contrast and contrast.text.strip():
+                    contrast.draw((0, y_pos))
+                    y_pos += 17
+            else:
+                self.draw.text(
+                    (0, y_pos),
+                    _("No contrast data"),
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(128),
+                )
+                y_pos += 14
+            
+            # Add explanation about what CR means
+            explanation_lines = [
+                _("CR measures object"),
+                _("visibility based on"),
+                _("sky brightness,"),
+                _("telescope, and EP."),
+            ]
+            
+            for line in explanation_lines:
+                self.draw.text(
+                    (0, y_pos),
+                    line,
+                    font=self.fonts.base.font,
+                    fill=self.colors.get(200),
+                )
+                y_pos += 11
 
         return self.screen_update()
 
@@ -556,9 +605,15 @@ class UIObjectDetails(UIModule):
         for a module.  Invoked when the square
         key is pressed
         """
-        self.object_display_mode = (
-            self.object_display_mode + 1 if self.object_display_mode < 2 else 0
-        )
+        # Cycle: LOCATE -> POSS -> DESC -> CONTRAST -> LOCATE
+        if self.object_display_mode == DM_LOCATE:
+            self.object_display_mode = DM_POSS
+        elif self.object_display_mode == DM_POSS:
+            self.object_display_mode = DM_DESC
+        elif self.object_display_mode == DM_DESC:
+            self.object_display_mode = DM_CONTRAST
+        else:  # DM_CONTRAST or any other mode
+            self.object_display_mode = DM_LOCATE
         self.update_object_info()
         self.update()
 
