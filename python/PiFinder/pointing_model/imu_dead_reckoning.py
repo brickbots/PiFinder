@@ -173,11 +173,11 @@ class ImuDeadReckoning:
         Sets the screen direction which determines the fixed orientation between
         the IMU and camera (q_imu2cam).
         """
-        self.q_imu2cam = get_screen_direction_q_imu2cam(screen_direction)
+        self.q_imu2cam = get_q_imu2cam(screen_direction)
         self.q_cam2imu = self.q_imu2cam.conj()
 
 
-def get_screen_direction_q_imu2cam(screen_direction: str) -> quaternion.quaternion:
+def get_q_imu2cam(screen_direction: str) -> quaternion.quaternion:
     """
     Returns the quaternion that rotates the IMU frame to the camera frame
     based on the screen direction.
