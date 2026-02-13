@@ -233,7 +233,9 @@ class UISoftware(UIModule):
         self._confirm_index = 0
 
         self._fail_option = "Retry"
-        self._unstable_unlocked = False
+        self._unstable_unlocked = self.config_object.get_option(
+            "software_unstable_unlocked"
+        )
         self._unstable_entries: List[dict] = []
         self._square_count = 0
 
@@ -630,6 +632,7 @@ class UISoftware(UIModule):
         self._square_count += 1
         if self._square_count >= 7 and not self._unstable_unlocked:
             self._unstable_unlocked = True
+            self.config_object.set_option("software_unstable_unlocked", True)
             self._channels["unstable"] = self._unstable_entries
             self._channel_names = list(self._channels.keys())
             self.message(_("Unstable\nunlocked"), 1)
