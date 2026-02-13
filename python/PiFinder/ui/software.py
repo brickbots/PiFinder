@@ -25,6 +25,7 @@ logger = logging.getLogger("UISoftware")
 GITHUB_REPO = "brickbots/PiFinder"
 GITHUB_RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases"
 GITHUB_PULLS_URL = f"https://api.github.com/repos/{GITHUB_REPO}/pulls"
+GITHUB_RAW_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}"
 MIN_NIXOS_VERSION = "2.5.0"
 REQUEST_TIMEOUT = 10
 
@@ -81,10 +82,28 @@ def _version_from_tag(tag: str) -> str:
     return tag.lstrip("v")
 
 
+def _fetch_build_json(ref: str) -> Optional[dict]:
+    """
+    Fetch pifinder-build.json for a given git ref (sha or tag).
+    Returns dict with 'store_path' and 'version', or None if unavailable.
+    """
+    url = f"{GITHUB_RAW_URL}/{ref}/pifinder-build.json"
+    try:
+        res = requests.get(url, timeout=REQUEST_TIMEOUT)
+        if res.status_code == 200:
+            data = res.json()
+            if data.get("store_path"):
+                return data
+    except (requests.exceptions.RequestException, ValueError):
+        pass
+    return None
+
+
 def _fetch_github_releases() -> tuple[list[dict], list[dict]]:
     """
     Fetch releases from GitHub API.
     Returns (stable_entries, beta_entries) sorted newest-first.
+    Only includes entries that have a pifinder-build.json with a store path.
     """
     stable: list[dict] = []
     beta: list[dict] = []
@@ -106,11 +125,15 @@ def _fetch_github_releases() -> tuple[list[dict], list[dict]]:
             if not _meets_min_version(version):
                 continue
 
+            build = _fetch_build_json(tag)
+            if build is None:
+                continue
+
             entry = {
                 "label": tag,
-                "ref": f"github:{GITHUB_REPO}/{tag}#pifinder",
+                "ref": build["store_path"],
                 "notes": release.get("body") or None,
-                "version": version,
+                "version": build.get("version", version),
             }
 
             if release.get("prerelease"):
@@ -128,6 +151,7 @@ def _fetch_testable_prs() -> list[dict]:
     """
     Fetch open PRs with the 'testable' label.
     Returns list of unstable entries (main branch prepended by caller).
+    Only includes PRs that have a pifinder-build.json with a store path.
     """
     entries: list[dict] = []
     try:
@@ -142,18 +166,25 @@ def _fetch_testable_prs() -> list[dict]:
             return entries
 
         for pr in res.json():
+            labels = [l.get("name", "") for l in pr.get("labels", [])]
+            if "testable" not in labels:
+                continue
             number = pr.get("number", 0)
             title = pr.get("title", "")
             sha = pr.get("head", {}).get("sha", "")
             body = pr.get("body") or None
-            # Truncate title for display
+
+            build = _fetch_build_json(sha)
+            if build is None:
+                continue
+
             short_title = title[:20] + "..." if len(title) > 20 else title
             entries.append(
                 {
                     "label": f"PR#{number} {short_title}",
-                    "ref": f"github:{GITHUB_REPO}/{sha}#pifinder",
+                    "ref": build["store_path"],
                     "notes": body,
-                    "version": None,
+                    "version": build.get("version"),
                 }
             )
 
@@ -161,6 +192,22 @@ def _fetch_testable_prs() -> list[dict]:
         logger.warning("Could not fetch testable PRs: %s", e)
 
     return entries
+
+
+def _fetch_main_entry() -> Optional[dict]:
+    """
+    Fetch pifinder-build.json for the main branch.
+    Returns an entry dict or None if unavailable.
+    """
+    build = _fetch_build_json("main")
+    if build is None:
+        return None
+    return {
+        "label": "main",
+        "ref": build["store_path"],
+        "notes": None,
+        "version": build.get("version"),
+    }
 
 
 class UISoftware(UIModule):
@@ -228,14 +275,10 @@ class UISoftware(UIModule):
         stable, beta = _fetch_github_releases()
         pr_entries = _fetch_testable_prs()
 
-        unstable = [
-            {
-                "label": "main",
-                "ref": f"github:{GITHUB_REPO}/main#pifinder",
-                "notes": None,
-                "version": None,
-            }
-        ]
+        unstable = []
+        main_entry = _fetch_main_entry()
+        if main_entry:
+            unstable.append(main_entry)
         unstable.extend(pr_entries)
 
         self._channels = {

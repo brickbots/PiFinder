@@ -9,7 +9,9 @@ from PiFinder.ui.software import (
     _version_from_tag,
     _fetch_github_releases,
     _fetch_testable_prs,
+    _fetch_build_json,
     GITHUB_REPO,
+    GITHUB_RAW_URL,
 )
 
 
@@ -150,6 +152,56 @@ class TestVersionFromTag:
 
 
 # ---------------------------------------------------------------------------
+# Build JSON fetching
+# ---------------------------------------------------------------------------
+
+MOCK_BUILD_JSON = {"store_path": "/nix/store/abc123-nixos-system-pifinder", "version": "2.6.0"}
+
+
+@pytest.mark.unit
+class TestFetchBuildJson:
+    @patch("PiFinder.ui.software.requests.get")
+    def test_returns_data_on_success(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = MOCK_BUILD_JSON
+        mock_get.return_value = mock_resp
+
+        result = _fetch_build_json("v2.6.0")
+
+        assert result == MOCK_BUILD_JSON
+        mock_get.assert_called_once_with(
+            f"{GITHUB_RAW_URL}/v2.6.0/pifinder-build.json",
+            timeout=10,
+        )
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_returns_none_on_404(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 404
+        mock_get.return_value = mock_resp
+
+        assert _fetch_build_json("v1.0.0") is None
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_returns_none_on_missing_store_path(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"version": "2.6.0"}
+        mock_get.return_value = mock_resp
+
+        assert _fetch_build_json("v2.6.0") is None
+
+    @patch("PiFinder.ui.software.requests.get")
+    def test_returns_none_on_network_error(self, mock_get):
+        import requests as req
+
+        mock_get.side_effect = req.exceptions.ConnectionError("no network")
+
+        assert _fetch_build_json("v2.6.0") is None
+
+
+# ---------------------------------------------------------------------------
 # GitHub releases API parsing
 # ---------------------------------------------------------------------------
 
@@ -192,15 +244,32 @@ MOCK_RELEASES = [
     },
 ]
 
+BUILD_JSONS = {
+    "v2.6.0": {"store_path": "/nix/store/aaa-nixos-system-pifinder", "version": "2.6.0"},
+    "v2.5.1": {"store_path": "/nix/store/bbb-nixos-system-pifinder", "version": "2.5.1"},
+    "v2.6.0-beta.1": {"store_path": "/nix/store/ccc-nixos-system-pifinder", "version": "2.6.0-beta.1"},
+}
+
+
+def _make_build_json_mock(build_jsons):
+    """Create a _fetch_build_json mock that returns data from a dict."""
+
+    def _mock(ref):
+        return build_jsons.get(ref)
+
+    return _mock
+
 
 @pytest.mark.unit
 class TestFetchGitHubReleases:
+    @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
-    def test_partitions_stable_and_beta(self, mock_get):
+    def test_partitions_stable_and_beta(self, mock_get, mock_build):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = MOCK_RELEASES
         mock_get.return_value = mock_resp
+        mock_build.side_effect = _make_build_json_mock(BUILD_JSONS)
 
         stable, beta = _fetch_github_releases()
 
@@ -211,47 +280,55 @@ class TestFetchGitHubReleases:
         assert "2.5.1" in stable_versions
         assert "2.6.0-beta.1" in beta_versions
 
+    @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
-    def test_filters_below_min_version(self, mock_get):
+    def test_filters_below_min_version(self, mock_get, mock_build):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = MOCK_RELEASES
         mock_get.return_value = mock_resp
+        mock_build.side_effect = _make_build_json_mock(BUILD_JSONS)
 
         stable, beta = _fetch_github_releases()
 
         all_versions = [e["version"] for e in stable + beta]
         assert "2.4.0" not in all_versions
 
+    @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
-    def test_excludes_drafts(self, mock_get):
+    def test_excludes_drafts(self, mock_get, mock_build):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = MOCK_RELEASES
         mock_get.return_value = mock_resp
+        mock_build.side_effect = _make_build_json_mock(BUILD_JSONS)
 
         stable, beta = _fetch_github_releases()
 
         all_labels = [e["label"] for e in stable + beta]
         assert "v2.3.0" not in all_labels
 
+    @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
-    def test_flake_ref_format(self, mock_get):
+    def test_ref_is_store_path(self, mock_get, mock_build):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = [MOCK_RELEASES[0]]
         mock_get.return_value = mock_resp
+        mock_build.return_value = BUILD_JSONS["v2.6.0"]
 
         stable, _ = _fetch_github_releases()
 
-        assert stable[0]["ref"] == f"github:{GITHUB_REPO}/v2.6.0#pifinder"
+        assert stable[0]["ref"] == "/nix/store/aaa-nixos-system-pifinder"
 
+    @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
-    def test_preserves_changelog_body(self, mock_get):
+    def test_preserves_changelog_body(self, mock_get, mock_build):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = [MOCK_RELEASES[0]]
         mock_get.return_value = mock_resp
+        mock_build.return_value = BUILD_JSONS["v2.6.0"]
 
         stable, _ = _fetch_github_releases()
 
@@ -279,18 +356,34 @@ class TestFetchGitHubReleases:
         assert stable == []
         assert beta == []
 
+    @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
-    def test_prerelease_at_min_filtered(self, mock_get):
+    def test_prerelease_at_min_filtered(self, mock_get, mock_build):
         """2.5.0-beta.2 is below 2.5.0 minimum, should be excluded."""
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = MOCK_RELEASES
         mock_get.return_value = mock_resp
+        mock_build.side_effect = _make_build_json_mock(BUILD_JSONS)
 
         _, beta = _fetch_github_releases()
 
         beta_versions = [e["version"] for e in beta]
         assert "2.5.0-beta.2" not in beta_versions
+
+    @patch("PiFinder.ui.software._fetch_build_json")
+    @patch("PiFinder.ui.software.requests.get")
+    def test_skips_entries_without_build_json(self, mock_get, mock_build):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = [MOCK_RELEASES[0]]
+        mock_get.return_value = mock_resp
+        mock_build.return_value = None
+
+        stable, beta = _fetch_github_releases()
+
+        assert stable == []
+        assert beta == []
 
 
 # ---------------------------------------------------------------------------
@@ -304,6 +397,7 @@ MOCK_PRS = [
         "head": {"sha": "abc123def456"},
         "user": {"login": "contributor1"},
         "body": "This PR fixes the star matching.",
+        "labels": [{"name": "testable"}],
     },
     {
         "number": 99,
@@ -311,18 +405,26 @@ MOCK_PRS = [
         "head": {"sha": "789xyz000111"},
         "user": {"login": "contributor2"},
         "body": None,
+        "labels": [{"name": "testable"}],
     },
 ]
+
+PR_BUILD_JSONS = {
+    "abc123def456": {"store_path": "/nix/store/pr42-nixos-system-pifinder", "version": "2.6.0-dev"},
+    "789xyz000111": {"store_path": "/nix/store/pr99-nixos-system-pifinder", "version": "2.6.0-dev"},
+}
 
 
 @pytest.mark.unit
 class TestFetchTestablePRs:
+    @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
-    def test_builds_pr_entries(self, mock_get):
+    def test_builds_pr_entries(self, mock_get, mock_build):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = MOCK_PRS
         mock_get.return_value = mock_resp
+        mock_build.side_effect = _make_build_json_mock(PR_BUILD_JSONS)
 
         entries = _fetch_testable_prs()
 
@@ -330,34 +432,40 @@ class TestFetchTestablePRs:
         assert entries[0]["label"].startswith("PR#42")
         assert entries[1]["label"].startswith("PR#99")
 
+    @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
-    def test_pr_flake_ref_uses_sha(self, mock_get):
+    def test_pr_ref_is_store_path(self, mock_get, mock_build):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = [MOCK_PRS[0]]
         mock_get.return_value = mock_resp
+        mock_build.return_value = PR_BUILD_JSONS["abc123def456"]
 
         entries = _fetch_testable_prs()
 
-        assert entries[0]["ref"] == f"github:{GITHUB_REPO}/abc123def456#pifinder"
+        assert entries[0]["ref"] == "/nix/store/pr42-nixos-system-pifinder"
 
+    @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
-    def test_pr_version_is_none(self, mock_get):
+    def test_pr_version_from_build_json(self, mock_get, mock_build):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = [MOCK_PRS[0]]
         mock_get.return_value = mock_resp
+        mock_build.return_value = PR_BUILD_JSONS["abc123def456"]
 
         entries = _fetch_testable_prs()
 
-        assert entries[0]["version"] is None
+        assert entries[0]["version"] == "2.6.0-dev"
 
+    @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
-    def test_pr_notes_from_body(self, mock_get):
+    def test_pr_notes_from_body(self, mock_get, mock_build):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = MOCK_PRS
         mock_get.return_value = mock_resp
+        mock_build.side_effect = _make_build_json_mock(PR_BUILD_JSONS)
 
         entries = _fetch_testable_prs()
 
@@ -374,8 +482,9 @@ class TestFetchTestablePRs:
 
         assert entries == []
 
+    @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
-    def test_long_title_truncated(self, mock_get):
+    def test_long_title_truncated(self, mock_get, mock_build):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = [
@@ -385,12 +494,26 @@ class TestFetchTestablePRs:
                 "head": {"sha": "aaa"},
                 "user": {"login": "x"},
                 "body": None,
+                "labels": [{"name": "testable"}],
             }
         ]
         mock_get.return_value = mock_resp
+        mock_build.return_value = {"store_path": "/nix/store/pr7-nixos", "version": "2.6.0-dev"}
 
         entries = _fetch_testable_prs()
 
         assert "..." in entries[0]["label"]
-        # PR#7 prefix + space + 20 chars + ...
         assert entries[0]["label"].startswith("PR#7 ")
+
+    @patch("PiFinder.ui.software._fetch_build_json")
+    @patch("PiFinder.ui.software.requests.get")
+    def test_skips_prs_without_build_json(self, mock_get, mock_build):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = MOCK_PRS
+        mock_get.return_value = mock_resp
+        mock_build.return_value = None
+
+        entries = _fetch_testable_prs()
+
+        assert entries == []

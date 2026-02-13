@@ -13,11 +13,13 @@ jobs:
     if: |
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.labels.*.name, 'preview')
+      contains(github.event.pull_request.labels.*.name, 'preview') ||
+      contains(github.event.pull_request.labels.*.name, 'testable')
     runs-on: [self-hosted, aarch64]
     timeout-minutes: 30
     outputs:
       success: ${{ steps.build.outcome == 'success' }}
+      store_path: ${{ steps.push.outputs.store_path }}
     steps:
       - uses: actions/checkout@v4
 
@@ -26,21 +28,19 @@ jobs:
           name: pifinder
           authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
-      - name: Build NixOS system closures
+      - name: Build NixOS system closure
         id: build
         run: |
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             -L --no-link
-          nix build .#nixosConfigurations.pifinder-netboot.config.system.build.toplevel \
-            -L --no-link
 
       - name: Push to Cachix
-        if: github.event_name != 'pull_request'
+        id: push
         run: |
-          nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
-            --json | jq -r '.[].outputs.out' | cachix push pifinder
-          nix build .#nixosConfigurations.pifinder-netboot.config.system.build.toplevel \
-            --json | jq -r '.[].outputs.out' | cachix push pifinder
+          STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            --json | jq -r '.[].outputs.out')
+          echo "$STORE_PATH" | cachix push pifinder
+          echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
 
   # Fallback to QEMU emulation if Pi5 unavailable
   build-emulated:
@@ -48,6 +48,8 @@ jobs:
     if: failure() || cancelled()
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    outputs:
+      store_path: ${{ steps.push.outputs.store_path }}
     steps:
       - uses: actions/checkout@v4
 
@@ -65,59 +67,45 @@ jobs:
       - name: Register QEMU binfmt for aarch64
         run: sudo apt-get update && sudo apt-get install -y qemu-user-static
 
-      - name: Build NixOS system closures
+      - name: Build NixOS system closure
         run: |
           nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
-            --system aarch64-linux \
-            -L --no-link
-          nix build .#nixosConfigurations.pifinder-netboot.config.system.build.toplevel \
             --system aarch64-linux \
             -L --no-link
 
       - name: Push to Cachix
-        if: github.event_name != 'pull_request'
+        id: push
         run: |
-          nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+          STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
             --system aarch64-linux \
-            --json | jq -r '.[].outputs.out' | cachix push pifinder
-          nix build .#nixosConfigurations.pifinder-netboot.config.system.build.toplevel \
-            --system aarch64-linux \
-            --json | jq -r '.[].outputs.out' | cachix push pifinder
+            --json | jq -r '.[].outputs.out')
+          echo "$STORE_PATH" | cachix push pifinder
+          echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
 
-  update-unstable:
+  # Commit pifinder-build.json with store path to the same branch
+  stamp-build:
     needs: [build-native, build-emulated]
-    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && (needs.build-native.result == 'success' || needs.build-emulated.result == 'success')
+    if: always() && (needs.build-native.result == 'success' || needs.build-emulated.result == 'success')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.head_ref || github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update unstable channel
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Write pifinder-build.json
         run: |
-          DATE=$(date -I)
+          STORE_PATH="${{ needs.build-native.outputs.store_path || needs.build-emulated.outputs.store_path }}"
+          VERSION=$(cat version.txt | tr -d '[:space:]')
+          jq -n --arg sp "$STORE_PATH" --arg v "$VERSION" \
+            '{store_path: $sp, version: $v}' > pifinder-build.json
 
-          # Update main entry
-          jq --arg d "$DATE" \
-            '.channels.unstable.versions = [{version:"main", ref:"main", date:$d, notes:"Latest development"}]' \
-            versions.json > tmp.json && mv tmp.json versions.json
-
-          # Add all preview-labeled PRs (no limit)
-          gh pr list --label preview --json number,title,headRefOid | \
-            jq --arg d "$DATE" '.[] | {version:("PR #" + (.number|tostring)), ref:.headRefOid, date:$d, notes:.title}' | \
-            jq -s '.' > prs.json
-
-          jq --slurpfile prs prs.json '.channels.unstable.versions += $prs[0]' \
-            versions.json > tmp.json && mv tmp.json versions.json
-
-          rm prs.json
-
-      - name: Commit versions.json
+      - name: Commit pifinder-build.json
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add versions.json
-          git diff --staged --quiet || git commit -m "chore: update unstable"
+          git add pifinder-build.json
+          git diff --staged --quiet || git commit -m "chore: stamp build [skip ci]"
           git push

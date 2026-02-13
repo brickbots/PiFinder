@@ -26,11 +26,6 @@ in {
       default = false;
       description = "Enable development mode (NFS netboot support, etc.)";
     };
-    repoUrl = lib.mkOption {
-      type = lib.types.str;
-      default = "github:mrosseel/PiFinder";
-      description = "GitHub flake URL for PiFinder repo (without branch/output)";
-    };
   };
 
   config = {
@@ -111,7 +106,7 @@ in {
   # Tmpfiles — runtime directory for upgrade ref file
   # ---------------------------------------------------------------------------
   systemd.tmpfiles.rules = [
-    "d /run/pifinder 0755 pifinder pifinder -"
+    "d /run/pifinder 0755 pifinder users -"
   ];
 
   # ---------------------------------------------------------------------------
@@ -211,17 +206,18 @@ in {
   security.sudo.extraRules = [{
     users = [ "pifinder" ];
     commands = [
+      { command = "/run/current-system/sw/bin/systemctl start --no-block pifinder-upgrade.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl start pifinder-upgrade.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl reset-failed pifinder-upgrade.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl restart pifinder.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl stop pifinder.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl start pifinder.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl restart avahi-daemon.service"; options = [ "NOPASSWD" ]; }
-      { command = "/run/current-system/sw/bin/nixos-rebuild *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/shutdown *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/chpasswd"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/dmesg"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/hostnamectl *"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/hostname *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/pifinder-switch-camera *"; options = [ "NOPASSWD" ]; }
     ];
   }];
@@ -319,14 +315,13 @@ in {
       RemainAfterExit = true;
       TimeoutStartSec = "10min";
     };
-    path = with pkgs; [ nixos-rebuild nix systemd coreutils ];
+    path = with pkgs; [ nix systemd coreutils ];
     script = ''
       set -euo pipefail
-      REF=$(cat /run/pifinder/upgrade-ref 2>/dev/null || echo "release")
-      if [[ "$REF" == github:* ]]; then
-        FLAKE="$REF"
-      else
-        FLAKE="${cfg.repoUrl}/''${REF}#pifinder"
+      STORE_PATH=$(cat /run/pifinder/upgrade-ref 2>/dev/null || true)
+      if [ -z "$STORE_PATH" ] || [[ "$STORE_PATH" != /nix/store/* ]]; then
+        echo "ERROR: Invalid store path: $STORE_PATH"
+        exit 1
       fi
 
       # Pre-flight: check disk space (need at least 500MB)
@@ -336,19 +331,23 @@ in {
         exit 1
       fi
 
-      echo "Upgrading to $FLAKE"
+      echo "Upgrading to $STORE_PATH"
 
-      echo "Phase 1: Download and activate (test mode — bootloader untouched)"
-      nixos-rebuild test --flake "$FLAKE" --refresh
+      echo "Phase 1: Download from Cachix"
+      nix copy --from https://pifinder.cachix.org "$STORE_PATH"
 
-      echo "Phase 2: Verifying pifinder.service health"
+      echo "Phase 2: Activate (test mode — bootloader untouched)"
+      nix-env -p /nix/var/nix/profiles/system --set "$STORE_PATH"
+      "$STORE_PATH/bin/switch-to-configuration" test
+
+      echo "Phase 3: Verifying pifinder.service health"
       systemctl restart pifinder.service
       for i in $(seq 1 24); do
         if systemctl is-active --quiet pifinder.service; then
           echo "pifinder.service active after $((i * 5))s"
 
-          echo "Phase 3: Persist to bootloader"
-          nixos-rebuild switch --flake "$FLAKE"
+          echo "Phase 4: Persist to bootloader"
+          "$STORE_PATH/bin/switch-to-configuration" switch
 
           # Restore camera specialisation if not default
           CAM=$(cat /var/lib/pifinder/camera-type 2>/dev/null || echo "${cfg.cameraType}")
@@ -360,7 +359,7 @@ in {
             fi
           fi
 
-          echo "Phase 4: Cleanup old generations"
+          echo "Phase 5: Cleanup old generations"
           nix-env --delete-generations +2 -p /nix/var/nix/profiles/system || true
           nix-collect-garbage || true
 
@@ -503,6 +502,26 @@ in {
       addresses = true;
       domain = true;
       workstation = true;
+    };
+  };
+
+  # Apply user-chosen hostname from PiFinder_data (survives NixOS rebuilds)
+  systemd.services.pifinder-hostname = {
+    description = "Apply PiFinder custom hostname";
+    after = [ "avahi-daemon.service" ];
+    wants = [ "avahi-daemon.service" ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = pkgs.writeShellScript "apply-hostname" ''
+        f=/home/pifinder/PiFinder_data/hostname
+        [ -f "$f" ] || exit 0
+        name=$(cat "$f")
+        [ -n "$name" ] || exit 0
+        /run/current-system/sw/bin/hostname "$name"
+        /run/current-system/sw/bin/avahi-set-host-name "$name"
+      '';
     };
   };
 
