@@ -36,7 +36,7 @@ pifinder_menu = {
     "start_index": 2,
     "items": [
         {
-            "name": _("Start"),
+            "name": _("Scart"),
             "class": UITextMenu,
             "select": "single",
             "items": [
