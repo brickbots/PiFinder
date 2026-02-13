@@ -496,7 +496,7 @@ class UIObjectDetails(UIModule):
         if self.object_display_mode == DM_DESC or self.object_display_mode == DM_LOCATE:
             # catalog and entry field i.e. NGC-311
             self.refresh_designator()
-            desc_available_lines = 3
+            desc_available_lines = 4
             desig = self.texts["designator"]
             desig.draw((0, 20))
 
