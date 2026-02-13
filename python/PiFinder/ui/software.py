@@ -226,12 +226,10 @@ class UISoftware(UIModule):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.version_txt = f"{utils.pifinder_dir}/version.txt"
         self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
         with open(self.wifi_txt, "r") as f:
             self._wifi_mode = f.read().strip()
-        with open(self.version_txt, "r") as f:
-            self._software_version = f.read().strip()
+        self._software_version = utils.get_version()
 
         self._channels: Dict[str, List[dict]] = {}
         self._channel_names: List[str] = []
