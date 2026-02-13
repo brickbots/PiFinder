@@ -6,7 +6,7 @@
     wireless.enable = false; # NetworkManager handles WiFi
     firewall = {
       allowedUDPPorts = [ 53 67 ];  # DNS + DHCP for AP mode
-      allowedTCPPorts = [ 22 80 ];  # SSH + PiFinder web UI
+      allowedTCPPorts = [ 80 ];     # PiFinder web UI (other ports via service openFirewall)
     };
   };
 
