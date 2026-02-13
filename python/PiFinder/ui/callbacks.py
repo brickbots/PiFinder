@@ -201,21 +201,7 @@ def switch_cam_imx462(ui_module: UIModule) -> None:
 
 
 def get_camera_type(ui_module: UIModule) -> list[str]:
-    cam_id = "000"
-
-    # read config.txt into a list
-    with open("/boot/config.txt", "r") as boot_in:
-        boot_lines = list(boot_in)
-
-    # Look for the line without a comment...
-    for line in boot_lines:
-        if line.startswith("dtoverlay=imx"):
-            cam_id = line[10:16]
-            # imx462 uses imx290 driver
-            if cam_id == "imx290":
-                cam_id = "imx462"
-
-    return [cam_id]
+    return sys_utils.get_camera_type()
 
 
 def switch_language(ui_module: UIModule) -> None:

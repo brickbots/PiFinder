@@ -1,129 +1,76 @@
-import socket
 import logging
 
-BACKUP_PATH = "/home/pifinder/PiFinder_data/PiFinder_backup.zip"
+from PiFinder.sys_utils_base import (
+    NetworkBase,
+    BACKUP_PATH,
+)
 
 logger = logging.getLogger("SysUtils.Fake")
 
 
-class Network:
+class Network(NetworkBase):
     """
-    Provides wifi network info
+    Fake network for testing/development.
     """
 
     def __init__(self):
+        self._wifi_mode = "Client"
+        self._wifi_networks: list = []
+
+    def populate_wifi_networks(self) -> None:
         pass
 
-    def populate_wifi_networks(self):
-        """
-        Parses wpa_supplicant.conf to get current config
-        """
+    def delete_wifi_network(self, network_id) -> None:
         pass
 
-    def get_wifi_networks(self):
-        return ""
-
-    def delete_wifi_network(self, network_id):
-        """
-        Immediately deletes a wifi network
-        """
+    def add_wifi_network(self, ssid, key_mgmt, psk=None) -> None:
         pass
 
-    def add_wifi_network(self, ssid, key_mgmt, psk=None):
-        """
-        Add a wifi network
-        """
-        pass
-
-    def get_ap_name(self):
+    def get_ap_name(self) -> str:
         return "UNKN"
 
-    def set_ap_name(self, ap_name):
+    def set_ap_name(self, ap_name: str) -> None:
         pass
 
-    def get_host_name(self):
-        return socket.gethostname()
-
-    def get_connected_ssid(self):
-        """
-        Returns the SSID of the connected wifi network or
-        None if not connected or in AP mode
-        """
+    def get_connected_ssid(self) -> str:
         return "UNKN"
 
-    def set_host_name(self, hostname):
-        if hostname == self.get_host_name():
-            return
-
-    def wifi_mode(self):
-        return "UNKN"
-
-    def set_wifi_mode(self, mode):
+    def set_host_name(self, hostname: str) -> None:
         pass
 
-    def local_ip(self):
-        return "NONE"
+    def _go_ap(self) -> None:
+        logger.info("SYS: Fake switching to AP")
+
+    def _go_client(self) -> None:
+        logger.info("SYS: Fake switching to Client")
 
 
-def remove_backup():
-    """
-    Removes backup file
-    """
+def remove_backup() -> None:
     pass
 
 
-def backup_userdata():
-    """
-    Back up userdata to a single zip file for later
-    restore.  Returns the path to the zip file.
-
-    Backs up:
-        config.json
-        observations.db
-        obslist/*
-    """
+def backup_userdata() -> str:
     return BACKUP_PATH
 
 
-def restore_userdata(zip_path):
-    """
-    Compliment to backup_userdata
-    restores userdata
-    OVERWRITES existing data!
-    """
+def restore_userdata(zip_path) -> None:
     pass
 
 
-def shutdown():
-    """
-    shuts down the Pi
-    """
+def shutdown() -> None:
     logger.info("SYS: Initiating Shutdown")
+
+
+def update_software(ref: str = "release"):
+    logger.info("SYS: Running update (ref=%s)", ref)
     return True
 
 
-def update_software():
-    """
-    Uses systemctl to git pull and then restart
-    service
-    """
-    logger.info("SYS: Running update")
-    return True
-
-
-def restart_pifinder():
-    """
-    Uses systemctl to restart the PiFinder
-    service
-    """
+def restart_pifinder() -> None:
     logger.info("SYS: Restarting PiFinder")
-    return True
 
 
-def restart_system():
-    """
-    Restarts the system
-    """
+def restart_system() -> None:
     logger.info("SYS: Initiating System Restart")
 
 
@@ -138,25 +85,33 @@ def go_wifi_cli():
 
 
 def verify_password(username, password):
-    """
-    Checks the provided password against the provided user
-    password
-    """
     return True
 
 
 def change_password(username, current_password, new_password):
-    """
-    Changes the PiFinder User password
-    """
     return False
+
+
+def get_camera_type() -> list[str]:
+    return ["imx462"]
 
 
 def switch_cam_imx477() -> None:
     logger.info("SYS: Switching cam to imx477")
-    logger.info('sh.sudo("python", "-m", "PiFinder.switch_camera", "imx477")')
 
 
 def switch_cam_imx296() -> None:
     logger.info("SYS: Switching cam to imx296")
-    logger.info('sh.sudo("python", "-m", "PiFinder.switch_camera", "imx296")')
+
+
+def switch_cam_imx462() -> None:
+    logger.info("SYS: Switching cam to imx462")
+
+
+def check_and_sync_gpsd_config(baud_rate: int) -> bool:
+    logger.info("SYS: Checking GPSD config for baud rate %d (fake)", baud_rate)
+    return False
+
+
+def update_gpsd_config(baud_rate: int) -> None:
+    logger.info("SYS: Updating GPSD config with baud rate %d (fake)", baud_rate)
