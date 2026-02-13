@@ -152,7 +152,7 @@ class UIChart(UIModule):
             )
             self.solution = self.shared_state.solution()
             last_solve_time = self.solution["solve_time"]
-            if (self.solution_is_new(last_solve_time)):
+            if self.solution_is_new(last_solve_time):
                 # This needs to be called first to set RA/DEC/ROLL
                 image_obj, _visible_stars = self.starfield.plot_starfield(
                     self.solution["RA"],
