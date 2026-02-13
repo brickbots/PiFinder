@@ -505,6 +505,10 @@ in {
     };
   };
 
+  # Clean stale PID file so avahi restarts cleanly during switch-to-configuration
+  systemd.services.avahi-daemon.serviceConfig.ExecStartPre =
+    "${pkgs.coreutils}/bin/rm -f /run/avahi-daemon/pid";
+
   # Apply user-chosen hostname from PiFinder_data (survives NixOS rebuilds)
   systemd.services.pifinder-hostname = {
     description = "Apply PiFinder custom hostname";
