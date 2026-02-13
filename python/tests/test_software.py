@@ -2,7 +2,6 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from PiFinder.ui.software import (
-    update_needed,
     _parse_version,
     _strip_markdown,
     _meets_min_version,
@@ -33,45 +32,6 @@ class TestParseVersion:
 
     def test_whitespace_stripped(self):
         assert _parse_version("  2.4.0\n") == (2, 4, 0, 1, "")
-
-
-@pytest.mark.unit
-class TestUpdateNeeded:
-    def test_newer_version_available(self):
-        assert update_needed("2.3.0", "2.4.0") is True
-
-    def test_same_version(self):
-        assert update_needed("2.4.0", "2.4.0") is False
-
-    def test_older_version(self):
-        assert update_needed("2.5.0", "2.4.0") is False
-
-    def test_major_version_bump(self):
-        assert update_needed("1.9.9", "2.0.0") is True
-
-    def test_patch_bump(self):
-        assert update_needed("2.4.0", "2.4.1") is True
-
-    def test_prerelease_to_release(self):
-        assert update_needed("2.5.0-beta.1", "2.5.0") is True
-
-    def test_release_to_prerelease_same(self):
-        assert update_needed("2.5.0", "2.5.0-beta.1") is False
-
-    def test_prerelease_higher_minor(self):
-        assert update_needed("2.4.0", "2.5.0-beta.1") is True
-
-    def test_garbage_input_returns_false(self):
-        assert update_needed("garbage", "2.4.0") is False
-
-    def test_empty_string_returns_false(self):
-        assert update_needed("", "") is False
-
-    def test_partial_version_returns_false(self):
-        assert update_needed("2.4", "2.5.0") is False
-
-    def test_unknown_returns_false(self):
-        assert update_needed("2.4.0", "Unknown") is False
 
 
 # ---------------------------------------------------------------------------
