@@ -10,6 +10,7 @@ Uses:
 - systemd service for software updates
 """
 
+import os
 import subprocess
 import time
 import logging
@@ -242,19 +243,19 @@ class Network(NetworkBase):
         return ssid_bytes.get_data().decode("utf-8")
 
     def set_host_name(self, hostname: str) -> None:
-        """Set hostname via D-Bus to org.freedesktop.hostname1."""
+        """Set kernel hostname and update avahi mDNS announcement.
+
+        NixOS makes /etc/hostname read-only (nix store symlink), so we set
+        the kernel hostname directly and persist to a file that a boot
+        service reads on startup.
+        """
         if hostname == self.get_host_name():
             return
-        try:
-            bus = _get_system_bus()
-            hostnamed = bus.get_object(
-                "org.freedesktop.hostname1",
-                "/org/freedesktop/hostname1",
-            )
-            iface = dbus.Interface(hostnamed, "org.freedesktop.hostname1")
-            iface.SetStaticHostname(hostname, False)
-        except dbus.DBusException as e:
-            logger.error("Failed to set hostname via D-Bus: %s", e)
+        subprocess.run(["sudo", "hostname", hostname], check=False)
+        subprocess.run(["avahi-set-host-name", hostname], check=False)
+        # Persist for next boot (pifinder-hostname.service reads this)
+        data_dir = Path(os.environ.get("PIFINDER_DATA", "/home/pifinder/PiFinder_data"))
+        (data_dir / "hostname").write_text(hostname)
 
     def _go_ap(self) -> None:
         """Activate the AP connection."""

@@ -423,7 +423,12 @@ class Server:
             self.network.set_wifi_mode(wifi_mode)
             self.network.set_ap_name(ap_name)
             self.network.set_host_name(host_name)
-            return template("restart")
+            return template(
+                "network",
+                net=self.network,
+                show_new_form=0,
+                status_message="Network settings updated. You may need to reconnect.",
+            )
 
         @app.route("/tools/pwchange", method="post")
         @auth_required

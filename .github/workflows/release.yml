@@ -32,14 +32,6 @@ jobs:
           ref: ${{ inputs.source_branch }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create tag
-        run: |
-          TAG="v${{ inputs.version }}"
-          [[ "${{ inputs.type }}" == "beta" ]] && TAG="${TAG}-beta"
-          git tag "$TAG"
-          git push origin "$TAG"
-          echo "TAG=$TAG" >> $GITHUB_ENV
-
       - uses: cachix/install-nix-action@v27
         with:
           extra_nix_config: |
@@ -55,49 +47,57 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y qemu-user-static
 
       - name: Build and push closure to Cachix
+        id: push
         run: |
-          nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
-            --system aarch64-linux -L
-          nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
-            --system aarch64-linux --json | jq -r '.[].outputs.out' | cachix push pifinder
+          STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            --system aarch64-linux -L --json | jq -r '.[].outputs.out')
+          echo "$STORE_PATH" | cachix push pifinder
+          echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp pifinder-build.json and create tag
+        run: |
+          TAG="v${{ inputs.version }}"
+          [[ "${{ inputs.type }}" == "beta" ]] && TAG="${TAG}-beta"
+
+          STORE_PATH="${{ steps.push.outputs.store_path }}"
+          VERSION="${{ inputs.version }}"
+          jq -n --arg sp "$STORE_PATH" --arg v "$VERSION" \
+            '{store_path: $sp, version: $v}' > pifinder-build.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pifinder-build.json
+          git diff --staged --quiet || git commit -m "release: stamp build for $TAG [skip ci]"
+          git push origin "${{ inputs.source_branch }}"
+
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "TAG=$TAG" >> $GITHUB_ENV
 
       - name: Build SD image
         run: |
           nix build .#images.pifinder \
             --system aarch64-linux \
-            -L -o result
-          # Rename image to include version
+            -L -o result-sd
           mkdir -p release
-          for f in result/sd-image/*.img.zst; do
+          for f in result-sd/sd-image/*.img.zst; do
             cp "$f" "release/pifinder-${TAG}.img.zst"
           done
 
-      - name: Update versions.json on main
+      - name: Build bootstrap tarball
         run: |
-          git fetch origin main
-          git checkout main
+          nix build .#images.bootstrap \
+            --system aarch64-linux \
+            -L -o result-bootstrap
+          for f in result-bootstrap/tarball/*.tar.zst; do
+            cp "$f" "release/pifinder-bootstrap-${TAG}.tar.zst"
+          done
 
-          DATE=$(date -I)
-          CHANNEL="${{ inputs.type }}"
-          VERSION="${{ inputs.version }}"
-          NOTES="${{ inputs.notes }}"
-          REF="$TAG"
-
-          jq --arg v "$VERSION" --arg r "$REF" --arg d "$DATE" --arg n "$NOTES" --arg c "$CHANNEL" \
-            '.channels[$c].versions = ([{version:$v, ref:$r, date:$d, notes:$n}] + .channels[$c].versions)[:3]' \
-            versions.json > tmp.json && mv tmp.json versions.json
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add versions.json
-          git commit -m "release: $TAG"
-          git push origin main
-
-      - name: Upload SD image artifact
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: pifinder-sd-image
-          path: release/pifinder-*.img.zst
+          name: pifinder-release-${{ env.TAG }}
+          path: release/pifinder-*.zst
           retention-days: 90
 
       - name: Create GitHub Release
@@ -107,4 +107,6 @@ jobs:
           name: PiFinder ${{ env.TAG }}
           body: ${{ inputs.notes }}
           prerelease: ${{ inputs.type == 'beta' }}
-          files: release/pifinder-*.img.zst
+          files: |
+            release/pifinder-*.img.zst
+            release/pifinder-bootstrap-*.tar.zst
