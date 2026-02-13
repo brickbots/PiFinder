@@ -30,21 +30,6 @@ MIN_NIXOS_VERSION = "2.5.0"
 REQUEST_TIMEOUT = 10
 
 
-def update_needed(current_version: str, repo_version: str) -> bool:
-    """
-    Returns true if an update is available.
-
-    Update is available if semver of repo_version is > current_version.
-    Returns False on error (safe default).
-    """
-    try:
-        cur = _parse_version(current_version)
-        repo = _parse_version(repo_version)
-        return repo > cur
-    except Exception:
-        return False
-
-
 def _parse_version(version_str: str) -> tuple:
     """
     Parse a version string like '2.4.0' or '2.5.0-beta.1'
