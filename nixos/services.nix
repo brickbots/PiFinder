@@ -333,8 +333,8 @@ in {
 
       echo "Upgrading to $STORE_PATH"
 
-      echo "Phase 1: Download from Cachix"
-      nix copy --from https://pifinder.cachix.org "$STORE_PATH"
+      echo "Phase 1: Download from substituters"
+      nix build "$STORE_PATH" --max-jobs 0
 
       echo "Phase 2: Activate (test mode — bootloader untouched)"
       nix-env -p /nix/var/nix/profiles/system --set "$STORE_PATH"
