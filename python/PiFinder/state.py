@@ -16,6 +16,7 @@ from PiFinder.composite_object import CompositeObject
 from typing import Optional
 from dataclasses import dataclass, asdict
 import json
+
 logger = logging.getLogger("SharedState")
 
 
@@ -256,7 +257,9 @@ class SharedStateObj:
         self.__imu = None
         self.__location: Location = Location()
         self.__sqm: SQM = SQM()
-        self.__noise_floor: float = 10.0  # Adaptive noise floor in ADU (default fallback)
+        self.__noise_floor: float = (
+            10.0  # Adaptive noise floor in ADU (default fallback)
+        )
         self.__sqm_details: dict = {}  # Full SQM calculation details for calibration
         self.__datetime = None
         self.__datetime_time = None
@@ -348,6 +351,7 @@ class SharedStateObj:
         if v:
             if self.__tz_finder is None:
                 from timezonefinder import TimezoneFinder
+
                 self.__tz_finder = TimezoneFinder()
             v.timezone = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon)
         self.__location = v

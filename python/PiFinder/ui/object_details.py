@@ -354,14 +354,14 @@ class UIObjectDetails(UIModule):
         if point_az < 1:
             self.draw.text(
                 self.az_anchor,
-                f"{az_arrow}{point_az : >5.2f}",
+                f"{az_arrow}{point_az: >5.2f}",
                 font=self.fonts.huge.font,
                 fill=self.colors.get(indicator_color),
             )
         else:
             self.draw.text(
                 self.az_anchor,
-                f"{az_arrow}{point_az : >5.1f}",
+                f"{az_arrow}{point_az: >5.1f}",
                 font=self.fonts.huge.font,
                 fill=self.colors.get(indicator_color),
             )
@@ -382,14 +382,14 @@ class UIObjectDetails(UIModule):
         if point_alt < 1:
             self.draw.text(
                 self.alt_anchor,
-                f"{alt_arrow}{point_alt : >5.2f}",
+                f"{alt_arrow}{point_alt: >5.2f}",
                 font=self.fonts.huge.font,
                 fill=self.colors.get(indicator_color),
             )
         else:
             self.draw.text(
                 self.alt_anchor,
-                f"{alt_arrow}{point_alt : >5.1f}",
+                f"{alt_arrow}{point_alt: >5.1f}",
                 font=self.fonts.huge.font,
                 fill=self.colors.get(indicator_color),
             )
