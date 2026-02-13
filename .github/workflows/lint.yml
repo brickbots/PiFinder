@@ -1,14 +1,33 @@
-name: nox
+name: Lint & Test
 on: [push, pull_request]
 jobs:
-  nox:
+  lint:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./python
     steps:
       - uses: actions/checkout@v4
-      - uses: wntrblm/nox@2024.04.15
-        with:
-          python-versions: "3.9"
-      - run: nox -s lint format type_hints smoke_tests unit_tests
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Lint
+        run: nix develop --command bash -c "cd python && ruff check"
+      - name: Format check
+        run: nix develop --command bash -c "cd python && ruff format --check"
+
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Type check
+        run: nix develop --command bash -c "cd python && mypy --install-types --non-interactive ."
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Smoke tests
+        run: nix develop --command bash -c "cd python && pytest -m smoke"
+      - name: Unit tests
+        run: nix develop --command bash -c "cd python && pytest -m unit"

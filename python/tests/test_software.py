@@ -10,7 +10,6 @@ from PiFinder.ui.software import (
     _fetch_github_releases,
     _fetch_testable_prs,
     _fetch_build_json,
-    GITHUB_REPO,
     GITHUB_RAW_URL,
 )
 
@@ -155,7 +154,10 @@ class TestVersionFromTag:
 # Build JSON fetching
 # ---------------------------------------------------------------------------
 
-MOCK_BUILD_JSON = {"store_path": "/nix/store/abc123-nixos-system-pifinder", "version": "2.6.0"}
+MOCK_BUILD_JSON = {
+    "store_path": "/nix/store/abc123-nixos-system-pifinder",
+    "version": "2.6.0",
+}
 
 
 @pytest.mark.unit
@@ -245,9 +247,18 @@ MOCK_RELEASES = [
 ]
 
 BUILD_JSONS = {
-    "v2.6.0": {"store_path": "/nix/store/aaa-nixos-system-pifinder", "version": "2.6.0"},
-    "v2.5.1": {"store_path": "/nix/store/bbb-nixos-system-pifinder", "version": "2.5.1"},
-    "v2.6.0-beta.1": {"store_path": "/nix/store/ccc-nixos-system-pifinder", "version": "2.6.0-beta.1"},
+    "v2.6.0": {
+        "store_path": "/nix/store/aaa-nixos-system-pifinder",
+        "version": "2.6.0",
+    },
+    "v2.5.1": {
+        "store_path": "/nix/store/bbb-nixos-system-pifinder",
+        "version": "2.5.1",
+    },
+    "v2.6.0-beta.1": {
+        "store_path": "/nix/store/ccc-nixos-system-pifinder",
+        "version": "2.6.0-beta.1",
+    },
 }
 
 
@@ -410,8 +421,14 @@ MOCK_PRS = [
 ]
 
 PR_BUILD_JSONS = {
-    "abc123def456": {"store_path": "/nix/store/pr42-nixos-system-pifinder", "version": "2.6.0-dev"},
-    "789xyz000111": {"store_path": "/nix/store/pr99-nixos-system-pifinder", "version": "2.6.0-dev"},
+    "abc123def456": {
+        "store_path": "/nix/store/pr42-nixos-system-pifinder",
+        "version": "2.6.0-dev",
+    },
+    "789xyz000111": {
+        "store_path": "/nix/store/pr99-nixos-system-pifinder",
+        "version": "2.6.0-dev",
+    },
 }
 
 
@@ -498,7 +515,10 @@ class TestFetchTestablePRs:
             }
         ]
         mock_get.return_value = mock_resp
-        mock_build.return_value = {"store_path": "/nix/store/pr7-nixos", "version": "2.6.0-dev"}
+        mock_build.return_value = {
+            "store_path": "/nix/store/pr7-nixos",
+            "version": "2.6.0-dev",
+        }
 
         entries = _fetch_testable_prs()
 
