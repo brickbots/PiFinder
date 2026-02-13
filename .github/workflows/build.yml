@@ -42,10 +42,43 @@ jobs:
           echo "$STORE_PATH" | cachix push pifinder
           echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
 
-  # Fallback to QEMU emulation if Pi5 unavailable
+  # Wait up to 15 min for native builder, then decide on fallback
+  native-wait:
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'preview') ||
+      contains(github.event.pull_request.labels.*.name, 'testable')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      need_emulated: ${{ steps.wait.outputs.need_emulated }}
+    steps:
+      - name: Wait for native build
+        id: wait
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for i in $(seq 1 30); do
+            sleep 30
+            RESULT=$(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs" \
+              --jq '.jobs[] | select(.name == "build-native") | .conclusion // "pending"' 2>/dev/null || echo "pending")
+            echo "Check $i/30: build-native=$RESULT"
+            if [ "$RESULT" = "success" ]; then
+              echo "need_emulated=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif [ "$RESULT" = "failure" ] || [ "$RESULT" = "cancelled" ]; then
+              echo "need_emulated=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "Native build not done after 15 min, falling back to emulated"
+          echo "need_emulated=true" >> "$GITHUB_OUTPUT"
+
+  # Fallback to QEMU emulation if Pi5 unavailable or slow
   build-emulated:
-    needs: build-native
-    if: failure() || cancelled()
+    needs: native-wait
+    if: needs.native-wait.outputs.need_emulated == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 360
     outputs:
