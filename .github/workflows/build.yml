@@ -98,7 +98,9 @@ jobs:
       - name: Write pifinder-build.json
         run: |
           STORE_PATH="${{ needs.build-native.outputs.store_path || needs.build-emulated.outputs.store_path }}"
-          VERSION=$(cat version.txt | tr -d '[:space:]')
+          BRANCH="${{ github.head_ref || github.ref_name }}"
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          VERSION="${BRANCH}-${SHORT_SHA}"
           jq -n --arg sp "$STORE_PATH" --arg v "$VERSION" \
             '{store_path: $sp, version: $v}' > pifinder-build.json
 

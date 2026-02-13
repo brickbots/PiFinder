@@ -14,6 +14,15 @@ tetra3_dir = pifinder_dir / "python/PiFinder/tetra3"
 data_dir = Path(Path.home(), "PiFinder_data")
 pifinder_db = astro_data_dir / "pifinder_objects.db"
 observations_db = data_dir / "observations.db"
+build_json = pifinder_dir / "pifinder-build.json"
+
+
+def get_version() -> str:
+    try:
+        with open(build_json, "r") as f:
+            return json.load(f).get("version", "Unknown")
+    except (FileNotFoundError, IOError, json.JSONDecodeError):
+        return "Unknown"
 debug_dump_dir = data_dir / "solver_debug_dumps"
 comet_file = data_dir / "comets.txt"
 

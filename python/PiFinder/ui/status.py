@@ -81,13 +81,11 @@ class UIStatus(UIModule):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.version_txt = f"{utils.pifinder_dir}/version.txt"
         self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
         self._draw_pos = (0, self.display_class.titlebar_height)
         with open(self.wifi_txt, "r") as wfs:
             self._config_options["WiFi Mode"]["value"] = wfs.read()
-        with open(self.version_txt, "r") as ver:
-            self._config_options["Software"]["value"] = ver.read()
+        self._config_options["Software"]["value"] = utils.get_version()
         self.spacecalc = SpaceCalculatorFixed(self.fonts.base.line_length)
         self.status_dict = {
             "LST SLV": "--",
@@ -144,8 +142,7 @@ class UIStatus(UIModule):
 
     def update_software(self, option):
         if option == "CANCEL":
-            with open(self.version_txt, "r") as ver:
-                self._config_options["Software"]["value"] = ver.read()
+            self._config_options["Software"]["value"] = utils.get_version()
             return False
 
         self.message("Updating...", 10)

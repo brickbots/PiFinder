@@ -57,7 +57,7 @@ class Server:
         shared_state,
         is_debug=False,
     ):
-        self.version_txt = f"{utils.pifinder_dir}/version.txt"
+        self._software_version = utils.get_version()
         self.keyboard_queue = keyboard_queue
         self.ui_queue = ui_queue
         self.gps_queue = gps_queue
@@ -115,13 +115,7 @@ class Server:
         @app.route("/")
         def home():
             logger.debug("/ called")
-            # Get version info
-            software_version = "Unknown"
-            try:
-                with open(self.version_txt, "r") as ver_f:
-                    software_version = ver_f.read()
-            except (FileNotFoundError, IOError) as e:
-                logger.warning(f"Could not read version file: {str(e)}")
+            software_version = self._software_version
 
             # Try to update GPS state
             try:
