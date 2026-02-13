@@ -152,12 +152,7 @@ class UIChart(UIModule):
             )
             self.solution = self.shared_state.solution()
             last_solve_time = self.solution["solve_time"]
-            if (
-                last_solve_time > self.last_update
-                and self.solution["Roll"] is not None
-                and self.solution["RA"] is not None
-                and self.solution["Dec"] is not None
-            ):
+            if (self.solution_is_new(last_solve_time)):
                 # This needs to be called first to set RA/DEC/ROLL
                 image_obj, _visible_stars = self.starfield.plot_starfield(
                     self.solution["RA"],
@@ -225,6 +220,23 @@ class UIChart(UIModule):
             )
 
         return self.screen_update()
+
+    def solution_is_new(self, last_solve_time):
+        """ 
+        Returns True if the solution (coordinates) is valid and new since
+        last_solve_time.
+        """
+        if (last_solve_time is None
+            or self.last_update is None):
+            return False
+        if last_solve_time <= self.last_update:
+            return False
+        if (self.solution["Roll"] is None
+            or self.solution["RA"] is None
+            or self.solution["Dec"] is None):
+            return False
+
+        return True  # Solution is valid and new
 
     def change_fov(self, direction):
         self.fov_index += direction
