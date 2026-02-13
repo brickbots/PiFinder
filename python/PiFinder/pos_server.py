@@ -219,12 +219,12 @@ lx_command_dict = {
     "GVP": get_product,
     "GVT": get_firmware_time,
     "GW": get_status,
-    "RS": respond_none, # Set slew rate to max
-    "MS": respond_zero, # Slew to object
-    "Q": respond_none, # Abort
-    "U": respond_none, # Precision toggle
-    "Sd": parse_sd_command, # Set declination
-    "Sr": parse_sr_command, # Set RA
+    "RS": respond_none,  # Set slew rate to max
+    "MS": respond_zero,  # Slew to object
+    "Q": respond_none,  # Abort
+    "U": respond_none,  # Precision toggle
+    "Sd": parse_sd_command,  # Set declination
+    "Sr": parse_sr_command,  # Set RA
 }
 
 
@@ -254,11 +254,13 @@ def handle_client(client_socket, shared_state):
                 command_handler = lx_command_dict.get(command, not_implemented)
                 out_data = command_handler(shared_state, in_data)
                 if out_data:
-                    response = out_data if out_data in ("0", "1", "AT1") else out_data + "#"
+                    response = (
+                        out_data if out_data in ("0", "1", "AT1") else out_data + "#"
+                    )
                     client_socket.send(response.encode())
             # Special case for the ACK command in the LX200 protocol sent by Stellarium
             # No leading : for the ACK command but Stellarium leads all commands with #
-            elif in_data[0] == 0x06 or (in_data[0] == b'#' and in_data[1] == 0x06):
+            elif in_data[0] == 0x06 or (in_data[0] == b"#" and in_data[1] == 0x06):
                 is_stellarium = True
                 # A indicates alt-az mode
                 client_socket.send("A".encode())

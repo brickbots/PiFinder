@@ -1,6 +1,5 @@
 from typing import Any
 from PiFinder.ui.timeentry import UITimeEntry
-from PiFinder.ui.sqmentry import UISqmEntry
 from PiFinder.ui.text_menu import UITextMenu
 from PiFinder.ui.object_list import UIObjectList
 from PiFinder.ui.status import UIStatus

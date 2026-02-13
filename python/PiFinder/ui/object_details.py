@@ -268,21 +268,24 @@ class UIObjectDetails(UIModule):
         if self.contrast:
             contrast_val = float(self.contrast)
             if contrast_val < -0.2:
-                contrast_str = f"Object is not visible"
+                contrast_str = "Object is not visible"
             elif -0.2 <= contrast_val < 0.1:
-                contrast_str = f"Questionable detection"
+                contrast_str = "Questionable detection"
             elif 0.1 <= contrast_val < 0.35:
-                contrast_str = f"Difficult to see"
+                contrast_str = "Difficult to see"
             elif 0.35 <= contrast_val < 0.5:
-                contrast_str = f"Quite difficult to see"
+                contrast_str = "Quite difficult to see"
             elif 0.5 <= contrast_val < 1.0:
-                contrast_str = f"Easy to see"
+                contrast_str = "Easy to see"
             elif contrast_val >= 1.0:
-                contrast_str = f"Very easy to see"
+                contrast_str = "Very easy to see"
             else:
-                contrast_str = f""
+                contrast_str = ""
             self.texts["contrast_reserve"] = self.ScrollTextLayout(
-                contrast_str, font=self.fonts.base, color=self.colors.get(255), scrollspeed=self._get_scrollspeed_config(),
+                contrast_str,
+                font=self.fonts.base,
+                color=self.colors.get(255),
+                scrollspeed=self._get_scrollspeed_config(),
             )
 
         # NGC description....
@@ -315,7 +318,6 @@ class UIObjectDetails(UIModule):
             burn_in=self.object_display_mode in [DM_POSS, DM_SDSS],
             magnification=magnification,
         )
-
 
     def active(self):
         self.activation_time = time.time()
@@ -544,7 +546,7 @@ class UIObjectDetails(UIModule):
         elif self.object_display_mode == DM_CONTRAST:
             # Display contrast reserve explanation page
             y_pos = 20
-            
+
             # Title
             self.draw.text(
                 (0, y_pos),
@@ -553,7 +555,7 @@ class UIObjectDetails(UIModule):
                 fill=self.colors.get(255),
             )
             y_pos += 14
-            
+
             # Display the contrast value
             contrast = self.texts.get("contrast_reserve")
 
@@ -566,7 +568,7 @@ class UIObjectDetails(UIModule):
                     fill=self.colors.get(255),
                 )
                 y_pos += 17
-                
+
                 # Display the interpretation
                 if contrast and contrast.text.strip():
                     contrast.draw((0, y_pos))
@@ -579,7 +581,7 @@ class UIObjectDetails(UIModule):
                     fill=self.colors.get(128),
                 )
                 y_pos += 14
-            
+
             # Add explanation about what CR means
             explanation_lines = [
                 _("CR measures object"),
@@ -587,7 +589,7 @@ class UIObjectDetails(UIModule):
                 _("sky brightness,"),
                 _("telescope, and EP."),
             ]
-            
+
             for line in explanation_lines:
                 self.draw.text(
                     (0, y_pos),

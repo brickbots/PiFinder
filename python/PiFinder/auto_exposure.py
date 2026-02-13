@@ -694,7 +694,7 @@ class ExposureSNRController:
         profile = get_camera_profile(camera_type)
 
         # Derive thresholds from camera specs
-        max_adu = (2 ** profile.bit_depth) - 1
+        max_adu = (2**profile.bit_depth) - 1
         bias = profile.bias_offset
 
         # min_background: bias + margin (2x bias or bias + 8, whichever larger)
@@ -726,7 +726,7 @@ class ExposureSNRController:
         current_exposure: int,
         image: Image.Image,
         noise_floor: Optional[float] = None,
-        **kwargs  # Ignore other params (matched_stars, etc.)
+        **kwargs,  # Ignore other params (matched_stars, etc.)
     ) -> Optional[int]:
         """
         Update exposure based on background level.
@@ -908,7 +908,9 @@ class ExposurePIDController:
         # from crashing exposure when conditions change suddenly
         # (e.g., going from too many stars to too few stars)
         if self._last_error is not None:
-            if (error > 0 and self._last_error < 0) or (error < 0 and self._last_error > 0):
+            if (error > 0 and self._last_error < 0) or (
+                error < 0 and self._last_error > 0
+            ):
                 logger.debug(
                     f"PID: Error sign changed ({self._last_error:.0f} → {error:.0f}), resetting integral"
                 )

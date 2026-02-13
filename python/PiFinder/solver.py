@@ -123,7 +123,13 @@ def update_sqm(
             k: v
             for k, v in details.items()
             if k
-            not in ("star_centroids", "star_mags", "star_fluxes", "star_local_backgrounds", "star_mzeros")
+            not in (
+                "star_centroids",
+                "star_mags",
+                "star_fluxes",
+                "star_local_backgrounds",
+                "star_mzeros",
+            )
         }
         shared_state.set_sqm_details(filtered_details)
 
@@ -175,7 +181,9 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             )
         return self._stub
 
-    def extract_centroids(self, image, sigma, max_size, use_binned, detect_hot_pixels=True):
+    def extract_centroids(
+        self, image, sigma, max_size, use_binned, detect_hot_pixels=True
+    ):
         """Override to raise CedarConnectionError on gRPC failure instead of returning empty list."""
         import numpy as np
         from tetra3 import cedar_detect_pb2
@@ -187,10 +195,14 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
         # Use shared memory path (same machine)
         if self._use_shmem:
             self._alloc_shmem(size=width * height)
-            shimg = np.ndarray(np_image.shape, dtype=np_image.dtype, buffer=self._shmem.buf)
+            shimg = np.ndarray(
+                np_image.shape, dtype=np_image.dtype, buffer=self._shmem.buf
+            )
             shimg[:] = np_image[:]
 
-            im = cedar_detect_pb2.Image(width=width, height=height, shmem_name=self._shmem.name)
+            im = cedar_detect_pb2.Image(
+                width=width, height=height, shmem_name=self._shmem.name
+            )
             req = cedar_detect_pb2.CentroidsRequest(
                 input_image=im,
                 sigma=sigma,
@@ -207,10 +219,14 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
                     self._del_shmem()
                     self._use_shmem = False
                 else:
-                    raise CedarConnectionError(f"Cedar gRPC failed: {err.details()}") from err
+                    raise CedarConnectionError(
+                        f"Cedar gRPC failed: {err.details()}"
+                    ) from err
 
         if not self._use_shmem:
-            im = cedar_detect_pb2.Image(width=width, height=height, image_data=np_image.tobytes())
+            im = cedar_detect_pb2.Image(
+                width=width, height=height, image_data=np_image.tobytes()
+            )
             req = cedar_detect_pb2.CentroidsRequest(
                 input_image=im,
                 sigma=sigma,
@@ -221,7 +237,9 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             try:
                 centroids_result = self._get_stub().ExtractCentroids(req)
             except grpc.RpcError as err:
-                raise CedarConnectionError(f"Cedar gRPC failed: {err.details()}") from err
+                raise CedarConnectionError(
+                    f"Cedar gRPC failed: {err.details()}"
+                ) from err
 
         tetra_centroids = []
         if centroids_result is not None:
@@ -370,7 +388,9 @@ def solver(
                                     np_image, sigma=8, max_size=10, use_binned=True
                                 )
                             except CedarConnectionError as e:
-                                logger.warning(f"Cedar connection failed: {e}, falling back to tetra3")
+                                logger.warning(
+                                    f"Cedar connection failed: {e}, falling back to tetra3"
+                                )
                                 centroids = tetra3.get_centroids_from_image(np_image)
                         else:
                             # Cedar not available, use tetra3
