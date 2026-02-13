@@ -7,6 +7,10 @@ on:
     types: [labeled, synchronize, opened]
   workflow_dispatch:
 
+concurrency:
+  group: build-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   # Try Pi5 native build first (fast)
   build-native:
