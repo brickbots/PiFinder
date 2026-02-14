@@ -44,9 +44,9 @@ class TestSQMExtinction:
 
         # Extinction should increase monotonically as altitude decreases
         for i in range(len(extinctions) - 1):
-            assert (
-                extinctions[i] < extinctions[i + 1]
-            ), f"Extinction at {altitudes[i]}° should be less than at {altitudes[i+1]}°"
+            assert extinctions[i] < extinctions[i + 1], (
+                f"Extinction at {altitudes[i]}° should be less than at {altitudes[i + 1]}°"
+            )
 
     def test_extinction_minimum_is_at_zenith(self):
         """Test that zenith (90°) has zero extinction (ASTAP convention)"""
@@ -141,7 +141,7 @@ class TestPickeringAirmass:
         for i in range(len(airmasses) - 1):
             assert airmasses[i] < airmasses[i + 1], (
                 f"Airmass at {altitudes[i]}° ({airmasses[i]:.3f}) should be less than "
-                f"at {altitudes[i+1]}° ({airmasses[i+1]:.3f})"
+                f"at {altitudes[i + 1]}° ({airmasses[i + 1]:.3f})"
             )
 
 
@@ -234,7 +234,9 @@ class TestSQMCalculation:
 
         # Check extinction values (ASTAP convention: 0 at zenith)
         # Pickering airmass at 30° ≈ 1.995, so extinction ≈ 0.28 * 0.995 ≈ 0.279
-        assert details_zenith["extinction_for_altitude"] == pytest.approx(0.0, abs=0.001)
+        assert details_zenith["extinction_for_altitude"] == pytest.approx(
+            0.0, abs=0.001
+        )
         expected_ext_30 = 0.28 * (sqm._pickering_airmass(30.0) - 1)
         assert details_30deg["extinction_for_altitude"] == pytest.approx(
             expected_ext_30, abs=0.001

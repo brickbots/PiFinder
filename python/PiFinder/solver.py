@@ -25,6 +25,7 @@ from PiFinder.sqm import SQM as SQMCalculator
 from PiFinder.state import SQM as SQMState
 
 sys.path.append(str(utils.tetra3_dir))
+sys.path.append(str(utils.tetra3_dir / "tetra3"))
 import tetra3
 from tetra3 import cedar_detect_client
 
@@ -123,7 +124,13 @@ def update_sqm(
             k: v
             for k, v in details.items()
             if k
-            not in ("star_centroids", "star_mags", "star_fluxes", "star_local_backgrounds", "star_mzeros")
+            not in (
+                "star_centroids",
+                "star_mags",
+                "star_fluxes",
+                "star_local_backgrounds",
+                "star_mzeros",
+            )
         }
         shared_state.set_sqm_details(filtered_details)
 
@@ -153,19 +160,50 @@ class CedarConnectionError(Exception):
 
 class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
     def __init__(self, port=50551):
-        """Set up the client without spawning the server as we
-        run this as a service on the PiFinder
+        """Connect to cedar-detect-server.
 
-        Also changing this to a different default port
+        On the Pi the server runs as a systemd service.
+        In dev mode we spawn it as a subprocess (like upstream does).
         """
         self._port = port
-        time.sleep(2)
+        self._subprocess = None
+
+        # Check if the server is already listening (systemd service on Pi)
+        if not self._server_reachable():
+            # Dev mode: spawn the server ourselves
+            import shutil
+
+            binary = shutil.which("cedar-detect-server")
+            if binary is None:
+                raise FileNotFoundError("cedar-detect-server")
+            my_env = os.environ.copy()
+            my_env["RUST_BACKTRACE"] = "1"
+            import subprocess
+
+            self._subprocess = subprocess.Popen(
+                [binary, "--port", str(self._port)], env=my_env
+            )
+            time.sleep(1)
+
         # Will initialize on first use.
         self._stub = None
         self._shmem = None
         self._shmem_size = 0
         # Try shared memory, fall back if an error occurs.
         self._use_shmem = True
+
+    def __del__(self):
+        if self._subprocess is not None:
+            self._subprocess.kill()
+        self._del_shmem()
+
+    def _server_reachable(self):
+        """Quick check if cedar-detect-server is already listening."""
+        import socket
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.2)
+            return s.connect_ex(("127.0.0.1", self._port)) == 0
 
     def _get_stub(self):
         if self._stub is None:
@@ -175,7 +213,34 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             )
         return self._stub
 
-    def extract_centroids(self, image, sigma, max_size, use_binned, detect_hot_pixels=True):
+    def _alloc_shmem(self, size):
+        """Override to fix shared memory name (no leading / for Python's SharedMemory)."""
+        from multiprocessing import shared_memory
+
+        if self._shmem is not None and size > self._shmem_size:
+            self._shmem.close()
+            self._shmem.unlink()
+            self._shmem = None
+        if self._shmem is None:
+            # Use name without leading / - Python's SharedMemory adds it automatically
+            self._shmem = shared_memory.SharedMemory(
+                "cedar_detect_image", create=True, size=size
+            )
+            self._shmem_size = size
+
+    def _del_shmem(self):
+        """Override to match _alloc_shmem naming."""
+        if self._shmem is not None:
+            self._shmem.close()
+            try:
+                self._shmem.unlink()
+            except FileNotFoundError:
+                pass
+            self._shmem = None
+
+    def extract_centroids(
+        self, image, sigma, max_size, use_binned, detect_hot_pixels=True
+    ):
         """Override to raise CedarConnectionError on gRPC failure instead of returning empty list."""
         import numpy as np
         from tetra3 import cedar_detect_pb2
@@ -187,10 +252,14 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
         # Use shared memory path (same machine)
         if self._use_shmem:
             self._alloc_shmem(size=width * height)
-            shimg = np.ndarray(np_image.shape, dtype=np_image.dtype, buffer=self._shmem.buf)
+            shimg = np.ndarray(
+                np_image.shape, dtype=np_image.dtype, buffer=self._shmem.buf
+            )
             shimg[:] = np_image[:]
 
-            im = cedar_detect_pb2.Image(width=width, height=height, shmem_name=self._shmem.name)
+            im = cedar_detect_pb2.Image(
+                width=width, height=height, shmem_name=self._shmem.name
+            )
             req = cedar_detect_pb2.CentroidsRequest(
                 input_image=im,
                 sigma=sigma,
@@ -207,10 +276,14 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
                     self._del_shmem()
                     self._use_shmem = False
                 else:
-                    raise CedarConnectionError(f"Cedar gRPC failed: {err.details()}") from err
+                    raise CedarConnectionError(
+                        f"Cedar gRPC failed: {err.details()}"
+                    ) from err
 
         if not self._use_shmem:
-            im = cedar_detect_pb2.Image(width=width, height=height, image_data=np_image.tobytes())
+            im = cedar_detect_pb2.Image(
+                width=width, height=height, image_data=np_image.tobytes()
+            )
             req = cedar_detect_pb2.CentroidsRequest(
                 input_image=im,
                 sigma=sigma,
@@ -221,16 +294,15 @@ class PFCedarDetectClient(cedar_detect_client.CedarDetectClient):
             try:
                 centroids_result = self._get_stub().ExtractCentroids(req)
             except grpc.RpcError as err:
-                raise CedarConnectionError(f"Cedar gRPC failed: {err.details()}") from err
+                raise CedarConnectionError(
+                    f"Cedar gRPC failed: {err.details()}"
+                ) from err
 
         tetra_centroids = []
         if centroids_result is not None:
             for sc in centroids_result.star_candidates:
                 tetra_centroids.append((sc.centroid_position.y, sc.centroid_position.x))
         return tetra_centroids
-
-    def __del__(self):
-        self._del_shmem()
 
 
 def solver(
@@ -370,7 +442,9 @@ def solver(
                                     np_image, sigma=8, max_size=10, use_binned=True
                                 )
                             except CedarConnectionError as e:
-                                logger.warning(f"Cedar connection failed: {e}, falling back to tetra3")
+                                logger.warning(
+                                    f"Cedar connection failed: {e}, falling back to tetra3"
+                                )
                                 centroids = tetra3.get_centroids_from_image(np_image)
                         else:
                             # Cedar not available, use tetra3
