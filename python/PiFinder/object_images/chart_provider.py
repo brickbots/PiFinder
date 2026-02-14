@@ -41,7 +41,7 @@ class ChartImageProvider(ImageProvider):
 
         Returns True if Gaia star catalog exists
         """
-        gaia_catalog_path = Path(utils.astro_data_dir, "gaia_stars", "metadata.json")
+        gaia_catalog_path = Path(utils.data_dir, "gaia_stars", "metadata.json")
         return gaia_catalog_path.exists()
 
     def get_image(
@@ -77,7 +77,7 @@ class ChartImageProvider(ImageProvider):
                 self.config_object, self.shared_state
             )
 
-        gaia_catalog_path = Path(utils.astro_data_dir, "gaia_stars", "metadata.json")
+        gaia_catalog_path = Path(utils.data_dir, "gaia_stars", "metadata.json")
 
         if not gaia_catalog_path.exists():
             logger.warning(f"Gaia star catalog not found at {gaia_catalog_path}")

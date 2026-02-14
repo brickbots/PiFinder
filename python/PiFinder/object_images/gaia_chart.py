@@ -108,7 +108,7 @@ class GaiaChartGenerator:
 
     def initialize_catalog(self):
         """Create catalog instance (doesn't load data yet)"""
-        catalog_path = Path(utils.astro_data_dir, "gaia_stars")
+        catalog_path = Path(utils.data_dir, "gaia_stars")
         logger.info(f">>> initialize_catalog() - catalog_path: {catalog_path}")
 
         # Check if catalog exists before initializing

@@ -95,11 +95,24 @@
             unpackPhase = "tar xf $src";
             installPhase = "mv catalog_images $out";
           };
+          gaia-stars = pkgs.stdenv.mkDerivation {
+            pname = "pifinder-gaia-stars";
+            version = "1.0";
+            src = pkgs.fetchurl {
+              url = "https://files.miker.be/public/pifinder/gaia_stars.tar.zst";
+              hash = "sha256-vmsOz7U0X4bnMZrcKjiwIk0YYy/AqRV2+fzaH7qO8wo=";
+            };
+            nativeBuildInputs = [ pkgs.zstd ];
+            unpackPhase = "tar xf $src";
+            installPhase = "mv gaia_stars $out";
+          };
         in {
           sdImage.populateRootCommands = ''
             mkdir -p ./files/home/pifinder/PiFinder_data
             cp -r ${catalog-images} ./files/home/pifinder/PiFinder_data/catalog_images
             chmod -R u+w ./files/home/pifinder/PiFinder_data/catalog_images
+            cp -r ${gaia-stars} ./files/home/pifinder/PiFinder_data/gaia_stars
+            chmod -R u+w ./files/home/pifinder/PiFinder_data/gaia_stars
           '';
           sdImage.populateFirmwareCommands = lib.mkForce ''
             (cd ${pkgs.raspberrypifw}/share/raspberrypi/boot && cp bootcode.bin fixup*.dat start*.elf $NIX_BUILD_TOP/firmware/)
