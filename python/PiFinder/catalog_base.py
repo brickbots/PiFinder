@@ -171,7 +171,7 @@ class VirtualIDManager:
 class TimerMixin:
     """Provides timer functionality via composition"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.timer: Optional[threading.Timer] = None
         self.is_running: bool = False
         self.time_delay_seconds: Union[int, Callable[[], int]] = (

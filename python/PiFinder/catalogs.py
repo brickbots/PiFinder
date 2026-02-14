@@ -917,8 +917,7 @@ class CatalogBuilder:
 
     def _on_loader_progress(self, loaded: int, total: int, catalog: str) -> None:
         """Progress callback - log every 10K objects"""
-        if loaded % 10000 == 0 or loaded == total:
-            logger.info(f"Background loading: {loaded}/{total} ({catalog})")
+        pass  # Muted to reduce log noise
 
     def _on_loader_complete(
         self, loaded_objects: List[CompositeObject], ui_queue

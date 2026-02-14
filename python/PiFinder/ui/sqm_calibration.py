@@ -52,7 +52,7 @@ class UISQMCalibration(UIModule):
     __title__ = "SQM CAL"
     __help_name__ = ""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         # Wizard state machine
