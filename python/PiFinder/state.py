@@ -296,7 +296,14 @@ class SharedStateObj:
         return self.__power_state
 
     def set_power_state(self, v):
-        self.__power_state = v
+        """ 
+        Sets the power_state. Allowed states are 0 (sleep) or 1 (awake). If
+        the input v is any other value, power_state will be unchanged. 
+        """
+        if v in (0, 1):
+            self.__power_state = v
+        else:
+            logger.error(f"Invalid value for set_power_state: {v}. power_state not changed.")
 
     def arch(self):
         return self.__arch
