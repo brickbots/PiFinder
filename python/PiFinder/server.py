@@ -57,7 +57,7 @@ class Server:
         shared_state,
         is_debug=False,
     ):
-        self.version_txt = f"{utils.pifinder_dir}/version.txt"
+        self._software_version = utils.get_version()
         self.keyboard_queue = keyboard_queue
         self.ui_queue = ui_queue
         self.gps_queue = gps_queue
@@ -115,13 +115,7 @@ class Server:
         @app.route("/")
         def home():
             logger.debug("/ called")
-            # Get version info
-            software_version = "Unknown"
-            try:
-                with open(self.version_txt, "r") as ver_f:
-                    software_version = ver_f.read()
-            except (FileNotFoundError, IOError) as e:
-                logger.warning(f"Could not read version file: {str(e)}")
+            software_version = self._software_version
 
             # Try to update GPS state
             try:
@@ -423,7 +417,12 @@ class Server:
             self.network.set_wifi_mode(wifi_mode)
             self.network.set_ap_name(ap_name)
             self.network.set_host_name(host_name)
-            return template("restart")
+            return template(
+                "network",
+                net=self.network,
+                show_new_form=0,
+                status_message="Network settings updated. You may need to reconnect.",
+            )
 
         @app.route("/tools/pwchange", method="post")
         @auth_required

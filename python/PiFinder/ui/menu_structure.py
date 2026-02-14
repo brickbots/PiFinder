@@ -48,7 +48,6 @@ pifinder_menu = {
                     "name": _("Align"),
                     "class": UIAlign,
                     "stateful": True,
-                    "preload": True,
                 },
                 {
                     "name": _("GPS Status"),
@@ -60,7 +59,6 @@ pifinder_menu = {
             "name": _("Chart"),
             "class": UIChart,
             "stateful": True,
-            "preload": True,
         },
         {
             "name": _("Objects"),

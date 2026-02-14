@@ -120,6 +120,14 @@ def main():
     resolve_object_images()
     print_database()
 
+    # Finalize database for read-only deployment (NixOS)
+    logging.info("Finalizing database for read-only deployment...")
+    conn, _ = objects_db.get_conn_cursor()
+    conn.execute("PRAGMA journal_mode = DELETE")  # Required for read-only FS
+    conn.execute("VACUUM")  # Compact database
+    conn.commit()
+    logging.info("Database finalization complete")
+
 
 if __name__ == "__main__":
     main()

@@ -118,3 +118,23 @@ Tests use pytest with custom markers for different test types. The smoke tests p
 - **I18n Support:** Babel integration for multi-language UI
 
 The codebase follows modern Python practices with type hints, comprehensive testing, and automated code quality checks integrated into the development workflow.
+
+## NixOS Development
+
+**Netboot deployment (dev Pi on proxnix NFS):**
+```bash
+./deploy-image-to-nfs.sh    # Build and deploy to NFS
+```
+
+**Power control (Shelly plug via Home Assistant):**
+```bash
+~/.local/bin/pifinder-power-off.sh   # Turn off PiFinder
+~/.local/bin/pifinder-power-on.sh    # Turn on PiFinder
+```
+
+**Check Pi status:**
+```bash
+ssh pifinder@192.168.5.146           # SSH to netboot Pi
+systemctl status pifinder            # Check service status
+journalctl -u pifinder -f            # Follow service logs
+```

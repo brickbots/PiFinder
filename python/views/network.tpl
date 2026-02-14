@@ -2,6 +2,9 @@
 <div class="row valign-wrapper" style="margin: 0px;">
   <div class="col s12">
         <h5 class="grey-text">Network Settings</h5>
+        % if defined("status_message"):
+        <p class="green-text">{{status_message}}</p>
+        % end
   </div>
 </div>
 <div class="card grey darken-2">
