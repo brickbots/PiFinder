@@ -372,6 +372,18 @@ def load_source(name, path):
         doCheck = false;
       };
 
+      healpy = self.buildPythonPackage rec {
+        pname = "healpy";
+        version = "1.19.0";
+        format = "wheel";
+        src = pkgs.fetchurl {
+          url = "https://files.pythonhosted.org/packages/f6/d4/a60ed9a50768ff5e896dd94d878496ae16767925ea32c49d5a4189ab818a/healpy-1.19.0-cp313-cp313-manylinux_2_28_aarch64.whl";
+          hash = "sha256-kgwKHGdJwFyK2VIqWiYw97yDEkxXQu9Q+RufXmob3Mc=";
+        };
+        propagatedBuildInputs = [ self.numpy self.astropy self.matplotlib ];
+        doCheck = false;
+      };
+
       python-prctl = self.buildPythonPackage rec {
         pname = "python-prctl";
         version = "1.8.1";
@@ -493,6 +505,7 @@ except ImportError:
     simplejpeg
     python-prctl
     videodev2
+    healpy
   ];
 
   devPackages = ps: with ps; [
