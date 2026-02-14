@@ -1,0 +1,56 @@
+name: Lint & Test
+on: [push, pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: false
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Lint
+        run: nix develop --command bash -c "cd python && ruff check"
+      - name: Format check
+        run: nix develop --command bash -c "cd python && ruff format --check"
+      - name: Check for removed config keys
+        if: github.event_name == 'pull_request'
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          git show "$BASE_SHA:default_config.json" 2>/dev/null \
+            | python3 -c "import json,sys; print('\n'.join(sorted(json.load(sys.stdin).keys())))" \
+            > /tmp/base_keys.txt || exit 0
+          python3 -c "import json,sys; print('\n'.join(sorted(json.load(sys.stdin).keys())))" \
+            < default_config.json > /tmp/head_keys.txt
+          REMOVED=$(comm -23 /tmp/base_keys.txt /tmp/head_keys.txt)
+          if [ -n "$REMOVED" ]; then
+            while IFS= read -r key; do
+              echo "::warning file=default_config.json::Config key '$key' was removed — this may break user preferences across release switches"
+            done <<< "$REMOVED"
+          fi
+
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: false
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Type check
+        run: nix develop --command bash -c "cd python && mypy --install-types --non-interactive ."
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+        with:
+          determinate: false
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+      - name: Smoke tests
+        run: nix develop --command bash -c "cd python && pytest -m smoke"
+      - name: Unit tests
+        run: nix develop --command bash -c "cd python && pytest -m unit"

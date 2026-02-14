@@ -172,7 +172,7 @@ class UISQM(UIModule):
                 if image_metadata and "exposure_time" in image_metadata:
                     exp_ms = image_metadata["exposure_time"] / 1000  # Convert µs to ms
                     if exp_ms >= 1000:
-                        exp_str = f"{exp_ms/1000:.2f}s"
+                        exp_str = f"{exp_ms / 1000:.2f}s"
                     else:
                         exp_str = f"{exp_ms:.0f}ms"
                     self.draw.text(
@@ -265,7 +265,9 @@ class UISQM(UIModule):
         camera_type = self.shared_state.camera_type()
         camera_type_processed = f"{camera_type}_processed"
         calibration_file = (
-            Path.home() / "PiFinder_data" / f"sqm_calibration_{camera_type_processed}.json"
+            Path.home()
+            / "PiFinder_data"
+            / f"sqm_calibration_{camera_type_processed}.json"
         )
         return calibration_file.exists()
 

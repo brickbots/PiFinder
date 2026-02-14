@@ -49,7 +49,7 @@ class CameraDebug(CameraInterface):
         self.images = list(zip(range(1, len(images) + 1), images))
         self.image_cycle = cycle(self.images)
         self.last_image_time: float = time.time()
-        self.current_image_num, self.last_image = self.images[0]
+        self.current_image_num, self.last_image = self.images[1]  # Use darker sky image
 
     def initialize(self) -> None:
         self._camera_started = True
@@ -63,13 +63,15 @@ class CameraDebug(CameraInterface):
     def capture(self) -> Image.Image:
         sleep_time = self.exposure_time / 1000000
         time.sleep(sleep_time)
+        # FOR TESTING: Keep using the same image (first image - solves, brighter sky)
+        # Comment out image cycling to maintain consistent roll/orientation
         # Change images every 10 seconds
-        elapsed = time.time() - self.last_image_time
-        if elapsed > 10:
-            self.current_image_num, self.last_image = next(self.image_cycle)
-            logger.debug(
-                f"Debug camera switched to test image #{self.current_image_num}"
-            )
+        # elapsed = time.time() - self.last_image_time
+        # if elapsed > 10:
+        #     self.current_image_num, self.last_image = next(self.image_cycle)
+        #     logger.debug(
+        #         f"Debug camera switched to test image #{self.current_image_num}"
+        #     )
         return self.last_image
 
     def capture_bias(self):
