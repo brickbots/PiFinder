@@ -8,17 +8,17 @@ This module is the camera
 * Takes full res images on demand
 
 """
-
-import datetime
-import logging
-import os
-import queue
-import time
 from typing import Tuple, Optional
-
 from PIL import Image
+import os
+import time
+import datetime
+import numpy as np
+import queue
+import logging
 
 from PiFinder import state_utils, utils
+import PiFinder.pointing_model.quaternion_transforms as qt
 from PiFinder.auto_exposure import (
     ExposurePIDController,
     ExposureSNRController,
@@ -177,20 +177,23 @@ class CameraInterface:
                     imu_end = shared_state.imu()
 
                     # see if we moved during exposure
-                    reading_diff = 0
                     if imu_start and imu_end:
-                        reading_diff = (
-                            abs(imu_start["pos"][0] - imu_end["pos"][0])
-                            + abs(imu_start["pos"][1] - imu_end["pos"][1])
-                            + abs(imu_start["pos"][2] - imu_end["pos"][2])
+                        # Returns the pointing difference between successive IMU quaternions as
+                        # an angle (radians). Note that this also accounts for rotation around the
+                        # scope axis. Returns an angle in radians.
+                        pointing_diff = qt.get_quat_angular_diff(
+                            imu_start["quat"], imu_end["quat"]
                         )
+                    else:
+                        pointing_diff = 0.0
 
                     camera_image.paste(base_image)
+
                     image_metadata = {
                         "exposure_start": image_start_time,
                         "exposure_end": image_end_time,
                         "imu": imu_end,
-                        "imu_delta": reading_diff,
+                        "imu_delta": np.rad2deg(pointing_diff),
                         "exposure_time": self.exposure_time,
                         "gain": self.gain,
                     }
