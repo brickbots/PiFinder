@@ -97,7 +97,8 @@ class UIStatus(UIModule):
             "IP": "--",
             "SSID": "--",
             "IMU": "--",
-            "IMU PS": "--",
+            "IMU qw,qx": "--",
+            "IMU qy,qz": "--",
             "GPS": "--",
             "GPS ALT": "--",
             "GPS LST": "--",
@@ -229,8 +230,7 @@ class UIStatus(UIModule):
 
     def update_status_dict(self):
         """
-        Updates all the
-        status dict values
+        Updates all the status dict values
         """
         if self.shared_state.solve_state():
             solution = self.shared_state.solution()
@@ -239,23 +239,33 @@ class UIStatus(UIModule):
                 stars_matched = solution["Matches"]
             else:
                 stars_matched = "--"
+            
             self.status_dict["LST SLV"] = (
                 f"{time.time() - solution['cam_solve_time']:.1f}"
                 + " - "
                 + str(solution["solve_source"][0])
                 + f" {stars_matched: >2}"
             )
-            hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
-            self.status_dict["RA/DEC"] = (
-                f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec'] :.2f}"
-            )
+            
+            # RA/DEC
+            if solution["RA"] is None or solution["Dec"] is None:
+                self.status_dict["RA/DEC"] = "--/--"
+            else:
+                hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
+                self.status_dict["RA/DEC"] = (
+                    f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec'] :.2f}"
+                )
 
-            if solution["Az"]:
+            # AZ/ALT
+            if solution["Az"] is None or solution["Alt"] is None:
+                self.status_dict["AZ/ALT"] = "--/--"
+            else:
                 self.status_dict["AZ/ALT"] = (
                     f"{solution['Az'] : >6.2f}/{solution['Alt'] : >6.2f}"
                 )
 
         imu = self.shared_state.imu()
+        # IMU Status & reading
         if imu:
             if imu["quat"] is not None:
                 if imu["moving"]:
@@ -263,10 +273,18 @@ class UIStatus(UIModule):
                 else:
                     mtext = "Static"
                 self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu["status"])
-                self.status_dict["IMU PS"] = (
-                    "imu NA"
-                    # f"{imu['quat'][0] : >6.1f}/{imu['quat'][2] : >6.1f}"
+                
+                self.status_dict["IMU qw,qx"] = (
+                    f"{imu['quat'].w:>.2f},{imu['quat'].x : >.2f}"
                 )
+                self.status_dict["IMU qy,qz"] = (
+                    f"{imu['quat'].y:>.2f},{imu['quat'].z : >.2f}"
+                )
+        else:
+            self.status_dict["IMU"] = "--"
+            self.status_dict["IMU qw,qx"] = "--"
+            self.status_dict["IMU qy,qz"] = "--"
+
         location = self.shared_state.location()
         sats = self.shared_state.sats()
         self.status_dict["GPS"] = [
