@@ -152,7 +152,11 @@ class UIChart(UIModule):
             )
             self.solution = self.shared_state.solution()
             last_solve_time = self.solution["solve_time"]
-            if self.solution_is_new(last_solve_time):
+
+            if last_solve_time is None:
+                self.plot_no_solve()
+            elif self.solution_is_new(last_solve_time):
+                # Solution is new so plot the updated chart
                 # This needs to be called first to set RA/DEC/ROLL
                 image_obj, _visible_stars = self.starfield.plot_starfield(
                     self.solution["RA"],
@@ -194,8 +198,6 @@ class UIChart(UIModule):
                 self.last_update = last_solve_time
 
                 self.draw_reticle()
-            else:
-                self.plot_no_solve()
         else:
             self.plot_no_solve()
 

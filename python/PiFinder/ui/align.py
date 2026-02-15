@@ -213,6 +213,7 @@ class UIAlign(UIModule):
             constellation_brightness = 64
             self.solution = self.shared_state.solution()
             last_solve_time = self.solution["solve_time"]
+
             if self.solution_is_new(last_solve_time) or force:
                 # This needs to be called first to set RA/DEC/ROLL
                 if self.align_mode:
@@ -261,7 +262,7 @@ class UIAlign(UIModule):
                     font=self.fonts.base.font,
                     fill=self.colors.get(255),
                 )
-            else:
+            elif last_solve_time is None:
                 self.plot_no_solve()
         else:
             self.plot_no_solve()
