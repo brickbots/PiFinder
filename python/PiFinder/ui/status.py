@@ -234,17 +234,27 @@ class UIStatus(UIModule):
         """
         if self.shared_state.solve_state():
             solution = self.shared_state.solution()
-            # last solve time
+            
+            # Time since last solve
+            if solution['cam_solve_time']:
+                time_since_solve = f"{time.time() - solution['cam_solve_time']:.1f}"
+            else:
+                time_since_solve = "--"
+            # Number of matched stars
             if solution["solve_source"] == "CAM":
                 stars_matched = solution["Matches"]
             else:
                 stars_matched = "--"
-            
-            self.status_dict["LAST SLV"] = (
-                f"{time.time() - solution['cam_solve_time']:.1f}"
-                + " - "
-                + str(solution["solve_source"][0])
-                + f" {stars_matched: >2}"
+            # Solve source
+            if solution["solve_source"] == "CAM":
+                solve_source = "C"
+            elif solution["solve_source"] == "CAM_FAILED":
+                solve_source = "F"
+            else:
+                solve_source = str(solution["solve_source"][0])
+            # Collect togethers
+            self.status_dict["LAST SLV"] = (time_since_solve + "s " 
+                + solve_source + f" {stars_matched: >2}"
             )
             
             # RA/DEC

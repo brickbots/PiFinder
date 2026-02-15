@@ -136,7 +136,7 @@ def initialized_solved_dict() -> dict:
         "Alt": None,
         "Az": None,
         # Diagnostics:
-        "solve_source": None,
+        "solve_source": None,  # Source of the solve ("CAM", "CAM_FAILED", "IMU")
         "solve_time": None,
         "cam_solve_time": 0,
         "last_solve_attempt": 0,  # Timestamp of last solve attempt - tracks exposure_end of last processed image
