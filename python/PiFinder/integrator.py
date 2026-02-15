@@ -26,7 +26,8 @@ from PiFinder import config
 from PiFinder import state_utils
 import PiFinder.calc_utils as calc_utils
 from PiFinder.multiproclogging import MultiprocLogging
-from PiFinder.pointing_model.astro_coords import initialized_solved_dict, RaDecRoll
+from PiFinder.pointing_model.astro_coords import RaDecRoll
+from PiFinder.solver import get_initialized_solved_dict
 from PiFinder.pointing_model.imu_dead_reckoning import ImuDeadReckoning
 import PiFinder.pointing_model.quaternion_transforms as qt
 
@@ -48,7 +49,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
 
     try:
         # Dict of RA, Dec, etc. initialized to None:
-        solved = initialized_solved_dict()
+        solved = get_initialized_solved_dict()
         cfg = config.Config()
 
         mount_type = cfg.get_option("mount_type")
