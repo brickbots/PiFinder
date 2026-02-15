@@ -90,7 +90,7 @@ class UIStatus(UIModule):
             self._config_options["Software"]["value"] = ver.read()
         self.spacecalc = SpaceCalculatorFixed(self.fonts.base.line_length)
         self.status_dict = {
-            "LST SLV": "--",
+            "LAST SLV": "--",
             "RA/DEC": "--",
             "AZ/ALT": "--",
             "WIFI": "--",
@@ -240,7 +240,7 @@ class UIStatus(UIModule):
             else:
                 stars_matched = "--"
             
-            self.status_dict["LST SLV"] = (
+            self.status_dict["LAST SLV"] = (
                 f"{time.time() - solution['cam_solve_time']:.1f}"
                 + " - "
                 + str(solution["solve_source"][0])
