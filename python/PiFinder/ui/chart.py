@@ -194,32 +194,37 @@ class UIChart(UIModule):
                 self.last_update = last_solve_time
 
                 self.draw_reticle()
-
+            else:
+                self.plot_no_solve()
         else:
-            self.draw.rectangle(
-                [0, 0, self.display_class.resX, self.display_class.resY],
-                fill=self.colors.get(0),
-            )
-            self.draw.text(
-                (16, self.display_class.titlebar_height + 10),
-                _("Can't plot"),
-                font=self.fonts.large.font,
-                fill=self.colors.get(255),
-            )
-            self.draw.text(
-                (
-                    26,
-                    self.display_class.titlebar_height
-                    + 10
-                    + self.fonts.large.height
-                    + 4,
-                ),
-                _("No Solve Yet"),
-                font=self.fonts.base.font,
-                fill=self.colors.get(255),
-            )
+            self.plot_no_solve()
 
         return self.screen_update()
+
+    def plot_no_solve(self):
+        """ Plot message: Can't plot No solve yet """
+        self.draw.rectangle(
+            [0, 0, self.display_class.resX, self.display_class.resY],
+            fill=self.colors.get(0),
+        )
+        self.draw.text(
+            (16, self.display_class.titlebar_height + 10),
+            _("Can't plot"),
+            font=self.fonts.large.font,
+            fill=self.colors.get(255),
+        )
+        self.draw.text(
+            (
+                26,
+                self.display_class.titlebar_height
+                + 10
+                + self.fonts.large.height
+                + 4,
+            ),
+            _("No Solve Yet"),
+            font=self.fonts.base.font,
+            fill=self.colors.get(255),
+        )
 
     def solution_is_new(self, last_solve_time):
         """ 
