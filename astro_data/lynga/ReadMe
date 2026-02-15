@@ -1,0 +1,314 @@
+VII/92A             Open Cluster Data 5th Edition    (Lynga 1987)
+================================================================================
+Catalogue of Open Cluster Data (5th Ed.)
+     LYNGA G.: 1987
+     <Lund Observatory>
+================================================================================
+ADC_Keywords: Clusters, open ; Bibliography ; Combined data
+
+Description:
+    This is a computer readable catalogue of open cluster data
+    compiled by Gosta Lynga, Lund Observatory,
+                Box 43, S-221 00 Lund, Sweden.
+    The present file mainly details the structure of the file
+    "catalog"; please refer to the file "intro" for more details
+    about the parameters.
+    Further errors have been corrected at CDS: see below the
+    "Historical Notes" section. A few questions still remain
+    (see section "Problems" below)
+
+File Summary:
+--------------------------------------------------------------------------------
+ FileName    Lrecl    Records    Explanations
+--------------------------------------------------------------------------------
+ReadMe          80          .    This file
+catalog        514       1151    The Catalogue Data File
+intro           80        609    Original introduction file
+edited         132       8640    Catalogue Print file (pages of 60 lines)
+alias          132       2040    Alias file
+refs           132        670    Reference File
+galactic        54       1111    Galactic Coordinate File
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: catalog
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label       Explanations
+--------------------------------------------------------------------------------
+   1-  2  I2     ---     ClSeq       [1/64] Cluster Sequence code (1)
+   3-  6  I4     ---     ClNum       Number inside Cluster Sequence
+   8-  9  I2     h       RA2000h     Right Ascension 2000 (hours)
+  10- 13  F4.1   min     RA2000m     Right Ascension 2000 (minutes)
+      14  A1     ---     DE2000-     Declination 2000 (sign)
+  15- 16  I2     deg     DE2000d     Declination 2000 (degrees)
+  17- 18  I2     arcmin  DE2000m     Declination 2000 (minutes)
+  20- 21  I2     h       RAh         Right Ascension 1950 (hours)
+  22- 25  F4.1   min     RAm         Right Ascension 1950 (minutes)
+      26  A1     ---     DE-         Declination 1950 (sign)
+  27- 28  I2     deg     DEd         Declination 1950 (degrees)
+  29- 30  I2     arcmin  DEm         Declination 1950 (minutes)
+  31- 34  F4.2 0.1min/yr    precRA   Precession in RA (for 10 years)
+  35- 38  F4.1 0.1arcmin/yr precDE   Precession in DE (for 10 years)
+  39- 44  F6.2   deg     GLON        Galactic longitude
+  45- 50  F6.2   deg     GLAT        Galactic latitude
+  51- 54  I4     ---     LundRec     [1/1212]+ Record number on Lund disc
+  55- 58  I4     ---     OCL         [1/1039]? OCL number (ref.19)
+  59- 64  F6.1   arcmin  Diam        ? Selected Angular diameter
+  65- 68  I4     ---     r_Diam      [-1/527]? Reference for angular
+                                               diameter (7)
+  69- 72  I4     pc      Dist        ? Distance
+  74- 76  I3     ---     r_Dist      [1/527]? reference for Distance
+  77- 81  F5.2   [yr]    log.Age     [6/10]? log(age), years
+  82- 84  I3     ---     r_log.Age   [1/527]? reference for log(age)
+  85- 89  F5.2  [Sun]    [Fe/H]      [-.8/.3]? Metallicity, logarithmic scale
+  90- 92  I3     ---     r_[Fe/H]    [1/527]? reference for metallicity
+  93- 98  F6.2   mag     E(B-V)      [0/2]? Reddening
+  99-100  A2     ---     r_E(B-V)    [-*0-9] reference for Reddening (5)
+ 101-102  A2     ---     ClTyp       [DO] "DO" indicates at doubtful cluster
+ 103-104  I2     ---     r_ClTyp     [19]? reference for ClTyp
+ 105-106  I2     ---     N(Ap)       Number of Ap stars
+ 107-108  I2     ---     N(Am)       Number of Am stars
+ 109-110  I2     ---     N(mAp)      Number of marginal Ap stars
+ 111-112  I2     ---     N(mAm)      Number of marginal Am stars
+ 113-114  I2     ---     N(WR)       Number of WR stars
+ 115-116  I2     ---     N(Of)       Number of Of stars
+ 117-118  I2     ---     N(Be)       Number of Be stars
+ 119-120  I2     ---     N(sh)       Number of Shell stars
+ 121-122  I2     ---     N(Be+sh)    Number of Be+Shell stars
+ 123-124  I2     ---     N(He-weak)  Number of He weak stars
+ 125-126  I2     ---     N(He-rich)  Number of He rich stars
+ 127-128  I2     ---     N(Cep)      Number of Cepheids
+ 129-130  I2     ---     N(PN)       Number of Planetary nebulae
+ 131-132  I2     ---     N(C*)       Number of Carbon stars
+ 133-134  I2     ---     N(LPV)      Number of Long period variable stars
+ 135-136  I2     ---     N(dSct)     Number of Delta Scuti stars
+ 137-138  I2     ---     N(bCep)     Number of Beta Cephei stars
+ 139-140  I2     ---     N(RCrB)     Number of R Cor Bor stars
+ 141-142  I2     ---     N(BaII)     Number of Ba II stars
+ 143-144  I2     ---     N(UGem)     Number of ? U Geminorum stars
+ 145-164  A20    ---     refN        References for numbers of
+                                              peculiar stars (format 5I4)
+--------------------------------------------------------------------------------
+        Part of Dixon's catalogue of non-stellar objects (ref.128)
+--------------------------------------------------------------------------------
+ 165-166  A2     ---     POSS-type   ? POSS chart type (So/O/E=1/2/3) (2)
+ 167-170  I4     ---     POSS        ? POSS chart number (2)
+ 172-173  I2     h       RAPOSSh     ? Right Ascension POSS (hours) (2)
+ 175-176  I2     min     RAPOSSm     ? Right Ascension POSS (minutes) (2)
+ 178-180  I3     deg     DEPOSSd     ? Declination POSS (degrees) (2)
+ 181-183  I3     mm      xPOSS       ? Position position on POSS chart, mm (2)
+ 184-186  I3     mm      yPOSS       ? Position position on POSS chart, mm (2)
+ 187-190  I4     arcmin  maxDiam     ? Max angular diam, min of arc (2)
+ 191-194  F4.1   mag     maxBr       ? Brightest star (2)
+ 195-196  I2     ---     TrConc      [0/4]? Trumpler concentration class
+ 197-198  I2     ---     TrRange     [0/3]? Trumpler Range class
+ 199-200  A2     ---     TrRich      [mpr ] Trumpler Richness class
+     202  A1     ---     TrNeb       [nue ] Trumpler nebulosity (n/u/e=1/2/3)
+     204  I1     ---     inRef.128   [0/1]? '1' if cluster is in (ref.128) (2)
+     206  I1     ---     POSS.128    [0/1]? '1' if cluster has POSS data
+                                            in (ref.128) (2)
+--------------------------------------------------------------------------------
+        Part of Strasbourg-Bochum file (ref.50, Cat. <VII/5>):
+--------------------------------------------------------------------------------
+ 207-210  I4     arcmin  Diam.50     ? Selected angular diameter (2)
+ 211-214  I4     pc      Dist.50     ? Distance (2)
+ 215-218  F4.1   mag     maxBr.50    ? Brightest star
+ 220-224  I5     ---     Sp.50       [10005/10308]? Spectral class code
+ 225-228  F4.1   mag     totMag.50   ? Total magnitude
+ 229-232  F4.2   mag     E(B-V).50   ? Colour excess (2)
+ 233-234  I2     ---     inRef.50    [0/1]?  '1' if cluster is in (ref.50) (2)
+--------------------------------------------------------------------------------
+        Data received from B. Skiff (ref.422):
+--------------------------------------------------------------------------------
+ 235-238  F4.1   mag     totMag.422  ? Total magnitude
+ 239-242  F4.2   mag     i(B-V).422  ? Integrated color (B-V)
+ 243-246  I4     ---     N.422       ? Number of stars considered
+--------------------------------------------------------------------------------
+        Data received from K. Janes (ref.265):
+--------------------------------------------------------------------------------
+ 247-250  I4     ---     Num.265     [0/938]? Janes-Adler star number
+     252  I1     ---     Class.265   [0/5]?   Janes-Adler class
+ 254-256  I3     ---     Ref.265     ? Janes-Adler references (2)
+     258  I1     ---    maxClass.265 [0/5]? Janes-Adler maximum class
+     260  I1     ---     Rich.265    [0/5]? Janes-Adler richness class
+ 261-264  F4.2   ---     E(B-V).265  ? Janes-Adler Color Excess E(B-V)
+ 266-268  I3     ---   r_E(B-V).265  [1/527]? Janes-Adler ref. for E(B-V)
+ 269-272  F4.2   mag     turn.265    ? Janes-Adler (B-V) turn-off point
+ 274-276  I3     ---     r_turn.265  [1/527]? Janes-Adler ref for (B-V)
+                                              turn-off point
+--------------------------------------------------------------------------------
+        Results of 1982 examination (ref.320)
+--------------------------------------------------------------------------------
+     278  I1     ---     TrConc.320  [0/4]? Trumpler concentration class
+     280  I1     ---    TrRange.320  [0/3]? Trumpler range class
+ 281-282  A2     ---     TrRich.320  [mpr ] Trumpler richness class
+     284  A1     ---      TrNeb.320  [n-]   Trumpler nebulosity class
+ 286-288  I3     ---    Members.320  ? Number of member stars
+ 290-294  F5.1  arcmin     Diam.320  ? Angular diameter
+--------------------------------------------------------------------------------
+        Chart used by Lynga (ref.320) or, if not in that survey,
+--------------------------------------------------------------------------------
+ 295-296  A2     ---  POSS-type.320  [sorjeir ] Survey chart type (3)
+ 297-300  I4     ---       POSS.320  [0/1619]? chart number
+ 302-303  I2     h      RAPOSS.320h  ? Right Ascension POSS (hours)
+ 305-306  I2     min    RAPOSS.320m  ? Right Ascension POSS (minutes)
+ 308-310  I3     deg    DEPOSS.320d  ? Declination POSS (degrees)
+ 311-313  I3     mm       xPOSS.320  [0/350]? distance from left edge of chart
+ 314-316  I3     mm       yPOSS.320  [0/350]? distance from bottom edge of chart
+     318  I1     ---   hasClass.320  [0/1]?  '1' if cluster classified
+                                             in ref.320
+     320  I1     ---     ESO/SERC    [0/1]?  '1' if cluster is on ESO/SERC
+                                             Survey
+ 322-324  F3.1   ---     w_RVel      [0/1.0]? Weights for radial velocity (6)
+ 325-328  I4     km/s    RVel        ? Radial Velocity
+     330  I1     ---     RVelClass   [0/5]? Weight class for radial velocity
+ 331-350  A20    ---     r_RVel      references for radial velocities
+                                                 (format 5I4)
+--------------------------------------------------------------------------------
+        Buscombe Compilation (ref.64):
+--------------------------------------------------------------------------------
+ 351-354  I4     km/s      RVel.64   ? Radial Velocity (2)
+ 355-358  I4     pc        Dist.64   ? Distance (2)
+ 359-362  F4.2   mag     E(B-V).64   ? E(B-V) (2)
+ 363-366  F4.1   mag       iMag.64   ? Integrated apparent pg. magnitude (2)
+ 367-370  F4.1   mag     iAbsMag.64  ? Integrated absolute Bmag (2)
+ 371-374  I4     pc         Diam.64  ? Absolute Diameter (2)
+ 375-378  F4.2  [yr]    log(age).64  ? log(age), years (2)
+ 379-382  F4.2 [solMass] log.Mass.64 ? log (Mass), solar masses (2)
+ 383-384  F2.1   ---    inRef.64    [0/1]? '1' if cluster is in (ref.64) (2)
+--------------------------------------------------------------------------------
+        Basel data (ref.37):
+--------------------------------------------------------------------------------
+ 385-386  A2     ---    phSystem.37  Photometric system for following data (2)
+ 387-390  F4.2   mag      E(B-V).37  ? Colour excess (2)
+ 391-394  F4.2   mag          Av.37  ? Interstellar extinction (2)
+ 395-398  I4     pc         Dist.37  ? Distance (2)
+ 399-404  I6     ---          Sp.37  [0/11000]? Spectral type of hottest star
+ 405-410  I6     ---     ColBlue.37  [0/10320]? Colour type of bluest star
+ 411-416  F6.1   pc         Diam.37  ? Cluster diameter (2)
+ 417-418  I2     ---     ObsType.37  ? Type of observation (2)
+ 419-420  I2     ---       inRef.37  [0/1]? '1' if cluster is in (ref.37) (2)
+--------------------------------------------------------------------------------
+        van den Bergh-Hagen data (ref.487):
+--------------------------------------------------------------------------------
+ 421-424  F4.1  arcmin     Diam.487  ? Apparent Diameter (2)
+ 425-426  A2     ---       Rich.487  Richness: vp, p, m, r, vr (2)
+     428  I1     ---      inRef.487  [0/1]? '1' if cluster is in (ref.487) (2)
+ 430-438  A9     ---      Cname      [C0-9+-] Cluster "C" designation (4)
+--------------------------------------------------------------------------------
+        Various tracers:
+--------------------------------------------------------------------------------
+ 439-442  I4     ---     tr-RA       [0/1212]? tracer for RA, 1950.0 (8)
+ 443-446  I4     ---     tr-GLON     [0/1212]? tracer for Galactic longitude (8)
+ 447-450  I4     ---     tr-ClNum    [0/1212]? tracer for number in sequence (8)
+ 451-454  I4     ---     tr+RA       [0/1212]? tracer for RA, 1950.0 (8)
+ 455-458  I4     ---     tr+GLON     [0/1212]? tracer for Galactic longitude (8)
+ 459-462  I4     ---     tr+ClNum    [0/1212]? tracer for number in sequence (8)
+--------------------------------------------------------------------------------
+        Data from joint project between Janes, Tilley and Lynga (1988):
+--------------------------------------------------------------------------------
+ 464-468  I5     pc        Dist.jdl  ? jdl distance modulus
+     470  I1     ---     w_Dist.jdl  [0/5]? weight class
+ 471-475  F5.2   mag       turn.jdl  [-0.4/0.7]? jdl turn-off point colour
+ 476-481  F6.0   Myr        Age.jdl  [0/10000]? jdl derived age
+     483  I1     ---      w_Age.jdl  [0/5]? weight class
+ 484-488  F5.2   mag     E(B-V).jdl  [0/1.75]? jdl reddening
+     489  A1     ---   n_E(B-V).jdl  [v] 'v' if reddening varies
+     491  I1     ---   w_E(B-V).jdl  [0/5]? weight class
+ 492-496  F5.2   Sun     [Fe/H].jdl  [0]? jdl abundance value
+ 497-514  A18    ---       refs.jdl  references for jdl input
+                                              (format 6I3)
+--------------------------------------------------------------------------------
+Note (1): The Cluster Sequence Code has the following values:
+     1 NGC            2 IC              3 Berkeley          4 Czernik
+     5 Dolidze        6 Collinder       7 Upgren            8 Tombaugh
+     9 Ruprecht      10 King           11 Stock
+    13 Trumpler      14 Markarian                          16 Haffner
+    17 Hogg          18 Sher           19 Feinstein        20 Harvard
+    21 Lynga         22 Westerlund     23 Basel            24 Blanco
+    25 Baractova     26 Biurakan       27 Melotte          28 Pismis
+                     30 Trapezium                          32 Pleiades
+    33 Graff         34 Iskudarian     35 Stephenson       36 Roslund
+    37 Hyades                          41 van den Bergh-Hagen
+                     42 Bochum         43 Dolidze-Dzimselejsvili
+    45 Antalova      46 Moffat         47 Havlen-Moffat    48 Frolov
+                     50 van den Bergh  51 Mayer            52 Latysev
+    53 Sigma Ori     54 Graham         55 Aveni-Hunter     56 Loden
+    57 Grasdalen     58 Waterloo       59 Auner
+    61 Schuster      62 Danks          63 Muzzio           64 =ref.378
+--------------------------------------------------------------------------------
+Note (2): this field is always blank.
+Note (3): the survey may be SO, O, E, J, R, I or SR
+Note (4): the "C" cluster designation has the general "format"
+        CHHMM+DDd, i.e.  starts with the letter 'C',
+        followed by the right ascension (1950) in hours and minutes.
+        followed by the declination sign, degree and tenth of degree.
+Note (5): this field is apparently in error, it contains frequently
+        "-1" or "**"
+Note (6): w_RVel has only the values 0.0 or 1.0
+Note (7): the unexplained reference (-1) exists for the clusters
+          C0728-168, C0728-169, C1726-324
+Note (8): tracers are indexes of the previous or next entry according
+          to the parameter; it has been omitted for C2357+606
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: galactic
+--------------------------------------------------------------------------------
+   Bytes Format  Units   Label    Explanations
+--------------------------------------------------------------------------------
+   3-  8  F6.2   deg     GLON     Galactic longitude
+  11- 16  F6.2   deg     GLAT     Galactic latitude
+  18- 21  I4     ---     OCL      [1/1039]? OCL number (ref.19)
+  24- 32  A9     ---     Cname    Cluster name
+  35- 49  A15    ---     Name     Cluster Sequence name and number
+  51- 54  I4     ---     LundRec  [1/1212] Record number of Lund disc
+--------------------------------------------------------------------------------
+
+Byte-by-byte Description of file: refs
+--------------------------------------------------------------------------------
+   Bytes Format Units   Label     Explanations
+--------------------------------------------------------------------------------
+   2-  4  I3    ---     RefNum    [1/527]+= Reference number
+   7-132  A126  ---     Text      Text of reference (may be on several lines)
+--------------------------------------------------------------------------------
+
+References:
+    Janes K.A., Tilley C., Lynga G., 1988, Astron. J. 95, 771
+
+Historical Notes:
+  * Oct-1991: ADC CD-ROM "Selected Astronomical Catalogs" Vol. 1
+    (directory /nonstell/clusters/open) : see file "intro.dat"
+  * 14-Feb-1995: CDS (Francois Ochsenbein)
+    => file "edited":
+       - removed the duplicated last two clusters C2351+614 and C2353+642
+       - corrected the (erroneously positive) declinations of
+         C0635-008 C1859-005 C0657-001 C0719-008
+    => file "catalog":
+       - transformed into a file with 514-byte records;
+       - replaced blank values of 'N(UGem)' with zero;
+       - put sign of declinations in constant column
+       - removed first record with initial tracers
+       - corrected misalignments for C0548+217
+       - corrected declinations for  C0717-010,
+         C0635-008 C1859-005 C0657-001 C0719-008
+       - corrected positions of C0819-360, C0820-360, C0915-495
+         and C1654-457 (see below)
+       - added C2357+606 (Berkeley 58, 1st record) which was missing
+         (existed in "edited", but not in "catalog")
+
+Problems:
+  * Cluster "C2306+606" indicates an unknown '64' ClSeq with '1'
+    number in file "catalog" and blank name in file "edited".
+    It is the only one from ref. 378 (Pfleiderer et al., 1977)
+  * The positions disagreed with galactic position and have been
+    corrected for the following clusters :
+    ------------------------------------------------
+    Cname        Original    Position from galactic
+                pos. 1950      (1950)       (2000)
+    ------------------------------------------------
+    C0819-360   820.3-3614  0819.2-3601  0821.1-3611
+    C0820-360   821.5-3610  0820.2-3559  0822.1-3609
+    C0915-495   914.1-4947  0915.0-4930  0916.7-4943
+    C1654-457  1654.3-4551  1654.2-4543  1657.9-4548
+    ------------------------------------------------
+================================================================================
+(End)                                    Francois Ochsenbein [CDS]   20-Feb-1995

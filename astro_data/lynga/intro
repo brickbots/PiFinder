@@ -1,0 +1,609 @@
+
+                         Catalogue of Open Cluster Data
+                         ______________________________
+
+                           5th edition, February 1987
+
+
+    This is a computer readable catalogue of open cluster data compiled by Gosta
+Lynga, Lund Observatory, Box 43, S-221 00 Lund, Sweden.  It is distributed by
+the Stellar Data Centre, Observatoire de Strasbourg 11 rue de l'Universite, F-67
+000 Strasbourg, France and by World Data Center A, Goddard Space Flight Center,
+Code 630.2, Greenbelt, Maryland 20771, USA.
+
+    The following description of the machine-readable version of the "Catalogue
+of Open Cluster Data, 5th Edition" is based on the documentation received by
+Gosta Lynga in 1987.  Additional comments and revisions have since been made to
+his description.  These changes were warrented because of the format
+modifications made to the catalogue data, mainly files 2 and 5. These particular
+files are now in a computer readable format.  Files 2 and 4, however, remain
+strictly print files.
+
+FILE 1. Introduction and description:
+
+                                            Record Length     Number of Records
+      File 1. Introduction (this file)          80                  609
+      File 2. Catalogue Print File             132                 8640
+      File 3. Reference File                   132                  670
+      File 4. Alias File                       132                 2040
+      File 5. Galactic Coordinate File          54                 1111
+      File 6. Catalogue Data File              132                 4848
+
+    The aim of this catalogue is to give salient data for all known open star
+clusters in our galaxy.  As far as possible only published data values have been
+quoted; for some of the parameters these values have been selected from
+references, which are listed.
+
+    In the fifth edition some minor updates have been made from the fourth
+edition.  The main difference between the fifth edition and the fourth is the
+merging of the data resulting from a joint project between K. Janes, C. Duke and
+Lynga (the paper, which is in preparation, is referred to as jdl).  The aim of
+that project was to discuss properties of the open cluster system by using
+existing data and by taking their accuracy into proper regard.  Thus the data
+were assessed (mostly by Janes), weights assigned and weighted mean values
+derived of reddenings, turn-off colours and distances.  These data have been
+entered into files 2 and 6 and the references used have been merged into file 3.
+Lines 35-38 refer to these entries of file 3.
+
+    As before, file 6 contains all the material of the catalogue whereas the
+table (file 2) only contains the most essential items.  Files 1, 2, and 4 are
+page oriented and thus adapted for microfiche and print-out use while file 6
+contains one record of 528 bytes for each cluster; in order to allow use of
+programs developed for the fourth edition the same byte numbers have been kept
+for bytes 1- 462.  Also the old cluster locations have been kept for the sake of
+consistency.  The drawback of this is that some locations are empty - they are
+then filled with blanks.
+
+    The definitions of the data values are in most cases unambiguous.  However,
+the following points should be clarified.  The line numbers refer to the page
+oriented catalogue of file 2.
+
+    CLUSTER DIAMETER.  In the literature some quite convincing cases have been
+made for the existence of large coronas around open clusters.  This may be a
+general phenomenon, although for most clusters only the diameter of the cluster
+nucleus is known.  For reasons of homogeneity, this is used even when the
+existence of a cluster corona is likely.  For most clusters two values of the
+angular diameter are given.  Estimates from survey prints (line 22 in file 2)
+should form a reasonably homogeneous sample.  Line 23 contains the most
+reliable, often the only, value available in the literature.  The linear
+diameter given in line 58 assumes the jdl distance of line 25, if available, or
+the selected distance of line 26.  The angular diameter of line 22 is used.
+
+    The jdl distance with corresponding weight is given in line 25.  Line 26
+contains the most accurate single determination of the distance with
+corresponding reference number.
+
+    Line 29 contains the turn-off colour and the corresponding weight.  In line
+30 the age derived from the turn-off colour is given.  All this information is
+from jdl.  The most accurate log(age) determination from the literature is given
+in line 31 together with corresponding reference number.
+
+    INTERSTELLAR EXTINCTION.  Contrary to earlier editions the observed
+reddening value is now given rather than the derived extinction.  The jdl data
+with weights are given in line 27.  The letter 'v' means that there is variable
+reddening over the cluster.
+
+    METALLICITY.  The abundance values were discussed by jdl and an attempt was
+made to put them on a homogeneous system.  The resulting value is entered in
+line 32.
+
+    RADIAL VELOCITIES.  The data for cluster radial velocities have been
+collected by Dr.  S. Wramdemark of Lund Observatory (ref 520).  They represent
+weighted mean values for member stars velocities as published up to 1980.  The
+weighting procedure takes into account the number of stars in the cluster for
+which radial velocity had been measured, the accuracy (Wilson class) for each
+stellar radial velocity and the calculated imprecision in the mean radial
+velocity for the cluster.  Five weight classes are identified by w= 1, 2, 3, 4
+and 5 in order of increasing precision.
+
+    INTEGRATED PROPERTIES.  The total V magnitude and the integrated B-V colour
+have been calculated by mr.  B. Skiff (ref 422), Flagstaff, Arizona, using
+available photometric data.  The number of observed stars used is sometimes
+different from estimates of membership from survey charts.  Reasons for such
+differences can be inclusions of non-members or limited resolution on the survey
+charts.  Skiff's data are given in lines 50-52.  The richness class of line 53
+is from Janes and Adler (ref 265).
+
+
+
+FILE 2. Catalogue Print File:
+
+    Each page contains eight columns, one for each cluster.  The clusters are
+arranged according to right ascension for 1950.0.
+
+The following information is given in the different lines:
+
+    4    Cluster notation according to the system accepted by the International
+         Astronomical Union in Montreal 1979
+ 5- 6    Traditional sequence name and number
+    7    OCL number (19) and number in File 6 of present catalogue
+ 9-11    Equatorial coordinates for 1950.0 and precession values for ten years
+12-13    Galactic coordinates as calculated
+   15    Sky survey used for examination of cluster
+   16    Type and number of the sky survey chart
+   17    Coordinates for the centre of the chart
+   18    X/Y coordinates for the cluster on the chart
+   20    Trumpler (463) class with the following notation:
+              concentration
+                I   detached, strong concentration
+                II  detached, slight concentration
+                III detached, no concentration
+                IV  not detached
+              range of brightness
+                1   most stars of nearly the same brightness
+                2   medium range in brightness
+                3   bright and faint stars in the cluster
+              richness
+                vp  very poor
+                p   poor
+                m   medium
+                r   rich
+                vr  very rich
+              nebulosity
+                n   cluster is involved in nebulosity
+   21    Membership number as estimated from sky survey print (321)
+   22    Angular diameter as estimated from sky survey prints (321)
+   23    Selected angular diameter, reference in file 3.
+   25    Mean distance with weight class (jdl)
+   26    Selected distance value, reference in file 3..
+   27    Reddening with weight class (jdl); v indicates varying reddening
+   29    jdl turn-off colour and weight class
+   30    log (age) derived from turn-off colour (jdl)
+   31    Selected log(age) value, reference in file 3.
+   32    Fe/H  on the scale defined by jdl.
+   33    Radial velocity with weight.
+35-38    Numbers of reference in file 3, which are used to derive the jdl data.
+40-44    The number of members that belong to particular star types. These
+         data have been collected by Dr. A. Feinstein of La Plata Observatory.
+                The following star types have been noted:
+                  Ap stars
+                  Am stars
+                  marginal Ap stars
+                  marginal Am stars
+                  WR stars
+                  Of stars
+                  Be stars
+                  Shell stars
+                  Be+Shell stars
+                  He weak stars
+                  He rich stars
+                  Cepheids
+                  Planetary nebulae
+                  Carbon stars
+                  Long period variables
+                  Delta Sct stars
+                  Beta Cep stars
+                  R Cor Bor stars
+                  Ba II stars
+                  U Gem stars
+46-48    Literature references for the peculiar star data as quoted in file 3.
+   50    Total magnitude of cluster (422)
+   51    Integrated B-V (422)
+   52    Number of observed stars (422)
+   53    Richness class (265)
+   55    Earliest spectral class for a cluster member, (50) and (37)
+   56    Magnitude of the brightest cluster member (50)
+   57    Galactocentric distance (pc) and distance (pc) above the formal
+         galactic plane
+   58    Linear diameter (pc) using jdl distance and estimated angular diameter
+   59    Comments, mainly on whether a cluster has been considered dubious by
+         reference 19 or 320. If considered  dubious  by  both  these
+         references, the cluster has been removed from the catalogue
+
+
+FILE 3. Reference File:
+
+    The organisation of the reference section has been reconsidered and instead
+of the division in different section, file 3 now contains all references in
+alphabetical order.  Each reference is formatted to 264 characters, i.e.
+suitable for print-out with 132 characters per line.  The sequential numbers are
+stored in the relevant places of files 2 and 6. Naturally, these numbers are
+only valid inside this edition.
+
+     The following is the format for the Reference file:
+
+           Bytes             Description
+
+            1-  4            Reference Number. A blank in this
+                             field indicates a continuation of
+                             the previous record
+                5            Blank
+            6-132            Full reference
+
+
+FILE 4. Alias File:
+
+    The alias listing is arranged in right ascension.  Cluster names and OCL
+numbers are given as well as alternative names that have been used.  Comments
+are also given as to identity of clusters in relation to other neighbouring
+clusters.  Comments from the NGC catalogue are included for NGC clusters.  This
+file also gives information on some clusters which have been considered doubtful
+by two independent sources, and which thus have been cancelled as entries in the
+catalogue.
+
+    At the end of the alias listing there is a cross reference table for
+clusters which have more than one name in addition to the IAU notation.
+
+
+FILE 5. Galactic Coordinate File:
+
+    The following table describes the format of this file, sorted by increasing
+galactic longitude.  (Also note that it is in order of increasing OCL number).
+The orginal format was in tabular form, having two columns per page.  The
+columns were appended in order to allow computer readability.
+
+
+           Bytes        Format           Description
+
+            1- 8         F8.2            Galactic Longitude
+            9-16         F8.2            Galactic Latitude
+              17         1X              Blank
+           18-21         I4              OCL number
+           22-23         2X              Blank
+           24-32         A9              IAU Number
+           33-34         2X              Blank
+           35-49         A15             Cluster Notation
+              50         1X              Blank
+           51-54         I4              Number on Lund Disk
+
+
+    CLUSTER NOTATION.  When this is the NGC number, it is in the follow format
+(bytes 35-42) NGC nnnn.
+
+
+FILE 6. Catalogue Data File:
+
+    This file is the most comprehensive one, being a direct copy of the Lund
+disc file at the time of submitting the present version to the CDS and NASA data
+centres.  This catalogue contains information about one cluster in each group of
+four lines i.e. 528 bytes.  The contents of the first 462 bytes are on the same
+format as was used for the fourth edition; this will allow the use of the same
+reading program.  However, bytes 463-520 contain new data, resulting from the
+jdl investigation.
+
+    The following is a listing of catalogue contents, which notes the formats
+and byte numbers in file 6 and the names and storage positions in the Lund data
+base; references are made to equivalences inside the four matrices used there:
+rda, ref, isd and name.
+
+First  line: item number       format        byte at start        description
+Second line:                   field         equivalence          acronym
+
+1       I2      1          sequence code
+        1,2     isd 1   seq
+2       I4      3          number inside sequence
+        3-6     isd 2   num
+3       I3      7          RA, 2000.0, hours
+4       F4.1    10         RA, 2000.0, minutes
+5       I3      14         Dec, 2000.0, degrees
+6       I2      17         Dec, 2000.0, minutes
+7       I3      19         RA, 1950.0, hours
+        19-21
+8       F4.1    22         RA, 1950.0, minutes
+        22-25   rda 1   alf (radians)
+9       I3      26         dec, 1950.0, degrees
+        26-28
+10      I2      29         dec, 1950.0, minutes
+        29-30   rda 2   del (radians)
+11      F4.2    31         precession, 10 years, ra, minutes of time
+        31-34   rda 3   pra (radians)
+12      F4.1    35         precession, 10 years, dec, minutes of arc
+        35-38   rda 4   prd (radians)
+13      F6.2    39         galactic longitude, degrees
+        39-44   rda 5   lon (radians)
+14      F6.2    45         galactic latitude, degrees
+        45-50   rda 6   lat (radians)
+15      I4      51         record number on Lund disc (first record is No.0)
+16      I4      55         OCL number (19)
+        55-58   isd 3   OCL
+21      F6.1    59         angular diameter, min of arc
+        59-64   rda 7   ang (radians)
+22      I4      65         reference for angular diameter
+        65-68   ref 1   rad
+23      I4      69         distance, pc
+        69-72   isd 4   dis
+24      I4      74         reference for distance
+        73-76   ref 2   rdi
+25      F5.2    77         log (age), years
+        77-81   rda 8   age
+26      I3      82         reference for age
+        82-84   ref 3   rag
+27      F5.2    85         metallicity, log (Fe/H) - log (Fe/H) for sun
+        85-89   rda 9   met
+28      I3      90         reference for metallicity
+        90-92   ref 4   rme
+29      F6.2    93         reddening, E(B-V)
+        93-98   rda 10  ext
+30      I2      98         reference for reddening
+        99-100  ref 5   rex
+39      A2      101        indication=1 if cluster has been considered doubtful
+                                     =2 if cluster has been considered globular
+        101,102 isd 5   typ
+40      I2      103        reference for entry 39 (19 or 321)
+        103,104 ref 6   rty
+51-70                      numbers of peculiar stars (Feinstein)
+51      I2      105        Ap stars
+        105,106 isd 6   aps
+52      I2      107        Am stars
+        107,108 isd 7   ams
+53      I2      109        marginal Ap stars
+        109,110 isd 8   apm
+54      I2      111        marginal Am stars
+        111,112 isd 9   amm
+55      I2      113        WR stars
+        113,114 isd 10  wrs
+56      I2      115        Of stars
+        115,116 isd 11  ofs
+57      I2      117        Be stars
+        117,118 isd 12  bes
+58      I2      119        Shell stars
+        119,120 isd 13  shs
+59      I2      121        Be+Shell stars
+        121,122 isd 14  bsh
+60      I2      123        He weak stars
+        123,124 isd 15  hew
+61      I2      125        He rich stars
+        125,126 isd 16  her
+62      I2      127        Cepheids
+        127,128 isd 17  cep
+63      I2      129        Planetary nebulae
+        129,130 isd 18  pla
+64      I2      131        Carbon stars
+        131,132 isd 19  car
+65      I2      133        Long period variable stars
+        133,134 isd 20  lpv
+66      I2      135        Delta Scuti stars
+        135,136 isd 21  dsc
+67      I2      137        Beta Cephei stars
+        137,138 isd 22  bce
+68      I2      139        R Cor Bor stars
+        139,140 isd 23  rcb
+69      I2      141        Ba II stars
+        141,142 isd 24  bII
+70      I2      143        U Geminorum stars
+        143,144 isd 25  uge
+71-75   5I4     145        references for entries 51-70
+76-90                      part of Dixon's catalogue of non-stellar objects (128
+        145-148 ref 7   rp1
+        149-152 ref 8   rp2
+        153-156 ref 9   rp3
+        157-160 ref 10  rp4
+        161-164 ref 11  rp5
+76      A2      165        POSS chart type (So/O/E=1/2/3)
+77      I4      167        POSS chart number
+78-80   2I3,I4  171        POSS chart RA,Dec
+81-82   2I3     181        position on POSS chart, mm
+83      I4      187        max angular diam, min of arc
+84      F4.1    191        mag brightest star
+85-87                      Trumpler classification
+85      I2      195        concentration class
+        195,196 isd 26  tr1
+86      I2      197        range class
+        197,198 isd 27  tr2
+87      A2      199        richness class
+        199,200 isd 28  tr3
+88      A2      201        nebulosity (n/u/e=1/2/3)
+        201,202 isd 29  tr4
+89      I2      203        indication=1 if cluster is in ref (128)
+90      I2      205        indication=1 if cluster has POSS data in ref (128)
+91-100                     part of Strasbourg-Bochum file (50):
+91      I4      207        selected angular diam, min of arc
+92      I4      211        distance, pc
+93      F4.1    215        mag, brightest star
+        215-218 rda 11  mbr
+94      I6      219        spectral class code
+        219-224 isd 30  spc
+96      F4.1    225        total mag
+        225-228 rda 12  tot
+98      F4.2    229        colour excess
+100     I2      233        indication=1 if cluster is in ref (50)
+118-120                    data received from B. Skiff (422)
+118     F4.1    235        total magnitude
+        235-238 rda 13  bst
+119     F4.2    239        integrated B-V
+        239-242 rda 14  bsi
+120     I4      243        number of stars considered
+        243-246 isd 31  bsn
+121-145                    data received from K. Janes (265):
+121     I4      247        Janes-Adler star number
+        247-250 isd 32  jan
+122     I2      251        Janes-Adler class
+        251,252 isd 33  jac
+123     I4      253        Janes-Adler references
+140     I2      257        Janes-Adler maximum class
+        257,258 isd 34  jam
+141     I2      259        Janes-Adler richness class
+        259,260 isd 35  jar
+142     F4.2    261        Janes-Adler E(B-V)
+        261-264 rda 15  jae
+143     I4      265        Janes-Adler ref for E(B-V)
+        265-268 ref 12  ree
+144     F4.2    269        Janes-Adler (B-V) turn-off
+        269-272 rda 16  jat
+145     I4      273        Janes-Adler ref for (B-V) turn-off
+        273-276 ref 13  ret
+163-177                    results of 1982 examination (320)
+163     I2      277        Trumpler concentration class
+        277,278 isd 36  tra
+164     I2      279        Trumpler range class
+        279,280 isd 37  trb
+165     A2      281        Trumpler richness class
+        281,282 isd 38  trc
+166     A2      283        nebulosity
+        283,284 isd 39  trd
+167     I4      285        number of member stars
+        285-288 isd 40  lyn
+168     F6.1    289        angular diameter
+        289-294 rda 17  lyd (radians)
+169-175                    chart used by Lynga (320) or, if not in that survey,
+169     A2      295        survey chart type (SO/O/E/J/R/I/SR= 1/2/3/4/5/6/7; 1/
+        295,296 isd 41  cht
+170     I4      297        chart number
+        297-300 isd 42  chn
+171-173 2I3,I4  301        chart RA,Dec
+        301-310 isd 43  chr
+                isd 44  cha
+                isd 45  chd
+174     I3      311        distance x from left edge of chart, mm
+        311-313 isd 46  chx
+175     I3      314        distance y from bottom edge of chart, mm
+        314-316 isd 47  chy
+176     I2      317        indication = 1 if cluster was classified in ref (320)
+        317,318 isd 48  lyc
+177     I2      319        indication = 1 if cluster is on eso/serc survey
+178     F4.1    321        weights for radial velocity
+        321-324 rda 18  rvw
+182     I4      325        radial velocity (520), km/s
+        325-328 isd 49   rve
+183     I2      329        weight class for radial velocity
+        329,330 isd 50  rvc
+184-188 5I4     331        references for radial velocities
+        331-350 ref 14  rr1
+                ref 15  rr2
+                ref 16  rr3
+                ref 17  rr4
+                ref 18  rr5
+201-208                    Buscombe compilation (64):
+201     I4      351        radial velocity, km/s
+202     I4      355        distance, pc
+203     F4.2    359        E(B-V), mag
+204     F4.1    363        integrated app. mag.(pg), mag
+205     F4.1    367        integrated abs. mag.(B), mag
+206     I4      371        diameter, pc
+207     F4.2    375        age, log (T), years
+208     F4.2    379        mass, log (M), solar masses
+209     F2      383        indication=1 if cluster is in ref(64)
+210-217                    Basel data (37):
+210     A2      385        photometric system for following data
+211     F4.2    387        colour excess
+212     F4.2    391        interstellar extinction, mag
+213     I4      395        distance, pc
+214     I6      399        spectral type of hottest star
+        399-404 isd 51  sph
+215     I6      405        colour type of bluest star
+        405-410 isd 52  spb
+216     F6.1    411        cluster diameter, pc
+217     I2      417        type of observation
+218     I2      419        indication=1 if cluster is in ref (37)
+220-221                    van den Bergh-Hagen data(487):
+220     F4.1    421        diameter, min of arc
+221     A2      425        richness: 1=vp, 2=p, 3=m, 4=r, 5=vr
+222     I2      427        indication=1 if cluster is in ref (487)
+231-238                    digits for cluster number
+        A1      430        the letter C
+231-234 A4      431        digits for RA
+        431-433
+235     A1      434        sign of Dec
+        434
+236-238 A3      435        digits for Dec
+        431-438 char*8 name
+239-255                    various tracers:
+239     I4      439        -RA, 1950.0
+        439-442 isd 53  qrn
+241     I4      443        -longitude
+        443-446 isd 54  qln
+243     I4      447        -number in sequence
+        447-450 isd 55  qnn
+249     I4      451        +RA, 1950.0
+        451-454 isd 56  qrp
+251     I4      455        +longitude
+        455-458 isd 57  qlp
+253     I4      459        +number in sequence
+        459-462 isd 58  qnp
+        F6.2    463        jdl distance modulus
+        463-468 rda 22  ddi
+        I2      469               weight class
+        469-470 isd 60  iqd
+        F5.2    471        jdl turn-off colour
+        471-475 rda 23  dto
+        F6.0    476        jdl derived age
+        476-481 rda 34  qq8
+        I2      482               weight class
+        482-483 isd 61  iqt
+        F5.2    484        jdl reddening
+        484-488 rda 21  dex
+        A1      489        'v' if reddening varies
+        489     isd 62  iqv
+        I2      490               weight class
+        490-491 isd 59  iqe
+        F5.2    492        jdl abundance value
+        492-496 rda 35  qq9
+        8I3     497        references for jdl input
+        497-520 ref 20-27 rj1-rj8
+        A8      521        '       +' end of record marker
+        521-528 ---     ---
+
+
+Sequence code and record number for first cluster in sequence:
+
+1  NGC         13
+2  IC          60
+3  Berkeley     8
+4  Czernik      7
+5  Dolidze    923
+6  Collinder   58
+7  Upgren     621
+8  Tombaugh   279
+9  Ruprecht   236
+10 King        11
+11 Stock      896
+13 Trumpler    48
+14 Markarian   79
+16 Haffner    286
+17 Hogg       523
+18 Sher       569
+19 Feinstein  573
+20 Harward    615
+21 Lynga      650
+22 Westerlund 724
+23 Basel      861
+24 Blanco       5
+25 Baractova  968
+26 Biurakan   922
+27 Melotte    106
+28 Pismis     443
+30 Trapezium  188
+32 Pleiades   117
+33 Graff      849
+34 Iskudarian 860
+35 Stephenson 870
+36 Roslund    904
+37 Hyades     128
+41 van den Bergh-Hagen 1055
+42 Bochum    1124
+43 Dolidze-Dzimselejsvili 596
+45 Antalova  1208
+46 Moffat    1141
+47 Havlen-Moffat 1142
+48 Frolov    1143
+50 van den Bergh 238
+51 Mayer     1155
+52 Latysev   1157
+53 Sigma Ori 1158
+54 Graham    1175
+55 Aveni-Hunter 1153
+56 Loden     1167
+57 Grasdalen 1207
+58 Waterloo   486
+59 Auner      379
+61 Schuster  1210
+62 Danks     1211
+63 Muzzio     496
+
+
+The following acknowledgement was included with the orginal documentation:
+
+    I am grateful to my collaborators professor K. Janes and Miss Christine Duke
+for allowing me to enter data from our joint paper prior to publication.  I am
+also grateful to all those colleagues who have discussed the catalogue with me
+and given me a number of valuable suggestions.
+
+                            Lund, February 1987
+                            Gosta Lynga
+
+
+
+
+Susan E. Gessner, ST Systems Corp.
+National Space Science Data Center
+NASA, Goddard Space Flight Center
