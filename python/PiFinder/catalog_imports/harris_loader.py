@@ -8,8 +8,11 @@ TODO:
 
 import logging
 from pathlib import Path
+from typing import Dict, List, Tuple, Optional
 from tqdm import tqdm
 
+import numpy as np
+import numpy.typing as npt
 import PiFinder.utils as utils
 from PiFinder.composite_object import MagnitudeObject
 from PiFinder.calc_utils import ra_to_deg, dec_to_deg
@@ -23,10 +26,9 @@ from .catalog_import_utils import (
 
 # Import shared database object
 from .database import objects_db
-import numpy as np
 
 
-def read_harris_catalog(file_path):
+def read_harris_catalog(file_path: Path) -> npt.NDArray:
     """
     Read Harris Globular Cluster catalog from fixed-width format file.
 
@@ -98,13 +100,13 @@ def read_harris_catalog(file_path):
         ("Rh", "f4"),  # Half-mass radius (arcmin)
     ]
 
-    def parse_line(line):
+    def parse_line(line: str) -> tuple:
         return tuple(
             parse_field(line[start:end].strip(), field_dtype)
             for (start, end), (_, field_dtype) in zip(col_specs, dtype)
         )
 
-    def parse_field(value, field_dtype):
+    def parse_field(value: str, field_dtype: str) -> any:
         value = value.strip()
         if field_dtype.startswith("U"):
             return value
@@ -136,7 +138,7 @@ def read_harris_catalog(file_path):
     return np.array(data, dtype=dtype)
 
 
-def is_valid_value(val):
+def is_valid_value(val: any) -> bool:
     """Check if a numeric value is valid (not NaN, not empty)"""
     if val is None:
         return False
@@ -149,7 +151,7 @@ def is_valid_value(val):
         return False
 
 
-def is_valid_mag(mag):
+def is_valid_mag(mag: any) -> bool:
     """Check if magnitude is valid and in reasonable range"""
     if not is_valid_value(mag):
         return False
@@ -160,7 +162,7 @@ def is_valid_mag(mag):
         return False
 
 
-def normalize_catalog_name(name):
+def normalize_catalog_name(name: str) -> str:
     """
     Normalize catalog designations by removing spaces for major catalogs.
 
@@ -192,7 +194,7 @@ def normalize_catalog_name(name):
     return name
 
 
-def identify_catalog_type(name):
+def identify_catalog_type(name: str) -> Tuple[bool, str]:
     """
     Identify if a name is an official catalog designation or a common name.
 
@@ -241,7 +243,7 @@ def identify_catalog_type(name):
     return False, name
 
 
-def create_cluster_object(entry, seq):
+def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, any]:
     """
     Create a single cluster object from catalog entry.
 
@@ -252,11 +254,11 @@ def create_cluster_object(entry, seq):
     Returns:
         dict with ra, dec, mag, size, catalog_names, common_names, description, primary_name
     """
-    result = {}
+    result: Dict[str, any] = {}
 
     # Log what we're processing
-    cluster_id = entry["ID"].strip()
-    common_name = entry["Name"].strip()
+    cluster_id: str = entry["ID"].strip()
+    common_name: str = entry["Name"].strip()
     logging.info(f"Processing Harris {seq}: ID='{cluster_id}', Name='{common_name}'")
 
     # Parse RA/Dec from standard columns
@@ -296,7 +298,7 @@ def create_cluster_object(entry, seq):
         logging.debug(f"  Size: None (invalid Rh value: {rh})")
 
     # Build description with interesting features
-    description_parts = []
+    description_parts: List[str] = []
 
     # Distance from Sun
     rsun = entry["Rsun"].item()
@@ -334,9 +336,9 @@ def create_cluster_object(entry, seq):
     # Separate catalog names from common names
     # Official catalogs: NGC, IC, M, C, Col, Ta2, H, SaA, SaM, SaR, Str, EGC, RDS, B, Sh2, Abl, Arp, TLK, WDS
     # Everything else (Pal, AM, Terzan, etc.) becomes a common name
-    result["catalog_names"] = []  # For aka_names (catalog designations)
-    result["common_names"] = []  # For insert_name (common names)
-    result["primary_name"] = f"Har {seq}"
+    result["catalog_names"]: List[str] = []  # For aka_names (catalog designations)
+    result["common_names"]: List[str] = []  # For insert_name (common names)
+    result["primary_name"]: str = f"Har {seq}"
 
     # Process catalog ID (first field)
     cluster_id = entry["ID"].strip()
@@ -373,10 +375,10 @@ def create_cluster_object(entry, seq):
     return result
 
 
-def load_harris():
+def load_harris() -> None:
     logging.info("Loading Harris Globular Cluster catalog")
-    catalog = "Har"
-    obj_type = "Gb"  # Globular Cluster
+    catalog: str = "Har"
+    obj_type: str = "Gb"  # Globular Cluster
     conn, _ = objects_db.get_conn_cursor()
 
     # Enable bulk mode to prevent commits during insert operations
@@ -408,13 +410,13 @@ def load_harris():
 
     try:
         # Process each cluster entry
-        seq = 1
+        seq: int = 1
         for entry in tqdm(data, total=len(data)):
             logging.info(f"\n{'=' * 60}")
             logging.info(f"Processing sequence {seq}/{len(data)}")
 
             # Create cluster object
-            cluster_result = create_cluster_object(entry, seq)
+            cluster_result: Dict[str, any] = create_cluster_object(entry, seq)
 
             # Validate RA/DEC
             if (
@@ -423,7 +425,7 @@ def load_harris():
                 or np.isnan(cluster_result["ra"])
                 or np.isnan(cluster_result["dec"])
             ):
-                cluster_id = entry["ID"].strip()
+                cluster_id: str = entry["ID"].strip()
                 logging.error(
                     f"Invalid RA/DEC for Harris cluster {cluster_id} at sequence {seq}"
                 )
@@ -436,13 +438,15 @@ def load_harris():
                 )
 
             # Primary catalog name is "Har ###"
-            primary_name = cluster_result["primary_name"]
+            primary_name: str = cluster_result["primary_name"]
 
             # Build aka_names list with official catalog designations ONLY
             # Do NOT include primary_name - insert() adds "catalog_code sequence" automatically
             # Official catalogs (NGC, IC, M, etc.) go in aka_names for object matching
             # Other names (Pal, AM, Terzan, etc.) become common names added separately
-            aka_names = [trim_string(name) for name in cluster_result["catalog_names"]]
+            aka_names: List[str] = [
+                trim_string(name) for name in cluster_result["catalog_names"]
+            ]
 
             logging.info("Building catalog object:")
             logging.info(f"  Primary: {primary_name} (added automatically by insert)")
@@ -471,12 +475,12 @@ def load_harris():
 
             # Check if we're linking to an existing object
             # We need aka_names for finding, but if found, clear them to prevent duplicates
-            original_aka_names = aka_names.copy()
+            original_aka_names: List[str] = aka_names.copy()
             new_object.insert(find_object_id=True)
 
             # If we matched an existing object, aka_names would have added duplicate names
             # So we need to check if a match was found and log it
-            object_id = new_object.object_id
+            object_id: Optional[int] = new_object.object_id
             if object_id and original_aka_names:
                 # Check if this is a new Harris object or if we matched existing
                 # If the first catalog_object entry for this object_id is NOT Harris,
