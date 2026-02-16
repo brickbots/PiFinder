@@ -70,6 +70,8 @@ def read_harris_catalog(file_path):
         (84, 89),  # Z Distance (kpc) (F5.1)
         (109, 114),  # Integrated V magnitude (Vt) (F5.2)
         (115, 121),  # Absolute visual magnitude (MVt) (F6.2)
+        (201, 205),  # Core radius (Rc) (F4.2 arcmin)
+        (206, 210),  # Half-mass radius (Rh) (F4.2 arcmin)
     ]
 
     # Define dtype for structured array
@@ -92,6 +94,8 @@ def read_harris_catalog(file_path):
         ("Z", "f4"),  # Z component
         ("Vt", "f4"),  # Integrated V magnitude
         ("MVt", "f4"),  # Absolute magnitude
+        ("Rc", "f4"),  # Core radius (arcmin)
+        ("Rh", "f4"),  # Half-mass radius (arcmin)
     ]
 
     def parse_line(line):
@@ -158,10 +162,10 @@ def is_valid_mag(mag):
 
 def normalize_catalog_name(name):
     """
-    Normalize catalog designations by removing spaces ONLY for NGC and IC.
+    Normalize catalog designations by removing spaces for major catalogs.
 
-    Harris catalog has names like "NGC 104", "IC 4499" with spaces,
-    but the database has them as "NGC104", "IC4499" without spaces.
+    Harris catalog has names like "NGC 104", "M 79", "Arp 2" with spaces,
+    but the database has them as "NGC104", "M79", "Arp2" without spaces.
 
     Other catalog prefixes (Pal, AM, Terzan, etc.) are NOT in the official
     catalog system and should be treated as common names with spaces intact.
@@ -170,12 +174,18 @@ def normalize_catalog_name(name):
         name: Catalog designation with potential spaces
 
     Returns:
-        Normalized name (spaces removed only for NGC/IC)
+        Normalized name (spaces removed for NGC, IC, M, Arp)
     """
     name = name.strip()
 
-    # Only normalize NGC and IC catalogs
-    if name.startswith("NGC ") or name.startswith("IC "):
+    # Normalize major catalogs by removing spaces
+    # NGC, IC, M (Messier), Arp all need space removal
+    if (
+        name.startswith("NGC ")
+        or name.startswith("IC ")
+        or name.startswith("M ")
+        or name.startswith("Arp ")
+    ):
         return name.replace(" ", "")
 
     # All other names keep their spaces
@@ -274,10 +284,16 @@ def create_cluster_object(entry, seq):
         result["mag"] = MagnitudeObject([])
         logging.debug(f"  Magnitude: None (invalid value: {mag_value})")
 
-    # Size - Harris catalog doesn't provide angular diameter
-    # Core radius and half-mass radius are available but in different columns
-    # For now, leave empty
-    result["size"] = ""
+    # Size - use half-mass radius (Rh) in arcminutes
+    # Format using utils.format_size_value to match other catalogs
+    rh = entry["Rh"].item()
+    if is_valid_value(rh):
+        # Convert to string, removing unnecessary decimals
+        result["size"] = utils.format_size_value(rh)
+        logging.debug(f"  Size (half-mass radius): {result['size']} arcmin")
+    else:
+        result["size"] = ""
+        logging.debug(f"  Size: None (invalid Rh value: {rh})")
 
     # Build description with interesting features
     description_parts = []
@@ -452,9 +468,36 @@ def load_harris():
 
             # Insert with find_object_id=True to match existing objects
             logging.info("Inserting into database (find_object_id=True)...")
+
+            # Check if we're linking to an existing object
+            # We need aka_names for finding, but if found, clear them to prevent duplicates
+            original_aka_names = aka_names.copy()
             new_object.insert(find_object_id=True)
-            object_id = new_object.object_id  # Get object_id from the object itself
-            logging.info(f"  Inserted/Updated object_id: {object_id}")
+
+            # If we matched an existing object, aka_names would have added duplicate names
+            # So we need to check if a match was found and log it
+            object_id = new_object.object_id
+            if object_id and original_aka_names:
+                # Check if this is a new Harris object or if we matched existing
+                # If the first catalog_object entry for this object_id is NOT Harris,
+                # then we matched an existing object
+                conn, cursor = objects_db.get_conn_cursor()
+                cursor.execute(
+                    "SELECT catalog_code FROM catalog_objects WHERE object_id = ? ORDER BY id LIMIT 1",
+                    (object_id,),
+                )
+                first_catalog = cursor.fetchone()
+                if first_catalog and first_catalog["catalog_code"] != catalog:
+                    logging.info(
+                        f"  Matched existing {first_catalog['catalog_code']} object (object_id: {object_id})"
+                    )
+                    logging.info(
+                        f"  Note: aka_names {original_aka_names} may already exist for this object"
+                    )
+                else:
+                    logging.info(f"  Created new object (object_id: {object_id})")
+            else:
+                logging.info(f"  Inserted/Updated object_id: {object_id}")
 
             # Add common names (Pal 1, Terzan 7, 47 Tuc, omega Cen, etc.)
             # These are NOT official catalog designations but descriptive names
