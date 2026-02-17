@@ -57,7 +57,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
 
         # Set up dead-reckoning tracking by the IMU:
         imu_dead_reckoning = ImuDeadReckoning(cfg.get_option("screen_direction"))
-        # imu_dead_reckoning.set_alignment(q_scope2cam)  # TODO: Enable when q_scope2cam is available from alignment
+        # imu_dead_reckoning.set_cam2scope_alignment(q_scope2cam)  # TODO: Enable when q_scope2cam is available from alignment
 
         # This holds the last image solve position info
         # so we can delta for IMU updates
@@ -213,10 +213,10 @@ def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dic
         imu_dead_reckoning.update_plate_solve_and_imu(solved_cam, q_x2imu)
 
         # Set alignment. TODO: Do this once at alignment. Move out of here.
-        set_alignment(imu_dead_reckoning, solved)
+        set_cam2scope_alignment(imu_dead_reckoning, solved)
 
 
-def set_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
+def set_cam2scope_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     """
     Set alignment.
     TODO: Do this once at alignment
@@ -235,7 +235,7 @@ def set_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
     solved_scope.set_from_deg(solved["RA"], solved["Dec"], solved["Roll"])
 
     # Set alignment in imu_dead_reckoning
-    imu_dead_reckoning.set_alignment(solved_cam, solved_scope)
+    imu_dead_reckoning.set_cam2scope_alignment(solved_cam, solved_scope)
 
 
 def update_imu(

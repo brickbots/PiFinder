@@ -32,7 +32,7 @@ class ImuDeadReckoning:
     EXAMPLE:
     # Set up:
     imu_dead_reckoning = ImuDeadReckoning('flat')
-    imu_dead_reckoning.set_alignment(solved_cam, solved_scope)
+    imu_dead_reckoning.set_cam2scope_alignment(solved_cam, solved_scope)
 
     # Update with plate solved and IMU data:
     imu_dead_reckoning.update_plate_solve_and_imu(solved_cam, q_x2imu)
@@ -67,7 +67,7 @@ class ImuDeadReckoning:
         # IMU-to-camera orientation. Fixed by PiFinder type
         self._set_screen_direction(screen_direction)
 
-    def set_alignment(self, solved_cam: RaDecRoll, solved_scope: RaDecRoll):
+    def set_cam2scope_alignment(self, solved_cam: RaDecRoll, solved_scope: RaDecRoll):
         """
         Set the alignment between the PiFinder camera center and the scope
         pointing.
