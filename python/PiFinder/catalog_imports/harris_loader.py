@@ -27,6 +27,10 @@ from .catalog_import_utils import (
 # Import shared database object
 from .database import objects_db
 
+# Set to True for verbose debug logging during development
+# When False, only essential progress messages are logged
+VERBOSE = False
+
 
 def read_harris_catalog(file_path: Path) -> npt.NDArray:
     """
@@ -125,7 +129,7 @@ def read_harris_catalog(file_path: Path) -> npt.NDArray:
             data.append(parsed)
 
             # Log first 3 entries in detail for verification
-            if line_num <= 3:
+            if VERBOSE and line_num <= 3:
                 logging.info(f"Line {line_num} parsed:")
                 logging.info(f"  ID: '{parsed[0]}', Name: '{parsed[1]}'")
                 logging.info(f"  RA: {parsed[2]}h {parsed[3]}m {parsed[4]}s")
@@ -259,7 +263,10 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, any]:
     # Log what we're processing
     cluster_id: str = entry["ID"].strip()
     common_name: str = entry["Name"].strip()
-    logging.info(f"Processing Harris {seq}: ID='{cluster_id}', Name='{common_name}'")
+    if VERBOSE:
+        logging.info(
+            f"Processing Harris {seq}: ID='{cluster_id}', Name='{common_name}'"
+        )
 
     # Parse RA/Dec from standard columns
     ra_h = entry["RAh"].item()
@@ -275,16 +282,21 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, any]:
     dec_s = entry["DEs"].item()
     result["dec"] = dec_to_deg(dec_d, dec_m, dec_s)
 
-    logging.debug(f"  Coordinates: RA={result['ra']:.4f}°, Dec={result['dec']:.4f}°")
+    if VERBOSE:
+        logging.debug(
+            f"  Coordinates: RA={result['ra']:.4f}°, Dec={result['dec']:.4f}°"
+        )
 
     # Magnitude - use integrated V magnitude
     mag_value = entry["Vt"].item()
     if is_valid_mag(mag_value):
         result["mag"] = MagnitudeObject([mag_value])
-        logging.debug(f"  Magnitude: {mag_value:.2f}")
+        if VERBOSE:
+            logging.debug(f"  Magnitude: {mag_value:.2f}")
     else:
         result["mag"] = MagnitudeObject([])
-        logging.debug(f"  Magnitude: None (invalid value: {mag_value})")
+        if VERBOSE:
+            logging.debug(f"  Magnitude: None (invalid value: {mag_value})")
 
     # Size - use half-mass radius (Rh) in arcminutes
     # Format using utils.format_size_value to match other catalogs
@@ -292,10 +304,12 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, any]:
     if is_valid_value(rh):
         # Convert to string, removing unnecessary decimals
         result["size"] = utils.format_size_value(rh)
-        logging.debug(f"  Size (half-mass radius): {result['size']} arcmin")
+        if VERBOSE:
+            logging.debug(f"  Size (half-mass radius): {result['size']} arcmin")
     else:
         result["size"] = ""
-        logging.debug(f"  Size: None (invalid Rh value: {rh})")
+        if VERBOSE:
+            logging.debug(f"  Size: None (invalid Rh value: {rh})")
 
     # Build description with interesting features
     description_parts: List[str] = []
@@ -330,7 +344,7 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, any]:
 
     result["description"] = "\n".join(description_parts) if description_parts else ""
 
-    if description_parts:
+    if VERBOSE and description_parts:
         logging.debug(f"  Description: {len(description_parts)} features")
 
     # Separate catalog names from common names
@@ -346,11 +360,13 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, any]:
         is_catalog, normalized = identify_catalog_type(cluster_id)
         if is_catalog:
             result["catalog_names"].append(normalized)
-            logging.info(f"  Catalog name: '{cluster_id}' → '{normalized}'")
+            if VERBOSE:
+                logging.info(f"  Catalog name: '{cluster_id}' → '{normalized}'")
         else:
             # Not an official catalog - add as common name
             result["common_names"].append(cluster_id)
-            logging.info(f"  Common name: '{cluster_id}'")
+            if VERBOSE:
+                logging.info(f"  Common name: '{cluster_id}'")
 
     # Process common name field (second field)
     # These are always common names (47 Tuc, omega Cen, etc.)
@@ -360,17 +376,20 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, any]:
         is_catalog, normalized = identify_catalog_type(common_name)
         if is_catalog:
             result["catalog_names"].append(normalized)
-            logging.info(f"  Catalog name: '{common_name}' → '{normalized}'")
+            if VERBOSE:
+                logging.info(f"  Catalog name: '{common_name}' → '{normalized}'")
         else:
             result["common_names"].append(common_name)
-            logging.info(f"  Common name: '{common_name}'")
+            if VERBOSE:
+                logging.info(f"  Common name: '{common_name}'")
 
     # Log summary
-    logging.info(
-        f"  Primary: {result['primary_name']}, "
-        f"Catalog names: {len(result['catalog_names'])}, "
-        f"Common names: {len(result['common_names'])}"
-    )
+    if VERBOSE:
+        logging.info(
+            f"  Primary: {result['primary_name']}, "
+            f"Catalog names: {len(result['catalog_names'])}, "
+            f"Common names: {len(result['common_names'])}"
+        )
 
     return result
 
@@ -412,8 +431,9 @@ def load_harris() -> None:
         # Process each cluster entry
         seq: int = 1
         for entry in tqdm(data, total=len(data)):
-            logging.info(f"\n{'=' * 60}")
-            logging.info(f"Processing sequence {seq}/{len(data)}")
+            if VERBOSE:
+                logging.info(f"\n{'=' * 60}")
+                logging.info(f"Processing sequence {seq}/{len(data)}")
 
             # Create cluster object
             cluster_result: Dict[str, any] = create_cluster_object(entry, seq)
@@ -448,13 +468,16 @@ def load_harris() -> None:
                 trim_string(name) for name in cluster_result["catalog_names"]
             ]
 
-            logging.info("Building catalog object:")
-            logging.info(f"  Primary: {primary_name} (added automatically by insert)")
-            logging.info(f"  aka_names: {aka_names}")
-            logging.info(f"  common_names: {cluster_result['common_names']}")
-            logging.info(
-                f"  RA/Dec: {cluster_result['ra']:.4f}°, {cluster_result['dec']:.4f}°"
-            )
+            if VERBOSE:
+                logging.info("Building catalog object:")
+                logging.info(
+                    f"  Primary: {primary_name} (added automatically by insert)"
+                )
+                logging.info(f"  aka_names: {aka_names}")
+                logging.info(f"  common_names: {cluster_result['common_names']}")
+                logging.info(
+                    f"  RA/Dec: {cluster_result['ra']:.4f}°, {cluster_result['dec']:.4f}°"
+                )
 
             # Create new catalog object
             # IMPORTANT: find_object_id=True to match existing objects by aka_names
@@ -471,7 +494,8 @@ def load_harris() -> None:
             )
 
             # Insert with find_object_id=True to match existing objects
-            logging.info("Inserting into database (find_object_id=True)...")
+            if VERBOSE:
+                logging.info("Inserting into database (find_object_id=True)...")
 
             # Check if we're linking to an existing object
             # We need aka_names for finding, but if found, clear them to prevent duplicates
@@ -481,7 +505,7 @@ def load_harris() -> None:
             # If we matched an existing object, aka_names would have added duplicate names
             # So we need to check if a match was found and log it
             object_id: Optional[int] = new_object.object_id
-            if object_id and original_aka_names:
+            if VERBOSE and object_id and original_aka_names:
                 # Check if this is a new Harris object or if we matched existing
                 # If the first catalog_object entry for this object_id is NOT Harris,
                 # then we matched an existing object
@@ -492,25 +516,29 @@ def load_harris() -> None:
                 )
                 first_catalog = cursor.fetchone()
                 if first_catalog and first_catalog["catalog_code"] != catalog:
-                    logging.info(
-                        f"  Matched existing {first_catalog['catalog_code']} object (object_id: {object_id})"
-                    )
-                    logging.info(
-                        f"  Note: aka_names {original_aka_names} may already exist for this object"
-                    )
+                    if VERBOSE:
+                        logging.info(
+                            f"  Matched existing {first_catalog['catalog_code']} object (object_id: {object_id})"
+                        )
+                        logging.info(
+                            f"  Note: aka_names {original_aka_names} may already exist for this object"
+                        )
                 else:
-                    logging.info(f"  Created new object (object_id: {object_id})")
+                    if VERBOSE:
+                        logging.info(f"  Created new object (object_id: {object_id})")
             else:
-                logging.info(f"  Inserted/Updated object_id: {object_id}")
+                if VERBOSE:
+                    logging.info(f"  Inserted/Updated object_id: {object_id}")
 
             # Add common names (Pal 1, Terzan 7, 47 Tuc, omega Cen, etc.)
             # These are NOT official catalog designations but descriptive names
-            if cluster_result["common_names"]:
+            if VERBOSE and cluster_result["common_names"]:
                 logging.info(
                     f"Adding {len(cluster_result['common_names'])} common name(s):"
                 )
             for common_name in cluster_result["common_names"]:
-                logging.info(f"  - '{common_name}' → names table")
+                if VERBOSE:
+                    logging.info(f"  - '{common_name}' → names table")
                 objects_db.insert_name(object_id, common_name, origin="Harris")
 
             seq += 1

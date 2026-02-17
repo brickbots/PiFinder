@@ -143,6 +143,12 @@ pifinder_menu = {
                                     "value": "EGC",
                                 },
                                 {
+                                    "name": _("Harris Globs"),
+                                    "class": UIObjectList,
+                                    "objects": "catalog",
+                                    "value": "Har",
+                                },
+                                {
                                     "name": _("Herschel 400"),
                                     "class": UIObjectList,
                                     "objects": "catalog",
@@ -314,6 +320,10 @@ pifinder_menu = {
                                 {
                                     "name": _("E.G. Globs"),
                                     "value": "EGC",
+                                },
+                                {
+                                    "name": _("Harris Globs"),
+                                    "value": "Har",
                                 },
                                 {
                                     "name": _("Herschel 400"),
