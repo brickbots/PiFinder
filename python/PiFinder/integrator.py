@@ -216,28 +216,6 @@ def update_plate_solve_and_imu(imu_dead_reckoning: ImuDeadReckoning, solved: dic
         set_cam2scope_alignment(imu_dead_reckoning, solved)
 
 
-def set_cam2scope_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
-    """
-    Set alignment.
-    TODO: Do this once at alignment
-    """
-    # RA, Dec of camera center::
-    solved_cam = RaDecRoll()
-    solved_cam.set_from_deg(
-        solved["camera_center"]["RA"],
-        solved["camera_center"]["Dec"],
-        solved["camera_center"]["Roll"],
-    )
-
-    # RA, Dec of target (where scope is pointing):
-    solved["Roll"] = 0  # Target roll isn't calculated by Tetra3. Set to zero here
-    solved_scope = RaDecRoll()
-    solved_scope.set_from_deg(solved["RA"], solved["Dec"], solved["Roll"])
-
-    # Set alignment in imu_dead_reckoning
-    imu_dead_reckoning.set_cam2scope_alignment(solved_cam, solved_scope)
-
-
 def update_imu(
     imu_dead_reckoning: ImuDeadReckoning,
     solved: dict,
@@ -303,6 +281,28 @@ def update_imu(
                 solved["camera_center"]["Roll"],
             )
         )
+
+
+def set_cam2scope_alignment(imu_dead_reckoning: ImuDeadReckoning, solved: dict):
+    """
+    Set alignment.
+    TODO: Do this once at alignment
+    """
+    # RA, Dec of camera center::
+    solved_cam = RaDecRoll()
+    solved_cam.set_from_deg(
+        solved["camera_center"]["RA"],
+        solved["camera_center"]["Dec"],
+        solved["camera_center"]["Roll"],
+    )
+
+    # RA, Dec of target (where scope is pointing):
+    solved["Roll"] = 0  # Target roll isn't calculated by Tetra3. Set to zero here
+    solved_scope = RaDecRoll()
+    solved_scope.set_from_deg(solved["RA"], solved["Dec"], solved["Roll"])
+
+    # Set alignment in imu_dead_reckoning
+    imu_dead_reckoning.set_cam2scope_alignment(solved_cam, solved_scope)
 
 
 def get_roll_by_mount_type(
