@@ -10,7 +10,7 @@ Channels:
 """
 
 import logging
-import time
+import re
 from typing import Dict, List, Optional
 
 import requests
@@ -28,6 +28,7 @@ GITHUB_PULLS_URL = f"https://api.github.com/repos/{GITHUB_REPO}/pulls"
 GITHUB_RAW_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}"
 MIN_NIXOS_VERSION = "2.5.0"
 REQUEST_TIMEOUT = 10
+_PR_VERSION_RE = re.compile(r"^PR#(\d+)-")
 
 
 def _parse_version(version_str: str) -> tuple:
@@ -119,6 +120,7 @@ def _fetch_github_releases() -> tuple[list[dict], list[dict]]:
                 "ref": build["store_path"],
                 "notes": release.get("body") or None,
                 "version": build.get("version", version),
+                "subtitle": release.get("name", tag),
             }
 
             if release.get("prerelease"):
@@ -163,13 +165,14 @@ def _fetch_testable_prs() -> list[dict]:
             if build is None:
                 continue
 
-            short_title = title[:20] + "..." if len(title) > 20 else title
+            short_sha = sha[:7]
             entries.append(
                 {
-                    "label": f"PR#{number} {short_title}",
+                    "label": f"PR#{number}-{short_sha}",
                     "ref": build["store_path"],
                     "notes": body,
                     "version": build.get("version"),
+                    "subtitle": title,
                 }
             )
 
@@ -188,11 +191,28 @@ def _fetch_main_entry() -> Optional[dict]:
     if build is None:
         return None
     return {
-        "label": "main",
+        "label": build.get("version") or "main",
         "ref": build["store_path"],
         "notes": None,
         "version": build.get("version"),
+        "subtitle": "main branch",
     }
+
+
+def _fetch_pr_title(pr_number: int) -> Optional[str]:
+    """Fetch the title of a single PR by number."""
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/pulls/{pr_number}"
+    try:
+        res = requests.get(
+            url,
+            timeout=REQUEST_TIMEOUT,
+            headers={"Accept": "application/vnd.github.v3+json"},
+        )
+        if res.status_code == 200:
+            return res.json().get("title")
+    except requests.exceptions.RequestException:
+        pass
+    return None
 
 
 class UISoftware(UIModule):
@@ -200,14 +220,15 @@ class UISoftware(UIModule):
     Software update UI.
 
     Phases:
-      loading  - animated "Checking for updates..."
-      browse   - header (version + channel selector) + scrollable version list
-      confirm  - selected version details + Install / Notes / Cancel
-      failed   - update failed + Retry / Cancel
+      loading   - animated "Checking for updates..."
+      browse    - header (version + channel selector) + scrollable version list
+      confirm   - selected version details + Install / Notes / Cancel
+      upgrading - progress bar with download progress, then reboot
+      failed    - update failed + Retry / Cancel
     """
 
     __title__ = "SOFTWARE"
-    MAX_VISIBLE = 5
+    MAX_VISIBLE = 4
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -215,6 +236,7 @@ class UISoftware(UIModule):
         with open(self.wifi_txt, "r") as f:
             self._wifi_mode = f.read().strip()
         self._software_version = utils.get_version()
+        self._software_subtitle: Optional[str] = None
 
         self._channels: Dict[str, List[dict]] = {}
         self._channel_names: List[str] = []
@@ -239,8 +261,9 @@ class UISoftware(UIModule):
         self._unstable_entries: List[dict] = []
         self._square_count = 0
 
-        self._scroll_label: Optional[TextLayouterScroll] = None
-        self._scroll_label_text: Optional[str] = None
+        self._scrollers: Dict[str, TextLayouterScroll] = {}
+        self._scroller_phase: Optional[str] = None
+        self._scroller_index: Optional[int] = None
 
     def active(self):
         super().active()
@@ -251,6 +274,9 @@ class UISoftware(UIModule):
         self._list_index = 0
         self._scroll_offset = 0
         self._selected_version = None
+        self._scrollers = {}
+        self._scroller_phase = None
+        self._scroller_index = None
 
     # ------------------------------------------------------------------
     # Data
@@ -258,27 +284,48 @@ class UISoftware(UIModule):
 
     def _fetch_channels(self):
         stable, beta = _fetch_github_releases()
-        pr_entries = _fetch_testable_prs()
-
-        unstable = []
-        main_entry = _fetch_main_entry()
-        if main_entry:
-            unstable.append(main_entry)
-        unstable.extend(pr_entries)
 
         self._channels = {
             "stable": stable,
             "beta": beta,
         }
-        self._unstable_entries = unstable
 
         if self._unstable_unlocked:
-            self._channels["unstable"] = unstable
+            self._unstable_entries = self._fetch_unstable_entries()
+            self._channels["unstable"] = self._unstable_entries
+
+        # Try to find subtitle for current version from fetched entries
+        self._software_subtitle = self._find_current_subtitle()
 
         self._channel_names = list(self._channels.keys())
         self._channel_index = 0
         self._refresh_version_list()
         self._phase = "browse"
+
+    def _find_current_subtitle(self) -> Optional[str]:
+        """Find a subtitle for the current version.
+
+        Checks fetched channel entries first, then falls back to
+        a direct PR title fetch for PR builds.
+        """
+        for entries in self._channels.values():
+            for entry in entries:
+                if entry.get("version") == self._software_version:
+                    return entry.get("subtitle")
+
+        m = _PR_VERSION_RE.match(self._software_version)
+        if m:
+            return _fetch_pr_title(int(m.group(1)))
+
+        return None
+
+    def _fetch_unstable_entries(self) -> list[dict]:
+        unstable: list[dict] = []
+        main_entry = _fetch_main_entry()
+        if main_entry:
+            unstable.append(main_entry)
+        unstable.extend(_fetch_testable_prs())
+        return unstable
 
     def _refresh_version_list(self):
         if not self._channel_names:
@@ -291,8 +338,38 @@ class UISoftware(UIModule):
         ]
         self._list_index = 0
         self._scroll_offset = 0
-        self._scroll_label = None
-        self._scroll_label_text = None
+        self._scrollers = {}
+        self._scroller_phase = None
+        self._scroller_index = None
+
+    def _get_scrollspeed_config(self):
+        scroll_dict = {
+            "Off": 0,
+            "Fast": TextLayouterScroll.FAST,
+            "Med": TextLayouterScroll.MEDIUM,
+            "Slow": TextLayouterScroll.SLOW,
+        }
+        scrollspeed = self.config_object.get_option("text_scroll_speed", "Med")
+        return scroll_dict[scrollspeed]
+
+    def _get_scroller(self, key: str, text: str, font, color, width: int):
+        """Get or create a cached scroller, reset cache on phase/index change."""
+        phase_index = (self._phase, self._list_index)
+        if (self._scroller_phase, self._scroller_index) != phase_index:
+            self._scrollers = {}
+            self._scroller_phase = self._phase
+            self._scroller_index = self._list_index
+
+        if key not in self._scrollers:
+            self._scrollers[key] = TextLayouterScroll(
+                text,
+                draw=self.draw,
+                color=color,
+                font=font,
+                width=width,
+                scrollspeed=self._get_scrollspeed_config(),
+            )
+        return self._scrollers[key]
 
     # ------------------------------------------------------------------
     # Drawing helpers
@@ -303,12 +380,14 @@ class UISoftware(UIModule):
 
     def _draw_loading(self):
         y = self.display_class.titlebar_height + 2
-        self.draw.text(
-            (0, y),
+        ver_scroller = self._get_scroller(
+            "loading_ver",
             self._software_version,
-            font=self.fonts.bold.font,
-            fill=self.colors.get(255),
+            self.fonts.bold,
+            self.colors.get(255),
+            self.fonts.bold.line_length,
         )
+        ver_scroller.draw((0, y))
         dots = "." * (self._elipsis_count // 10)
         self.draw.text(
             (10, 90),
@@ -328,12 +407,14 @@ class UISoftware(UIModule):
 
     def _draw_wifi_warning(self):
         y = self.display_class.titlebar_height + 2
-        self.draw.text(
-            (0, y),
+        ver_scroller = self._get_scroller(
+            "wifi_ver",
             self._software_version,
-            font=self.fonts.bold.font,
-            fill=self.colors.get(255),
+            self.fonts.bold,
+            self.colors.get(255),
+            self.fonts.bold.line_length,
         )
+        ver_scroller.draw((0, y))
         self.draw.text(
             (10, 90),
             _("WiFi must be"),
@@ -351,13 +432,27 @@ class UISoftware(UIModule):
         y = self.display_class.titlebar_height + 2
 
         # Current version
-        self.draw.text(
-            (0, y),
+        ver_scroller = self._get_scroller(
+            "browse_cur_ver",
             self._software_version,
-            font=self.fonts.bold.font,
-            fill=self.colors.get(255),
+            self.fonts.bold,
+            self.colors.get(255),
+            self.fonts.bold.line_length,
         )
-        y += 14
+        ver_scroller.draw((0, y))
+        y += 12
+        if self._software_subtitle:
+            sub_scroller = self._get_scroller(
+                "browse_cur_sub",
+                self._software_subtitle,
+                self.fonts.base,
+                self.colors.get(128),
+                self.fonts.base.line_length,
+            )
+            sub_scroller.draw((0, y))
+            y += 12
+        else:
+            y += 2
 
         # Channel selector
         channel_name = (
@@ -406,41 +501,54 @@ class UISoftware(UIModule):
             )
             return
 
-        visible = min(self.MAX_VISIBLE, len(self._version_list))
-        # available width after arrow (10px) in characters
         label_width = self.fonts.base.line_length - 2
-        for i in range(visible):
+        current_y = y
+        for i in range(len(self._version_list)):
             idx = self._scroll_offset + i
             if idx >= len(self._version_list):
                 break
             entry = self._version_list[idx]
-            item_y = y + i * 12
             label = entry["label"]
+            subtitle = entry.get("subtitle", "")
 
             if self._focus == "list" and idx == self._list_index:
+                if current_y + 24 > 128:
+                    break
                 self.draw.text(
-                    (0, item_y),
+                    (0, current_y),
                     self._RIGHT_ARROW,
                     font=self.fonts.bold.font,
                     fill=self.colors.get(255),
                 )
-                if self._scroll_label_text != label:
-                    self._scroll_label = TextLayouterScroll(
-                        label,
-                        draw=self.draw,
-                        color=self.colors.get(255),
-                        font=self.fonts.bold,
-                        width=label_width,
+                scroller = self._get_scroller(
+                    "browse_label",
+                    label,
+                    self.fonts.bold,
+                    self.colors.get(255),
+                    label_width,
+                )
+                scroller.draw((10, current_y))
+                current_y += 12
+                if subtitle:
+                    sub_scroller = self._get_scroller(
+                        "browse_sub",
+                        subtitle,
+                        self.fonts.base,
+                        self.colors.get(128),
+                        label_width,
                     )
-                    self._scroll_label_text = label
-                self._scroll_label.draw((10, item_y))
+                    sub_scroller.draw((10, current_y))
+                current_y += 12
             else:
+                if current_y + 12 > 128:
+                    break
                 self.draw.text(
-                    (10, item_y),
+                    (10, current_y),
                     label[:label_width],
                     font=self.fonts.base.font,
                     fill=self.colors.get(192),
                 )
+                current_y += 12
 
     def _draw_confirm(self):
         y = self.display_class.titlebar_height + 2
@@ -453,15 +561,30 @@ class UISoftware(UIModule):
         )
         y += 14
 
+        label_width = self.fonts.base.line_length
         version_label = (
             self._selected_version.get("version") or self._selected_version["label"]
         )
-        self.draw.text(
-            (0, y),
+        scroller = self._get_scroller(
+            "confirm_label",
             version_label,
-            font=self.fonts.bold.font,
-            fill=self.colors.get(255),
+            self.fonts.bold,
+            self.colors.get(255),
+            label_width,
         )
+        scroller.draw((0, y))
+        y += 12
+
+        subtitle = self._selected_version.get("subtitle", "")
+        if subtitle:
+            sub_scroller = self._get_scroller(
+                "confirm_sub",
+                subtitle,
+                self.fonts.base,
+                self.colors.get(128),
+                label_width,
+            )
+            sub_scroller.draw((0, y))
         y += 14
 
         self._draw_separator(y)
@@ -520,8 +643,11 @@ class UISoftware(UIModule):
     # ------------------------------------------------------------------
 
     def update(self, force=False):
-        time.sleep(1 / 30)
         self.clear_screen()
+
+        if self._phase == "upgrading":
+            self._draw_upgrading()
+            return self.screen_update()
 
         if self._phase == "failed":
             self._draw_failed()
@@ -555,6 +681,8 @@ class UISoftware(UIModule):
 
     def key_up(self):
         self._reset_unlock()
+        if self._phase == "upgrading":
+            return
         if self._phase == "failed":
             self._fail_option = "Cancel" if self._fail_option == "Retry" else "Retry"
         elif self._phase == "browse":
@@ -571,6 +699,8 @@ class UISoftware(UIModule):
 
     def key_down(self):
         self._reset_unlock()
+        if self._phase == "upgrading":
+            return
         if self._phase == "failed":
             self._fail_option = "Cancel" if self._fail_option == "Retry" else "Retry"
         elif self._phase == "browse":
@@ -590,6 +720,8 @@ class UISoftware(UIModule):
 
     def key_right(self):
         self._reset_unlock()
+        if self._phase == "upgrading":
+            return
         if self._phase == "failed":
             if self._fail_option == "Retry":
                 self._phase = "confirm"
@@ -623,6 +755,8 @@ class UISoftware(UIModule):
 
     def key_left(self):
         self._reset_unlock()
+        if self._phase == "upgrading":
+            return False
         if self._phase == "confirm":
             self._phase = "browse"
             return False
@@ -633,6 +767,7 @@ class UISoftware(UIModule):
         if self._square_count >= 7 and not self._unstable_unlocked:
             self._unstable_unlocked = True
             self.config_object.set_option("software_unstable_unlocked", True)
+            self._unstable_entries = self._fetch_unstable_entries()
             self._channels["unstable"] = self._unstable_entries
             self._channel_names = list(self._channels.keys())
             self.message(_("Unstable\nunlocked"), 1)
@@ -647,14 +782,85 @@ class UISoftware(UIModule):
     def update_software(self):
         if not self._selected_version:
             return
+        self._phase = "upgrading"
+        self.clear_screen()
+        self._draw_upgrading()
+        self.screen_update()
+
         ref = self._selected_version.get("ref") or "release"
-        self.message(_("Updating..."), 10)
-        if sys_utils.update_software(ref=ref):
-            self.message(_("Ok! Restarting..."), 10)
-            sys_utils.restart_system()
-        else:
+        if not sys_utils.update_software(ref=ref):
             self._phase = "failed"
             self._fail_option = "Retry"
+
+    def _draw_upgrading(self):
+        y = self.display_class.titlebar_height + 2
+
+        progress = sys_utils.get_upgrade_progress()
+        phase = progress["phase"]
+        pct = progress["percent"]
+        done = progress["done"]
+        total = progress["total"]
+
+        if phase == "failed":
+            self._phase = "failed"
+            self._fail_option = "Retry"
+            return
+
+        # Title
+        if phase == "rebooting":
+            label = _("Rebooting...")
+        elif phase == "activating":
+            label = _("Activating...")
+        else:
+            label = _("Downloading...")
+
+        self.draw.text(
+            (0, y),
+            label,
+            font=self.fonts.bold.font,
+            fill=self.colors.get(255),
+        )
+        y += 20
+
+        # Progress bar
+        bar_x, bar_w, bar_h = 4, 120, 12
+        # Background fill so bar is always visible
+        self.draw.rectangle(
+            [bar_x, y, bar_x + bar_w, y + bar_h],
+            fill=self.colors.get(48),
+            outline=self.colors.get(128),
+        )
+        fill_w = int(bar_w * pct / 100)
+        if fill_w > 0:
+            self.draw.rectangle(
+                [bar_x + 1, y + 1, bar_x + fill_w, y + bar_h - 1],
+                fill=self.colors.get(255),
+            )
+
+        # Percentage centered on bar
+        pct_text = f"{pct}%"
+        pct_bbox = self.fonts.base.font.getbbox(pct_text)
+        pct_w = pct_bbox[2] - pct_bbox[0]
+        pct_h = pct_bbox[3] - pct_bbox[1]
+        pct_x = bar_x + (bar_w - pct_w) // 2
+        pct_y = y + (bar_h - pct_h) // 2 - pct_bbox[1]
+        self.draw.text(
+            (pct_x, pct_y),
+            pct_text,
+            font=self.fonts.base.font,
+            fill=self.colors.get(0) if pct > 45 else self.colors.get(192),
+        )
+        y += bar_h + 6
+
+        # Path count below bar
+        if phase == "downloading" and total > 0:
+            path_text = f"{done}/{total} paths"
+            self.draw.text(
+                (4, y),
+                path_text,
+                font=self.fonts.base.font,
+                fill=self.colors.get(128),
+            )
 
 
 class UIReleaseNotes(UIModule):
@@ -693,7 +899,6 @@ class UIReleaseNotes(UIModule):
             self._loaded = True
 
     def update(self, force=False):
-        time.sleep(1 / 30)
         self.clear_screen()
         draw_pos = self.display_class.titlebar_height + 2
 

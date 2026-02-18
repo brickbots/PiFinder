@@ -406,8 +406,10 @@ class TestFetchTestablePRs:
         entries = _fetch_testable_prs()
 
         assert len(entries) == 2
-        assert entries[0]["label"].startswith("PR#42")
-        assert entries[1]["label"].startswith("PR#99")
+        assert entries[0]["label"] == "PR#42-abc123d"
+        assert entries[0]["subtitle"] == "Fix star matching algorithm"
+        assert entries[1]["label"] == "PR#99-789xyz0"
+        assert entries[1]["subtitle"] == "Add dark mode support"
 
     @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
@@ -461,7 +463,7 @@ class TestFetchTestablePRs:
 
     @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")
-    def test_long_title_truncated(self, mock_get, mock_build):
+    def test_long_title_in_subtitle(self, mock_get, mock_build):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = [
@@ -482,8 +484,10 @@ class TestFetchTestablePRs:
 
         entries = _fetch_testable_prs()
 
-        assert "..." in entries[0]["label"]
-        assert entries[0]["label"].startswith("PR#7 ")
+        assert entries[0]["label"] == "PR#7-aaa"
+        assert entries[0]["subtitle"] == (
+            "A very long PR title that exceeds twenty characters"
+        )
 
     @patch("PiFinder.ui.software._fetch_build_json")
     @patch("PiFinder.ui.software.requests.get")

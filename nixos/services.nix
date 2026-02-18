@@ -307,13 +307,13 @@ in {
   };
 
   # ---------------------------------------------------------------------------
-  # PiFinder Safe NixOS Upgrade (test-then-switch)
+  # PiFinder NixOS Upgrade
   # ---------------------------------------------------------------------------
+  # Downloads from binary caches, sets profile, updates bootloader, reboots.
+  # No live switch-to-configuration — avoids killing running services.
+  # The pifinder-watchdog handles rollback if the new generation fails to boot.
   systemd.services.pifinder-upgrade = {
-    description = "PiFinder Safe NixOS Upgrade (test-then-switch)";
-    # Prevent switch-to-configuration from killing us mid-upgrade.
-    restartIfChanged = false;
-    stopIfChanged = false;
+    description = "PiFinder NixOS Upgrade";
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -339,53 +339,61 @@ in {
       fi
 
       echo "Upgrading to $STORE_PATH"
-      echo "downloading" > "$STATUS_FILE"
 
-      echo "Phase 1: Download from binary caches"
-      nix build "$STORE_PATH" --max-jobs 0
+      # Count paths to download for progress reporting
+      DRY_RUN=$(nix build "$STORE_PATH" --max-jobs 0 --dry-run 2>&1 || true)
+      PATHS_FILE=$(mktemp)
+      echo "$DRY_RUN" | grep '^\s*/nix/store/' | sed 's/^\s*//' > "$PATHS_FILE" || true
+      TOTAL=$(wc -l < "$PATHS_FILE")
+
+      echo "downloading 0/$TOTAL" > "$STATUS_FILE"
+
+      # Download with progress monitoring
+      nix build "$STORE_PATH" --max-jobs 0 &
+      BUILD_PID=$!
+
+      while kill -0 "$BUILD_PID" 2>/dev/null; do
+        DONE=0
+        while IFS= read -r p; do
+          [ -n "$p" ] && [ -e "$p" ] && DONE=$((DONE + 1))
+        done < "$PATHS_FILE"
+        echo "downloading $DONE/$TOTAL" > "$STATUS_FILE"
+        sleep 2
+      done
+
+      if ! wait "$BUILD_PID"; then
+        echo "failed" > "$STATUS_FILE"
+        rm -f "$PATHS_FILE"
+        exit 1
+      fi
+      rm -f "$PATHS_FILE"
+      echo "downloading $TOTAL/$TOTAL" > "$STATUS_FILE"
 
       echo "activating" > "$STATUS_FILE"
 
-      echo "Phase 2: Activate (test mode — bootloader untouched)"
       nix-env -p /nix/var/nix/profiles/system --set "$STORE_PATH"
-      "$STORE_PATH/bin/switch-to-configuration" test
 
-      echo "verifying" > "$STATUS_FILE"
-
-      echo "Phase 3: Verifying pifinder.service health"
-      systemctl restart pifinder.service
-      for i in $(seq 1 24); do
-        if systemctl is-active --quiet pifinder.service; then
-          echo "pifinder.service active after $((i * 5))s"
-
-          echo "persisting" > "$STATUS_FILE"
-
-          echo "Phase 4: Persist to bootloader"
-          "$STORE_PATH/bin/switch-to-configuration" switch
-
-          # Restore camera specialisation if not default
-          CAM=$(cat /var/lib/pifinder/camera-type 2>/dev/null || echo "${cfg.cameraType}")
-          if [ "$CAM" != "${cfg.cameraType}" ]; then
-            SPEC="/run/current-system/specialisation/$CAM"
-            if [ -d "$SPEC" ]; then
-              echo "Restoring camera specialisation: $CAM"
-              "$SPEC/bin/switch-to-configuration" boot
-            fi
-          fi
-
-          echo "Phase 5: Cleanup old generations"
-          nix-env --delete-generations +2 -p /nix/var/nix/profiles/system || true
-          nix-collect-garbage || true
-
-          echo "success" > "$STATUS_FILE"
-          echo "Upgrade complete."
-          exit 0
+      # Restore camera specialisation if not default
+      CAM=$(cat /var/lib/pifinder/camera-type 2>/dev/null || echo "${cfg.cameraType}")
+      if [ "$CAM" != "${cfg.cameraType}" ]; then
+        SPEC="$STORE_PATH/specialisation/$CAM"
+        if [ -d "$SPEC" ]; then
+          echo "Setting boot to camera specialisation: $CAM"
+          "$SPEC/bin/switch-to-configuration" boot
+        else
+          "$STORE_PATH/bin/switch-to-configuration" boot
         fi
-        sleep 5
-      done
+      else
+        "$STORE_PATH/bin/switch-to-configuration" boot
+      fi
 
-      echo "failed" > "$STATUS_FILE"
-      echo "ERROR: pifinder.service not healthy. Rebooting to revert."
+      echo "rebooting" > "$STATUS_FILE"
+
+      # Cleanup old generations before reboot
+      nix-env --delete-generations +2 -p /nix/var/nix/profiles/system || true
+      nix-collect-garbage || true
+
+      echo "Rebooting into new generation..."
       systemctl reboot
     '';
   };
@@ -401,7 +409,7 @@ in {
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = with pkgs; [ systemd coreutils ];
+    path = with pkgs; [ nix systemd coreutils ];
     script = ''
       set -euo pipefail
       REBOOT_MARKER="/var/tmp/pifinder-watchdog-rebooted"
@@ -412,11 +420,18 @@ in {
         exit 0
       fi
 
-      echo "Watchdog: waiting up to 90s for pifinder.service..."
-      for i in $(seq 1 18); do
+      echo "Watchdog: waiting up to 120s for pifinder.service..."
+      for i in $(seq 1 24); do
         if systemctl is-active --quiet pifinder.service; then
-          echo "pifinder.service healthy after $((i * 5))s"
-          exit 0
+          # Verify it stays running (not crash-looping)
+          UPTIME=$(systemctl show pifinder.service --property=ExecMainStartTimestamp --value)
+          START_EPOCH=$(date -d "$UPTIME" +%s 2>/dev/null || echo 0)
+          NOW_EPOCH=$(date +%s)
+          RUNNING_FOR=$((NOW_EPOCH - START_EPOCH))
+          if [ "$RUNNING_FOR" -ge 15 ]; then
+            echo "pifinder.service healthy (running ''${RUNNING_FOR}s)"
+            exit 0
+          fi
         fi
         sleep 5
       done
@@ -425,6 +440,8 @@ in {
       touch "$REBOOT_MARKER"
       PREV_GEN=$(ls -d /nix/var/nix/profiles/system-*-link 2>/dev/null | sort -t- -k2 -n | tail -2 | head -1)
       if [ -n "$PREV_GEN" ]; then
+        # Reset profile so the rolled-back generation becomes the current one
+        nix-env -p /nix/var/nix/profiles/system --set "$(readlink -f "$PREV_GEN")"
         "$PREV_GEN/bin/switch-to-configuration" switch || true
       fi
       systemctl reboot

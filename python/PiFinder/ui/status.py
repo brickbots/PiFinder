@@ -145,10 +145,8 @@ class UIStatus(UIModule):
             self._config_options["Software"]["value"] = utils.get_version()
             return False
 
-        self.message("Updating...", 10)
         if sys_utils.update_software():
-            self.message("Ok! Restarting", 10)
-            sys_utils.restart_pifinder()
+            self.message("Updating...", 10)
         else:
             self.message("Error on Upd", 3)
 
