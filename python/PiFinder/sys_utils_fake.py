@@ -66,6 +66,10 @@ def update_software(ref: str = "release"):
     return True
 
 
+def get_upgrade_progress() -> dict:
+    return {"phase": "", "done": 0, "total": 0, "percent": 0}
+
+
 def restart_pifinder() -> None:
     logger.info("SYS: Restarting PiFinder")
 

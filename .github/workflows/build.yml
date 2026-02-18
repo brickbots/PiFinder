@@ -137,7 +137,12 @@ jobs:
           STORE_PATH="${{ needs.build-native.outputs.store_path || needs.build-emulated.outputs.store_path }}"
           BRANCH="${{ github.head_ref || github.ref_name }}"
           SHORT_SHA=$(git rev-parse --short HEAD)
-          VERSION="${BRANCH}-${SHORT_SHA}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          if [ -n "$PR_NUMBER" ]; then
+            VERSION="PR#${PR_NUMBER}-${SHORT_SHA}"
+          else
+            VERSION="${BRANCH}-${SHORT_SHA}"
+          fi
           jq -n --arg sp "$STORE_PATH" --arg v "$VERSION" \
             '{store_path: $sp, version: $v}' > pifinder-build.json
 
