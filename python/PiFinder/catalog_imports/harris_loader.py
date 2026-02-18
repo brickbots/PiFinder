@@ -8,7 +8,7 @@ TODO:
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional
 from tqdm import tqdm
 
 import numpy as np
@@ -110,7 +110,7 @@ def read_harris_catalog(file_path: Path) -> npt.NDArray:
             for (start, end), (_, field_dtype) in zip(col_specs, dtype)
         )
 
-    def parse_field(value: str, field_dtype: str) -> any:
+    def parse_field(value: str, field_dtype: str) -> Any:
         value = value.strip()
         if field_dtype.startswith("U"):
             return value
@@ -142,7 +142,7 @@ def read_harris_catalog(file_path: Path) -> npt.NDArray:
     return np.array(data, dtype=dtype)
 
 
-def is_valid_value(val: any) -> bool:
+def is_valid_value(val: Any) -> bool:
     """Check if a numeric value is valid (not NaN, not empty)"""
     if val is None:
         return False
@@ -155,7 +155,7 @@ def is_valid_value(val: any) -> bool:
         return False
 
 
-def is_valid_mag(mag: any) -> bool:
+def is_valid_mag(mag: Any) -> bool:
     """Check if magnitude is valid and in reasonable range"""
     if not is_valid_value(mag):
         return False
@@ -247,7 +247,7 @@ def identify_catalog_type(name: str) -> Tuple[bool, str]:
     return False, name
 
 
-def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, any]:
+def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, Any]:
     """
     Create a single cluster object from catalog entry.
 
@@ -258,11 +258,11 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, any]:
     Returns:
         dict with ra, dec, mag, size, catalog_names, common_names, description, primary_name
     """
-    result: Dict[str, any] = {}
+    result: Dict[str, Any] = {}
 
     # Log what we're processing
-    cluster_id: str = entry["ID"].strip()
-    common_name: str = entry["Name"].strip()
+    cluster_id: str = entry["ID"].item().strip()
+    common_name: str = entry["Name"].item().strip()
     if VERBOSE:
         logging.info(
             f"Processing Harris {seq}: ID='{cluster_id}', Name='{common_name}'"
@@ -350,12 +350,12 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, any]:
     # Separate catalog names from common names
     # Official catalogs: NGC, IC, M, C, Col, Ta2, H, SaA, SaM, SaR, Str, EGC, RDS, B, Sh2, Abl, Arp, TLK, WDS
     # Everything else (Pal, AM, Terzan, etc.) becomes a common name
-    result["catalog_names"]: List[str] = []  # For aka_names (catalog designations)
-    result["common_names"]: List[str] = []  # For insert_name (common names)
-    result["primary_name"]: str = f"Har {seq}"
+    result["catalog_names"] = []  # For aka_names (catalog designations)
+    result["common_names"] = []  # For insert_name (common names)
+    result["primary_name"] = f"Har {seq}"
 
     # Process catalog ID (first field)
-    cluster_id = entry["ID"].strip()
+    cluster_id = entry["ID"].item().strip()
     if cluster_id:
         is_catalog, normalized = identify_catalog_type(cluster_id)
         if is_catalog:
@@ -370,7 +370,7 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, any]:
 
     # Process common name field (second field)
     # These are always common names (47 Tuc, omega Cen, etc.)
-    common_name = entry["Name"].strip()
+    common_name = entry["Name"].item().strip()
     if common_name:
         # Check if it might be a Messier designation
         is_catalog, normalized = identify_catalog_type(common_name)
@@ -394,7 +394,7 @@ def create_cluster_object(entry: npt.NDArray, seq: int) -> Dict[str, any]:
     return result
 
 
-def load_harris() -> None:
+def load_harris():
     logging.info("Loading Harris Globular Cluster catalog")
     catalog: str = "Har"
     obj_type: str = "Gb"  # Globular Cluster
@@ -436,7 +436,7 @@ def load_harris() -> None:
                 logging.info(f"Processing sequence {seq}/{len(data)}")
 
             # Create cluster object
-            cluster_result: Dict[str, any] = create_cluster_object(entry, seq)
+            cluster_result: Dict[str, Any] = create_cluster_object(entry, seq)
 
             # Validate RA/DEC
             if (
@@ -445,7 +445,7 @@ def load_harris() -> None:
                 or np.isnan(cluster_result["ra"])
                 or np.isnan(cluster_result["dec"])
             ):
-                cluster_id: str = entry["ID"].strip()
+                cluster_id: str = entry["ID"].item().strip()
                 logging.error(
                     f"Invalid RA/DEC for Harris cluster {cluster_id} at sequence {seq}"
                 )
