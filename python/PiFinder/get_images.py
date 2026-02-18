@@ -1,5 +1,3 @@
-from PiFinder.object_images.poss_provider import BASE_IMAGE_PATH
-from PiFinder.object_images.poss_provider import create_catalog_image_dirs
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 """
@@ -7,13 +5,18 @@ This script runs to fetch
 images from AWS
 """
 
-import requests
 import os
-from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Tuple
 
+import requests
+from tqdm import tqdm
+
 from PiFinder.db.objects_db import ObjectsDatabase
+from PiFinder.object_images.poss_provider import (
+    BASE_IMAGE_PATH,
+    create_catalog_image_dirs,
+)
 
 
 def check_missing_images() -> List[str]:
@@ -35,9 +38,7 @@ def check_missing_images() -> List[str]:
     missing_images = []
     for image_name in tqdm(image_names, desc="Checking existing images"):
         # Check if POSS image exists (primary check)
-        poss_path = (
-            f"{BASE_IMAGE_PATH}/{image_name[-1]}/{image_name}_POSS.jpg"
-        )
+        poss_path = f"{BASE_IMAGE_PATH}/{image_name[-1]}/{image_name}_POSS.jpg"
         if not os.path.exists(poss_path):
             missing_images.append(image_name)
 
