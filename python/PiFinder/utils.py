@@ -23,6 +23,8 @@ def get_version() -> str:
             return json.load(f).get("version", "Unknown")
     except (FileNotFoundError, IOError, json.JSONDecodeError):
         return "Unknown"
+
+
 debug_dump_dir = data_dir / "solver_debug_dumps"
 comet_file = data_dir / "comets.txt"
 

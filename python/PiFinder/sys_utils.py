@@ -13,7 +13,6 @@ Uses:
 import os
 import re
 import subprocess
-import time
 import logging
 from pathlib import Path
 from typing import Optional
@@ -437,17 +436,48 @@ def get_upgrade_state() -> str:
         return UPGRADE_STATE_SUCCESS
     elif status == "failed":
         return UPGRADE_STATE_FAILED
-    elif status in ("downloading", "activating", "verifying", "persisting"):
+    elif status.startswith("downloading") or status in ("activating", "rebooting"):
         return UPGRADE_STATE_RUNNING
     return UPGRADE_STATE_IDLE
 
 
-def get_upgrade_phase() -> str:
-    """Return the current upgrade phase for progress display."""
+def get_upgrade_progress() -> dict:
+    """Return structured upgrade progress for UI display.
+
+    Returns dict with keys:
+      phase: "downloading" | "activating" | "rebooting" | "success" | "failed" | ""
+      done: int (paths downloaded so far)
+      total: int (total paths to download)
+      percent: int (0-100)
+    """
     try:
-        return UPGRADE_STATUS_FILE.read_text().strip()
+        raw = UPGRADE_STATUS_FILE.read_text().strip()
     except FileNotFoundError:
-        return ""
+        return {"phase": "", "done": 0, "total": 0, "percent": 0}
+
+    # "downloading 5/42" format
+    if raw.startswith("downloading "):
+        parts = raw.split(" ", 1)[1].split("/")
+        try:
+            done, total = int(parts[0]), int(parts[1])
+            pct = int(done * 100 / total) if total > 0 else 0
+            return {
+                "phase": "downloading",
+                "done": done,
+                "total": total,
+                "percent": pct,
+            }
+        except (ValueError, IndexError):
+            return {"phase": "downloading", "done": 0, "total": 0, "percent": 0}
+    if raw == "activating":
+        return {"phase": "activating", "done": 0, "total": 0, "percent": 100}
+    if raw == "rebooting":
+        return {"phase": "rebooting", "done": 0, "total": 0, "percent": 100}
+    if raw == "success":
+        return {"phase": "success", "done": 0, "total": 0, "percent": 100}
+    if raw == "failed":
+        return {"phase": "failed", "done": 0, "total": 0, "percent": 0}
+    return {"phase": "", "done": 0, "total": 0, "percent": 0}
 
 
 def get_upgrade_log_tail(lines: int = 3) -> str:
@@ -468,16 +498,12 @@ def get_upgrade_log_tail(lines: int = 3) -> str:
 
 
 def update_software(ref: str = "release") -> bool:
-    """Blocking wrapper — starts upgrade and polls until complete."""
-    if not start_upgrade(ref=ref):
-        return False
-    while True:
-        time.sleep(10)
-        state = get_upgrade_state()
-        if state == UPGRADE_STATE_SUCCESS:
-            return True
-        elif state == UPGRADE_STATE_FAILED:
-            return False
+    """Start the upgrade service (non-blocking).
+
+    The service downloads, sets the boot profile, and reboots.
+    UI should poll get_upgrade_progress() for status.
+    """
+    return start_upgrade(ref=ref)
 
 
 # ---------------------------------------------------------------------------
