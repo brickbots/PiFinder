@@ -481,6 +481,7 @@ def main(
         console.update()
         logger.info("   Initializing Gaia chart generator...")
         from PiFinder.object_images.gaia_chart import get_gaia_chart_generator
+
         chart_gen = get_gaia_chart_generator(cfg, shared_state)
         # Trigger background loading so catalog is ready when needed
         chart_gen.ensure_catalog_loading()
@@ -518,6 +519,7 @@ def main(
         if pygame_events_enabled:
             import pygame
             from PiFinder.keyboard_interface import KeyboardInterface
+
             logger.info("Pygame event polling enabled for keyboard input")
 
             # Key mapping for Pygame
@@ -530,8 +532,16 @@ def main(
                 pygame.K_a: KeyboardInterface.MINUS,
                 pygame.K_z: KeyboardInterface.SQUARE,
                 pygame.K_m: KeyboardInterface.LNG_SQUARE,
-                pygame.K_0: 0, pygame.K_1: 1, pygame.K_2: 2, pygame.K_3: 3, pygame.K_4: 4,
-                pygame.K_5: 5, pygame.K_6: 6, pygame.K_7: 7, pygame.K_8: 8, pygame.K_9: 9,
+                pygame.K_0: 0,
+                pygame.K_1: 1,
+                pygame.K_2: 2,
+                pygame.K_3: 3,
+                pygame.K_4: 4,
+                pygame.K_5: 5,
+                pygame.K_6: 6,
+                pygame.K_7: 7,
+                pygame.K_8: 8,
+                pygame.K_9: 9,
                 pygame.K_w: KeyboardInterface.ALT_PLUS,
                 pygame.K_s: KeyboardInterface.ALT_MINUS,
                 pygame.K_d: KeyboardInterface.ALT_LEFT,
@@ -1021,9 +1031,11 @@ if __name__ == "__main__":
     # When using Pygame display, use built-in event polling (no keyboard subprocess needed)
     if display_hardware in ["pg_128", "pg_320"]:
         from PiFinder import keyboard_none as keyboard
+
         rlogger.info("using pygame built-in keyboard (no subprocess)")
     elif args.keyboard.lower() == "pi":
         from PiFinder import keyboard_pi as keyboard  # type: ignore[no-redef]
+
         rlogger.info("using pi keyboard hat")
     elif args.keyboard.lower() == "local":
         if display_hardware.startswith("pg_"):
@@ -1032,9 +1044,11 @@ if __name__ == "__main__":
             rlogger.info("using pygame keyboard (display captures keys)")
         else:
             from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
+
             rlogger.info("using local keyboard")
     elif args.keyboard.lower() == "none":
         from PiFinder import keyboard_none as keyboard
+
         rlogger.warning("using no keyboard")
 
     if args.lang:

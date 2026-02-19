@@ -12,7 +12,13 @@ from PIL import Image, ImageDraw, ImageChops
 
 
 def add_image_overlays(
-    image, display_class, fov, magnification, eyepiece, burn_in=True, limiting_magnitude=None
+    image,
+    display_class,
+    fov,
+    magnification,
+    eyepiece,
+    burn_in=True,
+    limiting_magnitude=None,
 ):
     """
     Add FOV/magnification/eyepiece overlays to image
@@ -107,7 +113,9 @@ def add_image_overlays(
     return image
 
 
-def create_loading_image(display_class, message="Loading...", progress_text=None, progress_percent=0):
+def create_loading_image(
+    display_class, message="Loading...", progress_text=None, progress_percent=0
+):
     """
     Create a placeholder image with loading message and optional progress
 
@@ -120,9 +128,7 @@ def create_loading_image(display_class, message="Loading...", progress_text=None
     Returns:
         PIL Image with centered message and progress
     """
-    image = Image.new(
-        "RGB", display_class.resolution, (0, 0, 0)
-    )
+    image = Image.new("RGB", display_class.resolution, (0, 0, 0))
     draw = ImageDraw.Draw(image)
 
     # Use center of display for positioning
@@ -146,7 +152,9 @@ def create_loading_image(display_class, message="Loading...", progress_text=None
 
     # Draw progress text if provided
     if progress_text:
-        progress_bbox = draw.textbbox((0, 0), progress_text, font=display_class.fonts.base.font)
+        progress_bbox = draw.textbbox(
+            (0, 0), progress_text, font=display_class.fonts.base.font
+        )
         progress_width = progress_bbox[2] - progress_bbox[0]
 
         px = center_x - (progress_width // 2)
@@ -170,27 +178,28 @@ def create_loading_image(display_class, message="Loading...", progress_text=None
         draw.rectangle(
             [bar_x, bar_y, bar_x + bar_width, bar_y + bar_height],
             outline=(64, 0, 0),
-            fill=(32, 0, 0)
+            fill=(32, 0, 0),
         )
 
         # Progress fill
         fill_width = int(bar_width * (progress_percent / 100))
         if fill_width > 0:
             draw.rectangle(
-                [bar_x, bar_y, bar_x + fill_width, bar_y + bar_height],
-                fill=(128, 0, 0)
+                [bar_x, bar_y, bar_x + fill_width, bar_y + bar_height], fill=(128, 0, 0)
             )
 
         # Percentage text
         percent_text = f"{progress_percent}%"
-        percent_bbox = draw.textbbox((0, 0), percent_text, font=display_class.fonts.base.font)
+        percent_bbox = draw.textbbox(
+            (0, 0), percent_text, font=display_class.fonts.base.font
+        )
         percent_width = percent_bbox[2] - percent_bbox[0]
 
         draw.text(
             (center_x - (percent_width // 2), bar_y + bar_height + 4),
             percent_text,
             font=display_class.fonts.base.font,
-            fill=(100, 0, 0)
+            fill=(100, 0, 0),
         )
 
     return image

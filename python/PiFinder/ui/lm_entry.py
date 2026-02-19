@@ -26,11 +26,13 @@ class UILMEntry(UIModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.config_option = self.item_definition.get("config_option", "obj_chart_lm_fixed")
+        self.config_option = self.item_definition.get(
+            "config_option", "obj_chart_lm_fixed"
+        )
 
         # Start with placeholder/blank value for user to fill in
         # Store as string for editing: format is "  .  " (spaces for digits)
-        self.digits = [' ', ' ', '.', ' ']  # Two digits, decimal, one digit
+        self.digits = [" ", " ", ".", " "]  # Two digits, decimal, one digit
 
         # Cursor position (0-3 for "XX.X" format)
         # Position 2 is the decimal point (not editable)
@@ -51,10 +53,7 @@ class UILMEntry(UIModule):
         title_width = title_bbox[2] - title_bbox[0]
         title_x = (self.width - title_width) // 2
         draw.text(
-            (title_x, 5),
-            title,
-            font=self.fonts.base.font,
-            fill=self.colors.get(128)
+            (title_x, 5), title, font=self.fonts.base.font, fill=self.colors.get(128)
         )
 
         # Display current value with cursor
@@ -72,16 +71,21 @@ class UILMEntry(UIModule):
             x_pos = start_x + (i * char_width)
 
             # Display character or underscore for empty
-            display_char = char if char != ' ' else '_'
+            display_char = char if char != " " else "_"
 
             # Highlight cursor position (but not the decimal point)
-            if i == self.cursor_pos and char != '.':
+            if i == self.cursor_pos and char != ".":
                 # Draw filled rectangle background
                 draw.rectangle(
-                    [x_pos - 2, value_y - 2, x_pos + char_width + 2, value_y + self.fonts.large.height + 2],
+                    [
+                        x_pos - 2,
+                        value_y - 2,
+                        x_pos + char_width + 2,
+                        value_y + self.fonts.large.height + 2,
+                    ],
                     fill=self.colors.get(255),
                     outline=self.colors.get(255),
-                    width=2
+                    width=2,
                 )
                 # Draw text in inverse color
                 text_color = self.colors.get(0)
@@ -92,7 +96,7 @@ class UILMEntry(UIModule):
                 (x_pos, value_y),
                 display_char,
                 font=self.fonts.large.font,
-                fill=text_color
+                fill=text_color,
             )
 
         # Icons (matching radec_entry style)
@@ -105,18 +109,20 @@ class UILMEntry(UIModule):
 
         # Draw separator line
         draw.line(
-            [(2, bar_y), (self.width - 2, bar_y)],
-            fill=self.colors.get(128),
-            width=1
+            [(2, bar_y), (self.width - 2, bar_y)], fill=self.colors.get(128), width=1
         )
 
         # Line 1: Navigation
         line1 = f"{arrow_icons}Nav"
-        draw.text((2, bar_y + 2), line1, font=self.fonts.base.font, fill=self.colors.get(128))
+        draw.text(
+            (2, bar_y + 2), line1, font=self.fonts.base.font, fill=self.colors.get(128)
+        )
 
         # Line 2: Actions
         line2 = f"{left_icon}Cancel {right_icon}Save -Del"
-        draw.text((2, bar_y + 12), line2, font=self.fonts.base.font, fill=self.colors.get(128))
+        draw.text(
+            (2, bar_y + 12), line2, font=self.fonts.base.font, fill=self.colors.get(128)
+        )
 
         return self.screen, None
 
@@ -165,7 +171,7 @@ class UILMEntry(UIModule):
             return False
 
         # Replace with space (blank)
-        self.digits[self.cursor_pos] = ' '
+        self.digits[self.cursor_pos] = " "
         return True
 
     def key_left(self):
@@ -177,10 +183,10 @@ class UILMEntry(UIModule):
         try:
             value_str = "".join(self.digits).strip()
 
-            if value_str.replace('.', '').replace(' ', '') == '':
+            if value_str.replace(".", "").replace(" ", "") == "":
                 return False
 
-            value_str = value_str.replace(' ', '0')
+            value_str = value_str.replace(" ", "0")
             final_value = float(value_str)
 
             if final_value < 5.0 or final_value > 20.0:

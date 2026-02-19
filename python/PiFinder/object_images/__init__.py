@@ -21,7 +21,7 @@ def get_display_image(
     display_class,
     burn_in=True,
     force_chart=False,
-    **kwargs
+    **kwargs,
 ) -> Union[Image.Image, Generator]:
     """
     Get display image for catalog object
@@ -58,7 +58,13 @@ def get_display_image(
             )
 
     return provider.get_image(
-        catalog_object, eyepiece_text, fov, roll, display_class, burn_in=burn_in, **kwargs
+        catalog_object,
+        eyepiece_text,
+        fov,
+        roll,
+        display_class,
+        burn_in=burn_in,
+        **kwargs,
     )
 
 

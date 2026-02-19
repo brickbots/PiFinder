@@ -21,7 +21,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 from PiFinder import utils
 from PiFinder.object_images.star_catalog import CatalogState, GaiaStarCatalog
-from PiFinder.object_images.image_utils import pad_to_display_resolution, add_image_overlays
+from PiFinder.object_images.image_utils import (
+    pad_to_display_resolution,
+    add_image_overlays,
+)
 
 logger = logging.getLogger("PiFinder.GaiaChart")
 
@@ -32,13 +35,19 @@ _gaia_chart_generator_instance = None
 def get_gaia_chart_generator(config, shared_state):
     """Get or create the global chart generator singleton"""
     global _gaia_chart_generator_instance
-    logger.debug(f">>> get_gaia_chart_generator() called, instance exists: {_gaia_chart_generator_instance is not None}")
+    logger.debug(
+        f">>> get_gaia_chart_generator() called, instance exists: {_gaia_chart_generator_instance is not None}"
+    )
     if _gaia_chart_generator_instance is None:
         logger.info(">>> Creating new GaiaChartGenerator instance...")
         _gaia_chart_generator_instance = GaiaChartGenerator(config, shared_state)
-        logger.info(f">>> GaiaChartGenerator created, state: {_gaia_chart_generator_instance.get_catalog_state()}")
+        logger.info(
+            f">>> GaiaChartGenerator created, state: {_gaia_chart_generator_instance.get_catalog_state()}"
+        )
     else:
-        logger.debug(f">>> Returning existing instance, state: {_gaia_chart_generator_instance.get_catalog_state()}")
+        logger.debug(
+            f">>> Returning existing instance, state: {_gaia_chart_generator_instance.get_catalog_state()}"
+        )
     return _gaia_chart_generator_instance
 
 
@@ -85,7 +94,9 @@ class GaiaChartGenerator:
         Ensure catalog is loading or loaded
         Triggers background load if needed
         """
-        logger.debug(f">>> ensure_catalog_loading() called, catalog is None: {self.catalog is None}")
+        logger.debug(
+            f">>> ensure_catalog_loading() called, catalog is None: {self.catalog is None}"
+        )
 
         if self.catalog is None:
             logger.info(">>> Calling initialize_catalog()...")
@@ -104,7 +115,9 @@ class GaiaChartGenerator:
                 f">>> Starting background catalog load: lat={observer_lat}, mag_limit={limiting_mag:.1f}"
             )
             self.catalog.start_background_load(observer_lat, limiting_mag)
-            logger.info(f">>> start_background_load() called, new state: {self.catalog.state}")
+            logger.info(
+                f">>> start_background_load() called, new state: {self.catalog.state}"
+            )
 
     def initialize_catalog(self):
         """Create catalog instance (doesn't load data yet)"""
@@ -115,19 +128,33 @@ class GaiaChartGenerator:
         metadata_file = catalog_path / "metadata.json"
         if not metadata_file.exists():
             logger.warning(f"Gaia star catalog not found at {catalog_path}")
-            logger.warning("To build catalog, run: python -m PiFinder.catalog_tools.gaia_downloader --mag-limit 12 --output /tmp/gaia.csv")
-            logger.warning("Then: python -m PiFinder.catalog_tools.healpix_builder --input /tmp/gaia.csv --output {}/astro_data/gaia_stars".format(Path.home() / "PiFinder"))
+            logger.warning(
+                "To build catalog, run: python -m PiFinder.catalog_tools.gaia_downloader --mag-limit 12 --output /tmp/gaia.csv"
+            )
+            logger.warning(
+                "Then: python -m PiFinder.catalog_tools.healpix_builder --input /tmp/gaia.csv --output {}/astro_data/gaia_stars".format(
+                    Path.home() / "PiFinder"
+                )
+            )
 
         logger.info(">>> Creating GaiaStarCatalog instance...")
         import time
+
         t0 = time.time()
         self.catalog = GaiaStarCatalog(str(catalog_path))
         t_init = (time.time() - t0) * 1000
         logger.info(f">>> GaiaStarCatalog.__init__() took {t_init:.1f}ms")
-        logger.info(f">>> Catalog initialized: {catalog_path}, state: {self.catalog.state}")
+        logger.info(
+            f">>> Catalog initialized: {catalog_path}, state: {self.catalog.state}"
+        )
 
     def generate_chart(
-        self, catalog_object, resolution: Tuple[int, int], burn_in: bool = True, display_class=None, roll=None
+        self,
+        catalog_object,
+        resolution: Tuple[int, int],
+        burn_in: bool = True,
+        display_class=None,
+        roll=None,
     ) -> Generator[Optional[Image.Image], None, None]:
         """
         Generate chart for object at current equipment settings
@@ -147,7 +174,9 @@ class GaiaChartGenerator:
 
         # Check state
         if self.catalog.state != CatalogState.READY:
-            logger.info(f">>> Chart generation skipped: catalog state = {self.catalog.state}")
+            logger.info(
+                f">>> Chart generation skipped: catalog state = {self.catalog.state}"
+            )
             yield None
             return
 
@@ -209,18 +238,23 @@ class GaiaChartGenerator:
         if mag <= 0:
             mag = 50.0  # Default fallback
 
-        logger.info(f">>> Chart Generation: object={catalog_object.display_name}, center=({catalog_object.ra:.4f}, {catalog_object.dec:.4f}), fov={fov:.4f}°, mag={mag:.1f}x, eyepiece={equipment.active_eyepiece}")
+        logger.info(
+            f">>> Chart Generation: object={catalog_object.display_name}, center=({catalog_object.ra:.4f}, {catalog_object.dec:.4f}), fov={fov:.4f}°, mag={mag:.1f}x, eyepiece={equipment.active_eyepiece}"
+        )
 
         sqm = self.shared_state.sqm()
         mag_limit_calculated = self.get_limiting_magnitude(sqm)
         # For query, cap at catalog max
         mag_limit_query = min(mag_limit_calculated, 17.0)
-        
-        logger.info(f">>> Mag Limit: calculated={mag_limit_calculated:.2f}, query={mag_limit_query:.2f}, sqm={sqm.value if sqm else 'None'}")
+
+        logger.info(
+            f">>> Mag Limit: calculated={mag_limit_calculated:.2f}, query={mag_limit_query:.2f}, sqm={sqm.value if sqm else 'None'}"
+        )
 
         # Query stars PROGRESSIVELY (bright to faint)
         # This is a generator that yields partial results as each magnitude band loads
         import time
+
         t0 = time.time()
 
         logger.info(
@@ -265,13 +299,23 @@ class GaiaChartGenerator:
         logger.info(">>> Starting star generator loop...")
         for stars, is_complete in stars_generator:
             iteration_count += 1
-            logger.info(f">>> Star generator iteration {iteration_count}: got {len(stars)} stars, complete={is_complete}")
+            logger.info(
+                f">>> Star generator iteration {iteration_count}: got {len(stars)} stars, complete={is_complete}"
+            )
             t_render_start = time.time()
 
             # Render ALL stars from scratch (base image without overlays)
             base_image = self.render_chart(
-                stars, catalog_object.ra, catalog_object.dec, fov, resolution, mag, image_rotate, mag_limit_query,
-                flip_image=flip_image, flop_image=flop_image
+                stars,
+                catalog_object.ra,
+                catalog_object.dec,
+                fov,
+                resolution,
+                mag,
+                image_rotate,
+                mag_limit_query,
+                flip_image=flip_image,
+                flop_image=flop_image,
             )
 
             # Store base image for caching (without overlays)
@@ -308,7 +352,7 @@ class GaiaChartGenerator:
 
             t_render_end = time.time()
             logger.info(
-                f"PROGRESSIVE: Total render time {(t_render_end-t_render_start)*1000:.1f}ms "
+                f"PROGRESSIVE: Total render time {(t_render_end - t_render_start) * 1000:.1f}ms "
                 f"(complete={is_complete}, total_stars={len(stars)})"
             )
 
@@ -319,19 +363,30 @@ class GaiaChartGenerator:
 
         # Final yield with complete image
         t1 = time.time()
-        logger.info(f">>> Star generator loop complete: {iteration_count} iterations, {(t1-t0)*1000:.1f}ms total")
+        logger.info(
+            f">>> Star generator loop complete: {iteration_count} iterations, {(t1 - t0) * 1000:.1f}ms total"
+        )
 
         if iteration_count == 0:
-            logger.warning(f">>> WARNING: Star generator yielded NO results! FOV={fov:.4f}°, center=({catalog_object.ra:.4f}, {catalog_object.dec:.4f})")
+            logger.warning(
+                f">>> WARNING: Star generator yielded NO results! FOV={fov:.4f}°, center=({catalog_object.ra:.4f}, {catalog_object.dec:.4f})"
+            )
             # Generate blank chart (no stars) - this is the base image
             final_base_image = self.render_chart(
                 np.array([]).reshape(0, 3),  # Empty star array
-                catalog_object.ra, catalog_object.dec, fov, resolution, mag, image_rotate, mag_limit_query,
-                flip_image=flip_image, flop_image=flop_image
+                catalog_object.ra,
+                catalog_object.dec,
+                fov,
+                resolution,
+                mag,
+                image_rotate,
+                mag_limit_query,
+                flip_image=flip_image,
+                flop_image=flop_image,
             )
 
         # Cache base image (without overlays) so it can be reused
-        if 'final_base_image' in locals() and final_base_image is not None:
+        if "final_base_image" in locals() and final_base_image is not None:
             self.chart_cache[cache_key] = final_base_image
             if len(self.chart_cache) > 10:
                 # Remove oldest
@@ -343,7 +398,9 @@ class GaiaChartGenerator:
 
             # ALWAYS pad to display resolution when display_class is provided
             if display_class is not None:
-                final_display_image = pad_to_display_resolution(final_display_image, display_class)
+                final_display_image = pad_to_display_resolution(
+                    final_display_image, display_class
+                )
 
             # Add overlays if burn_in requested
             if burn_in and display_class is not None:
@@ -401,6 +458,7 @@ class GaiaChartGenerator:
             PIL Image in RGB (black background, red stars)
         """
         import time
+
         t_start = time.time()
 
         width, height = resolution
@@ -408,8 +466,10 @@ class GaiaChartGenerator:
         image_array = np.zeros((height, width, 3), dtype=np.uint8)
         image = Image.new("RGB", (width, height), (0, 0, 0))
         ImageDraw.Draw(image)
-        
-        logger.info(f"Render Chart: {len(stars)} stars input, center=({center_ra:.4f}, {center_dec:.4f}), fov={fov:.4f}, res={resolution}")
+
+        logger.info(
+            f"Render Chart: {len(stars)} stars input, center=({center_ra:.4f}, {center_dec:.4f}), fov={fov:.4f}, res={resolution}"
+        )
 
         # stars is already a numpy array (N, 3)
         stars_array = stars
@@ -439,8 +499,8 @@ class GaiaChartGenerator:
 
         dra = ra_rad - center_ra_rad
         # Handle RA wrapping at 0°/360°
-        dra = np.where(dra > np.pi, dra - 2*np.pi, dra)
-        dra = np.where(dra < -np.pi, dra + 2*np.pi, dra)
+        dra = np.where(dra > np.pi, dra - 2 * np.pi, dra)
+        dra = np.where(dra < -np.pi, dra + 2 * np.pi, dra)
         ddec = dec_rad - center_dec_rad
 
         # Project onto tangent plane
@@ -454,10 +514,16 @@ class GaiaChartGenerator:
         pixel_scale = width / np.radians(fov)
 
         if fov < 0.2:  # Debug small FOVs
-            logger.info(f">>> SMALL FOV DEBUG: fov={fov:.4f}°, pixel_scale={pixel_scale:.1f} px/rad")
+            logger.info(
+                f">>> SMALL FOV DEBUG: fov={fov:.4f}°, pixel_scale={pixel_scale:.1f} px/rad"
+            )
             if len(stars) > 0:
-                logger.info(f">>> Star RA range: [{np.min(ra_arr):.4f}, {np.max(ra_arr):.4f}]")
-                logger.info(f">>> Star Dec range: [{np.min(dec_arr):.4f}, {np.max(dec_arr):.4f}]")
+                logger.info(
+                    f">>> Star RA range: [{np.min(ra_arr):.4f}, {np.max(ra_arr):.4f}]"
+                )
+                logger.info(
+                    f">>> Star Dec range: [{np.min(dec_arr):.4f}, {np.max(dec_arr):.4f}]"
+                )
                 logger.info(f">>> Center: RA={center_ra:.4f}, Dec={center_dec:.4f}")
 
         # Convert to screen coordinates FIRST
@@ -489,10 +555,7 @@ class GaiaChartGenerator:
 
         # Filter stars within screen bounds only (no circular mask)
         mask = (
-            (x_screen >= 0)
-            & (x_screen < width)
-            & (y_screen >= 0)
-            & (y_screen < height)
+            (x_screen >= 0) & (x_screen < width) & (y_screen >= 0) & (y_screen < height)
         )
 
         x_visible = x_screen[mask]
@@ -500,8 +563,10 @@ class GaiaChartGenerator:
         mag_visible = mag_arr[mask]
         ra_arr[mask]
         dec_arr[mask]
-        
-        logger.info(f"Render Chart: {len(x_visible)} stars visible on screen (of {len(stars)} total)")
+
+        logger.info(
+            f"Render Chart: {len(x_visible)} stars visible on screen (of {len(stars)} total)"
+        )
 
         # Scale brightness based on FIXED magnitude range
         # Use brightest visible star and LIMITING MAGNITUDE (not faintest loaded star)
@@ -519,7 +584,7 @@ class GaiaChartGenerator:
             mag_range = faintest_mag - brightest_mag
             if mag_range < 0.01:
                 mag_range = 0.01  # Avoid division by zero
-            
+
             intensities = 255 - ((mag_visible - brightest_mag) / mag_range * 205)
             intensities = np.clip(intensities, 50, 255).astype(int)
 
@@ -528,7 +593,7 @@ class GaiaChartGenerator:
         ix = np.round(x_visible).astype(int)
         iy = np.round(y_visible).astype(int)
         t4 = time.time()
-        logger.debug(f"  Star projection: {(t3-t2)*1000:.1f}ms")
+        logger.debug(f"  Star projection: {(t3 - t2) * 1000:.1f}ms")
 
         for i in range(len(ix)):
             px = ix[i]
@@ -542,12 +607,12 @@ class GaiaChartGenerator:
 
         np.clip(image_array[:, :, 0], 0, 255, out=image_array[:, :, 0])
         t5 = time.time()
-        logger.debug(f"  Star drawing loop: {(t5-t4)*1000:.1f}ms ({len(ix)} stars)")
+        logger.debug(f"  Star drawing loop: {(t5 - t4) * 1000:.1f}ms ({len(ix)} stars)")
 
         # Convert NumPy array back to PIL Image
         image = Image.fromarray(image_array, mode="RGB")
         t6 = time.time()
-        logger.debug(f"  Image conversion: {(t6-t5)*1000:.1f}ms")
+        logger.debug(f"  Image conversion: {(t6 - t5) * 1000:.1f}ms")
 
         # Apply telescope flip/flop transformations
         # flip_image = vertical flip (mirror top to bottom)
@@ -562,7 +627,7 @@ class GaiaChartGenerator:
         # so base chart can be cached
 
         t_end = time.time()
-        logger.debug(f"  Total render time: {(t_end-t_start)*1000:.1f}ms")
+        logger.debug(f"  Total render time: {(t_end - t_start) * 1000:.1f}ms")
 
         # Tag image as a Gaia chart (not a loading placeholder)
         # This enables the correct marking menu in UIObjectDetails
@@ -605,6 +670,7 @@ class GaiaChartGenerator:
             PIL Image with new stars added
         """
         import time
+
         t_start = time.time()
 
         width, height = resolution
@@ -626,7 +692,9 @@ class GaiaChartGenerator:
             new_mags = new_stars[:, 2]
             brightest_mag = np.min(new_mags)
             faintest_mag = np.max(new_mags)
-            logger.warning(f"INCREMENTAL: No fixed scale provided, using fallback: {brightest_mag:.2f} to {faintest_mag:.2f}")
+            logger.warning(
+                f"INCREMENTAL: No fixed scale provided, using fallback: {brightest_mag:.2f} to {faintest_mag:.2f}"
+            )
         else:
             brightest_mag = fixed_brightest_mag
             faintest_mag = fixed_faintest_mag
@@ -645,8 +713,8 @@ class GaiaChartGenerator:
         cos_center_dec = np.cos(center_dec_rad)
 
         dra = ra_rad - center_ra_rad
-        dra = np.where(dra > np.pi, dra - 2*np.pi, dra)
-        dra = np.where(dra < -np.pi, dra + 2*np.pi, dra)
+        dra = np.where(dra > np.pi, dra - 2 * np.pi, dra)
+        dra = np.where(dra < -np.pi, dra + 2 * np.pi, dra)
         ddec = dec_rad - center_dec_rad
 
         x_proj = dra * cos_center_dec
@@ -676,17 +744,16 @@ class GaiaChartGenerator:
 
         # Filter visible stars
         mask = (
-            (x_screen >= 0)
-            & (x_screen < width)
-            & (y_screen >= 0)
-            & (y_screen < height)
+            (x_screen >= 0) & (x_screen < width) & (y_screen >= 0) & (y_screen < height)
         )
 
         x_visible = x_screen[mask]
         y_visible = y_screen[mask]
         mag_visible = mag_arr[mask]
 
-        logger.info(f"Render Chart INCREMENTAL: {len(x_visible)} of {len(new_stars)} new stars visible")
+        logger.info(
+            f"Render Chart INCREMENTAL: {len(x_visible)} of {len(new_stars)} new stars visible"
+        )
 
         # Calculate intensities using GLOBAL magnitude range (from all_stars)
         if len(mag_visible) == 0:
@@ -695,7 +762,9 @@ class GaiaChartGenerator:
             intensities = np.full_like(mag_visible, 255, dtype=int)
         else:
             # Use global magnitude range for consistent scaling
-            intensities = 255 - ((mag_visible - brightest_mag) / (faintest_mag - brightest_mag) * 205)
+            intensities = 255 - (
+                (mag_visible - brightest_mag) / (faintest_mag - brightest_mag) * 205
+            )
             intensities = intensities.astype(int)
 
         # Draw new stars
@@ -719,10 +788,9 @@ class GaiaChartGenerator:
         image.is_loading_placeholder = False  # type: ignore[attr-defined]
 
         t_end = time.time()
-        logger.debug(f"  Incremental render time: {(t_end-t_start)*1000:.1f}ms")
+        logger.debug(f"  Incremental render time: {(t_end - t_start) * 1000:.1f}ms")
 
         return image
-
 
     def _draw_star_antialiased_fast(self, image_array, ix, iy, fx, fy, intensity):
         """
@@ -736,20 +804,28 @@ class GaiaChartGenerator:
         """
         # Bilinear interpolation weights
         w00 = (1 - fx) * (1 - fy)  # Top-left
-        w10 = fx * (1 - fy)        # Top-right
-        w01 = (1 - fx) * fy        # Bottom-left
-        w11 = fx * fy              # Bottom-right
+        w10 = fx * (1 - fy)  # Top-right
+        w01 = (1 - fx) * fy  # Bottom-left
+        w11 = fx * fy  # Bottom-right
 
         # Apply to 2x2 region using NumPy (much faster than getpixel/putpixel)
         # Red channel only (index 0)
         if w00 > 0.01:
-            image_array[iy, ix, 0] = min(255, image_array[iy, ix, 0] + int(intensity * w00))
+            image_array[iy, ix, 0] = min(
+                255, image_array[iy, ix, 0] + int(intensity * w00)
+            )
         if w10 > 0.01:
-            image_array[iy, ix + 1, 0] = min(255, image_array[iy, ix + 1, 0] + int(intensity * w10))
+            image_array[iy, ix + 1, 0] = min(
+                255, image_array[iy, ix + 1, 0] + int(intensity * w10)
+            )
         if w01 > 0.01:
-            image_array[iy + 1, ix, 0] = min(255, image_array[iy + 1, ix, 0] + int(intensity * w01))
+            image_array[iy + 1, ix, 0] = min(
+                255, image_array[iy + 1, ix, 0] + int(intensity * w01)
+            )
         if w11 > 0.01:
-            image_array[iy + 1, ix + 1, 0] = min(255, image_array[iy + 1, ix + 1, 0] + int(intensity * w11))
+            image_array[iy + 1, ix + 1, 0] = min(
+                255, image_array[iy + 1, ix + 1, 0] + int(intensity * w11)
+            )
 
     def mag_to_intensity(self, mag: float) -> int:
         """
@@ -802,7 +878,9 @@ class GaiaChartGenerator:
         return nelm
 
     @staticmethod
-    def feijth_comello_limiting_magnitude(mv: float, D: float, d: float, M: float, t: float) -> float:
+    def feijth_comello_limiting_magnitude(
+        mv: float, D: float, d: float, M: float, t: float
+    ) -> float:
         """
         Calculate limiting magnitude using Feijth & Comello formula
 
@@ -867,13 +945,22 @@ class GaiaChartGenerator:
         telescope_fl = telescope.focal_length_mm if telescope else None
         telescope_aperture = telescope.aperture_mm if telescope else None
         eyepiece_fl = eyepiece.focal_length_mm if eyepiece else None
-        sqm_value = round(sqm.value, 1) if sqm and hasattr(sqm, 'value') and sqm.value else None
+        sqm_value = (
+            round(sqm.value, 1) if sqm and hasattr(sqm, "value") and sqm.value else None
+        )
 
         # Include config mode and fixed value in cache key to handle mode switching
         lm_mode = self.config.get_option("obj_chart_lm_mode")
         lm_fixed = self.config.get_option("obj_chart_lm_fixed")
-        
-        cache_key = (sqm_value, telescope_aperture, telescope_fl, eyepiece_fl, lm_mode, lm_fixed)
+
+        cache_key = (
+            sqm_value,
+            telescope_aperture,
+            telescope_fl,
+            eyepiece_fl,
+            lm_mode,
+            lm_fixed,
+        )
 
         # Check cache - return cached value without logging
         if self._lm_cache is not None and self._lm_cache[0] == cache_key:
@@ -918,7 +1005,7 @@ class GaiaChartGenerator:
         eyepiece = equipment.active_eyepiece
 
         # Get naked eye limiting magnitude from SQM
-        if sqm and hasattr(sqm, 'value') and sqm.value:
+        if sqm and hasattr(sqm, "value") and sqm.value:
             sqm_value = sqm.value
             mv = self.sqm_to_nelm(sqm_value)
         else:
@@ -957,8 +1044,12 @@ class GaiaChartGenerator:
             min_magnification = telescope.aperture_mm / 7.0
             transmission = 0.85
 
-            lm = self.feijth_comello_limiting_magnitude(mv, D_cm, 0.0, min_magnification, transmission)
-            logger.info(f"LM calculation: aperture={telescope.aperture_mm}mm (no eyepiece, min mag={min_magnification:.1f}x) → LM={lm:.1f}")
+            lm = self.feijth_comello_limiting_magnitude(
+                mv, D_cm, 0.0, min_magnification, transmission
+            )
+            logger.info(
+                f"LM calculation: aperture={telescope.aperture_mm}mm (no eyepiece, min mag={min_magnification:.1f}x) → LM={lm:.1f}"
+            )
         else:
             # No telescope: use naked eye
             lm = mv

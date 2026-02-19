@@ -29,6 +29,7 @@ import numpy as np
 # This ensures the slow import happens during initialization, not during first chart render
 try:
     import healpy as hp  # type: ignore[import-untyped]
+
     _HEALPY_AVAILABLE = True
 except ImportError:
     hp = None
@@ -44,11 +45,13 @@ STAR_RECORD_SIZE = 3
 
 # Numpy dtype for vectorized parsing (star records only, no HEALPix)
 # NOTE: Proper motion has been pre-applied at catalog build time
-STAR_RECORD_DTYPE = np.dtype([
-    ('ra_offset', 'u1'),
-    ('dec_offset', 'u1'),
-    ('mag', 'u1'),
-])
+STAR_RECORD_DTYPE = np.dtype(
+    [
+        ("ra_offset", "u1"),
+        ("dec_offset", "u1"),
+        ("mag", "u1"),
+    ]
+)
 
 # Index cache size limit (tiles per magnitude band)
 # At ~50 bytes per tile entry, 10000 tiles = ~500KB per band
@@ -81,7 +84,7 @@ class CompressedIndex:
         self.run_directory: List[Tuple[int, int]] = []  # (start_tile_id, data_offset)
 
         # Open file for mmap
-        self._file = open(index_file, 'rb')
+        self._file = open(index_file, "rb")
         self._mm = mmap.mmap(self._file.fileno(), 0, access=mmap.ACCESS_READ)
 
         # Read header
@@ -96,7 +99,9 @@ class CompressedIndex:
             self.run_directory.append((start_tile, data_offset))
             offset += 12
 
-        logger.debug(f"CompressedIndex: loaded {num_runs} runs for {self.num_tiles:,} tiles")
+        logger.debug(
+            f"CompressedIndex: loaded {num_runs} runs for {self.num_tiles:,} tiles"
+        )
 
     def get(self, tile_id: int) -> Optional[Tuple[int, int]]:
         """
@@ -144,7 +149,7 @@ class CompressedIndex:
 
         # Read sizes up to and including our tile
         sizes_offset = data_offset + 10  # After length(2) + offset_base(8)
-        sizes_data = self._mm[sizes_offset:sizes_offset + (offset_in_run + 1) * 2]
+        sizes_data = self._mm[sizes_offset : sizes_offset + (offset_in_run + 1) * 2]
         sizes = struct.unpack(f"<{offset_in_run + 1}H", sizes_data)
 
         # Calculate tile offset and size
@@ -213,10 +218,14 @@ class GaiaStarCatalog:
         """
         logger.info(f">>> start_background_load() called, current state: {self.state}")
         if self.state != CatalogState.NOT_LOADED:
-            logger.warning(f">>> Catalog already loading or loaded (state={self.state}), skipping")
+            logger.warning(
+                f">>> Catalog already loading or loaded (state={self.state}), skipping"
+            )
             return
 
-        logger.info(f">>> Starting background load: lat={observer_lat}, mag={limiting_mag}, path={self.catalog_path}")
+        logger.info(
+            f">>> Starting background load: lat={observer_lat}, mag={limiting_mag}, path={self.catalog_path}"
+        )
 
         self.state = CatalogState.LOADING
         self.observer_lat = observer_lat
@@ -228,7 +237,9 @@ class GaiaStarCatalog:
             target=self._background_load_worker, daemon=True, name="CatalogLoader"
         )
         self.load_thread.start()
-        logger.info(f">>> Background thread started, thread alive: {self.load_thread.is_alive()}")
+        logger.info(
+            f">>> Background thread started, thread alive: {self.load_thread.is_alive()}"
+        )
 
     def _background_load_worker(self):
         """Background worker - just loads metadata"""
@@ -243,7 +254,9 @@ class GaiaStarCatalog:
 
             if not metadata_file.exists():
                 logger.error(f">>> Catalog metadata not found: {metadata_file}")
-                logger.error(">>> Please build catalog using: python -m PiFinder.catalog_tools.gaia_downloader")
+                logger.error(
+                    ">>> Please build catalog using: python -m PiFinder.catalog_tools.gaia_downloader"
+                )
                 self.load_progress = "Error: catalog not built"
                 self.state = CatalogState.NOT_LOADED
                 return
@@ -253,12 +266,12 @@ class GaiaStarCatalog:
             logger.info(">>> metadata.json loaded")
 
             self.nside = self.metadata.get("nside", 512)
-            star_count = self.metadata.get('star_count', 0)
+            star_count = self.metadata.get("star_count", 0)
             logger.info(
                 f">>> Catalog metadata ready: {star_count:,} stars, "
                 f"mag limit {self.metadata.get('mag_limit', 0):.1f}, nside={self.nside}"
             )
-            
+
             # Log available bands
             bands = self.metadata.get("mag_bands", [])
             logger.info(f">>> Catalog mag bands: {json.dumps(bands)}")
@@ -280,7 +293,6 @@ class GaiaStarCatalog:
             logger.error(f">>> Catalog loading failed: {e}", exc_info=True)
             self.load_progress = f"Error: {str(e)}"
             self.state = CatalogState.NOT_LOADED
-
 
     def _calc_visible_tiles(self, observer_lat: float) -> Optional[Set[int]]:
         """
@@ -367,6 +379,7 @@ class GaiaStarCatalog:
         # Wait for catalog to be loaded
         while self.state == CatalogState.LOADING:
             import time
+
             time.sleep(0.1)
 
         if mag_limit is None:
@@ -385,7 +398,9 @@ class GaiaStarCatalog:
         vec = hp.ang2vec(ra_deg, dec_deg, lonlat=True)
         radius_rad = np.radians(fov_deg / 2 * 1.1)
         tiles = hp.query_disc(self.nside, vec, radius_rad, inclusive=True)
-        logger.debug(f"HEALPix query_disc: FOV={fov_deg:.4f}°, radius={np.degrees(radius_rad):.4f}°, nside={self.nside}, returned {len(tiles)} tiles")
+        logger.debug(
+            f"HEALPix query_disc: FOV={fov_deg:.4f}°, radius={np.degrees(radius_rad):.4f}°, nside={self.nside}, returned {len(tiles)} tiles"
+        )
 
         # Filter by visible hemisphere
         if self.visible_tiles:
@@ -401,7 +416,9 @@ class GaiaStarCatalog:
         import time
 
         # Queue to pass star arrays from background thread to generator
-        result_queue: queue.Queue = queue.Queue(maxsize=6)  # Buffer up to 6 magnitude bands
+        result_queue: queue.Queue = queue.Queue(
+            maxsize=6
+        )  # Buffer up to 6 magnitude bands
 
         def load_bands_background():
             """Background thread that loads magnitude bands continuously"""
@@ -417,7 +434,9 @@ class GaiaStarCatalog:
                     if mag_min >= mag_limit:
                         break
 
-                    logger.debug(f">>> BACKGROUND: Loading mag band {mag_min}-{mag_max}, tiles={len(tiles)}")
+                    logger.debug(
+                        f">>> BACKGROUND: Loading mag band {mag_min}-{mag_max}, tiles={len(tiles)}"
+                    )
 
                     # Load stars from this magnitude band only
                     band_stars = self._load_tiles_for_mag_band(
@@ -453,7 +472,9 @@ class GaiaStarCatalog:
                 result_queue.put((None, True, 0))
 
         # Start background loading thread
-        loader_thread = threading.Thread(target=load_bands_background, daemon=True, name="StarCatalogLoader")
+        loader_thread = threading.Thread(
+            target=load_bands_background, daemon=True, name="StarCatalogLoader"
+        )
         loader_thread.start()
         logger.info(">>> PROGRESSIVE: Background loading thread started")
 
@@ -462,7 +483,9 @@ class GaiaStarCatalog:
             try:
                 # Get next result from queue
                 # Use timeout to avoid blocking forever if thread crashes
-                current_total, is_last_band, band_star_count = result_queue.get(timeout=10.0)
+                current_total, is_last_band, band_star_count = result_queue.get(
+                    timeout=10.0
+                )
 
                 if current_total is None:
                     # Error in background thread
@@ -478,7 +501,9 @@ class GaiaStarCatalog:
                 )
 
                 if is_last_band:
-                    logger.info(f"PROGRESSIVE: Complete! Total {len(current_total)} stars loaded")
+                    logger.info(
+                        f"PROGRESSIVE: Complete! Total {len(current_total)} stars loaded"
+                    )
                     break
 
             except queue.Empty:
@@ -524,7 +549,9 @@ class GaiaStarCatalog:
                     return np.empty((0, 3))
 
         # State is READY - metadata must be loaded by now
-        assert self.metadata is not None, "metadata should be loaded when state is READY"
+        assert self.metadata is not None, (
+            "metadata should be loaded when state is READY"
+        )
         assert self.nside is not None, "nside should be set when state is READY"
 
         mag_limit = mag_limit or self.limiting_magnitude
@@ -540,7 +567,9 @@ class GaiaStarCatalog:
         vec = hp.ang2vec(ra_deg, dec_deg, lonlat=True)
         radius_rad = np.radians(fov_deg / 2 * 1.1)
         tiles = hp.query_disc(self.nside, vec, radius_rad)
-        logger.debug(f"HEALPix: Querying {len(tiles)} tiles for FOV={fov_deg:.2f}° (radius={np.degrees(radius_rad):.3f}°) at nside={self.nside}")
+        logger.debug(
+            f"HEALPix: Querying {len(tiles)} tiles for FOV={fov_deg:.2f}° (radius={np.degrees(radius_rad):.3f}°) at nside={self.nside}"
+        )
 
         # Filter by visible hemisphere
         if self.visible_tiles:
@@ -559,17 +588,23 @@ class GaiaStarCatalog:
             logger.info(f"Using BATCH loading for {len(tiles)} tiles")
             stars = self._load_tiles_batch(tiles, mag_limit)
             logger.info(f"Batch load complete: {len(stars)} stars")
-            tile_star_counts = {t: 0 for t in tiles}  # Don't track individual counts for batch
+            tile_star_counts = {
+                t: 0 for t in tiles
+            }  # Don't track individual counts for batch
         else:
             # Load one by one (better for small queries or legacy format)
-            logger.info(f"Using SINGLE-TILE loading for {len(tiles)} tiles (compact={is_compact})")
+            logger.info(
+                f"Using SINGLE-TILE loading for {len(tiles)} tiles (compact={is_compact})"
+            )
             stars_raw_list = []
 
             # To prevent UI blocking, limit the number of tiles loaded at once
             # For small FOVs (<1°), 20-30 tiles is more than enough
             MAX_TILES = 25
             if len(tiles) > MAX_TILES:
-                logger.warning(f"Large tile count ({len(tiles)}) detected! Limiting to {MAX_TILES} tiles to prevent UI freeze")
+                logger.warning(
+                    f"Large tile count ({len(tiles)}) detected! Limiting to {MAX_TILES} tiles to prevent UI freeze"
+                )
                 # Tiles from query_disc are roughly ordered by distance from center
                 # Keep the first MAX_TILES which are closest to FOV center
                 tiles = tiles[:MAX_TILES]
@@ -581,11 +616,11 @@ class GaiaStarCatalog:
                 # Check if this tile is cached (for performance tracking)
                 cache_key = (tile_id, mag_limit)
                 was_cached = cache_key in self.tile_cache
-                
+
                 # Returns (N, 5) array
                 tile_stars = self._load_tile_data(tile_id, mag_limit)
                 tile_star_counts[tile_id] = len(tile_stars)
-                
+
                 if len(tile_stars) > 0:
                     stars_raw_list.append(tile_stars)
 
@@ -595,20 +630,24 @@ class GaiaStarCatalog:
                     cache_misses += 1
 
             # Log cache performance
-            logger.debug(f"Tile cache: {cache_hits} hits, {cache_misses} misses ({cache_hits/(cache_hits+cache_misses)*100:.1f}% hit rate)")
+            logger.debug(
+                f"Tile cache: {cache_hits} hits, {cache_misses} misses ({cache_hits / (cache_hits + cache_misses) * 100:.1f}% hit rate)"
+            )
 
             total_raw = sum(len(x) for x in stars_raw_list)
             logger.debug(f"Single-tile loading complete: {total_raw} stars")
 
             # Log tile loading stats
             if tile_star_counts:
-                logger.debug(f"Loaded from {len(tile_star_counts)} tiles: " +
-                            f"min={min(tile_star_counts.values())} max={max(tile_star_counts.values())} " +
-                            f"total={sum(tile_star_counts.values())}")
+                logger.debug(
+                    f"Loaded from {len(tile_star_counts)} tiles: "
+                    + f"min={min(tile_star_counts.values())} max={max(tile_star_counts.values())} "
+                    + f"total={sum(tile_star_counts.values())}"
+                )
 
             # Apply proper motion correction (for non-batch path only)
             t_pm_start = time.time()
-            
+
             if stars_raw_list:
                 stars_raw_combined = np.concatenate(stars_raw_list)
                 ras = stars_raw_combined[:, 0]
@@ -619,9 +658,11 @@ class GaiaStarCatalog:
                 stars = self._apply_proper_motion((ras, decs, mags, pmras, pmdecs))
             else:
                 stars = np.empty((0, 3))
-                
+
             t_pm_end = time.time()
-            logger.debug(f"Proper motion correction: {len(stars)} stars in {(t_pm_end-t_pm_start)*1000:.1f}ms")
+            logger.debug(
+                f"Proper motion correction: {len(stars)} stars in {(t_pm_end - t_pm_start) * 1000:.1f}ms"
+            )
 
         return stars
 
@@ -694,9 +735,7 @@ class GaiaStarCatalog:
             else:
                 return np.empty((0, 3))
 
-    def _load_tile_data(
-        self, tile_id: int, mag_limit: float
-    ) -> np.ndarray:
+    def _load_tile_data(self, tile_id: int, mag_limit: float) -> np.ndarray:
         """
         Load star data for a HEALPix tile
 
@@ -707,7 +746,9 @@ class GaiaStarCatalog:
         Returns:
             Numpy array of shape (N, 5) containing (ra, dec, mag, pmra, pmdec)
         """
-        assert self.metadata is not None, "metadata must be loaded before calling _load_tile_data"
+        assert self.metadata is not None, (
+            "metadata must be loaded before calling _load_tile_data"
+        )
 
         cache_key = (tile_id, mag_limit)
 
@@ -734,25 +775,41 @@ class GaiaStarCatalog:
 
             if is_compact:
                 # Compact format: read from consolidated file using index
-                ras, decs, mags, pmras, pmdecs = self._load_tile_compact(band_dir, tile_id, mag_min, mag_max)
+                ras, decs, mags, pmras, pmdecs = self._load_tile_compact(
+                    band_dir, tile_id, mag_min, mag_max
+                )
             else:
                 # Legacy format: one file per tile
                 tile_file = band_dir / f"tile_{tile_id:06d}.bin"
                 if tile_file.exists():
-                    ras, decs, mags, pmras, pmdecs = self._load_tile_from_file(tile_file, mag_min, mag_max)
+                    ras, decs, mags, pmras, pmdecs = self._load_tile_from_file(
+                        tile_file, mag_min, mag_max
+                    )
                 else:
-                    ras, decs, mags, pmras, pmdecs = (np.array([]), np.array([]), np.array([]), np.array([]), np.array([]))
+                    ras, decs, mags, pmras, pmdecs = (
+                        np.array([]),
+                        np.array([]),
+                        np.array([]),
+                        np.array([]),
+                        np.array([]),
+                    )
 
             if len(ras) > 0:
                 # Filter by magnitude
                 mask = mags <= mag_limit
                 if np.any(mask):
                     # Stack into (N, 5) array for this band
-                    band_stars = np.column_stack((ras[mask], decs[mask], mags[mask], pmras[mask], pmdecs[mask]))
+                    band_stars = np.column_stack(
+                        (ras[mask], decs[mask], mags[mask], pmras[mask], pmdecs[mask])
+                    )
                     stars_list.append(band_stars)
-                    logger.debug(f"  Tile {tile_id} Band {mag_min}-{mag_max}: {len(band_stars)} stars (file: {tile_file if not is_compact else 'compact'})")
+                    logger.debug(
+                        f"  Tile {tile_id} Band {mag_min}-{mag_max}: {len(band_stars)} stars (file: {tile_file if not is_compact else 'compact'})"
+                    )
                 else:
-                    logger.debug(f"  Tile {tile_id} Band {mag_min}-{mag_max}: 0 stars (mask empty)")
+                    logger.debug(
+                        f"  Tile {tile_id} Band {mag_min}-{mag_max}: 0 stars (mask empty)"
+                    )
 
         if not stars_list:
             stars = np.empty((0, 5))
@@ -785,7 +842,13 @@ class GaiaStarCatalog:
             Tuple of (ras, decs, mags, pmras, pmdecs) arrays
         """
         if not _HEALPY_AVAILABLE:
-            return (np.array([]), np.array([]), np.array([]), np.array([]), np.array([]))
+            return (
+                np.array([]),
+                np.array([]),
+                np.array([]),
+                np.array([]),
+                np.array([]),
+            )
 
         # Read entire file at once
         with open(tile_file, "rb") as f:
@@ -809,13 +872,25 @@ class GaiaStarCatalog:
             Tuple of (ras, decs, mags, pmras, pmdecs) arrays
         """
         if not _HEALPY_AVAILABLE:
-            return (np.array([]), np.array([]), np.array([]), np.array([]), np.array([]))
+            return (
+                np.array([]),
+                np.array([]),
+                np.array([]),
+                np.array([]),
+                np.array([]),
+            )
 
         index_file = band_dir / "index.bin"
         tiles_file = band_dir / "tiles.bin"
 
         if not tiles_file.exists():
-            return (np.array([]), np.array([]), np.array([]), np.array([]), np.array([]))
+            return (
+                np.array([]),
+                np.array([]),
+                np.array([]),
+                np.array([]),
+                np.array([]),
+            )
 
         if not index_file.exists():
             raise FileNotFoundError(
@@ -833,7 +908,13 @@ class GaiaStarCatalog:
         # Get tile offset and size from compressed index
         result = index.get(tile_id)
         if result is None:
-            return (np.array([]), np.array([]), np.array([]), np.array([]), np.array([]))
+            return (
+                np.array([]),
+                np.array([]),
+                np.array([]),
+                np.array([]),
+                np.array([]),
+            )
         offset, size = result
 
         # Read tile data
@@ -842,10 +923,12 @@ class GaiaStarCatalog:
             data = f.read(size)
             return self._parse_records(data)
 
-    def _parse_records(self, data: bytes) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def _parse_records(
+        self, data: bytes
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Parse binary tile data into numpy arrays (VECTORIZED)
-        
+
         New format: [Tile Header: 6 bytes][Star Records: 5 bytes each]
 
         Args:
@@ -855,17 +938,31 @@ class GaiaStarCatalog:
             Tuple of (ras, decs, mags, pmras, pmdecs) as numpy arrays
         """
         if len(data) < TILE_HEADER_SIZE:
-            return (np.array([]), np.array([]), np.array([]), np.array([]), np.array([]))
+            return (
+                np.array([]),
+                np.array([]),
+                np.array([]),
+                np.array([]),
+                np.array([]),
+            )
 
         # Parse tile header
-        healpix_pixel, num_stars = struct.unpack(TILE_HEADER_FORMAT, data[:TILE_HEADER_SIZE])
-        
+        healpix_pixel, num_stars = struct.unpack(
+            TILE_HEADER_FORMAT, data[:TILE_HEADER_SIZE]
+        )
+
         # Extract star records
         star_data = data[TILE_HEADER_SIZE:]
-        
+
         if len(star_data) == 0:
-            return (np.array([]), np.array([]), np.array([]), np.array([]), np.array([]))
-        
+            return (
+                np.array([]),
+                np.array([]),
+                np.array([]),
+                np.array([]),
+                np.array([]),
+            )
+
         # Verify data size matches expected
         expected_size = num_stars * STAR_RECORD_SIZE
         if len(star_data) != expected_size:
@@ -875,7 +972,7 @@ class GaiaStarCatalog:
             )
             # Truncate to valid records
             num_stars = len(star_data) // STAR_RECORD_SIZE
-        
+
         # Parse all star records using numpy
         records = np.frombuffer(star_data, dtype=STAR_RECORD_DTYPE, count=num_stars)
 
@@ -887,15 +984,15 @@ class GaiaStarCatalog:
         max_offset_arcsec = pixel_size_deg * 3600.0 * 0.75
 
         # Decode all offsets
-        ra_offset_arcsec = (records['ra_offset'] / 127.5 - 1.0) * max_offset_arcsec
-        dec_offset_arcsec = (records['dec_offset'] / 127.5 - 1.0) * max_offset_arcsec
+        ra_offset_arcsec = (records["ra_offset"] / 127.5 - 1.0) * max_offset_arcsec
+        dec_offset_arcsec = (records["dec_offset"] / 127.5 - 1.0) * max_offset_arcsec
 
         # Calculate final positions (broadcast pixel center to all stars)
         decs = pixel_dec + dec_offset_arcsec / 3600.0
         ras = pixel_ra + ra_offset_arcsec / 3600.0 / np.cos(np.radians(decs))
 
         # Decode magnitudes
-        mags = records['mag'] / 10.0
+        mags = records["mag"] / 10.0
 
         # v2.1: Proper motion has been pre-applied at build time
         # Return empty arrays for backward compatibility
@@ -917,7 +1014,9 @@ class GaiaStarCatalog:
         first chart generation.
         """
         if not self.metadata or "mag_bands" not in self.metadata:
-            logger.warning(">>> No metadata available, skipping compressed index preload")
+            logger.warning(
+                ">>> No metadata available, skipping compressed index preload"
+            )
             return
 
         t0_total = time.time()
@@ -931,7 +1030,9 @@ class GaiaStarCatalog:
             cache_key = f"index_{mag_min}_{mag_max}"
 
             # Load compressed index (v3 format stored as index.bin)
-            index_file = self.catalog_path / f"mag_{mag_min:02d}_{mag_max:02d}" / "index.bin"
+            index_file = (
+                self.catalog_path / f"mag_{mag_min:02d}_{mag_max:02d}" / "index.bin"
+            )
 
             if not index_file.exists():
                 raise FileNotFoundError(
@@ -988,10 +1089,14 @@ class GaiaStarCatalog:
             # Define dtype to read just tile IDs (we don't need offset/size)
             if version == 1:
                 # [tile_id:4][offset:8][size:4]
-                tile_id_dtype = np.dtype([('tile_id', '<u4'), ('_skip', 'V12')])  # Skip 12 bytes
+                tile_id_dtype = np.dtype(
+                    [("tile_id", "<u4"), ("_skip", "V12")]
+                )  # Skip 12 bytes
             elif version == 2:
                 # [tile_id:4][offset:8][compressed_size:4][uncompressed_size:4]
-                tile_id_dtype = np.dtype([('tile_id', '<u4'), ('_skip', 'V16')])  # Skip 16 bytes
+                tile_id_dtype = np.dtype(
+                    [("tile_id", "<u4"), ("_skip", "V16")]
+                )  # Skip 16 bytes
             else:
                 logger.error(f"Unsupported index version: {version}")
                 return existing_tiles
@@ -1004,7 +1109,7 @@ class GaiaStarCatalog:
             records = np.frombuffer(data, dtype=tile_id_dtype)
 
             # Convert to set (numpy → set is fast for integers)
-            existing_tiles = set(records['tile_id'].tolist())
+            existing_tiles = set(records["tile_id"].tolist())
 
         return existing_tiles
 
@@ -1021,18 +1126,22 @@ class GaiaStarCatalog:
             Numpy array of shape (N, 3) containing (ra, dec, mag)
         """
         ras, decs, mags, pmras, pmdecs = stars
-        
+
         if len(ras) == 0:
             return np.empty((0, 3))
 
         # Calculate years from J2016.0 to current date
-        current_year = datetime.now().year + (datetime.now().timetuple().tm_yday / 365.25)
+        current_year = datetime.now().year + (
+            datetime.now().timetuple().tm_yday / 365.25
+        )
         years_elapsed = current_year - 2016.0
 
         # Apply proper motion forward to current epoch
         # pmra is in mas/year and needs cos(dec) correction for RA
         # Vectorized calculation
-        ra_corrections = (pmras / 1000 / 3600) / np.cos(np.radians(decs)) * years_elapsed
+        ra_corrections = (
+            (pmras / 1000 / 3600) / np.cos(np.radians(decs)) * years_elapsed
+        )
         dec_corrections = (pmdecs / 1000 / 3600) * years_elapsed
 
         ra_corrected = ras + ra_corrections
@@ -1040,7 +1149,7 @@ class GaiaStarCatalog:
 
         # Keep dec in valid range
         dec_corrected = np.clip(dec_corrected, -90, 90)
-        
+
         # Stack into (N, 3) array
         return np.column_stack((ra_corrected, dec_corrected, mags))
 
@@ -1065,17 +1174,23 @@ class GaiaStarCatalog:
 
         # Calculate how many to remove
         tiles_to_remove = cache_size - MAX_INDEX_CACHE_SIZE
-        logger.info(f">>> Cache {cache_key} exceeds limit ({cache_size} > {MAX_INDEX_CACHE_SIZE}), removing {tiles_to_remove} tiles")
+        logger.info(
+            f">>> Cache {cache_key} exceeds limit ({cache_size} > {MAX_INDEX_CACHE_SIZE}), removing {tiles_to_remove} tiles"
+        )
 
         # Build set of protected tiles
         protected_set = {str(tid) for tid in protected_tile_ids}
 
         # Find eviction candidates (tiles not in current request)
-        candidates = [tile_key for tile_key in index.keys() if tile_key not in protected_set]
+        candidates = [
+            tile_key for tile_key in index.keys() if tile_key not in protected_set
+        ]
 
         if len(candidates) < tiles_to_remove:
             # Not enough non-protected tiles, just remove what we can
-            logger.warning(f">>> Only {len(candidates)} evictable tiles, removing all of them")
+            logger.warning(
+                f">>> Only {len(candidates)} evictable tiles, removing all of them"
+            )
             tiles_to_remove = len(candidates)
 
         # Remove the first N candidates (simple FIFO-ish eviction)
@@ -1126,7 +1241,7 @@ class GaiaStarCatalog:
         cache_key = f"index_{mag_min}_{mag_max}"
 
         # Load v3 compressed index (cached)
-        if not hasattr(self, '_index_cache'):
+        if not hasattr(self, "_index_cache"):
             self._index_cache = {}
 
         t_index_start = time.time()
@@ -1161,10 +1276,14 @@ class GaiaStarCatalog:
                 missing_tiles += 1
 
         if missing_tiles > 0:
-            logger.debug(f"{missing_tiles} of {len(tile_ids)} tiles missing from index for mag {mag_min}-{mag_max}")
+            logger.debug(
+                f"{missing_tiles} of {len(tile_ids)} tiles missing from index for mag {mag_min}-{mag_max}"
+            )
 
         if not read_ops:
-            logger.debug(f"No tiles to load (all {len(tile_ids)} requested tiles are empty)")
+            logger.debug(
+                f"No tiles to load (all {len(tile_ids)} requested tiles are empty)"
+            )
             return np.empty((0, 3))
 
         # Sort by offset to minimize seeks
@@ -1174,7 +1293,7 @@ class GaiaStarCatalog:
 
         # Read data in larger sequential chunks when possible
         MAX_GAP = 100 * 1024  # 100KB gap tolerance
-        
+
         # Accumulate arrays
         all_ras = []
         all_decs = []
@@ -1198,13 +1317,17 @@ class GaiaStarCatalog:
                 chunk_end = offset + tile_info["size"]
 
                 # Find consecutive tiles for chunk reading
-                tiles_in_chunk: List[Tuple[int, Dict[str, int]]] = [(tile_id, tile_info)]
+                tiles_in_chunk: List[Tuple[int, Dict[str, int]]] = [
+                    (tile_id, tile_info)
+                ]
                 j = i + 1
                 inner_iterations = 0
                 while j < len(read_ops):
                     inner_iterations += 1
                     if inner_iterations > 1000:
-                        logger.error(f">>> INFINITE LOOP DETECTED in chunk consolidation! j={j}, len={len(read_ops)}, i={i}")
+                        logger.error(
+                            f">>> INFINITE LOOP DETECTED in chunk consolidation! j={j}, len={len(read_ops)}, i={i}"
+                        )
                         break  # Safety break
 
                     next_tile_id, next_tile_info = read_ops[j]
@@ -1229,16 +1352,16 @@ class GaiaStarCatalog:
                     # logger.debug(f">>> Processing tile {tile_idx+1}/{len(tiles_in_chunk)} (id={tile_id})")
                     tile_offset = tile_info["offset"] - offset
                     size = tile_info["size"]
-                    data = chunk_data[tile_offset:tile_offset + size]
+                    data = chunk_data[tile_offset : tile_offset + size]
 
                     # Parse records using shared helper
                     t_decode_start = time.time()
                     ras, decs, mags, pmras, pmdecs = self._parse_records(data)
-                    t_decode_total += (time.time() - t_decode_start)
-                    
+                    t_decode_total += time.time() - t_decode_start
+
                     # Filter by magnitude
                     mask = mags <= mag_limit
-                    
+
                     if np.any(mask):
                         all_ras.append(ras[mask])
                         all_decs.append(decs[mask])
@@ -1262,21 +1385,21 @@ class GaiaStarCatalog:
 
         # Apply proper motion
         t_pm_start = time.time()
-        result = self._apply_proper_motion((ras_final, decs_final, mags_final, pmras_final, pmdecs_final))
+        result = self._apply_proper_motion(
+            (ras_final, decs_final, mags_final, pmras_final, pmdecs_final)
+        )
         (time.time() - t_pm_start) * 1000
 
         # Log performance breakdown
         t_io_total = (time.time() - t_io_start) * 1000
         logger.debug(
             f"Tile I/O for mag {mag_min}-{mag_max}: "
-            f"{t_io_total:.1f}ms, {len(result)} stars, {bytes_read/1024:.1f}KB"
+            f"{t_io_total:.1f}ms, {len(result)} stars, {bytes_read / 1024:.1f}KB"
         )
 
         return result
 
-    def _load_tiles_batch(
-        self, tile_ids: List[int], mag_limit: float
-    ) -> np.ndarray:
+    def _load_tiles_batch(self, tile_ids: List[int], mag_limit: float) -> np.ndarray:
         """
         Batch load multiple tiles efficiently (compact format only)
         Much faster than loading tiles one-by-one due to reduced I/O overhead
@@ -1288,7 +1411,9 @@ class GaiaStarCatalog:
         Returns:
             Numpy array of shape (N, 3) containing (ra, dec, mag)
         """
-        assert self.metadata is not None, "metadata must be loaded before calling _load_tiles_batch"
+        assert self.metadata is not None, (
+            "metadata must be loaded before calling _load_tiles_batch"
+        )
 
         if not _HEALPY_AVAILABLE:
             return np.empty((0, 3))
@@ -1325,7 +1450,7 @@ class GaiaStarCatalog:
 
             # Load v3 compressed index
             cache_key = f"index_{mag_min}_{mag_max}"
-            if not hasattr(self, '_index_cache'):
+            if not hasattr(self, "_index_cache"):
                 self._index_cache = {}
 
             if cache_key not in self._index_cache:
@@ -1344,7 +1469,9 @@ class GaiaStarCatalog:
             if not read_ops:
                 continue
 
-            logger.info(f"_load_tiles_batch: Found {len(read_ops)} tiles in mag band {mag_min}-{mag_max}")
+            logger.info(
+                f"_load_tiles_batch: Found {len(read_ops)} tiles in mag band {mag_min}-{mag_max}"
+            )
 
             # Sort by offset to minimize seeks
             read_ops.sort(key=lambda x: x[1]["offset"])
@@ -1382,23 +1509,29 @@ class GaiaStarCatalog:
 
                     # Read entire chunk at once
                     chunk_size = chunk_end - offset
-                    logger.info(f"_load_tiles_batch: Reading chunk at offset {offset}, size {chunk_size/1024:.1f}KB with {len(tiles_in_chunk)} tiles")
+                    logger.info(
+                        f"_load_tiles_batch: Reading chunk at offset {offset}, size {chunk_size / 1024:.1f}KB with {len(tiles_in_chunk)} tiles"
+                    )
                     f.seek(offset)
                     chunk_data = f.read(chunk_size)
-                    logger.info(f"_load_tiles_batch: Read complete, processing {len(tiles_in_chunk)} tiles")
+                    logger.info(
+                        f"_load_tiles_batch: Read complete, processing {len(tiles_in_chunk)} tiles"
+                    )
 
                     # Process each tile in the chunk using vectorized operations
                     for tile_id, tile_info in tiles_in_chunk:
-                        tile_offset = tile_info["offset"] - offset  # Relative offset in chunk
+                        tile_offset = (
+                            tile_info["offset"] - offset
+                        )  # Relative offset in chunk
                         size = tile_info["size"]
-                        data = chunk_data[tile_offset:tile_offset + size]
+                        data = chunk_data[tile_offset : tile_offset + size]
 
                         # Parse records using shared helper
                         ras, decs, mags, pmras, pmdecs = self._parse_records(data)
 
                         # Filter by magnitude
                         mask = mags <= mag_limit
-                        
+
                         if np.any(mask):
                             all_ras.append(ras[mask])
                             all_decs.append(decs[mask])
@@ -1409,19 +1542,23 @@ class GaiaStarCatalog:
                     # Move to next chunk
                     i = j
 
-        logger.info(f"_load_tiles_batch: Loaded {len(all_ras)} batches of stars, applying proper motion")
-        
+        logger.info(
+            f"_load_tiles_batch: Loaded {len(all_ras)} batches of stars, applying proper motion"
+        )
+
         if not all_ras:
             return np.empty((0, 3))
-            
+
         # Concatenate all arrays
         ras_final = np.concatenate(all_ras)
         decs_final = np.concatenate(all_decs)
         mags_final = np.concatenate(all_mags)
         pmras_final = np.concatenate(all_pmras)
         pmdecs_final = np.concatenate(all_pmdecs)
-        
+
         # Apply proper motion
-        result = self._apply_proper_motion((ras_final, decs_final, mags_final, pmras_final, pmdecs_final))
+        result = self._apply_proper_motion(
+            (ras_final, decs_final, mags_final, pmras_final, pmdecs_final)
+        )
         logger.info(f"_load_tiles_batch: Complete, returning {len(result)} stars")
         return result

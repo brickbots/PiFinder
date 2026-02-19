@@ -12,6 +12,7 @@ from PIL import Image
 
 class ImageType(Enum):
     """Image type enumeration for object images"""
+
     POSS = "poss"  # Survey image from disk
     GAIA_CHART = "gaia_chart"  # Generated star chart
     LOADING = "loading"  # Loading placeholder
@@ -51,7 +52,7 @@ class ImageProvider(ABC):
         roll,
         display_class,
         burn_in=True,
-        **kwargs
+        **kwargs,
     ) -> Union[Image.Image, Generator]:
         """
         Get image for catalog object

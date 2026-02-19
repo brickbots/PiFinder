@@ -46,7 +46,7 @@ class POSSImageProvider(ImageProvider):
         burn_in=True,
         magnification=None,
         config_object=None,
-        **kwargs
+        **kwargs,
     ) -> Image.Image:
         """
         Load and process POSS image

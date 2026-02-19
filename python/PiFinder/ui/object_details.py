@@ -70,6 +70,7 @@ class EyepieceInput:
     def is_complete(self) -> bool:
         """Check if input has timed out (1.5 seconds)"""
         import time
+
         if len(self.digits) == 0:
             return False
         if len(self.digits) >= 2:
@@ -116,8 +117,12 @@ class UIObjectDetails(UIModule):
         self.object_display_mode = DM_LOCATE
         self.object_image = None
         self._chart_generator = None  # Active generator for progressive chart updates
-        self._is_showing_loading_chart = False  # Track if showing "Loading..." for Gaia chart
-        self._force_gaia_chart = False  # Toggle: force Gaia chart even if POSS image exists
+        self._is_showing_loading_chart = (
+            False  # Track if showing "Loading..." for Gaia chart
+        )
+        self._force_gaia_chart = (
+            False  # Toggle: force Gaia chart even if POSS image exists
+        )
         self.eyepiece_input = EyepieceInput()  # Custom eyepiece input handler
         self.eyepiece_input_display = False  # Show eyepiece input popup
         self._custom_eyepiece = None  # Reference to custom eyepiece object in equipment list (None = not active)
@@ -316,17 +321,24 @@ class UIObjectDetails(UIModule):
         eyepiece_text = str(self.config_object.equipment.active_eyepiece)
 
         if self._custom_eyepiece is not None:
-            logger.info(f">>> Using custom eyepiece: {eyepiece_text}, tfov={tfov}, mag={magnification}")
+            logger.info(
+                f">>> Using custom eyepiece: {eyepiece_text}, tfov={tfov}, mag={magnification}"
+            )
         else:
-            logger.info(f">>> Using configured eyepiece: {eyepiece_text}, tfov={tfov}, mag={magnification}")
-
+            logger.info(
+                f">>> Using configured eyepiece: {eyepiece_text}, tfov={tfov}, mag={magnification}"
+            )
 
         # Get or create chart generator (owned by UI layer)
         logger.info(">>> Getting chart generator...")
         chart_gen = self._get_gaia_chart_generator()
-        logger.info(f">>> Chart generator obtained, state: {chart_gen.get_catalog_state() if chart_gen else 'None'}")
+        logger.info(
+            f">>> Chart generator obtained, state: {chart_gen.get_catalog_state() if chart_gen else 'None'}"
+        )
 
-        logger.info(f">>> Calling get_display_image with force_gaia_chart={self._force_gaia_chart}")
+        logger.info(
+            f">>> Calling get_display_image with force_gaia_chart={self._force_gaia_chart}"
+        )
 
         # get_display_image returns either an image directly (POSS) or a generator (Gaia chart)
         result = get_display_image(
@@ -344,9 +356,11 @@ class UIObjectDetails(UIModule):
         )
 
         # Check if it's a generator (progressive Gaia chart) or direct image (POSS)
-        if hasattr(result, '__iter__') and hasattr(result, '__next__'):
+        if hasattr(result, "__iter__") and hasattr(result, "__next__"):
             # It's a generator - store it for progressive consumption by update()
-            logger.info(">>> get_display_image returned GENERATOR, storing for progressive updates...")
+            logger.info(
+                ">>> get_display_image returned GENERATOR, storing for progressive updates..."
+            )
             self._chart_generator = result
             self.object_image = None  # Will be set by first yield
         else:
@@ -355,22 +369,23 @@ class UIObjectDetails(UIModule):
             self._chart_generator = None
             self.object_image = result
 
-        logger.info(f">>> update_object_info() complete, self.object_image is now: {type(self.object_image)}")
+        logger.info(
+            f">>> update_object_info() complete, self.object_image is now: {type(self.object_image)}"
+        )
 
         # Track if we're showing a "Loading..." placeholder for chart
         self._is_showing_loading_chart = (
             self.object_image is not None
-            and hasattr(self.object_image, 'image_type')
+            and hasattr(self.object_image, "image_type")
             and self.object_image.image_type == ImageType.LOADING
         )
-
 
     @property
     def _is_gaia_chart(self):
         """Check if currently displaying a Gaia chart"""
         return (
             self.object_image is not None
-            and hasattr(self.object_image, 'image_type')
+            and hasattr(self.object_image, "image_type")
             and self.object_image.image_type == ImageType.GAIA_CHART
         )
 
@@ -400,7 +415,9 @@ class UIObjectDetails(UIModule):
         import numpy as np
 
         # Get pulse period from config (default 2.0 seconds)
-        pulse_period = float(self.config_object.get_option("obj_chart_crosshair_speed", "2.0"))
+        pulse_period = float(
+            self.config_object.get_option("obj_chart_crosshair_speed", "2.0")
+        )
 
         t = time.time() % pulse_period
         # Sine wave for smooth pulsation (0.0 to 1.0 range)
@@ -425,7 +442,9 @@ class UIObjectDetails(UIModule):
         import numpy as np
 
         # Get fade period from config (default 2.0 seconds)
-        fade_period = float(self.config_object.get_option("obj_chart_crosshair_speed", "2.0"))
+        fade_period = float(
+            self.config_object.get_option("obj_chart_crosshair_speed", "2.0")
+        )
 
         t = time.time() % fade_period
         # Sine wave for smooth fading (0.0 to 1.0 range)
@@ -452,7 +471,9 @@ class UIObjectDetails(UIModule):
         if mode == "pulse":
             pulse_factor, _, _ = self._get_pulse_factor()
             # Size pulsates from 7 down to 4 pixels (inverted - more steps)
-            outer = int(7.0 - (3.0 * pulse_factor))  # 7.0 down to 4.0 (smooth animation)
+            outer = int(
+                7.0 - (3.0 * pulse_factor)
+            )  # 7.0 down to 4.0 (smooth animation)
         else:
             # Fixed size (fade mode not supported for inverted pixels)
             outer = 5
@@ -522,7 +543,11 @@ class UIObjectDetails(UIModule):
         if mode == "pulse":
             pulse_factor, _, color_intensity = self._get_pulse_factor()
             # Pulsate from larger to smaller (smooth animation)
-            radii = [4.0 - (2.0 * pulse_factor), 8.0 - (4.0 * pulse_factor), 12.0 - (6.0 * pulse_factor)]  # 4→2, 8→4, 12→6
+            radii = [
+                4.0 - (2.0 * pulse_factor),
+                8.0 - (4.0 * pulse_factor),
+                12.0 - (6.0 * pulse_factor),
+            ]  # 4→2, 8→4, 12→6
         elif mode == "fade":
             color_intensity = self._get_fade_factor()
             radii = [2, 4, 6]  # Fixed minimum radii
@@ -549,7 +574,9 @@ class UIObjectDetails(UIModule):
         if mode == "pulse":
             pulse_factor, _, color_intensity = self._get_pulse_factor()
             size = int(8.0 - (4.0 * pulse_factor))  # 8.0 down to 4.0 (smooth animation)
-            length = int(5.0 - (2.0 * pulse_factor))  # 5.0 down to 3.0 (smooth animation)
+            length = int(
+                5.0 - (2.0 * pulse_factor)
+            )  # 5.0 down to 3.0 (smooth animation)
         elif mode == "fade":
             color_intensity = self._get_fade_factor()
             size = 4  # Fixed minimum size
@@ -563,20 +590,52 @@ class UIObjectDetails(UIModule):
         marker_color = (color_intensity, 0, 0)
 
         # Top-left bracket
-        self.draw.line([cx - size, cy - size, cx - size + length, cy - size], fill=marker_color, width=1)
-        self.draw.line([cx - size, cy - size, cx - size, cy - size + length], fill=marker_color, width=1)
+        self.draw.line(
+            [cx - size, cy - size, cx - size + length, cy - size],
+            fill=marker_color,
+            width=1,
+        )
+        self.draw.line(
+            [cx - size, cy - size, cx - size, cy - size + length],
+            fill=marker_color,
+            width=1,
+        )
 
         # Top-right bracket
-        self.draw.line([cx + size - length, cy - size, cx + size, cy - size], fill=marker_color, width=1)
-        self.draw.line([cx + size, cy - size, cx + size, cy - size + length], fill=marker_color, width=1)
+        self.draw.line(
+            [cx + size - length, cy - size, cx + size, cy - size],
+            fill=marker_color,
+            width=1,
+        )
+        self.draw.line(
+            [cx + size, cy - size, cx + size, cy - size + length],
+            fill=marker_color,
+            width=1,
+        )
 
         # Bottom-left bracket
-        self.draw.line([cx - size, cy + size, cx - size + length, cy + size], fill=marker_color, width=1)
-        self.draw.line([cx - size, cy + size - length, cx - size, cy + size], fill=marker_color, width=1)
+        self.draw.line(
+            [cx - size, cy + size, cx - size + length, cy + size],
+            fill=marker_color,
+            width=1,
+        )
+        self.draw.line(
+            [cx - size, cy + size - length, cx - size, cy + size],
+            fill=marker_color,
+            width=1,
+        )
 
         # Bottom-right bracket
-        self.draw.line([cx + size - length, cy + size, cx + size, cy + size], fill=marker_color, width=1)
-        self.draw.line([cx + size, cy + size - length, cx + size, cy + size], fill=marker_color, width=1)
+        self.draw.line(
+            [cx + size - length, cy + size, cx + size, cy + size],
+            fill=marker_color,
+            width=1,
+        )
+        self.draw.line(
+            [cx + size, cy + size - length, cx + size, cy + size],
+            fill=marker_color,
+            width=1,
+        )
 
     def _draw_crosshair_dots(self, mode="off"):
         """
@@ -817,6 +876,7 @@ class UIObjectDetails(UIModule):
         """Get the global chart generator singleton"""
         from PiFinder.object_images.gaia_chart import get_gaia_chart_generator
         import logging
+
         logger = logging.getLogger("ObjectDetails")
 
         chart_gen = get_gaia_chart_generator(self.config_object, self.shared_state)
@@ -839,8 +899,13 @@ class UIObjectDetails(UIModule):
             logger.info(f">>> Applying custom eyepiece: {focal_length}mm")
 
             # Remove old custom eyepiece if it exists
-            if self._custom_eyepiece is not None and self._custom_eyepiece in self.config_object.equipment.eyepieces:
-                logger.info(f">>> Removing old custom eyepiece: {self._custom_eyepiece}")
+            if (
+                self._custom_eyepiece is not None
+                and self._custom_eyepiece in self.config_object.equipment.eyepieces
+            ):
+                logger.info(
+                    f">>> Removing old custom eyepiece: {self._custom_eyepiece}"
+                )
                 self.config_object.equipment.eyepieces.remove(self._custom_eyepiece)
 
             # Create and add new custom eyepiece
@@ -849,11 +914,15 @@ class UIObjectDetails(UIModule):
                 name=f"{focal_length}mm",
                 focal_length_mm=focal_length,
                 afov=50,  # Default AFOV for custom eyepiece
-                field_stop=0
+                field_stop=0,
             )
             self.config_object.equipment.eyepieces.append(self._custom_eyepiece)
-            self.config_object.equipment.active_eyepiece_index = len(self.config_object.equipment.eyepieces) - 1
-            logger.info(f">>> Added custom eyepiece to equipment list: {self._custom_eyepiece}")
+            self.config_object.equipment.active_eyepiece_index = (
+                len(self.config_object.equipment.eyepieces) - 1
+            )
+            logger.info(
+                f">>> Added custom eyepiece to equipment list: {self._custom_eyepiece}"
+            )
 
             self.update_object_info()
             self.update()
@@ -862,6 +931,7 @@ class UIObjectDetails(UIModule):
 
     def update(self, force=True):
         import logging
+
         logger = logging.getLogger("ObjectDetails")
 
         # Check for eyepiece input timeout
@@ -870,7 +940,7 @@ class UIObjectDetails(UIModule):
             self._apply_custom_eyepiece()
 
         # If we have a chart generator, consume one yield to get the next progressive update
-        if hasattr(self, '_chart_generator') and self._chart_generator is not None:
+        if hasattr(self, "_chart_generator") and self._chart_generator is not None:
             try:
                 next_image = next(self._chart_generator)
                 # logger.debug(f">>> update(): Consumed next chart yield: {type(next_image)}")
@@ -879,11 +949,11 @@ class UIObjectDetails(UIModule):
             except StopIteration:
                 logger.info(">>> update(): Chart generator exhausted")
                 self._chart_generator = None  # Generator exhausted
-        
+
         # Update loading flag based on current image
         if self.object_image is not None:
             self._is_showing_loading_chart = (
-                hasattr(self.object_image, 'image_type')
+                hasattr(self.object_image, "image_type")
                 and self.object_image.image_type == ImageType.LOADING
             )
 
@@ -916,12 +986,14 @@ class UIObjectDetails(UIModule):
             # If showing Gaia chart, draw crosshair based on config
             is_chart = (
                 self.object_image is not None
-                and hasattr(self.object_image, 'image_type')
+                and hasattr(self.object_image, "image_type")
                 and self.object_image.image_type == ImageType.GAIA_CHART
             )
             if is_chart:
                 crosshair_mode = self.config_object.get_option("obj_chart_crosshair")
-                crosshair_style = self.config_object.get_option("obj_chart_crosshair_style")
+                crosshair_style = self.config_object.get_option(
+                    "obj_chart_crosshair_style"
+                )
 
                 if crosshair_mode != "off":
                     style_methods = {
@@ -933,7 +1005,9 @@ class UIObjectDetails(UIModule):
                         "cross": self._draw_crosshair_cross,
                     }
 
-                    draw_method = style_methods.get(crosshair_style, self._draw_crosshair_simple)
+                    draw_method = style_methods.get(
+                        crosshair_style, self._draw_crosshair_simple
+                    )
                     draw_method(mode=crosshair_mode)
 
                     if crosshair_mode in ["pulse", "fade"]:
@@ -1152,29 +1226,39 @@ class UIObjectDetails(UIModule):
                 # Find next larger eyepiece (smaller magnification)
                 for ep in sorted_eyepieces:
                     if ep.focal_length_mm > custom_focal_length:
-                        self.config_object.equipment.active_eyepiece_index = eyepieces.index(ep)
+                        self.config_object.equipment.active_eyepiece_index = (
+                            eyepieces.index(ep)
+                        )
                         logger.info(f">>> Jumped to next larger: {ep}")
                         break
                 else:
                     # No larger eyepiece found, wrap to smallest
-                    self.config_object.equipment.active_eyepiece_index = eyepieces.index(sorted_eyepieces[0])
+                    self.config_object.equipment.active_eyepiece_index = (
+                        eyepieces.index(sorted_eyepieces[0])
+                    )
                     logger.info(f">>> Wrapped to smallest: {sorted_eyepieces[0]}")
             else:
                 # Find next smaller eyepiece (larger magnification)
                 for i in range(len(sorted_eyepieces) - 1, -1, -1):
                     ep = sorted_eyepieces[i]
                     if ep.focal_length_mm < custom_focal_length:
-                        self.config_object.equipment.active_eyepiece_index = eyepieces.index(ep)
+                        self.config_object.equipment.active_eyepiece_index = (
+                            eyepieces.index(ep)
+                        )
                         logger.info(f">>> Jumped to next smaller: {ep}")
                         break
                 else:
                     # No smaller eyepiece found, wrap to largest
-                    self.config_object.equipment.active_eyepiece_index = eyepieces.index(sorted_eyepieces[-1])
+                    self.config_object.equipment.active_eyepiece_index = (
+                        eyepieces.index(sorted_eyepieces[-1])
+                    )
                     logger.info(f">>> Wrapped to largest: {sorted_eyepieces[-1]}")
         else:
             # Normal eyepiece cycling
             self.config_object.equipment.cycle_eyepieces(direction)
-            logger.info(f">>> Normal cycle to: {self.config_object.equipment.active_eyepiece}")
+            logger.info(
+                f">>> Normal cycle to: {self.config_object.equipment.active_eyepiece}"
+            )
 
         self.update_object_info()
         self.update()
@@ -1213,7 +1297,9 @@ class UIObjectDetails(UIModule):
 
         # Special case: 0 when no input is active toggles POSS/chart
         if number == 0 and not self.eyepiece_input_display:
-            logger.info(f">>> Toggling _force_gaia_chart (was: {self._force_gaia_chart})")
+            logger.info(
+                f">>> Toggling _force_gaia_chart (was: {self._force_gaia_chart})"
+            )
             # Toggle the flag
             self._force_gaia_chart = not self._force_gaia_chart
             logger.info(f">>> _force_gaia_chart now: {self._force_gaia_chart}")
@@ -1221,7 +1307,9 @@ class UIObjectDetails(UIModule):
             # Reload image with new setting
             logger.info(">>> Calling update_object_info()...")
             self.update_object_info()
-            logger.info(f">>> After update_object_info(), self.object_image type: {type(self.object_image)}, size: {self.object_image.size if self.object_image else None}")
+            logger.info(
+                f">>> After update_object_info(), self.object_image type: {type(self.object_image)}, size: {self.object_image.size if self.object_image else None}"
+            )
             logger.info(">>> Calling update()...")
             update_result = self.update()
             logger.info(f">>> update() returned: {type(update_result)}")
@@ -1233,11 +1321,15 @@ class UIObjectDetails(UIModule):
             logger.info(f">>> Adding digit {number} to eyepiece input")
             is_complete = self.eyepiece_input.append_digit(number)
             self.eyepiece_input_display = True
-            logger.info(f">>> After adding digit: focal_length={self.eyepiece_input.focal_length_mm}mm, complete={is_complete}, display='{self.eyepiece_input}'")
+            logger.info(
+                f">>> After adding digit: focal_length={self.eyepiece_input.focal_length_mm}mm, complete={is_complete}, display='{self.eyepiece_input}'"
+            )
 
             if is_complete:
                 # Two digits entered, apply immediately
-                logger.info(f">>> Input complete, applying {self.eyepiece_input.focal_length_mm}mm")
+                logger.info(
+                    f">>> Input complete, applying {self.eyepiece_input.focal_length_mm}mm"
+                )
                 self._apply_custom_eyepiece()
             else:
                 # Show popup with current input

@@ -55,7 +55,7 @@ class ChartImageProvider(ImageProvider):
         magnification=None,
         config_object=None,
         shared_state=None,
-        **kwargs
+        **kwargs,
     ) -> Generator:
         """
         Generate Gaia star chart
@@ -89,9 +89,7 @@ class ChartImageProvider(ImageProvider):
             # Ensure catalog loading started
             logger.debug("Calling chart_generator.ensure_catalog_loading()...")
             self._chart_generator.ensure_catalog_loading()
-            logger.debug(
-                f"Catalog state: {self._chart_generator.get_catalog_state()}"
-            )
+            logger.debug(f"Catalog state: {self._chart_generator.get_catalog_state()}")
 
             # Create generator that yields converted images
             for image in self._chart_generator.generate_chart(

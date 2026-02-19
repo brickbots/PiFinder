@@ -55,12 +55,18 @@ class TestFeijthComelloFormula:
         t = 0.85
 
         lm_40x = GaiaChartGenerator.feijth_comello_limiting_magnitude(mv, D, d, 40.0, t)
-        lm_100x = GaiaChartGenerator.feijth_comello_limiting_magnitude(mv, D, d, 100.0, t)
-        lm_200x = GaiaChartGenerator.feijth_comello_limiting_magnitude(mv, D, d, 200.0, t)
+        lm_100x = GaiaChartGenerator.feijth_comello_limiting_magnitude(
+            mv, D, d, 100.0, t
+        )
+        lm_200x = GaiaChartGenerator.feijth_comello_limiting_magnitude(
+            mv, D, d, 200.0, t
+        )
 
         # Higher magnification should give better (larger number) limiting magnitude
         assert lm_100x > lm_40x, f"100x ({lm_100x:.2f}) should be > 40x ({lm_40x:.2f})"
-        assert lm_200x > lm_100x, f"200x ({lm_200x:.2f}) should be > 100x ({lm_100x:.2f})"
+        assert lm_200x > lm_100x, (
+            f"200x ({lm_200x:.2f}) should be > 100x ({lm_100x:.2f})"
+        )
 
     def test_larger_aperture_improves_lm(self):
         """Test that larger aperture improves limiting magnitude"""
@@ -70,12 +76,20 @@ class TestFeijthComelloFormula:
         t = 0.85
 
         lm_80mm = GaiaChartGenerator.feijth_comello_limiting_magnitude(mv, 8.0, d, M, t)
-        lm_150mm = GaiaChartGenerator.feijth_comello_limiting_magnitude(mv, 15.0, d, M, t)
-        lm_250mm = GaiaChartGenerator.feijth_comello_limiting_magnitude(mv, 25.0, d, M, t)
+        lm_150mm = GaiaChartGenerator.feijth_comello_limiting_magnitude(
+            mv, 15.0, d, M, t
+        )
+        lm_250mm = GaiaChartGenerator.feijth_comello_limiting_magnitude(
+            mv, 25.0, d, M, t
+        )
 
         # Larger aperture should give better limiting magnitude
-        assert lm_150mm > lm_80mm, f"150mm ({lm_150mm:.2f}) should be > 80mm ({lm_80mm:.2f})"
-        assert lm_250mm > lm_150mm, f"250mm ({lm_250mm:.2f}) should be > 150mm ({lm_150mm:.2f})"
+        assert lm_150mm > lm_80mm, (
+            f"150mm ({lm_150mm:.2f}) should be > 80mm ({lm_80mm:.2f})"
+        )
+        assert lm_250mm > lm_150mm, (
+            f"250mm ({lm_250mm:.2f}) should be > 150mm ({lm_150mm:.2f})"
+        )
 
     def test_obstruction_reduces_lm(self):
         """Test that central obstruction reduces limiting magnitude"""
@@ -84,12 +98,17 @@ class TestFeijthComelloFormula:
         M = 100.0
         t = 0.85
 
-        lm_no_obstruction = GaiaChartGenerator.feijth_comello_limiting_magnitude(mv, D, 0.0, M, t)
-        lm_with_obstruction = GaiaChartGenerator.feijth_comello_limiting_magnitude(mv, D, 5.0, M, t)
+        lm_no_obstruction = GaiaChartGenerator.feijth_comello_limiting_magnitude(
+            mv, D, 0.0, M, t
+        )
+        lm_with_obstruction = GaiaChartGenerator.feijth_comello_limiting_magnitude(
+            mv, D, 5.0, M, t
+        )
 
         # Obstruction should reduce limiting magnitude
-        assert lm_no_obstruction > lm_with_obstruction, \
+        assert lm_no_obstruction > lm_with_obstruction, (
             f"Unobstructed ({lm_no_obstruction:.2f}) should be > obstructed ({lm_with_obstruction:.2f})"
+        )
 
     def test_better_transmission_improves_lm(self):
         """Test that better transmission improves limiting magnitude"""
@@ -98,12 +117,17 @@ class TestFeijthComelloFormula:
         d = 0.0
         M = 100.0
 
-        lm_poor_transmission = GaiaChartGenerator.feijth_comello_limiting_magnitude(mv, D, d, M, 0.50)
-        lm_good_transmission = GaiaChartGenerator.feijth_comello_limiting_magnitude(mv, D, d, M, 0.85)
+        lm_poor_transmission = GaiaChartGenerator.feijth_comello_limiting_magnitude(
+            mv, D, d, M, 0.50
+        )
+        lm_good_transmission = GaiaChartGenerator.feijth_comello_limiting_magnitude(
+            mv, D, d, M, 0.85
+        )
 
         # Better transmission should give better limiting magnitude
-        assert lm_good_transmission > lm_poor_transmission, \
+        assert lm_good_transmission > lm_poor_transmission, (
             f"Good transmission ({lm_good_transmission:.2f}) should be > poor ({lm_poor_transmission:.2f})"
+        )
 
     def test_darker_sky_improves_naked_eye_lm(self):
         """
@@ -115,12 +139,17 @@ class TestFeijthComelloFormula:
         M = 100.0
         t = 0.85
 
-        lm_bright_sky = GaiaChartGenerator.feijth_comello_limiting_magnitude(5.0, D, d, M, t)
-        lm_dark_sky = GaiaChartGenerator.feijth_comello_limiting_magnitude(6.5, D, d, M, t)
+        lm_bright_sky = GaiaChartGenerator.feijth_comello_limiting_magnitude(
+            5.0, D, d, M, t
+        )
+        lm_dark_sky = GaiaChartGenerator.feijth_comello_limiting_magnitude(
+            6.5, D, d, M, t
+        )
 
         # Darker sky should give better limiting magnitude
-        assert lm_dark_sky > lm_bright_sky, \
+        assert lm_dark_sky > lm_bright_sky, (
             f"Dark sky ({lm_dark_sky:.2f}) should be > bright sky ({lm_bright_sky:.2f})"
+        )
 
 
 if __name__ == "__main__":

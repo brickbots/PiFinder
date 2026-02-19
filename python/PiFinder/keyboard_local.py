@@ -31,6 +31,7 @@ class KeyboardLocal(KeyboardInterface):
     def __init__(self, q):
         try:
             from PyHotKey import Key, keyboard
+
             logger.info("PyHotKey imported successfully")
         except ModuleNotFoundError:
             logger.error("pyhotkey not supported on pi hardware")
@@ -102,6 +103,7 @@ def run_keyboard(q, shared_state, log_queue, bloom_remap=False):
     # Try pynput directly first (more reliable on macOS)
     try:
         from pynput import keyboard as pynput_keyboard
+
         logger.info("Using pynput for keyboard handling")
 
         # Key mapping
@@ -110,23 +112,31 @@ def run_keyboard(q, shared_state, log_queue, bloom_remap=False):
             pynput_keyboard.Key.up: KeyboardInterface.UP,
             pynput_keyboard.Key.down: KeyboardInterface.DOWN,
             pynput_keyboard.Key.right: KeyboardInterface.RIGHT,
-            'q': KeyboardInterface.PLUS,
-            'a': KeyboardInterface.MINUS,
-            'z': KeyboardInterface.SQUARE,
-            'm': KeyboardInterface.LNG_SQUARE,
-            '0': 0, '1': 1, '2': 2, '3': 3, '4': 4,
-            '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
-            'w': KeyboardInterface.ALT_PLUS,
-            's': KeyboardInterface.ALT_MINUS,
-            'd': KeyboardInterface.ALT_LEFT,
-            'r': KeyboardInterface.ALT_UP,
-            'f': KeyboardInterface.ALT_DOWN,
-            'g': KeyboardInterface.ALT_RIGHT,
-            'e': KeyboardInterface.ALT_0,
-            'j': KeyboardInterface.LNG_LEFT,
-            'i': KeyboardInterface.LNG_UP,
-            'k': KeyboardInterface.LNG_DOWN,
-            'l': KeyboardInterface.LNG_RIGHT,
+            "q": KeyboardInterface.PLUS,
+            "a": KeyboardInterface.MINUS,
+            "z": KeyboardInterface.SQUARE,
+            "m": KeyboardInterface.LNG_SQUARE,
+            "0": 0,
+            "1": 1,
+            "2": 2,
+            "3": 3,
+            "4": 4,
+            "5": 5,
+            "6": 6,
+            "7": 7,
+            "8": 8,
+            "9": 9,
+            "w": KeyboardInterface.ALT_PLUS,
+            "s": KeyboardInterface.ALT_MINUS,
+            "d": KeyboardInterface.ALT_LEFT,
+            "r": KeyboardInterface.ALT_UP,
+            "f": KeyboardInterface.ALT_DOWN,
+            "g": KeyboardInterface.ALT_RIGHT,
+            "e": KeyboardInterface.ALT_0,
+            "j": KeyboardInterface.LNG_LEFT,
+            "i": KeyboardInterface.LNG_UP,
+            "k": KeyboardInterface.LNG_DOWN,
+            "l": KeyboardInterface.LNG_RIGHT,
         }
 
         def on_release(key):
@@ -136,7 +146,7 @@ def run_keyboard(q, shared_state, log_queue, bloom_remap=False):
                     q.put(key_map[key])
                     logger.debug(f"Key released: {key} -> {key_map[key]}")
                 # Handle character keys
-                elif hasattr(key, 'char') and key.char in key_map:
+                elif hasattr(key, "char") and key.char in key_map:
                     q.put(key_map[key.char])
                     logger.debug(f"Key released: {key.char} -> {key_map[key.char]}")
             except Exception as e:
