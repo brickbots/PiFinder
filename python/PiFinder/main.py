@@ -140,6 +140,8 @@ class PowerManager:
         self.shared_state = shared_state
         self.display_device = display_device
         self.last_activity = time.time()
+        self.sleep_start_time = None
+        self.screen_off_start_time = None
 
     def register_activity(self):
         """
@@ -163,6 +165,8 @@ class PowerManager:
         Do all the wakeup things
         """
         self.last_activity = time.time()
+        self.sleep_start_time = None
+        self.screen_off_start_time = None
         self.shared_state.set_power_state(1)
         self.wake_screen()
 
@@ -171,6 +175,7 @@ class PowerManager:
         Do all the sleep things
         """
         self.shared_state.set_power_state(0)
+        self.sleep_start_time = time.time()
         self.sleep_screen()
 
     def update(self):
@@ -189,11 +194,32 @@ class PowerManager:
             if time.time() - self.last_activity > self.get_sleep_timeout():
                 self.go_to_sleep()
 
-        else:  # We are asleepd, should we wake up?
+        elif self.shared_state.power_state() == 0:
+            # We are asleep, should we wake up or go to screen off?
             _imu = self.shared_state.imu()
             if _imu:
                 if _imu["moving"]:
                     self.wake_up()
+                    return
+
+            # Check if we should turn screen off
+            screen_off_timeout = self.get_screen_off_timeout()
+            if (
+                screen_off_timeout > 0
+                and self.sleep_start_time is not None
+                and time.time() - self.sleep_start_time > screen_off_timeout
+            ):
+                self.screen_off()
+
+        # Screen off mode: LED heartbeat, longer sleep
+        if self.shared_state.power_state() == -1:
+            _imu = self.shared_state.imu()
+            if _imu and _imu["moving"]:
+                self.wake_up()
+                return
+            self.update_heartbeat()
+            time.sleep(1.0)
+            return
 
         # should we pause execution for a bit?
         if self.shared_state.power_state() < 1:
@@ -237,6 +263,23 @@ class PowerManager:
         screen_brightness = self.cfg.get_option("display_brightness")
         set_brightness(int(screen_brightness / 4), self.cfg)
         self.display_device.device.show()
+
+    def screen_off(self):
+        """Completely blank screen and turn off LEDs"""
+        self.shared_state.set_power_state(-1)
+        self.screen_off_start_time = time.time()
+        self.display_device.device.hide()
+        set_keypad_brightness(0)
+
+    def update_heartbeat(self):
+        """Pulse all LEDs briefly every hour"""
+        if self.screen_off_start_time is None:
+            return
+        seconds_into_hour = (time.time() - self.screen_off_start_time) % 3600
+        if seconds_into_hour < 0.5:
+            set_keypad_brightness(2)
+        else:
+            set_keypad_brightness(0)
 
 
 def main(
@@ -501,6 +544,7 @@ def main(
         catalogs.start_background_loading()
 
         log_time = True
+        dev_mode_square_count = 0
         # Start of main except handler / loop
         try:
             while True:
@@ -635,6 +679,18 @@ def main(
                 # Register activity here will return True if the power
                 # state changes.  If so, we DO NOT process this keystroke
                 if keycode is not None and power_manager.register_activity() is False:
+                    # Dev mode toggle: 7 consecutive square presses
+                    if keycode == keyboard_base.SQUARE:
+                        dev_mode_square_count += 1
+                        if dev_mode_square_count >= 7:
+                            dev_mode = not cfg.get_option("dev_mode", False)
+                            cfg.set_option("dev_mode", dev_mode)
+                            msg = "DEV MODE ON" if dev_mode else "DEV MODE OFF"
+                            console_queue.put(msg)
+                            dev_mode_square_count = 0
+                    else:
+                        dev_mode_square_count = 0
+
                     # ignore keystroke if we have been asleep
                     if keycode > 99:
                         # Long left is return to top

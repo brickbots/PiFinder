@@ -81,6 +81,8 @@ class UIStatus(UIModule):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Make instance copy of class-level _config_options
+        self._config_options = dict(self._config_options)
         self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
         self._draw_pos = (0, self.display_class.titlebar_height)
         with open(self.wifi_txt, "r") as wfs:
@@ -118,15 +120,21 @@ class UIStatus(UIModule):
         self._config_options["Sleep Tim"]["value"] = self.config_object.get_option(
             "sleep_timeout"
         )
-        self._config_options["Screen Off"]["value"] = self.config_object.get_option(
-            "screen_off_timeout"
-        )
         self._config_options["Hint Time"]["value"] = self.config_object.get_option(
             "hint_timeout"
         )
         self._config_options["Key Brit"]["value"] = self.config_object.get_option(
             "keypad_brightness"
         )
+
+        # Hide Screen Off option unless dev_mode is enabled
+        if self.config_object.get_option("dev_mode", False):
+            self._config_options["Screen Off"]["value"] = self.config_object.get_option(
+                "screen_off_timeout"
+            )
+        else:
+            if "Screen Off" in self._config_options:
+                del self._config_options["Screen Off"]
 
         self.last_temp_time = 0
         self.last_IP_time = 0
