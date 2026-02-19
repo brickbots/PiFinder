@@ -602,7 +602,7 @@ def load_arp():
             for additional in parts[1:]:
                 if additional.isdigit():
                     # If the additional part is a number, add it directly
-                    expanded_list.append(f"{base_part[:-len(additional)]}{additional}")
+                    expanded_list.append(f"{base_part[: -len(additional)]}{additional}")
                 else:
                     expanded_list.append(additional)
         else:

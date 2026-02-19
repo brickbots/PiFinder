@@ -24,7 +24,6 @@ import gi
 gi.require_version("NM", "1.0")
 from gi.repository import GLib, NM  # noqa: E402
 
-from PiFinder import utils  # noqa: E402
 from PiFinder.sys_utils_base import (  # noqa: E402
     NetworkBase,
     BACKUP_PATH,  # noqa: F401
