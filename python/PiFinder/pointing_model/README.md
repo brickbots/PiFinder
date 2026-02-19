@@ -38,6 +38,17 @@ Done:
 
 >Remove this before release!
 
+## 20260219: (tested 19 Feb)
+
+19 Feb (27eed52de43): Alt and Az swapped around. Moving the scope in Az moves the chart in Alt and vice versa
+14 Nov (478a5c901fa): `pre-merge` commit also does the same thing.
+1 Nov (06df9be430): `eq_mount_test_release` seems OK.
+
+Issue seems to have been introduced by the commit on:
+14 Nov (d364fef968): Big change to quaternion transforms!
+
+Reverting this change seems to fix this. But compared to `main`, the pointing doesn't seem to be very good?
+
 ## 20251030: b8e09ff (tested 31 Oct)
 
 * v2 Flat.
