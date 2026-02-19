@@ -141,12 +141,8 @@ class CameraInterface:
                         self.exposure_time = int(exp_value)
                         self.set_camera_config(self.exposure_time, self.gain)
                         self._cfg.set_option("camera_exp", self.exposure_time)
-                        self._console_queue.put(
-                            "CAM: Exp=" + str(self.exposure_time)
-                        )
-                        logger.info(
-                            f"Manual exposure set: {self.exposure_time}µs"
-                        )
+                        self._console_queue.put("CAM: Exp=" + str(self.exposure_time))
+                        logger.info(f"Manual exposure set: {self.exposure_time}µs")
 
                 elif command.startswith("set_gain"):
                     old_gain = self.gain
@@ -172,9 +168,7 @@ class CameraInterface:
                                 max_exposure=self._auto_exposure_pid.max_exposure,
                             )
                         elif handler_type == "reset":
-                            new_handler = ResetZeroStarHandler(
-                                reset_exposure=400000
-                            )
+                            new_handler = ResetZeroStarHandler(reset_exposure=400000)
                         elif handler_type == "histogram":
                             new_handler = HistogramZeroStarHandler(
                                 min_exposure=self._auto_exposure_pid.min_exposure,
@@ -186,12 +180,8 @@ class CameraInterface:
                             )
 
                         if new_handler is not None:
-                            self._auto_exposure_pid._zero_star_handler = (
-                                new_handler
-                            )
-                            self._console_queue.put(
-                                f"CAM: AE Handler={handler_type}"
-                            )
+                            self._auto_exposure_pid._zero_star_handler = new_handler
+                            self._console_queue.put(f"CAM: AE Handler={handler_type}")
                             logger.info(
                                 f"Auto-exposure zero-star handler changed to: {handler_type}"
                             )
@@ -204,12 +194,8 @@ class CameraInterface:
                     mode = command.split(":")[1]
                     if mode in ["pid", "snr"]:
                         self._auto_exposure_mode = mode
-                        self._console_queue.put(
-                            f"CAM: AE Mode={mode.upper()}"
-                        )
-                        logger.info(
-                            f"Auto-exposure mode changed to: {mode.upper()}"
-                        )
+                        self._console_queue.put(f"CAM: AE Mode={mode.upper()}")
+                        logger.info(f"Auto-exposure mode changed to: {mode.upper()}")
                     else:
                         logger.warning(
                             f"Unknown auto-exposure mode: {mode} (valid: pid, snr)"
@@ -222,17 +208,13 @@ class CameraInterface:
                     else:
                         self.exposure_time = int(self.exposure_time * 0.75)
                     self.set_camera_config(self.exposure_time, self.gain)
-                    self._console_queue.put(
-                        "CAM: Exp=" + str(self.exposure_time)
-                    )
+                    self._console_queue.put("CAM: Exp=" + str(self.exposure_time))
 
                 elif command == "exp_save":
                     self._auto_exposure_enabled = False
                     self._cfg.set_option("camera_exp", self.exposure_time)
                     self._cfg.set_option("camera_gain", int(self.gain))
-                    self._console_queue.put(
-                        f"CAM: Exp Saved ({self.exposure_time}µs)"
-                    )
+                    self._console_queue.put(f"CAM: Exp Saved ({self.exposure_time}µs)")
                     logger.info(
                         f"Exposure saved and auto-exposure disabled: {self.exposure_time}µs"
                     )
@@ -241,17 +223,12 @@ class CameraInterface:
                     self._save_next_to = command.split(":")[1]
                     self._console_queue.put("CAM: Save flag set")
 
-                elif (
-                    command.startswith("capture")
-                    and command != "capture_exp_sweep"
-                ):
+                elif command.startswith("capture") and command != "capture_exp_sweep":
                     captured_image = self.capture()
                     self._camera_image.paste(captured_image)
 
                     if self._save_next_to:
-                        filename = (
-                            f"{utils.data_dir}/captures/{self._save_next_to}"
-                        )
+                        filename = f"{utils.data_dir}/captures/{self._save_next_to}"
                         if not filename.endswith(".png"):
                             filename += ".png"
                         self.capture_file(filename)
@@ -278,9 +255,7 @@ class CameraInterface:
                     self._console_queue.put("CAM: Started camera")
 
             except ValueError as e:
-                logger.error(
-                    f"Error processing camera command '{command}': {str(e)}"
-                )
+                logger.error(f"Error processing camera command '{command}': {str(e)}")
 
     def _run_exposure_sweep(self, command):
         """Capture exposure sweep for SQM testing."""
@@ -336,15 +311,11 @@ class CameraInterface:
 
             exp_ms = exp_us / 1000
 
-            processed_filename = (
-                sweep_dir / f"img_{i:03d}_{exp_ms:.2f}ms_processed.png"
-            )
+            processed_filename = sweep_dir / f"img_{i:03d}_{exp_ms:.2f}ms_processed.png"
             processed_img = self.capture()
             processed_img.save(str(processed_filename))
 
-            raw_filename = (
-                sweep_dir / f"img_{i:03d}_{exp_ms:.2f}ms_raw.tiff"
-            )
+            raw_filename = sweep_dir / f"img_{i:03d}_{exp_ms:.2f}ms_raw.tiff"
             self.capture_raw_file(str(raw_filename))
 
             logger.debug(
@@ -379,23 +350,19 @@ class CameraInterface:
                 observer_lat=location.lat,
                 observer_lon=location.lon,
                 observer_altitude_m=location.altitude,
-                gps_datetime=gps_datetime.isoformat()
-                if gps_datetime
-                else None,
+                gps_datetime=gps_datetime.isoformat() if gps_datetime else None,
                 reference_sqm=reference_sqm,
                 ra_deg=ra_deg,
                 dec_deg=dec_deg,
                 altitude_deg=altitude_deg,
                 azimuth_deg=azimuth_deg,
-                notes=f"Exposure sweep: {num_images} images, {min_exp/1000:.1f}-{max_exp/1000:.1f}ms",
+                notes=f"Exposure sweep: {num_images} images, {min_exp / 1000:.1f}-{max_exp / 1000:.1f}ms",
             )
             logger.info(
                 f"Successfully saved sweep metadata to {sweep_dir}/sweep_metadata.json"
             )
         except Exception as e:
-            logger.error(
-                f"Failed to save sweep metadata: {e}", exc_info=True
-            )
+            logger.error(f"Failed to save sweep metadata: {e}", exc_info=True)
 
         self._console_queue.put("CAM: Sweep done!")
         logger.info(
@@ -566,22 +533,29 @@ class CameraInterface:
                                     if self._auto_exposure_snr is None:
                                         # Use camera profile to derive thresholds
                                         try:
-                                            cam_type = detect_camera_type(self.get_cam_type())
+                                            cam_type = detect_camera_type(
+                                                self.get_cam_type()
+                                            )
                                             cam_type = f"{cam_type}_processed"
-                                            self._auto_exposure_snr = (
-                                                ExposureSNRController.from_camera_profile(cam_type)
+                                            self._auto_exposure_snr = ExposureSNRController.from_camera_profile(
+                                                cam_type
                                             )
                                         except ValueError as e:
                                             # Unknown camera, use defaults
                                             logger.warning(
                                                 f"Camera detection failed: {e}, using default SNR thresholds"
                                             )
-                                            self._auto_exposure_snr = ExposureSNRController()
+                                            self._auto_exposure_snr = (
+                                                ExposureSNRController()
+                                            )
                                     # Get adaptive noise floor from shared state
-                                    adaptive_noise_floor = self.shared_state.noise_floor()
+                                    adaptive_noise_floor = (
+                                        self.shared_state.noise_floor()
+                                    )
                                     new_exposure = self._auto_exposure_snr.update(
-                                        self.exposure_time, base_image,
-                                        noise_floor=adaptive_noise_floor
+                                        self.exposure_time,
+                                        base_image,
+                                        noise_floor=adaptive_noise_floor,
                                     )
                                 else:
                                     # PID mode: use star-count based controller (default)

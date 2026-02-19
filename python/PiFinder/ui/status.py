@@ -243,13 +243,11 @@ class UIStatus(UIModule):
                 + f" {stars_matched: >2}"
             )
             hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
-            self.status_dict["RA/DEC"] = (
-                f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec'] :.2f}"
-            )
+            self.status_dict["RA/DEC"] = f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec']:.2f}"
 
             if solution["Az"]:
                 self.status_dict["AZ/ALT"] = (
-                    f"{solution['Az'] : >6.2f}/{solution['Alt'] : >6.2f}"
+                    f"{solution['Az']: >6.2f}/{solution['Alt']: >6.2f}"
                 )
 
         imu = self.shared_state.imu()
@@ -259,9 +257,9 @@ class UIStatus(UIModule):
                     mtext = "Moving"
                 else:
                     mtext = "Static"
-                self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu["status"])
+                self.status_dict["IMU"] = f"{mtext: >11}" + " " + str(imu["status"])
                 self.status_dict["IMU PS"] = (
-                    f"{imu['pos'][0] : >6.1f}/{imu['pos'][2] : >6.1f}"
+                    f"{imu['pos'][0]: >6.1f}/{imu['pos'][2]: >6.1f}"
                 )
         location = self.shared_state.location()
         sats = self.shared_state.sats()
@@ -287,7 +285,7 @@ class UIStatus(UIModule):
             try:
                 with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
                     raw_temp = int(f.read().strip())
-                self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
+                self.status_dict["CPU TMP"] = f"{raw_temp / 1000: >13.1f}"
             except FileNotFoundError:
                 self.status_dict["CPU TMP"] = "Error"
 

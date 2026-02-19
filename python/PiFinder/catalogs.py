@@ -481,10 +481,7 @@ class Catalogs:
     def start_background_loading(self):
         """Start deferred catalog loading in background thread.
         Call after event loop is ready to avoid SD I/O contention during startup."""
-        if (
-            hasattr(self, "_background_loader")
-            and self._background_loader is not None
-        ):
+        if hasattr(self, "_background_loader") and self._background_loader is not None:
             self._background_loader.start()
 
     def __repr__(self):

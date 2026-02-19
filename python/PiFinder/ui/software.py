@@ -151,7 +151,7 @@ def _fetch_testable_prs() -> list[dict]:
             return entries
 
         for pr in res.json():
-            labels = [l.get("name", "") for l in pr.get("labels", [])]
+            labels = [label.get("name", "") for label in pr.get("labels", [])]
             if "testable" not in labels:
                 continue
             number = pr.get("number", 0)
@@ -454,8 +454,7 @@ class UISoftware(UIModule):
         y += 14
 
         version_label = (
-            self._selected_version.get("version")
-            or self._selected_version["label"]
+            self._selected_version.get("version") or self._selected_version["label"]
         )
         self.draw.text(
             (0, y),
@@ -584,9 +583,7 @@ class UISoftware(UIModule):
                 if self._list_index < len(self._version_list) - 1:
                     self._list_index += 1
                     if self._list_index >= self._scroll_offset + self.MAX_VISIBLE:
-                        self._scroll_offset = (
-                            self._list_index - self.MAX_VISIBLE + 1
-                        )
+                        self._scroll_offset = self._list_index - self.MAX_VISIBLE + 1
         elif self._phase == "confirm":
             if self._confirm_index < len(self._confirm_options) - 1:
                 self._confirm_index += 1
@@ -601,8 +598,8 @@ class UISoftware(UIModule):
                 self.remove_from_stack()
         elif self._phase == "browse":
             if self._focus == "channel" and self._channel_names:
-                self._channel_index = (
-                    (self._channel_index + 1) % len(self._channel_names)
+                self._channel_index = (self._channel_index + 1) % len(
+                    self._channel_names
                 )
                 self._refresh_version_list()
             elif self._focus == "list" and self._version_list:
@@ -620,9 +617,7 @@ class UISoftware(UIModule):
             elif opt == "Notes":
                 notes = self._selected_version.get("notes")
                 if notes:
-                    self.add_to_stack(
-                        {"class": UIReleaseNotes, "notes_text": notes}
-                    )
+                    self.add_to_stack({"class": UIReleaseNotes, "notes_text": notes})
             elif opt == "Cancel":
                 self._phase = "browse"
 
