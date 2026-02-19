@@ -102,7 +102,7 @@ def run_keyboard(q, shared_state, log_queue, bloom_remap=False):
 
     # Try pynput directly first (more reliable on macOS)
     try:
-        from pynput import keyboard as pynput_keyboard
+        from pynput import keyboard as pynput_keyboard  # type: ignore[import-untyped]
 
         logger.info("Using pynput for keyboard handling")
 
