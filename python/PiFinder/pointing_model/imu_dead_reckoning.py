@@ -170,7 +170,7 @@ class ImuDeadReckoning:
         Sets the screen direction which determines the fixed orientation between
         the IMU and camera (q_imu2cam).
         """
-        self.q_imu2cam = self.get_q_imu2cam(screen_direction)
+        self.q_imu2cam = self._get_q_imu2cam(screen_direction)
         self.q_cam2imu = self.q_imu2cam.conj()
 
     @staticmethod
