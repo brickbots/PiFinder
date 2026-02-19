@@ -176,5 +176,5 @@
         "active_eyepiece_index": 0
     },
     "imu_threshold_scale": 1,
-    "software_unstable_unlocked": false
+    "dev_mode": false
 }
