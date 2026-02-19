@@ -28,7 +28,7 @@ import numpy as np
 # Import healpy at module level to avoid first-use delay
 # This ensures the slow import happens during initialization, not during first chart render
 try:
-    import healpy as hp  # type: ignore[import-untyped]
+    import healpy as hp  # type: ignore[import-untyped,import-not-found]
 
     _HEALPY_AVAILABLE = True
 except ImportError:

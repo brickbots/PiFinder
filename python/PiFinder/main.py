@@ -1039,7 +1039,7 @@ if __name__ == "__main__":
         rlogger.info("using pi keyboard hat")
     elif args.keyboard.lower() == "local":
         if display_hardware.startswith("pg_"):
-            from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
+            from PiFinder import keyboard_none as keyboard
 
             rlogger.info("using pygame keyboard (display captures keys)")
         else:

@@ -142,7 +142,7 @@ class POSSImageProvider(ImageProvider):
             )
 
         # Mark as POSS image
-        return_image.image_type = ImageType.POSS  # type: ignore[attr-defined]
+        return_image.image_type = ImageType.POSS
         return return_image
 
     def _resolve_image_name(self, catalog_object, source):
