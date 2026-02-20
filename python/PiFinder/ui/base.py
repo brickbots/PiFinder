@@ -349,18 +349,28 @@ class UIModule:
                     # self.draw.rectangle([115, 2, 125, 14], fill=bg)
 
                     if self._unmoved:
-                        # Use hollow icon when in test mode
-                        cam_icon = (
-                            self._CAM_ICON_HOLLOW
-                            if self.shared_state.test_mode()
-                            else self._CAM_ICON
-                        )
-                        self.draw.text(
-                            (self.display_class.resX * 0.91, -2),
-                            cam_icon,
-                            font=self.fonts.icon_bold_large.font,
-                            fill=var_fg,
-                        )
+                        is_test = self.config_object.get_option("test_mode", False)
+                        icon_x = self.display_class.resX * 0.91
+                        icon_y = -2
+                        if is_test:
+                            # Invert camera icon: white bg, dark icon
+                            self.draw.rectangle(
+                                [icon_x - 1, 0, icon_x + 13, 13],
+                                fill=self.colors.get(128),
+                            )
+                            self.draw.text(
+                                (icon_x, icon_y),
+                                self._CAM_ICON,
+                                font=self.fonts.icon_bold_large.font,
+                                fill=self.colors.get(0),
+                            )
+                        else:
+                            self.draw.text(
+                                (icon_x, icon_y),
+                                self._CAM_ICON,
+                                font=self.fonts.icon_bold_large.font,
+                                fill=var_fg,
+                            )
 
                     if len(self.title) < 9:
                         # Draw rotating constellation/SQM wheel (replaces static constellation)

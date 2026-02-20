@@ -486,7 +486,12 @@ class CameraInterface:
                             + abs(imu_start["pos"][2] - imu_end["pos"][2])
                         )
 
-                    camera_image.paste(base_image)
+                    # For debug camera: only send images when test_mode is ON
+                    # For real camera: always send images
+                    is_debug_camera = self.camType.startswith("Debug")
+                    test_mode_on = shared_state.test_mode()
+                    if not is_debug_camera or test_mode_on:
+                        camera_image.paste(base_image)
                     image_metadata = {
                         "exposure_start": image_start_time,
                         "exposure_end": image_end_time,

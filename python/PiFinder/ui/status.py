@@ -35,12 +35,6 @@ class UIStatus(UIModule):
             "options": ["Off", "10s", "30s", "1m"],
             "callback": "set_sleep_timeout",
         },
-        "Screen Off": {
-            "type": "enum",
-            "value": "",
-            "options": ["Off", "30s", "1m", "10m", "30m"],
-            "callback": "set_screen_off_timeout",
-        },
         "Hint Time": {
             "type": "enum",
             "value": "2s",
@@ -126,15 +120,6 @@ class UIStatus(UIModule):
         self._config_options["Key Brit"]["value"] = self.config_object.get_option(
             "keypad_brightness"
         )
-
-        # Hide Screen Off option unless dev_mode is enabled
-        if self.config_object.get_option("dev_mode", False):
-            self._config_options["Screen Off"]["value"] = self.config_object.get_option(
-                "screen_off_timeout"
-            )
-        else:
-            if "Screen Off" in self._config_options:
-                del self._config_options["Screen Off"]
 
         self.last_temp_time = 0
         self.last_IP_time = 0
@@ -338,16 +323,3 @@ class UIStatus(UIModule):
         """
         with open(self.wifi_txt, "r") as wfs:
             self._config_options["WiFi Mode"]["value"] = wfs.read()
-
-        # Re-evaluate dev_mode gating for Screen Off option
-        if self.config_object.get_option("dev_mode", False):
-            if "Screen Off" not in self._config_options:
-                self._config_options["Screen Off"] = {
-                    "type": "enum",
-                    "value": self.config_object.get_option("screen_off_timeout"),
-                    "options": ["Off", "30s", "1m", "10m", "30m"],
-                    "callback": "set_screen_off_timeout",
-                }
-        else:
-            if "Screen Off" in self._config_options:
-                del self._config_options["Screen Off"]

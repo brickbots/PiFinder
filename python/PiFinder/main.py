@@ -363,6 +363,8 @@ def main(
         ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
         shared_state.set_ui_state(ui_state)
         shared_state.set_arch(arch)  # Normal
+        # Initialize test_mode from config so camera process can read it at startup
+        shared_state.set_test_mode(cfg.get_option("test_mode", False))
         logger.debug("Ui state in main is" + str(shared_state.ui_state()))
         console = UIConsole(
             display_device, None, shared_state, command_queues, cfg, Catalogs([])
@@ -646,9 +648,10 @@ def main(
                     )
                     menu_manager.message(_("Catalogs\nFully Loaded"), 2)
                 elif ui_command == "test_mode":
-                    # Toggle test mode
-                    new_test_mode = not shared_state.test_mode()
+                    # Toggle test mode (store in both shared_state and config)
+                    new_test_mode = not cfg.get_option("test_mode", False)
                     shared_state.set_test_mode(new_test_mode)
+                    cfg.set_option("test_mode", new_test_mode)
                     if new_test_mode:
                         # Set fake GPS data when entering test mode
                         dt = datetime.datetime(2025, 6, 28, 11, 0, 0)

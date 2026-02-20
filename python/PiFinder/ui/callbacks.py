@@ -70,7 +70,13 @@ def activate_debug(ui_module: UIModule) -> None:
     ui_module.command_queues["camera"].put("debug")
     ui_module.command_queues["console"].put("Test Mode Activated")
     ui_module.command_queues["ui_queue"].put("test_mode")
-    ui_module.message(_("Test Mode"))
+
+
+def test_mode_suffix(ui_module: UIModule) -> str:
+    """Returns ON/OFF suffix for Test Mode menu entry."""
+    if ui_module.config_object.get_option("test_mode", False):
+        return " ON"
+    return " OFF"
 
 
 def set_exposure(ui_module: UIModule) -> None:
