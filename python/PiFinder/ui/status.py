@@ -234,9 +234,9 @@ class UIStatus(UIModule):
         """
         if self.shared_state.solve_state():
             solution = self.shared_state.solution()
-            
+
             # Time since last solve
-            if solution['cam_solve_time']:
+            if solution["cam_solve_time"]:
                 time_since_solve = f"{time.time() - solution['cam_solve_time']:.1f}"
             else:
                 time_since_solve = "--"
@@ -253,10 +253,10 @@ class UIStatus(UIModule):
             else:
                 solve_source = str(solution["solve_source"][0])
             # Collect togethers
-            self.status_dict["LAST SLV"] = (time_since_solve + "s " 
-                + solve_source + f" {stars_matched: >2}"
+            self.status_dict["LAST SLV"] = (
+                time_since_solve + "s " + solve_source + f" {stars_matched: >2}"
             )
-            
+
             # RA/DEC
             if solution["RA"] is None or solution["Dec"] is None:
                 self.status_dict["RA/DEC"] = "--/--"
@@ -283,7 +283,7 @@ class UIStatus(UIModule):
                 else:
                     mtext = "Static"
                 self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu["status"])
-                
+
                 self.status_dict["IMU qw,qx"] = (
                     f"{imu['quat'].w:>.2f},{imu['quat'].x : >.2f}"
                 )

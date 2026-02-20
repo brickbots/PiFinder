@@ -38,7 +38,7 @@ class Imu:
         self.avg_quat = (0, 0, 0, 0)  # Scalar-first quaternion as float: (w, x, y, z)
         self.__moving = False
         self.__reading_diff = 0.0
-        
+
         self.last_sample_time = time.time()
 
         # Calibration settings
@@ -54,6 +54,7 @@ class Imu:
             0.0005 * imu_threshold_scale,
             0.0003 * imu_threshold_scale,
         )
+
     def moving(self):
         """
         Compares most recent reading
@@ -169,7 +170,7 @@ def imu_monitor(shared_state, console_queue, log_queue):
         "quat": quaternion.quaternion(
             0, 0, 0, 0
         ),  # Scalar-first numpy quaternion(w, x, y, z) - Init to invalid quaternion
-        "status": 0,  # IMU Status: 3=Calibrated  
+        "status": 0,  # IMU Status: 3=Calibrated
     }
 
     while True:

@@ -121,7 +121,7 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
                 # This ensures auto-exposure sees Matches=0 for failed solves
                 shared_state.set_solution(solved)
                 shared_state.set_solve_state(True)
-                
+
                 # We have a new image solve: Use plate-solving for RA/Dec
                 update_plate_solve_and_imu(imu_dead_reckoning, solved)
 
@@ -137,16 +137,15 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
             # Push IMU updates only if newer than last push
             # (Camera solves already pushed above at line ~185)  # TODO: Line numbers may have changed in merge
             if (
-                solved["RA"]
-                and solved["solve_time"] > last_solve_time
-                #and solved["solve_source"] == "IMU"
+                solved["RA"] and solved["solve_time"] > last_solve_time
+                # and solved["solve_source"] == "IMU"
             ):
                 last_solve_time = time.time()  # TODO: solve_time is ambiguous because it's also used for IMU dead-reckoning
 
                 # Set location for roll and altaz calculations.
                 # TODO: Is it necessary to set location?
                 # TODO: Altaz doesn't seem to be required for catalogs when in
-                #  EQ mode? Could be disabled in future when in EQ mode? 
+                #  EQ mode? Could be disabled in future when in EQ mode?
                 location = shared_state.location()
                 dt = shared_state.datetime()
                 if location:
@@ -161,10 +160,8 @@ def integrator(shared_state, solver_queue, console_queue, log_queue, is_debug=Fa
 
                 # Update remaining solved keys
                 # Calculate constellation for current position
-                solved["constellation"] = (
-                    calc_utils.sf_utils.radec_to_constellation(
+                solved["constellation"] = calc_utils.sf_utils.radec_to_constellation(
                     solved["RA"], solved["Dec"]
-                    )
                 )  # TODO: Can the outer brackets be omitted?
 
                 # Set Alt/Az because it's needed for the catalogs for the
@@ -310,7 +307,7 @@ def get_roll_by_mount_type(
     dec_deg: float,  # Declination of the target in degrees
     location,  # astropy EarthLocation object or None
     dt: datetime.datetime,  # datetime.datetime object or None
-    mount_type: str  # "Alt/Az" or "EQ"
+    mount_type: str,  # "Alt/Az" or "EQ"
 ) -> float:
     """
     Returns the roll (in degrees) depending on the mount type so that the chart
@@ -330,13 +327,15 @@ def get_roll_by_mount_type(
             # We have location and time/date (and assume that location has been set)
             # Roll at the target RA/Dec in the horizontal frame
             roll_deg = calc_utils.sf_utils.radec_to_roll(ra_deg, dec_deg, dt)
-            
-            # HACK: 
-            # The IMU direction flips at a certaint point. Could due to a 
+
+            # HACK:
+            # The IMU direction flips at a certaint point. Could due to a
             # an issue in the formula in calc_utils.sf_utils.hadec_to_roll()
             # This is a temperary hack for testing.
             ha_deg = calc_utils.sf_utils.ra_to_ha(ra_deg, dt)
-            roll_deg = roll_deg - np.sign(ha_deg) * 180  # In essence, gives: roll_deg = -pa_deg
+            roll_deg = (
+                roll_deg - np.sign(ha_deg) * 180
+            )  # In essence, gives: roll_deg = -pa_deg
             # End of HACK
         else:
             # No position or time/date available, so set roll to 0.0

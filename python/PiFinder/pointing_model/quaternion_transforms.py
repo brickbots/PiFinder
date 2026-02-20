@@ -30,9 +30,9 @@ def axis_angle2quat(axis, theta: float) -> quaternion.quaternion:
 
     INPUTS:
     axis: (3,) Axis of rotation (doesn't need to be a unit vector)
-    angle: Angle of rotation [rad]. It uses the right-hand rule; positive 
-        when for clock-wise rotation as viewed outwards along the axis vector. 
-        You can also point the thumb of the right hand in the direction of the 
+    angle: Angle of rotation [rad]. It uses the right-hand rule; positive
+        when for clock-wise rotation as viewed outwards along the axis vector.
+        You can also point the thumb of the right hand in the direction of the
         axis vector. Positive turn in the direction that the fingers point.
     """
     assert len(axis) == 3, "axis should be a list or numpy array of length 3."

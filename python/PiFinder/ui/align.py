@@ -270,7 +270,7 @@ class UIAlign(UIModule):
         return self.screen_update(title_bar=not self.align_mode)
 
     def plot_no_solve(self):
-        """ Plot message: Can't plot No solve yet """
+        """Plot message: Can't plot No solve yet"""
         self.draw.rectangle(
             [0, 0, self.display_class.resX, self.display_class.resY],
             fill=self.colors.get(0),
