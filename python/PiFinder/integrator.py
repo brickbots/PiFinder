@@ -330,6 +330,14 @@ def get_roll_by_mount_type(
             # We have location and time/date (and assume that location has been set)
             # Roll at the target RA/Dec in the horizontal frame
             roll_deg = calc_utils.sf_utils.radec_to_roll(ra_deg, dec_deg, dt)
+            
+            # HACK: 
+            # The IMU direction flips at a certaint point. Could due to a 
+            # an issue in the formula in calc_utils.sf_utils.hadec_to_roll()
+            # This is a temperary hack for testing.
+            ha_deg = calc_utils.sf_utils.ra_to_ha(ra_deg, dt)
+            roll_deg = roll_deg - np.sign(ha_deg) * 180  # In essence, gives: roll_deg = -pa_deg
+            # End of HACK
         else:
             # No position or time/date available, so set roll to 0.0
             roll_deg = 0.0
