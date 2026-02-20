@@ -646,27 +646,35 @@ def main(
                     )
                     menu_manager.message(_("Catalogs\nFully Loaded"), 2)
                 elif ui_command == "test_mode":
-                    dt = datetime.datetime(2025, 6, 28, 11, 0, 0)
-                    shared_state.set_datetime(dt)
-                    location.lat = 41.13
-                    location.lon = -120.97
-                    location.altitude = 1315
-                    location.source = "test"
-                    location.error_in_m = 5
-                    location.lock = True
-                    location.lock_type = 3
-                    location.last_gps_lock = (
-                        datetime.datetime.now().time().isoformat()[:8]
-                    )
-                    console.write(
-                        f"GPS: Location {location.lat} {location.lon} {location.altitude}"
-                    )
-                    shared_state.set_location(location)
-                    sf_utils.set_location(
-                        location.lat,
-                        location.lon,
-                        location.altitude,
-                    )
+                    # Toggle test mode
+                    new_test_mode = not shared_state.test_mode()
+                    shared_state.set_test_mode(new_test_mode)
+                    if new_test_mode:
+                        # Set fake GPS data when entering test mode
+                        dt = datetime.datetime(2025, 6, 28, 11, 0, 0)
+                        shared_state.set_datetime(dt)
+                        location.lat = 41.13
+                        location.lon = -120.97
+                        location.altitude = 1315
+                        location.source = "test"
+                        location.error_in_m = 5
+                        location.lock = True
+                        location.lock_type = 3
+                        location.last_gps_lock = (
+                            datetime.datetime.now().time().isoformat()[:8]
+                        )
+                        console.write(
+                            f"GPS: Location {location.lat} {location.lon} {location.altitude}"
+                        )
+                        shared_state.set_location(location)
+                        sf_utils.set_location(
+                            location.lat,
+                            location.lon,
+                            location.altitude,
+                        )
+                        menu_manager.message(_("Test Mode\nON"), 2)
+                    else:
+                        menu_manager.message(_("Test Mode\nOFF"), 2)
 
                 # Keyboard
                 keycode = None

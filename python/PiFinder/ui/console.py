@@ -178,9 +178,15 @@ class UIConsole(UIModule):
                     # self.draw.rectangle([115, 2, 125, 14], fill=bg)
 
                     if self._unmoved:
+                        # Use hollow icon when in test mode
+                        cam_icon = (
+                            self._CAM_ICON_HOLLOW
+                            if self.shared_state.test_mode()
+                            else self._CAM_ICON
+                        )
                         self.draw.text(
                             (self.display_class.resX * 0.91, -2),
-                            self._CAM_ICON,
+                            cam_icon,
                             font=self.fonts.icon_bold_large.font,
                             fill=var_fg,
                         )
