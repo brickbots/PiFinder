@@ -694,7 +694,7 @@ def main(
                             dev_mode = not cfg.get_option("dev_mode", False)
                             cfg.set_option("dev_mode", dev_mode)
                             msg = "DEV MODE ON" if dev_mode else "DEV MODE OFF"
-                            console_queue.put(msg)
+                            menu_manager.message(msg, timeout=2)
                             dev_mode_square_count = 0
                     else:
                         dev_mode_square_count = 0
