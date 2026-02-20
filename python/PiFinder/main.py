@@ -134,6 +134,33 @@ StateManager.register("UIState", UIState)
 StateManager.register("NewImage", Image.new)
 
 
+class DevModeToggle:
+    REQUIRED_PRESSES = 7
+
+    def __init__(self, cfg, square_keycode):
+        self._cfg = cfg
+        self._square_keycode = square_keycode
+        self._count = 0
+
+    def process_keycode(self, keycode) -> bool:
+        """Track consecutive square presses.
+        Returns True if dev mode was toggled (keycode consumed)."""
+        if keycode == self._square_keycode:
+            self._count += 1
+            if self._count >= self.REQUIRED_PRESSES:
+                self._count = 0
+                dev_mode = not self._cfg.get_option("dev_mode", False)
+                self._cfg.set_option("dev_mode", dev_mode)
+                return True
+        else:
+            self._count = 0
+        return False
+
+    @property
+    def dev_mode(self) -> bool:
+        return self._cfg.get_option("dev_mode", False)
+
+
 class PowerManager:
     def __init__(self, cfg, shared_state, display_device):
         self.cfg = cfg
@@ -546,7 +573,7 @@ def main(
         catalogs.start_background_loading()
 
         log_time = True
-        dev_mode_square_count = 0
+        dev_mode_toggle = DevModeToggle(cfg, keyboard_base.SQUARE)
         # Start of main except handler / loop
         try:
             while True:
@@ -687,21 +714,15 @@ def main(
                 except queue.Empty:
                     pass
 
+                # Dev mode toggle: check before anything else
+                if keycode is not None and dev_mode_toggle.process_keycode(keycode):
+                    msg = "DEV MODE ON" if dev_mode_toggle.dev_mode else "DEV MODE OFF"
+                    menu_manager.message(msg, timeout=2)
+                    keycode = None
+
                 # Register activity here will return True if the power
                 # state changes.  If so, we DO NOT process this keystroke
                 if keycode is not None and power_manager.register_activity() is False:
-                    # Dev mode toggle: 7 consecutive square presses
-                    if keycode == keyboard_base.SQUARE:
-                        dev_mode_square_count += 1
-                        if dev_mode_square_count >= 7:
-                            dev_mode = not cfg.get_option("dev_mode", False)
-                            cfg.set_option("dev_mode", dev_mode)
-                            msg = "DEV MODE ON" if dev_mode else "DEV MODE OFF"
-                            menu_manager.message(msg, timeout=2)
-                            dev_mode_square_count = 0
-                    else:
-                        dev_mode_square_count = 0
-
                     # ignore keystroke if we have been asleep
                     if keycode > 99:
                         # Long left is return to top
