@@ -272,7 +272,6 @@ class SharedStateObj:
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
         self.__tz_finder = None
-        self.__test_mode = False
 
     def serialize(self, output_file):
         with open(output_file, "wb") as f:
@@ -447,12 +446,6 @@ class SharedStateObj:
 
     def set_ui_state(self, v):
         self.__ui_state = v
-
-    def test_mode(self):
-        return self.__test_mode
-
-    def set_test_mode(self, v: bool):
-        self.__test_mode = v
 
     def __repr__(self):
         # A simple representation showing key attributes (adjust as needed)

@@ -255,7 +255,11 @@ class UISoftware(UIModule):
         self._confirm_index = 0
 
         self._fail_option = "Retry"
+        self._unstable_unlocked = self.config_object.get_option(
+            "software_unstable_unlocked"
+        )
         self._unstable_entries: List[dict] = []
+        self._square_count = 0
 
         self._scrollers: Dict[str, TextLayouterScroll] = {}
         self._scroller_phase: Optional[str] = None
@@ -286,7 +290,7 @@ class UISoftware(UIModule):
             "beta": beta,
         }
 
-        if self.config_object.get_option("dev_mode", False):
+        if self._unstable_unlocked:
             self._unstable_entries = self._fetch_unstable_entries()
             self._channels["unstable"] = self._unstable_entries
 
@@ -672,7 +676,11 @@ class UISoftware(UIModule):
     # Key handlers
     # ------------------------------------------------------------------
 
+    def _reset_unlock(self):
+        self._square_count = 0
+
     def key_up(self):
+        self._reset_unlock()
         if self._phase == "upgrading":
             return
         if self._phase == "failed":
@@ -690,6 +698,7 @@ class UISoftware(UIModule):
                 self._confirm_index -= 1
 
     def key_down(self):
+        self._reset_unlock()
         if self._phase == "upgrading":
             return
         if self._phase == "failed":
@@ -710,6 +719,7 @@ class UISoftware(UIModule):
                 self._confirm_index += 1
 
     def key_right(self):
+        self._reset_unlock()
         if self._phase == "upgrading":
             return
         if self._phase == "failed":
@@ -744,12 +754,26 @@ class UISoftware(UIModule):
                 self._phase = "browse"
 
     def key_left(self):
+        self._reset_unlock()
         if self._phase == "upgrading":
             return False
         if self._phase == "confirm":
             self._phase = "browse"
             return False
         return True
+
+    def key_square(self):
+        self._square_count += 1
+        if self._square_count >= 7 and not self._unstable_unlocked:
+            self._unstable_unlocked = True
+            self.config_object.set_option("software_unstable_unlocked", True)
+            self._unstable_entries = self._fetch_unstable_entries()
+            self._channels["unstable"] = self._unstable_entries
+            self._channel_names = list(self._channels.keys())
+            self.message(_("Unstable\nunlocked"), 1)
+
+    def key_number(self, number):
+        self._square_count = 0
 
     # ------------------------------------------------------------------
     # Update action
