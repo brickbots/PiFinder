@@ -7,7 +7,7 @@
     firewall = {
       checkReversePath = "loose";   # Allow multi-interface (WiFi + ethernet) on same subnet
       allowedUDPPorts = [ 53 67 ];  # DNS + DHCP for AP mode
-      allowedTCPPorts = [ 80 ];     # PiFinder web UI
+      allowedTCPPorts = [ 80 ];     # PiFinder web UI (other ports via service openFirewall)
     };
   };
 

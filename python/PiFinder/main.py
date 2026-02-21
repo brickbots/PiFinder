@@ -491,12 +491,13 @@ def main(
         # Initialize power manager
         power_manager = PowerManager(cfg, shared_state, display_device)
 
-        # Start main event loop
-        console.write("   Event Loop")
-        logger.info("   Event Loop")
+        # Startup complete — clear welcome backdrop
+        console.write("   Ready")
         console.update()
+        console.finish_startup()
 
         # Start deferred catalog loading now that UI is ready
+        logger.info("   Event Loop")
         catalogs.start_background_loading()
 
         log_time = True

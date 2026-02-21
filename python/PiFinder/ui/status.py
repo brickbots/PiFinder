@@ -145,10 +145,8 @@ class UIStatus(UIModule):
             self._config_options["Software"]["value"] = utils.get_version()
             return False
 
-        self.message("Updating...", 10)
         if sys_utils.update_software():
-            self.message("Ok! Restarting", 10)
-            sys_utils.restart_pifinder()
+            self.message("Updating...", 10)
         else:
             self.message("Error on Upd", 3)
 
@@ -301,7 +299,10 @@ class UIStatus(UIModule):
     def update(self, force=False):
         time.sleep(1 / 30)
         self.update_status_dict()
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+        self.draw.rectangle(
+            [0, 0, self.display_class.resX, self.display_class.resY],
+            fill=self.colors.get(0),
+        )
         lines = []
         # Insert IP address here...
         for k, v in self.status_dict.items():

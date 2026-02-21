@@ -1,6 +1,18 @@
 repos:
   - repo: local
     hooks:
+      - id: ruff-lint
+        name: ruff lint
+        entry: bash -c 'cd python && ruff check'
+        language: system
+        files: ^python/.*\.py$
+        pass_filenames: false
+      - id: ruff-format
+        name: ruff format check
+        entry: bash -c 'cd python && ruff format --check'
+        language: system
+        files: ^python/.*\.py$
+        pass_filenames: false
       - id: mypy
         name: mypy type check
         entry: bash -c 'cd python && mypy .'

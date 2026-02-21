@@ -41,8 +41,8 @@ exclude = [
 line-length = 88
 indent-width = 4
 
-# Assume Python 3.9
-target-version = "py39"
+# Assume Python 3.13
+target-version = "py313"
 
 [tool.ruff.lint]
 # Enable preview mode, allow os.env changes before imports

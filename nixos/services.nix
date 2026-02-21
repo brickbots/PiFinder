@@ -1,8 +1,8 @@
-{ config, lib, pkgs, pifinderPythonEnv, ... }:
+{ config, lib, pkgs, pifinderPythonEnv, pifinderGitRev, ... }:
 let
   cfg = config.pifinder;
   cedar-detect = import ./pkgs/cedar-detect.nix { inherit pkgs; };
-  pifinder-src = import ./pkgs/pifinder-src.nix { inherit pkgs; };
+  pifinder-src = import ./pkgs/pifinder-src.nix { inherit pkgs; gitRev = pifinderGitRev; };
   boot-splash = import ./pkgs/boot-splash.nix { inherit pkgs; };
   pifinder-switch-camera = pkgs.writeShellScriptBin "pifinder-switch-camera" ''
     CAM="$1"
@@ -213,6 +213,7 @@ in {
       { command = "/run/current-system/sw/bin/systemctl stop pifinder.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl start pifinder.service"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/systemctl restart avahi-daemon.service"; options = [ "NOPASSWD" ]; }
+      { command = "/run/current-system/sw/bin/avahi-set-host-name *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/shutdown *"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/chpasswd"; options = [ "NOPASSWD" ]; }
       { command = "/run/current-system/sw/bin/dmesg"; options = [ "NOPASSWD" ]; }
@@ -306,10 +307,13 @@ in {
   };
 
   # ---------------------------------------------------------------------------
-  # PiFinder Safe NixOS Upgrade (test-then-switch)
+  # PiFinder NixOS Upgrade
   # ---------------------------------------------------------------------------
+  # Downloads from binary caches, sets profile, updates bootloader, reboots.
+  # No live switch-to-configuration — avoids killing running services.
+  # The pifinder-watchdog handles rollback if the new generation fails to boot.
   systemd.services.pifinder-upgrade = {
-    description = "PiFinder Safe NixOS Upgrade (test-then-switch)";
+    description = "PiFinder NixOS Upgrade";
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -324,52 +328,80 @@ in {
         exit 1
       fi
 
+      STATUS_FILE=/run/pifinder/upgrade-status
+
       # Pre-flight: check disk space (need at least 500MB)
       AVAIL=$(df --output=avail /nix/store | tail -1)
       if [ "$AVAIL" -lt 524288 ]; then
         echo "ERROR: Less than 500MB free on /nix/store"
+        echo "failed" > "$STATUS_FILE"
         exit 1
       fi
 
       echo "Upgrading to $STORE_PATH"
 
+<<<<<<< HEAD
       echo "Phase 1: Download from substituters"
       nix build "$STORE_PATH" --max-jobs 0
+||||||| a883cd7
+      echo "Phase 1: Download from Cachix"
+      nix copy --from https://pifinder.cachix.org "$STORE_PATH"
+=======
+      # Count paths to download for progress reporting
+      DRY_RUN=$(nix build "$STORE_PATH" --max-jobs 0 --dry-run 2>&1 || true)
+      PATHS_FILE=$(mktemp)
+      echo "$DRY_RUN" | grep '^\s*/nix/store/' | sed 's/^\s*//' > "$PATHS_FILE" || true
+      TOTAL=$(wc -l < "$PATHS_FILE")
+>>>>>>> nixos
 
-      echo "Phase 2: Activate (test mode — bootloader untouched)"
-      nix-env -p /nix/var/nix/profiles/system --set "$STORE_PATH"
-      "$STORE_PATH/bin/switch-to-configuration" test
+      echo "downloading 0/$TOTAL" > "$STATUS_FILE"
 
-      echo "Phase 3: Verifying pifinder.service health"
-      systemctl restart pifinder.service
-      for i in $(seq 1 24); do
-        if systemctl is-active --quiet pifinder.service; then
-          echo "pifinder.service active after $((i * 5))s"
+      # Download with progress monitoring
+      nix build "$STORE_PATH" --max-jobs 0 &
+      BUILD_PID=$!
 
-          echo "Phase 4: Persist to bootloader"
-          "$STORE_PATH/bin/switch-to-configuration" switch
-
-          # Restore camera specialisation if not default
-          CAM=$(cat /var/lib/pifinder/camera-type 2>/dev/null || echo "${cfg.cameraType}")
-          if [ "$CAM" != "${cfg.cameraType}" ]; then
-            SPEC="/run/current-system/specialisation/$CAM"
-            if [ -d "$SPEC" ]; then
-              echo "Restoring camera specialisation: $CAM"
-              "$SPEC/bin/switch-to-configuration" boot
-            fi
-          fi
-
-          echo "Phase 5: Cleanup old generations"
-          nix-env --delete-generations +2 -p /nix/var/nix/profiles/system || true
-          nix-collect-garbage || true
-
-          echo "Upgrade complete."
-          exit 0
-        fi
-        sleep 5
+      while kill -0 "$BUILD_PID" 2>/dev/null; do
+        DONE=0
+        while IFS= read -r p; do
+          [ -n "$p" ] && [ -e "$p" ] && DONE=$((DONE + 1))
+        done < "$PATHS_FILE"
+        echo "downloading $DONE/$TOTAL" > "$STATUS_FILE"
+        sleep 2
       done
 
-      echo "ERROR: pifinder.service not healthy. Rebooting to revert."
+      if ! wait "$BUILD_PID"; then
+        echo "failed" > "$STATUS_FILE"
+        rm -f "$PATHS_FILE"
+        exit 1
+      fi
+      rm -f "$PATHS_FILE"
+      echo "downloading $TOTAL/$TOTAL" > "$STATUS_FILE"
+
+      echo "activating" > "$STATUS_FILE"
+
+      nix-env -p /nix/var/nix/profiles/system --set "$STORE_PATH"
+
+      # Restore camera specialisation if not default
+      CAM=$(cat /var/lib/pifinder/camera-type 2>/dev/null || echo "${cfg.cameraType}")
+      if [ "$CAM" != "${cfg.cameraType}" ]; then
+        SPEC="$STORE_PATH/specialisation/$CAM"
+        if [ -d "$SPEC" ]; then
+          echo "Setting boot to camera specialisation: $CAM"
+          "$SPEC/bin/switch-to-configuration" boot
+        else
+          "$STORE_PATH/bin/switch-to-configuration" boot
+        fi
+      else
+        "$STORE_PATH/bin/switch-to-configuration" boot
+      fi
+
+      echo "rebooting" > "$STATUS_FILE"
+
+      # Cleanup old generations before reboot
+      nix-env --delete-generations +2 -p /nix/var/nix/profiles/system || true
+      nix-collect-garbage || true
+
+      echo "Rebooting into new generation..."
       systemctl reboot
     '';
   };
@@ -385,7 +417,7 @@ in {
       Type = "oneshot";
       RemainAfterExit = true;
     };
-    path = with pkgs; [ systemd coreutils ];
+    path = with pkgs; [ nix systemd coreutils ];
     script = ''
       set -euo pipefail
       REBOOT_MARKER="/var/tmp/pifinder-watchdog-rebooted"
@@ -396,11 +428,18 @@ in {
         exit 0
       fi
 
-      echo "Watchdog: waiting up to 90s for pifinder.service..."
-      for i in $(seq 1 18); do
+      echo "Watchdog: waiting up to 120s for pifinder.service..."
+      for i in $(seq 1 24); do
         if systemctl is-active --quiet pifinder.service; then
-          echo "pifinder.service healthy after $((i * 5))s"
-          exit 0
+          # Verify it stays running (not crash-looping)
+          UPTIME=$(systemctl show pifinder.service --property=ExecMainStartTimestamp --value)
+          START_EPOCH=$(date -d "$UPTIME" +%s 2>/dev/null || echo 0)
+          NOW_EPOCH=$(date +%s)
+          RUNNING_FOR=$((NOW_EPOCH - START_EPOCH))
+          if [ "$RUNNING_FOR" -ge 15 ]; then
+            echo "pifinder.service healthy (running ''${RUNNING_FOR}s)"
+            exit 0
+          fi
         fi
         sleep 5
       done
@@ -409,6 +448,8 @@ in {
       touch "$REBOOT_MARKER"
       PREV_GEN=$(ls -d /nix/var/nix/profiles/system-*-link 2>/dev/null | sort -t- -k2 -n | tail -2 | head -1)
       if [ -n "$PREV_GEN" ]; then
+        # Reset profile so the rolled-back generation becomes the current one
+        nix-env -p /nix/var/nix/profiles/system --set "$(readlink -f "$PREV_GEN")"
         "$PREV_GEN/bin/switch-to-configuration" switch || true
       fi
       systemctl reboot
@@ -505,6 +546,10 @@ in {
     };
   };
 
+  # Clean stale PID file so avahi restarts cleanly during switch-to-configuration
+  systemd.services.avahi-daemon.serviceConfig.ExecStartPre =
+    "${pkgs.coreutils}/bin/rm -f /run/avahi-daemon/pid";
+
   # Apply user-chosen hostname from PiFinder_data (survives NixOS rebuilds)
   systemd.services.pifinder-hostname = {
     description = "Apply PiFinder custom hostname";
@@ -520,7 +565,8 @@ in {
         name=$(cat "$f")
         [ -n "$name" ] || exit 0
         /run/current-system/sw/bin/hostname "$name"
-        /run/current-system/sw/bin/avahi-set-host-name "$name"
+        /run/current-system/sw/bin/avahi-set-host-name "$name" || \
+          /run/current-system/sw/bin/systemctl restart avahi-daemon.service
       '';
     };
   };
@@ -530,6 +576,7 @@ in {
 
   services.samba = {
     enable = true;
+    openFirewall = true;
     settings = {
       global = {
         workgroup = "WORKGROUP";

@@ -1,4 +1,4 @@
-{ pkgs, python ? pkgs.python313 }:
+{ pkgs, python ? pkgs.python313, gitRev ? "unknown" }:
 let
   tetra3-src = pkgs.fetchFromGitHub {
     owner = "smroid";
@@ -58,6 +58,11 @@ pkgs.stdenv.mkDerivation {
     # contents, so we fetch it separately and graft it into the source tree.
     rm -rf $out/python/PiFinder/tetra3
     cp -r ${tetra3-src} $out/python/PiFinder/tetra3
+
+    # Generate build identity from git metadata (overwrites committed CI version)
+    cat > $out/pifinder-build.json <<EOF
+    {"version": "nix-${gitRev}", "store_path": ""}
+    EOF
 
     # Pre-compile .pyc bytecode so Python skips compilation at runtime
     chmod -R u+w $out/python
