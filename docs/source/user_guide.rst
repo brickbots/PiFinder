@@ -488,7 +488,7 @@ state and operation of the PiFinder.
 
 Some of the key bits of information displayed:
 
-- The current solver state displayed as LST SLV on the top line.  It shows the
+- The current solver state displayed as LAST SLV on the top line.  It shows the
   number of seconds since the last plate solve, the current solve state (i for IMU 
   or C for camera) and the number of stars matched if the current solve is a camera solve
 - WiFi information is displayed a bit further down including the current WiFi mode, 

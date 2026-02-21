@@ -243,6 +243,7 @@ def solver(
     align_result_queue,
     camera_command_queue,
     is_debug=False,
+    max_imu_ang_during_exposure=1.0,  # Max allowed turn during exp [degrees]
 ):
     MultiprocLogging.configurer(log_queue)
     logger.debug("Starting Solver")
@@ -251,34 +252,9 @@ def solver(
     )
     align_ra = 0
     align_dec = 0
+    # Dict of RA, Dec, etc. initialized to None:
+    solved = get_initialized_solved_dict()
     solution = {}
-    solved = {
-        # RA, Dec, Roll solved at the center of the camera FoV
-        # update by integrator
-        "camera_center": {
-            "RA": None,
-            "Dec": None,
-            "Roll": None,
-            "Alt": None,
-            "Az": None,
-        },
-        # RA, Dec, Roll from the camera, not
-        # affected by IMU in integrator
-        "camera_solve": {
-            "RA": None,
-            "Dec": None,
-            "Roll": None,
-        },
-        # RA, Dec, Roll at the target pixel
-        "RA": None,
-        "Dec": None,
-        "Roll": None,
-        "imu_pos": None,
-        "solve_time": None,
-        "cam_solve_time": 0,
-        "last_solve_attempt": 0,  # Timestamp of last solve attempt - tracks exposure_end of last processed image
-        "last_solve_success": None,  # Timestamp of last successful solve
-    }
 
     centroids = []
     log_no_stars_found = True
@@ -343,11 +319,12 @@ def solver(
                 is_new_image = (
                     last_image_metadata["exposure_end"] > solved["last_solve_attempt"]
                 )
-                is_stationary = last_image_metadata["imu_delta"] < 1
+                # Use configured max_imu_ang_during_exposure (degrees)
+                is_stationary = last_image_metadata["imu_delta"] < max_imu_ang_during_exposure
 
                 if is_new_image and not is_stationary:
                     logger.debug(
-                        f"Skipping image - IMU delta {last_image_metadata['imu_delta']:.2f}° >= 1° (moving)"
+                        f"Skipping image - IMU delta {last_image_metadata['imu_delta']:.2f}° >= {max_imu_ang_during_exposure}° (moving)"
                     )
 
                 if is_new_image and is_stationary:
@@ -451,19 +428,21 @@ def solver(
                             solved["camera_center"]["Dec"] = solved["Dec"]
                             solved["camera_center"]["Roll"] = solved["Roll"]
 
-                            # RA, Dec, Roll at the center of the camera's not imu:
+                            # RA, Dec, Roll at the camera center from plate-solve (no IMU compensation)
                             solved["camera_solve"]["RA"] = solved["RA"]
                             solved["camera_solve"]["Dec"] = solved["Dec"]
                             solved["camera_solve"]["Roll"] = solved["Roll"]
+
                             # RA, Dec, Roll at the target pixel:
+                            # Replace the camera center RA/Dec with the RA/Dec for the target pixel
                             solved["RA"] = solved["RA_target"]
                             solved["Dec"] = solved["Dec_target"]
-                            if last_image_metadata["imu"]:
-                                solved["imu_pos"] = last_image_metadata["imu"]["pos"]
+
+                            if last_image_metadata.get("imu"):
                                 solved["imu_quat"] = last_image_metadata["imu"]["quat"]
                             else:
-                                solved["imu_pos"] = None
                                 solved["imu_quat"] = None
+
                             solved["solve_time"] = time.time()
                             solved["cam_solve_time"] = solved["solve_time"]
                             # Mark successful solve - use same timestamp as last_solve_attempt for comparison
@@ -529,5 +508,50 @@ def solver(
                 logger.error(
                     f"Active threads: {[t.name for t in threading.enumerate()]}"
                 )
-            except Exception as e:
+            except Exception:
                 pass  # Don't let diagnostic logging fail
+
+
+def get_initialized_solved_dict() -> dict:
+    """
+    Returns an initialized 'solved' dictionary with cooridnate and other
+    information.
+
+    TODO: Update solver_main.py with this
+    TODO: use RaDecRoll class for the RA, Dec, Roll coordinates here?
+    TODO: "Alt" and "Az" could be removed but seems to be required by catalogs?
+    """
+    solved = {
+        # RA, Dec, Roll [deg] of the scope at the target pixel
+        "RA": None,
+        "Dec": None,
+        "Roll": None,
+        # RA, Dec, Roll [deg] solved at the center of the camera FoV
+        # update by the IMU in the integrator
+        "camera_center": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+            "Alt": None,  # NOTE: Altaz needed by catalogs for altaz mounts
+            "Az": None,
+        },
+        # RA, Dec, Roll [deg] from the camera, not updated by IMU in integrator
+        "camera_solve": {
+            "RA": None,
+            "Dec": None,
+            "Roll": None,
+        },
+        "imu_quat": None,  # IMU quaternion as numpy quaternion (scalar-first)
+        # Alt, Az [deg] of scope:
+        "Alt": None,
+        "Az": None,
+        # Diagnostics:
+        "solve_source": None,  # Source of the solve ("CAM", "CAM_FAILED", "IMU")
+        "solve_time": None,
+        "cam_solve_time": 0,
+        "last_solve_attempt": 0,  # Timestamp of last solve attempt - tracks exposure_end of last processed image
+        "last_solve_success": None,  # Timestamp of last successful solve
+        "constellation": None,
+    }
+
+    return solved
