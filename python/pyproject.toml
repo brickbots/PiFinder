@@ -4,6 +4,8 @@ mapping = [
 ]
 
 [tool.ruff]
+builtins = ["_"]
+
 # Exclude a variety of commonly ignored directories.
 exclude = [
     ".bzr",
@@ -59,6 +61,9 @@ unfixable = []
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
+[tool.ruff.lint.per-file-ignores]
+"*.ipynb" = ["E402", "F841"]
+
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
 quote-style = "double"
@@ -87,7 +92,7 @@ docstring-code-format = false
 docstring-code-line-length = "dynamic"
 
 [tool.mypy]
-exclude = "venv|tetra3"
+exclude = "venv|tetra3|noxfile\\.py"
 # Start off with these
 warn_unused_configs = true
 warn_redundant_casts = true
@@ -135,6 +140,19 @@ module = [
     'picamera2',
     'bottle',
     'libinput',
+    'pytz',
+    'aiofiles',
+    'requests',
+    'tqdm',
+    'pandas',
+    'rpi_hardware_pwm',
+    'gpsdclient',
+    'timezonefinder',
+    'pydeepskylog.*',
+    'dbus',
+    'pam',
+    'gi',
+    'gi.*',
 ]
 ignore_missing_imports = true
 ignore_errors = true

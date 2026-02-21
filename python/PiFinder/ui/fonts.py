@@ -43,7 +43,7 @@ class Fonts:
         huge_size=35,
         screen_width=128,
     ):
-        font_path = str(Path(Path.cwd(), "../fonts"))
+        font_path = str(Path(__file__).parent.parent.parent.parent / "fonts")
         boldttf = str(Path(font_path, "RobotoMonoNerdFontMono-Bold.ttf"))
         regularttf = str(Path(font_path, "RobotoMonoNerdFontMono-Regular.ttf"))
 

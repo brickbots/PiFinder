@@ -1,0 +1,117 @@
+name: Build PiFinder NixOS
+
+on:
+  push:
+    branches: [main, nixos]
+  pull_request:
+    types: [labeled, synchronize, opened]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  # Try Pi5 native build first (fast)
+  build-native:
+    if: |
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.pull_request.labels.*.name, 'preview') ||
+      contains(github.event.pull_request.labels.*.name, 'testable')
+    runs-on: [self-hosted, aarch64]
+    timeout-minutes: 30
+    outputs:
+      success: ${{ steps.build.outcome == 'success' }}
+      store_path: ${{ steps.push.outputs.store_path }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: pifinder
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Build NixOS system closure
+        id: build
+        run: |
+          nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            -L --no-link
+
+      - name: Push to Cachix
+        id: push
+        run: |
+          STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            --json | jq -r '.[].outputs.out')
+          echo "$STORE_PATH" | cachix push pifinder
+          echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
+
+  # Fallback to QEMU emulation if Pi5 unavailable
+  build-emulated:
+    needs: build-native
+    if: failure() || cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    outputs:
+      store_path: ${{ steps.push.outputs.store_path }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            extra-platforms = aarch64-linux
+            extra-system-features = big-parallel
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: pifinder
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Register QEMU binfmt for aarch64
+        run: sudo apt-get update && sudo apt-get install -y qemu-user-static
+
+      - name: Build NixOS system closure
+        run: |
+          nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            --system aarch64-linux \
+            -L --no-link
+
+      - name: Push to Cachix
+        id: push
+        run: |
+          STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            --system aarch64-linux \
+            --json | jq -r '.[].outputs.out')
+          echo "$STORE_PATH" | cachix push pifinder
+          echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
+
+  # Commit pifinder-build.json with store path to the same branch
+  stamp-build:
+    needs: [build-native, build-emulated]
+    if: always() && (needs.build-native.result == 'success' || needs.build-emulated.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Write pifinder-build.json
+        run: |
+          STORE_PATH="${{ needs.build-native.outputs.store_path || needs.build-emulated.outputs.store_path }}"
+          BRANCH="${{ github.head_ref || github.ref_name }}"
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          VERSION="${BRANCH}-${SHORT_SHA}"
+          jq -n --arg sp "$STORE_PATH" --arg v "$VERSION" \
+            '{store_path: $sp, version: $v}' > pifinder-build.json
+
+      - name: Commit pifinder-build.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pifinder-build.json
+          git diff --staged --quiet || git commit -m "chore: stamp build [skip ci]"
+          git push

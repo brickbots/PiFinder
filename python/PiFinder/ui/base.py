@@ -53,7 +53,11 @@ class RotatingInfoDisplay:
             self.progress = 0.0
         if self.progress < 1.0:
             self.progress = min(1.0, self.progress + self.fade_speed)
-        return self._get_text(self.show_sqm), self._get_text(not self.show_sqm), self.progress
+        return (
+            self._get_text(self.show_sqm),
+            self._get_text(not self.show_sqm),
+            self.progress,
+        )
 
     def draw(self, draw, x, y, font, colors, max_brightness=255, inverted=False):
         """Draw with cross-fade animation. inverted=True for dark text on light bg."""
@@ -62,13 +66,26 @@ class RotatingInfoDisplay:
             fade_out = progress < 0.5
             t = progress * 2 if fade_out else (progress - 0.5) * 2
             if inverted:
-                brightness = int(max_brightness * t) if fade_out else int(max_brightness * (1 - t))
+                brightness = (
+                    int(max_brightness * t)
+                    if fade_out
+                    else int(max_brightness * (1 - t))
+                )
             else:
-                brightness = int(max_brightness * (1 - t)) if fade_out else int(max_brightness * t)
+                brightness = (
+                    int(max_brightness * (1 - t))
+                    if fade_out
+                    else int(max_brightness * t)
+                )
             text = previous if fade_out else current
             draw.text((x, y), text, font=font, fill=colors.get(brightness))
         else:
-            draw.text((x, y), current, font=font, fill=colors.get(0 if inverted else max_brightness))
+            draw.text(
+                (x, y),
+                current,
+                font=font,
+                fill=colors.get(0 if inverted else max_brightness),
+            )
 
 
 class UIModule:
@@ -248,13 +265,24 @@ class UIModule:
     def _draw_titlebar_rotating_info(self, x, y, fg):
         """Draw rotating constellation/SQM in title bar (dark text on gray bg)."""
         self._rotating_display.draw(
-            self.draw, x, y, self.fonts.bold.font, self.colors, max_brightness=64, inverted=True
+            self.draw,
+            x,
+            y,
+            self.fonts.bold.font,
+            self.colors,
+            max_brightness=64,
+            inverted=True,
         )
 
     def draw_rotating_info(self, x=10, y=92, font=None):
         """Draw rotating constellation/SQM display with cross-fade."""
         self._rotating_display.draw(
-            self.draw, x, y, font or self.fonts.bold.font, self.colors, max_brightness=255
+            self.draw,
+            x,
+            y,
+            font or self.fonts.bold.font,
+            self.colors,
+            max_brightness=255,
         )
 
     def screen_update(self, title_bar=True, button_hints=True) -> None:
