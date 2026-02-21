@@ -149,7 +149,9 @@ class SQM:
 
             # Check for saturation in aperture
             aperture_pixels = image_patch[aperture_mask]
-            max_aperture_pixel = np.max(aperture_pixels) if len(aperture_pixels) > 0 else 0
+            max_aperture_pixel = (
+                np.max(aperture_pixels) if len(aperture_pixels) > 0 else 0
+            )
 
             if max_aperture_pixel >= saturation_threshold:
                 # Mark saturated star with flux=-1 to be excluded from mzero calculation
@@ -199,9 +201,7 @@ class SQM:
 
         for flux, mag in zip(star_fluxes, star_mags):
             if flux <= 0:
-                logger.warning(
-                    f"Skipping star with flux={flux:.1f} ADU (mag={mag:.2f})"
-                )
+                logger.debug(f"Skipping star with flux={flux:.1f} ADU (mag={mag:.2f})")
                 mzeros.append(None)  # Keep array aligned
                 continue
 
@@ -218,9 +218,7 @@ class SQM:
         # Flux-weighted mean: brighter stars contribute more
         valid_mzeros_arr = np.array(valid_mzeros)
         valid_fluxes_arr = np.array(valid_fluxes)
-        weighted_mzero = float(
-            np.average(valid_mzeros_arr, weights=valid_fluxes_arr)
-        )
+        weighted_mzero = float(np.average(valid_mzeros_arr, weights=valid_fluxes_arr))
 
         return weighted_mzero, mzeros
 
@@ -263,7 +261,7 @@ class SQM:
                     excluded_stars.add(i)
                     excluded_stars.add(j)
                     logger.debug(
-                        f"CRITICAL overlap: stars {i} and {j} (d={distance:.1f}px < {2*aperture_radius}px)"
+                        f"CRITICAL overlap: stars {i} and {j} (d={distance:.1f}px < {2 * aperture_radius}px)"
                     )
                 # HIGH: Aperture inside another star's annulus (background contamination)
                 elif distance < aperture_radius + annulus_outer_radius:
@@ -406,7 +404,7 @@ class SQM:
 
                 logger.info(
                     f"Overlap correction: excluded {n_stars_excluded}/{n_stars_original} stars "
-                    f"({n_stars_excluded*100//n_stars_original}%), using {len(valid_indices)} stars"
+                    f"({n_stars_excluded * 100 // n_stars_original}%), using {len(valid_indices)} stars"
                 )
 
                 if len(valid_indices) < 3:
@@ -430,7 +428,7 @@ class SQM:
         dark_current_contrib = noise_floor_details.get("dark_current_contribution", 0.0)
         pedestal = bias_offset + dark_current_contrib
 
-        logger.info(
+        logger.debug(
             f"Adaptive noise floor: {noise_floor:.1f} ADU, "
             f"pedestal={pedestal:.1f} (bias={bias_offset:.1f} + dark={dark_current_contrib:.1f}) "
             f"(dark_px={noise_floor_details['dark_pixel_smoothed']:.1f}, "
@@ -501,7 +499,9 @@ class SQM:
         # Following ASTAP: zenith is reference point where extinction = 0
         # Only ADDITIONAL extinction below zenith is added: 0.28 * (airmass - 1)
         # This allows comparing measurements at different altitudes
-        extinction_for_altitude = self._atmospheric_extinction(altitude_deg)  # 0.28*(airmass-1)
+        extinction_for_altitude = self._atmospheric_extinction(
+            altitude_deg
+        )  # 0.28*(airmass-1)
 
         # Main SQM value: no extinction correction (raw measurement)
         sqm_final = sqm_uncorrected

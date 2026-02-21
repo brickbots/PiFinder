@@ -41,9 +41,9 @@ def test_object_counts():
     expected_catalogs = list(catalog_counts.keys())
     missing_catalogs = set(expected_catalogs) - set(actual_catalogs)
     extra_catalogs = set(actual_catalogs) - set(expected_catalogs)
-    assert (
-        not missing_catalogs and not extra_catalogs
-    ), f"Catalog mismatch. Missing catalogs: {sorted(missing_catalogs)}. Extra catalogs: {sorted(extra_catalogs)}"
+    assert not missing_catalogs and not extra_catalogs, (
+        f"Catalog mismatch. Missing catalogs: {sorted(missing_catalogs)}. Extra catalogs: {sorted(extra_catalogs)}"
+    )
 
     # Catalog Counts
     for catalog_code, count in catalog_counts.items():
@@ -93,20 +93,20 @@ def check_messier_objects():
 
     # Validate M45 coordinates (Pleiades)
     # Expected: RA=56.85°, Dec=+24.117°
-    assert coords_are_close(
-        m45_obj["ra"], 56.85
-    ), f"M45 RA should be ~56.85°, got {m45_obj['ra']}"
-    assert coords_are_close(
-        m45_obj["dec"], 24.117
-    ), f"M45 Dec should be ~24.117°, got {m45_obj['dec']}"
+    assert coords_are_close(m45_obj["ra"], 56.85), (
+        f"M45 RA should be ~56.85°, got {m45_obj['ra']}"
+    )
+    assert coords_are_close(m45_obj["dec"], 24.117), (
+        f"M45 Dec should be ~24.117°, got {m45_obj['dec']}"
+    )
 
     # Validate M45 object type and constellation
-    assert (
-        m45_obj["obj_type"] == "OC"
-    ), f"M45 should be type 'OC' (open cluster), got '{m45_obj['obj_type']}'"
-    assert (
-        m45_obj["const"] == "Tau"
-    ), f"M45 should be in Taurus (Tau), got '{m45_obj['const']}'"
+    assert m45_obj["obj_type"] == "OC", (
+        f"M45 should be type 'OC' (open cluster), got '{m45_obj['obj_type']}'"
+    )
+    assert m45_obj["const"] == "Tau", (
+        f"M45 should be in Taurus (Tau), got '{m45_obj['const']}'"
+    )
 
     # Test M40 - Winnecke 4 (should have been added by post-processing)
     m40_catalog_obj = db.get_catalog_object_by_sequence("M", 40)
@@ -117,20 +117,20 @@ def check_messier_objects():
 
     # Validate M40 coordinates (Winnecke 4)
     # Expected: RA=185.552°, Dec=+58.083°
-    assert coords_are_close(
-        m40_obj["ra"], 185.552
-    ), f"M40 RA should be ~185.552°, got {m40_obj['ra']}"
-    assert coords_are_close(
-        m40_obj["dec"], 58.083
-    ), f"M40 Dec should be ~58.083°, got {m40_obj['dec']}"
+    assert coords_are_close(m40_obj["ra"], 185.552), (
+        f"M40 RA should be ~185.552°, got {m40_obj['ra']}"
+    )
+    assert coords_are_close(m40_obj["dec"], 58.083), (
+        f"M40 Dec should be ~58.083°, got {m40_obj['dec']}"
+    )
 
     # Validate M40 object type and constellation
-    assert (
-        m40_obj["obj_type"] == "D*"
-    ), f"M40 should be type 'D*' (double star), got '{m40_obj['obj_type']}'"
-    assert (
-        m40_obj["const"] == "UMa"
-    ), f"M40 should be in Ursa Major (UMa), got '{m40_obj['const']}'"
+    assert m40_obj["obj_type"] == "D*", (
+        f"M40 should be type 'D*' (double star), got '{m40_obj['obj_type']}'"
+    )
+    assert m40_obj["const"] == "UMa", (
+        f"M40 should be in Ursa Major (UMa), got '{m40_obj['const']}'"
+    )
 
 
 def check_ngc_objects():
@@ -190,32 +190,32 @@ def check_ngc_objects():
 
         # Get object from database
         catalog_obj = db.get_catalog_object_by_sequence("NGC", ngc_num)
-        assert (
-            catalog_obj is not None
-        ), f"NGC {ngc_num} ({name}) should exist in catalog"
+        assert catalog_obj is not None, (
+            f"NGC {ngc_num} ({name}) should exist in catalog"
+        )
 
         obj = db.get_object_by_id(catalog_obj["object_id"])
         assert obj is not None, f"NGC {ngc_num} ({name}) object should exist"
 
         # Check coordinates (allow 0.1 degree tolerance for coordinate precision)
-        assert coords_are_close(
-            obj["ra"], test_obj["ra"], tolerance=0.1
-        ), f"NGC {ngc_num} ({name}) RA should be ~{test_obj['ra']}°, got {obj['ra']}°"
+        assert coords_are_close(obj["ra"], test_obj["ra"], tolerance=0.1), (
+            f"NGC {ngc_num} ({name}) RA should be ~{test_obj['ra']}°, got {obj['ra']}°"
+        )
 
-        assert coords_are_close(
-            obj["dec"], test_obj["dec"], tolerance=0.1
-        ), f"NGC {ngc_num} ({name}) Dec should be ~{test_obj['dec']}°, got {obj['dec']}°"
+        assert coords_are_close(obj["dec"], test_obj["dec"], tolerance=0.1), (
+            f"NGC {ngc_num} ({name}) Dec should be ~{test_obj['dec']}°, got {obj['dec']}°"
+        )
 
         # Check object type
-        assert (
-            obj["obj_type"] == test_obj["obj_type"]
-        ), f"NGC {ngc_num} ({name}) should be type '{test_obj['obj_type']}', got '{obj['obj_type']}'"
+        assert obj["obj_type"] == test_obj["obj_type"], (
+            f"NGC {ngc_num} ({name}) should be type '{test_obj['obj_type']}', got '{obj['obj_type']}'"
+        )
 
         # Check constellation (if provided)
         if test_obj["const"]:
-            assert (
-                obj["const"] == test_obj["const"]
-            ), f"NGC {ngc_num} ({name}) should be in {test_obj['const']}, got '{obj['const']}'"
+            assert obj["const"] == test_obj["const"], (
+                f"NGC {ngc_num} ({name}) should be in {test_obj['const']}, got '{obj['const']}'"
+            )
 
         print(
             f"✓ NGC {ngc_num} ({name}): RA={obj['ra']:.3f}°, Dec={obj['dec']:.3f}°, Type={obj['obj_type']}, Const={obj['const']}"
@@ -286,24 +286,24 @@ def check_ic_objects():
         assert obj is not None, f"IC {ic_num} ({name}) object should exist"
 
         # Check coordinates (allow 0.1 degree tolerance for coordinate precision)
-        assert coords_are_close(
-            obj["ra"], test_obj["ra"], tolerance=0.1
-        ), f"IC {ic_num} ({name}) RA should be ~{test_obj['ra']}°, got {obj['ra']}°"
+        assert coords_are_close(obj["ra"], test_obj["ra"], tolerance=0.1), (
+            f"IC {ic_num} ({name}) RA should be ~{test_obj['ra']}°, got {obj['ra']}°"
+        )
 
-        assert coords_are_close(
-            obj["dec"], test_obj["dec"], tolerance=0.1
-        ), f"IC {ic_num} ({name}) Dec should be ~{test_obj['dec']}°, got {obj['dec']}°"
+        assert coords_are_close(obj["dec"], test_obj["dec"], tolerance=0.1), (
+            f"IC {ic_num} ({name}) Dec should be ~{test_obj['dec']}°, got {obj['dec']}°"
+        )
 
         # Check object type
-        assert (
-            obj["obj_type"] == test_obj["obj_type"]
-        ), f"IC {ic_num} ({name}) should be type '{test_obj['obj_type']}', got '{obj['obj_type']}'"
+        assert obj["obj_type"] == test_obj["obj_type"], (
+            f"IC {ic_num} ({name}) should be type '{test_obj['obj_type']}', got '{obj['obj_type']}'"
+        )
 
         # Check constellation (if provided)
         if test_obj["const"]:
-            assert (
-                obj["const"] == test_obj["const"]
-            ), f"IC {ic_num} ({name}) should be in {test_obj['const']}, got '{obj['const']}'"
+            assert obj["const"] == test_obj["const"], (
+                f"IC {ic_num} ({name}) should be in {test_obj['const']}, got '{obj['const']}'"
+            )
 
         print(
             f"✓ IC {ic_num} ({name}): RA={obj['ra']:.3f}°, Dec={obj['dec']:.3f}°, Type={obj['obj_type']}, Const={obj['const']}"
@@ -382,9 +382,9 @@ def test_background_loader():
 
     # Verify results
     assert loaded_count == 100, f"Expected 100 objects, got {loaded_count}"
-    assert (
-        len(loaded_objects) == 100
-    ), f"Expected 100 loaded objects, got {len(loaded_objects)}"
+    assert len(loaded_objects) == 100, (
+        f"Expected 100 loaded objects, got {len(loaded_objects)}"
+    )
 
     # Verify objects have details loaded
     for obj in loaded_objects[:10]:  # Check first 10

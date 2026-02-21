@@ -8,7 +8,6 @@ and constelleations
 import os
 import datetime
 import numpy as np
-import pandas
 from pathlib import Path
 from PiFinder import utils
 from PIL import Image, ImageDraw, ImageChops
@@ -133,6 +132,8 @@ class Starfield:
         """
         Converts and RA/DEC to screen space x/y for the current projection
         """
+        import pandas
+
         markers = pandas.DataFrame(
             [(Angle(degrees=ra)._hours, dec)], columns=["ra_hours", "dec_degrees"]
         )
@@ -168,6 +169,8 @@ class Starfield:
         Marker list should be a list of
         (RA_Hours/DEC_degrees, symbol) tuples
         """
+        import pandas
+
         ret_image = Image.new("RGB", self.render_size)
         idraw = ImageDraw.Draw(ret_image)
 

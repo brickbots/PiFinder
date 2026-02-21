@@ -239,53 +239,11 @@ class PowerManager:
         self.display_device.device.show()
 
 
-def start_profiling():
-    """Start profiling for performance analysis"""
-    import cProfile
-
-    profiler = cProfile.Profile()
-    profiler.enable()
-    startup_profile_start = time.time()
-    return profiler, startup_profile_start
-
-
-def stop_profiling(profiler, startup_profile_start):
-    """Stop profiling and save results"""
-    import pstats
-
-    profiler.disable()
-    startup_profile_time = time.time() - startup_profile_start
-    profile_path = utils.data_dir / "startup_profile.prof"
-    profiler.dump_stats(str(profile_path))
-
-    logger = logging.getLogger("Main.Profiling")
-    logger.info(f"=== Startup Profiling Complete ({startup_profile_time:.2f}s) ===")
-    logger.info(f"Profile saved to: {profile_path}")
-    logger.info("To analyze, run:")
-    logger.info(
-        f"  python -c \"import pstats; p = pstats.Stats('{profile_path}'); p.sort_stats('cumulative').print_stats(30)\""
-    )
-
-    summary_path = utils.data_dir / "startup_profile.txt"
-    with open(summary_path, "w") as f:
-        ps = pstats.Stats(profiler, stream=f)
-        f.write(f"=== STARTUP PROFILING ({startup_profile_time:.2f}s) ===\n\n")
-        f.write("Top 30 functions by cumulative time:\n")
-        f.write("=" * 80 + "\n")
-        ps.sort_stats("cumulative").print_stats(30)
-        f.write("\n" + "=" * 80 + "\n")
-        f.write("Top 30 functions by internal time:\n")
-        f.write("=" * 80 + "\n")
-        ps.sort_stats("time").print_stats(30)
-    logger.info(f"Text summary saved to: {summary_path}")
-
-
 def main(
     log_helper: MultiprocLogging,
     script_name=None,
     show_fps=False,
     verbose=False,
-    profile_startup=False,
 ) -> None:
     """
     Get this show on the road!
@@ -302,6 +260,7 @@ def main(
     # init queues
     console_queue: Queue = Queue()
     keyboard_queue: Queue = Queue()
+    display_device.set_keyboard_queue(keyboard_queue)
     gps_queue: Queue = Queue()
     camera_command_queue: Queue = Queue()
     solver_queue: Queue = Queue()
@@ -505,13 +464,9 @@ def main(
         )
         posserver_process.start()
 
-        # Initialize Catalogs
         console.write("   Catalogs")
         logger.info("   Catalogs")
         console.update()
-
-        # Start profiling (uncomment to enable performance analysis)
-        # profiler, startup_profile_start = start_profiling()
 
         # Initialize Catalogs (pass ui_queue for background loading completion signal)
         catalogs: Catalogs = CatalogBuilder().build(shared_state, ui_queue)
@@ -520,6 +475,18 @@ def main(
         _new_filter = CatalogFilter(shared_state=shared_state)
         _new_filter.load_from_config(cfg)
         catalogs.set_catalog_filter(_new_filter)
+
+        # Initialize Gaia chart generator in background to avoid first-use delay
+        console.write("   Gaia Charts")
+        console.update()
+        logger.info("   Initializing Gaia chart generator...")
+        from PiFinder.object_images.gaia_chart import get_gaia_chart_generator
+
+        chart_gen = get_gaia_chart_generator(cfg, shared_state)
+        # Trigger background loading so catalog is ready when needed
+        chart_gen.ensure_catalog_loading()
+        logger.info("   Gaia chart background loading started")
+
         console.write("   Menus")
         console.update()
 
@@ -536,18 +503,71 @@ def main(
         # Initialize power manager
         power_manager = PowerManager(cfg, shared_state, display_device)
 
-        # Start main event loop
-        console.write("   Event Loop")
-        logger.info("   Event Loop")
+        # Startup complete — clear welcome backdrop
+        console.write("   Ready")
         console.update()
+        console.finish_startup()
 
-        # Stop profiling (uncomment to analyze startup performance)
-        # stop_profiling(profiler, startup_profile_start)
+        # Start deferred catalog loading now that UI is ready
+        logger.info("   Event Loop")
+        catalogs.start_background_loading()
 
         log_time = True
+
+        # Set up Pygame event handling if using Pygame display
+        pygame_events_enabled = display_hardware in ["pg_128", "pg_320"]
+        if pygame_events_enabled:
+            import pygame
+            from PiFinder.keyboard_interface import KeyboardInterface
+
+            logger.info("Pygame event polling enabled for keyboard input")
+
+            # Key mapping for Pygame
+            pygame_key_map = {
+                pygame.K_LEFT: KeyboardInterface.LEFT,
+                pygame.K_UP: KeyboardInterface.UP,
+                pygame.K_DOWN: KeyboardInterface.DOWN,
+                pygame.K_RIGHT: KeyboardInterface.RIGHT,
+                pygame.K_q: KeyboardInterface.PLUS,
+                pygame.K_a: KeyboardInterface.MINUS,
+                pygame.K_z: KeyboardInterface.SQUARE,
+                pygame.K_m: KeyboardInterface.LNG_SQUARE,
+                pygame.K_0: 0,
+                pygame.K_1: 1,
+                pygame.K_2: 2,
+                pygame.K_3: 3,
+                pygame.K_4: 4,
+                pygame.K_5: 5,
+                pygame.K_6: 6,
+                pygame.K_7: 7,
+                pygame.K_8: 8,
+                pygame.K_9: 9,
+                pygame.K_w: KeyboardInterface.ALT_PLUS,
+                pygame.K_s: KeyboardInterface.ALT_MINUS,
+                pygame.K_d: KeyboardInterface.ALT_LEFT,
+                pygame.K_r: KeyboardInterface.ALT_UP,
+                pygame.K_f: KeyboardInterface.ALT_DOWN,
+                pygame.K_g: KeyboardInterface.ALT_RIGHT,
+                pygame.K_e: KeyboardInterface.ALT_0,
+                pygame.K_j: KeyboardInterface.LNG_LEFT,
+                pygame.K_i: KeyboardInterface.LNG_UP,
+                pygame.K_k: KeyboardInterface.LNG_DOWN,
+                pygame.K_l: KeyboardInterface.LNG_RIGHT,
+            }
+
         # Start of main except handler / loop
         try:
             while True:
+                # Poll Pygame events if using Pygame display
+                if pygame_events_enabled:
+                    for event in pygame.event.get():
+                        if event.type == pygame.KEYDOWN:
+                            if event.key in pygame_key_map:
+                                keyboard_queue.put(pygame_key_map[event.key])
+                        elif event.type == pygame.QUIT:
+                            logger.info("Pygame window closed, exiting...")
+                            raise KeyboardInterrupt
+
                 # Console
                 try:
                     console_msg = console_queue.get(block=False)
@@ -628,6 +648,9 @@ def main(
                             shared_state.set_sats(gps_content)
                 except queue.Empty:
                     pass
+
+                # Gaia catalog loading removed - now lazy-loads on first chart view
+                # (object_images triggers loading when needed)
 
                 # ui queue
                 try:
@@ -953,13 +976,6 @@ if __name__ == "__main__":
         help="Force user interface language (iso2 code). Changes configuration",
         type=str,
     )
-    parser.add_argument(
-        "--profile-startup",
-        help="Profile startup performance (catalog/menu loading)",
-        default=False,
-        action="store_true",
-        required=False,
-    )
     args = parser.parse_args()
     # add the handlers to the logger
     if args.verbose:
@@ -982,8 +998,7 @@ if __name__ == "__main__":
 
         # verify and sync GPSD baud rate
         try:
-            from PiFinder import sys_utils
-
+            sys_utils = utils.get_sys_utils()
             baud_rate = cfg.get_option(
                 "gps_baud_rate", 9600
             )  # Default to 9600 if not set
@@ -1013,16 +1028,26 @@ if __name__ == "__main__":
         rlogger.warn("not using camera")
         from PiFinder import camera_none as camera  # type: ignore[no-redef]
 
-    if args.keyboard.lower() == "pi":
-        from PiFinder import keyboard_pi as keyboard
+    # When using Pygame display, use built-in event polling (no keyboard subprocess needed)
+    if display_hardware in ["pg_128", "pg_320"]:
+        from PiFinder import keyboard_none as keyboard
+
+        rlogger.info("using pygame built-in keyboard (no subprocess)")
+    elif args.keyboard.lower() == "pi":
+        from PiFinder import keyboard_pi as keyboard  # type: ignore[no-redef]
 
         rlogger.info("using pi keyboard hat")
     elif args.keyboard.lower() == "local":
-        from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
+        if display_hardware.startswith("pg_"):
+            from PiFinder import keyboard_none as keyboard
 
-        rlogger.info("using local keyboard")
+            rlogger.info("using pygame keyboard (display captures keys)")
+        else:
+            from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
+
+            rlogger.info("using local keyboard")
     elif args.keyboard.lower() == "none":
-        from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
+        from PiFinder import keyboard_none as keyboard
 
         rlogger.warning("using no keyboard")
 
@@ -1033,7 +1058,7 @@ if __name__ == "__main__":
             config.Config().set_option("language", args.lang)
 
     try:
-        main(log_helper, args.script, args.fps, args.verbose, args.profile_startup)
+        main(log_helper, args.script, args.fps, args.verbose)
     except Exception:
         rlogger.exception("Exception in main(). Aborting program.")
         os._exit(1)

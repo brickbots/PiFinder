@@ -16,7 +16,6 @@ from PiFinder.composite_object import CompositeObject
 from typing import Optional
 from dataclasses import dataclass, asdict
 import json
-from timezonefinder import TimezoneFinder
 
 logger = logging.getLogger("SharedState")
 
@@ -238,7 +237,7 @@ class Location:
 
 
 class SharedStateObj:
-    def __init__(self):
+    def __init__(self) -> None:
         self.__power_state = 1
         # self.__solve_state
         # None = No solve attempted yet
@@ -258,7 +257,9 @@ class SharedStateObj:
         self.__imu = None
         self.__location: Location = Location()
         self.__sqm: SQM = SQM()
-        self.__noise_floor: float = 10.0  # Adaptive noise floor in ADU (default fallback)
+        self.__noise_floor: float = (
+            10.0  # Adaptive noise floor in ADU (default fallback)
+        )
         self.__sqm_details: dict = {}  # Full SQM calculation details for calibration
         self.__datetime = None
         self.__datetime_time = None
@@ -270,7 +271,7 @@ class SharedStateObj:
         self.__cam_raw = None
         # Are we prepared to do alt/az math
         # We need gps lock and datetime
-        self.__tz_finder = TimezoneFinder()
+        self.__tz_finder = None
 
     def serialize(self, output_file):
         with open(output_file, "wb") as f:
@@ -348,6 +349,10 @@ class SharedStateObj:
         # if value is not none, set the timezone
         # before saving the value
         if v:
+            if self.__tz_finder is None:
+                from timezonefinder import TimezoneFinder
+
+                self.__tz_finder = TimezoneFinder()
             v.timezone = self.__tz_finder.timezone_at(lat=v.lat, lng=v.lon)
         self.__location = v
 
