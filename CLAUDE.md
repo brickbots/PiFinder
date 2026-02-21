@@ -118,3 +118,35 @@ Tests use pytest with custom markers for different test types. The smoke tests p
 - **I18n Support:** Babel integration for multi-language UI
 
 The codebase follows modern Python practices with type hints, comprehensive testing, and automated code quality checks integrated into the development workflow.
+
+## NixOS Development
+
+**CRITICAL: Never run `nix build` or `nix eval` on Pi 4 targets.** The Pi 4 lacks sufficient resources and will hang/crash. Always build on pi5.local (GitHub Actions runner), push to cachix, then trigger the upgrade service:
+```bash
+# Build on pi5
+ssh pi5.local 'nix build --no-link --print-out-paths github:mrosseel/PiFinder/nixos#nixosConfigurations.pifinder.config.system.build.toplevel'
+# Push to cachix (so Pi can download signed paths)
+ssh pi5.local 'cachix push pifinder <store-path>'
+# Trigger upgrade on target Pi (downloads from cachix, activates, reboots)
+ssh pifinder@<target-ip> 'echo "<store-path>" > /run/pifinder/upgrade-ref && sudo systemctl start --no-block pifinder-upgrade.service'
+# Monitor progress
+ssh pifinder@<target-ip> 'cat /run/pifinder/upgrade-status'
+```
+
+**Netboot deployment (dev Pi on proxnix NFS):**
+```bash
+./deploy-image-to-nfs.sh    # Build and deploy to NFS
+```
+
+**Power control (Shelly plug via Home Assistant):**
+```bash
+~/.local/bin/pifinder-power-off.sh   # Turn off PiFinder
+~/.local/bin/pifinder-power-on.sh    # Turn on PiFinder
+```
+
+**Check Pi status:**
+```bash
+ssh pifinder@192.168.5.146           # SSH to netboot Pi
+systemctl status pifinder            # Check service status
+journalctl -u pifinder -f            # Follow service logs
+```

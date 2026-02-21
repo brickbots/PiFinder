@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g., 2.5.0)'
+        required: true
+      notes:
+        description: 'Release notes'
+        required: true
+      type:
+        description: 'Release type'
+        type: choice
+        options:
+          - stable
+          - beta
+        default: stable
+      source_branch:
+        description: 'Source branch (default: main, use release/X.Y for hotfixes)'
+        required: false
+        default: 'main'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            extra-platforms = aarch64-linux
+            extra-system-features = big-parallel
+
+      - uses: cachix/cachix-action@v15
+        with:
+          name: pifinder
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Register QEMU binfmt for aarch64
+        run: sudo apt-get update && sudo apt-get install -y qemu-user-static
+
+      - name: Build and push closure to Cachix
+        id: push
+        run: |
+          STORE_PATH=$(nix build .#nixosConfigurations.pifinder.config.system.build.toplevel \
+            --system aarch64-linux -L --json | jq -r '.[].outputs.out')
+          echo "$STORE_PATH" | cachix push pifinder
+          echo "store_path=$STORE_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp pifinder-build.json and create tag
+        run: |
+          TAG="v${{ inputs.version }}"
+          [[ "${{ inputs.type }}" == "beta" ]] && TAG="${TAG}-beta"
+
+          STORE_PATH="${{ steps.push.outputs.store_path }}"
+          VERSION="${{ inputs.version }}"
+          jq -n --arg sp "$STORE_PATH" --arg v "$VERSION" \
+            '{store_path: $sp, version: $v}' > pifinder-build.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pifinder-build.json
+          git diff --staged --quiet || git commit -m "release: stamp build for $TAG [skip ci]"
+          git push origin "${{ inputs.source_branch }}"
+
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Build SD image
+        run: |
+          nix build .#images.pifinder \
+            --system aarch64-linux \
+            -L -o result-sd
+          mkdir -p release
+          for f in result-sd/sd-image/*.img.zst; do
+            cp "$f" "release/pifinder-${TAG}.img.zst"
+          done
+
+      - name: Build bootstrap tarball
+        run: |
+          nix build .#images.bootstrap \
+            --system aarch64-linux \
+            -L -o result-bootstrap
+          for f in result-bootstrap/tarball/*.tar.zst; do
+            cp "$f" "release/pifinder-bootstrap-${TAG}.tar.zst"
+          done
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pifinder-release-${{ env.TAG }}
+          path: release/pifinder-*.zst
+          retention-days: 90
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.TAG }}
+          name: PiFinder ${{ env.TAG }}
+          body: ${{ inputs.notes }}
+          prerelease: ${{ inputs.type == 'beta' }}
+          files: |
+            release/pifinder-*.img.zst
+            release/pifinder-bootstrap-*.tar.zst
