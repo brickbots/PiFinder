@@ -35,7 +35,7 @@ class UIConsole(UIModule):
         self.dirty = True
         self.welcome = True
 
-        # load welcome image to screen
+        # Load welcome image as startup backdrop
         root_dir = os.path.realpath(
             os.path.join(os.path.dirname(__file__), "..", "..", "..")
         )
@@ -86,6 +86,13 @@ class UIConsole(UIModule):
         # reset scroll offset
         self.scroll_offset = 0
         self.dirty = True
+
+    def finish_startup(self):
+        """End the startup splash phase and clear the welcome backdrop."""
+        self.welcome = False
+        self.clear_screen()
+        self.dirty = True
+        self.update()
 
     def active(self):
         self.welcome = False

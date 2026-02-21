@@ -478,6 +478,12 @@ class Catalogs:
             and self._background_loader._thread.is_alive()
         )
 
+    def start_background_loading(self):
+        """Start deferred catalog loading in background thread.
+        Call after event loop is ready to avoid SD I/O contention during startup."""
+        if hasattr(self, "_background_loader") and self._background_loader is not None:
+            self._background_loader.start()
+
     def __repr__(self):
         return f"Catalogs(\n{pformat(self.get_catalogs(only_selected=False))})"
 
@@ -624,21 +630,18 @@ class CatalogBackgroundLoader:
 
     def __init__(
         self,
-        deferred_catalog_objects: List[Dict],
-        objects: Dict[int, Dict],
-        common_names: Names,
-        obs_db: ObservationsDatabase,
+        deferred_catalog_objects: List[Dict] = None,
+        objects: Dict[int, Dict] = None,
+        common_names: Names = None,
+        obs_db: ObservationsDatabase = None,
         on_progress: Optional[callable] = None,
         on_complete: Optional[callable] = None,
+        priority_codes: tuple = None,
     ):
         """
-        Args:
-            deferred_catalog_objects: List of catalog_object dicts to load
-            objects: Object data dict by ID
-            common_names: Names lookup instance
-            obs_db: Observations database instance
-            on_progress: Callback(loaded_count, total_count, catalog_code)
-            on_complete: Callback(loaded_objects: List[CompositeObject])
+        Two modes:
+        1. Pre-loaded data: pass deferred_catalog_objects, objects, common_names
+        2. Self-loading: pass priority_codes (loader queries DB in background thread)
         """
         self._deferred_data = deferred_catalog_objects
         self._objects = objects
@@ -646,6 +649,7 @@ class CatalogBackgroundLoader:
         self._obs_db = obs_db
         self._on_progress = on_progress
         self._on_complete = on_complete
+        self._priority_codes = priority_codes
 
         self._loaded_objects: List[CompositeObject] = []
         self._lock = threading.Lock()
@@ -653,8 +657,8 @@ class CatalogBackgroundLoader:
         self._stop_flag = threading.Event()
 
         # Performance tuning - load in batches with CPU yielding
-        self.batch_size = 100  # Objects per batch before yielding CPU
-        self.yield_time = 0.05  # Seconds to sleep between batches (50ms)
+        self.batch_size = 25  # Objects per batch before yielding CPU
+        self.yield_time = 0.1  # Seconds to sleep between batches (100ms)
 
     def start(self) -> None:
         """Start background loading in daemon thread"""
@@ -681,6 +685,23 @@ class CatalogBackgroundLoader:
     def _load_deferred_objects(self) -> None:
         """Background worker - loads objects in batches with CPU yielding"""
         try:
+            if self._deferred_data is None and self._priority_codes is not None:
+                # Self-loading mode: query DB for deferred catalog data
+                start = time.time()
+                db = ObjectsDatabase()
+                all_catalog_objects = [dict(row) for row in db.get_catalog_objects()]
+                self._deferred_data = [
+                    co
+                    for co in all_catalog_objects
+                    if co["catalog_code"] not in self._priority_codes
+                ]
+                self._objects = {row["id"]: dict(row) for row in db.get_objects()}
+                self._names = Names()
+                logger.info(
+                    f"Background loader data load took {time.time() - start:.2f}s "
+                    f"for {len(self._deferred_data)} deferred objects"
+                )
+
             total = len(self._deferred_data)
             batch = []
             current_catalog = None
@@ -778,15 +799,24 @@ class CatalogBuilder:
         db: Database = ObjectsDatabase()
         obs_db: Database = ObservationsDatabase()
 
-        # list of dicts, one dict for each entry in the catalog_objects table
-        catalog_objects: List[Dict] = [dict(row) for row in db.get_catalog_objects()]
-        objects = db.get_objects()
-        common_names = Names()
-        catalogs_info = db.get_catalogs_dict()
-        objects = {row["id"]: dict(row) for row in objects}
+        priority_codes = ("NGC", "IC", "M")
 
-        composite_objects: List[CompositeObject] = self._build_composite(
-            catalog_objects, objects, common_names, obs_db, ui_queue
+        # Fast path: single JOIN query for priority catalog data
+        start = time.time()
+        priority_rows = db.get_priority_catalog_joined(priority_codes)
+        priority_names = db.get_priority_names(priority_codes)
+        catalogs_info = db.get_catalogs_dict()
+        logger.info(f"Priority data queries took {time.time() - start:.2f}s")
+
+        # Build priority CompositeObjects directly from joined rows
+        start = time.time()
+        composite_objects = []
+        for row in priority_rows:
+            obj = self._create_composite_from_row(row, priority_names, obs_db)
+            composite_objects.append(obj)
+        logger.info(
+            f"Priority object construction took {time.time() - start:.2f}s "
+            f"for {len(composite_objects)} objects"
         )
 
         # This is used for caching catalog dicts
@@ -794,15 +824,25 @@ class CatalogBuilder:
         self.catalog_dicts = {}
         logger.debug("Loaded %i objects from database", len(composite_objects))
 
+        start = time.time()
         all_catalogs: Catalogs = self._get_catalogs(composite_objects, catalogs_info)
+        logger.info(f"_get_catalogs took {time.time() - start:.2f}s")
 
         # Store catalogs reference for background loader completion
         self._pending_catalogs_ref = all_catalogs
 
-        # Pass background loader reference to Catalogs instance so it can check loading status
-        # This is set in _build_composite() if there are deferred objects
-        if hasattr(self, "_background_loader") and self._background_loader is not None:
-            all_catalogs._background_loader = self._background_loader
+        # Create background loader for deferred catalogs (not started yet —
+        # call catalogs.start_background_loading() after event loop starts
+        # to avoid SD I/O contention during menu init)
+        loader = CatalogBackgroundLoader(
+            priority_codes=priority_codes,
+            obs_db=obs_db,
+            on_progress=self._on_loader_progress,
+            on_complete=lambda objs: self._on_loader_complete(objs, ui_queue),
+        )
+        self._background_loader = loader
+        all_catalogs._background_loader = self._background_loader
+
         # Initialize planet catalog with whatever date we have for now
         # This will be re-initialized on activation of Catalog ui module
         # if we have GPS lock
@@ -812,59 +852,52 @@ class CatalogBuilder:
         )
         all_catalogs.add(planet_catalog)
 
-        # Import CometCatalog locally to avoid circular import
-        from PiFinder.comet_catalog import CometCatalog
+        # Defer CometCatalog creation to background thread (3-4s init with
+        # network check + ephemeris calculation not needed at startup)
+        def _init_comet_catalog():
+            try:
+                from PiFinder.comet_catalog import CometCatalog
 
-        comet_catalog: Catalog = CometCatalog(
-            datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC")),
-            shared_state=shared_state,
-        )
-        all_catalogs.add(comet_catalog)
+                start = time.time()
+                comet_catalog: Catalog = CometCatalog(
+                    datetime.datetime.now().replace(tzinfo=pytz.timezone("UTC")),
+                    shared_state=shared_state,
+                )
+                all_catalogs.add(comet_catalog)
+                logger.info(f"CometCatalog init took {time.time() - start:.2f}s")
+            except Exception as e:
+                logger.error(f"CometCatalog init failed: {e}")
+
+        threading.Thread(
+            target=_init_comet_catalog, daemon=True, name="CometCatalogInit"
+        ).start()
 
         assert self.check_catalogs_sequences(all_catalogs) is True
         return all_catalogs
 
-    def check_catalogs_sequences(self, catalogs: Catalogs):
-        for catalog in catalogs.get_catalogs(only_selected=False):
-            result = catalog.check_sequences()
-            if not result:
-                logger.error("Duplicate sequence catalog %s!", catalog.catalog_code)
-                return False
-            return True
+    def _create_composite_from_row(self, row, names_dict, obs_db):
+        """Build CompositeObject directly from a joined query row."""
+        object_id = row["object_id"]
 
-    def _create_full_composite_object(
-        self,
-        catalog_obj: Dict,
-        objects: Dict[int, Dict],
-        common_names: Names,
-        obs_db: ObservationsDatabase,
-    ) -> CompositeObject:
-        """Create a composite object with all details populated"""
-        object_id = catalog_obj["object_id"]
-        obj_data = objects[object_id]
+        composite_instance = CompositeObject(
+            id=row["id"],
+            object_id=object_id,
+            ra=row["ra"],
+            dec=row["dec"],
+            obj_type=row["obj_type"],
+            catalog_code=row["catalog_code"],
+            sequence=row["sequence"],
+            description=row["description"] or "",
+            const=row["const"] or "",
+            size=row["size"] or "",
+            surface_brightness=row["surface_brightness"],
+        )
 
-        # Create composite object with all details
-        composite_data = {
-            "id": catalog_obj["id"],
-            "object_id": object_id,
-            "ra": obj_data["ra"],
-            "dec": obj_data["dec"],
-            "obj_type": obj_data["obj_type"],
-            "catalog_code": catalog_obj["catalog_code"],
-            "sequence": catalog_obj["sequence"],
-            "description": catalog_obj.get("description", ""),
-            "const": obj_data.get("const", ""),
-            "size": obj_data.get("size", ""),
-            "surface_brightness": obj_data.get("surface_brightness", None),
-        }
-
-        composite_instance = CompositeObject.from_dict(composite_data)
-        composite_instance.names = common_names.id_to_names.get(object_id, [])
+        composite_instance.names = names_dict.get(object_id, [])
         composite_instance.logged = obs_db.check_logged(composite_instance)
 
-        # Parse magnitude
         try:
-            mag = MagnitudeObject.from_json(obj_data.get("mag", ""))
+            mag = MagnitudeObject.from_json(row["mag"] or "")
             composite_instance.mag = mag
             composite_instance.mag_str = mag.calc_two_mag_representation()
         except Exception:
@@ -874,58 +907,13 @@ class CatalogBuilder:
         composite_instance._details_loaded = True
         return composite_instance
 
-    def _build_composite(
-        self,
-        catalog_objects: List[Dict],
-        objects: Dict[int, Dict],
-        common_names: Names,
-        obs_db: ObservationsDatabase,
-        ui_queue=None,
-    ) -> List[CompositeObject]:
-        """
-        Build composite objects with priority loading.
-        Popular catalogs (M, NGC, IC) are loaded immediately.
-        Other catalogs (WDS, etc.) are loaded in background.
-        """
-        # Separate high-priority catalogs from low-priority ones
-        priority_catalogs = {"NGC", "IC", "M"}  # Most popular catalogs
-
-        priority_objects = []
-        deferred_objects = []
-
-        for catalog_obj in catalog_objects:
-            if catalog_obj["catalog_code"] in priority_catalogs:
-                priority_objects.append(catalog_obj)
-            else:
-                deferred_objects.append(catalog_obj)
-
-        # Load priority catalogs synchronously (fast - ~13K objects)
-        composite_objects = []
-        for catalog_obj in priority_objects:
-            obj = self._create_full_composite_object(
-                catalog_obj, objects, common_names, obs_db
-            )
-            composite_objects.append(obj)
-
-        # Store reference for background loader completion callback
-        self._pending_catalogs_ref = None
-
-        # Start background loader for deferred objects
-        if deferred_objects:
-            loader = CatalogBackgroundLoader(
-                deferred_catalog_objects=deferred_objects,
-                objects=objects,
-                common_names=common_names,
-                obs_db=obs_db,
-                on_progress=self._on_loader_progress,
-                on_complete=lambda objs: self._on_loader_complete(objs, ui_queue),
-            )
-            loader.start()
-
-            # Store loader reference for potential stop/test access
-            self._background_loader = loader
-
-        return composite_objects
+    def check_catalogs_sequences(self, catalogs: Catalogs):
+        for catalog in catalogs.get_catalogs(only_selected=False):
+            result = catalog.check_sequences()
+            if not result:
+                logger.error("Duplicate sequence catalog %s!", catalog.catalog_code)
+                return False
+            return True
 
     def _on_loader_progress(self, loaded: int, total: int, catalog: str) -> None:
         """Progress callback - log every 10K objects"""

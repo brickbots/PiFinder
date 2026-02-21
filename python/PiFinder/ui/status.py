@@ -81,13 +81,11 @@ class UIStatus(UIModule):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.version_txt = f"{utils.pifinder_dir}/version.txt"
         self.wifi_txt = f"{utils.pifinder_dir}/wifi_status.txt"
         self._draw_pos = (0, self.display_class.titlebar_height)
         with open(self.wifi_txt, "r") as wfs:
             self._config_options["WiFi Mode"]["value"] = wfs.read()
-        with open(self.version_txt, "r") as ver:
-            self._config_options["Software"]["value"] = ver.read()
+        self._config_options["Software"]["value"] = utils.get_version()
         self.spacecalc = SpaceCalculatorFixed(self.fonts.base.line_length)
         self.status_dict = {
             "LST SLV": "--",
@@ -144,14 +142,11 @@ class UIStatus(UIModule):
 
     def update_software(self, option):
         if option == "CANCEL":
-            with open(self.version_txt, "r") as ver:
-                self._config_options["Software"]["value"] = ver.read()
+            self._config_options["Software"]["value"] = utils.get_version()
             return False
 
-        self.message("Updating...", 10)
         if sys_utils.update_software():
-            self.message("Ok! Restarting", 10)
-            sys_utils.restart_pifinder()
+            self.message("Updating...", 10)
         else:
             self.message("Error on Upd", 3)
 
@@ -246,13 +241,11 @@ class UIStatus(UIModule):
                 + f" {stars_matched: >2}"
             )
             hh, mm, _ = calc_utils.ra_to_hms(solution["RA"])
-            self.status_dict["RA/DEC"] = (
-                f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec'] :.2f}"
-            )
+            self.status_dict["RA/DEC"] = f"{hh:02.0f}h{mm:02.0f}m/{solution['Dec']:.2f}"
 
             if solution["Az"]:
                 self.status_dict["AZ/ALT"] = (
-                    f"{solution['Az'] : >6.2f}/{solution['Alt'] : >6.2f}"
+                    f"{solution['Az']: >6.2f}/{solution['Alt']: >6.2f}"
                 )
 
         imu = self.shared_state.imu()
@@ -262,9 +255,9 @@ class UIStatus(UIModule):
                     mtext = "Moving"
                 else:
                     mtext = "Static"
-                self.status_dict["IMU"] = f"{mtext : >11}" + " " + str(imu["status"])
+                self.status_dict["IMU"] = f"{mtext: >11}" + " " + str(imu["status"])
                 self.status_dict["IMU PS"] = (
-                    f"{imu['pos'][0] : >6.1f}/{imu['pos'][2] : >6.1f}"
+                    f"{imu['pos'][0]: >6.1f}/{imu['pos'][2]: >6.1f}"
                 )
         location = self.shared_state.location()
         sats = self.shared_state.sats()
@@ -290,7 +283,7 @@ class UIStatus(UIModule):
             try:
                 with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
                     raw_temp = int(f.read().strip())
-                self.status_dict["CPU TMP"] = f"{raw_temp / 1000 : >13.1f}"
+                self.status_dict["CPU TMP"] = f"{raw_temp / 1000: >13.1f}"
             except FileNotFoundError:
                 self.status_dict["CPU TMP"] = "Error"
 
@@ -306,7 +299,10 @@ class UIStatus(UIModule):
     def update(self, force=False):
         time.sleep(1 / 30)
         self.update_status_dict()
-        self.draw.rectangle([0, 0, 128, 128], fill=self.colors.get(0))
+        self.draw.rectangle(
+            [0, 0, self.display_class.resX, self.display_class.resY],
+            fill=self.colors.get(0),
+        )
         lines = []
         # Insert IP address here...
         for k, v in self.status_dict.items():
