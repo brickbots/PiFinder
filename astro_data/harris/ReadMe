@@ -1,0 +1,116 @@
+VII/202                 Globular Clusters in the Milky Way (Harris, 1997)
+================================================================================
+A catalog of parameters for globular clusters on the Milky Way
+     Harris W.E.
+    <Astron. J. 112, 1487 (1996, rev. 15 May 1997)>
+    =1996AJ....112.1487H
+================================================================================
+ADC_Keywords: Clusters, globular
+
+Description:
+    This catalog compiled by William E. Harris contains basic parameters
+    on distances, velocities, metallicities, luminosities, colors, and
+    dynamical parameters for 147 objects regarded as globular clusters in
+    the Milky Way galaxy. A complete list of source references is given in
+    the companion file "sources".
+
+    The original files are also accessible through WorldWideWeb, at URL
+    http://www.physics.mcmaster.ca/Globular.html
+
+    This version corresponds to revision: May 15, 1997,
+      and supersedes the previous version (Catalog <VII/195>).
+
+Important Notice:
+    Please acknowledge the use of this catalog in any published work you
+    derive from it. I would also greatly appreciate receiving any new
+    information, in published or preprint form, which would help me keep
+    the list up to date.
+                        William E. Harris <harris@physics.mcmaster.ca>
+                        McMaster University
+
+File Summary:
+--------------------------------------------------------------------------------
+ FileName    Lrecl    Records    Explanations
+--------------------------------------------------------------------------------
+ReadMe          80          .    This file
+catalog        236        147    The catalogue of Globular Clusters
+sources.txt     80       1176    Sources and Explanations
+--------------------------------------------------------------------------------
+
+See also:
+    VII/151 : Structure Parameters of Galactic Globular Clusters (Webbink 1985)
+    http://www.physics.mcmaster.ca/Globular.html : the author's database.
+
+Byte-by-byte Description of file: catalog
+--------------------------------------------------------------------------------
+   Bytes Format Units     Label     Explanations
+--------------------------------------------------------------------------------
+   2- 10  A9    ---       ID        Cluster identification number
+  12- 22  A11   ---       Name      Other commonly used cluster name
+  24- 25  I2    h         RAh       Right Ascension J2000 (hours)
+  27- 28  I2    min       RAm       Right Ascension J2000 (minutes)
+  30- 33  F4.1  s         RAs       Right Ascension J2000 (seconds)
+      36  A1    ---       DE-       Declination J2000 (sign)
+  37- 38  I2    deg       DEd       Declination J2000 (degrees)
+  40- 41  I2    arcmin    DEm       Declination J2000 (minutes)
+  43- 44  I2    arcsec    DEs       Declination J2000 (seconds)
+  47- 52  F6.2  deg       GLON      Galactic longitude
+  54- 59  F6.2  deg       GLAT      Galactic latitude
+  61- 65  F5.1  kpc       Rsun      ? Distance from Sun
+  67- 71  F5.1  kpc       Rgc       ? Distance from Galactic center,
+                                      assuming R(Sun)=8.0 kpc
+  73- 77  F5.1  kpc       X         ? X-component (1)
+  79- 83  F5.1  kpc       Y         ? Y-component (1)
+  85- 89  F5.1  kpc       Z         ? Z-component (1)
+--------------------------------------------------------------------------------
+  93- 96  F4.2  mag       E(B-V)    ? Foreground reddening
+  98-102  F5.2  mag       V(HB)     ? V magnitude of the horizontal branch
+                                        (or RR Lyraes)
+ 104-108  F5.2  mag       (m-M)V    ? Apparent visual distance modulus
+ 110-114  F5.2  mag       Vt        ? Integrated V magnitude of the cluster
+ 116-121  F6.2  mag       MVt       ? Absolute visual magnitude
+                                        (cluster luminosity)
+ 123-127  F5.2  mag       (U-B)t    ? Integrated color index (2)
+ 129-133  F5.2  mag       (B-V)t    ? Integrated color index (2)
+ 135-139  F5.2  mag       (V-R)t    ? Integrated color index (2)
+ 141-145  F5.2  mag       (V-I)t    ? Integrated color index (2)
+ 147-151  F5.1  ---       S(RR)     ? Specific frequency of RR Lyr
+                                      (see Suntzeff et al., 1991ApJ...367..528S)
+ 153-157  F5.2  ---       HBR       ? Horizontal-branch ratio = (B-R)/(B+V+R)
+                                      (see Lee, 1990ApJ...363..159L)
+ 160-162  A3    ---       HBt       [0-7/: ] Dickens horizontal-branch
+                                      morphological type
+                                      (see Dickens, 1972MNRAS.157..281D)
+--------------------------------------------------------------------------------
+ 165-169  F5.2  Sun       [Fe/H]    ? Metallicity in log (base 10) scale
+ 171-174  A4    ---       SpT       Integrated spectral type
+ 176-181  F6.1  km/s      Vr        ? Heliocentric radial velocity
+ 183-186  F4.1  km/s      e_Vr      ? Observational uncertainty in Vr
+ 188-193  F6.1  km/s      Vlsr      ? Radial velocity relative to Solar
+                                      local standard of rest
+ 195-198  F4.2  ---       c         ? Central concentration, c = log(Rt/Rc)
+ 199-200  A2    ---       n_c       [c: ] 'c' denotes a core-collapsed cluster
+ 202-205  F4.2  arcmin    Rc        ? Core radius
+ 207-210  F4.2  arcmin    Rh        ? Half-mass radius
+     211  A1    ---       u_Rh      Uncertainty flag (:) on Rh
+ 213-217  F5.2  yr        log(Tc)   ? Log (base 10) of core relaxation time
+ 219-223  F5.2  yr        log(Th)   ? Log (base 10) of relaxation time at
+                                      the half-mass radius
+ 226-230  F5.2 mag/arcsec2 muV      ? Central surface brightness in V band
+ 232-236  F5.2 solLum/pc3 log(rhoc) ? Logarithm of central luminosity density
+                                      (Solar luminosities per cubic parsec)
+--------------------------------------------------------------------------------
+Note (1): Position in Sun-centered coordinate system;
+     X points toward Galactic center,
+     Y in direction of Galactic rotation,
+     Z toward North Galactic Pole
+Note (2): color indices are uncorrected for reddening
+--------------------------------------------------------------------------------
+
+History:
+    The catalogue was copied via ftp from www.physics.mcmaster.ca/pub/
+
+Acknowledgements:
+    William E. Harris  <harris@physics.mcmaster.ca>
+================================================================================
+(End)                                     Francois Ochsenbein [CDS]  14-May-1997
