@@ -12,6 +12,10 @@
       ./nixos/networking.nix
       ./nixos/services.nix
       ./nixos/python-env.nix
+      # Pass git revision to pifinder-src for build identity
+      ({ ... }: {
+        _module.args.pifinderGitRev = self.shortRev or self.dirtyShortRev or "unknown";
+      })
       # Headless — strip X11, fonts, docs, desktop bloat
       ({ lib, ... }: {
         services.xserver.enable = false;
