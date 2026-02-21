@@ -134,12 +134,41 @@ StateManager.register("UIState", UIState)
 StateManager.register("NewImage", Image.new)
 
 
+class DevModeToggle:
+    REQUIRED_PRESSES = 7
+
+    def __init__(self, cfg, square_keycode):
+        self._cfg = cfg
+        self._square_keycode = square_keycode
+        self._count = 0
+
+    def process_keycode(self, keycode) -> bool:
+        """Track consecutive square presses.
+        Returns True if dev mode was toggled (keycode consumed)."""
+        if keycode == self._square_keycode:
+            self._count += 1
+            if self._count >= self.REQUIRED_PRESSES:
+                self._count = 0
+                dev_mode = not self._cfg.get_option("dev_mode", False)
+                self._cfg.set_option("dev_mode", dev_mode)
+                return True
+        else:
+            self._count = 0
+        return False
+
+    @property
+    def dev_mode(self) -> bool:
+        return self._cfg.get_option("dev_mode", False)
+
+
 class PowerManager:
     def __init__(self, cfg, shared_state, display_device):
         self.cfg = cfg
         self.shared_state = shared_state
         self.display_device = display_device
         self.last_activity = time.time()
+        self.sleep_start_time = None
+        self.screen_off_start_time = None
 
     def register_activity(self):
         """
@@ -163,6 +192,8 @@ class PowerManager:
         Do all the wakeup things
         """
         self.last_activity = time.time()
+        self.sleep_start_time = None
+        self.screen_off_start_time = None
         self.shared_state.set_power_state(1)
         self.wake_screen()
 
@@ -171,6 +202,7 @@ class PowerManager:
         Do all the sleep things
         """
         self.shared_state.set_power_state(0)
+        self.sleep_start_time = time.time()
         self.sleep_screen()
 
     def update(self):
@@ -189,11 +221,32 @@ class PowerManager:
             if time.time() - self.last_activity > self.get_sleep_timeout():
                 self.go_to_sleep()
 
-        else:  # We are asleepd, should we wake up?
+        elif self.shared_state.power_state() == 0:
+            # We are asleep, should we wake up or go to screen off?
             _imu = self.shared_state.imu()
             if _imu:
                 if _imu["moving"]:
                     self.wake_up()
+                    return
+
+            # Check if we should turn screen off
+            screen_off_timeout = self.get_screen_off_timeout()
+            if (
+                screen_off_timeout > 0
+                and self.sleep_start_time is not None
+                and time.time() - self.sleep_start_time > screen_off_timeout
+            ):
+                self.screen_off()
+
+        # Screen off mode: LED heartbeat, longer sleep
+        if self.shared_state.power_state() == -1:
+            _imu = self.shared_state.imu()
+            if _imu and _imu["moving"]:
+                self.wake_up()
+                return
+            self.update_heartbeat()
+            time.sleep(1.0)
+            return
 
         # should we pause execution for a bit?
         if self.shared_state.power_state() < 1:
@@ -238,46 +291,22 @@ class PowerManager:
         set_brightness(int(screen_brightness / 4), self.cfg)
         self.display_device.device.show()
 
+    def screen_off(self):
+        """Completely blank screen and turn off LEDs"""
+        self.shared_state.set_power_state(-1)
+        self.screen_off_start_time = time.time()
+        self.display_device.device.hide()
+        set_keypad_brightness(0)
 
-def start_profiling():
-    """Start profiling for performance analysis"""
-    import cProfile
-
-    profiler = cProfile.Profile()
-    profiler.enable()
-    startup_profile_start = time.time()
-    return profiler, startup_profile_start
-
-
-def stop_profiling(profiler, startup_profile_start):
-    """Stop profiling and save results"""
-    import pstats
-
-    profiler.disable()
-    startup_profile_time = time.time() - startup_profile_start
-    profile_path = utils.data_dir / "startup_profile.prof"
-    profiler.dump_stats(str(profile_path))
-
-    logger = logging.getLogger("Main.Profiling")
-    logger.info(f"=== Startup Profiling Complete ({startup_profile_time:.2f}s) ===")
-    logger.info(f"Profile saved to: {profile_path}")
-    logger.info("To analyze, run:")
-    logger.info(
-        f"  python -c \"import pstats; p = pstats.Stats('{profile_path}'); p.sort_stats('cumulative').print_stats(30)\""
-    )
-
-    summary_path = utils.data_dir / "startup_profile.txt"
-    with open(summary_path, "w") as f:
-        ps = pstats.Stats(profiler, stream=f)
-        f.write(f"=== STARTUP PROFILING ({startup_profile_time:.2f}s) ===\n\n")
-        f.write("Top 30 functions by cumulative time:\n")
-        f.write("=" * 80 + "\n")
-        ps.sort_stats("cumulative").print_stats(30)
-        f.write("\n" + "=" * 80 + "\n")
-        f.write("Top 30 functions by internal time:\n")
-        f.write("=" * 80 + "\n")
-        ps.sort_stats("time").print_stats(30)
-    logger.info(f"Text summary saved to: {summary_path}")
+    def update_heartbeat(self):
+        """Pulse all LEDs briefly every hour"""
+        if self.screen_off_start_time is None:
+            return
+        seconds_into_hour = (time.time() - self.screen_off_start_time) % 3600
+        if seconds_into_hour < 0.5:
+            set_keypad_brightness(2)
+        else:
+            set_keypad_brightness(0)
 
 
 def main(
@@ -285,7 +314,6 @@ def main(
     script_name=None,
     show_fps=False,
     verbose=False,
-    profile_startup=False,
 ) -> None:
     """
     Get this show on the road!
@@ -302,6 +330,7 @@ def main(
     # init queues
     console_queue: Queue = Queue()
     keyboard_queue: Queue = Queue()
+    display_device.set_keyboard_queue(keyboard_queue)
     gps_queue: Queue = Queue()
     camera_command_queue: Queue = Queue()
     solver_queue: Queue = Queue()
@@ -361,6 +390,8 @@ def main(
         ui_state.set_hint_timeout(cfg.get_option("hint_timeout"))
         shared_state.set_ui_state(ui_state)
         shared_state.set_arch(arch)  # Normal
+        # Initialize test_mode from config so camera process can read it at startup
+        shared_state.set_test_mode(cfg.get_option("test_mode", False))
         logger.debug("Ui state in main is" + str(shared_state.ui_state()))
         console = UIConsole(
             display_device, None, shared_state, command_queues, cfg, Catalogs([])
@@ -505,13 +536,9 @@ def main(
         )
         posserver_process.start()
 
-        # Initialize Catalogs
         console.write("   Catalogs")
         logger.info("   Catalogs")
         console.update()
-
-        # Start profiling (uncomment to enable performance analysis)
-        # profiler, startup_profile_start = start_profiling()
 
         # Initialize Catalogs (pass ui_queue for background loading completion signal)
         catalogs: Catalogs = CatalogBuilder().build(shared_state, ui_queue)
@@ -536,15 +563,17 @@ def main(
         # Initialize power manager
         power_manager = PowerManager(cfg, shared_state, display_device)
 
-        # Start main event loop
-        console.write("   Event Loop")
-        logger.info("   Event Loop")
+        # Startup complete — clear welcome backdrop
+        console.write("   Ready")
         console.update()
+        console.finish_startup()
 
-        # Stop profiling (uncomment to analyze startup performance)
-        # stop_profiling(profiler, startup_profile_start)
+        # Start deferred catalog loading now that UI is ready
+        logger.info("   Event Loop")
+        catalogs.start_background_loading()
 
         log_time = True
+        dev_mode_toggle = DevModeToggle(cfg, keyboard_base.SQUARE)
         # Start of main except handler / loop
         try:
             while True:
@@ -646,27 +675,36 @@ def main(
                     )
                     menu_manager.message(_("Catalogs\nFully Loaded"), 2)
                 elif ui_command == "test_mode":
-                    dt = datetime.datetime(2025, 6, 28, 11, 0, 0)
-                    shared_state.set_datetime(dt)
-                    location.lat = 41.13
-                    location.lon = -120.97
-                    location.altitude = 1315
-                    location.source = "test"
-                    location.error_in_m = 5
-                    location.lock = True
-                    location.lock_type = 3
-                    location.last_gps_lock = (
-                        datetime.datetime.now().time().isoformat()[:8]
-                    )
-                    console.write(
-                        f"GPS: Location {location.lat} {location.lon} {location.altitude}"
-                    )
-                    shared_state.set_location(location)
-                    sf_utils.set_location(
-                        location.lat,
-                        location.lon,
-                        location.altitude,
-                    )
+                    # Toggle test mode (store in both shared_state and config)
+                    new_test_mode = not cfg.get_option("test_mode", False)
+                    shared_state.set_test_mode(new_test_mode)
+                    cfg.set_option("test_mode", new_test_mode)
+                    if new_test_mode:
+                        # Set fake GPS data when entering test mode
+                        dt = datetime.datetime(2025, 6, 28, 11, 0, 0)
+                        shared_state.set_datetime(dt)
+                        location.lat = 41.13
+                        location.lon = -120.97
+                        location.altitude = 1315
+                        location.source = "test"
+                        location.error_in_m = 5
+                        location.lock = True
+                        location.lock_type = 3
+                        location.last_gps_lock = (
+                            datetime.datetime.now().time().isoformat()[:8]
+                        )
+                        console.write(
+                            f"GPS: Location {location.lat} {location.lon} {location.altitude}"
+                        )
+                        shared_state.set_location(location)
+                        sf_utils.set_location(
+                            location.lat,
+                            location.lon,
+                            location.altitude,
+                        )
+                        menu_manager.message(_("Test Mode\nON"), 2)
+                    else:
+                        menu_manager.message(_("Test Mode\nOFF"), 2)
 
                 # Keyboard
                 keycode = None
@@ -675,6 +713,12 @@ def main(
                         keycode = keyboard_queue.get(block=False)
                 except queue.Empty:
                     pass
+
+                # Dev mode toggle: check before anything else
+                if keycode is not None and dev_mode_toggle.process_keycode(keycode):
+                    msg = "DEV MODE ON" if dev_mode_toggle.dev_mode else "DEV MODE OFF"
+                    menu_manager.message(msg, timeout=2)
+                    keycode = None
 
                 # Register activity here will return True if the power
                 # state changes.  If so, we DO NOT process this keystroke
@@ -953,13 +997,6 @@ if __name__ == "__main__":
         help="Force user interface language (iso2 code). Changes configuration",
         type=str,
     )
-    parser.add_argument(
-        "--profile-startup",
-        help="Profile startup performance (catalog/menu loading)",
-        default=False,
-        action="store_true",
-        required=False,
-    )
     args = parser.parse_args()
     # add the handlers to the logger
     if args.verbose:
@@ -982,8 +1019,7 @@ if __name__ == "__main__":
 
         # verify and sync GPSD baud rate
         try:
-            from PiFinder import sys_utils
-
+            sys_utils = utils.get_sys_utils()
             baud_rate = cfg.get_option(
                 "gps_baud_rate", 9600
             )  # Default to 9600 if not set
@@ -1018,9 +1054,14 @@ if __name__ == "__main__":
 
         rlogger.info("using pi keyboard hat")
     elif args.keyboard.lower() == "local":
-        from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
+        if display_hardware.startswith("pg_"):
+            from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
-        rlogger.info("using local keyboard")
+            rlogger.info("using pygame keyboard (display captures keys)")
+        else:
+            from PiFinder import keyboard_local as keyboard  # type: ignore[no-redef]
+
+            rlogger.info("using local keyboard")
     elif args.keyboard.lower() == "none":
         from PiFinder import keyboard_none as keyboard  # type: ignore[no-redef]
 
@@ -1033,7 +1074,7 @@ if __name__ == "__main__":
             config.Config().set_option("language", args.lang)
 
     try:
-        main(log_helper, args.script, args.fps, args.verbose, args.profile_startup)
+        main(log_helper, args.script, args.fps, args.verbose)
     except Exception:
         rlogger.exception("Exception in main(). Aborting program.")
         os._exit(1)

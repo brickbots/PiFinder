@@ -48,7 +48,6 @@ pifinder_menu = {
                     "name": _("Align"),
                     "class": UIAlign,
                     "stateful": True,
-                    "preload": True,
                 },
                 {
                     "name": _("GPS Status"),
@@ -60,7 +59,6 @@ pifinder_menu = {
             "name": _("Chart"),
             "class": UIChart,
             "stateful": True,
-            "preload": True,
         },
         {
             "name": _("Objects"),
@@ -1069,13 +1067,31 @@ pifinder_menu = {
                 },
                 {"name": _("Console"), "class": UIConsole},
                 {"name": _("Software Upd"), "class": UISoftware},
-                {"name": _("Test Mode"), "callback": callbacks.activate_debug},
+                {
+                    "name": _("Test Mode"),
+                    "callback": callbacks.activate_debug,
+                    "name_suffix_callback": callbacks.test_mode_suffix,
+                },
                 {
                     "name": _("Experimental"),
                     "class": UITextMenu,
                     "select": "Single",
                     "items": [
                         {"name": "SQM", "class": UISQM},
+                        {
+                            "name": _("Screen Off"),
+                            "class": UITextMenu,
+                            "select": "single",
+                            "config_option": "screen_off_timeout",
+                            "dev_mode_only": True,
+                            "items": [
+                                {"name": _("Off"), "value": "Off"},
+                                {"name": "30s", "value": "30s"},
+                                {"name": "1m", "value": "1m"},
+                                {"name": "10m", "value": "10m"},
+                                {"name": "30m", "value": "30m"},
+                            ],
+                        },
                         {
                             "name": _("AE Algo"),
                             "class": UITextMenu,

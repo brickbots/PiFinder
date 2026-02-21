@@ -10,12 +10,23 @@ home_dir = Path.home()
 cwd_dir = Path.cwd()
 pifinder_dir = Path("..")
 astro_data_dir = cwd_dir / pifinder_dir / "astro_data"
-tetra3_dir = pifinder_dir / "python/PiFinder/tetra3/tetra3"
+tetra3_dir = pifinder_dir / "python/PiFinder/tetra3"
 data_dir = Path(Path.home(), "PiFinder_data")
 pifinder_db = astro_data_dir / "pifinder_objects.db"
 observations_db = data_dir / "observations.db"
+build_json = pifinder_dir / "pifinder-build.json"
+
+
+def get_version() -> str:
+    try:
+        with open(build_json, "r") as f:
+            return json.load(f).get("version", "Unknown")
+    except (FileNotFoundError, IOError, json.JSONDecodeError):
+        return "Unknown"
+
+
 debug_dump_dir = data_dir / "solver_debug_dumps"
-comet_file = astro_data_dir / Path("comets.txt")
+comet_file = data_dir / "comets.txt"
 
 
 def create_dir(adir: str):
@@ -46,11 +57,9 @@ def serialize_solution(solution: dict) -> str:
 
 def get_sys_utils():
     try:
-        # Attempt to import the real sys_utils
-        sys_utils = importlib.import_module("PiFinder.sys_utils")
-    except ImportError:
-        sys_utils = importlib.import_module("PiFinder.sys_utils_fake")
-    return sys_utils
+        return importlib.import_module("PiFinder.sys_utils")
+    except Exception:
+        return importlib.import_module("PiFinder.sys_utils_fake")
 
 
 def get_os_info():

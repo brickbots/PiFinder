@@ -53,7 +53,11 @@ class RotatingInfoDisplay:
             self.progress = 0.0
         if self.progress < 1.0:
             self.progress = min(1.0, self.progress + self.fade_speed)
-        return self._get_text(self.show_sqm), self._get_text(not self.show_sqm), self.progress
+        return (
+            self._get_text(self.show_sqm),
+            self._get_text(not self.show_sqm),
+            self.progress,
+        )
 
     def draw(self, draw, x, y, font, colors, max_brightness=255, inverted=False):
         """Draw with cross-fade animation. inverted=True for dark text on light bg."""
@@ -62,13 +66,26 @@ class RotatingInfoDisplay:
             fade_out = progress < 0.5
             t = progress * 2 if fade_out else (progress - 0.5) * 2
             if inverted:
-                brightness = int(max_brightness * t) if fade_out else int(max_brightness * (1 - t))
+                brightness = (
+                    int(max_brightness * t)
+                    if fade_out
+                    else int(max_brightness * (1 - t))
+                )
             else:
-                brightness = int(max_brightness * (1 - t)) if fade_out else int(max_brightness * t)
+                brightness = (
+                    int(max_brightness * (1 - t))
+                    if fade_out
+                    else int(max_brightness * t)
+                )
             text = previous if fade_out else current
             draw.text((x, y), text, font=font, fill=colors.get(brightness))
         else:
-            draw.text((x, y), current, font=font, fill=colors.get(0 if inverted else max_brightness))
+            draw.text(
+                (x, y),
+                current,
+                font=font,
+                fill=colors.get(0 if inverted else max_brightness),
+            )
 
 
 class UIModule:
@@ -77,6 +94,7 @@ class UIModule:
     __uuid__ = str(uuid.uuid1()).split("-")[0]
     _config_options: dict
     _CAM_ICON = ""
+    _CAM_ICON_HOLLOW = ""
     _IMU_ICON = ""
     _GPS_ICON = "󰤉"
     _LEFT_ARROW = ""
@@ -248,13 +266,24 @@ class UIModule:
     def _draw_titlebar_rotating_info(self, x, y, fg):
         """Draw rotating constellation/SQM in title bar (dark text on gray bg)."""
         self._rotating_display.draw(
-            self.draw, x, y, self.fonts.bold.font, self.colors, max_brightness=64, inverted=True
+            self.draw,
+            x,
+            y,
+            self.fonts.bold.font,
+            self.colors,
+            max_brightness=64,
+            inverted=True,
         )
 
     def draw_rotating_info(self, x=10, y=92, font=None):
         """Draw rotating constellation/SQM display with cross-fade."""
         self._rotating_display.draw(
-            self.draw, x, y, font or self.fonts.bold.font, self.colors, max_brightness=255
+            self.draw,
+            x,
+            y,
+            font or self.fonts.bold.font,
+            self.colors,
+            max_brightness=255,
         )
 
     def screen_update(self, title_bar=True, button_hints=True) -> None:
@@ -320,12 +349,28 @@ class UIModule:
                     # self.draw.rectangle([115, 2, 125, 14], fill=bg)
 
                     if self._unmoved:
-                        self.draw.text(
-                            (self.display_class.resX * 0.91, -2),
-                            self._CAM_ICON,
-                            font=self.fonts.icon_bold_large.font,
-                            fill=var_fg,
-                        )
+                        is_test = self.config_object.get_option("test_mode", False)
+                        icon_x = self.display_class.resX * 0.91
+                        icon_y = -2
+                        if is_test:
+                            # Invert camera icon: white bg, dark icon
+                            self.draw.rectangle(
+                                [icon_x - 1, 0, icon_x + 13, 13],
+                                fill=self.colors.get(128),
+                            )
+                            self.draw.text(
+                                (icon_x, icon_y),
+                                self._CAM_ICON,
+                                font=self.fonts.icon_bold_large.font,
+                                fill=self.colors.get(0),
+                            )
+                        else:
+                            self.draw.text(
+                                (icon_x, icon_y),
+                                self._CAM_ICON,
+                                font=self.fonts.icon_bold_large.font,
+                                fill=var_fg,
+                            )
 
                     if len(self.title) < 9:
                         # Draw rotating constellation/SQM wheel (replaces static constellation)

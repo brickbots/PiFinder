@@ -229,7 +229,10 @@ class UISQMCorrection(UIModule):
         start = time.time()
         while time.time() - start < timeout:
             metadata = self.shared_state.last_image_metadata()
-            if metadata and abs(metadata.get("exposure_time", 0) - target_exp_us) < 1000:
+            if (
+                metadata
+                and abs(metadata.get("exposure_time", 0) - target_exp_us) < 1000
+            ):
                 # Wait one more frame for image to be ready
                 time.sleep(0.3)
                 return True
@@ -290,11 +293,13 @@ class UISQMCorrection(UIModule):
 
         # Get current exposure
         image_metadata = self.shared_state.last_image_metadata()
-        current_exp = image_metadata.get("exposure_time", 500000) if image_metadata else 500000
+        current_exp = (
+            image_metadata.get("exposure_time", 500000) if image_metadata else 500000
+        )
 
         # Calculate bracket exposures (in microseconds)
         max_exp = 1000000  # 1 second max
-        min_exp = 10000    # 10ms min
+        min_exp = 10000  # 10ms min
 
         exp_above = min(current_exp * 2, max_exp)
         exp_below = max(current_exp // 2, min_exp)
@@ -330,11 +335,13 @@ class UISQMCorrection(UIModule):
             files = self._capture_at_exposure(exp_us, corrections_dir, timestamp, label)
             if files:
                 all_files.append(files)
-                metadata["bracket_exposures"].append({
-                    "label": label,
-                    "exposure_us": exp_us,
-                    "exposure_sec": exp_us / 1_000_000.0,
-                })
+                metadata["bracket_exposures"].append(
+                    {
+                        "label": label,
+                        "exposure_us": exp_us,
+                        "exposure_sec": exp_us / 1_000_000.0,
+                    }
+                )
 
         # Re-enable auto-exposure
         self.command_queues["camera"].put("set_exp:auto")
@@ -344,7 +351,9 @@ class UISQMCorrection(UIModule):
             # Add all captured images
             for files in all_files:
                 if "processed" in files:
-                    zf.write(corrections_dir / files["processed"], arcname=files["processed"])
+                    zf.write(
+                        corrections_dir / files["processed"], arcname=files["processed"]
+                    )
                     (corrections_dir / files["processed"]).unlink()
                 if "raw" in files:
                     zf.write(corrections_dir / files["raw"], arcname=files["raw"])

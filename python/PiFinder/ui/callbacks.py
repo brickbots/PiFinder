@@ -70,7 +70,13 @@ def activate_debug(ui_module: UIModule) -> None:
     ui_module.command_queues["camera"].put("debug")
     ui_module.command_queues["console"].put("Test Mode Activated")
     ui_module.command_queues["ui_queue"].put("test_mode")
-    ui_module.message(_("Test Mode"))
+
+
+def test_mode_suffix(ui_module: UIModule) -> str:
+    """Returns ON/OFF suffix for Test Mode menu entry."""
+    if ui_module.config_object.get_option("test_mode", False):
+        return " ON"
+    return " OFF"
 
 
 def set_exposure(ui_module: UIModule) -> None:
@@ -201,21 +207,7 @@ def switch_cam_imx462(ui_module: UIModule) -> None:
 
 
 def get_camera_type(ui_module: UIModule) -> list[str]:
-    cam_id = "000"
-
-    # read config.txt into a list
-    with open("/boot/config.txt", "r") as boot_in:
-        boot_lines = list(boot_in)
-
-    # Look for the line without a comment...
-    for line in boot_lines:
-        if line.startswith("dtoverlay=imx"):
-            cam_id = line[10:16]
-            # imx462 uses imx290 driver
-            if cam_id == "imx290":
-                cam_id = "imx462"
-
-    return [cam_id]
+    return sys_utils.get_camera_type()
 
 
 def switch_language(ui_module: UIModule) -> None:
